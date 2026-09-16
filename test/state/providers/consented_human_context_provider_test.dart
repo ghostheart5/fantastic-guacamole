@@ -183,6 +183,7 @@ class _FreshEmotionController extends EmotionNotifier {
   @override
   EmotionCheckIn build() => EmotionCheckIn(
     value: EmotionalState.calm,
+    shareWithPlanning: true,
     reportedAt: DateTime.now().toUtc(),
   );
 }

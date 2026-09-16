@@ -32,8 +32,19 @@ tags:
           env:
             TARGET: "Creator"
 - assertVisible: "CREATOR"
-- tapOn: "Title *"
-- inputText: "Priority 8 journey seed"
+# Android can merge the accessible label and visible hint in one node.
+- scrollUntilVisible:
+    element:
+      text: '^Title, required(?:\s+Title \*)?$'
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
+- tapOn: '^Title, required(?:\s+Title \*)?$'
+- runFlow:
+    file: ../subflows/enter-planner-request.yaml
+    env:
+      REQUEST: "Priority 8 journey seed"
 - tapOn:
     text: "(?:Done|Enter)"
     optional: true
@@ -52,11 +63,7 @@ tags:
     visible: "OK"
     timeout: 10000
 - tapOn: "OK"
-- scrollUntilVisible:
-    element:
-      text: "REVIEW CHANGES"
-    direction: DOWN
-    timeout: 10000
+- runFlow: ../subflows/reveal-creator-review.yaml
 # Match the Creator smoke flow: finish picker/IME layout transitions before
 # resolving the button's tap position, then require the real preview handoff.
 - waitForAnimationToEnd:
@@ -69,12 +76,12 @@ tags:
     timeout: 10000
 - scrollUntilVisible:
     element:
-      text: "CONFIRM SELECTED"
+      text: "^CREATE TASK$"
     direction: DOWN
     timeout: 10000
-- tapOn: "CONFIRM SELECTED"
+- tapOn: "^CREATE TASK$"
 - extendedWaitUntil:
-    visible: "(?s).*Priority 8 journey seed.*Task is scheduled for a planned work time.*"
+    visible: "(?s).*Priority 8 journey seed.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*"
     timeout: 15000
 - scrollUntilVisible:
     element:
@@ -85,6 +92,15 @@ tags:
 - extendedWaitUntil:
     visible: "(?s).*Task Completed.*Priority 8 journey seed marked complete.*"
     timeout: 20000
+# Timeline's back control scrolls with its header above the completed task.
+# The top boundary cannot center this header; require the whole control instead.
+- scrollUntilVisible:
+    element:
+      text: "Back to Nexus"
+    direction: UP
+    visibilityPercentage: 100
+    centerElement: false
+    timeout: 10000
 - tapOn: "Back to Nexus"
 - extendedWaitUntil:
     visible: "NEXUS"
@@ -106,10 +122,18 @@ tags:
 - assertVisible:
     text: "What would you like help planning right now\\?"
     focused: true
-- inputText: "Finish the Priority 8 release evidence today"
+- runFlow:
+    file: ../subflows/enter-planner-request.yaml
+    env:
+      REQUEST: "Fold one shirt. I have five minutes."
+- scrollUntilVisible:
+    element:
+      text: "Fold one shirt. I have five minutes."
+    direction: DOWN
+    visibilityPercentage: 100
+    timeout: 15000
 - assertVisible:
-    text: "Finish the Priority 8 release evidence today"
-    focused: true
+    text: "Fold one shirt. I have five minutes."
 - scrollUntilVisible:
     element:
       text: "GET GUIDANCE"
@@ -119,6 +143,12 @@ tags:
 - extendedWaitUntil:
     visible: "(?s)Planning guidance ready.*"
     timeout: 30000
+- runFlow: ../subflows/answer-planner-saved-context.yaml
+- scrollUntilVisible:
+    element:
+      text: "Use this plan"
+    direction: DOWN
+    timeout: 15000
 - assertVisible: "Use this plan"
 - tapOn: "Use this plan"
 
@@ -142,13 +172,11 @@ tags:
     visible: "OK"
     timeout: 10000
 - tapOn: "OK"
-- scrollUntilVisible:
-    element:
-      text: "REVIEW CHANGES"
-    direction: DOWN
-    timeout: 10000
 - waitForAnimationToEnd:
     timeout: 5000
+# A long Planner notes field can occupy the viewport center and consume the
+# default scrollUntilVisible gesture. Scroll the outer form's side gutter.
+- runFlow: ../subflows/reveal-creator-review.yaml
 - tapOn:
     text: "REVIEW CHANGES"
     retryTapIfNoChange: true
@@ -164,26 +192,33 @@ tags:
     timeout: 10000
 - scrollUntilVisible:
     element:
-      text: "CONFIRM SELECTED"
+      text: "^CREATE TASK$"
     direction: DOWN
     timeout: 10000
-- tapOn: "CONFIRM SELECTED"
+- tapOn: "^CREATE TASK$"
 - scrollUntilVisible:
     element:
-      text: "CONFIRMED CREATOR RECEIPT"
+      text: "CREATION SAVED"
     direction: UP
     timeout: 10000
 - extendedWaitUntil:
-    visible: "CONFIRMED CREATOR RECEIPT"
+    visible: "CREATION SAVED"
     timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "Open Timeline"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
 - tapOn: "Open Timeline"
 - extendedWaitUntil:
     visible: "TIMELINE"
     timeout: 10000
-# The fresh QA Planner's best-fit title is deterministic. Require its scheduled
+# The concrete Planner action must keep its title through Creator. Require its scheduled
 # row and completion so the earlier seed outcome cannot satisfy this handoff.
 - extendedWaitUntil:
-    visible: "(?s).*Complete one useful cycle.*Task is scheduled for a planned work time.*"
+    visible: "(?s).*Fold one shirt.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*"
     timeout: 15000
 - scrollUntilVisible:
     element:
@@ -192,8 +227,15 @@ tags:
     timeout: 10000
 - tapOn: "Complete"
 - extendedWaitUntil:
-    visible: "(?s).*Task Completed.*Complete one useful cycle marked complete.*"
+    visible: "(?s).*Task Completed.*Fold one shirt marked complete.*"
     timeout: 20000
+- scrollUntilVisible:
+    element:
+      text: "Back to Nexus"
+    direction: UP
+    visibilityPercentage: 100
+    centerElement: false
+    timeout: 10000
 - tapOn: "Back to Nexus"
 
 # The latest completion must publish an explainable, correctable change.
@@ -221,10 +263,17 @@ tags:
     direction: DOWN
     timeout: 15000
 - tapOn: "Planning & guidance\\n.*"
+# Traverse the long expanded category before requiring the actual saved row.
+- scrollUntilVisible:
+    element:
+      text: "RECENT RAW OBSERVATIONS"
+    direction: DOWN
+    timeout: 30000
 - scrollUntilVisible:
     element:
       text: "(?s).*Task Lifecycle.*completed.*Completed the task.*helped.*"
     direction: DOWN
-    visibilityPercentage: 20
+    visibilityPercentage: 100
+    centerElement: true
     timeout: 15000
 - assertVisible: "(?s).*Task Lifecycle.*completed.*Completed the task.*helped.*"

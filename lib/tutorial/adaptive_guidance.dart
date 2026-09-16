@@ -383,13 +383,17 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     );
   }
 
-  Future<void> record(GuidanceMilestone milestone) async {
+  Future<void> record(
+    GuidanceMilestone milestone, {
+    bool Function()? shouldContinue,
+  }) async {
     final String? account = _activeScope;
-    if (account == null) return;
+    if (account == null || shouldContinue?.call() == false) return;
     final AdaptiveGuidanceState current = await _current();
-    if (_activeScope != account) return;
+    if (_activeScope != account || shouldContinue?.call() == false) return;
     final String prefix = _prefix(account);
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    if (_activeScope != account || shouldContinue?.call() == false) return;
     final int nextCount = current.count(milestone) + 1;
     final DateTime timestamp = current.milestones[milestone] ?? DateTime.now();
     final GuidanceLessonId? completedLesson = _lessonCompletedBy(milestone);
@@ -408,6 +412,11 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
       await prefs.remove('$prefix.$_expectedCreatorTaskIdsKey');
     }
 
+    if (!ref.mounted ||
+        _activeScope != account ||
+        shouldContinue?.call() == false) {
+      return;
+    }
     state = AsyncData(
       AdaptiveGuidanceState(
         milestones: <GuidanceMilestone, DateTime>{
@@ -435,10 +444,20 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     );
   }
 
-  Future<void> recordIfMissing(GuidanceMilestone milestone) async {
+  Future<void> recordIfMissing(
+    GuidanceMilestone milestone, {
+    bool Function()? shouldContinue,
+  }) async {
+    final account = _activeScope;
+    if (account == null || shouldContinue?.call() == false) return;
     final AdaptiveGuidanceState current = await _current();
-    if (current.has(milestone)) return;
-    await record(milestone);
+    if (!ref.mounted ||
+        _activeScope != account ||
+        shouldContinue?.call() == false ||
+        current.has(milestone)) {
+      return;
+    }
+    await record(milestone, shouldContinue: shouldContinue);
   }
 
   Future<void> recordCreatorHandshakeReceipt(

@@ -1,3 +1,6 @@
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
+import 'package:intl/intl.dart';
+import 'package:fantastic_guacamole/features/tasks/widgets/task_edit_dialog.dart';
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
@@ -20,6 +23,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'timeline_screen.widgets.dart';
+part 'timeline_screen.event_copy.dart';
+part 'timeline_screen.filters.dart';
 
 enum _TimelineWindow { today, week, month, year, all }
 
@@ -61,20 +66,6 @@ final class _TimelineSafetyCopy {
       : 'Timeline activity was not changed because its recovery copy could not be preserved.';
 }
 
-class _TaskEditDraft {
-  const _TaskEditDraft({
-    required this.title,
-    required this.estimatedDuration,
-    required this.dueDate,
-    required this.goalId,
-  });
-
-  final String title;
-  final Duration? estimatedDuration;
-  final DateTime? dueDate;
-  final String? goalId;
-}
-
 class TimelineScreen extends ConsumerStatefulWidget {
   const TimelineScreen({super.key});
 
@@ -100,9 +91,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     _searchController = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final AsyncValue<List<Task>> initial = ref.read(tasksProvider);
+      final AsyncValue<List<Task>> initial = ref.read(allTasksProvider);
       _tasksSubscription = ref.listenManual<AsyncValue<List<Task>>>(
-        tasksProvider,
+        allTasksProvider,
         (AsyncValue<List<Task>>? previous, AsyncValue<List<Task>> next) {
           if (!mounted) return;
           setState(() => _tasksState = next);
@@ -143,7 +134,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       else if (tasksLoading)
         _TimelineSourceIssue.taskLoading,
     ];
-    final DateTime now = ref.watch(timelineClockProvider)();
+    final DateTime now = ref.watch(timelineClockProvider)().toLocal();
 
     final int combinedKey = Object.hash(
       identityHashCode(baseEvents),
@@ -169,12 +160,18 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       _cachedCombinedDay = today;
     }
 
-    final List<TimelineEventEntity> windowEvents = combined
-        .where((TimelineEventEntity event) {
-          final DateTime moment = _eventMoment(event);
-          return _inWindow(moment: moment, now: now, window: _window);
-        })
-        .toList(growable: false);
+    // Overdue is an account-wide recovery view. Date windows continue to
+    // scope every other filter, but must not hide an older open commitment.
+    final Iterable<TimelineEventEntity> windowSource =
+        _filter == _TimelineFilter.overdue
+        ? combined
+        : combined.where((event) {
+            final DateTime moment = _eventMoment(event);
+            return _inWindow(moment: moment, now: now, window: _window);
+          });
+    final List<TimelineEventEntity> windowEvents = windowSource.toList(
+      growable: false,
+    );
 
     final List<TimelineEventEntity> filtered = windowEvents
         .where((TimelineEventEntity event) {
@@ -201,7 +198,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     final Map<String, List<TimelineEventEntity>> grouped =
         <String, List<TimelineEventEntity>>{};
     for (final TimelineEventEntity event in filtered) {
-      final String key = DateTimeFormats.timelineDay(_eventMoment(event));
+      final String key = ChronoSparkLocalizations.of(context).isSpanish
+          ? DateFormat.yMMMMEEEEd('es').format(_eventMoment(event))
+          : DateTimeFormats.timelineDay(_eventMoment(event));
       grouped.putIfAbsent(key, () => <TimelineEventEntity>[]).add(event);
     }
     final List<String> days = grouped.keys.toList(growable: false);
@@ -241,7 +240,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         .where((TimelineEventEntity event) => event.isRisk)
         .length;
     final int dueTodayCount = windowEvents.where((TimelineEventEntity event) {
-      final DateTime? due = event.dueAt;
+      final DateTime? due = event.dueAt?.toLocal();
       return due != null &&
           _isOpenDeadline(event) &&
           due.year == now.year &&
@@ -409,6 +408,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       _tasksState = const AsyncLoading<List<Task>>();
       _cachedCombined = null;
     });
+    ref.invalidate(allTasksProvider);
     ref.invalidate(tasksProvider);
   }
 

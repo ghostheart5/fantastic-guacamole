@@ -17,9 +17,13 @@ ChronoSpark settings are organized around account control, notifications, privac
 ## Privacy and telemetry
 
 - Analytics and crash reporting are disabled by default and release-contained off.
-- External generative AI is disabled for the current release candidate.
+- External generative AI is disabled in the contained public configuration. Eligible internal testers may enable disclosed AI-credit tests. The internal test controls send fixed fictional prompts to Anthropic; separately gated Planner explanations disclose their selected planning context. Review the provider, data, and credit cost before confirming an enabled action.
 - Cloud sync and cloud restore are disabled for the current release candidate.
 - Review the current policy at <https://ghostheart5.github.io/fantastic-guacamole/privacy/>.
+
+## Subscriptions and AI credits
+
+Subscriptions, credit top-ups, and credit spending are disabled in the contained public configuration. Eligible private internal-testing builds can offer these features. Use an approved license-tester Google account and a Google Play test payment method; joining the internal track alone does not make purchases free. Check the server balance and quoted cost before confirming an external AI action. Manage or cancel an existing subscription through the Google Play account that purchased it; deleting ChronoSpark does not cancel it.
 
 ## Accessibility
 

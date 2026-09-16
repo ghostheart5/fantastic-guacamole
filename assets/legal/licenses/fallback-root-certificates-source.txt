@@ -1,0 +1,6 @@
+fallback_root_certificates (source availability)
+
+Flutter 3.44.6 / Dart 3.12.2 includes fallback_root_certificates under the Mozilla Public License 2.0. The corresponding Source Code Form, licensed under MPL 2.0, is available at:
+https://github.com/dart-lang/sdk/tree/d684a576a6aa954ae107a03b2b4e1d61c3bebe93/third_party/fallback_root_certificates
+
+The complete Mozilla Public License 2.0 notice is included under fallback_root_certificates in these licenses. This notice applies to that component; it does not change the license of ChronoSpark or other components.

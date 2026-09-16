@@ -16,7 +16,15 @@ appId: com.ghostheart5.chronospark
 - extendedWaitUntil:
     visible: "CREATOR"
     timeout: 15000
-- tapOn: "Title *"
+# Android can merge the accessible label and visible hint in one node.
+- scrollUntilVisible:
+    element:
+      text: '^Title, required(?:\s+Title \*)?$'
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
+- tapOn: '^Title, required(?:\s+Title \*)?$'
 - inputText: "${TASK_TITLE}"
 - tapOn:
     text: "(?:Done|Enter)"
@@ -36,11 +44,7 @@ appId: com.ghostheart5.chronospark
     visible: "OK"
     timeout: 10000
 - tapOn: "OK"
-- scrollUntilVisible:
-    element:
-      text: "REVIEW CHANGES"
-    direction: DOWN
-    timeout: 10000
+- runFlow: reveal-creator-review.yaml
 - tapOn:
     text: "REVIEW CHANGES"
     retryTapIfNoChange: true
@@ -49,10 +53,10 @@ appId: com.ghostheart5.chronospark
     timeout: 10000
 - scrollUntilVisible:
     element:
-      text: "CONFIRM SELECTED"
+      text: "^CREATE TASK$"
     direction: DOWN
     timeout: 10000
-- tapOn: "CONFIRM SELECTED"
+- tapOn: "^CREATE TASK$"
 - extendedWaitUntil:
-    visible: "(?s).*${TASK_TITLE}.*Task is scheduled for a planned work time.*"
+    visible: "(?s).*${TASK_TITLE}.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*"
     timeout: 20000

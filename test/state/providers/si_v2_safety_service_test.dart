@@ -1,10 +1,101 @@
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
+import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   final DateTime now = DateTime.utc(2026, 8, 20, 18);
+
+  test(
+    'unsupported questions keep their boundary after service composition',
+    () async {
+      var decisionReads = 0;
+      final receipt = OperatingDecisionReceipt(
+        subjectId: 't1',
+        recommendedAction: 'Work on the saved bookkeeping task',
+        rationale: 'The canonical plan selected t1.',
+        whyItMatters: 'All surfaces stay aligned.',
+        consequenceOfDelay: 'The shared plan remains unresolved.',
+        generatedAt: now,
+        expiresAt: now.add(const Duration(minutes: 20)),
+        confidence: OperatingConfidence.moderate,
+        evidence: const <OperatingEvidence>[],
+        actionIntent: const OperatingActionIntent(
+          id: 'open-t1',
+          type: OperatingActionType.openEntity,
+          label: 'Open task',
+          destination: '/timeline',
+          targetEntityId: 't1',
+        ),
+        sourceRevisions: const <String, String>{'tasks': 'revision-1'},
+        modelVersion: 'decision-v1',
+      );
+      final service = SIV2QueryService(
+        readEvidence: (_) async =>
+            _snapshot(now, title: 'Saved bookkeeping task'),
+        readDecisionReceipt: () async {
+          decisionReads++;
+          return receipt;
+        },
+        clock: () => now,
+      );
+      for (final text in [
+        'Will it rain tomorrow?',
+        'What can I do in New York?',
+      ]) {
+        final response = await service.analyze(
+          SIV2Query(
+            rawText: text,
+            intent: SIV2Intent.answer,
+            sources: SIV2Source.values.toSet(),
+            timeRange: SIV2TimeRange.all,
+          ),
+        );
+        expect(
+          response.directAnswer,
+          contains('SI cannot answer'),
+          reason: text,
+        );
+        expect(
+          response.recommendation,
+          isNot(receipt.recommendedAction),
+          reason: text,
+        );
+        expect(
+          response.evidenceLinks.any(
+            (link) => link.evidenceId.startsWith('decision:'),
+          ),
+          isFalse,
+        );
+        expect(response.safetyReceipt, isNotNull);
+      }
+      expect(decisionReads, 0);
+
+      final listing = await service.analyze(
+        SIV2Query(
+          rawText: 'Show my tasks.',
+          intent: SIV2Intent.answer,
+          sources: SIV2Source.values.toSet(),
+          timeRange: SIV2TimeRange.all,
+        ),
+      );
+      expect(listing.directAnswer, contains('Saved bookkeeping task'));
+      expect(listing.recommendation, isNot(receipt.recommendedAction));
+      expect(decisionReads, 0);
+
+      final supported = await service.analyze(
+        SIV2Query(
+          rawText: 'What can I do in five minutes?',
+          intent: SIV2Intent.answer,
+          sources: SIV2Source.values.toSet(),
+          timeRange: SIV2TimeRange.all,
+        ),
+      );
+      expect(supported.recommendation, receipt.recommendedAction);
+      expect(decisionReads, 1);
+    },
+  );
 
   test('SI V2 service publishes only a safety-receipted response', () async {
     final SIV2QueryService service = SIV2QueryService(

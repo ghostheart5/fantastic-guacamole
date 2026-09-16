@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/state/models/profile_view_state.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
 import 'package:fantastic_guacamole/state/providers/profile_provider.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
@@ -71,8 +72,14 @@ class _ProfileBody extends ConsumerWidget {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Share sheet unavailable. Invite copied to clipboard.'),
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'Share sheet unavailable. Invite copied to clipboard.',
+            'No se pudo abrir el menú para compartir. La invitación se copió al portapapeles.',
+          ),
+        ),
       ),
     );
   }
@@ -81,7 +88,53 @@ class _ProfileBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final actions = ref.watch(profileActionsProvider);
     final data = state.profile;
+    final readStatus = ref.watch(
+      profileProvider.select((value) => value.readStatus),
+    );
+    if (readStatus != ProfileReadStatus.ready) {
+      return ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          _ProfileTitle(
+            onOpenSettings: () => goToAppView(context, ref, AppView.settings),
+          ),
+          const SizedBox(height: 24),
+          if (readStatus == ProfileReadStatus.loading)
+            const Center(child: CircularProgressIndicator())
+          else ...[
+            Text(
+              journeyText(
+                context,
+                'Your saved profile could not be loaded. Your stored progress has been preserved. Edits are paused until it can be read.',
+                'No se pudo cargar tu perfil guardado. Tu progreso se conserva. Las modificaciones quedan en pausa hasta que pueda leerse.',
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => ref.read(profileProvider.notifier).retryLoad(),
+              child: Text(
+                journeyText(
+                  context,
+                  'Retry loading profile',
+                  'Reintentar carga del perfil',
+                ),
+              ),
+            ),
+          ],
+        ],
+      );
+    }
     final identity = ref.watch(identityStateProvider);
+    final int completedTasks = ref.watch(
+      trajectorySummaryProvider.select((summary) => summary.completedTasks),
+    );
+    final String progressLabel = completedTasks > 0 || data.xp > 0
+        ? 'Progress recorded'
+        : 'Ready to begin';
+    final String identityFallbackLabel =
+        LaunchContainment.inferredIdentityEnabled
+        ? 'Pattern forming'
+        : progressLabel;
     final bool hasIdentityEvidence =
         LaunchContainment.inferredIdentityEnabled &&
         ref.watch(
@@ -102,13 +155,18 @@ class _ProfileBody extends ConsumerWidget {
           name: data.name,
           level: data.level,
           hasEvidence: hasIdentityEvidence,
+          fallbackLabel: identityFallbackLabel,
         ),
         const SizedBox(height: 18),
         _ProfileMetrics(level: data.level, xp: data.xp, streak: data.streak),
         const SizedBox(height: 16),
         _NameEditor(initialName: data.name, onSave: actions.updateName),
         const SizedBox(height: 16),
-        _IdentityCard(hasEvidence: hasIdentityEvidence),
+        _IdentityCard(
+          hasEvidence: hasIdentityEvidence,
+          fallbackLabel: identityFallbackLabel,
+          completedTasks: completedTasks,
+        ),
         const SizedBox(height: 16),
         _NavButtons(
           onTimeline: () => goToAppView(context, ref, AppView.timeline),
@@ -149,11 +207,13 @@ class _IdentityConstellation extends ConsumerWidget {
     required this.name,
     required this.level,
     required this.hasEvidence,
+    required this.fallbackLabel,
   });
 
   final String name;
   final int level;
   final bool hasEvidence;
+  final String fallbackLabel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -165,7 +225,7 @@ class _IdentityConstellation extends ConsumerWidget {
         ? 'Discipline ${(identity.disciplineIdentity * 100).round()} percent, '
               'execution ${(identity.executionIdentity * 100).round()} percent, '
               'growth ${(identity.growthIdentity * 100).round()} percent.'
-        : 'Identity pattern is still forming.';
+        : '$fallbackLabel.';
     return Semantics(
       container: true,
       label:
@@ -253,7 +313,7 @@ class _IdentityConstellation extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${hasEvidence ? archetype : 'PATTERN FORMING'}  ·  CHRONOSPARK LEVEL $level',
+            '${hasEvidence ? archetype : fallbackLabel.toUpperCase()}  ·  CHRONOSPARK LEVEL $level',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
@@ -290,7 +350,11 @@ class _ConstellationLabel extends StatelessWidget {
     return SizedBox(
       width: 112,
       child: Text(
-        showValue ? '$label ${(value * 100).round()}%' : '$label LEARNING',
+        showValue
+            ? '$label ${(value * 100).round()}%'
+            : LaunchContainment.inferredIdentityEnabled
+            ? '$label LEARNING'
+            : label,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         textAlign: textAlign,
@@ -465,9 +529,15 @@ class _MetricDivider extends StatelessWidget {
 }
 
 class _IdentityCard extends ConsumerWidget {
-  const _IdentityCard({required this.hasEvidence});
+  const _IdentityCard({
+    required this.hasEvidence,
+    required this.fallbackLabel,
+    required this.completedTasks,
+  });
 
   final bool hasEvidence;
+  final String fallbackLabel;
+  final int completedTasks;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -484,9 +554,15 @@ class _IdentityCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'IDENTITY SIGNAL',
-            style: TextStyle(
+          Text(
+            LaunchContainment.inferredIdentityEnabled
+                ? journeyText(context, 'IDENTITY SIGNAL', 'SEÑAL DE IDENTIDAD')
+                : journeyText(
+                    context,
+                    'RECORDED PROGRESS',
+                    'PROGRESO REGISTRADO',
+                  ),
+            style: const TextStyle(
               fontSize: 10,
               letterSpacing: 0,
               color: AppColors.neonViolet,
@@ -499,7 +575,7 @@ class _IdentityCard extends ConsumerWidget {
             runSpacing: 4,
             children: <Widget>[
               _ArchetypeLabel(
-                label: hasEvidence ? archetype : 'Pattern forming',
+                label: hasEvidence ? archetype : fallbackLabel,
                 color: AppColors.neonViolet,
               ),
               if (hasEvidence)
@@ -508,9 +584,25 @@ class _IdentityCard extends ConsumerWidget {
           ),
           if (!hasEvidence) ...<Widget>[
             const SizedBox(height: 8),
-            const Text(
-              'Complete a few tasks to reveal patterns grounded in your activity.',
-              style: TextStyle(
+            Text(
+              !LaunchContainment.inferredIdentityEnabled
+                  ? journeyText(
+                      context,
+                      '$completedTasks completed ${completedTasks == 1 ? 'task' : 'tasks'}. Your level and XP reflect recorded activity. Identity patterns are not available in this version.',
+                      '$completedTasks ${completedTasks == 1 ? 'tarea completada' : 'tareas completadas'}. Tu nivel y XP reflejan actividad registrada. Los patrones de identidad no están disponibles en esta versión.',
+                    )
+                  : completedTasks < 3
+                  ? journeyText(
+                      context,
+                      'Complete a few tasks to reveal patterns grounded in your activity.',
+                      'Completa algunas tareas para revelar patrones basados en tu actividad.',
+                    )
+                  : journeyText(
+                      context,
+                      'Your completions are recorded. More varied activity is needed before an identity pattern can be supported.',
+                      'Tus tareas completadas están registradas. Se necesita actividad más variada antes de respaldar un patrón de identidad.',
+                    ),
+              style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 12,
                 height: 1.4,
@@ -519,19 +611,19 @@ class _IdentityCard extends ConsumerWidget {
           ] else ...<Widget>[
             const SizedBox(height: 14),
             _IdentityBar(
-              label: 'Discipline',
+              label: journeyText(context, 'Discipline', 'Disciplina'),
               value: identity.disciplineIdentity,
               color: AppColors.memoryAmber,
             ),
             const SizedBox(height: 8),
             _IdentityBar(
-              label: 'Execution',
+              label: journeyText(context, 'Execution', 'Ejecución'),
               value: identity.executionIdentity,
               color: AppColors.neonCyan,
             ),
             const SizedBox(height: 8),
             _IdentityBar(
-              label: 'Growth',
+              label: journeyText(context, 'Growth', 'Crecimiento'),
               value: identity.growthIdentity,
               color: AppColors.neonViolet,
             ),
@@ -797,7 +889,13 @@ class _NameEditorState extends State<_NameEditor> {
                       dimension: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Update Identity'),
+                  : Text(
+                      journeyText(
+                        context,
+                        'Update Identity',
+                        'Actualizar identidad',
+                      ),
+                    ),
             ),
           ),
         ],

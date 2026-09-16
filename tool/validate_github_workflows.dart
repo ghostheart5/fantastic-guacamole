@@ -921,6 +921,24 @@ void _validateMaestroRuntime(List<String> failures) {
   if (document == null) {
     return;
   }
+  _validateMaestroRuntimeDocument(document, failures);
+}
+
+List<String> validateMaestroRuntimeSource(String source) {
+  final failures = <String>[];
+  try {
+    final document = loadYaml(source);
+    if (document is! YamlMap) {
+      return ['Maestro runtime must contain a YAML mapping.'];
+    }
+    _validateMaestroRuntimeDocument(document, failures);
+  } on YamlException catch (error) {
+    failures.add('Maestro runtime is invalid YAML: ${error.message}');
+  }
+  return failures;
+}
+
+void _validateMaestroRuntimeDocument(YamlMap document, List<String> failures) {
   final Object? triggersValue = document['on'];
   if (triggersValue is! YamlMap ||
       !triggersValue.containsKey('workflow_call') ||
@@ -955,9 +973,55 @@ void _validateMaestroRuntime(List<String> failures) {
   final String emulatorScript = emulatorWith is YamlMap
       ? emulatorWith['script']?.toString() ?? ''
       : '';
-  if (!emulatorScript.contains('run_maestro_android_evidence.ps1') ||
-      !emulatorScript.contains('-DeviceSerial emulator-5554') ||
-      !emulatorScript.contains(r'-ExpectedCommit "${{ github.sha }}"')) {
+  final preparation = steps.cast<YamlMap?>().firstWhere(
+    (step) =>
+        step?['name'] ==
+        'Prepare bounded fresh-guest readiness and system diagnostics',
+    orElse: () => null,
+  );
+  final preparedScript =
+      RegExp(
+        r"^cat > test-results/maestro-prewarm/run-suite\.sh <<'SH'\n([\s\S]*?)^SH\s*$",
+        multiLine: true,
+      ).firstMatch(preparation?['run']?.toString() ?? '')?.group(1) ??
+      '';
+  final invocations = preparedScript
+      .split('\n')
+      .where(
+        (line) =>
+            line.trimLeft().startsWith('pwsh ') &&
+            line.contains(r'-Suite "$QA_SUITE"'),
+      )
+      .toList();
+  final invocation = invocations.length == 1 ? invocations.single : '';
+  final env = document['env'];
+  final checkout = steps.cast<YamlMap?>().firstWhere(
+    (step) => step?['name'] == 'Checkout exact source',
+    orElse: () => null,
+  )?['with'];
+  final sourceCheck =
+      steps
+          .cast<YamlMap?>()
+          .firstWhere(
+            (step) => step?['name'] == 'Verify exact source commit',
+            orElse: () => null,
+          )?['run']
+          ?.toString() ??
+      '';
+  if (emulatorScript.trim() !=
+          'bash test-results/maestro-prewarm/run-suite.sh' ||
+      !invocation.contains('run_maestro_android_evidence.ps1') ||
+      !invocation.contains('-DeviceSerial emulator-5554') ||
+      !invocation.contains(r'-ExpectedCommit "$QA_SOURCE_SHA"') ||
+      !invocation.contains('-BuildProfile qa') ||
+      invocation.contains('-SkipBuild') ||
+      env is! YamlMap ||
+      env['QA_SOURCE_SHA'] != r'${{ inputs.source_sha || github.sha }}' ||
+      checkout is! YamlMap ||
+      checkout['ref'] != r'${{ inputs.source_sha || github.sha }}' ||
+      !sourceCheck.contains(
+        r'test "$(git rev-parse HEAD)" = "$QA_SOURCE_SHA"',
+      )) {
     failures.add(
       'Maestro runtime must build, install, and run source-bound evidence on an explicit emulator.',
     );
@@ -967,8 +1031,57 @@ void _validateMaestroRuntime(List<String> failures) {
     (YamlMap? step) => step?['name'] == 'Verify source-bound Maestro evidence',
     orElse: () => null,
   );
+  final evidenceCondition = evidenceStep?['if'];
+  final monkeyVerification = steps.cast<YamlMap?>().firstWhere(
+    (step) => step?['name'] == 'Verify optional Monkey evidence',
+    orElse: () => null,
+  );
+  final nativeVerification = steps.cast<YamlMap?>().firstWhere(
+    (step) =>
+        step?['name'] == 'Verify source-bound native 16 KB launch evidence',
+    orElse: () => null,
+  );
+  final inputCheck =
+      steps
+          .cast<YamlMap?>()
+          .firstWhere(
+            (step) =>
+                step?['name'] == 'Validate immutable QA inputs before checkout',
+            orElse: () => null,
+          )?['run']
+          ?.toString() ??
+      '';
+  final nativeRun = nativeVerification?['run']?.toString() ?? '';
+  final validNativeAlternative =
+      nativeVerification?['if'] ==
+          "always() && inputs.suite == 'qa-16k-native'" &&
+      inputCheck.contains('test "\$QA_GUEST_PAGES" = 16k') &&
+      nativeRun.contains(
+        "receipt['sourceSha'] == os.environ['EXPECTED_COMMIT']",
+      ) &&
+      nativeRun.contains(
+        "receipt['apkSha256'].lower() == compilation['precompiledApkSha256'].lower()",
+      ) &&
+      nativeRun.contains(
+        "receipt['installedVersionCode'] == receipt['sourceVersionCode']",
+      ) &&
+      nativeRun.contains("receipt['pageSize'] == 16384") &&
+      nativeRun.contains(
+        "len(receipt['launches']) == 5 and receipt['appFatalCount'] == 0",
+      ) &&
+      nativeRun.contains("launch['uiReadyMarker']");
+  final validEvidenceCondition =
+      evidenceCondition == 'always()' ||
+      (monkeyVerification?['if'] == 'always() && inputs.run_monkey' &&
+          inputCheck.contains(
+            r'if [ "$QA_MONKEY_ONLY" = true ]; then test "$QA_MONKEY" = true; fi',
+          ) &&
+          (evidenceCondition == 'always() && !inputs.monkey_only' ||
+              (evidenceCondition ==
+                      "always() && !inputs.monkey_only && inputs.suite != 'qa-16k-native'" &&
+                  validNativeAlternative)));
   if (evidenceStep == null ||
-      evidenceStep['if'] != 'always()' ||
+      !validEvidenceCondition ||
       !(evidenceStep['run']?.toString() ?? '').contains(
         "manifest.get('status') != 'passed'",
       ) ||
@@ -997,11 +1110,24 @@ void _validateMaestroRuntime(List<String> failures) {
     orElse: () => null,
   );
   final Object? uploadWithValue = uploadStep?['with'];
+  final uploadPaths = uploadWithValue is YamlMap
+      ? (uploadWithValue['path']?.toString() ?? '')
+            .split('\n')
+            .map((line) => line.trim())
+            .toSet()
+      : <String>{};
   if (uploadStep == null ||
       uploadStep['if'] != 'always()' ||
       uploadWithValue is! YamlMap ||
       uploadWithValue['if-no-files-found'] != 'error' ||
-      uploadWithValue['path'] != 'artifacts/maestro-ci/**') {
+      !uploadPaths.containsAll(const {
+        'artifacts/maestro-ci/**',
+        'test-results/maestro-prewarm/**',
+        'test-results/monkey-ci/**',
+        'test-results/monkey-seed-ci/**',
+        'test-results/monkey-recovery-flows/**',
+      }) ||
+      uploadPaths.any((path) => path.startsWith('!'))) {
     failures.add('Maestro runtime must always upload complete evidence.');
   }
 }

@@ -5,7 +5,10 @@ import 'package:fantastic_guacamole/domain/entities/assistant_contracts.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_read_health.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -25,10 +28,17 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
+import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
+import 'package:fantastic_guacamole/state/providers/rhythm_planning_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'smart_planner_query_controller.support.dart';
+part 'smart_planner_query_controller.intent.dart';
+part 'smart_planner_query_controller.person_context.dart';
+
+const String _defaultPlanningPrompt =
+    'Give me a practical planning check-in for my current energy and emotional state.';
 
 final smartPlannerQueryControllerProvider =
     Provider<SmartPlannerQueryController>((Ref ref) {
@@ -212,6 +222,19 @@ class SmartPlannerQueryController
 
   bool detectsCrisis(String text) => CrisisDetectionPolicy.detects(text);
 
+  /// The UI must assess the same bounded user conversation as the controller
+  /// when obtaining consent and localized supportive copy for a follow-up.
+  String followUpSafetyText({
+    required String input,
+    required String reflection,
+    required List<Map<String, String>> history,
+  }) => _PlannerConversationContext.resolve(
+    input: input,
+    history: history,
+    reflection: reflection,
+    isFollowUp: true,
+  ).searchText;
+
   EmotionalSafetyAssessment assessEmotionalSafety(String text) =>
       EmotionalSafetyPolicy.assess(text);
 
@@ -224,17 +247,17 @@ class SmartPlannerQueryController
     required String? previousSavedNotes,
     String? supportivePauseReason,
     String? supportiveQuestion,
+    String? languageCode,
   }) async {
     final String prompt = notes.trim().isEmpty
-        ? 'Give me a practical planning check-in for my current energy and emotional state.'
+        ? _defaultPlanningPrompt
         : notes.trim();
     _requireNonCrisisRoute(prompt);
     final EmotionalSafetyAssessment emotionalSafety = assessEmotionalSafety(
       prompt,
     );
     await _requireReleaseCapabilities();
-    final ({double? energy, EmotionalState? emotion}) authorized =
-        _authorizedCheckIn(energy: energy, emotion: emotion);
+    var authorized = _authorizedCheckIn(energy: energy, emotion: emotion);
     final _PlannerConversationContext conversation =
         _PlannerConversationContext.resolve(
           input: prompt,
@@ -253,11 +276,14 @@ class SmartPlannerQueryController
         assessment: emotionalSafety,
         supportivePauseReason: supportivePauseReason,
         supportiveQuestion: supportiveQuestion,
+        languageCode: languageCode,
       );
     }
     final _PlannerEvidence evidence = await _loadPlannerEvidence(
-      searchText: conversation.searchText,
+      searchText: conversation.evidenceSearchText,
+      savedContextDeclined: conversation.savedContextDeclined,
     );
+    authorized = _authorizedCheckIn(energy: energy, emotion: emotion);
     final AssistantRequestEnvelope request = _requestContract(
       kind: AssistantRequestKind.planningGuidance,
       input: prompt,
@@ -276,6 +302,7 @@ class SmartPlannerQueryController
       contextWasProvided: notes.trim().isNotEmpty,
       conversation: conversation,
       evidence: evidence,
+      languageCode: languageCode,
     );
     return _resultFromResponse(
       request: request,
@@ -314,6 +341,8 @@ class SmartPlannerQueryController
     required List<Map<String, String>> history,
     String? supportivePauseReason,
     String? supportiveQuestion,
+    String? languageCode,
+    PlannerConversationSnapshot? currentPlan,
   }) async {
     final String prompt = input.trim();
     _requireNonCrisisRoute(prompt);
@@ -322,15 +351,22 @@ class SmartPlannerQueryController
         _PlannerConversationContext.resolve(
           input: prompt,
           history: history,
-          reflection: reflection,
+          reflection: currentPlan?.originalObjective ?? reflection,
+          currentUserContext:
+              currentPlan?.userContext ?? currentPlan?.currentPlan.userContext,
+          respondingToPlanQuestion:
+              currentPlan?.adjustments.lastOrNull?.kind ==
+                  PlannerAdjustmentKind.rejectedApproach ||
+              currentPlan?.currentPlan.isClarification == true ||
+              (currentPlan?.currentPlan.usefulQuestion?.trim().isNotEmpty ??
+                  false),
           isFollowUp: true,
         );
     _requireNonCrisisRoute(conversation.searchText);
     final EmotionalSafetyAssessment emotionalSafety = assessEmotionalSafety(
       conversation.searchText,
     );
-    final ({double? energy, EmotionalState? emotion}) authorized =
-        _authorizedCheckIn(energy: energy, emotion: emotion);
+    var authorized = _authorizedCheckIn(energy: energy, emotion: emotion);
     if (emotionalSafety.requiresSupportivePause) {
       return _supportivePauseResult(
         kind: AssistantRequestKind.followUp,
@@ -343,11 +379,14 @@ class SmartPlannerQueryController
         assessment: emotionalSafety,
         supportivePauseReason: supportivePauseReason,
         supportiveQuestion: supportiveQuestion,
+        languageCode: languageCode,
       );
     }
     final _PlannerEvidence evidence = await _loadPlannerEvidence(
-      searchText: conversation.searchText,
+      searchText: conversation.evidenceSearchText,
+      savedContextDeclined: conversation.savedContextDeclined,
     );
+    authorized = _authorizedCheckIn(energy: energy, emotion: emotion);
     final AssistantRequestEnvelope request = _requestContract(
       kind: AssistantRequestKind.followUp,
       input: prompt,
@@ -366,6 +405,8 @@ class SmartPlannerQueryController
       contextWasProvided: true,
       conversation: conversation,
       evidence: evidence,
+      languageCode: languageCode,
+      currentPlan: currentPlan,
     );
     return _resultFromResponse(
       request: request,
@@ -385,10 +426,10 @@ class SmartPlannerQueryController
     AssistantRequestKind kind = AssistantRequestKind.planningGuidance,
     String? supportivePauseReason,
     String? supportiveQuestion,
+    String? languageCode,
   }) {
     _requireNonCrisisRoute(input);
-    final ({double? energy, EmotionalState? emotion}) authorized =
-        _authorizedCheckIn(energy: energy, emotion: emotion);
+    var authorized = _authorizedCheckIn(energy: energy, emotion: emotion);
     final AssistantRequestEnvelope request = _requestContract(
       kind: kind,
       input: input,
@@ -406,6 +447,7 @@ class SmartPlannerQueryController
       isFollowUp: kind == AssistantRequestKind.followUp,
       supportivePauseReason: supportivePauseReason,
       supportiveQuestion: supportiveQuestion,
+      languageCode: languageCode,
     );
     final PlannerV2Response response = base.isClarification
         ? base.copyWith(
@@ -417,8 +459,9 @@ class SmartPlannerQueryController
           )
         : base.copyWith(
             mattersMost: message,
-            recommendationReason:
-                'The normal Planner V2 request did not complete.',
+            recommendationReason: base.languageCode == 'es'
+                ? 'La petición habitual de Planner V2 no se completó.'
+                : 'The normal Planner V2 request did not complete.',
             verifiedEvidence: <String>[
               ...base.verifiedEvidence,
               'Fallback reason: $reason',
@@ -442,9 +485,10 @@ class SmartPlannerQueryController
     bool isFollowUp = false,
     String? supportivePauseReason,
     String? supportiveQuestion,
+    String? languageCode,
+    PlannerConversationSnapshot? currentPlan,
   }) {
-    final ({double? energy, EmotionalState? emotion}) authorized =
-        _authorizedCheckIn(energy: energy, emotion: emotion);
+    var authorized = _authorizedCheckIn(energy: energy, emotion: emotion);
     return _buildPlannerResponse(
       input: input,
       energy: authorized.energy,
@@ -453,12 +497,22 @@ class SmartPlannerQueryController
       conversation: _PlannerConversationContext.resolve(
         input: input,
         history: history,
-        reflection: reflection,
+        reflection: currentPlan?.originalObjective ?? reflection,
+        currentUserContext:
+            currentPlan?.userContext ?? currentPlan?.currentPlan.userContext,
+        respondingToPlanQuestion:
+            currentPlan?.adjustments.lastOrNull?.kind ==
+                PlannerAdjustmentKind.rejectedApproach ||
+            currentPlan?.currentPlan.isClarification == true ||
+            (currentPlan?.currentPlan.usefulQuestion?.trim().isNotEmpty ??
+                false),
         isFollowUp: isFollowUp,
       ),
       evidence: const _PlannerEvidence.empty(),
+      currentPlan: currentPlan,
       supportivePauseReason: supportivePauseReason,
       supportiveQuestion: supportiveQuestion,
+      languageCode: languageCode,
     );
   }
 
@@ -471,82 +525,274 @@ class SmartPlannerQueryController
     required _PlannerEvidence evidence,
     String? supportivePauseReason,
     String? supportiveQuestion,
+    String? languageCode,
+    PlannerConversationSnapshot? currentPlan,
   }) {
     final double? boundedEnergy = energy?.clamp(0.0, 1.0).toDouble();
     final double planningEnergy = boundedEnergy ?? 0.5;
-    final _PlannerTopic topic = _detectTopic(conversation.searchText);
-    final _PlannerStrategy strategy = _strategyFor(topic);
+    final intent = _PlannerIntent.resolve(
+      conversation: conversation,
+      evidence: evidence,
+      zeroEnergy: boundedEnergy == 0,
+      languageCode: languageCode,
+    );
+    String copy(String english, String spanish) =>
+        intent.spanish ? spanish : english;
+    String minutes(int count) => intent.spanish
+        ? '$count ${count == 1 ? 'minuto' : 'minutos'}'
+        : _plannerMinutes(count);
+    final bool recoveryOnly = intent.recovery;
     final _EffortProfile energyEffort = _effortFor(planningEnergy);
     final int? capacityLimitMinutes =
         evidence.personContext.capacityLimitMinutes;
-    final _EffortProfile effort = capacityLimitMinutes == null
+    final int? requestTimeLimitMinutes = conversation.explicitTimeLimitMinutes;
+    final int? requestTimeLimitSeconds = conversation.explicitTimeLimitSeconds;
+    final List<int> limits = <int>[
+      ?capacityLimitMinutes,
+      ?requestTimeLimitMinutes,
+      ?evidence.noteTimeLimitMinutes,
+      if (intent.deadlineNeedsDeparture) 1,
+      if (currentPlan != null &&
+          conversation.continuesPriorSubject &&
+          _explicitPlanningTimeLimit(conversation.input) == null &&
+          !currentPlan.currentPlan.isClarification)
+        currentPlan.currentPlan.recommendedOption.estimatedMinutes,
+    ];
+    final _EffortProfile effort = limits.isEmpty
         ? energyEffort
-        : energyEffort.cappedAt(capacityLimitMinutes);
+        : energyEffort.cappedAt(limits.reduce(math.min));
     final DateTime observedAt = _ref.read(smartPlannerClockProvider)().toUtc();
     final EmotionalSafetyAssessment emotionalSafety =
         EmotionalSafetyPolicy.assess(conversation.searchText);
     final bool supportivePause = emotionalSafety.requiresSupportivePause;
     final List<String> adaptations = <String>[
+      if (recoveryOnly)
+        copy(
+          'Prioritized your recovery request or reported zero energy; saved commitments do not require a work block now.',
+          'Se priorizó tu petición de recuperación o el nivel de energía cero indicado; los compromisos guardados no exigen trabajar ahora.',
+        ),
       if (boundedEnergy != null)
-        _energyAdaptation(boundedEnergy, energyEffort)
+        copy(
+          _energyAdaptation(boundedEnergy, energyEffort),
+          'Se adaptaron las opciones al ${(boundedEnergy * 100).round()}% de energía indicado: ${energyEffort.minimumMinutes}, ${energyEffort.bestFitMinutes} y ${energyEffort.stretchMinutes} minutos antes de aplicar límites.',
+        )
       else
-        'No current energy check-in was provided; option sizes use a neutral planning fallback.',
+        copy(
+          'No current energy check-in was provided; option sizes use a neutral planning fallback.',
+          'No se indicó la energía actual; se utilizó una base de duración neutra.',
+        ),
       if (emotion != null)
-        _emotionAdaptation(emotion)
+        copy(
+          _emotionAdaptation(emotion),
+          'Se adaptaron las opciones al estado que seleccionaste: ${_plannerEmotionText(emotion, isSpanish: true)}.',
+        )
       else
-        'Emotional state was not used because consent is off or no state was selected.',
+        copy(
+          'Emotional state was not used because consent is off or no state was selected.',
+          'No se usó un estado emocional porque no hay consentimiento o no se seleccionó uno.',
+        ),
       if (emotion != null)
-        'Used only your selected emotion; no emotion was inferred from your text.',
-      evidence.domainAdaptationSummary,
-      evidence.operatingReceipt.adaptationSummary,
-      evidence.plannerMemory.adaptationSummary,
-      evidence.personContext.adaptationSummary,
+        copy(
+          'Used only your selected emotion; no emotion was inferred from your text.',
+          'Solo se usó el estado seleccionado; no se dedujo ninguna emoción de tu texto.',
+        ),
+      evidence.domainAdaptationSummaryFor(languageCode: intent.languageCode),
+      ...evidence.supplementaryEvidenceFor(languageCode: intent.languageCode),
+      if (!evidence.savedContextDeclined)
+        evidence.operatingReceipt.adaptationSummaryFor(
+          languageCode: intent.languageCode,
+        ),
+      evidence.plannerMemory.adaptationSummaryFor(
+        languageCode: intent.languageCode,
+      ),
+      evidence.personContext.adaptationSummaryFor(
+        languageCode: intent.languageCode,
+      ),
       if (capacityLimitMinutes != null)
-        'Applied your reported capacity limit of $capacityLimitMinutes minutes: no option exceeds it.',
+        copy(
+          'Applied your reported capacity limit of ${_plannerMinutes(capacityLimitMinutes)}: no option exceeds it.',
+          'Se aplicó el límite de capacidad que indicaste: ${minutes(capacityLimitMinutes)}. Ninguna opción lo supera.',
+        ),
+      if (requestTimeLimitMinutes != null)
+        copy(
+          'Applied your requested time limit of ${_plannerMinutes(requestTimeLimitMinutes)}: no option exceeds it. This limit was not saved.',
+          'Se aplicó el límite solicitado de ${minutes(requestTimeLimitMinutes)}. Ninguna opción lo supera y no se guardó este límite.',
+        ),
       if (conversation.historyTurnsUsed > 0)
-        'Used ${conversation.historyTurnsUsed} recent conversation turn(s) to keep this response connected to your earlier request.',
-      'Kept every option reversible and left saving to an explicit Creator confirmation.',
+        copy(
+          'Used ${conversation.historyTurnsUsed} recent conversation turn(s) to keep this response connected to your earlier request.',
+          'Se usaron ${conversation.historyTurnsUsed} intervenciones anteriores para mantener el contexto de tu petición.',
+        ),
+      copy(
+        'Kept every option reversible and left saving to an explicit Creator confirmation.',
+        'Las opciones siguen siendo reversibles; guardar requiere una confirmación explícita en Creator.',
+      ),
     ];
 
-    if (supportivePause || evidence.requiresClarification) {
+    if (supportivePause ||
+        (!recoveryOnly && evidence.resolvedRhythm != null) ||
+        intent.needsClarification) {
       return PlannerV2Response.clarification(
-        whatIHeard: conversation.clarificationSummary(
-          contextWasProvided: contextWasProvided,
+        whatIHeard: intent.acknowledgement(
+          savedSubject: evidence.focusSubjectFor(
+            languageCode: intent.languageCode,
+          ),
         ),
         mattersMost: supportivePause
             ? _requiredSupportiveCopy(
                 supportivePauseReason,
                 'supportivePauseReason',
               )
-            : 'Connecting your request to the right evidence before proposing a plan.',
+            : evidence.resolvedRhythm != null
+            ? copy(
+                'This Daily Rhythm is ${evidence.resolvedRhythm!.status.name} for its current period; no repeat work was proposed.',
+                'Este ritmo diario ya tiene un resultado registrado en el periodo actual; no se propuso repetir el trabajo.',
+              )
+            : evidence.personContext.planningFocus?.kind ==
+                  PersonContextKind.boundary
+            ? evidence.personContext.planningFocus!.mattersMostFor(
+                languageCode: intent.languageCode,
+              )
+            : intent.spanish
+            ? 'Falta un dato concreto para proponerte una acción útil.'
+            : 'One concrete detail is missing before I can suggest a useful action.',
         verifiedEvidence: <String>[
           if (boundedEnergy != null)
-            'Current check-in energy set by you: ${(boundedEnergy * 100).round()}%.'
+            copy(
+              'Current check-in energy set by you: ${(boundedEnergy * 100).round()}%.',
+              'Energía actual indicada por ti: ${(boundedEnergy * 100).round()}%.',
+            )
           else
-            'Current check-in energy was not provided.',
+            copy(
+              'Current check-in energy was not provided.',
+              'No se indicó la energía actual.',
+            ),
           if (emotion != null)
-            'Current check-in emotional state selected by you: ${_emotionLabel(emotion)}.'
+            copy(
+              'Current check-in emotional state selected by you: ${_emotionLabel(emotion)}.',
+              'Estado emocional actual seleccionado por ti: ${_plannerEmotionText(emotion, isSpanish: true)}.',
+            )
           else
-            'Current emotional state was not used.',
-          ...evidence.clarificationEvidence(observedAt),
-          conversation.evidenceSummary(contextWasProvided: contextWasProvided),
-          'No saved task, goal, saved planning recommendation, or Creator draft was attached.',
-          'No Timeline, memory, SI-state, XP, task, goal, or habit record was changed.',
+            copy(
+              'Current emotional state was not used.',
+              'No se usó el estado emocional actual.',
+            ),
+          if (evidence.hasPositiveGrounding)
+            ...evidence.verifiedEvidence(
+              observedAt,
+              languageCode: intent.languageCode,
+            )
+          else
+            ...evidence.clarificationEvidence(
+              observedAt,
+              languageCode: intent.languageCode,
+            ),
+          conversation.evidenceSummary(
+            contextWasProvided: contextWasProvided,
+            languageCode: intent.languageCode,
+          ),
+          if (!evidence.hasPositiveGrounding)
+            copy(
+              'No saved task, goal, saved planning recommendation, or Creator draft was attached.',
+              'No se vinculó ninguna tarea, objetivo, recomendación ni borrador de Creator guardado.',
+            ),
+          copy(
+            'No Timeline, memory, SI-state, XP, task, goal, or habit record was changed.',
+            'No se modificaron registros de cronología, memoria, estado SI, XP, tareas, objetivos ni hábitos.',
+          ),
         ],
         question: supportivePause
             ? _requiredSupportiveCopy(supportiveQuestion, 'supportiveQuestion')
-            : 'Which saved task or goal, if any, should this plan support?',
+            : evidence.resolvedRhythm != null
+            ? copy(
+                'Which different commitment would you like to plan?',
+                '¿Qué otro compromiso quieres planificar?',
+              )
+            : evidence.requiresClarification && conversation.subject.isEmpty
+            ? intent.spanish
+                  ? _savedContextQuestionEs
+                  : _savedContextQuestion
+            : intent.question,
         adaptationReceipt: PlannerAdaptationReceipt(
           userSetEnergy: boundedEnergy,
           userSelectedEmotion: emotion,
           adjustments: <String>[
             ...adaptations,
-            'Paused before proposing actions so unrelated saved evidence could not steer the response.',
+            copy(
+              'Paused before proposing actions so unrelated saved evidence could not steer the response.',
+              'Se pidió una aclaración para impedir que datos guardados sin relación dirigieran la respuesta.',
+            ),
             if (supportivePause)
-              'Used a privacy-safe supportive-distress route. Raw distress text was not added to the receipt.',
+              copy(
+                'Used a privacy-safe supportive-distress route. Raw distress text was not added to the receipt.',
+                'Se usó la respuesta de apoyo con protección de privacidad. El texto de malestar no se añadió al registro de adaptación.',
+              ),
           ],
         ),
         origin: PlannerResponseOrigin.deterministic,
+        languageCode: intent.languageCode,
+        userContext: conversation.userContext,
+      );
+    }
+
+    if (currentPlan != null &&
+        !currentPlan.currentPlan.isClarification &&
+        RegExp(
+          r'^(?:why(?: this(?: one| plan)?)?|por qu[eé](?: este(?: plan)?)?)[?!. ]*$',
+          caseSensitive: false,
+        ).hasMatch(input.trim())) {
+      return currentPlan.currentPlan.copyWith(clearUsefulQuestion: true);
+    }
+
+    if (currentPlan?.adjustments.lastOrNull?.kind ==
+            PlannerAdjustmentKind.rejectedApproach &&
+        conversation.continuesPriorSubject &&
+        (!intent.interruptible ||
+            intent.options(effort).first.description ==
+                currentPlan!.currentPlan.nextStep)) {
+      final obstacle = input.trim();
+      final bagObstacle =
+          RegExp(
+            r'\b(bag|mochila|bolsa|locked|bloquead[oa])\b',
+            caseSensitive: false,
+          ).hasMatch(obstacle) &&
+          RegExp(
+            r'\b(uniform|uniforme)\b',
+            caseSensitive: false,
+          ).hasMatch(conversation.subject);
+      return PlannerV2Response.clarification(
+        whatIHeard:
+            '${intent.acknowledgement()} ${intent.spanish ? 'Ese método no te sirve:' : 'That method does not fit:'} "$obstacle".',
+        mattersMost: intent.spanish
+            ? 'Mantener el objetivo y buscar un método que respete el obstáculo que has indicado.'
+            : 'Keep your objective and find a method that respects the obstacle you described.',
+        question: bagObstacle
+            ? intent.spanish
+                  ? '¿Tienes otra bolsa disponible o puedes dejar el uniforme junto sin guardarlo todavía?'
+                  : 'Is another bag available, or can you gather the uniform without packing it yet?'
+            : intent.spanish
+            ? '¿Qué recurso o ayuda sí tienes disponible para este paso?'
+            : 'What resource or help is available for this step?',
+        verifiedEvidence: [
+          ...evidence.verifiedEvidence(
+            observedAt,
+            languageCode: intent.languageCode,
+          ),
+          intent.spanish
+              ? 'Has rechazado el método mostrado. La propuesta anterior no se repite como una acción nueva.'
+              : 'You rejected the displayed method. The previous proposal is not repeated as a new action.',
+          intent.spanish
+              ? 'No se modificaron registros ni se guardó un plan.'
+              : 'No records were changed and no plan was saved.',
+        ],
+        adaptationReceipt: PlannerAdaptationReceipt(
+          userSetEnergy: boundedEnergy,
+          userSelectedEmotion: emotion,
+          adjustments: adaptations,
+        ),
+        origin: PlannerResponseOrigin.deterministic,
+        languageCode: intent.languageCode,
+        userContext: conversation.userContext,
       );
     }
 
@@ -555,57 +801,97 @@ class SmartPlannerQueryController
       energy: planningEnergy,
       evidence: evidence,
     );
-    final String subject = evidence.focusSubject ?? conversation.subject;
-    final List<PlannerOption> options = _buildEvidenceAwareOptions(
-      topic: topic,
-      strategy: strategy,
-      effort: effort,
-      subject: subject,
-      evidence: evidence,
-    );
+    final List<PlannerOption> options = intent
+        .options(effort)
+        .map(
+          (option) => requestTimeLimitSeconds != null
+              ? option.copyWith(estimatedSeconds: requestTimeLimitSeconds)
+              : option,
+        )
+        .toList(growable: false);
     final PlannerOption selected = options.singleWhere(
       (PlannerOption option) => option.kind == recommendation,
     );
     return PlannerV2Response(
-      whatIHeard: conversation.whatIHeard(
-        contextWasProvided: contextWasProvided,
-        evidence: evidence,
-      ),
-      mattersMost: evidence.mattersMost ?? strategy.mattersMost,
+      whatIHeard: intent.acknowledgement(),
+      mattersMost:
+          evidence.personContext.planningFocus?.kind ==
+              PersonContextKind.boundary
+          ? evidence.personContext.planningFocus!.mattersMostFor(
+              languageCode: intent.languageCode,
+            )
+          : intent.reason(
+              requestTimeLimitMinutes,
+              limitSeconds: requestTimeLimitSeconds,
+            ),
       verifiedEvidence: <String>[
         if (boundedEnergy != null)
-          'Current check-in energy set by you: ${(boundedEnergy * 100).round()}%.'
+          copy(
+            'Current check-in energy set by you: ${(boundedEnergy * 100).round()}%.',
+            'Energía actual indicada por ti: ${(boundedEnergy * 100).round()}%.',
+          )
         else
-          'Current check-in energy was not provided.',
+          copy(
+            'Current check-in energy was not provided.',
+            'No se indicó la energía actual.',
+          ),
         if (emotion != null)
-          'Current check-in emotional state selected by you: ${_emotionLabel(emotion)}.'
+          copy(
+            'Current check-in emotional state selected by you: ${_emotionLabel(emotion)}.',
+            'Estado emocional actual seleccionado por ti: ${_plannerEmotionText(emotion, isSpanish: true)}.',
+          )
         else
-          'Current emotional state was not used.',
-        ...evidence.verifiedEvidence(observedAt),
-        conversation.evidenceSummary(contextWasProvided: contextWasProvided),
-        'No Timeline, memory, SI-state, XP, task, goal, or habit record was changed.',
+          copy(
+            'Current emotional state was not used.',
+            'No se usó el estado emocional actual.',
+          ),
+        ...evidence.verifiedEvidence(
+          observedAt,
+          languageCode: intent.languageCode,
+        ),
+        ...intent.appliedEvidence,
+        conversation.evidenceSummary(
+          contextWasProvided: contextWasProvided,
+          languageCode: intent.languageCode,
+        ),
+        copy(
+          'No Timeline, memory, SI-state, XP, task, goal, or habit record was changed.',
+          'No se modificaron registros de cronología, memoria, estado SI, XP, tareas, objetivos ni hábitos.',
+        ),
       ],
       options: options,
       recommendedKind: recommendation,
-      recommendationReason: _groundedRecommendationReason(
-        recommendation,
-        boundedEnergy,
-        emotion,
-        evidence,
-      ),
+      recommendationReason: boundedEnergy == 0
+          ? '${intent.spanish ? 'Has indicado un 0% de energía.' : 'You reported 0% energy.'} ${intent.reason(requestTimeLimitMinutes, limitSeconds: requestTimeLimitSeconds)}'
+          : recommendation == PlannerOptionKind.minimum &&
+                (boundedEnergy != null || emotion != null)
+          ? '${intent.spanish ? 'Tu estado actual favorece un primer paso más pequeño.' : 'Your current check-in favors a smaller reversible start.'} ${intent.reason(requestTimeLimitMinutes, limitSeconds: requestTimeLimitSeconds)}'
+          : intent.reason(
+              requestTimeLimitMinutes,
+              limitSeconds: requestTimeLimitSeconds,
+            ),
       nextStep: selected.description,
-      usefulQuestion: strategy.question,
+      usefulQuestion:
+          intent.usefulQuestion ??
+          (evidence.focusRhythm != null && !recoveryOnly
+              ? intent.spanish
+                    ? '¿Cuántas repeticiones quedan realmente en este periodo? No se han registrado por separado.'
+                    : 'How many repetitions actually remain in this period? Individual repetitions have not been recorded.'
+              : null),
       adaptationReceipt: PlannerAdaptationReceipt(
         userSetEnergy: boundedEnergy,
         userSelectedEmotion: emotion,
         adjustments: adaptations,
       ),
       origin: PlannerResponseOrigin.deterministic,
+      languageCode: intent.languageCode,
+      userContext: conversation.userContext,
     );
   }
 
   Future<_PlannerEvidence> _loadPlannerEvidence({
     required String searchText,
+    bool savedContextDeclined = false,
   }) async {
     final String accountScopeIdBefore = _accountScopeId;
     final int boundaryGenerationBefore = _ref
@@ -618,6 +904,28 @@ class SmartPlannerQueryController
     PersonContextView? personContext;
     OperatingDecisionReceipt? operatingReceipt;
     List<MemoryEntity> plannerMemories = const <MemoryEntity>[];
+    List<RhythmPlanningEntry> rhythms = const [];
+    bool rhythmReadSucceeded = true;
+    NoteEntity? selectedNote;
+    bool noteReadSucceeded = true;
+    if (!savedContextDeclined) {
+      try {
+        rhythms = await _ref
+            .read(rhythmPlanningProvider.future)
+            .timeout(const Duration(seconds: 2));
+      } catch (_) {
+        rhythmReadSucceeded = false;
+      }
+      if (!_ref.mounted) throw StateError('Planner request was disposed.');
+      try {
+        selectedNote = await _ref
+            .read(selectedPlanningNoteProvider.future)
+            .timeout(const Duration(seconds: 2));
+      } catch (_) {
+        noteReadSucceeded = false;
+      }
+    }
+    if (!_ref.mounted) throw StateError('Planner request was disposed.');
     try {
       operatingReceipt = _ref.read(smartPlannerOperatingReceiptProvider);
     } on Object {
@@ -636,7 +944,7 @@ class SmartPlannerQueryController
       taskReadSucceeded = false;
     }
     try {
-      goals = _ref.read(domainGoalRepositoryProvider).getGoals();
+      goals = readAvailableGoals(_ref.read(domainGoalRepositoryProvider));
     } on Object {
       goalReadSucceeded = false;
     }
@@ -668,6 +976,11 @@ class SmartPlannerQueryController
       accountScopeId: accountScopeIdBefore,
       operatingReceipt: operatingReceipt,
       plannerMemories: plannerMemories,
+      savedContextDeclined: savedContextDeclined,
+      rhythms: rhythms,
+      rhythmReadSucceeded: rhythmReadSucceeded,
+      selectedNote: selectedNote,
+      noteReadSucceeded: noteReadSucceeded,
     );
   }
 
@@ -681,196 +994,9 @@ class SmartPlannerQueryController
     if (task.energyRequired >= 4 && energy < 0.68) {
       return PlannerOptionKind.minimum;
     }
-    if (evidence.focusTaskIsUrgent && base == PlannerOptionKind.minimum) {
-      return energy >= 0.45
-          ? PlannerOptionKind.bestFit
-          : PlannerOptionKind.minimum;
-    }
+    // Urgency changes which commitment we discuss, never the user's capacity.
+    // Preserve a smaller start selected for low energy or emotional load.
     return base;
-  }
-
-  static List<PlannerOption> _buildEvidenceAwareOptions({
-    required _PlannerTopic topic,
-    required _PlannerStrategy strategy,
-    required _EffortProfile effort,
-    required String subject,
-    required _PlannerEvidence evidence,
-  }) {
-    final TaskEntity? task = evidence.focusTask;
-    if (task != null) {
-      return _taskOptions(
-        task: task,
-        topic: topic,
-        effort: effort,
-        activeTaskCount: evidence.activeTasks.length,
-      );
-    }
-    final GoalEntity? goal = evidence.focusGoal;
-    if (goal != null) {
-      return _goalOptions(goal: goal, effort: effort);
-    }
-    return <PlannerOption>[
-      PlannerOption(
-        kind: PlannerOptionKind.minimum,
-        title: strategy.minimumTitle,
-        description: strategy.minimumAction(subject),
-        estimatedMinutes: effort.minimumMinutes,
-        tradeoff: topic == _PlannerTopic.recovery
-            ? 'This may delay one low-priority task, but it protects your energy right now.'
-            : 'Lowest activation cost; it creates traction but limited depth.',
-      ),
-      PlannerOption(
-        kind: PlannerOptionKind.bestFit,
-        title: strategy.bestFitTitle,
-        description: strategy.bestFitAction(subject),
-        estimatedMinutes: effort.bestFitMinutes,
-        tradeoff:
-            'Balances meaningful progress with the capacity you reported.',
-      ),
-      PlannerOption(
-        kind: PlannerOptionKind.stretch,
-        title: strategy.stretchTitle,
-        description: strategy.stretchAction(subject),
-        estimatedMinutes: effort.stretchMinutes,
-        tradeoff:
-            'Creates more progress now, with a higher energy and attention cost.',
-      ),
-    ];
-  }
-
-  static List<PlannerOption> _taskOptions({
-    required TaskEntity task,
-    required _PlannerTopic topic,
-    required _EffortProfile effort,
-    required int activeTaskCount,
-  }) {
-    final String title = _safeEvidenceTitle(task.title);
-    final int estimate = task.estimateOrDefault.inMinutes.clamp(5, 180);
-    final int minimumMinutes = math.min(effort.minimumMinutes, estimate);
-    final int bestFitMinutes = math.min(effort.bestFitMinutes, estimate);
-    final int stretchMinutes = math.min(
-      math.max(effort.stretchMinutes, bestFitMinutes),
-      math.max(estimate, bestFitMinutes),
-    );
-    if (topic == _PlannerTopic.recovery) {
-      return <PlannerOption>[
-        PlannerOption(
-          kind: PlannerOptionKind.minimum,
-          title: 'Reduce the saved task',
-          description:
-              'Reduce "$title" to one $minimumMinutes-minute setup step, then take a five-minute quiet break.',
-          estimatedMinutes: minimumMinutes,
-          tradeoff:
-              'Protects capacity, but the saved task will need another work block.',
-        ),
-        PlannerOption(
-          kind: PlannerOptionKind.bestFit,
-          title: 'Recover, then reassess',
-          description:
-              'Protect a $bestFitMinutes-minute recovery block, then decide what part of "$title" is still realistic today.',
-          estimatedMinutes: bestFitMinutes,
-          tradeoff:
-              'Preserves energy while keeping the saved commitment visible.',
-        ),
-        PlannerOption(
-          kind: PlannerOptionKind.stretch,
-          title: 'Reset today’s workload',
-          description:
-              'Review the $activeTaskCount active saved task(s), defer one that can safely wait, and reserve the next $stretchMinutes minutes for recovery and "$title".',
-          estimatedMinutes: stretchMinutes,
-          tradeoff:
-              'Creates a clearer day, but requires more planning attention now.',
-        ),
-      ];
-    }
-    return <PlannerOption>[
-      PlannerOption(
-        kind: PlannerOptionKind.minimum,
-        title: 'Start the saved task',
-        description:
-            'Open "$title" and complete its smallest visible step for $minimumMinutes minutes. Stop when the timer ends.',
-        estimatedMinutes: minimumMinutes,
-        tradeoff: 'Creates verified movement without finishing the whole task.',
-      ),
-      PlannerOption(
-        kind: PlannerOptionKind.bestFit,
-        title: 'Run one focused block',
-        description:
-            'Work only on "$title" for $bestFitMinutes minutes, then record the next unfinished step before stopping.',
-        estimatedMinutes: bestFitMinutes,
-        tradeoff:
-            'Balances progress on the saved task with the capacity you reported.',
-      ),
-      PlannerOption(
-        kind: PlannerOptionKind.stretch,
-        title: 'Push toward completion',
-        description:
-            'Give "$title" a $stretchMinutes-minute work cycle and finish it if the remaining work fits its saved estimate.',
-        estimatedMinutes: stretchMinutes,
-        tradeoff:
-            'May complete more of the saved task, with a higher energy cost.',
-      ),
-    ];
-  }
-
-  static List<PlannerOption> _goalOptions({
-    required GoalEntity goal,
-    required _EffortProfile effort,
-  }) {
-    final String title = _safeEvidenceTitle(goal.title);
-    return <PlannerOption>[
-      PlannerOption(
-        kind: PlannerOptionKind.minimum,
-        title: 'Name the next proof',
-        description:
-            'Write one visible result that would move saved goal "$title" forward, then choose its first action.',
-        estimatedMinutes: effort.minimumMinutes,
-        tradeoff: 'Clarifies progress without completing a full milestone.',
-      ),
-      PlannerOption(
-        kind: PlannerOptionKind.bestFit,
-        title: 'Advance one goal step',
-        description:
-            'Choose one concrete action for saved goal "$title" and work on it for ${effort.bestFitMinutes} minutes.',
-        estimatedMinutes: effort.bestFitMinutes,
-        tradeoff: 'Moves the saved goal while keeping today’s scope bounded.',
-      ),
-      PlannerOption(
-        kind: PlannerOptionKind.stretch,
-        title: 'Map the milestone chain',
-        description:
-            'Map the next three visible milestones for saved goal "$title", then begin milestone one.',
-        estimatedMinutes: effort.stretchMinutes,
-        tradeoff: 'Creates more structure now, with a higher attention cost.',
-      ),
-    ];
-  }
-
-  static String _groundedRecommendationReason(
-    PlannerOptionKind kind,
-    double? energy,
-    EmotionalState? emotion,
-    _PlannerEvidence evidence,
-  ) {
-    final String base = _recommendationReason(kind, energy, emotion);
-    final TaskEntity? task = evidence.focusTask;
-    if (task != null) {
-      return '$base It is grounded in saved task "${_safeEvidenceTitle(task.title)}" at priority ${task.priority}/5.';
-    }
-    final GoalEntity? goal = evidence.focusGoal;
-    if (goal != null) {
-      return '$base It is grounded in saved goal "${_safeEvidenceTitle(goal.title)}".';
-    }
-    final OperatingDecisionReceipt? receipt = evidence.operatingReceipt.focus;
-    if (receipt != null) {
-      return '$base It is grounded in the latest saved planning recommendation: ${_condense(receipt.rationale, maxLength: 140)}';
-    }
-    final _PlannerPersonContextSignal? personFocus =
-        evidence.personContext.planningFocus;
-    if (personFocus != null) {
-      return '$base It is grounded in a consented, fresh ${personFocus.label} you provided for Smart Planner; it is not an inferred trait or identity.';
-    }
-    return '$base No active saved task or goal matched this check-in.';
   }
 
   static String _safeEvidenceTitle(String value) {
@@ -925,11 +1051,13 @@ class SmartPlannerQueryController
   }) {
     final List<String> evidence = <String>[
       ...response.verifiedEvidence,
-      'Origin: deterministic on-device Planner V2.',
+      response.languageCode == 'es'
+          ? 'Origen: Planner V2 determinista en el dispositivo.'
+          : 'Origin: deterministic on-device Planner V2.',
     ];
     final AIRecommendation recommendation =
         AIRecommendation(
-          message: response.toAccessibleText(),
+          message: response.toConversationText(),
           reasoning: 'planner_v2_read_only_contract',
           processingMode: status == AssistantResponseStatus.fallback
               ? AIProcessingMode.onDeviceFallback
@@ -1000,6 +1128,7 @@ class SmartPlannerQueryController
     required EmotionalSafetyAssessment assessment,
     required String? supportivePauseReason,
     required String? supportiveQuestion,
+    String? languageCode,
   }) {
     final AssistantRequestEnvelope request = _requestContract(
       kind: kind,
@@ -1022,6 +1151,7 @@ class SmartPlannerQueryController
       evidence: const _PlannerEvidence.empty(),
       supportivePauseReason: supportivePauseReason,
       supportiveQuestion: supportiveQuestion,
+      languageCode: languageCode,
     );
     return _resultFromResponse(
       request: request,
@@ -1082,37 +1212,9 @@ class SmartPlannerQueryController
     return PlannerOptionKind.bestFit;
   }
 
-  static String _recommendationReason(
-    PlannerOptionKind kind,
-    double? energy,
-    EmotionalState? emotion,
-  ) {
-    if (energy == null && emotion == null) {
-      return 'No current capacity or emotional check-in was used, so the balanced option remains primary.';
-    }
-    final String energyCopy = energy == null
-        ? 'No current energy was provided'
-        : '${(energy * 100).round()}% energy was reported';
-    final String emotionCopy = emotion == null
-        ? 'no emotional state was used'
-        : '${_emotionLabel(emotion)} was selected';
-    return switch (kind) {
-      PlannerOptionKind.minimum =>
-        '$energyCopy and $emotionCopy, favoring a smaller reversible start.',
-      PlannerOptionKind.bestFit =>
-        '$energyCopy and $emotionCopy. The balanced option avoids assuming extra capacity.',
-      PlannerOptionKind.stretch =>
-        '$energyCopy and $emotionCopy, supporting a deeper option while smaller options remain available.',
-    };
-  }
-
   static _EffortProfile _effortFor(double energy) {
-    if (energy < 0.42) {
-      return const _EffortProfile(3, 10, 20);
-    }
-    if (energy < 0.75) {
-      return const _EffortProfile(5, 20, 40);
-    }
+    if (energy < 0.42) return const _EffortProfile(3, 10, 20);
+    if (energy < 0.75) return const _EffortProfile(5, 20, 40);
     return const _EffortProfile(5, 30, 60);
   }
 
@@ -1128,13 +1230,13 @@ class SmartPlannerQueryController
     EmotionalState.anxious =>
       'Favored a bounded first move because you selected anxious.',
     EmotionalState.scattered =>
-      'Reduced choice load because you selected scattered.',
+      'Recommended the smallest option because you selected scattered.',
     EmotionalState.negative =>
       'Kept the recommendation small and reversible because you selected negative.',
     EmotionalState.energized =>
-      'Made a deeper option available because you selected energized.',
+      'Considered energized alongside your reported energy when choosing an option.',
     EmotionalState.engaged =>
-      'Allowed a longer focus cycle because you selected engaged.',
+      'Considered engaged alongside your reported energy when choosing an option.',
     EmotionalState.calm => 'Preserved a steady pace because you selected calm.',
     EmotionalState.positive =>
       'Kept momentum available without assuming extra capacity because you selected positive.',
@@ -1145,8 +1247,17 @@ class SmartPlannerQueryController
   static String _emotionLabel(EmotionalState emotion) => emotion.name;
 
   static _PlannerTopic _detectTopic(String input) {
-    final String value = input.toLowerCase();
-    bool hasAny(List<String> terms) => terms.any(value.contains);
+    final String value = input
+        .split(RegExp(r'[.!?;\n]+|\bbut\b|\bpero\b', caseSensitive: false))
+        .where((clause) => !_negatedPlannerClause(clause))
+        .join(' ')
+        .toLowerCase();
+    bool hasAny(List<String> terms) => terms.any(
+      (term) => RegExp(
+        '\\b${RegExp.escape(term)}(?:ed|ing|s)?\\b',
+        caseSensitive: false,
+      ).hasMatch(value),
+    );
     if (hasAny(<String>['overwhelm', 'overloaded', 'too much', 'burnout'])) {
       return _PlannerTopic.overwhelm;
     }
@@ -1176,119 +1287,6 @@ class SmartPlannerQueryController
     }
     return _PlannerTopic.general;
   }
-
-  static _PlannerStrategy _strategyFor(_PlannerTopic topic) => switch (topic) {
-    _PlannerTopic.overwhelm => _PlannerStrategy(
-      minimumTitle: 'Shrink the active field',
-      bestFitTitle: 'Triage then move',
-      stretchTitle: 'Reset the whole workload',
-      mattersMost: 'Reducing active demands before adding more effort.',
-      minimumAction: (String subject) =>
-          'Write down the single result that would make $subject feel lighter, then stop.',
-      bestFitAction: (String subject) =>
-          'List the active demands in $subject, defer two, and spend one bounded block on the remaining priority.',
-      stretchAction: (String subject) =>
-          'Map every active demand in $subject, assign defer, delegate, or do, then complete the first do item.',
-      question: 'Which demand has the largest consequence if it waits?',
-    ),
-    _PlannerTopic.habit => _PlannerStrategy(
-      minimumTitle: 'Prove the smallest repeat',
-      bestFitTitle: 'Run one complete repetition',
-      stretchTitle: 'Design the repeatable system',
-      mattersMost:
-          'Making the behavior easy enough to repeat, not impressive once.',
-      minimumAction: (String subject) =>
-          'Do the two-minute version of $subject and mark the stopping point.',
-      bestFitAction: (String subject) =>
-          'Complete one realistic repetition of $subject and identify the cue that started it.',
-      stretchAction: (String subject) =>
-          'Complete $subject, then define its cue, minimum version, and recovery rule for a missed day.',
-      question: 'What existing moment could reliably cue this behavior?',
-    ),
-    _PlannerTopic.recovery => _PlannerStrategy(
-      minimumTitle: 'Protect your energy',
-      bestFitTitle: 'Protect one recovery block',
-      stretchTitle: 'Rebuild the day around recovery',
-      mattersMost: 'Protecting capacity before demanding performance.',
-      minimumAction: (String _) =>
-          'Choose one nonessential task to postpone. Then take a five-minute quiet break.',
-      bestFitAction: (String subject) =>
-          'Create one protected recovery block, then reassess what part of $subject is still realistic.',
-      stretchAction: (String subject) =>
-          'Re-plan the remaining day around recovery, essential commitments, food, hydration, and sleep opportunity.',
-      question: 'What commitment can be reduced without creating real harm?',
-    ),
-    _PlannerTopic.wellbeing => _PlannerStrategy(
-      minimumTitle: 'Create one stable edge',
-      bestFitTitle: 'Name, bound, and act',
-      stretchTitle: 'Build a support plan',
-      mattersMost:
-          'Creating safety and clarity without treating planning as diagnosis or care.',
-      minimumAction: (String subject) =>
-          'Name the immediate concern in $subject and choose one action fully within your control.',
-      bestFitAction: (String subject) =>
-          'Separate facts, fears, and controllable actions in $subject, then complete the smallest controllable action.',
-      stretchAction: (String subject) =>
-          'Map controllable actions, support people, and professional help if needed, then take the first support step.',
-      question:
-          'What is true right now, separate from what you fear might happen?',
-    ),
-    _PlannerTopic.goal => _PlannerStrategy(
-      minimumTitle: 'Define the next visible proof',
-      bestFitTitle: 'Advance one milestone',
-      stretchTitle: 'Map the milestone chain',
-      mattersMost: 'Turning the desired outcome into observable progress.',
-      minimumAction: (String subject) =>
-          'Write one visible result that would prove $subject moved forward.',
-      bestFitAction: (String subject) =>
-          'Choose the nearest milestone for $subject and complete its first concrete action.',
-      stretchAction: (String subject) =>
-          'Map the next three milestones for $subject, identify dependencies, and start milestone one.',
-      question: 'What result would count as real progress by the end of today?',
-    ),
-    _PlannerTopic.focus => _PlannerStrategy(
-      minimumTitle: 'Expose the first move',
-      bestFitTitle: 'Run one protected focus block',
-      stretchTitle: 'Complete a full work cycle',
-      mattersMost:
-          'Removing ambiguity from the first action and protecting attention.',
-      minimumAction: (String subject) =>
-          'Open the material for $subject and write the first concrete action.',
-      bestFitAction: (String subject) =>
-          'Silence interruptions and complete one bounded focus block on $subject.',
-      stretchAction: (String subject) =>
-          'Complete a focus block on $subject, review the result, and finish the next linked action.',
-      question: 'What exact artifact should exist when this work block ends?',
-    ),
-    _PlannerTopic.health => _PlannerStrategy(
-      minimumTitle: 'Choose one low-risk behavior',
-      bestFitTitle: 'Run one observable health action',
-      stretchTitle: 'Prepare a sustainable health plan',
-      mattersMost:
-          'Choosing a safe, observable behavior without making a diagnosis.',
-      minimumAction: (String subject) =>
-          'Choose one low-risk action related to $subject that fits known medical guidance for you.',
-      bestFitAction: (String subject) =>
-          'Complete one measurable action for $subject and note the result for your own review.',
-      stretchAction: (String subject) =>
-          'Define a repeatable action for $subject and list any medical questions to verify with a qualified professional.',
-      question:
-          'Are there medical restrictions or professional instructions this plan must respect?',
-    ),
-    _PlannerTopic.general => _PlannerStrategy(
-      minimumTitle: 'Name the next move',
-      bestFitTitle: 'Complete one useful cycle',
-      stretchTitle: 'Build momentum with review',
-      mattersMost: 'Converting uncertainty into a specific, reversible action.',
-      minimumAction: (String subject) =>
-          'Write the smallest visible action for $subject and prepare what it needs.',
-      bestFitAction: (String subject) =>
-          'Complete one bounded action cycle for $subject, then stop and review.',
-      stretchAction: (String subject) =>
-          'Complete two linked action cycles for $subject and capture the next decision.',
-      question: 'What outcome matters most right now?',
-    ),
-  };
 
   static String _condense(String value, {required int maxLength}) {
     final String singleLine = value.replaceAll(RegExp(r'\s+'), ' ').trim();

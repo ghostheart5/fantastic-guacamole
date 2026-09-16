@@ -103,9 +103,11 @@ sanitized from Logcat. Raw Logcat is removed unless `-KeepRawLogcat` is explicit
 requested. Native stderr remains in diagnostic logs but is excluded from parsed
 device stdout, preventing PowerShell progress XML from corrupting device metadata.
 
-The hosted `.github/workflows/maestro-runtime.yml` still selects the five-flow
-`qa-smoke` profile on its pinned API 35 emulator. A hosted smoke pass does not mean
-the eleven-flow local journey suite or real-account/store journeys executed.
+The hosted `.github/workflows/maestro-runtime.yml` defaults to the five-flow
+`qa-smoke` profile on its pinned API 35 emulator. A manual dispatch can select
+`suite=qa-journeys` for all eleven flows. The manifest must contain the selected
+suite's exact flow count. A hosted QA pass does not establish real-account/store
+journeys on the Play-delivered build.
 
 ## Commerce and account operations
 

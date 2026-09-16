@@ -13,7 +13,8 @@ abstract interface class IExactNoteSnapshotRepository {
   Future<void> replaceNoteSnapshot(List<NoteEntity> notes);
 }
 
-class NoteRepository implements INoteRepository, IExactNoteSnapshotRepository {
+class NoteRepository
+    implements INoteRepository, NoteReadHealth, IExactNoteSnapshotRepository {
   NoteRepository(
     this._store, {
     this.scope,
@@ -32,6 +33,7 @@ class NoteRepository implements INoteRepository, IExactNoteSnapshotRepository {
   static const int _maxCorruptBackups = 3;
   bool _lastReadCorrupted = false;
 
+  @override
   bool get lastReadCorrupted => _lastReadCorrupted;
 
   @override

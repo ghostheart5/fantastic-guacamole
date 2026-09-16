@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/data/repositories/habit_occurrence_repositor
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_decision_outcome_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/state/services/habit_occurrence_coordinator.dart';
@@ -122,7 +123,10 @@ void main() {
         clock: () => DateTime.utc(2026, 8, 30, 20),
       );
 
-      await expectLater(coordinator.complete('habit-1'), throwsStateError);
+      final HabitOccurrenceResult initiallyRecorded = await coordinator
+          .complete('habit-1');
+      expect(initiallyRecorded.mutation, HabitOccurrenceMutation.applied);
+      expect(initiallyRecorded.learningPending, isTrue);
       expect(await occurrences.load(), hasLength(1));
       expect(outcomes.values, isEmpty);
 
@@ -137,6 +141,73 @@ void main() {
       expect(replay.mutation, HabitOccurrenceMutation.idempotent);
       expect(outcomes.values, hasLength(1));
       expect(outcomes.recordCalls, 2);
+    },
+  );
+
+  test(
+    'current rhythm outcome can be corrected with a history receipt',
+    () async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'account-a',
+      );
+      final occurrences = HabitOccurrenceRepository(_MemoryPrefs(), scope);
+      final outcomes = _OutcomeRepository();
+      final coordinator = HabitOccurrenceCoordinator(
+        scope: scope,
+        habitRepository: _HabitRepository(<HabitEntity>[
+          HabitEntity(
+            id: 'habit-1',
+            title: 'Evening reset',
+            createdAt: DateTime.utc(2026, 8, 1),
+            cadence: HabitCadence.daily,
+          ),
+        ]),
+        occurrenceRepository: occurrences,
+        outcomeRepository: outcomes,
+        clock: () => DateTime.utc(2026, 8, 30, 20),
+      );
+      await coordinator.complete('habit-1');
+      final corrected = await coordinator.correct(
+        'habit-1',
+        HabitOccurrenceOutcome.skipped,
+      );
+      expect(corrected.occurrence.outcome, HabitOccurrenceOutcome.skipped);
+      expect(await occurrences.load(), hasLength(1));
+      expect(
+        outcomes.values.map((value) => value.kind),
+        containsAll(<DecisionOutcomeKind>[
+          DecisionOutcomeKind.completed,
+          DecisionOutcomeKind.corrected,
+        ]),
+      );
+    },
+  );
+
+  test(
+    'an earlier cadence period can be recorded without altering today',
+    () async {
+      final scope = AccountStorageScope.authenticated('account-a');
+      final occurrences = HabitOccurrenceRepository(_MemoryPrefs(), scope);
+      final coordinator = HabitOccurrenceCoordinator(
+        scope: scope,
+        habitRepository: _HabitRepository(<HabitEntity>[
+          HabitEntity(
+            id: 'habit-1',
+            title: 'Reset',
+            createdAt: DateTime.utc(2026, 8, 1),
+            cadence: HabitCadence.daily,
+          ),
+        ]),
+        occurrenceRepository: occurrences,
+        outcomeRepository: _OutcomeRepository(),
+        learningPaused: () async => true,
+        clock: () => DateTime.utc(2026, 8, 30, 20),
+      );
+      await coordinator.completeAt('habit-1', DateTime.utc(2026, 8, 29, 12));
+      await coordinator.skip('habit-1');
+      final stored = await occurrences.load();
+      expect(stored, hasLength(2));
+      expect(stored.map((value) => value.occurrenceKey).toSet(), hasLength(2));
     },
   );
 }

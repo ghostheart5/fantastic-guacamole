@@ -145,8 +145,8 @@ Future<T?> showPermissionRationaleSheet<T>({
                 TemporalStatusRow(
                   icon: Icons.shield_outlined,
                   text: isSpanish
-                      ? 'Android te pedirá confirmación a continuación.'
-                      : 'Android will ask you to confirm next.',
+                      ? 'Android también puede pedirte permiso si aún no lo has concedido.'
+                      : 'Android may also request permission if you have not granted it.',
                   color: AppColors.neonCyan,
                 ),
               ],

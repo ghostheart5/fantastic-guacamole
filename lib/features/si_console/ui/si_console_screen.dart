@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -9,6 +10,7 @@ import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart
 import 'package:fantastic_guacamole/domain/strategic/si_console_shortcut_registry.dart';
 import 'package:fantastic_guacamole/domain/value_objects/ai_content_report_reason.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/features/permissions/voice_input_consent.dart';
 import 'package:fantastic_guacamole/state/controllers/si_console_query_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
@@ -64,8 +66,8 @@ final class _SIConsoleSafetyCopy {
   String get reportTitle =>
       isSpanish ? 'Reportar respuesta' : 'Report response';
   String get reportDisclosure => isSpanish
-      ? 'Solo se enviarán la respuesta seleccionada y el motivo para una revisión de seguridad. Tu mensaje y el historial de la conversación no se incluyen.'
-      : 'Only the selected response and your reason are sent for safety review. Your prompt and conversation history are not included.';
+      ? 'Envía esta respuesta y el motivo a ChronoSpark para una revisión de seguridad. La respuesta puede contener detalles de tus tareas, metas, notas o conversación. No adjuntamos el resto de la conversación. El informe se vincula a tu cuenta y se almacena para su revisión.'
+      : 'Send this selected response and your reason to ChronoSpark for safety review. The response may contain details from your tasks, goals, notes or conversation. We do not attach the rest of your conversation. The report is linked to your account and stored for review.';
   String get reasonLabel => isSpanish ? 'Motivo' : 'Reason';
   String reportReason(AiContentReportReason reason) => switch (reason) {
     AiContentReportReason.unsafe =>
@@ -612,7 +614,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       );
       final SIV2Response response = await ref
           .read(siV2QueryServiceProvider)
-          .analyze(query);
+          .analyze(query)
+          .timeout(const Duration(seconds: 25));
       if (!mounted) return;
       final String currentPersonContextRevision = ref.read(
         siV2PersonContextRevisionProvider,
@@ -641,8 +644,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 )
                 ? 'cautious'
                 : 'focused',
-            rationale:
-                'SI V2 read-only evidence revision ${response.snapshotRevision.substring(0, 16)}',
+            rationale: ChronoSparkLocalizations.of(context).isSpanish
+                ? 'Respuesta local de solo lectura basada en los datos seleccionados.'
+                : 'Read-only on-device response based on the selected records.',
             processingMode: AIProcessingMode.onDevice,
             siV2: response,
           ),

@@ -20,6 +20,9 @@ import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_occurrence_entity.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordinator_provider.dart';
 import 'package:hive/hive.dart';
 
 void main() {
@@ -43,6 +46,57 @@ void main() {
       await tempDirectory.delete(recursive: true);
     }
   });
+
+  test(
+    'account gate preparation reopens persisted scoped goals after restart',
+    () async {
+      final scope = AccountStorageScope.authenticated('cold-owner');
+      final storage = _scopedStorage(
+        HiveBoxes.goals,
+        scope,
+        hive,
+        LegacyScopeOwnership.provenNotOwned,
+      );
+      await GoalRepository(storage, scope: scope).saveGoal(_goal('preserved'));
+      await Hive.close();
+      final container = ProviderContainer(
+        overrides: [hiveStoreProvider.overrideWithValue(hive)],
+      );
+      addTearDown(container.dispose);
+      await container.read(accountGoalStoragePreparationProvider)(
+        scope,
+        LegacyScopeOwnership.provenNotOwned,
+      );
+      final reopened = GoalRepository(
+        _scopedStorage(
+          HiveBoxes.goals,
+          scope,
+          hive,
+          LegacyScopeOwnership.provenNotOwned,
+        ),
+        scope: scope,
+      );
+      expect(reopened.getGoals().single.id, 'preserved');
+      final other = AccountStorageScope.authenticated('other-owner');
+      await container.read(accountGoalStoragePreparationProvider)(
+        other,
+        LegacyScopeOwnership.provenNotOwned,
+      );
+      expect(
+        GoalRepository(
+          _scopedStorage(
+            HiveBoxes.goals,
+            other,
+            hive,
+            LegacyScopeOwnership.provenNotOwned,
+          ),
+          scope: other,
+        ).getGoals(),
+        isEmpty,
+      );
+      expect(reopened.getGoals().single.id, 'preserved');
+    },
+  );
 
   test(
     'account A migration preserves legacy and account B stays empty',

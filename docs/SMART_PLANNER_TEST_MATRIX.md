@@ -1,5 +1,7 @@
 # Smart Planner Test Matrix
 
+> Historical July matrix, retained as prior evidence. Do not require automatic conversation persistence or use these old topic/shape checks to approve Planner V2 response quality. Use [Smart Planner response contract](SMART_PLANNER_RESPONSE_CONTRACT.md) and the behavioral acceptance tests for the current contract.
+
 Last updated: 2026-07-11
 Purpose: regression guardrail for Smart Planner intent routing, response shape, and fallback behavior.
 

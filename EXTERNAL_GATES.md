@@ -1,6 +1,29 @@
 # ChronoSpark External Gates
 
-## Current evidence notice - 2026-09-04
+## Current candidate evidence - 2026-09-12
+
+The [3032 release validation report](docs/engineering/FINAL_3032_RELEASE_VALIDATION_20260911.md)
+records the current signed artifact, independently checked automated results,
+retained failed attempts, internal-testing state, device evidence and outstanding
+public-release requirements. Use that report for candidate status. The older
+checkpoints and rows below retain their original evidence boundaries; they do not
+replace current-build validation or approve production publication.
+
+The [September 12 installed-device checkpoint](docs/engineering/INSTALLED_3032_VALIDATION_20260912.md)
+closes the Moto update and named 3032 repair-validation checks, including live
+credit spending and duplicate-charge protection. Twenty store screenshot
+candidates are packaged. Separate reviewer access, qualified review dispositions,
+public policy/Data safety/paid-feature reconciliation and production access remain
+open; production publication is still prohibited.
+
+The [blocker closeout](docs/engineering/BLOCKER_CLOSEOUT_3032_20260912.md) records
+the canonical privacy correction and its generated copies in draft PR 103, Console-accepted current-build
+XR screenshots saved as a draft, fresh reviewer entitlement readback, and the
+[current qualified-review packet](docs/engineering/QUALIFIED_REVIEW_PACKET_3032_20260912.md).
+Reviewer setup is waiting at Google services terms; public-page publication is
+waiting on the earlier owner hold; neither has been marked passed.
+
+## Historical evidence notice - 2026-09-04
 
 Newer closeout evidence is in the [Phase 2 checkpoint](docs/engineering/PHASE_2_BACKEND_HARDENING_20260904.md):
 the tested deletion functions and cron migration were deployed and independently
@@ -56,7 +79,7 @@ earlier checkpoints and cannot override newer evidence.
 | Monitoring/alerting | Operations owner | GitHub, Supabase, Firebase monitoring | Alert routes and test notification | Failures reach an owner | Silent outages | BLOCKED_EXTERNAL |
 | Reconciliation health | Billing/backend owner | Scheduled reconciliation workflow | Recent successful runs and pending-count evidence | No unmonitored deferred work | Entitlement/deletion drift | BLOCKED_EXTERNAL |
 | Telemetry retention | Privacy owner | Firebase Analytics/Crashlytics retention | Exported retention and consent behavior | Matches policy and minimization | Privacy breach | BLOCKED_EXTERNAL |
-| Anthropic DPA/retention | Legal/privacy owner | Provider contract and console | Signed DPA and actual retention/ZDR evidence | Matches disclosure | Undisclosed data retention | BLOCKED_EXTERNAL |
+| Anthropic DPA/retention | Legal/privacy owner | Provider contract and console | Applicable DPA (including incorporation into accepted Commercial Terms), actual API organization retention settings and any negotiated/ZDR exception | Matches disclosure | Undisclosed data retention | CONFIGURATION_VERIFIED 2026-09-11:30-day default retention, no ZDR, feedback off, global inference in the recorded organization; final public disclosure reconciliation remains open |
 | Planner explanation deployment and scrub | Backend + privacy owner | Fresh Supabase project and authorized production project | Migration replay, database lint, deployed function/config readback, one quoted cancellation, one explicitly authorized real-provider test, one refunded failure, and observed content scrub | No model call before all gates; zero charge on cancel/failure; raw replay content removed within the disclosed target; local fixtures are not live-provider proof | Data retention, double charge, or source/deployment drift | BLOCKED_EXTERNAL |
 | Privacy/legal review | Qualified reviewer | Final app, policies, data map | Signed dated review | No unresolved launch blocker | Regulatory and trust risk | BLOCKED_EXTERNAL |
 | Mental-health-safety review | Qualified reviewer | Final distress/crisis experience and evals | Signed dated review | Safe bounded behavior | Harmful response | BLOCKED_EXTERNAL |
@@ -67,6 +90,12 @@ earlier checkpoints and cannot override newer evidence.
 | First-time human UAT | Product research owner | No-coaching UAT protocol | Participant results and retest | All mandatory tasks pass | Adoption/trust failure | BLOCKED_EXTERNAL |
 | Production credentials/signing | Release owner | Protected release environment | Signed artifact and provenance | Exact final SHA/artifact | Cannot release safely | BLOCKED_EXTERNAL |
 | Google Play publication | Release owner | Google Play Console | Explicit later authorization | Controlled rollout only | Unauthorized publication | BLOCKED_EXTERNAL |
+
+Anthropic DPA wording above was reconciled on September 11 with its
+[official DPA guidance](https://support.claude.com/en/articles/7996862-how-do-i-view-and-sign-your-data-processing-addendum-dpa).
+The existing provider organization and its Default workspace were then verified
+in the authenticated Edge session; see the [four-gate checkpoint](docs/engineering/FINAL_FOUR_GATES_20260911.md).
+This does not waive the separate qualified safety review.
 
 ### App Check scope - 2026-09-04
 

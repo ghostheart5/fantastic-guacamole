@@ -52,22 +52,26 @@ final class SIV2ReadGateway {
     PersonContextView? personContextView;
 
     try {
-      taskEntities = await readTasks();
+      taskEntities = await readTasks().timeout(const Duration(seconds: 3));
     } on Object {
       unavailable.add(SIV2Source.tasks);
     }
     try {
-      goalEntities = await readGoals();
+      goalEntities = await readGoals().timeout(const Duration(seconds: 3));
     } on Object {
       unavailable.add(SIV2Source.goals);
     }
     try {
-      milestoneEntities = await readMilestones();
+      milestoneEntities = await readMilestones().timeout(
+        const Duration(seconds: 3),
+      );
     } on Object {
       unavailable.add(SIV2Source.milestones);
     }
     try {
-      timelineEntities = await readTimeline();
+      timelineEntities = await readTimeline().timeout(
+        const Duration(seconds: 3),
+      );
     } on Object {
       unavailable.add(SIV2Source.timeline);
     }
@@ -260,6 +264,10 @@ Set<PersonContextKind> _relevantUnknownKinds(String decisionText) {
         words.contains('first'))
       PersonContextKind.currentPriority,
     if (words.contains('time') ||
+        RegExp(
+          r'\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty|forty|sixty|an?|half)[ -]*(?:minutes?|mins?|hours?|hrs?)\b',
+          caseSensitive: false,
+        ).hasMatch(decisionText) ||
         words.contains('capacity') ||
         words.contains('workload') ||
         words.contains('schedule'))

@@ -44,16 +44,19 @@ export async function authenticatedUserId(
     return null;
   }
   const value = await response.json();
-  return typeof value?.id === "string" ? value.id : null;
+  return typeof value?.id === "string" && value.is_anonymous !== true
+    ? value.id
+    : null;
 }
 
 export async function serviceRpc(
   config: BillingBackendConfig,
   name: string,
   body: JsonObject,
+  fetcher: typeof fetch = fetch,
 ): Promise<JsonObject | null> {
   if (!config.supabaseUrl || !config.secretKey) return null;
-  const response = await fetch(
+  const response = await fetcher(
     `${config.supabaseUrl}/rest/v1/rpc/${encodeURIComponent(name)}`,
     {
       method: "POST",

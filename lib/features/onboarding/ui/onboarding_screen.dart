@@ -456,15 +456,9 @@ class _SlideView extends StatelessWidget {
                               slide.iconColor.withValues(alpha: 0.8),
                             ],
                           ).createShader(bounds),
-                          child: Text(
-                            slide.title,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 40,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0,
-                              height: 1.0,
-                            ),
+                          child: _WelcomeTitle(
+                            title: slide.title,
+                            fontSize: 40,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -571,16 +565,7 @@ class _SlideView extends StatelessWidget {
                     slide.iconColor.withValues(alpha: 0.8),
                   ],
                 ).createShader(bounds),
-                child: Text(
-                  slide.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 36,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0,
-                    height: 1.0,
-                  ),
-                ),
+                child: _WelcomeTitle(title: slide.title, fontSize: 36),
               ),
               const SizedBox(height: 6),
               Text(
@@ -621,6 +606,52 @@ class _SlideView extends StatelessWidget {
 
         return SafeArea(
           child: SingleChildScrollView(padding: padding, child: content),
+        );
+      },
+    );
+  }
+}
+
+/// Keep the wordmark intact or break at its two words, never an orphan letter.
+/// Large text retains its scaling until the longest word reaches the available
+/// width; body copy and controls continue to use the user's full text scale.
+class _WelcomeTitle extends StatelessWidget {
+  const _WelcomeTitle({required this.title, required this.fontSize});
+
+  final String title;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextStyle style = DefaultTextStyle.of(context).style.merge(
+      TextStyle(
+        color: Colors.white,
+        fontSize: fontSize,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0,
+        height: 1.0,
+      ),
+    );
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final TextPainter measurement = TextPainter(
+          text: TextSpan(text: title, style: style),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout();
+        final bool splitBrand =
+            title == 'CHRONOSPARK' && measurement.width > constraints.maxWidth;
+        measurement.dispose();
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            splitBrand ? 'CHRONO\nSPARK' : title,
+            key: const Key('onboarding-brand-title'),
+            semanticsLabel: title,
+            softWrap: false,
+            style: style,
+          ),
         );
       },
     );

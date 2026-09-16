@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_memory_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/memory_governance_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -36,6 +37,13 @@ final memoryGovernanceControllerProvider = Provider<MemoryGovernanceController>(
 final memoriesProvider = NotifierProvider<MemoriesNotifier, List<MemoryEntity>>(
   MemoriesNotifier.new,
 );
+
+final memoryReadCorruptedProvider = Provider<bool>((Ref ref) {
+  ref.watch(memoriesProvider);
+  final repository = ref.watch(domainMemoryRepositoryProvider);
+  return repository is MemoryReadHealth &&
+      (repository as MemoryReadHealth).lastReadCorrupted;
+});
 
 /// Assistant recall is exact-surface. SI returns no durable interpretive
 /// memory by policy even if a malformed record exists in storage.

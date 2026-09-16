@@ -92,8 +92,14 @@ class SIEngine {
         mood: previousMood ?? 'neutral',
         task: task,
         history: history,
-        energy: 1 - input.latent.frustration,
-        fatigue: input.latent.hesitation,
+        energy: _doubleValue(
+          input.metadata['energy'],
+          fallback: 1 - input.latent.frustration,
+        ),
+        fatigue: _doubleValue(
+          input.metadata['fatigue'],
+          fallback: input.latent.hesitation,
+        ),
         completed: _intValue(input.metadata['completed']),
         skipped: _intValue(input.metadata['skipped']),
       );
@@ -269,6 +275,9 @@ class SIEngine {
   }
 
   int _intValue(Object? value) => value is num ? value.toInt() : 0;
+
+  double _doubleValue(Object? value, {required double fallback}) =>
+      value is num ? value.toDouble().clamp(0.0, 1.0) : fallback;
 
   SIResponse _shapeForContext(SIInputPacket input, SIResponse response) {
     final String mode = input.context['mode']?.toString() ?? '';

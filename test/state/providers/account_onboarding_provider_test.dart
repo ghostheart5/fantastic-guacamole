@@ -9,6 +9,116 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test(
+    'same-account refresh preserves completed onboarding without loading',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final scope = NotifierProvider<_ScopeNotifier, AccountStorageScope>(
+        _ScopeNotifier.new,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          accountStorageScopeProvider.overrideWith((ref) => ref.watch(scope)),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.ambiguous,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(accountOnboardingCompleteProvider.future);
+      await container
+          .read(accountOnboardingCompleteProvider.notifier)
+          .complete();
+      final observed = <AsyncValue<bool>>[];
+      container.listen(
+        accountOnboardingCompleteProvider,
+        (_, next) => observed.add(next),
+      );
+      container
+          .read(scope.notifier)
+          .set(AccountStorageScope.authenticated('refresh-user'));
+      expect(
+        container.read(accountOnboardingCompleteProvider).asData?.value,
+        isTrue,
+      );
+      await container.pump();
+      expect(observed.any((value) => value.isLoading), isFalse);
+
+      container
+          .read(scope.notifier)
+          .set(AccountStorageScope.authenticated('different-user'));
+      expect(
+        container.read(accountOnboardingCompleteProvider).asData?.value,
+        isNot(true),
+      );
+      expect(
+        await container.read(accountOnboardingCompleteProvider.future),
+        isFalse,
+      );
+      container
+          .read(scope.notifier)
+          .set(AccountStorageScope.authenticated('refresh-user'));
+      expect(
+        container.read(accountOnboardingCompleteProvider).asData?.value,
+        isTrue,
+        reason:
+            'Returning to a completed account must not briefly reopen setup.',
+      );
+      expect(
+        await container.read(accountOnboardingCompleteProvider.future),
+        isTrue,
+      );
+      container.read(scope.notifier).set(const AccountStorageScope.unsafe());
+      expect(
+        container.read(accountOnboardingCompleteProvider).asData?.value,
+        isNot(true),
+      );
+      expect(
+        await container.read(accountOnboardingCompleteProvider.future),
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'stored completion survives legacy-ownership refresh without loading',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final ownership =
+          NotifierProvider<_OwnershipNotifier, LegacyScopeOwnership>(
+            _OwnershipNotifier.new,
+          );
+      final container = ProviderContainer(
+        overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('completed-account'),
+          ),
+          accountLegacyOwnershipProvider.overrideWith(
+            (ref) => ref.watch(ownership),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(accountOnboardingCompleteProvider.future);
+      await container
+          .read(accountOnboardingCompleteProvider.notifier)
+          .complete();
+      for (final value in LegacyScopeOwnership.values) {
+        container.read(ownership.notifier).set(value);
+        expect(
+          container.read(accountOnboardingCompleteProvider).asData?.value,
+          isTrue,
+        );
+      }
+      await container.read(accountOnboardingCompleteProvider.notifier).reset();
+      container.read(ownership.notifier).set(LegacyScopeOwnership.provenOwned);
+      expect(
+        container.read(accountOnboardingCompleteProvider).asData?.value,
+        isFalse,
+      );
+    },
+  );
+
+  test(
     'legacy device completion is read-only for only the proven owner',
     () async {
       SharedPreferences.setMockInitialValues(<String, Object>{
@@ -76,4 +186,19 @@ void main() {
     await container.read(accountOnboardingCompleteProvider.notifier).complete();
     expect(container.read(accountOnboardingCompleteProvider).value, isTrue);
   });
+}
+
+class _ScopeNotifier extends Notifier<AccountStorageScope> {
+  @override
+  AccountStorageScope build() =>
+      AccountStorageScope.authenticated('refresh-user');
+
+  void set(AccountStorageScope scope) => state = scope;
+}
+
+class _OwnershipNotifier extends Notifier<LegacyScopeOwnership> {
+  @override
+  LegacyScopeOwnership build() => LegacyScopeOwnership.ambiguous;
+
+  void set(LegacyScopeOwnership value) => state = value;
 }

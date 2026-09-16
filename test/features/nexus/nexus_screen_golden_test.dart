@@ -6,10 +6,12 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
+import 'package:fantastic_guacamole/domain/usecases/apply_learning_feedback.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
@@ -23,6 +25,7 @@ import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/nexus_decision_provider.dart';
+import 'package:fantastic_guacamole/state/providers/nexus_vitals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_decision_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
@@ -46,11 +49,14 @@ void main() {
     required double width,
     MockAuthService? authService,
     List<Task>? tasks,
+    List<GoalEntity>? goals,
+    List<NoteEntity> notes = const [],
     List<TimelineEventEntity>? timeline,
     bool observedVitals = true,
     NexusDecisionModel? decisionModel,
     Locale locale = const Locale('en'),
     List<DecisionOutcomeKind>? recordedDecisionOutcomes,
+    TimeBlock? recommendationBlock,
   }) async {
     tester.view.physicalSize = Size(width, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -59,6 +65,12 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       retry: (int retryCount, Object error) => null,
       overrides: [
+        if (recommendationBlock != null) ...[
+          nexusTimeBlocksProvider.overrideWithValue(
+            AsyncData([recommendationBlock]),
+          ),
+          nextNexusTimeBlockProvider.overrideWithValue(recommendationBlock),
+        ],
         if (authService != null)
           authServiceProvider.overrideWithValue(authService),
         accountStorageScopeProvider.overrideWithValue(
@@ -73,15 +85,23 @@ void main() {
           () => _TestSIStateController(observed: observedVitals),
         ),
         trajectorySummaryProvider.overrideWithValue(_activeTrajectory),
+        nexusTrajectoryVitalsProvider.overrideWithValue(
+          const NexusTrajectoryVitals(
+            momentumLabel: 'STEADY',
+            momentumPercent: 50,
+            pressurePercent: 10,
+            activeCount: 2,
+          ),
+        ),
         goalsProvider.overrideWith(
-          () => _StaticGoalsNotifier(_populatedNexusModel.aggregation.goals),
+          () => _StaticGoalsNotifier(
+            goals ?? _populatedNexusModel.aggregation.goals,
+          ),
         ),
         tasksProvider.overrideWith(
           (Ref ref) async => tasks ?? _populatedNexusModel.aggregation.tasks,
         ),
-        notesProvider.overrideWith(
-          () => _StaticNotesNotifier(const <NoteEntity>[]),
-        ),
+        notesProvider.overrideWith(() => _StaticNotesNotifier(notes)),
         if (timeline != null)
           timelineProvider.overrideWith(
             () => _StaticTimelineNotifier(timeline),
@@ -141,6 +161,14 @@ void main() {
           () => _TestSIStateController(observed: true),
         ),
         trajectorySummaryProvider.overrideWithValue(_activeTrajectory),
+        nexusTrajectoryVitalsProvider.overrideWithValue(
+          const NexusTrajectoryVitals(
+            momentumLabel: 'STEADY',
+            momentumPercent: 50,
+            pressurePercent: 10,
+            activeCount: 2,
+          ),
+        ),
         goalsProvider.overrideWith(
           () => _StaticGoalsNotifier(_populatedNexusModel.aggregation.goals),
         ),
@@ -214,6 +242,28 @@ void main() {
     });
   });
 
+  testWidgets('latest activity renders persisted UTC in the local clock', (
+    WidgetTester tester,
+  ) async {
+    final DateTime now = DateTime.now();
+    final DateTime local = DateTime(now.year, now.month, now.day, 15, 57);
+    await pumpNexusScreen(
+      tester,
+      width: 500,
+      timeline: [
+        TimelineEventEntity(
+          id: 'utc-note-clock-regression',
+          type: TimelineEventType.noteCreated,
+          title: 'Clock regression note',
+          detail: 'Saved at 3:57 PM local time',
+          timestamp: local.toUtc(),
+        ),
+      ],
+    );
+    expect(find.text('Today · 3:57 PM'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'sign-out cleanup StateError shows retry and preserves the signed-in account',
     (tester) async {
@@ -238,6 +288,283 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(auth.currentUser?.id, accountId);
       expect(attempts, 2);
+    },
+  );
+
+  testWidgets(
+    'saved Nexus task opens its own editable draft and cancel preserves it',
+    (tester) async {
+      final task = Task(
+        id: 'unscheduled-focus-task',
+        title: 'Sort three bills',
+        priority: 3,
+        difficulty: 2,
+        energyRequired: 2,
+        createdAt: DateTime.utc(2026, 9, 11),
+        estimatedDuration: const Duration(minutes: 5),
+      );
+      await pumpNexusScreen(tester, width: 420, tasks: [task]);
+      final row = find.bySemanticsLabel('Open TASK');
+      await tester.ensureVisible(row);
+      await tester.tap(row);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Edit task'), findsOneWidget);
+      final title = find.byKey(const Key('timeline-task-title-field'));
+      expect(
+        tester.widget<TextFormField>(title).initialValue,
+        'Sort three bills',
+      );
+      await tester.enterText(title, 'Unconfirmed change');
+      await tester.tap(find.text('Cancel'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Edit task'), findsNothing);
+      await tester.tap(row);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(
+        tester.widget<TextFormField>(title).initialValue,
+        'Sort three bills',
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('saved Nexus note opens its content instead of a creation form', (
+    tester,
+  ) async {
+    await pumpNexusScreen(
+      tester,
+      width: 420,
+      notes: [
+        NoteEntity(
+          id: 'demo-note',
+          title: 'Demo reflection',
+          body: 'Keep the useful next step.',
+          createdAt: DateTime.utc(2026, 9, 8),
+        ),
+      ],
+    );
+    final note = find.bySemanticsLabel('Open NOTE');
+    final semantics = tester.ensureSemantics();
+    await tester.pump();
+    await tester.scrollUntilVisible(note, 300);
+    await tester.tap(note);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SelectableText &&
+            widget.data == 'Keep the useful next step.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('REVIEW CHANGES'), findsNothing);
+    semantics.dispose();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  for (final scenario in [
+    'task',
+    'task-prefix',
+    'recovery',
+    'different-task',
+  ]) {
+    for (final locale in const [Locale('en'), Locale('es')]) {
+      testWidgets(
+        'completion belongs only to the displayed task: $scenario (${locale.languageCode})',
+        (tester) async {
+          final original = _operatingDecision;
+          final receipt = OperatingDecisionReceipt(
+            subjectId: scenario == 'different-task'
+                ? 'another-task'
+                : original.subjectId,
+            recommendedAction: scenario == 'recovery'
+                ? 'Take a short recovery break before choosing more work.'
+                : scenario == 'task-prefix'
+                ? 'Work on: ${original.recommendedAction}'
+                : original.recommendedAction,
+            rationale: original.rationale,
+            whyItMatters: scenario == 'task-prefix'
+                ? 'It converts the strongest available signal into measurable forward movement.'
+                : original.whyItMatters,
+            consequenceOfDelay: original.consequenceOfDelay,
+            generatedAt: original.generatedAt,
+            expiresAt: original.expiresAt,
+            confidence: original.confidence,
+            evidence: original.evidence,
+            actionIntent: original.actionIntent,
+            sourceRevisions: original.sourceRevisions,
+            modelVersion: original.modelVersion,
+          );
+          final model = NexusDecisionModel(
+            status: NexusDecisionStatus.ready,
+            hasAvailableNetworkInterface: true,
+            pendingSyncCount: 0,
+            topRisk: '',
+            recentProgress: '',
+            statusDetail: 'Ready',
+            intelligence: DecisionIntelligence(
+              snapshot: _operatingSnapshot,
+              delta: _readyNexusDecisionModel.intelligence!.delta,
+              decision: receipt,
+              acknowledgedSnapshotId: null,
+            ),
+          );
+          await pumpNexusScreen(
+            tester,
+            width: 420,
+            locale: locale,
+            decisionModel: model,
+            recommendationBlock: TimeBlock(
+              id: 'block',
+              taskId: 'task-1',
+              title: 'Finish quarterly review',
+              start: _decisionObservedAt,
+              end: _decisionObservedAt.add(const Duration(minutes: 5)),
+            ),
+          );
+          expect(
+            tester
+                .widget<Text>(find.byKey(const Key('nexus-recommended-action')))
+                .data,
+            locale.languageCode == 'es' && scenario == 'task-prefix'
+                ? 'Trabaja en: Finish quarterly review'
+                : receipt.recommendedAction,
+          );
+          expect(
+            find.widgetWithText(
+              OutlinedButton,
+              locale.languageCode == 'es' ? 'Completar' : 'Complete',
+            ),
+            scenario.startsWith('task') ? findsOneWidget : findsNothing,
+          );
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+      );
+    }
+  }
+
+  for (final observed in [false, true]) {
+    testWidgets('Spanish Nexus renders observed state $observed at 320dp', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await pumpNexusScreen(
+          tester,
+          width: 320,
+          locale: const Locale('es'),
+          observedVitals: observed,
+        );
+        expect(
+          find.text('Tu día, organizado en un próximo paso claro.'),
+          findsOneWidget,
+        );
+        expect(find.text('NÚCLEO DE LÓGICA ADAPTATIVA'), findsOneWidget);
+        expect(find.bySemanticsLabel('Abrir notificaciones'), findsOneWidget);
+        expect(find.bySemanticsLabel('Cerrar sesión'), findsOneWidget);
+        expect(find.text('ENERGÍA'), findsOneWidget);
+        expect(find.text('CLARIDAD'), findsOneWidget);
+        expect(find.text('IMPULSO'), findsOneWidget);
+        expect(find.text('ESTABLE'), findsOneWidget);
+        expect(find.text(observed ? '78%' : 'SIN MEDIR'), findsOneWidget);
+        expect(find.text(observed ? '76%' : 'SIN REGISTRAR'), findsOneWidget);
+        expect(
+          find.bySemanticsLabel(
+            RegExp(
+              observed
+                  ? 'Claridad estimada 76 por ciento'
+                  : 'Claridad sin registrar',
+            ),
+          ),
+          findsWidgets,
+        );
+        expect(find.text('DECISIÓN ACTUAL'), findsOneWidget);
+        expect(find.text('Revisar sugerencia'), findsOneWidget);
+        final priorities = find.text('PRIORIDADES ACTUALES');
+        await tester.scrollUntilVisible(priorities, 250);
+        expect(priorities, findsOneWidget);
+        expect(find.bySemanticsLabel('Abrir META'), findsOneWidget);
+        expect(find.bySemanticsLabel('Abrir TAREA'), findsOneWidget);
+        expect(find.bySemanticsLabel('Abrir NOTA'), findsOneWidget);
+        // The task is user data and must not be translated with its surrounding UI.
+        expect(find.text('Finish quarterly review'), findsWidgets);
+        expect(find.text('CURRENT DECISION'), findsNothing);
+        expect(find.text('CURRENT PRIORITIES'), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      } finally {
+        semantics.dispose();
+      }
+    });
+  }
+
+  testWidgets(
+    'Spanish learning feedback localizes controls and preserves private explanations',
+    (tester) async {
+      final container = await pumpNexusScreen(
+        tester,
+        width: 320,
+        locale: const Locale('es'),
+      );
+      container
+          .read(latestDecisionLearningChangeProvider.notifier)
+          .publish(
+            const LearningFeedbackChange(
+              observationId: 'localization-observation',
+              decisionId: 'localization-decision',
+              outcomeKind: DecisionOutcomeKind.shown,
+              isCorrection: false,
+              surface: 'nexus',
+              subjectId: 'task-1',
+              beforeAffinity: .5,
+              afterAffinity: .5,
+              summary:
+                  'The shown outcome was recorded; ranking weights did not change.',
+            ),
+          );
+      await tester.pump();
+      expect(find.text('QUÉ CAMBIÓ CON EL APRENDIZAJE'), findsOneWidget);
+      expect(
+        find.text(
+          'Se registró el resultado mostrado; los pesos de prioridad no cambiaron.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Corregir este aprendizaje'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'Esto ayudó'), findsOneWidget);
+      expect(
+        find.widgetWithText(OutlinedButton, 'Esto no ayudó'),
+        findsOneWidget,
+      );
+      container
+          .read(latestDecisionLearningChangeProvider.notifier)
+          .publish(
+            const LearningFeedbackChange(
+              observationId: 'localization-private',
+              decisionId: 'localization-private-decision',
+              outcomeKind: DecisionOutcomeKind.accepted,
+              isCorrection: true,
+              surface: 'nexus',
+              subjectId: 'task-1',
+              beforeAffinity: .5,
+              afterAffinity: .6,
+              summary: 'My original private explanation stays intact.',
+            ),
+          );
+      await tester.pump();
+      expect(
+        find.text('My original private explanation stays intact.'),
+        findsOneWidget,
+      );
+      expect(find.text('Esto ayudó'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
     },
   );
 
@@ -321,6 +648,159 @@ void main() {
         find.text('Review the overdue item below before taking a break.'),
         findsNothing,
       );
+    });
+
+    testWidgets(
+      'Home counts a goal due today without a stored deadline event',
+      (tester) async {
+        final now = DateTime.now();
+        final container = await pumpNexusScreen(
+          tester,
+          width: Breakpoints.compact,
+          tasks: const [],
+          timeline: const [],
+          goals: [
+            GoalEntity(
+              id: 'bookkeeping',
+              title: 'Finish weekend bookkeeping',
+              createdAt: now.subtract(const Duration(days: 2)),
+              targetDate: DateTime(now.year, now.month, now.day),
+            ),
+          ],
+        );
+        await tester.scrollUntilVisible(find.text('Today at a glance'), 400);
+        expect(find.text('One commitment is due today.'), findsOneWidget);
+        expect(find.text('Nothing is due today.'), findsNothing);
+        expect(find.text('Nothing is overdue.'), findsOneWidget);
+        expect(find.text('No recent activity'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        final notifier =
+            container.read(goalsProvider.notifier) as _StaticGoalsNotifier;
+        final goal = container.read(goalsProvider).single;
+        notifier.replace([
+          goal.copyWith(targetDate: now.add(const Duration(days: 1))),
+        ]);
+        await tester.pump();
+        expect(find.text('Nothing is due today.'), findsOneWidget);
+        notifier.replace([
+          goal.copyWith(targetDate: now.subtract(const Duration(days: 1))),
+        ]);
+        await tester.pump();
+        expect(find.text('One commitment needs attention.'), findsOneWidget);
+        notifier.replace([goal.markCompleted(now)]);
+        await tester.pump();
+        expect(find.text('Nothing is due today.'), findsOneWidget);
+        expect(find.text('Nothing is overdue.'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    for (final completed in [false, true]) {
+      testWidgets(
+        'Home uses current goal state over stored target: completed=$completed',
+        (tester) async {
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          await pumpNexusScreen(
+            tester,
+            width: Breakpoints.compact,
+            tasks: const [],
+            goals: [
+              GoalEntity(
+                id: 'bookkeeping',
+                title: 'Finish weekend bookkeeping',
+                createdAt: now.subtract(const Duration(days: 2)),
+                targetDate: completed
+                    ? today
+                    : today.add(const Duration(days: 1)),
+                completedAt: completed ? now : null,
+              ),
+            ],
+            timeline: [
+              TimelineEventEntity(
+                id: 'old-target',
+                type: TimelineEventType.goal,
+                title: 'Previous bookkeeping target',
+                detail: 'Goal target saved.',
+                timestamp: now.subtract(const Duration(days: 1)),
+                dueAt: today,
+                relatedId: 'bookkeeping',
+                status: TimelineEventStatus.active,
+              ),
+            ],
+          );
+          await tester.scrollUntilVisible(find.text('Today at a glance'), 400);
+          expect(find.text('Nothing is due today.'), findsOneWidget);
+          expect(find.text('Nothing is overdue.'), findsOneWidget);
+          expect(find.text('Previous bookkeeping target'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets('Home Momentum opens Trajectory', (tester) async {
+      final container = await pumpNexusScreen(
+        tester,
+        width: Breakpoints.compact,
+      );
+      await tester.tap(find.text('MOMENTUM').first);
+      await tester.pump();
+      expect(container.read(appFlowProvider), AppView.trajectoryEngine);
+    });
+
+    testWidgets('Home report exposes baseline metrics to accessibility', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        final container = await pumpNexusScreen(
+          tester,
+          width: Breakpoints.compact,
+        );
+        final report = find.bySemanticsLabel(
+          RegExp(r'^Open Trajectory Engine\.'),
+        );
+        await tester.scrollUntilVisible(report, 300);
+        final label = tester.getSemantics(report).label;
+        expect(label, contains('Pressure 10 percent.'));
+        expect(label, contains('Momentum 50 percent.'));
+        expect(label, contains('Active commitments 2.'));
+        await tester.tap(report);
+        await tester.pump();
+        expect(container.read(appFlowProvider), AppView.trajectoryEngine);
+      } finally {
+        semantics.dispose();
+      }
+    });
+
+    testWidgets('Home check-in updates Energy and Clarity immediately', (
+      tester,
+    ) async {
+      final container = await pumpNexusScreen(
+        tester,
+        width: Breakpoints.compact,
+        observedVitals: false,
+      );
+      await tester.tap(find.text('ENERGY'));
+      await tester.pump(const Duration(milliseconds: 400));
+      tester.widget<Slider>(find.byType(Slider)).onChanged!(.65);
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('65%'), findsOneWidget);
+      expect(container.read(siStateProvider).energy, .65);
+      await tester.tap(find.text('CLARITY'));
+      await tester.pump(const Duration(milliseconds: 400));
+      tester.widget<Slider>(find.byType(Slider)).onChanged!(.2);
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('80%'), findsOneWidget);
+      expect(find.text('65%'), findsOneWidget);
+      expect(container.read(siStateProvider).fatigue, .2);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      container.dispose();
     });
 
     testWidgets('seeded vitals are not presented as personal measurements', (
@@ -581,6 +1061,8 @@ class _StaticGoalsNotifier extends GoalsNotifier {
 
   @override
   List<GoalEntity> build() => goals;
+
+  void replace(List<GoalEntity> goals) => state = goals;
 }
 
 class _StaticNotesNotifier extends NotesNotifier {

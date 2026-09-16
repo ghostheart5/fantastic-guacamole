@@ -16,6 +16,10 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_provider.dart';
+import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -112,6 +116,12 @@ final siV2ReadGatewayProvider = Provider<SIV2ReadGateway>((Ref ref) {
 final siV2EvidenceSnapshotProvider = FutureProvider<SIV2EvidenceSnapshot>((
   Ref ref,
 ) {
+  // The gateway performs fresh reads for answers. Its cached header must also
+  // refresh when a source changes during the current account session.
+  ref.watch(tasksProvider);
+  ref.watch(goalsProvider);
+  ref.watch(milestonesProvider);
+  ref.watch(timelineProvider);
   return ref
       .watch(siV2ReadGatewayProvider)
       .read(observedAt: ref.watch(siV2ClockProvider)());
@@ -161,15 +171,17 @@ final class SIV2QueryService implements SIV2QueryPort {
     _requireSiEmotionalSafetyRoute(query.conversationText);
     final DateTime now = clock().toUtc();
     final SIV2EvidenceSnapshot snapshot =
-        await readEvidenceForDecision?.call(now, query.conversationText) ??
+        await readEvidenceForDecision?.call(now, query.decisionContextText) ??
         await readEvidence(now);
     SIV2Response response = engine.analyze(
       query: query,
       snapshot: snapshot,
       now: now,
     );
-    final OperatingDecisionReceipt? sharedDecision = await readDecisionReceipt
-        ?.call();
+    final OperatingDecisionReceipt? sharedDecision =
+        engine.allowsSharedDecisionFor(query)
+        ? await readDecisionReceipt?.call()
+        : null;
     final Set<String> siContextSignalIds =
         snapshot.personContext?.signals
             .map((SIV2PersonContextSignalEvidence signal) => signal.id)
@@ -243,12 +255,17 @@ final siV2QueryServiceProvider = Provider<SIV2QueryPort>((Ref ref) {
     clock: ref.watch(siV2ClockProvider),
     readDecisionReceipt: () async {
       try {
-        final SurfaceDecisionReceipt surface = await ref.read(
-          operatingDecisionForSurfaceProvider(
-            OperatingDecisionSurface.siConsole,
-          ).future,
-        );
-        return surface.receipt;
+        // This is optional supporting evidence. Do not wait on a paused
+        // off-screen consumer's future to answer a fresh read-only SI query.
+        final SurfaceDecisionReceipt? surface = ref
+            .read(
+              operatingDecisionForSurfaceProvider(
+                OperatingDecisionSurface.siConsole,
+              ),
+            )
+            .asData
+            ?.value;
+        return surface?.receipt;
       } on Object {
         return null;
       }

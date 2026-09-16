@@ -13,9 +13,12 @@ import 'package:fantastic_guacamole/state/providers/billing_availability_provide
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
+import 'package:fantastic_guacamole/state/providers/subscription_status_refresh_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
+import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/material.dart';
@@ -35,11 +38,23 @@ String resolvePaywallPurchaseResultMessage(
 }) {
   final _PaywallCopy copy = _PaywallCopy(localizations);
   switch (subscription.status) {
+    case 'review_access':
+      return localizations.isSpanish
+          ? 'Acceso de revisión gratuito. Sin pago ni renovación automática.'
+          : 'Complimentary review access. No payment or automatic renewal.';
+    case 'credits_added':
+      return localizations.isSpanish
+          ? 'Créditos añadidos a tu cuenta.'
+          : 'Purchased credits added to your account.';
     case 'purchase_pending':
       return copy.purchasePending;
     case 'purchase_canceled':
     case 'purchase_cancelled':
       return copy.purchaseCanceled;
+    case 'purchase_failed':
+      return localizations.isSpanish
+          ? 'Google Play informó de un error de pago. Comprueba la compra o vuelve a intentarlo.'
+          : 'Google Play reported a payment error. Check the purchase or try again.';
     case 'verification_failed':
       return copy.purchaseVerificationFailed;
     case 'acknowledgement_failed':
@@ -61,6 +76,16 @@ String resolvePaywallRestoreResultMessage(
 }) {
   final _PaywallCopy copy = _PaywallCopy(localizations);
   switch (subscription.status) {
+    case 'review_access':
+      return resolvePaywallPurchaseResultMessage(
+        subscription,
+        testingMode: false,
+        localizations: localizations,
+      );
+    case 'credits_added':
+      return localizations.isSpanish
+          ? 'Créditos añadidos a tu cuenta.'
+          : 'Purchased credits added to your account.';
     case 'purchase_pending':
       return copy.restorePending;
     case 'verification_failed':
@@ -120,6 +145,19 @@ class _PaywallCopy {
   String get inactive => _select(
     'Subscription access is inactive.',
     'El acceso de la suscripción está inactivo.',
+  );
+
+  String get manageInGooglePlay =>
+      _select('Manage in Google Play', 'Administrar en Google Play');
+
+  String get reviewAccessNoSubscription => _select(
+    'Review access is complimentary and has no paid subscription to manage.',
+    'El acceso de revisión es gratuito y no tiene una suscripción de pago que administrar.',
+  );
+
+  String get couldNotOpenGooglePlay => _select(
+    'Google Play could not be opened. Open Play Store and choose Payments & subscriptions.',
+    'No se pudo abrir Google Play. Abre Play Store y elige Pagos y suscripciones.',
   );
 
   String get restorePending => _select(
@@ -184,13 +222,38 @@ class _PaywallCopy {
       _select('Subscription active', 'Suscripción activa');
 
   String creditsAfterVerification(int credits) => _select(
-    'Credits after a verified purchase or paid renewal: $credits',
-    'Créditos tras una compra verificada o una renovación pagada: $credits',
+    'Monthly AI allowance: $credits credits',
+    'Saldo mensual de IA: $credits créditos',
+  );
+
+  String creditPack(int credits) => _select(
+    '$credits credits · One-time purchase · Do not expire',
+    '$credits créditos · Compra única · No caducan',
+  );
+
+  String purchasedBalance(int credits) => _select(
+    'Purchased credits: $credits · Do not expire',
+    'Créditos comprados: $credits · No caducan',
+  );
+
+  String refundedCreditNotice(int credits) => _select(
+    '$credits refunded credits were already used. A new credit pack first replaces these credits. No automatic charge.',
+    'Ya usaste $credits créditos reembolsados. Un nuevo paquete repone primero esos créditos. No hay cargos automáticos.',
+  );
+
+  String get emptyCreditBalance => _select(
+    'Your AI credits are used up. Buy an optional pack or wait for the monthly refill. Tasks, goals, history and local planning remain available.',
+    'Agotaste tus créditos de IA. Compra un paquete opcional o espera la recarga mensual. Las tareas, metas, historial y planificación local siguen disponibles.',
   );
 
   String get billingTerms => _select(
     'Google Play confirms billing frequency and renewal terms before purchase.',
     'Google Play confirma la frecuencia de facturación y los términos de renovación antes de la compra.',
+  );
+
+  String get creditPackTerms => _select(
+    'Optional purchase. No automatic refill or recurring charge.',
+    'Compra opcional. Sin recargas automáticas ni cargos recurrentes.',
   );
 
   String get simulateUnlock => _select('Simulate unlock', 'Simular desbloqueo');
@@ -425,6 +488,8 @@ class PaywallPage extends ConsumerStatefulWidget {
 
 class _PaywallPageState extends ConsumerState<PaywallPage> {
   String? _statusMessage;
+  AiCreditWallet? _lastResolvedWallet;
+  SubscriptionState? _lastResolvedSubscription;
   bool _showAllPlans = false;
 
   @override
@@ -455,7 +520,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       final SubscriptionState subscription = await ref
           .read(paywallActionsProvider)
           .startSubscription(planId);
-      if (subscription.isActive) {
+      if (subscription.isActive && subscription.status != 'credits_added') {
         await ref
             .read(entitlementProvider.notifier)
             .applyPurchaseResult(subscription, expectedUserId: expectedUserId);
@@ -542,7 +607,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       final SubscriptionState subscription = await ref
           .read(paywallActionsProvider)
           .restorePurchases();
-      if (subscription.isActive) {
+      if (subscription.isActive && subscription.status != 'credits_added') {
         await ref
             .read(entitlementProvider.notifier)
             .applyPurchaseResult(subscription, expectedUserId: expectedUserId);
@@ -618,8 +683,21 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     if (wallet) ref.invalidate(aiCreditWalletProvider);
   }
 
+  Future<void> _manageSubscription() async {
+    final bool opened = await ref
+        .read(externalUrlServiceProvider)
+        .open(Uri.parse(AppUrls.googlePlaySubscriptions));
+    if (!mounted || opened) return;
+    setState(() {
+      _statusMessage = _PaywallCopy(
+        ChronoSparkLocalizations.of(context),
+      ).couldNotOpenGooglePlay;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.watch(subscriptionStatusRefreshProvider);
     final _PaywallCopy copy = _PaywallCopy(
       ChronoSparkLocalizations.of(context),
     );
@@ -638,19 +716,61 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       (previous, next) =>
           _logProviderError('paywallConfigProvider', previous, next),
     );
-    ref.listen<AsyncValue<SubscriptionState>>(
-      paywallSubscriptionProvider,
-      (previous, next) =>
-          _logProviderError('paywallSubscriptionProvider', previous, next),
-    );
-    ref.listen<AsyncValue<AiCreditWallet>>(
-      aiCreditWalletProvider,
-      (previous, next) =>
-          _logProviderError('aiCreditWalletProvider', previous, next),
-    );
+    ref.listen<AsyncValue<SubscriptionState>>(paywallSubscriptionProvider, (
+      previous,
+      next,
+    ) {
+      _logProviderError('paywallSubscriptionProvider', previous, next);
+      final subscription = next.asData?.value;
+      if (subscription == null) return;
+      final wasActive = _lastResolvedSubscription?.isActive ?? false;
+      _lastResolvedSubscription = subscription;
+      if (wasActive != subscription.isActive && _statusMessage != null) {
+        // Historical action messages must not contradict later authority:
+        // pending can complete, and active access can expire or be revoked.
+        setState(() => _statusMessage = null);
+      }
+    });
+    ref.listen<AsyncValue<SubscriptionState>>(paywallPurchaseOutcomeProvider, (
+      previous,
+      next,
+    ) {
+      final outcome = next.asData?.value;
+      if (outcome == null) return;
+      setState(
+        () => _statusMessage = resolvePaywallPurchaseResultMessage(
+          outcome,
+          testingMode: false,
+          localizations: ChronoSparkLocalizations.of(context),
+        ),
+      );
+      if (outcome.status == 'credits_added') {
+        ref.invalidate(aiCreditWalletProvider);
+      }
+    });
+    ref.listen<AsyncValue<AiCreditWallet>>(aiCreditWalletProvider, (
+      previous,
+      next,
+    ) {
+      _logProviderError('aiCreditWalletProvider', previous, next);
+      final before = _lastResolvedWallet;
+      final after = next.asData?.value;
+      if (after != null) _lastResolvedWallet = after;
+      final copy = _PaywallCopy(ChronoSparkLocalizations.of(context));
+      if (before != null &&
+          after != null &&
+          after.purchasedCredits > before.purchasedCredits &&
+          (_statusMessage == copy.purchasePending ||
+              _statusMessage == copy.restorePending)) {
+        // A later verified wallet supersedes the historical action notice.
+        // Show the balance without claiming which pending order completed.
+        setState(() => _statusMessage = null);
+      }
+    });
     final PaywallPrompt? prompt = ref.watch(paywallPromptProvider);
     final bool isPremium = ref.watch(appAccessProvider).hasPremiumAccess;
     final bool billingTest = ref.watch(internalBillingTestEnabledProvider);
+    final bool creditTest = ref.watch(internalCreditTestEnabledProvider);
     final bool purchasingEnabled = ref.watch(
       subscriptionPurchasingEnabledProvider,
     );
@@ -705,6 +825,9 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: ListView(
+            // Authority refresh temporarily shows the loading branch. Keep the
+            // current plan position when the verified content returns.
+            key: const PageStorageKey<String>('paywall-plans'),
             padding: const EdgeInsets.all(20),
             children: [
               TemporalScreenHeader(
@@ -745,7 +868,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                     isPremium ||
                     paywallTestingMode ||
                     subscription?.isActive == true,
-                wallet: billingTest ? null : wallet,
+                wallet: billingTest && !creditTest ? null : wallet,
                 copy: copy,
               ),
               if (prompt != null) ...[
@@ -773,7 +896,13 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                     ),
                   ),
                   child: Text(
-                    paywallTestingMode
+                    subscription?.status == 'review_access'
+                        ? resolvePaywallRestoreResultMessage(
+                            subscription!,
+                            testingMode: false,
+                            localizations: ChronoSparkLocalizations.of(context),
+                          )
+                        : paywallTestingMode
                         ? copy.unlockedForTesting
                         : copy.subscriptionActive,
                     textAlign: TextAlign.center,
@@ -785,6 +914,25 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                     ),
                   ),
                 ),
+                if (subscription?.status == 'review_access') ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    copy.reviewAccessNoSubscription,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ] else if (subscription?.isActive == true) ...[
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const Key('manage-subscription-in-play'),
+                      onPressed: _manageSubscription,
+                      icon: const Icon(Icons.open_in_new_rounded),
+                      label: Text(copy.manageInGooglePlay),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
               ],
               ...(_showAllPlans ? config.plans : prioritizedPlans).map(
@@ -826,12 +974,15 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                             fontSize: 13,
                           ),
                         ),
-                        if (!billingTest && plan.aiCreditsIncluded > 0) ...[
+                        if ((!billingTest || creditTest) &&
+                            plan.aiCreditsIncluded > 0) ...[
                           const SizedBox(height: 6),
                           Text(
-                            copy.creditsAfterVerification(
-                              plan.aiCreditsIncluded,
-                            ),
+                            plan.isCreditPack
+                                ? copy.creditPack(plan.aiCreditsIncluded)
+                                : copy.creditsAfterVerification(
+                                    plan.aiCreditsIncluded,
+                                  ),
                             style: const TextStyle(
                               color: AppColors.neonCyan,
                               fontSize: 12,
@@ -841,7 +992,9 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                         ],
                         const SizedBox(height: 6),
                         Text(
-                          copy.billingTerms,
+                          plan.isCreditPack
+                              ? copy.creditPackTerms
+                              : copy.billingTerms,
                           style: const TextStyle(
                             color: Colors.white54,
                             fontSize: 12,
@@ -856,13 +1009,15 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                                 onPressed:
                                     purchasingEnabled &&
                                         plan.isAvailable &&
-                                        !hasActiveSubscription
+                                        (!hasActiveSubscription ||
+                                            plan.isCreditPack)
                                     ? () => _unlock(plan.id)
                                     : null,
                                 child: Text(
                                   paywallTestingMode
                                       ? copy.simulateUnlock
-                                      : hasActiveSubscription
+                                      : hasActiveSubscription &&
+                                            !plan.isCreditPack
                                       ? copy.currentSubscriptionActive
                                       : copy.choosePlan,
                                 ),
@@ -1013,6 +1168,20 @@ class _HeroCard extends StatelessWidget {
             ),
           ),
           if (wallet case final AiCreditWallet safeWallet) ...[
+            Text(
+              copy.purchasedBalance(safeWallet.purchasedCredits),
+              style: const TextStyle(color: Colors.white70),
+            ),
+            if (safeWallet.refundedCreditDebt > 0)
+              Text(
+                copy.refundedCreditNotice(safeWallet.refundedCreditDebt),
+                style: const TextStyle(color: Colors.amber),
+              ),
+            if (safeWallet.isExhausted)
+              Text(
+                copy.emptyCreditBalance,
+                style: const TextStyle(color: Colors.white70),
+              ),
             const SizedBox(height: 16),
             Container(
               width: double.infinity,
@@ -1052,14 +1221,8 @@ class _HeroCard extends StatelessWidget {
   }
 
   String _formatReset(DateTime resetAt) {
-    final Duration remaining = resetAt.difference(DateTime.now());
-    if (remaining.inHours <= 0) {
-      return copy.soon;
-    }
-    if (remaining.inDays > 0) {
-      return '${remaining.inDays}d';
-    }
-    return '${remaining.inHours}h';
+    final local = resetAt.toLocal();
+    return '${local.month}/${local.day}/${local.year}';
   }
 }
 

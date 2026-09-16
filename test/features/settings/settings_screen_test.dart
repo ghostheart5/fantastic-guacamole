@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
+import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
@@ -23,6 +24,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../support/golden_harness.dart';
 
@@ -95,6 +97,8 @@ void main() {
     PersonContextRepository? personContextRepository,
     List<DecisionOutcomeEntity>? decisionOutcomes,
     bool? learningPaused,
+    bool billingAccess = false,
+    AiCreditWallet? wallet,
   }) {
     final AccountStorageScope resolvedScope =
         accountScope ??
@@ -107,6 +111,15 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       retry: (int retryCount, Object error) => null,
       overrides: [
+        if (billingAccess)
+          appAccessProvider.overrideWithValue(
+            const AppAccessState(
+              hasPremiumAccess: true,
+              hasTesterFullAccess: false,
+              paywallDisabled: false,
+              internalBillingTest: true,
+            ),
+          ),
         if (authService != null)
           authServiceProvider.overrideWithValue(authService),
         accountStorageScopeProvider.overrideWithValue(resolvedScope),
@@ -114,13 +127,15 @@ void main() {
           LegacyScopeOwnership.provenNotOwned,
         ),
         aiCreditWalletProvider.overrideWith(
-          (Ref ref) async => AiCreditWallet(
-            balance: 20,
-            tier: 'free',
-            allowance: 20,
-            resetAt: DateTime(2026, 9),
-            updatedAt: DateTime(2026, 8, 20),
-          ),
+          (Ref ref) async =>
+              wallet ??
+              AiCreditWallet(
+                balance: 20,
+                tier: 'free',
+                allowance: 20,
+                resetAt: DateTime(2026, 9),
+                updatedAt: DateTime(2026, 8, 20),
+              ),
         ),
         settingsUiActionsProvider.overrideWith(
           (Ref ref) => _FakeSettingsUiActions(ref),
@@ -186,6 +201,83 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
   }
 
+  for (final locale in const [Locale('en'), Locale('es')]) {
+    testWidgets('Settings opens localized licenses in ${locale.languageCode}', (
+      tester,
+    ) async {
+      useTallSurface(tester);
+      final container = createContainer();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: locale,
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const SettingsScreen(),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.ensureVisible(find.text('Help & legal'));
+      await tester.pump();
+      await tester.tap(find.text('Help & legal').hitTestable());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      final context = tester.element(find.byType(SettingsScreen));
+      final label = MaterialLocalizations.of(context).licensesPageTitle;
+      expect(label, locale.languageCode == 'es' ? 'Licencias' : 'Licenses');
+      await Scrollable.ensureVisible(
+        tester.element(find.text(label)),
+        alignment: 0.5,
+      );
+      await tester.pump();
+      await tester.tap(find.text(label).hitTestable());
+      await tester.pumpAndSettle(
+        const Duration(milliseconds: 100),
+        EnginePhase.sendSemanticsUpdate,
+        const Duration(seconds: 5),
+      );
+
+      expect(find.byType(LicensePage), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(LicensePage),
+          matching: find.text(label),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(LicensePage),
+          matching: find.text('ChronoSpark'),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(LicensePage),
+          matching: find.byType(BackButton),
+        ),
+      );
+      for (
+        int frame = 0;
+        frame < 10 && find.byType(LicensePage).evaluate().isNotEmpty;
+        frame++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(SettingsScreen), findsOneWidget);
+      expect(find.byType(LicensePage), findsNothing);
+    });
+  }
+
   testWidgets(
     'sign-out cleanup StateError shows retry and preserves the signed-in account',
     (tester) async {
@@ -224,6 +316,74 @@ void main() {
     },
   );
 
+  testWidgets('paid wallet distinguishes included and purchased credits', (
+    tester,
+  ) async {
+    useTallSurface(tester);
+    final container = createContainer(
+      billingAccess: true,
+      wallet: serverAiCreditWallet({
+        'tier': 'premium_monthly',
+        'balance': 399,
+        'purchased_credits': 100,
+        'period_credits': 300,
+        'period_ends_at': '2026-09-08T04:39:00Z',
+      }),
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('399 credits available'), findsOneWidget);
+    expect(
+      find.textContaining('299 included · 100 purchased (do not expire)'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Free allowance'), findsNothing);
+    expect(find.textContaining('Monthly allowance: 300'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final entry in ['Manage plan', 'View credits']) {
+    testWidgets('$entry preserves Settings for Android Back', (tester) async {
+      useTallSurface(tester);
+      final container = createContainer(billingAccess: true);
+      final router = GoRouter(
+        initialLocation: '/settings',
+        routes: [
+          GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
+          GoRoute(
+            path: '/paywall',
+            builder: (_, _) =>
+                const Scaffold(body: Text('Subscription destination')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text(entry));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Subscription destination'), findsOneWidget);
+      expect(router.canPop(), isTrue);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('SETTINGS'), findsOneWidget);
+      expect(find.text('Test subscription active'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('hides plans and credits while subscriptions are contained', (
     WidgetTester tester,
   ) async {
@@ -242,7 +402,7 @@ void main() {
     expect(find.text('PREFERENCES & ACCOUNT'), findsOneWidget);
     expect(find.text('PLAN & CREDITS'), findsNothing);
     expect(find.text('SUBSCRIPTION'), findsNothing);
-    expect(find.text('20 of 20 available'), findsNothing);
+    expect(find.text('20 credits available'), findsNothing);
     expect(find.text('Manage plan'), findsNothing);
     expect(find.text('View credits'), findsNothing);
 
@@ -257,6 +417,44 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('APPEARANCE & PERMISSIONS'), findsOneWidget);
+  });
+
+  testWidgets('toggle labels name the control and toggle it exactly once', (
+    tester,
+  ) async {
+    useTallSurface(tester);
+    final container = createContainer();
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: SettingsScreen()),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.tap(find.text('Appearance & permissions'));
+      await tester.pump(const Duration(milliseconds: 300));
+      final tile = find.ancestor(
+        of: find.text('Audio FX'),
+        matching: find.byType(MergeSemantics),
+      );
+      expect(tile, findsOneWidget);
+      final control = find.descendant(of: tile, matching: find.byType(Switch));
+      await Scrollable.ensureVisible(tester.element(control), alignment: 0.5);
+      await tester.pump(const Duration(milliseconds: 300));
+      final before = tester.widget<Switch>(control).value;
+      expect(find.bySemanticsLabel('Audio FX'), findsOneWidget);
+      await tester.tap(find.text('Audio FX'));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.widget<Switch>(control).value, !before);
+      await tester.tap(control);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.widget<Switch>(control).value, before);
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
   });
 
   testWidgets('external AI is disclosed as unavailable instead of enabled', (
@@ -278,7 +476,7 @@ void main() {
     expect(find.text('External AI assistance'), findsOneWidget);
     expect(
       find.text(
-        'Unavailable while privacy, safety, and cost gates are completed.',
+        'External AI assistance is not enabled for this account. Your saved planning work remains available.',
       ),
       findsOneWidget,
     );
@@ -291,6 +489,45 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('Spanish external-AI disclosure matches the account gate', (
+    WidgetTester tester,
+  ) async {
+    useTallSurface(tester);
+    final ProviderContainer container = createContainer();
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          locale: Locale('es'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: <LocalizationsDelegate<dynamic>>[
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: SettingsScreen(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('Planning & guidance'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.scrollUntilVisible(
+      find.text('Asistencia de IA externa'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(
+      find.text(
+        'La asistencia de IA externa no está habilitada para esta cuenta. Tu trabajo de planificación guardado permanece disponible.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Allow external AI assistance'), findsNothing);
   });
 
   testWidgets('Context entry opens its governance controls directly', (

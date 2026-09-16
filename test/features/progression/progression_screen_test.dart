@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
@@ -8,6 +10,7 @@ import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
+import 'package:fantastic_guacamole/state/models/progression_state.dart';
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/logs_state.dart';
@@ -25,8 +28,10 @@ void main() {
   Future<ProviderContainer> pumpProgression(
     WidgetTester tester, {
     required TrajectorySummaryView trajectory,
+    Locale locale = const Locale('en'),
     Size physicalSize = const Size(1200, 4000),
     FutureOr<String> Function(Ref ref)? weeklySummaryOverride,
+    FutureOr<ProgressionReview> Function(Ref ref)? reviewOverride,
     FutureOr<List<Task>> Function(Ref ref)? tasksOverride,
     List<TimelineEventEntity>? timelineOverdue,
     List<LearningHistorySnapshot>? learningHistorySnapshots,
@@ -50,9 +55,14 @@ void main() {
           LegacyScopeOwnership.provenNotOwned,
         ),
         trajectorySummaryProvider.overrideWithValue(trajectory),
+        progressionProvider.overrideWithValue(ProgressionState.initial()),
         logsProvider.overrideWith(() => _SavedLogs(savedLogs)),
-        weeklySummaryProvider.overrideWith(
-          weeklySummaryOverride ?? (Ref ref) async => _summaryText,
+        progressionReviewProvider.overrideWith(
+          reviewOverride ??
+              (Ref ref) async => ProgressionReview(
+                await (weeklySummaryOverride ??
+                    (Ref ref) async => _summaryText)(ref),
+              ),
         ),
         if (tasksOverride != null) tasksProvider.overrideWith(tasksOverride),
         if (timelineOverdue != null)
@@ -68,12 +78,48 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: ProgressionScreen()),
+        child: MaterialApp(
+          locale: locale,
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            ChronoSparkLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          home: const ProgressionScreen(),
+        ),
       ),
     );
     await tester.pump();
     return container;
   }
+
+  testWidgets(
+    'Spanish progression translates controls and evidence without changing values',
+    (tester) async {
+      await pumpProgression(
+        tester,
+        trajectory: _emptyTrajectory,
+        locale: const Locale('es'),
+        reviewOverride: (ref) => const ProgressionReview(
+          'No saved planning history yet.',
+          spanishText: 'Aún no hay historial de planificación guardado.',
+          status: ProgressionReviewStatus.empty,
+        ),
+      );
+      expect(find.text('PROGRESIÓN'), findsOneWidget);
+      expect(find.byTooltip('Compartir progreso'), findsOneWidget);
+      expect(find.text('IMPULSO DE FINALIZACIÓN'), findsOneWidget);
+      expect(find.text('Fiabilidad de planificación'), findsOneWidget);
+      expect(find.text('PROGRESSION'), findsNothing);
+      expect(find.text('LEVEL'), findsNothing);
+      expect(find.textContaining('XP para el nivel'), findsOneWidget);
+      expect(
+        find.text('Aún no hay historial de planificación guardado.'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('renders for a brand-new account with zeroed progress', (
     WidgetTester tester,
@@ -215,7 +261,8 @@ void main() {
             LegacyScopeOwnership.provenNotOwned,
           ),
           trajectorySummaryProvider.overrideWithValue(_activeTrajectory),
-          weeklySummaryProvider.overrideWith(
+          progressionProvider.overrideWithValue(ProgressionState.initial()),
+          progressionReviewProvider.overrideWith(
             (Ref ref) async => throw Exception('summary failed'),
           ),
         ],
@@ -233,10 +280,12 @@ void main() {
 
       expect(
         find.text(
-          'Not enough saved evidence yet. Add or complete an item, then return to see a grounded progression signal.',
+          'Progress review is unavailable. Your saved evidence could not be read. Retry when your data is available.',
         ),
         findsOneWidget,
       );
+      expect(find.text('Retry progress review'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Open Creator'), findsNothing);
     },
   );
 
@@ -258,6 +307,79 @@ void main() {
 
     expect(container.read(appFlowProvider), AppView.nexus);
   });
+
+  testWidgets(
+    'unavailable review offers retry and recovers without adding work',
+    (WidgetTester tester) async {
+      int attempts = 0;
+      await pumpProgression(
+        tester,
+        trajectory: _activeTrajectory,
+        tasksOverride: (_) => [],
+        timelineOverdue: [],
+        reviewOverride: (_) async => ++attempts == 1
+            ? const ProgressionReview(
+                'Saved evidence is unavailable.',
+                status: ProgressionReviewStatus.unavailable,
+              )
+            : const ProgressionReview('Recovered saved review.'),
+      );
+      await tester.pump();
+      expect(find.text('Saved evidence is unavailable.'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Open Creator'), findsNothing);
+      expect(find.text('PRESSURE'), findsNothing);
+      expect(find.text('No milestones recorded yet.'), findsNothing);
+      expect(
+        find.text(
+          'Saved continuity evidence is unavailable. Retry the progress review below.',
+        ),
+        findsOneWidget,
+      );
+      final retry = find.text('Retry progress review');
+      await tester.ensureVisible(retry);
+      await tester.tap(retry);
+      await tester.pump();
+      await tester.pump();
+      expect(attempts, 2);
+      expect(find.text('Recovered saved review.'), findsOneWidget);
+      expect(find.text('Retry progress review'), findsNothing);
+      expect(find.text('PRESSURE'), findsOneWidget);
+    },
+  );
+
+  for (final status in <ProgressionReviewStatus>[
+    ProgressionReviewStatus.loading,
+    ProgressionReviewStatus.empty,
+  ]) {
+    testWidgets('$status does not display fallback continuity ratings', (
+      tester,
+    ) async {
+      await pumpProgression(
+        tester,
+        trajectory: _emptyTrajectory,
+        tasksOverride: (_) => [],
+        timelineOverdue: [],
+        reviewOverride: (_) =>
+            ProgressionReview('Unrated review', status: status),
+      );
+      await tester.pump();
+      expect(find.text('PRESSURE'), findsNothing);
+      expect(find.text('No milestones recorded yet.'), findsNothing);
+      expect(
+        find.byKey(const Key('progression-continuity-availability')),
+        findsOneWidget,
+      );
+      if (status == ProgressionReviewStatus.empty) {
+        expect(
+          find.widgetWithText(FilledButton, 'Open Creator'),
+          findsOneWidget,
+        );
+      } else {
+        expect(find.widgetWithText(FilledButton, 'Open Creator'), findsNothing);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('the advisor action opens Creator when no work exists', (
     WidgetTester tester,

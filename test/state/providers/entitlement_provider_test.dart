@@ -16,6 +16,7 @@ import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -194,6 +195,50 @@ void main() {
         isFalse,
       );
     });
+
+    test(
+      'Settings and paywall agree through pause, resume and expiry',
+      () async {
+        final harness = await _Harness.create(
+          subscription: const SubscriptionState(
+            isActive: true,
+            status: 'active',
+            source: 'supabase_authority',
+          ),
+          user: _user('user-a'),
+          billingTest: true,
+        );
+        harness.container.listen(paywallConfigProvider, (_, _) {});
+        await harness.container.read(paywallConfigProvider.future);
+        for (final status in ['paused', 'active', 'expired']) {
+          final active = status == 'active';
+          harness.repository.subscription = SubscriptionState(
+            isActive: active,
+            status: status,
+            source: 'supabase_authority',
+          );
+          await harness.container.read(entitlementAuthorityRefreshProvider)(
+            force: true,
+          );
+          expect(
+            harness.container.read(appAccessProvider).subscriptionStatusLabel,
+            active ? 'Test subscription active' : 'Billing test ready',
+          );
+          expect(
+            (await harness.container.read(
+              paywallSubscriptionProvider.future,
+            )).isActive,
+            active,
+          );
+          expect(
+            (await harness.container.read(
+              paywallConfigProvider.future,
+            )).isUnlocked,
+            active,
+          );
+        }
+      },
+    );
 
     test('forced authority refresh invalidates revoked premium', () async {
       final _Harness harness = await _Harness.create(
@@ -481,6 +526,7 @@ class _Harness {
     SubscriptionState? legacyRestoreResult,
     DateTime? legacyRetryAt,
     LegacyScopeOwnership legacyOwnership = LegacyScopeOwnership.ambiguous,
+    bool billingTest = false,
   }) async {
     final SecureStore store =
         secureStore ?? SecureStore(backend: InMemorySecureStoreBackend());
@@ -501,6 +547,7 @@ class _Harness {
     );
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        internalBillingTestEnabledProvider.overrideWithValue(billingTest),
         secureStoreProvider.overrideWithValue(store),
         sharedPrefsStoreProvider.overrideWithValue(_InMemoryPrefsStore()),
         paywallRepositoryProvider.overrideWithValue(repository),

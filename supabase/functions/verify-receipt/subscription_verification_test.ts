@@ -48,6 +48,53 @@ function purchase(
   };
 }
 
+Deno.test("prepaid grant evidence comes from the verified Google line", () => {
+  const play = purchase({
+    testPurchase: {},
+    lineItems: [{
+      productId: "chronospark_premium_monthly",
+      expiryTime: "2026-09-27T00:00:00.000Z",
+      prepaidPlan: {},
+      offerDetails: { basePlanId: "monthly-prepaid-test" },
+    }],
+  });
+  const line = verifySubscriptionLineItem(
+    play,
+    "chronospark_premium_monthly",
+    nowMs,
+  );
+  if (
+    !line || line.prepaidPlan !== true ||
+    line.basePlanId !== "monthly-prepaid-test" || line.autoRenews
+  ) {
+    throw new Error("Verified prepaid line evidence was lost");
+  }
+  const args = buildSubscriptionReconciliationArgs({
+    ...line,
+    purchaseTokenHash: "a".repeat(64),
+    isActive: line.active,
+    providerObservedAt: new Date(nowMs),
+    subscriptionState: play.subscriptionState,
+    acknowledgementState: play.acknowledgementState,
+    testPurchase: isGooglePlayTestPurchase(play),
+  });
+  const payload = args.p_payload as Record<string, unknown>;
+  if (
+    payload.basePlanId !== "monthly-prepaid-test" ||
+    payload.prepaidPlan !== true || payload.testPurchase !== true
+  ) {
+    throw new Error("Server reconciliation omitted verified prepaid evidence");
+  }
+  const ordinary = verifySubscriptionLineItem(
+    purchase(),
+    "chronospark_premium_monthly",
+    nowMs,
+  );
+  if (ordinary?.prepaidPlan !== false || ordinary.basePlanId !== null) {
+    throw new Error("Ordinary subscription acquired prepaid evidence");
+  }
+});
+
 Deno.test("active matching subscription is accepted", () => {
   const verified = verifySubscriptionLineItem(
     purchase(),

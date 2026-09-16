@@ -87,6 +87,7 @@ class SIAIService {
     String prompt, {
     required List<Task> tasks,
     required double energy,
+    double fatigue = 0,
     required LearningState learning,
     required AIPersonality personality,
     List<Map<String, String>> history = const <Map<String, String>>[],
@@ -98,15 +99,21 @@ class SIAIService {
           .map((Map<String, String> item) => item['content'] ?? '')
           .where((String value) => value.trim().isNotEmpty)
           .toList(growable: false),
-      context: <String, dynamic>{
-        ...context,
+      metadata: <String, dynamic>{
         'energy': energy,
+        'fatigue': fatigue,
         'completedToday': learning.completed,
+        'completed': learning.completed,
         'skipped': learning.skipped,
         'personality': personality.name,
         'taskCount': tasks.length,
       },
-      task: tasks.isEmpty ? null : tasks.first,
+      context: context,
+      task: tasks.isEmpty
+          ? null
+          : (List<Task>.from(
+              tasks,
+            )..sort((a, b) => b.priority.compareTo(a.priority))).first,
     );
   }
 
@@ -120,6 +127,7 @@ class SIAIService {
       'Provide one grounded recommendation.',
       tasks: tasks,
       energy: si.energy,
+      fatigue: si.fatigue,
       learning: learning,
       personality: personality,
       context: <String, dynamic>{'mode': 'fallback_generate'},

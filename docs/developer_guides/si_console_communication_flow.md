@@ -1,54 +1,19 @@
-<style>
-a {
-    text-decoration: none;
-    color: #464feb;
-}
-tr th, tr td {
-    border: 1px solid #e6e6e6;
-}
-tr th {
-    background-color: #f5f5f5;
-}
-</style>
+# SI Console communication flow
 
-## Correct communication flow
+The shipping SI Console is a deterministic, read-only guidance surface. Its current route is:
 
-Use this exact flow for `si_console_screen.dart`:
-1. User types message
-2. si_console_screen.dart calls aiController.sendMessage(text)
-3. ai_controller.dart creates AgentRequest
-4. agent_orchestrator.dart routes to the right agent/tool
-5. chat_agent.dart / planner_agent.dart / recommendation_agent.dart handles the conversational role
-6. tools classify/prepare intent and context
-7. si_engine_repository.dart calls engine/si facade
-8. si_engine_service.dart calls internal SI modules
-9. output is validated, ranked, deduped, and converted to UI state
-10. ai_controller.dart stores response + memory update
-11. si_console_screen.dart renders response
+1. `SIConsoleScreen` validates typed or dictated input and preserves up to four recent user turns.
+2. `SIV2Query.fromUserInput` resolves intent, sources, local time range, entity filter, scenario assumption, exclusions, capacity, and requested delay.
+3. `SIV2QueryService` reads an account-fenced snapshot through `SIV2ReadGateway`.
+4. `SIV2Engine` resolves one subject, applies local-calendar semantics, and creates observed, calculated, inferred, missing, scenario, confidence, and recommendation sections.
+5. An `OperatingDecisionReceipt` may augment the response only when its subject evidence and displayed label agree with the resolved answer.
+6. The typed contract validates identities and structure. Semantic regression tests separately assert records, constraints, time horizon, language, and cross-section meaning.
+7. `SIConsoleScreen` renders the result. It does not create, complete, reschedule, delete, purchase, or publish anything.
 
-## Unified chatbot layer
+The Console reads tasks, goals, milestones, Timeline records, and explicitly permitted Person Context. Notes and Daily Rhythms are outside its direct evidence contract. Unavailable sources and empty relevant evidence are distinct states.
 
-AI UI shell:
-- features/si_console/ui/si_console_screen.dart
+The older `AIController`, agent orchestration, `SIAIService`, `SIEngineService`, `SyntheticIntelligenceEngine`, and cognitive/soul compatibility layers are not the SI Console execution route. They must not be cited as evidence of Console capability. Compatibility paths may only be reconnected after equivalent bilingual semantic and account-boundary tests.
 
-State/controller shell:
-- state/controllers/ai_controller.dart
-- state/controllers/si_state_controller.dart
-- state/providers/intelligence_provider.dart
-- state/providers/si_memory_provider.dart
+Conversation messages are screen-local. The displayed Console does not claim durable conversational memory. Evidence references are shown as record identifiers; guidance is not an action receipt.
 
-Agent layer:
-- data/services/ai/orchestration/agent_orchestrator.dart
-- data/services/ai/agents/*
-- data/services/ai/tools/*
-
-SI engine bridge:
-- data/repositories/si_engine_repository.dart
-
-SI engine facade:
-- engine/si/si_engine_service.dart
-- engine/si/si_engine.dart
-- engine/si/synthetic_intelligence_engine.dart
-
-SI Console audit checklist:
-- ../SI_CONSOLE_AUDIT.md
+See `docs/audits/2026-09-14-si-console-human-use-audit.md` and the current SI V2 regression suites for acceptance evidence.

@@ -10,7 +10,7 @@ No verified web app is published at the public `/app/` route. That route is rese
 
 ## Does ChronoSpark use generative AI?
 
-The current release candidate keeps external generative AI disabled. Smart Planner and SI Console must not be described as an unrestricted conversational AI service.
+External generative AI is disabled in the contained public configuration. Eligible private internal testers can use disclosed AI-credit tests that submit a fixed fictional prompt to Anthropic. Separately gated Planner explanations, when available, disclose the selected planning context and credit cost before requesting confirmation. Local SI Console guidance remains local. Smart Planner and SI Console are not an unrestricted conversational AI service.
 
 ## What are Trajectory and Progression?
 
@@ -18,7 +18,7 @@ Trajectory compares scenarios with visible assumptions and uncertainty. Progress
 
 ## Are subscriptions or AI credits available?
 
-No. Subscriptions, AI-credit purchases, and credit spending are disabled for the current release candidate.
+They are disabled in the contained public configuration. Eligible private internal-testing builds can offer Google Play subscriptions, credit top-ups, and confirmed credit spending. Use an approved license-tester account and a Google Play test payment method. Internal-track enrollment alone does not make purchases free. Manage any existing subscription in Google Play. See [Google's billing-testing guidance](https://developer.android.com/google/play/billing/test).
 
 ## Are cloud sync and restore available?
 

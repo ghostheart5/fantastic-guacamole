@@ -312,7 +312,15 @@ class _PersonalizationSection extends ConsumerWidget {
     await ref.read(personalizationProfileProvider.notifier).update(next);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Planning preferences updated.')),
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'Planning preferences updated.',
+            'Preferencias de planificación actualizadas.',
+          ),
+        ),
+      ),
     );
   }
 
@@ -327,6 +335,7 @@ class _PersonalizationSection extends ConsumerWidget {
     final PersonalizationDecision decision = ref.watch(
       personalizationDecisionProvider('settings'),
     );
+    final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
 
     return _Section(
       label: 'PLANNING PERSONALIZATION',
@@ -409,7 +418,13 @@ class _PersonalizationSection extends ConsumerWidget {
             onChanged: (bool value) =>
                 _save(context, ref, profile.copyWith(useMemoryContext: value)),
           ),
-          if (Env.externalAiEnabled)
+          if (ref.watch(internalCreditTestEnabledProvider))
+            const _NeonStatusTile(
+              title: 'Internal AI credit testing',
+              subtitle:
+                  'Enables the synthetic credit-test actions below. Test prompts are sent to Anthropic through ChronoSpark; provider retention and safety policies apply. Local guidance is free.',
+            ),
+          if (ref.watch(externalAiAvailableProvider))
             _NeonToggleTile(
               title: 'Allow external AI assistance',
               value: profile.externalAiAllowed,
@@ -420,11 +435,16 @@ class _PersonalizationSection extends ConsumerWidget {
               ),
             )
           else
-            const _NeonStatusTile(
-              title: 'External AI assistance',
-              subtitle:
-                  'Unavailable while privacy, safety, and cost gates are completed.',
+            _NeonStatusTile(
+              title: isSpanish
+                  ? 'Asistencia de IA externa'
+                  : 'External AI assistance',
+              subtitle: isSpanish
+                  ? 'La asistencia de IA externa no está habilitada para esta cuenta. Tu trabajo de planificación guardado permanece disponible.'
+                  : 'External AI assistance is not enabled for this account. Your saved planning work remains available.',
             ),
+          if (ref.watch(internalCreditTestEnabledProvider))
+            const InternalCreditTestPanel(),
           _NeonStatusTile(
             title: 'Why suggestions appear',
             subtitle: decision.explanation,
@@ -545,23 +565,45 @@ class _LearningLedgerSection extends ConsumerWidget {
                   style: const TextStyle(color: Colors.white60, fontSize: 12),
                 ),
                 trailing: PopupMenuButton<String>(
-                  tooltip: 'Correct or remove this observation',
+                  tooltip: journeyText(
+                    context,
+                    'Correct or remove this observation',
+                    'Corregir o eliminar esta observación',
+                  ),
                   onSelected: (String value) => unawaited(
                     _applyLearningLedgerAction(context, ref, outcome, value),
                   ),
                   itemBuilder: (BuildContext context) =>
-                      const <PopupMenuEntry<String>>[
+                      <PopupMenuEntry<String>>[
                         PopupMenuItem<String>(
                           value: 'helped',
-                          child: Text('Correct: it helped'),
+                          child: Text(
+                            journeyText(
+                              context,
+                              'Correct: it helped',
+                              'Corregir: sí ayudó',
+                            ),
+                          ),
                         ),
                         PopupMenuItem<String>(
                           value: 'not_helpful',
-                          child: Text('Correct: not helpful'),
+                          child: Text(
+                            journeyText(
+                              context,
+                              'Correct: not helpful',
+                              'Corregir: no ayudó',
+                            ),
+                          ),
                         ),
                         PopupMenuItem<String>(
                           value: 'remove',
-                          child: Text('Undo / remove'),
+                          child: Text(
+                            journeyText(
+                              context,
+                              'Undo / remove',
+                              'Deshacer / eliminar',
+                            ),
+                          ),
                         ),
                       ],
                 ),
@@ -584,13 +626,19 @@ class _LearningLedgerSection extends ConsumerWidget {
                           await Clipboard.setData(ClipboardData(text: export));
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Learning ledger copied as JSON.'),
+                            SnackBar(
+                              content: Text(
+                                journeyText(
+                                  context,
+                                  'Learning ledger copied as JSON.',
+                                  'Registro de aprendizaje copiado como JSON.',
+                                ),
+                              ),
                             ),
                           );
                         },
                   icon: const Icon(Icons.download_outlined),
-                  label: const Text('Export'),
+                  label: Text(journeyText(context, 'Export', 'Exportar')),
                 ),
                 OutlinedButton.icon(
                   onPressed: outcomes.isEmpty
@@ -599,7 +647,9 @@ class _LearningLedgerSection extends ConsumerWidget {
                           _confirmClearLearningLedger(context, ref),
                         ),
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('Delete all'),
+                  label: Text(
+                    journeyText(context, 'Delete all', 'Eliminar todo'),
+                  ),
                 ),
               ],
             ),
@@ -660,8 +710,16 @@ Future<void> _applyLearningLedgerAction(
     SnackBar(
       content: Text(
         action == 'remove'
-            ? 'Observation removed and its learning undone.'
-            : 'Observation corrected. The learned preference was updated.',
+            ? journeyText(
+                context,
+                'Observation removed and its learning undone.',
+                'Observación eliminada y su aprendizaje revertido.',
+              )
+            : journeyText(
+                context,
+                'Observation corrected. The learned preference was updated.',
+                'Observación corregida. Se actualizó la preferencia aprendida.',
+              ),
       ),
     ),
   );
@@ -675,19 +733,31 @@ Future<void> _confirmClearLearningLedger(
       await showDialog<bool>(
         context: context,
         builder: (BuildContext dialogContext) => AlertDialog(
-          title: const Text('Delete all learning observations?'),
-          content: const Text(
-            'This permanently removes the decision-outcome ledger and reverses the preference learning created from it. Tasks, goals, Person Context, and user-authored facts are not changed.',
+          title: Text(
+            journeyText(
+              context,
+              'Delete all learning observations?',
+              '¿Eliminar todas las observaciones de aprendizaje?',
+            ),
+          ),
+          content: Text(
+            journeyText(
+              context,
+              'This permanently removes the decision-outcome ledger and reverses the preference learning created from it. Tasks, goals, Person Context, and user-authored facts are not changed.',
+              'Esto elimina permanentemente el registro de resultados de decisiones y revierte las preferencias aprendidas. Las tareas, metas, el Contexto Personal y los datos escritos por ti no cambian.',
+            ),
           ),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
+              child: Text(journeyText(context, 'Cancel', 'Cancelar')),
             ),
             FilledButton(
               key: const Key('confirm-delete-learning-ledger'),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Delete ledger'),
+              child: Text(
+                journeyText(context, 'Delete ledger', 'Eliminar registro'),
+              ),
             ),
           ],
         ),
@@ -696,7 +766,15 @@ Future<void> _confirmClearLearningLedger(
   if (!confirmed) return;
   await ref.read(decisionOutcomeActionsProvider).clear();
   if (!context.mounted) return;
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(const SnackBar(content: Text('Learning ledger deleted.')));
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        journeyText(
+          context,
+          'Learning ledger deleted.',
+          'Registro de aprendizaje eliminado.',
+        ),
+      ),
+    ),
+  );
 }

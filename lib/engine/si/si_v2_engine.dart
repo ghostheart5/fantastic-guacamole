@@ -4,12 +4,18 @@ import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 final class SIV2Engine {
   const SIV2Engine();
 
+  /// Record lists and unsupported questions must retain their own response
+  /// instead of receiving the Home decision's unrelated recommendation.
+  bool allowsSharedDecisionFor(SIV2Query query) =>
+      !query.requestsListing &&
+      _SIV2Question.parse(query).focus != _SIV2QuestionFocus.unsupported;
+
   SIV2Response analyze({
     required SIV2Query query,
     required SIV2EvidenceSnapshot snapshot,
     required DateTime now,
   }) {
-    final DateTime observedNow = now.toUtc();
+    final DateTime observedNow = now.toLocal();
     final _SIV2Question question = _SIV2Question.parse(query);
     final String? entityFilter = query.entityFilter?.toLowerCase();
     bool matchesEntity(String title) =>
@@ -19,6 +25,7 @@ final class SIV2Engine {
         query.sources.contains(SIV2Source.tasks)
         ? snapshot.tasks
               .where((SIV2TaskEvidence item) => matchesEntity(item.title))
+              .where((SIV2TaskEvidence item) => !question.excludes(item.title))
               .where(
                 (SIV2TaskEvidence item) =>
                     _withinTaskRange(item, query.timeRange, observedNow),
@@ -29,8 +36,9 @@ final class SIV2Engine {
         query.sources.contains(SIV2Source.goals)
         ? snapshot.goals
               .where((SIV2GoalEvidence item) => matchesEntity(item.title))
+              .where((SIV2GoalEvidence item) => !question.excludes(item.title))
               .where(
-                (SIV2GoalEvidence item) => _withinDeadlineRange(
+                (SIV2GoalEvidence item) => _withinGoalRange(
                   item.targetDate,
                   query.timeRange,
                   observedNow,
@@ -45,6 +53,9 @@ final class SIV2Engine {
               .where((SIV2MilestoneEvidence item) => !item.archived)
               .where((SIV2MilestoneEvidence item) => matchesEntity(item.title))
               .where(
+                (SIV2MilestoneEvidence item) => !question.excludes(item.title),
+              )
+              .where(
                 (SIV2MilestoneEvidence item) => _withinDeadlineRange(
                   item.targetDate,
                   query.timeRange,
@@ -58,6 +69,9 @@ final class SIV2Engine {
         query.sources.contains(SIV2Source.timeline)
         ? snapshot.timeline
               .where((SIV2TimelineEvidence item) => matchesEntity(item.title))
+              .where(
+                (SIV2TimelineEvidence item) => !question.excludes(item.title),
+              )
               .where(
                 (SIV2TimelineEvidence item) =>
                     _withinTimelineRange(item, query.timeRange, observedNow),
@@ -82,29 +96,33 @@ final class SIV2Engine {
       if (query.sources.contains(SIV2Source.tasks))
         SIV2Statement(
           kind: SIV2StatementKind.observedFact,
-          text:
-              '${tasks.length} active task${tasks.length == 1 ? '' : 's'} matched the current lens.',
+          text: question.isSpanish
+              ? '${tasks.length} ${tasks.length == 1 ? 'tarea activa coincide' : 'tareas activas coinciden'} con el filtro actual.'
+              : '${tasks.length} active task${tasks.length == 1 ? '' : 's'} matched the current lens.',
           evidenceIds: <String>[sourceId(SIV2Source.tasks)],
         ),
       if (query.sources.contains(SIV2Source.goals))
         SIV2Statement(
           kind: SIV2StatementKind.observedFact,
-          text:
-              '${goals.length} active goal${goals.length == 1 ? '' : 's'} matched the current lens.',
+          text: question.isSpanish
+              ? '${goals.length} ${goals.length == 1 ? 'meta activa coincide' : 'metas activas coinciden'} con el filtro actual.'
+              : '${goals.length} active goal${goals.length == 1 ? '' : 's'} matched the current lens.',
           evidenceIds: <String>[sourceId(SIV2Source.goals)],
         ),
       if (query.sources.contains(SIV2Source.milestones))
         SIV2Statement(
           kind: SIV2StatementKind.observedFact,
-          text:
-              '${milestones.length} milestone${milestones.length == 1 ? '' : 's'} matched the current lens.',
+          text: question.isSpanish
+              ? '${milestones.length} ${milestones.length == 1 ? 'hito coincide' : 'hitos coinciden'} con el filtro actual.'
+              : '${milestones.length} milestone${milestones.length == 1 ? '' : 's'} matched the current lens.',
           evidenceIds: <String>[sourceId(SIV2Source.milestones)],
         ),
       if (query.sources.contains(SIV2Source.timeline))
         SIV2Statement(
           kind: SIV2StatementKind.observedFact,
-          text:
-              '${timeline.length} Timeline event${timeline.length == 1 ? '' : 's'} matched the current lens.',
+          text: question.isSpanish
+              ? '${timeline.length} ${timeline.length == 1 ? 'evento del Historial coincide' : 'eventos del Historial coinciden'} con el filtro actual.'
+              : '${timeline.length} Timeline event${timeline.length == 1 ? '' : 's'} matched the current lens.',
           evidenceIds: <String>[sourceId(SIV2Source.timeline)],
         ),
     ];
@@ -112,8 +130,9 @@ final class SIV2Engine {
       ...?snapshot.personContext?.signals.map(
         (SIV2PersonContextSignalEvidence signal) => SIV2Statement(
           kind: SIV2StatementKind.userReportedEvidence,
-          text:
-              'User reported ${signal.kind.name}: ${signal.userReportedValue}. This is relevant context, not independently verified fact.',
+          text: question.isSpanish
+              ? 'La persona informó ${signal.kind.name}: ${_sentence(signal.userReportedValue)} Es contexto pertinente, no un hecho verificado de forma independiente.'
+              : 'User reported ${signal.kind.name}: ${_sentence(signal.userReportedValue)} This is relevant context, not independently verified fact.',
           evidenceIds: <String>['person-context:${signal.id}'],
         ),
       ),
@@ -122,15 +141,14 @@ final class SIV2Engine {
     final int overdueTasks = tasks
         .where(
           (SIV2TaskEvidence item) =>
-              item.dueDate != null &&
-              item.dueDate!.toUtc().isBefore(observedNow),
+              item.dueDate != null && _taskIsOverdue(item, observedNow),
         )
         .length;
     final int overdueGoals = goals
         .where(
           (SIV2GoalEvidence item) =>
               item.targetDate != null &&
-              item.targetDate!.toUtc().isBefore(observedNow),
+              _localDay(item.targetDate!).isBefore(_localDay(observedNow)),
         )
         .length;
     final int overdueMilestones = milestones
@@ -145,22 +163,25 @@ final class SIV2Engine {
       if (query.sources.contains(SIV2Source.tasks))
         SIV2Statement(
           kind: SIV2StatementKind.deterministicCalculation,
-          text:
-              '$overdueTasks matched task${overdueTasks == 1 ? ' is' : 's are'} past the recorded due date.',
+          text: question.isSpanish
+              ? '$overdueTasks ${overdueTasks == 1 ? 'tarea está vencida' : 'tareas están vencidas'} según la fecha guardada.'
+              : '$overdueTasks matched task${overdueTasks == 1 ? ' is' : 's are'} past the recorded due date.',
           evidenceIds: <String>[sourceId(SIV2Source.tasks)],
         ),
       if (query.sources.contains(SIV2Source.goals))
         SIV2Statement(
           kind: SIV2StatementKind.deterministicCalculation,
-          text:
-              '$overdueGoals matched goal${overdueGoals == 1 ? ' is' : 's are'} past the recorded target date.',
+          text: question.isSpanish
+              ? '$overdueGoals ${overdueGoals == 1 ? 'meta está vencida' : 'metas están vencidas'} según la fecha objetivo guardada.'
+              : '$overdueGoals matched goal${overdueGoals == 1 ? ' is' : 's are'} past the recorded target date.',
           evidenceIds: <String>[sourceId(SIV2Source.goals)],
         ),
       if (query.sources.contains(SIV2Source.milestones))
         SIV2Statement(
           kind: SIV2StatementKind.deterministicCalculation,
-          text:
-              '$overdueMilestones incomplete milestone${overdueMilestones == 1 ? ' is' : 's are'} past the recorded target date.',
+          text: question.isSpanish
+              ? '$overdueMilestones ${overdueMilestones == 1 ? 'hito incompleto está vencido' : 'hitos incompletos están vencidos'} según la fecha objetivo guardada.'
+              : '$overdueMilestones incomplete milestone${overdueMilestones == 1 ? ' is' : 's are'} past the recorded target date.',
           evidenceIds: <String>[sourceId(SIV2Source.milestones)],
         ),
     ];
@@ -172,8 +193,15 @@ final class SIV2Engine {
       now: observedNow,
       linkById: linkById,
     );
-    SIV2TaskEvidence? focusTask = _selectFocusTask(tasks, question);
-    SIV2GoalEvidence? focusGoal = _selectFocusGoal(goals, question);
+    final bool namedTaskMissing =
+        question.namedTaskPhrase != null &&
+        !tasks.any((task) => question.matchesNamedTask(task.title));
+    SIV2TaskEvidence? focusTask = namedTaskMissing
+        ? null
+        : _selectFocusTask(tasks, question);
+    SIV2GoalEvidence? focusGoal = namedTaskMissing
+        ? null
+        : _selectFocusGoal(goals, question);
     final int taskQuestionScore = focusTask == null
         ? 0
         : question.titleScore(focusTask.title);
@@ -181,6 +209,7 @@ final class SIV2Engine {
         ? 0
         : question.titleScore(focusGoal.title);
     final bool questionLeadsWithGoal =
+        question.namedTaskPhrase == null &&
         focusGoal != null &&
         (goalQuestionScore > taskQuestionScore ||
             (question.sourceHint == SIV2Source.goals &&
@@ -196,63 +225,94 @@ final class SIV2Engine {
           .where((SIV2GoalEvidence goal) => goal.id == focusTask!.goalId)
           .firstOrNull;
     }
-    final SIV2MilestoneEvidence? focusMilestone = _selectFocusMilestone(
-      milestones,
-      question,
-    );
-    final SIV2TimelineEvidence? focusTimeline = _selectFocusTimeline(
-      timeline,
-      question,
-      observedNow,
-    );
+    final SIV2MilestoneEvidence? focusMilestone = namedTaskMissing
+        ? null
+        : _selectFocusMilestone(milestones, question);
+    if (focusMilestone?.goalId != null &&
+        question.titleScore(focusMilestone!.title) >
+            (focusGoal == null ? 0 : question.titleScore(focusGoal.title))) {
+      focusGoal = goals
+          .where((goal) => goal.id == focusMilestone.goalId)
+          .firstOrNull;
+    }
+    final SIV2TimelineEvidence? focusTimeline = namedTaskMissing
+        ? null
+        : _selectFocusTimeline(timeline, question, observedNow);
     final List<SIV2Scenario> scenarios = _buildScenarios(
       task: focusTask,
       goals: goals,
       now: observedNow,
       userAssumptions: query.assumptions,
+      deferDays: question.deferDays,
+      spanish: question.isSpanish,
       linkById: linkById,
     );
     final List<String> scenarioAssumptions = <String>[
-      'Scenarios describe recorded schedule effects, not certain outcomes.',
-      'No unrecorded dependency, travel, or capacity constraint is assumed.',
+      question.isSpanish
+          ? 'Los escenarios describen efectos en el horario guardado, no resultados seguros.'
+          : 'Scenarios describe recorded schedule effects, not certain outcomes.',
+      question.isSpanish
+          ? 'No se supone ninguna dependencia, viaje o límite de capacidad que no esté guardado.'
+          : 'No unrecorded dependency, travel, or capacity constraint is assumed.',
       ...query.assumptions,
     ];
     final List<String> missing = <String>[
+      if (namedTaskMissing)
+        question.isSpanish
+            ? 'No se encontró una tarea guardada que coincida con "${question.namedTaskPhrase}" en los datos seleccionados.'
+            : 'No saved task matching "${question.namedTaskPhrase}" was found in the selected evidence lens.',
       for (final SIV2Source source in query.sources)
         if (snapshot.unavailableSources.contains(source))
-          '${source.label} evidence is unavailable.',
+          question.isSpanish
+              ? 'Los datos de ${_sourceLabelSpanish(source)} no están disponibles.'
+              : '${source.label} evidence is unavailable.',
       if (query.sources.contains(SIV2Source.tasks) &&
           !snapshot.unavailableSources.contains(SIV2Source.tasks) &&
           tasks.isEmpty)
-        'No active task evidence matched the current lens.',
+        question.isSpanish
+            ? 'Ninguna tarea activa coincide con el filtro actual.'
+            : 'No active task evidence matched the current lens.',
       if (query.sources.contains(SIV2Source.goals) &&
           !snapshot.unavailableSources.contains(SIV2Source.goals) &&
           goals.isEmpty)
-        'No goal evidence matched the current lens.',
+        question.isSpanish
+            ? 'Ninguna meta coincide con el filtro actual.'
+            : 'No goal evidence matched the current lens.',
       if (query.sources.contains(SIV2Source.milestones) &&
           !snapshot.unavailableSources.contains(SIV2Source.milestones) &&
           milestones.isEmpty)
-        'No milestone evidence matched the current lens.',
+        question.isSpanish
+            ? 'Ningún hito coincide con el filtro actual.'
+            : 'No milestone evidence matched the current lens.',
       if (query.sources.contains(SIV2Source.timeline) &&
           !snapshot.unavailableSources.contains(SIV2Source.timeline) &&
           timeline.isEmpty)
-        'No Timeline evidence matched the current lens.',
+        question.isSpanish
+            ? 'Ningún evento del Historial coincide con el filtro actual.'
+            : 'No Timeline evidence matched the current lens.',
       if (query.entityFilter != null &&
           tasks.isEmpty &&
           goals.isEmpty &&
           milestones.isEmpty &&
           timeline.isEmpty)
-        'No entity title matched "${query.entityFilter}".',
+        question.isSpanish
+            ? 'Ningún título coincide con "${query.entityFilter}".'
+            : 'No entity title matched "${query.entityFilter}".',
       if (tasks.any(
         (SIV2TaskEvidence item) =>
             item.dueDate == null && item.scheduledFor == null,
       ))
-        'At least one matched task has no due date or schedule.',
+        question.isSpanish
+            ? 'Al menos una tarea coincidente no tiene fecha de vencimiento ni horario.'
+            : 'At least one matched task has no due date or schedule.',
       if (question.focus == _SIV2QuestionFocus.unsupported)
-        'The question does not identify a planning decision that this read-only evidence lens can answer.',
+        question.isSpanish
+            ? 'La pregunta no corresponde a una decisión de planificación que estos datos de solo lectura puedan responder.'
+            : 'The question does not identify a planning decision that this read-only evidence lens can answer.',
       ...?snapshot.personContext?.unknownKinds.map(
-        (PersonContextKind kind) =>
-            'Person Context has no user-provided ${kind.name}; SI did not infer it.',
+        (PersonContextKind kind) => question.isSpanish
+            ? 'El Contexto personal no contiene ${kind.name} informado por la persona; SI no lo dedujo.'
+            : 'Person Context has no user-provided ${kind.name}; SI did not infer it.',
       ),
       ...conflicts.map((SIV2Conflict item) => item.summary),
     ];
@@ -268,8 +328,9 @@ final class SIV2Engine {
       if (overdueTasks + overdueGoals + overdueMilestones > 0)
         SIV2Statement(
           kind: SIV2StatementKind.inference,
-          text:
-              'Recorded deadline pressure appears to be the strongest attention signal.',
+          text: question.isSpanish
+              ? 'La presión de fechas guardadas parece ser la señal de atención más fuerte.'
+              : 'Recorded deadline pressure appears to be the strongest attention signal.',
           evidenceIds: conflicts
               .expand((SIV2Conflict item) => item.evidenceIds)
               .toSet()
@@ -278,49 +339,62 @@ final class SIV2Engine {
       else
         SIV2Statement(
           kind: SIV2StatementKind.inference,
-          text:
-              'No overdue deadline dominates this lens; priority and dependency order should drive the choice.',
+          text: question.isSpanish
+              ? 'Ninguna fecha vencida domina este filtro; la prioridad y el orden de dependencias deben guiar la elección.'
+              : 'No overdue deadline dominates this lens; priority and dependency order should drive the choice.',
           evidenceIds: focusTask == null
               ? const <String>[]
               : <String>['tasks:${focusTask.id}'],
         ),
     ];
 
-    final String groundedAnswer = _directAnswer(
-      question: question,
-      focusTask: focusTask,
-      focusGoal: focusGoal,
-      focusMilestone: focusMilestone,
-      focusTimeline: focusTimeline,
-      tasks: tasks,
-      goals: goals,
-      milestones: milestones,
-      timeline: timeline,
-      conflicts: conflicts,
-      scenarios: scenarios,
-      now: observedNow,
-      missingInformation: missing,
-      totalMatched:
-          tasks.length + goals.length + milestones.length + timeline.length,
-    );
-    final String directAnswer = userReportedEvidence.isEmpty
+    final String groundedAnswer = namedTaskMissing
+        ? question.isSpanish
+              ? 'No encuentro una tarea guardada que coincida con "${question.namedTaskPhrase}" en los datos seleccionados. No puedo explicar su posición ni afirmar que tenga una fecha guardada. Comprueba el título o amplía el filtro.'
+              : 'I could not find a saved task matching "${question.namedTaskPhrase}" in the selected evidence lens. I cannot explain its rank or claim a saved date. Check the title or widen the filter.'
+        : _directAnswer(
+            question: question,
+            focusTask: focusTask,
+            focusGoal: focusGoal,
+            focusMilestone: focusMilestone,
+            focusTimeline: focusTimeline,
+            tasks: tasks,
+            goals: goals,
+            milestones: milestones,
+            timeline: timeline,
+            conflicts: conflicts,
+            scenarios: scenarios,
+            now: observedNow,
+            missingInformation: missing,
+            totalMatched:
+                tasks.length +
+                goals.length +
+                milestones.length +
+                timeline.length,
+          );
+    final String directAnswer = namedTaskMissing || userReportedEvidence.isEmpty
         ? groundedAnswer
         : '$groundedAnswer ${userReportedEvidence.length} relevant user-reported context ${userReportedEvidence.length == 1 ? 'item is' : 'items are'} cited separately and not independently verified.';
-    final String recommendation = _recommendation(
-      question: question,
-      focusTask: focusTask,
-      focusGoal: focusGoal,
-      focusMilestone: focusMilestone,
-      focusTimeline: focusTimeline,
-      conflicts: conflicts,
-    );
+    final String recommendation = namedTaskMissing
+        ? question.isSpanish
+              ? 'Comprueba el título exacto de la tarea o amplía el filtro antes de decidir. SI no cambió datos guardados.'
+              : 'Check the exact task title or widen the evidence lens before deciding. SI has not changed saved data.'
+        : _recommendation(
+            question: question,
+            focusTask: focusTask,
+            focusGoal: focusGoal,
+            focusMilestone: focusMilestone,
+            focusTimeline: focusTimeline,
+            conflicts: conflicts,
+          );
 
     final int requiredSignals = query.sources.length;
-    final int coveredSignals = query.sources
-        .where(
-          (SIV2Source source) => !snapshot.unavailableSources.contains(source),
-        )
-        .length;
+    final int coveredSignals = <SIV2Source>[
+      if (tasks.isNotEmpty) SIV2Source.tasks,
+      if (goals.isNotEmpty) SIV2Source.goals,
+      if (milestones.isNotEmpty) SIV2Source.milestones,
+      if (timeline.isNotEmpty) SIV2Source.timeline,
+    ].where(query.sources.contains).length;
     final Duration age = observedNow.difference(snapshot.observedAt.toUtc());
     final SIV2Freshness freshness = coveredSignals == 0
         ? SIV2Freshness.unavailable
@@ -329,8 +403,9 @@ final class SIV2Engine {
         : age <= const Duration(hours: 24)
         ? SIV2Freshness.aging
         : SIV2Freshness.stale;
-    final SIV2EvidenceStrength strength =
-        coveredSignals == requiredSignals && links.length >= requiredSignals
+    final SIV2EvidenceStrength strength = namedTaskMissing
+        ? SIV2EvidenceStrength.limited
+        : coveredSignals > 0 && coveredSignals == requiredSignals
         ? (conflicts.length <= 1
               ? SIV2EvidenceStrength.strong
               : SIV2EvidenceStrength.moderate)
@@ -338,18 +413,26 @@ final class SIV2Engine {
         ? SIV2EvidenceStrength.moderate
         : SIV2EvidenceStrength.limited;
 
-    return SIV2Response(
+    final bool refusal =
+        question.focus == _SIV2QuestionFocus.unsupported || namedTaskMissing;
+    final SIV2Response response = SIV2Response(
       query: query,
       snapshotRevision: snapshot.revision,
       directAnswer: directAnswer,
       observedFacts: facts,
       userReportedEvidence: userReportedEvidence,
-      calculations: calculations,
-      inferences: inferences,
-      missingInformation: missing,
-      conflicts: conflicts,
-      scenarios: scenarios,
-      scenarioAssumptions: scenarioAssumptions,
+      calculations: refusal ? const <SIV2Statement>[] : calculations,
+      inferences: refusal ? const <SIV2Statement>[] : inferences,
+      missingInformation: question.focus == _SIV2QuestionFocus.unsupported
+          ? <String>[
+              question.isSpanish
+                  ? 'La pregunta no corresponde a una decisión de planificación que pueda responderse con estos datos.'
+                  : 'The question does not identify a planning decision that this read-only evidence lens can answer.',
+            ]
+          : missing,
+      conflicts: refusal ? const <SIV2Conflict>[] : conflicts,
+      scenarios: refusal ? const <SIV2Scenario>[] : scenarios,
+      scenarioAssumptions: refusal ? const <String>[] : scenarioAssumptions,
       recommendation: recommendation,
       confidence: SIV2ConfidenceAnatomy(
         strength: strength,
@@ -361,7 +444,184 @@ final class SIV2Engine {
       ),
       evidenceLinks: links,
     );
+    return question.isSpanish
+        ? _localizeSpanishResponse(response, question: question)
+        : response;
   }
+
+  SIV2Response _localizeSpanishResponse(
+    SIV2Response source, {
+    required _SIV2Question question,
+  }) {
+    if (question.namedTaskPhrase != null &&
+        source.missingInformation.any(
+          (item) => item.startsWith('No se encontró una tarea guardada'),
+        )) {
+      return source;
+    }
+    final entityLinks = source.evidenceLinks
+        .where((link) => link.entityId != 'collection')
+        .toList(growable: false);
+    SIV2EvidenceLink? subject = entityLinks
+        .where((link) => source.directAnswer.contains(link.label))
+        .firstOrNull;
+    subject ??= entityLinks
+        .where((link) => link.source == question.sourceHint)
+        .firstOrNull;
+    subject ??= entityLinks.firstOrNull;
+    final subjectLabel = subject?.label;
+    final subjectText = subjectLabel == null
+        ? 'los datos guardados'
+        : '"$subjectLabel"';
+    final int matchedTasks = source.evidenceLinks
+        .where(
+          (link) =>
+              link.evidenceId.startsWith('tasks:') &&
+              link.entityId != 'collection',
+        )
+        .length;
+    final int matchedGoals = source.evidenceLinks
+        .where(
+          (link) =>
+              link.evidenceId.startsWith('goals:') &&
+              link.entityId != 'collection',
+        )
+        .length;
+    final int matchedMilestones = source.evidenceLinks
+        .where(
+          (link) =>
+              link.evidenceId.startsWith('milestones:') &&
+              link.entityId != 'collection',
+        )
+        .length;
+    final int matchedTimeline = source.evidenceLinks
+        .where(
+          (link) =>
+              link.evidenceId.startsWith('timeline:') &&
+              link.entityId != 'collection',
+        )
+        .length;
+    final int totalMatched =
+        matchedTasks + matchedGoals + matchedMilestones + matchedTimeline;
+    final String directAnswer;
+    if (totalMatched == 0) {
+      directAnswer = question.focus == _SIV2QuestionFocus.unsupported
+          ? 'No puedo responder esa pregunta con las tareas, metas, hitos o eventos guardados. Puedo ayudarte con qué necesita atención, qué hacer después, el progreso, las fechas o los conflictos.'
+          : 'Ningún dato guardado coincide con las fuentes, fechas y filtros seleccionados, así que no puedo responder esta pregunta con evidencia de la app.';
+    } else {
+      directAnswer = switch (question.focus) {
+        _SIV2QuestionFocus.nextAction =>
+          question.availableMinutes != null
+              ? 'Usa los ${question.availableMinutes} ${question.availableMinutes == 1 ? 'minuto disponible' : 'minutos disponibles'} para empezar una parte concreta de $subjectText. No conozco la duración completa, así que esto es un inicio y no una promesa de terminar.'
+              : 'La siguiente acción mejor respaldada por los datos guardados es revisar $subjectText y elegir una parte concreta para empezar.',
+        _SIV2QuestionFocus.urgency =>
+          'Lo que requiere atención primero según la prioridad y las fechas guardadas es $subjectText.',
+        _SIV2QuestionFocus.workload =>
+          'El filtro contiene $matchedTasks ${matchedTasks == 1 ? 'tarea activa' : 'tareas activas'}. Las fechas y prioridades guardadas describen la carga; no hay duraciones suficientes para afirmar capacidad total.',
+        _SIV2QuestionFocus.progress =>
+          'El progreso respaldado por los hitos guardados se refiere a $subjectText. Si faltan hitos, no puedo convertir la actividad general en un porcentaje fiable.',
+        _SIV2QuestionFocus.goalAlignment =>
+          'Los vínculos guardados de tareas, hitos y metas muestran la relación disponible para $subjectText; no se dedujo ninguna relación adicional.',
+        _SIV2QuestionFocus.schedule =>
+          'La información de horario y vencimiento guardada que mejor coincide con la pregunta corresponde a $subjectText. Una hora programada y una fecha de vencimiento se tratan como datos distintos.',
+        _SIV2QuestionFocus.comparison =>
+          'La comparación usa únicamente los registros guardados que coinciden con la pregunta. El primer elemento respaldado es $subjectText.',
+        _SIV2QuestionFocus.explanation =>
+          'La explicación disponible para $subjectText se limita a sus campos guardados, vínculos, prioridad y fechas; no se inventó una causa.',
+        _SIV2QuestionFocus.forecast =>
+          'Se calcularon escenarios condicionales para $subjectText usando el cambio solicitado de ${question.deferDays} ${question.deferDays == 1 ? 'día' : 'días'}. No son predicciones seguras.',
+        _SIV2QuestionFocus.conflict =>
+          source.conflicts.isEmpty
+              ? 'No se encontró un conflicto explícito de horario, vínculo o dependencia que coincida con la pregunta.'
+              : 'Se encontró un conflicto explícito relacionado con $subjectText. Revisa la evidencia citada antes de cambiar los datos.',
+        _SIV2QuestionFocus.counterfactual =>
+          'La respuesta sobre $subjectText cambiaría si cambian sus fechas, prioridad, vínculos o dependencias guardadas.',
+        _SIV2QuestionFocus.timeline =>
+          'El evento del Historial que mejor coincide con la pregunta es $subjectText.',
+        _SIV2QuestionFocus.evidenceGaps =>
+          source.missingInformation.isEmpty
+              ? 'No se identificaron vacíos de evidencia en el filtro seleccionado.'
+              : 'Hay información ausente o en conflicto. Revisa la sección correspondiente antes de tomar una decisión.',
+        _SIV2QuestionFocus.overview =>
+          question.requestsListing
+              ? '$totalMatched ${totalMatched == 1 ? 'registro guardado coincide' : 'registros guardados coinciden'} con el filtro actual. Revisa la lista de evidencia para ver cada título.'
+              : '$totalMatched ${totalMatched == 1 ? 'registro guardado coincide' : 'registros guardados coinciden'}. Pregunta por la siguiente acción, urgencia, progreso, horario, conflictos o un título concreto.',
+        _SIV2QuestionFocus.unsupported =>
+          'No puedo responder esa pregunta con las tareas, metas, hitos o eventos guardados. Puedo ayudarte con qué necesita atención, qué hacer después, el progreso, las fechas o los conflictos.',
+      };
+    }
+    final String recommendation =
+        question.focus == _SIV2QuestionFocus.unsupported
+        ? 'Prueba una pregunta compatible, como “¿Qué necesita atención?” o “¿Qué debería hacer después?”.'
+        : subjectLabel == null
+        ? 'Ajusta las fuentes, fechas o el título buscado antes de confiar en esta respuesta. SI no cambió ningún dato guardado.'
+        : 'Revisa $subjectText y decide de forma explícita si quieres actuar, posponer, editar o rechazar la recomendación. SI no cambió ningún dato guardado.';
+
+    SIV2Statement localizeStatement(SIV2Statement statement) {
+      if (!RegExp(
+        r'\b(the|current|saved|recorded|wording|question|task|goal|milestone|timeline|user|evidence)\b',
+        caseSensitive: false,
+      ).hasMatch(statement.text)) {
+        return statement;
+      }
+      return SIV2Statement(
+        kind: statement.kind,
+        text: statement.kind == SIV2StatementKind.inference
+            ? 'La coincidencia se determinó a partir de las palabras de la pregunta y los títulos guardados citados.'
+            : 'Este dato procede directamente de los registros citados de la app.',
+        evidenceIds: statement.evidenceIds,
+      );
+    }
+
+    return SIV2Response(
+      schemaVersion: source.schemaVersion,
+      query: source.query,
+      snapshotRevision: source.snapshotRevision,
+      directAnswer: directAnswer,
+      observedFacts: source.observedFacts.map(localizeStatement).toList(),
+      userReportedEvidence: source.userReportedEvidence
+          .map(localizeStatement)
+          .toList(),
+      calculations: source.calculations.map(localizeStatement).toList(),
+      inferences: source.inferences.map(localizeStatement).toList(),
+      missingInformation: source.missingInformation
+          .map(
+            (item) =>
+                RegExp(
+                  r'\b(the|current|saved|recorded|task|goal|milestone|timeline|evidence|conflict)\b',
+                  caseSensitive: false,
+                ).hasMatch(item)
+                ? 'Falta información pertinente o existe un conflicto en los datos citados.'
+                : item,
+          )
+          .toSet()
+          .toList(),
+      conflicts: source.conflicts
+          .map(
+            (item) => SIV2Conflict(
+              conflictId: item.conflictId,
+              severity: item.severity,
+              summary:
+                  'Los datos citados contienen un conflicto explícito de fecha, vínculo o dependencia.',
+              evidenceIds: item.evidenceIds,
+            ),
+          )
+          .toList(),
+      scenarios: source.scenarios,
+      scenarioAssumptions: source.scenarioAssumptions,
+      recommendation: recommendation,
+      confidence: source.confidence,
+      evidenceLinks: source.evidenceLinks,
+      safetyReceipt: source.safetyReceipt,
+    );
+  }
+
+  String _sourceLabelSpanish(SIV2Source source) => switch (source) {
+    SIV2Source.tasks => 'tareas',
+    SIV2Source.goals => 'metas',
+    SIV2Source.milestones => 'hitos',
+    SIV2Source.timeline => 'Historial',
+  };
 
   List<SIV2EvidenceLink> _buildEvidenceLinks({
     required SIV2EvidenceSnapshot snapshot,
@@ -471,7 +731,7 @@ final class SIV2Engine {
     final List<SIV2Conflict> conflicts = <SIV2Conflict>[];
     for (final SIV2TaskEvidence task in tasks) {
       final String taskEvidence = 'tasks:${task.id}';
-      if (task.dueDate != null && task.dueDate!.toUtc().isBefore(now)) {
+      if (_taskIsOverdue(task, now)) {
         conflicts.add(
           SIV2Conflict(
             conflictId: 'overdue-task:${task.id}',
@@ -505,7 +765,7 @@ final class SIV2Engine {
       final DateTime? taskDate = task.dueDate ?? task.scheduledFor;
       if (taskDate != null &&
           goal.targetDate != null &&
-          taskDate.toUtc().isAfter(goal.targetDate!.toUtc())) {
+          _localDay(taskDate).isAfter(_localDay(goal.targetDate!))) {
         conflicts.add(
           SIV2Conflict(
             conflictId: 'task-after-goal:${task.id}:$goalId',
@@ -541,7 +801,9 @@ final class SIV2Engine {
           : goalsById[milestone.goalId!];
       if (goal?.targetDate != null &&
           milestone.targetDate != null &&
-          milestone.targetDate!.toUtc().isAfter(goal!.targetDate!.toUtc())) {
+          _localDay(
+            milestone.targetDate!,
+          ).isAfter(_localDay(goal!.targetDate!))) {
         conflicts.add(
           SIV2Conflict(
             conflictId: 'milestone-after-goal:${milestone.id}:${goal.id}',
@@ -564,6 +826,8 @@ final class SIV2Engine {
     required List<SIV2GoalEvidence> goals,
     required DateTime now,
     required List<String> userAssumptions,
+    required int deferDays,
+    required bool spanish,
     required Map<String, SIV2EvidenceLink> linkById,
   }) {
     if (task == null) return const <SIV2Scenario>[];
@@ -573,7 +837,7 @@ final class SIV2Engine {
     ];
     final DateTime? recordedDate = task.dueDate ?? task.scheduledFor;
     final DateTime deferredDate = (recordedDate ?? now).add(
-      const Duration(days: 1),
+      Duration(days: deferDays),
     );
     final SIV2GoalEvidence? linkedGoal = task.goalId == null
         ? null
@@ -582,27 +846,38 @@ final class SIV2Engine {
               .firstOrNull;
     final bool crossesGoalDate =
         linkedGoal?.targetDate != null &&
-        deferredDate.toUtc().isAfter(linkedGoal!.targetDate!.toUtc());
+        _localDay(deferredDate).isAfter(_localDay(linkedGoal!.targetDate!));
     return <SIV2Scenario>[
       SIV2Scenario(
         kind: SIV2ScenarioKind.doNow,
-        label: 'Do now',
-        projectedEffect:
-            'Scenario: acting on "${task.title}" now avoids adding a one-day schedule delay.',
+        label: spanish ? 'Hacer ahora' : 'Do now',
+        projectedEffect: spanish
+            ? 'Escenario: actuar ahora sobre "${task.title}" evita añadir un retraso de $deferDays ${deferDays == 1 ? 'día' : 'días'}.'
+            : 'Scenario: acting on "${task.title}" now avoids adding a $deferDays-${deferDays == 1 ? 'day' : 'day'} schedule delay.',
         assumptions: <String>[
-          'The task can be started with current capacity.',
+          spanish
+              ? 'La tarea puede iniciarse con la capacidad actual.'
+              : 'The task can be started with current capacity.',
           ...userAssumptions,
         ],
         evidenceIds: citations,
       ),
       SIV2Scenario(
         kind: SIV2ScenarioKind.deferOneDay,
-        label: 'Defer one day',
+        label: spanish
+            ? 'Posponer $deferDays ${deferDays == 1 ? 'día' : 'días'}'
+            : 'Defer $deferDays ${deferDays == 1 ? 'day' : 'days'}',
         projectedEffect: crossesGoalDate
-            ? 'Scenario: a one-day deferral crosses the linked goal target date and increases recorded schedule conflict.'
-            : 'Scenario: a one-day deferral shifts the next recorded task date without crossing a visible goal target.',
+            ? (spanish
+                  ? 'Escenario: posponer $deferDays ${deferDays == 1 ? 'día' : 'días'} cruza la fecha objetivo de la meta vinculada y aumenta el conflicto registrado.'
+                  : 'Scenario: a $deferDays-${deferDays == 1 ? 'day' : 'day'} deferral crosses the linked goal target date and increases recorded schedule conflict.')
+            : (spanish
+                  ? 'Escenario: posponer $deferDays ${deferDays == 1 ? 'día' : 'días'} cambia la próxima fecha registrada sin cruzar una meta visible.'
+                  : 'Scenario: a $deferDays-${deferDays == 1 ? 'day' : 'day'} deferral shifts the next recorded task date without crossing a visible goal target.'),
         assumptions: <String>[
-          'The task date moves by exactly 24 hours.',
+          spanish
+              ? 'La fecha de la tarea cambia exactamente $deferDays ${deferDays == 1 ? 'día' : 'días'}.'
+              : 'The task date moves by exactly $deferDays ${deferDays == 1 ? 'day' : 'days'}.',
           ...userAssumptions,
         ],
         evidenceIds: <String>[
@@ -614,12 +889,18 @@ final class SIV2Engine {
       ),
       SIV2Scenario(
         kind: SIV2ScenarioKind.skip,
-        label: 'Skip',
+        label: spanish ? 'Omitir' : 'Skip',
         projectedEffect: task.priority >= 4
-            ? 'Scenario: skipping removes this task from today while leaving a high-priority commitment unresolved.'
-            : 'Scenario: skipping removes this task from today while leaving its recorded commitment unresolved.',
+            ? (spanish
+                  ? 'Escenario: omitir quita esta tarea de hoy pero deja sin resolver un compromiso de alta prioridad.'
+                  : 'Scenario: skipping removes this task from today while leaving a high-priority commitment unresolved.')
+            : (spanish
+                  ? 'Escenario: omitir quita esta tarea de hoy pero deja sin resolver el compromiso registrado.'
+                  : 'Scenario: skipping removes this task from today while leaving its recorded commitment unresolved.'),
         assumptions: <String>[
-          'No replacement task satisfies the same commitment.',
+          spanish
+              ? 'Ninguna tarea alternativa satisface el mismo compromiso.'
+              : 'No replacement task satisfies the same commitment.',
           ...userAssumptions,
         ],
         evidenceIds: citations,
@@ -669,7 +950,14 @@ final class SIV2Engine {
     switch (question.focus) {
       case _SIV2QuestionFocus.nextAction:
         if (focusTask != null) {
-          return 'For the next action you asked about, "${focusTask.title}" ranks first from its title relevance, recorded date, and priority ${focusTask.priority}/5.';
+          if (question.availableMinutes case final int minutes) {
+            return 'Use the available $minutes ${minutes == 1 ? 'minute' : 'minutes'} to start one bounded part of "${focusTask.title}". SI does not know the full task duration, so this is a start, not a promise to finish it.';
+          }
+          final dateBasis =
+              focusTask.dueDate != null || focusTask.scheduledFor != null
+              ? 'recorded date, '
+              : '';
+          return 'For the next action you asked about, "${focusTask.title}" ranks first from its title relevance, ${dateBasis}and priority ${focusTask.priority}/5.';
         }
         final int goalMatch = focusGoal == null
             ? 0
@@ -692,8 +980,17 @@ final class SIV2Engine {
           final DateTime? date = focusTask.dueDate ?? focusTask.scheduledFor;
           return '"${focusTask.title}" has the strongest urgency signal: priority ${focusTask.priority}/5 and ${_timingLabel(date, now)}.';
         }
+        if (goals.length >= 2 && question.sourceHint != SIV2Source.milestones) {
+          return _comparisonAnswer(
+            question: question,
+            tasks: const <SIV2TaskEvidence>[],
+            goals: goals,
+            milestones: milestones,
+            now: now,
+          );
+        }
         if (focusGoal != null) {
-          return 'Goal "${focusGoal.title}" has the strongest available urgency signal with ${_targetLabel(focusGoal.targetDate, now)}.';
+          return 'Goal "${focusGoal.title}" has the strongest available urgency signal with ${_goalTargetLabel(focusGoal.targetDate, now)}.';
         }
         if (focusMilestone != null) {
           return 'Milestone "${focusMilestone.title}" has the strongest available urgency signal with ${_targetLabel(focusMilestone.targetDate, now)}.';
@@ -788,7 +1085,15 @@ final class SIV2Engine {
           return '${conflict.summary} That recorded conflict is the clearest evidence-backed explanation for the risk in your question.';
         }
         if (focusTask != null) {
-          return '"${focusTask.title}" ranks where it does because its saved title matches the question, then SI considers recorded due date and priority ${focusTask.priority}/5. No causal explanation beyond those fields is stored.';
+          final DateTime? savedTime =
+              focusTask.dueDate ?? focusTask.scheduledFor;
+          final timing = savedTime == null
+              ? 'no saved due or scheduled time is available for this task'
+              : 'its saved timing is ${_timingLabel(savedTime, now)}';
+          final userDateLimit = savedTime == null
+              ? ' A date supplied only in your question is not a saved task date.'
+              : '';
+          return '"${focusTask.title}" ranks where it does because its saved title matches the question and its recorded priority is ${focusTask.priority}/5; $timing.$userDateLimit No causal explanation beyond those fields is stored.';
         }
         return 'The current evidence contains no recorded conflict or causal field that can explain why this happened.';
       case _SIV2QuestionFocus.forecast:
@@ -825,6 +1130,22 @@ final class SIV2Engine {
             ? 'No evidence gaps were identified in the selected lens.'
             : 'The selected lens has these missing or conflicting items: ${missingInformation.join(' ')}';
       case _SIV2QuestionFocus.overview:
+        if (question.requestsListing) {
+          final List<String> titles = switch (question.sourceHint) {
+            SIV2Source.goals => goals.map((item) => item.title).toList(),
+            SIV2Source.tasks => tasks.map((item) => item.title).toList(),
+            SIV2Source.milestones =>
+              milestones.map((item) => item.title).toList(),
+            _ => const <String>[],
+          };
+          final String label = question.sourceHint?.name ?? 'items';
+          if (titles.isEmpty) {
+            return 'No saved $label match the current evidence lens.';
+          }
+          return '${titles.length} saved $label match the current evidence lens:\n'
+              '${titles.take(20).map((title) => '\u2022 $title').join('\n')}'
+              '${titles.length > 20 ? '\nShowing the first 20; narrow the lens to inspect the rest.' : ''}';
+        }
         if (focusTask != null && question.titleScore(focusTask.title) > 0) {
           return 'Your question most closely matches saved task "${focusTask.title}", recorded at priority ${focusTask.priority}/5 with ${_timingLabel(focusTask.dueDate ?? focusTask.scheduledFor, now)}.';
         }
@@ -880,9 +1201,15 @@ final class SIV2Engine {
       case _SIV2QuestionFocus.forecast:
       case _SIV2QuestionFocus.counterfactual:
       case _SIV2QuestionFocus.overview:
+        if (question.requestsListing) {
+          return 'Review the listed saved records; narrow the evidence lens if needed.$noMutation';
+        }
         break;
     }
     if (focusTask != null) {
+      if (question.availableMinutes case final int minutes) {
+        return 'Choose a stopping point that fits $minutes ${minutes == 1 ? 'minute' : 'minutes'}, then start that part of "${focusTask.title}". Review or defer the rest explicitly.$noMutation';
+      }
       return 'Review "${focusTask.title}" first, then explicitly choose whether to act, defer, edit, or reject the recommendation.$noMutation';
     }
     if (focusGoal != null) {
@@ -899,27 +1226,40 @@ final class SIV2Engine {
     _SIV2Question question,
   ) {
     if (tasks.isEmpty) return null;
-    final List<SIV2TaskEvidence> ranked = List<SIV2TaskEvidence>.of(tasks)
-      ..sort((SIV2TaskEvidence left, SIV2TaskEvidence right) {
-        final int relevanceOrder = question
-            .titleScore(right.title)
-            .compareTo(question.titleScore(left.title));
-        if (relevanceOrder != 0) return relevanceOrder;
-        final DateTime leftDate =
-            left.dueDate ??
-            left.scheduledFor ??
-            DateTime.fromMillisecondsSinceEpoch(8640000000000000, isUtc: true);
-        final DateTime rightDate =
-            right.dueDate ??
-            right.scheduledFor ??
-            DateTime.fromMillisecondsSinceEpoch(8640000000000000, isUtc: true);
-        final int dateOrder = leftDate.compareTo(rightDate);
-        if (dateOrder != 0) return dateOrder;
-        final int priorityOrder = right.priority.compareTo(left.priority);
-        if (priorityOrder != 0) return priorityOrder;
-        return left.title.toLowerCase().compareTo(right.title.toLowerCase());
-      });
-    return ranked.first;
+    final List<SIV2TaskEvidence> ranked =
+        tasks.where((task) => question.matchesNamedTask(task.title)).toList()
+          ..sort((SIV2TaskEvidence left, SIV2TaskEvidence right) {
+            final int relevanceOrder = question
+                .titleScore(right.title)
+                .compareTo(question.titleScore(left.title));
+            if (relevanceOrder != 0) return relevanceOrder;
+            if (question.ranksByPriority) {
+              final int priorityOrder = right.priority.compareTo(left.priority);
+              if (priorityOrder != 0) return priorityOrder;
+            }
+            final DateTime leftDate =
+                left.dueDate ??
+                left.scheduledFor ??
+                DateTime.fromMillisecondsSinceEpoch(
+                  8640000000000000,
+                  isUtc: true,
+                );
+            final DateTime rightDate =
+                right.dueDate ??
+                right.scheduledFor ??
+                DateTime.fromMillisecondsSinceEpoch(
+                  8640000000000000,
+                  isUtc: true,
+                );
+            final int dateOrder = leftDate.compareTo(rightDate);
+            if (dateOrder != 0) return dateOrder;
+            final int priorityOrder = right.priority.compareTo(left.priority);
+            if (priorityOrder != 0) return priorityOrder;
+            return left.title.toLowerCase().compareTo(
+              right.title.toLowerCase(),
+            );
+          });
+    return ranked.firstOrNull;
   }
 
   SIV2GoalEvidence? _selectFocusGoal(
@@ -933,13 +1273,7 @@ final class SIV2Engine {
             .titleScore(right.title)
             .compareTo(question.titleScore(left.title));
         if (relevanceOrder != 0) return relevanceOrder;
-        final DateTime leftDate =
-            left.targetDate ??
-            DateTime.fromMillisecondsSinceEpoch(8640000000000000, isUtc: true);
-        final DateTime rightDate =
-            right.targetDate ??
-            DateTime.fromMillisecondsSinceEpoch(8640000000000000, isUtc: true);
-        return leftDate.compareTo(rightDate);
+        return _compareGoalTargets(left.targetDate, right.targetDate);
       });
     return ranked.first;
   }
@@ -1043,11 +1377,17 @@ final class SIV2Engine {
             .titleScore(right.title)
             .compareTo(question.titleScore(left.title));
         if (relevanceOrder != 0) return relevanceOrder;
-        return (left.targetDate ?? _farFuture).compareTo(
-          right.targetDate ?? _farFuture,
-        );
+        return _compareGoalTargets(left.targetDate, right.targetDate);
       });
-    return '"${ranked[0].title}" ranks ahead of "${ranked[1].title}" for this question because its recorded target is ${_targetLabel(ranked[0].targetDate, now)} versus ${_targetLabel(ranked[1].targetDate, now)}.';
+    final SIV2GoalEvidence first = ranked[0];
+    final SIV2GoalEvidence second = ranked[1];
+    if (question.titleScore(first.title) != question.titleScore(second.title)) {
+      return '"${first.title}" ranks ahead of "${second.title}" because its title more closely matches this question. Recorded targets: ${_goalTargetLabel(first.targetDate, now)} versus ${_goalTargetLabel(second.targetDate, now)}; dates did not decide this ordering.';
+    }
+    if (_compareGoalTargets(first.targetDate, second.targetDate) != 0) {
+      return '"${first.title}" ranks ahead of "${second.title}" because title relevance is tied and its recorded target is ${_goalTargetLabel(first.targetDate, now)} versus ${_goalTargetLabel(second.targetDate, now)}.';
+    }
+    return '"${first.title}" and "${second.title}" are tied on title relevance and recorded targets (${_goalTargetLabel(first.targetDate, now)}). These signals do not establish a higher priority for either goal.';
   }
 
   SIV2Conflict? _relevantConflict(
@@ -1094,9 +1434,17 @@ final class SIV2Engine {
 
   String _timingLabel(DateTime? date, DateTime now) {
     if (date == null) return 'no saved due or scheduled date';
-    final DateTime utc = date.toUtc();
-    if (utc.isBefore(now)) return 'recorded date ${_dateLabel(utc)}, now past';
-    return 'recorded date ${_dateLabel(utc)}';
+    final bool dateOnly =
+        date.hour == 0 &&
+        date.minute == 0 &&
+        date.second == 0 &&
+        date.millisecond == 0 &&
+        date.microsecond == 0;
+    final bool past = dateOnly
+        ? _localDay(date).isBefore(_localDay(now))
+        : date.toLocal().isBefore(now.toLocal());
+    if (past) return 'recorded date ${_dateLabel(date)}, now past';
+    return 'recorded date ${_dateLabel(date)}';
   }
 
   String _targetLabel(DateTime? date, DateTime now) {
@@ -1107,8 +1455,73 @@ final class SIV2Engine {
         : 'target ${_dateLabel(utc)}';
   }
 
-  String _dateLabel(DateTime value) =>
-      value.toUtc().toIso8601String().split('T').first;
+  // Goal targets are local calendar dates, like Home and Timeline. UTC here
+  // is only a day key, so comparing days remains safe across DST transitions.
+  DateTime _localDay(DateTime value) {
+    if (value.hour == 0 &&
+        value.minute == 0 &&
+        value.second == 0 &&
+        value.millisecond == 0 &&
+        value.microsecond == 0) {
+      return DateTime.utc(value.year, value.month, value.day);
+    }
+    final local = value.toLocal();
+    return DateTime.utc(local.year, local.month, local.day);
+  }
+
+  int _compareGoalTargets(DateTime? left, DateTime? right) {
+    if (left == null) return right == null ? 0 : 1;
+    if (right == null) return -1;
+    return _localDay(left).compareTo(_localDay(right));
+  }
+
+  String _goalTargetLabel(DateTime? date, DateTime now) {
+    if (date == null) return 'no saved target date';
+    final day = _localDay(date);
+    final order = day.compareTo(_localDay(now));
+    final suffix = order < 0 ? ', now past' : (order == 0 ? ', due today' : '');
+    return 'target ${_dateLabel(day)}$suffix';
+  }
+
+  bool _withinGoalRange(
+    DateTime? date,
+    SIV2TimeRange range,
+    DateTime now, {
+    required bool undatedMatches,
+  }) {
+    if (range == SIV2TimeRange.all) return true;
+    if (date == null) return undatedMatches;
+    final day = _localDay(date);
+    final start = _localDay(now);
+    if (day.isBefore(start)) return true;
+    return _withinRange(day, range, start, undatedMatches: undatedMatches);
+  }
+
+  String _dateLabel(DateTime value) {
+    final bool dayKey =
+        value.isUtc &&
+        value.hour == 0 &&
+        value.minute == 0 &&
+        value.second == 0 &&
+        value.millisecond == 0 &&
+        value.microsecond == 0;
+    final display = dayKey ? value : value.toLocal();
+    return display.toIso8601String().split('T').first;
+  }
+
+  bool _taskIsOverdue(SIV2TaskEvidence task, DateTime now) {
+    final due = task.dueDate;
+    if (due == null) return false;
+    final bool dateOnly =
+        due.hour == 0 &&
+        due.minute == 0 &&
+        due.second == 0 &&
+        due.millisecond == 0 &&
+        due.microsecond == 0;
+    return dateOnly
+        ? _localDay(due).isBefore(_localDay(now))
+        : due.toLocal().isBefore(now.toLocal());
+  }
 
   bool _withinTaskRange(
     SIV2TaskEvidence task,
@@ -1116,9 +1529,15 @@ final class SIV2Engine {
     DateTime now,
   ) {
     if (range == SIV2TimeRange.all) return true;
-    final DateTime? date = task.dueDate ?? task.scheduledFor;
-    if (date == null || date.toUtc().isBefore(now)) return true;
-    return _withinRange(date, range, now, undatedMatches: true);
+    if (_taskIsOverdue(task, now)) return true;
+    final dates = <DateTime?>[
+      task.scheduledFor,
+      task.dueDate,
+    ].whereType<DateTime>();
+    if (dates.isEmpty) return true;
+    return dates.any(
+      (date) => _withinRange(date, range, now, undatedMatches: false),
+    );
   }
 
   bool _withinDeadlineRange(
@@ -1161,7 +1580,7 @@ final class SIV2Engine {
   }) {
     if (range == SIV2TimeRange.all) return true;
     if (date == null) return undatedMatches;
-    final DateTime start = DateTime.utc(now.year, now.month, now.day);
+    final DateTime start = _localDay(now);
     final int days = switch (range) {
       SIV2TimeRange.today => 1,
       SIV2TimeRange.sevenDays => 7,
@@ -1169,8 +1588,8 @@ final class SIV2Engine {
       SIV2TimeRange.all => 365000,
     };
     final DateTime end = start.add(Duration(days: days));
-    final DateTime utc = date.toUtc();
-    return !utc.isBefore(start) && utc.isBefore(end);
+    final DateTime day = _localDay(date);
+    return !day.isBefore(start) && day.isBefore(end);
   }
 }
 
@@ -1196,29 +1615,101 @@ final class _SIV2Question {
   const _SIV2Question({
     required this.focus,
     required this.sourceHint,
+    required this.normalizedInput,
     required this.currentTerms,
     required this.priorTerms,
     required this.hasPriorContext,
+    required this.requestsListing,
+    required this.namedTaskPhrase,
   });
 
   factory _SIV2Question.parse(SIV2Query query) {
     final String current = _normalizeQuestion(query.rawText);
-    final String prior = _normalizeQuestion(query.priorUserTurns.join(' '));
+    final String prior = query.usesPriorDecisionContext
+        ? _normalizeQuestion(query.priorUserTurns.join(' '))
+        : '';
     final String filter = _normalizeQuestion(query.entityFilter ?? '');
+    final String? namedTaskPhrase = query.requestsListing
+        ? null
+        : _namedTaskPhrase(current);
     return _SIV2Question(
-      focus: _focusFor(current, query.intent),
+      focus: query.requestsListing
+          ? _SIV2QuestionFocus.overview
+          : _focusFor(current, query.intent),
       sourceHint: _sourceFor(current) ?? _sourceFor('$prior $filter'.trim()),
+      normalizedInput: current,
       currentTerms: _questionTerms('$current $filter'),
       priorTerms: _questionTerms(prior),
-      hasPriorContext: query.priorUserTurns.isNotEmpty,
+      hasPriorContext: query.usesPriorDecisionContext,
+      requestsListing: query.requestsListing,
+      namedTaskPhrase: namedTaskPhrase,
     );
   }
 
   final _SIV2QuestionFocus focus;
   final SIV2Source? sourceHint;
+  final String normalizedInput;
   final Set<String> currentTerms;
   final Set<String> priorTerms;
   final bool hasPriorContext;
+  final bool requestsListing;
+  final String? namedTaskPhrase;
+
+  bool matchesNamedTask(String title) {
+    final phrase = namedTaskPhrase;
+    if (phrase == null) return true;
+    final Set<String> requested = _questionTerms(phrase);
+    final Set<String> titleTerms = _questionTerms(_normalizeQuestion(title));
+    if (requested.length < 2) return true;
+    return requested.difference(titleTerms).isEmpty;
+  }
+
+  static String? _namedTaskPhrase(String input) {
+    final match = RegExp(
+      r'^(?:why does|why is|how does|por que)\s+(.+?)\s+(?:rank(?:s)?(?: here)?|se prioriza|tiene prioridad|ocupa este lugar)\b',
+    ).firstMatch(input);
+    if (match == null) return null;
+    final phrase = match
+        .group(1)!
+        .replaceFirst(RegExp(r'^(?:the|my|a|la|el|mi|una?)\s+'), '');
+    return _questionTerms(phrase).length >= 2 ? phrase : null;
+  }
+
+  bool get isSpanish => RegExp(
+    r'\b(que|cual|cuales|deberia|hacer|despues|necesita|atencion|meta|metas|tarea|tareas|hito|hitos|hoy|manana|posponer|retrasar|conflicto|explica)\b',
+  ).hasMatch(normalizedInput);
+
+  bool get ranksByPriority =>
+      normalizedInput.contains('highest priority') ||
+      normalizedInput.contains('prioridad mas alta') ||
+      normalizedInput.contains('mayor prioridad');
+
+  int get deferDays {
+    final match = RegExp(
+      r'\b(\d+)\s*(?:day|days|dia|dias)\b',
+    ).firstMatch(normalizedInput);
+    return int.tryParse(match?.group(1) ?? '')?.clamp(1, 365) ?? 1;
+  }
+
+  int? get availableMinutes {
+    final match = RegExp(
+      r'\b(?:only\s+have|have|in|for|tengo|solo\s+tengo|en|durante)\s+(\d+)\s*(?:minute|minutes|minuto|minutos)\b',
+    ).firstMatch(normalizedInput);
+    return int.tryParse(match?.group(1) ?? '');
+  }
+
+  bool excludes(String title) {
+    final normalizedTitle = _normalizeQuestion(title);
+    if (normalizedTitle.isEmpty) return false;
+    return <String>[
+      'not $normalizedTitle',
+      'except $normalizedTitle',
+      'exclude $normalizedTitle',
+      'no $normalizedTitle',
+      'excepto $normalizedTitle',
+      'excluye $normalizedTitle',
+    ].any(normalizedInput.contains);
+  }
 
   int titleScore(String title) {
     final Set<String> titleTerms = _questionTokens(title);
@@ -1316,6 +1807,14 @@ final class _SIV2Question {
   }
 
   static _SIV2QuestionFocus _focusFor(String input, SIV2Intent intent) {
+    final bool asksForWeather = RegExp(
+      r'^(?:(?:will|does|did|is) it (?:rain|snow|hail|storm)\b|'
+      r'(?:what(?: s| is| will(?: be)?)?|how(?: s| is)?) (?:the )?(?:weather|temperature)\b|'
+      r'(?:the )?weather(?: forecast)?\b|(?:forecast|predict) (?:the )?weather\b)',
+    ).hasMatch(input);
+    if (asksForWeather) {
+      return _SIV2QuestionFocus.unsupported;
+    }
     if (intent != SIV2Intent.answer) {
       return switch (intent) {
         SIV2Intent.answer => _SIV2QuestionFocus.overview,
@@ -1335,8 +1834,11 @@ final class _SIV2Question {
     }
     if (hasAny(<String>[
       'what happens',
+      'que pasa',
       'if i defer',
       'if i delay',
+      'si pospongo',
+      'si retraso',
       'forecast',
       'scenario',
     ])) {
@@ -1352,6 +1854,10 @@ final class _SIV2Question {
       'how busy',
       'how many tasks',
       'how many commitments',
+      'demasiado trabajo',
+      'sobrecarga',
+      'capacidad',
+      'cuantas tareas',
     ])) {
       return _SIV2QuestionFocus.workload;
     }
@@ -1361,6 +1867,9 @@ final class _SIV2Question {
       'history',
       'last event',
       'recent event',
+      'que paso',
+      'historial',
+      'ultimo evento',
     ])) {
       return _SIV2QuestionFocus.timeline;
     }
@@ -1371,10 +1880,21 @@ final class _SIV2Question {
       'dependency',
       'blocked by',
       'collide',
+      'conflicto',
+      'contradic',
+      'superpone',
     ])) {
       return _SIV2QuestionFocus.conflict;
     }
-    if (hasAny(<String>['compare', ' versus ', ' vs ', 'between'])) {
+    if (hasAny(<String>[
+      'compare',
+      ' versus ',
+      ' vs ',
+      'between',
+      'compara',
+      'comparar',
+      'entre',
+    ])) {
       return _SIV2QuestionFocus.comparison;
     }
     if (hasAny(<String>[
@@ -1385,6 +1905,10 @@ final class _SIV2Question {
       'completion',
       'completed',
       'status',
+      'progreso',
+      'como voy',
+      'estado',
+      'completado',
     ])) {
       return _SIV2QuestionFocus.progress;
     }
@@ -1395,26 +1919,61 @@ final class _SIV2Question {
       'past due',
       'deadline',
       'highest priority',
+      'need attention',
       'needs attention',
       'at risk',
       'risk first',
+      'mas urgente',
+      'urgente',
+      'atrasad',
+      'vencid',
+      'mayor prioridad',
+      'prioridad mas alta',
+      'necesita atencion',
     ])) {
       return _SIV2QuestionFocus.urgency;
     }
-    if (hasAny(<String>['why', 'explain', 'reason', 'cause'])) {
+    if (hasAny(<String>[
+      'why',
+      'explain',
+      'reason',
+      'cause',
+      'por que',
+      'explica',
+      'razon',
+      'causa',
+    ])) {
       return _SIV2QuestionFocus.explanation;
     }
-    if (hasAny(<String>[
-      'what should i do',
-      'what do i do',
-      'what should i work',
-      'what now',
-      'next action',
-      'next task',
-      'start first',
-      'focus on',
-      'do first',
-    ])) {
+    final bool asksForAvailableAction = RegExp(
+      r'^what can i (?:do|work on)(?: next| now)?(?:$| (?:in|for|with) '
+      r'(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty|sixty) '
+      r'(?:minutes?|hours?)\b)',
+    ).hasMatch(input);
+    final bool asksForSmallAction = RegExp(
+      r'\bwhat is (?:one|a) (?:small |quick |practical )?(?:[a-z]+ )?'
+      r'(?:action|task|step) (?:that )?i can (?:do|take) (?:now|next)\b',
+    ).hasMatch(input);
+    if (asksForAvailableAction ||
+        asksForSmallAction ||
+        hasAny(<String>[
+          'what should i do',
+          'what do i do',
+          'what should i work',
+          'what now',
+          'next action',
+          'next task',
+          'start first',
+          'focus on',
+          'do first',
+          'que deberia hacer',
+          'que hago',
+          'que sigue',
+          'siguiente accion',
+          'siguiente tarea',
+          'hacer primero',
+          'empezar primero',
+        ])) {
       return _SIV2QuestionFocus.nextAction;
     }
     if (hasAny(<String>[
@@ -1424,6 +1983,10 @@ final class _SIV2Question {
       'supports the goal',
       'linked to',
       'contribute to',
+      'alinead',
+      'apoya mi meta',
+      'vinculad',
+      'contribuye',
     ])) {
       return _SIV2QuestionFocus.goalAlignment;
     }
@@ -1438,6 +2001,13 @@ final class _SIV2Question {
       'today',
       'tomorrow',
       'this week',
+      'horario',
+      'calendario',
+      'cuando',
+      'que vence',
+      'hoy',
+      'manana',
+      'esta semana',
     ])) {
       return _SIV2QuestionFocus.schedule;
     }
@@ -1451,6 +2021,14 @@ final class _SIV2Question {
       'analyze my',
       'evidence',
       'planning state',
+      'resumen',
+      'resume',
+      'dime sobre',
+      'detalles',
+      'que sabes',
+      'revisa',
+      'analiza',
+      'evidencia',
     ])) {
       return _SIV2QuestionFocus.overview;
     }
@@ -1458,12 +2036,21 @@ final class _SIV2Question {
   }
 
   static SIV2Source? _sourceFor(String input) {
-    if (input.contains('milestone')) return SIV2Source.milestones;
+    if (input.contains('milestone') || input.contains('hito')) {
+      return SIV2Source.milestones;
+    }
     if (input.contains('timeline') || input.contains('event')) {
       return SIV2Source.timeline;
     }
-    if (input.contains('goal')) return SIV2Source.goals;
-    if (input.contains('task') || input.contains('work item')) {
+    if (input.contains('historial') || input.contains('evento')) {
+      return SIV2Source.timeline;
+    }
+    if (input.contains('goal') || input.contains('meta')) {
+      return SIV2Source.goals;
+    }
+    if (input.contains('task') ||
+        input.contains('work item') ||
+        input.contains('tarea')) {
       return SIV2Source.tasks;
     }
     return null;
@@ -1486,9 +2073,20 @@ final class _SIV2QuestionMatch {
 
 String _normalizeQuestion(String value) => value
     .toLowerCase()
+    .replaceAll(RegExp('[áàäâ]'), 'a')
+    .replaceAll(RegExp('[éèëê]'), 'e')
+    .replaceAll(RegExp('[íìïî]'), 'i')
+    .replaceAll(RegExp('[óòöô]'), 'o')
+    .replaceAll(RegExp('[úùüû]'), 'u')
+    .replaceAll('ñ', 'n')
     .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
     .replaceAll(RegExp(r'\s+'), ' ')
     .trim();
+
+String _sentence(String value) {
+  final String trimmed = value.trimRight();
+  return RegExp(r'[.!?]$').hasMatch(trimmed) ? trimmed : '$trimmed.';
+}
 
 Set<String> _questionTerms(String input) => _questionTokens(
   input,

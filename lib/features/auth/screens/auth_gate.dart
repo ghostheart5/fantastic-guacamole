@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/utils/validators.dart';
 import 'package:fantastic_guacamole/domain/models/deep_link_mode.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -900,7 +901,13 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
                       ? null
                       : () => _runAuthAction(_cancelRecovery),
                   icon: const Icon(Icons.arrow_back_rounded),
-                  label: const Text('Back to Sign In'),
+                  label: Text(
+                    journeyText(
+                      context,
+                      'Back to Sign In',
+                      'Volver a iniciar sesión',
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -1086,7 +1093,7 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
                     : () async {
                         await widget.authService.signOut();
                       },
-                child: const Text('Sign Out'),
+                child: Text(journeyText(context, 'Sign Out', 'Cerrar sesión')),
               ),
             ),
           ],
@@ -1125,13 +1132,29 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
       await widget.authService.sendEmailVerification();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Verification link sent.')),
+          SnackBar(
+            content: Text(
+              journeyText(
+                context,
+                'Verification link sent.',
+                'Se envió el enlace de verificación.',
+              ),
+            ),
+          ),
         );
       }
     } on FirebaseAuthException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not send verification link.')),
+          SnackBar(
+            content: Text(
+              journeyText(
+                context,
+                'Could not send verification link.',
+                'No se pudo enviar el enlace de verificación.',
+              ),
+            ),
+          ),
         );
       }
     } finally {

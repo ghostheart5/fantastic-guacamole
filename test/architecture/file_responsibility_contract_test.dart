@@ -18,6 +18,7 @@ void main() {
     ],
     'lib/features/home/ui/smart_planner_screen.dart': <String>[
       'smart_planner_screen.widgets.dart',
+      'smart_planner_screen.consent_copy.dart',
     ],
     'lib/features/trajectory_engine/ui/trajectory_engine_screen.dart': <String>[
       'trajectory_engine_screen.overview.dart',
@@ -43,9 +44,12 @@ void main() {
     ],
     'lib/state/controllers/smart_planner_query_controller.dart': <String>[
       'smart_planner_query_controller.support.dart',
+      'smart_planner_query_controller.person_context.dart',
     ],
     'lib/features/timeline/ui/timeline_screen.dart': <String>[
       'timeline_screen.widgets.dart',
+      'timeline_screen.event_copy.dart',
+      'timeline_screen.filters.dart',
     ],
   };
 

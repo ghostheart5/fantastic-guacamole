@@ -2,40 +2,170 @@ name: Maestro Runtime Gate
 
 on:
   workflow_call:
+    inputs:
+      source_sha:
+        description: Immutable QA source revision; defaults to the calling revision
+        required: false
+        type: string
+      suite:
+        required: false
+        type: string
+        default: qa-smoke
+      run_monkey:
+        required: false
+        type: boolean
+        default: false
+      monkey_only:
+        required: false
+        type: boolean
+        default: false
+      guest_api:
+        required: false
+        type: string
+        default: '35'
+      guest_pages:
+        required: false
+        type: string
+        default: '4k'
   push:
     branches: ["main"]
   workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full immutable QA source SHA; defaults to this workflow revision
+        required: false
+        type: string
+      suite:
+        description: 'Disposable hosted emulator suite'
+        required: true
+        default: qa-smoke
+        type: choice
+        options:
+          - qa-smoke
+          - qa-journeys
+          - qa-16k-native
+      run_monkey:
+        description: Run the five bounded Monkey variants on the disposable QA emulator
+        required: false
+        type: boolean
+        default: false
+      monkey_only:
+        description: Run only the complete Monkey matrix against a newly compiled exact-source QA APK
+        required: false
+        type: boolean
+        default: false
+      guest_api:
+        description: Android API level for the disposable QA guest
+        required: false
+        type: choice
+        default: '35'
+        options:
+          - '35'
+          - '36'
+      guest_pages:
+        description: Memory page size for the disposable QA guest
+        required: false
+        type: choice
+        default: '4k'
+        options:
+          - '4k'
+          - '16k'
 
 permissions:
   contents: read
 
 concurrency:
-  group: maestro-runtime-${{ github.workflow }}-${{ github.ref }}
+  group: maestro-runtime-${{ github.workflow }}-${{ github.ref }}-${{ inputs.suite || 'qa-smoke' }}-${{ inputs.guest_api || '35' }}-${{ inputs.guest_pages || '4k' }}
   cancel-in-progress: true
+
+env:
+  QA_SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
+  QA_SUITE: ${{ inputs.suite || 'qa-smoke' }}
+  QA_MONKEY: ${{ inputs.run_monkey && 'true' || 'false' }}
+  QA_MONKEY_ONLY: ${{ inputs.monkey_only && 'true' || 'false' }}
+  QA_GUEST_API: ${{ inputs.guest_api || '35' }}
+  QA_GUEST_PAGES: ${{ inputs.guest_pages || '4k' }}
 
 jobs:
   runtime:
-    name: Exact-build QA smoke
+    name: Exact-build QA runtime
     runs-on: ubuntu-24.04
-    timeout-minutes: 85
+    timeout-minutes: 100
     steps:
+      - name: Validate immutable QA inputs before checkout
+        run: |
+          set -euo pipefail
+          [[ "$QA_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          case "$QA_SUITE" in qa-smoke|qa-journeys|qa-16k-native) ;; *) exit 1 ;; esac
+          case "$QA_GUEST_API" in 35|36) ;; *) exit 1 ;; esac
+          case "$QA_GUEST_PAGES" in 4k|16k) ;; *) exit 1 ;; esac
+          if [ "$QA_SUITE" = qa-16k-native ]; then
+            test "$QA_GUEST_PAGES" = 16k
+            test "$QA_MONKEY" = false
+            test "$QA_MONKEY_ONLY" = false
+          fi
+          if [ "$QA_MONKEY_ONLY" = true ]; then test "$QA_MONKEY" = true; fi
+
       - name: Checkout exact source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
+          ref: ${{ inputs.source_sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Verify exact source commit
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test -z "$(git status --porcelain --untracked-files=no)"
+          test "$(git rev-parse HEAD)" = "$QA_SOURCE_SHA"
+          test -z "$(git status --porcelain)"
+          # Evidence must use the checked-out source's existing ignored root.
+          # The canonical runner rejects untracked files as well as edits.
+          git check-ignore -q test-results/maestro-prewarm/provenance.json
+          git check-ignore -q test-results/monkey-seed-ci/probe.json
+          git check-ignore -q test-results/monkey-ci/probe.json
+          git check-ignore -q test-results/monkey-recovery-flows/probe.json
+          mkdir -p test-results/maestro-prewarm
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          Path('test-results/maestro-prewarm/provenance.json').write_text(json.dumps({
+              'sourceSha': os.environ['QA_SOURCE_SHA'],
+              'workflowToolingSha': os.environ['GITHUB_SHA'],
+              'runId': os.environ['GITHUB_RUN_ID'],
+              'runAttempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'suite': os.environ['QA_SUITE'],
+              'monkeyOnly': os.environ['QA_MONKEY_ONLY'] == 'true',
+              'guestApiRequested': os.environ['QA_GUEST_API'],
+              'guestPagesRequested': os.environ['QA_GUEST_PAGES'],
+              'boundary': 'QA source and workflow tooling have separate identities; not a signed release build.'
+          }, indent=2) + '\n')
+          PY
 
       - name: Set up Java
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Checkout exact Monkey tooling separately from application source
+        if: inputs.run_monkey
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          path: test-results/monkey-tooling
+          persist-credentials: false
+
+      - name: Test source-bound Monkey seed preparation
+        if: inputs.run_monkey
+        run: python3 -m unittest discover -s test-results/monkey-tooling/scripts -p test_prepare_monkey_seed_flows.py -v
+
+      - name: Checkout exact native smoke tooling separately from application source
+        if: inputs.suite == 'qa-16k-native'
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          path: test-results/native-tooling
+          persist-credentials: false
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
@@ -53,7 +183,48 @@ jobs:
       - name: Ensure dependency lockfile is reproducible
         run: git diff --exit-code -- pubspec.lock
 
+      - name: Complete initial QA compilation before emulator startup
+        timeout-minutes: 22
+        run: |
+          set -euo pipefail
+          # Keep the first full Gradle compilation outside the live guest's
+          # execution window. The canonical runner still performs its own build.
+          python3 - <<'PY'
+          from pathlib import Path
+          for process in Path('/proc').glob('[0-9]*/cmdline'):
+              try:
+                  executable = process.read_bytes().split(b'\0')[0].decode(errors='replace')
+              except (OSError, ProcessLookupError):
+                  continue
+              name = Path(executable).name
+              if name == 'emulator' or name.startswith('qemu-system-'):
+                  raise SystemExit('An emulator is already running before QA precompilation')
+          PY
+          flutter build apk --debug --target-platform=android-x64 --dart-define-from-file=tool/qa_defines.json 2>&1 | tee test-results/maestro-prewarm/build.log
+          (cd android && ./gradlew --stop) 2>&1 | tee test-results/maestro-prewarm/gradle-stop.log
+          sha256sum build/app/outputs/flutter-apk/app-debug.apk > test-results/maestro-prewarm/precompiled-apk.sha256
+          git diff --exit-code
+          python3 - <<'PY'
+          import datetime, hashlib, json, os, subprocess
+          from pathlib import Path
+          apk = Path('build/app/outputs/flutter-apk/app-debug.apk')
+          source = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          if source != os.environ['QA_SOURCE_SHA'] or not apk.is_file():
+              raise SystemExit('Precompilation identity or APK is missing')
+          with apk.open('rb') as stream:
+              digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+          Path('test-results/maestro-prewarm/completion.json').write_text(json.dumps({
+              'completedAtUtc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'sourceSha': source, 'precompiledApkSha256': digest,
+              'buildExitCode': 0, 'gradleStopExitCode': 0,
+              'noEmulatorObservedBeforeCompilation': True,
+              'boundary': 'Exact-source precompilation; runtime receipts identify the installed APK and its separate test tooling.'
+          }, indent=2) + '\n')
+          PY
+          test -z "$(git status --porcelain)"
+
       - name: Install checksum-verified Maestro CLI
+        if: inputs.suite != 'qa-16k-native'
         timeout-minutes: 5
         env:
           MAESTRO_VERSION: '2.10.0'
@@ -81,12 +252,89 @@ jobs:
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
           test -r /dev/kvm && test -w /dev/kvm
 
-      - name: Build, install, and execute exact-source QA smoke
-        timeout-minutes: 50
+      - name: Prepare bounded fresh-guest readiness and system diagnostics
+        run: |
+          set -euo pipefail
+          cat > test-results/maestro-prewarm/prepare_guest.py <<'PY'
+          import json, os, re, subprocess, time
+          from pathlib import Path
+          assert os.environ.get('GITHUB_ACTIONS') == 'true' and os.name == 'posix'
+          root = Path('test-results/maestro-prewarm')
+          adb = ['adb', '-s', 'emulator-5554']
+          def shell(*args):
+              return subprocess.check_output(adb + ['shell', *args], timeout=20).decode('utf-8').strip()
+          assert shell('getprop', 'ro.kernel.qemu') == '1', 'Only an owned hosted emulator is allowed'
+          assert shell('am', 'get-current-user') == '0'
+          page_size = int(shell('getconf', 'PAGE_SIZE'))
+          expected_page_size = 16384 if os.environ['QA_GUEST_PAGES'] == '16k' else 4096
+          assert page_size == expected_page_size, f'Unexpected guest page size: {page_size}'
+          receipt = {'passed': False, 'samples': [], 'applicationTestsExecuted': 0,
+                     'pageSizeBytes': page_size, 'androidApi': shell('getprop', 'ro.build.version.sdk')}
+          try:
+              # Boot completion precedes first-boot package and launcher work.
+              # Observe one bounded settling window; never dismiss or retry ANRs.
+              for index in range(7):
+                  if index:
+                      time.sleep(10)
+                  assert shell('getprop', 'sys.boot_completed') == '1'
+                  assert shell('pm', 'path', 'android').startswith('package:')
+                  receipt['samples'].append({'index': index, 'monotonic': time.monotonic(),
+                      'guestMemory': shell('cat', '/proc/meminfo'),
+                      'hostMemory': Path('/proc/meminfo').read_text(),
+                      'hostLoad': Path('/proc/loadavg').read_text().strip()})
+              window = shell('dumpsys', 'window', 'windows')
+              last_anr = shell('dumpsys', 'activity', 'lastanr')
+              (root / 'prepared-window.txt').write_text(window)
+              (root / 'prepared-lastanr.txt').write_text(last_anr)
+              assert '<no anr has occurred since boot>' in last_anr.lower(), 'Fresh guest reported an ANR before app tests'
+              assert not re.search(r'Application (?:Error|Not Responding)|isn.t responding', window, re.I)
+              receipt['passed'] = True
+          finally:
+              (root / 'guest-readiness.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          PY
+          cat > test-results/maestro-prewarm/run-suite.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          capture_system() {
+            result=$?
+            trap - EXIT
+            timeout 30s adb -s emulator-5554 logcat -d -b all -v threadtime > test-results/maestro-prewarm/system-logcat.txt 2>&1 || result=1
+            timeout 30s adb -s emulator-5554 shell dumpsys activity lastanr > test-results/maestro-prewarm/final-lastanr.txt 2>&1 || result=1
+            timeout 30s adb -s emulator-5554 shell dumpsys window windows > test-results/maestro-prewarm/final-window.txt 2>&1 || result=1
+            grep -Fqi '<no anr has occurred since boot>' test-results/maestro-prewarm/final-lastanr.txt || result=1
+            exit "$result"
+          }
+          trap capture_system EXIT
+          python3 test-results/maestro-prewarm/prepare_guest.py
+          if [ "$QA_SUITE" = qa-16k-native ]; then
+            python3 test-results/native-tooling/scripts/run_16k_adb_smoke.py
+          elif [ "$QA_MONKEY_ONLY" != true ]; then
+            pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1 -Suite "$QA_SUITE" -ExecutionTimeoutSeconds "$QA_TIMEOUT_SECONDS" -BuildProfile qa -DeviceSerial emulator-5554 -ExpectedCommit "$QA_SOURCE_SHA" -ArtifactsRoot artifacts/maestro-ci
+          else
+            # Recreate the same final data lifecycle as the full journey suite.
+            # The first flow clears state, so earlier journeys do not contribute
+            # additional records to the original Monkey starting state.
+            python3 test-results/monkey-tooling/scripts/prepare_monkey_seed_flows.py "$GITHUB_WORKSPACE" "$QA_SOURCE_SHA" "$GITHUB_WORKSPACE/test-results/monkey-recovery-flows"
+            for flow in priority8-learned-lifecycle priority8-learned-lifecycle-readback; do
+              pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1 -Suite custom -Flow "test-results/monkey-recovery-flows/.maestro/flows/$flow.yaml" -ExecutionTimeoutSeconds 900 -BuildProfile qa -DeviceSerial emulator-5554 -ExpectedCommit "$QA_SOURCE_SHA" -SkipBuild -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot test-results/monkey-seed-ci
+            done
+          fi
+          if [ "$QA_MONKEY" = true ]; then
+            pwsh -NoProfile -File ./test-results/monkey-tooling/scripts/run_android_monkey_matrix.ps1 -RepositoryRoot "$GITHUB_WORKSPACE" -Config "$GITHUB_WORKSPACE/test-orchestrator.json" -DeviceSerial emulator-5554 -ExpectedAndroidApi "$QA_GUEST_API" -AllowConnectedDevice -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot test-results/monkey-ci
+          fi
+          SH
+
+      - name: Build, install, and execute exact-source QA suite
+        timeout-minutes: 70
+        env:
+          # The expanded Creator journey alone takes about eight minutes on the
+          # two-core hosted emulator. Keep a bounded budget with enough room for
+          # all five smoke flows or all eleven journey flows plus evidence flush.
+          QA_TIMEOUT_SECONDS: ${{ inputs.suite == 'qa-journeys' && '3600' || '1800' }}
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
-          api-level: 35
-          target: google_apis
+          api-level: ${{ inputs.guest_api || '35' }}
+          target: ${{ inputs.guest_pages == '16k' && 'google_apis_ps16k' || 'google_apis' }}
           arch: x86_64
           profile: pixel_6
           cores: 2
@@ -99,18 +347,14 @@ jobs:
           pre-emulator-launch-script: '"$ANDROID_HOME/emulator/emulator" -accel-check'
           disable-animations: true
           disable-spellchecker: true
-          script: >-
-            pwsh -NoProfile -File ./scripts/run_maestro_android_evidence.ps1
-            -Suite qa-smoke
-            -BuildProfile qa
-            -DeviceSerial emulator-5554
-            -ExpectedCommit "${{ github.sha }}"
-            -ArtifactsRoot artifacts/maestro-ci
+          script: |
+            bash test-results/maestro-prewarm/run-suite.sh
 
       - name: Verify source-bound Maestro evidence
-        if: always()
+        if: always() && !inputs.monkey_only && inputs.suite != 'qa-16k-native'
         env:
-          EXPECTED_COMMIT: ${{ github.sha }}
+          EXPECTED_COMMIT: ${{ inputs.source_sha || github.sha }}
+          EXPECTED_SUITE: ${{ inputs.suite || 'qa-smoke' }}
         run: |
           python3 - <<'PY'
           import json
@@ -132,6 +376,9 @@ jobs:
           flows = manifest.get('flows')
           if not isinstance(flows, list) or not flows:
               raise SystemExit('::error::Maestro evidence contains no selected flows.')
+          expected_count = {'qa-smoke': 5, 'qa-journeys': 11}[os.environ['EXPECTED_SUITE']]
+          if len(flows) != expected_count:
+              raise SystemExit('::error::Maestro selected flow count does not match the requested suite.')
           junit = manifest.get('junit', {})
           if not isinstance(junit.get('testCases'), int) or junit['testCases'] <= 0:
               raise SystemExit('::error::Maestro JUnit evidence contains zero tests.')
@@ -147,12 +394,114 @@ jobs:
               raise SystemExit('::error::Maestro JUnit evidence is not a complete passing run.')
           PY
 
+      - name: Verify source-bound native 16 KB launch evidence
+        if: always() && inputs.suite == 'qa-16k-native'
+        env:
+          EXPECTED_COMMIT: ${{ inputs.source_sha || github.sha }}
+          EXPECTED_TOOLING: ${{ github.sha }}
+          EXPECTED_API: ${{ inputs.guest_api || '35' }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, re
+          from pathlib import Path
+          receipt_path = Path('test-results/native-16k-ci/manifest.json')
+          if not receipt_path.is_file():
+              raise SystemExit('::error::Native 16 KB manifest is missing.')
+          receipt = json.loads(receipt_path.read_text())
+          script = Path('test-results/native-tooling/scripts/run_16k_adb_smoke.py')
+          compilation = json.loads(Path('test-results/maestro-prewarm/completion.json').read_text())
+          readiness = json.loads(Path('test-results/maestro-prewarm/guest-readiness.json').read_text())
+          assert receipt['status'] == 'passed'
+          assert receipt['sourceSha'] == os.environ['EXPECTED_COMMIT']
+          assert receipt['workflowToolingSha'] == os.environ['EXPECTED_TOOLING']
+          assert receipt['toolScriptSha256'].lower() == hashlib.sha256(script.read_bytes()).hexdigest()
+          assert receipt['apkSha256'].lower() == compilation['precompiledApkSha256'].lower()
+          pubspec_version = re.search(r'(?m)^version:\s*\d+\.\d+\.\d+\+(\d+)\s*$',
+                                       Path('pubspec.yaml').read_text())
+          android_version = re.search(r'(?m)^CHRONOSPARK_VERSION_CODE=(\d+)\s*$',
+                                       Path('android/gradle.properties').read_text())
+          assert pubspec_version and android_version
+          assert receipt['installedVersionCode'] == receipt['sourceVersionCode'] == pubspec_version.group(1) == android_version.group(1)
+          assert receipt['androidApi'] == readiness['androidApi'] == os.environ['EXPECTED_API']
+          assert receipt['pageSize'] == 16384 and readiness['pageSizeBytes'] == 16384
+          assert receipt['serial'] == 'emulator-5554'
+          assert len(receipt['launches']) == 5 and receipt['appFatalCount'] == 0
+          for launch in receipt['launches']:
+              image = Path(f"test-results/native-16k-ci/launch-{launch['number']}.png")
+              assert hashlib.sha256(image.read_bytes()).hexdigest() == launch['screenshotSha256']
+              activities = ('com.ghostheart5.chronospark/.MainActivity',
+                            'com.ghostheart5.chronospark/com.ghostheart5.chronospark.MainActivity')
+              assert any(activity in launch['focus'] for activity in activities)
+              assert any(activity in launch['resumedActivity'] for activity in activities)
+              assert launch['uiReadyMarker'] in {'CONTINUE TO LOGIN', 'START LOGIN',
+                                                 'SKIP FOR NOW', 'TESTER ACCESS',
+                                                 'ENTER SYSTEM', 'NEXUS'}
+              assert launch['uiNodeCount'] > 0 and launch['uiWaitSeconds'] >= 5
+              assert len(launch['uiTreeSha256']) == 64
+          PY
+
+      - name: Verify optional Monkey evidence
+        if: always() && inputs.run_monkey
+        env:
+          EXPECTED_COMMIT: ${{ inputs.source_sha || github.sha }}
+          EXPECTED_TOOLING: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          manifests = list(Path('test-results/monkey-ci').glob('*/manifest.json'))
+          assert len(manifests) == 1, 'Expected one Monkey matrix manifest'
+          m = json.loads(manifests[0].read_text(encoding='utf-8-sig'))
+          assert m['git']['commit'] == os.environ['EXPECTED_COMMIT'] and not m['git']['dirty']
+          assert m['runner']['commit'] == os.environ['EXPECTED_TOOLING']
+          import hashlib
+          runner = Path('test-results/monkey-tooling/scripts/run_android_monkey_matrix.ps1')
+          assert m['runner']['scriptSha256'].lower() == hashlib.sha256(runner.read_bytes()).hexdigest()
+          compilation = json.loads(Path('test-results/maestro-prewarm/completion.json').read_text())
+          assert compilation['sourceSha'] == os.environ['EXPECTED_COMMIT']
+          assert compilation['precompiledApkSha256'].lower() == m['apk']['sha256'].lower()
+          if os.environ['QA_MONKEY_ONLY'] == 'true':
+              flow_root = Path('test-results/monkey-recovery-flows')
+              flow_receipt = json.loads((flow_root / 'provenance.json').read_text())
+              assert flow_receipt['sourceSha'] == os.environ['EXPECTED_COMMIT']
+              import subprocess
+              subprocess.run(['python3', 'test-results/monkey-tooling/scripts/prepare_monkey_seed_flows.py',
+                              '--verify', '.', os.environ['EXPECTED_COMMIT'], str(flow_root)], check=True)
+              seeds = list(Path('test-results/monkey-seed-ci').glob('*/manifest.json'))
+              assert len(seeds) == 2
+              names = set()
+              for seed_path in seeds:
+                  seed = json.loads(seed_path.read_text(encoding='utf-8-sig'))
+                  assert seed['status'] == 'passed' and seed['git']['commit'] == os.environ['EXPECTED_COMMIT']
+                  assert not seed['git']['dirty'] and seed['apk']['externalHashVerified']
+                  assert seed['apk']['sha256'].lower() == m['apk']['sha256'].lower()
+                  assert seed['junit']['testCases'] == 1 and seed['junit']['failures'] == seed['junit']['errors'] == seed['junit']['skipped'] == 0
+                  assert seed['fatalMarkerCount'] == 0 and seed['logcatCapture']['aliveThroughRun']
+                  names.update(seed['flows'])
+              assert names == {'priority8-learned-lifecycle.yaml', 'priority8-learned-lifecycle-readback.yaml'}
+          assert m['device']['serial'] == 'emulator-5554'
+          assert m['status'] == 'passed' and m['requestedVariantCount'] == m['completedVariantCount'] == 5
+          assert len(m['results']) == 5
+          for result in m['results']:
+              assert result['relaunchLogcatCollected'] and result['fatalMarkerCount'] == 0
+              log_path = Path(result['relaunchLogcatPath'])
+              assert hashlib.sha256(log_path.read_bytes()).hexdigest() == result['relaunchLogcatSha256']
+          PY
+
       - name: Upload complete Maestro evidence
         if: always()
         timeout-minutes: 5
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: chronospark-maestro-${{ github.sha }}-${{ github.run_attempt }}
+          name: chronospark-maestro-${{ inputs.source_sha || github.sha }}-${{ github.run_attempt }}
           if-no-files-found: error
           retention-days: 30
-          path: artifacts/maestro-ci/**
+          # Recovery copies are tracked-source .maestro files, not credentials.
+          include-hidden-files: true
+          path: |
+            artifacts/maestro-ci/**
+            test-results/native-16k-ci/**
+            test-results/maestro-prewarm/**
+            test-results/monkey-ci/**
+            test-results/monkey-seed-ci/**
+            test-results/monkey-recovery-flows/**

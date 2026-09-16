@@ -11,7 +11,10 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.account-delete]
-verify_jwt = true
+# Opaque receipt status must remain reachable after sign-out/user deletion.
+# The handler validates the exact bearer with Auth and requires a recent live
+# session for every deletion. Only capability-bound read-only status is public.
+verify_jwt = false
 
 [functions.account-delete-reconcile]
 verify_jwt = false

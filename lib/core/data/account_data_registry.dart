@@ -390,8 +390,11 @@ abstract final class AccountDataRegistry {
   }
 
   static String notificationMutationKeyFor(String accountId) {
-    return 'notification-account:${accountDigest(accountId)}';
+    return notificationMutationKeyForScope(accountDigest(accountId));
   }
+
+  static String notificationMutationKeyForScope(String accountScope) =>
+      'notification-account:$accountScope';
 
   static String telemetryConsentStorageKeyFor(String accountId) {
     return 'telemetry_consent_v1.${accountDigest(accountId)}';

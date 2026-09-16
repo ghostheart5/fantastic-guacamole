@@ -264,7 +264,7 @@ double responseNoveltyScore({
       .where((String token) => token.length >= 3)
       .toSet();
 
-  double bestOverlap = 1.0;
+  double closestOverlap = 0.0;
   for (final String prior in recentResponseSummaries) {
     final Set<String> priorTokens = prior
         .split(' ')
@@ -276,11 +276,11 @@ double responseNoveltyScore({
     final int overlap = summaryTokens.intersection(priorTokens).length;
     final int union = summaryTokens.union(priorTokens).length;
     final double ratio = union == 0 ? 1.0 : overlap / union;
-    if (ratio < bestOverlap) {
-      bestOverlap = ratio;
+    if (ratio > closestOverlap) {
+      closestOverlap = ratio;
     }
   }
-  return (1 - bestOverlap).clamp(0.0, 1.0);
+  return (1 - closestOverlap).clamp(0.0, 1.0);
 }
 
 double calibrateSIConfidence({

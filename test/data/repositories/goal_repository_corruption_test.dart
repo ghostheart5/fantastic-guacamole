@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/data/repositories/goal_repository.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_read_health.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 
@@ -92,6 +93,103 @@ void main() {
   });
 
   test(
+    'mixed records are unavailable and original bytes are preserved',
+    () async {
+      final String original = jsonEncode(<Object?>[
+        goal('valid').toJson(),
+        'malformed record',
+        <int>[1, 2],
+      ]);
+      await storage.put(key, original);
+      await Logger.withMutedErrors(() async {
+        expect(
+          () => readAvailableGoals(repository),
+          throwsA(isA<GoalReadUnavailable>()),
+        );
+        expect(repository.lastReadCorrupted, isTrue);
+        expect(storage.get(key), original);
+        await repository.saveGoal(goal('new'));
+      });
+      expect(storage.get(backupKey), original);
+      expect(repository.getGoals().single.id, 'new');
+    },
+  );
+
+  test(
+    'bulk save detects corrupt data even without a preceding read',
+    () async {
+      const String original = '{broken json';
+      await storage.put(key, original);
+      await Logger.withMutedErrors(() async {
+        await GoalRepository(storage).saveGoals(<GoalEntity>[goal('new')]);
+      });
+      expect(storage.get(backupKey), original);
+      expect(repository.getGoals().single.id, 'new');
+    },
+  );
+
+  for (final String invalidField in <String>[
+    'title',
+    'targetDate',
+    'completedAt',
+  ]) {
+    test(
+      'invalid $invalidField cannot silently become healthy goal data',
+      () async {
+        final Map<String, dynamic> record = goal('valid').toJson();
+        record[invalidField] = invalidField == 'title' ? '   ' : 'invalid-date';
+        final String original = jsonEncode(<Object>[record]);
+        await storage.put(key, original);
+        await Logger.withMutedErrors(() async {
+          expect(
+            () => readAvailableGoals(repository),
+            throwsA(isA<GoalReadUnavailable>()),
+          );
+        });
+        expect(repository.lastReadCorrupted, isTrue);
+        expect(storage.get(key), original);
+      },
+    );
+  }
+
+  test(
+    'failed quarantine prevents primary overwrite and a later retry is safe',
+    () async {
+      const String original = 'recoverable but invalid JSON';
+      await storage.put(key, original);
+      final _FailingBackupStorage failing = _FailingBackupStorage(storage);
+      final GoalRepository guarded = GoalRepository(failing);
+      await Logger.withMutedErrors(() async {
+        await expectLater(guarded.saveGoal(goal('new')), throwsStateError);
+      });
+      expect(storage.get(key), original);
+      expect(storage.get(backupKey), isNull);
+      expect(guarded.lastReadCorrupted, isTrue);
+      expect(failing.primaryWrites, 0);
+      failing.failBackup = false;
+      await Logger.withMutedErrors(() async {
+        await guarded.saveGoal(goal('new'));
+      });
+      expect(storage.get(backupKey), original);
+      expect(guarded.getGoals().single.id, 'new');
+    },
+  );
+
+  test(
+    'a later corrupt payload does not replace an earlier quarantine',
+    () async {
+      await storage.put(backupKey, 'first preserved payload');
+      await storage.put(key, 'second corrupt payload');
+      await Logger.withMutedErrors(
+        () async => repository.saveGoal(goal('new')),
+      );
+      expect(storage.get(backupKey), 'first preserved payload');
+      final Box<String> box = await storage.open();
+      expect(box.values, contains('second corrupt payload'));
+    },
+  );
+
+  test(
     'the unreadable payload is quarantined before being overwritten',
     () async {
       const String corrupt = 'this is not json';
@@ -143,6 +241,225 @@ void main() {
     );
     expect(repository.getGoals(), hasLength(2));
   });
+
+  for (final String operation in <String>['add', 'update', 'delete', 'bulk']) {
+    for (final bool failBeforeWrite in <bool>[false, true]) {
+      test(
+        '$operation aborts a transient ${failBeforeWrite ? 'final' : 'first'} '
+        'read failure and retries from preserved bytes',
+        () async {
+          await repository.saveGoals(<GoalEntity>[
+            goal('keep'),
+            goal('change'),
+          ]);
+          final String? original = storage.get(key);
+          final _InterruptedReadStorage interrupted = _InterruptedReadStorage(
+            storage,
+            failOnRead: failBeforeWrite ? (operation == 'bulk' ? 2 : 3) : 1,
+          );
+          final GoalRepository guarded = GoalRepository(interrupted);
+          Future<void> mutate() => switch (operation) {
+            'add' => guarded.saveGoal(goal('new')),
+            'update' => guarded.saveGoal(
+              goal('change').markCompleted(DateTime.utc(2026, 9, 9)),
+            ),
+            'delete' => guarded.deleteGoal('change'),
+            _ => guarded.saveGoals(<GoalEntity>[goal('replacement')]),
+          };
+
+          await expectLater(mutate(), throwsStateError);
+          expect(storage.get(key), original);
+          expect(storage.get(backupKey), isNull);
+          expect(interrupted.primaryWrites, 0);
+          expect(guarded.lastReadCorrupted, isTrue);
+
+          // The injected failure lasts one read. The same queued repository
+          // must accept an explicit retry, starting from all retained goals.
+          await mutate();
+          final List<GoalEntity> result = guarded.getGoals();
+          expect(interrupted.primaryWrites, 1);
+          expect(guarded.lastReadCorrupted, isFalse);
+          switch (operation) {
+            case 'add':
+              expect(
+                result.map((value) => value.id),
+                unorderedEquals(<String>['keep', 'change', 'new']),
+              );
+            case 'update':
+              expect(
+                result.map((value) => value.id),
+                unorderedEquals(<String>['keep', 'change']),
+              );
+              expect(
+                result.singleWhere((value) => value.id == 'change').isCompleted,
+                isTrue,
+              );
+            case 'delete':
+              expect(result.single.id, 'keep');
+            default:
+              expect(result.single.id, 'replacement');
+          }
+        },
+      );
+    }
+  }
+
+  for (final bool deleting in <bool>[false, true]) {
+    test(
+      '${deleting ? 'delete' : 'save'} aborts a failed preservation reread',
+      () async {
+        await repository.saveGoals(<GoalEntity>[goal('keep'), goal('change')]);
+        final String? original = storage.get(key);
+        final _InterruptedReadStorage interrupted = _InterruptedReadStorage(
+          storage,
+          failOnRead: 2,
+        );
+        final GoalRepository guarded = GoalRepository(interrupted);
+        await expectLater(
+          deleting
+              ? guarded.deleteGoal('change')
+              : guarded.saveGoal(goal('new')),
+          throwsStateError,
+        );
+        expect(storage.get(key), original);
+        expect(interrupted.primaryWrites, 0);
+      },
+    );
+
+    test(
+      '${deleting ? 'delete' : 'save'} rejects bytes changed while reopening',
+      () async {
+        await repository.saveGoal(goal('old'));
+        final String recovered = jsonEncode(<Map<String, dynamic>>[
+          goal('recovered').toJson(),
+        ]);
+        final _InterruptedReadStorage interrupted = _InterruptedReadStorage(
+          storage,
+        );
+        interrupted.beforeSecondOpen = () => storage.put(key, recovered);
+        final GoalRepository guarded = GoalRepository(interrupted);
+        await expectLater(
+          deleting ? guarded.deleteGoal('old') : guarded.saveGoal(goal('new')),
+          throwsStateError,
+        );
+        expect(storage.get(key), recovered);
+        expect(interrupted.primaryWrites, 0);
+        expect(storage.get(backupKey), isNull);
+      },
+    );
+  }
+
+  test(
+    'quarantine await cannot mask a changed payload with a healthy read',
+    () async {
+      const String corrupt = 'preserve these undecodable bytes';
+      final String recovered = jsonEncode(<Map<String, dynamic>>[
+        goal('recovered').toJson(),
+      ]);
+      await storage.put(key, corrupt);
+      final _InterruptedReadStorage interrupted = _InterruptedReadStorage(
+        storage,
+      );
+      final GoalRepository guarded = GoalRepository(interrupted);
+      interrupted.afterBackup = () async {
+        await storage.put(key, recovered);
+        expect(guarded.getGoals().single.id, 'recovered');
+        expect(guarded.lastReadCorrupted, isFalse);
+      };
+      await Logger.withMutedErrors(() async {
+        await expectLater(
+          guarded.saveGoals(<GoalEntity>[goal('new')]),
+          throwsStateError,
+        );
+      });
+      expect(storage.get(key), recovered);
+      expect(storage.get(backupKey), corrupt);
+      expect(interrupted.primaryWrites, 0);
+    },
+  );
+
+  test('saving after a cold close preserves existing goals', () async {
+    await repository.saveGoal(goal('existing'));
+    await storage.close();
+    await repository.saveGoal(goal('new'));
+    expect(
+      repository.getGoals().map((value) => value.id),
+      containsAll(<String>['existing', 'new']),
+    );
+    expect(repository.getGoals(), hasLength(2));
+  });
+
+  test('deleting after a cold close preserves unrelated goals', () async {
+    await repository.saveGoals([goal('keep'), goal('remove')]);
+    await storage.close();
+    await repository.deleteGoal('remove');
+    expect(repository.getGoals().single.id, 'keep');
+  });
+}
+
+class _InterruptedReadStorage implements HiveStorage<String> {
+  _InterruptedReadStorage(this.delegate, {this.failOnRead});
+
+  final HiveStorage<String> delegate;
+  final int? failOnRead;
+  int reads = 0;
+  int opens = 0;
+  int primaryWrites = 0;
+  Future<void> Function()? beforeSecondOpen;
+  Future<void> Function()? afterBackup;
+
+  @override
+  String? get(String key) {
+    if (key == 'goals_v2') {
+      reads += 1;
+      if (reads == failOnRead) {
+        throw StateError('Injected transient unavailable goals storage');
+      }
+    }
+    return delegate.get(key);
+  }
+
+  @override
+  Future<Box<String>> open() async {
+    opens += 1;
+    if (opens == 2) await beforeSecondOpen?.call();
+    return delegate.open();
+  }
+
+  @override
+  Future<void> put(String key, String value) async {
+    if (key == 'goals_v2') primaryWrites += 1;
+    await delegate.put(key, value);
+    if (key.startsWith('goals_v2_corrupt_backup')) await afterBackup?.call();
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FailingBackupStorage implements HiveStorage<String> {
+  _FailingBackupStorage(this.delegate);
+  final HiveStorage<String> delegate;
+  bool failBackup = true;
+  int primaryWrites = 0;
+
+  @override
+  String? get(String key) => delegate.get(key);
+
+  @override
+  Future<Box<String>> open() => delegate.open();
+
+  @override
+  Future<void> put(String key, String value) async {
+    if (key.startsWith('goals_v2_corrupt_backup') && failBackup) {
+      throw StateError('Injected unavailable quarantine storage');
+    }
+    if (key == 'goals_v2') primaryWrites += 1;
+    await delegate.put(key, value);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _DirectHiveStore implements HiveStore {

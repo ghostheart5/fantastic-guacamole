@@ -1,8 +1,13 @@
 import 'dart:async';
+import 'package:fantastic_guacamole/features/tasks/widgets/task_edit_dialog.dart';
+import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/features/notes/ui/note_detail_screen.dart';
+import 'package:fantastic_guacamole/features/timeline/logic/timeline_projection.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
@@ -10,7 +15,10 @@ import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/usecases/apply_learning_feedback.dart';
 import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.dart';
+import 'package:fantastic_guacamole/features/nexus/ui/human_state_check_in_dialog.dart';
+import 'package:fantastic_guacamole/state/providers/nexus_vitals_provider.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/l10n/nexus_copy.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
@@ -77,12 +85,22 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     super.dispose();
   }
 
+  void _checkIn({required bool energy}) {
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (_) => HumanStateCheckInDialog(energy: energy),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ProfileState profile = ref.watch(profileProvider);
     final siState = ref.watch(consentedHumanContextProvider).siState;
     final double energy = siState.energy;
     final double fatigue = siState.fatigue;
+    final trajectoryVitals = ref.watch(nexusTrajectoryVitalsProvider);
     final NexusDecisionModel decisionModel = ref.watch(nexusDecisionProvider);
     final LearningFeedbackChange? learningChange = ref.watch(
       latestDecisionLearningChangeProvider,
@@ -115,10 +133,13 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                     builder: (context, _) => _NexusVitals(
                       energy: energy,
                       fatigue: fatigue,
-                      momentum: trajectory.momentum,
+                      momentumLabel: trajectoryVitals.momentumLabel,
                       hasObservedEnergy: siState.hasObservedEnergy,
                       hasObservedClarity: siState.hasObservedFatigue,
-                      hasMomentumEvidence: trajectory.completedTasks >= 3,
+                      onEnergy: () => _checkIn(energy: true),
+                      onClarity: () => _checkIn(energy: false),
+                      onMomentum: () =>
+                          goToAppView(context, ref, AppView.trajectoryEngine),
                       pulse: _pulse.value,
                     ),
                   ),
@@ -169,8 +190,20 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                     notes: notes,
                     nextBlock: nextBlock,
                     onOpenGoal: () => goToAppView(context, ref, AppView.goals),
-                    onOpenTask: () => _openCreator(CreatorFormKind.task),
-                    onOpenNote: () => _openCreator(CreatorFormKind.note),
+                    onOpenTask: _openTask,
+                    onOpenNote: (note) {
+                      if (note == null) {
+                        _openCreator(CreatorFormKind.note);
+                      } else {
+                        unawaited(
+                          Navigator.of(context).push<void>(
+                            MaterialPageRoute<void>(
+                              builder: (_) => NoteDetailScreen(noteId: note.id),
+                            ),
+                          ),
+                        );
+                      }
+                    },
                   ),
                 ),
               ),
@@ -179,6 +212,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
                   child: _TrajectoryReport(
                     summary: trajectory,
+                    vitals: trajectoryVitals,
                     onOpen: () =>
                         goToAppView(context, ref, AppView.trajectoryEngine),
                   ),
@@ -190,6 +224,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                   child: _TimelineSnapshot(
                     events: timeline,
                     tasks: tasks,
+                    goals: goals,
                     onOpen: () => goToAppView(context, ref, AppView.timeline),
                   ),
                 ),
@@ -255,6 +290,70 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     }
   }
 
+  Future<void> _openTask(TaskEntity? task) async {
+    if (task == null) {
+      _openCreator(CreatorFormKind.task);
+      return;
+    }
+    final generation = ref.read(authSessionBoundaryProvider).generation;
+    final namespace = ref.read(accountStorageScopeProvider).v2Namespace;
+    final draft = await showTaskEditDialog(
+      context: context,
+      editable: task,
+      goals: ref.read(goalsProvider),
+    );
+    if (draft == null || !mounted) return;
+    final scope = ref.read(accountStorageScopeProvider);
+    if (!scope.isWritable ||
+        scope.v2Namespace != namespace ||
+        ref.read(authSessionBoundaryProvider).generation != generation) {
+      return;
+    }
+    try {
+      await ref
+          .read(taskActionsProvider)
+          .updateTaskDetails(
+            id: task.id,
+            title: draft.title,
+            description: draft.description,
+            clearDescription: draft.description == null,
+            priority: draft.priority,
+            estimatedDuration: draft.estimatedDuration,
+            clearEstimatedDuration: draft.estimatedDuration == null,
+            scheduledFor: draft.scheduledFor,
+            clearScheduledFor: draft.scheduledFor == null,
+            dueDate: draft.dueDate,
+            clearDueDate: draft.dueDate == null,
+            goalId: draft.goalId,
+            clearGoalId: draft.goalId == null,
+          );
+      if (!mounted ||
+          ref.read(authSessionBoundaryProvider).generation != generation) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            journeyText(context, 'Task updated.', 'Tarea actualizada.'),
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Task could not be updated. Try again.',
+              'No se pudo actualizar la tarea. Inténtalo de nuevo.',
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
   void _reviewNextDecision() {
     final OperatingDecisionReceipt? decision = ref
         .read(nexusDecisionProvider)
@@ -266,12 +365,12 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
             .read(decisionOutcomeActionsProvider)
             .record(
               receipt: decision,
-              kind: DecisionOutcomeKind.accepted,
+              kind: DecisionOutcomeKind.shown,
               surface: 'nexus',
               detail: 'Opened Smart Planner from the selected time block.',
               situation: 'selected time block',
               optionChosen: 'review in Smart Planner',
-              recommendationHelped: true,
+              recommendationHelped: null,
             ),
       );
     }
@@ -289,8 +388,14 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
         .read(personContextDecisionIgnoredSignalsProvider.notifier)
         .ignoreForNow(decision.personContextAppliedSignalIds);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('This Person Context is ignored for the current use.'),
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'This Person Context is ignored for the current use.',
+            'Este Contexto Personal se omite en el uso actual.',
+          ),
+        ),
         behavior: SnackBarBehavior.floating,
       ),
     );

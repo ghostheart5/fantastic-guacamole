@@ -40,7 +40,9 @@ import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
+/// Canonical active commitments for management surfaces. Human-state ranking
+/// must never make a saved task disappear from Timeline or correction flows.
+final allTasksProvider = FutureProvider<List<Task>>((Ref ref) async {
   // Task repositories fail closed before authenticated storage is ready. This
   // dependency makes the provider retry when the account boundary advances.
   final AccountStorageScope accountScope = ref.watch(
@@ -52,6 +54,15 @@ final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
   final List<TaskEntity> tasks = await ref
       .watch(getTasksUseCaseProvider)
       .call();
+  return tasks
+      .where((TaskEntity task) => task.isActionableAt(DateTime.now()))
+      .map(_taskFromEntity)
+      .toList(growable: false);
+});
+
+/// Ranked recommendations for Nexus and advisory surfaces.
+final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
+  final List<Task> tasks = await ref.watch(allTasksProvider.future);
   final OptimizationConfig optimization = await ref.watch(
     optimizationConfigProvider.future,
   );
@@ -144,6 +155,7 @@ class TaskActions {
           ),
         );
 
+    _ref.invalidate(allTasksProvider);
     _ref.invalidate(tasksProvider);
     _ref.invalidate(goalProgressProvider);
   }
@@ -172,6 +184,7 @@ class TaskActions {
     required String id,
     required String title,
     String? description,
+    int? priority,
     Duration? estimatedDuration,
     DateTime? scheduledFor,
     DateTime? dueDate,
@@ -197,6 +210,13 @@ class TaskActions {
         estimatedDuration,
         'estimatedDuration',
         'Task duration must be between 1 minute and 24 hours.',
+      );
+    }
+    if (priority != null && (priority < 1 || priority > 5)) {
+      throw ArgumentError.value(
+        priority,
+        'priority',
+        'Task priority must be 1-5.',
       );
     }
     final String? normalizedGoalId = goalId?.trim();
@@ -228,6 +248,7 @@ class TaskActions {
       title: trimmedTitle,
       description: description?.trim(),
       clearDescription: clearDescription,
+      priority: priority,
       estimatedDuration: estimatedDuration,
       clearEstimatedDuration: clearEstimatedDuration,
       goalId: normalizedGoalId,
@@ -362,6 +383,7 @@ class TaskActions {
       }
     }
 
+    _ref.invalidate(allTasksProvider);
     _ref.invalidate(tasksProvider);
     _ref.invalidate(goalProgressProvider);
   }
@@ -431,6 +453,7 @@ class TaskActions {
         .skip(selectedTask.id);
     if (!operation.isCurrent(_ref)) return;
     if (occurrence.mutation != TaskOccurrenceMutation.applied) {
+      _ref.invalidate(allTasksProvider);
       _ref.invalidate(tasksProvider);
       return;
     }
@@ -512,6 +535,7 @@ class TaskActions {
           ),
         );
 
+    _ref.invalidate(allTasksProvider);
     _ref.invalidate(tasksProvider);
     _ref.invalidate(goalProgressProvider);
   }
@@ -562,6 +586,7 @@ class TaskActions {
             action: action,
           ),
         );
+    _ref.invalidate(allTasksProvider);
     _ref.invalidate(tasksProvider);
     _ref.invalidate(goalProgressProvider);
     _ref.invalidate(domainSiDecisionProvider);
@@ -601,6 +626,7 @@ class TaskActions {
       quality: completed ? 1 : 0,
       timestamp: timestamp,
       completed: completed,
+      durationSource: 'estimated',
     ).toJson();
 
     final String encoded = await compute<Map<String, dynamic>, String>(
@@ -773,22 +799,7 @@ final class _TaskAccountOperation {
 }
 
 Task _taskFromEntity(TaskEntity task) {
-  return Task(
-    id: task.id,
-    title: task.title,
-    priority: task.priority,
-    difficulty: task.difficulty,
-    energyRequired: task.energyRequired,
-    scheduledFor: task.scheduledFor,
-    dueDate: task.dueDate,
-    estimatedDuration: task.estimatedDuration ?? const Duration(minutes: 30),
-    isCompleted: task.isCompleted,
-    isCanceled: task.isCanceled,
-    completedAt: task.completedAt,
-    goalId: task.goalId,
-    subtasks: task.subtasks,
-    recurrenceRule: task.recurrenceRule,
-  );
+  return Task.fromEntity(task);
 }
 
 String _appendNeuralDumpEntry(Map<String, dynamic> payload) {

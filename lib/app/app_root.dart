@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/config/auth_callback.dart';
 import 'package:fantastic_guacamole/app/startup/startup_notice_layout.dart';
 
 import 'package:fantastic_guacamole/app/router/app_router.dart';
+import 'package:fantastic_guacamole/app/router/stable_back_button_dispatcher.dart';
 import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
@@ -23,6 +24,8 @@ import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
 import 'package:fantastic_guacamole/theme/theme.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guide_overlay.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
+import 'package:fantastic_guacamole/ui/widgets/voice_playback_controls.dart';
+import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -246,6 +249,9 @@ class AppRoot extends ConsumerStatefulWidget {
 
 class _AppRootState extends ConsumerState<AppRoot> {
   GoRouter? _router;
+  RouterConfig<RouteMatchList>? _routerConfig;
+  final StableBackButtonDispatcher _backButtonDispatcher =
+      StableBackButtonDispatcher();
   final DeepLinkEventDeduplicator _deepLinkEvents = DeepLinkEventDeduplicator();
 
   @override
@@ -294,7 +300,16 @@ class _AppRootState extends ConsumerState<AppRoot> {
       showQaDiagnostics: showQaDiagnostics,
     );
     final GoRouter router = ref.watch(appRouterProvider);
-    _router = router;
+    final voiceService = ref.watch(voiceServiceProvider);
+    if (!identical(_router, router)) {
+      _router = router;
+      _routerConfig = RouterConfig<RouteMatchList>(
+        routeInformationProvider: router.routeInformationProvider,
+        routeInformationParser: router.routeInformationParser,
+        routerDelegate: router.routerDelegate,
+        backButtonDispatcher: _backButtonDispatcher,
+      );
+    }
 
     ref.listen<AsyncValue<DeepLinkState>>(deepLinkStateProvider, (
       AsyncValue<DeepLinkState>? _,
@@ -321,7 +336,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
         GlobalCupertinoLocalizations.delegate,
       ],
       theme: (themeEntity?.isDark ?? true) ? appTheme : appLightTheme,
-      routerConfig: router,
+      routerConfig: _routerConfig,
       builder: (context, child) {
         final Widget appChild = Stack(
           fit: StackFit.expand,
@@ -330,6 +345,15 @@ class _AppRootState extends ConsumerState<AppRoot> {
               child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
             ),
             const AdaptiveGuideOverlay(),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: VoicePlaybackControls(
+                service: voiceService,
+                navigation: router.routerDelegate,
+              ),
+            ),
           ],
         );
 

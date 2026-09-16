@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:fantastic_guacamole/data/adapters/note_timeline_adapter.dart';
+import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
@@ -11,6 +14,8 @@ import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
@@ -20,6 +25,7 @@ import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,6 +36,142 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
+
+  for (final bool failHistory in <bool>[false, true]) {
+    test(
+      'goal confirmation and undo preserve canonical writes when history failure is $failHistory',
+      () async {
+        final history = _MemoryCreatorTimeline()..fail = failHistory;
+        final harness = _Harness(timelineRepository: history);
+        addTearDown(harness.dispose);
+        await harness.notifier.stage(
+          data: const CreatorFormData(
+            title: 'Prepare a family budget',
+            type: 'Goal',
+            priority: 3,
+          ),
+        );
+        expect(
+          (await harness.notifier.confirm()).phase,
+          CreatorHandshakePhase.applied,
+        );
+        final goal = harness.goalRepository.goals.single;
+        await harness.notifier.confirm();
+        expect(harness.goalRepository.saveCalls, 1);
+        if (!failHistory) {
+          expect(history.events.single.title, 'Goal created');
+          expect(history.events.single.relatedId, goal.id);
+          expect(history.events.single.timestamp, goal.createdAt);
+        }
+        expect(
+          (await harness.notifier.undo()).phase,
+          CreatorHandshakePhase.undone,
+        );
+        await harness.notifier.undo();
+        expect(harness.goalRepository.goals, isEmpty);
+        expect(harness.goalRepository.deleteCalls, 1);
+        expect(
+          history.events.map((event) => event.title),
+          failHistory ? isEmpty : ['Goal created', 'Goal creation undone'],
+        );
+      },
+    );
+  }
+
+  test(
+    'account change during goal save blocks its history projection',
+    () async {
+      final history = _MemoryCreatorTimeline();
+      final harness = _Harness(timelineRepository: history);
+      addTearDown(harness.dispose);
+      await harness.notifier.stage(
+        data: const CreatorFormData(
+          title: 'Old account goal',
+          type: 'Goal',
+          priority: 3,
+        ),
+      );
+      final gate = Completer<void>();
+      final entered = Completer<void>();
+      harness.goalRepository.saveGate = gate.future;
+      harness.goalRepository.saveEntered = entered;
+      final pending = harness.notifier.confirm();
+      await entered.future;
+      harness.container
+          .read(authSessionBoundaryProvider.notifier)
+          .begin(userId: 'next-account', isTransitioning: true);
+      gate.complete();
+      expect((await pending).receipt, isNull);
+      expect(history.events, isEmpty);
+    },
+  );
+
+  test(
+    'failed note history projection does not roll back save or undo',
+    () async {
+      final projection = _RecordingNoteProjection()..fail = true;
+      final harness = _Harness(noteProjection: projection);
+      addTearDown(harness.dispose);
+      await harness.notifier.stage(
+        data: const CreatorFormData(
+          title: 'Canonical note survives',
+          type: 'Note',
+          priority: 3,
+        ),
+      );
+      expect(
+        (await harness.notifier.confirm()).phase,
+        CreatorHandshakePhase.applied,
+      );
+      expect(
+        harness.noteRepository.notes.single.title,
+        'Canonical note survives',
+      );
+      await harness.notifier.confirm();
+      expect(harness.noteRepository.saveCalls, 1);
+      expect(
+        (await harness.notifier.undo()).phase,
+        CreatorHandshakePhase.undone,
+      );
+      expect(harness.noteRepository.notes, isEmpty);
+      await harness.notifier.undo();
+      expect(harness.noteRepository.deleteCalls, 1);
+      expect(projection.mutations, [
+        NoteTimelineMutation.created,
+        NoteTimelineMutation.deleted,
+      ]);
+    },
+  );
+
+  test(
+    'account change during note save cannot publish history into the next session',
+    () async {
+      final projection = _RecordingNoteProjection();
+      final harness = _Harness(noteProjection: projection);
+      addTearDown(harness.dispose);
+      await harness.notifier.stage(
+        data: const CreatorFormData(
+          title: 'Old account note',
+          type: 'Note',
+          priority: 3,
+        ),
+      );
+      final gate = Completer<void>();
+      final entered = Completer<void>();
+      harness.noteRepository.saveGate = gate.future;
+      harness.noteRepository.saveEntered = entered;
+      final pending = harness.notifier.confirm();
+      await entered.future;
+      harness.container
+          .read(authSessionBoundaryProvider.notifier)
+          .begin(userId: 'next-account', isTransitioning: true);
+      gate.complete();
+      final result = await pending;
+      expect(result.receipt, isNull);
+      expect(projection.mutations, isEmpty);
+      expect(harness.noteRepository.saveCalls, 1);
+    },
+  );
 
   test('stage creates a bound preview without any mutation', () async {
     final _Harness harness = _Harness();
@@ -623,6 +765,57 @@ void main() {
     },
   );
 
+  for (final bool undo in <bool>[false, true]) {
+    test(
+      'linked task ${undo ? 'undo' : 'confirmation'} refreshes previously read goal progress',
+      () async {
+        final harness = _Harness();
+        addTearDown(harness.dispose);
+        harness.repository.seed(
+          TaskEntity(
+            id: 'completed-action',
+            title: 'Check the first shirt',
+            goalId: 'laundry',
+            createdAt: harness.now,
+            isCompleted: true,
+          ),
+        );
+        final progress = goalProgressProvider('laundry');
+        if (!undo) {
+          final before = await harness.container.read(progress.future);
+          expect(before.totalCount, 1);
+          expect(before.fraction, 1);
+        }
+        await harness.notifier.stage(
+          data: const CreatorFormData(
+            title: 'Check the next care label',
+            type: 'Task',
+            priority: 3,
+            goalId: 'laundry',
+          ),
+        );
+        expect(
+          (await harness.notifier.confirm()).phase,
+          CreatorHandshakePhase.applied,
+        );
+        final afterCreate = await harness.container.read(progress.future);
+        expect(afterCreate.totalCount, 2);
+        expect(afterCreate.completedCount, 1);
+        expect(afterCreate.fraction, .5);
+        if (undo) {
+          expect(
+            (await harness.notifier.undo()).phase,
+            CreatorHandshakePhase.undone,
+          );
+          final afterUndo = await harness.container.read(progress.future);
+          expect(afterUndo.totalCount, 1);
+          expect(afterUndo.completedCount, 1);
+          expect(afterUndo.fraction, 1);
+        }
+      },
+    );
+  }
+
   test('task mutation preserves all scheduling and goal fields', () async {
     final _Harness harness = _Harness();
     addTearDown(harness.dispose);
@@ -919,6 +1112,8 @@ class _Harness {
     _MemoryGoalRepository? goalRepository,
     _MemoryHabitRepository? habitRepository,
     _MemoryNoteRepository? noteRepository,
+    NoteTimelineAdapter? noteProjection,
+    ITimelineRepository? timelineRepository,
     SecureStore? store,
     DateTime? now,
   }) : repository = repository ?? _MemoryTaskRepository(),
@@ -934,6 +1129,11 @@ class _Harness {
         domainGoalRepositoryProvider.overrideWithValue(this.goalRepository),
         domainHabitRepositoryProvider.overrideWithValue(this.habitRepository),
         domainNoteRepositoryProvider.overrideWithValue(this.noteRepository),
+        domainTimelineRepositoryProvider.overrideWithValue(
+          timelineRepository ?? _MemoryCreatorTimeline(),
+        ),
+        if (noteProjection != null)
+          noteTimelineAdapterProvider.overrideWithValue(noteProjection),
         secureStoreProvider.overrideWithValue(this.store),
         creatorHandshakeClockProvider.overrideWithValue(() => this.now),
         personContextForSurfaceProvider(
@@ -1035,6 +1235,8 @@ class _MemoryTaskRepository implements ITaskRepository {
 }
 
 class _MemoryGoalRepository implements IGoalRepository {
+  Future<void>? saveGate;
+  Completer<void>? saveEntered;
   final List<GoalEntity> goals = <GoalEntity>[];
   int saveCalls = 0;
   int deleteCalls = 0;
@@ -1056,6 +1258,8 @@ class _MemoryGoalRepository implements IGoalRepository {
 
   @override
   Future<void> saveGoal(GoalEntity goal) async {
+    saveEntered?.complete();
+    await saveGate;
     saveCalls += 1;
     goals.removeWhere((GoalEntity value) => value.id == goal.id);
     goals.insert(0, goal);
@@ -1068,6 +1272,31 @@ class _MemoryGoalRepository implements IGoalRepository {
       ..clear()
       ..addAll(values);
   }
+}
+
+class _MemoryCreatorTimeline implements ITimelineRepository {
+  final List<TimelineEventEntity> events = [];
+  bool fail = false;
+  @override
+  bool get lastReadCorrupted => false;
+  @override
+  List<TimelineEventEntity> getEvents() => List.of(events);
+  @override
+  Future<void> addEvent(TimelineEventEntity event) async {
+    if (fail) throw StateError('History unavailable');
+    events.add(event);
+  }
+
+  @override
+  Future<void> saveEvents(List<TimelineEventEntity> values) async {
+    events
+      ..clear()
+      ..addAll(values);
+  }
+
+  @override
+  Future<void> removeEvent(String id) async =>
+      events.removeWhere((event) => event.id == id);
 }
 
 class _MemoryHabitRepository implements IHabitRepository {
@@ -1095,6 +1324,8 @@ class _MemoryNoteRepository implements INoteRepository {
   final List<NoteEntity> notes = <NoteEntity>[];
   int saveCalls = 0;
   int deleteCalls = 0;
+  Future<void>? saveGate;
+  Completer<void>? saveEntered;
 
   void seed(NoteEntity note) {
     notes.removeWhere((NoteEntity value) => value.id == note.id);
@@ -1114,7 +1345,19 @@ class _MemoryNoteRepository implements INoteRepository {
   @override
   Future<void> saveNote(NoteEntity note) async {
     saveCalls += 1;
+    saveEntered?.complete();
+    await saveGate;
     notes.removeWhere((NoteEntity value) => value.id == note.id);
     notes.insert(0, note);
+  }
+}
+
+class _RecordingNoteProjection implements NoteTimelineAdapter {
+  final List<NoteTimelineMutation> mutations = [];
+  bool fail = false;
+  @override
+  Future<void> record(NoteEntity note, NoteTimelineMutation mutation) async {
+    mutations.add(mutation);
+    if (fail) throw StateError('Simulated Timeline storage failure');
   }
 }

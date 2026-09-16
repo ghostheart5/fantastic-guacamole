@@ -17,7 +17,7 @@ class TaskFilter {
     final DateTime ref = now ?? DateTime.now();
     return tasks.where((t) {
       final DateTime? dueDate = t.dueDate;
-      return t.isActionableAt(ref) && dueDate != null && dueDate.isBefore(ref);
+      return t.isActionableAt(ref) && dueDate != null && t.isOverdueAt(ref);
     }).toList();
   }
 
@@ -33,8 +33,8 @@ class TaskFilter {
       final DateTime? dueDate = t.dueDate;
       return t.isActionableAt(ref) &&
           dueDate != null &&
-          !dueDate.isBefore(ref) &&
-          dueDate.isBefore(cutoff);
+          !t.isOverdueAt(ref) &&
+          (t.effectiveDueAt ?? dueDate).isBefore(cutoff);
     }).toList();
   }
 

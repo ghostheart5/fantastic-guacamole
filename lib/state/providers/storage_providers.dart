@@ -14,7 +14,9 @@ final flutterSecureStorageProvider = Provider<FlutterSecureStorage>(
 
 final secureStoreProvider = Provider<SecureStore>((Ref ref) {
   return SecureStore(
-    backend: !Env.isLocalMode && Env.isMockMode
+    // Installed QA journeys need the same durable, account-scoped secure
+    // storage as release. Generic mock unit-test hosts may stay in memory.
+    backend: !Env.isLocalMode && Env.isMockMode && Env.appFlavor != 'qa'
         ? InMemorySecureStoreBackend()
         : RealSecureStoreBackend(
             storage: ref.read(flutterSecureStorageProvider),

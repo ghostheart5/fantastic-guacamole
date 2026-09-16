@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
@@ -10,6 +12,7 @@ import 'package:fantastic_guacamole/data/repositories/paywall_repository.dart'
     show ContainedPaywallRepository;
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
+import 'package:fantastic_guacamole/domain/entities/purchase_outcome.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_subscription_repository.dart';
@@ -30,7 +33,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final creditServiceProvider = Provider<CreditService>((ref) {
   return CreditService(
-    spendingEnabled: Env.creditSpendingEnabled,
+    spendingEnabled:
+        ref.watch(creditSpendingAvailableProvider) && !Env.isProduction,
     prefs: AccountScopedSharedPrefsStore(
       delegate: ref.read(sharedPrefsStoreProvider),
       scope: ref.watch(accountStorageScopeProvider),
@@ -40,7 +44,7 @@ final creditServiceProvider = Provider<CreditService>((ref) {
 });
 
 final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
-  if (!Env.creditSpendingEnabled) {
+  if (!ref.watch(creditSpendingAvailableProvider)) {
     final DateTime now = DateTime.now();
     return AiCreditWallet(
       balance: 0,
@@ -58,25 +62,14 @@ final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
     entitlementProvider.future,
   );
   final bool premium = testerAccess || entitlement.isPremium;
-  if (Env.isProduction && Env.isAiProxyConfigured) {
+  if (Env.isProduction && ref.watch(aiProxyAvailableProvider)) {
     final client = ref.watch(supabaseClientProvider);
     if (client?.auth.currentUser == null) {
       throw StateError('An authenticated session is required for AI credits.');
     }
-    final Map<String, dynamic>? row = await client!
-        .from('monetization_wallets')
-        .select('balance,tier,period_credits,period_ends_at,updated_at')
-        .maybeSingle();
-    if (row == null) {
-      final DateTime now = DateTime.now();
-      return AiCreditWallet(
-        balance: 20,
-        tier: 'free',
-        allowance: 20,
-        resetAt: now.add(const Duration(days: 1)),
-        updatedAt: now,
-      );
-    }
+    final row = Map<String, dynamic>.from(
+      await client!.rpc<Map<String, dynamic>>('get_credit_wallet_v2'),
+    );
     return serverAiCreditWallet(row);
   }
   return ref.read(creditServiceProvider).loadWallet(premium: premium);
@@ -85,8 +78,21 @@ final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
 AiCreditWallet serverAiCreditWallet(Map<String, dynamic> row) {
   final DateTime now = DateTime.now();
   return AiCreditWallet(
+    purchasedCredits: ((row['purchased_credits'] as num?)?.toInt() ?? 0)
+        .clamp(0, 1 << 31)
+        .toInt(),
+    refundedCreditDebt: ((row['refunded_credit_debt'] as num?)?.toInt() ?? 0)
+        .clamp(0, 1 << 31)
+        .toInt(),
     balance: ((row['balance'] as num?)?.toInt() ?? 0).clamp(0, 1 << 31).toInt(),
-    tier: row['tier']?.toString() ?? 'free',
+    tier:
+        const {
+          'premium',
+          'premium_monthly',
+          'premium_yearly',
+        }.contains(row['tier'])
+        ? 'premium'
+        : 'free',
     allowance: ((row['period_credits'] as num?)?.toInt() ?? 0)
         .clamp(0, 1 << 31)
         .toInt(),
@@ -102,6 +108,20 @@ AiCreditWallet serverAiCreditWallet(Map<String, dynamic> row) {
 final paywallRepositoryProvider = Provider<IPaywallRepository>((ref) {
   return ref.watch(appPaywallRepositoryProvider);
 });
+
+final paywallPurchaseOutcomeProvider =
+    StreamProvider.autoDispose<SubscriptionState>((ref) {
+      ref.watch(accountStorageScopeProvider);
+      final repository = ref.watch(paywallRepositoryProvider);
+      if (repository is! IPurchaseOutcomeSource) return const Stream.empty();
+      return (repository as IPurchaseOutcomeSource).purchaseOutcomes
+          .where(
+            (event) =>
+                event.userId ==
+                ref.read(supabaseClientProvider)?.auth.currentUser?.id,
+          )
+          .map((event) => event.state);
+    });
 
 final getAvailablePlansUseCaseProvider = Provider<GetAvailablePlans>((ref) {
   return GetAvailablePlans(ref.watch(paywallRepositoryProvider));
@@ -139,7 +159,27 @@ final paywallActionsProvider = Provider<PaywallActions>((ref) {
 final paywallSubscriptionProvider = FutureProvider<SubscriptionState>((
   ref,
 ) async {
-  return ref.watch(paywallRepositoryProvider).getUserSubscriptionState();
+  final subscription = await ref
+      .watch(paywallRepositoryProvider)
+      .getUserSubscriptionState();
+  if (!ref.mounted) return subscription;
+  final expiry = subscription.renewalDate;
+  if (subscription.isActive && expiry != null) {
+    final remaining = expiry.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      return SubscriptionState(
+        isActive: false,
+        status: 'expired',
+        source: subscription.source,
+        planId: subscription.planId,
+        renewalDate: expiry,
+        isTesting: subscription.isTesting,
+      );
+    }
+    final timer = Timer(remaining, ref.invalidateSelf);
+    ref.onDispose(timer.cancel);
+  }
+  return subscription;
 });
 
 final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
@@ -148,16 +188,17 @@ final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
   }
   final bool billingTest = ref.watch(internalBillingTestEnabledProvider);
   final plansUseCase = ref.watch(getAvailablePlansUseCaseProvider);
-  final repository = ref.watch(paywallRepositoryProvider);
+  final subscriptionFuture = ref.watch(paywallSubscriptionProvider.future);
   final List<PaywallPlan> plans = await plansUseCase.call();
-  final SubscriptionState subscription = await repository
-      .getUserSubscriptionState();
+  final SubscriptionState subscription = await subscriptionFuture;
   if (billingTest) {
+    final creditsEnabled = ref.watch(internalCreditTestEnabledProvider);
     return PaywallEntity(
       featureId: 'premium',
       title: 'Google Play billing test',
       body:
-          'Test purchases, renewals, cancellation and restoration. Select a Google Play test payment method; cancel if a real payment method appears. AI and credit spending are unavailable in this build.',
+          'Test purchases, renewals, cancellation and restoration. Select a Google Play test payment method; cancel if a real payment method appears. '
+          '${creditsEnabled ? 'Settings includes synthetic credit-test actions that require external AI consent and use server-verified credits. SI Console guidance remains local.' : 'AI and credit spending are unavailable in this build.'}',
       plans: plans
           .map(
             (plan) => PaywallPlan(
@@ -165,6 +206,7 @@ final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
               title: plan.title,
               priceLabel: plan.priceLabel,
               description: plan.description,
+              aiCreditsIncluded: creditsEnabled ? plan.aiCreditsIncluded : 0,
               isAvailable: plan.isAvailable,
               isFeatured: plan.isFeatured,
             ),
@@ -198,6 +240,10 @@ class PaywallActions {
     final SubscriptionState purchased = await _ref
         .read(startSubscriptionUseCaseProvider)
         .call(planId);
+    // A subscription read cannot confirm or reject a one-time credit purchase.
+    // Preserve its transaction outcome; the page refreshes wallet and access
+    // independently after this operation.
+    if (planId.startsWith('credits_')) return purchased;
     return _refreshAuthority(purchased);
   }
 
@@ -230,6 +276,9 @@ class PaywallActions {
 }
 
 bool requiresPaywallAuthorityRefresh(SubscriptionState result) {
+  if (result.status == 'credits_added') {
+    return false;
+  }
   if (result.isActive) {
     return true;
   }

@@ -43,7 +43,7 @@ env:
 
 jobs:
   source-gate:
-    if: '!inputs.preflight_only && github.repository == ''ghostheart5/fantastic-guacamole'' && github.ref == ''refs/heads/fix/app-only-readiness-priority2-20260902'''
+    if: '!inputs.preflight_only && github.repository == ''ghostheart5/fantastic-guacamole'''
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -63,7 +63,7 @@ jobs:
             .conclusion == "success"' "$RUNNER_TEMP/candidate-ci.json"
 
   billing-preflight-only:
-    if: inputs.preflight_only && inputs.billing_test && github.repository == 'ghostheart5/fantastic-guacamole' && github.ref == 'refs/heads/fix/app-only-readiness-priority2-20260902'
+    if: inputs.preflight_only && inputs.billing_test && github.repository == 'ghostheart5/fantastic-guacamole'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment: production
@@ -81,6 +81,9 @@ jobs:
 
       - name: Verify billing configuration without building or purchasing
         env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS: ${{ secrets.CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS }}
+          CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST: ${{ secrets.CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
@@ -93,13 +96,40 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
           node scripts/verify_internal_billing_backend.mjs > "$RUNNER_TEMP/internal-billing-preflight.json"
+          python3 - <<'PY' > "$RUNNER_TEMP/internal-policy-fingerprint.json"
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          from scripts.android_candidate_build import (COHORT_KEY, POLICY_PATH,
+              strict_json, validate_internal_policy, validate_private_cohort,
+              merge_assistant_internal_cohort)
+
+          policy = strict_json(Path(POLICY_PATH).read_text(encoding="utf-8"))
+          if policy.get(COHORT_KEY) != "":
+              raise ValueError("Reviewed policy must leave its private cohort empty")
+          billing_cohort = validate_private_cohort(os.environ["CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS"])
+          policy[COHORT_KEY] = merge_assistant_internal_cohort(
+              billing_cohort, os.environ["CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST"])
+          policy = validate_internal_policy(policy)
+          canonical = json.dumps(policy, sort_keys=True, separators=(",", ":"))
+          print(json.dumps({
+              "reviewedEffectivePolicySha256": hashlib.sha256(canonical.encode()).hexdigest(),
+              "privateCohortCount": len(policy[COHORT_KEY].split(",")),
+              "billingCohortCount": len(billing_cohort.split(",")),
+              "sourceSha": os.environ["CANDIDATE_SHA"],
+          }))
+          PY
           cat "$RUNNER_TEMP/internal-billing-preflight.json" >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/internal-policy-fingerprint.json" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Save configuration verification evidence
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: internal-billing-preflight-${{ env.CANDIDATE_SHA }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/internal-billing-preflight.json
+          path: |
+            ${{ runner.temp }}/internal-billing-preflight.json
+            ${{ runner.temp }}/internal-policy-fingerprint.json
           if-no-files-found: error
           retention-days: 7
 
@@ -147,6 +177,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS: ${{ secrets.CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS }}
+          CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST: ${{ secrets.CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
@@ -171,6 +203,14 @@ jobs:
         run: |
           rm -f candidate/android/key.properties candidate/android/app/upload-keystore.jks
           rm -f "$RUNNER_TEMP/chronospark-candidate-defines.json"
+
+      - name: Verify complete third-party notices and pinned Dart SDK
+        run: |
+          python3 candidate/scripts/verify_additional_licenses.py \
+            --artifact candidate/build/candidate-evidence/app-release.aab \
+            --repo-root candidate \
+            --flutter-executable "$(command -v flutter)" \
+            --report candidate/build/candidate-evidence/additional-license-verification.json
 
       - name: Save verified candidate and evidence only
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

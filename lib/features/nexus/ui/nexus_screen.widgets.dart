@@ -7,6 +7,7 @@ class _NexusHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final copy = NexusCopy.of(context);
     final int unread = ref.watch(unreadNotificationsProvider);
     final routes = ref.watch(routeSurfaceProvider);
     final double width = MediaQuery.sizeOf(context).width;
@@ -24,11 +25,11 @@ class _NexusHeader extends ConsumerWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
+                    const Text(
                       'NEXUS',
                       style: TextStyle(
                         fontSize: 30,
@@ -37,20 +38,20 @@ class _NexusHeader extends ConsumerWidget {
                         color: Colors.white,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Your day, resolved into one clear move.',
-                      style: TextStyle(
+                      copy.tagline,
+                      style: const TextStyle(
                         color: Colors.white70,
                         fontSize: AppSizes.fontBodyLg,
                         height: 1.35,
                         letterSpacing: 0,
                       ),
                     ),
-                    SizedBox(height: 6),
+                    const SizedBox(height: 6),
                     Text(
-                      'ADAPTIVE LOGIC CORE',
-                      style: TextStyle(
+                      copy.logicCore,
+                      style: const TextStyle(
                         color: AppColors.neonCyan,
                         fontSize: AppSizes.fontMicro,
                         fontWeight: FontWeight.w800,
@@ -62,7 +63,7 @@ class _NexusHeader extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               _HeaderControl(
-                semanticLabel: 'Open notifications',
+                semanticLabel: copy.openNotifications,
                 accent: AppColors.neonCyan,
                 onTap: () => context.push(routes.notifications),
                 child: Badge(
@@ -73,7 +74,7 @@ class _NexusHeader extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               _HeaderControl(
-                semanticLabel: 'Log out',
+                semanticLabel: copy.logOut,
                 accent: AppColors.neonViolet,
                 onTap: () => unawaited(_signOut(context, ref)),
                 child: const Icon(Icons.logout_rounded, size: 19),
@@ -89,7 +90,7 @@ class _NexusHeader extends ConsumerWidget {
                 goToAppView(context, ref, AppView.settings);
               },
               icon: const Icon(Icons.manage_accounts_outlined, size: 18),
-              label: const Text('CONTEXT'),
+              label: Text(copy.context),
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.memoryAmber,
                 minimumSize: const Size(
@@ -101,9 +102,7 @@ class _NexusHeader extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            profile.name.isEmpty
-                ? 'TODAY IS READY  ·  LVL ${profile.level}  ·  ${profile.streak}D STREAK'
-                : '${profile.name.toUpperCase()}  ·  LVL ${profile.level}  ·  ${profile.streak}D STREAK',
+            copy.profileStatus(profile.name, profile.level, profile.streak),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -126,7 +125,7 @@ class _NexusHeader extends ConsumerWidget {
     } on Object {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not log out. Please try again.')),
+        SnackBar(content: Text(NexusCopy.of(context).logOutFailed)),
       );
     }
   }
@@ -172,44 +171,47 @@ class _NexusVitals extends StatelessWidget {
   const _NexusVitals({
     required this.energy,
     required this.fatigue,
-    required this.momentum,
+    required this.momentumLabel,
     required this.hasObservedEnergy,
     required this.hasObservedClarity,
-    required this.hasMomentumEvidence,
+    required this.onEnergy,
+    required this.onClarity,
+    required this.onMomentum,
     required this.pulse,
   });
 
   final double energy;
   final double fatigue;
-  final double momentum;
+  final String momentumLabel;
   final bool hasObservedEnergy;
   final bool hasObservedClarity;
-  final bool hasMomentumEvidence;
+  final VoidCallback onEnergy;
+  final VoidCallback onClarity;
+  final VoidCallback onMomentum;
   final double pulse;
 
   @override
   Widget build(BuildContext context) {
-    final String momentumLabel = !hasMomentumEvidence
-        ? 'LEARNING'
-        : momentum >= .72
-        ? 'STRONG'
-        : momentum >= .45
-        ? 'STEADY'
-        : 'BUILDING';
+    final copy = NexusCopy.of(context);
     return Semantics(
       container: true,
-      label:
-          '${hasObservedEnergy ? 'Energy ${(energy * 100).round()} percent' : 'Energy unmeasured'}. '
-          '${hasObservedClarity ? 'Clarity ${((1 - fatigue) * 100).round()} percent' : 'Clarity not checked'}. '
-          'Momentum $momentumLabel.',
+      label: copy.vitalsSummary(
+        energyPercent: hasObservedEnergy ? (energy * 100).round() : null,
+        clarityPercent: hasObservedClarity
+            ? ((1 - fatigue) * 100).round()
+            : null,
+        momentumLabel: momentumLabel,
+      ),
       child: Row(
         children: <Widget>[
           Expanded(
             child: _VitalMetric(
-              label: 'ENERGY',
+              label: copy.energy,
+              onTap: onEnergy,
+              hint: copy.energyHint,
               value: hasObservedEnergy
                   ? '${(energy * 100).round()}%'
-                  : 'UNMEASURED',
+                  : copy.unmeasured,
               accent: AppColors.neonCyan,
               pulse: pulse,
             ),
@@ -217,10 +219,12 @@ class _NexusVitals extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: _VitalMetric(
-              label: 'CLARITY',
+              label: copy.clarity,
+              onTap: onClarity,
+              hint: copy.clarityHint,
               value: hasObservedClarity
                   ? '${((1 - fatigue) * 100).round()}%'
-                  : 'NOT CHECKED',
+                  : copy.unchecked,
               accent: AppColors.neonViolet,
               pulse: pulse,
             ),
@@ -228,8 +232,10 @@ class _NexusVitals extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: _VitalMetric(
-              label: 'MOMENTUM',
-              value: momentumLabel,
+              label: copy.momentum,
+              onTap: onMomentum,
+              hint: copy.momentumHint,
+              value: copy.momentumValue(momentumLabel),
               accent: AppColors.memoryAmber,
               pulse: pulse,
             ),
@@ -246,50 +252,65 @@ class _VitalMetric extends StatelessWidget {
     required this.value,
     required this.accent,
     required this.pulse,
+    required this.onTap,
+    required this.hint,
   });
 
   final String label;
   final String value;
   final Color accent;
   final double pulse;
+  final VoidCallback onTap;
+  final String hint;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.bgSecondary.withValues(alpha: .68),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: accent.withValues(alpha: .28)),
-      ),
-      child: Column(
-        children: <Widget>[
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: AppSizes.fontMicro,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0,
+    return Tooltip(
+      message: hint,
+      child: Semantics(
+        button: true,
+        hint: hint,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: AppSizes.touchTarget),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.bgSecondary.withValues(alpha: .68),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: accent.withValues(alpha: .28)),
+            ),
+            child: Column(
+              children: <Widget>[
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: AppSizes.fontMicro,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.fade,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: accent.withValues(alpha: .84 + pulse * .16),
+                    fontSize: AppSizes.fontBodyLg,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.fade,
-            softWrap: false,
-            style: TextStyle(
-              color: accent.withValues(alpha: .84 + pulse * .16),
-              fontSize: AppSizes.fontBodyLg,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -318,6 +339,7 @@ class _SmartPlannerSuggestion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final copy = NexusCopy.of(context);
     final OperatingDecisionReceipt? decision =
         decisionModel.intelligence?.decision;
     final List<TimeBlock>? availableBlocks = blocks.asData?.value;
@@ -331,9 +353,9 @@ class _SmartPlannerSuggestion extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const _SectionHeading(
-          eyebrow: 'CURRENT DECISION',
-          title: 'Recommended next move',
+        _SectionHeading(
+          eyebrow: copy.currentDecision,
+          title: copy.nextMove,
           icon: Icons.auto_awesome_rounded,
           accent: AppColors.neonCyan,
         ),
@@ -382,21 +404,35 @@ class _PlannerSuggestionContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final copy = NexusCopy.of(context);
     final String title = _firstNonEmpty(<String?>[
       decision?.recommendedAction,
       block?.title,
-      'Build one clear next step',
+      copy.buildNextStep,
     ]);
     final String rationale = _firstNonEmpty(<String?>[
       decision?.whyItMatters,
       decision?.rationale,
-      block == null
-          ? 'Add a task in Creator so Smart Planner can rank real work.'
-          : 'This scheduled task is the nearest concrete commitment.',
+      block == null ? copy.addTaskReason : copy.scheduledReason,
     ]);
     final String? confidenceLabel = decision == null
         ? null
         : l10n.provisionalEvidenceConfidenceLabel(decision!.confidence);
+    // A nearby block is not necessarily the displayed decision. Recovery and
+    // reconciliation guidance must not expose another task's completion action.
+    final bool showsTask =
+        block != null &&
+        (decision == null || decision!.subjectId == block!.taskId) &&
+        (title == block!.title || title == 'Work on: ${block!.title}');
+    // Translate the system prefix only after identity agreement; never parse
+    // or translate a user-authored task title to authorize completion.
+    final displayTitle = showsTask && title == 'Work on: ${block!.title}'
+        ? copy.workOn(block!.title)
+        : title;
+    final displayRationale =
+        decision?.personContextExplanations.isNotEmpty ?? false
+        ? rationale
+        : copy.systemRationale(rationale);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -404,7 +440,7 @@ class _PlannerSuggestionContent extends StatelessWidget {
         Row(
           children: <Widget>[
             _StatusLabel(
-              label: decisionModel.statusLabel,
+              label: copy.decisionStatus(decisionModel.statusLabel),
               accent: _statusAccent(decisionModel.status),
             ),
             if (confidenceLabel != null) ...<Widget>[
@@ -427,7 +463,8 @@ class _PlannerSuggestionContent extends StatelessWidget {
         ),
         const SizedBox(height: 13),
         Text(
-          title,
+          displayTitle,
+          key: const Key('nexus-recommended-action'),
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
@@ -439,7 +476,7 @@ class _PlannerSuggestionContent extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          rationale,
+          displayRationale,
           maxLines: 4,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
@@ -466,7 +503,9 @@ class _PlannerSuggestionContent extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Why this changed: ${decision!.personContextExplanations.join(' ')}',
+                  copy.whyChanged(
+                    decision!.personContextExplanations.join(' '),
+                  ),
                   style: const TextStyle(
                     color: Colors.white70,
                     fontSize: AppSizes.fontBody,
@@ -479,14 +518,14 @@ class _PlannerSuggestionContent extends StatelessWidget {
                     child: TextButton(
                       key: const Key('nexus-ignore-person-context'),
                       onPressed: onIgnoreContext,
-                      child: const Text('Ignore this context for now'),
+                      child: Text(copy.ignoreContext),
                     ),
                   ),
               ],
             ),
           ),
         ],
-        if (block != null) ...<Widget>[
+        if (showsTask) ...<Widget>[
           const SizedBox(height: 12),
           Row(
             children: <Widget>[
@@ -498,7 +537,7 @@ class _PlannerSuggestionContent extends StatelessWidget {
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  '${_formatDateTime(block!.start)}  →  ${_formatTime(block!.end)}',
+                  '${copy.dateTime(context, block!.start)}  →  ${copy.time(context, block!.end)}',
                   style: const TextStyle(
                     color: Colors.white70,
                     fontSize: AppSizes.fontBody,
@@ -516,7 +555,7 @@ class _PlannerSuggestionContent extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: onReviewPlan,
                 icon: const Icon(Icons.tune_rounded, size: 18),
-                label: const Text('Review suggestion'),
+                label: Text(copy.reviewSuggestion),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(0, AppSizes.touchTarget),
                   backgroundColor: AppColors.neonCyan,
@@ -531,7 +570,7 @@ class _PlannerSuggestionContent extends StatelessWidget {
                 ),
               ),
             ),
-            if (block != null && !block!.completed) ...<Widget>[
+            if (showsTask && !block!.completed) ...<Widget>[
               const SizedBox(width: 9),
               Semantics(
                 button: true,
@@ -574,17 +613,18 @@ class _PlannerUnavailable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final copy = NexusCopy.of(context);
     return Row(
       children: <Widget>[
-        const Expanded(
+        Expanded(
           child: Text(
-            'The current suggestion could not load from local planning evidence.',
-            style: TextStyle(color: Colors.white70, height: 1.4),
+            copy.suggestionUnavailable,
+            style: const TextStyle(color: Colors.white70, height: 1.4),
           ),
         ),
         IconButton(
           onPressed: onRetry,
-          tooltip: 'Retry',
+          tooltip: copy.retry,
           icon: const Icon(Icons.refresh_rounded, color: AppColors.recallRed),
         ),
       ],
@@ -608,11 +648,12 @@ class _CurrentFocusSection extends StatelessWidget {
   final AsyncValue<List<NoteEntity>> notes;
   final TimeBlock? nextBlock;
   final VoidCallback onOpenGoal;
-  final VoidCallback onOpenTask;
-  final VoidCallback onOpenNote;
+  final ValueChanged<TaskEntity?> onOpenTask;
+  final ValueChanged<NoteEntity?> onOpenNote;
 
   @override
   Widget build(BuildContext context) {
+    final copy = NexusCopy.of(context);
     final TaskEntity? currentTask = _selectCurrentTask(
       tasks.asData?.value ?? const <TaskEntity>[],
       nextBlock,
@@ -627,9 +668,9 @@ class _CurrentFocusSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const _SectionHeading(
-          eyebrow: 'CURRENT PRIORITIES',
-          title: 'Goal · task · note',
+        _SectionHeading(
+          eyebrow: copy.priorities,
+          title: copy.prioritiesSubtitle,
           icon: Icons.center_focus_strong_rounded,
           accent: AppColors.neonViolet,
         ),
@@ -641,40 +682,39 @@ class _CurrentFocusSection extends StatelessWidget {
             children: <Widget>[
               _FocusRow(
                 icon: Icons.flag_outlined,
-                label: 'GOAL',
-                title: currentGoal?.title ?? 'No active goal',
+                label: copy.goal,
+                title: currentGoal?.title ?? copy.noGoal,
                 detail: currentGoal == null
-                    ? 'Create a goal to connect today’s work to an outcome.'
-                    : _goalDetail(currentGoal),
+                    ? copy.createGoal
+                    : _goalDetail(currentGoal, context),
                 accent: AppColors.neonViolet,
                 onTap: onOpenGoal,
               ),
               const _PanelDivider(),
               _FocusRow(
                 icon: Icons.check_circle_outline_rounded,
-                label: 'TASK',
-                title:
-                    currentTask?.title ?? nextBlock?.title ?? 'No active task',
+                label: copy.task,
+                title: currentTask?.title ?? nextBlock?.title ?? copy.noTask,
                 detail: currentTask != null
-                    ? _taskDetail(currentTask)
+                    ? _taskDetail(currentTask, context)
                     : nextBlock != null
-                    ? _formatDateTime(nextBlock!.start)
-                    : 'Create a task and schedule it when you are ready.',
+                    ? copy.dateTime(context, nextBlock!.start)
+                    : copy.createTask,
                 accent: AppColors.neonCyan,
-                onTap: onOpenTask,
+                onTap: () => onOpenTask(currentTask),
               ),
               const _PanelDivider(),
               _FocusRow(
                 icon: Icons.sticky_note_2_outlined,
-                label: 'NOTE',
+                label: copy.note,
                 title: notes.isLoading
-                    ? 'Loading note…'
-                    : currentNote?.title ?? 'No current note',
+                    ? copy.loadingNote
+                    : currentNote?.title ?? copy.noNote,
                 detail: currentNote == null
-                    ? 'Capture useful context without turning it into another task.'
-                    : _noteDetail(currentNote),
+                    ? copy.createNote
+                    : _noteDetail(currentNote, context),
                 accent: AppColors.memoryAmber,
-                onTap: onOpenNote,
+                onTap: () => onOpenNote(currentNote),
               ),
             ],
           ),
@@ -705,7 +745,7 @@ class _FocusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return SmartPressable(
       onTap: onTap,
-      semanticLabel: 'Open $label',
+      semanticLabel: NexusCopy.of(context).open(label),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         child: Row(

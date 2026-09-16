@@ -13,6 +13,114 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    'enabled internal credit policy retains approved plan allowances',
+    () async {
+      final container = ProviderContainer(
+        overrides: [
+          internalBillingTestEnabledProvider.overrideWithValue(true),
+          internalCreditTestEnabledProvider.overrideWithValue(true),
+          appPaywallRepositoryProvider.overrideWithValue(
+            _FakePaywallRepository(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final config = await container.read(paywallConfigProvider.future);
+      expect(config.plans.map((p) => p.aiCreditsIncluded), [300, 300]);
+    },
+  );
+
+  test(
+    'credit purchase outcomes cannot be replaced by subscription authority',
+    () async {
+      for (final status in [
+        'credits_added',
+        'verification_failed',
+        'purchase_pending',
+      ]) {
+        final repository = _CreditOutcomeRepository(
+          SubscriptionState(
+            isActive: false,
+            status: status,
+            source: 'google_play',
+          ),
+        );
+        final container = ProviderContainer(
+          overrides: [
+            internalBillingTestEnabledProvider.overrideWithValue(true),
+            appPaywallRepositoryProvider.overrideWithValue(repository),
+          ],
+        );
+        addTearDown(container.dispose);
+        final result = await container
+            .read(paywallActionsProvider)
+            .startSubscription('credits_100');
+        expect(result.status, status);
+        expect(result.isActive, isFalse);
+        expect(repository.refreshCalls, 0);
+      }
+    },
+  );
+  test(
+    'paywall and plans expire together without restore or navigation',
+    () async {
+      final repository = _FakePaywallRepository(
+        subscription: SubscriptionState(
+          isActive: true,
+          status: 'canceled',
+          source: 'supabase_authority',
+          renewalDate: DateTime.now().add(const Duration(milliseconds: 400)),
+        ),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          internalBillingTestEnabledProvider.overrideWithValue(true),
+          appPaywallRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(paywallConfigProvider, (_, _) {});
+      expect(
+        (await container.read(paywallConfigProvider.future)).isUnlocked,
+        isTrue,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      expect(
+        (await container.read(paywallSubscriptionProvider.future)).isActive,
+        isFalse,
+      );
+      expect(
+        (await container.read(paywallConfigProvider.future)).isUnlocked,
+        isFalse,
+      );
+    },
+  );
+
+  test('plans follow refreshed subscription after pause and resume', () async {
+    final repository = _FakePaywallRepository();
+    final container = ProviderContainer(
+      overrides: [
+        internalBillingTestEnabledProvider.overrideWithValue(true),
+        appPaywallRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(paywallConfigProvider, (_, _) {});
+    for (final active in [false, true, false, true]) {
+      repository._subscription = SubscriptionState(
+        isActive: active,
+        status: active ? 'active' : 'paused',
+        source: 'supabase_authority',
+      );
+      container.invalidate(paywallSubscriptionProvider);
+      expect(
+        (await container.read(paywallConfigProvider.future)).isUnlocked,
+        active,
+      );
+    }
+  });
+
+  test(
     'license testing uses repository authority without advertising AI credits',
     () async {
       final repository = _FakePaywallRepository();
@@ -265,12 +373,14 @@ class _FakePaywallRepository
         title: 'Monthly',
         priceLabel: '499',
         description: 'Monthly plan',
+        aiCreditsIncluded: 300,
       ),
       PaywallPlan(
         id: 'annual',
         title: 'Annual',
         priceLabel: '4999',
         description: 'Annual plan',
+        aiCreditsIncluded: 300,
       ),
     ];
   }
@@ -311,4 +421,22 @@ class _FakePaywallRepository
     );
     return _subscription;
   }
+}
+
+class _CreditOutcomeRepository extends _FakePaywallRepository {
+  _CreditOutcomeRepository(this.outcome);
+  final SubscriptionState outcome;
+  @override
+  Future<List<PaywallPlan>> getAvailablePlans() async => [
+    ...await super.getAvailablePlans(),
+    const PaywallPlan(
+      id: 'credits_100',
+      title: '100 credits',
+      priceLabel: '\$2.99',
+      description: 'Pack',
+      aiCreditsIncluded: 100,
+    ),
+  ];
+  @override
+  Future<SubscriptionState> startSubscription(String planId) async => outcome;
 }

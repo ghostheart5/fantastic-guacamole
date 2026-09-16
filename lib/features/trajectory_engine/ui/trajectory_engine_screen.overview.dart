@@ -21,11 +21,7 @@ class _TrajectoryOverviewCard extends StatelessWidget {
         : baseline.pressure >= 50
         ? const Color(0xFFFFC857)
         : const Color(0xFF6EE7F9);
-    final String momentumBand = baseline.momentum >= 72
-        ? 'STRONG'
-        : baseline.momentum >= 45
-        ? 'STEADY'
-        : 'BUILDING';
+    final String momentumBand = trajectoryMomentumBand(baseline.momentum);
     return _Panel(
       title: 'Current direction',
       accent: accent,
@@ -302,6 +298,10 @@ class _BranchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final int momentumLow = (outcome.projectedMomentum - outcome.uncertainty)
         .clamp(0, 100);
+    final String confidenceLabel = switch (outcome.confidence.band) {
+      PredictiveConfidenceBand.insufficientEvidence => 'insufficient',
+      final band => band.name,
+    };
     final int momentumHigh = (outcome.projectedMomentum + outcome.uncertainty)
         .clamp(0, 100);
     final int pressureLow = (outcome.projectedPressure - outcome.uncertainty)
@@ -370,7 +370,7 @@ class _BranchRow extends StatelessWidget {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          'Momentum $momentumLow–$momentumHigh%  ·  Pressure $pressureLow–$pressureHigh%  ·  ${outcome.confidence.band.name} evidence',
+                          'Momentum $momentumLow–$momentumHigh%  ·  Pressure $pressureLow–$pressureHigh%  ·  $confidenceLabel evidence',
                           style: const TextStyle(
                             color: Colors.white60,
                             fontSize: 11,
@@ -558,21 +558,21 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
           ),
           const SizedBox(height: 10),
           SegmentedButton<TrajectoryCustomAdjustment>(
-            segments: const <ButtonSegment<TrajectoryCustomAdjustment>>[
+            segments: <ButtonSegment<TrajectoryCustomAdjustment>>[
               ButtonSegment<TrajectoryCustomAdjustment>(
                 value: TrajectoryCustomAdjustment.complete,
-                label: Text('Complete'),
-                icon: Icon(Icons.check_rounded),
+                label: Text(journeyText(context, 'Complete', 'Completar')),
+                icon: const Icon(Icons.check_rounded),
               ),
               ButtonSegment<TrajectoryCustomAdjustment>(
                 value: TrajectoryCustomAdjustment.delay,
-                label: Text('Delay'),
-                icon: Icon(Icons.schedule_rounded),
+                label: Text(journeyText(context, 'Delay', 'Aplazar')),
+                icon: const Icon(Icons.schedule_rounded),
               ),
               ButtonSegment<TrajectoryCustomAdjustment>(
                 value: TrajectoryCustomAdjustment.reduceScope,
-                label: Text('Remove'),
-                icon: Icon(Icons.remove_circle_outline_rounded),
+                label: Text(journeyText(context, 'Remove', 'Quitar')),
+                icon: const Icon(Icons.remove_circle_outline_rounded),
               ),
             ],
             selected: <TrajectoryCustomAdjustment>{_adjustment},
@@ -623,7 +623,13 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
                         ),
                       ),
                 icon: const Icon(Icons.alt_route_rounded),
-                label: Text('Compare ${widget.horizonDays}-day path'),
+                label: Text(
+                  journeyText(
+                    context,
+                    'Compare ${widget.horizonDays}-day path',
+                    'Comparar trayectoria de ${widget.horizonDays} días',
+                  ),
+                ),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(0, AppSizes.touchTarget),
                   shape: RoundedRectangleBorder(
@@ -639,7 +645,13 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text('Clear my scenario'),
+                child: Text(
+                  journeyText(
+                    context,
+                    'Clear my scenario',
+                    'Borrar mi escenario',
+                  ),
+                ),
               ),
             ],
           ),

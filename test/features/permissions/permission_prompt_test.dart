@@ -53,7 +53,6 @@ void main() {
       ),
     );
 
-    expect(find.text('Microphone Input'), findsOneWidget);
     expect(find.text('Microphone Permission Denied'), findsOneWidget);
     expect(
       find.textContaining(
@@ -61,6 +60,8 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(find.text('Enable Microphone Input'), findsNothing);
+    expect(find.text('Open Settings'), findsOneWidget);
   });
 
   testWidgets('voice rationale appears before requesting microphone access', (
@@ -177,18 +178,10 @@ void main() {
       ),
     );
 
-    expect(find.text('Entrada por micrófono'), findsOneWidget);
-    expect(find.textContaining('solo cuando quieras dictar'), findsOneWidget);
+    expect(find.text('Permiso de micrófono denegado'), findsOneWidget);
+    expect(find.textContaining('sigue disponible'), findsOneWidget);
     expect(find.text('Abrir ajustes'), findsOneWidget);
-    await tester.tap(find.text('Activar entrada por micrófono'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('PERMISO · MICRÓFONO'), findsWidgets);
-    expect(find.text('CUÁNDO SE USA'), findsOneWidget);
-    expect(
-      find.text('La reproducción hablada no requiere acceso al micrófono'),
-      findsOneWidget,
-    );
+    expect(find.text('Activar entrada por micrófono'), findsNothing);
     expect(find.text('Allow Microphone'), findsNothing);
   });
 

@@ -1,0 +1,38 @@
+appId: com.ghostheart5.chronospark
+---
+# Keep gestures outside the multiline notes field. Five bounded attempts,
+# followed by a mandatory assertion; a missing review control must still fail.
+- repeat:
+    times: 5
+    commands:
+      - runFlow:
+          when:
+            notVisible: "REVIEW CHANGES"
+          commands:
+            - swipe:
+                # Stay above the Android keyboard when the title is focused.
+                # A gesture beginning at 85% is swallowed by the open IME.
+                start: "95%, 45%"
+                end: "95%, 20%"
+                duration: 500
+            - waitForAnimationToEnd:
+                timeout: 3000
+- assertVisible: "REVIEW CHANGES"
+# Android can report a one-pixel clipped button as fully visible. Reveal more
+# of the outer form before resolving a semantic tap; stay outside notes/IME.
+- swipe:
+    start: "95%, 45%"
+    end: "95%, 20%"
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 3000
+- scrollUntilVisible:
+    element:
+      text: "REVIEW CHANGES"
+    direction: DOWN
+    visibilityPercentage: 100
+    # At the form's scroll boundary, a fully visible button cannot always move
+    # to the viewport center. Its semantic tap and confirmation remain required.
+    centerElement: false
+    timeout: 10000
+- assertVisible: "REVIEW CHANGES"

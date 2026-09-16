@@ -9,6 +9,8 @@ import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/l10n/creator_copy.dart';
 
 class DynamicForm extends StatefulWidget {
   const DynamicForm({
@@ -54,6 +56,8 @@ class DynamicForm extends StatefulWidget {
 
 class _DynamicFormState extends State<DynamicForm> {
   static const List<Duration> _estimates = <Duration>[
+    Duration(minutes: 5),
+    Duration(minutes: 10),
     Duration(minutes: 15),
     Duration(minutes: 25),
     Duration(minutes: 30),
@@ -79,8 +83,10 @@ class _DynamicFormState extends State<DynamicForm> {
   late CreatorFormKind _type;
   late final Future<void> Function() _tutorialSubmitAction;
 
+  CreatorCopy get _copy => ChronoSparkLocalizations.of(context).creator;
+
   String get _createActionLabel =>
-      widget.submitLabel ?? 'CREATE ${_type.label.toUpperCase()}';
+      widget.submitLabel ?? _copy.createAction(_type.name);
 
   @override
   void initState() {
@@ -167,17 +173,11 @@ class _DynamicFormState extends State<DynamicForm> {
     if (_submitting) return;
     final String title = _titleController.text.trim();
     if (title.isEmpty) {
-      setState(
-        () => _errorMessage =
-            'Add a title before creating the ${_type.label.toLowerCase()}.',
-      );
+      setState(() => _errorMessage = _copy.titleRequired(_type.name));
       return;
     }
     if (widget.guidedFirstTask && _scheduledFor == null) {
-      setState(
-        () => _errorMessage =
-            'Choose a date and time so your first task can appear on Timeline.',
-      );
+      setState(() => _errorMessage = _copy.firstScheduleRequired);
       return;
     }
 
@@ -219,11 +219,7 @@ class _DynamicFormState extends State<DynamicForm> {
       }
     } catch (_) {
       if (!mounted) return;
-      setState(
-        () => _errorMessage =
-            'The ${_type.label.toLowerCase()} could not be saved. '
-            'Your entry is still here - retry.',
-      );
+      setState(() => _errorMessage = _copy.saveFailed(_type.name));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -257,7 +253,7 @@ class _DynamicFormState extends State<DynamicForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _FieldLabel(text: 'CREATE', color: _accentFor(_type)),
+          _FieldLabel(text: _copy.create, color: _accentFor(_type)),
           const SizedBox(height: 10),
           _CreatorTypePicker(
             selected: _type,
@@ -265,11 +261,11 @@ class _DynamicFormState extends State<DynamicForm> {
             onChanged: _selectType,
           ),
           const SizedBox(height: 18),
-          _FieldLabel(text: '${_type.label.toUpperCase()} DETAILS'),
+          _FieldLabel(text: _copy.details(_type.name)),
           const SizedBox(height: 12),
           _buildTextField(
             _titleController,
-            'Title *',
+            _copy.titleHint,
             key: widget.guidedFirstTask
                 ? FirstRunTutorialTargets.creatorTitle
                 : null,
@@ -279,8 +275,8 @@ class _DynamicFormState extends State<DynamicForm> {
           _buildTextField(
             _descriptionController,
             _type == CreatorFormKind.note
-                ? 'Body (optional)'
-                : 'Description (optional)',
+                ? _copy.bodyHint
+                : _copy.descriptionHint,
             maxLines: _type == CreatorFormKind.note ? 6 : 3,
           ),
           if (_type == CreatorFormKind.task) ..._buildTaskFields(),
@@ -300,7 +296,7 @@ class _DynamicFormState extends State<DynamicForm> {
                 ? FirstRunTutorialTargets.creatorSave
                 : null,
             child: TemporalActionButton(
-              label: _submitting ? 'WORKING...' : _createActionLabel,
+              label: _submitting ? _copy.working : _createActionLabel,
               onPressed: _submitting ? null : _submit,
               icon: _submitting ? Icons.hourglass_top_rounded : _iconFor(_type),
               accent: _accentFor(_type),
@@ -313,7 +309,7 @@ class _DynamicFormState extends State<DynamicForm> {
 
   List<Widget> _buildTaskFields() => <Widget>[
     const SizedBox(height: 18),
-    const _FieldLabel(text: 'ACTIVE GOAL'),
+    _FieldLabel(text: _copy.activeGoal),
     const SizedBox(height: 8),
     _GoalLinkPicker(
       goals: widget.activeGoals,
@@ -321,7 +317,7 @@ class _DynamicFormState extends State<DynamicForm> {
       onChanged: (String? value) => setState(() => _goalId = value),
     ),
     const SizedBox(height: 18),
-    const _FieldLabel(text: 'ESTIMATED DURATION'),
+    _FieldLabel(text: _copy.estimate),
     const SizedBox(height: 8),
     _EstimatePicker(
       estimates: <Duration>{
@@ -354,8 +350,8 @@ class _DynamicFormState extends State<DynamicForm> {
           ? FirstRunTutorialTargets.creatorSchedule
           : null,
       child: _DateField(
-        label: 'SCHEDULE',
-        emptyLabel: 'Schedule date and time...',
+        label: _copy.schedule,
+        emptyLabel: _copy.pickSchedule,
         selected: _scheduledFor,
         includeTime: true,
         accent: AppColors.neonCyan,
@@ -368,8 +364,8 @@ class _DynamicFormState extends State<DynamicForm> {
     ),
     const SizedBox(height: 18),
     _DateField(
-      label: 'DEADLINE',
-      emptyLabel: 'Add deadline...',
+      label: _copy.deadline,
+      emptyLabel: _copy.pickDeadline,
       selected: _dueDate,
       includeTime: false,
       accent: AppColors.memoryAmber,
@@ -381,8 +377,8 @@ class _DynamicFormState extends State<DynamicForm> {
   List<Widget> _buildGoalFields() => <Widget>[
     const SizedBox(height: 18),
     _DateField(
-      label: 'TARGET DATE',
-      emptyLabel: 'Add target date...',
+      label: _copy.targetDate,
+      emptyLabel: _copy.pickTargetDate,
       selected: _targetDate,
       includeTime: false,
       accent: AppColors.neonViolet,
@@ -393,7 +389,7 @@ class _DynamicFormState extends State<DynamicForm> {
 
   List<Widget> _buildRhythmFields() => <Widget>[
     const SizedBox(height: 18),
-    const _FieldLabel(text: 'CADENCE / RECURRENCE'),
+    _FieldLabel(text: _copy.cadenceHeading),
     const SizedBox(height: 8),
     _CadencePicker(
       selected: _habitCadence,
@@ -415,12 +411,17 @@ class _DynamicFormState extends State<DynamicForm> {
     Key? key,
     int maxLines = 1,
   }) {
-    return TextField(
-      key: key,
-      controller: controller,
-      maxLines: maxLines,
-      style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
-      decoration: _inputDecoration(hint, _accentFor(_type)),
+    return Semantics(
+      label: identical(controller, _titleController)
+          ? _copy.titleSemantic
+          : hint,
+      child: TextField(
+        key: key,
+        controller: controller,
+        maxLines: maxLines,
+        style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
+        decoration: _inputDecoration(hint, _accentFor(_type)),
+      ),
     );
   }
 }
@@ -468,7 +469,9 @@ class _CreatorTypePicker extends StatelessWidget {
                         Icon(_iconFor(type), size: 18, color: _accentFor(type)),
                         const SizedBox(width: 10),
                         Text(
-                          type.label,
+                          ChronoSparkLocalizations.of(
+                            context,
+                          ).creator.kind(type.name),
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
@@ -517,9 +520,11 @@ class _GoalLinkPicker extends StatelessWidget {
           iconEnabledColor: AppColors.neonViolet,
           onChanged: onChanged,
           items: <DropdownMenuItem<String?>>[
-            const DropdownMenuItem<String?>(
+            DropdownMenuItem<String?>(
               value: null,
-              child: Text('No linked goal'),
+              child: Text(
+                ChronoSparkLocalizations.of(context).creator.noLinkedGoal,
+              ),
             ),
             ...active.map(
               (GoalEntity goal) => DropdownMenuItem<String?>(
@@ -563,7 +568,11 @@ class _EstimatePicker extends StatelessWidget {
               .map(
                 (Duration value) => DropdownMenuItem<Duration>(
                   value: value,
-                  child: Text(_durationLabel(value)),
+                  child: Text(
+                    ChronoSparkLocalizations.of(
+                      context,
+                    ).creator.duration(value),
+                  ),
                 ),
               )
               .toList(growable: false),
@@ -607,7 +616,9 @@ class _PriorityPicker extends StatelessWidget {
       children: <Widget>[
         Row(
           children: <Widget>[
-            const _FieldLabel(text: 'PRIORITY'),
+            _FieldLabel(
+              text: ChronoSparkLocalizations.of(context).creator.priority,
+            ),
             const Spacer(),
             Text(
               '$value / 5',
@@ -671,7 +682,9 @@ class _PriorityPicker extends StatelessWidget {
                         return Expanded(
                           child: SmartPressable(
                             selected: value == level,
-                            semanticLabel: 'Set priority level $level',
+                            semanticLabel: ChronoSparkLocalizations.of(
+                              context,
+                            ).creator.setPriority(level),
                             onTap: () => onChanged(level),
                             child: const SizedBox.expand(),
                           ),
@@ -684,12 +697,21 @@ class _PriorityPicker extends StatelessWidget {
             },
           ),
         ),
-        const Row(
+        Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
-            Text('LOW', style: _rangeLabelStyle),
-            Text('BALANCED', style: _rangeLabelStyle),
-            Text('CRITICAL', style: _rangeLabelStyle),
+            Text(
+              ChronoSparkLocalizations.of(context).creator.low,
+              style: _rangeLabelStyle,
+            ),
+            Text(
+              ChronoSparkLocalizations.of(context).creator.balanced,
+              style: _rangeLabelStyle,
+            ),
+            Text(
+              ChronoSparkLocalizations.of(context).creator.critical,
+              style: _rangeLabelStyle,
+            ),
           ],
         ),
       ],
@@ -794,7 +816,9 @@ class _DateField extends StatelessWidget {
                 if (selected != null)
                   SmartPressable(
                     onTap: () => onPick(null),
-                    semanticLabel: 'Clear ${label.toLowerCase()}',
+                    semanticLabel: ChronoSparkLocalizations.of(
+                      context,
+                    ).creator.clearDate(label),
                     child: const Padding(
                       padding: EdgeInsets.all(11),
                       child: Icon(Icons.close, size: 15, color: Colors.white54),
@@ -819,18 +843,24 @@ class _CadencePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return SegmentedButton<HabitCadence>(
       key: const Key('creator-rhythm-cadence'),
-      segments: const <ButtonSegment<HabitCadence>>[
+      segments: <ButtonSegment<HabitCadence>>[
         ButtonSegment<HabitCadence>(
           value: HabitCadence.daily,
-          label: Text('Daily'),
+          label: Text(
+            ChronoSparkLocalizations.of(context).creator.cadence('daily'),
+          ),
         ),
         ButtonSegment<HabitCadence>(
           value: HabitCadence.weekly,
-          label: Text('Weekly'),
+          label: Text(
+            ChronoSparkLocalizations.of(context).creator.cadence('weekly'),
+          ),
         ),
         ButtonSegment<HabitCadence>(
           value: HabitCadence.monthly,
-          label: Text('Monthly'),
+          label: Text(
+            ChronoSparkLocalizations.of(context).creator.cadence('monthly'),
+          ),
         ),
       ],
       selected: <HabitCadence>{selected},
@@ -867,10 +897,14 @@ class _TargetCountPicker extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              const _FieldLabel(text: 'TARGET COUNT'),
+              _FieldLabel(
+                text: ChronoSparkLocalizations.of(context).creator.targetCount,
+              ),
               const SizedBox(height: 4),
               Text(
-                '$value ${value == 1 ? 'time' : 'times'} per ${cadence.name}',
+                ChronoSparkLocalizations.of(
+                  context,
+                ).creator.repetitions(value, cadence.name),
                 style: const TextStyle(color: Colors.white70, fontSize: 13),
               ),
             ],
@@ -878,14 +912,18 @@ class _TargetCountPicker extends StatelessWidget {
         ),
         IconButton.outlined(
           key: const Key('creator-rhythm-decrease'),
-          tooltip: 'Decrease target count',
+          tooltip: ChronoSparkLocalizations.of(context).creator.decreaseCount,
           onPressed: value > 1 ? () => onChanged(value - 1) : null,
           icon: const Icon(Icons.remove_rounded),
         ),
         const SizedBox(width: 8),
         IconButton.filled(
           key: const Key('creator-rhythm-increase'),
-          tooltip: 'Increase target count',
+          tooltip: ChronoSparkLocalizations.of(context).creator.increaseCount,
+          style: IconButton.styleFrom(
+            backgroundColor: AppColors.neonCyan,
+            foregroundColor: const Color(0xFF001318),
+          ),
           onPressed: value < 365 ? () => onChanged(value + 1) : null,
           icon: const Icon(Icons.add_rounded),
         ),
@@ -914,13 +952,15 @@ class _FieldLabel extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: 10,
-            letterSpacing: 0,
-            color: color,
-            fontWeight: FontWeight.w700,
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 10,
+              letterSpacing: 0,
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],
@@ -961,14 +1001,6 @@ IconData _iconFor(CreatorFormKind type) => switch (type) {
   CreatorFormKind.habit => Icons.repeat_rounded,
   CreatorFormKind.note => Icons.sticky_note_2_outlined,
 };
-
-String _durationLabel(Duration duration) {
-  final int minutes = duration.inMinutes;
-  return minutes < 60
-      ? '$minutes minutes'
-      : '${minutes ~/ 60} hour${minutes == 60 ? '' : 's'} ${minutes % 60 == 0 ? '' : '${minutes % 60} min'}'
-            .trim();
-}
 
 String _formatDate(BuildContext context, DateTime value, bool includeTime) {
   final String date = '${value.month}/${value.day}/${value.year}';

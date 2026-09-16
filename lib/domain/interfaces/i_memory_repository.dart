@@ -1,5 +1,9 @@
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 
+abstract interface class MemoryReadHealth {
+  bool get lastReadCorrupted;
+}
+
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Memories
 ///
 /// Bound to MemoryRepository.

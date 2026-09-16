@@ -21,7 +21,11 @@ appId: com.ghostheart5.chronospark
     when:
       visible: "Start login"
     commands:
-      - tapOn: "Start login"
+      # The guide can finish revealing the form after the visibility check.
+      # The required form/Nexus wait below still proves that handoff completed.
+      - tapOn:
+          text: "Start login"
+          optional: true
       - waitForAnimationToEnd:
           timeout: 5000
 

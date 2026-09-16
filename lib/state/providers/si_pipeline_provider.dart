@@ -8,12 +8,14 @@ import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
+import 'package:fantastic_guacamole/domain/policies/recent_skip_policy.dart';
 import 'package:fantastic_guacamole/domain/usecases/assemble_si_decision_output.dart';
 import 'package:fantastic_guacamole/domain/usecases/extract_si_signals.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
+import 'package:fantastic_guacamole/state/providers/rhythm_planning_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_decision_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
@@ -22,18 +24,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   Ref ref,
 ) async {
-  // Repository providers fail closed until account storage is ready. Keep the
-  // aggregation subscribed to that lifecycle so an early startup failure is
-  // replaced by fresh evidence as soon as the authenticated scope is ready.
+  // Normal sign-out/account transitions are unavailable evidence, not a
+  // repository failure. Never query protected storage before it is ready.
   final AccountStorageScope accountScope = ref.watch(
     accountStorageScopeProvider,
   );
+  if (!accountScope.isWritable) return SIStateAggregation.unavailable();
+  final generation = ref.watch(authSessionBoundaryProvider).generation;
+  bool current() =>
+      ref.mounted &&
+      ref.read(authSessionBoundaryProvider).generation == generation &&
+      ref.read(accountStorageScopeProvider).v2Namespace ==
+          accountScope.v2Namespace;
   ref.watch(learningRevisionProvider);
   final DateTime observedAt = DateTime.now();
-  final List<TaskEntity> taskEntities = await _loadAllActionableTaskEntities(
-    ref,
-    observedAt,
-  );
+  final List<TaskEntity> taskEntities;
+  try {
+    taskEntities = await _loadAllActionableTaskEntities(ref, observedAt);
+  } catch (_) {
+    if (!current()) return SIStateAggregation.unavailable();
+    rethrow;
+  }
+  if (!current()) {
+    return SIStateAggregation.unavailable();
+  }
   final List<PlannerInput> plannerInputs = PlannerInputAdapter.fromTaskEntities(
     taskEntities,
   );
@@ -114,9 +128,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
         energy: energy,
         streak: profile.streak,
         hasGoals: goals.isNotEmpty,
-        skippedTaskCount: logs
-            .where((entry) => entry.source == 'task_skipped')
-            .length,
+        skippedTaskCount: RecentSkipPolicy.count(logs, observedAt),
         emotion: emotion?.name ?? 'unknown',
         signalsSummary: signalBundle.summary,
       );
@@ -125,6 +137,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   SISourceStatus learningHealth = SISourceStatus.empty;
   try {
     final bool learningPaused = await ref.watch(learningPausedProvider.future);
+    if (!current()) return SIStateAggregation.unavailable();
     if (!learningPaused) {
       final LearningEntity? storedLearning = await ref
           .read(domainLearningRepositoryProvider)
@@ -137,6 +150,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   } on Object {
     learningHealth = SISourceStatus.error;
   }
+  if (!current()) return SIStateAggregation.unavailable();
   final SiStateEntity decisionState = SiStateEntity(
     energy: siState.energy,
     attention: (1 - siState.fatigue).clamp(0.0, 1.0),
@@ -179,7 +193,11 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
     noContextPlanningDecision: noContextPlanningDecision,
     sourceHealth: SISourceHealth(
       tasks: tasks.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
-      goals: goals.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
+      goals: ref.watch(goalsReadProvider).hasError
+          ? SISourceStatus.error
+          : goals.isEmpty
+          ? SISourceStatus.empty
+          : SISourceStatus.ready,
       memories: memories.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
       habits: habitsHealth,
       logs: logs.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
@@ -275,7 +293,14 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
         hasMemories: aggregation.memories.isNotEmpty,
         memoryHint: _buildMemoryHint(aggregation.memories),
         streak: aggregation.profile.streak,
-        activeHabitCount: aggregation.activeHabitCount,
+        activeHabitCount:
+            ref
+                .watch(rhythmPlanningProvider)
+                .asData
+                ?.value
+                .where((entry) => entry.needsAttention)
+                .length ??
+            0,
       );
 
   return SIDecisionOutput(

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
@@ -16,6 +17,160 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'Spanish Timeline localizes current controls and date but preserves saved content',
+    (tester) async {
+      final container = _buildContainer(baseEvents: [_baseEvent]);
+      addTearDown(container.dispose);
+      await _pumpTimelineShell(tester, container, locale: const Locale('es'));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
+      expect(find.text('VENCE HOY'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Mostrar Línea de Tiempo: Semana'),
+        findsOneWidget,
+      );
+      expect(find.text('NEXT 7 DAYS'), findsNothing);
+      await tester.tap(find.text('Buscar y filtrar'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.widgetWithText(TextField, 'Buscar un evento, tarea, meta o nota'),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(find.text(_managedTask.title));
+      expect(find.text(_managedTask.title), findsOneWidget);
+      expect(find.text('Completar'), findsOneWidget);
+      expect(find.textContaining('Task deadline'), findsNothing);
+      await tester.ensureVisible(find.text('Editar'));
+      await tester.tap(find.text('Editar'));
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.text('Editar tarea'), findsOneWidget);
+      expect(find.text('Título de la tarea'), findsOneWidget);
+      expect(find.text('Minutos estimados'), findsOneWidget);
+      expect(find.text('Sin meta vinculada'), findsOneWidget);
+      expect(find.byTooltip('Elegir fecha límite'), findsOneWidget);
+      expect(find.text('Edit task'), findsNothing);
+      await tester.enterText(
+        find.byKey(const Key('timeline-task-title-field')),
+        '',
+      );
+      await tester.tap(find.text('Guardar'));
+      await tester.pump();
+      expect(find.text('Escribe un título para la tarea.'), findsOneWidget);
+      await tester.tap(find.text('Cancelar'));
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.text(_managedTask.title), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('Spanish generated completion translates wrappers only', (
+    tester,
+  ) async {
+    const storedTitle = 'Task Completed - school pickup';
+    final generated = TimelineEventEntity(
+      id: 'timeline-task-complete-123',
+      type: TimelineEventType.reflection,
+      title: 'Task Completed',
+      detail: '$storedTitle marked complete.',
+      timestamp: _timelineNow,
+      sourceFeature: 'task',
+      relatedId: 'completed-task',
+    );
+    final userReflection = TimelineEventEntity(
+      id: 'user-reflection',
+      type: TimelineEventType.reflection,
+      title: 'Task Completed',
+      detail: 'My own English reflection.',
+      timestamp: _timelineNow,
+    );
+    final container = _buildContainer(
+      tasksLoader: (ref) async => [],
+      baseEvents: [generated, userReflection],
+    );
+    addTearDown(container.dispose);
+    await _pumpTimelineShell(tester, container, locale: const Locale('es'));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.ensureVisible(find.text('Tarea completada'));
+    expect(find.text('$storedTitle marcada como completada.'), findsOneWidget);
+    expect(find.text('Task Completed'), findsOneWidget);
+    expect(find.text('My own English reflection.'), findsOneWidget);
+    expect(generated.title, 'Task Completed');
+    expect(generated.detail, '$storedTitle marked complete.');
+    expect(tester.takeException(), isNull);
+  });
+
+  test('Timeline labels use local dates and times for UTC stored instants', () {
+    for (final DateTime local in <DateTime>[
+      DateTime(2026, 9, 10, 4, 57),
+      DateTime(2026, 12, 31, 23, 45),
+      DateTime(2026, 3, 8, 3, 15),
+    ]) {
+      expect(
+        DateTimeFormats.timelineTime(local.toUtc()),
+        DateTimeFormats.timelineTime(local),
+      );
+      expect(
+        DateTimeFormats.timelineDay(local.toUtc()),
+        DateTimeFormats.timelineDay(local),
+      );
+    }
+    expect(
+      DateTimeFormats.timelineTime(DateTime(2026, 9, 10, 4, 57).toUtc()),
+      '4:57 AM',
+    );
+  });
+
+  for (final String window in <String>['Today', 'Month', 'Year']) {
+    testWidgets(
+      '$window uses local calendar boundaries with mixed stored times',
+      (WidgetTester tester) async {
+        final DateTime localNow = DateTime(2026, 12, 31, 23, 50);
+        final ProviderContainer container = _buildContainer(
+          clock: () => localNow.toUtc(),
+          tasksLoader: (Ref ref) async => <Task>[],
+          baseEvents: <TimelineEventEntity>[
+            TimelineEventEntity(
+              id: 'utc-note',
+              type: TimelineEventType.noteCreated,
+              title: 'Evening note',
+              detail: 'Stored in UTC',
+              timestamp: DateTime(2026, 12, 31, 23, 40).toUtc(),
+            ),
+            TimelineEventEntity(
+              id: 'local-note',
+              type: TimelineEventType.noteArchived,
+              title: 'Evening archive',
+              detail: 'Stored in local time',
+              timestamp: DateTime(2026, 12, 31, 23, 45),
+            ),
+            TimelineEventEntity(
+              id: 'next-year',
+              type: TimelineEventType.noteCreated,
+              title: 'Next year note',
+              detail: 'Next local day',
+              timestamp: DateTime(2027, 1, 1, 0, 10).toUtc(),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        await _pumpTimelineShell(tester, container);
+        await tester.pump(const Duration(milliseconds: 50));
+        final Finder selector = find.bySemanticsLabel('Show $window timeline');
+        await tester.ensureVisible(selector);
+        await tester.tap(selector);
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(find.text('Evening note'), findsOneWidget);
+        expect(find.text('Evening archive'), findsOneWidget);
+        expect(find.text('Next year note'), findsNothing);
+        expect(find.text('11:40 PM'), findsOneWidget);
+        expect(find.text('11:45 PM'), findsOneWidget);
+        expect(find.text('THURSDAY, DEC 31'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('tutorial evidence matches only the Creator receipt task', (
     WidgetTester tester,
   ) async {
@@ -281,6 +436,23 @@ void main() {
     expect(find.text('Nothing needs action now'), findsOneWidget);
   });
 
+  testWidgets('date-only task deadline does not invent a midnight time', (
+    tester,
+  ) async {
+    final dateOnly = _managedTask.copyWith(
+      title: 'Grocery list for tomorrow',
+      dueDate: DateTime(2026, 9, 1),
+    );
+    final container = _buildContainer(task: dateOnly);
+    addTearDown(container.dispose);
+    await _pumpTimeline(tester, container, taskTitle: dateOnly.title);
+
+    expect(find.text('NO TIME SET'), findsOneWidget);
+    expect(find.text('12:00 AM'), findsNothing);
+    expect(find.textContaining('DUE Sep 1, 2026'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'edit validates title, prevents duplicate actions, and reports success',
     (WidgetTester tester) async {
@@ -311,6 +483,16 @@ void main() {
         find.byKey(const Key('timeline-task-title-field')),
         '  Renamed task  ',
       );
+      await tester.enterText(
+        find.byKey(const Key('timeline-task-description-field')),
+        'Updated context',
+      );
+      await tester.tap(find.byKey(const Key('timeline-task-priority-field')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('5 · highest').last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.widgetWithText(FilledButton, 'Save'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -318,6 +500,8 @@ void main() {
       expect(actions.updateCalls, 1);
       expect(actions.updatedId, 'task-managed');
       expect(actions.updatedTitle, 'Renamed task');
+      expect(actions.updatedDescription, 'Updated context');
+      expect(actions.updatedPriority, 5);
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
       expect(
         tester
@@ -336,6 +520,36 @@ void main() {
       expect(find.text('Task updated.'), findsOneWidget);
     },
   );
+
+  testWidgets('long linked goal fits the task editor on a narrow phone', (
+    WidgetTester tester,
+  ) async {
+    final goal = GoalEntity(
+      id: 'course',
+      title:
+          'Finish the first bookkeeping course module before Friday while keeping school pickup fixed',
+      createdAt: _timelineNow,
+    );
+    final container = _buildContainer(
+      task: _managedTask.copyWith(goalId: goal.id),
+      goals: [goal],
+    );
+    addTearDown(container.dispose);
+    await _pumpTimeline(tester, container);
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Edit'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    tester.view.physicalSize = const Size(720, 1280);
+    tester.view.devicePixelRatio = 2;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const Key('timeline-task-goal-field')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byKey(const Key('timeline-task-goal-field')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('delete requires explicit confirmation and reports success', (
     WidgetTester tester,
@@ -369,6 +583,60 @@ void main() {
     expect(actions.deleteCalls, 1);
     expect(actions.deletedId, 'task-managed');
     expect(find.text('Task deleted.'), findsOneWidget);
+  });
+
+  testWidgets('Move Tomorrow updates the projected goal itself', (
+    tester,
+  ) async {
+    GoalEntity? updatedGoal;
+    final goal = GoalEntity(
+      id: 'aged-goal',
+      title: 'Recover the course plan',
+      createdAt: _timelineNow.subtract(const Duration(days: 30)),
+      targetDate: _timelineNow.subtract(const Duration(days: 1)),
+    );
+    final container = _buildContainer(
+      tasksLoader: (_) async => const <Task>[],
+      goals: <GoalEntity>[goal],
+      onGoalUpdate: (value) => updatedGoal = value,
+    );
+    addTearDown(container.dispose);
+    await _pumpTimelineShell(tester, container);
+    await tester.tap(find.text('Find & filter'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byKey(const Key('timeline-filter-field')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Overdue').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text(goal.title), findsOneWidget);
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Move Tomorrow'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(updatedGoal?.id, goal.id);
+    expect(updatedGoal?.targetDate, DateTime(2026, 9, 1));
+  });
+
+  testWidgets('planned task can be postponed without being skipped', (
+    tester,
+  ) async {
+    late _RecordingTaskActions actions;
+    final task = _managedTask.copyWith(dueDate: DateTime(2026, 8, 31, 17, 30));
+    final container = _buildContainer(
+      task: task,
+      onActionsBuilt: (value) => actions = value,
+    );
+    addTearDown(container.dispose);
+    await _pumpTimeline(tester, container);
+    await tester.tap(
+      find.widgetWithText(OutlinedButton, 'Postpone to Tomorrow'),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(actions.updateCalls, 1);
+    expect(actions.updatedDueDate, DateTime(2026, 9, 1, 17, 30));
   });
 
   testWidgets('edit failure leaves a clear accessible error', (
@@ -409,16 +677,20 @@ void main() {
 
 ProviderContainer _buildContainer({
   Task? task,
+  List<GoalEntity> goals = const <GoalEntity>[],
   List<TimelineEventEntity> baseEvents = const <TimelineEventEntity>[],
   bool persistenceCorrupted = false,
   Future<List<Task>> Function(Ref ref)? tasksLoader,
   Set<String> expectedTutorialTaskIds = const <String>{},
   void Function(_TimelineNotifier value)? onTimelineNotifierBuilt,
   void Function(_RecordingTaskActions value)? onActionsBuilt,
+  void Function(GoalEntity value)? onGoalUpdate,
   Completer<void>? updateCompleter,
   Error? updateError,
   DateTime Function()? clock,
 }) {
+  final Future<List<Task>> Function(Ref ref) loader =
+      tasksLoader ?? (Ref ref) async => <Task>[task ?? _managedTask];
   final ProviderContainer container = ProviderContainer(
     overrides: [
       timelineClockProvider.overrideWithValue(clock ?? () => _timelineNow),
@@ -430,13 +702,14 @@ ProviderContainer _buildContainer({
       timelinePersistenceCorruptedProvider.overrideWith(
         (Ref ref) => persistenceCorrupted,
       ),
-      goalsProvider.overrideWith(_EmptyGoalsNotifier.new),
+      goalsProvider.overrideWith(
+        () => _EmptyGoalsNotifier(goals, onGoalUpdate),
+      ),
       adaptiveGuidanceProvider.overrideWith(
         () => _ExpectedGuidanceNotifier(expectedTutorialTaskIds),
       ),
-      tasksProvider.overrideWith(
-        tasksLoader ?? (Ref ref) async => <Task>[task ?? _managedTask],
-      ),
+      allTasksProvider.overrideWith(loader),
+      tasksProvider.overrideWith(loader),
       taskActionsProvider.overrideWith((Ref ref) {
         final _RecordingTaskActions actions = _RecordingTaskActions(
           ref,
@@ -535,6 +808,10 @@ class _RecordingTaskActions extends TaskActions {
   int deleteCalls = 0;
   String? updatedId;
   String? updatedTitle;
+  String? updatedDescription;
+  int? updatedPriority;
+  DateTime? updatedDueDate;
+  DateTime? updatedScheduledFor;
   String? deletedId;
 
   @override
@@ -553,6 +830,7 @@ class _RecordingTaskActions extends TaskActions {
     required String id,
     required String title,
     String? description,
+    int? priority,
     Duration? estimatedDuration,
     DateTime? scheduledFor,
     DateTime? dueDate,
@@ -562,7 +840,13 @@ class _RecordingTaskActions extends TaskActions {
     bool clearScheduledFor = false,
     bool clearDueDate = false,
     bool clearGoalId = false,
-  }) => updateTask(id: id, title: title);
+  }) async {
+    updatedDescription = description;
+    updatedPriority = priority;
+    updatedDueDate = dueDate;
+    updatedScheduledFor = scheduledFor;
+    await updateTask(id: id, title: title);
+  }
 
   @override
   Future<void> deleteTask(String id) async {
@@ -572,8 +856,17 @@ class _RecordingTaskActions extends TaskActions {
 }
 
 class _EmptyGoalsNotifier extends GoalsNotifier {
+  _EmptyGoalsNotifier(this.goals, [this.onUpdate]);
+  final List<GoalEntity> goals;
+  final void Function(GoalEntity value)? onUpdate;
   @override
-  List<GoalEntity> build() => const <GoalEntity>[];
+  List<GoalEntity> build() => goals;
+
+  @override
+  Future<GoalMutationResult> update(GoalEntity updated) async {
+    onUpdate?.call(updated);
+    return const GoalMutationResult();
+  }
 }
 
 class _TimelineNotifier extends TimelineNotifier {

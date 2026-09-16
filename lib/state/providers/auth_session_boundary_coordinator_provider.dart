@@ -7,6 +7,8 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_hive_storage.dart';
+import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_provider_fence.dart';
@@ -20,6 +22,20 @@ import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dar
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 const String _accountMarkerKey = 'auth_boundary_account_marker_v1';
+
+/// Synchronous goal readers must never run against an unopened account box.
+final accountGoalStoragePreparationProvider =
+    Provider<Future<void> Function(AccountStorageScope, LegacyScopeOwnership)>((
+      ref,
+    ) {
+      final hive = ref.read(hiveStoreProvider);
+      return (scope, ownership) => AccountScopedHiveStorage(
+        baseBox: HiveBoxes.goals,
+        scope: scope,
+        hive: hive,
+        legacyOwnership: ownership,
+      ).prepare();
+    });
 
 final authSessionBoundaryCoordinatorProvider =
     Provider<AuthSessionBoundaryCoordinator>((Ref ref) {
@@ -485,6 +501,11 @@ class AuthSessionBoundaryCoordinator {
         legacyOwnership: legacyOwnership,
       ).migrateOwnedLegacyValues(AccountDataRegistry.reminderPreferenceKeys);
     }
+    if (!_isLatestAccount(sequence, accountId, generation)) return;
+    await _ref.read(accountGoalStoragePreparationProvider)(
+      AccountStorageScope.authenticated(accountId),
+      legacyOwnership,
+    );
     if (!_isLatestAccount(sequence, accountId, generation)) return;
     boundary.markStorageReady(generation, legacyOwnership: legacyOwnership);
     boundary.complete(generation);

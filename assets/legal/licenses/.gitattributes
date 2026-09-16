@@ -1,0 +1,4 @@
+*.txt -text
+archive-4.1.0-third-party-notices.txt whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol
+image-4.9.2-third-party-notices.txt whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol
+space-grotesk-font-OFL.txt whitespace=-blank-at-eol

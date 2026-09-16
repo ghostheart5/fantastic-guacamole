@@ -1,16 +1,176 @@
+import 'dart:async';
+
+import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/repositories/notifications_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'read goal reminder survives startup synchronization and provider reload',
+    () async {
+      final preferences = _MemoryPreferences();
+      final scheduler = _RecordingScheduler();
+      final backend = InMemorySecureStoreBackend();
+      const accountId = 'goal-reminder-restart-account';
+      NotificationsRepository repository() => NotificationsRepository(
+        scheduler,
+        SecureStore(backend: backend),
+        accountId: accountId,
+      );
+      ReminderOrchestratorService service(NotificationsRepository repository) =>
+          ReminderOrchestratorService(
+            preferences: preferences,
+            notifications: NotificationsService(repository),
+            scheduler: scheduler,
+            accountScope: AccountDataRegistry.accountDigest(accountId),
+          );
+      ProviderContainer container(NotificationsRepository repository) =>
+          ProviderContainer(
+            overrides: [
+              domainNotificationRepositoryProvider.overrideWithValue(
+                repository,
+              ),
+            ],
+          );
+      final now = DateTime.now();
+      final goal = GoalEntity(
+        id: 'groceries',
+        title: 'Prepare Thursday grocery pickup',
+        createdAt: now,
+        targetDate: now.add(const Duration(days: 4)),
+      );
+      final originalRepository = repository();
+      await service(originalRepository).syncGoalReminders([goal]);
+      final original = container(originalRepository);
+      try {
+        original.read(notificationProvider);
+        await pumpEventQueue();
+        expect(original.read(unreadNotificationsProvider), 1);
+        final id = original.read(notificationProvider).single.id;
+        await original.read(notificationProvider.notifier).markRead(id);
+        expect(original.read(unreadNotificationsProvider), 0);
+      } finally {
+        original.dispose();
+      }
+
+      // Startup recreates services/providers but retains account storage.
+      final restartedRepository = repository();
+      await service(restartedRepository).syncGoalReminders([goal]);
+      await service(restartedRepository).syncGoalReminders([goal]);
+      final restarted = container(restartedRepository);
+      addTearDown(restarted.dispose);
+      restarted.read(notificationProvider);
+      await pumpEventQueue();
+
+      expect(restarted.read(notificationProvider), hasLength(1));
+      expect(restarted.read(notificationProvider).single.isRead, isTrue);
+      expect(restarted.read(unreadNotificationsProvider), 0);
+    },
+  );
+
+  test(
+    'disabled daily reminder uses the real repository under its reentrant account lock',
+    () async {
+      final preferences = _MemoryPreferences();
+      await preferences.save('daily_planning_reminder_enabled', 'false');
+      final scheduler = _RecordingScheduler();
+      const accountId = 'disabled-daily-account';
+      final scope = AccountDataRegistry.accountDigest(accountId);
+      final repository = NotificationsRepository(
+        scheduler,
+        SecureStore(backend: InMemorySecureStoreBackend()),
+        accountId: accountId,
+      );
+      final service = ReminderOrchestratorService(
+        preferences: preferences,
+        notifications: NotificationsService(repository),
+        scheduler: scheduler,
+        accountScope: scope,
+      );
+      await service
+          .ensureDailyPlanningReminder(shouldContinue: () => true)
+          .timeout(const Duration(seconds: 2));
+      expect(scheduler.dailySchedules, isEmpty);
+      expect(scheduler.cancelled, <String>['daily_planning_reminder']);
+      expect(scheduler.operations, <String>['cancel:$scope']);
+    },
+  );
+  test(
+    'a late daily schedule is cancelled before a reopened account schedule runs',
+    () async {
+      final scheduler = _RecordingScheduler()..blockFirstSchedule = true;
+      bool originalCurrent = true;
+      ReminderOrchestratorService service() => ReminderOrchestratorService(
+        preferences: _MemoryPreferences(),
+        notifications: NotificationsService(_RecordingNotificationRepository()),
+        scheduler: scheduler,
+        accountScope: 'account-scope',
+      );
+      final old = service().ensureDailyPlanningReminder(
+        shouldContinue: () => originalCurrent,
+      );
+      await scheduler.entered.future;
+      originalCurrent = false;
+      final reopened = service().ensureDailyPlanningReminder(
+        shouldContinue: () => true,
+      );
+      await pumpEventQueue();
+      expect(scheduler.dailySchedules, hasLength(1));
+      scheduler.release.complete();
+      await Future.wait(<Future<void>>[old, reopened]);
+      expect(scheduler.operations, <String>[
+        'schedule:account-scope',
+        'cancel:account-scope',
+        'schedule:account-scope',
+      ]);
+    },
+  );
+
+  test(
+    'daily scheduling waiting for account cleanup rechecks its generation guard',
+    () async {
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      bool current = true;
+      final cleanup = KeyedMutationCoordinator.shared.runExclusive<void>(
+        AccountDataRegistry.notificationMutationKeyForScope('blocked-account'),
+        () async {
+          entered.complete();
+          await release.future;
+        },
+      );
+      await entered.future;
+      final scheduler = _RecordingScheduler();
+      final service = ReminderOrchestratorService(
+        preferences: _MemoryPreferences(),
+        notifications: NotificationsService(_RecordingNotificationRepository()),
+        scheduler: scheduler,
+        accountScope: 'blocked-account',
+      );
+      final pending = service.ensureDailyPlanningReminder(
+        shouldContinue: () => current,
+      );
+      current = false;
+      release.complete();
+      await Future.wait(<Future<void>>[cleanup, pending]);
+      expect(scheduler.dailySchedules, isEmpty);
+      expect(scheduler.cancelled, isEmpty);
+    },
+  );
   test('reflection reminders delegate through the scheduler port', () async {
     final _MemoryPreferences preferences = _MemoryPreferences();
     final _RecordingScheduler scheduler = _RecordingScheduler();
@@ -116,6 +276,10 @@ final class _MemoryPreferences implements SharedPrefsStore {
 }
 
 final class _RecordingScheduler implements NotificationSchedulerPort {
+  bool blockFirstSchedule = false;
+  final entered = Completer<void>();
+  final release = Completer<void>();
+  final operations = <String>[];
   final ValueNotifier<bool?> permissionSignal = ValueNotifier<bool?>(true);
   final List<_DailySchedule> dailySchedules = <_DailySchedule>[];
   final List<String> cancelled = <String>[];
@@ -143,6 +307,7 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
     required int minute,
     String? accountScope,
   }) async {
+    operations.add('schedule:$accountScope');
     dailySchedules.add(
       _DailySchedule(
         id: id,
@@ -151,11 +316,16 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
         accountScope: accountScope,
       ),
     );
+    if (blockFirstSchedule && dailySchedules.length == 1) {
+      entered.complete();
+      await release.future;
+    }
     return true;
   }
 
   @override
   Future<bool> cancel(String id, {String? accountScope}) async {
+    operations.add('cancel:$accountScope');
     cancelled.add(id);
     return true;
   }

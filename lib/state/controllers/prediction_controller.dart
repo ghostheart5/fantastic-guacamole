@@ -4,14 +4,38 @@ import 'package:fantastic_guacamole/core/errors/persisted_payload_failure.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/si/prediction.dart';
 import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final predictionProvider = FutureProvider.family<Prediction, String>((
   ref,
   String taskTitle,
 ) async {
+  const unavailable = Prediction(
+    outcome: 'Unknown',
+    probability: .5,
+    confidence: 0,
+    sampleSize: 0,
+    explanation: 'Account storage is not ready.',
+    signals: ['storage-unavailable'],
+  );
+  final scope = ref.watch(accountStorageScopeProvider);
+  if (!scope.isWritable) return unavailable;
+  final generation = ref.watch(authSessionBoundaryProvider).generation;
+  bool current() =>
+      ref.mounted &&
+      ref.read(accountStorageScopeProvider).v2Namespace == scope.v2Namespace &&
+      ref.read(authSessionBoundaryProvider).generation == generation;
   final secureStore = ref.watch(accountSecureStoreProvider);
-  final String? raw = await secureStore.readString('neural_dump');
+  final String? raw;
+  try {
+    raw = await secureStore.readString('neural_dump');
+  } catch (_) {
+    if (!current()) return unavailable;
+    rethrow;
+  }
+  if (!current()) return unavailable;
 
   List<NeuralEntry> history;
   if (raw == null || raw.trim().isEmpty) {

@@ -207,6 +207,40 @@ void main() {
     },
   );
 
+  test('storage stays fenced until goal preparation completes', () async {
+    final started = Completer<void>();
+    final release = Completer<void>();
+    final harness = _BoundaryHarness(
+      prepareGoals: (scope, ownership) async {
+        expect(scope.rawUserId, 'account-a');
+        started.complete();
+        await release.future;
+      },
+    );
+    addTearDown(harness.dispose);
+    final initialized = harness.coordinator.initialize();
+    harness.auth.add(_user('account-a'));
+    await started.future;
+    expect(harness.boundary.isStorageReady, isFalse);
+    release.complete();
+    await initialized;
+    expect(harness.boundary.isStorageReady, isTrue);
+  });
+
+  test('goal preparation failure keeps account storage locked', () async {
+    final harness = _BoundaryHarness(
+      prepareGoals: (scope, ownership) async {
+        throw StateError('fixture storage open failure');
+      },
+    );
+    addTearDown(harness.dispose);
+    final initialized = harness.coordinator.initialize();
+    harness.auth.add(_user('account-a'));
+    await initialized;
+    expect(harness.boundary.isStorageReady, isFalse);
+    expect(harness.boundary.blockingIssue, isNotNull);
+  });
+
   test('sign-out closes storage without deleting preserved data', () async {
     final _BoundaryHarness harness = _BoundaryHarness();
     addTearDown(harness.dispose);
@@ -425,6 +459,8 @@ final class _BoundaryHarness {
     SecureStore? secureStore,
     bool useLocalAuth = false,
     SharedPrefsStore? liveOutcomeStore,
+    Future<void> Function(AccountStorageScope, LegacyScopeOwnership)?
+    prepareGoals,
   }) : auth = StreamController<User?>.broadcast(),
        secureStore =
            secureStore ?? SecureStore(backend: InMemorySecureStoreBackend()),
@@ -449,6 +485,9 @@ final class _BoundaryHarness {
             (Ref ref) => throw StateError('Local auth must not read Supabase.'),
           ),
         secureStoreProvider.overrideWithValue(this.secureStore),
+        accountGoalStoragePreparationProvider.overrideWithValue(
+          prepareGoals ?? (scope, ownership) async {},
+        ),
         localUserDataCleanupServiceProvider.overrideWithValue(cleanup),
         taskOccurrenceCoordinatorProvider.overrideWithValue(
           occurrenceCoordinator,

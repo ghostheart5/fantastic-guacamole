@@ -48,10 +48,17 @@ tags:
     direction: DOWN
     timeout: 15000
 - tapOn: "(?s).*Planning & guidance.*"
+# Traverse the long expanded category before requiring the actual saved row.
+- scrollUntilVisible:
+    element:
+      text: "RECENT RAW OBSERVATIONS"
+    direction: DOWN
+    timeout: 30000
 - scrollUntilVisible:
     element:
       text: "(?s).*Task Lifecycle.*completed.*Completed the task.*helped.*"
     direction: DOWN
-    visibilityPercentage: 20
+    visibilityPercentage: 100
+    centerElement: true
     timeout: 20000
 - assertVisible: "(?s).*Task Lifecycle.*completed.*Completed the task.*helped.*"

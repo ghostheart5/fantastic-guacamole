@@ -86,16 +86,21 @@ class SharedPrefsService {
       Logger.warn(
         'SharedPrefsService: Blocked write to SharedPreferences for sensitive key "$key".',
       );
-      return;
+      throw StateError(
+        'Sensitive values cannot be stored in SharedPreferences.',
+      );
     }
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
       Logger.error(
         'SharedPrefsService save skipped because storage is unavailable.',
       );
-      return;
+      throw StateError('SharedPreferences storage is unavailable.');
     }
-    await prefs.setString(key, value);
+    final bool saved = await prefs.setString(key, value);
+    if (!saved) {
+      throw StateError('SharedPreferences did not persist the value.');
+    }
   }
 
   static String? load(String key) {

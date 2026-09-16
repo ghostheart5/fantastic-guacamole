@@ -1,6 +1,16 @@
 {
   "generatedAt": "2026-08-31",
+  "graphicsReviewedAt": "2026-09-08",
   "files": [
+    {
+      "name": "feature-graphic-1024x500-rgb.png",
+      "purpose": "Opaque Google Play feature graphic export; use instead of the RGBA original",
+      "width": 1024,
+      "height": 500,
+      "mode": "RGB",
+      "bytes": 692693,
+      "sha256": "8b47e6242c422297b531ce6ac6014a9a8a4ce61c13ec558d99867b4d025dd223"
+    },
     {
       "name": "feature-graphic-1024x500.png",
       "purpose": "Google Play feature graphic candidate",

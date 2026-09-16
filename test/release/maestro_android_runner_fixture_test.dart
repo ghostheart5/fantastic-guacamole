@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -20,6 +21,18 @@ void main() {
     temporaryDirectory.deleteSync(recursive: true);
   });
 
+  Map<String, String> childEnvironment([
+    Map<String, String> inheritedOverrides = const <String, String>{},
+  ]) => <String, String>{
+    ...inheritedOverrides,
+    // Hosted pwsh can pass PowerShell 7 modules to this deliberately selected
+    // Windows PowerShell 5.1 child. Keep its built-in module discovery compatible
+    // without changing the parent process or hiding real launcher failures.
+    if (Platform.isWindows)
+      'PSModulePath':
+          '${Platform.environment['SystemRoot']}\\System32\\WindowsPowerShell\\v1.0\\Modules',
+  };
+
   ProcessResult validate(String fileName, {String? xml}) {
     final File fixture = File('${temporaryDirectory.path}/$fileName');
     if (xml != null) {
@@ -34,7 +47,7 @@ void main() {
       runnerPath,
       '-ValidateJUnitOnlyPath',
       fixture.path,
-    ]);
+    ], environment: childEnvironment());
   }
 
   Map<String, dynamic> output(ProcessResult result) {
@@ -43,7 +56,11 @@ void main() {
 
   String psLiteral(String value) => "'${value.replaceAll("'", "''")}'";
 
-  ProcessResult runHelperFixture(String fileName, String body) {
+  ProcessResult runHelperFixture(
+    String fileName,
+    String body, {
+    Map<String, String> environment = const <String, String>{},
+  }) {
     final File script = File('${temporaryDirectory.path}/$fileName.ps1');
     // Windows PowerShell 5.1 needs a BOM to decode UTF-8 fixture source.
     script.writeAsStringSync('''\ufeff
@@ -58,7 +75,7 @@ $body
       'Bypass',
       '-File',
       script.path,
-    ]);
+    ], environment: childEnvironment(environment));
   }
 
   test('records an empty branch for a real detached source snapshot', () {
@@ -367,12 +384,65 @@ New-MaestroSequenceConfig -Flows @(Get-SelectedFlows -SelectedSuite 'qa-journeys
     ]);
     expect(receipt['flowsOrder'], names);
     expect(receipt['sha256'], matches(RegExp(r'^[A-Fa-f0-9]{64}$')));
+    expect(
+      receipt['sha256'].toString().toLowerCase(),
+      sha256.convert(config.readAsBytesSync()).toString(),
+    );
     // Check wiring as well as generation: preserving argument order alone is
     // insufficient, and the receipt must retain the actual runtime config.
     final String runner = File(runnerPath).readAsStringSync();
     expect(runner, contains(r"@('--config', $sequenceConfiguration.path)"));
     expect(runner, contains(r'executionOrder = $sequenceConfiguration'));
   });
+
+  if (Platform.isWindows) {
+    test('legacy PowerShell fixtures isolate incompatible inherited modules', () {
+      final Directory modules = Directory(
+        '${temporaryDirectory.path}/core-modules',
+      );
+      final Directory utility = Directory(
+        '${modules.path}/Microsoft.PowerShell.Utility',
+      )..createSync(recursive: true);
+      File(
+        '${utility.path}/Microsoft.PowerShell.Utility.psd1',
+      ).writeAsStringSync(
+        "@{ ModuleVersion='7.5.0'; PowerShellVersion='7.0'; RootModule='utility.psm1'; FunctionsToExport=@('Get-FileHash'); CmdletsToExport=@(); AliasesToExport=@() }",
+      );
+      File('${utility.path}/utility.psm1').writeAsStringSync(
+        "function Get-FileHash { throw 'Incompatible module must not load' }",
+      );
+      final Map<String, String> poisoned = <String, String>{
+        'PSModulePath': '${modules.path};${childEnvironment()['PSModulePath']}',
+      };
+      // Establish the failure in an unisolated legacy child, so the regression
+      // cannot pass merely because this host happens to have a clean module path.
+      final ProcessResult unisolated =
+          Process.runSync(powerShellExecutable, <String>[
+            '-NoProfile',
+            '-NonInteractive',
+            '-Command',
+            'Get-Command Get-FileHash -ErrorAction Stop',
+          ], environment: poisoned);
+      expect(unisolated.exitCode, isNonZero);
+      expect(unisolated.stderr as String, contains('Get-FileHash'));
+
+      final File config = File(
+        '${temporaryDirectory.path}/isolated-sequence.yaml',
+      );
+      final ProcessResult isolated = runHelperFixture(
+        'isolated-module-order',
+        "New-MaestroSequenceConfig -Flows @(Get-SelectedFlows -SelectedSuite 'qa-journeys') -OutputPath ${psLiteral(config.path)} | ConvertTo-Json -Depth 4 -Compress",
+        environment: poisoned,
+      );
+      expect(isolated.exitCode, 0, reason: isolated.stderr as String);
+      final Map<String, dynamic> receipt = output(isolated);
+      expect(receipt['flowsOrder'], hasLength(11));
+      expect(
+        receipt['sha256'].toString().toLowerCase(),
+        sha256.convert(config.readAsBytesSync()).toString(),
+      );
+    });
+  }
 
   test('runtime sequence rejects ambiguous duplicate flow filenames', () {
     final File config = File('${temporaryDirectory.path}/ambiguous.yaml');

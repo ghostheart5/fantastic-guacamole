@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/errors/public_failure.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 
@@ -129,10 +130,10 @@ class ErrorBoundaryState extends State<ErrorBoundary> {
                 size: 48,
               ),
               const SizedBox(height: 20),
-              const Text(
-                'Something went wrong',
+              Text(
+                journeyText(context, 'Something went wrong', 'Algo salió mal'),
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -154,7 +155,7 @@ class ErrorBoundaryState extends State<ErrorBoundary> {
               FilledButton.icon(
                 onPressed: _retry,
                 icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text('Retry'),
+                label: Text(journeyText(context, 'Retry', 'Reintentar')),
               ),
             ],
           ),

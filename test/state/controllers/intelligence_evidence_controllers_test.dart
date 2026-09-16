@@ -10,6 +10,7 @@ import 'package:fantastic_guacamole/state/controllers/signal_controller.dart';
 import 'package:fantastic_guacamole/state/models/completion_score_view.dart';
 import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/completion_score_provider.dart';
 import 'package:fantastic_guacamole/state/providers/energy_provider.dart';
 import 'package:fantastic_guacamole/state/providers/explainable_si_provider.dart';
@@ -97,7 +98,12 @@ void main() {
         backend: InMemorySecureStoreBackend(),
       ).forAccount(AccountStorageScope.authenticated('account-a'));
       container = ProviderContainer(
-        overrides: [accountSecureStoreProvider.overrideWithValue(store)],
+        overrides: [
+          accountSecureStoreProvider.overrideWithValue(store),
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('account-a'),
+          ),
+        ],
       );
     });
 

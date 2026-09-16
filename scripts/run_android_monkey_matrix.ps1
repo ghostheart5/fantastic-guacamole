@@ -2,8 +2,11 @@
 param(
     [string]$Config = "$PSScriptRoot\..\test-orchestrator.json",
     [string]$DeviceSerial,
+    [string]$RepositoryRoot,
     [string]$ApkPath,
     [string]$ExpectedApkSha256,
+    [ValidateSet('35', '36')]
+    [string]$ExpectedAndroidApi,
     [switch]$AllowConnectedDevice,
     [switch]$AllowDirtyTree,
     [ValidateRange(1, 300)]
@@ -15,7 +18,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'android_runtime_fatal_patterns.ps1')
-$projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$runnerRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$projectRoot = if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) { $runnerRoot } else { (Resolve-Path -LiteralPath $RepositoryRoot).Path }
 
 function Get-GitEvidenceText {
     param(
@@ -176,7 +180,8 @@ function Wait-ForPackageFocus {
         [Parameter(Mandatory)][string]$PackageName,
         [ValidateRange(1, 120)][int]$TimeoutSeconds = 30,
         [ValidateRange(1, 10)][int]$RequiredStableSamples = 2,
-        [ValidateRange(100, 5000)][int]$PollMilliseconds = 500
+        [ValidateRange(100, 5000)][int]$PollMilliseconds = 500,
+        [switch]$RecoverSystemDialogs
     )
 
     $timer = [System.Diagnostics.Stopwatch]::StartNew()
@@ -188,6 +193,9 @@ function Wait-ForPackageFocus {
     $lastFocus = ''
     $probeSamples = [System.Collections.Generic.List[object]]::new()
     $budgetMilliseconds = $TimeoutSeconds * 1000
+    $dialogDismissals = 0
+    $panelRecoveries = 0
+    $dialogRecoveryFailed = $false
 
     do {
         $remainingMilliseconds = [int][math]::Floor($budgetMilliseconds - $timer.Elapsed.TotalMilliseconds)
@@ -202,6 +210,8 @@ function Wait-ForPackageFocus {
             validFocus = $false
             elapsedMilliseconds = 0
             deadlineExceeded = $false
+            systemDialogRecovery = $null
+            systemPanelRecovery = $null
         }
         $probeTimeout = [math]::Min(5000, $remainingMilliseconds)
         $probeTimer = [System.Diagnostics.Stopwatch]::StartNew()
@@ -247,6 +257,41 @@ function Wait-ForPackageFocus {
             $timer.Elapsed.TotalMilliseconds -lt $budgetMilliseconds -and
             $lastFocus -match $focusPattern
 
+        if (-not $ownsFocus -and $pidReady -and $null -ne $windowResult -and
+            $windowResult.ExitCode -eq 0 -and -not $windowResult.TimedOut -and
+            $RecoverSystemDialogs -and $panelRecoveries -lt 2 -and
+            $lastFocus -match '^\s*mCurrentFocus=Window\{\S+ u0 NotificationShade\}\s*$') {
+            $remainingMilliseconds = [int][math]::Floor($budgetMilliseconds - $timer.Elapsed.TotalMilliseconds)
+            if ($remainingMilliseconds -gt 0) {
+                $sample.systemPanelRecovery = Restore-MonkeySystemPanel -Serial $Serial `
+                    -ExpectedFocus $lastFocus -TimeoutMilliseconds ([math]::Min(5000, $remainingMilliseconds))
+                $panelRecoveries++
+                $dialogRecoveryFailed = -not $sample.systemPanelRecovery.Passed -and
+                    $sample.systemPanelRecovery.Reason -ne 'Focus changed before recovery; no command was sent.'
+            }
+        }
+
+        if (-not $ownsFocus -and $pidReady -and $null -ne $windowResult -and
+            $windowResult.ExitCode -eq 0 -and -not $windowResult.TimedOut -and
+            $RecoverSystemDialogs -and $dialogDismissals -lt 2 -and
+            $lastFocus -match '^\s*mCurrentFocus=Window\{\S+ u0 (?:SystemUIDialog|VoiceInteractionSession|com\.google\.android\.googlequicksearchbox/com\.google\.android\.apps\.search\.assistant\.surfaces\.voice\.ui\.host\.activity\.defaultactivity\.FragmentHostDefaultActivity)\}\s*$') {
+            $remainingMilliseconds = [int][math]::Floor($budgetMilliseconds - $timer.Elapsed.TotalMilliseconds)
+            if ($remainingMilliseconds -gt 0) {
+                $sample.systemDialogRecovery = if ($lastFocus -match ' u0 (?:VoiceInteractionSession|com\.google\.android\.googlequicksearchbox/)') {
+                    Restore-MonkeyAssistantWindow -Serial $Serial -ExpectedFocus $lastFocus `
+                        -TimeoutMilliseconds ([math]::Min(5000, $remainingMilliseconds))
+                } else {
+                    Restore-MonkeySystemDialog -Serial $Serial -ExpectedFocus $lastFocus `
+                        -TimeoutMilliseconds ([math]::Min(5000, $remainingMilliseconds))
+                }
+                $dialogDismissals++
+                # A SystemUI dialog can disappear between the ownership and focus
+                # readbacks. No key was sent in that case; keep probing and require
+                # stable app focus rather than treating the race as an app failure.
+                $dialogRecoveryFailed = -not $sample.systemDialogRecovery.Passed -and
+                    $sample.systemDialogRecovery.Reason -ne 'Focus changed before recovery; no key was sent.'
+            }
+        }
         if ($ownsFocus) {
             if ($lastPid -eq $stablePid) {
                 $stableSamples++
@@ -267,6 +312,7 @@ function Wait-ForPackageFocus {
         $sample.elapsedMilliseconds = [math]::Round($timer.Elapsed.TotalMilliseconds, 3)
         $sample.deadlineExceeded = $timer.Elapsed.TotalMilliseconds -ge $budgetMilliseconds
         $probeSamples.Add([pscustomobject]$sample)
+        if ($dialogRecoveryFailed) { break }
         if ($stableSamples -ge $RequiredStableSamples -and
             $timer.Elapsed.TotalMilliseconds -lt $budgetMilliseconds) {
             return [pscustomobject]@{
@@ -290,6 +336,201 @@ function Wait-ForPackageFocus {
         LastFocus = $lastFocus.Trim()
         ProbeSamples = @($probeSamples)
     }
+}
+
+function Restore-MonkeySystemDialog {
+    param(
+        [Parameter(Mandatory)][string]$Serial,
+        [Parameter(Mandatory)][string]$ExpectedFocus,
+        [ValidateRange(1, 5000)][int]$TimeoutMilliseconds = 5000
+    )
+    if ($Serial -notmatch '^emulator-\d+$') {
+        throw 'System-dialog recovery is restricted to the selected disposable emulator.'
+    }
+    $receipt = [ordered]@{ Passed = $false; BeforeFocus = $ExpectedFocus.Trim(); Windows = ''; BackSent = $false; Reason = ''; Commands = @() }
+    if ($ExpectedFocus -notmatch '^\s*mCurrentFocus=(Window\{\S+ u0 SystemUIDialog\})\s*$') {
+        $receipt.Reason = 'Focus is not the exact SystemUI dialog title.'
+        return [pscustomobject]$receipt
+    }
+    $token = $Matches[1]
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
+    $windows = Invoke-Adb -TimeoutMilliseconds $TimeoutMilliseconds -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'windows')
+    $receipt.Windows = $windows.Output -join "`n"
+    $receipt.Commands += [pscustomobject]@{ Command = 'window ownership'; ExitCode = $windows.ExitCode; TimedOut = $windows.TimedOut }
+    # Match the focused window's own block, never a different SystemUI window.
+    $block = [regex]::Match($receipt.Windows, '(?ms)^\s*Window #\d+ ' + [regex]::Escape($token) + ':.*?(?=^\s*Window #\d+ |\z)').Value
+    if ($windows.ExitCode -ne 0 -or $windows.TimedOut -or
+        $block -notmatch '(?m)\bpackage=com\.android\.systemui(?:\s|$)') {
+        $receipt.Reason = 'Focused dialog ownership was not verified.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    $focusReadback = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'displays')
+    $receipt.Commands += [pscustomobject]@{ Command = 'focus readback'; ExitCode = $focusReadback.ExitCode; TimedOut = $focusReadback.TimedOut }
+    $focus = @($focusReadback.Output | Where-Object { $_ -match 'mCurrentFocus=' }) -join "`n"
+    if ($focusReadback.ExitCode -ne 0 -or $focusReadback.TimedOut -or $focus.Trim() -cne $ExpectedFocus.Trim()) {
+        $receipt.Reason = 'Focus changed before recovery; no key was sent.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    # BACK cancels the verified Android-owned modal; never tap an approval.
+    $back = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'input', 'keyevent', 'KEYCODE_BACK')
+    $receipt.Commands += [pscustomobject]@{ Command = 'cancel system dialog'; ExitCode = $back.ExitCode; TimedOut = $back.TimedOut }
+    $receipt.BackSent = $true
+    $receipt.Passed = $back.ExitCode -eq 0 -and -not $back.TimedOut -and $timer.Elapsed.TotalMilliseconds -lt $TimeoutMilliseconds
+    $receipt.Reason = 'App focus still requires independent stable probes after recovery.'
+    return [pscustomobject]$receipt
+}
+
+function Restore-MonkeyAssistantWindow {
+    param(
+        [Parameter(Mandatory)][string]$Serial,
+        [Parameter(Mandatory)][string]$ExpectedFocus,
+        [ValidateRange(1, 5000)][int]$TimeoutMilliseconds = 5000
+    )
+    if ($Serial -notmatch '^emulator-\d+$') {
+        throw 'Assistant-window recovery is restricted to the selected disposable emulator.'
+    }
+    $receipt = [ordered]@{ Passed = $false; BeforeFocus = $ExpectedFocus.Trim(); Windows = ''; BackSent = $false; Reason = ''; Commands = @() }
+    if ($ExpectedFocus -notmatch '^\s*mCurrentFocus=(Window\{\S+ u0 (?:VoiceInteractionSession|com\.google\.android\.googlequicksearchbox/com\.google\.android\.apps\.search\.assistant\.surfaces\.voice\.ui\.host\.activity\.defaultactivity\.FragmentHostDefaultActivity)\})\s*$') {
+        $receipt.Reason = 'Focus is not the exact Android assistant window.'
+        return [pscustomobject]$receipt
+    }
+    $token = $Matches[1]
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
+    $windows = Invoke-Adb -TimeoutMilliseconds $TimeoutMilliseconds -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'windows')
+    $receipt.Windows = $windows.Output -join "`n"
+    $receipt.Commands += [pscustomobject]@{ Command = 'voice-window ownership'; ExitCode = $windows.ExitCode; TimedOut = $windows.TimedOut }
+    $block = [regex]::Match($receipt.Windows, '(?ms)^\s*Window #\d+ ' + [regex]::Escape($token) + ':.*?(?=^\s*Window #\d+ |\z)').Value
+    # The Google-API guest's assistant owns these Android assistant windows. Never
+    # dismiss an app window, a permission prompt, or a similarly named window.
+    if ($windows.ExitCode -ne 0 -or $windows.TimedOut -or
+        $block -notmatch '(?m)\bpackage=com\.google\.android\.googlequicksearchbox(?:\s|$)') {
+        $receipt.Reason = 'Focused assistant ownership was not verified.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    $focusReadback = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'displays')
+    $receipt.Commands += [pscustomobject]@{ Command = 'voice focus readback'; ExitCode = $focusReadback.ExitCode; TimedOut = $focusReadback.TimedOut }
+    $focus = @($focusReadback.Output | Where-Object { $_ -match 'mCurrentFocus=' }) -join "`n"
+    if ($focusReadback.ExitCode -ne 0 -or $focusReadback.TimedOut -or $focus.Trim() -cne $ExpectedFocus.Trim()) {
+        $receipt.Reason = 'Focus changed before recovery; no key was sent.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    $back = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'input', 'keyevent', 'KEYCODE_BACK')
+    $receipt.Commands += [pscustomobject]@{ Command = 'cancel assistant overlay'; ExitCode = $back.ExitCode; TimedOut = $back.TimedOut }
+    $receipt.BackSent = $true
+    $receipt.Passed = $back.ExitCode -eq 0 -and -not $back.TimedOut -and $timer.Elapsed.TotalMilliseconds -lt $TimeoutMilliseconds
+    $receipt.Reason = 'App focus still requires independent stable probes after recovery.'
+    return [pscustomobject]$receipt
+}
+
+function Restore-MonkeySystemPanel {
+    param(
+        [Parameter(Mandatory)][string]$Serial,
+        [string]$ExpectedFocus = '',
+        [ValidateRange(1, 5000)][int]$TimeoutMilliseconds = 5000
+    )
+    if ($Serial -notmatch '^emulator-\d+$') {
+        throw 'System-panel recovery is restricted to the selected disposable emulator.'
+    }
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
+    $window = Invoke-Adb -TimeoutMilliseconds $TimeoutMilliseconds -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'displays')
+    $focus = @($window.Output | Where-Object { $_ -match 'mCurrentFocus=' } | Select-Object -Last 1) -join ''
+    $receipt = [ordered]@{
+        Passed = $window.ExitCode -eq 0 -and -not $window.TimedOut
+        BeforeFocus = $focus.Trim()
+        WindowExitCode = $window.ExitCode
+        WindowTimedOut = $window.TimedOut
+        Windows = ''
+        OwnershipVerified = $false
+        Collapsed = $false
+        CollapseExitCode = $null
+        CollapseTimedOut = $null
+        AfterCollapseFocus = ''
+        BackSent = $false
+        BackExitCode = $null
+        BackTimedOut = $null
+        Reason = ''
+    }
+    # A random swipe can leave SystemUI above an otherwise healthy application.
+    # Close only the notification panel, after preserving the stress evidence.
+    # App errors, ANR dialogs and the app's own UI are never dismissed here.
+    if (-not $receipt.Passed) {
+        $receipt.Reason = 'Focused-window read failed.'
+        return [pscustomobject]$receipt
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedFocus) -and $focus.Trim() -cne $ExpectedFocus.Trim()) {
+        $receipt.Passed = $false
+        $receipt.Reason = 'Focus changed before recovery; no command was sent.'
+        return [pscustomobject]$receipt
+    }
+    $shade = [regex]::Match($focus, '^\s*mCurrentFocus=Window\{(?<token>\S+) u0 NotificationShade\}\s*$')
+    if (-not $shade.Success) {
+        $receipt.Reason = 'No exact notification shade is focused.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Passed = $false; $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    $windows = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'windows')
+    $receipt.Windows = $windows.Output -join "`n"
+    $block = [regex]::Match($receipt.Windows, '(?ms)^\s*Window #\d+ Window\{' +
+        [regex]::Escape($shade.Groups['token'].Value) +
+        ' u0 NotificationShade\}:.*?(?=^\s*Window #\d+ |\z)').Value
+    $receipt.OwnershipVerified = $windows.ExitCode -eq 0 -and -not $windows.TimedOut -and
+        $block -match '(?m)\bpackage=com\.android\.systemui(?:\s|$)'
+    if (-not $receipt.OwnershipVerified) {
+        $receipt.Passed = $false
+        $receipt.Reason = 'Focused notification shade ownership was not verified.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Passed = $false; $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    $readback = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'displays')
+    $currentFocus = @($readback.Output | Where-Object { $_ -match 'mCurrentFocus=' } | Select-Object -Last 1) -join ''
+    if ($readback.ExitCode -ne 0 -or $readback.TimedOut -or $currentFocus.Trim() -cne $focus.Trim()) {
+        $receipt.Passed = $false
+        $receipt.Reason = 'Focus changed before recovery; no command was sent.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Passed = $false; $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    $collapse = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'cmd', 'statusbar', 'collapse')
+    $receipt.CollapseExitCode = $collapse.ExitCode
+    $receipt.CollapseTimedOut = $collapse.TimedOut
+    $receipt.Collapsed = $collapse.ExitCode -eq 0 -and -not $collapse.TimedOut
+    $receipt.Passed = $receipt.Collapsed
+    if (-not $receipt.Collapsed) { $receipt.Reason = 'Notification panel collapse command failed.'; return [pscustomobject]$receipt }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Passed = $false; $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    $afterCollapse = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'dumpsys', 'window', 'displays')
+    $receipt.AfterCollapseFocus = (@($afterCollapse.Output | Where-Object { $_ -match 'mCurrentFocus=' } | Select-Object -Last 1) -join '').Trim()
+    if ($afterCollapse.ExitCode -ne 0 -or $afterCollapse.TimedOut) {
+        $receipt.Passed = $false
+        $receipt.Reason = 'Focus readback after collapse failed.'
+        return [pscustomobject]$receipt
+    }
+    if ($receipt.AfterCollapseFocus -cne $focus.Trim()) {
+        $receipt.Reason = 'Panel focus changed; app focus still requires stable probes.'
+        return [pscustomobject]$receipt
+    }
+    $remaining = [int][math]::Floor($TimeoutMilliseconds - $timer.Elapsed.TotalMilliseconds)
+    if ($remaining -le 0) { $receipt.Passed = $false; $receipt.Reason = 'Recovery deadline reached.'; return [pscustomobject]$receipt }
+    # The same verified SystemUI shade still owns focus. BACK closes only that
+    # guest-owned panel; an app screen or permission prompt never receives it.
+    $back = Invoke-Adb -TimeoutMilliseconds $remaining -Arguments @('-s', $Serial, 'shell', 'input', 'keyevent', 'KEYCODE_BACK')
+    $receipt.BackSent = $true
+    $receipt.BackExitCode = $back.ExitCode
+    $receipt.BackTimedOut = $back.TimedOut
+    $receipt.Passed = $back.ExitCode -eq 0 -and -not $back.TimedOut -and
+        $timer.Elapsed.TotalMilliseconds -lt $TimeoutMilliseconds
+    $receipt.Reason = 'App focus still requires independent stable probes after panel recovery.'
+    return [pscustomobject]$receipt
 }
 
 if ($MyInvocation.InvocationName -eq '.') {
@@ -353,7 +594,11 @@ $avdName = ($avdResult.Output -join '').Trim()
 if ($apiResult.ExitCode -ne 0 -or $modelResult.ExitCode -ne 0) {
     throw 'Unable to identify the selected emulator.'
 }
-$expectedApi = [string]$configData.expectedAndroidApi
+$expectedApi = if ($ExpectedAndroidApi) {
+    $ExpectedAndroidApi
+} else {
+    [string]$configData.expectedAndroidApi
+}
 if ($expectedApi -and $api -ne $expectedApi) {
     throw "Expected Android API $expectedApi but selected target reports API $api."
 }
@@ -551,6 +796,8 @@ foreach ($variant in $variants) {
         $fatalEvidence | Select-Object -Unique | Set-Content -LiteralPath $runtimeEvidence -Encoding utf8
     }
 
+    $systemPanelRecovery = Restore-MonkeySystemPanel -Serial $serial
+    $systemPanelRecovery | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $runRoot ("$name-system-panel.json")) -Encoding utf8
     $relaunchStopResult = Invoke-Adb -Arguments @(
         '-s', $serial, 'shell', 'am', 'force-stop', $packageName
     )
@@ -577,10 +824,24 @@ foreach ($variant in $variants) {
         if ($relaunchResult.ExitCode -eq 0) {
             $relaunchReadiness = Wait-ForPackageFocus `
                 -Serial $serial `
-                -PackageName $packageName
+                -PackageName $packageName -RecoverSystemDialogs
         }
     }
+    # Include restart/recovery diagnostics; a dismissed overlay cannot hide a
+    # provider failure or process error that occurred after the stress capture.
+    $relaunchLogcat = Invoke-Adb -Arguments @('-s', $serial, 'logcat', '-d', '-v', 'threadtime')
+    $relaunchLogcatCollected = $relaunchLogcat.ExitCode -eq 0 -and -not $relaunchLogcat.TimedOut -and @($relaunchLogcat.Output).Count -gt 0
+    $relaunchLogcatText = $relaunchLogcat.Output -join "`n"
+    $relaunchLogcatPath = Join-Path $runRoot "$name-relaunch-full-logcat.log"
+    $relaunchLogcatText | Set-Content -LiteralPath $relaunchLogcatPath -Encoding utf8
+    foreach ($pattern in $fatalPatterns) {
+        foreach ($match in [regex]::Matches($relaunchLogcatText, $pattern)) { $fatalEvidence.Add($match.Value.Trim()) }
+    }
+    if ($fatalEvidence.Count -gt 0) {
+        $fatalEvidence | Select-Object -Unique | Set-Content -LiteralPath $runtimeEvidence -Encoding utf8
+    }
     $relaunchSucceeded = $relaunchProcessAbsent -and
+        $systemPanelRecovery.Passed -and
         $relaunchResult.ExitCode -eq 0 -and
         $relaunchReadiness.Ready
     $passed = $startupReadiness.Ready -and
@@ -588,6 +849,7 @@ foreach ($variant in $variants) {
         $monkeyExitCode -eq 0 -and
         $eventCountVerified -and
         $logcatCollected -and
+        $relaunchLogcatCollected -and
         $fatalEvidence.Count -eq 0 -and
         $relaunchSucceeded
 
@@ -619,6 +881,7 @@ foreach ($variant in $variants) {
         fullLogcatSha256 = $fullLogcatSha256
         fullLogcatBytes = (Get-Item -LiteralPath $fullLogcatPath).Length
         fatalMarkerCount = $fatalEvidence.Count
+        systemPanelRecovery = $systemPanelRecovery
         relaunchStopExitCode = $relaunchStopResult.ExitCode
         relaunchProcessAbsent = $relaunchProcessAbsent
         relaunchLaunchExitCode = $relaunchResult.ExitCode
@@ -628,6 +891,11 @@ foreach ($variant in $variants) {
         relaunchLastFocus = $relaunchReadiness.LastFocus
         relaunchProbeSamples = @($relaunchReadiness.ProbeSamples)
         relaunchSucceeded = $relaunchSucceeded
+        relaunchLogcatCollected = $relaunchLogcatCollected
+        relaunchLogcatExitCode = $relaunchLogcat.ExitCode
+        relaunchLogcatTimedOut = $relaunchLogcat.TimedOut
+        relaunchLogcatPath = $relaunchLogcatPath
+        relaunchLogcatSha256 = (Get-FileHash -LiteralPath $relaunchLogcatPath -Algorithm SHA256).Hash.ToLowerInvariant()
         durationSeconds = [math]::Round(((Get-Date) - $variantStart).TotalSeconds, 3)
         monkeyLog = $variantLog
         runtimeEvidence = $runtimeEvidence
@@ -650,6 +918,11 @@ $manifest = [ordered]@{
         branch = $branch
         dirty = $dirtyEntries.Count -gt 0
         dirtyEntryCount = $dirtyEntries.Count
+    }
+    runner = [ordered]@{
+        commit = Get-GitEvidenceText -RepositoryRoot $runnerRoot -Arguments @('rev-parse', 'HEAD')
+        scriptSha256 = (Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash
+        fatalPatternsSha256 = (Get-FileHash -LiteralPath (Join-Path $PSScriptRoot 'android_runtime_fatal_patterns.ps1') -Algorithm SHA256).Hash
     }
     device = [ordered]@{
         serial = $serial

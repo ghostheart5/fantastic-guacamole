@@ -4,6 +4,23 @@ on:
   schedule:
     - cron: '*/10 * * * *'
   workflow_dispatch:
+    inputs:
+      operation:
+        description: Existing reconciliation or the explicitly reviewed repair rollout
+        type: choice
+        required: true
+        default: reconcile
+        options:
+          - reconcile
+          - apply-reviewed-repairs
+      source_sha:
+        description: Repair mode only; exact full reviewed commit SHA
+        type: string
+        required: false
+      ci_run:
+        description: Repair mode only; successful manual CI run for that exact commit
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -14,6 +31,7 @@ concurrency:
 
 jobs:
   account-deletion:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.operation == 'reconcile')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: production
@@ -68,3 +86,70 @@ jobs:
             }
             console.log(`Deletion reconciliation passed: contract=${contract}, scanned=${body.scanned}, completed=${body.completed}`);
           ' "$response_file"
+
+  reviewed-repairs:
+    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'apply-reviewed-repairs' && github.repository == 'ghostheart5/fantastic-guacamole' && github.ref == 'refs/heads/fix/app-only-readiness-priority2-20260902'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: production
+    permissions:
+      contents: read
+      actions: read
+    env:
+      BACKEND_REPAIR_OPERATION: ${{ inputs.operation }}
+      BACKEND_REPAIR_SOURCE_SHA: ${{ inputs.source_sha }}
+      BACKEND_REPAIR_CI_RUN: ${{ inputs.ci_run }}
+    steps:
+      - name: Require exact-source successful CI before app checkout or production credentials
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$BACKEND_REPAIR_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$BACKEND_REPAIR_CI_RUN" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKEND_REPAIR_CI_RUN" > "$RUNNER_TEMP/backend-repair-ci.json"
+          jq -e --arg sha "$BACKEND_REPAIR_SOURCE_SHA" --arg repo "$GITHUB_REPOSITORY" --arg run "$BACKEND_REPAIR_CI_RUN" '
+            (.id | tostring) == $run and .head_sha == $sha and
+            .repository.full_name == $repo and .path == ".github/workflows/ci.yml" and
+            .event == "workflow_dispatch" and .status == "completed" and
+            .conclusion == "success"' "$RUNNER_TEMP/backend-repair-ci.json"
+
+      - name: Checkout exact reviewed workflow tooling
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          persist-credentials: false
+
+      - name: Checkout frozen green app source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.source_sha }}
+          path: candidate
+          persist-credentials: false
+
+      - name: Set up pinned Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.116.0
+
+      - name: Apply only the reviewed backend repairs and verify readback
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS: ${{ secrets.CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS }}
+        run: node candidate/scripts/backend_repair_rollout.mjs candidate tooling
+
+      - name: Save sanitized repair metadata and verification evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: backend-reviewed-repairs-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/chronospark-backend-repair-evidence/*.json
+          if-no-files-found: warn
+          retention-days: 7

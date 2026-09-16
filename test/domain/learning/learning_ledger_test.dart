@@ -113,6 +113,85 @@ void main() {
     expect(applied.recommendedKind, PlannerOptionKind.minimum);
     expect(applied.recommendationReason, contains('reviewable'));
   });
+
+  for (final language in ['en', 'es', 'es-MX', 'es_ES']) {
+    for (final preferred in PlannerOptionKind.values) {
+      test(
+        'learned ${preferred.name} explanation follows $language response',
+        () {
+          final now = DateTime.utc(2026, 9, 14);
+          final summary = LearningLedgerSummary.fromOutcomes([
+            for (var i = 0; i < 3; i++)
+              _outcome('choice-$i', now, option: preferred.name),
+          ], now: now);
+          final response = _plannerResponse().copyWith(
+            languageCode: language,
+            recommendedKind: preferred == PlannerOptionKind.bestFit
+                ? PlannerOptionKind.stretch
+                : PlannerOptionKind.bestFit,
+          );
+          final applied = applyPlannerLearnedPreference(response, summary);
+          final spanish = language.startsWith('es');
+          final optionName = switch (preferred) {
+            PlannerOptionKind.minimum => spanish ? 'mínima' : 'minimum',
+            PlannerOptionKind.bestFit => spanish ? 'más adecuada' : 'best-fit',
+            PlannerOptionKind.stretch =>
+              spanish ? 'de mayor esfuerzo' : 'stretch',
+          };
+          expect(applied.recommendedKind, preferred);
+          expect(applied.languageCode, language);
+          expect(applied.options, orderedEquals(response.options));
+          expect(applied.recommendationReason, contains(optionName));
+          expect(applied.recommendationReason, isNot(contains('bestFit')));
+          if (spanish) {
+            expect(
+              applied.recommendationReason,
+              contains('Puedes elegir otra opción'),
+            );
+            expect(
+              applied.recommendationReason,
+              contains('corregir este aprendizaje'),
+            );
+            expect(
+              applied.recommendationReason,
+              isNot(contains('Your reviewable')),
+            );
+          } else {
+            expect(
+              applied.recommendationReason,
+              contains('You can choose another option'),
+            );
+          }
+          for (final output in [
+            applied.toConversationText(),
+            applied.toAccessibleText(),
+            applied.toSpokenSummary(),
+          ]) {
+            expect(output, contains(applied.recommendationReason));
+          }
+        },
+      );
+    }
+  }
+
+  for (final preferred in ['bestFit', 'stretch']) {
+    test('learning cannot escalate a current minimum to $preferred', () {
+      final now = DateTime.utc(2026, 9, 13);
+      final summary = LearningLedgerSummary.fromOutcomes([
+        for (var i = 0; i < 8; i++)
+          _outcome('preference-$i', now, option: preferred),
+      ], now: now);
+      expect(summary.patterns.single.canInfluenceRecommendations, isTrue);
+      final response = _plannerResponse().recommend(
+        PlannerOptionKind.minimum,
+        why: 'Current capacity requires the smallest option.',
+      );
+      final applied = applyPlannerLearnedPreference(response, summary);
+      expect(applied.recommendedKind, PlannerOptionKind.minimum);
+      expect(applied.nextStep, response.nextStep);
+      expect(applied.recommendationReason, response.recommendationReason);
+    });
+  }
 }
 
 PlannerV2Response _plannerResponse() => PlannerV2Response(

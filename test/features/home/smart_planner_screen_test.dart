@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'dart:async';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
@@ -17,6 +18,7 @@ import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
+import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planner_explanation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
@@ -24,11 +26,477 @@ import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
+  testWidgets(
+    'planner shows partial dictation before completion and keeps Send disabled',
+    (tester) async {
+      final voice = _RecordingConsentVoiceController();
+      final container = _container(voiceController: voice);
+      addTearDown(container.dispose);
+      await _pumpPlanner(tester, container);
+      await _requestGuidance(tester);
+      await _scrollTo(tester, find.byIcon(Icons.mic_none_rounded));
+      await tester.pump();
+      voice.emitTranscript('What should I', listening: true);
+      await tester.pump();
+      final input = find.byKey(const Key('planner-follow-up-field'));
+      expect(tester.widget<TextField>(input).controller!.text, 'What should I');
+      expect(tester.widget<TextField>(input).readOnly, isTrue);
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is IconButton && widget.tooltip == 'Send message',
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
+      voice.emitTranscript('What should I do next?', listening: false);
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(input).controller!.text,
+        'What should I do next?',
+      );
+      expect(tester.widget<TextField>(input).readOnly, isFalse);
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is IconButton && widget.tooltip == 'Send message',
+              ),
+            )
+            .onPressed,
+        isNotNull,
+      );
+    },
+  );
+
+  testWidgets('voice failure displays localized safe feedback', (tester) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final voice = _RecordingConsentVoiceController()..failStart = true;
+    final container = _container(voiceController: voice);
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    await _requestGuidance(tester);
+    final mic = find.byIcon(Icons.mic_none_rounded);
+    await _scrollTo(tester, mic);
+    await tester.tap(mic);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final agree = find.widgetWithText(FilledButton, 'Agree and dictate');
+    await tester.ensureVisible(agree);
+    await tester.tap(agree);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(voice.starts, 1);
+    expect(
+      find.text('Voice input is unavailable. Check permission and retry.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('private-platform-diagnostic'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final bool invalidateDuringConsent in <bool>[false, true]) {
+    testWidgets(
+      'voice requires provider disclosure; invalidated request=$invalidateDuringConsent',
+      (tester) async {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        final voice = _RecordingConsentVoiceController();
+        final container = _container(voiceController: voice);
+        addTearDown(container.dispose);
+        await _pumpPlanner(tester, container);
+        await _requestGuidance(tester);
+        final mic = find.byIcon(Icons.mic_none_rounded);
+        await _scrollTo(tester, mic);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.tap(mic);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(
+          find.textContaining('may send audio to its servers'),
+          findsOneWidget,
+        );
+        expect(voice.starts, 0);
+        final decline = find.widgetWithText(TextButton, 'Not Now');
+        await tester.ensureVisible(decline);
+        await tester.tap(decline);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(voice.starts, 0);
+        await _scrollTo(tester, mic);
+        await tester.tap(mic);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        if (invalidateDuringConsent) {
+          container.invalidate(voiceControllerProvider);
+          await tester.pump();
+        }
+        final agree = find.widgetWithText(FilledButton, 'Agree and dictate');
+        await tester.ensureVisible(agree);
+        await tester.tap(agree);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(voice.starts, invalidateDuringConsent ? 0 : 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'changed and cleared check-ins invalidate stale visible and pending plans',
+    (tester) async {
+      late _DelayedPlannerController planner;
+      final container = _container(
+        plannerBuilder: (ref) => planner = _DelayedPlannerController(ref),
+      );
+      addTearDown(container.dispose);
+      await _pumpPlanner(tester, container);
+      container.read(emotionCheckInProvider.notifier).set(EmotionalState.calm);
+      await tester.pump();
+      await _scrollTo(tester, find.text('GET GUIDANCE'));
+      await tester.tap(find.text('GET GUIDANCE'));
+      await tester.pump();
+      expect(planner.guidanceRequestCount, 1);
+      container
+          .read(emotionCheckInProvider.notifier)
+          .set(EmotionalState.anxious);
+      planner.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Use this plan'), findsNothing);
+      await _requestGuidance(tester);
+      expect(find.text('Use this plan'), findsOneWidget);
+      final clear = find.byKey(const Key('clear-emotion-check-in'));
+      await _scrollTo(tester, clear);
+      await tester.tap(clear);
+      await tester.pump();
+      expect(container.read(currentPlannerEmotionProvider), isNull);
+      expect(find.text('Use this plan'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'one request locks immediately and renders without a second tap',
+    (tester) async {
+      late _DelayedPlannerController planner;
+      final container = _container(
+        plannerBuilder: (ref) => planner = _DelayedPlannerController(ref),
+      );
+      addTearDown(container.dispose);
+      await _pumpPlanner(tester, container);
+      await _scrollTo(tester, find.text('GET GUIDANCE'));
+      final button = tester.widget<FilledButton>(
+        find.descendant(
+          of: find.byKey(const Key('planner-guidance-button')),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      // Two calls in the same frame exercise the pre-await race.
+      button.onPressed!();
+      button.onPressed!();
+      await tester.pump();
+      expect(planner.guidanceRequestCount, 1);
+      final busy = tester.widget<FilledButton>(
+        find.descendant(
+          of: find.byKey(const Key('planner-guidance-button')),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      expect(busy.onPressed, isNull);
+      planner.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Use this plan'), findsOneWidget);
+      expect(planner.guidanceRequestCount, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets('editing planning text clears ready and pending guidance', (
+    tester,
+  ) async {
+    late _DelayedPlannerController planner;
+    final container = _container(
+      plannerBuilder: (ref) => planner = _DelayedPlannerController(ref),
+    );
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    final input = find.byKey(const Key('planner-context-field'));
+    await _scrollTo(tester, input);
+    await tester.enterText(input, 'Fold one shirt.');
+    await _requestGuidance(tester);
+    await _scrollTo(tester, input);
+    await tester.enterText(input, 'Pack my uniform. Do not fold anything.');
+    planner.complete();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const Key('planner-use-this-plan')), findsNothing);
+    expect(container.read(creatorDraftPreviewProvider), isNull);
+    await _requestGuidance(tester);
+    expect(find.byKey(const Key('planner-use-this-plan')), findsOneWidget);
+    await _scrollTo(tester, input);
+    await tester.enterText(input, 'Send an email instead.');
+    await tester.pump();
+    expect(find.byKey(const Key('planner-response-panel')), findsNothing);
+    expect(find.byKey(const Key('planner-follow-up-field')), findsNothing);
+    expect(container.read(creatorDraftPreviewProvider), isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'smaller stays atomic at one minute and reaches follow-up context',
+    (tester) async {
+      late _RecordingFollowUpController planner;
+      final container = _container(
+        plannerBuilder: (ref) => planner = _RecordingFollowUpController(ref),
+      );
+      addTearDown(container.dispose);
+      await _pumpPlanner(tester, container);
+      final contextField = find.byKey(const Key('planner-context-field'));
+      await _scrollTo(tester, contextField);
+      await tester.enterText(
+        contextField,
+        'I need to settle a release decision.',
+      );
+      await _requestGuidance(tester);
+      for (int tap = 0; tap < 6; tap++) {
+        final smaller = find.byKey(const Key('planner-make-smaller'));
+        await _scrollTo(tester, smaller);
+        await tester.tap(smaller);
+        await tester.pump();
+        expect(
+          tester.widget<Text>(find.byKey(const Key('planner-next-step'))).data,
+          'Write the next release decision.',
+        );
+        expect(find.textContaining('Begin with a'), findsNothing);
+      }
+      await _sendTestFollowUp(tester, 'Why this one?');
+      final snapshot = planner.snapshots.single!;
+      expect(
+        snapshot.originalObjective,
+        'I need to settle a release decision.',
+      );
+      expect(snapshot.currentPlan.recommendedOption.estimatedMinutes, 1);
+      expect(snapshot.currentPlan.nextStep, 'Write the next release decision.');
+      expect(snapshot.adjustments, hasLength(4));
+      expect(snapshot.adjustments.map((event) => event.currentMinutes), <int>[
+        5,
+        3,
+        2,
+        1,
+      ]);
+      expect(
+        planner.histories.single
+            .where((item) => item['role'] == 'user')
+            .map((item) => item['content']),
+        <String>['I need to settle a release decision.'],
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('different approach asks why without increasing effort', (
+    tester,
+  ) async {
+    late _RecordingFollowUpController planner;
+    final container = _container(
+      plannerBuilder: (ref) => planner = _RecordingFollowUpController(ref),
+    );
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    await _requestGuidance(tester);
+    final different = find.byKey(const Key('planner-different-approach'));
+    await _scrollTo(tester, different);
+    await tester.tap(different);
+    await tester.pump();
+    expect(find.text('Balanced release block'), findsOneWidget);
+    expect(find.text('Deep release pass'), findsNothing);
+    expect(
+      find.text(const PlannerRoutineCopy(false).differentApproachQuestion),
+      findsOneWidget,
+    );
+    await _sendTestFollowUp(tester, 'I cannot silence interruptions.');
+    final snapshot = planner.snapshots.single!;
+    expect(snapshot.currentPlan.recommendedOption.estimatedMinutes, 20);
+    expect(
+      snapshot.adjustments.single.kind,
+      PlannerAdjustmentKind.rejectedApproach,
+    );
+    expect(snapshot.adjustments.single.previousMinutes, 20);
+    expect(snapshot.adjustments.single.currentMinutes, 20);
+    expect(planner.inputs.single, 'I cannot silence interruptions.');
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final bool timeout in <bool>[false, true]) {
+    testWidgets(
+      'follow-up ${timeout ? 'timeout' : 'error'} retains exact retry once',
+      (tester) async {
+        late _RecordingFollowUpController planner;
+        final container = _container(
+          plannerBuilder: (ref) => planner = _RecordingFollowUpController(
+            ref,
+            failFirst: true,
+            timeoutFirst: timeout,
+          ),
+        );
+        addTearDown(container.dispose);
+        await _pumpPlanner(tester, container);
+        await _requestGuidance(tester);
+        const question = 'I only have two minutes; keep the same task.';
+        await _sendTestFollowUp(tester, question);
+        if (timeout) {
+          await tester.pump(const Duration(seconds: 26));
+          await tester.pump();
+        }
+        final field = find.byKey(const Key('planner-follow-up-field'));
+        expect(tester.widget<TextField>(field).controller!.text, question);
+        expect(find.text('Retry follow-up'), findsOneWidget);
+        expect(find.byType(SmartPlannerScreen), findsOneWidget);
+        await tester.tap(find.text('Retry follow-up'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(planner.inputs, <String>[question, question]);
+        expect(planner.histories[0], planner.histories[1]);
+        expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+        expect(find.text('Retry follow-up'), findsNothing);
+        await _scrollTo(tester, find.text(question));
+        expect(find.text(question), findsOneWidget);
+        expect(container.read(creatorDraftPreviewProvider), isNull);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('edited context discards a late failed follow-up', (
+    tester,
+  ) async {
+    late _RecordingFollowUpController planner;
+    final container = _container(
+      plannerBuilder: (ref) => planner = _RecordingFollowUpController(
+        ref,
+        failFirst: true,
+        timeoutFirst: true,
+      ),
+    );
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    await _requestGuidance(tester);
+    await _sendTestFollowUp(tester, 'Explain this step.');
+    final field = find.byKey(const Key('planner-context-field'));
+    await _scrollTo(tester, field);
+    await tester.enterText(field, 'A new request: pack my uniform.');
+    await _requestGuidance(tester);
+    expect(planner.guidanceRequestCount, 2);
+    expect(planner.inputs, <String>['Explain this step.']);
+    await tester.pump(const Duration(seconds: 26));
+    await tester.pump();
+    expect(find.byKey(const Key('planner-response-panel')), findsOneWidget);
+    expect(find.text('Retry follow-up'), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('planner-follow-up-field')))
+          .controller!
+          .text,
+      isEmpty,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'Spanish locale keeps ordinary plan, follow-up and speech aligned',
+    (tester) async {
+      late _LocalResponsePlannerController planner;
+      final voice = _CapturedPlannerVoiceService();
+      final container = _container(
+        plannerBuilder: (ref) => planner = _LocalResponsePlannerController(ref),
+        voiceService: voice,
+      );
+      addTearDown(container.dispose);
+      await _pumpPlanner(tester, container, locale: const Locale('es'));
+      final contextField = find.byKey(const Key('planner-context-field'));
+      await _scrollTo(tester, contextField);
+      await tester.enterText(
+        contextField,
+        'Solo tengo cinco minutos para guardar mi uniforme para mañana.',
+      );
+      await _requestGuidance(tester);
+      final first = planner.responses.single;
+      expect(first.isClarification, isFalse);
+      expect(first.isSpanish, isTrue);
+      expect(first.recommendedOption.estimatedMinutes, 5);
+      expect(first.nextStep.toLowerCase(), contains('uniforme'));
+      expect(
+        tester.widget<Text>(find.byKey(const Key('planner-next-step'))).data,
+        first.nextStep,
+      );
+      expect(find.text('TU PLAN'), findsOneWidget);
+      expect(find.text('SIGUIENTE PASO'), findsOneWidget);
+      expect(find.text('Usar este plan'), findsOneWidget);
+      expect(find.text('Hacer más pequeño'), findsOneWidget);
+      expect(find.text('Otro enfoque'), findsOneWidget);
+      final followUpField = find.byKey(const Key('planner-follow-up-field'));
+      expect(
+        tester.widget<TextField>(followUpField).decoration!.labelText,
+        'Pregunta de seguimiento',
+      );
+
+      await _scrollTo(tester, find.text('RESUMEN'));
+      await tester.tap(find.text('RESUMEN'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(voice.summaries.single, contains(first.nextStep));
+      expect(voice.summaries.single, contains('5 minutos'));
+      expect(voice.summaries.single, isNot(contains('Plan options')));
+      await _scrollTo(tester, find.text('LEER EN VOZ ALTA'));
+      await tester.tap(find.text('LEER EN VOZ ALTA'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(voice.fullResponses.single, contains('Opciones del plan'));
+      expect(voice.fullResponses.single, contains(first.nextStep));
+      expect(
+        voice.summaries.single.length,
+        lessThan(voice.fullResponses.single.length),
+      );
+
+      await _sendTestFollowUp(
+        tester,
+        'Ahora solo tengo dos minutos.',
+        sendTooltip: 'Enviar mensaje',
+      );
+      final revised = planner.responses.last;
+      expect(planner.requestLanguages, <String?>['es', 'es']);
+      expect(revised.isClarification, isFalse);
+      expect(revised.isSpanish, isTrue);
+      expect(revised.recommendedOption.estimatedMinutes, 2);
+      expect(revised.nextStep.toLowerCase(), contains('uniforme'));
+      expect(revised.userContext!.objective, first.userContext!.objective);
+      await _scrollTo(tester, find.byKey(const Key('planner-next-step')));
+      expect(
+        tester.widget<Text>(find.byKey(const Key('planner-next-step'))).data,
+        revised.nextStep,
+      );
+      await _scrollTo(tester, find.text(revised.toConversationText()));
+      expect(find.text(revised.toConversationText()), findsOneWidget);
+      await _scrollTo(tester, find.text('RESUMEN'));
+      await tester.tap(find.text('RESUMEN'));
+      await tester.pump();
+      expect(voice.summaries.last, contains(revised.nextStep));
+      expect(voice.summaries.last, contains('2 minutos'));
+      expect(voice.summaries.last, isNot(contains('5 minutos')));
+      expect(container.read(creatorDraftPreviewProvider), isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final bool preference in <bool>[false, true]) {
     testWidgets(
       '${preference ? 'preference' : 'priority'} dialog survives dismissal while keyboard closes',
@@ -142,6 +610,50 @@ void main() {
       semantics.dispose();
     }
   });
+
+  for (final scenario in <({double width, double textScale})>[
+    (width: 390, textScale: 1),
+    (width: 320, textScale: 2),
+  ]) {
+    testWidgets(
+      'Spanish emotion choices stay fully visible at ${scenario.width}dp and ${scenario.textScale}x text',
+      (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(Size(scenario.width, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final ProviderContainer container = _container();
+        addTearDown(container.dispose);
+        await _pumpPlanner(
+          tester,
+          container,
+          locale: const Locale('es'),
+          textScale: scenario.textScale,
+        );
+        for (final label in <String>['CON CANSANCIO', 'CON ANSIEDAD']) {
+          final Finder choice = find.text(label);
+          await _scrollTo(tester, choice);
+          expect(choice, findsOneWidget);
+          final RenderParagraph paragraph = tester
+              .renderObject<RenderParagraph>(choice);
+          final ChoiceChip chip = tester.widget<ChoiceChip>(
+            find.ancestor(of: choice, matching: find.byType(ChoiceChip)).first,
+          );
+          final Text visibleLabel = chip.label as Text;
+          expect(visibleLabel.overflow, TextOverflow.visible);
+          if (scenario.textScale == 1) {
+            expect(
+              paragraph.size.width,
+              greaterThanOrEqualTo(
+                paragraph.getMaxIntrinsicWidth(double.infinity),
+              ),
+              reason: '$label must fit on one line at ${scenario.width}dp',
+            );
+          }
+          expect(paragraph.didExceedMaxLines, isFalse);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('starts with an ephemeral input boundary and no write controls', (
     WidgetTester tester,
@@ -381,8 +893,8 @@ void main() {
     expect(planner.lastEnergy, 0.35);
     expect(container.read(smartPlannerFirstValueProvider), isNull);
     expect(container.read(memoriesProvider), isEmpty);
-    await _scrollTo(tester, find.text('PLANNER V2'));
-    expect(find.text('ON-DEVICE PLANNER V2 · DETERMINISTIC'), findsOneWidget);
+    await _scrollTo(tester, find.text('YOUR PLAN'));
+    expect(find.text('Local planning from your context'), findsOneWidget);
   });
 
   testWidgets('rebuild does not duplicate staged first-value guidance', (
@@ -459,8 +971,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(planner.guidanceRequestCount, 1);
-      await _scrollTo(tester, find.text('PLANNER V2'));
-      expect(find.text('ON-DEVICE PLANNER V2 · DETERMINISTIC'), findsOneWidget);
+      await _scrollTo(tester, find.text('YOUR PLAN'));
+      expect(find.text('Local planning from your context'), findsOneWidget);
     },
   );
 
@@ -535,6 +1047,9 @@ void main() {
           _BlockedPlannerController.new,
         ),
         smartPlannerAvailabilityProvider.overrideWith((Ref ref) async => true),
+        voiceInputConsentStoreProvider.overrideWithValue(
+          VoiceInputConsentStore(const AccountStorageScope.unsafe()),
+        ),
         voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
       ],
     );
@@ -577,7 +1092,7 @@ void main() {
     expect(planner.guidanceRequestCount, 0);
   });
 
-  testWidgets('renders the calm Planner V2 action set', (
+  testWidgets('shows a concise answer and keeps alternatives inspectable', (
     WidgetTester tester,
   ) async {
     final ProviderContainer container = _container();
@@ -585,97 +1100,48 @@ void main() {
     await _pumpPlanner(tester, container);
     await _requestGuidance(tester);
 
-    await _scrollTo(tester, find.text('PLANNER V2'));
-    expect(find.text('ON-DEVICE PLANNER V2 · DETERMINISTIC'), findsOneWidget);
-    expect(find.text('WHAT I HEARD'), findsNothing);
-    expect(find.text('YOUR PLAN + TRADEOFF'), findsOneWidget);
-    expect(find.text('ONE CONCRETE NEXT STEP'), findsOneWidget);
+    await _scrollTo(tester, find.byKey(const Key('planner-response-panel')));
+    expect(find.text('Local planning from your context'), findsOneWidget);
     expect(
       find.text('You want to move the release forward without hidden writes.'),
-      findsNothing,
+      findsOneWidget,
     );
     expect(find.text('Balanced release block'), findsOneWidget);
-    expect(find.text('RECOMMENDED'), findsNothing);
-    expect(find.textContaining('BEST-FIT · 20 MIN'), findsOneWidget);
-    expect(find.text('Resolve and verify one release decision.'), findsNothing);
+    expect(find.text('BEST-FIT · 20 MIN'), findsOneWidget);
     expect(
-      find.textContaining(
-        'The selected capacity supports a bounded work block.',
-      ),
-      findsNothing,
-    );
-    expect(
-      find.text('Tradeoff: Balanced effort and progress.'),
+      find.text('The selected capacity supports a bounded work block.'),
       findsOneWidget,
     );
     expect(
       find.text('Open the release note and write the unresolved decision.'),
       findsOneWidget,
     );
-    expect(find.text('WHAT APPEARS TO MATTER MOST'), findsNothing);
-    expect(find.text('VERIFIED CHRONOSPARK EVIDENCE'), findsNothing);
-    expect(find.text('PLAN SPECTRUM'), findsNothing);
-    expect(find.text('ONE USEFUL QUESTION'), findsNothing);
-    expect(find.text('ADAPTATION RECEIPT'), findsNothing);
     expect(
-      find.text('A bounded release decision with a reversible next step.'),
-      findsNothing,
+      find.text('What evidence will settle the decision?'),
+      findsOneWidget,
     );
     expect(find.text('Small release move'), findsNothing);
     expect(find.text('Deep release pass'), findsNothing);
-    expect(find.text('What evidence will settle the decision?'), findsNothing);
     expect(find.textContaining('Inputs used: 70% energy'), findsNothing);
-    expect(find.text('View alternatives and evidence'), findsNothing);
     expect(find.text('Use this plan'), findsOneWidget);
     expect(find.text('Make smaller'), findsOneWidget);
     expect(find.text('Different approach'), findsOneWidget);
-    expect(find.text('Why this'), findsOneWidget);
-    expect(find.text('Evidence'), findsOneWidget);
-    expect(find.text('Open as Creator draft'), findsNothing);
     expect(find.text('Remember a preference'), findsOneWidget);
-    expect(find.text('Not now'), findsNothing);
-    expect(find.text('READ ALOUD'), findsOneWidget);
-    expect(find.text('VOICE INPUT'), findsOneWidget);
-    expect(find.text('SPEAK'), findsNothing);
+    final why = find.byKey(const Key('planner-why-this'));
+    await _scrollTo(tester, why);
+    await tester.tap(why);
+    await tester.pump();
     expect(
-      find.text('Guidance is advisory; you choose whether to apply it.'),
-      findsNothing,
+      find.textContaining('Tradeoff: Balanced effort and progress.'),
+      findsOneWidget,
     );
-    expect(tester.widget<Text>(find.text('PLANNER V2')).style?.fontSize, 13);
-    expect(
-      tester.widget<Text>(find.text('YOUR PLAN + TRADEOFF')).style?.fontSize,
-      13,
-    );
-    expect(
-      tester.widget<Text>(find.text('ONE CONCRETE NEXT STEP')).style?.fontSize,
-      13,
-    );
-    expect(
-      tester.widget<Text>(find.text('BEST-FIT · 20 MIN')).style?.fontSize,
-      13,
-    );
-    expect(
-      tester.widget<Text>(find.text('Balanced release block')).style?.fontSize,
-      17,
-    );
-    expect(
-      tester
-          .widget<Text>(find.text('Tradeoff: Balanced effort and progress.'))
-          .style
-          ?.fontSize,
-      16,
-    );
-    expect(
-      tester
-          .widget<Text>(
-            find.text(
-              'Open the release note and write the unresolved decision.',
-            ),
-          )
-          .style
-          ?.fontSize,
-      16,
-    );
+    final alternatives = find.byKey(const Key('planner-alternative-options'));
+    await _scrollTo(tester, alternatives);
+    await tester.tap(alternatives);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Small release move'), findsOneWidget);
+    expect(find.text('Deep release pass'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('records canonical receipt outcomes and stages Creator preview', (
@@ -761,7 +1227,7 @@ void main() {
       await _requestGuidance(tester);
       await tester.pump(const Duration(milliseconds: 500));
 
-      final Finder responseHeader = find.text('PLANNER V2');
+      final Finder responseHeader = find.text('YOUR PLAN');
       expect(responseHeader, findsOneWidget);
       final Rect headerRect = tester.getRect(responseHeader);
       expect(headerRect.top, greaterThanOrEqualTo(0));
@@ -782,7 +1248,7 @@ void main() {
 
     await _scrollTo(tester, find.text('READ ALOUD'));
     await tester.tap(find.text('READ ALOUD'));
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(voiceService.speakCheckedCalls, 1);
     expect(find.text('READING'), findsOneWidget);
@@ -809,6 +1275,7 @@ void main() {
     await _scrollTo(tester, find.text('READ ALOUD'));
     await tester.tap(find.text('READ ALOUD'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(
@@ -1005,6 +1472,7 @@ void main() {
 
 ProviderContainer _container({
   VoiceService? voiceService,
+  VoiceController? voiceController,
   OperatingDecisionReceipt? operatingReceipt,
   List<_RecordedOutcome>? outcomes,
   AccountStorageScope? accountScope,
@@ -1025,6 +1493,10 @@ ProviderContainer _container({
   }
   return ProviderContainer(
     overrides: [
+      if (voiceController != null)
+        voiceInputEnabledProvider.overrideWithValue(true),
+      if (voiceController != null)
+        voiceControllerProvider.overrideWith(() => voiceController),
       accountStorageScopeProvider.overrideWithValue(resolvedScope),
       accountLegacyOwnershipProvider.overrideWithValue(
         LegacyScopeOwnership.provenNotOwned,
@@ -1046,6 +1518,9 @@ ProviderContainer _container({
       ),
       smartPlannerAvailabilityProvider.overrideWith(
         (Ref ref) async => plannerAvailable,
+      ),
+      voiceInputConsentStoreProvider.overrideWithValue(
+        VoiceInputConsentStore(const AccountStorageScope.unsafe()),
       ),
       voiceServiceProvider.overrideWithValue(
         voiceService ?? _NoopVoiceService(),
@@ -1129,21 +1604,46 @@ Future<void> _pumpPlanner(
 }
 
 Future<void> _requestGuidance(WidgetTester tester) async {
+  // Context edits can remove the previous plan and change scroll extents.
+  // Lay out that change before locating the next actionable button.
+  await tester.pump();
   final Finder guidanceButton = find.byKey(
     const Key('planner-guidance-button'),
   );
   await _scrollTo(tester, guidanceButton);
+  expect(guidanceButton.hitTestable(), findsOneWidget);
   await tester.tap(guidanceButton);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 300));
 }
 
+Future<void> _sendTestFollowUp(
+  WidgetTester tester,
+  String text, {
+  String sendTooltip = 'Send message',
+}) async {
+  final field = find.byKey(const Key('planner-follow-up-field'));
+  await tester.enterText(field, text);
+  await tester.tap(find.byTooltip(sendTooltip));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 500));
+}
+
 Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
-  await tester.scrollUntilVisible(
-    finder,
-    350,
-    scrollable: find.byType(Scrollable).first,
-  );
+  if (finder.evaluate().isEmpty) {
+    final mainScrollable = find
+        .descendant(
+          of: find.byKey(const Key('planner-content-scroll')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final position = tester.state<ScrollableState>(mainScrollable).position;
+    // A lazy child may be above or below the current viewport. Start from the
+    // actual list boundary before searching; never scroll an editable field.
+    position.jumpTo(position.minScrollExtent);
+    await tester.pump();
+    await tester.scrollUntilVisible(finder, 350, scrollable: mainScrollable);
+  }
   await tester.ensureVisible(finder);
   await tester.pump();
 }
@@ -1190,6 +1690,7 @@ class _PlannerV2TestController extends SmartPlannerQueryController {
     required String? previousSavedNotes,
     String? supportivePauseReason,
     String? supportiveQuestion,
+    String? languageCode,
   }) async {
     guidanceRequestCount += 1;
     lastEnergy = energy;
@@ -1209,6 +1710,118 @@ class _PlannerV2TestController extends SmartPlannerQueryController {
   }) async => 'Follow-up response for $input';
 }
 
+class _RecordingFollowUpController extends _PlannerV2TestController {
+  _RecordingFollowUpController(
+    super.ref, {
+    this.failFirst = false,
+    this.timeoutFirst = false,
+  });
+
+  final bool failFirst;
+  final bool timeoutFirst;
+  final List<String> inputs = <String>[];
+  final List<PlannerConversationSnapshot?> snapshots =
+      <PlannerConversationSnapshot?>[];
+  final List<List<Map<String, String>>> histories =
+      <List<Map<String, String>>>[];
+
+  @override
+  Future<SmartPlannerResult> requestFollowUpResult({
+    required String input,
+    required double? energy,
+    required EmotionalState? emotion,
+    required String reflection,
+    required List<Map<String, String>> history,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
+    String? languageCode,
+    PlannerConversationSnapshot? currentPlan,
+  }) async {
+    inputs.add(input);
+    snapshots.add(currentPlan);
+    histories.add(history);
+    if (failFirst && inputs.length == 1) {
+      if (timeoutFirst) return Completer<SmartPlannerResult>().future;
+      throw StateError('simulated follow-up failure');
+    }
+    return _testPlannerResult(_testRef, input);
+  }
+}
+
+/// Exercises the real local response engine without release/network evidence
+/// lookups. The widget still selects and forwards its actual MaterialApp locale.
+class _LocalResponsePlannerController extends SmartPlannerQueryController {
+  _LocalResponsePlannerController(super.ref);
+
+  final List<String?> requestLanguages = <String?>[];
+  final List<PlannerV2Response> responses = <PlannerV2Response>[];
+
+  SmartPlannerResult _result(String prompt, PlannerV2Response response) {
+    responses.add(response);
+    return SmartPlannerResult(
+      prompt: prompt,
+      message: response.toConversationText(),
+      savedNotes: null,
+      evidence: response.verifiedEvidence,
+      plannerResponse: response,
+    );
+  }
+
+  @override
+  Future<SmartPlannerResult> requestPlanningGuidance({
+    required double? energy,
+    required EmotionalState? emotion,
+    required String notes,
+    required List<Map<String, String>> history,
+    required String? previousSavedNotes,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
+    String? languageCode,
+  }) async {
+    requestLanguages.add(languageCode);
+    return _result(
+      notes,
+      buildPlannerResponse(
+        input: notes,
+        energy: energy,
+        emotion: emotion,
+        contextWasProvided: notes.isNotEmpty,
+        history: history,
+        languageCode: languageCode,
+      ),
+    );
+  }
+
+  @override
+  Future<SmartPlannerResult> requestFollowUpResult({
+    required String input,
+    required double? energy,
+    required EmotionalState? emotion,
+    required String reflection,
+    required List<Map<String, String>> history,
+    String? supportivePauseReason,
+    String? supportiveQuestion,
+    String? languageCode,
+    PlannerConversationSnapshot? currentPlan,
+  }) async {
+    requestLanguages.add(languageCode);
+    return _result(
+      input,
+      buildPlannerResponse(
+        input: input,
+        energy: energy,
+        emotion: emotion,
+        contextWasProvided: true,
+        reflection: reflection,
+        history: history,
+        languageCode: languageCode,
+        currentPlan: currentPlan,
+        isFollowUp: true,
+      ),
+    );
+  }
+}
+
 class _DelayedPlannerController extends _PlannerV2TestController {
   _DelayedPlannerController(super.ref);
 
@@ -1223,6 +1836,7 @@ class _DelayedPlannerController extends _PlannerV2TestController {
     required String? previousSavedNotes,
     String? supportivePauseReason,
     String? supportiveQuestion,
+    String? languageCode,
   }) async {
     guidanceRequestCount += 1;
     lastEnergy = energy;
@@ -1251,6 +1865,7 @@ class _BlockedPlannerController extends SmartPlannerQueryController {
     required String? previousSavedNotes,
     String? supportivePauseReason,
     String? supportiveQuestion,
+    String? languageCode,
   }) async {
     guidanceRequestCount += 1;
     final AssistantReleaseDecision decision = const AssistantReleaseController()
@@ -1289,6 +1904,7 @@ class _FailingPlannerController extends SmartPlannerQueryController {
     required String? previousSavedNotes,
     String? supportivePauseReason,
     String? supportiveQuestion,
+    String? languageCode,
   }) async {
     guidanceRequestCount += 1;
     throw StateError('simulated planner failure');
@@ -1503,6 +2119,38 @@ class _NoopVoiceService extends VoiceService {
   Future<void> stop() async {}
 }
 
+class _CapturedPlannerVoiceService extends VoiceService {
+  final List<String> summaries = <String>[];
+  final List<String> fullResponses = <String>[];
+
+  @override
+  Future<void> speak(String text) async => summaries.add(text);
+
+  @override
+  Future<void> speakLocalized(
+    String text, {
+    required String languageCode,
+  }) async => summaries.add(text);
+
+  @override
+  Future<bool> speakChecked(String text) async {
+    fullResponses.add(text);
+    return true;
+  }
+
+  @override
+  Future<bool> speakCheckedLocalized(
+    String text, {
+    required String languageCode,
+  }) async {
+    fullResponses.add(text);
+    return true;
+  }
+
+  @override
+  Future<void> stop() async {}
+}
+
 class _ControlledVoiceService extends VoiceService {
   final Completer<bool> _playback = Completer<bool>();
   int speakCheckedCalls = 0;
@@ -1512,6 +2160,12 @@ class _ControlledVoiceService extends VoiceService {
     speakCheckedCalls += 1;
     return _playback.future;
   }
+
+  @override
+  Future<bool> speakCheckedLocalized(
+    String text, {
+    required String languageCode,
+  }) => speakChecked(text);
 
   void completePlayback(bool result) {
     _playback.complete(result);
@@ -1526,5 +2180,39 @@ class _UnavailableVoiceService extends VoiceService {
   Future<bool> speakChecked(String text) async => false;
 
   @override
+  Future<bool> speakCheckedLocalized(
+    String text, {
+    required String languageCode,
+  }) async => false;
+
+  @override
   Future<void> stop() async {}
+}
+
+class _RecordingConsentVoiceController extends VoiceController {
+  void emitTranscript(String text, {required bool listening}) {
+    state = state.copyWith(isListening: listening, recognizedText: text);
+  }
+
+  int starts = 0;
+  bool failStart = false;
+  int revision = 0;
+
+  @override
+  int get lifecycleRevision => revision;
+
+  @override
+  VoiceState build() {
+    revision++;
+    ref.onDispose(() => revision++);
+    return const VoiceState();
+  }
+
+  @override
+  Future<void> startListening() async {
+    starts++;
+    if (failStart) {
+      state = state.copyWith(error: 'private-platform-diagnostic');
+    }
+  }
 }

@@ -37,6 +37,36 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../helpers/fake_task_repository.dart';
 
 void main() {
+  for (final scope in [
+    const AccountStorageScope.signedOut(),
+    const AccountStorageScope.unsafe(),
+  ]) {
+    test(
+      'SI does not open protected storage for ${scope.state.name}',
+      () async {
+        var repositoryOpened = false;
+        final container = ProviderContainer(
+          overrides: [
+            accountStorageScopeProvider.overrideWithValue(scope),
+            domainTaskRepositoryProvider.overrideWith((ref) {
+              repositoryOpened = true;
+              throw StateError('Protected storage must not be opened');
+            }),
+          ],
+        );
+        addTearDown(container.dispose);
+        final result = await container.read(siStateAggregationProvider.future);
+        expect(repositoryOpened, isFalse);
+        expect(result.tasks, isEmpty);
+        expect(result.goals, isEmpty);
+        expect(result.timeline, isEmpty);
+        expect(result.profile.readStatus, ProfileReadStatus.unavailable);
+        expect(result.sourceHealth.availableFraction, 0);
+        expect(result.siState.hasObservedEnergy, isFalse);
+      },
+    );
+  }
+
   test('SI aggregation composes the three read-only screen models', () async {
     final DateTime now = DateTime.now();
     final Task task = Task(
@@ -219,6 +249,8 @@ void main() {
   test(
     'SI aggregation filters tasks and reports source health honestly',
     () async {
+      var goalsUnavailable = false;
+      var accountScope = AccountStorageScope.authenticated('si-pipeline-test');
       final DateTime now = DateTime.now();
       final TaskEntity actionable = TaskEntity(
         id: 'active',
@@ -241,9 +273,7 @@ void main() {
       );
       final ProviderContainer container = ProviderContainer(
         overrides: [
-          accountStorageScopeProvider.overrideWithValue(
-            AccountStorageScope.authenticated('si-pipeline-test'),
-          ),
+          accountStorageScopeProvider.overrideWith((ref) => accountScope),
           domainTaskRepositoryProvider.overrideWithValue(
             FakeTaskRepository(<TaskEntity>[actionable, completed]),
           ),
@@ -258,6 +288,14 @@ void main() {
             const AdaptivePlanPolicy(),
           ),
           goalsProvider.overrideWith(() => _StaticGoals(<GoalEntity>[goal])),
+          goalsReadProvider.overrideWith(
+            (ref) => goalsUnavailable
+                ? AsyncError(
+                    StateError('goals unavailable'),
+                    StackTrace.current,
+                  )
+                : AsyncData(<GoalEntity>[goal]),
+          ),
           habitsProvider.overrideWith(
             () => _StaticHabits(<HabitEntity>[
               HabitEntity(id: 'habit-1', title: 'Review', createdAt: now),
@@ -367,6 +405,27 @@ void main() {
       expect(result.planningEvidence.executionSkippedToday, 1);
       expect(result.planningEvidence.executionDelayedToday, 1);
       expect(result.planPreview, isNotEmpty);
+      goalsUnavailable = true;
+      container.invalidate(goalsReadProvider);
+      expect(
+        (await container.read(
+          siStateAggregationProvider.future,
+        )).sourceHealth.goals,
+        SISourceStatus.error,
+      );
+      accountScope = const AccountStorageScope.unsafe();
+      container.invalidate(accountStorageScopeProvider);
+      final unavailable = await container.read(
+        siStateAggregationProvider.future,
+      );
+      expect(unavailable.tasks, isEmpty);
+      expect(unavailable.goals, isEmpty);
+      expect(unavailable.sourceHealth.availableFraction, 0);
+      accountScope = AccountStorageScope.authenticated('si-pipeline-test');
+      container.invalidate(accountStorageScopeProvider);
+      final recovered = await container.read(siStateAggregationProvider.future);
+      expect(recovered.tasks.single.id, 'active');
+      expect(recovered.sourceHealth.tasks, SISourceStatus.ready);
     },
   );
 }

@@ -668,6 +668,10 @@ void main() {
     expect(goldens['runs-on'], r'${{ matrix.runner }}');
     expect(maestro['runs-on'], 'ubuntu-24.04');
     final YamlMap runtimeWorkflow = workflow('maestro-runtime.yml');
+    expect(
+      (runtimeWorkflow['concurrency'] as YamlMap)['group'].toString(),
+      contains("inputs.guest_pages || '4k'"),
+    );
     final YamlMap runtimeTriggers = runtimeWorkflow['on'] as YamlMap;
     expect(runtimeTriggers.containsKey('workflow_call'), isTrue);
     expect(
@@ -707,14 +711,74 @@ void main() {
       (emulatorStep['with'] as YamlMap)['disable-linux-hw-accel'],
       isFalse,
     );
-    expect(runtimeScript, contains('run_maestro_android_evidence.ps1'));
-    expect(runtimeScript, contains('-DeviceSerial emulator-5554'));
-    expect(runtimeScript, contains(r'-ExpectedCommit "${{ github.sha }}"'));
+    expect(
+      (emulatorStep['with'] as YamlMap)['target'],
+      r"${{ inputs.guest_pages == '16k' && 'google_apis_ps16k' || 'google_apis' }}",
+    );
+    expect(
+      runtimeScript.trim(),
+      'bash test-results/maestro-prewarm/run-suite.sh',
+    );
+    final preparation = namedStep(
+      maestro,
+      'Prepare bounded fresh-guest readiness and system diagnostics',
+    )['run'].toString();
+    expect(preparation, contains('run-suite.sh'));
+    expect(preparation, contains("shell('getconf', 'PAGE_SIZE')"));
+    expect(preparation, contains('pageSizeBytes'));
+    expect(preparation, contains('run_maestro_android_evidence.ps1'));
+    expect(preparation, contains(r'-ExpectedAndroidApi "$QA_GUEST_API"'));
+    expect(preparation, contains('-DeviceSerial emulator-5554'));
+    expect(preparation, contains(r'-ExpectedCommit "$QA_SOURCE_SHA"'));
+    expect(
+      (runtimeWorkflow['env'] as YamlMap)['QA_SOURCE_SHA'],
+      r'${{ inputs.source_sha || github.sha }}',
+    );
+    expect(
+      (namedStep(maestro, 'Checkout exact source')['with'] as YamlMap)['ref'],
+      r'${{ inputs.source_sha || github.sha }}',
+    );
+    expect(
+      (namedStep(
+            maestro,
+            'Checkout exact Monkey tooling separately from application source',
+          )['with']
+          as YamlMap)['ref'],
+      r'${{ github.sha }}',
+    );
     final YamlMap runtimeEvidence = namedStep(
       maestro,
       'Verify source-bound Maestro evidence',
     );
-    expect(runtimeEvidence['if'], 'always()');
+    expect(
+      runtimeEvidence['if'],
+      "always() && !inputs.monkey_only && inputs.suite != 'qa-16k-native'",
+    );
+    final nativeEvidence = namedStep(
+      maestro,
+      'Verify source-bound native 16 KB launch evidence',
+    );
+    expect(nativeEvidence['if'], "always() && inputs.suite == 'qa-16k-native'");
+    expect(
+      nativeEvidence['run'],
+      contains(
+        "receipt['installedVersionCode'] == receipt['sourceVersionCode']",
+      ),
+    );
+    final monkeyEvidence = namedStep(
+      maestro,
+      'Verify optional Monkey evidence',
+    );
+    expect(monkeyEvidence['if'], 'always() && inputs.run_monkey');
+    expect(
+      monkeyEvidence['run'],
+      contains("'--verify', '.', os.environ['EXPECTED_COMMIT']"),
+    );
+    expect(
+      monkeyEvidence['run'],
+      contains("result['relaunchLogcatCollected']"),
+    );
+    expect(monkeyEvidence['run'], contains("m['completedVariantCount'] == 5"));
     expect(
       runtimeEvidence['run'],
       contains("manifest.get('apk', {}).get('builtFromCheckout') is not True"),
@@ -729,7 +793,16 @@ void main() {
     );
     expect(runtimeUpload['if'], 'always()');
     expect((runtimeUpload['with'] as YamlMap)['if-no-files-found'], 'error');
-    expect(maestro['timeout-minutes'], 85);
+    expect(maestro['timeout-minutes'], 100);
+    final YamlMap runtimeSuite = namedStep(
+      maestro,
+      'Build, install, and execute exact-source QA suite',
+    );
+    expect(runtimeSuite['timeout-minutes'], 70);
+    expect(
+      (runtimeSuite['env'] as YamlMap)['QA_TIMEOUT_SECONDS'],
+      contains("'3600' || '1800'"),
+    );
     expect(runtimeUpload['timeout-minutes'], 5);
     expect(
       steps(

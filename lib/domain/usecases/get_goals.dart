@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_read_health.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
@@ -9,5 +10,5 @@ class GetGoals {
 
   final IGoalRepository _repository;
 
-  List<GoalEntity> call() => _repository.getGoals();
+  List<GoalEntity> call() => readAvailableGoals(_repository);
 }

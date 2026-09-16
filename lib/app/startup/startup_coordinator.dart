@@ -296,10 +296,14 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
                               const SizedBox(height: 16),
                               Semantics(
                                 liveRegion: true,
-                                child: const Text(
-                                  'Startup needs attention',
+                                child: Text(
+                                  journeyText(
+                                    context,
+                                    'Startup needs attention',
+                                    'El inicio requiere atención',
+                                  ),
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 20,
                                     fontWeight: FontWeight.w700,
@@ -309,10 +313,22 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
                               const SizedBox(height: 8),
                               Text(
                                 _startupError != null
-                                    ? 'Local data could not be opened. Your data remains locked. Retry startup to continue.'
+                                    ? journeyText(
+                                        context,
+                                        'Local data could not be opened. Your data remains locked. Retry startup to continue.',
+                                        'No se pudieron abrir los datos locales. Tus datos siguen bloqueados. Reintenta el inicio para continuar.',
+                                      )
                                     : _startupRetryReady
-                                    ? 'The previous attempt stopped safely. Retry to continue.'
-                                    : 'Account data remains locked while the previous attempt stops. You can close and reopen ChronoSpark if this does not clear.',
+                                    ? journeyText(
+                                        context,
+                                        'The previous attempt stopped safely. Retry to continue.',
+                                        'El intento anterior se detuvo de forma segura. Reintenta para continuar.',
+                                      )
+                                    : journeyText(
+                                        context,
+                                        'Account data remains locked while the previous attempt stops. You can close and reopen ChronoSpark if this does not clear.',
+                                        'Los datos de la cuenta siguen bloqueados mientras se detiene el intento anterior. Si esto no se resuelve, cierra y vuelve a abrir ChronoSpark.',
+                                      ),
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   color: Color(0xFFB8C7D9),
@@ -325,7 +341,13 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
                                     ? _retryStartup
                                     : null,
                                 icon: const Icon(Icons.refresh),
-                                label: const Text('Retry startup'),
+                                label: Text(
+                                  journeyText(
+                                    context,
+                                    'Retry startup',
+                                    'Reintentar inicio',
+                                  ),
+                                ),
                               ),
                             ],
                           ),

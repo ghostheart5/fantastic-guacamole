@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,11 +59,55 @@ class ExecutionSignals {
       : completionRate7d - completionRatePrevious7d;
 }
 
+final executionSignalsClockProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
+);
+
 final executionSignalsProvider = Provider<ExecutionSignals>((Ref ref) {
   final List<LogEntryEntity> entries = ref.watch(logsProvider).entries;
-  final DateTime now = DateTime.now();
+  final clock = ref.watch(executionSignalsClockProvider);
+  final DateTime now = clock().toLocal();
   final DateTime sevenDaysAgo = now.subtract(const Duration(days: 7));
   final DateTime fourteenDaysAgo = now.subtract(const Duration(days: 14));
+  // Refresh only when a date/window boundary can change a count, rather than
+  // polling the entire planning pipeline or waiting for another user action.
+  DateTime nextRefresh = DateTime(now.year, now.month, now.day + 1);
+  for (final entry in entries) {
+    for (final boundary in <DateTime>[
+      entry.timestamp,
+      entry.timestamp.add(const Duration(days: 7, microseconds: 1)),
+      entry.timestamp.add(const Duration(days: 14, microseconds: 1)),
+    ]) {
+      if (boundary.isAfter(now) && boundary.isBefore(nextRefresh)) {
+        nextRefresh = boundary;
+      }
+    }
+  }
+  Timer? timer;
+  bool disposed = false;
+  void stopTimer() => timer?.cancel();
+  void scheduleRefresh() {
+    // Defer until subscriptions settle: Riverpod forbids invalidation inside
+    // lifecycle callbacks, and a one-off read must not retain a background timer.
+    scheduleMicrotask(() {
+      if (disposed || !ref.mounted || ref.isPaused) return;
+      stopTimer();
+      final remaining = nextRefresh.difference(clock().toLocal());
+      if (remaining <= Duration.zero) {
+        ref.invalidateSelf();
+      } else {
+        timer = Timer(remaining, ref.invalidateSelf);
+      }
+    });
+  }
+
+  ref.onCancel(stopTimer);
+  ref.onResume(scheduleRefresh);
+  ref.onDispose(() {
+    disposed = true;
+    stopTimer();
+  });
+  scheduleRefresh();
 
   int createdToday = 0;
   int completedToday = 0;
@@ -78,7 +124,7 @@ final executionSignalsProvider = Provider<ExecutionSignals>((Ref ref) {
   int delayedPrevious7d = 0;
 
   for (final LogEntryEntity entry in entries) {
-    final DateTime ts = entry.timestamp;
+    final DateTime ts = entry.timestamp.toLocal();
     if (ts.isAfter(now)) continue;
     final String source = entry.source.trim().toLowerCase();
 

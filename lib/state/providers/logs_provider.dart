@@ -71,6 +71,7 @@ class LogsActions {
     required String message,
     String? id,
     DateTime? timestamp,
+    bool Function()? shouldContinue,
   }) {
     return _ref
         .read(logsProvider.notifier)
@@ -82,6 +83,7 @@ class LogsActions {
           syncTimeline: false,
           refreshPlanner: false,
           updateSignals: false,
+          shouldContinue: shouldContinue,
         );
   }
 
@@ -107,21 +109,25 @@ class LogsActions {
 }
 
 class LogsController extends Notifier<LogsState> {
+  int _buildGeneration = 0;
+
   @override
   LogsState build() {
+    _buildGeneration += 1;
     unawaited(Future<void>.microtask(load));
     return LogsState.initial().copyWith(isLoading: true);
   }
 
   Future<void> load() async {
     if (!ref.mounted) return;
+    final int generation = _buildGeneration;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final List<LogEntryEntity> entries = await ref.read(getLogsProvider)();
-      if (!ref.mounted) return;
+      if (!ref.mounted || generation != _buildGeneration) return;
       state = state.copyWith(entries: entries, isLoading: false);
     } on Object catch (error) {
-      if (!ref.mounted) return;
+      if (!ref.mounted || generation != _buildGeneration) return;
       state = state.copyWith(isLoading: false, error: error.toString());
     }
   }
@@ -134,7 +140,9 @@ class LogsController extends Notifier<LogsState> {
     bool syncTimeline = true,
     bool refreshPlanner = true,
     bool updateSignals = false,
+    bool Function()? shouldContinue,
   }) async {
+    if (shouldContinue?.call() == false) return;
     final String normalizedMessage = message.trim();
     if (normalizedMessage.isEmpty) {
       return;
@@ -147,6 +155,7 @@ class LogsController extends Notifier<LogsState> {
       timestamp: occurredAt,
     );
     await ref.read(addLogEntryProvider)(entry);
+    if (!ref.mounted || shouldContinue?.call() == false) return;
     state = state.copyWith(
       entries: <LogEntryEntity>[
         entry,
@@ -170,6 +179,7 @@ class LogsController extends Notifier<LogsState> {
               timestamp: occurredAt,
             ),
           );
+      if (!ref.mounted || shouldContinue?.call() == false) return;
     }
     if (updateSignals) {
       ref.invalidate(signalsBundleProvider);
@@ -177,6 +187,7 @@ class LogsController extends Notifier<LogsState> {
     if (refreshPlanner) {
       await _refreshPlannerDecision();
     }
+    if (!ref.mounted || shouldContinue?.call() == false) return;
 
     ref
         .read(eventBusProvider)

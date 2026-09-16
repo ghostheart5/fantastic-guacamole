@@ -36,9 +36,15 @@ class SIState {
   final PredictiveEvidenceOrigin fatigueOrigin;
 
   bool get hasObservedEnergy =>
-      energyOrigin == PredictiveEvidenceOrigin.observed;
+      energyOrigin == PredictiveEvidenceOrigin.observed &&
+      energy.isFinite &&
+      energy >= 0 &&
+      energy <= 1;
   bool get hasObservedFatigue =>
-      fatigueOrigin == PredictiveEvidenceOrigin.observed;
+      fatigueOrigin == PredictiveEvidenceOrigin.observed &&
+      fatigue.isFinite &&
+      fatigue >= 0 &&
+      fatigue <= 1;
 
   SIState copyWith({
     double? energy,

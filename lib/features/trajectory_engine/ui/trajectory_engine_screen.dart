@@ -1,8 +1,10 @@
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'dart:async';
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
 import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.dart';
@@ -66,11 +68,12 @@ class _TrajectoryEngineScreenState
       _selectedScenarioId,
     );
     final bool blocksContent =
+        model.status == TrajectoryEngineStatus.empty ||
         comparison == null &&
-        (model.status == TrajectoryEngineStatus.loading ||
-            model.status == TrajectoryEngineStatus.learning ||
-            model.status == TrajectoryEngineStatus.error ||
-            model.status == TrajectoryEngineStatus.empty);
+            (model.status == TrajectoryEngineStatus.loading ||
+                model.status == TrajectoryEngineStatus.learning ||
+                model.status == TrajectoryEngineStatus.error ||
+                model.status == TrajectoryEngineStatus.empty);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgTrajectory,
@@ -105,6 +108,16 @@ class _TrajectoryEngineScreenState
                 onCreate: () => goToAppView(context, ref, AppView.creator),
               ),
               if (blocksContent) const SizedBox(height: 12),
+              if (model.status == TrajectoryEngineStatus.empty &&
+                  comparison?.baseline.hasObservedEnergy == true)
+                _Panel(
+                  title: 'Recorded check-in',
+                  child: _OverviewMetric(
+                    label: 'ENERGY',
+                    value: '${comparison!.baseline.energy}%',
+                    accent: const Color(0xFFA78BFA),
+                  ),
+                ),
               if (blocksContent &&
                   model.status == TrajectoryEngineStatus.loading)
                 const Center(
@@ -248,7 +261,15 @@ class _TrajectoryEngineScreenState
         break;
       case NexusActionDestination.unsupported:
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('This action is not available.')),
+          SnackBar(
+            content: Text(
+              journeyText(
+                context,
+                'This action is not available.',
+                'Esta acción no está disponible.',
+              ),
+            ),
+          ),
         );
     }
   }
@@ -308,8 +329,16 @@ class _TrajectoryEngineScreenState
       SnackBar(
         content: Text(
           stored
-              ? 'Correction saved locally. This result will not count as monitoring evidence.'
-              : 'Sign in to save an account-scoped assumption correction.',
+              ? journeyText(
+                  context,
+                  'Forecast excluded locally. Its assumptions and projection remain visible, but it will not count as monitoring evidence.',
+                  'Previsión excluida localmente. Sus supuestos y proyección siguen visibles, pero no contará como evidencia de seguimiento.',
+                )
+              : journeyText(
+                  context,
+                  'Sign in to exclude this account-scoped forecast.',
+                  'Inicia sesión para excluir esta previsión de la cuenta.',
+                ),
         ),
       ),
     );
@@ -318,8 +347,8 @@ class _TrajectoryEngineScreenState
   void _openScenarioDestination(TrajectoryIntervention intervention) {
     switch (intervention.type) {
       case TrajectoryInterventionType.applySmartPlanner:
-      case TrajectoryInterventionType.maintainCourse:
         goToAppView(context, ref, AppView.smartPlanner);
+      case TrajectoryInterventionType.maintainCourse:
       case TrajectoryInterventionType.completeTask:
       case TrajectoryInterventionType.delayTask:
       case TrajectoryInterventionType.reduceScope:

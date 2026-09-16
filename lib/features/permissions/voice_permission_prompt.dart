@@ -39,108 +39,108 @@ class VoicePermissionPrompt extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        TemporalGlassSurface(
-          accent: AppColors.neonViolet,
-          opacity: 0.9,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const SizedBox.square(
-                    dimension: 48,
-                    child: Icon(
-                      Icons.mic_none_rounded,
-                      color: AppColors.neonViolet,
-                      size: 30,
+        if (!denied)
+          TemporalGlassSurface(
+            accent: AppColors.neonViolet,
+            opacity: 0.9,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const SizedBox.square(
+                      dimension: 48,
+                      child: Icon(
+                        Icons.mic_none_rounded,
+                        color: AppColors.neonViolet,
+                        size: 30,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          isSpanish
-                              ? 'PERMISO · MICRÓFONO'
-                              : 'PERMISSION · MICROPHONE',
-                          style: const TextStyle(
-                            color: AppColors.neonViolet,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            isSpanish
+                                ? 'PERMISO · MICRÓFONO'
+                                : 'PERMISSION · MICROPHONE',
+                            style: const TextStyle(
+                              color: AppColors.neonViolet,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          title ??
-                              (isSpanish
-                                  ? 'Entrada por micrófono'
-                                  : 'Microphone Input'),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0,
+                          const SizedBox(height: 4),
+                          Text(
+                            title ??
+                                (isSpanish
+                                    ? 'Entrada por micrófono'
+                                    : 'Microphone Input'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                isSpanish
-                    ? 'Permite el micrófono solo cuando quieras dictar texto en Planificador Inteligente o Consola SI. La reproducción hablada no requiere acceso al micrófono.'
-                    : 'Allow microphone access only when you want to dictate text in Smart Planner or the SI Console. Spoken playback does not require microphone access.',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 13,
-                  height: 1.45,
-                  letterSpacing: 0,
+                  ],
                 ),
-              ),
-              const SizedBox(height: 12),
-              TemporalStatusRow(
-                icon: Icons.mic_off_outlined,
-                text: isSpanish
-                    ? 'No graba en segundo plano.'
-                    : 'No background recording.',
-                color: AppColors.neonViolet,
-              ),
-              const SizedBox(height: 8),
-              TemporalStatusRow(
-                icon: Icons.volume_up_outlined,
-                text: isSpanish
-                    ? 'La reproducción hablada funciona sin acceso al micrófono.'
-                    : 'Spoken playback works without microphone access.',
-                color: AppColors.neonViolet,
-              ),
-              const SizedBox(height: 14),
-              TemporalActionButton(
-                label: isSpanish
-                    ? 'Activar entrada por micrófono'
-                    : 'Enable Microphone Input',
-                icon: Icons.mic_none_rounded,
-                accent: AppColors.neonViolet,
-                onPressed: () async {
-                  await showPermissionRationaleSheet<void>(
-                    context: context,
-                    explainer: explainer,
-                    onPrimary: () async {
-                      await onRequestPermission();
-                    },
-                  );
-                },
-              ),
-            ],
+                const SizedBox(height: 10),
+                Text(
+                  isSpanish
+                      ? 'Permite el micrófono solo cuando quieras dictar texto en Planificador Inteligente o Consola SI. El proveedor de voz de tu dispositivo puede procesar el audio en sus servidores. La reproducción hablada no requiere acceso al micrófono.'
+                      : 'Allow microphone access only when you want to dictate text in Smart Planner or the SI Console. Your device\'s speech provider may process audio on its servers. Spoken playback does not require microphone access.',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.45,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TemporalStatusRow(
+                  icon: Icons.mic_off_outlined,
+                  text: isSpanish
+                      ? 'No graba en segundo plano.'
+                      : 'No background recording.',
+                  color: AppColors.neonViolet,
+                ),
+                const SizedBox(height: 8),
+                TemporalStatusRow(
+                  icon: Icons.volume_up_outlined,
+                  text: isSpanish
+                      ? 'La reproducción hablada funciona sin acceso al micrófono.'
+                      : 'Spoken playback works without microphone access.',
+                  color: AppColors.neonViolet,
+                ),
+                const SizedBox(height: 14),
+                TemporalActionButton(
+                  label: isSpanish
+                      ? 'Activar entrada por micrófono'
+                      : 'Enable Microphone Input',
+                  icon: Icons.mic_none_rounded,
+                  accent: AppColors.neonViolet,
+                  onPressed: () async {
+                    await showPermissionRationaleSheet<void>(
+                      context: context,
+                      explainer: explainer,
+                      onPrimary: () async {
+                        await onRequestPermission();
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
-        ),
         if (denied) ...<Widget>[
-          const SizedBox(height: 10),
           PermissionDeniedRecovery(
             title: isSpanish
                 ? 'Permiso de micrófono denegado'

@@ -105,4 +105,27 @@ void main() {
       throwsStateError,
     );
   });
+
+  test('date-only deadline remains open through its local calendar day', () {
+    final task = TaskEntity(
+      id: 'today',
+      title: 'Due today',
+      createdAt: DateTime(2026, 9, 14, 8),
+      dueDate: DateTime(2026, 9, 14),
+    );
+    expect(task.hasDateOnlyDeadline, isTrue);
+    expect(task.isOverdueAt(DateTime(2026, 9, 14, 23, 59, 59)), isFalse);
+    expect(task.isOverdueAt(DateTime(2026, 9, 15)), isTrue);
+  });
+
+  test('UTC midnight date-only deadline uses the stored calendar date', () {
+    final task = TaskEntity(
+      id: 'utc-today',
+      title: 'UTC date',
+      createdAt: DateTime.utc(2026, 9, 14, 8),
+      dueDate: DateTime.utc(2026, 9, 14),
+    );
+    expect(task.isOverdueAt(DateTime(2026, 9, 14, 23, 30)), isFalse);
+    expect(task.isOverdueAt(DateTime(2026, 9, 15)), isTrue);
+  });
 }

@@ -179,6 +179,13 @@ export function googleSubscriptionStateForNotification(
   if (cause.notificationType === 13) {
     return { supported: true, status: "expired", active: false };
   }
+  if (
+    cause.notificationType === 20 &&
+    (subscriptionState === "SUBSCRIPTION_STATE_PENDING_PURCHASE_CANCELED" ||
+      subscriptionState === "SUBSCRIPTION_STATE_EXPIRED")
+  ) {
+    return { supported: true, status: "expired", active: false };
+  }
   return state;
 }
 
@@ -189,6 +196,11 @@ export function terminalNotificationMatchesSubscriptionState(
   const cause = googleSubscriptionNotificationCause(notificationType);
   if (!cause.supported) return false;
 
+  if (cause.notificationType === 20) {
+    return subscriptionState ===
+        "SUBSCRIPTION_STATE_PENDING_PURCHASE_CANCELED" ||
+      subscriptionState === "SUBSCRIPTION_STATE_EXPIRED";
+  }
   if (cause.notificationType !== 12 && cause.notificationType !== 13) {
     return true;
   }
@@ -211,17 +223,29 @@ export async function resolveSubscriptionAuthorityPurchase(
   const pendingSuccessorCanceled = input.successorPurchase.subscriptionState ===
     "SUBSCRIPTION_STATE_PENDING_PURCHASE_CANCELED";
   if (cause.notificationType === 20) {
-    if (!pendingSuccessorCanceled) {
-      throw new Error("pending_successor_state_mismatch");
+    // Google may already expose EXPIRED when a delayed cancellation is read.
+    // A first prepaid purchase also has no predecessor to fall back to.
+    if (
+      !pendingSuccessorCanceled && input.successorPurchase.subscriptionState !==
+        "SUBSCRIPTION_STATE_EXPIRED"
+    ) {
+      const safeState = googleSubscriptionState(
+        input.successorPurchase.subscriptionState,
+        null,
+      ).status;
+      throw new Error(`pending_successor_state_mismatch:${safeState}`);
     }
-    if (!input.linkedPurchaseToken) {
-      throw new Error("pending_successor_predecessor_missing");
-    }
-    return {
-      purchase: await fetchSubscription(input.linkedPurchaseToken),
-      purchaseToken: input.linkedPurchaseToken,
-      source: "linked_predecessor",
-    };
+    return input.linkedPurchaseToken
+      ? {
+        purchase: await fetchSubscription(input.linkedPurchaseToken),
+        purchaseToken: input.linkedPurchaseToken,
+        source: "linked_predecessor",
+      }
+      : {
+        purchase: input.successorPurchase,
+        purchaseToken: input.successorPurchaseToken,
+        source: "notification_token",
+      };
   }
   if (pendingSuccessorCanceled) {
     throw new Error("pending_successor_notification_mismatch");

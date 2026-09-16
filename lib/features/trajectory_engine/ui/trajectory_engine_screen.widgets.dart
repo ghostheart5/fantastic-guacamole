@@ -364,7 +364,7 @@ class _ScenarioComparisonCard extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            outcome.intervention.description,
+            _trajectoryGeneratedText(context, outcome.intervention.description),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -379,13 +379,13 @@ class _ScenarioComparisonCard extends StatelessWidget {
             runSpacing: 8,
             children: <Widget>[
               _MetricDelta(
-                label: 'Momentum',
+                label: journeyText(context, 'Momentum', 'Impulso'),
                 current: baseline.momentum,
                 projected: outcome.projectedMomentum,
                 uncertainty: outcome.uncertainty,
               ),
               _MetricDelta(
-                label: 'Pressure',
+                label: journeyText(context, 'Pressure', 'Presión'),
                 current: baseline.pressure,
                 projected: outcome.projectedPressure,
                 uncertainty: outcome.uncertainty,
@@ -423,12 +423,23 @@ class _ScenarioComparisonCard extends StatelessWidget {
                     ? Icons.auto_awesome_rounded
                     : Icons.timeline_rounded,
               ),
-              label: Text(
-                outcome.intervention.type ==
-                        TrajectoryInterventionType.applySmartPlanner
-                    ? 'Review adjustment'
-                    : 'Review on Timeline',
-              ),
+              label: Text(switch (outcome.intervention.type) {
+                TrajectoryInterventionType.applySmartPlanner => journeyText(
+                  context,
+                  'Review adjustment',
+                  'Revisar ajuste',
+                ),
+                TrajectoryInterventionType.maintainCourse => journeyText(
+                  context,
+                  'Review on Timeline',
+                  'Revisar en Línea de Tiempo',
+                ),
+                _ => journeyText(
+                  context,
+                  'Review on Timeline',
+                  'Revisar en Línea de Tiempo',
+                ),
+              }),
             ),
           ),
           const SizedBox(height: 8),
@@ -441,8 +452,14 @@ class _ScenarioComparisonCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            icon: const Icon(Icons.edit_note_rounded),
-            label: const Text('Correct assumptions'),
+            icon: const Icon(Icons.visibility_off_outlined),
+            label: Text(
+              journeyText(
+                context,
+                'Exclude this forecast from monitoring',
+                'Excluir esta previsión del seguimiento',
+              ),
+            ),
           ),
           const SizedBox(height: 4),
           ExpansionTile(
@@ -544,7 +561,11 @@ class _ScenarioFullDetails extends StatelessWidget {
                 lowerIsBetter: true,
               ),
               _MetricDelta(
-                label: 'Accumulated risk',
+                label: journeyText(
+                  context,
+                  'Accumulated risk',
+                  'Riesgo acumulado',
+                ),
                 current: outcome.risk.currentScore,
                 projected: outcome.risk.projectedScore,
                 uncertainty: outcome.uncertainty,
@@ -554,13 +575,31 @@ class _ScenarioFullDetails extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _Section(
-            label: 'WHY THIS CHANGES THE FUTURE',
-            value: outcome.explanation,
+            label: journeyText(
+              context,
+              'WHY THIS CHANGES THE FUTURE',
+              'POR QUÉ CAMBIA EL FUTURO',
+            ),
+            value: _trajectoryGeneratedText(context, outcome.explanation),
           ),
-          _Section(label: 'TIMELINE IMPACT', value: outcome.timeline.summary),
           _Section(
-            label: 'PROGRESSION IMPACT',
-            value: outcome.progression.summary,
+            label: journeyText(
+              context,
+              'TIMELINE IMPACT',
+              'IMPACTO EN LA LÍNEA DE TIEMPO',
+            ),
+            value: _trajectoryGeneratedText(context, outcome.timeline.summary),
+          ),
+          _Section(
+            label: journeyText(
+              context,
+              'PROGRESSION IMPACT',
+              'IMPACTO EN EL PROGRESO',
+            ),
+            value: _trajectoryGeneratedText(
+              context,
+              outcome.progression.summary,
+            ),
           ),
           if (outcome.goals.isNotEmpty) ...<Widget>[
             const SizedBox(height: 4),
@@ -578,7 +617,7 @@ class _ScenarioFullDetails extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Text(
-                  '${goal.goalTitle}: ${localizations.formatMediumDate(goal.lowerCompletion.toLocal())}–${localizations.formatMediumDate(goal.upperCompletion.toLocal())}; ${goal.explanation}',
+                  '${goal.goalTitle}: ${localizations.formatMediumDate(goal.lowerCompletion.toLocal())}–${localizations.formatMediumDate(goal.upperCompletion.toLocal())}; ${_trajectoryGeneratedText(context, goal.explanation)}',
                   style: const TextStyle(
                     color: Color(0xFFD8E2FF),
                     fontSize: 12,
@@ -603,7 +642,7 @@ class _ScenarioFullDetails extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: Text(
-                '${risk.label}: ${risk.currentScore}% → ${risk.projectedScore}%. ${risk.explanation}',
+                '${_trajectoryGeneratedText(context, risk.label)}: ${risk.currentScore}% → ${risk.projectedScore}%. ${_trajectoryGeneratedText(context, risk.explanation)}',
                 style: const TextStyle(
                   color: Color(0xFFB8C7FF),
                   fontSize: 11,
@@ -615,21 +654,33 @@ class _ScenarioFullDetails extends StatelessWidget {
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
             childrenPadding: EdgeInsets.zero,
-            title: const Text(
-              'Evidence and assumptions',
-              style: TextStyle(color: Colors.white, fontSize: 13),
+            title: Text(
+              journeyText(
+                context,
+                'Evidence and assumptions',
+                'Evidencia y supuestos',
+              ),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
             ),
             subtitle: Text(
               '${outcome.confidence.band.name} confidence • ±${outcome.uncertainty} points • ${outcome.modelVersion}',
               style: const TextStyle(color: Color(0xFF93A4D6), fontSize: 11),
             ),
             children: <Widget>[
-              _EvidenceList(title: 'Evidence', values: outcome.evidence),
-              _EvidenceList(title: 'Assumptions', values: outcome.assumptions),
+              _EvidenceList(
+                title: journeyText(context, 'Evidence', 'Evidencia'),
+                values: outcome.evidence,
+              ),
+              _EvidenceList(
+                title: journeyText(context, 'Assumptions', 'Supuestos'),
+                values: outcome.assumptions
+                    .map((value) => _trajectoryGeneratedText(context, value))
+                    .toList(growable: false),
+              ),
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Generated ${localizations.formatMediumDate(outcome.generatedAt.toLocal())} • baseline ${outcome.baselineRevision}',
+                  '${journeyText(context, 'Generated', 'Generado')} ${localizations.formatMediumDate(outcome.generatedAt.toLocal())} • ${journeyText(context, 'baseline', 'línea base')} ${outcome.baselineRevision}',
                   style: const TextStyle(
                     color: Color(0xFF7F91C8),
                     fontSize: 10,
@@ -643,9 +694,13 @@ class _ScenarioFullDetails extends StatelessWidget {
             container: true,
             label:
                 'Simulation only. Opening a feature does not apply or award the projected outcome.',
-            child: const Text(
-              'SIMULATION ONLY — no task, Timeline block, goal, or Progression reward is changed here.',
-              style: TextStyle(
+            child: Text(
+              journeyText(
+                context,
+                'SIMULATION ONLY — no task, Timeline block, goal, or Progression reward is changed here.',
+                'SOLO SIMULACIÓN — aquí no cambia ninguna tarea, bloque, meta ni recompensa.',
+              ),
+              style: const TextStyle(
                 color: Color(0xFFFFC857),
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
@@ -671,8 +726,16 @@ class _ScenarioFullDetails extends StatelessWidget {
             label: Text(
               outcome.intervention.type ==
                       TrajectoryInterventionType.applySmartPlanner
-                  ? 'Review in Smart Planner'
-                  : 'Review affected work on Timeline',
+                  ? journeyText(
+                      context,
+                      'Review in Smart Planner',
+                      'Revisar en Planificador Inteligente',
+                    )
+                  : journeyText(
+                      context,
+                      'Review affected work on Timeline',
+                      'Revisar trabajo afectado en Línea de Tiempo',
+                    ),
             ),
           ),
           const SizedBox(height: 8),
@@ -685,7 +748,13 @@ class _ScenarioFullDetails extends StatelessWidget {
               ),
             ),
             icon: const Icon(Icons.query_stats_rounded),
-            label: const Text('Track this path for monitoring'),
+            label: Text(
+              journeyText(
+                context,
+                'Track this path for monitoring',
+                'Supervisar esta trayectoria',
+              ),
+            ),
           ),
         ],
       ),
@@ -904,4 +973,81 @@ class _Panel extends StatelessWidget {
       ),
     );
   }
+}
+
+String _trajectoryGeneratedText(BuildContext context, String value) {
+  if (Localizations.localeOf(context).languageCode != 'es') return value;
+  const exact = <String, String>{
+    'Pressure load': 'Carga de presión',
+    'Deferral accumulation': 'Acumulación de aplazamientos',
+    'Deadline pressure': 'Presión de fechas límite',
+    'Capacity overload': 'Sobrecarga de capacidad',
+    'Sustained pressure raises rollover and recovery risk.':
+        'La presión sostenida aumenta el riesgo de arrastre y recuperación.',
+    'Repeated deferrals compound uncertainty in future capacity.':
+        'Los aplazamientos repetidos aumentan la incertidumbre sobre la capacidad futura.',
+    'Crossed deadlines reduce slack and can displace other work.':
+        'Las fechas límite incumplidas reducen el margen y pueden desplazar otro trabajo.',
+    'Unscheduled work indicates that current commitments do not fit.':
+        'El trabajo sin programar indica que los compromisos actuales no caben.',
+    'Capacity risk is not scored until working availability is configured.':
+        'El riesgo de capacidad no se calcula hasta configurar la disponibilidad.',
+    'Energy is a seeded planning estimate, not a user observation.':
+        'La energía es una estimación inicial, no una observación de la persona.',
+    'No observed availability is configured. Capacity-based risk and goal completion dates are withheld.':
+        'No hay disponibilidad observada. Se omiten el riesgo de capacidad y las fechas de finalización.',
+    'Only the declared intervention changes; unmodeled life events remain outside this scenario.':
+        'Solo cambia la intervención declarada; los sucesos no modelados quedan fuera del escenario.',
+    'Projected XP is informational and is never awarded by this simulation.':
+        'Los XP proyectados son informativos y esta simulación nunca los concede.',
+    'No Progression reward is projected from this intervention alone.':
+        'Esta intervención por sí sola no proyecta una recompensa de progreso.',
+  };
+  final translated = exact[value];
+  if (translated != null) return translated;
+  return value
+      .replaceAll(
+        'Smart Planner block(s) are projected',
+        'bloque(s) del Planificador Inteligente se proyectan',
+      )
+      .replaceAll(
+        'commitment(s) remain displaced',
+        'compromiso(s) permanecen desplazados',
+      )
+      .replaceAll(
+        'existing block(s) are affected',
+        'bloque(s) existentes se ven afectados',
+      )
+      .replaceAll(
+        'deadline crossing(s) are projected',
+        'cruce(s) de fecha límite se proyectan',
+      )
+      .replaceAll(
+        'linked block(s) can close after the simulated completion',
+        'bloque(s) vinculados pueden cerrarse tras completar la simulación',
+      )
+      .replaceAll(
+        'linked block(s) can be removed from active load',
+        'bloque(s) vinculados pueden salir de la carga activa',
+      )
+      .replaceAll(
+        'linked Timeline block(s) are affected',
+        'bloque(s) vinculados de la Línea de Tiempo se ven afectados',
+      )
+      .replaceAll(
+        'remaining linked minutes; no target date is recorded',
+        'minutos vinculados restantes; no hay fecha objetivo',
+      )
+      .replaceAll(
+        'Projected completion crosses the target by about',
+        'La finalización proyectada supera el objetivo por unos',
+      )
+      .replaceAll('day(s)', 'día(s)')
+      .replaceAll(
+        'Projected completion remains inside the recorded target date.',
+        'La finalización proyectada queda dentro de la fecha objetivo registrada.',
+      )
+      .replaceAll('Projected risk is', 'El riesgo proyectado es')
+      .replaceAll('against baseline', 'frente a la línea base')
+      .replaceAll('changes', 'cambia');
 }

@@ -16,20 +16,26 @@ List<TimelineEventEntity> projectTimelineEvents({
     }
     final DateTime? deadline = task.dueDate;
     if (deadline != null) {
-      final bool overdue = deadline.isBefore(now);
+      final bool overdue = task.isOverdueAt(now);
+      final DateTime? scheduled = task.scheduledFor?.toLocal();
+      final String scheduleContext = scheduled == null
+          ? ''
+          : ' Planned work time: ${scheduled.year}-${scheduled.month.toString().padLeft(2, '0')}-${scheduled.day.toString().padLeft(2, '0')} '
+                '${scheduled.hour.toString().padLeft(2, '0')}:${scheduled.minute.toString().padLeft(2, '0')}.';
       events.add(
         TimelineEventEntity(
           id: 'timeline-projected-task-${task.id}',
           type: TimelineEventType.deadline,
           title: task.title,
           detail: overdue
-              ? 'Task deadline missed. Re-plan this task immediately.'
-              : 'Task deadline is upcoming.',
+              ? 'Task deadline missed. Re-plan this task immediately.$scheduleContext'
+              : 'Task deadline is upcoming.$scheduleContext',
           timestamp: now,
           status: overdue
               ? TimelineEventStatus.overdue
               : TimelineEventStatus.planned,
           dueAt: deadline,
+          dateOnly: task.hasDateOnlyDeadline,
           phase: 'task',
           relatedId: task.id,
         ),
@@ -68,7 +74,17 @@ List<TimelineEventEntity> projectTimelineEvents({
     if (target == null) {
       continue;
     }
-    final bool overdue = target.isBefore(now);
+    // Goal targets come from a date picker: the whole local day is available.
+    // Task deadlines above distinguish date-only choices from precise times.
+    final localTarget = target.toLocal();
+    final localNow = now.toLocal();
+    final targetDay = DateTime(
+      localTarget.year,
+      localTarget.month,
+      localTarget.day,
+    );
+    final today = DateTime(localNow.year, localNow.month, localNow.day);
+    final bool overdue = targetDay.isBefore(today);
     events.add(
       TimelineEventEntity(
         id: 'timeline-projected-goal-${goal.id}',
@@ -76,12 +92,15 @@ List<TimelineEventEntity> projectTimelineEvents({
         title: goal.title,
         detail: overdue
             ? 'Goal target date has passed. Recovery plan needed.'
+            : targetDay == today
+            ? 'Goal target date is today.'
             : 'Goal target date is upcoming.',
         timestamp: now,
         status: overdue
             ? TimelineEventStatus.overdue
             : TimelineEventStatus.active,
         dueAt: target,
+        dateOnly: true,
         phase: 'goal',
         relatedId: goal.id,
       ),

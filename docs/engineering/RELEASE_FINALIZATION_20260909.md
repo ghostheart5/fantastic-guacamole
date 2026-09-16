@@ -1,0 +1,223 @@
+# Release finalization - September 9, 2026
+
+## Scope and authority
+
+The user approved the reviewed repairs, commit/push, backend completion, signed
+internal-testing AAB preparation, and a fresh complete applicable test rerun and
+audit. Public legal-page publication and Google Play upload/rollout remain held.
+Monkey testing, level-20 endurance and alteration of the real Moto installation
+remain excluded. Existing dirty level-20/graphics documents and artifacts are
+preserved. Source base: `c2d83bc0dd0c7b512e2d2b152a7ca2a230c73b30` in
+`ChronoSpark-app-only-priority2`, branch `fix/aab-prebuild-cleanup-20260905`.
+
+This record supplements `RELEASE_AUDIT_REPAIRS_20260909.md`. That report's earlier
+2,687-test, Edge and Android results are historical and do not attest the later
+voice changes below. Final immutable source/build/run identities must be recorded
+in the completion evidence before accepting the candidate.
+
+## Additional repairs from the second review
+
+- Both actual microphone controls now show English/Spanish device speech-provider
+  processing disclosure before each dictation, including when Android permission
+  was granted previously. Decline, backgrounding and an account/provider lifetime
+  change prevent capture. Recognized text still requires explicit review/send.
+- Voice startup checks cancellation after TTS, permission and initialization;
+  concurrent startup, disposal and delayed native startup are fenced. Provider
+  invalidation can safely reuse the notifier. Native shutdown barriers prevent a
+  new controller session while cleanup remains pending.
+- The speech adapter reports sanitized native startup/stop/cancel failures,
+  retains the final correction after `notListening`, completes once at the
+  terminal callback, and bounds the wait for terminal completion during stop.
+  The production adapter shares the dependency's singleton speech engine.
+  A bounded native-start acknowledgement also rejects silent startup refusal.
+- Background handling begins the microphone stop synchronously before waiting
+  for TTS shutdown. Planner and SI display localized safe voice-failure feedback.
+- Android's speech-recognition service query is declared. Canonical privacy,
+  generated copies, Settings rationale and the Data Safety draft describe the
+  device provider's possible remote audio processing. These copies are prepared
+  locally; public parity remains held.
+- The public-route build verifier now checks the current contained/private
+  billing wording without changing its publication guard.
+- Backend repair dispatch uses the existing allowed tooling branch and separate
+  immutable app checkout, with successful exact-source CI checked first. It
+  preserves production branch restrictions, private secret handling, fixed
+  project/migration/grant guards and the explicit three-function deployment scope.
+- Regression coverage adds interrupted deletion/backup recovery, subscription
+  account changes during verification/acknowledgement/persistence, overlapping
+  planning proposals and progression restore failure/validation cases. Coverage
+  targets were not lowered; only a fresh complete LCOV run can close them.
+- Internal billing instructions identify the current approved catalog and
+  monthly allowance/top-up policy while preserving the original setup as history.
+- The dependency review found supplemental `archive` and `image` notices and
+  complete notices for the shipped Inter, JetBrains Mono, Space Grotesk and
+  Material Icons fonts missing from the retained QA APK. Bundle
+  their complete upstream texts through Flutter's
+  additional-license manifest, along with component-specific MPL source locations
+  for the pinned Dart fallback certificates and Linux platform packages. Settings
+  exposes the localized Flutter Licenses page. The candidate workflow verifies
+  every declared notice in the actual AAB and checks the pinned Dart SDK revision
+  before uploading the artifact. Native Maven/Google SDK terms remain outside the
+  Dart SBOM review; this is not blanket legal approval.
+
+## Executed focused evidence
+
+Evidence root `EF = test-results/release-finalization-20260909/`; `E =
+test-results/release-repairs-20260909/`. Counts below overlap the later full suite
+and must not be added as distinct end-to-end coverage.
+
+| Check | Terminal result | Evidence |
+| --- | --- | --- |
+| Actual Planner/SI controls, localized error feedback and consent | 57 passed, zero failures/errors/skips | `EF/voice/screens-complete-manifest.json` |
+| Adapter and controller lifecycle contracts | 53 passed, zero failures/errors/skips | `E/finalization/voice-adapter/startup-ack-manifest.json` |
+| Shell background lifecycle | 12 passed | `E/voice/lifecycle-ordering-final-manifest.json` |
+| Domain proposal/restore regressions | 19 passed | `EF/domain/manifest.json` |
+| Critical authentication/backup/paywall regression files | 165 passed | `E/finalization/critical-coverage/final-summary.json` |
+| Candidate controls | 21 passed | `EF/precommit-candidate-tests.txt` |
+| Tooling-compatible backend rollout contracts | 10 passed | `E/backend/rollout-tooling-validation.json` |
+| Eight additional notices, actual Flutter collection and localized Settings license navigation | 28 passed, zero failures/errors/skips after final typed-YAML fixes | `EF/licenses/frozen-eight-notices-manifest.json` |
+| Fail-closed AAB/APK additional-license verifier | 12 passed | `scripts/test_verify_additional_licenses.py`; exact artifact entry, full-byte preservation, bounded input and SDK mismatch cases |
+
+Intermediate test failures remain retained. A temporary test-edit encoding issue
+and offscreen/continuous-animation harness assumptions were corrected; final
+screen tests preserve every existing assertion and compare the original text.
+The native adapter tests use mocked platform channels and record no microphone
+audio. Host tests do not establish native shutdown or native event origin.
+
+## Backend preservation and remaining execution
+
+The private prior function bodies and version/configuration metadata are retained
+outside checkout/artifacts with ACL access limited to the current user and SYSTEM.
+`E/backend/ROLLOUT_FINALIZATION.md` records hashes and a concrete partial-success
+recovery procedure. After the one migration commits, recovery must roll forward
+only remaining reviewed functions; never regrant the obsolete wallet RPC or
+restore ungated AI. The latest Google Play RTDN test was independently read as
+processed on September 8 at 21:06:54 UTC; preflight must check freshness again.
+
+Complete two independent successful `ci.yml` and `supabase-database.yml` runs on
+the same final app SHA, fresh coverage target audit, current-source Android
+integration and eleven-flow Maestro replay, signed-AAB inspection, deployed
+backend readback, and applicable safe runtime verification. Record failures and
+unexecuted requirements directly; a passing mocked or QA check cannot stand in
+for a real purchase, deletion, credit/provider operation or Play-signed upgrade.
+
+The first repaired-source CI run (`34343325387`, source `6734c1b40abdf28dfe7d3ef7692d53b30ef83403`)
+completed successfully, including coverage, Windows golden comparisons and Linux
+integration. Its independent database run (`34343327626`) passed 142 Edge tests
+and all 349 pgTAP checks across 12 files. These precede the supplemental-notice
+repair and do not replace the required final-source runs.
+The CI coverage evidence reports 74.3% overall and 93.1% critical coverage;
+all eight layer targets and all five critical-file targets pass without lowering
+thresholds. It records 2,776 full-suite cases, 15 QA configuration cases, eight
+Linux integration cases, 41 Windows golden cases and 16 launcher cases, all with
+zero failures, errors or skips. These overlapping executions are not unique
+end-to-end scenarios.
+
+The old controlled Play Console tab timed out; a fresh tab in the same Edge
+browser recovered access. Read-only September 9 observations show internal release
+2026083021 still active and the All app bundles search for 2026083022 returning
+zero results. No draft, upload or rollout was created. Other account/form evidence
+must be read separately; these observations do not assert their acceptance.
+The saved July 8 Data Safety declaration reports ten actioned declarations, but
+Google's live URL validation rejects both its account-deletion URL and optional
+data-deletion URL with HTTP 404. The exact values and UI outcome are retained in
+`EF/play-console-readonly-20260909.json`. Completed-form status is not accuracy
+evidence. Working public routes and truthful declaration corrections remain a
+store blocker under the current publication hold; no answers were changed/saved.
+The prepared version is `4.1.0+2026083022`. Actual Play delivery, public disclosure
+parity, final device captures and store submission remain held. Existing level-20
+screenshots show historical build 3019 and must not be labelled as this candidate.
+
+The speech dependency forwards native events without session identifiers. The
+wrapper serializes normal completion and cancellation, but cannot prove the
+origin of every late native callback. Exact-device rapid restart/account-change,
+background/permission denial and final-transcript tests remain required. No
+100-percent correctness or all-release-requirements-passed claim is justified by
+these focused receipts.
+
+## Goal read-health repair found during final re-audit
+
+The next bounded review reproduced a storage-loss path with real Hive backing:
+one injected temporary read failure let `saveGoal` derive an empty collection,
+then a later successful read cleared the health flag before the stale collection
+was written. The baseline diagnostic failed and recorded an existing goal being
+replaced despite the save reporting success. This is a deterministic repository
+failure-handling reproduction, not evidence of incident frequency on a phone.
+
+Mutation reads now fail immediately when storage is unavailable. Each operation
+retains its raw bytes, decoded goals and corruption state together, rejects bytes
+that change across reopening, quarantines the captured undecodable bytes, and
+checks the bytes again after awaited quarantine before writing. Normal corrupt
+payload preservation remains supported. This is queued repository read-consistency
+protection, not a general atomic compare-and-swap for arbitrary external writers.
+
+`EF/goal-read-health/baseline-manifest.json` preserves the original failure.
+`EF/goal-read-health/repaired-manifest.json` records 32/32 passing cases: the
+31-case committed corruption suite, including 13 new add/update/delete/bulk and
+across-await regressions, plus that original diagnostic. Each failed-read case
+checks unchanged primary bytes and safe retry. Targeted fatal-info analysis and
+independent implementation review passed. This app-only repair requires fresh
+exact-source CI before a signed build; older successful CI is not relabelled.
+
+Before this app-only correction, exact-source CI `34347797338` and database run
+`34347799955` passed on `e91255040af31cd2d852ac998666e6776dbe286a`. Approved backend
+repair run `34349014804` completed all seven stages and passed its read-only gate;
+independent live readback confirmed 50 migrations, the three deployed function
+configurations and all twelve effective grant checks. Billing preflight
+`34349228045` passed for the same source. Backend source is unchanged by the goal
+repair; the fresh candidate preflight must still reverify it. No public pages or
+Google Play release were published.
+
+## Post-build failures and replacement candidate
+
+Signed candidate run `34351494461` built source `66d5a8da` as
+`4.1.0+2026083022`. Its AAB SHA256 is
+`e76c2374666d055add6c47d3d95a70ff9b2cba6ba537501a43e156e3fcafc982`.
+That artifact and its successful independent signature, native alignment,
+strict 16KB startup/onboarding and eight-notice checks remain historical
+evidence. The deeper native dependency review found one additional required
+notice, so this candidate is superseded for distribution by the pending rebuild.
+
+The actual AAB retains 69 `androidx.datastore.preferences.protobuf` classes.
+Its exact DataStore 1.1.7 repackaged JAR matches the dependency digest embedded
+in the AAB. AndroidX source commit
+`420da5f291449f11801e378c6789a328a06ec6cb` repackages `protobuf-javalite:4.28.2`.
+The complete upstream BSD notice was absent from the actual bundled notices;
+a separate Skia copyright line did not supply its conditions and disclaimer.
+The new labeled notice retains all 1,732 upstream bytes unchanged, SHA256
+`6e5e117324afd944dcf67f36cf329843bc1a92229a8cd9bb573d7a83130fea7d`.
+It is declared in `flutter.licenses`, covered by the complete-text source test,
+and required by the existing dynamic AAB/APK verifier. Source and artifact
+provenance are retained under `EF/aab-inspection/maven-poms/` and
+`EF/protobuf-notice-repair/`.
+[Exact upstream license](https://raw.githubusercontent.com/protocolbuffers/protobuf/v28.2/LICENSE).
+
+The full native metadata inventory resolved 147 exact coordinates through
+149 official POMs, including two parents. Metadata-only dependencies without
+retained classes were not treated as demonstrated shipped-code omissions.
+This inventory and notice packaging are not blanket legal approval or proof
+of the user's acceptance of every external SDK service term.
+
+The extended post-build Windows run `34352629168` also retained four failures:
+three architecture fixtures rejected an in-root Windows short-path alias,
+and one legacy PowerShell child could not resolve `Get-FileHash`.
+The checker now obtains the root using the same filesystem spelling as file
+enumeration. A regression requires an actual different 8.3 parent alias while
+preserving detection of the real forbidden dependency. Legacy PowerShell
+fixtures isolate their child module search path; an incompatible inherited
+module negative control and an independently computed file hash verify the
+repair. The original hosted module path was not captured, so that particular
+environmental cause remains an inference supported by the reproduced mechanism.
+
+Maestro run `34352625201` passed Smart Planner, then stopped at Creator because
+the test demanded centering a fully visible control at the scroll boundary.
+The helper now requires 100% visibility without centering. The actual button tap,
+confirmation, and persistence assertions remain required. The other nine
+unexecuted journeys from that attempt are not passes.
+
+The replacement source includes these narrow test/tool repairs and the ninth
+notice. Fresh CI, signed-build inspection, full Windows/target coverage,
+native integration, strict 16KB startup and all applicable Maestro smoke and
+journey flows must finish before final acceptance is recorded. The original
+successful exact-source gate pair and post-build repeat remain retained;
+neither is relabeled as testing the new notice. Public pages and Google Play
+upload/rollout remain held, and monkey/level-20 endurance remain excluded.

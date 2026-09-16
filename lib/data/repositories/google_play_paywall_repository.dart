@@ -7,29 +7,38 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart';
+import 'package:fantastic_guacamole/data/services/google_play_offer_selection.dart';
+import 'package:fantastic_guacamole/data/services/google_play_pending_compat.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/entitlement.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
+import 'package:fantastic_guacamole/domain/entities/purchase_outcome.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_subscription_repository.dart';
 import 'package:http/http.dart' as http;
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart' as gp;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 part 'google_play_paywall_repository.transactions.dart';
 part 'google_play_paywall_repository.persistence.dart';
+part 'google_play_paywall_repository.prepaid_client.dart';
 
 const Map<String, String> _kProductIds = <String, String>{
+  'credits_100': 'chronospark_credits_100',
+  'credits_300': 'chronospark_credits_300',
   'monthly': 'chronospark_premium_monthly',
   'annual': 'chronospark_premium_annual',
+  'monthly_prepaid_test': 'chronospark_premium_monthly',
 };
 const Map<String, String> _kServerPlanIds = <String, String>{
   'monthly': 'premium_monthly',
   'annual': 'premium_yearly',
+  'monthly_prepaid_test': 'premium_monthly',
 };
 const String _kPrefsKey = 'paywall_subscription_state_v1';
 const String _kLegacyEntitlementOwnerKey = 'entitlement_owner_user_id_v1';
@@ -96,6 +105,7 @@ class _PendingRestore {
   }
 
   final String? userId;
+  final Set<String> observedProductIds = <String>{};
   final Completer<SubscriptionState> completer = Completer<SubscriptionState>();
 }
 
@@ -152,7 +162,10 @@ class InAppPurchaseBillingClient implements BillingClient {
 }
 
 class GooglePlayPaywallRepository
-    implements IPaywallRepository, ISubscriptionAuthorityRefresher {
+    implements
+        IPaywallRepository,
+        ISubscriptionAuthorityRefresher,
+        IPurchaseOutcomeSource {
   GooglePlayPaywallRepository({
     BillingClient? billingClient,
     Future<SharedPreferences> Function()? sharedPreferencesLoader,
@@ -163,7 +176,11 @@ class GooglePlayPaywallRepository
     SecureStore? secureStore,
     sb.SupabaseClient? supabaseClient,
     Duration authorityRequestTimeout = _kAuthorityRequestTimeout,
-  }) : _billingClient = billingClient ?? InAppPurchaseBillingClient(),
+  }) : _billingClient =
+           billingClient ??
+           (requireTestPurchase
+               ? PrepaidTestBillingClient.shared
+               : InAppPurchaseBillingClient()),
        _sharedPreferencesLoader =
            sharedPreferencesLoader ?? SharedPreferences.getInstance,
        _httpClient = httpClient ?? http.Client(),
@@ -200,6 +217,9 @@ class GooglePlayPaywallRepository
   final Duration _authorityRequestTimeout;
   final String _receiptVerifyEndpoint;
   late final StreamSubscription<List<PurchaseDetails>> _purchaseSub;
+  final _purchaseOutcomes = StreamController<PurchaseOutcome>.broadcast();
+  @override
+  Stream<PurchaseOutcome> get purchaseOutcomes => _purchaseOutcomes.stream;
   late final Future<void> _initialization;
 
   SubscriptionState _state = const SubscriptionState(
@@ -243,30 +263,71 @@ class GooglePlayPaywallRepository
     return parseSecureHttpsEndpoint(_receiptVerifyEndpoint) != null;
   }
 
-  static const List<PaywallPlan> _plans = <PaywallPlan>[
-    PaywallPlan(
+  List<PaywallPlan> get _plans => <PaywallPlan>[
+    const PaywallPlan(
       id: 'monthly',
       title: 'Monthly plan',
       priceLabel: 'Price unavailable',
       description: 'Monthly subscription billed through Google Play.',
       aiCreditsIncluded: 300,
       benefits: <String>[
-        '300 credits after a verified purchase or paid renewal',
+        '300 credits each month; unused monthly credits expire',
       ],
       isAvailable: false,
     ),
-    PaywallPlan(
+    const PaywallPlan(
       id: 'annual',
       title: 'Annual plan',
       priceLabel: 'Price unavailable',
       description: 'Annual subscription billed through Google Play.',
-      aiCreditsIncluded: 360,
+      aiCreditsIncluded: 300,
       benefits: <String>[
-        '360 credits after a verified purchase or paid renewal',
+        '300 credits each month, billed annually; unused monthly credits expire',
       ],
       isAvailable: false,
     ),
+    for (final amount in [100, 300])
+      PaywallPlan(
+        id: 'credits_$amount',
+        title: '$amount extra AI credits',
+        priceLabel: 'Price unavailable',
+        description: 'One-time purchase. Credits do not expire.',
+        aiCreditsIncluded: amount,
+        benefits: const [
+          'No automatic top-ups. Purchased credits do not expire.',
+        ],
+        isAvailable: false,
+      ),
+    if (_requireTestPurchase)
+      const PaywallPlan(
+        id: 'monthly_prepaid_test',
+        title: 'Prepaid payment test',
+        priceLabel: 'Price unavailable',
+        description:
+            'One month without automatic renewal. For delayed test payments.',
+        isAvailable: false,
+      ),
   ];
+
+  ProductDetails? _selectProduct(
+    Iterable<ProductDetails> products,
+    String planId,
+  ) {
+    final prepaid = planId == 'monthly_prepaid_test';
+    if (prepaid && !_requireTestPurchase) return null;
+    final productId = _kProductIds[planId];
+    if (productId == null) return null;
+    if (planId.startsWith('credits_')) {
+      final matches = products.where((p) => p.id == productId).toList();
+      return matches.length == 1 ? matches.single : null;
+    }
+    return selectGooglePlayBasePlan(
+      products,
+      productId: productId,
+      basePlanId: prepaid ? 'monthly-prepaid-test' : planId,
+      requireAndroidDetails: prepaid,
+    );
+  }
 
   @override
   Future<List<PaywallPlan>> getAvailablePlans() async {
@@ -314,14 +375,10 @@ class GooglePlayPaywallRepository
 
       return _plans
           .map((PaywallPlan plan) {
-            final String? gpId = _kProductIds[plan.id];
-            ProductDetails? detail;
-            for (final ProductDetails candidate in response.productDetails) {
-              if (candidate.id == gpId) {
-                detail = candidate;
-                break;
-              }
-            }
+            final ProductDetails? detail = _selectProduct(
+              response.productDetails,
+              plan.id,
+            );
             return PaywallPlan(
               id: plan.id,
               title: plan.title,
@@ -387,6 +444,9 @@ class GooglePlayPaywallRepository
   @override
   Future<SubscriptionState> startSubscription(String planId) async {
     await _initialization;
+    if (planId == 'monthly_prepaid_test' && !_requireTestPurchase) {
+      throw ArgumentError('Unknown plan: $planId');
+    }
     if (_paywallTestingMode) {
       _state = SubscriptionState(
         isActive: true,
@@ -404,7 +464,8 @@ class GooglePlayPaywallRepository
         'Purchases are temporarily unavailable. Please update and try again soon.',
       );
     }
-    if (_effectiveStateForCurrentUser.isActive) {
+    if (_effectiveStateForCurrentUser.isActive &&
+        !planId.startsWith('credits_')) {
       throw StateError(
         'Your current subscription is already active. Manage plan changes in Google Play.',
       );
@@ -464,7 +525,11 @@ class GooglePlayPaywallRepository
   }) async {
     final ProductDetailsResponse response = await _billingClient
         .queryProductDetails(<String>{productId});
-    if (response.productDetails.isEmpty) {
+    final ProductDetails? selectedProduct = _selectProduct(
+      response.productDetails,
+      planId,
+    );
+    if (selectedProduct == null) {
       throw StateError('Product $productId not found in Google Play.');
     }
     if (!_isCurrentBillingAccount(expectedUserId)) {
@@ -480,7 +545,7 @@ class GooglePlayPaywallRepository
     await _rememberPendingOwner(productId, expectedUserId);
 
     final PurchaseParam param = PurchaseParam(
-      productDetails: response.productDetails.first,
+      productDetails: selectedProduct,
       applicationUserName: _billingAccountFingerprint(expectedUserId),
     );
     late final bool purchaseStarted;
@@ -588,6 +653,21 @@ class GooglePlayPaywallRepository
         // stream while restorePurchases completes. Flush that event turn
         // without guessing at a device-dependent delay.
         await Future<void>.delayed(Duration.zero);
+      }
+      if (_isCurrentBillingAccount(expectedUserId)) {
+        // Google's successful inventory includes pending INAPP purchases.
+        // A consumed pack is absent even while a subscription remains active.
+        // Clear only this account's absent pack guard, never a live purchase.
+        for (final entry in _kProductIds.entries) {
+          if (!entry.key.startsWith('credits_')) continue;
+          final operation = _purchaseOperationKey(entry.value, expectedUserId);
+          if (!pastPurchases.any((p) => p.productID == entry.value) &&
+              !pending.observedProductIds.contains(entry.value) &&
+              !_purchaseStarts.containsKey(operation)) {
+            await _clearPendingOwner(entry.value, expectedUserId);
+            _approvalPending.remove(operation);
+          }
+        }
       }
       if (pending.completer.isCompleted) {
         return await pending.completer.future;
@@ -790,6 +870,7 @@ class GooglePlayPaywallRepository
           stackTrace,
         );
       });
+      await _purchaseOutcomes.close();
     }
   }
 
@@ -802,7 +883,7 @@ class GooglePlayPaywallRepository
       final List<dynamic> rows = await client
           .from('monetization_subscription_statuses')
           .select(
-            'user_id,plan_id,product_id,status,is_active,expires_at,updated_at',
+            'user_id,plan_id,product_id,status,is_active,expires_at,updated_at,source,started_at,auto_renews,period_credits',
           )
           .eq('user_id', expectedUserId)
           .limit(1)
@@ -856,11 +937,29 @@ class GooglePlayPaywallRepository
       final DateTime? updatedAt = DateTime.tryParse(
         row['updated_at']?.toString() ?? '',
       )?.toUtc();
+      final DateTime? startedAt = DateTime.tryParse(
+        row['started_at']?.toString() ?? '',
+      )?.toUtc();
+      // Review access is an explicit server provision, never a receipt status
+      // accepted from Google Play or a local premium/testing override.
+      final bool isReviewGrant =
+          status == 'review_access' &&
+          row['source'] == 'complimentary_review' &&
+          row['auto_renews'] == false &&
+          row['period_credits'] == 0 &&
+          row['purchase_token_hash'] == null &&
+          row['order_id'] == null &&
+          startedAt != null &&
+          expiry != null &&
+          !startedAt.isAfter(now.add(_kAuthorityFutureClockSkew)) &&
+          expiry.isAfter(startedAt) &&
+          expiry.difference(startedAt) <= const Duration(days: 31);
       final bool shapeIsValid =
           row['user_id']?.toString() == expectedUserId &&
           planId != null &&
           row['plan_id']?.toString() == _kServerPlanIds[planId] &&
           status.isNotEmpty &&
+          (status != 'review_access' || isReviewGrant) &&
           updatedAt != null &&
           !updatedAt.isAfter(now.add(_kAuthorityFutureClockSkew)) &&
           (expiry == null || _isExpiryWithinMaximum(expiry, now));
@@ -874,7 +973,7 @@ class GooglePlayPaywallRepository
 
       final bool isActive =
           row['is_active'] == true &&
-          _kAuthorityAccessStatuses.contains(status) &&
+          (_kAuthorityAccessStatuses.contains(status) || isReviewGrant) &&
           expiry != null &&
           expiry.isAfter(now);
       if (!_isCurrentAuthorityRequest(client, expectedUserId, generation)) {
@@ -951,6 +1050,9 @@ class GooglePlayPaywallRepository
   }
 
   Future<void> _enqueuePurchaseUpdate(List<PurchaseDetails> purchases) {
+    _pendingRestore?.observedProductIds.addAll(
+      purchases.map((purchase) => purchase.productID),
+    );
     final Future<void> queued = _purchaseUpdateQueue
         .catchError((Object _) {})
         .then((_) => _onPurchaseUpdate(purchases));
@@ -968,19 +1070,31 @@ class GooglePlayPaywallRepository
       }
 
       final String? currentUserId = _supabaseClient?.auth.currentUser?.id;
+      // Android emits empty product IDs when checkout closes without a purchase.
+      // Resolve only one outstanding purchase, still owned by this account.
+      String productId = purchase.productID;
+      if (productId.isEmpty &&
+          (purchase.status == PurchaseStatus.canceled ||
+              purchase.status == PurchaseStatus.error)) {
+        final candidates = _pendingPurchases.values.toList(growable: false);
+        if (candidates.length != 1 ||
+            candidates.single.userId != currentUserId ||
+            candidates.single.completer.isCompleted) {
+          continue;
+        }
+        productId = candidates.single.productId;
+      }
       final String? currentFingerprint = _billingAccountFingerprint(
         currentUserId,
       );
-      final String? persistedOwner = await _pendingOwnerFingerprint(
-        purchase.productID,
-      );
+      final String? persistedOwner = await _pendingOwnerFingerprint(productId);
       final bool discardedForAccountChange =
           _failPendingPurchasesForOtherAccounts(
-            productId: purchase.productID,
+            productId: productId,
             currentUserId: currentUserId,
           );
       final String operationKey = _purchaseOperationKey(
-        purchase.productID,
+        productId,
         currentUserId,
       );
       final _PendingPurchase? pending = _pendingPurchases[operationKey];
@@ -1041,12 +1155,37 @@ class GooglePlayPaywallRepository
           purchase.status == PurchaseStatus.restored) {
         final String? expectedUserId =
             pending?.userId ?? restore?.userId ?? currentUserId;
+        if (productId.startsWith('chronospark_credits_')) {
+          final verified = await _verifiedCreditTopupFromServer(
+            purchase,
+            expectedUserId: expectedUserId,
+          );
+          if (!_isCurrentBillingAccount(expectedUserId)) {
+            _completePendingPurchaseError(
+              pending,
+              StateError('The signed-in account changed during billing.'),
+            );
+          } else {
+            final outcome = _transactionOutcomeState(
+              status: verified ? 'credits_added' : 'verification_failed',
+              attemptedPlanId: null,
+            );
+            _completePendingPurchase(pending, outcome);
+            _completePendingRestore(restore, outcome);
+            if (verified) {
+              _approvalPending.remove(operationKey);
+              await _clearPendingOwner(productId, expectedUserId);
+            }
+          }
+          _removePendingPurchase(operationKey, pending);
+          continue;
+        }
         final _VerifiedSubscription? verification =
             await _verifiedSubscriptionFromServer(
               purchase,
               expectedUserId: expectedUserId,
             );
-        final String? planId = _planIdForProduct(purchase.productID);
+        final String? planId = _planIdForProduct(productId);
         final bool accountIsCurrent = _isCurrentBillingAccount(expectedUserId);
         if (verification != null && planId != null && accountIsCurrent) {
           bool acknowledged =
@@ -1122,7 +1261,7 @@ class GooglePlayPaywallRepository
           _completePendingPurchase(pending, _state);
           _completePendingRestore(restore, _restoreOutcome(_state));
           _approvalPending.remove(operationKey);
-          await _clearPendingOwner(purchase.productID, expectedUserId);
+          await _clearPendingOwner(productId, expectedUserId);
         } else {
           if (!accountIsCurrent) {
             final StateError error = StateError(
@@ -1146,6 +1285,18 @@ class GooglePlayPaywallRepository
         _removePendingPurchase(operationKey, pending);
       } else if (purchase.status == PurchaseStatus.error) {
         Logger.error('IAP purchase error', purchase.error);
+        await _clearPendingOwner(productId, currentUserId);
+        if (!_disposed) {
+          _purchaseOutcomes.add(
+            PurchaseOutcome(
+              currentUserId,
+              _transactionOutcomeState(
+                status: 'purchase_failed',
+                attemptedPlanId: _planIdForProduct(productId),
+              ),
+            ),
+          );
+        }
         _completePendingPurchaseError(
           pending,
           purchase.error ?? StateError('Purchase failed.'),
@@ -1160,21 +1311,20 @@ class GooglePlayPaywallRepository
         );
         _approvalPending.remove(operationKey);
         _removePendingPurchase(operationKey, pending);
-        await _clearPendingOwner(purchase.productID, currentUserId);
       } else if (purchase.status == PurchaseStatus.canceled) {
+        await _clearPendingOwner(productId, currentUserId);
         final SubscriptionState canceled = _transactionOutcomeState(
           status: 'purchase_canceled',
-          attemptedPlanId: _planIdForProduct(purchase.productID),
+          attemptedPlanId: _planIdForProduct(productId),
         );
         _completePendingPurchase(pending, canceled);
         _completePendingRestore(restore, _restoreOutcome(canceled));
         _approvalPending.remove(operationKey);
         _removePendingPurchase(operationKey, pending);
-        await _clearPendingOwner(purchase.productID, currentUserId);
       } else if (purchase.status == PurchaseStatus.pending) {
-        final String? planId = _planIdForProduct(purchase.productID);
+        final String? planId = _planIdForProduct(productId);
         final SubscriptionState purchasePending = _purchasePendingState(planId);
-        await _rememberPendingOwner(purchase.productID, currentUserId);
+        await _rememberPendingOwner(productId, currentUserId);
         _approvalPending.add(operationKey);
         _completePendingPurchase(pending, purchasePending);
         _completePendingRestore(restore, purchasePending);

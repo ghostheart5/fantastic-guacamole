@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
@@ -13,6 +14,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -24,6 +26,7 @@ import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -41,6 +44,8 @@ void main() {
     final repository = _ScreenTaskRepository();
     final container = ProviderContainer(
       overrides: [
+        // Keep Person Context storage deterministic; no platform channel in a widget test.
+        sensitivePrefsStoreProvider.overrideWithValue(_ScreenPreferences()),
         accountStorageScopeProvider.overrideWithValue(
           AccountStorageScope.authenticated('planner-duration-screen-test'),
         ),
@@ -80,12 +85,38 @@ void main() {
             ),
           ),
         );
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: CreatorScreen()),
+    Widget previewApp(Locale locale) => UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        locale: locale,
+        supportedLocales: ChronoSparkLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          ChronoSparkLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: const CreatorScreen(),
       ),
     );
+    await tester.pumpWidget(previewApp(const Locale('en')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('BEST-FIT · 20 min'), findsOneWidget);
+    expect(find.textContaining('bestFit'), findsNothing);
+    await tester.pumpWidget(previewApp(const Locale('es')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('MÁS ADECUADO · 20 min'), findsOneWidget);
+    expect(find.text('Creador'), findsOneWidget);
+    expect(find.byTooltip('Volver a Nexus'), findsOneWidget);
+    expect(find.byTooltip('Back'), findsNothing);
+    expect(find.text('Gestionar Ritmos Diarios'), findsOneWidget);
+    expect(find.text('VISTA PREVIA DEL BORRADOR'), findsOneWidget);
+    expect(find.text('REVISAR CAMBIOS'), findsOneWidget);
+    expect(find.text('META ACTIVA'), findsOneWidget);
+    expect(find.text('DURACIÓN ESTIMADA'), findsOneWidget);
+    expect(find.text('Manage Daily Rhythms'), findsNothing);
+    expect(repository.saveCalls, 0);
+    await tester.pumpWidget(previewApp(const Locale('en')));
     await tester.pump(const Duration(milliseconds: 200));
     final estimate = tester.widget<DropdownButton<Duration>>(
       find.byKey(const Key('creator-task-estimate')),
@@ -97,11 +128,41 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     expect(
-      find.textContaining('Estimated duration: Not present → 20 minutes'),
+      find.textContaining('Estimated duration: 20 minutes'),
       findsOneWidget,
     );
     expect(repository.saveCalls, 0);
     final confirm = find.byKey(const Key('creator-confirm-selected'));
+    final bindingBeforeLocaleChange = container
+        .read(creatorHandshakeProvider)
+        .token;
+    await tester.pumpWidget(previewApp(const Locale('es', 'MX')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('CONFIRMAR CAMBIOS DEL CREADOR'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('creator-confirm-selected')),
+        matching: find.text('CREAR TAREA'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Duración estimada: 20 minutos'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Título: Twenty minute Planner task'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Revisa el cambio seleccionado. Aún no se ha guardado nada.'),
+      findsOneWidget,
+    );
+    expect(
+      container.read(creatorHandshakeProvider).token,
+      same(bindingBeforeLocaleChange),
+    );
+    expect(repository.saveCalls, 0);
     await tester.ensureVisible(confirm);
     await tester.tap(confirm);
     await tester.pump();
@@ -111,6 +172,28 @@ void main() {
       const Duration(minutes: 20),
     );
     expect(repository.saveCalls, 1);
+    expect(repository.tasks.values.single.title, 'Twenty minute Planner task');
+    expect(find.text('CREACIÓN GUARDADA'), findsOneWidget);
+    expect(find.text('Ver tareas guardadas'), findsOneWidget);
+    expect(
+      find.text('Se guardó una sola vez a partir de tu confirmación.'),
+      findsOneWidget,
+    );
+    expect(find.text('1 cambio guardado.'), findsOneWidget);
+    final undo = find.byKey(const Key('creator-undo-confirmed'));
+    await tester.ensureVisible(undo);
+    await tester.tap(undo);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(repository.deleteCalls, 1);
+    expect(find.text('CREACIÓN DESHECHA'), findsOneWidget);
+    expect(find.text('1 cambio deshecho.'), findsOneWidget);
+    expect(
+      find.text(
+        'Creación deshecha. Repetir esta solicitud no volverá a modificar los datos.',
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -124,12 +207,20 @@ void main() {
     final _ScreenTaskRepository repository = _ScreenTaskRepository();
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        // Keep Person Context storage deterministic; no platform channel in a widget test.
+        sensitivePrefsStoreProvider.overrideWithValue(_ScreenPreferences()),
         accountStorageScopeProvider.overrideWithValue(
           AccountStorageScope.authenticated('creator-screen-test'),
         ),
         domainTaskRepositoryProvider.overrideWithValue(repository),
         domainGoalRepositoryProvider.overrideWithValue(
-          const _ScreenGoalRepository(),
+          _ScreenGoalRepository([
+            GoalEntity(
+              id: 'internal-goal-identity',
+              title: 'Verify release workflows',
+              createdAt: DateTime.utc(2026, 8, 20),
+            ),
+          ]),
         ),
         domainHabitRepositoryProvider.overrideWithValue(
           const _ScreenHabitRepository(),
@@ -154,6 +245,7 @@ void main() {
             description: 'The exact before and after must be visible.',
             type: 'Task',
             priority: 4,
+            goalId: 'internal-goal-identity',
           ),
           source: CreatorHandshakeSource.smartPlanner,
         );
@@ -172,11 +264,16 @@ void main() {
       find.textContaining('Nothing is saved until you confirm'),
       findsOneWidget,
     );
-    expect(find.textContaining('Account binding'), findsOneWidget);
-    expect(find.textContaining('Domain version'), findsOneWidget);
-    expect(find.textContaining('Displayed diff'), findsOneWidget);
+    expect(find.textContaining('Account binding'), findsNothing);
+    expect(find.textContaining('Domain version'), findsNothing);
+    expect(find.textContaining('Displayed diff'), findsNothing);
     expect(
-      find.textContaining('Title: Not present → Ship one verified change'),
+      find.textContaining('Active goal: Verify release workflows'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('internal-goal-identity'), findsNothing);
+    expect(
+      find.textContaining('Title: Ship one verified change'),
       findsOneWidget,
     );
     expect(repository.saveCalls, 0);
@@ -188,9 +285,26 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(repository.saveCalls, 1);
-    expect(find.text('CONFIRMED CREATOR RECEIPT'), findsOneWidget);
+    expect(find.text('CREATION SAVED'), findsOneWidget);
+    expect(repository.tasks.values.single.goalId, 'internal-goal-identity');
+    expect(find.textContaining('Confirmation:'), findsNothing);
+    expect(find.textContaining('Result version:'), findsNothing);
     expect(find.textContaining('Saved exactly once'), findsOneWidget);
     expect(find.text('Undo creation'), findsOneWidget);
+    // This task has no date: the result must open the account Library, where
+    // the actual saved record appears, rather than an empty Timeline window.
+    expect(find.text('Browse saved tasks'), findsOneWidget);
+    final Finder savedResult = find.byKey(
+      const Key('creator-open-saved-result'),
+    );
+    await tester.ensureVisible(savedResult);
+    await tester.tap(savedResult);
+    await tester.pumpAndSettle();
+    expect(find.text('Library'), findsOneWidget);
+    expect(find.text('Ship one verified change'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     final Finder undo = find.byKey(const Key('creator-undo-confirmed'));
     await tester.ensureVisible(undo);
@@ -200,6 +314,42 @@ void main() {
 
     expect(repository.deleteCalls, 1);
     expect(find.text('CREATION UNDONE'), findsOneWidget);
+    container.read(creatorHandshakeProvider.notifier).clearResult();
+    await container
+        .read(creatorHandshakeProvider.notifier)
+        .stage(
+          data: CreatorFormData(
+            title: 'Dated next move',
+            type: 'Task',
+            priority: 3,
+            scheduledFor: DateTime.utc(2026, 8, 21, 9),
+          ),
+        );
+    await tester.pump();
+    await tester.ensureVisible(confirm);
+    await tester.tap(confirm);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Open Timeline'), findsOneWidget);
+    expect(find.text('Browse saved tasks'), findsNothing);
+    container
+        .read(creatorDraftPreviewProvider.notifier)
+        .stage(
+          CreatorDraftPreview.fromPlannerOption(
+            const PlannerOption(
+              kind: PlannerOptionKind.bestFit,
+              title: 'A different unsaved plan',
+              description: 'Keep this draft separate from the prior receipt.',
+              estimatedMinutes: 10,
+              tradeoff: 'One small step.',
+            ),
+          ),
+        );
+    await tester.pump();
+    expect(find.text('PLANNER DRAFT PREVIEW'), findsOneWidget);
+    expect(find.byKey(const Key('creator-handshake-result')), findsNothing);
+    expect(find.text('Undo creation'), findsNothing);
+    expect(repository.saveCalls, 2);
   });
 
   testWidgets('operation can be deselected and confirmation becomes disabled', (
@@ -211,6 +361,8 @@ void main() {
     final _ScreenTaskRepository repository = _ScreenTaskRepository();
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        // Keep Person Context storage deterministic; no platform channel in a widget test.
+        sensitivePrefsStoreProvider.overrideWithValue(_ScreenPreferences()),
         accountStorageScopeProvider.overrideWithValue(
           AccountStorageScope.authenticated('creator-screen-test'),
         ),
@@ -275,6 +427,8 @@ void main() {
     final _ScreenTaskRepository repository = _ScreenTaskRepository();
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        // Keep Person Context storage deterministic; no platform channel in a widget test.
+        sensitivePrefsStoreProvider.overrideWithValue(_ScreenPreferences()),
         accountStorageScopeProvider.overrideWithValue(accountScope),
         domainTaskRepositoryProvider.overrideWithValue(repository),
         domainGoalRepositoryProvider.overrideWithValue(
@@ -370,6 +524,8 @@ void main() {
     addTearDown(tester.view.reset);
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        // Keep Person Context storage deterministic; no platform channel in a widget test.
+        sensitivePrefsStoreProvider.overrideWithValue(_ScreenPreferences()),
         accountStorageScopeProvider.overrideWithValue(
           AccountStorageScope.authenticated('creator-note-screen-test'),
         ),
@@ -408,11 +564,8 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('Type: Not present → Note'), findsOneWidget);
-    expect(
-      find.text('Body: Not present → This remains a note.'),
-      findsOneWidget,
-    );
+    expect(find.text('Type: Note'), findsOneWidget);
+    expect(find.text('Body: This remains a note.'), findsOneWidget);
     expect(find.textContaining('Priority: Not present'), findsNothing);
     expect(find.textContaining('Schedule: Not present'), findsNothing);
     expect(find.textContaining('Deadline: Not present'), findsNothing);
@@ -431,6 +584,8 @@ void main() {
       final _ScreenTaskRepository repository = _ScreenTaskRepository();
       final ProviderContainer container = ProviderContainer(
         overrides: [
+          // Keep Person Context storage deterministic; no platform channel in a widget test.
+          sensitivePrefsStoreProvider.overrideWithValue(_ScreenPreferences()),
           accountStorageScopeProvider.overrideWithValue(
             AccountStorageScope.authenticated('guided-creator-screen-test'),
           ),
@@ -531,13 +686,14 @@ class _ScreenTaskRepository implements ITaskRepository {
 }
 
 class _ScreenGoalRepository implements IGoalRepository {
-  const _ScreenGoalRepository();
+  const _ScreenGoalRepository([this.goals = const []]);
+  final List<GoalEntity> goals;
 
   @override
   Future<void> deleteGoal(String id) async {}
 
   @override
-  List<GoalEntity> getGoals() => const <GoalEntity>[];
+  List<GoalEntity> getGoals() => List.of(goals);
 
   @override
   Future<void> saveGoal(GoalEntity goal) async {}
@@ -567,4 +723,26 @@ class _ScreenNoteRepository implements INoteRepository {
 
   @override
   Future<void> saveNote(NoteEntity note) async {}
+}
+
+class _ScreenPreferences implements SharedPrefsStore {
+  final values = <String, String>{};
+  @override
+  Future<void> init() async {}
+  @override
+  String? load(String key) => values[key];
+  @override
+  Future<void> save(String key, String value) async {
+    values[key] = value;
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    values.remove(key);
+  }
+
+  @override
+  Future<void> clear() async {
+    values.clear();
+  }
 }

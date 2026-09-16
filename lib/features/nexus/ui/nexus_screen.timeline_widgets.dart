@@ -1,9 +1,14 @@
 part of 'nexus_screen.dart';
 
 class _TrajectoryReport extends StatelessWidget {
-  const _TrajectoryReport({required this.summary, required this.onOpen});
+  const _TrajectoryReport({
+    required this.summary,
+    required this.vitals,
+    required this.onOpen,
+  });
 
   final TrajectorySummaryView summary;
+  final NexusTrajectoryVitals vitals;
   final VoidCallback onOpen;
 
   @override
@@ -14,16 +19,20 @@ class _TrajectoryReport extends StatelessWidget {
       'elevated' || 'watch' => AppColors.memoryAmber,
       _ => AppColors.neonViolet,
     };
-    final String headline = summary.predictionEvidenceSufficient
+    final String headline = vitals.unavailableDetail != null
+        ? 'Trajectory ${vitals.momentumLabel.toLowerCase()}'
+        : summary.predictionEvidenceSufficient
         ? summary.predictionOutcome!
         : '${_titleCase(riskName)} pressure signal';
-    final String report = summary.predictionEvidenceSufficient
-        ? '${((summary.predictionProbability ?? 0) * 100).round()}% observed follow-through across ${summary.predictionSampleSize} outcomes.'
-        : _cleanTrajectoryCopy(
-            summary.statusDetail.isNotEmpty
-                ? summary.statusDetail
-                : summary.alert,
-          );
+    final String report =
+        vitals.unavailableDetail ??
+        (summary.predictionEvidenceSufficient
+            ? '${((summary.predictionProbability ?? 0) * 100).round()}% observed follow-through across ${summary.predictionSampleSize} outcomes.'
+            : _cleanTrajectoryCopy(
+                summary.statusDetail.isNotEmpty
+                    ? summary.statusDetail
+                    : summary.alert,
+              ));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -37,7 +46,11 @@ class _TrajectoryReport extends StatelessWidget {
         const SizedBox(height: 9),
         SmartPressable(
           onTap: onOpen,
-          semanticLabel: 'Open Trajectory Engine',
+          semanticLabel:
+              'Open Trajectory Engine. $headline. $report '
+              'Pressure ${vitals.pressurePercent == null ? 'unavailable' : '${vitals.pressurePercent} percent'}. '
+              'Momentum ${vitals.momentumPercent == null ? 'unavailable' : '${vitals.momentumPercent} percent'}. '
+              'Active commitments ${vitals.activeCount?.toString() ?? 'unavailable'}.',
           child: _GlassPanel(
             accent: accent,
             child: Column(
@@ -77,7 +90,9 @@ class _TrajectoryReport extends StatelessWidget {
                     Expanded(
                       child: _MetricCell(
                         label: 'PRESSURE',
-                        value: '${summary.pressureIndex}%',
+                        value: vitals.pressurePercent == null
+                            ? '—'
+                            : '${vitals.pressurePercent}%',
                         accent: accent,
                       ),
                     ),
@@ -85,7 +100,9 @@ class _TrajectoryReport extends StatelessWidget {
                     Expanded(
                       child: _MetricCell(
                         label: 'MOMENTUM',
-                        value: '${(summary.momentum * 100).round()}%',
+                        value: vitals.momentumPercent == null
+                            ? '—'
+                            : '${vitals.momentumPercent}%',
                         accent: AppColors.neonCyan,
                       ),
                     ),
@@ -93,7 +110,7 @@ class _TrajectoryReport extends StatelessWidget {
                     Expanded(
                       child: _MetricCell(
                         label: 'ACTIVE',
-                        value: '${summary.pendingTasks}',
+                        value: vitals.activeCount?.toString() ?? '—',
                         accent: AppColors.neonViolet,
                       ),
                     ),
@@ -160,11 +177,13 @@ class _TimelineSnapshot extends StatelessWidget {
   const _TimelineSnapshot({
     required this.events,
     required this.tasks,
+    required this.goals,
     required this.onOpen,
   });
 
   final List<TimelineEventEntity> events;
   final AsyncValue<List<TaskEntity>> tasks;
+  final List<GoalEntity> goals;
   final VoidCallback onOpen;
 
   @override
@@ -173,6 +192,7 @@ class _TimelineSnapshot extends StatelessWidget {
       events: events,
       tasks: tasks.asData?.value,
       tasksLoading: tasks.isLoading,
+      goals: goals,
     );
 
     return Column(
@@ -277,13 +297,18 @@ class _TimelineRow extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     if (item.when != null)
-                      Text(
-                        _formatDateTime(item.when!),
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: AppSizes.fontCaption,
+                      Expanded(
+                        child: Text(
+                          _formatDateTime(item.when!),
+                          textAlign: TextAlign.end,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            fontSize: AppSizes.fontCaption,
+                          ),
                         ),
                       ),
                   ],
@@ -416,14 +441,15 @@ class _LearningChangePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final copy = NexusCopy.of(context);
     return _GlassPanel(
       accent: AppColors.neonCyan,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text(
-            'WHAT LEARNING CHANGED',
-            style: TextStyle(
+          Text(
+            copy.learningChanged,
+            style: const TextStyle(
               color: AppColors.neonCyan,
               fontSize: 12,
               fontWeight: FontWeight.w800,
@@ -431,27 +457,29 @@ class _LearningChangePanel extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            change.summary,
+            copy.learningSummary(
+              change.summary,
+              change.outcomeKind.name,
+              change.beforeAffinity,
+              change.afterAffinity,
+            ),
             style: const TextStyle(color: Colors.white, fontSize: 15),
           ),
           if (onHelpful != null && onNotHelpful != null) ...<Widget>[
             const SizedBox(height: 12),
-            const Text(
-              'Correct this learning',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+            Text(
+              copy.correctLearning,
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: <Widget>[
-                OutlinedButton(
-                  onPressed: onHelpful,
-                  child: const Text('This helped'),
-                ),
+                OutlinedButton(onPressed: onHelpful, child: Text(copy.helped)),
                 OutlinedButton(
                   onPressed: onNotHelpful,
-                  child: const Text('This did not help'),
+                  child: Text(copy.didNotHelp),
                 ),
               ],
             ),
@@ -528,16 +556,28 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
   required List<TimelineEventEntity> events,
   required List<TaskEntity>? tasks,
   required bool tasksLoading,
+  required List<GoalEntity> goals,
 }) {
   final DateTime now = DateTime.now();
   final DateTime today = DateTime(now.year, now.month, now.day);
-  final DateTime tomorrow = today.add(const Duration(days: 1));
+  final DateTime tomorrow = DateTime(now.year, now.month, now.day + 1);
   final List<TimelineEventEntity> newest = List<TimelineEventEntity>.of(events)
     ..sort(
       (TimelineEventEntity first, TimelineEventEntity second) =>
           second.timestamp.compareTo(first.timestamp),
     );
   final TimelineEventEntity? latest = newest.isEmpty ? null : newest.first;
+  // Project current goal targets exactly as Timeline does. Stored goal events
+  // remain activity history; they may describe an older date or completed goal.
+  final goalIds = goals.map((goal) => goal.id).toSet();
+  final deadlineEvents = <TimelineEventEntity>[
+    ...events.where(
+      (event) =>
+          event.type != TimelineEventType.goal ||
+          !goalIds.contains(event.relatedId),
+    ),
+    ...projectTimelineEvents(now: now, tasks: const [], goals: goals),
+  ];
   final List<TaskEntity> active = (tasks ?? const <TaskEntity>[])
       .where((TaskEntity task) => !task.isCompleted && !task.isCanceled)
       .toList(growable: false);
@@ -567,7 +607,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
       event.status != TimelineEventStatus.canceled &&
       event.status != TimelineEventStatus.skipped;
   final List<TimelineEventEntity> dueEvents =
-      events
+      deadlineEvents
           .where((event) {
             final DateTime? due = event.dueAt;
             return due != null &&
@@ -583,7 +623,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
               first.dueAt!.compareTo(second.dueAt!),
         );
   final List<TimelineEventEntity> overdueEvents =
-      events
+      deadlineEvents
           .where((event) {
             final DateTime? due = event.dueAt;
             return due != null &&
@@ -772,24 +812,27 @@ NoteEntity? _selectCurrentNote(
   return active.first;
 }
 
-String _goalDetail(GoalEntity goal) {
+String _goalDetail(GoalEntity goal, BuildContext context) {
+  final copy = NexusCopy.of(context);
   if (goal.targetDate != null) {
-    return 'Target ${_formatDate(goal.targetDate!)}';
+    return copy.goalTarget(copy.date(context, goal.targetDate!));
   }
   final String? description = goal.description?.trim();
-  return description?.isNotEmpty == true ? description! : 'Active goal';
+  return description?.isNotEmpty == true ? description! : copy.activeGoal;
 }
 
-String _taskDetail(TaskEntity task) {
+String _taskDetail(TaskEntity task, BuildContext context) {
+  final copy = NexusCopy.of(context);
   final DateTime? scheduled = task.scheduledFor;
-  if (scheduled != null) return _formatDateTime(scheduled);
-  return 'Priority ${task.priority} · not scheduled';
+  if (scheduled != null) return copy.dateTime(context, scheduled);
+  return copy.taskPriority(task.priority);
 }
 
-String _noteDetail(NoteEntity note) {
+String _noteDetail(NoteEntity note, BuildContext context) {
   final String? body = note.body?.trim();
   if (body?.isNotEmpty == true) return body!;
-  return 'Updated ${_formatDate(note.updatedAt)}';
+  final copy = NexusCopy.of(context);
+  return copy.updated(copy.date(context, note.updatedAt));
 }
 
 Color _statusAccent(NexusDecisionStatus status) => switch (status) {
@@ -816,44 +859,6 @@ String _titleCase(String value) {
   return '${value[0].toUpperCase()}${value.substring(1)}';
 }
 
-String _formatDate(DateTime value) {
-  const List<String> months = <String>[
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  return '${months[value.month - 1]} ${value.day}';
-}
-
-String _formatTime(DateTime value) {
-  final int displayHour = value.hour == 0
-      ? 12
-      : value.hour > 12
-      ? value.hour - 12
-      : value.hour;
-  final String minute = value.minute.toString().padLeft(2, '0');
-  return '$displayHour:$minute ${value.hour >= 12 ? 'PM' : 'AM'}';
-}
-
 String _formatDateTime(DateTime value) {
-  final DateTime now = DateTime.now();
-  final DateTime day = DateTime(value.year, value.month, value.day);
-  final DateTime today = DateTime(now.year, now.month, now.day);
-  final int difference = day.difference(today).inDays;
-  final String date = switch (difference) {
-    0 => 'Today',
-    1 => 'Tomorrow',
-    -1 => 'Yesterday',
-    _ => _formatDate(value),
-  };
-  return '$date · ${_formatTime(value)}';
+  return DateTimeFormats.relativeLocalDateTime(value);
 }

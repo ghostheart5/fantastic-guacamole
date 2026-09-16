@@ -3,6 +3,110 @@ import 'package:fantastic_guacamole/state/providers/execution_signals_provider.d
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final count in [0, 1, 2]) {
+    test('Spanish active workload uses correct forms for $count', () {
+      final review = buildProgressionReview(
+        spanish: true,
+        execution: const ExecutionSignals(
+          createdToday: 0,
+          completedToday: 0,
+          skippedToday: 0,
+          delayedToday: 0,
+          created7d: 0,
+          completed7d: 0,
+          skipped7d: 0,
+          delayed7d: 0,
+        ),
+        pressureIndex: 0,
+        timelineHealth: 100,
+        timelineRisk: 0,
+        overdue: 0,
+        milestoneHealth: 100,
+        milestoneOverdue: 0,
+        milestoneCount: 0,
+        activeGoals: count,
+        activeTasks: count,
+      );
+      expect(
+        review,
+        contains(
+          'Carga activa: $count ${count == 1 ? 'tarea' : 'tareas'} en $count ${count == 1 ? 'meta' : 'metas'}.',
+        ),
+      );
+    });
+  }
+  test(
+    'Spanish progress review keeps observed counts and unavailable milestones',
+    () {
+      final review = buildProgressionReview(
+        spanish: true,
+        execution: const ExecutionSignals(
+          createdToday: 1,
+          completedToday: 1,
+          skippedToday: 0,
+          delayedToday: 0,
+          created7d: 8,
+          completed7d: 6,
+          skipped7d: 1,
+          delayed7d: 1,
+        ),
+        pressureIndex: 42,
+        timelineHealth: 82,
+        timelineRisk: 18,
+        overdue: 0,
+        milestoneHealth: 100,
+        milestoneOverdue: 0,
+        milestoneCount: 0,
+        activeGoals: 2,
+        activeTasks: 4,
+      );
+      expect(
+        review,
+        contains('Se completaron 6 de 8 resultados registrados (75%)'),
+      );
+      expect(
+        review,
+        contains('Aún no hay hitos registrados; su estado no está disponible'),
+      );
+      expect(review, contains('Carga activa: 4 tareas en 2 metas.'));
+      expect(review, isNot(contains('PROGRESS REVIEW')));
+    },
+  );
+
+  test(
+    'empty milestones remain unmeasured even with a neutral health score',
+    () {
+      final review = buildProgressionReview(
+        execution: const ExecutionSignals(
+          createdToday: 1,
+          completedToday: 1,
+          skippedToday: 0,
+          delayedToday: 0,
+          created7d: 1,
+          completed7d: 1,
+          skipped7d: 0,
+          delayed7d: 0,
+        ),
+        pressureIndex: 66,
+        timelineHealth: 100,
+        timelineRisk: 0,
+        overdue: 0,
+        milestoneHealth: 100,
+        milestoneOverdue: 0,
+        milestoneCount: 0,
+        activeGoals: 8,
+        activeTasks: 3,
+      );
+      expect(
+        review,
+        contains(
+          'No milestones recorded yet; milestone health is not available',
+        ),
+      );
+      expect(review, isNot(contains('Milestones are on-track')));
+      expect(review, isNot(contains('Milestones need tighter execution')));
+    },
+  );
   test(
     'progress review uses real seven-day outcome keys and no advisor copy',
     () {
@@ -25,6 +129,7 @@ void main() {
         overdue: 0,
         milestoneHealth: 78,
         milestoneOverdue: 0,
+        milestoneCount: 2,
         activeGoals: 2,
         activeTasks: 4,
       );

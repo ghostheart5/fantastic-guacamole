@@ -8,7 +8,12 @@ if ([string]::IsNullOrWhiteSpace($Root)) {
   $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 }
 
-$root = (Resolve-Path -LiteralPath $Root -ErrorAction Stop).Path
+# Use the same filesystem spelling as Get-ChildItem.FullName. Resolve-Path
+# preserves Windows 8.3 aliases (for example RUNNER~1) while enumeration expands
+# them, which otherwise makes a contained temporary fixture look out of scope.
+$root = [System.IO.Path]::GetFullPath(
+  (Get-Item -LiteralPath $Root -ErrorAction Stop).FullName
+)
 $libRoot = Join-Path $root 'lib'
 
 if (-not (Test-Path $libRoot)) {
@@ -387,6 +392,15 @@ $importScanRoots = @(
   (Join-Path $root 'tool')
 )
 
+# Flutter Android billing 0.5.2 omits the public reconnect parameter export.
+# One isolated compatibility import is permitted; dependency upgrades require
+# reviewing/removing this exception, not silently widening private API access.
+$pendingCompatFile = 'lib/data/services/google_play_pending_compat.dart'
+$pendingCompatImport = 'package:in_app_purchase_android/src/billing_client_wrappers/pending_purchases_params_wrapper.dart'
+$compatLockPath = Join-Path $root 'pubspec.lock'
+$lockText = if (Test-Path -LiteralPath $compatLockPath) { Get-Content -LiteralPath $compatLockPath -Raw } else { '' }
+$pendingCompatVersionPinned = $lockText -match '(?ms)^  in_app_purchase_android:\r?\n(?:(?!^  [a-zA-Z_]).)*?^    version: "0\.5\.2"\r?$'
+
 $allDartFiles = @()
 foreach ($scanRoot in $importScanRoots) {
   if (Test-Path $scanRoot) {
@@ -399,7 +413,10 @@ foreach ($file in $allDartFiles) {
 
   foreach ($dartImport in $dartImports) {
     if ($dartImport.Uri -match '^package:[^/]+/src/') {
-      $violations.Add("${relativePath}:$($dartImport.LineNumber) -> importing package private src/ is not allowed") | Out-Null
+      $isPendingCompat = $relativePath -eq $pendingCompatFile -and $dartImport.Uri -eq $pendingCompatImport -and $pendingCompatVersionPinned
+      if (-not $isPendingCompat) {
+        $violations.Add("${relativePath}:$($dartImport.LineNumber) -> importing package private src/ is not allowed") | Out-Null
+      }
     }
 
     $isTestFile = $relativePath.StartsWith('test/') -or $relativePath.StartsWith('integration_test/')

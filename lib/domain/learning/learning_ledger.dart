@@ -152,10 +152,24 @@ PlannerV2Response applyPlannerLearnedPreference(
     if (value.name == pattern.preferredOption) preferred = value;
   }
   if (preferred == null) return response;
+  // Current evidence may require a minimum for capacity or task demand.
+  // Historical preference must not turn that smaller recommendation into work
+  // the current response deliberately avoided, or replace its explanation.
+  if (response.recommendedKind == PlannerOptionKind.minimum ||
+      preferred == response.recommendedKind) {
+    return response;
+  }
+  final bool spanish = response.isSpanish;
+  final String optionLabel = switch (preferred) {
+    PlannerOptionKind.minimum => spanish ? 'mínima' : 'minimum',
+    PlannerOptionKind.bestFit => spanish ? 'más adecuada' : 'best-fit',
+    PlannerOptionKind.stretch => spanish ? 'de mayor esfuerzo' : 'stretch',
+  };
   return response.recommend(
     preferred,
-    why:
-        'Your reviewable Smart Planner feedback repeatedly favored the ${preferred.name} option. You can choose another option or correct this learning at any time.',
+    why: spanish
+        ? 'Tus elecciones registradas en el Planificador Inteligente han favorecido varias veces la opción $optionLabel. Puedes elegir otra opción o corregir este aprendizaje cuando quieras.'
+        : 'Your reviewable Smart Planner feedback repeatedly favored the $optionLabel option. You can choose another option or correct this learning at any time.',
   );
 }
 
@@ -180,7 +194,6 @@ class _PatternAccumulator {
     weight += decayedWeight;
     final bool positive =
         outcome.recommendationHelped == true ||
-        outcome.kind == DecisionOutcomeKind.accepted ||
         outcome.kind == DecisionOutcomeKind.completed;
     final bool negative =
         outcome.recommendationHelped == false ||
@@ -189,11 +202,13 @@ class _PatternAccumulator {
     if (positive) helpful += decayedWeight;
     final String? option = outcome.optionChosen?.trim();
     if (option != null && option.isNotEmpty) {
-      optionScores.update(
-        option,
-        (double value) => value + (negative ? -decayedWeight : decayedWeight),
-        ifAbsent: () => negative ? -decayedWeight : decayedWeight,
-      );
+      if (positive || negative) {
+        optionScores.update(
+          option,
+          (double value) => value + (negative ? -decayedWeight : decayedWeight),
+          ifAbsent: () => negative ? -decayedWeight : decayedWeight,
+        );
+      }
     }
   }
 

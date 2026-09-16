@@ -1,0 +1,160 @@
+{
+  "sourceSha": "6e1f7470b95c2d9925e0d78cdcff58d479ae5d8e",
+  "candidateVersionCode": 2026083028,
+  "aabSha256": "9c55a8e993ac83e8d0bd29f3d740f562d4bad44489e2828b2a8bc842e0ad5c45",
+  "internalRelease": {
+    "versionCode": 2026083028,
+    "releaseId": 30,
+    "status": "AVAILABLE_TO_INTERNAL_TESTERS",
+    "readback": "Play Console active internal track; latest release 2026083028; available to internal testers; Sep 11 1:51 PM",
+    "productionPublished": false,
+    "installedVia": "com.android.vending; Android user0; lastUpdateTime2026-09-11 13:55:27; no uninstall/data reset"
+  },
+  "ownerProfile": {
+    "androidUser": 0,
+    "level": 20,
+    "xp": 36187,
+    "completedTasks": 1447,
+    "preserve": true
+  },
+  "automated": {
+    "ci": {
+      "run": 34630337604,
+      "status": "PASS",
+      "flutterTests": 2908,
+      "qaConfigurationTests": 15,
+      "skipped": 0,
+      "errors": 0
+    },
+    "database": {
+      "run": 34630339934,
+      "status": "PASS",
+      "edgeTests": 142,
+      "failures": 0,
+      "errors": 0
+    },
+    "windowsVisualAndWidget": {
+      "status": "PASS",
+      "tests": 48,
+      "skipped": 0
+    },
+    "windowsLauncher": {
+      "status": "PASS",
+      "tests": 17,
+      "skipped": 0
+    },
+    "linuxIntegration": {
+      "status": "PASS",
+      "outerGroups": 8,
+      "skipped": 0
+    },
+    "maestroAndMonkey": {
+      "run": 34630362723,
+      "status": "LATEST_RETRY_PASS_ORIGINAL_FAILURE_RETAINED",
+      "journeysPassed": 11,
+      "journeyFatalMarkers": 0,
+      "monkeyVariantsPassed": 3,
+      "monkeyVariantsAttempted": 4,
+      "eventsInjected": 1400,
+      "retryRun": 34635175059,
+      "retryStatus": "PASS",
+      "retrySmokeFlows": 5,
+      "retryVariantsPassed": 5,
+      "retryEvents": 1700,
+      "retryFatalMarkers": 0
+    },
+    "signedCandidateNative": {
+      "run": 34633530522,
+      "status": "PASS",
+      "nativeCases": 15,
+      "nativeSkipped": 0,
+      "strict16Kb": true,
+      "onboarding": true,
+      "aabSha256": "9c55a8e993ac83e8d0bd29f3d740f562d4bad44489e2828b2a8bc842e0ad5c45"
+    },
+    "windowsFull": {
+      "run": 34633530522,
+      "status": "PASS",
+      "tests": 2911,
+      "qaConfigurationTests": 15,
+      "skipped": 0,
+      "errors": 0
+    },
+    "decisionExploration": {
+      "scenarios": 60,
+      "tasksPerScenario": 1000,
+      "status": "PASS",
+      "boundary": "Deterministic random fixtures, not 60000 independent user tests."
+    }
+  },
+  "runtime": {
+    "logSha256": "1c7f052573074d293d9a0eba632655099219ae9e2485efa76e0335343488a416",
+    "bytes": 278773,
+    "scope": "Owned filtered Android runtime collector; not all Android tags or every error class.",
+    "wholePass": {
+      "FATAL EXCEPTION": 0,
+      "ANR in com\\.ghostheart5\\.chronospark": 0,
+      "Unhandled Exception": 0,
+      "RenderFlex.*overflow": 0,
+      "logger\\.categorized_error": 0
+    },
+    "installed3028": {
+      "FATAL EXCEPTION": 0,
+      "ANR in com\\.ghostheart5\\.chronospark": 0,
+      "Unhandled Exception": 0,
+      "RenderFlex.*overflow": 0,
+      "logger\\.categorized_error": 0
+    },
+    "collectorStopped": true
+  },
+  "openFindings": [
+    {
+      "id": "S9",
+      "status": "OPEN",
+      "title": "Paywall background refresh resets scroll position",
+      "observedVersion": 2026083027,
+      "detail": "Repeated lower-plan inspection returns to the top during authority refresh. Show-all state remains selected; list position is lost. Not repaired in 3028."
+    },
+    {
+      "id": "S10",
+      "status": "OPEN",
+      "title": "Support email spaces appear as plus characters in Gmail",
+      "observedVersion": 2026083027,
+      "evidence": "support-review-loaded.json",
+      "detail": "Contact Support launches a reviewable draft, but URI queryParameters encode spaces as + in subject/body. Draft discarded without sending. Same construction remains in 3028."
+    },
+    {
+      "id": "S11",
+      "status": "OPEN",
+      "title": "SI context header and response disagree; query relevance needs review",
+      "observedVersion": 2026083028,
+      "detail": "Header claims one user-reported item is cited; expanded response says None identified and omits saved capacity explanation. Ambiguous family-budget/pickup query chose bookkeeping; explicit grocery query chose grocery. No saved mutation.",
+      "evidence": [
+        "repaired-si-answer.json",
+        "repaired-si-evidence-lower.json",
+        "repaired-si-evidence-sources.json",
+        "repaired-si-explicit-answer.json"
+      ]
+    }
+  ],
+  "productionReady": false,
+  "productionPublished": false,
+  "billingReadback": {
+    "renewalGrants": 6,
+    "firstRefillDelta": 7,
+    "laterRefillDeltas": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "expired": true,
+    "finalBalance": 517,
+    "included": 20,
+    "purchased": 497,
+    "realMoneyInstrumentUsed": false
+  },
+  "evidenceRoot": "test-results/stress-3027-20260911",
+  "boundary": "Finite scenario coverage. Passing results cannot establish that all future inputs, devices or outages will never fail."
+}

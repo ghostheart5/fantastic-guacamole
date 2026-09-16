@@ -11,6 +11,8 @@ import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/services/app_recovery_service.dart';
 import 'package:fantastic_guacamole/system/analytics/local_metrics_accumulator.dart';
 import 'package:fantastic_guacamole/system/voice/audio_interruption_service.dart';
+import 'package:fantastic_guacamole/system/voice/speech_recognition_service.dart';
+import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -67,6 +69,74 @@ void main() {
   });
 
   group('NavigationShell background containment', () {
+    testWidgets('pausing fences microphone before delayed playback cleanup', (
+      WidgetTester tester,
+    ) async {
+      final _ControlledVoiceService playback = _ControlledVoiceService();
+      final _ControlledSpeechService speech = _ControlledSpeechService();
+      final ProviderContainer container = await _pumpShell(
+        tester,
+        playback: playback,
+        speech: speech,
+      );
+      await container.read(voiceControllerProvider.notifier).startListening();
+      expect(container.read(voiceControllerProvider).isListening, isTrue);
+      speech.emitResult('foreground transcript');
+      final Completer<void> playbackStop = Completer<void>();
+      final Completer<void> microphoneStop = Completer<void>();
+      playback.pendingStop = playbackStop.future;
+      speech.pendingStop = microphoneStop.future;
+      addTearDown(() {
+        if (!microphoneStop.isCompleted) microphoneStop.complete();
+        if (!playbackStop.isCompleted) playbackStop.complete();
+      });
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+
+      // No pump or future completion: the lifecycle callback must synchronously
+      // invalidate capture, including late results from an unfinished stop.
+      expect(speech.stopCalls, 1);
+      expect(container.read(voiceControllerProvider).isListening, isFalse);
+      expect(playbackStop.isCompleted, isFalse);
+      expect(microphoneStop.isCompleted, isFalse);
+      speech.emitResult('late background transcript');
+      expect(
+        container.read(voiceControllerProvider).recognizedText,
+        'foreground transcript',
+      );
+
+      microphoneStop.complete();
+      playbackStop.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    });
+
+    testWidgets('contains both microphone and playback shutdown failures', (
+      WidgetTester tester,
+    ) async {
+      final _ControlledVoiceService playback = _ControlledVoiceService();
+      final _ControlledSpeechService speech = _ControlledSpeechService();
+      final ProviderContainer container = await _pumpShell(
+        tester,
+        playback: playback,
+        speech: speech,
+      );
+      await container.read(voiceControllerProvider.notifier).startListening();
+      playback.failOnStop = true;
+      speech.failOnStop = true;
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      await tester.pump();
+
+      expect(speech.stopCalls, 1);
+      expect(container.read(voiceControllerProvider).isListening, isFalse);
+      expect(tester.takeException(), isNull);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    });
+
     testWidgets('refreshes entitlement authority on resume only', (
       WidgetTester tester,
     ) async {
@@ -253,6 +323,8 @@ Future<ProviderContainer> _pumpShell(
   _FakeRecoveryService? recovery,
   _FakeMetricsAccumulator? metrics,
   _FakeAudioInterruptionService? audio,
+  _ControlledVoiceService? playback,
+  _ControlledSpeechService? speech,
   bool probeEntitlement = false,
   bool premiumAccess = false,
   Duration? authorityRecheckInterval,
@@ -275,6 +347,14 @@ Future<ProviderContainer> _pumpShell(
       audioInterruptionServiceProvider.overrideWithValue(
         audio ?? _FakeAudioInterruptionService(),
       ),
+      if (playback != null) voiceServiceProvider.overrideWithValue(playback),
+      if (speech != null) ...[
+        speechRecognitionServiceProvider.overrideWithValue(speech),
+        voiceInputEnabledProvider.overrideWithValue(true),
+        voicePermissionServiceProvider.overrideWithValue(
+          const _GrantedVoicePermission(),
+        ),
+      ],
       runtimePremiumAccessProvider.overrideWithValue(premiumAccess),
       if (authorityRecheckInterval != null)
         entitlementAuthorityRecheckIntervalProvider.overrideWithValue(
@@ -303,6 +383,59 @@ Future<ProviderContainer> _pumpShell(
 class _StaticGoals extends GoalsNotifier {
   @override
   List<GoalEntity> build() => const <GoalEntity>[];
+}
+
+class _GrantedVoicePermission extends VoicePermissionService {
+  const _GrantedVoicePermission();
+
+  @override
+  Future<bool> requestPermission() async => true;
+}
+
+class _ControlledVoiceService extends VoiceService {
+  Future<void>? pendingStop;
+  bool failOnStop = false;
+
+  @override
+  Future<void> stop() async {
+    if (failOnStop) throw StateError('playback stop failure');
+    await pendingStop;
+  }
+}
+
+class _ControlledSpeechService implements SpeechRecognitionService {
+  void Function(String, bool)? _onResult;
+  Future<void>? pendingStop;
+  bool failOnStop = false;
+  int stopCalls = 0;
+
+  @override
+  bool isListening = false;
+
+  @override
+  Future<bool> initialize() async => true;
+
+  @override
+  Future<void> listen({
+    required void Function(String, bool) onResult,
+    required void Function() onDone,
+  }) async {
+    _onResult = onResult;
+    isListening = true;
+  }
+
+  void emitResult(String text) => _onResult?.call(text, true);
+
+  @override
+  Future<void> stop() async {
+    stopCalls += 1;
+    if (failOnStop) throw StateError('microphone stop failure');
+    await pendingStop;
+    isListening = false;
+  }
+
+  @override
+  Future<void> cancel() async => isListening = false;
 }
 
 EntitlementAuthorityRefresh _entitlementRefreshProbe =

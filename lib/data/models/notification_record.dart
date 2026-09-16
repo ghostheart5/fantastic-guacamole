@@ -55,7 +55,7 @@ class NotificationRecord {
       id: requiredText('id'),
       title: requiredText('title'),
       message: requiredText('message'),
-      scheduledAt: scheduledAt,
+      scheduledAt: scheduledAt.toLocal(),
       isEnabled: requiredBool('isEnabled'),
       isRead: requiredBool('isRead'),
     );

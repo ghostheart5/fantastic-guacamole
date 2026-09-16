@@ -1299,6 +1299,147 @@ void main() {
       },
     );
 
+    for (final ({String label, int status, String body, String code}) failure
+        in <({String label, int status, String body, String code})>[
+          (
+            label: 'missing request',
+            status: 404,
+            body: 'private backend detail',
+            code: 'deletion-request-not-found',
+          ),
+          (
+            label: 'service outage',
+            status: 503,
+            body: 'private backend detail',
+            code: 'operation-failed',
+          ),
+          (
+            label: 'premature completion',
+            status: 200,
+            body: '{"completed":true,"state":"sessions_revoked"}',
+            code: 'invalid-response',
+          ),
+          (
+            label: 'contradictory pending',
+            status: 200,
+            body: '{"completed":false,"state":"completed"}',
+            code: 'invalid-response',
+          ),
+          (
+            label: 'invalid state',
+            status: 200,
+            body: '{"completed":false,"state":"private backend detail"}',
+            code: 'invalid-response',
+          ),
+          (
+            label: 'timeout',
+            status: 0,
+            body: '',
+            code: 'network-request-failed',
+          ),
+        ]) {
+      test(
+        'deletion status ${failure.label} preserves its receipt for a cold retry',
+        () async {
+          final InMemorySecureStoreBackend backend =
+              InMemorySecureStoreBackend();
+          final SecureStore store = SecureStore(backend: backend);
+          bool retry = false;
+          bool completed = false;
+          int statusRequests = 0;
+          final MockClient client = MockClient((http.Request request) async {
+            if (request.url.path.endsWith('/auth/v1/token')) {
+              return http.Response(
+                jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
+                200,
+                headers: <String, String>{'content-type': 'application/json'},
+              );
+            }
+            if (request.url.path == '/account/delete') {
+              final Map<String, dynamic> body =
+                  jsonDecode(request.body) as Map<String, dynamic>;
+              if (body['action'] != 'status') {
+                return http.Response(
+                  jsonEncode(_deletionResponseJson(completed: false)),
+                  202,
+                );
+              }
+              statusRequests++;
+              expect(request.headers.containsKey('authorization'), isFalse);
+              expect(body, <String, dynamic>{
+                'action': 'status',
+                'requestId': _deletionRequestId,
+                'receipt': _deletionReceipt,
+              });
+              if (!retry) {
+                if (failure.status == 0) {
+                  throw TimeoutException('private backend detail');
+                }
+                return http.Response(failure.body, failure.status);
+              }
+              return http.Response(
+                jsonEncode(<String, dynamic>{
+                  'completed': completed,
+                  'state': completed ? 'completed' : 'storage_cleanup',
+                }),
+                200,
+              );
+            }
+            return http.Response('{}', 200);
+          });
+          final sb.SupabaseClient auth = _supabaseClient(client);
+          addTearDown(auth.dispose);
+          AuthService restoredService() => AuthService(
+            supabaseClient: auth,
+            store: store,
+            httpClient: client,
+            accountDeleteEndpoint: 'https://api.chronospark.app/account/delete',
+          );
+          final AuthService initial = restoredService();
+          await initial.signIn(
+            email: 'planner@chronospark.app',
+            password: 'correct-pass',
+          );
+          await initial.deleteCurrentAccount(password: 'correct-pass');
+          final Map<String, String> originalReceipt = await backend.readAll();
+          expect(originalReceipt, isNotEmpty);
+          expect(initial.currentUser, isNull);
+
+          await expectLater(
+            initial.refreshPendingAccountDeletion(),
+            throwsA(
+              isA<FirebaseAuthException>()
+                  .having((e) => e.code, 'code', failure.code)
+                  .having(
+                    (e) => e.message,
+                    'public message',
+                    isNot(contains('private backend detail')),
+                  ),
+            ),
+          );
+          expect(await backend.readAll(), originalReceipt);
+
+          retry = true;
+          final AccountDeletionResult? pending = await restoredService()
+              .refreshPendingAccountDeletion();
+          expect(pending?.isPending, isTrue);
+          expect(pending?.localCleanupCompleted, isTrue);
+          expect(
+            (await restoredService().readPendingAccountDeletion())?.serverState,
+            'storage_cleanup',
+          );
+          completed = true;
+          expect(
+            (await restoredService().refreshPendingAccountDeletion())
+                ?.isCompleted,
+            isTrue,
+          );
+          expect(await restoredService().readPendingAccountDeletion(), isNull);
+          expect(statusRequests, 3);
+        },
+      );
+    }
+
     test(
       'deleteCurrentAccount rejects malformed or contradictory success bodies',
       () async {

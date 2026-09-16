@@ -86,6 +86,14 @@ void main() {
     expect(termsRoute, isNot(contains('url=../terms.html')));
   });
 
+  test('privacy policy discloses OAuth account profile data', () {
+    final String privacy = read('web/privacy/index.html');
+
+    expect(privacy, contains('display name'));
+    expect(privacy, contains('profile-image URL'));
+    expect(privacy, contains('ChronoSpark account profile'));
+  });
+
   test(
     'legal surfaces disclose private billing without promising public access',
     () {

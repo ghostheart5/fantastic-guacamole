@@ -13,6 +13,7 @@ import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/models/signals_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
+import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 
 class SIPlanningEvidence {
   const SIPlanningEvidence({
@@ -92,6 +93,67 @@ class SISourceHealth {
 }
 
 class SIStateAggregation {
+  /// No account evidence is exposed during sign-out or storage transitions.
+  factory SIStateAggregation.unavailable() => SIStateAggregation(
+    tasks: const [],
+    goals: const [],
+    logs: const [],
+    timeline: const [],
+    memories: const [],
+    notifications: const [],
+    planPreview: const [],
+    profile: ProfileState(readStatus: ProfileReadStatus.unavailable),
+    siState: const SIState(),
+    signals: const SignalsBundle(
+      items: [],
+      summary: 'Account storage is not ready.',
+      healthScore: 0,
+    ),
+    trajectory: const TrajectorySummaryView(
+      pendingTasks: 0,
+      completedTasks: 0,
+      completedToday: 0,
+      level: 1,
+      streak: 0,
+      energy: 0,
+      momentum: 0,
+      adaptability: 0,
+      lastCompletionXp: 0,
+      lastCompletionQuality: 0,
+      pressureIndex: 0,
+      behaviorDivergence: 0,
+      alert: 'Account storage is not ready.',
+      predictionTitle: null,
+      predictionOutcome: null,
+      predictionProbability: null,
+      predictionExplanation: null,
+      sourceState: TrajectorySourceState.loading,
+      statusDetail: 'Account storage is not ready.',
+    ),
+    planningEvidence: const SIPlanningEvidence(
+      friction: false,
+      overwhelm: false,
+      streakHealth: 'unknown',
+      goalDrift: false,
+      taskAvoidance: false,
+      emotion: 'unknown',
+      emotionalStrain: false,
+      emotionalStability: false,
+      emotionalPatterns: [],
+    ),
+    sourceHealth: SISourceHealth(
+      tasks: SISourceStatus.unavailable,
+      goals: SISourceStatus.unavailable,
+      memories: SISourceStatus.unavailable,
+      habits: SISourceStatus.unavailable,
+      logs: SISourceStatus.unavailable,
+      timeline: SISourceStatus.unavailable,
+      learning: SISourceStatus.unavailable,
+      availability: SISourceStatus.unavailable,
+      observedAt: DateTime.now(),
+    ),
+  );
+
   SIStateAggregation({
     required this.tasks,
     required this.goals,

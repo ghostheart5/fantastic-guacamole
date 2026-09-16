@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/domain/entities/calendar_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/ports/i_adaptive_plan_generator.dart';
 import 'package:fantastic_guacamole/domain/planning/adaptive_plan_policy.dart';
@@ -259,10 +260,11 @@ class CalendarService implements IAdaptivePlanGenerator {
     final double goalContribution = (task.goalId?.trim().isNotEmpty ?? false)
         ? policy.goalBonus
         : 0;
-    final DateTime? due = task.dueDate;
+    final TaskEntity taskEntity = task.toTaskEntity();
+    final DateTime? due = taskEntity.effectiveDueAt;
     final double deadlineContribution = due == null
         ? 0
-        : due.isBefore(now)
+        : taskEntity.isOverdueAt(now)
         ? 18 * policy.deadlineWeight
         : due.difference(now) <= const Duration(hours: 24)
         ? 14 * policy.deadlineWeight

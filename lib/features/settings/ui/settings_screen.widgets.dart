@@ -345,27 +345,32 @@ class _NeonToggleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
-            ),
+    return MergeSemantics(
+      child: InkWell(
+        onTap: onChanged == null ? null : () => onChanged!(!value),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Switch(
+                value: value,
+                onChanged: onChanged,
+                activeThumbColor: AppColors.neonCyan,
+                activeTrackColor: AppColors.neonCyan.withValues(alpha: 0.3),
+                inactiveTrackColor: Colors.white12,
+                inactiveThumbColor: Colors.white38,
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: AppColors.neonCyan,
-            activeTrackColor: AppColors.neonCyan.withValues(alpha: 0.3),
-            inactiveTrackColor: Colors.white12,
-            inactiveThumbColor: Colors.white38,
-          ),
-        ],
+        ),
       ),
     );
   }

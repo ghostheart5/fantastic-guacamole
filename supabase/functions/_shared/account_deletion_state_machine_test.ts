@@ -34,15 +34,16 @@ Deno.test("reads status only when both request and receipt hash match", async ()
     "a".repeat(64),
     "b".repeat(64),
     config,
-    (input) => {
-      const url = new URL(String(input));
+    (input, init) => {
+      const body = JSON.parse(String(init?.body));
       if (
-        url.searchParams.get("request_id") !== `eq.${"a".repeat(64)}` ||
-        url.searchParams.get("receipt_hash") !== `eq.${"b".repeat(64)}`
+        !String(input).endsWith("/rpc/read_account_deletion_status") ||
+        body.p_request_id !== "a".repeat(64) ||
+        body.p_receipt_hash !== "b".repeat(64)
       ) {
         throw new Error("status query did not bind both capabilities");
       }
-      return Promise.resolve(Response.json([{ state: "storage_deleted" }]));
+      return Promise.resolve(Response.json({ state: "storage_deleted" }));
     },
   );
   if (status?.state !== "storage_deleted" || status.completed) {

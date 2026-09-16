@@ -573,14 +573,35 @@ bool _hasExplicitCommitmentLanguage(String value) => RegExp(
 ).hasMatch(value);
 
 int? _parseCapacityCap(String value) {
+  const words = <String, int>{
+    'one': 1,
+    'two': 2,
+    'three': 3,
+    'four': 4,
+    'five': 5,
+    'six': 6,
+    'seven': 7,
+    'eight': 8,
+    'nine': 9,
+    'ten': 10,
+    'fifteen': 15,
+    'twenty': 20,
+    'thirty': 30,
+    'forty': 40,
+    'forty-five': 45,
+    'sixty': 60,
+  };
+  final normalized = value.toLowerCase().replaceAllMapped(
+    RegExp('\\b(${words.keys.toList().reversed.join('|')})\\b'),
+    (match) => '${words[match.group(0)!]}',
+  );
   final RegExpMatch? explicit = RegExp(
-    r'\b(\d{1,3})\s*(?:minute|minutes|min)\b',
-    caseSensitive: false,
-  ).firstMatch(value);
+    r'\b(\d{1,3})[ -]*(?:minutes?|mins?)\b',
+  ).firstMatch(normalized);
   if (explicit != null) {
-    return int.parse(explicit.group(1)!).clamp(5, 240);
+    final minutes = int.parse(explicit.group(1)!);
+    return minutes > 0 ? minutes.clamp(1, 240) : null;
   }
-  final String normalized = value.toLowerCase();
   if (RegExp(r'\b(low|limited|small|short|tired)\b').hasMatch(normalized)) {
     return 25;
   }

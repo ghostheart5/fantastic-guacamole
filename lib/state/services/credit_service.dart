@@ -12,7 +12,6 @@ class CreditService {
 
   static const String _walletKey = 'ai_credit_wallet';
   static const int _freeAllowance = 20;
-  static const int _freeDailyRefill = 20;
   static const int _premiumAllowance = 300;
   final SharedPrefsStore _prefs;
   final bool spendingEnabled;
@@ -34,17 +33,7 @@ class CreditService {
     }
 
     if (now.isAfter(wallet.resetAt)) {
-      wallet = premium
-          ? _createWallet(premium: true, now: now)
-          : wallet.copyWith(
-              balance: (wallet.balance + _freeDailyRefill).clamp(
-                0,
-                _freeAllowance,
-              ),
-              allowance: _freeAllowance,
-              resetAt: now.add(const Duration(days: 1)),
-              updatedAt: now,
-            );
+      wallet = _createWallet(premium: premium, now: now);
     }
 
     await _save(wallet);
@@ -59,7 +48,7 @@ class CreditService {
     if (!spendingEnabled) {
       return AiCreditSpendResult(wallet: wallet, allowed: false);
     }
-    if (wallet.balance < amount) {
+    if (amount <= 0 || wallet.balance < amount) {
       return AiCreditSpendResult(wallet: wallet, allowed: false);
     }
 
@@ -121,20 +110,36 @@ class CreditService {
     }
   }
 
+  // This is a local development wallet. Production balances and refills are
+  // exclusively supplied by the authenticated server wallet RPC.
+  DateTime _nextMonth(DateTime now) {
+    final lastDay = DateTime(now.year, now.month + 2, 0).day;
+    return DateTime(
+      now.year,
+      now.month + 1,
+      now.day.clamp(1, lastDay),
+      now.hour,
+      now.minute,
+      now.second,
+      now.millisecond,
+      now.microsecond,
+    );
+  }
+
   AiCreditWallet _createWallet({required bool premium, required DateTime now}) {
     return premium
         ? AiCreditWallet(
             balance: _premiumAllowance,
             tier: 'premium',
             allowance: _premiumAllowance,
-            resetAt: now.add(const Duration(days: 30)),
+            resetAt: _nextMonth(now),
             updatedAt: now,
           )
         : AiCreditWallet(
             balance: _freeAllowance,
             tier: 'free',
             allowance: _freeAllowance,
-            resetAt: now.add(const Duration(days: 1)),
+            resetAt: _nextMonth(now),
             updatedAt: now,
           );
   }

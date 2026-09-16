@@ -62,7 +62,9 @@ interface DeletionInput {
 }
 
 async function readInput(req: Request): Promise<DeletionInput | null> {
+  if (Number(req.headers.get("content-length") ?? 0) > 4096) return null;
   const text = await req.text();
+  if (text.length > 4096) return null;
   if (!text.trim()) return { action: "delete" };
   try {
     const value = JSON.parse(text);
@@ -105,8 +107,12 @@ Deno.serve(async (req: Request) => {
     const input = await readInput(req);
     if (!input) return json(req, { error: "invalid_request_body" }, 400);
 
-    if (input.action === "status" && input.requestId && input.receipt) {
+    if (
+      input.action === "status" &&
+      (input.requestId !== undefined || input.receipt !== undefined)
+    ) {
       if (
+        !input.requestId || !input.receipt ||
         !/^[0-9a-f]{64}$/.test(input.requestId) ||
         !/^[0-9a-f]{64}$/.test(input.receipt)
       ) {

@@ -41,6 +41,7 @@ class TesterDataResetController {
 
     _ref.invalidate(tasksProvider);
     _ref.invalidate(profileProvider);
+    _ref.invalidate(goalsReadProvider);
     _ref.invalidate(goalsProvider);
     _ref.invalidate(goalProgressProvider);
     _ref.invalidate(timelineProvider);
@@ -55,7 +56,7 @@ class TesterDataResetController {
     _ref.invalidate(logsProvider);
     _ref.invalidate(completionScoreProvider);
     _ref.invalidate(momentumProvider);
-    _ref.invalidate(emotionProvider);
+    _ref.invalidate(emotionCheckInProvider);
     _ref.invalidate(aiDecisionProvider);
     _ref.invalidate(aiResponseProvider);
     _ref.invalidate(smartPlannerAiResponseProvider);

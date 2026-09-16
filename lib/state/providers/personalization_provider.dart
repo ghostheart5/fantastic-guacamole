@@ -154,11 +154,11 @@ class PersonalizationProfileController
       clearMemoryConsent: !memoryEnabled,
       lastReviewedAt: now,
     );
-    state = reviewed;
     await _store.save(
       personalizationProfileStorageKey,
       jsonEncode(reviewed.toJson()),
     );
+    state = reviewed;
   }
 
   Future<void> updateGoalCategory(String value) =>

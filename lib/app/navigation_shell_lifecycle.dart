@@ -63,17 +63,22 @@ extension _NavigationShellLifecycle on _NavigationShellState {
     if (!mounted) {
       return;
     }
+    // Invoke stopListening before the first await: it synchronously advances
+    // the capture generation so delayed TTS/native cleanup cannot accept audio
+    // after this foreground lifecycle ends.
+    final Future<void> microphoneCleanup = (() async {
+      try {
+        await ref.read(voiceControllerProvider.notifier).stopListening();
+      } on Object {
+        // Never let an STT engine failure interfere with lifecycle handling.
+      }
+    })();
     try {
       await ref.read(voiceServiceProvider).stop();
     } on Object {
       // Never let a TTS engine failure interfere with lifecycle handling.
     }
-    try {
-      // An open mic capture must not survive the app being backgrounded.
-      await ref.read(voiceControllerProvider.notifier).stopListening();
-    } on Object {
-      // Never let an STT engine failure interfere with lifecycle handling.
-    }
+    await microphoneCleanup;
   }
 
   Future<void> _saveCurrentState() async {

@@ -202,6 +202,36 @@ Deno.test("authentication and durable rate limit fail closed", async () => {
   assertEquals(provider.calls.length, 0);
 });
 
+Deno.test("noncohort planner calls cannot quote, replay, reserve or contact the provider", async () => {
+  const fixture = await requestFixture();
+  for (const throws of [false, true]) {
+    const store = new FakeStore();
+    const provider = safeProvider(fixture.digest);
+    const handler = createPlannerExplanationHandler(
+      dependencies(store, provider, {
+        internalAiAllowed: async () => {
+          if (throws) throw new Error("synthetic authorization failure");
+          return await Promise.resolve(false);
+        },
+        consumeRateLimit: () => {
+          throw new Error("authorization must precede privileged work");
+        },
+      }),
+    );
+    for (const input of [fixture.quote, fixture.execute]) {
+      const response = await handler(post(input));
+      assertEquals(response.status, 403);
+      assertEquals((await json(response)).error, "internal_ai_access_required");
+    }
+    assertEquals(
+      store.issueCalls + store.verifyCalls + store.reserveCalls +
+        store.loadCalls + store.scrubCalls,
+      0,
+    );
+    assertEquals(provider.calls.length, 0);
+  }
+});
+
 Deno.test("retention and qualified safety gates reject before quote", async () => {
   const fixture = await requestFixture();
   for (
@@ -819,6 +849,7 @@ function dependencies(
 ): PlannerExplanationDependencies {
   return {
     authenticate: async () => await Promise.resolve("user-1"),
+    internalAiAllowed: async () => await Promise.resolve(true),
     consumeRateLimit: async () => await Promise.resolve(true),
     store,
     provider,

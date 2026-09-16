@@ -63,7 +63,14 @@ class FeasiblePlan {
   final List<PlanIssue> issues;
   final PlanningCapacityAssessment capacity;
 
-  bool get isFeasible => unscheduledTaskIds.isEmpty;
+  bool get isFeasible =>
+      unscheduledTaskIds.isEmpty &&
+      !issues.any(
+        (issue) =>
+            issue.type == PlanIssueType.conflict ||
+            issue.type == PlanIssueType.invalidInput ||
+            issue.type == PlanIssueType.dependencyBlocked,
+      );
 }
 
 /// Deterministic, availability-bound scheduling. It never creates blocks
@@ -111,15 +118,33 @@ class FeasiblePlanner {
     }
     blocks.sort((TimeBlock a, TimeBlock b) => a.start.compareTo(b.start));
     final List<String> unscheduled = <String>[];
+    for (int earlierIndex = 0; earlierIndex < blocks.length; earlierIndex++) {
+      final earlier = blocks[earlierIndex];
+      if (earlier.completed) continue;
+      for (
+        int laterIndex = earlierIndex + 1;
+        laterIndex < blocks.length;
+        laterIndex++
+      ) {
+        final later = blocks[laterIndex];
+        if (!later.start.isBefore(earlier.end)) break;
+        if (later.completed) continue;
+        issues.add(
+          PlanIssue(
+            type: PlanIssueType.conflict,
+            taskId: later.taskId,
+            message:
+                '${later.title} overlaps the retained block ${earlier.title}. Both commitments were preserved for explicit correction.',
+          ),
+        );
+      }
+    }
     final Set<String> alreadyScheduledTaskIds = blocks
         .where((TimeBlock block) => !block.completed)
         .map((TimeBlock block) => block.taskId)
         .toSet();
 
     for (final PlannerInput task in ordered) {
-      if (alreadyScheduledTaskIds.contains(task.id)) {
-        continue;
-      }
       if (_hasIncompletePrerequisite(task, byId)) {
         unscheduled.add(task.id);
         issues.add(
@@ -131,7 +156,11 @@ class FeasiblePlanner {
         );
         continue;
       }
-      if (task.dueDate != null && task.dueDate!.isBefore(problem.now)) {
+      if (alreadyScheduledTaskIds.contains(task.id)) {
+        continue;
+      }
+      if (task.dueDate != null &&
+          task.toTaskEntity().isOverdueAt(problem.now)) {
         issues.add(
           PlanIssue(
             type: PlanIssueType.overdue,

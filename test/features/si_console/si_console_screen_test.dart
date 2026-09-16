@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'dart:async';
 
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
@@ -16,6 +18,114 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 void main() {
   final DateTime now = DateTime.utc(2026, 8, 20, 12);
   final SIV2EvidenceSnapshot snapshot = _snapshot(now);
+
+  testWidgets('voice failure displays localized safe feedback', (tester) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final voice = _RecordingConsentVoiceController()..failStart = true;
+    final port = _RecordingPort(snapshot: snapshot, now: now);
+    final container = _container(port, snapshot, voiceController: voice);
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container, locale: const Locale('es'));
+    final mic = find.byIcon(Icons.mic_none_rounded);
+    await tester.ensureVisible(mic);
+    await tester.tap(mic);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final agree = find.widgetWithText(FilledButton, 'Aceptar y dictar');
+    await tester.ensureVisible(agree);
+    await tester.tap(agree);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(voice.starts, 1);
+    expect(
+      find.text(
+        'La entrada de voz no est\u00e1 disponible. Revisa el permiso y reintenta.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('private-platform-diagnostic'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final bool invalidateDuringConsent in <bool>[false, true]) {
+    testWidgets(
+      'voice requires provider disclosure; invalidated request=$invalidateDuringConsent',
+      (tester) async {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        final voice = _RecordingConsentVoiceController();
+        final port = _RecordingPort(snapshot: snapshot, now: now);
+        final container = _container(port, snapshot, voiceController: voice);
+        addTearDown(() => _dispose(tester, container));
+        await _pumpScreen(tester, container);
+        final mic = find.byIcon(Icons.mic_none_rounded);
+        await tester.ensureVisible(mic);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.tap(mic);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(
+          find.textContaining('may send audio to its servers'),
+          findsOneWidget,
+        );
+        expect(voice.starts, 0);
+        final decline = find.widgetWithText(TextButton, 'Not Now');
+        await tester.ensureVisible(decline);
+        await tester.tap(decline);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(voice.starts, 0);
+        await tester.ensureVisible(mic);
+        await tester.tap(mic);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        if (invalidateDuringConsent) {
+          container.invalidate(voiceControllerProvider);
+          await tester.pump();
+        }
+        final agree = find.widgetWithText(FilledButton, 'Agree and dictate');
+        await tester.ensureVisible(agree);
+        await tester.tap(agree);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(voice.starts, invalidateDuringConsent ? 0 : 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'partial dictation is visible before silence and is never auto-sent',
+    (tester) async {
+      final voice = _RecordingConsentVoiceController();
+      final port = _RecordingPort(snapshot: snapshot, now: now);
+      final container = _container(port, snapshot, voiceController: voice);
+      addTearDown(() => _dispose(tester, container));
+      await _pumpScreen(tester, container);
+      voice.emitTranscript('What should I', listening: true);
+      await tester.pump();
+      final input = find.byKey(const Key('si-query-input'));
+      expect(tester.widget<TextField>(input).controller!.text, 'What should I');
+      expect(tester.widget<TextField>(input).readOnly, isTrue);
+      await tester.tap(find.byIcon(Icons.send_rounded), warnIfMissed: false);
+      await tester.pump();
+      expect(port.calls, 0);
+      voice.emitTranscript('What should I do next?', listening: false);
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(input).controller!.text,
+        'What should I do next?',
+      );
+      expect(tester.widget<TextField>(input).readOnly, isFalse);
+      expect(port.calls, 0);
+      await tester.tap(find.byIcon(Icons.send_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(port.calls, 1);
+    },
+  );
 
   testWidgets('malformed empty input is ignored without analysis', (
     WidgetTester tester,
@@ -163,7 +273,7 @@ void main() {
     expect(find.text('On device', skipOffstage: false), findsOneWidget);
     expect(
       find.textContaining(
-        'SI V2 read-only evidence revision',
+        'Read-only on-device response based on the selected records.',
         skipOffstage: false,
       ),
       findsOneWidget,
@@ -312,9 +422,11 @@ void main() {
     addTearDown(() => _dispose(tester, container));
     await _pumpScreen(tester, container);
 
-    expect(find.textContaining('relevant user-reported'), findsOneWidget);
+    expect(find.textContaining('user-reported item available'), findsOneWidget);
     expect(
-      find.textContaining('cited as evidence and not independently verified'),
+      find.textContaining(
+        'Each answer cites only context relevant to that question',
+      ),
       findsOneWidget,
     );
   });
@@ -396,7 +508,16 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Reportar respuesta'), findsOneWidget);
-    expect(find.textContaining('Tu mensaje y el historial'), findsOneWidget);
+    expect(
+      find.textContaining(
+        'detalles de tus tareas, metas, notas o conversación',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('se vincula a tu cuenta y se almacena'),
+      findsOneWidget,
+    );
     expect(find.text('Enviar informe'), findsOneWidget);
   });
 
@@ -529,14 +650,22 @@ ProviderContainer _container(
   SIV2QueryPort port,
   SIV2EvidenceSnapshot snapshot, {
   bool available = true,
+  VoiceController? voiceController,
 }) {
   return ProviderContainer(
     overrides: [
+      if (voiceController != null)
+        voiceInputEnabledProvider.overrideWithValue(true),
+      if (voiceController != null)
+        voiceControllerProvider.overrideWith(() => voiceController),
       siV2AvailabilityProvider.overrideWith((Ref ref) async => available),
       siV2QueryServiceProvider.overrideWithValue(port),
       siV2EvidenceSnapshotProvider.overrideWith((Ref ref) async => snapshot),
       siV2PersonContextRevisionProvider.overrideWith(
         (Ref ref) => ref.watch(_siContextRevisionTestProvider),
+      ),
+      voiceInputConsentStoreProvider.overrideWithValue(
+        VoiceInputConsentStore(const AccountStorageScope.unsafe()),
       ),
       voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
     ],
@@ -672,4 +801,32 @@ final class _NoopVoiceService extends VoiceService {
 
   @override
   Future<void> stop() async {}
+}
+
+class _RecordingConsentVoiceController extends VoiceController {
+  void emitTranscript(String text, {required bool listening}) {
+    state = state.copyWith(isListening: listening, recognizedText: text);
+  }
+
+  int starts = 0;
+  bool failStart = false;
+  int revision = 0;
+
+  @override
+  int get lifecycleRevision => revision;
+
+  @override
+  VoiceState build() {
+    revision++;
+    ref.onDispose(() => revision++);
+    return const VoiceState();
+  }
+
+  @override
+  Future<void> startListening() async {
+    starts++;
+    if (failStart) {
+      state = state.copyWith(error: 'private-platform-diagnostic');
+    }
+  }
 }

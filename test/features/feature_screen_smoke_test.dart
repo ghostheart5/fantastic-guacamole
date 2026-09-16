@@ -70,7 +70,7 @@ void main() {
         ),
         timelineProvider.overrideWith(_EmptyTimelineNotifier.new),
         goalsProvider.overrideWith(_StaticGoalsNotifier.new),
-        tasksProvider.overrideWith((ref) async {
+        allTasksProvider.overrideWith((ref) async {
           return <Task>[
             Task(
               id: 'task-due-only',

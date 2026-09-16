@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
@@ -80,14 +82,19 @@ class ReminderOrchestratorService {
     }
   }
 
-  Future<void> syncGoalReminders(List<GoalEntity> goals) async {
+  Future<void> syncGoalReminders(
+    List<GoalEntity> goals, {
+    bool Function()? shouldContinue,
+  }) async {
+    if (shouldContinue?.call() == false) return;
     if (!_isEnabled(_goalReminderEnabledKey, defaultValue: true)) {
-      await _cancelTrackedGoalReminders();
+      await _cancelTrackedGoalReminders(shouldContinue: shouldContinue);
       return;
     }
 
     final Set<String> scheduledIds = <String>{};
     for (final GoalEntity goal in goals) {
+      if (shouldContinue?.call() == false) return;
       final DateTime? targetDate = goal.targetDate;
       if (goal.isCompleted || targetDate == null) {
         continue;
@@ -106,10 +113,13 @@ class ReminderOrchestratorService {
       );
       scheduledIds.add(goal.id);
     }
+    if (shouldContinue?.call() == false) return;
     final Set<String> previousIds = _trackedGoalReminderIds();
     for (final String removedId in previousIds.difference(scheduledIds)) {
+      if (shouldContinue?.call() == false) return;
       await _notifications.cancel(_goalReminderId(removedId));
     }
+    if (shouldContinue?.call() == false) return;
     await _saveTrackedGoalReminderIds(scheduledIds);
   }
 
@@ -142,20 +152,36 @@ class ReminderOrchestratorService {
     );
   }
 
-  Future<void> ensureDailyPlanningReminder() async {
-    if (!_isEnabled(_dailyPlanningEnabledKey, defaultValue: true)) {
-      await _notifications.cancel(_dailyPlanningReminderId);
-      return;
-    }
+  Future<void> ensureDailyPlanningReminder({bool Function()? shouldContinue}) {
+    // Share the notification repository's lock so account cleanup and a new
+    // session's schedule cannot overtake an in-flight OS scheduling request.
+    return KeyedMutationCoordinator.shared.runExclusive<void>(
+      AccountDataRegistry.notificationMutationKeyForScope(
+        _accountScope ?? 'legacy',
+      ),
+      () async {
+        if (shouldContinue?.call() == false) return;
+        if (!_isEnabled(_dailyPlanningEnabledKey, defaultValue: true)) {
+          await _notifications.cancel(_dailyPlanningReminderId);
+          return;
+        }
 
-    final (int hour, int minute) = _dailyPlanningTime();
-    await _scheduler.scheduleDailyAt(
-      id: _dailyPlanningReminderId,
-      title: 'Daily Planning Reminder',
-      body: 'Open Planner and set your top 3 execution targets.',
-      hour: hour,
-      minute: minute,
-      accountScope: _accountScope,
+        final (int hour, int minute) = _dailyPlanningTime();
+        await _scheduler.scheduleDailyAt(
+          id: _dailyPlanningReminderId,
+          title: 'Daily Planning Reminder',
+          body: 'Open Planner and set your top 3 execution targets.',
+          hour: hour,
+          minute: minute,
+          accountScope: _accountScope,
+        );
+        if (shouldContinue?.call() == false) {
+          await _scheduler.cancel(
+            _dailyPlanningReminderId,
+            accountScope: _accountScope,
+          );
+        }
+      },
     );
   }
 
@@ -215,10 +241,14 @@ class ReminderOrchestratorService {
     );
   }
 
-  Future<void> _cancelTrackedGoalReminders() async {
+  Future<void> _cancelTrackedGoalReminders({
+    bool Function()? shouldContinue,
+  }) async {
     for (final String goalId in _trackedGoalReminderIds()) {
+      if (shouldContinue?.call() == false) return;
       await _notifications.cancel(_goalReminderId(goalId));
     }
+    if (shouldContinue?.call() == false) return;
     await _saveTrackedGoalReminderIds(<String>{});
   }
 

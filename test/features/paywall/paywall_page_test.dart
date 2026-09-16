@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/data/models/auth_models.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart';
+
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
@@ -11,6 +14,7 @@ import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/services/credit_service.dart';
+import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -20,6 +24,34 @@ import 'package:flutter_test/flutter_test.dart';
 /// Covers the loading branch, restore availability, plan prioritization,
 /// truthful result messages, and the dormant offer-copy contract.
 void main() {
+  test('review access is disclosed without claiming a purchase or renewal', () {
+    const review = SubscriptionState(
+      isActive: true,
+      status: 'review_access',
+      source: 'supabase_authority',
+    );
+    for (final spanish in [false, true]) {
+      final localization = ChronoSparkLocalizations(
+        Locale(spanish ? 'es' : 'en'),
+      );
+      expect(
+        resolvePaywallRestoreResultMessage(
+          review,
+          testingMode: false,
+          localizations: localization,
+        ),
+        contains(spanish ? 'Sin pago' : 'No payment'),
+      );
+      expect(
+        resolvePaywallPurchaseResultMessage(
+          review,
+          testingMode: false,
+          localizations: localization,
+        ),
+        contains(spanish ? 'revisión' : 'review access'),
+      );
+    }
+  });
   Future<ProviderContainer> pumpPaywall(
     WidgetTester tester, {
     required PaywallEntity config,
@@ -33,6 +65,11 @@ void main() {
     Locale locale = const Locale('en'),
     PaywallPrompt? prompt,
     bool billingTest = false,
+    bool creditTest = false,
+    bool pendingRestoreTest = false,
+    FutureOr<SubscriptionState> Function(Ref ref)? subscriptionOverride,
+    FutureOr<AiCreditWallet> Function(Ref ref)? walletOverride,
+    Stream<SubscriptionState> outcomes = const Stream.empty(),
   }) async {
     // Restore Purchases and Show all plans sit below the
     // fold at the default 800x600 test viewport, and PaywallPage's ListView
@@ -53,15 +90,29 @@ void main() {
 
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        if (pendingRestoreTest) ...[
+          authUserProvider.overrideWith(
+            (ref) => Stream.value(
+              const User(id: 'pending-test', emailVerified: true),
+            ),
+          ),
+          paywallActionsProvider.overrideWith(
+            (ref) => _PendingRestoreActions(ref),
+          ),
+        ],
         internalBillingTestEnabledProvider.overrideWithValue(billingTest),
+        internalCreditTestEnabledProvider.overrideWithValue(creditTest),
+        paywallPurchaseOutcomeProvider.overrideWith((ref) => outcomes),
         sharedPrefsStoreProvider.overrideWithValue(prefs),
         creditServiceProvider.overrideWithValue(credit),
+        if (walletOverride != null)
+          aiCreditWalletProvider.overrideWith(walletOverride),
         intelligenceStateProvider.overrideWithValue(_baseIntelligence),
         paywallConfigProvider.overrideWith(
           configOverride ?? (Ref ref) async => config,
         ),
         paywallSubscriptionProvider.overrideWith(
-          (Ref ref) async => subscription,
+          subscriptionOverride ?? (Ref ref) async => subscription,
         ),
       ],
     );
@@ -89,6 +140,177 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     return container;
   }
+
+  testWidgets('authority refresh preserves the inspected plan position', (
+    tester,
+  ) async {
+    Completer<PaywallEntity>? refresh;
+    final container = await pumpPaywall(
+      tester,
+      config: _twoPlanConfig,
+      configOverride: (ref) => refresh?.future ?? _twoPlanConfig,
+    );
+    tester.view.physicalSize = const Size(800, 600);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pump(const Duration(milliseconds: 400));
+    double position() => tester
+        .state<ScrollableState>(
+          find.descendant(
+            of: find.byType(ListView),
+            matching: find.byType(Scrollable),
+          ),
+        )
+        .position
+        .pixels;
+    final before = position();
+    expect(before, greaterThan(0));
+    refresh = Completer<PaywallEntity>();
+    container.invalidate(paywallConfigProvider);
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    refresh.complete(_twoPlanConfig);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(position(), closeTo(before, 1));
+  });
+
+  testWidgets(
+    'completed pending restore clears its historical pending message',
+    (tester) async {
+      var authority = const SubscriptionState(
+        isActive: false,
+        status: 'expired',
+        source: 'test',
+        isTesting: false,
+      );
+      final container = await pumpPaywall(
+        tester,
+        config: _twoPlanConfig,
+        billingTest: true,
+        pendingRestoreTest: true,
+        subscriptionOverride: (ref) async => authority,
+      );
+      await tester.tap(find.text('Restore Purchases'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('Restore pending.'), findsOneWidget);
+      authority = const SubscriptionState(
+        isActive: true,
+        status: 'active',
+        source: 'test',
+        isTesting: false,
+      );
+      container.invalidate(paywallSubscriptionProvider);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('Restore pending.'), findsNothing);
+      expect(find.text('Subscription active'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'verified purchased balance clears pending without premium access',
+    (tester) async {
+      var wallet = AiCreditWallet(
+        balance: 100,
+        purchasedCredits: 100,
+        tier: 'free',
+        allowance: 20,
+        resetAt: DateTime(2026, 10, 8),
+        updatedAt: DateTime(2026, 9, 8),
+      );
+      final container = await pumpPaywall(
+        tester,
+        config: _twoPlanConfig,
+        billingTest: true,
+        creditTest: true,
+        pendingRestoreTest: true,
+        walletOverride: (ref) async => wallet,
+      );
+      await tester.tap(find.text('Restore Purchases'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('Restore pending.'), findsOneWidget);
+      container.invalidate(aiCreditWalletProvider);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('Restore pending.'), findsOneWidget);
+      wallet = wallet.copyWith(balance: 400, purchasedCredits: 400);
+      container.invalidate(aiCreditWalletProvider);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('Restore pending.'), findsNothing);
+      expect(
+        find.text('Purchased credits: 400 · Do not expire'),
+        findsOneWidget,
+      );
+      expect(
+        container.read(paywallSubscriptionProvider).requireValue.isActive,
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'delayed payment result replaces pending without changing access',
+    (tester) async {
+      final events = StreamController<SubscriptionState>();
+      addTearDown(events.close);
+      final container = await pumpPaywall(
+        tester,
+        config: _twoPlanConfig,
+        billingTest: true,
+        creditTest: true,
+        outcomes: events.stream,
+      );
+      events.add(
+        const SubscriptionState(
+          isActive: false,
+          status: 'purchase_pending',
+          source: 'google_play',
+        ),
+      );
+      await tester.pump();
+      expect(find.textContaining('Purchase pending.'), findsOneWidget);
+      events.add(
+        const SubscriptionState(
+          isActive: false,
+          status: 'purchase_failed',
+          source: 'google_play',
+        ),
+      );
+      await tester.pump();
+      expect(find.textContaining('Purchase pending.'), findsNothing);
+      expect(
+        find.textContaining('Google Play reported a payment error.'),
+        findsOneWidget,
+      );
+      expect(
+        container.read(paywallSubscriptionProvider).requireValue.isActive,
+        isFalse,
+      );
+      events.add(
+        const SubscriptionState(
+          isActive: false,
+          status: 'credits_added',
+          source: 'google_play',
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(
+        find.text('Purchased credits added to your account.'),
+        findsOneWidget,
+      );
+      expect(
+        container.read(paywallSubscriptionProvider).requireValue.isActive,
+        isFalse,
+      );
+    },
+  );
 
   testWidgets('shows a spinner while config/subscription/wallet are loading', (
     WidgetTester tester,
@@ -206,14 +428,7 @@ void main() {
   ) async {
     await pumpPaywall(tester, config: _twoPlanConfig);
 
-    expect(
-      find.text('Credits after a verified purchase or paid renewal: 300'),
-      findsOneWidget,
-    );
-    expect(
-      find.text('Credits after a verified purchase or paid renewal: 360'),
-      findsOneWidget,
-    );
+    expect(find.text('Monthly AI allowance: 300 credits'), findsNWidgets(2));
     expect(find.textContaining('credits per month'), findsNothing);
     expect(
       find.textContaining(
@@ -225,6 +440,58 @@ void main() {
     expect(find.textContaining('Preview Premium'), findsNothing);
     expect(find.textContaining('Deeper memory'), findsNothing);
     expect(find.textContaining('advanced agents'), findsNothing);
+  });
+
+  testWidgets('internal credit testing shows allowance and pack expiry terms', (
+    WidgetTester tester,
+  ) async {
+    await pumpPaywall(
+      tester,
+      billingTest: true,
+      creditTest: true,
+      config: const PaywallEntity(
+        // This fixture represents the enabled internal credit policy.
+        featureId: 'premium',
+        title: 'Google Play billing test',
+        body: 'Synthetic credit tests are available.',
+        plans: [
+          PaywallPlan(
+            id: 'monthly',
+            title: 'Monthly',
+            priceLabel: '\$7.99',
+            description: 'Monthly',
+            aiCreditsIncluded: 300,
+          ),
+          PaywallPlan(
+            id: 'annual',
+            title: 'Annual',
+            priceLabel: '\$69.99',
+            description: 'Annual',
+            aiCreditsIncluded: 300,
+          ),
+          PaywallPlan(
+            id: 'credits_100',
+            title: '100 extra AI credits',
+            priceLabel: '\$2.99',
+            description: 'Optional pack',
+            aiCreditsIncluded: 100,
+          ),
+        ],
+        isUnlocked: false,
+      ),
+    );
+    expect(find.text('Monthly AI allowance: 300 credits'), findsNWidgets(2));
+    expect(find.text('CREDITS LEFT'), findsOneWidget);
+    await tester.tap(find.text('Show all plans'));
+    await tester.pump();
+    expect(
+      find.text('100 credits · One-time purchase · Do not expire'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Optional purchase. No automatic refill or recurring charge.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
@@ -249,12 +516,7 @@ void main() {
       );
       expect(find.text('Mensual'), findsOneWidget);
       expect(find.text('Anual'), findsOneWidget);
-      expect(
-        find.text(
-          'Créditos tras una compra verificada o una renovación pagada: 300',
-        ),
-        findsOneWidget,
-      );
+      expect(find.text('Saldo mensual de IA: 300 créditos'), findsNWidgets(2));
       expect(
         find.text(
           'Google Play confirma la frecuencia de facturación y los términos de renovación antes de la compra.',
@@ -525,7 +787,7 @@ const PaywallEntity _twoPlanConfig = PaywallEntity(
       title: 'Annual',
       priceLabel: '399/yr',
       description: 'Test annual plan',
-      aiCreditsIncluded: 360,
+      aiCreditsIncluded: 300,
       benefits: <String>[
         'Increases external-assistant credit allowance to 360 credits per month',
       ],
@@ -617,4 +879,15 @@ class _MemorySharedPrefsStore implements SharedPrefsStore {
   Future<void> save(String key, String value) async {
     _store[key] = value;
   }
+}
+
+class _PendingRestoreActions extends PaywallActions {
+  _PendingRestoreActions(super.ref);
+  @override
+  Future<SubscriptionState> restorePurchases() async => const SubscriptionState(
+    isActive: false,
+    status: "purchase_pending",
+    source: "test",
+    isTesting: false,
+  );
 }

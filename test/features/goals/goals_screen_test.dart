@@ -4,8 +4,211 @@ import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:async';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 
 void main() {
+  testWidgets(
+    'durable save warning closes the form instead of inviting a duplicate retry',
+    (tester) async {
+      final notifier = _SavedWithWarning()..saveGate = Completer<void>();
+      final container = ProviderContainer(
+        overrides: [goalsProvider.overrideWith(() => notifier)],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(_testApp(container, false));
+      await tester.tap(find.byTooltip('Add goal'));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.enterText(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is TextField &&
+              widget.decoration?.hintText == 'Goal title',
+        ),
+        'Saved once',
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.ensureVisible(find.text('ADD GOAL'));
+      await tester.pump(const Duration(milliseconds: 300));
+      // Two pointer activations can reach the same callback before its disabled
+      // state is rendered. They must still result in only one canonical save.
+      await tester.tap(find.text('ADD GOAL'));
+      await tester.tap(find.text('ADD GOAL'));
+      expect(notifier.saves, 1);
+      notifier.saveGate!.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(notifier.saves, 1);
+      expect(find.text('ADD GOAL'), findsNothing);
+      expect(
+        find.text('Goal could not be saved. Please try again.'),
+        findsNothing,
+      );
+      expect(
+        find.text(
+          'Goal saved. Some reminders or activity updates could not finish.',
+        ),
+        findsOneWidget,
+      );
+      expect(notifier.saves, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  for (final es in [false, true]) {
+    testWidgets(
+      '${es ? 'Spanish' : 'English'} goal controls preserve the stored title',
+      (tester) async {
+        final container = ProviderContainer(
+          overrides: [
+            goalsProvider.overrideWith(_GoalsNotifier.new),
+            goalsReadProvider.overrideWithValue(
+              const AsyncData(<GoalEntity>[]),
+            ),
+            goalProgressProvider(
+              'release',
+            ).overrideWith((ref) async => const GoalProgressView.empty()),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(_testApp(container, es));
+        await tester.pumpAndSettle();
+        expect(find.text(es ? 'METAS' : 'GOALS'), findsOneWidget);
+        expect(find.text('Ship the first release'), findsOneWidget);
+        expect(
+          find.byTooltip(
+            es
+                ? 'Compartir meta: Ship the first release'
+                : 'Share goal: Ship the first release',
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.byTooltip(es ? 'Añadir meta' : 'Add goal'));
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(
+          find.widgetWithText(
+            TextField,
+            es ? 'Título de la meta' : 'Goal title',
+          ),
+          findsOneWidget,
+        );
+        expect(find.text(es ? 'AÑADIR META' : 'ADD GOAL'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      '${es ? 'Spanish' : 'English'} unavailable goals show a recoverable error',
+      (tester) async {
+        var failed = true;
+        final container = ProviderContainer(
+          overrides: [
+            goalsProvider.overrideWith(_GoalsNotifier.new),
+            goalsReadProvider.overrideWith(
+              (ref) => failed
+                  ? AsyncError(StateError('unavailable'), StackTrace.current)
+                  : const AsyncData(<GoalEntity>[]),
+            ),
+            goalProgressProvider(
+              'release',
+            ).overrideWith((ref) async => const GoalProgressView.empty()),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(_testApp(container, es));
+        await tester.pump();
+        expect(
+          find.text(
+            es
+                ? 'No se pueden leer tus metas. Los datos existentes se conservaron.'
+                : 'Your goals could not be read. Existing data was preserved.',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<IconButton>(
+                find.byWidgetPredicate(
+                  (widget) =>
+                      widget is IconButton &&
+                      widget.tooltip == (es ? 'Añadir meta' : 'Add goal'),
+                ),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(find.text('Ship the first release'), findsNothing);
+        failed = false;
+        await tester.tap(find.text(es ? 'Reintentar' : 'Retry'));
+        await tester.pumpAndSettle();
+        expect(find.text('Ship the first release'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      '${es ? 'Spanish' : 'English'} progress distinguishes loading, error and recovery',
+      (tester) async {
+        var read = Completer<GoalProgressView>();
+        final container = ProviderContainer(
+          overrides: [
+            goalsProvider.overrideWith(_GoalsNotifier.new),
+            goalsReadProvider.overrideWithValue(
+              const AsyncData(<GoalEntity>[]),
+            ),
+            goalProgressProvider('release').overrideWith((ref) => read.future),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(_testApp(container, es));
+        await tester.pump();
+        expect(
+          find.text(es ? 'Cargando progreso…' : 'Loading progress…'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining(es ? 'acciones únicas' : 'one-time actions'),
+          findsNothing,
+        );
+        read.completeError(StateError('task data unavailable'));
+        await tester.pumpAndSettle();
+        final retry = es
+            ? 'Progreso no disponible. Reintentar'
+            : 'Progress unavailable. Retry';
+        expect(find.text(retry), findsOneWidget);
+        read = Completer<GoalProgressView>();
+        await tester.tap(find.text(retry));
+        await tester.pump();
+        final now = DateTime.utc(2026, 9, 8);
+        read.complete(
+          GoalProgressView.fromTasks([
+            TaskEntity(
+              id: 'done',
+              title: 'Done',
+              goalId: 'release',
+              createdAt: now,
+              isCompleted: true,
+            ),
+            TaskEntity(
+              id: 'canceled',
+              title: 'Canceled',
+              goalId: 'release',
+              createdAt: now,
+              isCanceled: true,
+            ),
+          ]),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.text(es ? '1 de 1 acciones únicas' : '1 of 1 one-time actions'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   testWidgets(
     'canceling a focused goal sheet during keyboard close preserves goals',
     (WidgetTester tester) async {
@@ -46,6 +249,7 @@ void main() {
   );
 
   testWidgets('renders the active goal list', (WidgetTester tester) async {
+    final semantics = tester.ensureSemantics();
     final ProviderContainer container = ProviderContainer(
       overrides: [goalsProvider.overrideWith(_GoalsNotifier.new)],
     );
@@ -61,8 +265,36 @@ void main() {
 
     expect(find.text('GOALS'), findsOneWidget);
     expect(find.text('Ship the first release'), findsOneWidget);
+    expect(find.bySemanticsLabel('Ship the first release'), findsOneWidget);
+    expect(
+      find.byTooltip('Share goal: Ship the first release'),
+      findsOneWidget,
+    );
+    expect(
+      find.byTooltip('Expand goal details: Ship the first release'),
+      findsOneWidget,
+    );
+    semantics.dispose();
   });
 }
+
+Widget _testApp(ProviderContainer container, bool es) =>
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        locale: Locale(es ? 'es' : 'en'),
+        supportedLocales: const [Locale('en'), Locale('es')],
+        localizationsDelegates: const [
+          ChronoSparkLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(disableAnimations: true),
+          child: child!,
+        ),
+        home: const GoalsScreen(),
+      ),
+    );
 
 class _GoalsNotifier extends GoalsNotifier {
   @override
@@ -74,4 +306,19 @@ class _GoalsNotifier extends GoalsNotifier {
       targetDate: DateTime.utc(2026, 9, 1),
     ),
   ];
+}
+
+class _SavedWithWarning extends _GoalsNotifier {
+  int saves = 0;
+  Completer<void>? saveGate;
+  @override
+  Future<GoalMutationResult> add({
+    required String title,
+    String? description,
+    DateTime? targetDate,
+  }) async {
+    saves += 1;
+    await saveGate?.future;
+    return const GoalMutationResult(warnings: <String>['reminders']);
+  }
 }

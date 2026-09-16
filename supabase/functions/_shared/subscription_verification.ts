@@ -5,6 +5,8 @@ export interface VerifiedSubscriptionLineItem {
   active: boolean;
   autoRenews: boolean;
   orderId: string | null;
+  basePlanId?: string | null;
+  prepaidPlan?: boolean;
 }
 
 export interface ProviderSubscriptionLineItem {
@@ -76,6 +78,9 @@ export interface SubscriptionReconciliationInput {
   subscriptionState: unknown;
   acknowledgementState: unknown;
   lineageSource?: PurchaseLineageSource | null;
+  basePlanId?: string | null;
+  prepaidPlan?: boolean;
+  testPurchase?: boolean;
 }
 
 export interface PurchaseBindingInput {
@@ -298,6 +303,15 @@ export function verifySubscriptionLineItem(
     active: true,
     autoRenews: selected.autoRenews,
     orderId: selected.orderId,
+    basePlanId:
+      typeof (selected.raw.offerDetails as Record<string, unknown> | undefined)
+          ?.basePlanId === "string"
+        ? (selected.raw.offerDetails as Record<string, unknown>)
+          .basePlanId as string
+        : null,
+    prepaidPlan: selected.raw.prepaidPlan !== null &&
+      typeof selected.raw.prepaidPlan === "object" &&
+      !Array.isArray(selected.raw.prepaidPlan),
   };
 }
 
@@ -730,6 +744,9 @@ export function buildSubscriptionReconciliationArgs(
       subscriptionState: input.subscriptionState,
       acknowledgementState: input.acknowledgementState,
       lineageSource: input.lineageSource ?? null,
+      basePlanId: input.basePlanId ?? null,
+      prepaidPlan: input.prepaidPlan === true,
+      testPurchase: input.testPurchase === true,
       cause: {
         notificationType: null,
         eventName: "CLIENT_VERIFICATION",

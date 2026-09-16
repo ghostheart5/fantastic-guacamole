@@ -127,21 +127,31 @@ final class SIV2Query {
               SIV2Intent.counterfactual,
             _
                 when normalized.contains('what happens') ||
+                    normalized.contains('qué pasa') ||
+                    normalized.contains('que pasa') ||
                     normalized.contains('forecast') ||
                     normalized.contains('defer') ||
-                    normalized.contains('delay') =>
+                    normalized.contains('delay') ||
+                    normalized.contains('pospongo') ||
+                    normalized.contains('retraso') =>
               SIV2Intent.forecast,
             _
                 when normalized.contains('conflict') ||
-                    normalized.contains('contradict') =>
+                    normalized.contains('contradict') ||
+                    normalized.contains('conflicto') ||
+                    normalized.contains('contradic') =>
               SIV2Intent.findConflict,
             _
                 when normalized.contains('compare') ||
-                    normalized.contains('which goal') =>
+                    normalized.contains('comparar') ||
+                    normalized.contains('compara') =>
               SIV2Intent.compare,
             _
                 when normalized.startsWith('why') ||
-                    normalized.contains('explain') =>
+                    normalized.contains('explain') ||
+                    normalized.startsWith('por qué') ||
+                    normalized.startsWith('por que') ||
+                    normalized.contains('explica') =>
               SIV2Intent.explain,
             _ => selectedIntent,
           };
@@ -169,6 +179,23 @@ final class SIV2Query {
   final List<String> priorUserTurns;
 
   String get conversationText => <String>[...priorUserTurns, rawText].join(' ');
+
+  /// Only referential follow-ups inherit planning relevance. Safety screening
+  /// continues to use the entire recent conversation independently.
+  bool get usesPriorDecisionContext =>
+      priorUserTurns.isNotEmpty &&
+      RegExp(
+        r'^(why|how so|why is that|why that one|what about that|what about it|what next|what should i do next|explain that|explain it|what happens if i defer (it|that|this)|por que|por qué|por que esa|por qué esa|que sigue|qué sigue|que debo hacer despues|qué debo hacer después|explica eso|que pasa si lo pospongo|qué pasa si lo pospongo)\s*[?!.¿¡]*$',
+        caseSensitive: false,
+      ).hasMatch(rawText);
+
+  String get decisionContextText =>
+      usesPriorDecisionContext ? conversationText : rawText;
+
+  bool get requestsListing => RegExp(
+    r'^(?:(?:list|show|what are)\s+(?:all\s+)?(?:my\s+)?(?:active\s+|saved\s+|current\s+)?(?:goals|tasks|milestones)|what\s+(?:active\s+|saved\s+|current\s+)?(?:goals|tasks|milestones)\s+do i have|(?:lista|muestra)\s+(?:todas?\s+)?(?:mis\s+)?(?:metas|tareas|hitos)|que\s+(?:metas|tareas|hitos)\s+tengo|qué\s+(?:metas|tareas|hitos)\s+tengo)\s*[?!.¿¡]*$',
+    caseSensitive: false,
+  ).hasMatch(rawText);
 }
 
 final class SIV2TaskEvidence {
@@ -662,6 +689,21 @@ final class SIV2Response {
     DateTime? now,
   }) {
     if (receipt.isExpiredAt((now ?? DateTime.now()).toUtc())) return this;
+    final String? receiptSubjectId = receipt.subjectId;
+    if (receiptSubjectId != null) {
+      final matchingSubjects = evidenceLinks
+          .where((item) => item.entityId == receiptSubjectId)
+          .toList(growable: false);
+      final SIV2EvidenceLink? subjectLink = matchingSubjects.isEmpty
+          ? null
+          : matchingSubjects.first;
+      // A shared Home decision may only replace SI's recommendation when the
+      // direct answer resolved the same named subject. This prevents one card
+      // from answering about one commitment and recommending another.
+      if (subjectLink == null || !directAnswer.contains(subjectLink.label)) {
+        return this;
+      }
+    }
     final SIV2EvidenceLink authorityLink = SIV2EvidenceLink(
       evidenceId: 'decision:${receipt.decisionId}',
       source: null,

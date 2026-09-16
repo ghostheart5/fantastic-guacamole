@@ -1,6 +1,11 @@
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
+import 'package:fantastic_guacamole/features/creator/ui/daily_rhythms_screen.dart';
+import 'package:fantastic_guacamole/features/creator/ui/record_library_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/l10n/creator_copy.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_provider.dart';
@@ -18,6 +23,7 @@ class CreatorScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final copy = ChronoSparkLocalizations.of(context).creator;
     final CreatorDraftPreview? plannerDraft = ref.watch(
       creatorDraftPreviewProvider,
     );
@@ -50,12 +56,46 @@ class CreatorScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TemporalScreenHeader(
-                  title: 'Creator',
-                  subtitle: 'Turn intention into connected action.',
-                  eyebrow: 'Connected action',
+                  title: copy.title,
+                  subtitle: copy.subtitle,
+                  eyebrow: copy.eyebrow,
+                  backTooltip: copy.back,
                   onBack: () => goToAppView(context, ref, AppView.nexus),
                 ),
                 const SizedBox(height: 18),
+                if (!guidedFirstTask && !handshake.isReviewing) ...[
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const RecordLibraryScreen(),
+                          ),
+                        ),
+                        icon: const Icon(Icons.library_books_outlined),
+                        label: Text(
+                          journeyText(
+                            context,
+                            'Browse records',
+                            'Ver registros',
+                          ),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const DailyRhythmsScreen(),
+                          ),
+                        ),
+                        icon: const Icon(Icons.repeat_rounded),
+                        label: Text(copy.manageRhythms),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 const TemporalDivider(color: AppColors.memoryAmber),
                 const SizedBox(height: 18),
                 if (plannerDraft != null) ...[
@@ -69,6 +109,10 @@ class CreatorScreen extends ConsumerWidget {
                 if (handshake.isReviewing) ...[
                   _CreatorHandshakePreviewCard(
                     state: handshake,
+                    goalTitles: {
+                      for (final goal in ref.watch(goalsProvider))
+                        goal.id: goal.title,
+                    },
                     guidedFirstTask: guidedFirstTask,
                     onToggle: (String operationId, bool selected) => ref
                         .read(creatorHandshakeProvider.notifier)
@@ -106,9 +150,11 @@ class CreatorScreen extends ConsumerWidget {
                               ScaffoldMessenger.of(context)
                                 ..hideCurrentSnackBar()
                                 ..showSnackBar(
-                                  const SnackBar(
+                                  SnackBar(
                                     content: Text(
-                                      'Confirmed and saved exactly once. Undo is available here.',
+                                      ChronoSparkLocalizations.of(
+                                        context,
+                                      ).creator.savedSnack,
                                     ),
                                     behavior: SnackBarBehavior.floating,
                                   ),
@@ -118,7 +164,8 @@ class CreatorScreen extends ConsumerWidget {
                         : null,
                   ),
                   const SizedBox(height: 16),
-                ] else if (handshake.receipt != null) ...[
+                ] else if (handshake.receipt != null &&
+                    plannerDraft == null) ...[
                   _CreatorHandshakeResultCard(
                     state: handshake,
                     onUndo:
@@ -132,6 +179,11 @@ class CreatorScreen extends ConsumerWidget {
                         : null,
                     onTimeline: () =>
                         goToAppView(context, ref, AppView.timeline),
+                    onBrowseTasks: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const RecordLibraryScreen(),
+                      ),
+                    ),
                     onNewItem: () => ref
                         .read(creatorHandshakeProvider.notifier)
                         .clearResult(),
@@ -157,7 +209,7 @@ class CreatorScreen extends ConsumerWidget {
                       initialEstimatedDuration: plannerDraft == null
                           ? null
                           : Duration(minutes: plannerDraft.estimatedMinutes),
-                      submitLabel: 'REVIEW CHANGES',
+                      submitLabel: copy.reviewChanges,
                       clearAfterSubmit: false,
                       guidedFirstTask: guidedFirstTask,
                       tutorialController: ref.read(
@@ -200,6 +252,8 @@ class _PlannerDraftPreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final copy = ChronoSparkLocalizations.of(context).creator;
+    final plannerCopy = ChronoSparkLocalizations.of(context).plannerRoutine;
     return TemporalGlassSurface(
       key: const Key('creator-planner-draft-preview'),
       accent: AppColors.neonCyan,
@@ -207,9 +261,9 @@ class _PlannerDraftPreviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'PLANNER DRAFT PREVIEW',
-            style: TextStyle(
+          Text(
+            copy.draftPreview,
+            style: const TextStyle(
               color: AppColors.neonCyan,
               fontSize: 10,
               letterSpacing: 0,
@@ -217,9 +271,13 @@ class _PlannerDraftPreviewCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Nothing has been saved. Review and edit the prefilled form, then press REVIEW CHANGES to open Creator confirmation.',
-            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+          Text(
+            copy.draftBoundary,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: 10),
           Text(
@@ -232,14 +290,14 @@ class _PlannerDraftPreviewCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${draft.estimatedMinutes} minute ${draft.sourceOption.name} option',
+            '${plannerCopy.optionKind(draft.sourceOption.name)} · ${draft.estimatedMinutes} min',
             style: const TextStyle(color: Colors.white54, fontSize: 11),
           ),
           const SizedBox(height: 8),
           TemporalActionButton(
             onPressed: onDiscard,
             icon: Icons.close_rounded,
-            label: 'Discard preview',
+            label: copy.discardPreview,
             filled: false,
           ),
         ],
@@ -251,6 +309,7 @@ class _PlannerDraftPreviewCard extends StatelessWidget {
 class _CreatorHandshakePreviewCard extends StatelessWidget {
   const _CreatorHandshakePreviewCard({
     required this.state,
+    required this.goalTitles,
     required this.guidedFirstTask,
     required this.onToggle,
     required this.onEdit,
@@ -259,6 +318,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
   });
 
   final CreatorHandshakeState state;
+  final Map<String, String> goalTitles;
   final bool guidedFirstTask;
   final void Function(String operationId, bool selected) onToggle;
   final VoidCallback onEdit;
@@ -267,6 +327,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final copy = ChronoSparkLocalizations.of(context).creator;
     final CreatorHandshakePreview preview = state.preview!;
     final Color accent =
         state.phase == CreatorHandshakePhase.stale ||
@@ -280,9 +341,9 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'CONFIRM CREATOR CHANGES',
-            style: TextStyle(
+          Text(
+            copy.confirmTitle,
+            style: const TextStyle(
               color: AppColors.neonCyan,
               fontSize: 11,
               letterSpacing: 0,
@@ -290,25 +351,17 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Nothing is saved until you confirm the selected operation below.',
-            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+          Text(
+            copy.confirmBoundary,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: 10),
           _HandshakeBindingLine(
-            label: 'Account binding',
-            value: _short(preview.accountScopeId),
-          ),
-          _HandshakeBindingLine(
-            label: 'Domain version',
-            value: _short(preview.baseDomainRevision),
-          ),
-          _HandshakeBindingLine(
-            label: 'Displayed diff',
-            value: _short(preview.displayedDiffDigest),
-          ),
-          _HandshakeBindingLine(
-            label: 'Expires',
+            label: copy.expires,
             value: TimeOfDay.fromDateTime(
               preview.expiresAt.toLocal(),
             ).format(context),
@@ -316,9 +369,9 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
           if (preview.personContextBinding case final binding?
               when binding.hasBoundEvidence) ...[
             const SizedBox(height: 10),
-            const Text(
-              'GOVERNED CONTEXT REVIEW',
-              style: TextStyle(
+            Text(
+              copy.contextReview,
+              style: const TextStyle(
                 color: AppColors.neonCyan,
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
@@ -326,10 +379,10 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Relevant user-reported context was checked. The proposal was not silently rewritten; any conflict requires your confirmation.',
-              key: Key('creator-bound-evidence-boundary'),
-              style: TextStyle(
+            Text(
+              copy.contextBoundary,
+              key: const Key('creator-bound-evidence-boundary'),
+              style: const TextStyle(
                 color: Colors.white60,
                 fontSize: 11,
                 height: 1.4,
@@ -340,7 +393,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
               (String warning) => Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
-                  'Warning: $warning',
+                  copy.warning(warning),
                   style: const TextStyle(
                     color: Colors.amberAccent,
                     fontSize: 11,
@@ -362,7 +415,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        item.$2,
+                        copy.evidence(item.$2),
                         key: ValueKey<String>(
                           'creator-bound-evidence-${item.$1}',
                         ),
@@ -410,7 +463,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
                   controlAffinity: ListTileControlAffinity.leading,
                   contentPadding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
                   title: Text(
-                    operation.label.toUpperCase(),
+                    copy.createAction(operation.entityKind.name),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
@@ -422,7 +475,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: _operationDiffs(operation),
+                      children: _operationDiffs(operation, copy, context),
                     ),
                   ),
                 ),
@@ -432,7 +485,7 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
           if (state.message != null) ...[
             const SizedBox(height: 2),
             Text(
-              state.message!,
+              copy.message(state.message!),
               key: const Key('creator-handshake-message'),
               style: TextStyle(
                 color:
@@ -471,8 +524,8 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
                 icon: const Icon(Icons.check_rounded),
                 label: Text(
                   state.phase == CreatorHandshakePhase.confirming
-                      ? 'CONFIRMING…'
-                      : 'CONFIRM SELECTED',
+                      ? copy.confirming
+                      : _confirmationLabel(preview, copy),
                 ),
               ),
             ),
@@ -480,8 +533,8 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
           Wrap(
             spacing: 8,
             children: [
-              TextButton(onPressed: onEdit, child: const Text('Edit draft')),
-              TextButton(onPressed: onCancel, child: const Text('Cancel')),
+              TextButton(onPressed: onEdit, child: Text(copy.editDraft)),
+              TextButton(onPressed: onCancel, child: Text(copy.cancel)),
             ],
           ),
         ],
@@ -489,11 +542,11 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
     );
   }
 
-  static Widget _diff(String field, String before, String after) {
+  static Widget _summary(String field, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 5),
       child: Text(
-        '$field: $before → $after',
+        '$field: $value',
         style: const TextStyle(
           color: Colors.white60,
           fontSize: 11,
@@ -503,31 +556,54 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
     );
   }
 
-  static List<Widget> _operationDiffs(CreatorMutationOperation operation) {
+  List<Widget> _operationDiffs(
+    CreatorMutationOperation operation,
+    CreatorCopy copy,
+    BuildContext context,
+  ) {
     final CreatorEntityMutation mutation = operation.mutation;
     final List<({String label, String value})> fields =
         <({String label, String value})>[
           (label: 'Title', value: mutation.title),
-          (label: 'Type', value: _entityLabel(operation.entityKind)),
+          (label: 'Type', value: copy.kind(operation.entityKind.name)),
         ];
     switch (mutation) {
       case final CreatorTaskMutation task:
         fields.addAll(<({String label, String value})>[
           (label: 'Priority', value: '${task.priority} / 5'),
-          (label: 'Active goal', value: task.goalId ?? 'No linked goal'),
+          (
+            label: 'Active goal',
+            value: task.goalId == null
+                ? copy.noLinkedGoal
+                : goalTitles[task.goalId] ?? copy.unavailableGoal,
+          ),
           (
             label: 'Estimated duration',
             value: task.estimatedDuration == null
-                ? 'No estimate'
-                : '${task.estimatedDuration!.inMinutes} minutes',
+                ? copy.noEstimate
+                : copy.minutes(task.estimatedDuration!.inMinutes),
           ),
           (
             label: 'Schedule',
-            value: task.scheduledFor?.toLocal().toString() ?? 'Unscheduled',
+            value: task.scheduledFor == null
+                ? copy.unscheduled
+                : _formatDateTime(
+                    context,
+                    task.scheduledFor!,
+                    includeTime: true,
+                  ),
           ),
           (
             label: 'Deadline',
-            value: task.dueDate?.toLocal().toString() ?? 'No deadline',
+            value: task.dueDate == null
+                ? copy.noDeadline
+                : _formatDateTime(
+                    context,
+                    task.dueDate!,
+                    includeTime:
+                        task.dueDate!.toLocal().hour != 0 ||
+                        task.dueDate!.toLocal().minute != 0,
+                  ),
           ),
         ]);
         if (task.description?.isNotEmpty ?? false) {
@@ -536,14 +612,21 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
       case final CreatorGoalMutation goal:
         fields.add((
           label: 'Target date',
-          value: goal.targetDate?.toLocal().toString() ?? 'No target date',
+          value: goal.targetDate == null
+              ? copy.noTargetDate
+              : _formatDateTime(context, goal.targetDate!),
         ));
         if (goal.description?.isNotEmpty ?? false) {
           fields.add((label: 'Description', value: goal.description!));
         }
       case final CreatorHabitMutation habit:
         fields.addAll(<({String label, String value})>[
-          (label: 'Cadence', value: habit.cadence.name),
+          (
+            label: 'Cadence',
+            value: copy.isSpanish
+                ? copy.cadence(habit.cadence.name)
+                : habit.cadence.name,
+          ),
           (label: 'Target count', value: '${habit.targetCount}'),
         ]);
         if (habit.description?.isNotEmpty ?? false) {
@@ -561,20 +644,33 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
     return fields
         .map(
           (({String label, String value}) field) =>
-              _diff(field.label, 'Not present', field.value),
+              _summary(copy.field(field.label), field.value),
         )
         .toList(growable: false);
   }
 
-  static String _entityLabel(CreatorEntityKind kind) => switch (kind) {
-    CreatorEntityKind.task => 'Task',
-    CreatorEntityKind.goal => 'Goal',
-    CreatorEntityKind.habit => 'Daily Rhythm',
-    CreatorEntityKind.note => 'Note',
-  };
+  String _confirmationLabel(CreatorHandshakePreview preview, CreatorCopy copy) {
+    final selected = preview.operations
+        .where(
+          (operation) =>
+              preview.selectedOperationIds.contains(operation.operationId),
+        )
+        .toList(growable: false);
+    return selected.length == 1
+        ? copy.createAction(selected.single.entityKind.name)
+        : copy.confirmSelected;
+  }
 
-  static String _short(String value) =>
-      value.length <= 18 ? value : '${value.substring(0, 18)}…';
+  String _formatDateTime(
+    BuildContext context,
+    DateTime value, {
+    bool includeTime = false,
+  }) {
+    final local = value.toLocal();
+    final date = MaterialLocalizations.of(context).formatMediumDate(local);
+    if (!includeTime) return date;
+    return '$date, ${TimeOfDay.fromDateTime(local).format(context)}';
+  }
 }
 
 class _CreatorHandshakeResultCard extends StatelessWidget {
@@ -582,18 +678,31 @@ class _CreatorHandshakeResultCard extends StatelessWidget {
     required this.state,
     required this.onUndo,
     required this.onTimeline,
+    required this.onBrowseTasks,
     required this.onNewItem,
   });
 
   final CreatorHandshakeState state;
   final Future<void> Function()? onUndo;
   final VoidCallback onTimeline;
+  final VoidCallback onBrowseTasks;
   final VoidCallback onNewItem;
 
   @override
   Widget build(BuildContext context) {
+    final copy = ChronoSparkLocalizations.of(context).creator;
     final CreatorHandshakeReceipt receipt = state.receipt!;
     final bool undone = state.phase == CreatorHandshakePhase.undone;
+    // An undated task belongs in the Library; Timeline projects tasks only
+    // when they have a scheduled time or deadline.
+    final bool onlyUndatedTasks =
+        state.preview?.selectedOperations.isNotEmpty == true &&
+        state.preview!.selectedOperations.every(
+          (CreatorMutationOperation operation) =>
+              operation.taskMutation != null &&
+              operation.taskMutation!.scheduledFor == null &&
+              operation.taskMutation!.dueDate == null,
+        );
     final Color accent = undone ? AppColors.memoryAmber : AppColors.neonCyan;
     return TemporalGlassSurface(
       key: const Key('creator-handshake-result'),
@@ -603,7 +712,7 @@ class _CreatorHandshakeResultCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            undone ? 'CREATION UNDONE' : 'CONFIRMED CREATOR RECEIPT',
+            undone ? copy.creationUndone : copy.creationSaved,
             style: TextStyle(
               color: undone ? AppColors.memoryAmber : AppColors.neonCyan,
               fontSize: 11,
@@ -613,7 +722,7 @@ class _CreatorHandshakeResultCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            state.message ?? '',
+            copy.message(state.message ?? ''),
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 12,
@@ -622,9 +731,7 @@ class _CreatorHandshakeResultCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Confirmation: ${receipt.confirmationTokenId}\n'
-            'Operations: ${receipt.appliedOperationIds.length}\n'
-            'Result version: ${_CreatorHandshakePreviewCard._short(receipt.resultingDomainRevision)}',
+            copy.changeCount(receipt.appliedOperationIds.length, undone),
             style: const TextStyle(
               color: Colors.white38,
               fontSize: 10,
@@ -645,23 +752,33 @@ class _CreatorHandshakeResultCard extends StatelessWidget {
                       await onUndo!();
                     },
                     icon: const Icon(Icons.undo_rounded, size: 16),
-                    label: const Text('Undo creation'),
+                    label: Text(copy.undo),
                   ),
                 ),
               if (!undone)
                 SizedBox(
                   height: 48,
                   child: FilledButton.icon(
-                    onPressed: onTimeline,
-                    icon: const Icon(Icons.timeline_rounded, size: 18),
-                    label: const Text('Open Timeline'),
+                    key: const Key('creator-open-saved-result'),
+                    onPressed: onlyUndatedTasks ? onBrowseTasks : onTimeline,
+                    icon: Icon(
+                      onlyUndatedTasks
+                          ? Icons.library_books_outlined
+                          : Icons.timeline_rounded,
+                      size: 18,
+                    ),
+                    label: Text(
+                      onlyUndatedTasks
+                          ? copy.browseSavedTasks
+                          : copy.openTimeline,
+                    ),
                   ),
                 ),
               SizedBox(
                 height: 48,
                 child: TextButton(
                   onPressed: onNewItem,
-                  child: const Text('New item'),
+                  child: Text(copy.newItem),
                 ),
               ),
             ],

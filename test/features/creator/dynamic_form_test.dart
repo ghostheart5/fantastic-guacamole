@@ -2,11 +2,70 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
+import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final int minutes in <int>[5, 10]) {
+    testWidgets('Creator submits a $minutes-minute task without rounding up', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(900, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      CreatorFormData? submitted;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: DynamicForm(
+                onSubmit: (CreatorFormData data) async => submitted = data,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.enterText(find.byType(TextField).first, 'Sort three bills');
+      await tester.tap(find.byKey(const Key('creator-task-estimate')));
+      await tester.pumpAndSettle();
+      expect(find.text('1 hours 30 min'), findsNothing);
+      expect(find.text('1 hour 30 min'), findsOneWidget);
+      await tester.tap(find.text('$minutes minutes').last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('CREATE TASK'));
+      await tester.tap(find.text('CREATE TASK'));
+      await tester.pump();
+      expect(submitted?.estimatedDuration, Duration(minutes: minutes));
+      expect(submitted?.title, 'Sort three bills');
+    });
+  }
+
+  testWidgets('input labels remain accessible after text is entered', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: DynamicForm(onSubmit: (_) async {}),
+          ),
+        ),
+      ),
+    );
+    final title = find.bySemanticsLabel(RegExp('Title, required'));
+    expect(title, findsOneWidget);
+    await tester.enterText(find.byType(TextField).first, 'A saved intention');
+    await tester.pump();
+    expect(find.bySemanticsLabel(RegExp('Title, required')), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('Description \\(optional\\)')),
+      findsOneWidget,
+    );
+    semantics.dispose();
+  });
   testWidgets('Creator defaults to Task with the complete task field set', (
     WidgetTester tester,
   ) async {
@@ -164,6 +223,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: appTheme,
         home: Scaffold(
           body: SingleChildScrollView(
             child: DynamicForm(
@@ -177,6 +237,27 @@ void main() {
 
     expect(find.text('CADENCE / RECURRENCE'), findsOneWidget);
     expect(find.byKey(const Key('creator-rhythm-cadence')), findsOneWidget);
+    final increase = find.byKey(const Key('creator-rhythm-increase'));
+    final foreground = IconTheme.of(
+      tester.element(find.byIcon(Icons.add_rounded)),
+    ).color!;
+    final background = tester
+        .widget<IconButton>(increase)
+        .style!
+        .backgroundColor!
+        .resolve({})!;
+    final light = foreground.computeLuminance() > background.computeLuminance()
+        ? foreground.computeLuminance()
+        : background.computeLuminance();
+    final dark = foreground.computeLuminance() < background.computeLuminance()
+        ? foreground.computeLuminance()
+        : background.computeLuminance();
+    expect(
+      (light + .05) / (dark + .05),
+      greaterThanOrEqualTo(3),
+      reason:
+          'The rendered plus icon must be distinguishable from its filled background.',
+    );
     await tester.enterText(
       find.byWidgetPredicate(
         (Widget widget) =>

@@ -196,10 +196,12 @@ class TaskRanker implements ITaskRanker {
         origin: PredictiveEvidenceOrigin.unavailable,
       );
     }
-    final Duration slack = due.difference(now) - task.estimateOrDefault;
+    final DateTime effectiveDue = task.effectiveDueAt ?? due;
+    final Duration slack =
+        effectiveDue.difference(now) - task.estimateOrDefault;
     final DeadlinePressureBand band;
     final double score;
-    if (due.isBefore(now)) {
+    if (task.isOverdueAt(now)) {
       band = DeadlinePressureBand.overdue;
       score = 15;
     } else if (slack <= Duration.zero) {

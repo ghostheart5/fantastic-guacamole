@@ -1,7 +1,9 @@
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/ui/widgets/decision_intelligence_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
   testWidgets('intelligence visibly answers all four decision questions', (
@@ -81,5 +83,35 @@ void main() {
     );
     expect(find.text('Start task A'), findsOneWidget);
     expect(find.text('Review on Timeline'), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('es'),
+        supportedLocales: ChronoSparkLocalizations.supportedLocales,
+        localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+          ChronoSparkLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: DecisionIntelligenceCard(
+              intelligence: intelligence,
+              topRisk: 'One overdue task',
+              recentProgress: 'One task completed since the last intelligence.',
+              onAction: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('DÓNDE ESTÁS'), findsOneWidget);
+    expect(find.text('QUÉ IMPORTA AHORA'), findsOneWidget);
+    expect(find.text('POR QUÉ IMPORTA'), findsOneWidget);
+    expect(find.text('Revisar en Línea de Tiempo'), findsOneWidget);
+    expect(find.text('Start task A'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

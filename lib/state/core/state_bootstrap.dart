@@ -17,12 +17,12 @@ final stateBootstrapProvider = FutureProvider<void>((ref) async {
   // Riverpod forbids mutating other providers while this provider is building.
   // Deferring by one event-loop turn avoids the initialization-time mutation.
   await Future<void>.delayed(Duration.zero);
-  await ref
-      .read(entitlementProvider.future)
-      .timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => EntitlementState.locked,
-      );
+  if (!ref.mounted) return;
+  // Start authority hydration without blocking local startup on the network.
+  // Paid consumers continue to fail closed while this AsyncValue is loading
+  // or errored. Its former ten-second wait exceeded startup's four-second
+  // state deadline and incorrectly put otherwise usable profiles in limited mode.
+  ref.read(entitlementProvider);
   ref
       .read(siMemoryProvider.notifier)
       .capture(boot.initialSnapshot(si: si, learning: learning));

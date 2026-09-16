@@ -19,6 +19,19 @@ class SIIntentModule {
     IntentCandidate? hidden;
 
     if (_containsAny(normalized, const <String>[
+      'why did i skip',
+      'why was this skipped',
+      'por que omiti',
+      'por qué omití',
+      'por que se omitio',
+      'por qué se omitió',
+    ])) {
+      primary = const IntentCandidate(
+        label: 'signal_request',
+        score: 0.9,
+        why: 'User is asking for an explanation of a prior outcome',
+      );
+    } else if (_containsAny(normalized, const <String>[
       'start work',
       'begin execution',
       'work block',

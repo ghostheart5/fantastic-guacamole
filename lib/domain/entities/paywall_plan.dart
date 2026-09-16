@@ -12,6 +12,8 @@ class PaywallPlan {
     this.isFeatured = false,
   });
 
+  bool get isCreditPack => id.startsWith('credits_');
+
   final String id;
   final String title;
   final String priceLabel;

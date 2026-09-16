@@ -316,22 +316,32 @@ Future<void> _showBackupRecoveryKeyDialog(
   final String? action = await showDialog<String>(
     context: context,
     builder: (BuildContext dialogContext) => AlertDialog(
-      title: const Text('Backup recovery key'),
-      content: const Text(
-        'This key lets you decrypt your encrypted cloud backup on a replacement device. Keep it in a password manager. ChronoSpark cannot recover it for you.',
+      title: Text(
+        journeyText(
+          context,
+          'Backup recovery key',
+          'Clave de recuperación de respaldo',
+        ),
+      ),
+      content: Text(
+        journeyText(
+          context,
+          'This key lets you decrypt your encrypted cloud backup on a replacement device. Keep it in a password manager. ChronoSpark cannot recover it for you.',
+          'Esta clave permite descifrar tu respaldo cifrado en la nube desde otro dispositivo. Guárdala en un gestor de contraseñas. ChronoSpark no puede recuperarla por ti.',
+        ),
       ),
       actions: <Widget>[
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Cancel'),
+          child: Text(journeyText(context, 'Cancel', 'Cancelar')),
         ),
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop('import'),
-          child: const Text('Restore key'),
+          child: Text(journeyText(context, 'Restore key', 'Restaurar clave')),
         ),
         FilledButton(
           onPressed: () => Navigator.of(dialogContext).pop('reveal'),
-          child: const Text('Reveal key'),
+          child: Text(journeyText(context, 'Reveal key', 'Mostrar clave')),
         ),
       ],
     ),
@@ -354,18 +364,28 @@ Future<void> _revealBackupRecoveryKey(
       await showDialog<bool>(
         context: context,
         builder: (BuildContext dialogContext) => AlertDialog(
-          title: const Text('Reveal recovery key?'),
-          content: const Text(
-            'Anyone who sees this key can decrypt your cloud backups. Only continue somewhere private.',
+          title: Text(
+            journeyText(
+              context,
+              'Reveal recovery key?',
+              '¿Mostrar la clave de recuperación?',
+            ),
+          ),
+          content: Text(
+            journeyText(
+              context,
+              'Anyone who sees this key can decrypt your cloud backups. Only continue somewhere private.',
+              'Cualquier persona que vea esta clave puede descifrar tus respaldos en la nube. Continúa solo en un lugar privado.',
+            ),
           ),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
+              child: Text(journeyText(context, 'Cancel', 'Cancelar')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Reveal'),
+              child: Text(journeyText(context, 'Reveal', 'Mostrar')),
             ),
           ],
         ),
@@ -384,12 +404,24 @@ Future<void> _revealBackupRecoveryKey(
   await showDialog<void>(
     context: context,
     builder: (BuildContext dialogContext) => AlertDialog(
-      title: const Text('Store this recovery key'),
+      title: Text(
+        journeyText(
+          context,
+          'Store this recovery key',
+          'Guarda esta clave de recuperación',
+        ),
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text('Copy it to a password manager. Do not share it.'),
+          Text(
+            journeyText(
+              context,
+              'Copy it to a password manager. Do not share it.',
+              'Cópiala en un gestor de contraseñas. No la compartas.',
+            ),
+          ),
           const SizedBox(height: 16),
           SelectableText(
             key,
@@ -406,15 +438,23 @@ Future<void> _revealBackupRecoveryKey(
               return;
             }
             ScaffoldMessenger.of(dialogContext).showSnackBar(
-              const SnackBar(content: Text('Recovery key copied.')),
+              SnackBar(
+                content: Text(
+                  journeyText(
+                    context,
+                    'Recovery key copied.',
+                    'Clave de recuperación copiada.',
+                  ),
+                ),
+              ),
             );
           },
           icon: const Icon(Icons.copy_outlined),
-          label: const Text('Copy'),
+          label: Text(journeyText(context, 'Copy', 'Copiar')),
         ),
         FilledButton(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Done'),
+          child: Text(journeyText(context, 'Done', 'Listo')),
         ),
       ],
     ),
@@ -431,7 +471,13 @@ Future<void> _importBackupRecoveryKey(
       builder: (dialogContext, controllers) {
         final controller = controllers[0];
         return AlertDialog(
-          title: const Text('Restore backup key'),
+          title: Text(
+            journeyText(
+              context,
+              'Restore backup key',
+              'Restaurar clave de respaldo',
+            ),
+          ),
           content: TextField(
             key: const Key('backup-recovery-key-input'),
             controller: controller,
@@ -440,19 +486,27 @@ Future<void> _importBackupRecoveryKey(
             keyboardType: TextInputType.visiblePassword,
             minLines: 3,
             maxLines: 5,
-            decoration: const InputDecoration(
-              labelText: 'Recovery key',
-              hintText: 'Paste the key from your previous device',
+            decoration: InputDecoration(
+              labelText: journeyText(
+                context,
+                'Recovery key',
+                'Clave de recuperación',
+              ),
+              hintText: journeyText(
+                context,
+                'Paste the key from your previous device',
+                'Pega la clave de tu dispositivo anterior',
+              ),
             ),
           ),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: Text(journeyText(context, 'Cancel', 'Cancelar')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-              child: const Text('Continue'),
+              child: Text(journeyText(context, 'Continue', 'Continuar')),
             ),
           ],
         );
@@ -467,18 +521,30 @@ Future<void> _importBackupRecoveryKey(
       await showDialog<bool>(
         context: context,
         builder: (BuildContext dialogContext) => AlertDialog(
-          title: const Text('Replace this device key?'),
-          content: const Text(
-            'This replaces this device\'s cloud-backup key. Use the original key again if you need to decrypt backups created with it.',
+          title: Text(
+            journeyText(
+              context,
+              'Replace this device key?',
+              '¿Reemplazar la clave de este dispositivo?',
+            ),
+          ),
+          content: Text(
+            journeyText(
+              context,
+              'This replaces this device\'s cloud-backup key. Use the original key again if you need to decrypt backups created with it.',
+              'Esto reemplaza la clave de respaldo en la nube de este dispositivo. Vuelve a usar la clave original si necesitas descifrar respaldos creados con ella.',
+            ),
           ),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
+              child: Text(journeyText(context, 'Cancel', 'Cancelar')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Replace key'),
+              child: Text(
+                journeyText(context, 'Replace key', 'Reemplazar clave'),
+              ),
             ),
           ],
         ),
@@ -496,8 +562,14 @@ Future<void> _importBackupRecoveryKey(
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Recovery key saved. You can now restore your backup.'),
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'Recovery key saved. You can now restore your backup.',
+            'Clave de recuperación guardada. Ya puedes restaurar tu copia de seguridad.',
+          ),
+        ),
       ),
     );
   } on FormatException {
@@ -505,7 +577,15 @@ Future<void> _importBackupRecoveryKey(
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('That recovery key is not valid.')),
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'That recovery key is not valid.',
+            'Esa clave de recuperación no es válida.',
+          ),
+        ),
+      ),
     );
   }
 }

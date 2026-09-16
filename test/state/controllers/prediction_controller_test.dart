@@ -2,8 +2,41 @@ import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/si/prediction.dart';
 import 'package:fantastic_guacamole/state/controllers/prediction_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 
 void main() {
+  for (final scope in [
+    const AccountStorageScope.signedOut(),
+    const AccountStorageScope.unsafe(),
+  ]) {
+    test(
+      'prediction avoids protected history for ${scope.state.name}',
+      () async {
+        var opened = false;
+        final container = ProviderContainer(
+          overrides: [
+            accountStorageScopeProvider.overrideWithValue(scope),
+            accountSecureStoreProvider.overrideWith((ref) {
+              opened = true;
+              throw StateError('Storage must not be opened');
+            }),
+          ],
+        );
+        addTearDown(container.dispose);
+        final result = await container.read(
+          predictionProvider('Private task').future,
+        );
+        expect(opened, isFalse);
+        expect(result.sampleSize, 0);
+        expect(result.confidence, 0);
+        expect(result.signals, contains('storage-unavailable'));
+      },
+    );
+  }
+
   NeuralEntry outcome(String task, bool completed, int day) => NeuralEntry(
     task: task,
     reasoning: completed

@@ -258,6 +258,10 @@ void main() {
 
           await tester.pumpWidget(const SizedBox.shrink());
           harness.dispose();
+          // Let bounded read-only SI I/O finish after this first-frame fixture.
+          for (var i = 0; i < 4; i++) {
+            await tester.pump(const Duration(seconds: 3));
+          }
         }
       },
     );
@@ -326,6 +330,9 @@ void main() {
 
           await tester.pumpWidget(const SizedBox.shrink());
           harness.dispose();
+          for (var i = 0; i < 4; i++) {
+            await tester.pump(const Duration(seconds: 3));
+          }
         }
       },
     );

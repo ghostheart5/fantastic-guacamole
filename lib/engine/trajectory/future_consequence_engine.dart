@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
+import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 
 /// Deterministic counterfactual projector.
 ///
@@ -381,13 +382,12 @@ class FutureConsequenceEngine {
     required PredictiveConfidenceProfile confidence,
     required int uncertainty,
   }) {
-    if (!baseline.hasObservedAvailability) {
+    if (!baseline.hasObservedAvailability ||
+        baseline.availableMinutes <= baseline.occupiedMinutes) {
       return const <GoalDelayProjection>[];
     }
-    final int freeMinutes = math.max(
-      30,
-      baseline.availableMinutes - baseline.occupiedMinutes,
-    );
+    final int freeMinutes =
+        baseline.availableMinutes - baseline.occupiedMinutes;
     return baseline.goals
         .map((TrajectoryGoalNode goal) {
           final List<TrajectoryTaskNode> linked = baseline.tasks
@@ -447,10 +447,9 @@ class FutureConsequenceEngine {
     TrajectoryTaskNode? subject,
   ) {
     final int potentialXp = switch (intervention.type) {
-      TrajectoryInterventionType.completeTask ||
-      TrajectoryInterventionType.recoverCommitment =>
-        8 + (subject?.priority.clamp(1, 5) ?? 3) * 2,
-      TrajectoryInterventionType.applySmartPlanner => 6,
+      TrajectoryInterventionType.completeTask => ProgressionPolicy.completionXp,
+      TrajectoryInterventionType.recoverCommitment => 0,
+      TrajectoryInterventionType.applySmartPlanner => 0,
       _ => 0,
     };
     final bool protectsStreak = switch (intervention.type) {

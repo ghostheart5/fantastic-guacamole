@@ -31,14 +31,29 @@ class _TimelineEventTile extends StatelessWidget {
   bool get _isScheduledTask =>
       event.type == TimelineEventType.task && event.dueAt != null;
 
-  String get _timingLabel {
-    final DateTime date = event.dueAt!;
+  String _timingLabel(BuildContext context) {
+    final DateTime date = _eventMoment(event);
+    final label = DateFormat.yMMMd(
+      Localizations.localeOf(context).toLanguageTag(),
+    ).format(date);
     if (_isScheduledTask) {
-      return 'SCHEDULED ${DateTimeFormats.dateShort(date)}';
+      return journeyText(
+        context,
+        'SCHEDULED ${DateTimeFormats.dateShort(date)}',
+        'PROGRAMADA $label',
+      );
     }
     return event.isOverdue
-        ? 'OVERDUE SINCE ${DateTimeFormats.dateShort(date)}'
-        : 'DUE ${DateTimeFormats.dateShort(date)}';
+        ? journeyText(
+            context,
+            'OVERDUE SINCE ${DateTimeFormats.dateShort(date)}',
+            'VENCIDA DESDE $label',
+          )
+        : journeyText(
+            context,
+            'DUE ${DateTimeFormats.dateShort(date)}',
+            'VENCE $label',
+          );
   }
 
   Color get _color {
@@ -229,7 +244,7 @@ class _TimelineEventTile extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            _visualLabel.toUpperCase(),
+                            journeyLabel(context, _visualLabel).toUpperCase(),
                             style: TextStyle(
                               color: _color,
                               fontSize: 8,
@@ -240,7 +255,13 @@ class _TimelineEventTile extends StatelessWidget {
                         ),
                         const Spacer(),
                         Text(
-                          DateTimeFormats.timelineTime(_eventMoment(event)),
+                          event.dateOnly
+                              ? journeyText(context, 'NO TIME SET', 'SIN HORA')
+                              : ChronoSparkLocalizations.of(context).isSpanish
+                              ? DateFormat.jm('es').format(_eventMoment(event))
+                              : DateTimeFormats.timelineTime(
+                                  _eventMoment(event),
+                                ),
                           style: const TextStyle(
                             color: Color(0xFF8B99B8),
                             fontSize: 10,
@@ -251,7 +272,7 @@ class _TimelineEventTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 9),
                     Text(
-                      _displayTitle,
+                      _localizedTitle(context),
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: emphasized ? 17 : 14,
@@ -264,7 +285,7 @@ class _TimelineEventTile extends StatelessWidget {
                     if (_displayDetail.isNotEmpty) ...<Widget>[
                       const SizedBox(height: 5),
                       Text(
-                        _displayDetail,
+                        _localizedDetail(context),
                         style: const TextStyle(
                           color: Color(0xFFB4C0DA),
                           fontSize: 12,
@@ -290,7 +311,7 @@ class _TimelineEventTile extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          _timingLabel,
+                          _timingLabel(context),
                           style: TextStyle(
                             color: event.isOverdue
                                 ? AppColors.recallRed
@@ -332,6 +353,10 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
       widget.event.relatedId != null &&
       widget.event.id.startsWith('timeline-projected-task-');
 
+  bool get _isProjectedGoal =>
+      widget.event.relatedId != null &&
+      widget.event.id.startsWith('timeline-projected-goal-');
+
   bool get _canComplete =>
       widget.event.status != TimelineEventStatus.completed &&
       widget.event.status != TimelineEventStatus.canceled &&
@@ -346,9 +371,21 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
           widget.event.type == TimelineEventType.deadline);
 
   bool get _canMove =>
-      !_isProjectedTask &&
+      (_isProjectedTask ||
+          _isProjectedGoal ||
+          !widget.event.id.startsWith('timeline-projected-')) &&
       (widget.event.status == TimelineEventStatus.overdue ||
-          widget.event.status == TimelineEventStatus.skipped);
+          widget.event.status == TimelineEventStatus.skipped ||
+          (_isProjectedTask &&
+              widget.event.status == TimelineEventStatus.planned &&
+              _isDueToday));
+
+  bool get _isDueToday {
+    final due = widget.event.dueAt?.toLocal();
+    if (due == null) return false;
+    final now = ref.read(timelineClockProvider)().toLocal();
+    return due.year == now.year && due.month == now.month && due.day == now.day;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -367,13 +404,13 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
               OutlinedButton.icon(
                 onPressed: _busy ? null : () => _run(_complete),
                 icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
-                label: const Text('Complete'),
+                label: Text(journeyText(context, 'Complete', 'Completar')),
               ),
             if (_canSkip)
               OutlinedButton.icon(
                 onPressed: _busy ? null : () => _run(_skip),
                 icon: const Icon(Icons.redo_rounded, size: 16),
-                label: const Text('Skip'),
+                label: Text(journeyText(context, 'Skip', 'Omitir')),
               ),
             if (_canMove)
               OutlinedButton.icon(
@@ -381,15 +418,25 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
                 icon: const Icon(Icons.event_repeat_rounded, size: 16),
                 label: Text(
                   widget.event.status == TimelineEventStatus.skipped
-                      ? 'Recover Tomorrow'
-                      : 'Move Tomorrow',
+                      ? journeyText(
+                          context,
+                          'Recover Tomorrow',
+                          'Retomar mañana',
+                        )
+                      : _isProjectedTask
+                      ? journeyText(
+                          context,
+                          'Postpone to Tomorrow',
+                          'Aplazar hasta mañana',
+                        )
+                      : journeyText(context, 'Move Tomorrow', 'Mover a mañana'),
                 ),
               ),
             if (_isProjectedTask)
               OutlinedButton.icon(
                 onPressed: _busy ? null : _editTask,
                 icon: const Icon(Icons.edit_outlined, size: 16),
-                label: const Text('Edit'),
+                label: Text(journeyText(context, 'Edit', 'Editar')),
               ),
             if (_isProjectedTask)
               OutlinedButton.icon(
@@ -398,14 +445,18 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
                   foregroundColor: AppColors.recallRed,
                 ),
                 icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                label: const Text('Delete'),
+                label: Text(journeyText(context, 'Delete', 'Eliminar')),
               ),
           ],
         ),
         if (_busy) ...[
           const SizedBox(height: 8),
           Semantics(
-            label: 'Task action in progress',
+            label: journeyText(
+              context,
+              'Task action in progress',
+              'Acción de tarea en curso',
+            ),
             liveRegion: true,
             child: const LinearProgressIndicator(minHeight: 2),
           ),
@@ -444,7 +495,11 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Timeline action failed. Refresh and try again.';
+        _error = journeyText(
+          context,
+          'Timeline action failed. Refresh and try again.',
+          'La acción de la Línea de Tiempo falló. Actualiza e inténtalo de nuevo.',
+        );
       });
     } finally {
       if (mounted) {
@@ -461,7 +516,7 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
     if (taskId == null) return;
     TaskEntity? existing;
     final List<Task> visibleTasks =
-        ref.read(tasksProvider).asData?.value ?? const <Task>[];
+        ref.read(allTasksProvider).asData?.value ?? const <Task>[];
     for (final Task task in visibleTasks) {
       if (task.id == taskId) {
         existing = task;
@@ -478,151 +533,21 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
       }
     }
     if (existing == null || !mounted) {
-      setState(() => _error = 'Task not found. Refresh and try again.');
+      setState(
+        () => _error = journeyText(
+          context,
+          'Task not found. Refresh and try again.',
+          'No se encontró la tarea. Actualiza e inténtalo de nuevo.',
+        ),
+      );
       return;
     }
     final TaskEntity editable = existing;
     final List<GoalEntity> goals = ref.read(goalsProvider);
-    String draftTitle = editable.title;
-    String durationText =
-        editable.estimatedDuration?.inMinutes.toString() ?? '';
-    String? selectedGoalId =
-        goals.any((GoalEntity goal) => goal.id == editable.goalId)
-        ? editable.goalId
-        : null;
-    DateTime? dueDate = editable.dueDate;
-    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
-    final _TaskEditDraft? next = await showDialog<_TaskEditDraft>(
+    final TaskEditDraft? next = await showTaskEditDialog(
       context: context,
-      builder: (BuildContext dialogContext) => StatefulBuilder(
-        builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
-          title: const Text('Edit task'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  TextFormField(
-                    key: const Key('timeline-task-title-field'),
-                    initialValue: draftTitle,
-                    autofocus: true,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'Task title'),
-                    validator: (String? value) =>
-                        value == null || value.trim().isEmpty
-                        ? 'Enter a task title.'
-                        : null,
-                    onChanged: (String value) => draftTitle = value,
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownRouteKeyboardGuard(
-                    child: DropdownButtonFormField<String?>(
-                      key: const Key('timeline-task-goal-field'),
-                      initialValue: selectedGoalId,
-                      decoration: const InputDecoration(labelText: 'Goal'),
-                      items: <DropdownMenuItem<String?>>[
-                        const DropdownMenuItem<String?>(
-                          child: Text('No linked goal'),
-                        ),
-                        ...goals.map(
-                          (GoalEntity goal) => DropdownMenuItem<String?>(
-                            value: goal.id,
-                            child: Text(
-                              goal.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ],
-                      onChanged: (String? value) =>
-                          setDialogState(() => selectedGoalId = value),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    key: const Key('timeline-task-duration-field'),
-                    initialValue: durationText,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Estimated minutes',
-                      hintText: 'Optional',
-                    ),
-                    validator: (String? value) {
-                      final String normalized = value?.trim() ?? '';
-                      if (normalized.isEmpty) return null;
-                      final int? minutes = int.tryParse(normalized);
-                      return minutes == null || minutes < 1 || minutes > 1440
-                          ? 'Use 1 to 1440 minutes.'
-                          : null;
-                    },
-                    onChanged: (String value) => durationText = value,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: Text(
-                          dueDate == null
-                              ? 'No deadline'
-                              : 'Deadline ${dueDate!.month}/${dueDate!.day}/${dueDate!.year}',
-                        ),
-                      ),
-                      if (dueDate != null)
-                        IconButton(
-                          tooltip: 'Clear deadline',
-                          onPressed: () => setDialogState(() => dueDate = null),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      IconButton(
-                        key: const Key('timeline-task-deadline-field'),
-                        tooltip: 'Choose deadline',
-                        onPressed: () async {
-                          final DateTime now = DateTime.now();
-                          final DateTime? selected = await showDatePicker(
-                            context: dialogContext,
-                            initialDate: dueDate ?? now,
-                            firstDate: DateTime(now.year - 1),
-                            lastDate: DateTime(now.year + 10),
-                          );
-                          if (selected != null) {
-                            setDialogState(() => dueDate = selected);
-                          }
-                        },
-                        icon: const Icon(Icons.event_rounded),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (!(formKey.currentState?.validate() ?? false)) return;
-                final String normalizedDuration = durationText.trim();
-                Navigator.of(dialogContext).pop(
-                  _TaskEditDraft(
-                    title: draftTitle.trim(),
-                    estimatedDuration: normalizedDuration.isEmpty
-                        ? null
-                        : Duration(minutes: int.parse(normalizedDuration)),
-                    dueDate: dueDate,
-                    goalId: selectedGoalId,
-                  ),
-                );
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
+      editable: editable,
+      goals: goals,
     );
     if (next == null || !mounted) return;
 
@@ -632,15 +557,28 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
           .updateTaskDetails(
             id: taskId,
             title: next.title,
+            description: next.description,
+            clearDescription: next.description == null,
+            priority: next.priority,
             estimatedDuration: next.estimatedDuration,
             clearEstimatedDuration: next.estimatedDuration == null,
+            scheduledFor: next.scheduledFor,
+            clearScheduledFor: next.scheduledFor == null,
             dueDate: next.dueDate,
             clearDueDate: next.dueDate == null,
             goalId: next.goalId,
             clearGoalId: next.goalId == null,
           ),
-      successMessage: 'Task updated.',
-      errorMessage: 'Task could not be updated. Refresh and try again.',
+      successMessage: journeyText(
+        context,
+        'Task updated.',
+        'Tarea actualizada.',
+      ),
+      errorMessage: journeyText(
+        context,
+        'Task could not be updated. Refresh and try again.',
+        'No se pudo actualizar la tarea. Actualiza e inténtalo de nuevo.',
+      ),
     );
   }
 
@@ -653,15 +591,20 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
         await showDialog<bool>(
           context: context,
           builder: (BuildContext dialogContext) => AlertDialog(
-            title: const Text('Delete task?'),
+            title: Text(
+              journeyText(context, 'Delete task?', '¿Eliminar tarea?'),
+            ),
             content: Text(
-              '"${widget.event.title}" will be permanently deleted. '
-              'This cannot be undone.',
+              journeyText(
+                context,
+                '"${widget.event.title}" will be permanently deleted. This cannot be undone.',
+                '«${widget.event.title}» se eliminará permanentemente. Esta acción no se puede deshacer.',
+              ),
             ),
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Cancel'),
+                child: Text(journeyText(context, 'Cancel', 'Cancelar')),
               ),
               FilledButton(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -669,7 +612,9 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
                   backgroundColor: AppColors.recallRed,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Delete task'),
+                child: Text(
+                  journeyText(context, 'Delete task', 'Eliminar tarea'),
+                ),
               ),
             ],
           ),
@@ -679,8 +624,12 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
 
     await _runManagementAction(
       action: () => ref.read(taskActionsProvider).deleteTask(taskId),
-      successMessage: 'Task deleted.',
-      errorMessage: 'Task could not be deleted. Refresh and try again.',
+      successMessage: journeyText(context, 'Task deleted.', 'Tarea eliminada.'),
+      errorMessage: journeyText(
+        context,
+        'Task could not be deleted. Refresh and try again.',
+        'No se pudo eliminar la tarea. Actualiza e inténtalo de nuevo.',
+      ),
     );
   }
 
@@ -730,8 +679,60 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
     return ref.read(timelineActionsProvider).skip(widget.event.id);
   }
 
-  Future<void> _moveTomorrow() {
-    final DateTime nextDue = DateTime.now().add(const Duration(days: 1));
+  Future<void> _moveTomorrow() async {
+    final now = ref.read(timelineClockProvider)().toLocal();
+    final DateTime nextDue = DateTime(now.year, now.month, now.day + 1);
+    if (_isProjectedGoal) {
+      final goalId = widget.event.relatedId;
+      final goals = ref.read(goalsProvider);
+      final matches = goals.where((goal) => goal.id == goalId).toList();
+      if (matches.isEmpty) {
+        throw StateError('Goal not found. Refresh and try again.');
+      }
+      await ref
+          .read(goalsProvider.notifier)
+          .update(matches.first.copyWith(targetDate: nextDue));
+      return;
+    }
+    if (_isProjectedTask) {
+      final taskId = widget.event.relatedId;
+      final tasks = await ref.read(allTasksProvider.future);
+      final matches = tasks.where((task) => task.id == taskId).toList();
+      if (matches.isEmpty) {
+        throw StateError('Task not found. Refresh and try again.');
+      }
+      final task = matches.single;
+      DateTime tomorrowAt(DateTime? original) => original == null
+          ? nextDue
+          : DateTime(
+              nextDue.year,
+              nextDue.month,
+              nextDue.day,
+              original.toLocal().hour,
+              original.toLocal().minute,
+              original.toLocal().second,
+            );
+      await ref
+          .read(taskActionsProvider)
+          .updateTaskDetails(
+            id: task.id,
+            title: task.title,
+            description: task.description,
+            clearDescription: task.description == null,
+            priority: task.priority,
+            estimatedDuration: task.estimatedDuration,
+            scheduledFor: task.dueDate == null
+                ? tomorrowAt(task.scheduledFor)
+                : task.scheduledFor,
+            clearScheduledFor:
+                task.dueDate != null && task.scheduledFor == null,
+            dueDate: task.dueDate == null ? null : tomorrowAt(task.dueDate),
+            clearDueDate: task.dueDate == null,
+            goalId: task.goalId,
+            clearGoalId: task.goalId == null,
+          );
+      return;
+    }
     return ref.read(timelineActionsProvider).recover(widget.event.id, nextDue);
   }
 }
@@ -750,12 +751,20 @@ class _TimelineHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TemporalScreenHeader(
-      title: 'TIMELINE',
-      subtitle: 'Your time, connected into one readable stream.',
-      eyebrow: '${_windowLabel(window)} view',
+      title: journeyText(context, 'TIMELINE', 'LÍNEA DE TIEMPO'),
+      subtitle: journeyText(
+        context,
+        'Your time, connected into one readable stream.',
+        'Tu tiempo, conectado en una historia clara.',
+      ),
+      eyebrow: journeyText(
+        context,
+        '${_windowLabel(window)} view',
+        'Vista: ${journeyLabel(context, _windowLabel(window))}',
+      ),
       accent: AppColors.neonViolet,
       onBack: onBack,
-      backTooltip: 'Back to Nexus',
+      backTooltip: journeyText(context, 'Back to Nexus', 'Volver a Nexus'),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
@@ -767,9 +776,9 @@ class _TimelineHeader extends StatelessWidget {
               fontWeight: FontWeight.w900,
             ),
           ),
-          const Text(
-            'EVENTS',
-            style: TextStyle(
+          Text(
+            journeyText(context, 'EVENTS', 'EVENTOS'),
+            style: const TextStyle(
               color: Color(0xFF8B99B8),
               fontSize: 8,
               fontWeight: FontWeight.w800,
@@ -808,15 +817,39 @@ class _TimelineFocusCard extends StatelessWidget {
         ? AppColors.recallRed
         : AppColors.neonCyan;
     final String headline = overdueCount > 0
-        ? '$overdueCount overdue ${overdueCount == 1 ? 'item' : 'items'}'
+        ? journeyText(
+            context,
+            '$overdueCount overdue ${overdueCount == 1 ? 'item' : 'items'}',
+            '$overdueCount ${overdueCount == 1 ? 'elemento vencido' : 'elementos vencidos'}',
+          )
         : dueTodayCount > 0
-        ? '$dueTodayCount due today'
+        ? journeyText(
+            context,
+            '$dueTodayCount due today',
+            '$dueTodayCount vencen hoy',
+          )
         : nextDeadline != null
-        ? 'Next commitment is mapped'
-        : 'Nothing needs action now';
+        ? journeyText(
+            context,
+            'Next commitment is mapped',
+            'El próximo compromiso está definido',
+          )
+        : journeyText(
+            context,
+            'Nothing needs action now',
+            'Nada requiere una acción ahora',
+          );
     final String supporting = nextDeadline != null
-        ? '${nextDeadline!.title} is due ${DateTimeFormats.dateShort(nextDeadline!.dueAt ?? nextDeadline!.timestamp)}.'
-        : 'Your recent activity remains available in the chronology below.';
+        ? journeyText(
+            context,
+            '${nextDeadline!.title} is due ${DateTimeFormats.dateShort(_eventMoment(nextDeadline!))}.',
+            '${nextDeadline!.title} vence el ${DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag()).format(_eventMoment(nextDeadline!))}.',
+          )
+        : journeyText(
+            context,
+            'Your recent activity remains available in the chronology below.',
+            'Tu actividad reciente sigue disponible en la cronología de abajo.',
+          );
 
     return TemporalGlassSurface(
       accent: accent,
@@ -849,7 +882,9 @@ class _TimelineFocusCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _monthShort(now.month),
+                      DateFormat.MMM(
+                        Localizations.localeOf(context).toLanguageTag(),
+                      ).format(now).toUpperCase(),
                       style: TextStyle(
                         color: accent,
                         fontSize: 9,
@@ -866,7 +901,17 @@ class _TimelineFocusCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      needsAttention ? 'NEEDS ATTENTION' : 'CURRENT PRIORITY',
+                      needsAttention
+                          ? journeyText(
+                              context,
+                              'NEEDS ATTENTION',
+                              'REQUIERE ATENCIÓN',
+                            )
+                          : journeyText(
+                              context,
+                              'CURRENT PRIORITY',
+                              'PRIORIDAD ACTUAL',
+                            ),
                       style: TextStyle(
                         color: accent,
                         fontSize: 9,
@@ -905,7 +950,7 @@ class _TimelineFocusCard extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: _TimelineMetric(
-                  label: 'DUE TODAY',
+                  label: journeyText(context, 'DUE TODAY', 'VENCE HOY'),
                   value: '$dueTodayCount',
                   accent: AppColors.neonCyan,
                 ),
@@ -913,7 +958,7 @@ class _TimelineFocusCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _TimelineMetric(
-                  label: 'NEXT 7 DAYS',
+                  label: journeyText(context, 'NEXT 7 DAYS', 'PRÓXIMOS 7 DÍAS'),
                   value: '$upcomingCount',
                   accent: AppColors.neonViolet,
                 ),
@@ -921,7 +966,9 @@ class _TimelineFocusCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _TimelineMetric(
-                  label: overdueCount > 0 ? 'OVERDUE' : 'MILESTONES',
+                  label: overdueCount > 0
+                      ? journeyText(context, 'OVERDUE', 'VENCIDOS')
+                      : journeyText(context, 'MILESTONES', 'HITOS'),
                   value: '${overdueCount > 0 ? overdueCount : milestoneCount}',
                   accent: overdueCount > 0
                       ? AppColors.recallRed
@@ -1027,7 +1074,7 @@ class _TimelineControls extends StatelessWidget {
                         right: value == _TimelineWindow.all ? 0 : 5,
                       ),
                       child: _TimelineRangeButton(
-                        label: _windowLabel(value),
+                        label: journeyLabel(context, _windowLabel(value)),
                         selected: window == value,
                         onTap: () => onWindowChanged(value),
                       ),
@@ -1047,7 +1094,11 @@ class _TimelineControls extends StatelessWidget {
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  '$visibleCount ${visibleCount == 1 ? 'event' : 'events'} shown',
+                  journeyText(
+                    context,
+                    '$visibleCount ${visibleCount == 1 ? 'event' : 'events'} shown',
+                    '$visibleCount ${visibleCount == 1 ? 'evento mostrado' : 'eventos mostrados'}',
+                  ),
                   style: const TextStyle(
                     color: Color(0xFFB8C4DE),
                     fontSize: 11,
@@ -1061,7 +1112,15 @@ class _TimelineControls extends StatelessWidget {
                   expanded ? Icons.expand_less_rounded : Icons.tune_rounded,
                   size: 17,
                 ),
-                label: Text(isRefined ? 'Refined' : 'Find & filter'),
+                label: Text(
+                  isRefined
+                      ? journeyText(context, 'Refined', 'Filtrado')
+                      : journeyText(
+                          context,
+                          'Find & filter',
+                          'Buscar y filtrar',
+                        ),
+                ),
               ),
             ],
           ),
@@ -1080,7 +1139,11 @@ class _TimelineControls extends StatelessWidget {
                     onChanged: onQueryChanged,
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      hintText: 'Find an event, task, goal, or note',
+                      hintText: journeyText(
+                        context,
+                        'Find an event, task, goal, or note',
+                        'Buscar un evento, tarea, meta o nota',
+                      ),
                       hintStyle: const TextStyle(color: Color(0xFF74809A)),
                       prefixIcon: const Icon(Icons.search_rounded),
                       isDense: true,
@@ -1095,10 +1158,15 @@ class _TimelineControls extends StatelessWidget {
                   const SizedBox(height: 9),
                   DropdownRouteKeyboardGuard(
                     child: DropdownButtonFormField<_TimelineFilter>(
+                      key: const Key('timeline-filter-field'),
                       initialValue: filter,
                       isExpanded: true,
                       decoration: InputDecoration(
-                        labelText: 'Activity type',
+                        labelText: journeyText(
+                          context,
+                          'Activity type',
+                          'Tipo de actividad',
+                        ),
                         prefixIcon: const Icon(Icons.filter_alt_outlined),
                         isDense: true,
                         filled: true,
@@ -1112,7 +1180,9 @@ class _TimelineControls extends StatelessWidget {
                           .map(
                             (_TimelineFilter value) => DropdownMenuItem(
                               value: value,
-                              child: Text(_filterLabel(value)),
+                              child: Text(
+                                journeyLabel(context, _filterLabel(value)),
+                              ),
                             ),
                           )
                           .toList(growable: false),
@@ -1146,7 +1216,11 @@ class _TimelineRangeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SmartPressable(
       onTap: onTap,
-      semanticLabel: 'Show $label timeline',
+      semanticLabel: journeyText(
+        context,
+        'Show $label timeline',
+        'Mostrar Línea de Tiempo: $label',
+      ),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         alignment: Alignment.center,
@@ -1212,7 +1286,11 @@ class _TimelineDayHeader extends StatelessWidget {
             ),
           ),
           Text(
-            '$eventCount ${eventCount == 1 ? 'EVENT' : 'EVENTS'}',
+            journeyText(
+              context,
+              '$eventCount ${eventCount == 1 ? 'EVENT' : 'EVENTS'}',
+              '$eventCount ${eventCount == 1 ? 'EVENTO' : 'EVENTOS'}',
+            ),
             style: const TextStyle(
               color: Color(0xFF77839E),
               fontSize: 8,
@@ -1259,8 +1337,16 @@ class _TimelineEmptyState extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               isRefined
-                  ? 'No matching moments'
-                  : 'No saved activity in this view',
+                  ? journeyText(
+                      context,
+                      'No matching moments',
+                      'No hay momentos coincidentes',
+                    )
+                  : journeyText(
+                      context,
+                      'No saved activity in this view',
+                      'No hay actividad guardada en esta vista',
+                    ),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 17,
@@ -1270,8 +1356,16 @@ class _TimelineEmptyState extends StatelessWidget {
             const SizedBox(height: 7),
             Text(
               isRefined
-                  ? 'Change the search or activity filter to reveal more of your chronology.'
-                  : 'Saved tasks, goals, notes, and completed work will appear here when they exist in this time range.',
+                  ? journeyText(
+                      context,
+                      'Change the search or activity filter to reveal more of your chronology.',
+                      'Cambia la búsqueda o el filtro de actividad para ver más de tu cronología.',
+                    )
+                  : journeyText(
+                      context,
+                      'Saved tasks, goals, notes, and completed work will appear here when they exist in this time range.',
+                      'Las tareas, metas, notas y acciones completadas aparecerán aquí si existen en este intervalo.',
+                    ),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFF93A0BA),
@@ -1284,7 +1378,13 @@ class _TimelineEmptyState extends StatelessWidget {
               TextButton.icon(
                 onPressed: onReset,
                 icon: const Icon(Icons.restart_alt_rounded),
-                label: const Text('Reset search and filter'),
+                label: Text(
+                  journeyText(
+                    context,
+                    'Reset search and filter',
+                    'Restablecer búsqueda y filtro',
+                  ),
+                ),
               ),
             ],
           ],
@@ -1333,7 +1433,7 @@ class _TimelineSourceState extends StatelessWidget {
         padding: const EdgeInsets.all(32),
         child: Semantics(
           liveRegion: true,
-          label: semanticsLabel,
+          label: journeyLabel(context, semanticsLabel),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
@@ -1347,7 +1447,7 @@ class _TimelineSourceState extends StatelessWidget {
                 const CircularProgressIndicator(),
               const SizedBox(height: 16),
               Text(
-                title,
+                journeyLabel(context, title),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
@@ -1357,7 +1457,7 @@ class _TimelineSourceState extends StatelessWidget {
               ),
               const SizedBox(height: 7),
               Text(
-                detail,
+                journeyLabel(context, detail),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Color(0xFF93A0BA),
@@ -1371,7 +1471,7 @@ class _TimelineSourceState extends StatelessWidget {
                   key: retryKey,
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh_rounded),
-                  label: Text(retryLabel!),
+                  label: Text(journeyLabel(context, retryLabel!)),
                 ),
               ],
             ],
@@ -1419,7 +1519,7 @@ class _TimelineSourceNotice extends StatelessWidget {
     };
     return Semantics(
       liveRegion: true,
-      label: content.semantics,
+      label: journeyLabel(context, content.semantics),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
@@ -1433,7 +1533,7 @@ class _TimelineSourceNotice extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                content.text,
+                journeyLabel(context, content.text),
                 style: const TextStyle(
                   color: Color(0xFFD8E1EF),
                   fontSize: 13,
@@ -1450,8 +1550,12 @@ class _TimelineSourceNotice extends StatelessWidget {
                       : 'timeline-task-notice-retry',
                 ),
                 tooltip: issue == _TimelineSourceIssue.persistence
-                    ? 'Preserve and repair Timeline source'
-                    : 'Retry source',
+                    ? journeyText(
+                        context,
+                        'Preserve and repair Timeline source',
+                        'Conservar y reparar la fuente de la Línea de Tiempo',
+                      )
+                    : journeyText(context, 'Retry source', 'Reintentar fuente'),
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded),
               ),
@@ -1461,99 +1565,4 @@ class _TimelineSourceNotice extends StatelessWidget {
       ),
     );
   }
-}
-
-DateTime _eventMoment(TimelineEventEntity event) =>
-    event.dueAt ?? event.timestamp;
-
-bool _isOpenDeadline(TimelineEventEntity event) {
-  final bool hasDeadlineSemantics = switch (event.type) {
-    TimelineEventType.deadline ||
-    TimelineEventType.goal ||
-    TimelineEventType.milestone => true,
-    _ => false,
-  };
-  return hasDeadlineSemantics &&
-      event.status != TimelineEventStatus.completed &&
-      event.status != TimelineEventStatus.canceled &&
-      event.status != TimelineEventStatus.skipped;
-}
-
-bool _inWindow({
-  required DateTime moment,
-  required DateTime now,
-  required _TimelineWindow window,
-}) {
-  switch (window) {
-    case _TimelineWindow.today:
-      return moment.year == now.year &&
-          moment.month == now.month &&
-          moment.day == now.day;
-    case _TimelineWindow.week:
-      final DateTime start = DateTime(now.year, now.month, now.day);
-      final DateTime end = DateTime(start.year, start.month, start.day + 7);
-      return !moment.isBefore(start) && moment.isBefore(end);
-    case _TimelineWindow.month:
-      return moment.year == now.year && moment.month == now.month;
-    case _TimelineWindow.year:
-      return moment.year == now.year;
-    case _TimelineWindow.all:
-      return true;
-  }
-}
-
-String _windowLabel(_TimelineWindow value) {
-  return switch (value) {
-    _TimelineWindow.today => 'Today',
-    _TimelineWindow.week => 'Week',
-    _TimelineWindow.month => 'Month',
-    _TimelineWindow.year => 'Year',
-    _TimelineWindow.all => 'All',
-  };
-}
-
-String _monthShort(int month) => const <String>[
-  'JAN',
-  'FEB',
-  'MAR',
-  'APR',
-  'MAY',
-  'JUN',
-  'JUL',
-  'AUG',
-  'SEP',
-  'OCT',
-  'NOV',
-  'DEC',
-][month - 1];
-
-String _filterLabel(_TimelineFilter value) {
-  return switch (value) {
-    _TimelineFilter.all => 'All',
-    _TimelineFilter.overdue => 'Overdue',
-    _TimelineFilter.upcoming => 'Upcoming',
-    _TimelineFilter.milestones => 'Milestones',
-    _TimelineFilter.risks => 'Risks',
-    _TimelineFilter.recommendations => 'Recommendations',
-  };
-}
-
-TimelineEventEntity? _nearestUpcoming(
-  List<TimelineEventEntity> events,
-  DateTime now,
-) {
-  final List<TimelineEventEntity> candidates =
-      events
-          .where((TimelineEventEntity event) {
-            final DateTime? due = event.dueAt;
-            return due != null &&
-                _isOpenDeadline(event) &&
-                due.isAfter(now) &&
-                !event.isOverdue;
-          })
-          .toList(growable: false)
-        ..sort(
-          (a, b) => (a.dueAt ?? a.timestamp).compareTo(b.dueAt ?? b.timestamp),
-        );
-  return candidates.isEmpty ? null : candidates.first;
 }

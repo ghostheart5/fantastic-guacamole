@@ -1,5 +1,19 @@
 part of 'smart_planner_screen.dart';
 
+extension on _SmartPlannerScreenState {
+  Widget _buildHeader() {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final PlannerRoutineCopy routine = l10n.plannerRoutine;
+    return TemporalScreenHeader(
+      title: l10n.text(ChronoSparkString.smartPlanner),
+      subtitle: routine.subtitle,
+      eyebrow: routine.eyebrow,
+      backTooltip: MaterialLocalizations.of(context).backButtonTooltip,
+      onBack: () => goToAppView(context, ref, AppView.nexus),
+    );
+  }
+}
+
 class _Exchange {
   const _Exchange({required this.question, required this.answer});
   final String question;
@@ -100,6 +114,7 @@ class _PlannerV2ResponsePanel extends StatelessWidget {
     required this.onToggleWhy,
     required this.onToggleEvidence,
     this.actionStatus,
+    this.controlsEnabled = true,
   });
 
   final PlannerV2Response response;
@@ -112,44 +127,70 @@ class _PlannerV2ResponsePanel extends StatelessWidget {
   final VoidCallback onDifferentApproach;
   final VoidCallback onToggleWhy;
   final VoidCallback onToggleEvidence;
+  final bool controlsEnabled;
 
   @override
   Widget build(BuildContext context) {
+    final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
+      context,
+    ).plannerRoutine;
     return _PlannerPanel(
-      label: 'PLANNER V2',
+      label: copy.plannerPanelTitle,
       labelFontSize: 13,
       accentColor: AppColors.memoryAmber,
       child: Column(
+        key: const Key('planner-response-panel'),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const TemporalStatusRow(
+          TemporalStatusRow(
             icon: Icons.verified_user_outlined,
-            text: 'ON-DEVICE PLANNER V2 · DETERMINISTIC',
+            text: response.origin == PlannerResponseOrigin.deterministic
+                ? copy.plannerLocalSource
+                : copy.plannerExternalSource,
             color: AppColors.neonCyan,
           ),
+          const SizedBox(height: 14),
+          _body(response.whatIHeard),
+          const SizedBox(height: 14),
           if (response.isClarification) ...[
-            _section(
-              'ONE CLARIFYING QUESTION',
-              _body(response.usefulQuestion!),
-            ),
+            _section(copy.oneQuestion, _body(response.usefulQuestion!)),
           ] else ...[
             _section(
-              'YOUR PLAN + TRADEOFF',
+              copy.yourNextStep,
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _PlanSpectrumOptionCard(option: response.recommendedOption),
                   const SizedBox(height: 5),
-                  _body('Tradeoff: ${response.recommendedOption.tradeoff}'),
+                  Text(
+                    response.nextStep,
+                    key: const Key('planner-next-step'),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _body(response.recommendationReason),
                 ],
               ),
             ),
-            _section('ONE CONCRETE NEXT STEP', _body(response.nextStep)),
+            if (response.usefulQuestion?.trim().isNotEmpty == true)
+              _section(
+                copy.oneQuestion,
+                _body(response.usefulQuestion!.trim()),
+              ),
             if (showWhy)
-              _section('WHY THIS', _body(response.recommendationReason)),
+              _section(
+                copy.mattersMost,
+                _body(
+                  '${response.mattersMost}\n${copy.tradeoff(response.recommendedOption.tradeoff)}',
+                ),
+              ),
             if (showEvidence)
               _section(
-                'EVIDENCE',
+                copy.evidence,
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: response.verifiedEvidence
@@ -175,33 +216,33 @@ class _PlannerV2ResponsePanel extends StatelessWidget {
               children: <Widget>[
                 FilledButton.icon(
                   key: const Key('planner-use-this-plan'),
-                  onPressed: onUseThisPlan,
+                  onPressed: controlsEnabled ? onUseThisPlan : null,
                   icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                  label: const Text('Use this plan'),
+                  label: Text(copy.useThisPlan),
                 ),
                 OutlinedButton.icon(
                   key: const Key('planner-make-smaller'),
-                  onPressed: onMakeSmaller,
+                  onPressed: controlsEnabled ? onMakeSmaller : null,
                   icon: const Icon(Icons.compress_rounded, size: 18),
-                  label: const Text('Make smaller'),
+                  label: Text(copy.makeSmaller),
                 ),
                 OutlinedButton.icon(
                   key: const Key('planner-different-approach'),
-                  onPressed: onDifferentApproach,
+                  onPressed: controlsEnabled ? onDifferentApproach : null,
                   icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-                  label: const Text('Different approach'),
+                  label: Text(copy.differentApproach),
                 ),
                 OutlinedButton.icon(
                   key: const Key('planner-why-this'),
                   onPressed: onToggleWhy,
                   icon: const Icon(Icons.help_outline_rounded, size: 18),
-                  label: const Text('Why this'),
+                  label: Text(copy.whyThis),
                 ),
                 OutlinedButton.icon(
                   key: const Key('planner-evidence'),
                   onPressed: onToggleEvidence,
                   icon: const Icon(Icons.fact_check_outlined, size: 18),
-                  label: const Text('Evidence'),
+                  label: Text(copy.evidence),
                 ),
               ],
             ),
@@ -209,9 +250,44 @@ class _PlannerV2ResponsePanel extends StatelessWidget {
             OutlinedButton(
               key: const Key('planner-remember-preference'),
               onPressed: onRememberPreference,
-              child: const Text('Remember a preference'),
+              child: Text(copy.rememberPreference),
+            ),
+            ExpansionTile(
+              key: const Key('planner-alternative-options'),
+              tilePadding: EdgeInsets.zero,
+              title: Text(copy.alternativeOptions),
+              children: <Widget>[
+                for (final PlannerOption option in response.options)
+                  if (option.kind != response.recommendedKind)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          _PlanSpectrumOptionCard(option: option),
+                          _body(option.description),
+                          _body(copy.tradeoff(option.tradeoff)),
+                        ],
+                      ),
+                    ),
+              ],
             ),
           ],
+          ExpansionTile(
+            key: const Key('planner-full-response'),
+            tilePadding: EdgeInsets.zero,
+            title: Text(copy.fullResponse),
+            children: <Widget>[
+              SelectableText(
+                response.toAccessibleText(),
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
           if (actionStatus != null) ...[
             const SizedBox(height: 10),
             Semantics(
@@ -281,29 +357,36 @@ class _PlannerExternalExplanationPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final PlannerExplanationResult? completed = result;
+    final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
+      context,
+    ).plannerRoutine;
     final String buttonLabel = requesting
-        ? 'REQUESTING...'
+        ? copy.explanationRequesting
         : retryingExistingRequest
-        ? 'Retry same request'
+        ? copy.explanationRetry
         : completed == null
-        ? 'Explain this plan'
-        : 'Request another explanation';
+        ? copy.explainPlan
+        : copy.anotherExplanation;
     return _PlannerPanel(
-      label: 'EXTERNAL AI EXPLANATION · OPTIONAL · READ-ONLY',
+      label: copy.externalExplanationTitle,
       labelFontSize: 13,
       accentColor: AppColors.neonViolet,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text(
-            'Planner V2 remains the decision authority. This separate explanation cannot change or save your plan.',
-            style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+          Text(
+            copy.externalExplanationBody,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.5,
+            ),
           ),
           if (completed != null) ...[
             const SizedBox(height: 14),
             Semantics(
               liveRegion: true,
-              label: 'Optional external AI explanation ready',
+              label: copy.explanationReady,
               child: ExcludeSemantics(
                 child: Text(
                   completed.explanation ?? '',
@@ -318,7 +401,7 @@ class _PlannerExternalExplanationPanel extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              '${completed.provider} · ${completed.modelLabel} · ${completed.creditsCharged} AI credits · no plan changes',
+              '${completed.provider} · ${completed.modelLabel} · ${copy.explanationReceipt(completed.creditsCharged)}',
               style: const TextStyle(
                 color: AppColors.neonViolet,
                 fontSize: 12,
@@ -370,18 +453,17 @@ class _PlanSpectrumOptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String label = switch (option.kind) {
-      PlannerOptionKind.minimum => 'MINIMUM',
-      PlannerOptionKind.bestFit => 'BEST-FIT',
-      PlannerOptionKind.stretch => 'STRETCH',
-    };
+    final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
+      context,
+    ).plannerRoutine;
+    final String label = copy.optionKind(option.kind.name);
     final Color accent = switch (option.kind) {
       PlannerOptionKind.minimum => AppColors.neonCyan,
       PlannerOptionKind.bestFit => AppColors.neonViolet,
       PlannerOptionKind.stretch => AppColors.memoryAmber,
     };
     return Semantics(
-      label: '$label plan',
+      label: copy.optionSemantic(label),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -431,16 +513,23 @@ class _FollowUpBar extends StatelessWidget {
     required this.controller,
     required this.onSend,
     required this.sending,
+    required this.listening,
     this.errorText,
+    this.onRetry,
   });
 
   final TextEditingController controller;
   final VoidCallback onSend;
   final bool sending;
+  final bool listening;
   final String? errorText;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
+    final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
+      context,
+    ).plannerRoutine;
     return Container(
       color: const Color(0xCC0B111C),
       padding: const EdgeInsets.fromLTRB(16, 8, 8, 16),
@@ -452,7 +541,7 @@ class _FollowUpBar extends StatelessWidget {
             if (errorText != null)
               Semantics(
                 liveRegion: true,
-                label: 'Follow-up failed. $errorText',
+                label: copy.followUpFailed(errorText!),
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
@@ -474,8 +563,10 @@ class _FollowUpBar extends StatelessWidget {
                         ),
                       ),
                       TextButton(
-                        onPressed: sending ? null : onSend,
-                        child: const Text('Retry follow-up'),
+                        onPressed: sending || listening
+                            ? null
+                            : onRetry ?? onSend,
+                        child: Text(copy.retryFollowUp),
                       ),
                     ],
                   ),
@@ -488,14 +579,15 @@ class _FollowUpBar extends StatelessWidget {
                     key: const Key('planner-follow-up-field'),
                     controller: controller,
                     enabled: !sending,
+                    readOnly: listening,
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) {
-                      if (!sending) onSend();
+                      if (!sending && !listening) onSend();
                     },
                     decoration: InputDecoration(
-                      labelText: 'Follow-up question',
-                      hintText: 'Send a follow-up question...',
+                      labelText: copy.followUpQuestion,
+                      hintText: copy.followUpHint,
                       hintStyle: const TextStyle(
                         color: Color(0xFFAEB9D0),
                         fontSize: 14,
@@ -515,8 +607,8 @@ class _FollowUpBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  tooltip: sending ? 'Sending message' : 'Send message',
-                  onPressed: sending ? null : onSend,
+                  tooltip: copy.sendMessage(sending: sending),
+                  onPressed: sending || listening ? null : onSend,
                   icon: sending
                       ? const SizedBox.square(
                           dimension: 18,
@@ -600,6 +692,9 @@ class _EnergySlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
+      context,
+    ).plannerRoutine;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -608,9 +703,9 @@ class _EnergySlider extends StatelessWidget {
           spacing: 12,
           runSpacing: 4,
           children: [
-            const Text(
-              'CURRENT ENERGY',
-              style: TextStyle(
+            Text(
+              copy.currentEnergy.toUpperCase(),
+              style: const TextStyle(
                 color: Color(0xFFD7DFF0),
                 fontSize: 11,
                 letterSpacing: 0,
@@ -618,7 +713,9 @@ class _EnergySlider extends StatelessWidget {
               ),
             ),
             Text(
-              value == null ? 'NOT SET' : '${(value! * 100).round()}%',
+              value == null
+                  ? copy.notSet.toUpperCase()
+                  : '${(value! * 100).round()}%',
               style: TextStyle(
                 color: color,
                 fontSize: 12,
@@ -629,10 +726,10 @@ class _EnergySlider extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Semantics(
-          label: 'Current energy',
+          label: copy.currentEnergy,
           value: value == null
-              ? 'Not set'
-              : '${(value! * 100).round()} percent',
+              ? copy.notSet
+              : copy.energyPercent((value! * 100).round()),
           child: SliderTheme(
             data: SliderThemeData(
               trackHeight: 3,
@@ -646,7 +743,7 @@ class _EnergySlider extends StatelessWidget {
               value: value ?? 0.5,
               onChanged: onChanged,
               semanticFormatterCallback: (double sliderValue) =>
-                  '${(sliderValue * 100).round()} percent',
+                  copy.energyPercent((sliderValue * 100).round()),
             ),
           ),
         ),
@@ -663,15 +760,27 @@ class _EmotionStateControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
+      context,
+    ).plannerRoutine;
     return Semantics(
       container: true,
-      label: selected == null
-          ? 'Emotional state. Not set.'
-          : 'Emotional state. ${selected!.name} selected.',
+      label: copy.emotionalSelection(selected?.name),
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           const double spacing = 8;
-          final double chipWidth = (constraints.maxWidth - (spacing * 2)) / 3;
+          final double scaledLabelSize = MediaQuery.textScalerOf(
+            context,
+          ).scale(11);
+          final bool singleColumn =
+              scaledLabelSize >= 18 || constraints.maxWidth < 260;
+          final int columns = singleColumn
+              ? 1
+              : copy.isSpanish || constraints.maxWidth < 330
+              ? 2
+              : 3;
+          final double chipWidth =
+              (constraints.maxWidth - (spacing * (columns - 1))) / columns;
           return Wrap(
             spacing: spacing,
             runSpacing: spacing,
@@ -680,20 +789,22 @@ class _EmotionStateControl extends StatelessWidget {
                   final bool isSelected = selected == state;
                   return SizedBox(
                     width: chipWidth,
-                    height: 48,
+                    height: scaledLabelSize >= 18 ? 72 : 48,
                     child: Semantics(
-                      label: 'Select ${state.name} emotional state',
+                      label: copy.selectEmotion(state.name),
                       button: true,
                       selected: isSelected,
                       child: ExcludeSemantics(
                         child: ChoiceChip(
-                          label: SizedBox(
-                            width: double.infinity,
-                            child: Text(
-                              state.name.toUpperCase(),
-                              textAlign: TextAlign.center,
-                            ),
+                          label: Text(
+                            copy.emotionName(state.name).toUpperCase(),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            softWrap: true,
+                            overflow: TextOverflow.visible,
                           ),
+                          padding: EdgeInsets.zero,
+                          labelPadding: EdgeInsets.zero,
                           selected: isSelected,
                           showCheckmark: false,
                           onSelected: (_) => onSelect(state),
@@ -729,8 +840,9 @@ class _EmotionStateControl extends StatelessWidget {
 }
 
 class _VoiceButton extends ConsumerStatefulWidget {
-  const _VoiceButton({required this.message});
+  const _VoiceButton({required this.message, required this.languageCode});
   final String message;
+  final String languageCode;
 
   @override
   ConsumerState<_VoiceButton> createState() => _VoiceButtonState();
@@ -744,7 +856,10 @@ class _VoiceButtonState extends ConsumerState<_VoiceButton> {
     setState(() => _reading = true);
     final bool played = await ref
         .read(voiceServiceProvider)
-        .speakChecked(widget.message);
+        .speakCheckedLocalized(
+          widget.message,
+          languageCode: widget.languageCode,
+        );
     if (!mounted) return;
     setState(() => _reading = false);
     if (!played) {
@@ -803,14 +918,12 @@ class _VoiceButtonState extends ConsumerState<_VoiceButton> {
 
 class _VoiceSummaryButton extends ConsumerWidget {
   const _VoiceSummaryButton({
-    required this.headline,
-    required this.energy,
-    required this.emotion,
+    required this.summary,
+    required this.languageCode,
   });
 
-  final String headline;
-  final double? energy;
-  final EmotionalState? emotion;
+  final String summary;
+  final String languageCode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -822,14 +935,7 @@ class _VoiceSummaryButton extends ConsumerWidget {
       onTap: () => unawaited(
         ref
             .read(voiceServiceProvider)
-            .speakSummary(
-              title: copy.voiceSummaryTitle,
-              points: <String>[
-                copy.energySummary(energy),
-                copy.emotionSummary(emotion?.name),
-                headline,
-              ],
-            ),
+            .speakLocalized(summary, languageCode: languageCode),
       ),
       child: Container(
         constraints: const BoxConstraints(minHeight: 48),
@@ -960,9 +1066,10 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
 }
 
 class _MicButton extends ConsumerWidget {
-  const _MicButton({required this.onRecognized});
+  const _MicButton({required this.onRecognized, required this.onStart});
 
   final ValueChanged<String> onRecognized;
+  final VoidCallback onStart;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -978,10 +1085,20 @@ class _MicButton extends ConsumerWidget {
     // Recognized speech populates the follow-up box for explicit review and
     // send - it is never auto-sent or routed as an action.
     ref.listen<VoiceState>(voiceControllerProvider, (previous, next) {
+      if (next.error != null &&
+          next.error != previous?.error &&
+          context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(copy.voiceInputUnavailable)));
+      }
       final bool stoppedListening =
           (previous?.isListening ?? false) && !next.isListening;
-      if (stoppedListening && next.recognizedText.trim().isNotEmpty) {
+      if ((next.isListening || stoppedListening) &&
+          next.recognizedText.trim().isNotEmpty) {
         onRecognized(next.recognizedText.trim());
+      }
+      if (stoppedListening) {
         ref.read(voiceControllerProvider.notifier).clearRecognizedText();
       }
     });
@@ -995,16 +1112,18 @@ class _MicButton extends ConsumerWidget {
             await ref.read(voiceControllerProvider.notifier).stopListening();
             return;
           }
-          await ref.read(voiceControllerProvider.notifier).startListening();
-          if (!context.mounted) {
-            return;
-          }
-          final String? error = ref.read(voiceControllerProvider).error;
-          if (error != null) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(copy.voiceInputUnavailable)));
-          }
+          final VoiceController controller = ref.read(
+            voiceControllerProvider.notifier,
+          );
+          onStart();
+          final int lifecycleRevision = controller.lifecycleRevision;
+          await startVoiceInputWithConsent(
+            context: context,
+            onStart: controller.startListening,
+            consentStore: ref.read(voiceInputConsentStoreProvider),
+            isCurrentRequest: () =>
+                controller.lifecycleRevision == lifecycleRevision,
+          );
         },
         child: Container(
           constraints: const BoxConstraints(minHeight: 48),
@@ -1051,9 +1170,12 @@ class _DisclaimerText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
+      context,
+    ).plannerRoutine;
     return Semantics(
       container: true,
-      label: 'Planning guidance safety information',
+      label: copy.planningSafetyLabel,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
@@ -1062,10 +1184,10 @@ class _DisclaimerText extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.28)),
         ),
-        child: const Row(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
+            const Padding(
               padding: EdgeInsets.only(top: 1),
               child: Icon(
                 Icons.health_and_safety_outlined,
@@ -1073,11 +1195,11 @@ class _DisclaimerText extends StatelessWidget {
                 size: 18,
               ),
             ),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'This supports planning, not medical, nutrition, exercise, or mental-health care. For urgent or worsening symptoms, contact a qualified professional or local emergency service.',
-                style: TextStyle(
+                copy.planningSafetyBody,
+                style: const TextStyle(
                   color: Color(0xFFD7DFF0),
                   fontSize: 11.5,
                   fontWeight: FontWeight.w500,
@@ -1090,4 +1212,144 @@ class _DisclaimerText extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PlannerEmotionCheckIn extends ConsumerWidget {
+  const _PlannerEmotionCheckIn();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final routine = ChronoSparkLocalizations.of(context).plannerRoutine;
+    final humanContext = ref.watch(consentedHumanContextProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          routine.emotionalStateSection,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: AppColors.neonViolet,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _EmotionStateControl(
+          selected: ref.watch(currentPlannerEmotionProvider),
+          onSelect: (e) => ref.read(emotionCheckInProvider.notifier).set(e),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          routine.emotionalStateNotice(enabled: humanContext.emotionAllowed),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+        ),
+        const SizedBox(height: 12),
+        if (ref.watch(currentPlannerEmotionProvider) != null) ...[
+          SwitchListTile(
+            key: const Key('share-emotion-with-planning'),
+            value: ref.watch(emotionCheckInProvider).shareWithPlanning,
+            title: Text(
+              ChronoSparkLocalizations.of(context).isSpanish
+                  ? 'Usar también en SI y Nexus durante este registro'
+                  : 'Also use in SI and Nexus for this check-in',
+            ),
+            subtitle: Text(
+              ChronoSparkLocalizations.of(context).isSpanish
+                  ? 'Temporal. Caduca dos horas después de seleccionarlo. No se guarda en el historial.'
+                  : 'Temporary. Expires two hours after selection. Not saved to history.',
+            ),
+            onChanged: humanContext.emotionAllowed
+                ? (value) =>
+                      ref.read(emotionCheckInProvider.notifier).share(value)
+                : null,
+          ),
+          TextButton(
+            key: const Key('clear-emotion-check-in'),
+            onPressed: () => ref.read(emotionCheckInProvider.notifier).clear(),
+            child: Text(
+              ChronoSparkLocalizations.of(context).isSpanish
+                  ? 'Borrar registro emocional'
+                  : 'Clear emotional check-in',
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _SelectedPlanningNoteCard extends ConsumerWidget {
+  const _SelectedPlanningNoteCard();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Column(
+    children: [
+      if (ref.watch(planningNoteSelectionProvider) != null)
+        ref
+            .watch(selectedPlanningNoteProvider)
+            .when(
+              loading: () => const LinearProgressIndicator(),
+              error: (_, _) => Text(
+                ChronoSparkLocalizations.of(context).isSpanish
+                    ? 'La nota seleccionada no está disponible.'
+                    : 'The selected note is unavailable.',
+              ),
+              data: (note) => ListTile(
+                title: Text(
+                  note == null
+                      ? (ChronoSparkLocalizations.of(context).isSpanish
+                            ? 'La nota ya no está disponible'
+                            : 'Note is no longer available')
+                      : '${ChronoSparkLocalizations.of(context).isSpanish ? 'Nota seleccionada' : 'Selected note'}: ${note.title}',
+                ),
+                subtitle: Text(
+                  ChronoSparkLocalizations.of(context).isSpanish
+                      ? 'Solo esta sesión de planificación; caduca en dos horas.'
+                      : 'Temporary planning context; expires two hours after selection.',
+                ),
+                trailing: IconButton(
+                  tooltip: ChronoSparkLocalizations.of(context).isSpanish
+                      ? 'Quitar nota del contexto'
+                      : 'Remove note from context',
+                  onPressed: () =>
+                      ref.read(planningNoteSelectionProvider.notifier).clear(),
+                  icon: const Icon(Icons.close),
+                ),
+              ),
+            ),
+    ],
+  );
+}
+
+Widget _bubble(String text, {required bool isUser}) {
+  return Align(
+    alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+    child: Container(
+      constraints: const BoxConstraints(maxWidth: 280),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isUser
+            ? AppColors.neonViolet.withValues(alpha: 0.18)
+            : AppColors.neonCyan.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(8),
+          topRight: const Radius.circular(8),
+          bottomLeft: Radius.circular(isUser ? 8 : 4),
+          bottomRight: Radius.circular(isUser ? 4 : 8),
+        ),
+        border: Border.all(
+          color: isUser
+              ? AppColors.neonViolet.withValues(alpha: 0.35)
+              : AppColors.neonCyan.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: isUser ? Colors.white : const Color(0xFF9BE7FF),
+          fontSize: 13,
+          height: 1.5,
+        ),
+      ),
+    ),
+  );
 }

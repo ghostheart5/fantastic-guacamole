@@ -15,6 +15,47 @@ import '../../../helpers/trajectory_test_fixture.dart';
 
 void main() {
   group('Trajectory Engine integration', () {
+    testWidgets(
+      'empty plan with cached comparison withholds forecasts and restores on an active plan',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(900, 1800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final active = trajectoryTestEngineModel();
+        await tester.pumpWidget(_harness(model: active));
+        await tester.pump();
+        expect(find.text('CURRENT DIRECTION'), findsOneWidget);
+
+        await tester.pumpWidget(
+          _harness(
+            model: TrajectoryEngineModel(
+              status: TrajectoryEngineStatus.empty,
+              summary: active.summary,
+              momentum: active.momentum,
+              comparison: active.comparison,
+              statusDetail:
+                  'Add a task with an estimate before simulating consequences.',
+              hasAvailableNetworkInterface: true,
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(find.text('EVIDENCE NEEDED'), findsOneWidget);
+        expect(find.text('CURRENT DIRECTION'), findsNothing);
+        expect(find.text('MOMENTUM'), findsNothing);
+        expect(find.text('7 DAYS'), findsNothing);
+        expect(find.text('Maintain current course'), findsNothing);
+        expect(find.text('ENERGY'), findsOneWidget);
+        expect(find.text('64%'), findsOneWidget);
+
+        await tester.pumpWidget(_harness(model: active));
+        await tester.pump();
+        expect(find.text('CURRENT DIRECTION'), findsOneWidget);
+        expect(find.text('MOMENTUM'), findsWidgets);
+        expect(find.text('7 DAYS'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     testWidgets('renders a concise forecast with progressive disclosure', (
       WidgetTester tester,
     ) async {
@@ -34,7 +75,10 @@ void main() {
       expect(find.text('CURRENT TRAJECTORY BASELINE'), findsNothing);
       expect(find.text('FORECAST MONITORING'), findsNothing);
       expect(find.text('ASSUMPTIONS FOR THIS RESULT'), findsWidgets);
-      expect(find.text('Correct assumptions'), findsOneWidget);
+      expect(
+        find.text('Exclude this forecast from monitoring'),
+        findsOneWidget,
+      );
 
       await tester.scrollUntilVisible(
         find.text('Full impact and evidence'),
@@ -114,18 +158,18 @@ void main() {
       await tester.pump();
 
       await tester.scrollUntilVisible(
-        find.text('Correct assumptions'),
+        find.text('Exclude this forecast from monitoring'),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Correct assumptions'));
+      await tester.tap(find.text('Exclude this forecast from monitoring'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
       final List<TrajectoryForecastReceipt> receipts = await repository.load();
       expect(receipts, hasLength(1));
       expect(receipts.single.hasAssumptionCorrection, isTrue);
-      expect(find.textContaining('Correction saved locally'), findsOneWidget);
+      expect(find.textContaining('Forecast excluded locally'), findsOneWidget);
     });
 
     testWidgets('error state does not render a false stable trajectory', (

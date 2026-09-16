@@ -1,8 +1,10 @@
 import 'package:fantastic_guacamole/features/home/ui/first_use_context_offer_card.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../../support/golden_harness.dart';
 
@@ -36,6 +38,32 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets(
+    'Spanish consent remains readable at 320dp and 200 percent text',
+    (WidgetTester tester) async {
+      final SemanticsHandle semantics = tester.ensureSemantics();
+      await _pumpOffer(
+        tester,
+        const Size(320, 568),
+        locale: const Locale('es'),
+      );
+
+      final SemanticsNode offer = tester.getSemantics(
+        find.byKey(const Key('first-use-context-offer')),
+      );
+      expect(offer.label, contains('opción predeterminada'));
+      expect(
+        find.textContaining('Prepare the closed-test release safely.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('No se infiere nada.'), findsOneWidget);
+      expect(find.text('Añadir contexto opcional'), findsOneWidget);
+      expect(find.text('Ahora no'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
+    },
+  );
+
   testWidgets('compact_320 remains readable at 200 percent text', (
     WidgetTester tester,
   ) async {
@@ -63,7 +91,11 @@ void main() {
   });
 }
 
-Future<void> _pumpOffer(WidgetTester tester, Size size) async {
+Future<void> _pumpOffer(
+  WidgetTester tester,
+  Size size, {
+  Locale locale = const Locale('en'),
+}) async {
   tester.view
     ..physicalSize = size
     ..devicePixelRatio = 1;
@@ -71,6 +103,14 @@ Future<void> _pumpOffer(WidgetTester tester, Size size) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: appTheme,
+      locale: locale,
+      supportedLocales: ChronoSparkLocalizations.supportedLocales,
+      localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+        ChronoSparkLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: RepaintBoundary(
         key: const Key('offer-capture'),
         child: MediaQuery(

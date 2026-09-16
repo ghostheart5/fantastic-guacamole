@@ -32,7 +32,10 @@ void main() {
   });
 
   test('does not store secrets', () async {
-    await SharedPrefsService.save('auth_token', 'super-secret');
+    await expectLater(
+      SharedPrefsService.save('auth_token', 'super-secret'),
+      throwsStateError,
+    );
 
     final prefs = await SharedPreferences.getInstance();
     expect(SharedPrefsService.load('auth_token'), isNull);

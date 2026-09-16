@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/engine/si/si_v2_engine.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
@@ -26,6 +27,56 @@ void main() {
     milestones: const <SIV2MilestoneEvidence>[],
     timeline: const <SIV2TimelineEvidence>[],
   );
+
+  testWidgets('a stalled query unlocks input and ignores a late answer', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final pending = Completer<SIV2Response>();
+    final port = _PendingPort(pending.future);
+    final container = ProviderContainer(
+      overrides: [
+        siV2AvailabilityProvider.overrideWith((ref) async => true),
+        siV2QueryServiceProvider.overrideWithValue(port),
+        siV2EvidenceSnapshotProvider.overrideWith((ref) async => snapshot),
+        voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+      ],
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SIConsoleScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.enterText(
+      find.byKey(const Key('si-query-input')),
+      'Compare a five-minute fallback with a study block.',
+    );
+    await tester.tap(find.bySemanticsLabel('Send SI query'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 26));
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(find.byKey(const Key('si-query-input'))).enabled,
+      isTrue,
+    );
+    expect(find.bySemanticsLabel('SI is analyzing'), findsNothing);
+    pending.complete(
+      const SIV2Engine().analyze(
+        query: port.query!,
+        snapshot: snapshot,
+        now: now,
+      ),
+    );
+    await tester.pump();
+    expect(find.text('DIRECT ANSWER'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    container.dispose();
+  });
 
   testWidgets('TalkBack semantics and 200 percent text stay recoverable', (
     WidgetTester tester,
@@ -233,6 +284,17 @@ void main() {
 
     expect(port.calls, 0);
   });
+}
+
+final class _PendingPort implements SIV2QueryPort {
+  _PendingPort(this.pending);
+  final Future<SIV2Response> pending;
+  SIV2Query? query;
+  @override
+  Future<SIV2Response> analyze(SIV2Query value) {
+    query = value;
+    return pending;
+  }
 }
 
 final class _RecordingPort implements SIV2QueryPort {

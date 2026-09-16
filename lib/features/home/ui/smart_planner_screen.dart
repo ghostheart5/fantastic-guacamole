@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'dart:async';
 
@@ -14,9 +15,13 @@ import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/features/home/ui/first_use_context_offer_card.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
+import 'package:fantastic_guacamole/features/permissions/voice_input_consent.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
+import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
+import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planner_explanation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
@@ -27,89 +32,13 @@ import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/ui/system/crisis_dialog.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
-import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/ui/widgets/text_controller_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'smart_planner_screen.widgets.dart';
-
-@immutable
-final class _SmartPlannerConsentCopy {
-  const _SmartPlannerConsentCopy({required this.isSpanish});
-
-  factory _SmartPlannerConsentCopy.of(BuildContext context) =>
-      _SmartPlannerConsentCopy(
-        isSpanish: ChronoSparkLocalizations.of(context).isSpanish,
-      );
-
-  final bool isSpanish;
-
-  String get priorityTitle => isSpanish
-      ? '¿Guardar tu prioridad actual?'
-      : 'Save your current priority?';
-  String get priorityIntroduction => isSpanish
-      ? 'Opcional. Escribe una sola prioridad actual con tus propias palabras. No añadas un perfil de personalidad, una historia de vida ni una etiqueta emocional.'
-      : 'Optional. Enter one exact current priority in your own words. Do not add a personality profile, life history, or emotional label.';
-  String get priorityLabel =>
-      isSpanish ? 'Prioridad actual exacta' : 'Exact current priority';
-  String get priorityHint => isSpanish
-      ? 'Ejemplo: La preparación para la prueba cerrada es lo primero.'
-      : 'Example: Closed-test readiness comes first.';
-  String get priorityDisclosure => isSpanish
-      ? 'Propósito: apoyo para decisiones\nAlcance: solo Planificador Inteligente\nCaducidad: se elimina automáticamente después de 30 días\nEfecto: puede resolver un empate ajustado mientras esta prioridad esté activa; no se convierte en un dato de identidad.'
-      : 'Purpose: decision support\nSurface scope: Smart Planner only\nExpiry: automatically deleted after 30 days\nEffect: may break a close ranking tie while this priority is active; it does not become an identity fact.';
-  String get priorityConsent => isSpanish
-      ? 'Doy mi consentimiento para guardar solo este texto exacto con el propósito, alcance y caducidad indicados arriba.'
-      : 'I consent to saving only this exact text for the purpose, scope, and expiry above.';
-  String get useOnlyThisTime =>
-      isSpanish ? 'Usar solo esta vez' : 'Use only this time';
-  String get saveWithConsent =>
-      isSpanish ? 'Guardar con consentimiento' : 'Save with consent';
-  String get prioritySaved => isSpanish
-      ? 'Contexto opcional guardado con consentimiento · solo Planificador Inteligente · caduca en 30 días · revísalo o elimínalo en Ajustes de contexto.'
-      : 'Optional context saved with consent · Smart Planner only · expires in 30 days · review or delete in Context settings.';
-  String get preferenceTitle => isSpanish
-      ? '¿Recordar una preferencia del Planificador Inteligente?'
-      : 'Remember a Smart Planner preference?';
-  String get preferenceIntroduction => isSpanish
-      ? 'Usar solo esta vez es la opción predeterminada. Escribe únicamente la preferencia exacta sobre el estilo de planificación que quieras guardar; no se copiarán tu registro, emoción ni respuesta.'
-      : 'Use only this time is the default. Enter only the exact planning-style preference you want stored; your check-in, emotion, and response are not copied.';
-  String get preferenceLabel =>
-      isSpanish ? 'Preferencia exacta' : 'Exact preference';
-  String get preferenceHint => isSpanish
-      ? 'Ejemplo: Prefiere un siguiente paso pequeño antes de ideas opcionales más ambiciosas.'
-      : 'Example: Prefer one small next step before optional stretch ideas.';
-  String get deleteAfter => isSpanish
-      ? 'Eliminar automáticamente después de'
-      : 'Automatically delete after';
-  String retentionLabel(int days) {
-    if (!isSpanish) return days == 365 ? '1 year' : '$days days';
-    return days == 365 ? '1 año' : '$days días';
-  }
-
-  String receiptPreview(int days) => isSpanish
-      ? 'Vista previa del recibo\nMotivo: guardar esta preferencia para tu revisión y uso futuro opcional\nLímite de recuperación: solo guía consentida del Planificador Inteligente\nOrigen: solo Planificador Inteligente\nCaducidad: $days días\nControles: ver, corregir, exportar y eliminar en Ajustes'
-      : 'Receipt preview\nWhy: save this preference for your review and future opt-in use\nRecall boundary: consented Smart Planner guidance only\nSource: Smart Planner only\nExpiry: $days days\nControls: view, correct, export, delete in Settings';
-  String get preferenceConsent => isSpanish
-      ? 'Doy mi consentimiento explícito para guardar esta preferencia exacta.'
-      : 'I explicitly consent to storing this exact preference.';
-  String get rememberPreference =>
-      isSpanish ? 'Recordar preferencia' : 'Remember preference';
-  String get usedOnce => isSpanish
-      ? 'Se usó solo para este registro. No se guardó memoria duradera.'
-      : 'Used only for this check-in. No durable memory was saved.';
-  String preferenceSaved(String expiry) => isSpanish
-      ? 'Preferencia guardada con consentimiento. Su uso queda limitado a la guía del Planificador Inteligente · caduca $expiry · adminístrala en Ajustes.'
-      : 'Preference saved with consent. Recall stays limited to Smart Planner guidance · expires $expiry · manage in Settings.';
-  String get contextSaveFailed => isSpanish
-      ? 'No se pudo guardar el contexto opcional. Tu texto no se añadió. Inténtalo de nuevo.'
-      : 'Optional context could not be saved. Your text was not added. Retry.';
-  String get preferenceSaveFailed => isSpanish
-      ? 'No se pudo guardar la preferencia. No se creó memoria duradera. Inténtalo de nuevo.'
-      : 'The preference could not be saved. No durable memory was created. Retry.';
-}
+part 'smart_planner_screen.consent_copy.dart';
 
 class SmartPlannerScreen extends ConsumerStatefulWidget {
   const SmartPlannerScreen({super.key});
@@ -120,21 +49,27 @@ class SmartPlannerScreen extends ConsumerStatefulWidget {
 
 class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   double? _energy;
-  EmotionalState? _emotion;
+  int _checkInRevision = 0;
+  EmotionalState? get _emotion => ref.read(currentPlannerEmotionProvider);
   late final Future<void> Function() _stopVoice;
   final _notesController = TextEditingController();
   final _followUpController = TextEditingController();
+  String _followUpDictationBase = '';
   final ScrollController _scroll = ScrollController();
   final GlobalKey _plannerResponseKey = GlobalKey();
 
   String? _planningGuidanceMessage;
   String? _planningGuidancePrompt;
   PlannerV2Response? _plannerResponse;
+  PlannerOption? _baseMinimumOption;
+  final List<PlannerAdjustment> _planAdjustments = <PlannerAdjustment>[];
+  bool _awaitingApproachReason = false;
   String? _plannerPersonContextBehaviorRevision;
   String? _plannerPersonContextDecisionText;
   OperatingDecisionReceipt? _operatingReceipt;
   String? _shownOperatingReceiptId;
   String? _followUpError;
+  String? _failedFollowUpText;
   String? _guidanceError;
   String? _plannerActionStatus;
   String? _plannerExplanationError;
@@ -169,7 +104,6 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     _energy = humanContext.siState.hasObservedEnergy
         ? humanContext.siState.energy
         : null;
-    _emotion = humanContext.emotion;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _consumeFirstValueRequest();
@@ -205,11 +139,17 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   }
 
   Future<void> _getPlanningGuidance() async {
-    if (_gettingPlanningGuidance) return;
+    if (_gettingPlanningGuidance || _sendingFollowUp) return;
+    final int revision = _checkInRevision;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _gettingPlanningGuidance = true;
+      _guidanceError = null;
+    });
     try {
       await _doGetPlanningGuidance();
     } on AssistantReleaseBlockedException {
-      if (mounted) {
+      if (mounted && revision == _checkInRevision) {
         setState(() {
           _gettingPlanningGuidance = false;
           _guidanceError = ChronoSparkLocalizations.of(
@@ -224,17 +164,22 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         error,
         stackTrace,
       );
-      if (!mounted) return;
+      if (!mounted || revision != _checkInRevision) return;
       setState(() {
         _gettingPlanningGuidance = false;
         _guidanceError = ChronoSparkLocalizations.of(
           context,
         ).plannerRoutine.guidanceRetry;
       });
+    } finally {
+      if (mounted && revision == _checkInRevision && _gettingPlanningGuidance) {
+        setState(() => _gettingPlanningGuidance = false);
+      }
     }
   }
 
   Future<void> _doGetPlanningGuidance() async {
+    final revision = _checkInRevision;
     final String notes = _notesController.text.trim();
     final SmartPlannerQueryController planner = ref.read(
       smartPlannerQueryControllerProvider,
@@ -243,6 +188,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     if (!await _confirmEmotionalSafetyRoute(notes, planner)) {
       return;
     }
+    if (!mounted || revision != _checkInRevision) return;
     final ({String? pauseReason, String? question}) supportiveCopy =
         _localizedSupportiveCopy(notes, planner);
 
@@ -260,12 +206,15 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
             notes: notes,
             history: _conversationHistory(),
             previousSavedNotes: null,
+            languageCode: ChronoSparkLocalizations.of(context).isSpanish
+                ? 'es'
+                : 'en',
             supportivePauseReason: supportiveCopy.pauseReason,
             supportiveQuestion: supportiveCopy.question,
           )
           .timeout(const Duration(seconds: 25));
     } on TimeoutException {
-      if (!mounted) return;
+      if (!mounted || revision != _checkInRevision) return;
       final SmartPlannerResult fallback = planner.localFallbackResult(
         input: notes.isEmpty
             ? (ChronoSparkLocalizations.of(context).isSpanish
@@ -281,6 +230,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         reason: 'request_timeout',
         supportivePauseReason: supportiveCopy.pauseReason,
         supportiveQuestion: supportiveCopy.question,
+        languageCode: ChronoSparkLocalizations.of(context).isSpanish
+            ? 'es'
+            : 'en',
       );
       final PlannerV2Response effectiveResponse = _applyReviewableLearning(
         fallback.plannerResponse,
@@ -288,12 +240,13 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       final bool showContextOffer =
           !effectiveResponse.isClarification &&
           await _claimFirstUseContextOffer();
-      if (!mounted) return;
+      if (!mounted || revision != _checkInRevision) return;
       setState(() {
         _gettingPlanningGuidance = false;
         _planningGuidancePrompt = fallback.prompt;
         _planningGuidanceMessage = fallback.message;
         _plannerResponse = effectiveResponse;
+        _resetPlanAdjustments(effectiveResponse);
         _plannerPersonContextDecisionText = fallback.prompt;
         _plannerPersonContextBehaviorRevision = ref.read(
           smartPlannerPersonContextBehaviorRevisionForDecisionProvider(
@@ -306,18 +259,20 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       });
       return;
     }
+    if (!mounted || revision != _checkInRevision) return;
     final PlannerV2Response effectiveResponse = _applyReviewableLearning(
       result.plannerResponse,
     );
     final bool showContextOffer =
         !effectiveResponse.isClarification &&
         await _claimFirstUseContextOffer();
-    if (!mounted) return;
+    if (!mounted || revision != _checkInRevision) return;
 
     setState(() {
       _planningGuidancePrompt = result.prompt;
       _planningGuidanceMessage = result.message;
       _plannerResponse = effectiveResponse;
+      _resetPlanAdjustments(effectiveResponse);
       _plannerPersonContextDecisionText = result.prompt;
       _plannerPersonContextBehaviorRevision = _personContextBehaviorRevisionFor(
         result,
@@ -334,7 +289,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     });
     _recordOperatingReceiptShown(result.operatingReceipt);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || revision != _checkInRevision) return;
       final BuildContext? responseContext = _plannerResponseKey.currentContext;
       if (responseContext == null) return;
       unawaited(
@@ -482,23 +437,51 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     }
   }
 
-  Future<void> _sendFollowUp() async {
-    if (_sendingFollowUp) return;
-    final String text = _followUpController.text.trim();
+  Future<void> _retryFollowUp() async {
+    final String? failedText = _failedFollowUpText;
+    if (failedText == null) return;
+    await _sendFollowUp(requestText: failedText);
+  }
+
+  Future<void> _sendFollowUp({String? requestText}) async {
+    if (_sendingFollowUp || _gettingPlanningGuidance) return;
+    final revision = _checkInRevision;
+    final String text = requestText ?? _followUpController.text.trim();
     if (text.isEmpty) return;
     final SmartPlannerQueryController planner = ref.read(
       smartPlannerQueryControllerProvider,
     );
 
-    if (!await _confirmEmotionalSafetyRoute(text, planner)) {
+    final history = _conversationHistory();
+    final reflection = _notesController.text.trim();
+    final PlannerV2Response? displayedPlan = _plannerResponse;
+    final PlannerConversationSnapshot? currentPlan = displayedPlan == null
+        ? null
+        : PlannerConversationSnapshot(
+            originalObjective: _planningGuidancePrompt ?? reflection,
+            currentPlan: displayedPlan,
+            userContext: displayedPlan.userContext,
+            adjustments: List<PlannerAdjustment>.of(_planAdjustments),
+          );
+    final safetyText = planner.followUpSafetyText(
+      input: text,
+      reflection: reflection,
+      history: history,
+    );
+    setState(() => _sendingFollowUp = true);
+    if (!await _confirmEmotionalSafetyRoute(safetyText, planner)) {
+      if (mounted && revision == _checkInRevision) {
+        setState(() => _sendingFollowUp = false);
+      }
       return;
     }
-    final ({String? pauseReason, String? question}) supportiveCopy =
-        _localizedSupportiveCopy(text, planner);
+    if (!mounted || revision != _checkInRevision) return;
+    final supportiveCopy = _localizedSupportiveCopy(safetyText, planner);
     _followUpController.clear();
     setState(() {
       _sendingFollowUp = true;
       _followUpError = null;
+      _failedFollowUpText = null;
     });
     try {
       final SmartPlannerResult result = await planner
@@ -506,16 +489,26 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
             input: text,
             energy: _energy,
             emotion: _emotion,
-            reflection: _notesController.text.trim(),
-            history: _conversationHistory(),
+            reflection: reflection,
+            history: history,
+            currentPlan: currentPlan,
+            languageCode: ChronoSparkLocalizations.of(context).isSpanish
+                ? 'es'
+                : 'en',
             supportivePauseReason: supportiveCopy.pauseReason,
             supportiveQuestion: supportiveCopy.question,
           )
           .timeout(const Duration(seconds: 25));
-      if (!mounted) return;
+      if (!mounted || revision != _checkInRevision) return;
       setState(() {
-        _followUps.add(_Exchange(question: text, answer: result.message));
+        _followUps.add(
+          _Exchange(
+            question: text,
+            answer: result.plannerResponse.toConversationText(),
+          ),
+        );
         _plannerResponse = result.plannerResponse;
+        _resetPlanAdjustments(result.plannerResponse);
         _plannerPersonContextDecisionText = result.prompt;
         _plannerPersonContextBehaviorRevision =
             _personContextBehaviorRevisionFor(result);
@@ -525,6 +518,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         _plannerActionStatus = null;
         _clearPlannerExplanationState();
         _sendingFollowUp = false;
+        _failedFollowUpText = null;
       });
       _recordOperatingReceiptShown(result.operatingReceipt);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -540,31 +534,50 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         }
       });
     } on TimeoutException {
-      if (!mounted) return;
+      if (!mounted || revision != _checkInRevision) return;
       setState(() {
         _sendingFollowUp = false;
+        _restoreFailedFollowUp(text);
         _followUpError = ChronoSparkLocalizations.of(
           context,
         ).plannerRoutine.followUpTimeout;
       });
     } on AssistantReleaseBlockedException {
-      if (!mounted) return;
+      if (!mounted || revision != _checkInRevision) return;
       setState(() {
         _sendingFollowUp = false;
+        _restoreFailedFollowUp(text);
         _followUpError = ChronoSparkLocalizations.of(
           context,
         ).plannerRoutine.guidanceUnavailable;
       });
     } catch (error, stackTrace) {
-      if (!mounted) return;
+      if (!mounted || revision != _checkInRevision) return;
       setState(() {
         _sendingFollowUp = false;
+        _restoreFailedFollowUp(text);
         _followUpError = ChronoSparkLocalizations.of(
           context,
         ).plannerRoutine.followUpTransmitFailed;
       });
-      ErrorBoundary.of(context)?.captureError(error, stackTrace);
+      Logger.errorCategory(
+        'smart_planner',
+        'Follow-up failed; the request is retained for retry.',
+        error,
+        stackTrace,
+      );
     }
+  }
+
+  void _restoreFailedFollowUp(String text) {
+    _failedFollowUpText = text;
+    if (_followUpController.text.isEmpty) _followUpController.text = text;
+  }
+
+  void _resetPlanAdjustments(PlannerV2Response response) {
+    _baseMinimumOption = response.optionByKind[PlannerOptionKind.minimum];
+    _planAdjustments.clear();
+    _awaitingApproachReason = false;
   }
 
   Future<bool> _confirmEmotionalSafetyRoute(
@@ -607,6 +620,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   }
 
   void _useThisPlan() {
+    if (_sendingFollowUp || _gettingPlanningGuidance) return;
     final PlannerV2Response? response = _plannerResponse;
     if (response == null || response.isClarification) return;
     final CreatorDraftPreview draft = CreatorDraftPreview.fromPlannerResponse(
@@ -618,8 +632,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       optionChosen: response.recommendedKind.name,
       optionSizeMinutes:
           response.optionByKind[response.recommendedKind]?.estimatedMinutes,
-      recommendationHelped: true,
+      recommendationHelped: null,
     );
+    ref.read(creatorHandshakeProvider.notifier).clearResult();
     ref.read(creatorDraftPreviewProvider.notifier).stage(draft);
     goToAppView(context, ref, AppView.creator);
   }
@@ -644,10 +659,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         boundRevision == currentRevision) {
       return;
     }
+    _clearChangedCheckIn();
     setState(() {
-      _planningGuidanceMessage = null;
-      _planningGuidancePrompt = null;
-      _plannerResponse = null;
       _plannerPersonContextDecisionText = null;
       _plannerPersonContextBehaviorRevision = currentRevision;
       _operatingReceipt = null;
@@ -666,7 +679,37 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     });
   }
 
+  void _clearChangedCheckIn() {
+    if (!mounted) return;
+    unawaited(_stopVoice());
+    setState(() {
+      _checkInRevision++;
+      _plannerResponse = null;
+      _baseMinimumOption = null;
+      _planAdjustments.clear();
+      _awaitingApproachReason = false;
+      _planningGuidanceMessage = null;
+      _planningGuidancePrompt = null;
+      _followUps.clear();
+      _followUpController.clear();
+      _followUpError = null;
+      _failedFollowUpText = null;
+      _sendingFollowUp = false;
+      _gettingPlanningGuidance = false;
+      _operatingReceipt = null;
+      _shownOperatingReceiptId = null;
+      _plannerActionStatus = null;
+      _guidanceError = null;
+      _saved = false;
+      _showFirstUseContextOffer = false;
+      _showWhy = false;
+      _showEvidence = false;
+      _clearPlannerExplanationState();
+    });
+  }
+
   void _makeSmaller() {
+    if (_sendingFollowUp || _gettingPlanningGuidance) return;
     final PlannerV2Response? response = _plannerResponse;
     if (response == null || response.isClarification) return;
     final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
@@ -674,18 +717,23 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     ).plannerRoutine;
     final PlannerOption minimum =
         response.optionByKind[PlannerOptionKind.minimum]!;
+    final PlannerOption base = _baseMinimumOption ?? minimum;
+    final int previousMinutes =
+        response.optionByKind[response.recommendedKind]!.estimatedMinutes;
     final PlannerV2Response smaller;
     if (response.recommendedKind == PlannerOptionKind.minimum) {
+      if (minimum.estimatedMinutes <= 1) {
+        setState(() => _plannerActionStatus = copy.minimumReachedStatus);
+        return;
+      }
       final int minutes = (minimum.estimatedMinutes / 2).ceil().clamp(
         1,
         minimum.estimatedMinutes,
       );
-      final PlannerOption reduced = minimum.copyWith(
-        title: copy.smallerTitle(minimum.title),
-        description: copy.smallerDescription(
-          minutes: minutes,
-          detail: minimum.description,
-        ),
+      final PlannerOption reduced = base.copyWith(
+        // Keep the original atomic action. Wrapping the previous response
+        // accumulates old durations and increases the work as time shrinks.
+        description: base.description,
         estimatedMinutes: minutes,
         tradeoff: copy.smallerTradeoff,
       );
@@ -707,6 +755,16 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     }
     setState(() {
       _plannerResponse = smaller;
+      _planAdjustments.add(
+        PlannerAdjustment(
+          kind: PlannerAdjustmentKind.smaller,
+          description: 'The user chose Make smaller for the displayed plan.',
+          previousMinutes: previousMinutes,
+          currentMinutes:
+              smaller.optionByKind[smaller.recommendedKind]!.estimatedMinutes,
+        ),
+      );
+      _awaitingApproachReason = false;
       _plannerActionStatus = copy.smallerStatus;
       _clearPlannerExplanationState();
     });
@@ -721,21 +779,27 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   }
 
   void _chooseDifferentApproach() {
+    if (_sendingFollowUp || _gettingPlanningGuidance) return;
     final PlannerV2Response? response = _plannerResponse;
     if (response == null || response.isClarification) return;
     final PlannerRoutineCopy copy = ChronoSparkLocalizations.of(
       context,
     ).plannerRoutine;
-    final List<PlannerOptionKind> kinds = PlannerOptionKind.values;
-    final int current = kinds.indexOf(response.recommendedKind);
+    if (_awaitingApproachReason) return;
     final PlannerOptionKind rejected = response.recommendedKind;
-    final PlannerOptionKind next = kinds[(current + 1) % kinds.length];
     setState(() {
-      _plannerResponse = response.recommend(
-        next,
-        why: copy.differentApproachReason,
+      _plannerResponse = response.copyWith(clearUsefulQuestion: true);
+      _planAdjustments.add(
+        PlannerAdjustment(
+          kind: PlannerAdjustmentKind.rejectedApproach,
+          description:
+              'The user rejected the displayed approach; the reason is not known yet.',
+          previousMinutes: response.optionByKind[rejected]!.estimatedMinutes,
+          currentMinutes: response.optionByKind[rejected]!.estimatedMinutes,
+        ),
       );
-      _plannerActionStatus = copy.differentApproachStatus;
+      _awaitingApproachReason = true;
+      _plannerActionStatus = copy.differentApproachQuestion;
       _clearPlannerExplanationState();
     });
     _recordOperatingOutcome(
@@ -1127,65 +1191,6 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     }
   }
 
-  Future<bool> _confirmPlannerExplanationQuote(
-    PlannerExplanationQuote quote,
-  ) async {
-    final bool? approved = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('External AI explanation'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Text(
-                'Your deterministic Planner V2 result remains the authority. This optional service can explain the visible plan but cannot change, save, schedule, or create anything.',
-              ),
-              const SizedBox(height: 14),
-              Text('Provider: ${quote.provider}'),
-              Text('Model: ${quote.modelLabel}'),
-              Text('Expected cost: ${quote.expectedCredits} AI credits'),
-              Text(
-                'First-party replay window: ${quote.replayWindowSeconds} seconds',
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Data sent after confirmation:',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              ...quote.transmittedDataCategories.map(
-                (String category) => Text('• $category'),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'The quote used this minimized packet only with ChronoSpark\'s first-party function. Nothing has been sent to Anthropic yet.',
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'ChronoSpark keeps response content only for the short replay window, then retains billing metadata. This quote is available only after the first-party service reports the provider-retention and qualified safety-review gates approved. Independent release evidence is still required before this feature can be enabled.',
-              ),
-            ],
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            key: const Key('planner-explanation-cancel'),
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            key: const Key('planner-explanation-confirm'),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('Send and spend ${quote.expectedCredits}'),
-          ),
-        ],
-      ),
-    );
-    return approved ?? false;
-  }
-
   List<Map<String, String>> _conversationHistory() {
     final List<Map<String, String>> history = <Map<String, String>>[];
     final String initialPrompt = _planningGuidancePrompt?.trim() ?? '';
@@ -1215,6 +1220,18 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     final PlannerRoutineCopy routine = ChronoSparkLocalizations.of(
       context,
     ).plannerRoutine;
+    ref.listen(currentPlannerEmotionProvider, (previous, next) {
+      if (previous != next) _clearChangedCheckIn();
+    });
+    ref.listen(
+      consentedHumanContextProvider.select((value) => value.emotionAllowed),
+      (previous, next) {
+        if (previous != next) _clearChangedCheckIn();
+      },
+    );
+    ref.listen(selectedPlanningNoteProvider, (previous, next) {
+      if (previous?.asData?.value != next.asData?.value) _clearChangedCheckIn();
+    });
     ref.watch(decisionOutcomesProvider);
     ref.watch(learningPausedProvider);
     ref.listen<String>(
@@ -1225,9 +1242,6 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         _invalidatePlannerOutputForPersonContext(next);
       },
     );
-    final ConsentedHumanContext humanContext = ref.watch(
-      consentedHumanContextProvider,
-    );
     final AsyncValue<bool> plannerAvailability = ref.watch(
       smartPlannerAvailabilityProvider,
     );
@@ -1235,6 +1249,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     final PlannerV2Response? plannerResponse = _plannerResponse;
     final String effectivePlannerMessage =
         plannerResponse?.toAccessibleText() ?? '';
+    final String plannerSpokenSummary =
+        plannerResponse?.toSpokenSummary() ?? '';
     final bool hasPlannerMessage = plannerResponse != null;
     final bool plannerExplanationAvailable =
         ref.watch(plannerExplanationAvailabilityProvider).asData?.value ==
@@ -1250,6 +1266,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
             children: [
               Expanded(
                 child: ListView(
+                  key: const Key('planner-content-scroll'),
                   controller: _scroll,
                   padding: EdgeInsets.fromLTRB(
                     20,
@@ -1278,40 +1295,16 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                           _EnergySlider(
                             value: _energy,
                             color: AppColors.neonCyan,
-                            onChanged: (v) => setState(() {
-                              _energy = v;
-                              _saved = false;
-                            }),
+                            onChanged: (v) {
+                              if (_energy == v) return;
+                              _clearChangedCheckIn();
+                              setState(() => _energy = v);
+                            },
                           ),
                           const SizedBox(height: 8),
                           const Divider(color: Colors.white12),
                           const SizedBox(height: 8),
-                          Text(
-                            routine.emotionalStateSection,
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(
-                                  color: AppColors.neonViolet,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0,
-                                ),
-                          ),
-                          const SizedBox(height: 10),
-                          _EmotionStateControl(
-                            selected: _emotion,
-                            onSelect: (e) => setState(() {
-                              _emotion = e;
-                              _saved = false;
-                            }),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            routine.emotionalStateNotice(
-                              enabled: humanContext.emotionAllowed,
-                            ),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: Colors.white70),
-                          ),
-                          const SizedBox(height: 12),
+                          const _PlannerEmotionCheckIn(),
                           const Divider(color: Colors.white12),
                           const SizedBox(height: 8),
                           Text(
@@ -1348,11 +1341,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                                 ),
                                 contentPadding: const EdgeInsets.all(16),
                               ),
-                              onChanged: (_) {
-                                if (_saved) {
-                                  setState(() => _saved = false);
-                                }
-                              },
+                              onChanged: (_) => _clearChangedCheckIn(),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -1365,6 +1354,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                               letterSpacing: 0,
                             ),
                           ),
+                          const _SelectedPlanningNoteCard(),
                         ],
                       ),
                     ),
@@ -1386,7 +1376,10 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                           : routine.guidanceButton(refresh: _saved),
                       accent: AppColors.neonCyan,
                       icon: Icons.auto_awesome_rounded,
-                      onPressed: !plannerAvailable || _gettingPlanningGuidance
+                      onPressed:
+                          !plannerAvailable ||
+                              _gettingPlanningGuidance ||
+                              _sendingFollowUp
                           ? null
                           : _getPlanningGuidance,
                     ),
@@ -1428,6 +1421,8 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                         label: routine.guidanceReady,
                         child: _PlannerV2ResponsePanel(
                           response: plannerResponse,
+                          controlsEnabled:
+                              !_gettingPlanningGuidance && !_sendingFollowUp,
                           actionStatus: _plannerActionStatus,
                           showWhy: _showWhy,
                           showEvidence: _showEvidence,
@@ -1475,16 +1470,30 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                         spacing: 10,
                         runSpacing: 10,
                         children: [
-                          _VoiceButton(message: effectivePlannerMessage),
+                          _VoiceButton(
+                            message: effectivePlannerMessage,
+                            languageCode: routine.isSpanish ? 'es' : 'en',
+                          ),
                           _VoiceSummaryButton(
-                            headline: effectivePlannerMessage,
-                            energy: _energy,
-                            emotion: _emotion,
+                            summary: plannerSpokenSummary,
+                            languageCode: routine.isSpanish ? 'es' : 'en',
                           ),
                           const _VoiceAccessibilityButton(),
                           _MicButton(
-                            onRecognized: (String text) =>
-                                _followUpController.text = text,
+                            onStart: () => _followUpDictationBase =
+                                _followUpController.text.trim(),
+                            onRecognized: (String text) {
+                              final combined = <String>[
+                                if (_followUpDictationBase.isNotEmpty)
+                                  _followUpDictationBase,
+                                text.trim(),
+                              ].join(' ').trim();
+                              _followUpController
+                                ..text = combined
+                                ..selection = TextSelection.collapsed(
+                                  offset: combined.length,
+                                );
+                            },
                           ),
                         ],
                       ),
@@ -1520,56 +1529,13 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                 child: _FollowUpBar(
                   controller: _followUpController,
                   onSend: _sendFollowUp,
-                  sending: _sendingFollowUp,
+                  onRetry: _retryFollowUp,
+                  sending: _sendingFollowUp || _gettingPlanningGuidance,
+                  listening: ref.watch(voiceControllerProvider).isListening,
                   errorText: _followUpError,
                 ),
               )
             : null,
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
-    final PlannerRoutineCopy routine = l10n.plannerRoutine;
-    return TemporalScreenHeader(
-      title: l10n.text(ChronoSparkString.smartPlanner),
-      subtitle: routine.subtitle,
-      eyebrow: routine.eyebrow,
-      onBack: () => goToAppView(context, ref, AppView.nexus),
-    );
-  }
-
-  Widget _bubble(String text, {required bool isUser}) {
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 280),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: isUser
-              ? AppColors.neonViolet.withValues(alpha: 0.18)
-              : AppColors.neonCyan.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(8),
-            topRight: const Radius.circular(8),
-            bottomLeft: Radius.circular(isUser ? 8 : 4),
-            bottomRight: Radius.circular(isUser ? 4 : 8),
-          ),
-          border: Border.all(
-            color: isUser
-                ? AppColors.neonViolet.withValues(alpha: 0.35)
-                : AppColors.neonCyan.withValues(alpha: 0.25),
-          ),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: isUser ? Colors.white : const Color(0xFF9BE7FF),
-            fontSize: 13,
-            height: 1.5,
-          ),
-        ),
       ),
     );
   }

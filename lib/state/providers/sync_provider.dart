@@ -295,6 +295,7 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
       ref.read(syncErrorMessageProvider.notifier).report(failureMessage);
     }
     if (restored) {
+      ref.invalidate(allTasksProvider);
       ref.invalidate(tasksProvider);
       ref.invalidate(profileProvider);
       ref.invalidate(goalProgressProvider);

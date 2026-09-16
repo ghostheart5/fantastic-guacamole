@@ -31,18 +31,20 @@ tags:
 - assertVisible:
     text: "What would you like help planning right now\\?"
     focused: true
-- inputText: "Finish the release evidence today"
-- assertVisible:
-    text: "Finish the release evidence today"
-    focused: true
-- hideKeyboard
-# Fail promptly if keyboard dismissal unexpectedly navigates away.
+- runFlow:
+    file: ../subflows/enter-planner-request.yaml
+    env:
+      REQUEST: "Fold one shirt. I have five minutes."
+# Scroll the complete editable field into view without sending Android Back,
+# which can pop this route when Maestro has already dismissed the IME.
 - scrollUntilVisible:
     element:
-      text: "Back\\nPLAN SPECTRUM\\nSmart Planner\\nBuild your next plan from real evidence."
-    direction: UP
+      text: "Fold one shirt. I have five minutes."
+    direction: DOWN
+    visibilityPercentage: 100
     timeout: 15000
-- assertVisible: "Back\\nPLAN SPECTRUM\\nSmart Planner\\nBuild your next plan from real evidence."
+- assertVisible:
+    text: "Fold one shirt. I have five minutes."
 - scrollUntilVisible:
     element:
       text: "GET GUIDANCE"
@@ -52,6 +54,20 @@ tags:
 - extendedWaitUntil:
     visible: "(?s)Planning guidance ready.*"
     timeout: 30000
+- runFlow: ../subflows/answer-planner-saved-context.yaml
+- scrollUntilVisible:
+    element:
+      text: "Use this plan"
+    direction: DOWN
+    timeout: 15000
 - assertVisible: "Use this plan"
+# The follow-up keyboard can leave the lower response actions off screen.
+# Scroll to the evidence action before asserting it exists.
+- scrollUntilVisible:
+    element:
+      text: "Evidence"
+    direction: DOWN
+    visibilityPercentage: 100
+    timeout: 15000
 - assertVisible: "Evidence"
 - assertNotVisible: "External AI"

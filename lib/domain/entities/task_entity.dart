@@ -282,6 +282,27 @@ class TaskEntity {
 
   bool get hasDeadline => dueDate != null;
 
+  /// Creator and the standard editor store date-only deadlines at local
+  /// midnight. A person choosing a day owns that whole local day.
+  bool get hasDateOnlyDeadline {
+    final DateTime? value = dueDate;
+    return value != null &&
+        value.hour == 0 &&
+        value.minute == 0 &&
+        value.second == 0 &&
+        value.millisecond == 0 &&
+        value.microsecond == 0;
+  }
+
+  DateTime? get effectiveDueAt {
+    final DateTime? value = dueDate;
+    if (value == null || !hasDateOnlyDeadline) return value;
+    // A midnight deadline represents its written calendar date. Preserve the
+    // stored date components even when a cloud decoder marked the value UTC;
+    // converting UTC midnight first would shift the chosen day in the Americas.
+    return DateTime(value.year, value.month, value.day + 1);
+  }
+
   bool isActionableAt(DateTime _) => !isCompleted && !isSkipped && !isCanceled;
 
   bool get isActive => isActionableAt(DateTime.now());
@@ -309,8 +330,9 @@ class TaskEntity {
   }
 
   bool isOverdueAt(DateTime reference) {
-    if (dueDate == null) return false;
-    return isActive && reference.isAfter(dueDate!);
+    final DateTime? effective = effectiveDueAt;
+    if (effective == null) return false;
+    return isActive && !reference.toLocal().isBefore(effective.toLocal());
   }
 
   bool get isOverdue => isOverdueAt(DateTime.now());

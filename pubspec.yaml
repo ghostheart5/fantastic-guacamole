@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 4.1.0+2026083007
+version: 4.1.0+2026083059
 environment:
   sdk: ^3.12.0
 
@@ -96,6 +96,17 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  # Flutter's default collector only reads each dependency's primary LICENSE.
+  licenses:
+    - assets/legal/licenses/archive-4.1.0-third-party-notices.txt
+    - assets/legal/licenses/image-4.9.2-third-party-notices.txt
+    - assets/legal/licenses/fallback-root-certificates-source.txt
+    - assets/legal/licenses/platform-components-source.txt
+    - assets/legal/licenses/inter-font-OFL.txt
+    - assets/legal/licenses/space-grotesk-font-OFL.txt
+    - assets/legal/licenses/jetbrains-mono-font-OFL.txt
+    - assets/legal/licenses/material-icons-sdk-notice.txt
+    - assets/legal/licenses/datastore-protobuf-4.28.2-BSD.txt
   assets:
     - assets/animations/level_up.json
     - assets/animations/signal_pulse.json

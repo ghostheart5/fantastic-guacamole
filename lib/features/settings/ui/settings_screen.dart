@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
@@ -17,7 +18,10 @@ import 'package:fantastic_guacamole/domain/learning/learning_ledger.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_permission_prompt.dart';
+import 'package:fantastic_guacamole/features/permissions/voice_consent_reset_button.dart';
+import 'package:fantastic_guacamole/features/settings/widgets/internal_credit_test_panel.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -30,6 +34,7 @@ import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/onboarding_preferences_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/providers/subscription_status_refresh_provider.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
@@ -215,6 +220,7 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(subscriptionStatusRefreshProvider);
     ref.watch(extended_domain.extendedDomainBootstrapProvider);
     final int extendedSettingsCount = ref
         .watch(extended_domain.appSettingsProvider)
@@ -225,16 +231,17 @@ class SettingsScreen extends ConsumerWidget {
     final bool isDarkMode = themeAsync.asData?.value.isDark ?? true;
     final access = ref.watch(appAccessProvider);
     final walletAsync = ref.watch(aiCreditWalletProvider);
-    final bool usesAiCredits = Env.isAiProxyConfigured;
+    final bool usesAiCredits = ref.watch(aiProxyAvailableProvider);
     final String creditLabel = usesAiCredits ? 'AI credits' : 'Smart credits';
     final String creditValue = walletAsync.when(
-      data: (wallet) => '${wallet.balance} of ${wallet.allowance} available',
+      data: (wallet) => '${wallet.balance} credits available',
       loading: () => 'Loading balance',
       error: (_, _) => 'Balance unavailable',
     );
     final String creditDetail = walletAsync.when(
       data: (wallet) =>
-          '${wallet.tier == 'premium' ? 'Premium' : 'Free'} allowance · resets ${MaterialLocalizations.of(context).formatMediumDate(wallet.resetAt)}',
+          '${wallet.balance - wallet.purchasedCredits} included · ${wallet.purchasedCredits} purchased (do not expire). '
+          'Monthly allowance: ${wallet.allowance} · resets ${MaterialLocalizations.of(context).formatMediumDate(wallet.resetAt)}',
       loading: () => 'Reading this account’s credit wallet.',
       error: (_, _) => 'Open credits to retry and review usage.',
     );
@@ -310,8 +317,8 @@ class SettingsScreen extends ConsumerWidget {
                   creditLabel: creditLabel,
                   creditValue: creditValue,
                   creditDetail: creditDetail,
-                  onOpenPlan: () => context.go(routes.paywall),
-                  onOpenCredits: () => context.go(routes.paywall),
+                  onOpenPlan: () => context.push(routes.paywall),
+                  onOpenCredits: () => context.push(routes.paywall),
                 ),
                 const SizedBox(height: 14),
               ],
@@ -420,6 +427,7 @@ class SettingsScreen extends ConsumerWidget {
                           );
                         },
                       ),
+                      const VoiceConsentResetButton(),
                     ],
                   ),
                 ),
@@ -620,6 +628,15 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                       ),
                       _NeonNavTile(
+                        title: MaterialLocalizations.of(
+                          context,
+                        ).licensesPageTitle,
+                        onTap: () => showLicensePage(
+                          context: context,
+                          applicationName: 'ChronoSpark',
+                        ),
+                      ),
+                      _NeonNavTile(
                         title: 'Support',
                         subtitle: 'Help center: ${AppUrls.support}',
                         onTap: () => unawaited(
@@ -766,7 +783,15 @@ class SettingsScreen extends ConsumerWidget {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not log out. Please try again.')),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Could not log out. Please try again.',
+              'No se pudo cerrar sesión. Inténtalo de nuevo.',
+            ),
+          ),
+        ),
       );
     }
   }
@@ -778,20 +803,30 @@ class SettingsScreen extends ConsumerWidget {
           context: context,
           builder: (BuildContext dialogContext) {
             return AlertDialog(
-              title: const Text('Clear tester data?'),
-              content: const Text(
-                'This permanently removes local tasks, goals, memories, '
-                'timeline history, profile progress, recovery data, logs, '
-                'SI state, and tester settings on this device.',
+              title: Text(
+                journeyText(
+                  context,
+                  'Clear tester data?',
+                  '¿Borrar datos de prueba?',
+                ),
+              ),
+              content: Text(
+                journeyText(
+                  context,
+                  'This permanently removes local tasks, goals, memories, timeline history, profile progress, recovery data, logs, SI state, and tester settings on this device.',
+                  'Esto elimina permanentemente las tareas, metas, recuerdos, historial de Línea de Tiempo, progreso del perfil, datos de recuperación, registros, estado SI y ajustes de prueba locales de este dispositivo.',
+                ),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Cancel'),
+                  child: Text(journeyText(context, 'Cancel', 'Cancelar')),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(dialogContext).pop(true),
-                  child: const Text('Clear Data'),
+                  child: Text(
+                    journeyText(context, 'Clear Data', 'Borrar datos'),
+                  ),
                 ),
               ],
             );
@@ -803,7 +838,15 @@ class SettingsScreen extends ConsumerWidget {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Purging local tester runtime data...')),
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'Purging local tester runtime data...',
+            'Borrando datos locales de prueba...',
+          ),
+        ),
+      ),
     );
 
     try {
@@ -1246,18 +1289,19 @@ class SettingsScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
+    final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
     try {
       final DiagnosticsContext diagnostics =
           await DiagnosticsContextService.collect();
-      final String body = _buildSupportEmailBody(diagnostics);
+      final String body = _buildSupportEmailBody(isSpanish, diagnostics);
+      final String subject = isSpanish
+          ? 'Solicitud de ayuda de ChronoSpark'
+          : 'ChronoSpark support request';
 
       final Uri mail = Uri(
         scheme: 'mailto',
         path: Env.supportEmail,
-        queryParameters: <String, String>{
-          'subject': 'ChronoSpark support request',
-          'body': body,
-        },
+        queryParameters: <String, String>{'subject': subject, 'body': body},
       );
 
       final bool opened = await ref.read(externalUrlServiceProvider).open(mail);
@@ -1266,17 +1310,20 @@ class SettingsScreen extends ConsumerWidget {
       }
       await Clipboard.setData(
         ClipboardData(
-          text:
-              'To: ${Env.supportEmail}\nSubject: ChronoSpark support request\n\n$body',
+          text: 'To: ${Env.supportEmail}\nSubject: $subject\n\n$body',
         ),
       );
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'No email app found. Support email template copied to clipboard.',
+            journeyText(
+              context,
+              'No email app found. Support email template copied to clipboard.',
+              'No se encontró una aplicación de correo. La plantilla de ayuda se copió al portapapeles.',
+            ),
           ),
         ),
       );
@@ -1285,8 +1332,14 @@ class SettingsScreen extends ConsumerWidget {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to gather diagnostics for support.'),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Failed to gather diagnostics for support.',
+              'No se pudieron recopilar los datos de diagnóstico para solicitar ayuda.',
+            ),
+          ),
         ),
       );
     }
@@ -1302,16 +1355,28 @@ class SettingsScreen extends ConsumerWidget {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Diagnostics copied to clipboard.')),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Diagnostics copied to clipboard.',
+              'Datos de diagnóstico copiados al portapapeles.',
+            ),
+          ),
+        ),
       );
     } catch (_) {
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Could not copy diagnostics. Try Contact Support instead.',
+            journeyText(
+              context,
+              'Could not copy diagnostics. Try Contact Support instead.',
+              'No se pudieron copiar los datos de diagnóstico. Prueba la opción Contactar con ayuda.',
+            ),
           ),
         ),
       );
@@ -1319,19 +1384,29 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _copySupportEmailTemplate(BuildContext context) async {
+    final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
     try {
       final DiagnosticsContext diagnostics =
           await DiagnosticsContextService.collect();
-      final String body = _buildSupportEmailBody(diagnostics);
+      final String body = _buildSupportEmailBody(isSpanish, diagnostics);
+      final String subject = isSpanish
+          ? 'Solicitud de ayuda de ChronoSpark'
+          : 'ChronoSpark support request';
       final String payload =
-          'To: ${Env.supportEmail}\nSubject: ChronoSpark support request\n\n$body';
+          'To: ${Env.supportEmail}\nSubject: $subject\n\n$body';
       await Clipboard.setData(ClipboardData(text: payload));
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Support email template copied to clipboard.'),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Support email template copied to clipboard.',
+              'Plantilla de ayuda copiada al portapapeles.',
+            ),
+          ),
         ),
       );
     } catch (_) {
@@ -1339,17 +1414,27 @@ class SettingsScreen extends ConsumerWidget {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not copy support email template.')),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Could not copy support email template.',
+              'No se pudo copiar la plantilla de ayuda.',
+            ),
+          ),
+        ),
       );
     }
   }
 
-  String _buildSupportEmailBody(DiagnosticsContext diagnostics) {
-    return 'Issue summary:\n'
-        '- What happened:\n'
-        '- What I expected:\n'
-        '- Steps to reproduce:\n\n'
-        '${_buildDiagnosticsPayload(diagnostics)}';
+  String _buildSupportEmailBody(
+    bool isSpanish,
+    DiagnosticsContext diagnostics,
+  ) {
+    return (isSpanish
+            ? 'Resumen del problema:\n- Qué sucedió:\n- Qué esperaba:\n- Pasos para reproducirlo:\n\n'
+            : 'Issue summary:\n- What happened:\n- What I expected:\n- Steps to reproduce:\n\n') +
+        _buildDiagnosticsPayload(diagnostics);
   }
 
   String _buildDiagnosticsPayload(DiagnosticsContext diagnostics) {

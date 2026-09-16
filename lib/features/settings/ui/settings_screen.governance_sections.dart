@@ -16,9 +16,17 @@ class _MemoryGovernanceSection extends ConsumerWidget {
       ClipboardData(text: const JsonEncoder.withIndent('  ').convert(export)),
     );
     if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Memory receipts copied.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'Memory receipts copied.',
+            'Comprobantes de memoria copiados.',
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _correct(
@@ -33,26 +41,38 @@ class _MemoryGovernanceSection extends ConsumerWidget {
         builder: (dialogContext, controllers) {
           final controller = controllers[0];
           return AlertDialog(
-            title: const Text('Correct remembered preference'),
+            title: Text(
+              journeyText(
+                context,
+                'Correct remembered preference',
+                'Corregir preferencia recordada',
+              ),
+            ),
             content: TextField(
               key: const Key('memory-correction-field'),
               controller: controller,
               maxLength: 280,
               minLines: 2,
               maxLines: 5,
-              decoration: const InputDecoration(
-                helperText: 'Only this exact preference text will be replaced.',
+              decoration: InputDecoration(
+                helperText: journeyText(
+                  context,
+                  'Only this exact preference text will be replaced.',
+                  'Solo se reemplazará el texto exacto de esta preferencia.',
+                ),
               ),
             ),
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
+                child: Text(journeyText(context, 'Cancel', 'Cancelar')),
               ),
               FilledButton(
                 onPressed: () =>
                     Navigator.of(dialogContext).pop(controller.text),
-                child: const Text('Save correction'),
+                child: Text(
+                  journeyText(context, 'Save correction', 'Guardar corrección'),
+                ),
               ),
             ],
           );
@@ -65,9 +85,17 @@ class _MemoryGovernanceSection extends ConsumerWidget {
           .read(memoryGovernanceControllerProvider)
           .correctPreference(id: memory.id, text: next);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Preference corrected.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Preference corrected.',
+              'Preferencia corregida.',
+            ),
+          ),
+        ),
+      );
     } on Object catch (error, stackTrace) {
       Logger.errorCode(
         code: AppDiagnosticCode.settingsMemoryCorrectionFailed,
@@ -102,18 +130,28 @@ class _MemoryGovernanceSection extends ConsumerWidget {
         await showDialog<bool>(
           context: context,
           builder: (BuildContext dialogContext) => AlertDialog(
-            title: const Text('Delete this memory?'),
+            title: Text(
+              journeyText(
+                context,
+                'Delete this memory?',
+                '¿Eliminar este recuerdo?',
+              ),
+            ),
             content: Text(
-              '“${memory.text}” will be permanently removed and cannot be retrieved again.',
+              journeyText(
+                context,
+                '“${memory.text}” will be permanently removed and cannot be retrieved again.',
+                '“${memory.text}” se eliminará permanentemente y no se podrá recuperar.',
+              ),
             ),
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Cancel'),
+                child: Text(journeyText(context, 'Cancel', 'Cancelar')),
               ),
               FilledButton(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Delete'),
+                child: Text(journeyText(context, 'Delete', 'Eliminar')),
               ),
             ],
           ),
@@ -130,12 +168,18 @@ class _MemoryGovernanceSection extends ConsumerWidget {
         builder: (BuildContext context, WidgetRef ref, Widget? child) {
           final List<MemoryEntity> memories = ref.watch(memoriesProvider);
           return AlertDialog(
-            title: const Text('Memory receipts'),
+            title: Text(
+              journeyText(context, 'Memory receipts', 'Registros de memoria'),
+            ),
             content: SizedBox(
               width: 560,
               child: memories.isEmpty
-                  ? const Text(
-                      'No durable memories. “Use only this time” remains the default.',
+                  ? Text(
+                      journeyText(
+                        context,
+                        'No durable memories. “Use only this time” remains the default.',
+                        'No hay recuerdos duraderos. “Usar solo esta vez” sigue siendo la opción predeterminada.',
+                      ),
                     )
                   : ListView.separated(
                       shrinkWrap: true,
@@ -155,14 +199,22 @@ class _MemoryGovernanceSection extends ConsumerWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: <Widget>[
                               IconButton(
-                                tooltip: 'Correct',
+                                tooltip: journeyText(
+                                  context,
+                                  'Correct',
+                                  'Corregir',
+                                ),
                                 onPressed: () => unawaited(
                                   _correct(dialogContext, ref, memory),
                                 ),
                                 icon: const Icon(Icons.edit_outlined),
                               ),
                               IconButton(
-                                tooltip: 'Delete',
+                                tooltip: journeyText(
+                                  context,
+                                  'Delete',
+                                  'Eliminar',
+                                ),
                                 onPressed: () => unawaited(
                                   _deleteOne(dialogContext, ref, memory),
                                 ),
@@ -177,7 +229,7 @@ class _MemoryGovernanceSection extends ConsumerWidget {
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Done'),
+                child: Text(journeyText(context, 'Done', 'Listo')),
               ),
             ],
           );
@@ -191,23 +243,42 @@ class _MemoryGovernanceSection extends ConsumerWidget {
     WidgetRef ref,
     int count,
   ) async {
-    if (count == 0) return;
+    final bool unreadable = ref.read(memoryReadCorruptedProvider);
+    if (count == 0 && !unreadable) return;
     final bool confirmed =
         await showDialog<bool>(
           context: context,
           builder: (BuildContext dialogContext) => AlertDialog(
-            title: const Text('Delete all durable memories?'),
+            title: Text(
+              journeyText(
+                context,
+                'Delete all durable memories?',
+                '¿Eliminar todos los recuerdos duraderos?',
+              ),
+            ),
             content: Text(
-              'This permanently removes $count consented memory receipt${count == 1 ? '' : 's'}. Tasks, goals, and Timeline data are unchanged.',
+              unreadable
+                  ? journeyText(
+                      context,
+                      'Stored durable memory is unreadable. This permanently removes the unreadable account-scoped payload. Tasks, goals, and Timeline data are unchanged.',
+                      'La memoria duradera guardada no puede leerse. Esto elimina permanentemente los datos ilegibles de esta cuenta. Las tareas, metas y datos de Línea de Tiempo no cambian.',
+                    )
+                  : journeyText(
+                      context,
+                      'This permanently removes $count consented memory receipt${count == 1 ? '' : 's'}. Tasks, goals, and Timeline data are unchanged.',
+                      'Esto elimina permanentemente $count ${count == 1 ? 'registro de memoria autorizado' : 'registros de memoria autorizados'}. Las tareas, metas y datos de Línea de Tiempo no cambian.',
+                    ),
             ),
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Cancel'),
+                child: Text(journeyText(context, 'Cancel', 'Cancelar')),
               ),
               FilledButton(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Delete all'),
+                child: Text(
+                  journeyText(context, 'Delete all', 'Eliminar todo'),
+                ),
               ),
             ],
           ),
@@ -217,7 +288,15 @@ class _MemoryGovernanceSection extends ConsumerWidget {
     await ref.read(memoryGovernanceControllerProvider).deleteAll();
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('All durable memories deleted.')),
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'All durable memories deleted.',
+            'Se eliminaron todos los recuerdos duraderos.',
+          ),
+        ),
+      ),
     );
   }
 
@@ -229,18 +308,30 @@ class _MemoryGovernanceSection extends ConsumerWidget {
         await showDialog<bool>(
           context: context,
           builder: (BuildContext dialogContext) => AlertDialog(
-            title: const Text('Clear short-lived assistant context?'),
-            content: const Text(
-              'This clears short-lived Smart Planner and SI Console context. It does not delete tasks, goals, Timeline data, or governed memory receipts.',
+            title: Text(
+              journeyText(
+                context,
+                'Clear short-lived assistant context?',
+                '¿Borrar el contexto temporal del asistente?',
+              ),
+            ),
+            content: Text(
+              journeyText(
+                context,
+                'This clears short-lived Smart Planner and SI Console context. It does not delete tasks, goals, Timeline data, or governed memory receipts.',
+                'Esto borra el contexto temporal del Planificador Inteligente y la Consola SI. No elimina tareas, metas, datos de Línea de Tiempo ni registros de memoria controlados.',
+              ),
             ),
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Cancel'),
+                child: Text(journeyText(context, 'Cancel', 'Cancelar')),
               ),
               FilledButton(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Clear context'),
+                child: Text(
+                  journeyText(context, 'Clear context', 'Borrar contexto'),
+                ),
               ),
             ],
           ),
@@ -256,13 +347,22 @@ class _MemoryGovernanceSection extends ConsumerWidget {
     ref.invalidate(smartPlannerAiResponseProvider);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Short-lived assistant context cleared.')),
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'Short-lived assistant context cleared.',
+            'Se borró el contexto temporal del asistente.',
+          ),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final List<MemoryEntity> memories = ref.watch(memoriesProvider);
+    final bool unreadable = ref.watch(memoryReadCorruptedProvider);
     return _Section(
       label: 'MEMORY GOVERNANCE',
       accentColor: AppColors.memoryAmber,
@@ -282,8 +382,9 @@ class _MemoryGovernanceSection extends ConsumerWidget {
           ),
           _NeonStatusTile(
             title: 'Active memory receipts',
-            subtitle:
-                '${memories.length} · account-scoped · surface-scoped · expiring',
+            subtitle: unreadable
+                ? 'Unreadable retained data detected · review or delete it'
+                : '${memories.length} · account-scoped · surface-scoped · expiring',
           ),
           const _NeonStatusTile(
             title: 'SI Console durable memory',
@@ -302,8 +403,9 @@ class _MemoryGovernanceSection extends ConsumerWidget {
           ),
           _NeonNavTile(
             title: 'Delete all durable memories',
-            subtitle:
-                'Permanently removes all ${memories.length} active receipts.',
+            subtitle: unreadable
+                ? 'Permanently removes the unreadable account-scoped payload.'
+                : 'Permanently removes all ${memories.length} active receipts.',
             onTap: () => unawaited(_deleteAll(context, ref, memories.length)),
           ),
           _NeonNavTile(
@@ -528,14 +630,30 @@ class _AdaptiveGuidanceSection extends ConsumerWidget {
       }
       context.go(ref.read(routeSurfaceProvider).nexus);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Adaptive guide restarted.')),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Adaptive guide restarted.',
+              'Guía adaptativa reiniciada.',
+            ),
+          ),
+        ),
       );
     } catch (_) {
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Adaptive guide could not restart.')),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Adaptive guide could not restart.',
+              'No se pudo reiniciar la guía adaptativa.',
+            ),
+          ),
+        ),
       );
     }
   }
@@ -548,7 +666,15 @@ class _AdaptiveGuidanceSection extends ConsumerWidget {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('First setup could not restart.')),
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'First setup could not restart.',
+              'No se pudo reiniciar la configuración inicial.',
+            ),
+          ),
+        ),
       );
     }
   }

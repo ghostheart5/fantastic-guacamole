@@ -15,7 +15,9 @@ from android_candidate_build import (elf_alignment, manifest_identity, signing_e
                                      SIGNING_BOOTSTRAP, PACKAGE, UPLOAD_SHA1, SETTINGS,
                                      POLICY_FIXED, COHORT_KEY, FLAGS, strict_json,
                                      assemble_candidate_defines, validate_candidate_defines,
-                                     validate_internal_policy, validate_ci_evidence, build)
+                                     validate_internal_policy, validate_ci_evidence,
+                                     merge_assistant_internal_cohort,
+                                     validate_billing_preflight, MINIMUM_VERSION_CODE, build)
 
 
 def policy_template():
@@ -32,18 +34,49 @@ def policy_hash(defines):
 
 
 class InternalPolicyTests(unittest.TestCase):
-    def test_billing_profile_requires_explicit_selection_and_matching_private_cohort(self):
+    def test_old_partial_or_failed_backend_preflight_is_rejected(self):
+        repair = {
+            "schemaVersion": 1,
+            "internalAiCohortMatched": True,
+            "obsoleteDebitDenied": True,
+            "canonicalCreditAuthorityIntact": True,
+            "deletionCapabilityGateway": True,
+            "migrationVersion": "20260909065846",
+        }
+        receipt = {"verified": True, "licenseTestGuard": "v1", "backendRepairGate": repair}
+        validate_billing_preflight(receipt)
+        for invalid in ({}, {"verified": True, "licenseTestGuard": "v1"},
+                        {**receipt, "verified": False}, {**receipt, "backendRepairGate": []}):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                validate_billing_preflight(invalid)
+        for key in repair:
+            for wrong in (None, False, "true", 0):
+                with self.subTest(key=key, wrong=wrong), self.assertRaises(ValueError):
+                    validate_billing_preflight({**receipt, "backendRepairGate": {**repair, key: wrong}})
+
+    def test_billing_profile_keeps_reviewer_out_of_purchase_cohort(self):
+        assistant_cohort = merge_assistant_internal_cohort("a" * 64, "b" * 64)
         defines = assemble_candidate_defines({name: "synthetic-setting" for name in SETTINGS},
-            json.dumps(policy_template()), "a" * 64, billing_test=True)
-        receipt = validate_candidate_defines(defines, policy_hash(defines), billing_test=True)
+            json.dumps(policy_template()), assistant_cohort, billing_test=True,
+            billing_verified_cohort="a" * 64)
+        receipt = validate_candidate_defines(defines, policy_hash(defines), billing_test=True,
+                                             billing_verified_cohort="a" * 64)
         self.assertTrue(receipt["billingRequiresVerifiedTestPurchase"])
+        self.assertEqual(receipt["cohortCount"], 2)
+        self.assertEqual(receipt["billingCohortCount"], 1)
+        self.assertEqual(defines["CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"], "a" * 64)
+        self.assertNotIn("b" * 64, defines["CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"])
         self.assertNotIn("a" * 64, json.dumps(receipt))
+        self.assertNotIn("b" * 64, json.dumps(receipt))
         self.assertEqual(defines["CHRONOSPARK_PAYWALL_DISABLED"], "false")
         with self.assertRaises(ValueError):
             validate_candidate_defines(defines, policy_hash(defines))
         defines["CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"] = "b" * 64
         with self.assertRaises(ValueError):
-            validate_candidate_defines(defines, policy_hash(defines), billing_test=True)
+            validate_candidate_defines(defines, policy_hash(defines), billing_test=True,
+                                       billing_verified_cohort="a" * 64)
+        with self.assertRaises(ValueError):
+            merge_assistant_internal_cohort("a" * 64, "a" * 64)
 
     def test_candidate_contains_enabled_local_policy_and_only_private_cohort_receipt(self):
         defines = assembled()
@@ -130,7 +163,7 @@ class InternalPolicyTests(unittest.TestCase):
             (root / "tool").mkdir()
             (root / "lib/config").mkdir(parents=True)
             (root / "android/app/google-services.json").write_text("{}")
-            (root / "pubspec.yaml").write_text("version: 4.1.0+2026083007\n")
+            (root / "pubspec.yaml").write_text(f"version: 4.1.0+{MINIMUM_VERSION_CODE}\n")
             (root / candidate.POLICY_PATH).write_text(json.dumps(policy_template()))
             features = ("externalAiEnabled", "subscriptionsEnabled", "creditSpendingEnabled",
                         "cloudSyncEnabled", "cloudRestoreEnabled", "analyticsEnabled", "crashReportingEnabled")
@@ -138,20 +171,39 @@ class InternalPolicyTests(unittest.TestCase):
                 "\n".join(f"static const bool {feature} = false;" for feature in features))
             env = {"GITHUB_ACTIONS": "true", "GITHUB_SHA": tooling_sha, "CANDIDATE_SHA": source_sha,
                    "CANDIDATE_CI_RUN": "42", "GITHUB_REPOSITORY": "ghostheart5/fantastic-guacamole",
-                   "CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS": "a" * 64, "RUNNER_TEMP": folder,
-                   "CANDIDATE_POLICY_SHA256": policy_hash(assembled()),
+                   "CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS": "a" * 64,
+                   "CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST": "b" * 64,
+                   "RUNNER_TEMP": folder,
+                   "CANDIDATE_POLICY_SHA256": policy_hash(assemble_candidate_defines(
+                       {name: "synthetic-setting" for name in SETTINGS},
+                       json.dumps(policy_template()),
+                       merge_assistant_internal_cohort("a" * 64, "b" * 64))),
                    "ANDROID_GOOGLE_SERVICES_JSON_BASE64": "e30=",
                    **{name: "synthetic-setting" for name in SETTINGS},
                    **{name: "synthetic-signing-value" for name in
                       ("ANDROID_KEYSTORE_BASE64", "ANDROID_STORE_PASSWORD", "ANDROID_KEY_PASSWORD", "ANDROID_KEY_ALIAS")}}
             observed = []
+            billing_receipt = {
+                "verified": True, "licenseTestGuard": "v1",
+                "backendRepairGate": {
+                    "schemaVersion": 1, "internalAiCohortMatched": True,
+                    "obsoleteDebitDenied": True, "canonicalCreditAuthorityIntact": True,
+                    "deletionCapabilityGateway": True, "migrationVersion": "20260909065846",
+                },
+            }
             def fake_command(args, cwd, capture=False, env=None):
                 if args[:2] == ["gh", "api"]:
                     return json.dumps(ci)
                 if args == ["git", "rev-parse", "HEAD"]:
                     return source_sha if cwd == root.resolve() else tooling_sha
+                if args == ["node", "scripts/verify_internal_billing_backend.mjs"]:
+                    self.assertFalse((root / "android/app/upload-keystore.jks").exists())
+                    self.assertFalse((root / "android/key.properties").exists())
+                    return json.dumps(billing_receipt)
                 if args[0] == "dart":
                     path = Path(next(value[10:] for value in args if value.startswith("--defines=")))
+                    if os.name != "nt":
+                        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
                     observed.append(strict_json(path.read_text()))
                     self.assertFalse((root / "android/app/upload-keystore.jks").exists())
                     self.assertFalse((root / "android/key.properties").exists())
@@ -161,7 +213,20 @@ class InternalPolicyTests(unittest.TestCase):
             with patch.dict(os.environ, env, clear=True), patch.object(candidate, "command", side_effect=fake_command):
                 with self.assertRaisesRegex(RuntimeError, "preflight reached"):
                     build(root, Path(folder) / "bundletool.jar")
-            self.assertEqual(observed, [assembled()])
+            expected = assemble_candidate_defines({name: "synthetic-setting" for name in SETTINGS},
+                json.dumps(policy_template()), merge_assistant_internal_cohort("a" * 64, "b" * 64))
+            self.assertEqual(observed, [expected])
+            self.assertFalse((Path(folder) / "chronospark-candidate-defines.json").exists())
+            # The real build entrypoint must reject the older successful
+            # receipt before it can materialize a signing input or a define file.
+            del billing_receipt["backendRepairGate"]
+            with patch.dict(os.environ, {**env, "CANDIDATE_BILLING_TEST": "true"}, clear=True), \
+                 patch.object(candidate, "command", side_effect=fake_command):
+                with self.assertRaisesRegex(ValueError, "backend repair verification"):
+                    build(root, Path(folder) / "bundletool.jar")
+            self.assertEqual(observed, [expected])
+            self.assertFalse((root / "android/app/upload-keystore.jks").exists())
+            self.assertFalse((root / "android/key.properties").exists())
             self.assertFalse((Path(folder) / "chronospark-candidate-defines.json").exists())
 
 
@@ -223,6 +288,21 @@ class CandidateVerifierTests(unittest.TestCase):
 
     def test_manifest(self):
         self.assertEqual(manifest_identity(manifest(), ("4.1.0", "2026083003")), 36)
+
+    def test_all_candidate_profiles_reject_advertising_permissions(self):
+        permissions = ('com.google.android.gms.permission.AD_ID',
+                       'android.permission.ACCESS_ADSERVICES_AD_ID',
+                       'android.permission.ACCESS_ADSERVICES_ATTRIBUTION',
+                       'android.permission.ACCESS_ADSERVICES_TOPICS',
+                       'android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE')
+        for billing in (False, True):
+            for tag in ('uses-permission', 'uses-permission-sdk-23'):
+                for permission in permissions:
+                    xml = manifest(billing=billing).replace('</manifest>',
+                        f'<{tag} android:name="{permission}"/></manifest>')
+                    with self.subTest(billing=billing, tag=tag, permission=permission), \
+                            self.assertRaisesRegex(ValueError, 'No-ads policy'):
+                        manifest_identity(xml, ('4.1.0', '2026083003'), billing_test=billing)
 
     def test_bad_manifest_identity_rejected(self):
         for options in ({"package": "other.app"}, {"code": "1"},

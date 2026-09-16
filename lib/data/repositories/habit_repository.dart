@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
+
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
@@ -46,10 +48,14 @@ class HabitRepository implements IHabitRepository {
   @override
   Future<void> saveHabits(List<HabitEntity> habits) {
     _requireWritableScope();
-    return _storage.put(
-      _key,
-      jsonEncode(
-        habits.map((HabitEntity item) => item.toJson()).toList(growable: false),
+    return runAccountStorageMutation(
+      () => _storage.put(
+        _key,
+        jsonEncode(
+          habits
+              .map((HabitEntity item) => item.toJson())
+              .toList(growable: false),
+        ),
       ),
     );
   }
