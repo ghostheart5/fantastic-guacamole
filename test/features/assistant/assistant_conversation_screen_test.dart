@@ -134,7 +134,7 @@ void main() {
         );
     final context = packet.toJson()['context'] as Map;
     expect(
-      (context['goals'] as List).single['title'],
+      ((context['goals'] as List).single as Map)['title'],
       'Build an emergency fund',
     );
     expect(context['tasks'], isEmpty);
@@ -568,6 +568,9 @@ class _UnavailableTasks extends _Tasks {
   @override
   Future<List<TaskEntity>> getAllTasks() async {
     reads++;
-    throw failure;
+    final error = failure;
+    if (error is Error) throw error;
+    if (error is Exception) throw error;
+    throw StateError('Unsupported test failure');
   }
 }
