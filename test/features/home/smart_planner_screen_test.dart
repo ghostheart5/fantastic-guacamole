@@ -608,6 +608,43 @@ void main() {
     },
   );
 
+  testWidgets('unset local energy stays unset in semantics and guidance', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final container = _container();
+    addTearDown(container.dispose);
+    try {
+      await _pumpPlanner(tester, container);
+      final energy = find.byType(Slider);
+      await _scrollTo(tester, energy);
+      expect(
+        tester
+            .getSemantics(find.bySemanticsLabel('Current energy'))
+            .getSemanticsData()
+            .value,
+        'Not set',
+      );
+      expect(
+        find.textContaining('Energy and planning context are optional'),
+        findsOneWidget,
+      );
+      final guidance = find.text('GET GUIDANCE');
+      await _scrollTo(tester, guidance);
+      await tester.tap(guidance);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      final planner =
+          container.read(smartPlannerQueryControllerProvider)
+              as _PlannerV2TestController;
+      expect(planner.guidanceRequestCount, 1);
+      expect(planner.lastEnergy, isNull);
+      expect(planner.lastNotes, isEmpty);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('TalkBack semantics and 200 percent text remain usable', (
     WidgetTester tester,
   ) async {

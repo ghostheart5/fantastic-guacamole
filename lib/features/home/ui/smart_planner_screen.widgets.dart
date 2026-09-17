@@ -725,25 +725,26 @@ class _EnergySlider extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 6),
-        Semantics(
-          label: copy.currentEnergy,
-          value: value == null
-              ? copy.notSet
-              : copy.energyPercent((value! * 100).round()),
-          child: SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 3,
-              activeTrackColor: color,
-              inactiveTrackColor: const Color(0xFF526079),
-              thumbColor: color,
-              overlayColor: color.withValues(alpha: 0.2),
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-            ),
-            child: Slider(
-              value: value ?? 0.5,
-              onChanged: onChanged,
-              semanticFormatterCallback: (double sliderValue) =>
-                  copy.energyPercent((sliderValue * 100).round()),
+        MergeSemantics(
+          child: Semantics(
+            label: copy.currentEnergy,
+            child: SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 3,
+                activeTrackColor: color,
+                inactiveTrackColor: const Color(0xFF526079),
+                thumbColor: color,
+                overlayColor: color.withValues(alpha: 0.2),
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+              ),
+              child: Slider(
+                value: value ?? 0.5,
+                onChanged: onChanged,
+                semanticFormatterCallback: (double sliderValue) =>
+                    value == null && sliderValue == 0.5
+                    ? copy.notSet
+                    : copy.energyPercent((sliderValue * 100).round()),
+              ),
             ),
           ),
         ),

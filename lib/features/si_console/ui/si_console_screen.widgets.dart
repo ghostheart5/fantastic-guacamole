@@ -261,6 +261,11 @@ class _ConsoleWelcome extends StatelessWidget {
               height: 1.45,
             ),
           ),
+          const SizedBox(height: 8),
+          Text(
+            copy.localProcessingBoundary,
+            style: const TextStyle(color: Colors.white70, height: 1.45),
+          ),
           const SizedBox(height: 14),
           Wrap(
             spacing: 8,

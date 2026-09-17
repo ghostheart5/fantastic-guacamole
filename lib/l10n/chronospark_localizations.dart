@@ -831,6 +831,9 @@ final class PlannerRoutineCopy {
       isSpanish ? 'Contexto de planificación' : 'Planning context';
   String get currentCheckInSection =>
       isSpanish ? 'REGISTRO ACTUAL' : 'CURRENT CHECK-IN';
+  String get optionalPlanningInputs => isSpanish
+      ? 'La energía y el contexto son opcionales. Si los dejas en blanco, la orientación usará el contexto guardado disponible.'
+      : 'Energy and planning context are optional. Leave them blank to use the available saved context.';
   String get emotionalStateSection =>
       isSpanish ? 'ESTADO EMOCIONAL' : 'EMOTIONAL STATE';
   String get planningContextSection =>
@@ -925,6 +928,9 @@ final class SIRoutineCopy {
   String get welcomeReady => isSpanish
       ? 'Pregunta por tareas, objetivos, hitos o la Línea de Tiempo actuales. SI lee evidencia y no puede cambiar los datos guardados.'
       : 'Ask about current tasks, goals, milestones, or Timeline. SI reads evidence and cannot change saved data.';
+  String get localProcessingBoundary => isSpanish
+      ? 'Este modo usa reglas locales: no envía preguntas a una IA externa ni gasta créditos de IA. Las herramientas de voz requieren un consentimiento aparte.'
+      : 'This mode uses local rules: it does not send questions to external AI or spend AI credits. Voice tools require separate consent.';
   List<String> welcomeExamples({required bool noEvidence}) => isSpanish
       ? noEvidence
             ? const <String>['¿Qué evidencia falta?', '¿Qué puedes determinar?']
