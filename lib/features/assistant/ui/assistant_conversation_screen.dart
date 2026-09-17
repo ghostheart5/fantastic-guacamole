@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:fantastic_guacamole/features/assistant/ui/assistant_response_body.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
@@ -47,6 +48,7 @@ class _AssistantConversationScreenState
   BuildContext? _dialogContext;
   double? _energy;
   String? _attachedTaskId;
+  bool _attachedTaskOnly = true;
   SIV2Intent _intent = SIV2Intent.answer;
   SIV2TimeRange _range = SIV2TimeRange.all;
   Set<SIV2Source> _sources = SIV2Source.values.toSet();
@@ -174,6 +176,7 @@ class _AssistantConversationScreenState
               scenario: _scenario.text.trim(),
               reportedEnergy: _energy,
               selectedTaskId: _attachedTaskId,
+              attachedTaskOnly: _attachedTaskOnly,
             );
         if (!current()) return;
         final proceed = await _confirm(
@@ -400,6 +403,11 @@ class _AssistantConversationScreenState
   String _contextPreview(ConversationPacket packet) {
     final data = Map<String, dynamic>.from(packet.toJson()['context'] as Map);
     final lines = <String>[
+      if (data['contextScope'] == 'attachedTaskOnly')
+        copy(
+          'Context: attached task only. Other records and emotional state are excluded.',
+          'Contexto: solo la tarea adjunta. Se excluyen otros registros y el estado emocional.',
+        ),
       copy(
         'Selected analysis: ${_intentLabel(_intent)}',
         'Análisis seleccionado: ${_intentLabel(_intent)}',
@@ -496,6 +504,7 @@ class _AssistantConversationScreenState
           _filter.clear();
           _scenario.clear();
           _attachedTaskId = null;
+          _attachedTaskOnly = true;
           _energy = null;
           _intent = SIV2Intent.answer;
           _range = SIV2TimeRange.all;
@@ -593,10 +602,34 @@ class _AssistantConversationScreenState
                         ),
                       ],
                       onChanged: enabled
-                          ? (value) => setState(
-                              () =>
-                                  _attachedTaskId = value == '' ? null : value,
-                            )
+                          ? (value) => setState(() {
+                              _attachedTaskId = value == '' ? null : value;
+                              _attachedTaskOnly = true;
+                              _history.clear();
+                              _pending = null;
+                            })
+                          : null,
+                    ),
+                  if (planner && _attachedTaskId != null)
+                    SwitchListTile(
+                      key: const Key('conversation-task-only'),
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        copy('Only attached task', 'Solo la tarea adjunta'),
+                      ),
+                      subtitle: Text(
+                        copy(
+                          'Turn off to review broader app context. Changing this starts a new conversation.',
+                          'Desactiva para revisar más contexto de la app. Cambiar esto inicia una conversación nueva.',
+                        ),
+                      ),
+                      value: _attachedTaskOnly,
+                      onChanged: enabled
+                          ? (value) => setState(() {
+                              _attachedTaskOnly = value;
+                              _history.clear();
+                              _pending = null;
+                            })
                           : null,
                     ),
                   if (planner)
@@ -753,7 +786,10 @@ class _AssistantConversationScreenState
                               style: const TextStyle(color: Colors.cyanAccent),
                             ),
                             const SizedBox(height: 8),
-                            SelectableText(turn['content']!),
+                            if (turn['role'] == 'assistant')
+                              AssistantResponseBody(text: turn['content']!)
+                            else
+                              SelectableText(turn['content']!),
                             if (turn['role'] == 'assistant')
                               TextButton.icon(
                                 onPressed: _busy

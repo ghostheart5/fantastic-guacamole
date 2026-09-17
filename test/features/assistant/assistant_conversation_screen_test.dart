@@ -101,6 +101,62 @@ ProviderContainer setup(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'attached-task-only packet excludes unrelated goals, notes and emotion',
+    () async {
+      final container = setup(
+        (_) async => throw StateError('No transport should run'),
+        readGateway: SIV2ReadGateway(
+          accountScopeId: scope.v2Namespace!,
+          readTasks: () async => records,
+          readGoals: () async => [
+            GoalEntity(
+              id: 'private',
+              title: 'Private personal goal',
+              createdAt: DateTime(2026, 9, 17),
+            ),
+          ],
+          readMilestones: () async => [],
+          readTimeline: () async => [],
+        ),
+        humanContext: const ConsentedHumanContext(
+          emotionAllowed: true,
+          memoryAllowed: false,
+          emotion: EmotionalState.fatigued,
+          siState: SIState(),
+        ),
+      );
+      addTearDown(container.dispose);
+      for (final restricted in [true, false]) {
+        final packet = await container
+            .read(conversationPacketFactoryProvider)
+            .build(
+              surface: ConversationSurface.planner,
+              prompt: 'What time should I go to the store?',
+              history: [],
+              languageCode: 'en',
+              selectedTaskId: 'grocery',
+              attachedTaskOnly: restricted,
+            );
+        final context = packet.toJson()['context'] as Map;
+        if (restricted) {
+          expect((context['tasks'] as List).map((e) => (e as Map)['id']), [
+            'grocery',
+          ]);
+          for (final source in ['goals', 'milestones', 'timeline']) {
+            expect(context[source], isEmpty);
+          }
+          expect(context.containsKey('explicitlyAttachedNote'), isFalse);
+          expect(context.containsKey('reportedEmotion'), isFalse);
+          expect(context['contextScope'], 'attachedTaskOnly');
+        } else {
+          expect(context['goals'], isNotEmpty);
+          expect(context['explicitlyAttachedNote'], isNotNull);
+          expect(context['reportedEmotion'], 'fatigued');
+        }
+      }
+    },
+  );
   test('SI goals remain usable when deselected task storage fails', () async {
     final repository = _UnavailableTasks(
       StateError('Task storage unavailable'),
@@ -330,6 +386,20 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        if (surface == ConversationSurface.planner) {
+          await tester.tap(find.byType(DropdownButtonFormField<String>));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Grocery list').last);
+          await tester.pumpAndSettle();
+          expect(
+            tester
+                .widget<SwitchListTile>(
+                  find.byKey(const Key('conversation-task-only')),
+                )
+                .value,
+            isTrue,
+          );
+        }
         await tester.enterText(
           find.byKey(const Key('conversation-input')),
           'What time should I go to the store?',
@@ -344,6 +414,12 @@ void main() {
         await tester.tap(find.text('Get credit price'));
         await waitFor(tester, find.text('Use 4 credits'));
         expect(sent, hasLength(1));
+        if (surface == ConversationSurface.planner) {
+          final outgoing = sent.single['context'] as Map;
+          expect(outgoing['contextScope'], 'attachedTaskOnly');
+          expect(outgoing['tasks'], hasLength(1));
+          expect(outgoing.containsKey('explicitlyAttachedNote'), isFalse);
+        }
         await tester.tap(find.text('Use 4 credits'));
         await tester.pumpAndSettle();
         expect(sent, hasLength(2));
@@ -379,6 +455,18 @@ void main() {
           hasLength(3),
           reason: 'Canceling a price must not execute a paid request.',
         );
+        if (surface == ConversationSurface.planner) {
+          final contextSwitch = find.byKey(const Key('conversation-task-only'));
+          await tester.ensureVisible(contextSwitch);
+          await tester.tap(contextSwitch);
+          await tester.pumpAndSettle();
+          expect(
+            find.text('What time window are you free to go shopping?'),
+            findsNothing,
+            reason:
+                'Changing context cannot carry old private conversation into a new scope.',
+          );
+        }
         expect(tester.takeException(), isNull);
       },
     );
