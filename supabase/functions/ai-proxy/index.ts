@@ -291,6 +291,16 @@ Deno.serve(async (req: Request) => {
       return jsonResponse(req, { requestId, error: "upstream_ai_error" }, 502);
     }
     const data = await upstream.json();
+    if (data?.stop_reason === "max_tokens") {
+      await settleReservation(userId, requestId, false, {
+        failureCode: "truncated_provider_output",
+      });
+      reservation = null;
+      return jsonResponse(req, {
+        requestId,
+        error: "truncated_upstream_response",
+      }, 502);
+    }
     const message = typeof data?.content?.[0]?.text === "string"
       ? data.content[0].text.trim()
       : "";

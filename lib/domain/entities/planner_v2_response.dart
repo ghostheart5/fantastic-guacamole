@@ -153,6 +153,7 @@ final class PlannerV2Response {
     this.languageCode = 'en',
     this.userContext,
     this.disposition = PlannerResponseDisposition.guidance,
+    this.conversationReply,
     List<PlannerActionControl> controls = PlannerActionControl.values,
   }) : verifiedEvidence = List<String>.unmodifiable(verifiedEvidence),
        options = List<PlannerOption>.unmodifiable(options),
@@ -173,6 +174,9 @@ final class PlannerV2Response {
   final String languageCode;
   final PlannerUserContext? userContext;
   final PlannerResponseDisposition disposition;
+
+  /// A direct answer to a follow-up, separate from the retained plan actions.
+  final String? conversationReply;
   final List<PlannerActionControl> controls;
 
   bool get isClarification =>
@@ -203,6 +207,8 @@ final class PlannerV2Response {
     PlannerResponseOrigin? origin,
     String? languageCode,
     PlannerUserContext? userContext,
+    String? conversationReply,
+    bool clearConversationReply = false,
     PlannerResponseDisposition? disposition,
     List<PlannerActionControl>? controls,
   }) => PlannerV2Response(
@@ -220,6 +226,9 @@ final class PlannerV2Response {
     origin: origin ?? this.origin,
     languageCode: languageCode ?? this.languageCode,
     userContext: userContext ?? this.userContext,
+    conversationReply: clearConversationReply
+        ? null
+        : conversationReply ?? this.conversationReply,
     disposition: disposition ?? this.disposition,
     controls: controls ?? this.controls,
   );
@@ -261,6 +270,7 @@ final class PlannerV2Response {
       recommendedKind: kind,
       recommendationReason: why,
       nextStep: option.description,
+      clearConversationReply: true,
     );
   }
 
@@ -285,6 +295,9 @@ final class PlannerV2Response {
 
   /// The visible conversation answers the person without replaying every option.
   String toConversationText() {
+    if (conversationReply?.trim().isNotEmpty ?? false) {
+      return conversationReply!.trim();
+    }
     final List<String> paragraphs = <String>[whatIHeard.trim()];
     if (!isClarification) {
       paragraphs.add(
@@ -302,6 +315,9 @@ final class PlannerV2Response {
 
   /// Summary speech uses only the current action, duration and reason.
   String toSpokenSummary() {
+    if (conversationReply?.trim().isNotEmpty ?? false) {
+      return conversationReply!.trim();
+    }
     if (isClarification) return toConversationText();
     return <String>[
       nextStep.trim(),

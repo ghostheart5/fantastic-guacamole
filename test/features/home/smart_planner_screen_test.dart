@@ -1,4 +1,6 @@
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
+import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'dart:async';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
@@ -32,6 +34,40 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
+  testWidgets(
+    'private AI route receives staged question without running local guidance',
+    (tester) async {
+      final account = AccountStorageScope.authenticated('planner-test-account');
+      final container = _container(
+        conversationAvailable: true,
+        accountScope: account,
+      );
+      addTearDown(container.dispose);
+      container
+          .read(smartPlannerFirstValueProvider.notifier)
+          .stage(
+            SmartPlannerFirstValueRequest(
+              accountScopeId: account.v2Namespace!,
+              prompt: 'What time should I go to the store?',
+              energy: 0.35,
+              createdAt: DateTime.now(),
+            ),
+          );
+      await _pumpPlanner(tester, container);
+      expect(find.text('AI conversation · uses credits'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('conversation-input')))
+            .controller!
+            .text,
+        'What time should I go to the store?',
+      );
+      await tester.tap(find.text('Energy for this request'));
+      await tester.pumpAndSettle();
+      expect(find.text('35%'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets(
     'planner shows partial dictation before completion and keeps Send disabled',
     (tester) async {
@@ -1479,6 +1515,7 @@ ProviderContainer _container({
   SmartPlannerQueryController Function(Ref)? plannerBuilder,
   PlannerExplanationPort? explanationPort,
   bool plannerAvailable = true,
+  bool conversationAvailable = false,
   bool firstUseContextOfferSeen = true,
   SharedPrefsStore? sharedPrefsStore,
   PersonContextRepository? personContextRepository,
@@ -1493,6 +1530,20 @@ ProviderContainer _container({
   }
   return ProviderContainer(
     overrides: [
+      assistantConversationAvailableProvider.overrideWithValue(
+        conversationAvailable,
+      ),
+      if (conversationAvailable)
+        siV2EvidenceSnapshotProvider.overrideWith(
+          (ref) async => SIV2EvidenceSnapshot(
+            accountScopeId: resolvedScope.v2Namespace!,
+            observedAt: DateTime.now(),
+            tasks: [],
+            goals: [],
+            milestones: [],
+            timeline: [],
+          ),
+        ),
       if (voiceController != null)
         voiceInputEnabledProvider.overrideWithValue(true),
       if (voiceController != null)

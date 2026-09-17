@@ -7,8 +7,14 @@ final class SIV2Engine {
   /// Record lists and unsupported questions must retain their own response
   /// instead of receiving the Home decision's unrelated recommendation.
   bool allowsSharedDecisionFor(SIV2Query query) =>
-      !query.requestsListing &&
-      _SIV2Question.parse(query).focus != _SIV2QuestionFocus.unsupported;
+      query.intent == SIV2Intent.answer &&
+      query.entityFilter == null &&
+      query.assumptions.isEmpty &&
+      query.priorUserTurns.isEmpty &&
+      RegExp(
+        r'^(?:what should i do next|what needs attention|qu[eé] deber[ií]a hacer despu[eé]s|qu[eé] necesita atenci[oó]n)[?!.¿¡ ]*$',
+        caseSensitive: false,
+      ).hasMatch(query.rawText);
 
   SIV2Response analyze({
     required SIV2Query query,
@@ -504,7 +510,20 @@ final class SIV2Engine {
     final int totalMatched =
         matchedTasks + matchedGoals + matchedMilestones + matchedTimeline;
     final String directAnswer;
-    if (totalMatched == 0) {
+    if (question.requestsListing) {
+      final titles = entityLinks
+          .where(
+            (link) =>
+                question.sourceHint == null ||
+                link.source == question.sourceHint,
+          )
+          .map((link) => link.label)
+          .toList();
+      directAnswer = titles.isEmpty
+          ? 'No hay registros guardados que coincidan con este filtro.'
+          : '${titles.length} registros guardados coinciden:\n${titles.take(20).map((title) => '• $title').join('\n')}'
+                '${titles.length > 20 ? '\nSe muestran los primeros 20; reduce el filtro para ver el resto.' : ''}';
+    } else if (totalMatched == 0) {
       directAnswer = question.focus == _SIV2QuestionFocus.unsupported
           ? 'No puedo responder esa pregunta con las tareas, metas, hitos o eventos guardados. Puedo ayudarte con qué necesita atención, qué hacer después, el progreso, las fechas o los conflictos.'
           : 'Ningún dato guardado coincide con las fuentes, fechas y filtros seleccionados, así que no puedo responder esta pregunta con evidencia de la app.';
@@ -1621,6 +1640,7 @@ final class _SIV2Question {
     required this.hasPriorContext,
     required this.requestsListing,
     required this.namedTaskPhrase,
+    required this.scenarioAssumptions,
   });
 
   factory _SIV2Question.parse(SIV2Query query) {
@@ -1643,6 +1663,7 @@ final class _SIV2Question {
       hasPriorContext: query.usesPriorDecisionContext,
       requestsListing: query.requestsListing,
       namedTaskPhrase: namedTaskPhrase,
+      scenarioAssumptions: query.assumptions.join(' '),
     );
   }
 
@@ -1654,6 +1675,7 @@ final class _SIV2Question {
   final bool hasPriorContext;
   final bool requestsListing;
   final String? namedTaskPhrase;
+  final String scenarioAssumptions;
 
   bool matchesNamedTask(String title) {
     final phrase = namedTaskPhrase;
@@ -1685,9 +1707,14 @@ final class _SIV2Question {
       normalizedInput.contains('mayor prioridad');
 
   int get deferDays {
-    final match = RegExp(
-      r'\b(\d+)\s*(?:day|days|dia|dias)\b',
-    ).firstMatch(normalizedInput);
+    final match =
+        RegExp(
+          r'\b(\d+)\s*(?:day|days|dia|dias)\b',
+        ).firstMatch(normalizedInput) ??
+        RegExp(
+          r'\b(?:defer|delay|postpone|posponer|pospongo|retrasar|retraso)\b[^.!?]*?\b(\d+)\s*(?:days?|d[ií]as?)\b',
+          caseSensitive: false,
+        ).firstMatch(scenarioAssumptions);
     return int.tryParse(match?.group(1) ?? '')?.clamp(1, 365) ?? 1;
   }
 

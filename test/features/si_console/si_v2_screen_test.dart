@@ -28,6 +28,77 @@ void main() {
     timeline: const <SIV2TimelineEvidence>[],
   );
 
+  testWidgets(
+    'Advanced fields survive the phone keyboard and submit their values',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final port = _RecordingPort(snapshot: snapshot, now: now);
+      final container = ProviderContainer(
+        overrides: [
+          siV2AvailabilityProvider.overrideWith((ref) async => true),
+          siV2QueryServiceProvider.overrideWithValue(port),
+          siV2EvidenceSnapshotProvider.overrideWith((ref) async => snapshot),
+          voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+        ],
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      Future<void> mount(double keyboardHeight) async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: MediaQuery(
+                data: MediaQueryData(
+                  size: const Size(412, 915),
+                  viewInsets: EdgeInsets.only(bottom: keyboardHeight),
+                ),
+                child: const SIConsoleScreen(),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+
+      await mount(0);
+      await tester.tap(find.byKey(const Key('si-v2-advanced')));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.ensureVisible(find.byKey(const Key('si-v2-entity-filter')));
+      await tester.enterText(
+        find.byKey(const Key('si-v2-entity-filter')),
+        'Prepare release',
+      );
+      await mount(300);
+      expect(
+        find.byKey(const Key('si-v2-entity-filter')),
+        findsOneWidget,
+        reason: 'Opening the keyboard must not unmount the field being edited.',
+      );
+      await tester.ensureVisible(find.byKey(const Key('si-v2-assumption')));
+      await tester.enterText(
+        find.byKey(const Key('si-v2-assumption')),
+        'Defer it for 7 days.',
+      );
+      await tester.ensureVisible(find.byKey(const Key('si-query-input')));
+      await tester.enterText(
+        find.byKey(const Key('si-query-input')),
+        'What happens if I defer it?',
+      );
+      await tester.ensureVisible(find.bySemanticsLabel('Send SI query'));
+      await tester.tap(find.bySemanticsLabel('Send SI query'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(port.lastQuery?.entityFilter, 'Prepare release');
+      expect(port.lastQuery?.assumptions, ['Defer it for 7 days.']);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('a stalled query unlocks input and ignores a late answer', (
     tester,
   ) async {
