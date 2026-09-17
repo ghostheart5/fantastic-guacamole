@@ -110,7 +110,12 @@ final class ConversationPacketFactory {
     String scenario = '',
     double? reportedEnergy,
     String? selectedTaskId,
+    bool attachedTaskOnly = false,
   }) async {
+    final taskOnly =
+        surface == ConversationSurface.planner &&
+        selectedTaskId != null &&
+        attachedTaskOnly;
     final scope = ref.read(accountStorageScopeProvider).v2Namespace;
     final generation = ref.read(authSessionBoundaryProvider).generation;
     if (scope == null ||
@@ -134,7 +139,7 @@ final class ConversationPacketFactory {
     final snapshot = await ref
         .read(siV2ReadGatewayProvider)
         .read(observedAt: now.toUtc(), decisionText: prompt);
-    final note = surface == ConversationSurface.planner
+    final note = surface == ConversationSurface.planner && !taskOnly
         ? await ref.read(selectedPlanningNoteProvider.future)
         : null;
     if (!ref.mounted ||
@@ -161,7 +166,10 @@ final class ConversationPacketFactory {
     );
     final ids = local.evidenceLinks.map((link) => link.evidenceId).toSet();
     final tasks = snapshot.tasks
-        .where((t) => ids.contains('tasks:${t.id}'))
+        .where(
+          (t) =>
+              taskOnly ? t.id == selectedTaskId : ids.contains('tasks:${t.id}'),
+        )
         .toList();
     // Descriptions are optional enrichment. An unavailable task repository must
     // not prevent a question about other sources or discard existing evidence.
@@ -197,13 +205,13 @@ final class ConversationPacketFactory {
         : topic.where((term) => task.title.toLowerCase().contains(term)).length;
     tasks.sort((a, b) => relevance(b).compareTo(relevance(a)));
     final goals = snapshot.goals
-        .where((g) => ids.contains('goals:${g.id}'))
+        .where((g) => !taskOnly && ids.contains('goals:${g.id}'))
         .toList();
     final milestones = snapshot.milestones
-        .where((m) => ids.contains('milestones:${m.id}'))
+        .where((m) => !taskOnly && ids.contains('milestones:${m.id}'))
         .toList();
     final timeline = snapshot.timeline
-        .where((t) => ids.contains('timeline:${t.id}'))
+        .where((t) => !taskOnly && ids.contains('timeline:${t.id}'))
         .toList();
     String bounded(String text, int limit) =>
         text.length > limit ? '${text.substring(0, limit)} [truncated]' : text;
@@ -222,6 +230,7 @@ final class ConversationPacketFactory {
         'entityFilter': entityFilter,
         'scenarioAssumption': scenario,
         'evidenceRevision': snapshot.revision,
+        if (taskOnly) 'contextScope': 'attachedTaskOnly',
         if (taskDetailsUnavailable) 'taskDetailsUnavailable': true,
         'explicitlyAttachedTaskId': ?attachedId,
         'tasks': tasks
@@ -291,6 +300,7 @@ final class ConversationPacketFactory {
           timeline.length,
         ].fold<int>(0, (sum, size) => sum + (size > 12 ? size - 12 : 0)),
         'unavailableSources': snapshot.unavailableSources
+            .where((source) => !taskOnly || source == SIV2Source.tasks)
             .map((source) => source.name)
             .toList(),
         if (note != null) 'selectedNoteId': note.id,
@@ -304,6 +314,7 @@ final class ConversationPacketFactory {
         if (surface == ConversationSurface.planner)
           'reportedEnergy': human.authorizeReportedEnergy(reportedEnergy),
         if (surface == ConversationSurface.planner &&
+            !taskOnly &&
             human.emotionAllowed &&
             human.emotion != null)
           'reportedEmotion': human.emotion!.name,
