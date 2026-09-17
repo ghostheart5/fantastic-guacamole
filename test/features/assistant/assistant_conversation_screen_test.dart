@@ -23,6 +23,7 @@ import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart'
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -101,6 +102,70 @@ ProviderContainer setup(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  for (final surface in ConversationSurface.values) {
+    for (final scale in [1.0, 1.6]) {
+      testWidgets('expanded $surface floating label is not clipped at $scale', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final container = setup((_) async => throw StateError('No AI request'));
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        final planner = surface == ConversationSurface.planner;
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: ThemeData.dark().copyWith(
+                inputDecorationTheme: const InputDecorationTheme(
+                  border: OutlineInputBorder(),
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                ),
+              ),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
+              home: AssistantConversationScreen(
+                surface: surface,
+                onLocalTools: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.text(planner ? 'Energy for this request' : 'Advanced analysis'),
+        );
+        await tester.pumpAndSettle();
+        final label = tester.renderObject<RenderBox>(
+          find.text(planner ? 'Energy (optional)' : 'Analysis mode'),
+        );
+        var checkedClips = 0;
+        RenderObject? ancestor = label.parent;
+        while (ancestor != null) {
+          if (ancestor is RenderClipRect &&
+              ancestor.clipBehavior != Clip.none) {
+            final top = label.localToGlobal(Offset.zero, ancestor: ancestor).dy;
+            expect(
+              top,
+              greaterThanOrEqualTo(0),
+              reason: 'Floating label must stay inside every clipping ancestor',
+            );
+            checkedClips++;
+          }
+          ancestor = ancestor.parent;
+        }
+        expect(checkedClips, greaterThan(0));
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
   test(
     'attached-task-only packet excludes unrelated goals, notes and emotion',
     () async {
