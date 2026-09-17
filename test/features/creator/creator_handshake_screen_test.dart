@@ -287,6 +287,7 @@ void main() {
     expect(repository.saveCalls, 1);
     expect(find.text('CREATION SAVED'), findsOneWidget);
     expect(repository.tasks.values.single.goalId, 'internal-goal-identity');
+    expect(find.text('Task: Ship one verified change'), findsOneWidget);
     expect(find.textContaining('Confirmation:'), findsNothing);
     expect(find.textContaining('Result version:'), findsNothing);
     expect(find.textContaining('Saved exactly once'), findsOneWidget);
@@ -314,6 +315,7 @@ void main() {
 
     expect(repository.deleteCalls, 1);
     expect(find.text('CREATION UNDONE'), findsOneWidget);
+    expect(find.text('Task: Ship one verified change'), findsOneWidget);
     container.read(creatorHandshakeProvider.notifier).clearResult();
     await container
         .read(creatorHandshakeProvider.notifier)

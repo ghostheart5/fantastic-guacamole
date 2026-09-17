@@ -738,6 +738,18 @@ class _CreatorHandshakeResultCard extends StatelessWidget {
               height: 1.5,
             ),
           ),
+          for (final operation
+              in state.preview?.operations ??
+                  const <CreatorMutationOperation>[])
+            if (receipt.appliedOperationIds.contains(operation.operationId))
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '${copy.kind(operation.mutation.entityKind.name)}: ${operation.mutation.title}',
+                  key: ValueKey('creator-saved-item-${operation.operationId}'),
+                  style: const TextStyle(color: Colors.white, height: 1.5),
+                ),
+              ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
