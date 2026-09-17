@@ -34,6 +34,7 @@ import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'smart_planner_query_controller.support.dart';
+part 'smart_planner_query_controller.follow_up.dart';
 part 'smart_planner_query_controller.intent.dart';
 part 'smart_planner_query_controller.person_context.dart';
 
@@ -565,6 +566,14 @@ class SmartPlannerQueryController
     final EmotionalSafetyAssessment emotionalSafety =
         EmotionalSafetyPolicy.assess(conversation.searchText);
     final bool supportivePause = emotionalSafety.requiresSupportivePause;
+    if (!supportivePause) {
+      final followUp = _answerDisplayedPlanFollowUp(
+        input: input,
+        snapshot: currentPlan,
+        conversation: conversation,
+      );
+      if (followUp != null) return followUp;
+    }
     final List<String> adaptations = <String>[
       if (recoveryOnly)
         copy(
@@ -733,15 +742,6 @@ class SmartPlannerQueryController
         languageCode: intent.languageCode,
         userContext: conversation.userContext,
       );
-    }
-
-    if (currentPlan != null &&
-        !currentPlan.currentPlan.isClarification &&
-        RegExp(
-          r'^(?:why(?: this(?: one| plan)?)?|por qu[eé](?: este(?: plan)?)?)[?!. ]*$',
-          caseSensitive: false,
-        ).hasMatch(input.trim())) {
-      return currentPlan.currentPlan.copyWith(clearUsefulQuestion: true);
     }
 
     if (currentPlan?.adjustments.lastOrNull?.kind ==

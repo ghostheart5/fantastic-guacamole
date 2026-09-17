@@ -1,6 +1,9 @@
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'dart:async';
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/errors/public_failure.dart';
@@ -48,6 +51,7 @@ class SmartPlannerScreen extends ConsumerStatefulWidget {
 }
 
 class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
+  bool _useLocalTools = false;
   double? _energy;
   int _checkInRevision = 0;
   EmotionalState? get _emotion => ref.read(currentPlannerEmotionProvider);
@@ -111,6 +115,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   }
 
   void _consumeFirstValueRequest() {
+    if (!_useLocalTools && ref.read(assistantConversationAvailableProvider)) {
+      return; // The conversation screen reviews this request before sending.
+    }
     final String accountScopeId =
         ref.read(accountStorageScopeProvider).v2Namespace ?? '';
     final SmartPlannerFirstValueRequest? request = ref
@@ -1217,6 +1224,12 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_useLocalTools && ref.watch(assistantConversationAvailableProvider)) {
+      return AssistantConversationScreen(
+        surface: ConversationSurface.planner,
+        onLocalTools: () => setState(() => _useLocalTools = true),
+      );
+    }
     final PlannerRoutineCopy routine = ChronoSparkLocalizations.of(
       context,
     ).plannerRoutine;

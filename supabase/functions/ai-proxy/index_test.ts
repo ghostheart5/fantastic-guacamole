@@ -52,6 +52,7 @@ for (
     "timeout",
     "json",
     "empty",
+    "truncated",
   ] as const
 ) {
   Deno.test(`AI handler refunds once after provider ${failure} and refuses duplicate debit`, async () => {
@@ -116,6 +117,14 @@ for (
         }
         if (failure === "empty") {
           return Promise.resolve(json({ content: [] }));
+        }
+        if (failure === "truncated") {
+          return Promise.resolve(
+            json({
+              stop_reason: "max_tokens",
+              content: [{ text: "An unfinished recommendation" }],
+            }),
+          );
         }
         return Promise.resolve(
           new Response("do-not-expose-provider-body", { status: failure }),

@@ -44,6 +44,7 @@ void main() {
     ],
     'lib/state/controllers/smart_planner_query_controller.dart': <String>[
       'smart_planner_query_controller.support.dart',
+      'smart_planner_query_controller.follow_up.dart',
       'smart_planner_query_controller.person_context.dart',
     ],
     'lib/features/timeline/ui/timeline_screen.dart': <String>[

@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'dart:async';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
@@ -18,6 +19,18 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 void main() {
   final DateTime now = DateTime.utc(2026, 8, 20, 12);
   final SIV2EvidenceSnapshot snapshot = _snapshot(now);
+
+  testWidgets('private SI route displays the conversation entry', (
+    tester,
+  ) async {
+    final port = _RecordingPort(snapshot: snapshot, now: now);
+    final container = _container(port, snapshot, conversationAvailable: true);
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+    expect(find.text('AI conversation · uses credits'), findsOneWidget);
+    expect(find.text('Advanced analysis'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('voice failure displays localized safe feedback', (tester) async {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
@@ -650,10 +663,14 @@ ProviderContainer _container(
   SIV2QueryPort port,
   SIV2EvidenceSnapshot snapshot, {
   bool available = true,
+  bool conversationAvailable = false,
   VoiceController? voiceController,
 }) {
   return ProviderContainer(
     overrides: [
+      assistantConversationAvailableProvider.overrideWithValue(
+        conversationAvailable,
+      ),
       if (voiceController != null)
         voiceInputEnabledProvider.overrideWithValue(true),
       if (voiceController != null)

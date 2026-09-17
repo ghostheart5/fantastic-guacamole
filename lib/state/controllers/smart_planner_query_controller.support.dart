@@ -221,6 +221,7 @@ bool _optsIntoSavedContext(String input) =>
     !_negatedPlannerClause(input);
 
 bool _continuesPlannerObjective(String input) {
+  if (_plannerFollowUpKind(input) != null) return true;
   // A named new action wins over a loose pronoun such as "this evening".
   if (_extractPlannerAction(input) != null ||
       RegExp(

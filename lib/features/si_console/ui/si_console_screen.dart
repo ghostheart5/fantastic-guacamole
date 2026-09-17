@@ -1,6 +1,9 @@
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'dart:async';
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
@@ -101,6 +104,7 @@ class SIConsoleScreen extends ConsumerStatefulWidget {
 
 class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  bool _useLocalTools = false;
   final List<_Msg> _messages = [];
   final TextEditingController _input = TextEditingController();
   final TextEditingController _entityFilter = TextEditingController();
@@ -735,6 +739,12 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (!_useLocalTools && ref.watch(assistantConversationAvailableProvider)) {
+      return AssistantConversationScreen(
+        surface: ConversationSurface.si,
+        onLocalTools: () => setState(() => _useLocalTools = true),
+      );
+    }
     final SIRoutineCopy routine = ChronoSparkLocalizations.of(
       context,
     ).siRoutine;

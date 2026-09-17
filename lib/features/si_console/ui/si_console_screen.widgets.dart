@@ -1005,7 +1005,9 @@ class _InputBar extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (!effectiveCompact) ...[
+                // Keep the same subtree mounted while the keyboard is open.
+                // Removing it here disposes the focused Advanced text field.
+                ...[
                   Material(
                     color: Colors.transparent,
                     child: ExpansionTile(

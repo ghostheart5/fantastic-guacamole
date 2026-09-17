@@ -192,10 +192,16 @@ final class SIV2Query {
   String get decisionContextText =>
       usesPriorDecisionContext ? conversationText : rawText;
 
-  bool get requestsListing => RegExp(
-    r'^(?:(?:list|show|what are)\s+(?:all\s+)?(?:my\s+)?(?:active\s+|saved\s+|current\s+)?(?:goals|tasks|milestones)|what\s+(?:active\s+|saved\s+|current\s+)?(?:goals|tasks|milestones)\s+do i have|(?:lista|muestra)\s+(?:todas?\s+)?(?:mis\s+)?(?:metas|tareas|hitos)|que\s+(?:metas|tareas|hitos)\s+tengo|qué\s+(?:metas|tareas|hitos)\s+tengo)\s*[?!.¿¡]*$',
-    caseSensitive: false,
-  ).hasMatch(rawText);
+  bool get requestsListing =>
+      intent == SIV2Intent.answer &&
+      (RegExp(
+            r'^(?:my |mis )?(?:tasks|goals|milestones|tareas|metas|hitos)\s*[?!.¿¡]*$',
+            caseSensitive: false,
+          ).hasMatch(rawText) ||
+          RegExp(
+            r'^(?:(?:list|show|what are)\s+(?:all\s+)?(?:my\s+)?(?:active\s+|saved\s+|current\s+)?(?:goals|tasks|milestones)|what\s+(?:active\s+|saved\s+|current\s+)?(?:goals|tasks|milestones)\s+do i have|(?:lista|muestra)\s+(?:todas?\s+)?(?:mis\s+)?(?:metas|tareas|hitos)|que\s+(?:metas|tareas|hitos)\s+tengo|qué\s+(?:metas|tareas|hitos)\s+tengo)\s*[?!.¿¡]*$',
+            caseSensitive: false,
+          ).hasMatch(rawText));
 }
 
 final class SIV2TaskEvidence {

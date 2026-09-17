@@ -7,6 +7,71 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final DateTime now = DateTime.utc(2026, 8, 20, 12);
 
+  test(
+    'bare tasks is a usable record request, not an unsupported question',
+    () {
+      for (final text in ['tasks', 'my tasks', 'tareas', 'mis tareas']) {
+        final result = const SIV2Engine().analyze(
+          query: SIV2Query.fromUserInput(
+            rawText: text,
+            selectedIntent: SIV2Intent.answer,
+            selectedSources: SIV2Source.values.toSet(),
+            timeRange: SIV2TimeRange.all,
+          ),
+          snapshot: _snapshot(now),
+          now: now,
+        );
+        expect(result.query.requestsListing, isTrue);
+        expect(result.directAnswer, isNot(contains('cannot answer')));
+        for (final task in _snapshot(now).tasks) {
+          expect(result.directAnswer, contains(task.title));
+        }
+      }
+    },
+  );
+
+  test(
+    'explicit Advanced modes produce different analyses for the same tasks',
+    () {
+      final answers = <String>{};
+      for (final mode in SIV2Intent.values) {
+        final result = const SIV2Engine().analyze(
+          query: SIV2Query.fromUserInput(
+            rawText: 'list my tasks',
+            selectedIntent: mode,
+            selectedSources: {SIV2Source.tasks},
+            timeRange: SIV2TimeRange.all,
+          ),
+          snapshot: _snapshot(now),
+          now: now,
+        );
+        expect(result.query.requestsListing, mode == SIV2Intent.answer);
+        answers.add(result.directAnswer);
+      }
+      expect(answers.length, SIV2Intent.values.length);
+    },
+  );
+
+  test('Advanced deferral assumption controls the scenario horizon', () {
+    final result = const SIV2Engine().analyze(
+      query: SIV2Query.fromUserInput(
+        rawText: 'tasks',
+        selectedIntent: SIV2Intent.forecast,
+        selectedSources: {SIV2Source.tasks},
+        timeRange: SIV2TimeRange.all,
+        scenarioAssumption: 'Defer it for 7 days.',
+      ),
+      snapshot: _snapshot(now),
+      now: now,
+    );
+    expect(
+      result.scenarios
+          .singleWhere((s) => s.kind == SIV2ScenarioKind.deferOneDay)
+          .label,
+      contains('7'),
+    );
+  });
+
   for (final dated in [false, true]) {
     test('next action cites a recorded date only when present: $dated', () {
       final response = const SIV2Engine().analyze(
