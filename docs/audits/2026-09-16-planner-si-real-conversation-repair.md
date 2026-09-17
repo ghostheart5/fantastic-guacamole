@@ -73,3 +73,7 @@ These checks do not establish live answer usefulness, on-device accessibility, i
 - Voice controls, Creator execution and durable learning remain in the existing on-device tools; the new conversation does not silently execute those actions.
 - Original flags 004 (Creator navigation), 005 (save receipt), 007 (cloud backup), 008 (Support back navigation), 011 (Momentum) and 014 (learning display) are outside this conversation repair and remain open. Flag 006 retains its user correction/reclassification; do not reassert a broken goal control based only on an automation hierarchy.
 - Flags 001–003 have changes in the new conversation route, not a blanket closure of every legacy surface. Flags 009, 010, 012 and 013 have local repairs and regression evidence; final closure requires the live acceptance above.
+
+## Delivery gate follow-up
+
+The initial full cloud run found six failures missed by the targeted suite: domain classification, the public SI import boundary, the Planner support-file size, two privacy-copy contracts, and an older SI assertion that reused an unconstrained Home recommendation for a five-minute query. The fixes classify the new shipping entity, use the public SI facade, extract follow-up handling into a separately size-checked part, preserve explicit consent wording, and test both constrained and broad next-step questions. All 34 checks across the eight affected contract/conversation test files passed locally. Full cloud CI and device acceptance remain separate gates.

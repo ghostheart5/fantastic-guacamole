@@ -34,6 +34,7 @@ import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'smart_planner_query_controller.support.dart';
+part 'smart_planner_query_controller.follow_up.dart';
 part 'smart_planner_query_controller.intent.dart';
 part 'smart_planner_query_controller.person_context.dart';
 

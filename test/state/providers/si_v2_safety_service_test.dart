@@ -92,7 +92,22 @@ void main() {
           timeRange: SIV2TimeRange.all,
         ),
       );
-      expect(supported.recommendation, receipt.recommendedAction);
+      expect(supported.recommendation, isNot(receipt.recommendedAction));
+      expect(
+        decisionReads,
+        0,
+        reason:
+            'A time-bounded question must not inherit an unconstrained Home recommendation.',
+      );
+      final broadNextStep = await service.analyze(
+        SIV2Query(
+          rawText: 'What should I do next?',
+          intent: SIV2Intent.answer,
+          sources: SIV2Source.values.toSet(),
+          timeRange: SIV2TimeRange.all,
+        ),
+      );
+      expect(broadNextStep.recommendation, receipt.recommendedAction);
       expect(decisionReads, 1);
     },
   );

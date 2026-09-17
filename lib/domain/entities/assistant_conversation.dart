@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Consented assistant conversations
 import 'dart:convert';
 import 'dart:math';
 

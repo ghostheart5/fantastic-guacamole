@@ -1,6 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
-import 'package:fantastic_guacamole/engine/si/si_v2_engine.dart';
+import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
