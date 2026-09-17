@@ -419,14 +419,19 @@ class _PersonalizationSection extends ConsumerWidget {
                 _save(context, ref, profile.copyWith(useMemoryContext: value)),
           ),
           if (ref.watch(internalCreditTestEnabledProvider))
-            const _NeonStatusTile(
-              title: 'Internal AI credit testing',
-              subtitle:
-                  'Enables the synthetic credit-test actions below. Test prompts are sent to Anthropic through ChronoSpark; provider retention and safety policies apply. Local guidance is free.',
+            _NeonStatusTile(
+              title: isSpanish
+                  ? 'IA externa y créditos'
+                  : 'External AI and credits',
+              subtitle: isSpanish
+                  ? 'Las conversaciones del Planificador Inteligente y SI pueden enviar tu pregunta, mensajes recientes y el contexto revisado a Anthropic por medio de ChronoSpark después de que confirmes. Cada solicitud muestra su precio en créditos. Las pruebas ficticias de abajo son independientes. Se aplican las políticas de retención y seguridad del proveedor; las herramientas locales siguen siendo gratuitas.'
+                  : 'Planner and SI conversations can send your question, recent messages and reviewed context to Anthropic through ChronoSpark after confirmation. Each request shows its credit price. The fictional tests below are separate. Provider retention and safety policies apply; on-device tools remain free.',
             ),
           if (ref.watch(externalAiAvailableProvider))
             _NeonToggleTile(
-              title: 'Allow external AI assistance',
+              title: isSpanish
+                  ? 'Permitir asistencia de IA externa'
+                  : 'Allow external AI assistance',
               value: profile.externalAiAllowed,
               onChanged: (bool value) => _save(
                 context,
