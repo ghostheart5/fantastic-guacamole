@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
@@ -136,10 +137,6 @@ final class ConversationPacketFactory {
     final note = surface == ConversationSurface.planner
         ? await ref.read(selectedPlanningNoteProvider.future)
         : null;
-    final taskDetails = await ref
-        .read(domainTaskRepositoryProvider)
-        .getAllTasks()
-        .timeout(const Duration(seconds: 3));
     if (!ref.mounted ||
         snapshot.accountScopeId != scope ||
         scope != ref.read(accountStorageScopeProvider).v2Namespace ||
@@ -166,6 +163,25 @@ final class ConversationPacketFactory {
     final tasks = snapshot.tasks
         .where((t) => ids.contains('tasks:${t.id}'))
         .toList();
+    // Descriptions are optional enrichment. An unavailable task repository must
+    // not prevent a question about other sources or discard existing evidence.
+    List<TaskEntity> taskDetails = const [];
+    var taskDetailsUnavailable = false;
+    if (tasks.isNotEmpty) {
+      try {
+        taskDetails = await ref
+            .read(domainTaskRepositoryProvider)
+            .getAllTasks()
+            .timeout(const Duration(seconds: 3));
+      } catch (_) {
+        taskDetailsUnavailable = true;
+      }
+      if (!ref.mounted ||
+          scope != ref.read(accountStorageScopeProvider).v2Namespace ||
+          generation != ref.read(authSessionBoundaryProvider).generation) {
+        throw const ConversationFailure('authorization_changed');
+      }
+    }
     // An explicit attachment takes precedence over broad record ranking. Other
     // records stay available for conflicts, subject to the same selected lens.
     final attachedId = selectedTaskId ?? note?.taskId;
@@ -206,6 +222,7 @@ final class ConversationPacketFactory {
         'entityFilter': entityFilter,
         'scenarioAssumption': scenario,
         'evidenceRevision': snapshot.revision,
+        if (taskDetailsUnavailable) 'taskDetailsUnavailable': true,
         'explicitlyAttachedTaskId': ?attachedId,
         'tasks': tasks
             .take(12)
@@ -286,7 +303,9 @@ final class ConversationPacketFactory {
           },
         if (surface == ConversationSurface.planner)
           'reportedEnergy': human.authorizeReportedEnergy(reportedEnergy),
-        if (human.emotionAllowed && human.emotion != null)
+        if (surface == ConversationSurface.planner &&
+            human.emotionAllowed &&
+            human.emotion != null)
           'reportedEmotion': human.emotion!.name,
       },
     );

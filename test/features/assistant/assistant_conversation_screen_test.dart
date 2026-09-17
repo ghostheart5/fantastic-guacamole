@@ -1,16 +1,22 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/domain/entities/emotional_state.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
+import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
@@ -46,6 +52,9 @@ final gateway = SIV2ReadGateway(
 ProviderContainer setup(
   ConversationTransport transport, {
   AccountStorageScope Function()? readScope,
+  SIV2ReadGateway? readGateway,
+  ITaskRepository? taskRepository,
+  ConsentedHumanContext? humanContext,
 }) => ProviderContainer(
   overrides: [
     accountStorageScopeProvider.overrideWith(
@@ -55,11 +64,13 @@ ProviderContainer setup(
     assistantConversationAvailableProvider.overrideWithValue(true),
     personalizationProfileProvider.overrideWith(_Consent.new),
     conversationTransportProvider.overrideWithValue(transport),
-    siV2ReadGatewayProvider.overrideWithValue(gateway),
+    siV2ReadGatewayProvider.overrideWithValue(readGateway ?? gateway),
     siV2EvidenceSnapshotProvider.overrideWith(
-      (ref) => gateway.read(observedAt: DateTime.now()),
+      (ref) => (readGateway ?? gateway).read(observedAt: DateTime.now()),
     ),
-    domainTaskRepositoryProvider.overrideWithValue(_Tasks()),
+    domainTaskRepositoryProvider.overrideWithValue(taskRepository ?? _Tasks()),
+    if (humanContext != null)
+      consentedHumanContextProvider.overrideWithValue(humanContext),
     selectedPlanningNoteProvider.overrideWith(
       (ref) async => NoteEntity(
         id: 'list-note',
@@ -90,6 +101,112 @@ ProviderContainer setup(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('SI goals remain usable when deselected task storage fails', () async {
+    final repository = _UnavailableTasks(
+      StateError('Task storage unavailable'),
+    );
+    final container = setup(
+      (_) async => throw StateError('No transport should run'),
+      taskRepository: repository,
+      readGateway: SIV2ReadGateway(
+        accountScopeId: scope.v2Namespace!,
+        readTasks: () async => throw StateError('Task storage unavailable'),
+        readGoals: () async => [
+          GoalEntity(
+            id: 'budget',
+            title: 'Build an emergency fund',
+            createdAt: DateTime(2026, 9, 1),
+          ),
+        ],
+        readMilestones: () async => [],
+        readTimeline: () async => [],
+      ),
+    );
+    addTearDown(container.dispose);
+    final packet = await container
+        .read(conversationPacketFactoryProvider)
+        .build(
+          surface: ConversationSurface.si,
+          prompt: 'goals',
+          history: [],
+          languageCode: 'en',
+          sources: {SIV2Source.goals},
+        );
+    final context = packet.toJson()['context'] as Map;
+    expect(
+      (context['goals'] as List).single['title'],
+      'Build an emergency fund',
+    );
+    expect(context['tasks'], isEmpty);
+    expect(context['unavailableSources'], contains('tasks'));
+    expect(repository.reads, 0);
+  });
+
+  for (final failure in [
+    StateError('Task details unavailable'),
+    TimeoutException('Task details timed out'),
+  ]) {
+    test(
+      'selected task evidence survives detail failure: ${failure.runtimeType}',
+      () async {
+        final repository = _UnavailableTasks(failure);
+        final container = setup(
+          (_) async => throw StateError('No transport should run'),
+          taskRepository: repository,
+        );
+        addTearDown(container.dispose);
+        final packet = await container
+            .read(conversationPacketFactoryProvider)
+            .build(
+              surface: ConversationSurface.planner,
+              prompt: 'When can I get groceries?',
+              history: [],
+              languageCode: 'en',
+              selectedTaskId: 'grocery',
+            );
+        final context = packet.toJson()['context'] as Map;
+        final grocery = (context['tasks'] as List).first as Map;
+        expect(grocery['title'], 'Grocery list');
+        expect(grocery['description'], isEmpty);
+        expect(grocery['estimatedDurationMinutes'], isNull);
+        expect(context['taskDetailsUnavailable'], isTrue);
+        expect(repository.reads, 1);
+      },
+    );
+  }
+
+  test(
+    'emotion consent adds emotional state only to disclosed Planner context',
+    () async {
+      final container = setup(
+        (_) async => throw StateError('No transport should run'),
+        humanContext: const ConsentedHumanContext(
+          emotionAllowed: true,
+          memoryAllowed: false,
+          emotion: EmotionalState.fatigued,
+          siState: SIState(),
+        ),
+      );
+      addTearDown(container.dispose);
+      for (final surface in ConversationSurface.values) {
+        final packet = await container
+            .read(conversationPacketFactoryProvider)
+            .build(
+              surface: surface,
+              prompt: 'What should I do next?',
+              history: [],
+              languageCode: 'en',
+            );
+        final context = packet.toJson()['context'] as Map;
+        if (surface == ConversationSurface.planner) {
+          expect(context['reportedEmotion'], 'fatigued');
+        } else {
+          expect(context.containsKey('reportedEmotion'), isFalse);
+        }
+      }
+    },
+  );
+
   Future<void> waitFor(WidgetTester tester, Finder finder) async {
     for (var attempt = 0; attempt < 20; attempt++) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -442,4 +559,15 @@ class _Tasks implements ITaskRepository {
   @override
   Future<void> deleteTask(String id) =>
       throw StateError('Conversation must not mutate tasks');
+}
+
+class _UnavailableTasks extends _Tasks {
+  _UnavailableTasks(this.failure);
+  final Object failure;
+  int reads = 0;
+  @override
+  Future<List<TaskEntity>> getAllTasks() async {
+    reads++;
+    throw failure;
+  }
 }
