@@ -174,6 +174,7 @@ void main() {
     expect(repository.saveCalls, 1);
     expect(repository.tasks.values.single.title, 'Twenty minute Planner task');
     expect(find.text('CREACIÓN GUARDADA'), findsOneWidget);
+    expect(find.text('Tarea: Twenty minute Planner task'), findsOneWidget);
     expect(find.text('Ver tareas guardadas'), findsOneWidget);
     expect(
       find.text('Se guardó una sola vez a partir de tu confirmación.'),
