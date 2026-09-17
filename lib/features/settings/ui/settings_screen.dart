@@ -313,7 +313,13 @@ class SettingsScreen extends ConsumerWidget {
                   access.internalBillingTest) ...<Widget>[
                 _PlanAndCreditsCard(
                   planStatus: access.subscriptionStatusLabel,
-                  planDetail: access.subscriptionStatusDetail,
+                  planDetail: access.internalCreditTest
+                      ? journeyText(
+                          context,
+                          access.subscriptionStatusDetail,
+                          'Pruebas de licencia de Google Play. Usa un método de pago de prueba. El Planificador Inteligente y la Consola SI pueden usar IA externa después de que revises el contexto y confirmes el precio en créditos. Las herramientas locales siguen disponibles.',
+                        )
+                      : access.subscriptionStatusDetail,
                   creditLabel: creditLabel,
                   creditValue: creditValue,
                   creditDetail: creditDetail,

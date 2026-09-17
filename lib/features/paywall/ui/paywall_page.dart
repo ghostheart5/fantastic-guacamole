@@ -314,12 +314,21 @@ class _PaywallCopy {
       'Unlocked for testing' => 'Desbloqueado para pruebas',
       'Billing unavailable' => 'Facturación no disponible',
       'Plans unavailable' => 'Planes no disponibles',
+      'Google Play billing test' => 'Prueba de facturación de Google Play',
       _ => title,
     };
   }
 
   String configBody(String body) {
     if (!_isSpanish) return body;
+    if (body.startsWith(
+      'Test purchases, renewals, cancellation and restoration.',
+    )) {
+      final usage = body.contains('AI and credit spending are unavailable')
+          ? 'La IA y el gasto de créditos no están disponibles en esta versión.'
+          : 'El Planificador Inteligente y la Consola SI pueden usar IA externa después de que revises el contexto y confirmes el precio en créditos. Ajustes también ofrece pruebas de créditos con datos ficticios. Las herramientas locales siguen disponibles.';
+      return 'Prueba compras, renovaciones, cancelaciones y restauraciones. Selecciona un método de pago de prueba de Google Play; cancela si aparece un método de pago real. $usage';
+    }
     return switch (body) {
       'Choose a plan. Google Play provides the displayed price and confirms billing frequency and renewal terms before purchase. Credits are granted only after a verified purchase or paid renewal.' =>
         'Elige un plan. Google Play proporciona el precio mostrado y confirma la frecuencia de facturación y los términos de renovación antes de la compra. Los créditos se conceden solo después de una compra verificada o una renovación pagada.',
