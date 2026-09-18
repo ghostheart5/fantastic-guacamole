@@ -831,7 +831,7 @@ void _validateAndroidRelease(List<String> failures) {
 
   final int configIndex = stepIndex('Validate production configuration');
   final int backendIndex = stepIndex(
-    'Verify live backend, App Links, RTDN, and Play configuration',
+    'Verify live backend, RTDN, and Play configuration',
   );
   final int signingMaterialIndex = stepIndex('Decode keystore');
   final int buildIndex = stepIndex('Build signed AAB');

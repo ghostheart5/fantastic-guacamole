@@ -1,4 +1,5 @@
 import { createSign } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 
 const expectedSubscriptions = new Set([
   'chronospark_premium_monthly',
@@ -43,29 +44,6 @@ async function fetchJson(url, init = {}) {
     throw new Error(`${url} returned ${response.status}`);
   }
   return body;
-}
-
-async function fetchDirectJson(url) {
-  const response = await fetchResponse(url, { redirect: 'manual' });
-  if (response.status >= 300 && response.status < 400) {
-    await response.body?.cancel();
-    throw new Error(`${url} must not redirect (returned ${response.status})`);
-  }
-  if (!response.ok) {
-    await response.body?.cancel();
-    throw new Error(`${url} returned ${response.status}`);
-  }
-  const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
-  if (!contentType.includes('application/json')) {
-    await response.body?.cancel();
-    throw new Error(`${url} must be served with an application/json content type`);
-  }
-  const text = await response.text();
-  try {
-    return text ? JSON.parse(text) : null;
-  } catch {
-    throw new Error(`${url} returned non-JSON content`);
-  }
 }
 
 async function assertFunctionContract(url, expectedContract) {
@@ -175,24 +153,17 @@ await assertFunctionContract(
 );
 await assertFunctionContract(`${functionsUrl}/google-play-rtdn`, null);
 
-const appLinksHost = 'chronospark.app';
-const assetLinks = await fetchDirectJson(
-  `https://${appLinksHost}/.well-known/assetlinks.json`,
+const androidManifest = await readFile(
+  new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url),
+  'utf8',
 );
-if (!Array.isArray(assetLinks)) {
-  throw new Error('Published assetlinks.json must contain a JSON array');
-}
-const linkedApp = assetLinks.find((entry) =>
-  entry?.target?.namespace === 'android_app' &&
-  entry?.target?.package_name === packageName &&
-  Array.isArray(entry?.relation) &&
-  entry.relation.includes('delegate_permission/common.handle_all_urls')
-);
-const linkedFingerprints = new Set(
-  (linkedApp?.target?.sha256_cert_fingerprints ?? []).map(normalizedFingerprint),
-);
-if (!linkedFingerprints.has(expectedFingerprint)) {
-  throw new Error('Published App Links fingerprint does not match the production signing certificate');
+const declaresHttpsAppLinks =
+  /android:scheme\s*=\s*["']https["']/.test(androidManifest) ||
+  /android:autoVerify\s*=\s*["']true["']/.test(androidManifest);
+if (declaresHttpsAppLinks) {
+  throw new Error(
+    'HTTPS App Links are declared but no reviewed Axiomara domain association is configured',
+  );
 }
 
 const publisherToken = await googleAccessToken(
@@ -241,7 +212,7 @@ console.log(JSON.stringify({
   packageName,
   projectRef,
   playSubscriptions: subscriptionRows.length,
-  appLinksHost,
-  appLinksFingerprint: expectedFingerprint,
+  httpsAppLinksDeclared: false,
+  signingCertificateFingerprint: expectedFingerprint,
   rtdnSubscription,
 }));

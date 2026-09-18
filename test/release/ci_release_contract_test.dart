@@ -437,10 +437,7 @@ void main() {
         namedStep(build, 'Validate production configuration'),
       );
       final int backendIndex = buildSteps.indexOf(
-        namedStep(
-          build,
-          'Verify live backend, App Links, RTDN, and Play configuration',
-        ),
+        namedStep(build, 'Verify live backend, RTDN, and Play configuration'),
       );
       final int decodeIndex = buildSteps.indexOf(
         namedStep(build, 'Decode keystore'),
@@ -511,6 +508,9 @@ void main() {
     final String reconciliation = read(
       '.github/workflows/backend-reconciliation.yml',
     );
+    final String backendVerification = read(
+      'scripts/verify_production_backend.mjs',
+    );
 
     expect(androidRelease, contains('EXPECTED_UPLOAD_SHA1: "$uploadSha1"'));
     expect(releaseGovernance, contains('`$uploadSha1`'));
@@ -518,6 +518,13 @@ void main() {
     expect(reconciliation, contains('Number.isInteger(body.advanced)'));
     expect(reconciliation, contains('body.scanned - body.advanced'));
     expect(reconciliation, contains('body.completed > body.advanced'));
+    expect(backendVerification, contains('AndroidManifest.xml'));
+    expect(backendVerification, contains('httpsAppLinksDeclared: false'));
+    expect(
+      backendVerification,
+      contains('no reviewed Axiomara domain association is configured'),
+    );
+    expect(backendVerification, isNot(contains('chronospark.app')));
   });
 
   test('public Pages workflow validates privately and publishes manually', () {

@@ -125,7 +125,7 @@ jobs:
               }
           done
 
-      - name: Verify live backend, App Links, RTDN, and Play configuration
+      - name: Verify live backend, RTDN, and Play configuration
         env:
           CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}

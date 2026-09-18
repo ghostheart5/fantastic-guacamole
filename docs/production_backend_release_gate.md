@@ -4,7 +4,9 @@ The tagged Android release is fail-closed until the same checked-out commit has
 passed both the reusable application quality gate and its required disposable
 Supabase database gate, followed by linked production migration inventory,
 deployed Edge Function and secret-name checks,
-live endpoint contracts, App Links, Google Play catalog, and RTDN configuration.
+live endpoint contracts, Google Play catalog, and RTDN configuration. The
+current Android manifest does not declare HTTPS App Links; the gate fails closed
+if one is added before a reviewed Axiomara domain association is configured.
 The workflow builds and publishes one run-scoped AAB; it does not rebuild after
 the backend evidence is captured.
 
@@ -30,8 +32,11 @@ the backend evidence is captured.
    Configure its push subscription to call
    `<SUPABASE_URL>/functions/v1/google-play-rtdn` with OIDC enabled. The audience
    and service-account email must match the Edge secrets.
-5. Publish `https://chronospark.app/.well-known/assetlinks.json` with the exact
-   production package and signing-certificate SHA-256 fingerprint.
+5. If HTTPS App Links are introduced later, configure an Axiomara-owned domain,
+   publish its `assetlinks.json` with the exact production package and signing
+   certificate, and extend the release verifier before enabling the manifest
+   association. The current custom-scheme authentication callback does not use
+   Android domain verification.
 6. Enable the scheduled `Backend Reconciliation` workflow. Its protected
    production secret must match the Edge `ACCOUNT_DELETE_RECONCILE_SECRET`.
 7. Send the Play Console test notification and retain proof that the matching
@@ -90,7 +95,7 @@ Each release run retains:
 - exact source commit and tag provenance;
 - linked local and production migration inventory;
 - deployed function inventory and required secret names, never secret values;
-- live Supabase endpoint, App Links, Pub/Sub, and Play catalog results;
+- live Supabase endpoint, manifest App Links state, Pub/Sub, and Play catalog results;
 - signed AAB SHA-256 and signing-certificate evidence.
 
 These gates do not replace signed-device purchase, renewal, cancellation,
