@@ -5,8 +5,10 @@ passed both the reusable application quality gate and its required disposable
 Supabase database gate, followed by linked production migration inventory,
 deployed Edge Function and secret-name checks,
 live endpoint contracts, Google Play catalog, and RTDN configuration. The
-current Android manifest does not declare HTTPS App Links; the gate fails closed
-if one is added before a reviewed Axiomara domain association is configured.
+current effective release manifest does not declare HTTPS App Links; after the
+signed build, the gate parses every Gradle-produced release manifest and fails
+before artifact verification or upload if an association appears before a
+reviewed Axiomara domain is configured.
 The workflow builds and publishes one run-scoped AAB; it does not rebuild after
 the backend evidence is captured.
 
@@ -95,7 +97,8 @@ Each release run retains:
 - exact source commit and tag provenance;
 - linked local and production migration inventory;
 - deployed function inventory and required secret names, never secret values;
-- live Supabase endpoint, manifest App Links state, Pub/Sub, and Play catalog results;
+- live Supabase endpoint, effective release-manifest App Links evidence, Pub/Sub,
+  and Play catalog results;
 - signed AAB SHA-256 and signing-certificate evidence.
 
 These gates do not replace signed-device purchase, renewal, cancellation,

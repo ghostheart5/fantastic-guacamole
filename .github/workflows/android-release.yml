@@ -287,6 +287,53 @@ jobs:
           --dart-define="CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT=$DELETE_ENDPOINT"
           --dart-define="CHRONOSPARK_ANDROID_SHA256_CERT=$ANDROID_SHA256"
 
+      - name: Verify effective release manifest link policy
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          android = '{http://schemas.android.com/apk/res/android}'
+          manifests = sorted(
+              path for path in Path('build/app/intermediates').glob('**/AndroidManifest.xml')
+              if 'release' in {part.lower() for part in path.parts}
+          )
+          if not manifests:
+              raise SystemExit('::error::No effective release manifest was produced by the signed AAB build.')
+
+          inspected = []
+          violations = []
+          for manifest in manifests:
+              root = ET.parse(manifest).getroot()
+              inspected.append(str(manifest))
+              for intent_filter in root.findall('.//intent-filter'):
+                  auto_verify = intent_filter.get(f'{android}autoVerify', '').lower() == 'true'
+                  https_data = any(
+                      data.get(f'{android}scheme', '').lower() == 'https'
+                      for data in intent_filter.findall('data')
+                  )
+                  if auto_verify or https_data:
+                      violations.append({
+                          'manifest': str(manifest),
+                          'autoVerify': auto_verify,
+                          'httpsScheme': https_data,
+                      })
+
+          evidence = {
+              'verified': not violations,
+              'policy': 'No HTTPS App Links until an Axiomara domain association is reviewed.',
+              'inspectedManifests': inspected,
+              'violations': violations,
+          }
+          evidence_path = Path('build/release-evidence/effective-release-manifest.json')
+          evidence_path.write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
+          if violations:
+              raise SystemExit(
+                  '::error::Effective release manifest contains an unreviewed HTTPS App Link.'
+              )
+          PY
+
       - name: Verify and fingerprint release artifact
         run: |
           AAB_DIR=build/app/outputs/bundle/release
@@ -316,6 +363,7 @@ jobs:
           path: |
             build/app/outputs/bundle/release/app-release.aab
             build/app/outputs/bundle/release/app-release.aab.sha256
+            build/release-evidence/effective-release-manifest.json
 
   publish-release:
     needs: build-aab

@@ -1,5 +1,4 @@
 import { createSign } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 
 const expectedSubscriptions = new Set([
   'chronospark_premium_monthly',
@@ -153,19 +152,6 @@ await assertFunctionContract(
 );
 await assertFunctionContract(`${functionsUrl}/google-play-rtdn`, null);
 
-const androidManifest = await readFile(
-  new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url),
-  'utf8',
-);
-const declaresHttpsAppLinks =
-  /android:scheme\s*=\s*["']https["']/.test(androidManifest) ||
-  /android:autoVerify\s*=\s*["']true["']/.test(androidManifest);
-if (declaresHttpsAppLinks) {
-  throw new Error(
-    'HTTPS App Links are declared but no reviewed Axiomara domain association is configured',
-  );
-}
-
 const publisherToken = await googleAccessToken(
   serviceAccount,
   'https://www.googleapis.com/auth/androidpublisher',
@@ -212,7 +198,6 @@ console.log(JSON.stringify({
   packageName,
   projectRef,
   playSubscriptions: subscriptionRows.length,
-  httpsAppLinksDeclared: false,
   signingCertificateFingerprint: expectedFingerprint,
   rtdnSubscription,
 }));
