@@ -18,8 +18,13 @@ tags:
 - assertVisible: "Question, investigate and challenge reasoning with visible evidence"
 - assertVisible: "No planning evidence yet. SI will identify what it cannot determine. Person context: shared but no item was relevant to this lens."
 
-# A normal evidence question must return a structured, on-device SI response.
-- tapOn: "What evidence is missing?"
+# A normal typed evidence question must return a structured, on-device SI
+# response. Use the persistent composer instead of relying on an off-screen
+# suggestion chip.
+- tapOn: "(?s)^SI query.*"
+- inputText: "What evidence is missing?"
+- runFlow: ../subflows/dismiss-android-keyboard.yaml
+- tapOn: "Send SI query"
 - extendedWaitUntil:
     visible: "DIRECT ANSWER"
     timeout: 30000
