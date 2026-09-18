@@ -97,7 +97,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 400));
 
-      final Finder body = find.textContaining('Plan with purpose');
+      final Finder body = find.textContaining('Decide with evidence');
       final Finder button = find.widgetWithText(
         FilledButton,
         'CONTINUE TO LOGIN',
@@ -424,7 +424,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 400));
 
-    final Finder body = find.textContaining('Plan with purpose');
+    final Finder body = find.textContaining('Decide with evidence');
     final Finder action = find.text('CONTINUE TO LOGIN');
     expect(body, findsOneWidget);
     expect(action, findsOneWidget);

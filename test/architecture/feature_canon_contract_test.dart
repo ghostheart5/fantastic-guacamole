@@ -24,10 +24,10 @@ void main() {
         ChronoSparkFeatureCategory.primaryCanonFeature,
       ).map((ChronoSparkFeatureDefinition item) => item.displayName),
       containsAll(<String>[
-        'Nexus',
-        'Timeline',
-        'Trajectory Engine',
-        'Profile',
+        'Nexus Core',
+        'Truth Ledger',
+        'Future Branches',
+        'Human Profile',
       ]),
     );
     expect(
@@ -35,11 +35,11 @@ void main() {
         ChronoSparkFeatureCategory.supportSurface,
       ).map((ChronoSparkFeatureDefinition item) => item.displayName),
       containsAll(<String>[
-        'Creator',
-        'Smart Planner',
-        'SI Console',
-        'Progression',
-        'Settings',
+        'Reality Builder',
+        'Now Engine',
+        'Deep Intelligence',
+        'Capability Matrix',
+        'Control Center',
       ]),
     );
   });

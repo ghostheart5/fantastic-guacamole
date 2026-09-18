@@ -24,7 +24,7 @@ void main() {
       addTearDown(container.dispose);
       await _pumpTimelineShell(tester, container, locale: const Locale('es'));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
+      expect(find.text('REGISTRO DE VERDAD'), findsOneWidget);
       expect(find.text('VENCE HOY'), findsOneWidget);
       expect(
         find.bySemanticsLabel('Mostrar Línea de Tiempo: Semana'),

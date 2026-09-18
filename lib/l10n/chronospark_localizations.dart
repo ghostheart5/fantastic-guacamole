@@ -258,13 +258,13 @@ class ChronoSparkLocalizations {
   }
 
   static const Map<ChronoSparkString, String> _en = <ChronoSparkString, String>{
-    ChronoSparkString.nexus: 'Nexus',
-    ChronoSparkString.smartPlanner: 'Smart Planner',
-    ChronoSparkString.creator: 'Creator',
-    ChronoSparkString.siConsole: 'SI Console',
-    ChronoSparkString.timeline: 'Timeline',
-    ChronoSparkString.trajectoryEngine: 'Trajectory Engine',
-    ChronoSparkString.progression: 'Progression',
+    ChronoSparkString.nexus: 'Nexus Core',
+    ChronoSparkString.smartPlanner: 'Now Engine',
+    ChronoSparkString.creator: 'Reality Builder',
+    ChronoSparkString.siConsole: 'Deep Intelligence',
+    ChronoSparkString.timeline: 'Truth Ledger',
+    ChronoSparkString.trajectoryEngine: 'Future Branches',
+    ChronoSparkString.progression: 'Capability Matrix',
     ChronoSparkString.preparingSummary: 'Preparing your summary',
     ChronoSparkString.retryNexus: 'Retry Nexus',
     ChronoSparkString.whatMattersNext: 'What matters next',
@@ -289,9 +289,9 @@ class ChronoSparkLocalizations {
     ChronoSparkString.whyThisIsNext: 'Why this is next',
     ChronoSparkString.reviewOrCorrectPlan: 'Review or correct plan',
     ChronoSparkString.welcome: 'Welcome',
-    ChronoSparkString.livingDecisionSystem: 'A living decision system',
+    ChronoSparkString.livingDecisionSystem: 'A human decision operating system',
     ChronoSparkString.onboardingWelcomeBody:
-        'Plan with purpose. Act. Learn. ChronoSpark keeps the context behind your decisions.',
+        'Decide with evidence. Act with control. Learn from reality. Axiomara keeps every recommendation inspectable and correctable.',
     ChronoSparkString.next: 'Next',
     ChronoSparkString.initialize: 'Initialize',
     ChronoSparkString.initializeSystem: 'Initialize system',
@@ -388,19 +388,19 @@ class ChronoSparkLocalizations {
     ChronoSparkString.unableToOpenWebsite:
         'Unable to open the website from this device.',
     ChronoSparkString.couldNotLoadContent: 'Could not load content.',
-    ChronoSparkString.aboutTitle: 'ABOUT CHRONOSPARK',
+    ChronoSparkString.aboutTitle: 'ABOUT AXIOMARA',
     ChronoSparkString.aboutSubtitle:
-        'An adaptive planner built for clarity, momentum, and reflective execution.',
+        'A human decision operating system for clarity, momentum, and accountable action.',
     ChronoSparkString.aboutEyebrow: 'SYSTEM IDENTITY',
     ChronoSparkString.aboutWhatItDoesTitle: 'What It Does',
     ChronoSparkString.aboutWhatItDoesBody:
-        'ChronoSpark combines tasks, planning, logs, and AI-assisted strategy in one system so you can execute consistently without losing context.',
+        'Axiomara resolves real goals, time, energy, commitments, and user-approved context into an inspectable next move. It shows the evidence, uncertainty, and control behind every recommendation.',
     ChronoSparkString.aboutCoreSurfacesTitle: 'Core Surfaces',
     ChronoSparkString.aboutCoreSurfacesBody:
-        'Nexus for decisions, Trajectory Engine for possible paths, Timeline for history, and Profile for identity and progression. Smart Planner, Creator, SI Console, and Progression add depth when needed.',
+        'Nexus Core forms the live decision packet. Reality Builder captures intent. Now Engine resolves constraints. Deep Intelligence interrogates evidence. Future Branches compares possible consequences. Truth Ledger records outcomes. Capability Matrix shows what action has actually proven.',
     ChronoSparkString.aboutGuidingPrincipleTitle: 'Guiding Principle',
     ChronoSparkString.aboutGuidingPrincipleBody:
-        'Reduce friction between intent and action. Keep planning lightweight, execution clear, and reflection actionable.',
+        'Amplify human judgment without replacing it. Nothing changes silently, uncertainty stays visible, simulations are never promises, and every learned outcome can be reviewed or corrected.',
     ChronoSparkString.aboutPrivacyAndSupportTitle: 'Privacy and Support',
     ChronoSparkString.aboutVoiceFeaturesTitle: 'Voice Features',
     ChronoSparkString.aboutVoiceFeaturesBody:
@@ -415,13 +415,13 @@ class ChronoSparkLocalizations {
   };
 
   static const Map<ChronoSparkString, String> _es = <ChronoSparkString, String>{
-    ChronoSparkString.nexus: 'Nexus',
-    ChronoSparkString.smartPlanner: 'Planificador Inteligente',
-    ChronoSparkString.creator: 'Creador',
-    ChronoSparkString.siConsole: 'Consola SI',
-    ChronoSparkString.timeline: 'Línea de Tiempo',
-    ChronoSparkString.trajectoryEngine: 'Motor de Trayectoria',
-    ChronoSparkString.progression: 'Progresión',
+    ChronoSparkString.nexus: 'Núcleo Nexus',
+    ChronoSparkString.smartPlanner: 'Motor del Ahora',
+    ChronoSparkString.creator: 'Constructor de Realidad',
+    ChronoSparkString.siConsole: 'Inteligencia Profunda',
+    ChronoSparkString.timeline: 'Registro de Verdad',
+    ChronoSparkString.trajectoryEngine: 'Ramas Futuras',
+    ChronoSparkString.progression: 'Matriz de Capacidades',
     ChronoSparkString.preparingSummary: 'Preparando tu resumen',
     ChronoSparkString.retryNexus: 'Reintentar Nexus',
     ChronoSparkString.whatMattersNext: 'Lo más importante ahora',
@@ -446,9 +446,10 @@ class ChronoSparkLocalizations {
     ChronoSparkString.whyThisIsNext: 'Por qué sigue esto',
     ChronoSparkString.reviewOrCorrectPlan: 'Revisar o corregir el plan',
     ChronoSparkString.welcome: 'Bienvenido',
-    ChronoSparkString.livingDecisionSystem: 'Un sistema vivo de decisiones',
+    ChronoSparkString.livingDecisionSystem:
+        'Un sistema operativo de decisiones humanas',
     ChronoSparkString.onboardingWelcomeBody:
-        'Planifica con propósito. Actúa. Aprende. ChronoSpark conserva el contexto detrás de tus decisiones.',
+        'Decide con evidencia. Actúa con control. Aprende de la realidad. Axiomara mantiene cada recomendación visible y corregible.',
     ChronoSparkString.next: 'Siguiente',
     ChronoSparkString.initialize: 'Iniciar',
     ChronoSparkString.initializeSystem: 'Iniciar sistema',
@@ -547,19 +548,19 @@ class ChronoSparkLocalizations {
     ChronoSparkString.unableToOpenWebsite:
         'No se pudo abrir el sitio web desde este dispositivo.',
     ChronoSparkString.couldNotLoadContent: 'No se pudo cargar el contenido.',
-    ChronoSparkString.aboutTitle: 'ACERCA DE CHRONOSPARK',
+    ChronoSparkString.aboutTitle: 'ACERCA DE AXIOMARA',
     ChronoSparkString.aboutSubtitle:
-        'Un planificador adaptativo creado para aportar claridad, impulso y una ejecución reflexiva.',
+        'Un sistema operativo de decisiones humanas para claridad, impulso y acción responsable.',
     ChronoSparkString.aboutEyebrow: 'IDENTIDAD DEL SISTEMA',
     ChronoSparkString.aboutWhatItDoesTitle: 'Qué hace',
     ChronoSparkString.aboutWhatItDoesBody:
-        'ChronoSpark combina tareas, planificación, registros y estrategia asistida por IA en un solo sistema para que puedas actuar de forma constante sin perder el contexto.',
+        'Axiomara resuelve metas, tiempo, energía, compromisos y contexto autorizado por ti en un próximo movimiento que puedes inspeccionar. Muestra la evidencia, la incertidumbre y el control detrás de cada recomendación.',
     ChronoSparkString.aboutCoreSurfacesTitle: 'Áreas principales',
     ChronoSparkString.aboutCoreSurfacesBody:
-        'Nexus ayuda con las decisiones, Motor de Trayectoria explora caminos posibles, Línea de Tiempo conserva el historial y Perfil reúne identidad y progreso. Planificador Inteligente, Creador, Consola SI y Progresión añaden profundidad cuando hace falta.',
+        'Núcleo Nexus forma el paquete de decisión. Constructor de Realidad captura la intención. Motor del Ahora resuelve límites. Inteligencia Profunda interroga la evidencia. Ramas Futuras compara consecuencias posibles. Registro de Verdad conserva resultados. Matriz de Capacidades muestra lo que la acción ha demostrado.',
     ChronoSparkString.aboutGuidingPrincipleTitle: 'Principio rector',
     ChronoSparkString.aboutGuidingPrincipleBody:
-        'Reduce la fricción entre la intención y la acción. Mantén la planificación ligera, la ejecución clara y la reflexión práctica.',
+        'Amplifica el criterio humano sin reemplazarlo. Nada cambia en silencio, la incertidumbre sigue visible, las simulaciones nunca son promesas y cada aprendizaje puede revisarse o corregirse.',
     ChronoSparkString.aboutPrivacyAndSupportTitle: 'Privacidad y soporte',
     ChronoSparkString.aboutVoiceFeaturesTitle: 'Funciones de voz',
     ChronoSparkString.aboutVoiceFeaturesBody:
@@ -867,9 +868,10 @@ final class PlannerRoutineCopy {
       ? 'Orientación de planificación lista'
       : 'Planning guidance ready';
   String get subtitle => isSpanish
-      ? 'Construye tu próximo plan con evidencia real.'
-      : 'Build your next plan from real evidence.';
-  String get eyebrow => isSpanish ? 'Espectro del plan' : 'Plan spectrum';
+      ? 'Resuelve tiempo, energía y compromisos en un próximo movimiento real.'
+      : 'Resolve time, energy and commitments into one real next move.';
+  String get eyebrow =>
+      isSpanish ? 'Motor de decisión inmediato' : 'Immediate decision engine';
 }
 
 @immutable
@@ -945,11 +947,12 @@ final class SIRoutineCopy {
       ? 'Pregunta desde la evidencia actual'
       : 'Ask from current evidence';
   String get backToNexus => isSpanish ? 'Volver a Nexus' : 'Back to Nexus';
-  String get title => isSpanish ? 'Consola SI V2' : 'SI Console V2';
+  String get title => isSpanish ? 'INTELIGENCIA PROFUNDA' : 'DEEP INTELLIGENCE';
   String get subtitle => isSpanish
-      ? 'Inteligencia de sistemas · orientación con fuentes'
-      : 'Systems intelligence · source-aware guidance';
-  String get eyebrow => isSpanish ? 'Rastreo de evidencia' : 'Evidence trace';
+      ? 'Pregunta, investiga y desafía el razonamiento con evidencia visible'
+      : 'Question, investigate and challenge reasoning with visible evidence';
+  String get eyebrow =>
+      isSpanish ? 'Inteligencia interrogable' : 'Interrogable intelligence';
   String get readSummary => isSpanish ? 'Leer resumen' : 'Read summary';
   String get accessibilityGuide =>
       isSpanish ? 'Guía de accesibilidad' : 'Accessibility guide';

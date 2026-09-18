@@ -12,11 +12,15 @@ class NexusCopy {
 
   final bool isSpanish;
 
+  String get productName => 'AXIOMARA';
+  String get nexusTitle =>
+      isSpanish ? 'NEXUS // NÚCLEO VIVO' : 'NEXUS // LIVE CORE';
   String get tagline => isSpanish
-      ? 'Tu día, organizado en un próximo paso claro.'
-      : 'Your day, resolved into one clear move.';
-  String get logicCore =>
-      isSpanish ? 'NÚCLEO DE LÓGICA ADAPTATIVA' : 'ADAPTIVE LOGIC CORE';
+      ? 'Tu criterio amplificado: una decisión clara y futuros que puedes comparar.'
+      : 'Your judgment amplified: one clear decision and futures you can compare.';
+  String get logicCore => isSpanish
+      ? 'AXIOMARA // SISTEMA OPERATIVO DE DECISIONES HUMANAS'
+      : 'AXIOMARA // HUMAN DECISION OS';
   String get openNotifications =>
       isSpanish ? 'Abrir notificaciones' : 'Open notifications';
   String get logOut => isSpanish ? 'Cerrar sesión' : 'Log out';
@@ -25,8 +29,35 @@ class NexusCopy {
       : 'Could not log out. Please try again.';
   String get context => isSpanish ? 'CONTEXTO' : 'CONTEXT';
   String profileStatus(String name, int level, int streak) => isSpanish
-      ? '${name.isEmpty ? 'TU DÍA ESTÁ LISTO' : name.toUpperCase()}  ·  NIVEL $level  ·  RACHA DE $streak D'
-      : '${name.isEmpty ? 'TODAY IS READY' : name.toUpperCase()}  ·  LVL $level  ·  ${streak}D STREAK';
+      ? '${name.isEmpty ? 'SISTEMA HUMANO LISTO' : name.toUpperCase()}  ·  CAPACIDAD $level  ·  CONTINUIDAD $streak D'
+      : '${name.isEmpty ? 'HUMAN SYSTEM READY' : name.toUpperCase()}  ·  CAPABILITY $level  ·  ${streak}D CONTINUITY';
+
+  String get decisionLoop => isSpanish ? 'BUCLE DE VERDAD' : 'TRUTH LOOP';
+  String get decisionLoopSubtitle => isSpanish
+      ? 'Intención → decisión → acción → resultado → aprendizaje corregible'
+      : 'Intent → decision → action → outcome → correctable learning';
+  String get buildReality => isSpanish ? 'Construir realidad' : 'Build reality';
+  String get resolveNow => isSpanish ? 'Resolver ahora' : 'Resolve now';
+  String get interrogate => isSpanish ? 'Interrogar' : 'Interrogate';
+  String get compareFutures =>
+      isSpanish ? 'Comparar futuros' : 'Compare futures';
+  String get reviewTruth => isSpanish ? 'Revisar verdad' : 'Review truth';
+  String get loopControlNote => isSpanish
+      ? 'Nada cambia sin tu acción. Cada resultado puede revisarse y corregirse.'
+      : 'Nothing changes without your action. Every outcome can be reviewed and corrected.';
+  String get builtForReality =>
+      isSpanish ? 'CREADO PARA LA VIDA REAL' : 'BUILT FOR REAL LIFE';
+  List<String> get realLifeSituations => isSpanish
+      ? const <String>[
+          'Una reunión cambió. ¿Qué compromiso se rompe primero?',
+          'Mi energía cayó. ¿Qué todavía puedo terminar bien?',
+          'Si aplazo la compra hasta las 6, ¿qué entra en conflicto?',
+        ]
+      : const <String>[
+          'A meeting moved. Which commitment breaks first?',
+          'My energy crashed. What can I still finish well?',
+          'If I delay the store until 6, what conflicts?',
+        ];
 
   String get energy => isSpanish ? 'ENERGÍA' : 'ENERGY';
   String get clarity => isSpanish ? 'CLARIDAD' : 'CLARITY';
@@ -67,14 +98,15 @@ class NexusCopy {
             'Momentum $momentumLabel.';
 
   String get currentDecision =>
-      isSpanish ? 'DECISIÓN ACTUAL' : 'CURRENT DECISION';
-  String get nextMove =>
-      isSpanish ? 'Próximo paso recomendado' : 'Recommended next move';
+      isSpanish ? 'PAQUETE DE DECISIÓN EN VIVO' : 'LIVE DECISION PACKET';
+  String get nextMove => isSpanish
+      ? 'Ahora · Por qué · Señal · Incertidumbre · Control'
+      : 'Now · Why · Signal · Uncertainty · Control';
   String get buildNextStep =>
       isSpanish ? 'Define un próximo paso claro' : 'Build one clear next step';
   String get addTaskReason => isSpanish
-      ? 'Añade una tarea en Creador para que el Planificador Inteligente ordene trabajo real.'
-      : 'Add a task in Creator so Smart Planner can rank real work.';
+      ? 'Añade una tarea en Constructor de Realidad para que el Motor del Ahora ordene trabajo real.'
+      : 'Add a task in Reality Builder so the Now Engine can rank real work.';
   String get scheduledReason => isSpanish
       ? 'Esta tarea programada es el compromiso concreto más próximo.'
       : 'This scheduled task is the nearest concrete commitment.';
@@ -108,7 +140,36 @@ class NexusCopy {
       ? 'Ignorar este contexto por ahora'
       : 'Ignore this context for now';
   String get reviewSuggestion =>
-      isSpanish ? 'Revisar sugerencia' : 'Review suggestion';
+      isSpanish ? 'Revisar antes de actuar' : 'Review before acting';
+  String get evidence => isSpanish ? 'SEÑAL' : 'SIGNAL';
+  String evidenceSummary({
+    required int evidenceCount,
+    required int freshCount,
+    required int sourceCount,
+  }) => isSpanish
+      ? '$freshCount de $evidenceCount evidencias vigentes · $sourceCount fuentes vinculadas'
+      : '$freshCount of $evidenceCount evidence items fresh · $sourceCount linked sources';
+  String get uncertainty => isSpanish ? 'INCERTIDUMBRE' : 'UNCERTAINTY';
+  String uncertaintySummary({
+    required int assumptionCount,
+    required int warningCount,
+    required bool expired,
+  }) {
+    if (isSpanish) {
+      return '${expired ? 'Decisión vencida' : 'Decisión vigente'} · $assumptionCount supuestos · $warningCount advertencias';
+    }
+    return '${expired ? 'Decision expired' : 'Decision current'} · $assumptionCount assumptions · $warningCount warnings';
+  }
+
+  String get control => isSpanish ? 'CONTROL' : 'CONTROL';
+  String controlSummary({
+    required bool requiresConfirmation,
+    required bool reversible,
+  }) => isSpanish
+      ? '${requiresConfirmation ? 'Requiere confirmación' : 'Revisión iniciada por ti'} · ${reversible ? 'Acción reversible' : 'Revisa el impacto antes de continuar'}'
+      : '${requiresConfirmation ? 'Confirmation required' : 'You initiate the action'} · ${reversible ? 'Reversible action' : 'Review impact before continuing'}';
+  String delayed(String consequence) =>
+      isSpanish ? 'SI ESPERAS: $consequence' : 'IF DELAYED: $consequence';
   String get suggestionUnavailable => isSpanish
       ? 'No se pudo cargar la sugerencia actual a partir de la evidencia local de planificación.'
       : 'The current suggestion could not load from local planning evidence.';

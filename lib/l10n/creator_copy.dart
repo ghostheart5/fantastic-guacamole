@@ -3,12 +3,12 @@ class CreatorCopy {
   const CreatorCopy(this.isSpanish);
   final bool isSpanish;
 
-  String get title => isSpanish ? 'Creador' : 'Creator';
+  String get title => isSpanish ? 'CONSTRUCTOR DE REALIDAD' : 'REALITY BUILDER';
   String get back => isSpanish ? 'Volver a Nexus' : 'Back';
   String get subtitle => isSpanish
-      ? 'Convierte una intención en una acción conectada.'
-      : 'Turn intention into connected action.';
-  String get eyebrow => isSpanish ? 'Acción conectada' : 'Connected action';
+      ? 'Convierte intención en metas, tareas, ritmos y contexto verificable.'
+      : 'Turn intent into goals, tasks, rhythms and verifiable context.';
+  String get eyebrow => isSpanish ? 'Intención → realidad' : 'Intent → reality';
   String get manageRhythms =>
       isSpanish ? 'Gestionar Ritmos Diarios' : 'Manage Daily Rhythms';
   String get savedSnack => isSpanish

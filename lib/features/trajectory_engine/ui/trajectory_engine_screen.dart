@@ -85,9 +85,17 @@ class _TrajectoryEngineScreenState
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
             children: <Widget>[
               TemporalScreenHeader(
-                title: 'TRAJECTORY',
-                subtitle: 'See the consequence before you commit.',
-                eyebrow: 'Future branches',
+                title: journeyText(context, 'FUTURE BRANCHES', 'RAMAS FUTURAS'),
+                subtitle: journeyText(
+                  context,
+                  'Compare possible consequences before you commit. Simulations are estimates, never promises.',
+                  'Compara consecuencias posibles antes de comprometerte. Las simulaciones son estimaciones, nunca promesas.',
+                ),
+                eyebrow: journeyText(
+                  context,
+                  'Counterfactual decision space',
+                  'Espacio de decisiones contrafactuales',
+                ),
                 onBack: () => goToAppView(context, ref, AppView.nexus),
                 trailing: IconButton(
                   tooltip: 'Recalculate trajectory',

@@ -418,9 +418,9 @@ _routerErrorExpectations = <_RouterErrorExpectation>[
 const List<_AboutExpectation> _aboutExpectations = <_AboutExpectation>[
   _AboutExpectation(
     locale: Locale('en'),
-    title: 'ABOUT CHRONOSPARK',
+    title: 'ABOUT AXIOMARA',
     subtitle:
-        'An adaptive planner built for clarity, momentum, and reflective execution.',
+        'A human decision operating system for clarity, momentum, and accountable action.',
     firstSectionTitle: 'What It Does',
     voiceSectionTitle: 'Voice Features',
     voiceSectionBody:

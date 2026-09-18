@@ -16,25 +16,24 @@ class NavigationCopy {
       isSpanish ? 'Abrir mapa de navegación' : 'Open navigation map';
   String get closeMap =>
       isSpanish ? 'Cerrar mapa de navegación' : 'Close navigation map';
-  String get mapTitle => isSpanish ? 'Mapa de navegación' : 'Navigation Map';
-  String get railMapTitle =>
-      isSpanish ? 'Mapa de navegación' : 'Navigation map';
+  String get mapTitle => isSpanish ? 'Mapa del sistema' : 'System Map';
+  String get railMapTitle => isSpanish ? 'Mapa del sistema' : 'System map';
   String get mapSubtitle => isSpanish
-      ? 'Primero lo esencial; lo avanzado cuando lo necesites.'
-      : 'Core first, advanced when needed.';
+      ? 'Un sistema humano: decide, actúa, observa y aprende.'
+      : 'One human system: decide, act, observe and learn.';
 
   String label(AppRouteDefinition destination) => !isSpanish
       ? destination.label
       : switch (destination.appView) {
-          AppView.nexus => 'Nexus',
-          AppView.trajectoryEngine => 'Motor de Trayectoria',
-          AppView.timeline => 'Línea de Tiempo',
-          AppView.profile => 'Perfil',
-          AppView.creator => 'Creador',
-          AppView.smartPlanner => 'Planificador Inteligente',
-          AppView.console => 'Consola SI',
-          AppView.progression => 'Progresión',
-          AppView.settings => 'Configuración',
+          AppView.nexus => 'Núcleo Nexus',
+          AppView.trajectoryEngine => 'Ramas Futuras',
+          AppView.timeline => 'Registro de Verdad',
+          AppView.profile => 'Perfil Humano',
+          AppView.creator => 'Constructor de Realidad',
+          AppView.smartPlanner => 'Motor del Ahora',
+          AppView.console => 'Inteligencia Profunda',
+          AppView.progression => 'Matriz de Capacidades',
+          AppView.settings => 'Centro de Control',
           AppView.goals => 'Metas',
           null => destination.label,
         };
@@ -42,17 +41,22 @@ class NavigationCopy {
   String subtitle(AppRouteDefinition destination) => !isSpanish
       ? destination.navigationSubtitle ?? ''
       : switch (destination.appView) {
-          AppView.nexus => 'Inicio de planificación conectada',
-          AppView.trajectoryEngine => 'Escenarios futuros y ejecución',
-          AppView.timeline => 'Memoria de decisiones e historial de contexto',
-          AppView.profile => 'Identidad y progreso',
-          AppView.creator => 'Convierte tu intención en acciones conectadas',
+          AppView.nexus => 'Decisiones, señales y control en vivo',
+          AppView.trajectoryEngine =>
+            'Compara caminos posibles sin fingir certeza',
+          AppView.timeline =>
+            'Recibos de decisiones, resultados e historial corregible',
+          AppView.profile => 'Identidad, continuidad y capacidad',
+          AppView.creator =>
+            'Convierte intención en metas, tareas y contexto vinculados',
           AppView.smartPlanner =>
-            'Concilia tus límites para dar el próximo paso',
-          AppView.console => 'Convierte el contexto en una decisión informada',
+            'Resuelve límites reales en un movimiento ejecutable',
+          AppView.console =>
+            'Interroga contexto, evidencia y resultados posibles',
           AppView.progression =>
-            'Descubre capacidades desarrolladas con la acción',
-          AppView.settings => 'Preferencias y controles',
+            'Descubre capacidades demostradas mediante la acción',
+          AppView.settings =>
+            'Controles de privacidad, memoria, inteligencia y cuenta',
           AppView.goals => 'Metas y resultados',
           null => destination.navigationSubtitle ?? '',
         };

@@ -751,11 +751,11 @@ class _TimelineHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TemporalScreenHeader(
-      title: journeyText(context, 'TIMELINE', 'LÍNEA DE TIEMPO'),
+      title: journeyText(context, 'TRUTH LEDGER', 'REGISTRO DE VERDAD'),
       subtitle: journeyText(
         context,
-        'Your time, connected into one readable stream.',
-        'Tu tiempo, conectado en una historia clara.',
+        'Decision receipts, real outcomes and a history you can correct.',
+        'Recibos de decisiones, resultados reales y un historial que puedes corregir.',
       ),
       eyebrow: journeyText(
         context,

@@ -66,11 +66,11 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
     final trajectory = ref.read(trajectorySummaryProvider);
     final String text = journeyText(
       context,
-      'ChronoSpark Progress Snapshot\n'
-          'Level ${profile.level} • XP ${profile.xp} • Streak ${profile.streak}d\n'
+      'Axiomara Capability Snapshot\n'
+          'Capability tier ${profile.level} • Evidence points ${profile.xp} XP • Continuity ${profile.streak}d\n'
           'Momentum ${(trajectory.momentum * 100).round()}% • Completed tasks ${trajectory.completedTasks}\n'
-          'Building consistency with ChronoSpark: ${AppUrls.website}',
-      'Resumen de progreso de ChronoSpark\nNivel ${profile.level} • XP ${profile.xp} • Racha ${profile.streak}d\nImpulso ${(trajectory.momentum * 100).round()}% • Tareas completadas ${trajectory.completedTasks}\nDesarrollando constancia con ChronoSpark: ${AppUrls.website}',
+          'Building proven capability with Axiomara: ${AppUrls.website}',
+      'Resumen de capacidades de Axiomara\nNivel de capacidad ${profile.level} • Puntos de evidencia ${profile.xp} XP • Continuidad ${profile.streak}d\nImpulso ${(trajectory.momentum * 100).round()}% • Tareas completadas ${trajectory.completedTasks}\nDesarrollando capacidad demostrada con Axiomara: ${AppUrls.website}',
     );
 
     if (!await _confirmShare(
@@ -138,12 +138,12 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
     final trajectory = ref.read(trajectorySummaryProvider);
     final String text = journeyText(
       context,
-      'ChronoSpark Achievement Unlocked\n'
-          'Level ${profile.level} achieved\n'
+      'Axiomara Capability Proven\n'
+          'Capability tier ${profile.level} reached\n'
           'Current streak: ${profile.streak} days\n'
           'Momentum ${(trajectory.momentum * 100).round()}%\n'
-          'Join me in ChronoSpark: ${AppUrls.website}',
-      'Logro desbloqueado en ChronoSpark\nNivel ${profile.level} alcanzado\nRacha actual: ${profile.streak} días\nImpulso ${(trajectory.momentum * 100).round()}%\nAcompáñame en ChronoSpark: ${AppUrls.website}',
+          'Build with Axiomara: ${AppUrls.website}',
+      'Capacidad demostrada en Axiomara\nNivel de capacidad ${profile.level} alcanzado\nContinuidad actual: ${profile.streak} días\nImpulso ${(trajectory.momentum * 100).round()}%\nConstruye con Axiomara: ${AppUrls.website}',
     );
 
     if (!await _confirmShare(
@@ -286,13 +286,13 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
                       child: TemporalScreenHeader(
                         title: journeyText(
                           context,
-                          'PROGRESSION',
-                          'PROGRESIÓN',
+                          'CAPABILITY MATRIX',
+                          'MATRIZ DE CAPACIDADES',
                         ),
                         subtitle: journeyText(
                           context,
-                          'See what your actions are building.',
-                          'Descubre lo que construyen tus acciones.',
+                          'See what your completed actions have actually proven.',
+                          'Descubre lo que tus acciones completadas han demostrado de verdad.',
                         ),
                         eyebrow: journeyText(
                           context,
@@ -472,7 +472,7 @@ class _ProgressionOverview extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    journeyText(context, 'LEVEL', 'NIVEL'),
+                    journeyText(context, 'TIER', 'NIVEL'),
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 10,
@@ -493,8 +493,8 @@ class _ProgressionOverview extends StatelessWidget {
               Text(
                 journeyText(
                   context,
-                  'LEVEL $level · ${levelTitle.toUpperCase()}',
-                  'NIVEL $level · ${journeyLabel(context, levelTitle).toUpperCase()}',
+                  'CAPABILITY TIER $level · ${levelTitle.toUpperCase()}',
+                  'NIVEL DE CAPACIDAD $level · ${journeyLabel(context, levelTitle).toUpperCase()}',
                 ),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: AppColors.memoryAmber,
@@ -506,8 +506,8 @@ class _ProgressionOverview extends StatelessWidget {
               Text(
                 journeyText(
                   context,
-                  '$xpToNext XP until Level ${level + 1}',
-                  '$xpToNext XP para el nivel ${level + 1}',
+                  '$xpToNext evidence points (XP) until tier ${level + 1}',
+                  '$xpToNext puntos de evidencia (XP) para el nivel ${level + 1}',
                 ),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.white70,

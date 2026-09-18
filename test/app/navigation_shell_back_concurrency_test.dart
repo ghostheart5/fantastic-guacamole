@@ -82,14 +82,14 @@ void main() {
       await tester.tap(find.byTooltip('Open navigation map'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('Navigation Map'), findsOneWidget);
+      expect(find.text('System Map'), findsOneWidget);
 
       await tester.binding.handlePopRoute();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(
-        find.text('Navigation Map'),
+        find.text('System Map'),
         findsNothing,
         reason: 'one back-press should only dismiss the open sheet',
       );
@@ -112,7 +112,7 @@ void main() {
       await tester.tap(find.byTooltip('Open navigation map'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('Navigation Map'), findsOneWidget);
+      expect(find.text('System Map'), findsOneWidget);
 
       // No `await`/`pump()` between these two: this is the race the ledger
       // flagged — a rapid double back-press during a modal's own pop

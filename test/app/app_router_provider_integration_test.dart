@@ -746,7 +746,7 @@ void main() {
       );
       await tester.pump();
 
-      await tester.tap(find.byTooltip('Timeline'));
+      await tester.tap(find.byTooltip('Truth Ledger'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 

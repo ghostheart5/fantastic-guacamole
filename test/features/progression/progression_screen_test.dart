@@ -106,13 +106,13 @@ void main() {
           status: ProgressionReviewStatus.empty,
         ),
       );
-      expect(find.text('PROGRESIÓN'), findsOneWidget);
+      expect(find.text('MATRIZ DE CAPACIDADES'), findsOneWidget);
       expect(find.byTooltip('Compartir progreso'), findsOneWidget);
       expect(find.text('IMPULSO DE FINALIZACIÓN'), findsOneWidget);
       expect(find.text('Fiabilidad de planificación'), findsOneWidget);
-      expect(find.text('PROGRESSION'), findsNothing);
-      expect(find.text('LEVEL'), findsNothing);
-      expect(find.textContaining('XP para el nivel'), findsOneWidget);
+      expect(find.text('CAPABILITY MATRIX'), findsNothing);
+      expect(find.text('TIER'), findsNothing);
+      expect(find.textContaining('puntos de evidencia (XP)'), findsOneWidget);
       expect(
         find.text('Aún no hay historial de planificación guardado.'),
         findsOneWidget,
@@ -126,7 +126,7 @@ void main() {
   ) async {
     await pumpProgression(tester, trajectory: _emptyTrajectory);
 
-    expect(find.text('PROGRESSION'), findsOneWidget);
+    expect(find.text('CAPABILITY MATRIX'), findsOneWidget);
     expect(find.text('Not enough evidence'), findsOneWidget);
     expect(find.text('Not enough history'), findsOneWidget);
     expect(find.text('Off Track'), findsNothing);
@@ -142,7 +142,7 @@ void main() {
   ) async {
     await pumpProgression(tester, trajectory: _activeTrajectory);
 
-    expect(find.text('PROGRESSION'), findsOneWidget);
+    expect(find.text('CAPABILITY MATRIX'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -218,7 +218,7 @@ void main() {
       physicalSize: const Size(412, 915),
     );
 
-    expect(find.text('PROGRESSION'), findsOneWidget);
+    expect(find.text('CAPABILITY MATRIX'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -229,7 +229,7 @@ void main() {
     // the populated-prediction path had never been rendered anywhere.
     await pumpProgression(tester, trajectory: _predictiveTrajectory);
 
-    expect(find.text('PROGRESSION'), findsOneWidget);
+    expect(find.text('CAPABILITY MATRIX'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -577,7 +577,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(clipboardText, contains('ChronoSpark Progress Snapshot'));
+      expect(clipboardText, contains('Axiomara Capability Snapshot'));
     },
   );
 }

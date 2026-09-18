@@ -145,6 +145,21 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                   ),
                 ),
               ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: _DecisionLoopStrip(
+                    onBuild: () => _openCreator(CreatorFormKind.task),
+                    onResolve: () =>
+                        goToAppView(context, ref, AppView.smartPlanner),
+                    onInterrogate: () =>
+                        goToAppView(context, ref, AppView.console),
+                    onCompare: () =>
+                        goToAppView(context, ref, AppView.trajectoryEngine),
+                    onReview: () => goToAppView(context, ref, AppView.timeline),
+                  ),
+                ),
+              ),
               if (learningChange != null)
                 SliverToBoxAdapter(
                   child: Padding(

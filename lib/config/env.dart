@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/config/app_flavor.dart';
+import 'package:fantastic_guacamole/config/product_identity.dart';
 import 'package:fantastic_guacamole/config/backend_mode.dart';
 import 'package:fantastic_guacamole/config/firebase_identity.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
@@ -14,7 +15,7 @@ part 'src/readiness_policy.dart';
 part 'src/service_endpoints.dart';
 
 abstract final class Env {
-  static const String appName = 'ChronoSpark';
+  static const String appName = ProductIdentity.name;
   static const String supportEmail = 'ghostheart131517@gmail.com';
   static const String expectedFirebaseProjectId =
       FirebaseIdentity.expectedProjectId;

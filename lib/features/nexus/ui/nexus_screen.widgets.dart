@@ -29,16 +29,32 @@ class _NexusHeader extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    const Text(
-                      'NEXUS',
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0,
-                        color: Colors.white,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        copy.productName,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: const TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 2.4,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 4),
+                    Text(
+                      copy.nexusTitle,
+                      style: const TextStyle(
+                        color: AppColors.neonCyan,
+                        fontSize: AppSizes.fontXs,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .8,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
                     Text(
                       copy.tagline,
                       style: const TextStyle(
@@ -129,6 +145,174 @@ class _NexusHeader extends ConsumerWidget {
       );
     }
   }
+}
+
+class _DecisionLoopStrip extends StatelessWidget {
+  const _DecisionLoopStrip({
+    required this.onBuild,
+    required this.onResolve,
+    required this.onInterrogate,
+    required this.onCompare,
+    required this.onReview,
+  });
+
+  final VoidCallback onBuild;
+  final VoidCallback onResolve;
+  final VoidCallback onInterrogate;
+  final VoidCallback onCompare;
+  final VoidCallback onReview;
+
+  @override
+  Widget build(BuildContext context) {
+    final copy = NexusCopy.of(context);
+    return _GlassPanel(
+      accent: AppColors.neonViolet,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            copy.decisionLoop,
+            style: const TextStyle(
+              color: AppColors.neonViolet,
+              fontSize: AppSizes.fontMicro,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            copy.decisionLoopSubtitle,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: AppSizes.fontBody,
+              height: 1.35,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              _LoopAction(
+                icon: Icons.add_task_rounded,
+                label: copy.buildReality,
+                onTap: onBuild,
+              ),
+              _LoopAction(
+                icon: Icons.bolt_rounded,
+                label: copy.resolveNow,
+                onTap: onResolve,
+              ),
+              _LoopAction(
+                icon: Icons.psychology_alt_outlined,
+                label: copy.interrogate,
+                onTap: onInterrogate,
+              ),
+              _LoopAction(
+                icon: Icons.alt_route_rounded,
+                label: copy.compareFutures,
+                onTap: onCompare,
+              ),
+              _LoopAction(
+                icon: Icons.fact_check_outlined,
+                label: copy.reviewTruth,
+                onTap: onReview,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            copy.builtForReality,
+            style: const TextStyle(
+              color: AppColors.memoryAmber,
+              fontSize: AppSizes.fontMicro,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: 7),
+          ...copy.realLifeSituations.map(
+            (String situation) => Padding(
+              padding: const EdgeInsets.only(bottom: 5),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text(
+                    '›',
+                    style: TextStyle(
+                      color: AppColors.neonCyan,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      situation,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: AppSizes.fontCaption,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Icon(
+                Icons.verified_user_outlined,
+                size: 16,
+                color: AppColors.memoryAmber,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  copy.loopControlNote,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: AppSizes.fontCaption,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoopAction extends StatelessWidget {
+  const _LoopAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ActionChip(
+    avatar: Icon(icon, size: 17, color: AppColors.neonCyan),
+    label: Text(label),
+    onPressed: onTap,
+    backgroundColor: AppColors.bgSecondary.withValues(alpha: .78),
+    side: BorderSide(color: AppColors.neonCyan.withValues(alpha: .24)),
+    labelStyle: const TextStyle(
+      color: Colors.white,
+      fontWeight: FontWeight.w700,
+      fontSize: AppSizes.fontCaption,
+    ),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  );
 }
 
 class _HeaderControl extends StatelessWidget {
@@ -485,6 +669,57 @@ class _PlannerSuggestionContent extends StatelessWidget {
             height: 1.42,
           ),
         ),
+        if (decision != null) ...<Widget>[
+          const SizedBox(height: 14),
+          _DecisionPacketRow(
+            icon: Icons.sensors_rounded,
+            label: copy.evidence,
+            value: copy.evidenceSummary(
+              evidenceCount: decision!.evidence.length,
+              freshCount: decision!.evidence
+                  .where(
+                    (OperatingEvidence item) =>
+                        item.isFreshAt(decision!.generatedAt),
+                  )
+                  .length,
+              sourceCount: decision!.sourceRevisions.length,
+            ),
+            color: AppColors.neonCyan,
+          ),
+          const SizedBox(height: 9),
+          _DecisionPacketRow(
+            icon: Icons.blur_on_rounded,
+            label: copy.uncertainty,
+            value: copy.uncertaintySummary(
+              assumptionCount: decision!.assumptions.length,
+              warningCount: decision!.warnings.length,
+              expired: decision!.isExpiredAt(DateTime.now()),
+            ),
+            color: AppColors.neonViolet,
+          ),
+          const SizedBox(height: 9),
+          _DecisionPacketRow(
+            icon: Icons.tune_rounded,
+            label: copy.control,
+            value: copy.controlSummary(
+              requiresConfirmation: decision!.actionIntent.requiresConfirmation,
+              reversible: decision!.actionIntent.reversible,
+            ),
+            color: AppColors.memoryAmber,
+          ),
+          if (decision!.consequenceOfDelay.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: 10),
+            Text(
+              copy.delayed(decision!.consequenceOfDelay),
+              style: const TextStyle(
+                color: Colors.white60,
+                fontSize: AppSizes.fontCaption,
+                height: 1.35,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
         if (decision?.personContextExplanations.isNotEmpty ??
             false) ...<Widget>[
           const SizedBox(height: 12),
@@ -600,6 +835,53 @@ class _PlannerSuggestionContent extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ],
+    );
+  }
+}
+
+class _DecisionPacketRow extends StatelessWidget {
+  const _DecisionPacketRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 82,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: AppSizes.fontMicro,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .8,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: AppSizes.fontCaption,
+              height: 1.35,
+            ),
+          ),
         ),
       ],
     );

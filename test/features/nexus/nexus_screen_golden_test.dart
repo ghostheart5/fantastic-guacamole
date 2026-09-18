@@ -264,7 +264,7 @@ void main() {
     container
         .read(creatorNavigationIntentProvider.notifier)
         .open(CreatorFormKind.note);
-    final review = find.text('Review suggestion');
+    final review = find.text('Review before acting');
     await tester.ensureVisible(review);
     await tester.tap(review);
     await tester.pump();
@@ -532,10 +532,15 @@ void main() {
           observedVitals: observed,
         );
         expect(
-          find.text('Tu día, organizado en un próximo paso claro.'),
+          find.text(
+            'Tu criterio amplificado: una decisión clara y futuros que puedes comparar.',
+          ),
           findsOneWidget,
         );
-        expect(find.text('NÚCLEO DE LÓGICA ADAPTATIVA'), findsOneWidget);
+        expect(
+          find.text('AXIOMARA // SISTEMA OPERATIVO DE DECISIONES HUMANAS'),
+          findsOneWidget,
+        );
         expect(find.bySemanticsLabel('Abrir notificaciones'), findsOneWidget);
         expect(find.bySemanticsLabel('Cerrar sesión'), findsOneWidget);
         expect(find.text('ENERGÍA'), findsOneWidget);
@@ -554,8 +559,8 @@ void main() {
           ),
           findsWidgets,
         );
-        expect(find.text('DECISIÓN ACTUAL'), findsOneWidget);
-        expect(find.text('Revisar sugerencia'), findsOneWidget);
+        expect(find.text('PAQUETE DE DECISIÓN EN VIVO'), findsOneWidget);
+        expect(find.text('Revisar antes de actuar'), findsOneWidget);
         final priorities = find.text('PRIORIDADES ACTUALES');
         await tester.scrollUntilVisible(priorities, 250);
         expect(priorities, findsOneWidget);
@@ -645,7 +650,7 @@ void main() {
       await pumpNexusScreen(tester, width: Breakpoints.ultraCompact - 1);
 
       expect(
-        textWidgetContaining(tester, 'LVL 10').style?.fontSize,
+        textWidgetContaining(tester, 'CAPABILITY 10').style?.fontSize,
         AppSizes.fontMicro,
       );
     });
@@ -671,7 +676,7 @@ void main() {
       await pumpNexusScreen(tester, width: Breakpoints.ultraCompact);
 
       expect(
-        textWidgetContaining(tester, 'LVL 10').style?.fontSize,
+        textWidgetContaining(tester, 'CAPABILITY 10').style?.fontSize,
         AppSizes.fontXs,
       );
     });
@@ -684,7 +689,7 @@ void main() {
       // At the regular breakpoint, both labels intentionally converge on the
       // same font size; this matches the production widget logic.
       expect(
-        textWidgetContaining(tester, 'LVL 10').style?.fontSize,
+        textWidgetContaining(tester, 'CAPABILITY 10').style?.fontSize,
         AppSizes.fontSm,
       );
     });

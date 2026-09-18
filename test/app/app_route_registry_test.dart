@@ -49,7 +49,7 @@ void main() {
       );
 
       expect(route.path, RoutePaths.trajectoryEngine);
-      expect(route.label, 'Trajectory Engine');
+      expect(route.label, 'Future Branches');
       expect(route.icon, Icons.alt_route_rounded);
       expect(route.externalSlug, 'trajectory');
       expect(route.accessClass, RouteAccessClass.protectedApplication);
@@ -66,14 +66,14 @@ void main() {
       );
 
       expect(profile.path, RoutePaths.profile);
-      expect(profile.label, 'Profile');
+      expect(profile.label, 'Human Profile');
       expect(profile.icon, Icons.person_outline_rounded);
       expect(profile.externalSlug, 'profile');
       expect(profile.accessClass, RouteAccessClass.protectedApplication);
       expect(profile.navigationGroup, AppNavigationGroup.primary);
 
       expect(settings.path, RoutePaths.settings);
-      expect(settings.label, 'Settings');
+      expect(settings.label, 'Control Center');
       expect(settings.icon, Icons.settings_outlined);
       expect(settings.externalSlug, 'settings');
       expect(settings.accessClass, RouteAccessClass.protectedApplication);
@@ -94,17 +94,17 @@ void main() {
           ).toList(growable: false);
 
       expect(primary.map((AppRouteDefinition route) => route.label), <String>[
-        'Nexus',
-        'Trajectory Engine',
-        'Timeline',
-        'Profile',
+        'Nexus Core',
+        'Future Branches',
+        'Truth Ledger',
+        'Human Profile',
       ]);
       expect(secondary.map((AppRouteDefinition route) => route.label), <String>[
-        'Creator',
-        'Smart Planner',
-        'SI Console',
-        'Progression',
-        'Settings',
+        'Reality Builder',
+        'Now Engine',
+        'Deep Intelligence',
+        'Capability Matrix',
+        'Control Center',
       ]);
       for (final AppRouteDefinition route in <AppRouteDefinition>[
         ...primary,
