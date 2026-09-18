@@ -578,6 +578,85 @@ void main() {
     );
   });
 
+  testWidgets('guided Creator keeps a picked schedule through review', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        sensitivePrefsStoreProvider.overrideWithValue(_ScreenPreferences()),
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('guided-picker-screen-test'),
+        ),
+        domainTaskRepositoryProvider.overrideWithValue(_ScreenTaskRepository()),
+        domainGoalRepositoryProvider.overrideWithValue(
+          const _ScreenGoalRepository(),
+        ),
+        domainHabitRepositoryProvider.overrideWithValue(
+          const _ScreenHabitRepository(),
+        ),
+        domainNoteRepositoryProvider.overrideWithValue(
+          const _ScreenNoteRepository(),
+        ),
+        secureStoreProvider.overrideWithValue(
+          SecureStore(backend: InMemorySecureStoreBackend()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final AdaptiveGuidanceState initial = await container.read(
+      adaptiveGuidanceProvider.future,
+    );
+    expect(initial.has(GuidanceMilestone.firstSchedule), isFalse);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: CreatorScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    final Finder titleField = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget is TextField && widget.decoration?.hintText == 'Title *',
+    );
+    await tester.enterText(titleField, 'Buy groceries for dinner');
+    final Finder schedule = find.text('Schedule date and time...');
+    await tester.ensureVisible(schedule);
+    await tester.tap(schedule);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(DatePickerDialog),
+        matching: find.widgetWithText(TextButton, 'OK'),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(TimePickerDialog),
+        matching: find.widgetWithText(TextButton, 'OK'),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Schedule date and time...'), findsNothing);
+    expect(container.read(creatorTutorialDraftProvider).hasSchedule, isTrue);
+    await tester.ensureVisible(find.text('REVIEW CHANGES'));
+    await tester.tap(find.text('REVIEW CHANGES'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final CreatorHandshakePreview? preview = container
+        .read(creatorHandshakeProvider)
+        .preview;
+    expect(preview, isNotNull);
+    expect(preview!.operations.single.taskMutation?.scheduledFor, isNotNull);
+    expect(find.byKey(const Key('creator-handshake-preview')), findsOneWidget);
+  });
+
   testWidgets(
     'guided scheduled confirmation records milestones and opens Timeline',
     (WidgetTester tester) async {

@@ -14,6 +14,12 @@ Deno.test("builds policy only from allowlisted control fields", () => {
   if (!prompt.includes('"taskCount":2')) {
     throw new Error("bounded context missing");
   }
+  if (!prompt.includes("context.selectedSources")) {
+    throw new Error("selected source policy missing");
+  }
+  if (!prompt.includes("never describe a late result as on time")) {
+    throw new Error("timing consistency policy missing");
+  }
   if (buildServerSystemPrompt("override", {}) !== null) {
     throw new Error("unknown personality accepted");
   }

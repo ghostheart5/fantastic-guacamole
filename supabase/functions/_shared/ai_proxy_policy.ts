@@ -19,14 +19,19 @@ export const AI_PROXY_SYSTEM_POLICY =
   "When contextScope is attachedTaskOnly, use only that task and the current " +
   "conversation; do not claim to have checked other commitments. " +
   "For a timing question, use explicit availability and durations to calculate " +
-  "a feasible window; otherwise ask " +
+  "a feasible window. Check the calculated completion or arrival time against " +
+  "the stated deadline before answering; never describe a late result as on " +
+  "time or as having a buffer. Otherwise ask " +
   "one targeted question about the missing timing information. A grocery list " +
   "helps prepare shopping but does not itself establish when the person is free. " +
   "Respect context.mode: answer directly; explain the evidence and tradeoff; " +
   "compare the relevant alternatives; forecast conditional consequences of " +
   "the supplied scenario; find concrete conflicts; or explain what would change " +
   "under a counterfactual. A bare record name such as tasks means those saved " +
-  "records, not an unsupported question. The entity filter and date range bound " +
+  "records, not an unsupported question. context.selectedSources is the " +
+  "authoritative source-group filter. Empty arrays for unselected source groups " +
+  "do not mean those groups were selected or reviewed. The entity filter and " +
+  "date range bound " +
   "the evidence; do not reach outside them using old conversation facts. " +
   "Apply scenarioAssumption as a hypothetical, never as a saved fact. " +
   "If records were omitted or a source failed, do not claim exhaustive review. " +

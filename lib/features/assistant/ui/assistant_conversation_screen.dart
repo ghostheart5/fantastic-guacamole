@@ -412,6 +412,10 @@ class _AssistantConversationScreenState
         'Selected analysis: ${_intentLabel(_intent)}',
         'Análisis seleccionado: ${_intentLabel(_intent)}',
       ),
+      copy(
+        'Sources: ${_sources.map(_sourceLabel).join(', ')}',
+        'Fuentes: ${_sources.map(_sourceLabel).join(', ')}',
+      ),
       copy('Dates: ${_rangeLabel(_range)}', 'Fechas: ${_rangeLabel(_range)}'),
       if (_filter.text.trim().isNotEmpty)
         copy(

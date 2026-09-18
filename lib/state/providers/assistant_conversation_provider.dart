@@ -227,6 +227,8 @@ final class ConversationPacketFactory {
         'utcOffsetMinutes': now.timeZoneOffset.inMinutes,
         'mode': query.intent.name,
         'timeRange': range.name,
+        'selectedSources': sources.map((source) => source.name).toList()
+          ..sort(),
         'entityFilter': entityFilter,
         'scenarioAssumption': scenario,
         'evidenceRevision': snapshot.revision,

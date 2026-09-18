@@ -259,9 +259,36 @@ void main() {
       'Build an emergency fund',
     );
     expect(context['tasks'], isEmpty);
+    expect(context['selectedSources'], ['goals']);
     expect(context['unavailableSources'], contains('tasks'));
     expect(repository.reads, 0);
   });
+
+  test(
+    'SI preserves a goals-only filter when the selected group is empty',
+    () async {
+      final container = setup(
+        (_) async => throw StateError('No transport should run'),
+      );
+      addTearDown(container.dispose);
+      final packet = await container
+          .read(conversationPacketFactoryProvider)
+          .build(
+            surface: ConversationSurface.si,
+            prompt: 'What saved evidence is available?',
+            history: [],
+            languageCode: 'en',
+            sources: {SIV2Source.goals},
+            entityFilter: 'No matching goal',
+          );
+      final context = packet.toJson()['context'] as Map;
+      expect(context['selectedSources'], ['goals']);
+      expect(context['goals'], isEmpty);
+      expect(context['tasks'], isEmpty);
+      expect(context['milestones'], isEmpty);
+      expect(context['timeline'], isEmpty);
+    },
+  );
 
   for (final failure in [
     StateError('Task details unavailable'),
