@@ -831,10 +831,17 @@ void _validateAndroidRelease(List<String> failures) {
 
   final int configIndex = stepIndex('Validate production configuration');
   final int backendIndex = stepIndex(
-    'Verify live backend, App Links, RTDN, and Play configuration',
+    'Verify live backend, RTDN, and Play configuration',
   );
   final int signingMaterialIndex = stepIndex('Decode keystore');
   final int buildIndex = stepIndex('Build signed AAB');
+  final int manifestPolicyIndex = stepIndex(
+    'Verify effective release manifest link policy',
+  );
+  final int artifactVerificationIndex = stepIndex(
+    'Verify and fingerprint release artifact',
+  );
+  final int artifactUploadIndex = stepIndex('Upload AAB artifact');
   if (configIndex < 0 ||
       backendIndex < 0 ||
       signingMaterialIndex < 0 ||
@@ -845,6 +852,16 @@ void _validateAndroidRelease(List<String> failures) {
       backendIndex >= buildIndex) {
     failures.add(
       'Android production configuration and live backend must be validated before signing material is decoded and before the AAB is built.',
+    );
+  }
+  if (manifestPolicyIndex < 0 ||
+      artifactVerificationIndex < 0 ||
+      artifactUploadIndex < 0 ||
+      manifestPolicyIndex <= buildIndex ||
+      manifestPolicyIndex >= artifactVerificationIndex ||
+      manifestPolicyIndex >= artifactUploadIndex) {
+    failures.add(
+      'The effective release manifest must be checked after the AAB build and before artifact verification or upload.',
     );
   }
 

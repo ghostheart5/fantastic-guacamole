@@ -437,10 +437,7 @@ void main() {
         namedStep(build, 'Validate production configuration'),
       );
       final int backendIndex = buildSteps.indexOf(
-        namedStep(
-          build,
-          'Verify live backend, App Links, RTDN, and Play configuration',
-        ),
+        namedStep(build, 'Verify live backend, RTDN, and Play configuration'),
       );
       final int decodeIndex = buildSteps.indexOf(
         namedStep(build, 'Decode keystore'),
@@ -448,10 +445,22 @@ void main() {
       final int buildIndex = buildSteps.indexOf(
         namedStep(build, 'Build signed AAB'),
       );
+      final int manifestPolicyIndex = buildSteps.indexOf(
+        namedStep(build, 'Verify effective release manifest link policy'),
+      );
+      final int artifactVerificationIndex = buildSteps.indexOf(
+        namedStep(build, 'Verify and fingerprint release artifact'),
+      );
+      final int artifactUploadIndex = buildSteps.indexOf(
+        namedStep(build, 'Upload AAB artifact'),
+      );
       expect(configIndex, lessThan(decodeIndex));
       expect(configIndex, lessThan(buildIndex));
       expect(backendIndex, lessThan(decodeIndex));
       expect(backendIndex, lessThan(buildIndex));
+      expect(buildIndex, lessThan(manifestPolicyIndex));
+      expect(manifestPolicyIndex, lessThan(artifactVerificationIndex));
+      expect(manifestPolicyIndex, lessThan(artifactUploadIndex));
       expect(
         namedStep(build, 'Validate production configuration')['run'],
         contains('scripts/validate_production_config.dart'),
@@ -511,6 +520,9 @@ void main() {
     final String reconciliation = read(
       '.github/workflows/backend-reconciliation.yml',
     );
+    final String backendVerification = read(
+      'scripts/verify_production_backend.mjs',
+    );
 
     expect(androidRelease, contains('EXPECTED_UPLOAD_SHA1: "$uploadSha1"'));
     expect(releaseGovernance, contains('`$uploadSha1`'));
@@ -518,6 +530,14 @@ void main() {
     expect(reconciliation, contains('Number.isInteger(body.advanced)'));
     expect(reconciliation, contains('body.scanned - body.advanced'));
     expect(reconciliation, contains('body.completed > body.advanced'));
+    expect(backendVerification, isNot(contains('chronospark.app')));
+    expect(
+      androidRelease,
+      contains('Verify effective release manifest link policy'),
+    );
+    expect(androidRelease, contains("Path('build/app/intermediates')"));
+    expect(androidRelease, contains("intent_filter.findall('data')"));
+    expect(androidRelease, contains('effective-release-manifest.json'));
   });
 
   test('public Pages workflow validates privately and publishes manually', () {
