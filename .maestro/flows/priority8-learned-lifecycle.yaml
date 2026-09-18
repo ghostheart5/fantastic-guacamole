@@ -111,7 +111,7 @@ tags:
     file: ../subflows/open-from-nexus.yaml
     env:
       TARGET: "Now Engine"
-- assertVisible: "Back\\nPLAN SPECTRUM\\nSmart Planner\\nBuild your next plan from real evidence."
+- assertVisible: "Back\\nIMMEDIATE DECISION ENGINE\\nNow Engine\\nResolve time, energy and commitments into one real next move."
 - scrollUntilVisible:
     element:
       text: "What would you like help planning right now\\?"

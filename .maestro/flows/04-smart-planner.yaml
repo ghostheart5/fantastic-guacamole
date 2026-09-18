@@ -13,7 +13,7 @@ tags:
     env:
       TARGET: "Now Engine"
 
-- assertVisible: "Back\\nPLAN SPECTRUM\\nSmart Planner\\nBuild your next plan from real evidence."
+- assertVisible: "Back\\nIMMEDIATE DECISION ENGINE\\nNow Engine\\nResolve time, energy and commitments into one real next move."
 
 # The canonical destination must not regress to a retired product label.
 - assertNotVisible: "SMART COACH"
