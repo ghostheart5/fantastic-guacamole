@@ -90,45 +90,20 @@ void main() {
   test('published policy copies identify one current data contract', () {
     final String policy = read('web/privacy/index.html');
     final String bundled = read('assets/legal/privacy_policy.txt');
-    expect(
-      policy,
-      contains(
-        'Account and security services may use Supabase for authentication',
-      ),
-    );
-    expect(policy, contains('Disabled in the contained public configuration'));
-    expect(policy, contains('Anthropic is the disclosed external AI provider'));
-    expect(
-      policy,
-      contains('Firebase Analytics and Crashlytics are release-contained off'),
-    );
+    expect(policy, contains('Axiomara uses Supabase for authentication'));
+    expect(policy, contains('Anthropic'));
+    expect(policy, contains('Firebase Analytics and Crashlytics are disabled'));
+    expect(policy, contains('Axiomara does not display ads'));
+    expect(bundled, contains('This policy explains how Axiomara handles data'));
+    expect(bundled, isNot(contains('ChronoSpark')));
+    expect(bundled, isNot(contains('Google Play')));
+    expect(bundled, contains('visible plan clauses'));
+    expect(bundled, contains('expected credit cost before confirmation'));
     expect(
       bundled,
-      contains(
-        'contained public configuration and in eligible private internal-testing builds',
-      ),
+      contains('quote, reserve, settle, retry, and reconcile credits'),
     );
-    expect(
-      bundled,
-      contains(
-        'External AI\n\nDisabled in the contained public configuration.',
-      ),
-    );
-    expect(bundled, contains('fixed fictional prompt'));
-    expect(bundled, contains('selected visible plan clauses'));
-    expect(bundled, contains('expected credit cost'));
-    expect(
-      bundled,
-      contains('credit-reservation, settlement, and retry records'),
-    );
-    expect(
-      bundled,
-      contains('internal-track enrollment alone does not make a purchase free'),
-    );
-    expect(
-      bundled,
-      isNot(contains('possible future external Planner explanation')),
-    );
+    expect(bundled, isNot(contains('contained public configuration')));
     expect(bundled, contains('ghostheart131517@gmail.com'));
     expect(
       read('lib/config/env.dart'),
@@ -173,9 +148,6 @@ void main() {
       'assets/legal/delete_account.html',
       'assets/legal/delete_account.txt',
       'docs/delete-account.html',
-      'contact.html',
-      'support.html',
-      'testers.html',
     ]) {
       final String source = read(path);
       expect(source, contains(canonical), reason: path);
@@ -275,20 +247,31 @@ void main() {
     expect(declared, containsAll(appAssets));
   });
 
-  test('public pages do not claim unapproved AI, billing, or platforms', () {
-    final String landing = read('index.html');
-    final String download = read('download.html');
-    final String webShell = read('web/index.html');
-    final String manifest = read('web/manifest.json');
+  test('one minimal public source replaces legacy marketing pages', () {
+    final String requiredSite = read('site/index.html');
 
-    expect(landing, isNot(contains('<span class="tag">Premium</span>')));
-    expect(landing, isNot(contains('<span class="tag">Ultimate</span>')));
-    expect(download, contains('No public download is currently claimed'));
-    expect(webShell, isNot(contains('optional AI assistance')));
-    expect(manifest, isNot(contains('optional AI assistance')));
+    expect(requiredSite, isNot(contains('optional AI assistance')));
+    expect(requiredSite, isNot(contains('ChronoSpark')));
+    expect(requiredSite, isNot(contains('Google Play')));
     expect(
-      webShell,
+      requiredSite,
       isNot(contains('Android, iOS, Windows, macOS, Linux, Web')),
     );
+    expect(File('web/index.html').existsSync(), isFalse);
+    expect(File('web/manifest.json').existsSync(), isFalse);
+    expect(Directory('web/app').existsSync(), isFalse);
+    for (final String retiredPage in <String>[
+      'about.html',
+      'CHRONOSPARK.html',
+      'contact.html',
+      'download.html',
+      'index.html',
+      'support.html',
+      'testers.html',
+    ]) {
+      expect(File(retiredPage).existsSync(), isFalse, reason: retiredPage);
+    }
+    expect(Directory('site/features').existsSync(), isFalse);
+    expect(Directory('site/download').existsSync(), isFalse);
   });
 }

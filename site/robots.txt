@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
-Disallow: /app/
 
 Sitemap: https://ghostheart5.github.io/fantastic-guacamole/sitemap.xml

@@ -375,7 +375,7 @@ _localizedRouteExpectations = <_LocalizedRouteExpectation>[
     locale: Locale('en'),
     title: 'Privacy Policy',
     bodyFragment:
-        'This policy describes the data ChronoSpark may process in the contained public configuration and in eligible private internal-testing builds.',
+        'This policy explains how Axiomara handles data in the Android app and its account, billing, notification, and optional AI services.',
     callToAction: 'Open Hosted Privacy Policy',
   ),
   _LocalizedRouteExpectation(
@@ -383,7 +383,7 @@ _localizedRouteExpectations = <_LocalizedRouteExpectation>[
     locale: Locale('en'),
     title: 'Terms of Service',
     bodyFragment:
-        'These terms govern use of ChronoSpark. By using the app, you agree to these terms and the Privacy Policy.',
+        'These terms govern use of Axiomara. By using the app, you agree to these terms and the Privacy Policy.',
     callToAction: 'Open Hosted Terms',
   ),
   _LocalizedRouteExpectation(
@@ -391,7 +391,7 @@ _localizedRouteExpectations = <_LocalizedRouteExpectation>[
     locale: Locale('en'),
     title: 'Delete Account',
     bodyFragment:
-        'Permanent action: Account deletion removes the authentication account and eligible account-linked data after the request is verified.',
+        'Permanent action: Verified deletion removes the authentication account and eligible account-linked data. It cannot be undone.',
     callToAction: 'Open Hosted Delete Account Page',
   ),
   _LocalizedRouteExpectation(
@@ -399,7 +399,7 @@ _localizedRouteExpectations = <_LocalizedRouteExpectation>[
     locale: Locale('en'),
     title: 'Support',
     bodyFragment:
-        'Working contact path: Email is available for account, privacy, tester, and technical support.',
+        'Contact path: Email support is available for access, billing, privacy, deletion, and technical issues.',
     callToAction: 'Open Hosted Support Page',
   ),
 ];

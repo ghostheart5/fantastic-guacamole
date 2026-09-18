@@ -25,7 +25,7 @@ void main() {
       expect(
         privacyPolicy,
         contains(
-          'Firebase Analytics and Crashlytics are release-contained off.',
+          'Firebase Analytics and Crashlytics are disabled in the current release configuration.',
         ),
       );
     },

@@ -1,100 +1,72 @@
+Axiomara: Decision OS
+
 Privacy Policy
 
-Last updated: September 16, 2026
+Last updated: September 18, 2026
 
-This policy describes the data ChronoSpark may process in the contained public configuration and in eligible private internal-testing builds. Feature availability depends on the installed build and account eligibility. A listed provider is not proof that every provider feature is enabled.
+This policy explains how Axiomara handles data in the Android app and its account, billing, notification, and optional AI services.
 
-Age and intended audience
+Audience
 
-ChronoSpark is intended for adults ages 18 and over. It is not designed for or directed to children. Do not create an account or use ChronoSpark if you are under 18.
+Axiomara is intended for adults ages 18 and over. It is not designed for or directed to children.
 
-Information you provide
+Data you provide
 
-- Account identifiers and optional provider profile details used to create and recognize your account, such as an email address, sign-in provider identifier, display name, and profile-image URL. These details come from the sign-in method you choose and may be stored in your ChronoSpark account profile.
+- Account details such as email address, sign-in provider identifier, display name, and optional profile-image URL.
 
-- Planning content you intentionally create, including tasks, planning context, goals, notes, schedules, preferences, and reflections.
+- Content you create, including tasks, goals, routines, notes, schedules, preferences, energy and emotional-state entries, planning context, reflections, and progress.
 
-- Support or account-deletion messages you choose to send.
+- Questions, selected records, recent conversation context, scenarios, and feedback you choose to submit to enabled AI or response-reporting features.
 
-Information needed for app functions
+- Messages you send for support, privacy, or account deletion.
 
-- Authentication and security events needed to protect an account.
+Data used for app functions
 
-- Notification device tokens only when messaging features are initialized for notifications.
+- Authentication and security events used to protect your account.
 
-- Purchase or entitlement data only when a supported Google Play billing flow is used.
+- Notification device tokens when you enable notifications.
 
-- Local diagnostics needed to display and recover from an error on the device.
+- App-marketplace purchase, subscription, entitlement, and transaction identifiers when you use billing.
 
-Current release containment
+- Credit balances, quotes, reservations, settlements, retries, and usage records for paid AI requests.
 
-External AI
+- Local diagnostic information needed to show or recover from an error on your device.
 
-Disabled in the contained public configuration. Eligible private internal testers can enable disclosed AI-credit tests and, where available, Smart Planner and SI Console conversations. These conversations send your question, recent messages and selected app context only after the review and confirmation described below.
+Storage and service providers
 
-Cloud sync
+Core planning content is stored on your device. Axiomara uses Supabase for authentication and approved account-scoped backend operations. Billing verification and AI-credit operations may store account-linked purchase and usage records. Firebase Cloud Messaging may process a device token for notifications. The app marketplace processes distribution and billing.
 
-Disabled for the release candidate.
+Firebase Analytics and Crashlytics are disabled in the current release configuration. Axiomara does not display ads, require users to watch ads, or sell personal information for advertising.
 
-Cloud restore
+Optional external AI
 
-Disabled for the release candidate.
+When an external AI action is available, Axiomara shows the provider, the categories of information to be sent, and the expected credit cost before confirmation. If you confirm, the request passes through Axiomara's service to Anthropic. You can decline and continue using non-generative planning features.
 
-Subscriptions and credits
+Enabled AI conversation tools may submit your question, up to six recent conversation messages, and the limited tasks, goals, milestones, timeline records, note, energy input, emotional state, filter, date range, mode, or scenario selected for that request. A separately confirmed explanation may submit the visible plan clauses and evidence selected for explanation. These requests do not upload your complete planning library or silently change saved records.
 
-Disabled in the contained public configuration. Eligible private internal-testing builds can offer Google Play subscriptions, credit top-ups, and confirmed credit spending. Purchases in this testing cohort require an eligible license tester and a Google Play test payment method; internal-track enrollment alone does not make a purchase free.
+Axiomara retains billing and usage records needed to quote, reserve, settle, retry, and reconcile credits. The visible conversation remains available while its screen remains open; Axiomara does not provide a saved transcript archive. Anthropic's commercial service uses a default 30-day retention period and may retain information longer for policy enforcement, security, or legal obligations. See Anthropic's retention information.
 
-Analytics
+Response reports
 
-Disabled by default and release-contained off.
+If you report an AI response, Axiomara receives the selected response, your reason, and your account identifier. The response may contain planning or personal details. Reports are stored for safety, privacy, and accuracy review and are deleted from the report table when your account is deleted.
 
-Crash reporting
+Voice input
 
-Disabled by default and release-contained off. Raw account identifiers must not be attached to crash reports if this changes in a future release.
+If you choose voice input, your device's speech-recognition provider may process microphone audio under its own terms. Axiomara does not store audio recordings. Recognized text is placed in the input field for review and is not automatically submitted. Voice transcription does not use Axiomara AI credits.
 
-Local and backend storage
+Retention, security, and deletion
 
-ChronoSpark stores data on the device so core planning functions can work locally. Account and security services may use Supabase for authentication and approved account-scoped backend operations. When billing or AI-credit testing is enabled, Supabase also processes purchase-verification records, credit balances, usage, reservations, settlements, and retry metadata. These operations are separate from cloud sync and restore of planning data, which remain disabled.
-
-Service providers
-
-ChronoSpark may use Supabase for authentication and approved backend operations, Firebase Cloud Messaging for notifications, and Google Play for Android distribution and billing. Firebase Analytics and Crashlytics are release-contained off. Anthropic is the disclosed external AI provider for enabled private testing features. This is not an unrestricted public AI service.
-
-External AI requests and your choice
-
-Where an external AI action is enabled, ChronoSpark identifies the provider, the data to be sent, and the expected credit cost before asking you to confirm. The request passes through ChronoSpark's service to Anthropic only after confirmation. You can decline and continue using local planning guidance.
-
-The internal credit-test controls submit a fixed fictional prompt, not your saved planning context, profile, or conversation history. Where enabled, Smart Planner and SI Console conversations submit your question, up to six recent conversation messages, and a limited selection of tasks, goals, milestones and timeline records. This can include titles, task descriptions, durations and recorded dates. Planner can also include a note you explicitly attached, optional energy input and an emotional state when you have allowed its use. SI includes your selected analysis mode, record filter, date range and hypothetical scenario. You can review the included app context before it goes to ChronoSpark's service for a credit quote; accepting the price then permits sending it to Anthropic. These requests do not upload your entire planning library or change saved records. A separately enabled Planner explanation submits selected visible plan clauses and relevant evidence disclosed before confirmation for that request.
-
-ChronoSpark retains usage, credit-reservation, settlement, and retry records for those operations. The conversation screen keeps its visible conversation while that screen remains open; the conversation service does not provide a saved transcript or response-replay archive. The separate optional Planner explanation service may keep response content for the short replay window shown with its quote, then retain billing metadata. Provider processing is also subject to Anthropic's applicable policies. Do not include passwords, payment credentials, or other secrets in submitted content. On-device SI tools and core planning do not require an external AI request.
-
-ChronoSpark's Anthropic organization uses 30-day retention by default and does not use Zero Data Retention. Anthropic may retain data longer for usage-policy enforcement, legal requirements, or other exceptions described in its commercial data-retention policy. Requests may be processed globally. Optional sharing of prompts and responses as user feedback is disabled for this organization. ChronoSpark's shorter replay-content window does not shorten the provider's separate retention period.
-
-Reporting an SI response
-
-If you choose to report an SI response, we receive the selected response, your reporting reason and your account identifier. The selected response may include planning or other personal details that appear in it. We store the report to review safety, privacy and accuracy concerns; it is not processed only in memory. The reporting service does not forward the report to our external AI provider. Report records are linked to your account and are deleted from the report table when your account is deleted. The general retention and deletion terms in this policy also apply.
-
-Optional voice input
-
-Where voice input is available, ChronoSpark explains speech-provider processing before you agree to dictate. Your device's selected speech-recognition provider may send microphone audio to its servers for transcription under its own privacy policy. Availability, processing location, and provider retention depend on that service; ChronoSpark does not promise on-device-only transcription. You can decline and type instead. ChronoSpark does not store audio recordings or capture audio during normal planning or background use.
-
-Recognized text appears in the input field for your review and is not automatically submitted. If you choose to send or save that text, the same content and storage rules apply as for typed text. Device speech processing is separate from ChronoSpark's external AI actions and does not spend ChronoSpark AI credits.
-
-Retention and deletion
-
-Account-linked information is retained only as needed to provide the active service, satisfy legal obligations, prevent fraud or abuse, resolve disputes, and protect security. Use the account-deletion page to review in-app and external request paths. Device-local data on an offline device may require clearing app storage or uninstalling the app.
+Account-linked information is retained only as needed to provide the service, maintain security, prevent fraud or abuse, resolve disputes, and meet legal obligations. No system is completely secure. Use the account-deletion page to request deletion in the app or without the app. Data stored only on an offline device may require clearing app storage or uninstalling the app.
 
 Your choices
 
-- Control available notifications and privacy settings in the app.
+- Review and decline an external AI request before information is sent.
+
+- Control available notification and privacy settings in the app.
 
 - Request access, correction, or deletion of account-linked information.
 
-- Do not send passwords, one-time codes, recovery tokens, payment details, or secret keys in a support request.
-
-Security and policy changes
-
-ChronoSpark uses technical and organizational safeguards appropriate to the service, but no system is completely secure. Material policy changes will be posted at this URL with an updated date.
+- Do not send passwords, one-time codes, recovery tokens, payment details, or secret keys in support messages.
 
 Contact
 

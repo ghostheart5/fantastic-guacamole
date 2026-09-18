@@ -86,62 +86,64 @@ void main() {
     expect(termsRoute, isNot(contains('url=../terms.html')));
   });
 
-  test('privacy policy discloses OAuth account profile data', () {
+  test('privacy policy discloses OAuth account details', () {
     final String privacy = read('web/privacy/index.html');
 
     expect(privacy, contains('display name'));
     expect(privacy, contains('profile-image URL'));
-    expect(privacy, contains('ChronoSpark account profile'));
+    expect(privacy, contains('Account details'));
+    expect(privacy, contains('sign-in provider identifier'));
   });
 
-  test(
-    'legal surfaces disclose private billing without promising public access',
-    () {
-      for (final String path in <String>[
-        'web/privacy/index.html',
-        'web/terms/index.html',
-        'web/support/index.html',
-        'web/delete-account/index.html',
-      ]) {
-        final String source = read(path);
-        expect(
-          source,
-          contains('contained public configuration'),
-          reason: path,
-        );
-        expect(source, contains('private internal'), reason: path);
-        expect(source, matches(RegExp(r'credit top-ups?')), reason: path);
-        expect(
-          source,
-          isNot(
-            contains(
-              'Subscriptions are not enabled for the current release candidate',
-            ),
-          ),
-          reason: path,
-        );
-      }
-      for (final String path in <String>[
-        'web/privacy/index.html',
-        'web/terms/index.html',
-        'web/support/index.html',
-      ]) {
-        final String source = read(path);
-        expect(
-          source,
-          contains('Google Play test payment method'),
-          reason: path,
-        );
-        expect(source, contains('Anthropic'), reason: path);
-        expect(source, contains('before confirmation'), reason: path);
-      }
-      for (final String path in <String>[
-        'web/terms/index.html',
-        'web/support/index.html',
-        'web/delete-account/index.html',
-      ]) {
-        expect(read(path), contains('does not cancel'), reason: path);
-      }
-    },
-  );
+  test('minimal legal surfaces disclose billing without retired branding', () {
+    for (final String path in <String>[
+      'web/privacy/index.html',
+      'web/terms/index.html',
+      'web/support/index.html',
+      'web/delete-account/index.html',
+    ]) {
+      final String source = read(path);
+      expect(source, contains('Axiomara'), reason: path);
+      expect(source.toLowerCase(), contains('marketplace'), reason: path);
+      expect(source, isNot(contains('ChronoSpark')), reason: path);
+      expect(source, isNot(contains('chronospark')), reason: path);
+      expect(source, isNot(contains('Google Play')), reason: path);
+      expect(source, isNot(contains('play.google.com')), reason: path);
+      expect(
+        source,
+        isNot(contains('contained public configuration')),
+        reason: path,
+      );
+    }
+    for (final String path in <String>[
+      'web/privacy/index.html',
+      'web/terms/index.html',
+    ]) {
+      final String source = read(path);
+      expect(source, contains('Anthropic'), reason: path);
+      expect(source, contains('before confirmation'), reason: path);
+    }
+    for (final String path in <String>[
+      'web/terms/index.html',
+      'web/support/index.html',
+      'web/delete-account/index.html',
+    ]) {
+      expect(read(path), contains('does not cancel'), reason: path);
+    }
+    expect(
+      read('web/support/index.html'),
+      contains('does not provide an APK or public download'),
+    );
+    expect(
+      read('site/index.html'),
+      isNot(
+        anyOf(
+          contains('Smart Planner'),
+          contains('SI Console'),
+          contains('Nexus'),
+        ),
+      ),
+    );
+    expect(read('site/index.html'), contains('invited private testing'));
+  });
 }
