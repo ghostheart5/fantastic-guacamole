@@ -1,23 +1,24 @@
 {
-  "generatedAt": "2026-08-31",
-  "graphicsReviewedAt": "2026-09-08",
+  "generatedAt": "2026-09-17",
+  "graphicsReviewedAt": "2026-09-17",
   "files": [
     {
       "name": "feature-graphic-1024x500-rgb.png",
-      "purpose": "Opaque Google Play feature graphic export; use instead of the RGBA original",
+      "purpose": "Opaque Axiomara Google Play feature graphic; preferred upload",
       "width": 1024,
       "height": 500,
       "mode": "RGB",
-      "bytes": 692693,
-      "sha256": "8b47e6242c422297b531ce6ac6014a9a8a4ce61c13ec558d99867b4d025dd223"
+      "bytes": 864365,
+      "sha256": "6F828D53C14F01D24B01B800DA3B942A2D81217B29D798169DFAE3B4B5FA973D"
     },
     {
       "name": "feature-graphic-1024x500.png",
-      "purpose": "Google Play feature graphic candidate",
+      "purpose": "Opaque Axiomara Google Play feature graphic candidate",
       "width": 1024,
       "height": 500,
-      "bytes": 774794,
-      "sha256": "57D863F88C7A694058F5D3296F2BACF16EFA3DC1E39B94F58F42A16DCE144352"
+      "mode": "RGB",
+      "bytes": 864365,
+      "sha256": "6F828D53C14F01D24B01B800DA3B942A2D81217B29D798169DFAE3B4B5FA973D"
     },
     {
       "name": "app-icon-512.png",

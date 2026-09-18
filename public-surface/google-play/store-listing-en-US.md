@@ -1,59 +1,57 @@
 # Default store listing: English (United States)
 
-Revised September 11, 2026 for the signed 4.1.0+2026083032 internal-testing candidate. This source file alone does not establish Console submission or public publication.
+Revised September 17, 2026 for the signed 4.1.0+2026083063 closed-testing candidate. This file records the listing draft; Play Console submission and publication require separate readback.
 
 ## App name
 
-ChronoSpark: Smart Planner
+Axiomara: Decision OS
 
-Character count: 26 / 30
+Character count: 21 / 30
 
 ## Short description
 
-Plan tasks, build daily rhythms, and choose your next move with clear guidance
+Turn goals, time, energy, and context into clear, inspectable decisions.
 
-Character count: 78 / 80
+Character count: 72 / 80
 
 ## Full description
 
-ChronoSpark helps you turn real-life demands into a next step you can understand and choose. Bring your goals, tasks, daily rhythms and notes together, then use planning guidance to work with the time and capacity you actually have.
+Axiomara turns goals, commitments, time, energy, notes, and user-approved context into decisions you can inspect before you act.
 
-PLAN AROUND REAL LIFE
+NEXUS: YOUR LIVE DECISION PACKET
 
-Study before school pickup. Break a large goal into a manageable task. Keep a daily routine in view. Record an idea before it disappears. ChronoSpark gives these everyday details a place in your plan.
+Nexus brings together what matters now: the recommended move, why it fits, the signals behind it, uncertainty, and the control you keep. Nothing changes silently.
 
-SEE WHAT NEEDS YOUR ATTENTION
+BUILD REALITY
 
-Nexus brings your planning context and suggested next move together. Timeline helps you review plans and recorded activity, with scheduled times kept distinct from actual deadlines.
+Use Reality Builder to capture goals, tasks, notes, and daily rhythms. Connect today's work to outcomes that matter instead of maintaining disconnected lists.
 
-MAKE YOUR NEXT STEP PRACTICAL
+RESOLVE THE NOW
 
-Tell Smart Planner what you are dealing with, how much time you have and any capacity or emotional context you choose to share. Review a concrete next step informed by your request and relevant saved information. Guidance stays separate from saved changes until you choose to act.
+Now Engine considers available time, priority, schedule pressure, and the context you choose to share. Ask what to do next, request a smaller step, or explore another approach.
 
-UNDERSTAND THE REASONING
+INTERROGATE THE REASONING
 
-Use SI Console to ask about tasks, goals, milestones and Timeline activity. Its on-device guidance explains the evidence it found and the limits of what it can conclude. You stay in control of whether to act, edit, defer or reject a suggestion.
+Deep Intelligence lets you question the recommendation and inspect its limits. The app separates observed facts, assumptions, and possible outcomes so guidance stays understandable.
 
-CREATE WITH INTENTION
+COMPARE FUTURE BRANCHES
 
-Use Creator to prepare a task, review its details and confirm before saving. Organize goals, keep useful notes and manage daily rhythms through the app's planning tools.
+Future Branches helps you examine tradeoffs before committing. Scenarios are possibilities, not promises. You decide what to accept, change, delay, or reject.
 
-REFLECT ON WHAT YOU DO
+CLOSE THE TRUTH LOOP
 
-Progression shows recorded activity and earned progress. Trajectory helps you examine possible paths and tradeoffs. Scenarios are conditional possibilities, not promises about your future.
+Truth Ledger records chosen actions and outcomes. Axiomara learns from what actually happened, and you can review or correct that learning. Capability Matrix shows progress earned through action.
+
+DESIGNED FOR REAL LIFE
+
+Energy and clarity check-ins are optional and temporary. Momentum reflects current trajectory evidence. Voice input and spoken responses remain under your control.
 
 NO ADS. EVER.
 
-ChronoSpark will never show ads. No banners, advertising interruptions or videos to watch for credits, features or access. This applies to every user, including users without a paid plan.
+No banners. No rewarded videos. No interruption-for-access model. Ad-free use does not depend on a subscription.
 
-YOUR CHOICES MATTER
+OPTIONAL AI AND PAID FEATURES
 
-Choose what personal context you share. Review guidance before changing your plan. Account and data-deletion controls are available in Settings. Planning guidance does not replace professional or emergency support.
+Core planning remains available without ads. Where eligible private testing enables external AI, Axiomara identifies what service is used, what context may be sent, and the credit cost before a paid action. Subscription access and spendable AI credits are shown separately.
 
-FEATURE AVAILABILITY
-
-ChronoSpark is currently available in English. Core planning guidance runs on device. Optional voice dictation explains the device speech provider's processing before microphone use. Cloud sync, restore, analytics and crash reporting are currently disabled.
-
-Subscriptions, credit purchases and external AI actions are limited to eligible private testing accounts in this release. Where available, paid features and credit costs are shown before confirmation. External AI actions identify the provider and information to be sent. Google Play internal testers must also be registered license testers and choose test payment methods to avoid real charges.
-
-Make room for a clearer day, one considered action at a time.
+Axiomara supports planning and decision-making. It does not replace professional, medical, legal, financial, or emergency support.
