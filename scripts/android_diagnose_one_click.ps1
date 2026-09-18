@@ -614,9 +614,9 @@ $patterns = @(
   'SocketException',
   'TimeoutException',
   'Failed assertion',
-  'Process\s+' + [regex]::Escape($PackageName) + '\s+has died',
-  'Unable to start.*' + [regex]::Escape($PackageName),
-  'ANR in\s+' + [regex]::Escape($PackageName)
+  ('Process\s+' + [regex]::Escape($PackageName) + '\s+has died'),
+  ('Unable to start.*' + [regex]::Escape($PackageName)),
+  ('ANR in\s+' + [regex]::Escape($PackageName))
 ) + @(Get-ChronoSparkFatalDiagnosticPatterns)
 $hits = @(Select-String `
   -LiteralPath $runtimeLog `

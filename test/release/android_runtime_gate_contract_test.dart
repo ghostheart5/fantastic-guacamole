@@ -69,8 +69,28 @@ void main() {
       expect(diagnose, contains(r"'-n', $launcherComponent"));
       expect(
         diagnose,
-        isNot(contains(r"'-p', $PackageName")),
+        isNot(
+          contains(
+            "'shell', 'am', 'start', '-W',\n"
+            "      '-a', 'android.intent.action.MAIN'",
+          ),
+        ),
         reason: 'Android 16 cannot resolve the package-only fallback intent.',
+      );
+      expect(
+        diagnose,
+        contains(
+          r"('Process\s+' + [regex]::Escape($PackageName) + '\s+has died')",
+        ),
+        reason: 'A composed crash regex must remain one Select-String pattern.',
+      );
+      expect(
+        diagnose,
+        contains(r"('Unable to start.*' + [regex]::Escape($PackageName))"),
+      );
+      expect(
+        diagnose,
+        contains(r"('ANR in\s+' + [regex]::Escape($PackageName))"),
       );
       expect(diagnose, contains(r'$evidence.logcatCollected'));
       expect(diagnose, contains(r'$evidence.logcatByteCount'));
