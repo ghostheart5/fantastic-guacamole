@@ -272,7 +272,7 @@ Future<String?> _initStorageSafe(
       exception: error,
     );
     RuntimeDiagnostics.record('Local storage initialization failed: $error');
-    return 'Local storage could not be opened. Restart ChronoSpark and retry.';
+    return 'Local storage could not be opened. Restart Axiomara and retry.';
   }
 }
 

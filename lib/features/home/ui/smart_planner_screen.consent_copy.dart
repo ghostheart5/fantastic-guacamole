@@ -129,7 +129,7 @@ extension _PlannerExplanationQuoteConsent on _SmartPlannerScreenState {
                 journeyText(
                   context,
                   'First-party replay window: ${quote.replayWindowSeconds} seconds',
-                  'Tiempo para repetir desde ChronoSpark: ${quote.replayWindowSeconds} segundos',
+                  'Tiempo para repetir desde Axiomara: ${quote.replayWindowSeconds} segundos',
                 ),
               ),
               const SizedBox(height: 12),
@@ -148,16 +148,16 @@ extension _PlannerExplanationQuoteConsent on _SmartPlannerScreenState {
               Text(
                 journeyText(
                   context,
-                  'The quote used this minimized packet only with ChronoSpark\'s first-party function. Nothing has been sent to Anthropic yet.',
-                  'La cotización usó este paquete mínimo solo con la función propia de ChronoSpark. Aún no se ha enviado nada a Anthropic.',
+                  'The quote used this minimized packet only with Axiomara\'s first-party function. Nothing has been sent to Anthropic yet.',
+                  'La cotización usó este paquete mínimo solo con la función propia de Axiomara. Aún no se ha enviado nada a Anthropic.',
                 ),
               ),
               const SizedBox(height: 12),
               Text(
                 journeyText(
                   context,
-                  'ChronoSpark keeps response content only for the short replay window, then retains billing metadata. This quote is available only after the first-party service reports the provider-retention and qualified safety-review gates approved. Independent release evidence is still required before this feature can be enabled.',
-                  'ChronoSpark conserva la respuesta solo durante el breve periodo para repetirla y luego mantiene los datos de facturación. Esta cotización aparece solo cuando el servicio propio confirma la retención del proveedor y la revisión de seguridad aprobada. Antes de habilitar la función aún se necesita evidencia independiente del lanzamiento.',
+                  'Axiomara keeps response content only for the short replay window, then retains billing metadata. This quote is available only after the first-party service reports the provider-retention and qualified safety-review gates approved. Independent release evidence is still required before this feature can be enabled.',
+                  'Axiomara conserva la respuesta solo durante el breve periodo para repetirla y luego mantiene los datos de facturación. Esta cotización aparece solo cuando el servicio propio confirma la retención del proveedor y la revisión de seguridad aprobada. Antes de habilitar la función aún se necesita evidencia independiente del lanzamiento.',
                 ),
               ),
             ],

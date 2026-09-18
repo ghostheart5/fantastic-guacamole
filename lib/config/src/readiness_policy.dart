@@ -183,7 +183,7 @@ abstract final class _ReadinessPolicy {
       return 'Runtime feature flags require Firebase core to initialize successfully.';
     }
     if (!FirebaseIdentity.matchesExpectedProjectId(firebaseProjectId)) {
-      return 'Runtime feature flags require the expected ChronoSpark Firebase project.';
+      return 'Runtime feature flags require the expected Axiomara Firebase project.';
     }
     return null;
   }

@@ -336,16 +336,16 @@ final class _SafetySupportCopy {
       : "Let's pause and focus on your safety";
 
   String get crisisBody => _es
-      ? 'ChronoSpark ha pausado la planificación normal porque este mensaje puede involucrar seguridad inmediata. Es una precaución de enrutamiento, no un juicio ni un diagnóstico. Si hay peligro inmediato o una emergencia médica, contacta ahora con los servicios de emergencia locales.'
-      : 'ChronoSpark paused ordinary planning because this message may involve immediate safety. This is a routing precaution, not a judgment or diagnosis. If there is immediate danger or a medical emergency, contact local emergency services now.';
+      ? 'Axiomara ha pausado la planificación normal porque este mensaje puede involucrar seguridad inmediata. Es una precaución de enrutamiento, no un juicio ni un diagnóstico. Si hay peligro inmediato o una emergencia médica, contacta ahora con los servicios de emergencia locales.'
+      : 'Axiomara paused ordinary planning because this message may involve immediate safety. This is a routing precaution, not a judgment or diagnosis. If there is immediate danger or a medical emergency, contact local emergency services now.';
 
   String get supportTitle => _es
       ? '¿Qué apoyo te ayudaría ahora?'
       : 'What support would help right now?';
 
   String get supportBody => _es
-      ? 'ChronoSpark ha pausado la productividad porque tus palabras pueden describir angustia. No es un diagnóstico. Puedes parar aquí, contactar a alguien de confianza, buscar apoyo local o elegir una sola pregunta suave.'
-      : 'ChronoSpark paused productivity because your words may describe distress. This is not a diagnosis. You can stop here, contact someone you trust, find local support, or choose one gentle question.';
+      ? 'Axiomara ha pausado la productividad porque tus palabras pueden describir angustia. No es un diagnóstico. Puedes parar aquí, contactar a alguien de confianza, buscar apoyo local o elegir una sola pregunta suave.'
+      : 'Axiomara paused productivity because your words may describe distress. This is not a diagnosis. You can stop here, contact someone you trust, find local support, or choose one gentle question.';
 
   String emergencyLabel(String regionCode) => switch (regionCode) {
     'US' || 'CA' => _es ? 'Llamar al 911' : 'Call 911',
@@ -369,8 +369,8 @@ final class _SafetySupportCopy {
       ? 'Continuar con una pregunta suave'
       : 'Continue with one gentle question';
   String get continueDisclosure => _es
-      ? 'Continuar no guardará, moverá ni completará nada. ChronoSpark hará una pregunta antes de sugerir acciones.'
-      : 'Continuing will not save, move, or complete anything. ChronoSpark will ask one question before suggesting actions.';
+      ? 'Continuar no guardará, moverá ni completará nada. Axiomara hará una pregunta antes de sugerir acciones.'
+      : 'Continuing will not save, move, or complete anything. Axiomara will ask one question before suggesting actions.';
   String get openError => _es
       ? 'Este dispositivo no pudo abrir esa opción. Usa otro teléfono o navegador si necesitas apoyo ahora.'
       : 'This device could not open that option. Use another phone or browser if you need support now.';

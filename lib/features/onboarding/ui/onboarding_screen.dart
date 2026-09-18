@@ -741,8 +741,8 @@ class _FirstValueSlide extends StatelessWidget {
                               )
                             : _copy(
                                 l10n,
-                                'Share as much or as little as you want. ChronoSpark will offer one grounded choice before asking you to create anything.',
-                                'Comparte lo que quieras. ChronoSpark ofrecerá una opción fundamentada antes de pedirte que crees algo.',
+                                'Share as much or as little as you want. Axiomara will offer one grounded choice before asking you to create anything.',
+                                'Comparte lo que quieras. Axiomara ofrecerá una opción fundamentada antes de pedirte que crees algo.',
                               ),
                         style: const TextStyle(
                           color: Colors.white70,

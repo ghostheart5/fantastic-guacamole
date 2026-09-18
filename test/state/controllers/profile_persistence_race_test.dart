@@ -32,12 +32,12 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      expect(container.read(profileProvider).name, 'ChronoSpark User');
+      expect(container.read(profileProvider).name, 'Axiomara User');
       final Future<void> update = container
           .read(profileProvider.notifier)
           .updateName('Live name');
       await pumpEventQueue();
-      expect(container.read(profileProvider).name, 'ChronoSpark User');
+      expect(container.read(profileProvider).name, 'Axiomara User');
 
       backend.releaseRead();
       await update;

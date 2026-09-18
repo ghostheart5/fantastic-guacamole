@@ -315,7 +315,7 @@ class ChronoSparkLocalizations {
     ChronoSparkString.cancel: 'Cancel',
     ChronoSparkString.securingAccountData: 'Securing account data',
     ChronoSparkString.accountDataLockIssue:
-        'ChronoSpark could not verify account data safely. Sign out and try again.',
+        'Axiomara could not verify account data safely. Sign out and try again.',
     ChronoSparkString.signOutAndReturnToLogin: 'Sign out and return to login',
     ChronoSparkString.accountRecoveryInProgress:
         'Completing account recovery action',
@@ -324,9 +324,9 @@ class ChronoSparkLocalizations {
     ChronoSparkString.onboardingPrivacy:
         'Your display name stays on this device unless you choose cloud backup. Smart Planner and SI Console use saved planning context; external AI processing is opt-in and explained in Settings.',
     ChronoSparkString.onboardingWideBody:
-        'Choose what ChronoSpark should call you. The rest of setup learns from the real task you create next.',
+        'Choose what Axiomara should call you. The rest of setup learns from the real task you create next.',
     ChronoSparkString.onboardingCompactBody:
-        'Choose what ChronoSpark should call you, then build your first real task.',
+        'Choose what Axiomara should call you, then build your first real task.',
     ChronoSparkString.onboardingFinishError:
         'Unable to finish onboarding. Please try again.',
     ChronoSparkString.onboardingContinueError:
@@ -369,20 +369,20 @@ class ChronoSparkLocalizations {
         'This removes preserved planning records, Timeline history, offline actions, notification schedules, profile progress, and local intelligence from this device. It does not delete your cloud account. This cannot be undone.',
     ChronoSparkString.privacyPolicyTitle: 'Privacy Policy',
     ChronoSparkString.privacyPolicyBody:
-        'ChronoSpark publishes its authoritative privacy policy at the public HTTPS URL below. Use the hosted policy for current data handling, retention, and support terms.',
+        'Axiomara publishes its authoritative privacy policy at the public HTTPS URL below. Use the hosted policy for current data handling, retention, and support terms.',
     ChronoSparkString.openHostedPrivacyPolicy: 'Open Hosted Privacy Policy',
     ChronoSparkString.deleteAccountTitle: 'Delete Account',
     ChronoSparkString.deleteAccountBody:
-        'ChronoSpark publishes account deletion steps at the public HTTPS URL below. Use the hosted page to submit a deletion request and review deletion and retention details.',
+        'Axiomara publishes account deletion steps at the public HTTPS URL below. Use the hosted page to submit a deletion request and review deletion and retention details.',
     ChronoSparkString.openHostedDeleteAccountPage:
         'Open Hosted Delete Account Page',
     ChronoSparkString.termsTitle: 'Terms of Service',
     ChronoSparkString.termsBody:
-        'ChronoSpark maintains its current Terms of Service on the public HTTPS page below so release builds and store listings reference the same source of truth.',
+        'Axiomara maintains its current Terms of Service on the public HTTPS page below so release builds and store listings reference the same source of truth.',
     ChronoSparkString.openHostedTerms: 'Open Hosted Terms',
     ChronoSparkString.supportTitle: 'Support',
     ChronoSparkString.supportBody:
-        'ChronoSpark publishes release-facing support and account assistance at the public HTTPS URL below so store reviewers and users can reach the current support process from every build.',
+        'Axiomara publishes release-facing support and account assistance at the public HTTPS URL below so store reviewers and users can reach the current support process from every build.',
     ChronoSparkString.openHostedSupportPage: 'Open Hosted Support Page',
     ChronoSparkString.openWebsite: 'Open Website',
     ChronoSparkString.unableToOpenWebsite:
@@ -407,7 +407,7 @@ class ChronoSparkLocalizations {
         'Microphone access powers optional voice-to-text in Smart Planner and the SI Console. Audio is used only after you start a voice action and remains off during normal planning flows.',
     ChronoSparkString.routerErrorTitle: "We couldn't open that link",
     ChronoSparkString.routerErrorBody:
-        'The link does not match an available ChronoSpark screen. We recorded a safe diagnostic event without exposing technical details.',
+        'The link does not match an available Axiomara screen. We recorded a safe diagnostic event without exposing technical details.',
     ChronoSparkString.routerErrorReturnNexus: 'Return to Nexus',
     ChronoSparkString.routerErrorReturnLogin: 'Return to Login',
     ChronoSparkString.routerErrorReturnOnboarding: 'Return to Setup',
@@ -473,7 +473,7 @@ class ChronoSparkLocalizations {
     ChronoSparkString.cancel: 'Cancelar',
     ChronoSparkString.securingAccountData: 'Protegiendo datos de la cuenta',
     ChronoSparkString.accountDataLockIssue:
-        'ChronoSpark no pudo verificar los datos de la cuenta de forma segura. Cierra sesión e inténtalo de nuevo.',
+        'Axiomara no pudo verificar los datos de la cuenta de forma segura. Cierra sesión e inténtalo de nuevo.',
     ChronoSparkString.signOutAndReturnToLogin:
         'Cerrar sesión y volver al inicio',
     ChronoSparkString.accountRecoveryInProgress:
@@ -483,9 +483,9 @@ class ChronoSparkLocalizations {
     ChronoSparkString.onboardingPrivacy:
         'Tu nombre visible permanece en este dispositivo salvo que actives la copia en la nube. Planificador Inteligente y Consola SI usan el contexto guardado; el procesamiento externo con IA es opcional y se explica en Ajustes.',
     ChronoSparkString.onboardingWideBody:
-        'Elige cómo debe llamarte ChronoSpark. El resto de la configuración aprenderá de la tarea real que crearás después.',
+        'Elige cómo debe llamarte Axiomara. El resto de la configuración aprenderá de la tarea real que crearás después.',
     ChronoSparkString.onboardingCompactBody:
-        'Elige cómo debe llamarte ChronoSpark y luego crea tu primera tarea real.',
+        'Elige cómo debe llamarte Axiomara y luego crea tu primera tarea real.',
     ChronoSparkString.onboardingFinishError:
         'No se pudo terminar la introducción. Inténtalo de nuevo.',
     ChronoSparkString.onboardingContinueError:
@@ -528,21 +528,21 @@ class ChronoSparkLocalizations {
         'Esto elimina de este dispositivo los registros de planificación, historial de Línea de Tiempo, acciones sin conexión, recordatorios, progreso del perfil e inteligencia local conservados. No elimina tu cuenta en la nube. No se puede deshacer.',
     ChronoSparkString.privacyPolicyTitle: 'Política de privacidad',
     ChronoSparkString.privacyPolicyBody:
-        'ChronoSpark publica su política de privacidad autorizada en la URL HTTPS pública de abajo. Usa la política alojada para consultar el manejo de datos, la retención y los términos de soporte actuales.',
+        'Axiomara publica su política de privacidad autorizada en la URL HTTPS pública de abajo. Usa la política alojada para consultar el manejo de datos, la retención y los términos de soporte actuales.',
     ChronoSparkString.openHostedPrivacyPolicy:
         'Abrir política de privacidad alojada',
     ChronoSparkString.deleteAccountTitle: 'Eliminar cuenta',
     ChronoSparkString.deleteAccountBody:
-        'ChronoSpark publica los pasos para eliminar una cuenta en la URL HTTPS pública de abajo. Usa la página alojada para enviar una solicitud y revisar los detalles de eliminación y retención.',
+        'Axiomara publica los pasos para eliminar una cuenta en la URL HTTPS pública de abajo. Usa la página alojada para enviar una solicitud y revisar los detalles de eliminación y retención.',
     ChronoSparkString.openHostedDeleteAccountPage:
         'Abrir página alojada para eliminar cuenta',
     ChronoSparkString.termsTitle: 'Términos de servicio',
     ChronoSparkString.termsBody:
-        'ChronoSpark mantiene sus Términos de servicio actuales en la página HTTPS pública de abajo para que las versiones de lanzamiento y las fichas de tienda apunten a la misma fuente de verdad.',
+        'Axiomara mantiene sus Términos de servicio actuales en la página HTTPS pública de abajo para que las versiones de lanzamiento y las fichas de tienda apunten a la misma fuente de verdad.',
     ChronoSparkString.openHostedTerms: 'Abrir términos alojados',
     ChronoSparkString.supportTitle: 'Soporte',
     ChronoSparkString.supportBody:
-        'ChronoSpark publica soporte y ayuda de cuenta para lanzamientos en la URL HTTPS pública de abajo para que revisores de tienda y usuarios puedan llegar al proceso de soporte actual desde cada versión.',
+        'Axiomara publica soporte y ayuda de cuenta para lanzamientos en la URL HTTPS pública de abajo para que revisores de tienda y usuarios puedan llegar al proceso de soporte actual desde cada versión.',
     ChronoSparkString.openHostedSupportPage: 'Abrir página de soporte alojada',
     ChronoSparkString.openWebsite: 'Abrir sitio web',
     ChronoSparkString.unableToOpenWebsite:
@@ -567,7 +567,7 @@ class ChronoSparkLocalizations {
         'El acceso al micrófono permite usar voz a texto de forma opcional en Planificador Inteligente y Consola SI. El audio se usa solo después de que inicias una acción de voz y permanece desactivado durante la planificación normal.',
     ChronoSparkString.routerErrorTitle: 'No pudimos abrir ese enlace',
     ChronoSparkString.routerErrorBody:
-        'El enlace no coincide con una pantalla disponible de ChronoSpark. Registramos un diagnóstico seguro sin mostrar detalles técnicos.',
+        'El enlace no coincide con una pantalla disponible de Axiomara. Registramos un diagnóstico seguro sin mostrar detalles técnicos.',
     ChronoSparkString.routerErrorReturnNexus: 'Volver a Nexus',
     ChronoSparkString.routerErrorReturnLogin: 'Volver al inicio de sesión',
     ChronoSparkString.routerErrorReturnOnboarding: 'Volver a configuración',

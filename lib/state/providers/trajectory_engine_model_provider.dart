@@ -119,7 +119,7 @@ final trajectoryEngineModelProvider = Provider<TrajectoryEngineModel>((
     status = TrajectoryEngineStatus.learning;
     final int observed = candidateComparison.baseline.observationCount;
     detail =
-        'Record ${trajectoryMinimumObservedOutcomes - observed} more task outcome${trajectoryMinimumObservedOutcomes - observed == 1 ? '' : 's'} before ChronoSpark compares future paths. No personal forecast is shown yet.';
+        'Record ${trajectoryMinimumObservedOutcomes - observed} more task outcome${trajectoryMinimumObservedOutcomes - observed == 1 ? '' : 's'} before Axiomara compares future paths. No personal forecast is shown yet.';
   } else if (interfaceAvailability ==
       NetworkInterfaceAvailability.unavailable) {
     status = TrajectoryEngineStatus.offline;

@@ -54,20 +54,20 @@ final class PersonContextSafetyCopy {
   String get addTitle =>
       isSpanish ? 'Añadir contexto personal' : 'Add person context';
   String get exactOnly => isSpanish
-      ? 'No se infiere nada. ChronoSpark usará únicamente el texto exacto que decidas guardar.'
-      : 'Nothing is inferred. ChronoSpark will use only the exact text you choose to save.';
+      ? 'No se infiere nada. Axiomara usará únicamente el texto exacto que decidas guardar.'
+      : 'Nothing is inferred. Axiomara will use only the exact text you choose to save.';
   String get beforeOptIn => isSpanish
-      ? 'Antes de aceptar: el Contexto personal se guarda solo en este dispositivo, se excluye de copias de seguridad y sincronización, y no se restaurará tras reinstalar ChronoSpark o cambiar de dispositivo.'
-      : 'Before you opt in: Person Context is stored only on this device, excluded from backup and sync, and will not be restored after reinstalling ChronoSpark or changing devices.';
+      ? 'Antes de aceptar: el Contexto personal se guarda solo en este dispositivo, se excluye de copias de seguridad y sincronización, y no se restaurará tras reinstalar Axiomara o cambiar de dispositivo.'
+      : 'Before you opt in: Person Context is stored only on this device, excluded from backup and sync, and will not be restored after reinstalling Axiomara or changing devices.';
   String get storedOnlyHere => isSpanish
-      ? 'Se guarda solo en este dispositivo. El Contexto personal se excluye de copias de seguridad y sincronización, y no se restaurará tras reinstalar ChronoSpark o cambiar de dispositivo.'
-      : 'Stored only on this device. Person Context is excluded from backup and sync, and will not be restored after reinstalling ChronoSpark or changing devices.';
+      ? 'Se guarda solo en este dispositivo. El Contexto personal se excluye de copias de seguridad y sincronización, y no se restaurará tras reinstalar Axiomara o cambiar de dispositivo.'
+      : 'Stored only on this device. Person Context is excluded from backup and sync, and will not be restored after reinstalling Axiomara or changing devices.';
   String get type => isSpanish ? 'Tipo' : 'Type';
   String get exactTextToRemember =>
       isSpanish ? 'Texto exacto que se recordará' : 'Exact text to remember';
   String get whereMayUse => isSpanish
-      ? '¿Dónde puede ChronoSpark usarlo?'
-      : 'Where may ChronoSpark use this?';
+      ? '¿Dónde puede Axiomara usarlo?'
+      : 'Where may Axiomara use this?';
   String get settingsReviewDisclosure => isSpanish
       ? 'La revisión en Ajustes es administrativa y no requiere consentimiento para influir en el comportamiento.'
       : 'Settings review is administrative and does not require behavioral consent.';
@@ -111,8 +111,8 @@ final class PersonContextSafetyCopy {
   String get withdrawTitle =>
       isSpanish ? '¿Retirar el consentimiento?' : 'Withdraw consent?';
   String withdrawBody(String value) => isSpanish
-      ? 'ChronoSpark dejará de usar “$value” inmediatamente. El registro con fecha seguirá disponible para revisión, exportación, corrección o eliminación.'
-      : 'ChronoSpark will immediately stop using “$value”. The timestamped record remains available for review, export, correction, or deletion.';
+      ? 'Axiomara dejará de usar “$value” inmediatamente. El registro con fecha seguirá disponible para revisión, exportación, corrección o eliminación.'
+      : 'Axiomara will immediately stop using “$value”. The timestamped record remains available for review, export, correction, or deletion.';
   String get withdrawConsent =>
       isSpanish ? 'Retirar consentimiento' : 'Withdraw consent';
   String get reviewTitle =>
@@ -127,8 +127,8 @@ final class PersonContextSafetyCopy {
       ? 'El contexto personal no está disponible para esta cuenta.'
       : 'Person context unavailable';
   String get notProvidedTruth => isSpanish
-      ? 'No proporcionado. ChronoSpark no inventará contexto personal.'
-      : 'Not provided. ChronoSpark will not invent personal context.';
+      ? 'No proporcionado. Axiomara no inventará contexto personal.'
+      : 'Not provided. Axiomara will not invent personal context.';
   String get correct => isSpanish ? 'Corregir' : 'Correct';
   String get done => isSpanish ? 'Hecho' : 'Done';
   String signalDetails(PersonContextSignal signal) {
@@ -225,8 +225,8 @@ final class PersonContextSafetyCopy {
       ? 'Se requiere una cuenta verificada con sesión iniciada. No se inventará contexto personal.'
       : 'A verified signed-in account is required. No personal context will be invented.';
   String get coauthoredDisclosure => isSpanish
-      ? 'Opcional y creado contigo. ChronoSpark usa solo el contexto exacto que guardas, únicamente para los propósitos y áreas que eliges. Lo desconocido permanece desconocido.'
-      : 'Optional and co-authored. ChronoSpark uses only the exact context you save, only for the purposes and surfaces you choose. Unknown stays unknown.';
+      ? 'Opcional y creado contigo. Axiomara usa solo el contexto exacto que guardas, únicamente para los propósitos y áreas que eliges. Lo desconocido permanece desconocido.'
+      : 'Optional and co-authored. Axiomara uses only the exact context you save, only for the purposes and surfaces you choose. Unknown stays unknown.';
   String get notProvided => isSpanish ? 'No proporcionado' : 'Not provided';
   String itemCount(int count, {required bool freshnessLimited}) {
     if (isSpanish) {

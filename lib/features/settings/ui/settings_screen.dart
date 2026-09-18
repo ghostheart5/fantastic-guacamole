@@ -100,8 +100,8 @@ final class SettingsSafetyCopy {
       ? '¿Borrar los datos de este dispositivo?'
       : 'Clear data from this device?';
   String get cloudAccountRemains => isSpanish
-      ? 'Tu cuenta de ChronoSpark en la nube y tu suscripción de Google Play seguirán activas.'
-      : 'Your ChronoSpark cloud account and Google Play subscription remain active.';
+      ? 'Tu cuenta de Axiomara en la nube y tu suscripción de Google Play seguirán activas.'
+      : 'Your Axiomara cloud account and Google Play subscription remain active.';
   String get planningRecordsRemoved => isSpanish
       ? 'Los registros de planificación y el historial de Línea de Tiempo se borrarán de este dispositivo.'
       : 'Planning records and Timeline history are removed from this device.';
@@ -128,8 +128,8 @@ final class SettingsSafetyCopy {
       ? '¿Eliminar la cuenta permanentemente?'
       : 'Delete account permanently?';
   String get deletePermanentlyBody => isSpanish
-      ? 'Tu cuenta de ChronoSpark y los datos de planificación sincronizados se eliminarán permanentemente.'
-      : 'Your ChronoSpark account and synced planning data will be permanently removed.';
+      ? 'Tu cuenta de Axiomara y los datos de planificación sincronizados se eliminarán permanentemente.'
+      : 'Your Axiomara account and synced planning data will be permanently removed.';
   String get deletedCloudCannotRestore => isSpanish
       ? 'Los datos eliminados de la nube no se pueden restaurar.'
       : 'Deleted cloud data cannot be restored.';
@@ -145,8 +145,8 @@ final class SettingsSafetyCopy {
   String verifyWith(String provider) =>
       isSpanish ? 'Verificar con $provider' : 'Verify with $provider';
   String providerDeleteBody(String provider) => isSpanish
-      ? 'Esta cuenta usa $provider y no tiene una contraseña de ChronoSpark para introducir aquí. Continúa a la página segura de eliminación de cuenta y sigue las instrucciones para verificar tu identidad.'
-      : 'This account uses $provider, so it does not have a ChronoSpark password to enter here. Continue to the secure account-deletion page and follow its identity-verification instructions.';
+      ? 'Esta cuenta usa $provider y no tiene una contraseña de Axiomara para introducir aquí. Continúa a la página segura de eliminación de cuenta y sigue las instrucciones para verificar tu identidad.'
+      : 'This account uses $provider, so it does not have a Axiomara password to enter here. Continue to the secure account-deletion page and follow its identity-verification instructions.';
   String get cancel => isSpanish ? 'Cancelar' : 'Cancel';
   String get continueSecurely =>
       isSpanish ? 'Continuar de forma segura' : 'Continue securely';
@@ -397,7 +397,7 @@ class SettingsScreen extends ConsumerWidget {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text(
-                                    'Open your device app settings and enable notifications for ChronoSpark.',
+                                    'Open your device app settings and enable notifications for Axiomara.',
                                   ),
                                 ),
                               );
@@ -427,7 +427,7 @@ class SettingsScreen extends ConsumerWidget {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text(
-                                'Open your device app settings and enable microphone access for ChronoSpark.',
+                                'Open your device app settings and enable microphone access for Axiomara.',
                               ),
                             ),
                           );
@@ -639,7 +639,7 @@ class SettingsScreen extends ConsumerWidget {
                         ).licensesPageTitle,
                         onTap: () => showLicensePage(
                           context: context,
-                          applicationName: 'ChronoSpark',
+                          applicationName: 'Axiomara',
                         ),
                       ),
                       _NeonNavTile(
@@ -1270,7 +1270,7 @@ class SettingsScreen extends ConsumerWidget {
       queryParameters: <String, String>{
         'subject': 'Account deletion request',
         'body':
-            'Please delete my ChronoSpark account associated with this email.',
+            'Please delete my Axiomara account associated with this email.',
       },
     );
     final bool opened = await ref.read(externalUrlServiceProvider).open(mail);
@@ -1280,7 +1280,7 @@ class SettingsScreen extends ConsumerWidget {
     await Clipboard.setData(
       const ClipboardData(
         text:
-            'To: ${Env.supportEmail}\nSubject: Account deletion request\n\nPlease delete my ChronoSpark account associated with this email.',
+            'To: ${Env.supportEmail}\nSubject: Account deletion request\n\nPlease delete my Axiomara account associated with this email.',
       ),
     );
     if (!context.mounted) {
@@ -1301,8 +1301,8 @@ class SettingsScreen extends ConsumerWidget {
           await DiagnosticsContextService.collect();
       final String body = _buildSupportEmailBody(isSpanish, diagnostics);
       final String subject = isSpanish
-          ? 'Solicitud de ayuda de ChronoSpark'
-          : 'ChronoSpark support request';
+          ? 'Solicitud de ayuda de Axiomara'
+          : 'Axiomara support request';
 
       final Uri mail = Uri(
         scheme: 'mailto',
@@ -1396,8 +1396,8 @@ class SettingsScreen extends ConsumerWidget {
           await DiagnosticsContextService.collect();
       final String body = _buildSupportEmailBody(isSpanish, diagnostics);
       final String subject = isSpanish
-          ? 'Solicitud de ayuda de ChronoSpark'
-          : 'ChronoSpark support request';
+          ? 'Solicitud de ayuda de Axiomara'
+          : 'Axiomara support request';
       final String payload =
           'To: ${Env.supportEmail}\nSubject: $subject\n\n$body';
       await Clipboard.setData(ClipboardData(text: payload));
@@ -1444,7 +1444,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   String _buildDiagnosticsPayload(DiagnosticsContext diagnostics) {
-    return 'ChronoSpark diagnostics\n'
+    return 'Axiomara diagnostics\n'
         'App: ${diagnostics.appName}\n'
         'Version: ${diagnostics.appVersionLabel}\n'
         'Package: ${diagnostics.packageName}\n'

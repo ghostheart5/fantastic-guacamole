@@ -74,7 +74,7 @@ final dailyDecisionIntelligenceProvider = Provider<DailyDecisionIntelligence>((
       trajectory.predictionOutcome ?? 'Future path is still stabilizing.';
 
   final String warning = intelligenceAsync.hasError
-      ? 'Decision evidence is unavailable. ChronoSpark is not treating missing data as a clear plan.'
+      ? 'Decision evidence is unavailable. Axiomara is not treating missing data as a clear plan.'
       : intelligenceAsync.isLoading
       ? 'Decision evidence is still loading; constraints are not yet resolved.'
       : decision?.warnings.isNotEmpty == true

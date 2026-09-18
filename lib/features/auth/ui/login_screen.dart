@@ -225,8 +225,8 @@ class _LoginScreenState extends State<LoginScreen>
                     ? 'Inicia sesión o crea tu cuenta'
                     : 'Sign in or create your account',
                 body: l10n.isSpanish
-                    ? 'Usa la cuenta real que quieres que ChronoSpark recuerde. Después de autenticarte, continuarás con tu nombre visible.'
-                    : 'Use the real account you want ChronoSpark to remember. After authentication, setup continues with your display name.',
+                    ? 'Usa la cuenta real que quieres que Axiomara recuerde. Después de autenticarte, continuarás con tu nombre visible.'
+                    : 'Use the real account you want Axiomara to remember. After authentication, setup continues with your display name.',
                 primaryLabel: l10n.isSpanish
                     ? 'Comenzar acceso'
                     : 'Start login',

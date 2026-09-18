@@ -57,7 +57,7 @@ class ProfileState {
     this.streak = 0,
     this.longestStreak = 0,
     this.leveledUp = false,
-    this.name = 'ChronoSpark User',
+    this.name = 'Axiomara User',
     this.soundEnabled = true,
     this.lastActiveDate,
     this.xpBySource = const <String, int>{},
@@ -121,7 +121,7 @@ class ProfileState {
     final String storedName =
         (json['name'] as String?)?.trim().isNotEmpty == true
         ? (json['name'] as String).trim()
-        : 'ChronoSpark User';
+        : 'Axiomara User';
 
     return ProfileState(
       xp: storedXp,
@@ -130,7 +130,7 @@ class ProfileState {
       longestStreak: (json['longestStreak'] as num?)?.toInt() ?? 0,
       // Migrate the retired built-in default without changing
       // any real custom profile name.
-      name: storedName == 'Operative' ? 'ChronoSpark User' : storedName,
+      name: storedName == 'Operative' ? 'Axiomara User' : storedName,
       soundEnabled: json['soundEnabled'] as bool? ?? true,
       lastActiveDate: json['lastActiveDate'] != null
           ? DateTime.tryParse(json['lastActiveDate'] as String)

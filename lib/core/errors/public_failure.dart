@@ -50,8 +50,8 @@ class PublicFailure implements Exception {
       return PublicFailure(
         code: 'network',
         message: isSpanish
-            ? 'ChronoSpark no pudo comunicarse con su servicio de datos. Tu trabajo local no cambió; inténtalo de nuevo cuando tengas conexión.'
-            : 'ChronoSpark could not reach its data service. Your local work is unchanged; retry when connected.',
+            ? 'Axiomara no pudo comunicarse con su servicio de datos. Tu trabajo local no cambió; inténtalo de nuevo cuando tengas conexión.'
+            : 'Axiomara could not reach its data service. Your local work is unchanged; retry when connected.',
       );
     }
     return PublicFailure(code: 'unexpected', message: fallback);

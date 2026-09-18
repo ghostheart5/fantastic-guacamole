@@ -250,8 +250,8 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
             )
           : _copy(
               l10n,
-              'ChronoSpark will not mark this lesson complete until the exact task from your Creator receipt appears here.',
-              'ChronoSpark no completará esta lección hasta que aparezca aquí la tarea exacta de tu recibo de Creador.',
+              'Axiomara will not mark this lesson complete until the exact task from your Creator receipt appears here.',
+              'Axiomara no completará esta lección hasta que aparezca aquí la tarea exacta de tu recibo de Creador.',
             ),
       primaryLabel: _completingTimeline
           ? _copy(l10n, 'Finishing', 'Finalizando')
@@ -378,8 +378,8 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         ),
         body: _copy(
           l10n,
-          'Confirm the reviewed task once. ChronoSpark will save it and open Timeline so you can verify where it landed.',
-          'Confirma la tarea revisada una vez. ChronoSpark la guardará y abrirá Línea de Tiempo para verificar dónde quedó.',
+          'Confirm the reviewed task once. Axiomara will save it and open Timeline so you can verify where it landed.',
+          'Confirma la tarea revisada una vez. Axiomara la guardará y abrirá Línea de Tiempo para verificar dónde quedó.',
         ),
         action: _completingCreator
             ? _copy(l10n, 'Saving', 'Guardando')

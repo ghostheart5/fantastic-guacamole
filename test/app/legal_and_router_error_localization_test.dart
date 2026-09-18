@@ -410,7 +410,7 @@ _routerErrorExpectations = <_RouterErrorExpectation>[
     locale: Locale('en'),
     title: "We couldn't open that link",
     body:
-        'The link does not match an available ChronoSpark screen. We recorded a safe diagnostic event without exposing technical details.',
+        'The link does not match an available Axiomara screen. We recorded a safe diagnostic event without exposing technical details.',
     recoveryLabel: 'Return to Nexus',
   ),
 ];

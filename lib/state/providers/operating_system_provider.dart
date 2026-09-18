@@ -231,7 +231,7 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
           OperatingConfidence.insufficientEvidence,
       };
   final String rationale = subjectId == null
-      ? 'An actionable commitment is required before ChronoSpark can rank execution.'
+      ? 'An actionable commitment is required before Axiomara can rank execution.'
       : aggregation.planningDecision.rationale;
   final String? personContextExplanation =
       personContext?.hasAppliedBehavior ?? false
@@ -312,7 +312,7 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
     personContextTrace: personContext?.trace?.toJson(),
     assumptions: <String>[
       ...capacity.assumptions,
-      'Current local records represent the user intent available to ChronoSpark.',
+      'Current local records represent the user intent available to Axiomara.',
       'Deterministic ranking is decision support, not a guaranteed outcome.',
       ..._personContextAssumptions(personContext),
     ],

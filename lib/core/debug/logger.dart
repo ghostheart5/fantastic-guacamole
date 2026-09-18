@@ -222,7 +222,7 @@ class Logger {
     unawaited(
       FirebaseCrashlytics.instance
           .recordError(
-            StateError('ChronoSpark diagnostic: $safeCode'),
+            StateError('Axiomara diagnostic: $safeCode'),
             stackTrace,
             reason: safeCode,
             fatal: fatal,

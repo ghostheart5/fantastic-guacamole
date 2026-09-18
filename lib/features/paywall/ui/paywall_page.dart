@@ -390,7 +390,7 @@ class _PaywallCopy {
     if (!_isSpanish) return prompt.message;
     return switch (prompt.trigger) {
       'ai_credit_limit' || 'ai_limit' =>
-        'Los créditos del asistente externo se han agotado. ChronoSpark continuará con la orientación en el dispositivo.',
+        'Los créditos del asistente externo se han agotado. Axiomara continuará con la orientación en el dispositivo.',
       'ai_credit_low' =>
         'Te quedan ${prompt.remainingCredits ?? 0} créditos del asistente externo.',
       _ => prompt.message,

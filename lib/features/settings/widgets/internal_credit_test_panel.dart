@@ -35,8 +35,8 @@ class InternalCreditTestPanel extends ConsumerWidget {
           Text(
             journeyText(
               context,
-              'These test buttons send only a fixed fictional tool-shelf prompt to Anthropic through ChronoSpark. They do not send your profile, saved context, or conversation history. Successful replies spend test-account credits. Smart Planner and SI conversations separately show their app context and credit quote before sending.',
-              'Estos botones de prueba solo envían una solicitud ficticia fija sobre un estante de herramientas a Anthropic por medio de ChronoSpark. No envían tu perfil, contexto guardado ni historial de conversación. Las respuestas exitosas gastan créditos de la cuenta de prueba. Las conversaciones del Planificador Inteligente y SI muestran por separado su contexto y precio en créditos antes de enviar.',
+              'These test buttons send only a fixed fictional tool-shelf prompt to Anthropic through Axiomara. They do not send your profile, saved context, or conversation history. Successful replies spend test-account credits. Smart Planner and SI conversations separately show their app context and credit quote before sending.',
+              'Estos botones de prueba solo envían una solicitud ficticia fija sobre un estante de herramientas a Anthropic por medio de Axiomara. No envían tu perfil, contexto guardado ni historial de conversación. Las respuestas exitosas gastan créditos de la cuenta de prueba. Las conversaciones del Planificador Inteligente y SI muestran por separado su contexto y precio en créditos antes de enviar.',
             ),
           ),
           const SizedBox(height: 8),

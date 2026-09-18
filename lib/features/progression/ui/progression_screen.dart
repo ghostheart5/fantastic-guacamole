@@ -92,13 +92,13 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
           text: text,
           title: journeyText(
             context,
-            'ChronoSpark Progress Snapshot',
-            'Resumen de progreso de ChronoSpark',
+            'Axiomara Progress Snapshot',
+            'Resumen de progreso de Axiomara',
           ),
           subject: journeyText(
             context,
-            'My ChronoSpark progression update',
-            'Mi actualización de progreso en ChronoSpark',
+            'My Axiomara progression update',
+            'Mi actualización de progreso en Axiomara',
           ),
         ),
       );
@@ -165,13 +165,13 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
           text: text,
           title: journeyText(
             context,
-            'ChronoSpark Achievement',
-            'Logro de ChronoSpark',
+            'Axiomara Achievement',
+            'Logro de Axiomara',
           ),
           subject: journeyText(
             context,
-            'I hit a new ChronoSpark milestone',
-            'Alcancé un nuevo hito en ChronoSpark',
+            'I hit a new Axiomara milestone',
+            'Alcancé un nuevo hito en Axiomara',
           ),
         ),
       );

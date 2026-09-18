@@ -53,8 +53,8 @@ final class _TimelineSafetyCopy {
       ? '¿Reparar la actividad guardada de la Línea de Tiempo?'
       : 'Repair saved Timeline activity?';
   String get repairBody => isSpanish
-      ? 'ChronoSpark conservará primero los datos originales que no se pueden leer y luego mantendrá cada registro de actividad válido que pueda recuperar.'
-      : 'ChronoSpark will preserve the original unreadable data first, then keep every valid activity record it can read.';
+      ? 'Axiomara conservará primero los datos originales que no se pueden leer y luego mantendrá cada registro de actividad válido que pueda recuperar.'
+      : 'Axiomara will preserve the original unreadable data first, then keep every valid activity record it can read.';
   String get cancel => isSpanish ? 'Cancelar' : 'Cancel';
   String get preserveAndRepair =>
       isSpanish ? 'Conservar y reparar' : 'Preserve and repair';

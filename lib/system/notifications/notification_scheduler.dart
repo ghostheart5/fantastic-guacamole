@@ -78,16 +78,16 @@ class NotificationScheduler implements NotificationSchedulerPort {
 
   static const _channel = AndroidNotificationChannel(
     'chronospark_channel',
-    'ChronoSpark',
-    description: 'ChronoSpark reminders and alerts',
+    'Axiomara',
+    description: 'Axiomara reminders and alerts',
     importance: Importance.high,
   );
 
   static const _notifDetails = NotificationDetails(
     android: AndroidNotificationDetails(
       'chronospark_channel',
-      'ChronoSpark',
-      channelDescription: 'ChronoSpark reminders and alerts',
+      'Axiomara',
+      channelDescription: 'Axiomara reminders and alerts',
       importance: Importance.high,
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',

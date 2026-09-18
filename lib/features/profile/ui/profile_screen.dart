@@ -45,15 +45,15 @@ class _ProfileBody extends ConsumerWidget {
     ProfileViewState state,
   ) async {
     final String text =
-        'I am using ChronoSpark to run my goals, progression, and execution system.\n'
+        'I am using Axiomara to run my goals, progression, and execution system.\n'
         'Join me: ${AppUrls.website}\n'
         'Current streak: ${state.profile.streak}d | Level ${state.profile.level}';
     try {
       await SharePlus.instance.share(
         ShareParams(
           text: text,
-          title: 'Join me on ChronoSpark',
-          subject: 'Invite to ChronoSpark',
+          title: 'Join me on Axiomara',
+          subject: 'Invite to Axiomara',
         ),
       );
       AppAnalytics.track(
@@ -229,7 +229,7 @@ class _IdentityConstellation extends ConsumerWidget {
     return Semantics(
       container: true,
       label:
-          '${name.isEmpty ? 'ChronoSpark user' : name}, level $level. '
+          '${name.isEmpty ? 'Axiomara user' : name}, level $level. '
           '$evidenceLabel',
       child: Column(
         children: <Widget>[
