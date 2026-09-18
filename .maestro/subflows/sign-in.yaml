@@ -26,5 +26,5 @@ appId: com.ghostheart5.chronospark
       - tapOn: "ENTER SYSTEM"
 
 - extendedWaitUntil:
-    visible: "NEXUS"
+    visible: "NEXUS.*"
     timeout: 20000

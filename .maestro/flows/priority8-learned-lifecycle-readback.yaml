@@ -7,7 +7,7 @@ tags:
 - stopApp
 - launchApp
 - extendedWaitUntil:
-    visible: "(?s).*(?:CONTINUE TO LOGIN|Start login|TESTER ACCESS.*TEST LOGIN|NEXUS|SETTINGS).*"
+    visible: "(?s).*(?:CONTINUE TO LOGIN|Start login|TESTER ACCESS.*TEST LOGIN|NEXUS.*|SETTINGS).*"
     timeout: 30000
 - runFlow:
     when:
@@ -16,7 +16,7 @@ tags:
       - runFlow: ../subflows/sign-in-qa.yaml
 
 - extendedWaitUntil:
-    visible: "(?s).*(?:TESTER ACCESS.*TEST LOGIN|NEXUS|SETTINGS).*"
+    visible: "(?s).*(?:TESTER ACCESS.*TEST LOGIN|NEXUS.*|SETTINGS).*"
     timeout: 30000
 
 # QA mock authentication is process-local; reuse the same isolated tester
@@ -27,12 +27,12 @@ tags:
     commands:
       - tapOn: "TESTER ACCESS.*TEST LOGIN"
       - extendedWaitUntil:
-          visible: "NEXUS"
+          visible: "NEXUS.*"
           timeout: 30000
 
 - runFlow:
     when:
-      visible: "NEXUS"
+      visible: "NEXUS.*"
     commands:
       - runFlow:
           file: ../subflows/open-from-nexus.yaml

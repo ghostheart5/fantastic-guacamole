@@ -103,7 +103,7 @@ tags:
     timeout: 10000
 - tapOn: "Back to Nexus"
 - extendedWaitUntil:
-    visible: "NEXUS"
+    visible: "NEXUS.*"
     timeout: 10000
 
 # Nexus -> Smart Planner input/output -> explicit Use this plan acceptance.
@@ -251,7 +251,7 @@ tags:
 - launchApp
 - runFlow: ../subflows/sign-in-qa.yaml
 - extendedWaitUntil:
-    visible: "NEXUS"
+    visible: "NEXUS.*"
     timeout: 30000
 - runFlow:
     file: ../subflows/open-from-nexus.yaml

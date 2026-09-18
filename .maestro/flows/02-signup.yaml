@@ -25,5 +25,5 @@ tags:
 - tapOn: "INITIALIZE PROFILE"
 
 - extendedWaitUntil:
-    visible: "NEXUS"
+    visible: "NEXUS.*"
     timeout: 25000

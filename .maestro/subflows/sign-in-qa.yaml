@@ -3,7 +3,7 @@ appId: com.ghostheart5.chronospark
 ---
 - runFlow: skip-onboarding.yaml
 - extendedWaitUntil:
-    visible: "(?:TESTER ACCESS.*TEST LOGIN|NEXUS)"
+    visible: "(?:TESTER ACCESS.*TEST LOGIN|NEXUS.*)"
     timeout: 30000
 - runFlow:
     when:
@@ -11,6 +11,6 @@ appId: com.ghostheart5.chronospark
     commands:
       - tapOn: "TESTER ACCESS.*TEST LOGIN"
 - extendedWaitUntil:
-    visible: "NEXUS"
+    visible: "NEXUS.*"
     timeout: 30000
 - assertNotVisible: "ENTER SYSTEM"
