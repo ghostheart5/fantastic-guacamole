@@ -145,6 +145,21 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                   ),
                 ),
               ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: _DecisionLoopStrip(
+                    onBuild: () => _openCreator(CreatorFormKind.task),
+                    onResolve: () =>
+                        goToAppView(context, ref, AppView.smartPlanner),
+                    onInterrogate: () =>
+                        goToAppView(context, ref, AppView.console),
+                    onCompare: () =>
+                        goToAppView(context, ref, AppView.trajectoryEngine),
+                    onReview: () => goToAppView(context, ref, AppView.timeline),
+                  ),
+                ),
+              ),
               if (learningChange != null)
                 SliverToBoxAdapter(
                   child: Padding(
@@ -359,6 +374,10 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
         .read(nexusDecisionProvider)
         .intelligence
         ?.decision;
+    final bool opensCreator =
+        decision != null &&
+        NexusActionResolver.resolve(decision.actionIntent) ==
+            NexusActionDestination.creatorTask;
     if (decision != null) {
       unawaited(
         ref
@@ -367,9 +386,13 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
               receipt: decision,
               kind: DecisionOutcomeKind.shown,
               surface: 'nexus',
-              detail: 'Opened Smart Planner from the selected time block.',
+              detail: opensCreator
+                  ? 'Opened Creator for the displayed task recommendation.'
+                  : 'Opened Smart Planner from the selected time block.',
               situation: 'selected time block',
-              optionChosen: 'review in Smart Planner',
+              optionChosen: opensCreator
+                  ? 'create task'
+                  : 'review in Smart Planner',
               recommendationHelped: null,
             ),
       );
@@ -379,7 +402,11 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
           .read(adaptiveGuidanceProvider.notifier)
           .record(GuidanceMilestone.firstNexusReview),
     );
-    goToAppView(context, ref, AppView.smartPlanner);
+    if (opensCreator) {
+      _openCreator(CreatorFormKind.task);
+    } else {
+      goToAppView(context, ref, AppView.smartPlanner);
+    }
   }
 
   void _ignoreDecisionContext(OperatingDecisionReceipt decision) {

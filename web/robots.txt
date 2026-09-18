@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://ghostheart5.github.io/fantastic-guacamole/sitemap.xml

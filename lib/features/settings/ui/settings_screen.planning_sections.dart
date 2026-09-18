@@ -424,8 +424,8 @@ class _PersonalizationSection extends ConsumerWidget {
                   ? 'IA externa y créditos'
                   : 'External AI and credits',
               subtitle: isSpanish
-                  ? 'Las conversaciones del Planificador Inteligente y SI pueden enviar tu pregunta, mensajes recientes y el contexto revisado a Anthropic por medio de ChronoSpark después de que confirmes. Cada solicitud muestra su precio en créditos. Las pruebas ficticias de abajo son independientes. Se aplican las políticas de retención y seguridad del proveedor; las herramientas locales siguen siendo gratuitas.'
-                  : 'Planner and SI conversations can send your question, recent messages and reviewed context to Anthropic through ChronoSpark after confirmation. Each request shows its credit price. The fictional tests below are separate. Provider retention and safety policies apply; on-device tools remain free.',
+                  ? 'Las conversaciones del Planificador Inteligente y SI pueden enviar tu pregunta, mensajes recientes y el contexto revisado a Anthropic por medio de Axiomara después de que confirmes. Cada solicitud muestra su precio en créditos. Las pruebas ficticias de abajo son independientes. Se aplican las políticas de retención y seguridad del proveedor; las herramientas locales siguen siendo gratuitas.'
+                  : 'Planner and SI conversations can send your question, recent messages and reviewed context to Anthropic through Axiomara after confirmation. Each request shows its credit price. The fictional tests below are separate. Provider retention and safety policies apply; on-device tools remain free.',
             ),
           if (ref.watch(externalAiAvailableProvider))
             _NeonToggleTile(
@@ -499,7 +499,7 @@ class _LearningLedgerSection extends ConsumerWidget {
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
             child: Text(
-              'ChronoSpark learns only bounded support preferences from the outcomes below. These are not facts about you, and low-confidence patterns do not change recommendations.',
+              'Axiomara learns only bounded support preferences from the outcomes below. These are not facts about you, and low-confidence patterns do not change recommendations.',
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 14,

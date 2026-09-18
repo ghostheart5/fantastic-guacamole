@@ -590,7 +590,7 @@ class _ProductionReadinessLock extends StatelessWidget {
             child: Semantics(
               liveRegion: true,
               label:
-                  'ChronoSpark cannot start safely. Please install the latest version and try again.',
+                  'Axiomara cannot start safely. Please install the latest version and try again.',
               child: const Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
@@ -601,7 +601,7 @@ class _ProductionReadinessLock extends StatelessWidget {
                   ),
                   SizedBox(height: 20),
                   Text(
-                    'ChronoSpark cannot start safely',
+                    'Axiomara cannot start safely',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,

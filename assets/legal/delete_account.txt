@@ -1,47 +1,49 @@
-Delete a ChronoSpark Account
+Axiomara: Decision OS
 
-Last updated: September 9, 2026
+Delete an Axiomara Account
 
-Permanent action: Account deletion removes the authentication account and eligible account-linked data after the request is verified. It cannot be undone.
+Last updated: September 18, 2026
 
-Delete from the app
+Permanent action: Verified deletion removes the authentication account and eligible account-linked data. It cannot be undone.
 
-- Open ChronoSpark and sign in.
+Delete in the app
+
+- Open Axiomara and sign in.
 
 - Open Settings and find the account and security controls.
 
 - Select Delete account.
 
-- Complete the requested identity verification and confirm deletion.
+- Complete identity verification and confirm deletion.
 
 Request deletion without the app
 
-Send the request from the email address tied to the account when possible. State that you want the ChronoSpark account and account-linked data deleted. Limited additional verification may be required.
+Email from the address connected to the account when possible. State that you want your Axiomara account and associated data deleted. Limited identity verification may be required.
 
 Request account deletion at ghostheart131517@gmail.com
 
 Never send a password, one-time code, recovery token, payment credential, or secret key.
 
-Data covered by deletion
+Data covered
 
 - The authentication account and account profile.
 
-- Eligible account-linked planning content, settings, progress, and cloud records.
+- Eligible account-linked planning content, settings, progress, AI response reports, and backend records.
 
 - Account-linked notification-device registrations.
 
 Device-local data
 
-A web request cannot directly erase files on an offline device. After remote deletion, clear ChronoSpark app storage or uninstall the app on devices you no longer use. The in-app deletion flow also attempts local cleanup on the device where it runs.
+A web request cannot erase files on an offline device. After remote deletion, clear Axiomara app storage or uninstall the app on devices you no longer use.
 
 Limited retention
 
-Limited transaction, tax, fraud-prevention, security, or dispute records may be retained when required by law or necessary to protect the service. Those records are restricted to those purposes and are not used to recreate a deleted account.
+Transaction, tax, fraud-prevention, security, dispute, and credit-usage records may be retained when required by law or necessary to protect the service. Retained records are restricted to those purposes and are not used to recreate a deleted account.
 
-Store billing is separate
+Marketplace billing
 
-Deleting a ChronoSpark account does not cancel a Google Play purchase or subscription. Eligible private internal-testing builds can include subscriptions and credit top-ups, even though they are disabled in the contained public configuration. Cancel any existing subscription separately in Google Play using the account that made the purchase. This also applies to test subscriptions. Limited transaction and credit-usage records may be retained for the purposes described above.
+Deleting an Axiomara account does not cancel an app-marketplace purchase or subscription. Cancel an active subscription separately through the marketplace account that made the purchase.
 
-Processing time
+Timing
 
-Verified requests are processed without unreasonable delay and ordinarily within 30 days. Additional time may be required when applicable law or a security review requires it.
+Verified requests are processed without unreasonable delay and ordinarily within 30 days. Additional time may be required by applicable law or a security review.

@@ -1,26 +1,33 @@
-name: Deploy ChronoSpark Public Site to GitHub Pages
+name: Validate Axiomara Required Public Pages
 
 on:
-  push:
+  pull_request:
     branches: [main]
     paths:
-      - 'site/**'
+      - 'site/index.html'
+      - 'site/404.html'
+      - 'site/assets/site.css'
+      - 'site/robots.txt'
+      - 'site/sitemap.xml'
       - 'web/privacy/**'
       - 'web/terms/**'
       - 'web/support/**'
       - 'web/delete-account/**'
       - 'web/legal.css'
-      - 'web/.well-known/assetlinks.json'
       - '.github/workflows/main.yml'
-  pull_request:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish the validated minimal pages from main'
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: github-pages
+  group: axiomara-required-pages
   cancel-in-progress: false
 
 jobs:
@@ -30,59 +37,55 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Checkout public-site source
+      - name: Checkout required-page source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
-
-      - name: Verify static-site source is complete
+      - name: Verify required source exists
         shell: bash
         run: |
           set -euo pipefail
-          for path in site/index.html site/app/index.html site/features/index.html site/download/index.html site/assets/site.css site/assets/site.js site/assets/chronospark-temporal-field.jpg site/assets/social-card.png web/privacy/index.html web/terms/index.html web/support/index.html web/delete-account/index.html web/legal.css web/.well-known/assetlinks.json; do
+          for path in site/index.html site/404.html site/assets/site.css site/robots.txt site/sitemap.xml web/privacy/index.html web/terms/index.html web/support/index.html web/delete-account/index.html web/legal.css; do
             if [ ! -f "$path" ]; then
-              echo "::error::Static Pages source is incomplete: $path"
+              echo "::error::Required public source is missing: $path"
               exit 1
             fi
           done
 
-      - name: Assemble static public site
+      - name: Assemble only the required public surface
         shell: bash
         run: |
           set -euo pipefail
           rm -rf _site
-          mkdir -p _site
-          cp -R site/. _site/
+          mkdir -p _site/assets
+          cp site/index.html _site/index.html
+          cp site/404.html _site/404.html
+          cp site/assets/site.css _site/assets/site.css
+          cp site/robots.txt _site/robots.txt
+          cp site/sitemap.xml _site/sitemap.xml
+          cp web/legal.css _site/legal.css
           for route in privacy terms support delete-account; do
             mkdir -p "_site/$route"
             cp "web/$route/index.html" "_site/$route/index.html"
           done
-          cp web/legal.css _site/legal.css
-          mkdir -p _site/.well-known
-          cp web/.well-known/assetlinks.json _site/.well-known/assetlinks.json
           touch _site/.nojekyll
 
-      - name: Verify public-route contract
+      - name: Verify minimal public contract
         shell: python
         run: |
-          import json
           from pathlib import Path
 
           root = Path('_site')
           required = {
-              'index.html': ('ChronoSpark', 'Understand the day', 'One human loop'),
-              'features/index.html': ('System map', 'Nexus', 'Trajectory', 'Product model, not a screenshot'),
-              'download/index.html': ('Install only from a verified path',),
-              'support/index.html': ('Working contact path', 'ghostheart131517@gmail.com'),
-              'privacy/index.html': ('Privacy Policy', 'Current release containment'),
-              'terms/index.html': ('Terms of Service', 'These features are disabled in the contained public configuration.', 'Eligible private internal billing-test builds enable them for approved license testers;', 'Internal-test enrollment alone does not make purchases free.', 'A subscription does not provide unlimited AI usage;'),
-              'delete-account/index.html': ('Delete a ChronoSpark Account',),
-              'app/index.html': ('No verified web app is published here',),
-              'robots.txt': ('Sitemap:',),
-              'sitemap.xml': ('/privacy/', '/delete-account/'),
+              'index.html': ('Axiomara', 'Private testing', 'Required public information', 'does not provide a public download'),
+              'privacy/index.html': ('Axiomara Privacy Policy', 'does not display ads', 'Anthropic', 'account-deletion page'),
+              'terms/index.html': ('Axiomara Terms of Service', 'Marketplace purchases', 'does not provide unlimited AI usage'),
+              'support/index.html': ('Axiomara Support', 'Email Axiomara support', 'does not provide an APK or public download'),
+              'delete-account/index.html': ('Delete an Axiomara Account', 'Request deletion without the app', 'Request account deletion'),
+              '404.html': ('Page unavailable', 'required privacy, terms, support, and account-deletion pages'),
+              'robots.txt': ('Sitemap: https://ghostheart5.github.io/fantastic-guacamole/sitemap.xml',),
+              'sitemap.xml': ('https://ghostheart5.github.io/fantastic-guacamole/privacy/', 'https://ghostheart5.github.io/fantastic-guacamole/delete-account/'),
           }
           for relative, markers in required.items():
               path = root / relative
@@ -91,78 +94,50 @@ jobs:
               text = path.read_text(encoding='utf-8')
               missing = [marker for marker in markers if marker not in text]
               if missing:
-                  raise SystemExit(f'{relative} missing expected content: {missing}')
-          social_pages = {
-              'index.html': 'https://ghostheart5.github.io/fantastic-guacamole/',
-              'features/index.html': 'https://ghostheart5.github.io/fantastic-guacamole/features/',
-              'download/index.html': 'https://ghostheart5.github.io/fantastic-guacamole/download/',
-              'support/index.html': 'https://ghostheart5.github.io/fantastic-guacamole/support/',
-              'privacy/index.html': 'https://ghostheart5.github.io/fantastic-guacamole/privacy/',
-              'terms/index.html': 'https://ghostheart5.github.io/fantastic-guacamole/terms/',
-              'delete-account/index.html': 'https://ghostheart5.github.io/fantastic-guacamole/delete-account/',
-          }
-          social_image = 'https://ghostheart5.github.io/fantastic-guacamole/assets/social-card.png'
-          for relative, canonical_url in social_pages.items():
-              text = (root / relative).read_text(encoding='utf-8')
-              for marker in (
-                  'property="og:title"',
-                  'property="og:description"',
-                  f'property="og:url" content="{canonical_url}"',
-                  f'property="og:image" content="{social_image}"',
-                  'name="twitter:card" content="summary_large_image"',
-              ):
-                  if marker not in text:
-                      raise SystemExit(f'{relative} is missing required social metadata: {marker}')
-          if not (root / 'assets/social-card.png').is_file():
-              raise SystemExit('The public social-card image is missing.')
-          asset_links_path = root / '.well-known/assetlinks.json'
-          try:
-              asset_links = json.loads(asset_links_path.read_text(encoding='utf-8'))
-          except (OSError, json.JSONDecodeError) as error:
-              raise SystemExit(f'Invalid Android asset-links file: {error}') from error
-          if not isinstance(asset_links, list):
-              raise SystemExit('Android asset-links file must contain a JSON array.')
-          matching_links = []
-          for entry in asset_links:
-              if not isinstance(entry, dict):
-                  continue
-              target = entry.get('target')
-              if not isinstance(target, dict):
-                  continue
-              if (
-                  target.get('namespace') == 'android_app'
-                  and target.get('package_name') == 'com.ghostheart5.chronospark'
-                  and entry.get('relation') == ['delegate_permission/common.handle_all_urls']
-              ):
-                  matching_links.append(entry)
-          if len(matching_links) != 1:
-              raise SystemExit('Android asset-links file must contain exactly one ChronoSpark app link.')
-          expected_fingerprint = 'B8:3E:42:1A:CC:08:11:68:EA:6F:7A:16:72:53:26:59:DC:87:B0:0D:69:77:9E:86:E4:B8:02:06:4F:B7:D7:DB'
-          fingerprints = matching_links[0]['target'].get('sha256_cert_fingerprints')
-          if fingerprints != [expected_fingerprint]:
-              raise SystemExit('Android asset-links fingerprint does not match the Play app-signing certificate.')
-          assembled = '\n'.join(
-              path.read_text(encoding='utf-8')
-              for path in root.rglob('*.html')
-          )
-          for forbidden in (
-              'support@chronospark.app',
-              'play.google.com/store/apps/details?id=com.ghostheart5.chronospark',
-              'English and Spanish',
-          ):
-              if forbidden in assembled:
-                  raise SystemExit(f'Public site contains a forbidden or unverified claim: {forbidden}')
-          cname = root / 'CNAME'
-          if cname.exists() and 'chronospark.app' in cname.read_text(encoding='utf-8'):
-              raise SystemExit('A custom domain must not be added without separate approval.')
+                  raise SystemExit(f'{relative} missing required content: {missing}')
 
-      - name: Upload public-site artifact
+          allowed = {
+              'index.html', '404.html', 'robots.txt', 'sitemap.xml', '.nojekyll',
+              'assets/site.css', 'legal.css',
+              'privacy/index.html', 'terms/index.html', 'support/index.html',
+              'delete-account/index.html',
+          }
+          actual = {
+              path.relative_to(root).as_posix()
+              for path in root.rglob('*')
+              if path.is_file()
+          }
+          unexpected = sorted(actual - allowed)
+          if unexpected:
+              raise SystemExit(f'Unexpected public files expose unnecessary content: {unexpected}')
+
+          landing = (root / 'index.html').read_text(encoding='utf-8')
+          for forbidden in ('Smart Planner', 'SI Console', 'Nexus', 'Trajectory', 'Creator', 'screenshot', 'feature graphic'):
+              if forbidden in landing:
+                  raise SystemExit(f'Landing page exposes unnecessary product detail: {forbidden}')
+
+          forbidden_identity = (
+              'chrono' + 'spark',
+              'google' + ' play',
+              'play.' + 'google.com',
+          )
+          for path in root.rglob('*'):
+              if not path.is_file():
+                  continue
+              text = path.read_text(encoding='utf-8')
+              lowered = text.lower()
+              leaked = [value for value in forbidden_identity if value in lowered]
+              if leaked:
+                  raise SystemExit(f'{path.relative_to(root)} exposes retired identity or marketplace branding: {leaked}')
+
+      - name: Package approved deployment artifact
+        if: github.event_name == 'workflow_dispatch' && inputs.publish == true && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: _site
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == true && github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -173,6 +148,9 @@ jobs:
       pages: write
       id-token: write
     steps:
-      - name: Deploy public site
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+
+      - name: Publish the approved required pages
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

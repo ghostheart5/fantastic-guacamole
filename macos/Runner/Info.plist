@@ -4,6 +4,8 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Axiomara</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIconFile</key>
@@ -35,8 +37,8 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Chronospark uses your microphone only when you start a voice coaching command.</string>
+	<string>Axiomara uses your microphone only when you start a voice command.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Chronospark converts speech to text only for voice requests you initiate.</string>
+	<string>Axiomara converts speech to text only for voice requests you initiate.</string>
 </dict>
 </plist>

@@ -811,7 +811,7 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Set a new strong password for your ChronoSpark account.',
+                'Set a new strong password for your Axiomara account.',
                 style: TextStyle(color: Colors.white70, height: 1.45),
               ),
               const SizedBox(height: 20),
@@ -914,7 +914,7 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
               const TemporalStatusRow(
                 icon: Icons.shield_outlined,
                 text:
-                    'ChronoSpark never displays or stores your password in readable form.',
+                    'Axiomara never displays or stores your password in readable form.',
               ),
             ],
           ),

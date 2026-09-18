@@ -326,8 +326,8 @@ Future<void> _showBackupRecoveryKeyDialog(
       content: Text(
         journeyText(
           context,
-          'This key lets you decrypt your encrypted cloud backup on a replacement device. Keep it in a password manager. ChronoSpark cannot recover it for you.',
-          'Esta clave permite descifrar tu respaldo cifrado en la nube desde otro dispositivo. Guárdala en un gestor de contraseñas. ChronoSpark no puede recuperarla por ti.',
+          'This key lets you decrypt your encrypted cloud backup on a replacement device. Keep it in a password manager. Axiomara cannot recover it for you.',
+          'Esta clave permite descifrar tu respaldo cifrado en la nube desde otro dispositivo. Guárdala en un gestor de contraseñas. Axiomara no puede recuperarla por ti.',
         ),
       ),
       actions: <Widget>[

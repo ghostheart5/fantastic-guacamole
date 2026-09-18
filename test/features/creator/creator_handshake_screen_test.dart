@@ -106,7 +106,7 @@ void main() {
     await tester.pumpWidget(previewApp(const Locale('es')));
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('MÁS ADECUADO · 20 min'), findsOneWidget);
-    expect(find.text('Creador'), findsOneWidget);
+    expect(find.text('CONSTRUCTOR DE REALIDAD'), findsOneWidget);
     expect(find.byTooltip('Volver a Nexus'), findsOneWidget);
     expect(find.byTooltip('Back'), findsNothing);
     expect(find.text('Gestionar Ritmos Diarios'), findsOneWidget);
@@ -174,6 +174,7 @@ void main() {
     expect(repository.saveCalls, 1);
     expect(repository.tasks.values.single.title, 'Twenty minute Planner task');
     expect(find.text('CREACIÓN GUARDADA'), findsOneWidget);
+    expect(find.text('Tarea: Twenty minute Planner task'), findsOneWidget);
     expect(find.text('Ver tareas guardadas'), findsOneWidget);
     expect(
       find.text('Se guardó una sola vez a partir de tu confirmación.'),
@@ -287,6 +288,7 @@ void main() {
     expect(repository.saveCalls, 1);
     expect(find.text('CREATION SAVED'), findsOneWidget);
     expect(repository.tasks.values.single.goalId, 'internal-goal-identity');
+    expect(find.text('Task: Ship one verified change'), findsOneWidget);
     expect(find.textContaining('Confirmation:'), findsNothing);
     expect(find.textContaining('Result version:'), findsNothing);
     expect(find.textContaining('Saved exactly once'), findsOneWidget);
@@ -314,6 +316,7 @@ void main() {
 
     expect(repository.deleteCalls, 1);
     expect(find.text('CREATION UNDONE'), findsOneWidget);
+    expect(find.text('Task: Ship one verified change'), findsOneWidget);
     container.read(creatorHandshakeProvider.notifier).clearResult();
     await container
         .read(creatorHandshakeProvider.notifier)

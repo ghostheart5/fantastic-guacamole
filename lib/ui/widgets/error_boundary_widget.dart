@@ -113,7 +113,7 @@ class ErrorBoundaryState extends State<ErrorBoundary> {
     final String safeErrorText = PublicFailure.from(
       effectiveError,
       fallback:
-          'ChronoSpark recovered the failure. Your saved work is unchanged; retry when ready.',
+          'Axiomara recovered the failure. Your saved work is unchanged; retry when ready.',
     ).message;
 
     return Scaffold(

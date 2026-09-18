@@ -161,9 +161,8 @@ void main() {
     final List<FileSystemEntity> roots = <FileSystemEntity>[
       Directory('lib'),
       Directory('assets'),
+      Directory('site'),
       Directory('web'),
-      File('index.html'),
-      File('testers.html'),
     ];
 
     for (final FileSystemEntity root in roots) {
@@ -198,6 +197,40 @@ void main() {
     }
 
     expect(violations, isEmpty, reason: violations.join('\n'));
+  });
+
+  test('every native shell presents the Axiomara product name', () {
+    final Map<String, List<String>> requiredVisibleIdentity =
+        <String, List<String>>{
+          'android/app/src/main/AndroidManifest.xml': <String>[
+            'android:label="Axiomara"',
+          ],
+          'ios/Runner/Info.plist': <String>[
+            '<key>CFBundleDisplayName</key>',
+            '<string>Axiomara</string>',
+          ],
+          'macos/Runner/Info.plist': <String>[
+            '<key>CFBundleDisplayName</key>',
+            '<string>Axiomara</string>',
+          ],
+          'windows/runner/main.cpp': <String>['window.Create(L"Axiomara"'],
+          'windows/runner/Runner.rc': <String>[
+            'VALUE "FileDescription", "Axiomara"',
+            'VALUE "ProductName", "Axiomara"',
+          ],
+          'linux/runner/my_application.cc': <String>[
+            'gtk_header_bar_set_title(header_bar, "Axiomara")',
+            'gtk_window_set_title(window, "Axiomara")',
+          ],
+        };
+
+    for (final MapEntry<String, List<String>> entry
+        in requiredVisibleIdentity.entries) {
+      final String content = File(entry.key).readAsStringSync();
+      for (final String expected in entry.value) {
+        expect(content, contains(expected), reason: entry.key);
+      }
+    }
   });
 
   test('legal citation exception cannot hide retired product wording', () {

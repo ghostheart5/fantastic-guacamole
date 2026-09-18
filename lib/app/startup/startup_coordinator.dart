@@ -326,8 +326,8 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
                                       )
                                     : journeyText(
                                         context,
-                                        'Account data remains locked while the previous attempt stops. You can close and reopen ChronoSpark if this does not clear.',
-                                        'Los datos de la cuenta siguen bloqueados mientras se detiene el intento anterior. Si esto no se resuelve, cierra y vuelve a abrir ChronoSpark.',
+                                        'Account data remains locked while the previous attempt stops. You can close and reopen Axiomara if this does not clear.',
+                                        'Los datos de la cuenta siguen bloqueados mientras se detiene el intento anterior. Si esto no se resuelve, cierra y vuelve a abrir Axiomara.',
                                       ),
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
@@ -371,7 +371,7 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
                             ),
                             SizedBox(height: 8),
                             Text(
-                              'ChronoSpark will continue when startup services have stopped safely.',
+                              'Axiomara will continue when startup services have stopped safely.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: Color(0xFFB8C7D9),

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/config/product_identity.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/system/external_url_service.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -85,7 +86,7 @@ class _ExternalLinkPage extends StatelessWidget {
             children: <Widget>[
               TemporalScreenHeader(
                 title: title,
-                eyebrow: 'CHRONOSPARK',
+                eyebrow: ProductIdentity.wordmark,
                 onBack: Navigator.canPop(context)
                     ? () => Navigator.pop(context)
                     : null,
@@ -157,7 +158,7 @@ class _StaticPage extends StatelessWidget {
             children: <Widget>[
               TemporalScreenHeader(
                 title: title,
-                eyebrow: 'CHRONOSPARK',
+                eyebrow: ProductIdentity.wordmark,
                 onBack: Navigator.canPop(context)
                     ? () => Navigator.pop(context)
                     : null,
@@ -222,7 +223,7 @@ class _AssetTextPageState extends State<_AssetTextPage> {
             children: <Widget>[
               TemporalScreenHeader(
                 title: widget.title,
-                eyebrow: 'CHRONOSPARK',
+                eyebrow: ProductIdentity.wordmark,
                 onBack: Navigator.canPop(context)
                     ? () => Navigator.pop(context)
                     : null,

@@ -520,31 +520,71 @@ void main() {
     expect(reconciliation, contains('body.completed > body.advanced'));
   });
 
-  test('public Pages workflow parses as static-site-only deployment', () {
+  test('public Pages workflow validates privately and publishes manually', () {
     final YamlMap pages = workflow('main.yml');
     final YamlMap triggers = pages['on'] as YamlMap;
-    final YamlMap push = triggers['push'] as YamlMap;
     final YamlMap pullRequest = triggers['pull_request'] as YamlMap;
-    expect((push['branches'] as YamlList), contains('main'));
-    expect((push['paths'] as YamlList), contains('site/**'));
-    expect((push['paths'] as YamlList), contains('web/delete-account/**'));
+    final YamlMap workflowDispatch = triggers['workflow_dispatch'] as YamlMap;
+    final YamlMap publishInput =
+        ((workflowDispatch['inputs'] as YamlMap)['publish'] as YamlMap);
+    expect(triggers.containsKey('push'), isFalse);
     expect((pullRequest['branches'] as YamlList), contains('main'));
-    expect(pullRequest.containsKey('paths'), isFalse);
+    expect((pullRequest['paths'] as YamlList), contains('site/index.html'));
+    expect(
+      (pullRequest['paths'] as YamlList),
+      contains('web/delete-account/**'),
+    );
+    expect(publishInput['type'], 'boolean');
+    expect(publishInput['required'], isTrue);
+    expect(publishInput['default'], isFalse);
 
     final YamlMap build = job(pages, 'build');
     final YamlMap deploy = job(pages, 'deploy');
     expect(deploy['needs'], 'build');
+    expect(
+      deploy['if'],
+      "github.event_name == 'workflow_dispatch' && inputs.publish == true && github.ref == 'refs/heads/main'",
+    );
     expect(environmentName(deploy), 'github-pages');
     expect((deploy['permissions'] as YamlMap)['pages'], 'write');
     expect((deploy['permissions'] as YamlMap)['id-token'], 'write');
     expect(
-      namedStep(deploy, 'Deploy public site')['uses'],
+      namedStep(deploy, 'Configure GitHub Pages')['uses'],
+      matches(RegExp(r'^actions/configure-pages@[0-9a-f]{40}$')),
+    );
+    expect(
+      namedStep(deploy, 'Publish the approved required pages')['uses'],
       matches(RegExp(r'^actions/deploy-pages@[0-9a-f]{40}$')),
+    );
+    final YamlMap package = namedStep(
+      build,
+      'Package approved deployment artifact',
+    );
+    expect(package['if'], deploy['if']);
+    expect(
+      package['uses'],
+      matches(RegExp(r'^actions/upload-pages-artifact@[0-9a-f]{40}$')),
+    );
+    final YamlMap assemble = namedStep(
+      build,
+      'Assemble only the required public surface',
+    );
+    expect(assemble['run'], contains('cp site/index.html _site/index.html'));
+    expect(
+      assemble['run'],
+      contains('for route in privacy terms support delete-account'),
     );
     final String buildCommands = steps(
       build,
     ).map((YamlMap step) => step['run']?.toString() ?? '').join('\n');
-    expect(buildCommands, contains('No verified web app is published here'));
+    expect(
+      buildCommands,
+      contains('Unexpected public files expose unnecessary content'),
+    );
+    expect(
+      buildCommands,
+      contains('Landing page exposes unnecessary product detail'),
+    );
     expect(buildCommands, isNot(contains('flutter build')));
     expect(buildCommands, isNot(contains('CHRONOSPARK_APP_FLAVOR=prod')));
   });

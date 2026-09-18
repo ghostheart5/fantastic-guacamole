@@ -15,7 +15,7 @@ PaywallPrompt? serverAiCreditPrompt(AgentResult result) {
     return PaywallPrompt(
       title: 'AI credits exhausted',
       message:
-          'External assistant credits are exhausted. ChronoSpark will continue with on-device guidance.',
+          'External assistant credits are exhausted. Axiomara will continue with on-device guidance.',
       trigger: 'ai_credit_limit',
       remainingCredits: remaining ?? 0,
     );
@@ -265,7 +265,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
                 PaywallPrompt(
                   title: 'AI credits exhausted',
                   message:
-                      'External assistant credits are exhausted. ChronoSpark will continue with on-device guidance.',
+                      'External assistant credits are exhausted. Axiomara will continue with on-device guidance.',
                   trigger: 'ai_credit_limit',
                   remainingCredits: spend.wallet.balance,
                 ),

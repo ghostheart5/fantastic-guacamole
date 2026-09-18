@@ -25,10 +25,13 @@ import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/nexus_decision_provider.dart';
+import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_provider.dart';
+import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/nexus_vitals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_decision_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -194,6 +197,14 @@ void main() {
       ),
       size: Size(width, 2400),
     );
+    // Capture the same rendered surface whether this is the first test or an
+    // earlier interaction already populated Flutter's image cache.
+    await tester.runAsync(() async {
+      await precacheImage(
+        const AssetImage(AppAssets.bgNexus),
+        tester.element(find.byType(NexusScreen)),
+      );
+    });
     await tester.pump(const Duration(milliseconds: 50));
   }
 
@@ -206,6 +217,65 @@ void main() {
             )
             .first,
       );
+
+  testWidgets('Creator recommendation opens a task form instead of Planner', (
+    tester,
+  ) async {
+    final decision = OperatingDecisionReceipt(
+      subjectId: 'capture-next-task',
+      recommendedAction: 'Capture one actionable task in Creator.',
+      rationale: 'No actionable task is recorded.',
+      whyItMatters: 'Capture the next step.',
+      consequenceOfDelay: 'The next step remains unrecorded.',
+      generatedAt: _decisionObservedAt,
+      expiresAt: _decisionFreshUntil,
+      confidence: OperatingConfidence.high,
+      recommendationConfidence: .8,
+      evidence: const <OperatingEvidence>[],
+      actionIntent: const OperatingActionIntent(
+        id: 'capture-next-task',
+        type: OperatingActionType.openCreator,
+        label: 'Open Creator',
+        destination: '/creator',
+      ),
+      sourceRevisions: const <String, String>{'tasks': 'empty'},
+      modelVersion: 'navigation-regression',
+    );
+    final container = await pumpNexusScreen(
+      tester,
+      width: 500,
+      tasks: const [],
+      recordedDecisionOutcomes: [],
+      decisionModel: NexusDecisionModel(
+        status: NexusDecisionStatus.ready,
+        hasAvailableNetworkInterface: true,
+        pendingSyncCount: 0,
+        topRisk: '',
+        recentProgress: '',
+        statusDetail: 'Ready',
+        intelligence: DecisionIntelligence(
+          snapshot: _operatingSnapshot,
+          delta: _readyNexusDecisionModel.intelligence!.delta,
+          decision: decision,
+          acknowledgedSnapshotId: null,
+        ),
+      ),
+    );
+    container
+        .read(creatorNavigationIntentProvider.notifier)
+        .open(CreatorFormKind.note);
+    final review = find.text('Review before acting');
+    await tester.ensureVisible(review);
+    await tester.tap(review);
+    await tester.pump();
+    expect(container.read(appFlowProvider), AppView.creator);
+    expect(
+      container.read(creatorNavigationIntentProvider),
+      CreatorFormKind.task,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   group('NexusScreen golden regression', () {
     testWidgets('matches the ultraCompact_320 baseline', (
@@ -462,10 +532,15 @@ void main() {
           observedVitals: observed,
         );
         expect(
-          find.text('Tu día, organizado en un próximo paso claro.'),
+          find.text(
+            'Tu criterio amplificado: una decisión clara y futuros que puedes comparar.',
+          ),
           findsOneWidget,
         );
-        expect(find.text('NÚCLEO DE LÓGICA ADAPTATIVA'), findsOneWidget);
+        expect(
+          find.text('AXIOMARA // SISTEMA OPERATIVO DE DECISIONES HUMANAS'),
+          findsOneWidget,
+        );
         expect(find.bySemanticsLabel('Abrir notificaciones'), findsOneWidget);
         expect(find.bySemanticsLabel('Cerrar sesión'), findsOneWidget);
         expect(find.text('ENERGÍA'), findsOneWidget);
@@ -484,8 +559,8 @@ void main() {
           ),
           findsWidgets,
         );
-        expect(find.text('DECISIÓN ACTUAL'), findsOneWidget);
-        expect(find.text('Revisar sugerencia'), findsOneWidget);
+        expect(find.text('PAQUETE DE DECISIÓN EN VIVO'), findsOneWidget);
+        expect(find.text('Revisar antes de actuar'), findsOneWidget);
         final priorities = find.text('PRIORIDADES ACTUALES');
         await tester.scrollUntilVisible(priorities, 250);
         expect(priorities, findsOneWidget);
@@ -575,7 +650,7 @@ void main() {
       await pumpNexusScreen(tester, width: Breakpoints.ultraCompact - 1);
 
       expect(
-        textWidgetContaining(tester, 'LVL 10').style?.fontSize,
+        textWidgetContaining(tester, 'CAPABILITY 10').style?.fontSize,
         AppSizes.fontMicro,
       );
     });
@@ -601,7 +676,7 @@ void main() {
       await pumpNexusScreen(tester, width: Breakpoints.ultraCompact);
 
       expect(
-        textWidgetContaining(tester, 'LVL 10').style?.fontSize,
+        textWidgetContaining(tester, 'CAPABILITY 10').style?.fontSize,
         AppSizes.fontXs,
       );
     });
@@ -614,7 +689,7 @@ void main() {
       // At the regular breakpoint, both labels intentionally converge on the
       // same font size; this matches the production widget logic.
       expect(
-        textWidgetContaining(tester, 'LVL 10').style?.fontSize,
+        textWidgetContaining(tester, 'CAPABILITY 10').style?.fontSize,
         AppSizes.fontSm,
       );
     });

@@ -48,7 +48,7 @@ void main() {
         backend: accountABackend,
       );
 
-      expect(accountA.read(profileProvider).name, 'ChronoSpark User');
+      expect(accountA.read(profileProvider).name, 'Axiomara User');
       await _waitForProfileName(accountA, 'Account A');
 
       expect(accountA.read(profileProvider).name, 'Account A');
@@ -64,10 +64,10 @@ void main() {
         ownership: LegacyScopeOwnership.provenNotOwned,
         backend: InMemorySecureStoreBackend(),
       );
-      expect(accountB.read(profileProvider).name, 'ChronoSpark User');
+      expect(accountB.read(profileProvider).name, 'Axiomara User');
       await Future<void>.delayed(const Duration(milliseconds: 100));
 
-      expect(accountB.read(profileProvider).name, 'ChronoSpark User');
+      expect(accountB.read(profileProvider).name, 'Axiomara User');
       expect(legacy.get('profile_state'), encoded);
       accountB.dispose();
     },

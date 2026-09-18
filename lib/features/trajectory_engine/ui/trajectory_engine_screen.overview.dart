@@ -535,7 +535,7 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           const Text(
-            'Choose one explicit change. ChronoSpark will compare its capacity, risk, goal-timing, Timeline, and Progression consequences without changing your real plan.',
+            'Choose one explicit change. Axiomara will compare its capacity, risk, goal-timing, Timeline, and Progression consequences without changing your real plan.',
             style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
           ),
           const SizedBox(height: 12),

@@ -1305,6 +1305,11 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                                 ),
                           ),
                           const SizedBox(height: 14),
+                          Text(
+                            routine.optionalPlanningInputs,
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                          const SizedBox(height: 8),
                           _EnergySlider(
                             value: _energy,
                             color: AppColors.neonCyan,

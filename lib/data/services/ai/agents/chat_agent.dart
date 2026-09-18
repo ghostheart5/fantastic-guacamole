@@ -183,7 +183,7 @@ class ChatAgent extends AiAgent {
         return 'Note: the assistant service could not be reached, so this '
             'reply was generated on-device from your current data.';
       case AiProxyOutcome.withheld:
-        return 'Note: the assistant reply was withheld by ChronoSpark safety '
+        return 'Note: the assistant reply was withheld by Axiomara safety '
             'policy, so this reply was generated on-device from your current '
             'data.';
       case AiProxyOutcome.creditsExhausted:

@@ -189,8 +189,8 @@ class _AssistantConversationScreenState
             children: [
               Text(
                 copy(
-                  'Your question, up to six recent messages, and the app context below go to ChronoSpark for a credit quote. If you confirm the price, they go to Anthropic for a response. Anthropic normally retains API content for up to 30 days. This does not save or change your tasks.',
-                  'Tu pregunta, hasta seis mensajes recientes y el contexto de abajo se envían a ChronoSpark para cotizar créditos. Si confirmas el precio, se envían a Anthropic para responder. Anthropic normalmente conserva el contenido de la API hasta 30 días. Esto no guarda ni modifica tus tareas.',
+                  'Your question, up to six recent messages, and the app context below go to Axiomara for a credit quote. If you confirm the price, they go to Anthropic for a response. Anthropic normally retains API content for up to 30 days. This does not save or change your tasks.',
+                  'Tu pregunta, hasta seis mensajes recientes y el contexto de abajo se envían a Axiomara para cotizar créditos. Si confirmas el precio, se envían a Anthropic para responder. Anthropic normalmente conserva el contenido de la API hasta 30 días. Esto no guarda ni modifica tus tareas.',
                 ),
               ),
               const SizedBox(height: 12),
@@ -332,8 +332,8 @@ class _AssistantConversationScreenState
         children: [
           Text(
             copy(
-              'Send this selected response and your reason to ChronoSpark for review. It may contain details from your planning or conversation. The report is linked to your account and stored for review; the rest of your conversation is not attached.',
-              'Envía esta respuesta y el motivo a ChronoSpark para su revisión. Puede incluir detalles de tus planes o conversación. El informe se vincula a tu cuenta y se guarda para revisión; no se adjunta el resto de la conversación.',
+              'Send this selected response and your reason to Axiomara for review. It may contain details from your planning or conversation. The report is linked to your account and stored for review; the rest of your conversation is not attached.',
+              'Envía esta respuesta y el motivo a Axiomara para su revisión. Puede incluir detalles de tus planes o conversación. El informe se vincula a tu cuenta y se guarda para revisión; no se adjunta el resto de la conversación.',
             ),
           ),
           DropdownButtonFormField<AiContentReportReason>(
@@ -634,6 +634,10 @@ class _AssistantConversationScreenState
                     ),
                   if (planner)
                     ExpansionTile(
+                      childrenPadding: const EdgeInsets.only(
+                        top: 16,
+                        bottom: 8,
+                      ),
                       title: Text(
                         copy(
                           'Energy for this request',
@@ -642,6 +646,7 @@ class _AssistantConversationScreenState
                       ),
                       children: [
                         DropdownButtonFormField<double>(
+                          isExpanded: true,
                           key: ValueKey('conversation-energy-$_generation'),
                           initialValue: _energy,
                           decoration: InputDecoration(
@@ -680,11 +685,16 @@ class _AssistantConversationScreenState
                   if (!planner)
                     ExpansionTile(
                       key: const Key('conversation-advanced'),
+                      childrenPadding: const EdgeInsets.only(
+                        top: 16,
+                        bottom: 8,
+                      ),
                       title: Text(
                         copy('Advanced analysis', 'Análisis avanzado'),
                       ),
                       children: [
                         DropdownButtonFormField<SIV2Intent>(
+                          isExpanded: true,
                           key: ValueKey('conversation-mode-$_generation'),
                           initialValue: _intent,
                           decoration: InputDecoration(
@@ -706,6 +716,7 @@ class _AssistantConversationScreenState
                               : null,
                         ),
                         DropdownButtonFormField<SIV2TimeRange>(
+                          isExpanded: true,
                           key: ValueKey('conversation-range-$_generation'),
                           initialValue: _range,
                           decoration: InputDecoration(

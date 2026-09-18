@@ -66,19 +66,22 @@ void main() {
           await tester.tap(find.byTooltip('Abrir mapa de navegación'));
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 400));
-          expect(find.text('Mapa de navegación'), findsWidgets);
+          expect(find.text('Mapa del sistema'), findsWidgets);
           expect(
-            find.text('Primero lo esencial; lo avanzado cuando lo necesites.'),
+            find.text('Un sistema humano: decide, actúa, observa y aprende.'),
             findsOneWidget,
           );
           expect(find.byTooltip('Cerrar mapa de navegación'), findsOneWidget);
           expect(
-            find.text('Inicio de planificación conectada'),
+            find.text('Decisiones, señales y control en vivo'),
             findsOneWidget,
           );
-          expect(find.text('Escenarios futuros y ejecución'), findsOneWidget);
+          expect(
+            find.text('Compara caminos posibles sin fingir certeza'),
+            findsOneWidget,
+          );
           expect(find.text('Navigation Map'), findsNothing);
-          final planner = find.text('Planificador Inteligente');
+          final planner = find.text('Motor del Ahora');
           await tester.ensureVisible(planner);
           await tester.tap(planner);
           await tester.pump();
@@ -313,7 +316,7 @@ void main() {
   ) async {
     final _RouteShellHarness harness = await _pumpRouteShell(tester);
 
-    await tester.tap(find.text('Timeline'));
+    await tester.tap(find.text('Truth Ledger'));
     await tester.pump();
     await tester.pump();
 
@@ -322,23 +325,22 @@ void main() {
     expect(harness.container.read(appFlowProvider), AppView.timeline);
   });
 
-  testWidgets(
-    'bottom navigation uses the canonical Trajectory Engine identity',
-    (WidgetTester tester) async {
-      final _RouteShellHarness harness = await _pumpRouteShell(tester);
+  testWidgets('bottom navigation uses the canonical Future Branches identity', (
+    WidgetTester tester,
+  ) async {
+    final _RouteShellHarness harness = await _pumpRouteShell(tester);
 
-      expect(find.text('Trajectory Engine'), findsOneWidget);
-      expect(find.text('Trajectory'), findsNothing);
+    expect(find.text('Future Branches'), findsOneWidget);
+    expect(find.text('Trajectory'), findsNothing);
 
-      await tester.tap(find.text('Trajectory Engine'));
-      await tester.pump();
-      await tester.pump();
+    await tester.tap(find.text('Future Branches'));
+    await tester.pump();
+    await tester.pump();
 
-      _expectRouterUri(harness, RoutePaths.trajectoryEngine);
-      _expectRouteAndVisibleView(_byRoute(RoutePaths.trajectoryEngine));
-      expect(harness.container.read(appFlowProvider), AppView.trajectoryEngine);
-    },
-  );
+    _expectRouterUri(harness, RoutePaths.trajectoryEngine);
+    _expectRouteAndVisibleView(_byRoute(RoutePaths.trajectoryEngine));
+    expect(harness.container.read(appFlowProvider), AppView.trajectoryEngine);
+  });
 
   testWidgets('navigation-map selection updates both content and URL', (
     WidgetTester tester,
@@ -348,7 +350,7 @@ void main() {
     await tester.tap(find.byTooltip('Open navigation map'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('Smart Planner'));
+    await tester.tap(find.text('Now Engine'));
     await tester.pump();
     await tester.pump();
 
@@ -390,7 +392,7 @@ void main() {
   ) async {
     final _RouteShellHarness harness = await _pumpRouteShell(tester);
 
-    await tester.tap(find.text('Profile'));
+    await tester.tap(find.text('Human Profile'));
     await tester.pump();
     await tester.pump();
     _expectRouterUri(harness, RoutePaths.profile);

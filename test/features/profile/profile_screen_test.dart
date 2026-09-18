@@ -293,7 +293,7 @@ void main() {
         find.text('Share sheet unavailable. Invite copied to clipboard.'),
         findsOneWidget,
       );
-      expect(clipboardText, contains('ChronoSpark'));
+      expect(clipboardText, contains('Axiomara'));
     },
   );
 }

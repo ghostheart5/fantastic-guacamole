@@ -568,28 +568,24 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
           );
     final String text = journeyText(
       context,
-      'ChronoSpark Goal\n'
+      'Axiomara Goal\n'
           '${goal.title}\n'
           'One-time actions: $completed/$total complete\n'
           'Recurring completions: ${goalProgress.recurringCompletedCount}\n'
           '$targetLabel\n'
           'Build your goal system: ${AppUrls.website}',
-      'Meta de ChronoSpark\n${goal.title}\nAcciones únicas: $completed/$total completadas\nRepeticiones completadas: ${goalProgress.recurringCompletedCount}\n$targetLabel\nConstruye tu sistema de metas: ${AppUrls.website}',
+      'Meta de Axiomara\n${goal.title}\nAcciones únicas: $completed/$total completadas\nRepeticiones completadas: ${goalProgress.recurringCompletedCount}\n$targetLabel\nConstruye tu sistema de metas: ${AppUrls.website}',
     );
 
     try {
       await SharePlus.instance.share(
         ShareParams(
           text: text,
-          title: journeyText(
-            context,
-            'ChronoSpark Goal',
-            'Meta de ChronoSpark',
-          ),
+          title: journeyText(context, 'Axiomara Goal', 'Meta de Axiomara'),
           subject: journeyText(
             context,
-            'My ChronoSpark goal',
-            'Mi meta de ChronoSpark',
+            'My Axiomara goal',
+            'Mi meta de Axiomara',
           ),
         ),
       );

@@ -199,7 +199,7 @@ class AuthSessionBoundaryCoordinator {
           boundary.block(
             generation,
             issue:
-                'Preserved device data was found, but its account owner cannot be verified. Review it before ChronoSpark unlocks account data.',
+                'Preserved device data was found, but its account owner cannot be verified. Review it before Axiomara unlocks account data.',
             canRecoverBySigningOut: true,
             canClaimPreservedData: true,
             canClearPreservedData: true,
@@ -245,7 +245,7 @@ class AuthSessionBoundaryCoordinator {
       );
       boundary.block(
         generation,
-        issue: 'ChronoSpark could not isolate account data safely.',
+        issue: 'Axiomara could not isolate account data safely.',
         canRecoverBySigningOut: true,
       );
     }
@@ -479,7 +479,7 @@ class AuthSessionBoundaryCoordinator {
         invalidateAccountOwnedProviders(_ref);
         boundary.block(
           generation,
-          issue: 'ChronoSpark could not clear local account data safely.',
+          issue: 'Axiomara could not clear local account data safely.',
           canRecoverBySigningOut: true,
         );
       }
@@ -557,7 +557,7 @@ class AuthSessionBoundaryCoordinator {
     invalidateAccountOwnedProviders(_ref);
     boundary.block(
       generation,
-      issue: 'ChronoSpark could not isolate account data safely.',
+      issue: 'Axiomara could not isolate account data safely.',
       canRecoverBySigningOut: true,
       canClearPreservedData: false,
     );

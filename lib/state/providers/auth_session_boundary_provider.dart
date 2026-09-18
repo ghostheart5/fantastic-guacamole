@@ -108,7 +108,7 @@ class AuthSessionBoundaryNotifier extends Notifier<AuthSessionBoundary> {
       canRecoverBySigningOut: canRecoverBySigningOut,
       canClaimPreservedData: canClaimPreservedData,
       canClearPreservedData: canClearPreservedData,
-      blockingIssue: issue ?? 'ChronoSpark could not isolate data safely.',
+      blockingIssue: issue ?? 'Axiomara could not isolate data safely.',
     );
   }
 }

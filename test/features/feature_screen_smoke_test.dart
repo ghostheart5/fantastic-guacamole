@@ -52,7 +52,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('TIMELINE'), findsOneWidget);
+    expect(find.text('TRUTH LEDGER'), findsOneWidget);
     expect(find.text('Completed sprint review'), findsOneWidget);
   });
 
@@ -132,8 +132,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('NEXUS'), findsOneWidget);
-    expect(find.text('ADAPTIVE LOGIC CORE'), findsOneWidget);
+    expect(find.text('AXIOMARA'), findsOneWidget);
+    expect(find.text('AXIOMARA // HUMAN DECISION OS'), findsOneWidget);
   });
 }
 

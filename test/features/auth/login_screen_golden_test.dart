@@ -121,7 +121,7 @@ void main() {
       await pumpLoginScreen(tester, width: Breakpoints.compact - 1);
 
       expect(
-        textWidget(tester, 'TEMPORAL INTELLIGENCE SYSTEM').style?.fontSize,
+        textWidget(tester, 'HUMAN DECISION OS').style?.fontSize,
         AppSizes.fontXs,
       );
       expect(
@@ -152,7 +152,7 @@ void main() {
       await pumpLoginScreen(tester, width: Breakpoints.compact);
 
       expect(
-        textWidget(tester, 'TEMPORAL INTELLIGENCE SYSTEM').style?.fontSize,
+        textWidget(tester, 'HUMAN DECISION OS').style?.fontSize,
         AppSizes.fontSm,
       );
       expect(

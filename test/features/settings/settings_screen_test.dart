@@ -255,7 +255,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(LicensePage),
-          matching: find.text('ChronoSpark'),
+          matching: find.text('Axiomara'),
         ),
         findsOneWidget,
       );
@@ -618,7 +618,7 @@ void main() {
     expect(find.text('Not provided'), findsOneWidget);
     expect(
       find.text(
-        'Stored only on this device. Person Context is excluded from backup and sync, and will not be restored after reinstalling ChronoSpark or changing devices.',
+        'Stored only on this device. Person Context is excluded from backup and sync, and will not be restored after reinstalling Axiomara or changing devices.',
       ),
       findsOneWidget,
     );
@@ -628,7 +628,7 @@ void main() {
     expect(find.text('Add person context'), findsNWidgets(2));
     expect(
       find.text(
-        'Before you opt in: Person Context is stored only on this device, excluded from backup and sync, and will not be restored after reinstalling ChronoSpark or changing devices.',
+        'Before you opt in: Person Context is stored only on this device, excluded from backup and sync, and will not be restored after reinstalling Axiomara or changing devices.',
       ),
       findsOneWidget,
     );

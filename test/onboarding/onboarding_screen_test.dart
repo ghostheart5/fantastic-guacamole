@@ -47,13 +47,13 @@ void main() {
         expect(title, findsOneWidget);
         expect(
           tester.widget<Text>(title).data,
-          surface.split ? 'CHRONO\nSPARK' : 'CHRONOSPARK',
-          reason: 'The title may only break at its two words.',
+          'AXIOMARA',
+          reason: 'The current product wordmark must stay intact.',
         );
         final SemanticsHandle semantics = tester.ensureSemantics();
         await tester.pump();
         try {
-          expect(find.bySemanticsLabel('CHRONOSPARK'), findsOneWidget);
+          expect(find.bySemanticsLabel('AXIOMARA'), findsOneWidget);
         } finally {
           semantics.dispose();
         }
@@ -97,7 +97,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 400));
 
-      final Finder body = find.textContaining('Plan with purpose');
+      final Finder body = find.textContaining('Decide with evidence');
       final Finder button = find.widgetWithText(
         FilledButton,
         'CONTINUE TO LOGIN',
@@ -167,7 +167,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.text('CHRONOSPARK'), findsOneWidget);
+    expect(find.text('AXIOMARA'), findsOneWidget);
     expect(find.text('SKIP'), findsNothing);
     expect(find.text('CONTINUE TO LOGIN'), findsOneWidget);
     expect(find.text('Continue to login'), findsNothing);
@@ -424,7 +424,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 400));
 
-    final Finder body = find.textContaining('Plan with purpose');
+    final Finder body = find.textContaining('Decide with evidence');
     final Finder action = find.text('CONTINUE TO LOGIN');
     expect(body, findsOneWidget);
     expect(action, findsOneWidget);

@@ -1,7 +1,7 @@
-Generation mode: image generation with the existing ChronoSpark temporal-field artwork as a visual reference.
+Generation mode: built-in image generation with the prior ChronoSpark feature graphic as the edit target and visual reference.
 
 Prompt:
-Create a premium Google Play feature-graphic background for ChronoSpark, a futuristic planning and decision-support app. Use a wide 1024:500 composition with a deep near-black navy field. Keep the left 40 percent calm and mostly empty for text. On the right, visualize a precise temporal decision network: luminous cyan pathways, structured data nodes, and one warm amber route emerging clearly through the system. The result should feel advanced, calm, trustworthy, and technically sophisticated. Use crisp depth and controlled light. No text, logos, devices, people, faces, gradients used as decoration, floating orbs, stock-photo styling, medical imagery, or unsupported feature claims.
+Evolve the existing feature graphic into Axiomara's premium 2050 Human Decision OS identity. Preserve the deep near-black navy network landscape, luminous cyan and gold decision path, and left-side negative space. Replace all text with the exact lines: "THE HUMAN DECISION OS", "AXIOMARA", "Decide with evidence.", and "Act with control." Use crisp modern geometric typography, strong thumbnail legibility, controlled violet accents, and safe margins. Do not retain the word ChronoSpark. Do not add people, devices, badges, prices, screenshots, unsupported claims, or a watermark.
 
 Composition:
-The generated background was center-cropped to 1024 x 500. ChronoSpark branding and truthful planning-and-decision-support copy were then composed locally as raster text. The final upload candidate is feature-graphic-1024x500.png.
+The generated image used the required 1024:500 aspect ratio and was resampled to an exact 1024 x 500 opaque 24-bit PNG. The two final files contain identical pixels; feature-graphic-1024x500-rgb.png is the preferred Google Play upload.

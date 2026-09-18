@@ -96,7 +96,7 @@ void main() {
           firebaseInitialized: true,
           firebaseProjectId: 'another-firebase-project',
         ),
-        contains('expected ChronoSpark Firebase project'),
+        contains('expected Axiomara Firebase project'),
       );
       expect(
         Env.resolveShouldUseFirebaseFeatureFlags(
@@ -255,7 +255,7 @@ void main() {
         ),
       );
 
-      expect(find.text('ChronoSpark cannot start safely'), findsOneWidget);
+      expect(find.text('Axiomara cannot start safely'), findsOneWidget);
       expect(find.textContaining('the app will remain closed'), findsOneWidget);
       expect(find.byType(MaterialApp), findsOneWidget);
       expect(find.byType(Scaffold), findsOneWidget);

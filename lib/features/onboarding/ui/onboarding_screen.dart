@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/config/product_identity.dart';
 import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_content_contract.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -217,7 +218,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         icon: Icons.bolt_rounded,
         iconColor: const Color(0xFF00E5FF),
         tag: l10n.text(ChronoSparkString.welcome),
-        title: 'CHRONOSPARK',
+        title: ProductIdentity.wordmark,
         subtitle: l10n.text(ChronoSparkString.livingDecisionSystem),
         body: l10n.text(ChronoSparkString.onboardingWelcomeBody),
       ),
@@ -632,28 +633,16 @@ class _WelcomeTitle extends StatelessWidget {
         height: 1.0,
       ),
     );
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final TextPainter measurement = TextPainter(
-          text: TextSpan(text: title, style: style),
-          textDirection: Directionality.of(context),
-          textScaler: MediaQuery.textScalerOf(context),
-        )..layout();
-        final bool splitBrand =
-            title == 'CHRONOSPARK' && measurement.width > constraints.maxWidth;
-        measurement.dispose();
-        return FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: AlignmentDirectional.centerStart,
-          child: Text(
-            splitBrand ? 'CHRONO\nSPARK' : title,
-            key: const Key('onboarding-brand-title'),
-            semanticsLabel: title,
-            softWrap: false,
-            style: style,
-          ),
-        );
-      },
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: AlignmentDirectional.centerStart,
+      child: Text(
+        title,
+        key: const Key('onboarding-brand-title'),
+        semanticsLabel: title,
+        softWrap: false,
+        style: style,
+      ),
     );
   }
 }
@@ -752,8 +741,8 @@ class _FirstValueSlide extends StatelessWidget {
                               )
                             : _copy(
                                 l10n,
-                                'Share as much or as little as you want. ChronoSpark will offer one grounded choice before asking you to create anything.',
-                                'Comparte lo que quieras. ChronoSpark ofrecerá una opción fundamentada antes de pedirte que crees algo.',
+                                'Share as much or as little as you want. Axiomara will offer one grounded choice before asking you to create anything.',
+                                'Comparte lo que quieras. Axiomara ofrecerá una opción fundamentada antes de pedirte que crees algo.',
                               ),
                         style: const TextStyle(
                           color: Colors.white70,

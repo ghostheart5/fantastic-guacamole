@@ -254,7 +254,7 @@ void main() {
     expect(metrics['tasks_completed'], 0);
   });
 
-  testWidgets('screen journey reviews, creates, and routes to Timeline', (
+  testWidgets('screen journey reviews, creates, and routes to Truth Ledger', (
     WidgetTester tester,
   ) async {
     await SharedPrefsService.clear();
@@ -274,7 +274,7 @@ void main() {
 
     await _tapRequired(tester, find.byIcon(Icons.map_outlined));
     await tester.pump(const Duration(milliseconds: 250));
-    final Finder creatorButton = find.text('Creator');
+    final Finder creatorButton = find.text('Reality Builder');
     await _tapRequired(tester, creatorButton);
     await tester.pump(const Duration(milliseconds: 600));
     expect(router.routeInformationProvider.value.uri.path, RoutePaths.creator);

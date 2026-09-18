@@ -19,16 +19,13 @@ void main() {
       final String privacyPolicy = readSource('privacy.html');
 
       expect(logger, isNot(contains('FirebaseCrashlytics.instance.log(')));
-      expect(
-        logger,
-        contains("StateError('ChronoSpark diagnostic: \$safeCode')"),
-      );
+      expect(logger, contains("StateError('Axiomara diagnostic: \$safeCode')"));
       expect(diagnostics, isNot(contains('FirebaseCrashlytics')));
       expect(providers, isNot(contains('setUserIdentifier(')));
       expect(
         privacyPolicy,
         contains(
-          'Firebase Analytics and Crashlytics are release-contained off.',
+          'Firebase Analytics and Crashlytics are disabled in the current release configuration.',
         ),
       );
     },
