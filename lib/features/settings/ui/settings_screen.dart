@@ -1269,8 +1269,7 @@ class SettingsScreen extends ConsumerWidget {
       path: Env.supportEmail,
       queryParameters: <String, String>{
         'subject': 'Account deletion request',
-        'body':
-            'Please delete my Axiomara account associated with this email.',
+        'body': 'Please delete my Axiomara account associated with this email.',
       },
     );
     final bool opened = await ref.read(externalUrlServiceProvider).open(mail);

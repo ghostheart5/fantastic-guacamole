@@ -581,11 +581,7 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
       await SharePlus.instance.share(
         ShareParams(
           text: text,
-          title: journeyText(
-            context,
-            'Axiomara Goal',
-            'Meta de Axiomara',
-          ),
+          title: journeyText(context, 'Axiomara Goal', 'Meta de Axiomara'),
           subject: journeyText(
             context,
             'My Axiomara goal',
