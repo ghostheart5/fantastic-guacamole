@@ -161,9 +161,8 @@ void main() {
     final List<FileSystemEntity> roots = <FileSystemEntity>[
       Directory('lib'),
       Directory('assets'),
+      Directory('site'),
       Directory('web'),
-      File('index.html'),
-      File('testers.html'),
     ];
 
     for (final FileSystemEntity root in roots) {
