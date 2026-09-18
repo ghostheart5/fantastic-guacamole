@@ -21,7 +21,7 @@ void main() {
       expect(logger, isNot(contains('FirebaseCrashlytics.instance.log(')));
       expect(
         logger,
-        contains("StateError('ChronoSpark diagnostic: \$safeCode')"),
+        contains("StateError('Axiomara diagnostic: \$safeCode')"),
       );
       expect(diagnostics, isNot(contains('FirebaseCrashlytics')));
       expect(providers, isNot(contains('setUserIdentifier(')));
