@@ -25,13 +25,13 @@ tags:
       - tapOn: "Turn an intention into a path"
 - runFlow:
     when:
-      notVisible: "CREATOR"
+      notVisible: "REALITY BUILDER"
     commands:
       - runFlow:
           file: ../subflows/open-from-nexus.yaml
           env:
             TARGET: "Reality Builder"
-- assertVisible: "CREATOR"
+- assertVisible: "REALITY BUILDER"
 # Android can merge the accessible label and visible hint in one node.
 - scrollUntilVisible:
     element:
@@ -213,7 +213,7 @@ tags:
     timeout: 10000
 - tapOn: "Open Timeline"
 - extendedWaitUntil:
-    visible: "TIMELINE"
+    visible: "TRUTH LEDGER"
     timeout: 10000
 # The concrete Planner action must keep its title through Creator. Require its scheduled
 # row and completion so the earlier seed outcome cannot satisfy this handoff.

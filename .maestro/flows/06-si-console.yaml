@@ -12,7 +12,7 @@ tags:
     env:
       TARGET: "Deep Intelligence"
 
-- assertVisible: "SI CONSOLE.*"
+- assertVisible: "DEEP INTELLIGENCE"
 
 # The screen must expose its current source-aware contract, not only a title.
 - assertVisible: "Systems intelligence · source-aware guidance"

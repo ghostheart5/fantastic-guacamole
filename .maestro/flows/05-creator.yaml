@@ -16,14 +16,14 @@ tags:
 
 - runFlow:
     when:
-      notVisible: "CREATOR"
+      notVisible: "REALITY BUILDER"
     commands:
       - runFlow:
           file: ../subflows/open-from-nexus.yaml
           env:
             TARGET: "Reality Builder"
 
-- assertVisible: "CREATOR"
+- assertVisible: "REALITY BUILDER"
 
 # Android can merge the accessible label and visible hint in one node.
 - scrollUntilVisible:
