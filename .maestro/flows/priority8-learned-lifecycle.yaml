@@ -239,6 +239,13 @@ tags:
 - tapOn: "Back to Nexus"
 
 # The latest completion must publish an explainable, correctable change.
+- scrollUntilVisible:
+    element:
+      text: "WHAT LEARNING CHANGED"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: false
+    timeout: 20000
 - extendedWaitUntil:
     visible: "WHAT LEARNING CHANGED"
     timeout: 20000
