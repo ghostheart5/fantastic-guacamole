@@ -77,6 +77,26 @@ void main() {
     }
   });
 
+  test('retired HTTPS app links are rejected at the native boundary', () async {
+    final Uri retiredLink = Uri.parse(
+      'https://chronospark.app/app/auth/callback?type=recovery',
+    );
+    expect(isTrustedAuthCallback(retiredLink), isFalse);
+
+    final StreamController<Uri> events = StreamController<Uri>.broadcast();
+    final DeepLinkService service = DeepLinkService.forTesting(
+      initialLinkLoader: () async => retiredLink,
+      uriLinkStream: events.stream,
+    );
+    addTearDown(() async {
+      await service.dispose();
+      await events.close();
+    });
+
+    await service.initializeEarly();
+    expect(service.latestUri, isNull);
+  });
+
   test(
     'cold-start and warm native callbacks reach the deep-link service',
     () async {

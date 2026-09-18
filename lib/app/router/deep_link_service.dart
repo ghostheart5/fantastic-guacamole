@@ -102,15 +102,7 @@ class DeepLinkService {
   Stream<Uri> get links => _controller.stream;
 
   bool _isTrusted(Uri uri) {
-    if (isTrustedAuthCallback(uri)) return true;
-    if (uri.scheme != 'https') return false;
-    if (uri.userInfo.isNotEmpty || uri.hasPort) return false;
-    const Set<String> hosts = <String>{
-      'chronospark.app',
-      'www.chronospark.app',
-    };
-    return hosts.contains(uri.host.toLowerCase()) &&
-        (uri.path == '/app' || uri.path.startsWith('/app/'));
+    return isTrustedAuthCallback(uri);
   }
 
   Future<void> dispose() async {

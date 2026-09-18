@@ -87,6 +87,23 @@ void main() {
       expect(state.level, ProgressionPolicy.levelFromXp(250));
     });
 
+    test('historical built-in profile names migrate to Axiomara', () {
+      for (final String historicalDefault in <String>[
+        'Operative',
+        'ChronoSpark User',
+      ]) {
+        final ProfileState state = ProfileState.fromJson(<String, dynamic>{
+          'name': historicalDefault,
+        });
+        expect(state.name, 'Axiomara User');
+      }
+
+      final ProfileState custom = ProfileState.fromJson(<String, dynamic>{
+        'name': 'Dominic',
+      });
+      expect(custom.name, 'Dominic');
+    });
+
     test('legacyLevelFloor survives copyWith', () {
       final ProfileState state = ProfileState(
         xp: 2400,

@@ -7,7 +7,7 @@
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
-		<string>Chronospark</string>
+		<string>Axiomara</string>
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 		<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
 		<key>CFBundleName</key>
-		<string>chronospark</string>
+		<string>Axiomara</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>
@@ -75,10 +75,10 @@
 		<key>UIStatusBarHidden</key>
 		<false/>
 		<key>NSMicrophoneUsageDescription</key>
-		<string>Chronospark uses your microphone for voice coaching commands.</string>
+		<string>Axiomara uses your microphone for voice commands you start.</string>
 		<key>NSSpeechRecognitionUsageDescription</key>
-		<string>Chronospark converts your speech to text to process AI requests.</string>
+		<string>Axiomara converts your speech to text for requests you start.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
-		<string>Chronospark uses your location only when you ask for local context or location-aware planning.</string>
+		<string>Axiomara uses your location only when you ask for local context or location-aware planning.</string>
 	</dict>
 </plist>
