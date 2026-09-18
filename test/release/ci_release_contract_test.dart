@@ -505,18 +505,14 @@ void main() {
         'Download verified AAB artifact',
       );
       expect((download['with'] as YamlMap)['name'], uploadWith['name']);
-      final YamlMap digest = namedStep(
-        publish,
-        'Recheck AAB artifact digest',
-      );
+      final YamlMap digest = namedStep(publish, 'Recheck AAB artifact digest');
       expect(
         digest['working-directory'],
         'release-artifacts/app/outputs/bundle/release',
       );
       final String releaseFiles =
-          ((namedStep(publish, 'Create GitHub Release')['with'] as YamlMap)[
-                    'files'
-                  ] ??
+          ((namedStep(publish, 'Create GitHub Release')['with']
+                      as YamlMap)['files'] ??
                   '')
               .toString();
       expect(
