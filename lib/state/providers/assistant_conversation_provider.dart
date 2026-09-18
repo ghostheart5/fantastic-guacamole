@@ -157,6 +157,9 @@ final class ConversationPacketFactory {
       entityFilter: entityFilter,
       scenarioAssumption: scenario,
     );
+    final effectiveSources = taskOnly
+        ? const <SIV2Source>{SIV2Source.tasks}
+        : query.sources;
     // Reuse the local engine's source, date and entity lens. Only its selected
     // evidence is sent, never its generic answer as a substitute for reasoning.
     final local = const SIV2Engine().analyze(
@@ -227,6 +230,8 @@ final class ConversationPacketFactory {
         'utcOffsetMinutes': now.timeZoneOffset.inMinutes,
         'mode': query.intent.name,
         'timeRange': range.name,
+        'selectedSources':
+            effectiveSources.map((source) => source.name).toList()..sort(),
         'entityFilter': entityFilter,
         'scenarioAssumption': scenario,
         'evidenceRevision': snapshot.revision,

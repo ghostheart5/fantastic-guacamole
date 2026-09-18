@@ -25,13 +25,13 @@ tags:
       - tapOn: "Turn an intention into a path"
 - runFlow:
     when:
-      notVisible: "CREATOR"
+      notVisible: "REALITY BUILDER"
     commands:
       - runFlow:
           file: ../subflows/open-from-nexus.yaml
           env:
-            TARGET: "Creator"
-- assertVisible: "CREATOR"
+            TARGET: "Reality Builder"
+- assertVisible: "REALITY BUILDER"
 # Android can merge the accessible label and visible hint in one node.
 - scrollUntilVisible:
     element:
@@ -103,15 +103,15 @@ tags:
     timeout: 10000
 - tapOn: "Back to Nexus"
 - extendedWaitUntil:
-    visible: "NEXUS"
+    visible: "NEXUS.*"
     timeout: 10000
 
 # Nexus -> Smart Planner input/output -> explicit Use this plan acceptance.
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Smart Planner"
-- assertVisible: "Back\\nPLAN SPECTRUM\\nSmart Planner\\nBuild your next plan from real evidence."
+      TARGET: "Now Engine"
+- assertVisible: "Back\\nIMMEDIATE DECISION ENGINE\\nNow Engine\\nResolve time, energy and commitments into one real next move."
 - scrollUntilVisible:
     element:
       text: "What would you like help planning right now\\?"
@@ -213,7 +213,7 @@ tags:
     timeout: 10000
 - tapOn: "Open Timeline"
 - extendedWaitUntil:
-    visible: "TIMELINE"
+    visible: "TRUTH LEDGER"
     timeout: 10000
 # The concrete Planner action must keep its title through Creator. Require its scheduled
 # row and completion so the earlier seed outcome cannot satisfy this handoff.
@@ -239,6 +239,13 @@ tags:
 - tapOn: "Back to Nexus"
 
 # The latest completion must publish an explainable, correctable change.
+- scrollUntilVisible:
+    element:
+      text: "WHAT LEARNING CHANGED"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: false
+    timeout: 20000
 - extendedWaitUntil:
     visible: "WHAT LEARNING CHANGED"
     timeout: 20000
@@ -251,12 +258,12 @@ tags:
 - launchApp
 - runFlow: ../subflows/sign-in-qa.yaml
 - extendedWaitUntil:
-    visible: "NEXUS"
+    visible: "NEXUS.*"
     timeout: 30000
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Settings"
+      TARGET: "Control Center"
 - scrollUntilVisible:
     element:
       text: "Planning & guidance\\n.*"

@@ -10,6 +10,6 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Progression"
+      TARGET: "Capability Matrix"
 
-- assertVisible: "PROGRESSION"
+- assertVisible: "CAPABILITY MATRIX"

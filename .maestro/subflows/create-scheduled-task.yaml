@@ -7,14 +7,14 @@ appId: com.ghostheart5.chronospark
       - tapOn: "Turn an intention into a path"
 - runFlow:
     when:
-      notVisible: "CREATOR"
+      notVisible: "REALITY BUILDER"
     commands:
       - runFlow:
           file: open-from-nexus.yaml
           env:
-            TARGET: "Creator"
+            TARGET: "Reality Builder"
 - extendedWaitUntil:
-    visible: "CREATOR"
+    visible: "REALITY BUILDER"
     timeout: 15000
 # Android can merge the accessible label and visible hint in one node.
 - scrollUntilVisible:

@@ -5,7 +5,7 @@
 appId: com.ghostheart5.chronospark
 ---
 - extendedWaitUntil:
-    visible: "(?:CONTINUE TO LOGIN|Start login|SKIP FOR NOW|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS)"
+    visible: "(?:CONTINUE TO LOGIN|Start login|SKIP FOR NOW|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS.*)"
     timeout: 30000
 
 - runFlow:
@@ -30,7 +30,7 @@ appId: com.ghostheart5.chronospark
           timeout: 5000
 
 - extendedWaitUntil:
-    visible: "(?:SKIP FOR NOW|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS)"
+    visible: "(?:SKIP FOR NOW|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS.*)"
     timeout: 20000
 
 - runFlow:

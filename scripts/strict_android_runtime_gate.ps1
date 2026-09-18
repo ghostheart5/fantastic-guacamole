@@ -234,6 +234,18 @@ function Test-LaunchEvidence {
   }
 
   if ($evidence.launch.fallbackAttempted -eq $true) {
+    $resolveProperty =
+      $evidence.operations.PSObject.Properties['resolveLauncherActivity']
+    if (-not $resolveProperty) {
+      return & $failed 'missing-operation-resolveLauncherActivity'
+    }
+    $resolve = $resolveProperty.Value
+    if ($resolve.status -ne 'passed' -or
+      $resolve.exitCode -ne 0 -or
+      $resolve.timedOut -ne $false -or
+      $resolve.verified -ne $true) {
+      return & $failed 'operation-not-passed-resolveLauncherActivity'
+    }
     $fallbackProperty = $evidence.operations.PSObject.Properties['fallbackLaunch']
     if (-not $fallbackProperty) {
       return & $failed 'missing-operation-fallbackLaunch'

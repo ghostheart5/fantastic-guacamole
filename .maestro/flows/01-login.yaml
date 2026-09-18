@@ -27,7 +27,7 @@ tags:
 
 # The gate renders from the auth-state stream, so admission is asynchronous.
 - extendedWaitUntil:
-    visible: "NEXUS"
+    visible: "NEXUS.*"
     timeout: 20000
 
 - assertNotVisible: "ENTER SYSTEM"

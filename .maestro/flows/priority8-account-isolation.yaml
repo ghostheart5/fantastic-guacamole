@@ -18,18 +18,18 @@ tags:
 - runFlow: ../subflows/exit-tester-account.yaml
 - tapOn: "TESTER B.*ISOLATION LOGIN"
 - extendedWaitUntil:
-    visible: "NEXUS"
+    visible: "NEXUS.*"
     timeout: 30000
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Timeline"
+      TARGET: "Truth Ledger"
 - assertNotVisible: "(?s).*P8 Account A Sentinel.*"
 
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Creator"
+      TARGET: "Reality Builder"
 - runFlow:
     file: ../subflows/create-scheduled-task.yaml
     env:
@@ -40,12 +40,12 @@ tags:
 - runFlow: ../subflows/exit-tester-account.yaml
 - tapOn: "TESTER ACCESS.*TEST LOGIN"
 - extendedWaitUntil:
-    visible: "NEXUS"
+    visible: "NEXUS.*"
     timeout: 30000
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Timeline"
+      TARGET: "Truth Ledger"
 - extendedWaitUntil:
     visible: "(?s).*P8 Account A Sentinel.*"
     timeout: 20000

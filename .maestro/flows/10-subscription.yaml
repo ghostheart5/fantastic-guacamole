@@ -11,7 +11,7 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Settings"
+      TARGET: "Control Center"
 
 - scrollUntilVisible:
     element:

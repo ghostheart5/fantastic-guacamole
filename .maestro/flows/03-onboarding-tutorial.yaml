@@ -9,12 +9,12 @@ tags:
     clearState: true
 
 - extendedWaitUntil:
-    visible: "CHRONOSPARK"
+    visible: "AXIOMARA"
     timeout: 60000
 
-- assertVisible: "CHRONOSPARK"
+- assertVisible: "AXIOMARA"
 - assertVisible: "A living decision system"
-- assertVisible: "Plan with purpose. Act. Learn. ChronoSpark keeps the context behind your decisions."
+- assertVisible: "Decide with evidence. Act with control. Learn from reality. Axiomara keeps every recommendation inspectable and correctable."
 - assertVisible: "CONTINUE TO LOGIN"
 
 - tapOn: "CONTINUE TO LOGIN"

@@ -357,8 +357,9 @@ class _DynamicFormState extends State<DynamicForm> {
         accent: AppColors.neonCyan,
         onVisibilityChanged: widget.onPickerVisibilityChanged,
         onPick: (DateTime? date) {
-          widget.onScheduleValidityChanged?.call(date != null);
+          if (!mounted) return;
           setState(() => _scheduledFor = date);
+          widget.onScheduleValidityChanged?.call(date != null);
         },
       ),
     ),
@@ -770,7 +771,7 @@ class _DateField extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         ),
       );
-      if (time == null) return;
+      if (time == null || !context.mounted) return;
       onPick(DateTime(date.year, date.month, date.day, time.hour, time.minute));
     } finally {
       FocusManager.instance.primaryFocus?.unfocus();

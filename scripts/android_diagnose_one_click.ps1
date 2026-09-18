@@ -519,13 +519,35 @@ $readiness = Get-AppReadiness `
 
 if (-not $readiness.Ready) {
   $evidence.launch.fallbackAttempted = $true
+  $resolveLauncherActivity = Invoke-BoundedCommand `
+    -Executable $adb `
+    -Arguments @(
+      '-s', $DeviceSerial, 'shell', 'cmd', 'package', 'resolve-activity',
+      '--brief', '-a', 'android.intent.action.MAIN',
+      '-c', 'android.intent.category.LAUNCHER', $PackageName
+    ) `
+    -TimeoutSeconds $AdbTimeoutSeconds
+  $evidence.operations['resolveLauncherActivity'] =
+    ConvertTo-OperationEvidence -Result $resolveLauncherActivity
+  $launcherComponent = @(
+    $resolveLauncherActivity.Output -split "`r?`n" | Where-Object {
+      $_.Trim() -match ('^' + [regex]::Escape($PackageName) + '/')
+    } | Select-Object -Last 1
+  ) -join ''
+  $launcherComponent = $launcherComponent.Trim()
+  if (-not (Test-CommandPassed -Result $resolveLauncherActivity) -or
+    [string]::IsNullOrWhiteSpace($launcherComponent)) {
+    $evidence.operations['resolveLauncherActivity'].status = 'failed'
+    $evidence.operations['resolveLauncherActivity'].verified = $false
+    Stop-DiagnoseFailure `
+      -Reason 'launcher-activity-resolution-failed' `
+      -Message 'Launcher activity resolution failed, timed out, or returned no exact package component.'
+  }
   $fallbackLaunch = Invoke-BoundedCommand `
     -Executable $adb `
     -Arguments @(
       '-s', $DeviceSerial, 'shell', 'am', 'start', '-W',
-      '-a', 'android.intent.action.MAIN',
-      '-c', 'android.intent.category.LAUNCHER',
-      '-p', $PackageName
+      '-n', $launcherComponent
     ) `
     -TimeoutSeconds $AdbTimeoutSeconds
   $evidence.operations['fallbackLaunch'] = ConvertTo-OperationEvidence -Result $fallbackLaunch
@@ -592,9 +614,9 @@ $patterns = @(
   'SocketException',
   'TimeoutException',
   'Failed assertion',
-  'Process\s+' + [regex]::Escape($PackageName) + '\s+has died',
-  'Unable to start.*' + [regex]::Escape($PackageName),
-  'ANR in\s+' + [regex]::Escape($PackageName)
+  ('Process\s+' + [regex]::Escape($PackageName) + '\s+has died'),
+  ('Unable to start.*' + [regex]::Escape($PackageName)),
+  ('ANR in\s+' + [regex]::Escape($PackageName))
 ) + @(Get-ChronoSparkFatalDiagnosticPatterns)
 $hits = @(Select-String `
   -LiteralPath $runtimeLog `

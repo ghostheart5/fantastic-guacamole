@@ -214,6 +214,7 @@ void main() {
           expect(context.containsKey('explicitlyAttachedNote'), isFalse);
           expect(context.containsKey('reportedEmotion'), isFalse);
           expect(context['contextScope'], 'attachedTaskOnly');
+          expect(context['selectedSources'], ['tasks']);
         } else {
           expect(context['goals'], isNotEmpty);
           expect(context['explicitlyAttachedNote'], isNotNull);
@@ -259,8 +260,70 @@ void main() {
       'Build an emergency fund',
     );
     expect(context['tasks'], isEmpty);
+    expect(context['selectedSources'], ['goals']);
     expect(context['unavailableSources'], contains('tasks'));
     expect(repository.reads, 0);
+  });
+
+  test(
+    'SI preserves a goals-only filter when the selected group is empty',
+    () async {
+      final container = setup(
+        (_) async => throw StateError('No transport should run'),
+      );
+      addTearDown(container.dispose);
+      final packet = await container
+          .read(conversationPacketFactoryProvider)
+          .build(
+            surface: ConversationSurface.si,
+            prompt: 'What saved evidence is available?',
+            history: [],
+            languageCode: 'en',
+            sources: {SIV2Source.goals},
+            entityFilter: 'No matching goal',
+          );
+      final context = packet.toJson()['context'] as Map;
+      expect(context['selectedSources'], ['goals']);
+      expect(context['goals'], isEmpty);
+      expect(context['tasks'], isEmpty);
+      expect(context['milestones'], isEmpty);
+      expect(context['timeline'], isEmpty);
+    },
+  );
+
+  test('SI shortcut serializes the source actually used', () async {
+    final container = setup(
+      (_) async => throw StateError('No transport should run'),
+      readGateway: SIV2ReadGateway(
+        accountScopeId: scope.v2Namespace!,
+        readTasks: () async => records,
+        readGoals: () async => [
+          GoalEntity(
+            id: 'private',
+            title: 'Private personal goal',
+            createdAt: DateTime(2026, 9, 17),
+          ),
+        ],
+        readMilestones: () async => [],
+        readTimeline: () async => [],
+      ),
+    );
+    addTearDown(container.dispose);
+
+    final packet = await container
+        .read(conversationPacketFactoryProvider)
+        .build(
+          surface: ConversationSurface.si,
+          prompt: '/tasks What is scheduled?',
+          history: [],
+          languageCode: 'en',
+          sources: {SIV2Source.goals},
+        );
+    final context = packet.toJson()['context'] as Map;
+
+    expect(context['selectedSources'], ['tasks']);
+    expect(context['tasks'], isNotEmpty);
+    expect(context['goals'], isEmpty);
   });
 
   for (final failure in [
