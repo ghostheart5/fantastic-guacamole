@@ -65,6 +65,13 @@ void main() {
       expect(diagnose, contains(r'$readiness.PidObserved'));
       expect(diagnose, contains(r'$readiness.Focused'));
       expect(diagnose, contains(r'$readiness.ProbeCommandsSucceeded'));
+      expect(diagnose, contains("'resolve-activity'"));
+      expect(diagnose, contains(r"'-n', $launcherComponent"));
+      expect(
+        diagnose,
+        isNot(contains(r"'-p', $PackageName")),
+        reason: 'Android 16 cannot resolve the package-only fallback intent.',
+      );
       expect(diagnose, contains(r'$evidence.logcatCollected'));
       expect(diagnose, contains(r'$evidence.logcatByteCount'));
       expect(diagnose, contains("'logcat-evidence-empty'"));
@@ -88,6 +95,7 @@ void main() {
     );
     expect(strictGate, contains("'logcatDump'"));
     expect(strictGate, contains(r'$operation.timedOut -ne $false'));
+    expect(strictGate, contains("'resolveLauncherActivity'"));
     expect(strictGate, contains(r'$evidence.logcatCollected -ne $true'));
     expect(strictGate, contains(r'$evidence.logcatByteCount'));
     expect(strictGate, contains("'runtime-log-empty'"));
