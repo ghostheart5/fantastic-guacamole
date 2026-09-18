@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/config/product_identity.dart';
 import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_content_contract.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -217,7 +218,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         icon: Icons.bolt_rounded,
         iconColor: const Color(0xFF00E5FF),
         tag: l10n.text(ChronoSparkString.welcome),
-        title: 'CHRONOSPARK',
+        title: ProductIdentity.wordmark,
         subtitle: l10n.text(ChronoSparkString.livingDecisionSystem),
         body: l10n.text(ChronoSparkString.onboardingWelcomeBody),
       ),
@@ -632,28 +633,16 @@ class _WelcomeTitle extends StatelessWidget {
         height: 1.0,
       ),
     );
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final TextPainter measurement = TextPainter(
-          text: TextSpan(text: title, style: style),
-          textDirection: Directionality.of(context),
-          textScaler: MediaQuery.textScalerOf(context),
-        )..layout();
-        final bool splitBrand =
-            title == 'CHRONOSPARK' && measurement.width > constraints.maxWidth;
-        measurement.dispose();
-        return FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: AlignmentDirectional.centerStart,
-          child: Text(
-            splitBrand ? 'CHRONO\nSPARK' : title,
-            key: const Key('onboarding-brand-title'),
-            semanticsLabel: title,
-            softWrap: false,
-            style: style,
-          ),
-        );
-      },
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: AlignmentDirectional.centerStart,
+      child: Text(
+        title,
+        key: const Key('onboarding-brand-title'),
+        semanticsLabel: title,
+        softWrap: false,
+        style: style,
+      ),
     );
   }
 }

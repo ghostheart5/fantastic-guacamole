@@ -301,7 +301,7 @@ class _IdentityConstellation extends ConsumerWidget {
             ),
           ),
           Text(
-            name.trim().isEmpty ? 'CHRONOSPARK USER' : name.toUpperCase(),
+            name.trim().isEmpty ? 'AXIOMARA USER' : name.toUpperCase(),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
@@ -313,7 +313,7 @@ class _IdentityConstellation extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${hasEvidence ? archetype : fallbackLabel.toUpperCase()}  ·  CHRONOSPARK LEVEL $level',
+            '${hasEvidence ? archetype : fallbackLabel.toUpperCase()}  ·  AXIOMARA LEVEL $level',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,

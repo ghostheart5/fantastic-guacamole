@@ -163,7 +163,7 @@ void main() {
       addTearDown(harness.dispose);
 
       expect(tester.takeException(), isNull);
-      expect(find.text('CHRONO\nSPARK'), findsOneWidget);
+      expect(find.text('AXIOMARA'), findsOneWidget);
       for (final String label in <String>[
         'Correo electrónico',
         'Contraseña',

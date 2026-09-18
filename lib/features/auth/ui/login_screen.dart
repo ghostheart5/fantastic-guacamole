@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/config/product_identity.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/tutorial/interactive_tutorial_overlay.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -525,8 +526,6 @@ class _LoginBrandHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final double width = MediaQuery.sizeOf(context).width;
     final bool compact = width < Breakpoints.compact;
-    final double textScale = MediaQuery.textScalerOf(context).scale(1);
-    final bool stackBrand = compact && textScale >= 1.5;
     final double titleSize = compact ? 34 : 42;
     final double subtitleSize = compact ? AppSizes.fontXs : AppSizes.fontSm;
     return Column(
@@ -541,9 +540,9 @@ class _LoginBrandHeader extends StatelessWidget {
                 colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
               ).createShader(bounds),
               child: Text(
-                stackBrand ? 'CHRONO\nSPARK' : 'CHRONOSPARK',
-                semanticsLabel: 'ChronoSpark',
-                maxLines: stackBrand ? 2 : 1,
+                ProductIdentity.wordmark,
+                semanticsLabel: ProductIdentity.name,
+                maxLines: 1,
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: titleSize,
@@ -565,7 +564,7 @@ class _LoginBrandHeader extends StatelessWidget {
         ),
         SizedBox(height: compact ? 8 : 10),
         Text(
-          'TEMPORAL INTELLIGENCE SYSTEM',
+          ProductIdentity.category.toUpperCase(),
           style: TextStyle(
             color: Colors.white70,
             fontSize: subtitleSize,
@@ -594,7 +593,7 @@ class _LoginBrandPanel extends StatelessWidget {
         _LoginBrandHeader(pulse: pulse),
         const SizedBox(height: 18),
         const Text(
-          'Your plans, signals, and history remain yours. Continue to your connected ChronoSpark workspace.',
+          'Your plans, signals, and history remain yours. Continue to your connected Axiomara workspace.',
           style: TextStyle(
             color: Colors.white70,
             fontSize: AppSizes.fontLabel,
