@@ -380,13 +380,14 @@ jobs:
           path: release-artifacts
 
       - name: Recheck AAB artifact digest
-        working-directory: release-artifacts
+        working-directory: release-artifacts/app/outputs/bundle/release
         run: sha256sum --check app-release.aab.sha256
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: |
-            release-artifacts/app-release.aab
-            release-artifacts/app-release.aab.sha256
+            release-artifacts/app/outputs/bundle/release/app-release.aab
+            release-artifacts/app/outputs/bundle/release/app-release.aab.sha256
+            release-artifacts/release-evidence/effective-release-manifest.json
           prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') || contains(github.ref_name, '-pre') }}

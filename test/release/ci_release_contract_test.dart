@@ -505,6 +505,34 @@ void main() {
         'Download verified AAB artifact',
       );
       expect((download['with'] as YamlMap)['name'], uploadWith['name']);
+      final YamlMap digest = namedStep(publish, 'Recheck AAB artifact digest');
+      expect(
+        digest['working-directory'],
+        'release-artifacts/app/outputs/bundle/release',
+      );
+      final String releaseFiles =
+          ((namedStep(publish, 'Create GitHub Release')['with']
+                      as YamlMap)['files'] ??
+                  '')
+              .toString();
+      expect(
+        releaseFiles,
+        contains(
+          'release-artifacts/app/outputs/bundle/release/app-release.aab',
+        ),
+      );
+      expect(
+        releaseFiles,
+        contains(
+          'release-artifacts/app/outputs/bundle/release/app-release.aab.sha256',
+        ),
+      );
+      expect(
+        releaseFiles,
+        contains(
+          'release-artifacts/release-evidence/effective-release-manifest.json',
+        ),
+      );
       expect(
         namedStep(publish, 'Create GitHub Release')['uses'],
         matches(RegExp(r'^softprops/action-gh-release@[0-9a-f]{40}$')),
