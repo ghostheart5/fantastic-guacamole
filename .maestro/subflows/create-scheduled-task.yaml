@@ -12,7 +12,7 @@ appId: com.ghostheart5.chronospark
       - runFlow:
           file: open-from-nexus.yaml
           env:
-            TARGET: "Creator"
+            TARGET: "Reality Builder"
 - extendedWaitUntil:
     visible: "CREATOR"
     timeout: 15000

@@ -11,7 +11,7 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Smart Planner"
+      TARGET: "Now Engine"
 
 - assertVisible: "Back\\nPLAN SPECTRUM\\nSmart Planner\\nBuild your next plan from real evidence."
 

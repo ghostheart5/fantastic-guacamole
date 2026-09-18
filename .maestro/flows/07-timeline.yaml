@@ -11,6 +11,6 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Timeline"
+      TARGET: "Truth Ledger"
 
 - assertVisible: "TIMELINE"

@@ -23,13 +23,13 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Timeline"
+      TARGET: "Truth Ledger"
 - assertNotVisible: "(?s).*P8 Account A Sentinel.*"
 
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Creator"
+      TARGET: "Reality Builder"
 - runFlow:
     file: ../subflows/create-scheduled-task.yaml
     env:
@@ -45,7 +45,7 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Timeline"
+      TARGET: "Truth Ledger"
 - extendedWaitUntil:
     visible: "(?s).*P8 Account A Sentinel.*"
     timeout: 20000

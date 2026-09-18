@@ -21,7 +21,7 @@ tags:
       - runFlow:
           file: ../subflows/open-from-nexus.yaml
           env:
-            TARGET: "Creator"
+            TARGET: "Reality Builder"
 
 - assertVisible: "CREATOR"
 
@@ -84,7 +84,7 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Creator"
+      TARGET: "Reality Builder"
 - scrollUntilVisible:
     element:
       text: "Task"
@@ -217,7 +217,7 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Creator"
+      TARGET: "Reality Builder"
 - scrollUntilVisible:
     element:
       text: "No linked goal"

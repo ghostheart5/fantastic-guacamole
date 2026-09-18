@@ -30,7 +30,7 @@ tags:
       - runFlow:
           file: ../subflows/open-from-nexus.yaml
           env:
-            TARGET: "Creator"
+            TARGET: "Reality Builder"
 - assertVisible: "CREATOR"
 # Android can merge the accessible label and visible hint in one node.
 - scrollUntilVisible:
@@ -110,7 +110,7 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Smart Planner"
+      TARGET: "Now Engine"
 - assertVisible: "Back\\nPLAN SPECTRUM\\nSmart Planner\\nBuild your next plan from real evidence."
 - scrollUntilVisible:
     element:
@@ -256,7 +256,7 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Settings"
+      TARGET: "Control Center"
 - scrollUntilVisible:
     element:
       text: "Planning & guidance\\n.*"

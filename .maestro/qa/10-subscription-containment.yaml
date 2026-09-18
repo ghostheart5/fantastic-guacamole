@@ -8,7 +8,7 @@ tags: [qa, billing, containment]
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Settings"
+      TARGET: "Control Center"
 - assertVisible: "(?s).*SETTINGS.*"
 - assertVisible: "Appearance & permissions\\n.*"
 # Subscriptions are disabled at source for both QA and the signed candidate.
