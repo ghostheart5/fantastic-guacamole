@@ -532,6 +532,14 @@ void main() {
     expect(reconciliation, contains('body.completed > body.advanced'));
     expect(backendVerification, isNot(contains('chronospark.app')));
     expect(
+      backendVerification,
+      contains('urn:ietf:params:oauth:grant-type:jwt-bearer'),
+    );
+    expect(
+      backendVerification,
+      isNot(contains('urn:ietf:params:oauth2:grant-type:jwt-bearer')),
+    );
+    expect(
       androidRelease,
       contains('Verify effective release manifest link policy'),
     );
