@@ -19,10 +19,7 @@ void main() {
       final String privacyPolicy = readSource('privacy.html');
 
       expect(logger, isNot(contains('FirebaseCrashlytics.instance.log(')));
-      expect(
-        logger,
-        contains("StateError('Axiomara diagnostic: \$safeCode')"),
-      );
+      expect(logger, contains("StateError('Axiomara diagnostic: \$safeCode')"));
       expect(diagnostics, isNot(contains('FirebaseCrashlytics')));
       expect(providers, isNot(contains('setUserIdentifier(')));
       expect(
