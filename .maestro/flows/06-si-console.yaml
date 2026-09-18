@@ -15,7 +15,7 @@ tags:
 - assertVisible: "DEEP INTELLIGENCE"
 
 # The screen must expose its current source-aware contract, not only a title.
-- assertVisible: "Systems intelligence · source-aware guidance"
+- assertVisible: "Question, investigate and challenge reasoning with visible evidence"
 - assertVisible: "No planning evidence yet. SI will identify what it cannot determine. Person context: shared but no item was relevant to this lens."
 
 # A normal evidence question must return a structured, on-device SI response.
