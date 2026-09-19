@@ -771,7 +771,12 @@ class _DateField extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         ),
       );
-      if (time == null || !context.mounted) return;
+      if (time == null) return;
+      // The picker callback belongs to the parent form state, which performs
+      // its own mounted check before mutating state. The pressable's child
+      // context can be replaced while the two-stage date/time route closes on
+      // a real Android device; treating that transient child context as the
+      // owner drops an otherwise valid selection.
       onPick(DateTime(date.year, date.month, date.day, time.hour, time.minute));
     } finally {
       FocusManager.instance.primaryFocus?.unfocus();
