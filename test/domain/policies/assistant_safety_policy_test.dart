@@ -149,6 +149,17 @@ void main() {
     },
   );
 
+  test('read-only repair with no remaining answer stays withheld', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(responseText: 'SI has completed the comparison.'),
+    );
+
+    expect(outcome.mayPublish, isFalse);
+    expect(outcome.publishableText, isEmpty);
+    expect(outcome.receipt.disposition, AssistantSafetyDisposition.withheld);
+    expect(outcome.receipt.criticCode, 'deterministic_repair_failed');
+  });
+
   test('crisis route blocks gamification and ordinary planning pressure', () {
     final AssistantSafetyOutcome outcome = pipeline.evaluate(
       _safeReview(
