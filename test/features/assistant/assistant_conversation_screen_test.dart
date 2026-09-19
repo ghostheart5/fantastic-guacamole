@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
+import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
@@ -21,6 +22,7 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
+import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -56,6 +58,7 @@ ProviderContainer setup(
   SIV2ReadGateway? readGateway,
   ITaskRepository? taskRepository,
   ConsentedHumanContext? humanContext,
+  VoiceController? voiceController,
 }) => ProviderContainer(
   overrides: [
     accountStorageScopeProvider.overrideWith(
@@ -81,6 +84,14 @@ ProviderContainer setup(
         taskId: 'grocery',
       ),
     ),
+    if (voiceController != null)
+      voiceInputEnabledProvider.overrideWithValue(true),
+    if (voiceController != null)
+      voiceControllerProvider.overrideWith(() => voiceController),
+    if (voiceController != null)
+      voiceInputConsentStoreProvider.overrideWithValue(
+        VoiceInputConsentStore(const AccountStorageScope.unsafe()),
+      ),
     for (final capability in [
       AssistantReleaseCapability.smartPlannerV2,
       AssistantReleaseCapability.siConsoleV2,
@@ -466,6 +477,83 @@ void main() {
 
   for (final surface in ConversationSurface.values) {
     testWidgets(
+      '${surface.name} dictation requires consent, fills the draft and never auto-sends',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        final voice = _ConversationVoiceController();
+        final sent = <Map<String, dynamic>>[];
+        final container = setup((body) async {
+          sent.add(body);
+          throw StateError('Dictation must not send an AI request');
+        }, voiceController: voice);
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump();
+          container.dispose();
+        });
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: AssistantConversationScreen(
+                surface: surface,
+                onLocalTools: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('conversation-input')),
+          'Groceries',
+        );
+        await tester.tap(find.byTooltip('Start voice input'));
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('may send audio to its servers'),
+          findsOneWidget,
+        );
+        final Finder agree = find.text('Agree and dictate');
+        await tester.ensureVisible(agree);
+        await tester.tap(agree);
+        await tester.pumpAndSettle();
+        expect(voice.starts, 1);
+
+        voice.emitTranscript('before 7 pm', listening: true);
+        await tester.pump();
+        final Finder input = find.byKey(const Key('conversation-input'));
+        expect(
+          tester.widget<TextField>(input).controller!.text,
+          'Groceries before 7 pm',
+        );
+        expect(tester.widget<TextField>(input).readOnly, isTrue);
+        expect(
+          tester
+              .widget<IconButton>(
+                find.widgetWithIcon(IconButton, Icons.send_rounded),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(sent, isEmpty);
+
+        voice.emitTranscript('before 7 pm', listening: false);
+        await tester.pump();
+        expect(tester.widget<TextField>(input).readOnly, isFalse);
+        expect(
+          tester.widget<TextField>(input).controller!.text,
+          'Groceries before 7 pm',
+        );
+        expect(sent, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
       '${surface.name} obtains consent and price then sends a real conversation payload',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(412, 915));
@@ -761,6 +849,38 @@ class _Boundary extends AuthSessionBoundaryNotifier {
     isTransitioning: false,
     isStorageReady: true,
   );
+}
+
+final class _ConversationVoiceController extends VoiceController {
+  int starts = 0;
+  int stops = 0;
+  int revision = 0;
+
+  @override
+  int get lifecycleRevision => revision;
+
+  @override
+  VoiceState build() {
+    revision++;
+    ref.onDispose(() => revision++);
+    return const VoiceState();
+  }
+
+  @override
+  Future<void> startListening() async {
+    starts++;
+    state = state.copyWith(isAvailable: true, isListening: true);
+  }
+
+  @override
+  Future<void> stopListening() async {
+    stops++;
+    state = state.copyWith(isListening: false);
+  }
+
+  void emitTranscript(String text, {required bool listening}) {
+    state = state.copyWith(isListening: listening, recognizedText: text);
+  }
 }
 
 class _Tasks implements ITaskRepository {

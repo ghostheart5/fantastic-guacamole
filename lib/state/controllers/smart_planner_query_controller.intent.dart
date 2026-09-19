@@ -887,6 +887,10 @@ String? _extractPlannerAction(String source) {
   if (candidates.isNotEmpty) {
     return null;
   }
+  final groceryNeed = _explicitGroceryNeedAction(source);
+  if (groceryNeed != null) {
+    return groceryNeed;
+  }
   for (final clause in _plannerWithoutQuotedText(
     source,
   ).split(RegExp(r'[.!?;,\n]+'))) {
@@ -906,6 +910,40 @@ String? _extractPlannerAction(String source) {
           .trim();
       return 'Review $name and identify one unfinished item';
     }
+  }
+  return null;
+}
+
+String? _explicitGroceryNeedAction(String source) {
+  for (final clause in _plannerWithoutQuotedText(
+    source,
+  ).split(RegExp(r'[.!?;\n]+'))) {
+    if (_plannerHistoricalOrUncertain(clause) ||
+        _negatedPlannerClause(clause)) {
+      continue;
+    }
+    final bool spanish = RegExp(
+      r'\b(?:necesito|necesitamos)\b[^.!?;]{0,45}\b(?:compras|comida|alimentos)\b',
+      caseSensitive: false,
+    ).hasMatch(clause);
+    final bool english = RegExp(
+      r'\b(?:i|we)\b[^.!?;]{0,60}\b(?:still\s+)?need\s+(?:to\s+(?:get|buy|shop for)\s+)?(?:the\s+)?grocer(?:y|ies)\b',
+      caseSensitive: false,
+    ).hasMatch(clause);
+    if (!spanish && !english) continue;
+
+    final deadline = RegExp(
+      r'\b(?:before|by|antes de)\s+(?:las\s+)?(\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)\b',
+      caseSensitive: false,
+    ).firstMatch(clause)?.group(1)?.trim();
+    if (spanish) {
+      return deadline == null
+          ? 'Planificar compras esenciales'
+          : 'Planificar compras esenciales antes de las $deadline';
+    }
+    return deadline == null
+        ? 'Plan essential groceries'
+        : 'Plan essential groceries before $deadline';
   }
   return null;
 }

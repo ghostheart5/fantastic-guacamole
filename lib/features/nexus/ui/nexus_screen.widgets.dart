@@ -479,16 +479,21 @@ class _VitalMetric extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.fade,
-                  softWrap: false,
-                  style: TextStyle(
-                    color: accent.withValues(alpha: .84 + pulse * .16),
-                    fontSize: AppSizes.fontBodyLg,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
+                SizedBox(
+                  width: double.infinity,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: accent.withValues(alpha: .84 + pulse * .16),
+                        fontSize: AppSizes.fontBodyLg,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
                   ),
                 ),
               ],

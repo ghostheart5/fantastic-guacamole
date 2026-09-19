@@ -175,6 +175,69 @@ void main() {
     },
   );
 
+  test(
+    'tired grocery deadline stays actionable through an essential follow-up',
+    () async {
+      const String initialPrompt =
+          'I am tired and need groceries before 7 pm. What should I do?';
+      final ProviderContainer container = plannerContainer();
+      addTearDown(container.dispose);
+      final SmartPlannerQueryController controller = container.read(
+        smartPlannerQueryControllerProvider,
+      );
+
+      final SmartPlannerResult initial = await controller
+          .requestPlanningGuidance(
+            energy: null,
+            emotion: null,
+            notes: initialPrompt,
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+      expect(initial.plannerResponse.isClarification, isFalse);
+      expect(
+        initial.plannerResponse.nextStep.toLowerCase(),
+        contains('grocer'),
+      );
+      expect(
+        initial.plannerResponse.toAccessibleText().toLowerCase(),
+        contains('before 7 pm'),
+      );
+      expect(
+        initial.plannerResponse.toAccessibleText().toLowerCase(),
+        isNot(contains('make room for recovery')),
+      );
+
+      final SmartPlannerResult followUp = await controller
+          .requestFollowUpResult(
+            input: 'Groceries are essential and the store closes at 7.',
+            energy: null,
+            emotion: null,
+            reflection: initialPrompt,
+            history: <Map<String, String>>[
+              const <String, String>{'role': 'user', 'content': initialPrompt},
+              <String, String>{
+                'role': 'assistant',
+                'content': initial.plannerResponse.toAccessibleText(),
+              },
+            ],
+          );
+      expect(followUp.plannerResponse.isClarification, isFalse);
+      expect(
+        followUp.plannerResponse.nextStep.toLowerCase(),
+        contains('grocer'),
+      );
+      expect(
+        followUp.plannerResponse.toAccessibleText().toLowerCase(),
+        contains('7'),
+      );
+      expect(
+        followUp.plannerResponse.toAccessibleText(),
+        isNot(contains('What exactly do you need to do')),
+      );
+    },
+  );
+
   test('Moto grocery phrasing makes an actual five-minute first step', () async {
     final tasks = _MemoryTaskRepository([
       TaskEntity(

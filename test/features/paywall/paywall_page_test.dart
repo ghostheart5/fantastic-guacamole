@@ -362,26 +362,36 @@ void main() {
     },
   );
 
-  testWidgets('active subscription disables every plan purchase action', (
-    WidgetTester tester,
-  ) async {
-    await pumpPaywall(
-      tester,
-      config: _twoPlanConfig,
-      subscription: const SubscriptionState(
-        isActive: true,
-        status: 'active',
-        source: 'google_play_server',
-        planId: 'monthly',
-      ),
-    );
+  testWidgets(
+    'active subscription identifies its plan and disables purchases',
+    (WidgetTester tester) async {
+      await pumpPaywall(
+        tester,
+        config: _twoPlanConfig,
+        subscription: const SubscriptionState(
+          isActive: true,
+          status: 'active',
+          source: 'google_play_server',
+          planId: 'monthly',
+        ),
+      );
 
-    expect(find.text('Current subscription active'), findsNWidgets(2));
-    for (final FilledButton button in tester.widgetList<FilledButton>(
-      find.byType(FilledButton),
-    )) {
-      expect(button.onPressed, isNull);
-    }
+      expect(find.text('Current plan'), findsOneWidget);
+      expect(find.text('Change in Google Play'), findsOneWidget);
+      for (final FilledButton button in tester.widgetList<FilledButton>(
+        find.byType(FilledButton),
+      )) {
+        expect(button.onPressed, isNull);
+      }
+    },
+  );
+
+  test('canonical subscription plan ids match Google Play authority ids', () {
+    expect(canonicalPaywallSubscriptionPlanId('monthly'), 'monthly');
+    expect(canonicalPaywallSubscriptionPlanId('premium_monthly'), 'monthly');
+    expect(canonicalPaywallSubscriptionPlanId('premium_yearly'), 'annual');
+    expect(canonicalPaywallSubscriptionPlanId('premium_annual'), 'annual');
+    expect(canonicalPaywallSubscriptionPlanId(null), isNull);
   });
 
   test('restore availability is independent of product catalog results', () {
