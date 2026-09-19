@@ -32,7 +32,7 @@ Run this before and after every rebuild phase.
 6. Temporal Ops and SI Console
 7. Settings and paywall modules
 8. Test suite stabilization
-9. Docs refresh (`CHRONOSPARK.md`)
+9. Docs refresh (`AXIOMARA.md`)
 
 ## Per-Phase Gate
 

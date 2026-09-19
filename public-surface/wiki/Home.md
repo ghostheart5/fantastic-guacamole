@@ -1,27 +1,74 @@
-# ChronoSpark
+# Axiomara — The Human Decision OS
 
-ChronoSpark is a planning and decision-support system designed to help a person understand the day, examine relevant evidence, choose a realistic next move, and reflect on the outcome.
+Axiomara connects the moving parts of real life into one decision system. It helps you capture what matters, understand the state you are in, build a realistic plan, test possible futures, and learn from what actually happened.
 
-## The system
+It is designed around a simple principle: **intelligence should make your choices clearer without taking control away from you.**
 
-- **Nexus** orients the person to current planning context.
-- **Creator** previews and confirms an action before saving it.
-- **Timeline** shows planned action without turning every scheduled time into a deadline.
-- **Smart Planner** offers bounded guidance for the immediate planning problem.
-- **SI Console** separates evidence, assumptions, limits, and recommendations.
-- **Trajectory** compares scenarios with visible assumptions and uncertainty.
-- **Progression** supports reflection without inventing an identity for a new user.
+## Nine connected systems
 
-## Current public status
+| System | What it contributes |
+| --- | --- |
+| **[[Nexus]]** | A live operating view of your priorities, commitments, Energy, Clarity, Momentum, and next useful action. |
+| **[[Creator]]** | Fast structured capture for tasks, goals, Daily Rhythms, and notes. |
+| **[[Timeline]]** | Time-aware planning, sequencing, and a record of what changed. |
+| **[[Smart Planner]]** | Conversational planning that uses selected context and explains the proposed plan. |
+| **[[SI Console]]** | Deeper investigation of trade-offs, risks, scenarios, and decisions. |
+| **[[Trajectory Engine]]** | Forward-looking scenarios with explicit assumptions and corrective options. |
+| **[[Progression]]** | Evidence-backed levels, experience, streaks, and leverage actions. |
+| **Signal Center** | Energy, Clarity, Momentum, pressure, and readiness interpreted together. |
+| **Control Layer** | Consent, account, privacy, billing, and AI controls that keep the user in charge. |
 
-The public information, privacy, terms, support, and account-deletion pages are available at:
+## The operating loop
 
-<https://ghostheart5.github.io/fantastic-guacamole/>
+```text
+Capture → Connect → Decide → Execute → Reflect
+    ↑                                      ↓
+    └──────────── learn and adjust ────────┘
+```
 
-The Android app is not advertised as an open public release on the website. The contained public configuration keeps external generative AI, subscriptions, credit top-ups, and credit spending disabled. Eligible private internal-testing builds can expose Google Play billing and disclosed AI-credit actions. Use an approved license-tester account and Google Play test payment methods; internal-track enrollment alone does not make purchases free. External AI actions identify Anthropic, the submitted data, and the expected credit cost before confirmation. Cloud sync, cloud restore, analytics, and crash reporting remain disabled across these configurations.
+The loop is not a rigid routine. Axiomara may help with one urgent decision today and a longer trajectory review tomorrow. Your records remain useful across both.
 
-English is the only verified launch language. Spanish is not advertised as supported for this release.
+## A real question, answered with real context
 
-## Trust boundary
+Suppose you ask Smart Planner:
 
-ChronoSpark is not represented as synthetic emotional intelligence, a verified whole-person companion, or a replacement for medical, legal, financial, mental-health, or emergency professionals. Guidance remains subject to the person&apos;s review and choice.
+> What time should I go to the store? Use my grocery task and today's schedule.
+
+A useful answer should not repeat a generic productivity script. It should:
+
+1. inspect the attached grocery task and the schedule you allowed it to use;
+2. identify the open windows and any uncertainty;
+3. recommend a specific time with a reason;
+4. state the assumption that could change the answer; and
+5. leave the decision and any schedule change to you.
+
+Follow-up questions should continue the same line of thought, so “What if traffic is worse after 6?” refines the answer instead of starting over.
+
+## Start here
+
+- [[Getting Started]] — build the first useful loop.
+- [[Core Concepts]] — understand records, signals, and decisions.
+- [[Smart Planner]] — turn context into an explainable plan.
+- [[SI Console]] — investigate a complex choice.
+- [[Trajectory Engine]] — compare possible futures.
+- [[Progression]] — understand evidence-backed advancement.
+- [[Settings]] — manage permissions, intelligence, account, and privacy controls.
+
+## Trust contract
+
+- **No ads.** Axiomara is not funded by attention or forced video views.
+- **Explicit AI.** A user can see when an external intelligence action is requested and what context it may use.
+- **Human authority.** Recommendations do not silently create, move, complete, or delete commitments.
+- **Visible uncertainty.** Assumptions and missing context should be named, not hidden behind confident language.
+- **Account control.** Privacy, access, billing, and deletion controls remain part of the product surface.
+
+Axiomara is decision support. It is not medical, legal, financial, emergency, or other professional advice, and it does not guarantee an outcome.
+
+## Help and policies
+
+- [[FAQ]]
+- [[Troubleshooting]]
+- [[Privacy Policy]]
+- [[Security Policy]]
+- [[Account Deletion]]
+- [[Support Page]]

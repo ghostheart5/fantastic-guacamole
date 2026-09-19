@@ -1,6 +1,6 @@
-# ChronoSpark Roadmap
+# Axiomara Roadmap
 
-ChronoSpark's product direction is to help people understand the day, decide the next move, and maintain momentum.
+Axiomara's product direction is to help people understand the day, decide the next move, and maintain momentum.
 
 This roadmap describes areas of exploration and improvement, not delivery promises. It does not provide release dates, guarantee an order of work, or confirm that a listed area will ship.
 
@@ -16,7 +16,7 @@ Refine the distinct roles of Smart Planner, Creator, and Timeline: guidance, cre
 
 ### Explainable guidance
 
-Improve SI Console, Trajectory Engine, and Progression as user-evaluated guidance surfaces. ChronoSpark can offer context and options; it does not make decisions for the user.
+Improve SI Console, Trajectory Engine, and Progression as user-evaluated guidance surfaces. Axiomara can offer context and options; it does not make decisions for the user.
 
 ### Trust and accessibility
 
@@ -28,4 +28,4 @@ This page does not announce released features, test-only behavior, internal expe
 
 ## Feedback
 
-For product feedback or support, visit [ChronoSpark Support](https://ghostheart5.github.io/fantastic-guacamole/support/).
+For product feedback or support, visit [Axiomara Support](https://ghostheart5.github.io/fantastic-guacamole/support/).
