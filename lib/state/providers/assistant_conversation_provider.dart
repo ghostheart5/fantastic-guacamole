@@ -26,6 +26,15 @@ final conversationTransportProvider = Provider<ConversationTransport>(
   (ref) => ref.watch(internalCreditTestTransportProvider),
 );
 
+/// A second, UI-facing deadline around quote and execution requests.
+///
+/// The transport has its own network timeout, but the conversation screen must
+/// still recover if a platform client leaves that future unresolved. Tests can
+/// shorten this without weakening the release default.
+final conversationRequestTimeoutProvider = Provider<Duration>(
+  (ref) => const Duration(seconds: 50),
+);
+
 final conversationServiceProvider = Provider<ConversationService>((ref) {
   final account = ref.watch(accountStorageScopeProvider).v2Namespace;
   final generation = ref.watch(authSessionBoundaryProvider).generation;

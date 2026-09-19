@@ -59,6 +59,7 @@ ProviderContainer setup(
   ITaskRepository? taskRepository,
   ConsentedHumanContext? humanContext,
   VoiceController? voiceController,
+  Duration? requestTimeout,
 }) => ProviderContainer(
   overrides: [
     accountStorageScopeProvider.overrideWith(
@@ -68,6 +69,8 @@ ProviderContainer setup(
     assistantConversationAvailableProvider.overrideWithValue(true),
     personalizationProfileProvider.overrideWith(_Consent.new),
     conversationTransportProvider.overrideWithValue(transport),
+    if (requestTimeout != null)
+      conversationRequestTimeoutProvider.overrideWithValue(requestTimeout),
     siV2ReadGatewayProvider.overrideWithValue(readGateway ?? gateway),
     siV2EvidenceSnapshotProvider.overrideWith(
       (ref) => (readGateway ?? gateway).read(observedAt: DateTime.now()),
@@ -756,6 +759,146 @@ void main() {
       findsNothing,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'paid conversation timeout restores controls and keeps same-request retry',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final never = Completer<({int status, Map<String, dynamic> data})>();
+      final sent = <Map<String, dynamic>>[];
+      final container = setup((body) async {
+        sent.add(body);
+        if (body['quoteOnly'] != true) return never.future;
+        return (
+          status: 200,
+          data: <String, dynamic>{
+            'requestId': body['requestId'],
+            'quote': <String, dynamic>{
+              'credits': 4,
+              'digest': 'fixture',
+              'proof': 'fixture',
+              'policy': 'fixture',
+              'expiresAt': DateTime.now()
+                  .add(const Duration(minutes: 5))
+                  .millisecondsSinceEpoch,
+            },
+          },
+        );
+      }, requestTimeout: const Duration(milliseconds: 100));
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Compare my two options.',
+      );
+      await tester.tap(find.byTooltip('Send to AI'));
+      await waitFor(tester, find.text('Get credit price'));
+      await tester.tap(find.text('Get credit price'));
+      await waitFor(tester, find.text('Use 4 credits'));
+      await tester.tap(find.text('Use 4 credits'));
+      await tester.pump();
+      expect(find.text('Stop waiting'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 101));
+      await tester.pump();
+
+      expect(find.textContaining('took too long'), findsOneWidget);
+      expect(find.text('Retry same request'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('conversation-input')))
+            .readOnly,
+        isFalse,
+      );
+      expect(sent, hasLength(2));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('stop waiting keeps a paid request available for safe retry', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final never = Completer<({int status, Map<String, dynamic> data})>();
+    final container = setup((body) async {
+      if (body['quoteOnly'] != true) return never.future;
+      return (
+        status: 200,
+        data: <String, dynamic>{
+          'requestId': body['requestId'],
+          'quote': <String, dynamic>{
+            'credits': 4,
+            'digest': 'fixture',
+            'proof': 'fixture',
+            'policy': 'fixture',
+            'expiresAt': DateTime.now()
+                .add(const Duration(minutes: 5))
+                .millisecondsSinceEpoch,
+          },
+        },
+      );
+    }, requestTimeout: const Duration(minutes: 1));
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: ThemeData.dark(),
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'Compare my two options.',
+    );
+    await tester.tap(find.byTooltip('Send to AI'));
+    await waitFor(tester, find.text('Get credit price'));
+    await tester.tap(find.text('Get credit price'));
+    await waitFor(tester, find.text('Use 4 credits'));
+    await tester.tap(find.text('Use 4 credits'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('conversation-stop-waiting')));
+    await tester.pump();
+
+    expect(
+      find.textContaining('same priced request is retained'),
+      findsOneWidget,
+    );
+    expect(find.text('Retry same request'), findsOneWidget);
+    expect(find.text('Preparing your response…'), findsNothing);
+    expect(tester.takeException(), isNull);
+    never.complete((
+      status: 409,
+      data: <String, dynamic>{'error': 'request_pending'},
+    ));
+    await tester.pump();
   });
 
   testWidgets('real conversation Advanced fields survive a phone keyboard', (

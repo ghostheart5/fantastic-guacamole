@@ -49,6 +49,7 @@ class _AssistantConversationScreenState
   String? _error;
   ConversationQuote? _pending;
   int _generation = 0;
+  int _operation = 0;
   BuildContext? _dialogContext;
   String _dictationDraftBase = '';
   double? _energy;
@@ -148,6 +149,7 @@ class _AssistantConversationScreenState
   Future<void> _send({bool retry = false}) async {
     if (_busy || (!retry && _input.text.trim().isEmpty)) return;
     final generation = _generation;
+    final operation = ++_operation;
     final prompt = retry
         ? _pending?.packet.toJson()['prompt'] as String?
         : _input.text.trim();
@@ -170,7 +172,8 @@ class _AssistantConversationScreenState
       _busy = true;
       _error = null;
     });
-    bool current() => mounted && generation == _generation;
+    bool current() =>
+        mounted && generation == _generation && operation == _operation;
     try {
       final service = ref.read(conversationServiceProvider);
       var quote = retry ? _pending : null;
@@ -219,7 +222,13 @@ class _AssistantConversationScreenState
           action: copy('Get credit price', 'Consultar precio'),
         );
         if (!current() || !proceed) return;
-        quote = await service.quote(packet);
+        quote = await service
+            .quote(packet)
+            .timeout(
+              ref.read(conversationRequestTimeoutProvider),
+              onTimeout: () =>
+                  throw const ConversationFailure('request_timeout'),
+            );
         if (!current()) return;
         final accepted = await _confirm(
           title: copy('Confirm AI request', 'Confirmar solicitud de IA'),
@@ -237,7 +246,12 @@ class _AssistantConversationScreenState
         if (!current() || !accepted) return;
         _pending = quote;
       }
-      final answer = await service.execute(quote);
+      final answer = await service
+          .execute(quote)
+          .timeout(
+            ref.read(conversationRequestTimeoutProvider),
+            onTimeout: () => throw const ConversationFailure('request_timeout'),
+          );
       if (!current()) return;
       final review = const AssistantSafetyPipeline().evaluate(
         AssistantSafetyReview(
@@ -296,6 +310,23 @@ class _AssistantConversationScreenState
     }
   }
 
+  void _stopWaiting() {
+    if (!_busy) return;
+    setState(() {
+      _operation++;
+      _busy = false;
+      _error = _pending == null
+          ? copy(
+              'Stopped waiting before a paid request was confirmed. Your question is retained.',
+              'Se detuvo la espera antes de confirmar una solicitud de pago. Tu pregunta se conserva.',
+            )
+          : copy(
+              'Stopped waiting. The same priced request is retained so you can retry it without creating a second charge.',
+              'Se detuvo la espera. Se conserva la misma solicitud con precio para que puedas reintentarla sin crear un segundo cobro.',
+            );
+    });
+  }
+
   String _failureText(String code) => switch (code) {
     'insufficient_credits' || 'credits_exhausted' => copy(
       'You do not have enough AI credits. No model answer was generated.',
@@ -308,6 +339,10 @@ class _AssistantConversationScreenState
     'quote_expired' || 'credit_quote_required' => copy(
       'The price expired. Start a new request to review a new quote.',
       'El precio caducó. Inicia otra solicitud para revisar una nueva cotización.',
+    ),
+    'request_timeout' => copy(
+      'The AI service took too long to confirm a reply. Your question and the same priced request are retained. Retry the same request to avoid a second charge.',
+      'El servicio de IA tardó demasiado en confirmar una respuesta. Se conservan tu pregunta y la misma solicitud con precio. Reintenta la misma solicitud para evitar un segundo cobro.',
     ),
     'authorization_changed' => copy(
       'Your account or AI consent changed. This request was stopped.',
@@ -883,6 +918,13 @@ class _AssistantConversationScreenState
                                 'Preparing your response…',
                                 'Preparando tu respuesta…',
                               ),
+                            ),
+                          ),
+                          TextButton(
+                            key: const Key('conversation-stop-waiting'),
+                            onPressed: _stopWaiting,
+                            child: Text(
+                              copy('Stop waiting', 'Dejar de esperar'),
                             ),
                           ),
                         ],
