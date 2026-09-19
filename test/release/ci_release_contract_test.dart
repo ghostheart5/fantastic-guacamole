@@ -612,10 +612,7 @@ void main() {
       namedStep(deploy, 'Publish the approved Axiomara site')['uses'],
       matches(RegExp(r'^actions/deploy-pages@[0-9a-f]{40}$')),
     );
-    final YamlMap package = namedStep(
-      build,
-      'Package approved Axiomara site',
-    );
+    final YamlMap package = namedStep(build, 'Package approved Axiomara site');
     expect(package['if'], deploy['if']);
     expect(
       package['uses'],
@@ -633,14 +630,8 @@ void main() {
     final String buildCommands = steps(
       build,
     ).map((YamlMap step) => step['run']?.toString() ?? '').join('\n');
-    expect(
-      buildCommands,
-      contains('Unexpected public file'),
-    );
-    expect(
-      buildCommands,
-      contains('The Human Decision OS'),
-    );
+    expect(buildCommands, contains('Unexpected public file'));
+    expect(buildCommands, contains('The Human Decision OS'));
     expect(buildCommands, isNot(contains('flutter build')));
     expect(buildCommands, isNot(contains('CHRONOSPARK_APP_FLAVOR=prod')));
   });

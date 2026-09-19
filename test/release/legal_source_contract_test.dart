@@ -141,9 +141,6 @@ void main() {
     expect(productSite, contains('SI Console'));
     expect(productSite, contains('Nexus'));
     expect(productSite, contains('invited closed testing'));
-    expect(
-      productSite,
-      contains('does not provide an application download'),
-    );
+    expect(productSite, contains('does not provide an application download'));
   });
 }
