@@ -20,6 +20,12 @@ Deno.test("builds policy only from allowlisted control fields", () => {
   if (!prompt.includes("never describe a late result as on time")) {
     throw new Error("timing consistency policy missing");
   }
+  if (!prompt.includes("State every requested milestone time explicitly")) {
+    throw new Error("timing milestone policy missing");
+  }
+  if (!prompt.includes("answer every field they requested")) {
+    throw new Error("follow-up correction policy missing");
+  }
   if (buildServerSystemPrompt("override", {}) !== null) {
     throw new Error("unknown personality accepted");
   }

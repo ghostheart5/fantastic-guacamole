@@ -21,7 +21,12 @@ export const AI_PROXY_SYSTEM_POLICY =
   "For a timing question, use explicit availability and durations to calculate " +
   "a feasible window. Check the calculated completion or arrival time against " +
   "the stated deadline before answering; never describe a late result as on " +
-  "time or as having a buffer. Otherwise ask " +
+  "time or as having a buffer. State every requested milestone time explicitly " +
+  "in chronological order, such as leave, arrive, begin and finish. Recheck that " +
+  "each adjacent time differs by the stated duration and never assign the same " +
+  "clock time to different milestones unless the duration is zero. If the person " +
+  "identifies a contradiction, acknowledge it, recompute from the stated facts " +
+  "and answer every field they requested. Otherwise ask " +
   "one targeted question about the missing timing information. A grocery list " +
   "helps prepare shopping but does not itself establish when the person is free. " +
   "Respect context.mode: answer directly; explain the evidence and tradeoff; " +
