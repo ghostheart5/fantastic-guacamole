@@ -609,13 +609,10 @@ void main() {
       matches(RegExp(r'^actions/configure-pages@[0-9a-f]{40}$')),
     );
     expect(
-      namedStep(deploy, 'Publish the approved required pages')['uses'],
+      namedStep(deploy, 'Publish the approved Axiomara site')['uses'],
       matches(RegExp(r'^actions/deploy-pages@[0-9a-f]{40}$')),
     );
-    final YamlMap package = namedStep(
-      build,
-      'Package approved deployment artifact',
-    );
+    final YamlMap package = namedStep(build, 'Package approved Axiomara site');
     expect(package['if'], deploy['if']);
     expect(
       package['uses'],
@@ -623,7 +620,7 @@ void main() {
     );
     final YamlMap assemble = namedStep(
       build,
-      'Assemble only the required public surface',
+      'Assemble product and required public surfaces',
     );
     expect(assemble['run'], contains('cp site/index.html _site/index.html'));
     expect(
@@ -633,14 +630,8 @@ void main() {
     final String buildCommands = steps(
       build,
     ).map((YamlMap step) => step['run']?.toString() ?? '').join('\n');
-    expect(
-      buildCommands,
-      contains('Unexpected public files expose unnecessary content'),
-    );
-    expect(
-      buildCommands,
-      contains('Landing page exposes unnecessary product detail'),
-    );
+    expect(buildCommands, contains('Unexpected public file'));
+    expect(buildCommands, contains('The Human Decision OS'));
     expect(buildCommands, isNot(contains('flutter build')));
     expect(buildCommands, isNot(contains('CHRONOSPARK_APP_FLAVOR=prod')));
   });

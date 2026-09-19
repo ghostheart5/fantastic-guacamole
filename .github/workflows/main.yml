@@ -1,4 +1,4 @@
-name: Validate Axiomara Required Public Pages
+name: Validate Axiomara Product Site
 
 on:
   pull_request:
@@ -7,6 +7,9 @@ on:
       - 'site/index.html'
       - 'site/404.html'
       - 'site/assets/site.css'
+      - 'site/assets/site.js'
+      - 'site/assets/axiomara-icon.png'
+      - 'site/assets/axiomara-feature.png'
       - 'site/robots.txt'
       - 'site/sitemap.xml'
       - 'web/privacy/**'
@@ -18,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: 'Publish the validated minimal pages from main'
+        description: 'Publish the validated Axiomara product site from main'
         required: true
         type: boolean
         default: false
@@ -27,7 +30,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: axiomara-required-pages
+  group: axiomara-product-site
   cancel-in-progress: false
 
 jobs:
@@ -37,23 +40,23 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Checkout required-page source
+      - name: Checkout Axiomara site source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
 
-      - name: Verify required source exists
+      - name: Verify site source exists
         shell: bash
         run: |
           set -euo pipefail
-          for path in site/index.html site/404.html site/assets/site.css site/robots.txt site/sitemap.xml web/privacy/index.html web/terms/index.html web/support/index.html web/delete-account/index.html web/legal.css; do
+          for path in site/index.html site/404.html site/assets/site.css site/assets/site.js site/assets/axiomara-icon.png site/assets/axiomara-feature.png site/robots.txt site/sitemap.xml web/privacy/index.html web/terms/index.html web/support/index.html web/delete-account/index.html web/legal.css; do
             if [ ! -f "$path" ]; then
               echo "::error::Required public source is missing: $path"
               exit 1
             fi
           done
 
-      - name: Assemble only the required public surface
+      - name: Assemble product and required public surfaces
         shell: bash
         run: |
           set -euo pipefail
@@ -62,6 +65,9 @@ jobs:
           cp site/index.html _site/index.html
           cp site/404.html _site/404.html
           cp site/assets/site.css _site/assets/site.css
+          cp site/assets/site.js _site/assets/site.js
+          cp site/assets/axiomara-icon.png _site/assets/axiomara-icon.png
+          cp site/assets/axiomara-feature.png _site/assets/axiomara-feature.png
           cp site/robots.txt _site/robots.txt
           cp site/sitemap.xml _site/sitemap.xml
           cp web/legal.css _site/legal.css
@@ -71,19 +77,19 @@ jobs:
           done
           touch _site/.nojekyll
 
-      - name: Verify minimal public contract
+      - name: Verify Axiomara public contract
         shell: python
         run: |
           from pathlib import Path
 
           root = Path('_site')
           required = {
-              'index.html': ('Axiomara', 'Private testing', 'Required public information', 'does not provide a public download'),
+              'index.html': ('AXIOMARA', 'The Human Decision OS', 'Nine connected systems', 'Smart Planner', 'SI Console', 'NO ADS', 'does not provide an application download'),
               'privacy/index.html': ('Axiomara Privacy Policy', 'does not display ads', 'Anthropic', 'account-deletion page'),
               'terms/index.html': ('Axiomara Terms of Service', 'Marketplace purchases', 'does not provide unlimited AI usage'),
               'support/index.html': ('Axiomara Support', 'Email Axiomara support', 'does not provide an APK or public download'),
               'delete-account/index.html': ('Delete an Axiomara Account', 'Request deletion without the app', 'Request account deletion'),
-              '404.html': ('Page unavailable', 'required privacy, terms, support, and account-deletion pages'),
+              '404.html': ('Page unavailable', 'Axiomara'),
               'robots.txt': ('Sitemap: https://ghostheart5.github.io/fantastic-guacamole/sitemap.xml',),
               'sitemap.xml': ('https://ghostheart5.github.io/fantastic-guacamole/privacy/', 'https://ghostheart5.github.io/fantastic-guacamole/delete-account/'),
           }
@@ -98,7 +104,8 @@ jobs:
 
           allowed = {
               'index.html', '404.html', 'robots.txt', 'sitemap.xml', '.nojekyll',
-              'assets/site.css', 'legal.css',
+              'assets/site.css', 'assets/site.js', 'assets/axiomara-icon.png',
+              'assets/axiomara-feature.png', 'legal.css',
               'privacy/index.html', 'terms/index.html', 'support/index.html',
               'delete-account/index.html',
           }
@@ -109,12 +116,11 @@ jobs:
           }
           unexpected = sorted(actual - allowed)
           if unexpected:
-              raise SystemExit(f'Unexpected public files expose unnecessary content: {unexpected}')
+              raise SystemExit(f'Unexpected public file: {unexpected}')
 
-          landing = (root / 'index.html').read_text(encoding='utf-8')
-          for forbidden in ('Smart Planner', 'SI Console', 'Nexus', 'Trajectory', 'Creator', 'screenshot', 'feature graphic'):
-              if forbidden in landing:
-                  raise SystemExit(f'Landing page exposes unnecessary product detail: {forbidden}')
+          for asset in ('assets/axiomara-icon.png', 'assets/axiomara-feature.png'):
+              if (root / asset).stat().st_size < 20_000:
+                  raise SystemExit(f'Brand asset is unexpectedly small: {asset}')
 
           forbidden_identity = (
               'chrono' + 'spark',
@@ -122,7 +128,7 @@ jobs:
               'play.' + 'google.com',
           )
           for path in root.rglob('*'):
-              if not path.is_file():
+              if not path.is_file() or path.suffix.lower() not in {'.html', '.css', '.js', '.txt', '.xml'}:
                   continue
               text = path.read_text(encoding='utf-8')
               lowered = text.lower()
@@ -130,7 +136,7 @@ jobs:
               if leaked:
                   raise SystemExit(f'{path.relative_to(root)} exposes retired identity or marketplace branding: {leaked}')
 
-      - name: Package approved deployment artifact
+      - name: Package approved Axiomara site
         if: github.event_name == 'workflow_dispatch' && inputs.publish == true && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
@@ -151,6 +157,6 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
 
-      - name: Publish the approved required pages
+      - name: Publish the approved Axiomara site
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

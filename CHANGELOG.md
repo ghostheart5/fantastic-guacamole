@@ -1,6 +1,6 @@
 # Release Notes
 
-ChronoSpark has not yet published verified public production release notes.
+Axiomara has not yet published verified public production release notes.
 
 This document will record customer-facing releases only after the exact release candidate has completed the required release verification and is available through an approved public distribution channel.
 
@@ -17,4 +17,4 @@ Release notes will describe verified shipped behavior only. Planned work, test-o
 
 ## Support
 
-For help with ChronoSpark, visit [ChronoSpark Support](https://ghostheart5.github.io/fantastic-guacamole/support/).
+For help with Axiomara, visit [Axiomara Support](https://ghostheart5.github.io/fantastic-guacamole/support/).

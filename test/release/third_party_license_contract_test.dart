@@ -145,7 +145,7 @@ void main() {
           'https://github.com/dart-lang/sdk/tree/d684a576a6aa954ae107a03b2b4e1d61c3bebe93/third_party/fallback_root_certificates',
         ),
       );
-      expect(text, contains('does not change the license of ChronoSpark'));
+      expect(text, contains('does not change the license of Axiomara'));
     },
   );
 
@@ -171,7 +171,7 @@ void main() {
         text,
         contains('does not establish executable inclusion on every target'),
       );
-      expect(text, contains('does not change the license of ChronoSpark'));
+      expect(text, contains('does not change the license of Axiomara'));
     },
   );
 

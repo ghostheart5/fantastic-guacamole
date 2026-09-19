@@ -1,6 +1,6 @@
-# Contributing to ChronoSpark
+# Contributing to Axiomara
 
-Thank you for your interest in contributing to ChronoSpark! This document outlines the guidelines for submitting issues, creating pull requests, and following the project's coding standards.
+Thank you for your interest in contributing to Axiomara! This document outlines the guidelines for submitting issues, creating pull requests, and following the project's coding standards.
 
 ---
 
@@ -61,7 +61,7 @@ Thank you for your interest in contributing to ChronoSpark! This document outlin
 
 ## Coding Standards
 
-ChronoSpark is a Flutter/Dart project and follows the conventions established by the Flutter team and enforced by `flutter_lints`.
+Axiomara is a Flutter/Dart project and follows the conventions established by the Flutter team and enforced by `flutter_lints`.
 
 ### Dart Style
 
@@ -114,4 +114,4 @@ criterion.
 
 ---
 
-By contributing to this project you agree to abide by its [Security Policy](SECURITY.md) and to follow these guidelines in good faith. Thank you for helping make ChronoSpark better!
+By contributing to this project you agree to abide by its [Security Policy](SECURITY.md) and to follow these guidelines in good faith. Thank you for helping make Axiomara better!

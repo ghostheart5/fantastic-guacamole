@@ -1,12 +1,12 @@
-# ChronoSpark Product and Architecture Overview
+# Axiomara Product and Architecture Overview
 
-ChronoSpark is a planning and decision-support system that connects planning inputs, scheduled action, available guidance, forward-looking scenarios, and evidence-backed progress.
+Axiomara is a planning and decision-support system that connects planning inputs, scheduled action, available guidance, forward-looking scenarios, and evidence-backed progress.
 
 The product helps people understand the day, decide the next move, and maintain momentum while keeping the user responsible for every decision.
 
 ## Product operating model
 
-ChronoSpark turns information into useful action through connected, non-mandatory stages:
+Axiomara turns information into useful action through connected, non-mandatory stages:
 
 ```text
 Capture → Schedule → Understand → Plan → Investigate → Anticipate → Advance
@@ -74,7 +74,7 @@ These records can support one another, but they do not automatically become a sc
 - Smart Planner and SI Console provide guidance, not automatic authority.
 - Trajectory Engine presents scenarios, not guaranteed predictions.
 - Progression reports available evidence, not personal value.
-- ChronoSpark does not replace professional medical, legal, financial, emergency, or other qualified advice.
+- Axiomara does not replace professional medical, legal, financial, emergency, or other qualified advice.
 
 ## Architecture
 
@@ -113,7 +113,7 @@ The detailed dependency contract is maintained in [docs/LAYER_FLOW.md](docs/LAYE
 
 ## Current public product documentation
 
-The [ChronoSpark GitHub Wiki](https://github.com/ghostheart5/fantastic-guacamole/wiki) is the current public product guide. In particular, see:
+The [Axiomara GitHub Wiki](https://github.com/ghostheart5/fantastic-guacamole/wiki) is the current public product guide. In particular, see:
 
 - [Overview](https://github.com/ghostheart5/fantastic-guacamole/wiki/Overview)
 - [Core Concepts](https://github.com/ghostheart5/fantastic-guacamole/wiki/Core-Concepts)

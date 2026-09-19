@@ -95,7 +95,7 @@ void main() {
     expect(privacy, contains('sign-in provider identifier'));
   });
 
-  test('minimal legal surfaces disclose billing without retired branding', () {
+  test('public surfaces disclose billing without retired branding', () {
     for (final String path in <String>[
       'web/privacy/index.html',
       'web/terms/index.html',
@@ -134,16 +134,13 @@ void main() {
       read('web/support/index.html'),
       contains('does not provide an APK or public download'),
     );
-    expect(
-      read('site/index.html'),
-      isNot(
-        anyOf(
-          contains('Smart Planner'),
-          contains('SI Console'),
-          contains('Nexus'),
-        ),
-      ),
-    );
-    expect(read('site/index.html'), contains('invited private testing'));
+    final String productSite = read('site/index.html');
+    expect(productSite, contains('The Human Decision OS'));
+    expect(productSite, contains('Nine connected systems'));
+    expect(productSite, contains('Smart Planner'));
+    expect(productSite, contains('SI Console'));
+    expect(productSite, contains('Nexus'));
+    expect(productSite, contains('invited closed testing'));
+    expect(productSite, contains('does not provide an application download'));
   });
 }

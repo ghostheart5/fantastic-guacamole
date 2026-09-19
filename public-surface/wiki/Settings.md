@@ -1,38 +1,41 @@
-# Settings
+# Settings and Control Layer
 
-ChronoSpark settings are organized around account control, notifications, privacy, accessibility, and current release availability.
+Settings is Axiomara's control layer for account, appearance, language, notifications, intelligence, privacy, accessibility, and support.
 
-## Account
+## Intelligence controls
 
-- Use the signed-in account controls to sign out or request account deletion.
-- Account deletion is permanent and may require identity verification.
-- The public deletion instructions are available at <https://ghostheart5.github.io/fantastic-guacamole/delete-account/>.
+Before using an external intelligence action, review:
 
-## Notifications
+- which provider or service is involved;
+- what user-approved context will be sent;
+- whether the action has a credit cost;
+- whether conversation memory is active; and
+- how to begin a fresh decision thread.
 
-- Notification permission and reminder controls are separate.
-- Turning a reminder off should remove the corresponding scheduled notification.
-- Completing or deleting scheduled work should not leave a stale reminder behind.
+Changing a preference should affect later requests. It should not rewrite existing records or old responses.
 
-## Privacy and telemetry
+## Notification controls
 
-- Analytics and crash reporting are disabled by default and release-contained off.
-- External generative AI is disabled in the contained public configuration. Eligible internal testers may enable disclosed AI-credit tests. The internal test controls send fixed fictional prompts to Anthropic; separately gated Planner explanations disclose their selected planning context. Review the provider, data, and credit cost before confirming an enabled action.
-- Cloud sync and cloud restore are disabled for the current release candidate.
-- Review the current policy at <https://ghostheart5.github.io/fantastic-guacamole/privacy/>.
+Use notification settings to choose which reminders are useful and when they may appear. A reminder is a prompt, not a completion event or a judgment.
 
-## Subscriptions and AI credits
+## Privacy and account
 
-Subscriptions, credit top-ups, and credit spending are disabled in the contained public configuration. Eligible private internal-testing builds can offer these features. Use an approved license-tester Google account and a Google Play test payment method; joining the internal track alone does not make purchases free. Check the server balance and quoted cost before confirming an external AI action. Manage or cancel an existing subscription through the Google Play account that purchased it; deleting ChronoSpark does not cancel it.
+Settings should provide clear paths to:
 
-## Accessibility
+- review the privacy policy and terms;
+- find support and security reporting;
+- sign out;
+- manage or remove account data; and
+- understand which features depend on local or remote services.
 
-ChronoSpark should respect system text scaling, screen-reader actions, keyboard navigation where supported, and reduced-motion preferences.
+## Billing and credits
 
-## Language
+When paid intelligence is available, the product should show the plan or credit requirement before confirmation. Subscription access and consumable intelligence credits are separate concepts. Running out of credits should block only the credit-priced action, explain the available options, and preserve the user's records and core planning access.
 
-English is the only verified launch language. Spanish translation work may exist in source, but Spanish is not advertised as supported until the complete core journey is verified.
+## Accessibility and language
 
-## Daily Rhythms
+Axiomara is designed for English and Spanish use, readable scaling, screen-reader labels, keyboard or switch navigation where supported, and reduced-motion preferences. Report any control that cannot be reached, understood, or dismissed.
 
-Recurring practices are called **Daily Rhythms**. Older references to habits should be treated as outdated terminology.
+## No ads
+
+There is no advertising preference because Axiomara does not display ads and never requires an ad view.

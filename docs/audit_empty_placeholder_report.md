@@ -503,7 +503,7 @@ Workspace: C:\Users\keegan radetski\Desktop\productive\chronospark
 - assets\fonts\Inter-Regular.ttf:2019 (marker: tbd)
 - assets\images\focus_glow.png:3499 (marker: Tbd)
 - assets\overlays\noise.png:173 (marker: TBD)
-- CHRONOSPARK.md:2417 (marker: mock)
+- AXIOMARA.md:2417 (marker: mock)
 - docs\ACCESSIBILITY_AUDIT.md:228 (marker: Placeholder)
 - docs\ASSETS_VERIFICATION_AUDIT.md:391 (marker: placeholder)
 - docs\audit_empty_placeholder_report.md:1 (marker: Placeholder)

@@ -1,40 +1,51 @@
 # Frequently Asked Questions
 
-## Is ChronoSpark publicly available on Google Play?
+## What is Axiomara?
 
-The public website does not currently announce an open Google Play release. Invited testers should use only the test link associated with their approved Google account.
+Axiomara is a Human Decision OS. It connects planning records, time, operating signals, conversational planning, strategic investigation, possible futures, and recorded progress so a person can make a better-informed decision.
 
-## Is there a web app?
+## Is it a task manager?
 
-No verified web app is published at the public `/app/` route. That route is reserved for a separately verified web release artifact.
+Tasks are one input. Axiomara also connects goals, Daily Rhythms, notes, schedules, Energy, Clarity, Momentum, Planner conversations, SI investigations, Trajectory scenarios, and Progression evidence.
 
-## Does ChronoSpark use generative AI?
+## Does Axiomara make decisions for me?
 
-External generative AI is disabled in the contained public configuration. Eligible private internal testers can use disclosed AI-credit tests that submit a fixed fictional prompt to Anthropic. Separately gated Planner explanations, when available, disclose the selected planning context and credit cost before requesting confirmation. Local SI Console guidance remains local. Smart Planner and SI Console are not an unrestricted conversational AI service.
+No. It can recommend, compare, explain, and help prepare a change. A consequential record or schedule change remains a user action.
 
-## What are Trajectory and Progression?
+## Why did Planner give a limited answer?
 
-Trajectory compares scenarios with visible assumptions and uncertainty. Progression supports evidence-backed reflection and adjustment. They are product surfaces, not proof that ChronoSpark can predict a person&apos;s future.
+The selected context may be missing a date, duration, schedule window, linked goal, or other required fact. A useful limited response should identify the missing evidence. Add or attach the smallest fact needed, then ask again.
 
-## Are subscriptions or AI credits available?
+## Should filters and Advanced mode change SI Console's answer?
 
-They are disabled in the contained public configuration. Eligible private internal-testing builds can offer Google Play subscriptions, credit top-ups, and confirmed credit spending. Use an approved license-tester account and a Google Play test payment method. Internal-track enrollment alone does not make purchases free. Manage any existing subscription in Google Play. See [Google's billing-testing guidance](https://developer.android.com/google/play/billing/test).
+They are part of the query. An entity filter should ground the analysis in the selected entity type. A scenario or horizon should change the comparison. Advanced mode should add depth through alternatives, dependencies, assumptions, and trade-offs. If a control does not affect the available evidence, the response should explain why.
 
-## Are cloud sync and restore available?
+## Do follow-up questions remember the conversation?
 
-No. Cloud sync and cloud restore remain disabled until their release gates are complete.
+A follow-up should retain the active decision thread and relevant attached context. Starting a fresh conversation creates a new thread. Correct a wrong assumption directly so the next response can use the correction.
 
-## Which languages are supported?
+## What are Energy, Clarity, and Momentum?
 
-English is the only verified launch language. Spanish is not advertised as supported for this release.
+They are separate operating signals:
 
-## Where are the legal and support pages?
+- Energy describes apparent available capacity.
+- Clarity describes how well the next decision is supported.
+- Momentum describes recent evidence of sustained follow-through.
 
-- Privacy: <https://ghostheart5.github.io/fantastic-guacamole/privacy/>
-- Terms: <https://ghostheart5.github.io/fantastic-guacamole/terms/>
-- Support: <https://ghostheart5.github.io/fantastic-guacamole/support/>
-- Account deletion: <https://ghostheart5.github.io/fantastic-guacamole/delete-account/>
+They are not medical measurements or personal ratings.
 
-## How do I request account deletion?
+## Does Axiomara contain ads?
 
-Use the in-app account controls when you can sign in. Otherwise use the external request path on the public account-deletion page. Never send a password, one-time code, recovery token, payment credential, or secret key.
+No. Axiomara does not show ads and never requires a user to watch an ad.
+
+## Is the intelligence always correct?
+
+No. Records can be incomplete, assumptions can be wrong, and an external intelligence service can produce an unsuitable answer. Review evidence and uncertainty before acting.
+
+## What should not be entered?
+
+Do not enter secrets, passwords, full payment details, or information you are not authorized to share. Avoid using the product as a substitute for professional or emergency help.
+
+## Where can I get help?
+
+See [[Troubleshooting]], [[Support Page]], [[Privacy Policy]], [[Security Policy]], and [[Account Deletion]].
