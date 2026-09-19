@@ -19,4 +19,4 @@ Axiomara succeeds when a person can say:
 
 > I understand what the system used, why it suggested this, what could change the answer, and what remains my decision.
 
-The mission is not to automate a person's life. It is to give that person a clearer command of it.
+The mission is not to automate a person's life. It is to give that person clearer control of it.
