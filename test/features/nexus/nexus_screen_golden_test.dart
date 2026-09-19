@@ -58,6 +58,7 @@ void main() {
     bool observedVitals = true,
     NexusDecisionModel? decisionModel,
     Locale locale = const Locale('en'),
+    double textScale = 1,
     List<DecisionOutcomeKind>? recordedDecisionOutcomes,
     TimeBlock? recommendationBlock,
   }) async {
@@ -129,6 +130,12 @@ void main() {
         container: container,
         child: MaterialApp(
           locale: locale,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
           supportedLocales: ChronoSparkLocalizations.supportedLocales,
           localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
             ChronoSparkLocalizations.delegate,
@@ -578,6 +585,31 @@ void main() {
       }
     });
   }
+
+  testWidgets('Spanish Nexus keeps unrecorded clarity visible at 150% text', (
+    tester,
+  ) async {
+    await pumpNexusScreen(
+      tester,
+      width: 320,
+      locale: const Locale('es'),
+      observedVitals: false,
+      textScale: 1.5,
+    );
+
+    final Finder value = find.text('SIN REGISTRAR');
+    expect(value, findsOneWidget);
+    final Finder fitted = find.ancestor(
+      of: value,
+      matching: find.byType(FittedBox),
+    );
+    expect(fitted, findsOneWidget);
+    expect(
+      tester.getRect(value).width,
+      lessThanOrEqualTo(tester.getRect(fitted).width),
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'Spanish learning feedback localizes controls and preserves private explanations',

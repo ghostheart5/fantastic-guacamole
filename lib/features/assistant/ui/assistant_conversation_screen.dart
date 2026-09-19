@@ -5,8 +5,10 @@ import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/value_objects/ai_content_report_reason.dart';
+import 'package:fantastic_guacamole/features/permissions/voice_input_consent.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
+import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/ai_content_report_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
@@ -14,6 +16,7 @@ import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
+import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/ui/system/crisis_dialog.dart';
 import 'package:flutter/material.dart';
@@ -41,11 +44,13 @@ class _AssistantConversationScreenState
   final _scenario = TextEditingController();
   final _scroll = ScrollController();
   final List<Map<String, String>> _history = [];
+  late final VoiceController _voiceController;
   bool _busy = false;
   String? _error;
   ConversationQuote? _pending;
   int _generation = 0;
   BuildContext? _dialogContext;
+  String _dictationDraftBase = '';
   double? _energy;
   String? _attachedTaskId;
   bool _attachedTaskOnly = true;
@@ -58,6 +63,7 @@ class _AssistantConversationScreenState
   @override
   void initState() {
     super.initState();
+    _voiceController = ref.read(voiceControllerProvider.notifier);
     if (widget.surface != ConversationSurface.planner) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -76,6 +82,13 @@ class _AssistantConversationScreenState
 
   @override
   void dispose() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        unawaited(_voiceController.stopListening());
+      } on Object {
+        // The provider may have been disposed with an account or app boundary.
+      }
+    });
     final dialog = _dialogContext;
     final route = dialog != null && dialog.mounted
         ? ModalRoute.of(dialog)
@@ -500,11 +513,13 @@ class _AssistantConversationScreenState
       if (previous?.v2Namespace != next.v2Namespace) {
         final dialog = _dialogContext;
         if (dialog != null && dialog.mounted) Navigator.pop(dialog, false);
+        unawaited(_voiceController.stopListening());
         setState(() {
           _generation++;
           _history.clear();
           _pending = null;
           _input.clear();
+          _dictationDraftBase = '';
           _filter.clear();
           _scenario.clear();
           _attachedTaskId = null;
@@ -519,6 +534,41 @@ class _AssistantConversationScreenState
       }
     });
     final consent = ref.watch(personalizationProfileProvider).externalAiAllowed;
+    final VoiceState voice = ref.watch(voiceControllerProvider);
+    final bool listening = voice.isListening;
+    ref.listen<VoiceState>(voiceControllerProvider, (previous, next) {
+      if (next.error != null &&
+          next.error != previous?.error &&
+          context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              copy(
+                'Voice input is unavailable. Check microphone permission and try again.',
+                'La entrada de voz no está disponible. Revisa el permiso del micrófono e inténtalo de nuevo.',
+              ),
+            ),
+          ),
+        );
+      }
+      final bool stoppedListening =
+          (previous?.isListening ?? false) && !next.isListening;
+      if ((next.isListening || stoppedListening) &&
+          next.recognizedText.trim().isNotEmpty) {
+        final String transcript = next.recognizedText.trim();
+        final String combined = <String>[
+          if (_dictationDraftBase.trim().isNotEmpty) _dictationDraftBase.trim(),
+          transcript,
+        ].join(' ').trim();
+        _input
+          ..text = combined
+          ..selection = TextSelection.collapsed(offset: combined.length);
+      }
+      if (stoppedListening) {
+        _dictationDraftBase = '';
+        _voiceController.clearRecognizedText();
+      }
+    });
     final planner = widget.surface == ConversationSurface.planner;
     final tasks = planner
         ? ref.watch(siV2EvidenceSnapshotProvider).asData?.value.tasks
@@ -903,6 +953,7 @@ class _AssistantConversationScreenState
                       key: const Key('conversation-input'),
                       controller: _input,
                       enabled: enabled,
+                      readOnly: listening,
                       minLines: 1,
                       maxLines: 5,
                       maxLength: 4000,
@@ -916,9 +967,44 @@ class _AssistantConversationScreenState
                     ),
                   ),
                   const SizedBox(width: 8),
+                  if (ref.watch(voiceInputEnabledProvider)) ...[
+                    IconButton(
+                      tooltip: copy(
+                        listening ? 'Stop voice input' : 'Start voice input',
+                        listening
+                            ? 'Detener entrada de voz'
+                            : 'Iniciar entrada de voz',
+                      ),
+                      onPressed: !enabled && !listening
+                          ? null
+                          : () async {
+                              if (listening) {
+                                await _voiceController.stopListening();
+                                return;
+                              }
+                              _dictationDraftBase = _input.text;
+                              final int revision =
+                                  _voiceController.lifecycleRevision;
+                              await startVoiceInputWithConsent(
+                                context: context,
+                                onStart: _voiceController.startListening,
+                                consentStore: ref.read(
+                                  voiceInputConsentStoreProvider,
+                                ),
+                                isCurrentRequest: () =>
+                                    _voiceController.lifecycleRevision ==
+                                    revision,
+                              );
+                            },
+                      icon: Icon(
+                        listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
                   IconButton(
                     tooltip: copy('Send to AI', 'Enviar a IA'),
-                    onPressed: enabled ? () => _send() : null,
+                    onPressed: enabled && !listening ? () => _send() : null,
                     icon: const Icon(Icons.send_rounded),
                   ),
                 ],

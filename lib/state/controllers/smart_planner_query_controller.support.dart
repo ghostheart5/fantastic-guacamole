@@ -234,7 +234,7 @@ bool _continuesPlannerObjective(String input) {
       _explicitPlanningTimeLimit(input) != null ||
       _negatedPlannerClause(input) ||
       RegExp(
-        r'\b(it|that|those|these|earlier|previous|smaller|shorter|instead|tomorrow|interruptions|interrupciones|eso|anterior|menos|mañana)\b|^why\b|^por qu[eé]\b|^can you make\b|^make this\b|^this (?:one|plan)\b|^(?:keep|mant[eé]n)\b',
+        r'\b(it|that|those|these|earlier|previous|smaller|shorter|instead|tomorrow|interruptions|interrupciones|eso|anterior|menos|mañana)\b|\b(?:grocer(?:y|ies)|compras|comida)\b[^.!?;]{0,55}\b(?:essential|store closes|closes at|esencial|cierra)\b|^why\b|^por qu[eé]\b|^can you make\b|^make this\b|^this (?:one|plan)\b|^(?:keep|mant[eé]n)\b',
         caseSensitive: false,
       ).hasMatch(input);
 }
