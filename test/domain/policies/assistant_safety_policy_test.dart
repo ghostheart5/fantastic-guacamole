@@ -160,6 +160,48 @@ void main() {
     expect(outcome.receipt.criticCode, 'deterministic_repair_failed');
   });
 
+  test(
+    'timeline repair removes advice after the absolute latest departure',
+    () {
+      final AssistantSafetyOutcome outcome = pipeline.evaluate(
+        _safeReview(
+          responseText:
+              'Leave at 6:20 PM and arrive at 6:40 PM. '
+              'Shopping for 20 minutes finishes at 7:00 PM. '
+              '6:20 PM is the absolute latest viable departure. '
+              'Leaving by 6:30 PM at the latest still leaves no cushion.',
+        ),
+      );
+
+      expect(outcome.mayPublish, isTrue);
+      expect(outcome.receipt.disposition, AssistantSafetyDisposition.repaired);
+      expect(
+        outcome.receipt.findingCodes,
+        contains('contradictory_latest_departure'),
+      );
+      expect(outcome.publishableText, contains('6:20 PM'));
+      expect(outcome.publishableText, contains('7:00 PM'));
+      expect(outcome.publishableText, isNot(contains('6:30 PM')));
+    },
+  );
+
+  test('matching leave-by time and a separate finish time remain valid', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'The latest viable departure is 6:20 PM. '
+            'Leave by 6:20 PM and finish by 7:00 PM.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(
+      outcome.receipt.findingCodes,
+      isNot(contains('contradictory_latest_departure')),
+    );
+    expect(outcome.publishableText, contains('finish by 7:00 PM'));
+  });
+
   test('crisis route blocks gamification and ordinary planning pressure', () {
     final AssistantSafetyOutcome outcome = pipeline.evaluate(
       _safeReview(

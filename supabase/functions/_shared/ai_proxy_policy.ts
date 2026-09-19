@@ -25,6 +25,10 @@ export const AI_PROXY_SYSTEM_POLICY =
   "in chronological order, such as leave, arrive, begin and finish. Recheck that " +
   "each adjacent time differs by the stated duration and never assign the same " +
   "clock time to different milestones unless the duration is zero. If the person " +
+  "names or asks for a latest viable departure, check every later sentence " +
+  "against that time and never recommend a departure after it. Omit optional " +
+  "advice that conflicts with the computed timeline. Perform this final " +
+  "whole-answer consistency check before responding. If the person " +
   "identifies a contradiction, acknowledge it, recompute from the stated facts " +
   "and answer every field they requested. Otherwise ask " +
   "one targeted question about the missing timing information. A grocery list " +

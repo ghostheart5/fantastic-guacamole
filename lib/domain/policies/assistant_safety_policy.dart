@@ -266,6 +266,7 @@ final class AssistantSafetyPipeline {
     'assistant_contract_validator_v1',
     'evidence_authority_validator_v1',
     'prompt_injection_action_validator_v1',
+    'timeline_consistency_validator_v1',
     'crisis_pressure_validator_v1',
     'bounded_execution_validator_v1',
   ];
@@ -322,12 +323,19 @@ final class AssistantSafetyPipeline {
     );
     if (decision.verdict == AssistantCriticVerdict.requestRepair &&
         review.budget.repairAttempts == 0) {
-      final String repaired =
-          findings.length == 1 && findings.single == 'write_authority_violation'
-          ? _removeUnsupportedMutationClaims(review.responseText)
-          : 'I could not validate the first draft. Review the current evidence '
-                'links and ask for one narrower, read-only answer.';
-      if (repaired.isEmpty || _claimsCompletedMutation(repaired)) {
+      final String repaired = switch (findings) {
+        ['write_authority_violation'] => _removeUnsupportedMutationClaims(
+          review.responseText,
+        ),
+        ['contradictory_latest_departure'] =>
+          _removeContradictoryLatestDepartureAdvice(review.responseText),
+        _ =>
+          'I could not validate the first draft. Review the current evidence '
+              'links and ask for one narrower, read-only answer.',
+      };
+      if (repaired.isEmpty ||
+          _claimsCompletedMutation(repaired) ||
+          _hasContradictoryLatestDeparture(repaired)) {
         return AssistantSafetyOutcome(
           publishableText: '',
           receipt: _receipt(
@@ -405,6 +413,9 @@ final class AssistantSafetyPipeline {
     if (injectionInData && actionClaim) findings.add('injection_to_action');
     if (_containsHiddenReasoning(review.responseText)) {
       findings.add('hidden_reasoning_exposed');
+    }
+    if (_hasContradictoryLatestDeparture(review.responseText)) {
+      findings.add('contradictory_latest_departure');
     }
     if (review.crisisDetected &&
         _containsProductivityPressure(review.responseText)) {
@@ -486,6 +497,64 @@ String _removeUnsupportedMutationClaims(String value) {
       .replaceAll(unsupportedSentence, '')
       .replaceAll(RegExp(r'\n{3,}'), '\n\n')
       .trim();
+}
+
+bool _hasContradictoryLatestDeparture(String value) {
+  final int? latest = _latestDepartureMinutes(value);
+  if (latest == null) return false;
+  return _leaveByTimes(value).any((int candidate) => candidate > latest);
+}
+
+String _removeContradictoryLatestDepartureAdvice(String value) {
+  final int? latest = _latestDepartureMinutes(value);
+  if (latest == null) return value;
+  return value
+      .split(RegExp(r'(?<=[.!?])\s+'))
+      .where(
+        (String sentence) =>
+            !_leaveByTimes(sentence).any((int candidate) => candidate > latest),
+      )
+      .join(' ')
+      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+      .trim();
+}
+
+int? _latestDepartureMinutes(String value) {
+  final List<RegExp> patterns = <RegExp>[
+    RegExp(
+      r'\b(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\s+is\s+(?:the\s+)?'
+      r'(?:absolute\s+)?latest(?:\s+viable)?\s+departure\b',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'\blatest(?:\s+viable)?\s+departure(?:\s+time)?\s*(?:is|:)\s*'
+      r'(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\b',
+      caseSensitive: false,
+    ),
+  ];
+  for (final RegExp pattern in patterns) {
+    final RegExpMatch? match = pattern.firstMatch(value);
+    if (match != null) return _clockMinutes(match);
+  }
+  return null;
+}
+
+Iterable<int> _leaveByTimes(String value) sync* {
+  final RegExp pattern = RegExp(
+    r'\bleav(?:e|ing)\s+by\s+(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\b',
+    caseSensitive: false,
+  );
+  for (final RegExpMatch match in pattern.allMatches(value)) {
+    yield _clockMinutes(match);
+  }
+}
+
+int _clockMinutes(RegExpMatch match) {
+  int hour = int.parse(match.group(1)!);
+  final int minute = int.tryParse(match.group(2) ?? '') ?? 0;
+  final bool isPm = match.group(3)!.toLowerCase() == 'p';
+  if (hour == 12) hour = 0;
+  return hour * 60 + minute + (isPm ? 12 * 60 : 0);
 }
 
 bool _containsHiddenReasoning(String value) {

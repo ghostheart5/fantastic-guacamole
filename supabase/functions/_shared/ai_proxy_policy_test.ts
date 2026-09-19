@@ -23,6 +23,9 @@ Deno.test("builds policy only from allowlisted control fields", () => {
   if (!prompt.includes("State every requested milestone time explicitly")) {
     throw new Error("timing milestone policy missing");
   }
+  if (!prompt.includes("never recommend a departure after it")) {
+    throw new Error("latest-departure consistency policy missing");
+  }
   if (!prompt.includes("answer every field they requested")) {
     throw new Error("follow-up correction policy missing");
   }
