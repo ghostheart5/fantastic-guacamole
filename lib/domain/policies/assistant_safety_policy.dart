@@ -144,7 +144,6 @@ final class BoundedAssistantEvidenceCritic implements AssistantEvidenceCritic {
       );
     }
     if (packet.validatorFindings.contains('injection_to_action') ||
-        packet.validatorFindings.contains('write_authority_violation') ||
         packet.validatorFindings.contains('evidence_outside_app')) {
       return const AssistantCriticDecision(
         verdict: AssistantCriticVerdict.reject,
@@ -323,9 +322,25 @@ final class AssistantSafetyPipeline {
     );
     if (decision.verdict == AssistantCriticVerdict.requestRepair &&
         review.budget.repairAttempts == 0) {
-      const String repaired =
-          'I could not validate the first draft. Review the current evidence '
-          'links and ask for one narrower, read-only answer.';
+      final String repaired =
+          findings.length == 1 && findings.single == 'write_authority_violation'
+          ? _removeUnsupportedMutationClaims(review.responseText)
+          : 'I could not validate the first draft. Review the current evidence '
+                'links and ask for one narrower, read-only answer.';
+      if (repaired.isEmpty || _claimsCompletedMutation(repaired)) {
+        return AssistantSafetyOutcome(
+          publishableText: '',
+          receipt: _receipt(
+            review: review,
+            digest: digest,
+            evaluatedAt: evaluatedAt,
+            disposition: AssistantSafetyDisposition.withheld,
+            findings: findings,
+            criticInvoked: true,
+            criticCode: 'deterministic_repair_failed',
+          ),
+        );
+      }
       return AssistantSafetyOutcome(
         publishableText: repaired,
         receipt: _receipt(
@@ -456,6 +471,21 @@ bool _claimsCompletedMutation(String value) {
     r'\b(i|we|si|chronospark|the assistant)\s+((has|have)\s+)?'
     r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
   ).hasMatch(normalized);
+}
+
+String _removeUnsupportedMutationClaims(String value) {
+  final RegExp unsupportedSentence = RegExp(
+    r'(^|(?<=[.!?])\s+)(i|we|si|chronospark|the assistant)\s+'
+    r'((has|have)\s+)?'
+    r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b'
+    r'[^.!?\n]*(?:[.!?]|$)',
+    caseSensitive: false,
+    multiLine: true,
+  );
+  return value
+      .replaceAll(unsupportedSentence, '')
+      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+      .trim();
 }
 
 bool _containsHiddenReasoning(String value) {

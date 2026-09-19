@@ -256,13 +256,13 @@ class _AssistantConversationScreenState
           risk: AssistantSafetyRisk.complex,
         ),
       );
-      if (!review.mayPublish || review.publishableText != answer.text) {
+      if (!review.mayPublish) {
         throw const ConversationFailure('response_withheld');
       }
       setState(() {
         _history.addAll([
           {'role': 'user', 'content': prompt},
-          {'role': 'assistant', 'content': answer.text},
+          {'role': 'assistant', 'content': review.publishableText},
         ]);
         _input.clear();
         _pending = null;

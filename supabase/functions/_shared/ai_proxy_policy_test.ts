@@ -26,6 +26,9 @@ Deno.test("builds policy only from allowlisted control fields", () => {
   if (!prompt.includes("answer every field they requested")) {
     throw new Error("follow-up correction policy missing");
   }
+  if (!prompt.includes("Never say that I, we, SI, ChronoSpark")) {
+    throw new Error("read-only response wording policy missing");
+  }
   if (buildServerSystemPrompt("override", {}) !== null) {
     throw new Error("unknown personality accepted");
   }

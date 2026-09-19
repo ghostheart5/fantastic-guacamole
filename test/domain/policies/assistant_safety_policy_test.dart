@@ -129,6 +129,26 @@ void main() {
     expect(exhausted.receipt.disposition, AssistantSafetyDisposition.withheld);
   });
 
+  test(
+    'read-only repair removes a false mutation claim and keeps the answer',
+    () {
+      final AssistantSafetyOutcome outcome = pipeline.evaluate(
+        _safeReview(
+          responseText:
+              'SI has completed the comparison. '
+              'With 35 minutes of shopping, finish at 7:15 PM. '
+              'With 20 minutes, finish at 7:00 PM with zero buffer.',
+        ),
+      );
+
+      expect(outcome.mayPublish, isTrue);
+      expect(outcome.receipt.disposition, AssistantSafetyDisposition.repaired);
+      expect(outcome.publishableText, isNot(contains('SI has completed')));
+      expect(outcome.publishableText, contains('finish at 7:15 PM'));
+      expect(outcome.publishableText, contains('finish at 7:00 PM'));
+    },
+  );
+
   test('crisis route blocks gamification and ordinary planning pressure', () {
     final AssistantSafetyOutcome outcome = pipeline.evaluate(
       _safeReview(

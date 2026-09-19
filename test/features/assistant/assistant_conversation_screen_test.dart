@@ -688,6 +688,76 @@ void main() {
     );
   }
 
+  testWidgets('SI publishes the safe remainder of a repaired model reply', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final container = setup((body) async {
+      return (
+        status: 200,
+        data: body['quoteOnly'] == true
+            ? {
+                'requestId': body['requestId'],
+                'quote': {
+                  'credits': 4,
+                  'digest': 'fixture',
+                  'proof': 'fixture',
+                  'policy': 'fixture',
+                  'expiresAt': DateTime.now()
+                      .add(const Duration(minutes: 5))
+                      .millisecondsSinceEpoch,
+                },
+              }
+            : {
+                'requestId': body['requestId'],
+                'message':
+                    'SI has completed the comparison. '
+                    'With 35 minutes, finish at 7:15 PM. '
+                    'With 20 minutes, finish at 7:00 PM with zero buffer.',
+                'creditsCharged': 4,
+                'remainingCredits': 20,
+                'model': 'transport-fixture',
+              },
+      );
+    });
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'Compare the grocery timing.',
+    );
+    await tester.tap(find.byTooltip('Send to AI'));
+    await waitFor(tester, find.text('Get credit price'));
+    await tester.tap(find.text('Get credit price'));
+    await waitFor(tester, find.text('Use 4 credits'));
+    await tester.tap(find.text('Use 4 credits'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('SI has completed'), findsNothing);
+    expect(find.textContaining('finish at 7:15 PM'), findsOneWidget);
+    expect(find.textContaining('finish at 7:00 PM'), findsOneWidget);
+    expect(
+      find.textContaining('did not pass the response check'),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('real conversation Advanced fields survive a phone keyboard', (
     tester,
   ) async {
