@@ -27,13 +27,41 @@ class _TrajectoryStateNotice extends StatelessWidget {
       _ => const Color(0xFF6EE7F9),
     };
     final String label = switch (status) {
-      TrajectoryEngineStatus.loading => 'BUILDING BASELINE',
-      TrajectoryEngineStatus.learning => 'LEARNING YOUR PATTERN',
-      TrajectoryEngineStatus.ready => 'BASELINE READY',
-      TrajectoryEngineStatus.empty => 'EVIDENCE NEEDED',
-      TrajectoryEngineStatus.partial => 'PARTIAL EVIDENCE',
-      TrajectoryEngineStatus.offline => 'LOCAL EVIDENCE',
-      TrajectoryEngineStatus.error => 'RECALCULATION NEEDED',
+      TrajectoryEngineStatus.loading => journeyText(
+        context,
+        'BUILDING BASELINE',
+        'CREANDO LÍNEA BASE',
+      ),
+      TrajectoryEngineStatus.learning => journeyText(
+        context,
+        'LEARNING YOUR PATTERN',
+        'APRENDIENDO TU PATRÓN',
+      ),
+      TrajectoryEngineStatus.ready => journeyText(
+        context,
+        'BASELINE READY',
+        'LÍNEA BASE LISTA',
+      ),
+      TrajectoryEngineStatus.empty => journeyText(
+        context,
+        'EVIDENCE NEEDED',
+        'SE NECESITAN DATOS',
+      ),
+      TrajectoryEngineStatus.partial => journeyText(
+        context,
+        'PARTIAL EVIDENCE',
+        'DATOS PARCIALES',
+      ),
+      TrajectoryEngineStatus.offline => journeyText(
+        context,
+        'LOCAL EVIDENCE',
+        'DATOS LOCALES',
+      ),
+      TrajectoryEngineStatus.error => journeyText(
+        context,
+        'RECALCULATION NEEDED',
+        'SE REQUIERE RECÁLCULO',
+      ),
     };
     return Semantics(
       container: true,
@@ -90,8 +118,8 @@ class _TrajectoryStateNotice extends StatelessWidget {
                 ),
                 child: Text(
                   status == TrajectoryEngineStatus.empty
-                      ? 'Open Creator'
-                      : 'Retry',
+                      ? journeyText(context, 'Open Creator', 'Abrir Creator')
+                      : journeyText(context, 'Retry', 'Reintentar'),
                 ),
               ),
           ],
@@ -276,14 +304,18 @@ class _HorizonSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       container: true,
-      label: 'Forecast horizon. $selectedDays days selected.',
+      label: journeyText(
+        context,
+        'Forecast horizon. $selectedDays days selected.',
+        'Horizonte de previsión. $selectedDays días seleccionados.',
+      ),
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
         children: <Widget>[
           for (final int days in const <int>[7, 30, 90])
             ChoiceChip(
-              label: Text('$days DAYS'),
+              label: Text(journeyText(context, '$days DAYS', '$days DÍAS')),
               selected: selectedDays == days,
               showCheckmark: false,
               onSelected: (_) => onSelected(days),

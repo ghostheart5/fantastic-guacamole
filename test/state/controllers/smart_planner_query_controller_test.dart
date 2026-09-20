@@ -194,7 +194,11 @@ void main() {
             history: const <Map<String, String>>[],
             previousSavedNotes: null,
           );
-      expect(initial.plannerResponse.isClarification, isFalse);
+      expect(
+        initial.plannerResponse.isClarification,
+        isFalse,
+        reason: initial.plannerResponse.toAccessibleText(),
+      );
       expect(
         initial.plannerResponse.nextStep.toLowerCase(),
         contains('grocer'),
@@ -235,6 +239,65 @@ void main() {
         followUp.plannerResponse.toAccessibleText(),
         isNot(contains('What exactly do you need to do')),
       );
+    },
+  );
+
+  test(
+    'real-life grocery timing check-in and follow-up stay actionable',
+    () async {
+      const String initialPrompt =
+          'I feel stressed because I need groceries before dinner, have 55% energy, and want to avoid traffic. What should I do next?';
+      final ProviderContainer container = plannerContainer();
+      addTearDown(container.dispose);
+      final SmartPlannerQueryController controller = container.read(
+        smartPlannerQueryControllerProvider,
+      );
+
+      final SmartPlannerResult initial = await controller
+          .requestPlanningGuidance(
+            energy: 0.55,
+            emotion: null,
+            notes: initialPrompt,
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+            languageCode: 'es',
+          );
+      expect(
+        initial.plannerResponse.isClarification,
+        isFalse,
+        reason: initial.plannerResponse.toAccessibleText(),
+      );
+      expect(
+        initial.plannerResponse.toAccessibleText().toLowerCase(),
+        contains('compr'),
+      );
+
+      final SmartPlannerResult
+      followUp = await controller.requestFollowUpResult(
+        input:
+            'The task is already scheduled at 5:38 PM. Should I leave earlier?',
+        energy: 0.55,
+        emotion: null,
+        reflection: initialPrompt,
+        history: <Map<String, String>>[
+          const <String, String>{'role': 'user', 'content': initialPrompt},
+          <String, String>{
+            'role': 'assistant',
+            'content': initial.plannerResponse.toAccessibleText(),
+          },
+        ],
+        currentPlan: PlannerConversationSnapshot(
+          originalObjective: initialPrompt,
+          currentPlan: initial.plannerResponse,
+          userContext: initial.plannerResponse.userContext,
+        ),
+        languageCode: 'es',
+      );
+      final String answer = followUp.plannerResponse
+          .toAccessibleText()
+          .toLowerCase();
+      expect(answer, contains('5:38'));
+      expect(answer, isNot(contains('¿qué necesitas hacer exactamente')));
     },
   );
 

@@ -129,11 +129,11 @@ class _ProfileBody extends ConsumerWidget {
       trajectorySummaryProvider.select((summary) => summary.completedTasks),
     );
     final String progressLabel = completedTasks > 0 || data.xp > 0
-        ? 'Progress recorded'
-        : 'Ready to begin';
+        ? journeyText(context, 'Progress recorded', 'Progreso registrado')
+        : journeyText(context, 'Ready to begin', 'Listo para comenzar');
     final String identityFallbackLabel =
         LaunchContainment.inferredIdentityEnabled
-        ? 'Pattern forming'
+        ? journeyText(context, 'Pattern forming', 'Patrón en formación')
         : progressLabel;
     final bool hasIdentityEvidence =
         LaunchContainment.inferredIdentityEnabled &&
@@ -186,11 +186,19 @@ class _ProfileTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TemporalScreenHeader(
-      title: 'PROFILE',
-      subtitle: 'Your patterns, held with context.',
-      eyebrow: 'Identity constellation',
+      title: journeyText(context, 'PROFILE', 'PERFIL'),
+      subtitle: journeyText(
+        context,
+        'Your patterns, held with context.',
+        'Tus patrones, conservados con contexto.',
+      ),
+      eyebrow: journeyText(
+        context,
+        'Identity constellation',
+        'Constelación de identidad',
+      ),
       trailing: IconButton(
-        tooltip: 'Open settings',
+        tooltip: journeyText(context, 'Open settings', 'Abrir ajustes'),
         constraints: const BoxConstraints.tightFor(
           width: AppSizes.touchTarget,
           height: AppSizes.touchTarget,
@@ -716,21 +724,21 @@ class _NavButtons extends StatelessWidget {
     return Column(
       children: <Widget>[
         _NavBtn(
-          label: 'VIEW TIMELINE',
+          label: journeyText(context, 'VIEW TIMELINE', 'VER LÍNEA DE TIEMPO'),
           icon: Icons.timeline_rounded,
           color: AppColors.neonViolet,
           onTap: onTimeline,
         ),
         const SizedBox(height: 10),
         _NavBtn(
-          label: 'PROGRESSION',
+          label: journeyText(context, 'PROGRESSION', 'PROGRESIÓN'),
           icon: Icons.bolt,
           color: AppColors.memoryAmber,
           onTap: onProgression,
         ),
         const SizedBox(height: 10),
         _NavBtn(
-          label: 'INVITE FRIENDS',
+          label: journeyText(context, 'INVITE FRIENDS', 'INVITAR AMIGOS'),
           icon: Icons.group_add_rounded,
           color: AppColors.neonCyan,
           onTap: onInviteFriends,
@@ -834,9 +842,9 @@ class _NameEditorState extends State<_NameEditor> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'EDIT IDENTITY',
-            style: TextStyle(
+          Text(
+            journeyText(context, 'EDIT IDENTITY', 'EDITAR IDENTIDAD'),
+            style: const TextStyle(
               fontSize: 10,
               letterSpacing: 0,
               color: AppColors.neonCyan,
@@ -848,7 +856,11 @@ class _NameEditorState extends State<_NameEditor> {
             controller: _controller,
             style: const TextStyle(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
-              hintText: 'Enter identity callsign',
+              hintText: journeyText(
+                context,
+                'Enter identity callsign',
+                'Escribe tu nombre de identidad',
+              ),
               hintStyle: const TextStyle(color: Colors.white30),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.03),

@@ -13,6 +13,7 @@ import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart
 import 'package:fantastic_guacamole/domain/strategic/si_console_shortcut_registry.dart';
 import 'package:fantastic_guacamole/domain/value_objects/ai_content_report_reason.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_input_consent.dart';
 import 'package:fantastic_guacamole/state/controllers/si_console_query_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
@@ -109,6 +110,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   final TextEditingController _input = TextEditingController();
   final TextEditingController _entityFilter = TextEditingController();
   final TextEditingController _scenarioAssumption = TextEditingController();
+  final ExpansibleController _advancedComposer = ExpansibleController();
   final ScrollController _scroll = ScrollController();
   final GlobalKey _composerKey = GlobalKey();
   final GlobalKey _latestResponseKey = GlobalKey();
@@ -221,6 +223,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     _input.dispose();
     _entityFilter.dispose();
     _scenarioAssumption.dispose();
+    _advancedComposer.dispose();
     _scroll.dispose();
     _composerHeight.dispose();
     unawaited(_stopVoice());
@@ -460,6 +463,12 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final String text = _input.text.trim();
     if (text.isEmpty) return;
     if (_typing) return;
+
+    // Give the response the full readable viewport after a query is sent.
+    // The selected Advanced values remain active and can be reopened at any
+    // time, but the expanded controls no longer cover the new answer on
+    // compact devices or at large text sizes.
+    _advancedComposer.collapse();
 
     final SIConsoleQueryController controller = ref.read(
       siConsoleQueryControllerProvider,
@@ -895,6 +904,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                                 entityFilterController: _entityFilter,
                                 scenarioAssumptionController:
                                     _scenarioAssumption,
+                                advancedComposerController: _advancedComposer,
                                 onSend: _send,
                                 compact: keyboardVisible,
                                 busy: _typing,

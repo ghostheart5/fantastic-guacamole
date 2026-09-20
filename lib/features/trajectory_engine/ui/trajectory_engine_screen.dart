@@ -98,7 +98,11 @@ class _TrajectoryEngineScreenState
                 ),
                 onBack: () => goToAppView(context, ref, AppView.nexus),
                 trailing: IconButton(
-                  tooltip: 'Recalculate trajectory',
+                  tooltip: journeyText(
+                    context,
+                    'Recalculate trajectory',
+                    'Recalcular trayectoria',
+                  ),
                   constraints: const BoxConstraints.tightFor(
                     width: AppSizes.touchTarget,
                     height: AppSizes.touchTarget,
@@ -119,9 +123,13 @@ class _TrajectoryEngineScreenState
               if (model.status == TrajectoryEngineStatus.empty &&
                   comparison?.baseline.hasObservedEnergy == true)
                 _Panel(
-                  title: 'Recorded check-in',
+                  title: journeyText(
+                    context,
+                    'Recorded check-in',
+                    'Registro actual',
+                  ),
                   child: _OverviewMetric(
-                    label: 'ENERGY',
+                    label: journeyText(context, 'ENERGY', 'ENERGÍA'),
                     value: '${comparison!.baseline.energy}%',
                     accent: const Color(0xFFA78BFA),
                   ),

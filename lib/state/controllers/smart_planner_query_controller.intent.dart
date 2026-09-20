@@ -919,7 +919,7 @@ String? _explicitGroceryNeedAction(String source) {
     source,
   ).split(RegExp(r'[.!?;\n]+'))) {
     if (_plannerHistoricalOrUncertain(clause) ||
-        _negatedPlannerClause(clause)) {
+        _plannerRejectsGroceryNeed(clause)) {
       continue;
     }
     final bool spanish = RegExp(
@@ -947,6 +947,13 @@ String? _explicitGroceryNeedAction(String source) {
   }
   return null;
 }
+
+bool _plannerRejectsGroceryNeed(String clause) => RegExp(
+  r"\b(?:do not|don['’]t|never|no longer)\s+(?:still\s+)?need\b[^.!?;]{0,35}\b(?:grocer(?:y|ies)|food)\b"
+  r'|\b(?:avoid|skip|exclude)\s+(?:the\s+)?(?:grocer(?:y|ies)|food)\b'
+  r'|\b(?:no necesito|ya no necesito|evita|omitir|excluir)\b[^.!?;]{0,35}\b(?:compras|comida|alimentos)\b',
+  caseSensitive: false,
+).hasMatch(clause);
 
 String? _savedPlannerAction(String title) {
   if (RegExp(

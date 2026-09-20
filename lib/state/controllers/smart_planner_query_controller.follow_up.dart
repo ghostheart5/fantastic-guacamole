@@ -1,6 +1,6 @@
 part of 'smart_planner_query_controller.dart';
 
-enum _PlannerFollowUpKind { explain, smaller, completed, rejected }
+enum _PlannerFollowUpKind { explain, smaller, timing, completed, rejected }
 
 // These are operations on the displayed proposal, not new life objectives.
 // Keep them separate from extracting a new action from free-form text.
@@ -15,6 +15,16 @@ _PlannerFollowUpKind? _plannerFollowUpKind(String input) {
     r'^(?:(?:can you |please )?make (?:it|this|that|the plan) (?:smaller|shorter|easier)|(?:hazlo|haz esto|haz el plan) m[aá]s (?:peque[nñ]o|corto|f[aá]cil))(?: please| por favor)?[?!. ]*$',
   ).hasMatch(text)) {
     return _PlannerFollowUpKind.smaller;
+  }
+  if (RegExp(
+        r'\b(?:should|do|can)\s+i\s+leave\s+(?:any\s+)?earlier\b|\b(?:debo|puedo)\s+salir\s+m[aá]s\s+temprano\b',
+        caseSensitive: false,
+      ).hasMatch(text) &&
+      RegExp(
+        r'\b\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?\b',
+        caseSensitive: false,
+      ).hasMatch(text)) {
+    return _PlannerFollowUpKind.timing;
   }
   if (RegExp(
     r'^(?:i (?:already )?(?:did|finished|completed) (?:it|that|this)|(?:it|that|this) is (?:already )?done|done|ya (?:lo )?(?:hice|termin[eé])|listo)(?:[.! ]+(?:what(?: is)? next|what else|now what|qu[eé] sigue|ahora qu[eé]))?[?!. ]*$',
@@ -117,6 +127,28 @@ PlannerV2Response? _answerDisplayedPlanFollowUp({
           timeLimitMinutes: context.timeLimitMinutes,
           timeLimitSeconds: context.timeLimitSeconds,
         ),
+      );
+    case _PlannerFollowUpKind.timing:
+      final String departure =
+          RegExp(
+            r'\b(\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)\b',
+            caseSensitive: false,
+          ).firstMatch(input)?.group(1)?.trim() ??
+          copy('that time', 'esa hora');
+      return plan.copyWith(
+        whatIHeard: copy(
+          'You are checking whether leaving at $departure gives the plan enough buffer.',
+          'Quieres comprobar si salir a las $departure deja margen suficiente para el plan.',
+        ),
+        conversationReply: copy(
+          'I cannot verify traffic, travel time, time in the store, or your dinner deadline from the current evidence. Leaving before $departure creates more buffer. To judge whether that is necessary, compare your expected round-trip and shopping time with the time remaining before dinner.',
+          'No puedo verificar el tráfico, el tiempo de viaje, el tiempo dentro de la tienda ni la hora límite de la cena con la información actual. Salir antes de las $departure deja más margen. Para decidir si hace falta, compara el viaje de ida y vuelta y el tiempo de compra previstos con el tiempo disponible antes de cenar.',
+        ),
+        usefulQuestion: copy(
+          'How many minutes do you expect for travel and shopping, and what time must you be home?',
+          '¿Cuántos minutos calculas para el viaje y la compra, y a qué hora necesitas estar en casa?',
+        ),
+        userContext: context,
       );
     case _PlannerFollowUpKind.completed:
     case _PlannerFollowUpKind.rejected:
