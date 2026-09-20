@@ -4,7 +4,7 @@ export const PLANNER_EXPLANATION_RESPONSE_SCHEMA_VERSION = 1;
 export const PLANNER_EXPLANATION_SURFACE = "smart_planner_explanation";
 export const PLANNER_EXPLANATION_PROVIDER = "Anthropic";
 export const PLANNER_EXPLANATION_PROMPT_VERSION =
-  "smart-planner-explanation-v1";
+  "axiomara-now-engine-explanation-v2";
 export const PLANNER_EXPLANATION_REPLAY_WINDOW_SECONDS = 240;
 export const PLANNER_EXPLANATION_PROVIDER_RETENTION_STATUS =
   "verified_external_gate";
@@ -438,6 +438,7 @@ function assertSafeExplanation(
 ): void {
   const normalized = safetyNormalized(explanation);
   const unsafePatterns = [
+    /\bchronospark\b/,
     /\b(?:diagnos(?:e|ed|is|tic)|disorder|mental illness|medical condition)\b/,
     /\b(?:as your therapist|i am your therapist|therapy|treatment plan)\b/,
     /\b(?:you are|youre|you feel|you seem|you sound|you must be|you have)\b/,

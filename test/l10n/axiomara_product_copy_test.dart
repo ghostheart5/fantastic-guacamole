@@ -32,6 +32,8 @@ void main() {
     expect(spanish.realLifeSituations, hasLength(3));
     expect(spanish.checkInDisclosure, contains('vuelves a abrir'));
     expect(spanish.checkInDisclosure, contains('este dispositivo'));
+    expect(english.momentumValue('BUILDING'), 'BUILDING');
+    expect(spanish.momentumValue('BUILDING'), 'CRECIENDO');
   });
 
   test('all nine navigation surfaces use the new product language', () {

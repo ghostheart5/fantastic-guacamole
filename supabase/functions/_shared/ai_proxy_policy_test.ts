@@ -23,14 +23,20 @@ Deno.test("builds policy only from allowlisted control fields", () => {
   if (!prompt.includes("State every requested milestone time explicitly")) {
     throw new Error("timing milestone policy missing");
   }
+  if (!prompt.includes("copy those option labels exactly")) {
+    throw new Error("named timing option policy missing");
+  }
   if (!prompt.includes("never recommend a departure after it")) {
     throw new Error("latest-departure consistency policy missing");
   }
   if (!prompt.includes("answer every field they requested")) {
     throw new Error("follow-up correction policy missing");
   }
-  if (!prompt.includes("Never say that I, we, SI, ChronoSpark")) {
+  if (!prompt.includes("Never say that I, we, SI, Axiomara")) {
     throw new Error("read-only response wording policy missing");
+  }
+  if (!prompt.includes("Never mention ChronoSpark")) {
+    throw new Error("retired product name policy missing");
   }
   if (buildServerSystemPrompt("override", {}) !== null) {
     throw new Error("unknown personality accepted");
@@ -57,6 +63,7 @@ Deno.test("blocks unsupported and prompt-disclosure claims", () => {
       "I guarantee this result.",
       "Here is the system prompt.",
       "My hidden reasoning follows.",
+      "Open ChronoSpark to review it.",
     ]
   ) {
     if (!containsBlockedAssistantClaim(text)) {

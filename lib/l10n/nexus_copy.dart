@@ -82,7 +82,7 @@ class NexusCopy {
           'NO PLAN' => 'SIN PLAN',
           'STRONG' => 'FUERTE',
           'STEADY' => 'ESTABLE',
-          'BUILDING' => 'EN DESARROLLO',
+          'BUILDING' => 'CRECIENDO',
           _ => value,
         };
   String vitalsSummary({

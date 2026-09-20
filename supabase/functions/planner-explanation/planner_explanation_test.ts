@@ -530,8 +530,8 @@ Deno.test("unsafe provider claims and provenance are refunded", async () => {
       sourceClauseIds: ["plan_focus"],
     },
     {
-      explanation: "ChronoSpark scheduled the visible next step.",
-      sourceClauseIds: ["next_step"],
+      explanation: "ChronoSpark explains the visible focus.",
+      sourceClauseIds: ["plan_focus"],
     },
     {
       explanation: "You must do this immediately.",
