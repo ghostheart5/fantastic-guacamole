@@ -232,18 +232,37 @@ class SettingsScreen extends ConsumerWidget {
     final access = ref.watch(appAccessProvider);
     final walletAsync = ref.watch(aiCreditWalletProvider);
     final bool usesAiCredits = ref.watch(aiProxyAvailableProvider);
-    final String creditLabel = usesAiCredits ? 'AI credits' : 'Smart credits';
+    final String creditLabel = usesAiCredits
+        ? journeyText(context, 'AI credits', 'Créditos de IA')
+        : journeyText(context, 'Smart credits', 'Créditos inteligentes');
     final String creditValue = walletAsync.when(
-      data: (wallet) => '${wallet.balance} credits available',
-      loading: () => 'Loading balance',
-      error: (_, _) => 'Balance unavailable',
+      data: (wallet) => journeyText(
+        context,
+        '${wallet.balance} credits available',
+        '${wallet.balance} créditos disponibles',
+      ),
+      loading: () => journeyText(context, 'Loading balance', 'Cargando saldo'),
+      error: (_, _) =>
+          journeyText(context, 'Balance unavailable', 'Saldo no disponible'),
     );
     final String creditDetail = walletAsync.when(
-      data: (wallet) =>
-          '${wallet.balance - wallet.purchasedCredits} included · ${wallet.purchasedCredits} purchased (do not expire). '
-          'Monthly allowance: ${wallet.allowance} · resets ${MaterialLocalizations.of(context).formatMediumDate(wallet.resetAt)}',
-      loading: () => 'Reading this account’s credit wallet.',
-      error: (_, _) => 'Open credits to retry and review usage.',
+      data: (wallet) => journeyText(
+        context,
+        '${wallet.balance - wallet.purchasedCredits} included · ${wallet.purchasedCredits} purchased (do not expire). '
+            'Monthly allowance: ${wallet.allowance} · resets ${MaterialLocalizations.of(context).formatMediumDate(wallet.resetAt)}',
+        '${wallet.balance - wallet.purchasedCredits} incluidos · ${wallet.purchasedCredits} comprados (no caducan). '
+            'Asignación mensual: ${wallet.allowance} · se restablece el ${MaterialLocalizations.of(context).formatMediumDate(wallet.resetAt)}',
+      ),
+      loading: () => journeyText(
+        context,
+        'Reading this account’s credit wallet.',
+        'Consultando los créditos de esta cuenta.',
+      ),
+      error: (_, _) => journeyText(
+        context,
+        'Open credits to retry and review usage.',
+        'Abre Créditos para reintentar y revisar el uso.',
+      ),
     );
     final bool hasInternalAdvisorAccess = ref.watch(
       internalAdvisorAccessProvider,
@@ -495,8 +514,16 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsCategory(
                 title: journeyText(context, 'Data & account', 'Datos y cuenta'),
                 subtitle: Env.isLocalMode
-                    ? 'Local profile, device data, and privacy controls'
-                    : 'Cloud backup, sign out, local data, and account controls',
+                    ? journeyText(
+                        context,
+                        'Local profile, device data, and privacy controls',
+                        'Perfil local, datos del dispositivo y controles de privacidad',
+                      )
+                    : journeyText(
+                        context,
+                        'Cloud backup, sign out, local data, and account controls',
+                        'Copia en la nube, cierre de sesión, datos locales y controles de la cuenta',
+                      ),
                 icon: Icons.shield_outlined,
                 accent: AppColors.neonCyan,
                 child: Column(

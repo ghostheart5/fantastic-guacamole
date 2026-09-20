@@ -350,6 +350,55 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Spanish settings localize wallet and account descriptions', (
+    tester,
+  ) async {
+    useTallSurface(tester);
+    final container = createContainer(
+      billingAccess: true,
+      wallet: serverAiCreditWallet({
+        'tier': 'premium_monthly',
+        'balance': 399,
+        'purchased_credits': 100,
+        'period_credits': 300,
+        'period_ends_at': '2026-09-08T04:39:00Z',
+      }),
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          locale: Locale('es'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: <LocalizationsDelegate<dynamic>>[
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: SettingsScreen(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('399 créditos disponibles'), findsOneWidget);
+    expect(
+      find.textContaining('299 incluidos · 100 comprados (no caducan)'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Asignación mensual: 300'), findsOneWidget);
+    expect(
+      find.text(
+        'Copia en la nube, cierre de sesión, datos locales y controles de la cuenta',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('credits available'), findsNothing);
+    expect(find.textContaining('Cloud backup'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final entry in ['Manage plan', 'View credits']) {
     testWidgets('$entry preserves Settings for Android Back', (tester) async {
       useTallSurface(tester);

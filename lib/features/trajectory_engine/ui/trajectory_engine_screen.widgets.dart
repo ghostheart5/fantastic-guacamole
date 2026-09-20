@@ -15,6 +15,11 @@ class _TrajectoryStateNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String localizedDetail = _trajectoryStatusDetail(
+      context,
+      status,
+      detail,
+    );
     final bool needsAction =
         status == TrajectoryEngineStatus.error ||
         status == TrajectoryEngineStatus.empty;
@@ -66,7 +71,7 @@ class _TrajectoryStateNotice extends StatelessWidget {
     return Semantics(
       container: true,
       liveRegion: true,
-      label: '$label. $detail',
+      label: '$label. $localizedDetail',
       child: TemporalGlassSurface(
         width: double.infinity,
         padding: const EdgeInsets.all(12),
@@ -92,7 +97,7 @@ class _TrajectoryStateNotice extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    detail,
+                    localizedDetail,
                     style: const TextStyle(
                       color: Color(0xFFD8E2FF),
                       fontSize: 12,
@@ -127,6 +132,53 @@ class _TrajectoryStateNotice extends StatelessWidget {
       ),
     );
   }
+}
+
+String _trajectoryStatusDetail(
+  BuildContext context,
+  TrajectoryEngineStatus status,
+  String detail,
+) {
+  if (Localizations.localeOf(context).languageCode != 'es') return detail;
+  if (status == TrajectoryEngineStatus.learning) {
+    final String? remaining = RegExp(
+      r'Record (\d+) more',
+    ).firstMatch(detail)?.group(1);
+    return remaining == null
+        ? 'Registra más resultados de tareas antes de comparar caminos futuros. Todavía no se muestra un pronóstico personal.'
+        : 'Registra $remaining ${remaining == '1' ? 'resultado más' : 'resultados más'} de tareas antes de que Axiomara compare caminos futuros. Todavía no se muestra un pronóstico personal.';
+  }
+  return switch (detail) {
+    'Trajectory evidence could not be reconciled. No future conclusion is currently valid.' =>
+      'No se pudieron conciliar los datos de trayectoria. Ninguna conclusión futura es válida en este momento.',
+    'Building a revisioned baseline before comparing future paths.' =>
+      'Creando una línea base con revisión antes de comparar caminos futuros.',
+    'Add a task with an estimate and, when relevant, a goal or deadline before simulating consequences.' =>
+      'Añade una tarea con una estimación y, cuando corresponda, una meta o fecha límite antes de simular consecuencias.',
+    'No network interface is available. Using local evidence without network-backed freshness.' =>
+      'No hay conexión de red disponible. Se usan datos locales sin una comprobación reciente en la red.',
+    'Using local evidence while network interface availability is checked.' =>
+      'Se usan datos locales mientras se comprueba la conexión de red.',
+    'Future paths are conditional models. Working availability is not configured, so capacity risk, goal dates, and best-fit claims are withheld.' =>
+      'Los caminos futuros son modelos condicionales. La disponibilidad de trabajo no está configurada, por lo que se omiten el riesgo de capacidad, las fechas de las metas y las recomendaciones de mejor ajuste.',
+    'The scenario comparison is available, but one supporting intelligence source is incomplete.' =>
+      'La comparación de escenarios está disponible, pero una fuente de inteligencia de apoyo está incompleta.',
+    'Current baseline, Smart Planner plan, Timeline links, goals, and Progression signals are reconciled.' =>
+      'La línea base actual, el plan del Planificador Inteligente, los vínculos de la Línea de Tiempo, las metas y las señales de progreso están conciliados.',
+    _ => switch (status) {
+      TrajectoryEngineStatus.loading => 'Creando la línea base.',
+      TrajectoryEngineStatus.learning =>
+        'Aprendiendo tu patrón antes de mostrar un pronóstico personal.',
+      TrajectoryEngineStatus.ready => 'Los datos actuales están conciliados.',
+      TrajectoryEngineStatus.empty =>
+        'Añade una tarea con una estimación antes de simular consecuencias.',
+      TrajectoryEngineStatus.partial => 'Hay datos parciales disponibles.',
+      TrajectoryEngineStatus.offline =>
+        'Se usan datos locales mientras no haya conexión.',
+      TrajectoryEngineStatus.error =>
+        'No se pudieron conciliar los datos de trayectoria.',
+    },
+  };
 }
 
 class _BaselineCard extends StatelessWidget {

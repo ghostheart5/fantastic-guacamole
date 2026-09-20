@@ -132,12 +132,12 @@ class _EvidenceOriginBoundary extends StatelessWidget {
     final String energy = baseline.hasObservedEnergy
         ? (isSpanish ? 'registrada' : 'recorded')
         : isSpanish
-        ? '${baseline.energyOrigin.name}; no observada'
+        ? _spanishUnobservedEvidenceState(baseline.energyOrigin)
         : '${baseline.energyOrigin.name}; not observed';
     final String availability = baseline.hasObservedAvailability
         ? (isSpanish ? 'registrada' : 'recorded')
         : isSpanish
-        ? '${baseline.availabilityOrigin.name}; no observada'
+        ? _spanishUnobservedEvidenceState(baseline.availabilityOrigin)
         : '${baseline.availabilityOrigin.name}; not observed';
     return Text(
       isSpanish
@@ -151,6 +151,16 @@ class _EvidenceOriginBoundary extends StatelessWidget {
     );
   }
 }
+
+String _spanishUnobservedEvidenceState(PredictiveEvidenceOrigin origin) =>
+    switch (origin) {
+      PredictiveEvidenceOrigin.observed => 'registrada',
+      PredictiveEvidenceOrigin.estimated => 'estimada; no observada',
+      PredictiveEvidenceOrigin.inferred => 'inferida; no observada',
+      PredictiveEvidenceOrigin.legacy =>
+        'basada en datos heredados; no observada',
+      PredictiveEvidenceOrigin.unavailable => 'sin datos observados',
+    };
 
 class _ResultAssumptions extends StatelessWidget {
   const _ResultAssumptions({required this.assumptions});

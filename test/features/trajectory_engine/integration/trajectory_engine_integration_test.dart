@@ -30,6 +30,46 @@ void main() {
       expect(find.textContaining('Límite de evidencia:'), findsOneWidget);
     });
 
+    testWidgets('localizes partial evidence details and evidence origins', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(900, 1800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final TrajectoryEngineModel fixture = trajectoryTestEngineModel();
+      final TrajectoryComparison comparison = trajectoryTestComparison(
+        baseline: trajectoryTestBaseline(
+          energyOrigin: PredictiveEvidenceOrigin.estimated,
+          availabilityOrigin: PredictiveEvidenceOrigin.unavailable,
+        ),
+      );
+      await tester.pumpWidget(
+        _harness(
+          locale: const Locale('es'),
+          model: TrajectoryEngineModel(
+            status: TrajectoryEngineStatus.partial,
+            summary: fixture.summary,
+            momentum: fixture.momentum,
+            comparison: comparison,
+            statusDetail:
+                'Future paths are conditional models. Working availability is not configured, so capacity risk, goal dates, and best-fit claims are withheld.',
+            hasAvailableNetworkInterface: true,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.textContaining('Los caminos futuros son modelos condicionales'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Future paths are conditional'), findsNothing);
+      expect(
+        find.textContaining('disponibilidad está sin datos observados'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('unavailable'), findsNothing);
+    });
+
     testWidgets(
       'empty plan with cached comparison withholds forecasts and restores on an active plan',
       (tester) async {
