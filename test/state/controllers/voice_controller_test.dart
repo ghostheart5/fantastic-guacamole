@@ -94,6 +94,15 @@ void main() {
     },
   );
 
+  test('passes the requested app locale to native recognition', () async {
+    container = buildContainer();
+    final controller = container.read(voiceControllerProvider.notifier);
+
+    await controller.startListening(localeId: 'es');
+
+    expect(speech.localeIds, ['es']);
+  });
+
   test(
     'the plugin stopping on its own flips isListening back to false',
     () async {
@@ -525,6 +534,7 @@ class _FakeSpeechRecognitionService implements SpeechRecognitionService {
   final initializeEntered = Completer<void>();
   final listenEntered = Completer<void>();
   final sessions = <_SpeechSession>[];
+  final localeIds = <String?>[];
   bool _listening = false;
   void Function(String text, bool isFinal)? _onResult;
   void Function()? _onDone;
@@ -545,8 +555,10 @@ class _FakeSpeechRecognitionService implements SpeechRecognitionService {
   Future<void> listen({
     required void Function(String text, bool isFinal) onResult,
     required void Function() onDone,
+    String? localeId,
   }) async {
     listenCallCount++;
+    localeIds.add(localeId);
     _onResult = onResult;
     _onDone = onDone;
     sessions.add(_SpeechSession(onResult, onDone));

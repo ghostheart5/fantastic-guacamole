@@ -1120,7 +1120,9 @@ class _MicButton extends ConsumerWidget {
           final int lifecycleRevision = controller.lifecycleRevision;
           await startVoiceInputWithConsent(
             context: context,
-            onStart: controller.startListening,
+            onStart: () => controller.startListening(
+              localeId: Localizations.localeOf(context).toLanguageTag(),
+            ),
             consentStore: ref.read(voiceInputConsentStoreProvider),
             isCurrentRequest: () =>
                 controller.lifecycleRevision == lifecycleRevision,

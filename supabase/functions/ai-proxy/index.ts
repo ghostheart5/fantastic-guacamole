@@ -255,11 +255,16 @@ Deno.serve(async (req: Request) => {
         reserved.state === "completed" && cachedResponse &&
         typeof cachedResponse.message === "string"
       ) return jsonResponse(req, cachedResponse as ProxyResponse);
+      const state = String(reserved.state ?? "unknown");
+      const error = state === "denied" &&
+          typeof reserved.reason === "string" && reserved.reason.length > 0
+        ? reserved.reason
+        : `request_${state}`;
       return jsonResponse(req, {
         requestId,
         remainingCredits: Number(reserved.balance ?? 0),
-        error: `request_${reserved.state ?? "unknown"}`,
-      }, 409);
+        error,
+      }, state === "denied" ? aiReservationFailureStatus(error) : 409);
     }
     if (reserved.allowed !== true) {
       const reason = String(reserved.reason ?? "credits_unavailable");

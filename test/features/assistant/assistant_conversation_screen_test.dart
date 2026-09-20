@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -25,6 +26,7 @@ import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -415,6 +417,200 @@ void main() {
     }
     expect(finder, findsOneWidget);
   }
+
+  testWidgets('Spanish conversation dictation requests Spanish recognition', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final voice = _ConversationVoiceController();
+    final container = setup(
+      (_) async => throw StateError('Dictation must not send a request'),
+      voiceController: voice,
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          locale: const Locale('es'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            ChronoSparkLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Iniciar entrada de voz'));
+    await tester.pumpAndSettle();
+    final agree = find.text('Aceptar y dictar');
+    await tester.ensureVisible(agree);
+    await tester.tap(agree);
+    await tester.pumpAndSettle();
+
+    expect(voice.lastLocaleId, 'es');
+    expect(voice.starts, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final failure in <String, String>{
+    'daily_budget_exceeded': 'rolling daily AI safety limit',
+    'request_denied': 'denied before processing',
+    'provider_cost_budget_exceeded': 'service spending limit',
+    'rate_limit_exceeded': 'Too many AI requests',
+  }.entries) {
+    testWidgets(
+      '${failure.key} is visible, explains no charge and preserves retry',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final container = setup(
+          (body) async => (
+            status: body['quoteOnly'] == true ? 200 : 429,
+            data: body['quoteOnly'] == true
+                ? <String, dynamic>{
+                    'requestId': body['requestId'],
+                    'quote': <String, dynamic>{
+                      'credits': 4,
+                      'digest': 'fixture',
+                      'proof': 'fixture',
+                      'policy': 'fixture',
+                      'expiresAt': DateTime.now()
+                          .add(const Duration(minutes: 5))
+                          .millisecondsSinceEpoch,
+                    },
+                  }
+                : <String, dynamic>{'error': failure.key},
+          ),
+        );
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: ThemeData.dark(),
+              home: AssistantConversationScreen(
+                surface: ConversationSurface.si,
+                onLocalTools: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('conversation-input')),
+          'Keep this question for a safe retry.',
+        );
+        await tester.tap(find.byTooltip('Send to AI'));
+        await waitFor(tester, find.text('Get credit price'));
+        await tester.tap(find.text('Get credit price'));
+        await waitFor(tester, find.text('Use 4 credits'));
+        await tester.tap(find.text('Use 4 credits'));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('conversation-error')), findsOneWidget);
+        expect(find.textContaining(failure.value), findsOneWidget);
+        expect(find.textContaining('No credits were charged'), findsOneWidget);
+        expect(find.text('Retry same request'), findsOneWidget);
+        expect(
+          tester
+              .widget<TextField>(find.byKey(const Key('conversation-input')))
+              .controller!
+              .text,
+          'Keep this question for a safe retry.',
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'Spanish daily AI limit is readable at 150 percent and preserves retry',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final container = setup(
+        (body) async => (
+          status: body['quoteOnly'] == true ? 200 : 429,
+          data: body['quoteOnly'] == true
+              ? <String, dynamic>{
+                  'requestId': body['requestId'],
+                  'quote': <String, dynamic>{
+                    'credits': 4,
+                    'digest': 'fixture',
+                    'proof': 'fixture',
+                    'policy': 'fixture',
+                    'expiresAt': DateTime.now()
+                        .add(const Duration(minutes: 5))
+                        .millisecondsSinceEpoch,
+                  },
+                }
+              : <String, dynamic>{'error': 'daily_budget_exceeded'},
+        ),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: const Locale('es'),
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              ChronoSparkLocalizations.delegate,
+              ...GlobalMaterialLocalizations.delegates,
+            ],
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(1.5)),
+              child: child!,
+            ),
+            theme: ThemeData.dark(),
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: 'initial Spanish layout');
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Conserva esta pregunta para reintentar.',
+      );
+      await tester.tap(find.byTooltip('Enviar a IA'));
+      await waitFor(tester, find.text('Consultar precio'));
+      expect(tester.takeException(), isNull, reason: 'disclosure dialog');
+      await tester.tap(find.text('Consultar precio'));
+      await waitFor(tester, find.text('Usar 4 créditos'));
+      expect(tester.takeException(), isNull, reason: 'price dialog');
+      await tester.tap(find.text('Usar 4 créditos'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('conversation-error')), findsOneWidget);
+      expect(find.textContaining('límite diario móvil'), findsOneWidget);
+      expect(find.textContaining('No se cobraron créditos'), findsOneWidget);
+      expect(find.text('Reintentar la misma solicitud'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: 'failure presentation');
+    },
+  );
 
   test(
     'packet preserves an attached grocery task, note and clock fields',
@@ -1068,6 +1264,7 @@ final class _ConversationVoiceController extends VoiceController {
   int starts = 0;
   int stops = 0;
   int revision = 0;
+  String? lastLocaleId;
 
   @override
   int get lifecycleRevision => revision;
@@ -1080,8 +1277,9 @@ final class _ConversationVoiceController extends VoiceController {
   }
 
   @override
-  Future<void> startListening() async {
+  Future<void> startListening({String? localeId}) async {
     starts++;
+    lastLocaleId = localeId;
     state = state.copyWith(isAvailable: true, isListening: true);
   }
 

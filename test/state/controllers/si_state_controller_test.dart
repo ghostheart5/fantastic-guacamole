@@ -1,10 +1,68 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'fresh check-ins survive restart, remain account isolated and expire',
+    (tester) async {
+      final delegate = _MemoryPrefsStore();
+      var now = DateTime.utc(2026, 9, 20, 2);
+      ProviderContainer containerFor(String account) => ProviderContainer(
+        overrides: [
+          sharedPrefsStoreProvider.overrideWithValue(delegate),
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated(account),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenNotOwned,
+          ),
+          siStateClockProvider.overrideWithValue(() => now),
+        ],
+      );
+
+      var container = containerFor('owner-a');
+      container
+          .read(siStateProvider.notifier)
+          .replaceState(
+            energy: .7,
+            fatigue: .25,
+            energyOrigin: PredictiveEvidenceOrigin.observed,
+            fatigueOrigin: PredictiveEvidenceOrigin.observed,
+          );
+      await tester.pump();
+      await tester.pump();
+      container.dispose();
+
+      container = containerFor('owner-a');
+      expect(container.read(siStateProvider).energy, .7);
+      expect(container.read(siStateProvider).fatigue, .25);
+      expect(container.read(siStateProvider).hasObservedEnergy, isTrue);
+      expect(container.read(siStateProvider).hasObservedFatigue, isTrue);
+      container.dispose();
+
+      container = containerFor('owner-b');
+      expect(container.read(siStateProvider), const SIState());
+      container.dispose();
+
+      now = now.add(const Duration(hours: 2, seconds: 1));
+      container = containerFor('owner-a');
+      final expired = container.read(siStateProvider);
+      expect(expired.hasObservedEnergy, isFalse);
+      expect(expired.hasObservedFatigue, isFalse);
+      expect(expired.energy, .5);
+      expect(expired.fatigue, .5);
+      container.dispose();
+    },
+  );
+
   testWidgets(
     'check-ins expire independently and never become enduring state',
     (tester) async {
@@ -127,4 +185,23 @@ void main() {
     expect(state.energyOrigin, PredictiveEvidenceOrigin.unavailable);
     expect(state.fatigueOrigin, PredictiveEvidenceOrigin.unavailable);
   });
+}
+
+final class _MemoryPrefsStore implements SharedPrefsStore {
+  final Map<String, String> values = <String, String>{};
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  String? load(String key) => values[key];
+
+  @override
+  Future<void> save(String key, String value) async => values[key] = value;
+
+  @override
+  Future<void> delete(String key) async => values.remove(key);
+
+  @override
+  Future<void> clear() async => values.clear();
 }

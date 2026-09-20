@@ -133,6 +133,13 @@ void main() {
     expect(done, 1);
   });
 
+  test('the adapter forwards the selected app locale to Android', () async {
+    expect(await service.initialize(), isTrue);
+    await service.listen(onResult: (_, _) {}, onDone: () {}, localeId: 'es');
+
+    expect(platform.lastListenArguments?['localeId'], 'es');
+  });
+
   test('native error followed by repeated completion finishes once', () async {
     int done = 0;
     final results = <String>[];
@@ -490,6 +497,7 @@ class _SpeechPlatformHarness {
   Future<void>? listenGate;
   Future<void> Function()? onListen;
   Future<void> Function()? onStop;
+  Map<Object?, Object?>? lastListenArguments;
 
   void install() {
     messenger.setMockMethodCallHandler(channel, (call) async {
@@ -505,6 +513,9 @@ class _SpeechPlatformHarness {
         case 'initialize':
           return available;
         case 'listen':
+          lastListenArguments = Map<Object?, Object?>.from(
+            call.arguments as Map,
+          );
           if (!listenEntered.isCompleted) listenEntered.complete();
           await listenGate;
           if (startAccepted && emitListening) await status('listening');

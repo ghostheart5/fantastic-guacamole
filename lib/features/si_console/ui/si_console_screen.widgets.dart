@@ -1397,7 +1397,11 @@ class _InputBar extends ConsumerWidget {
                                 controller.lifecycleRevision;
                             await startVoiceInputWithConsent(
                               context: context,
-                              onStart: controller.startListening,
+                              onStart: () => controller.startListening(
+                                localeId: Localizations.localeOf(
+                                  context,
+                                ).toLanguageTag(),
+                              ),
                               consentStore: ref.read(
                                 voiceInputConsentStoreProvider,
                               ),

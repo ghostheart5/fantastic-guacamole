@@ -212,9 +212,7 @@ class _AssistantConversationScreenState
               const SizedBox(height: 12),
               SelectableText(prompt),
               ExpansionTile(
-                title: Text(
-                  copy('Included app context', 'Contexto de la app incluido'),
-                ),
+                title: Text(copy('Included app context', 'Contexto incluido')),
                 children: [SelectableText(_contextPreview(packet))],
               ),
             ],
@@ -295,12 +293,12 @@ class _AssistantConversationScreenState
       });
     } on ConversationFailure catch (error) {
       if (!current()) return;
-      setState(() => _error = _failureText(error.code));
+      _showFailure(_failureText(error.code));
       ref.invalidate(aiCreditWalletProvider);
     } on Object {
       if (!current()) return;
-      setState(
-        () => _error = copy(
+      _showFailure(
+        copy(
           'The AI service did not confirm a reply. Your question is retained. If you already confirmed payment, retry the same request to avoid a second charge.',
           'El servicio de IA no confirmó una respuesta. Tu pregunta se conserva. Si ya confirmaste el pago, reintenta la misma solicitud para evitar otro cobro.',
         ),
@@ -308,6 +306,20 @@ class _AssistantConversationScreenState
     } finally {
       if (current()) setState(() => _busy = false);
     }
+  }
+
+  void _showFailure(String message) {
+    setState(() => _error = message);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      unawaited(
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        ),
+      );
+    });
   }
 
   void _stopWaiting() {
@@ -343,6 +355,22 @@ class _AssistantConversationScreenState
     'request_timeout' => copy(
       'The AI service took too long to confirm a reply. Your question and the same priced request are retained. Retry the same request to avoid a second charge.',
       'El servicio de IA tardó demasiado en confirmar una respuesta. Se conservan tu pregunta y la misma solicitud con precio. Reintenta la misma solicitud para evitar un segundo cobro.',
+    ),
+    'daily_budget_exceeded' => copy(
+      'You reached the rolling daily AI safety limit. No credits were charged. Your question and priced request are retained; retry after the limit resets.',
+      'Alcanzaste el límite diario móvil de seguridad de IA. No se cobraron créditos. Se conservan tu pregunta y la solicitud con precio; reintenta cuando se restablezca el límite.',
+    ),
+    'provider_cost_budget_exceeded' => copy(
+      'AI requests are temporarily paused by the service spending limit. No credits were charged. Your question and priced request are retained for a later retry.',
+      'Las solicitudes de IA están pausadas temporalmente por el límite de gasto del servicio. No se cobraron créditos. Se conservan tu pregunta y la solicitud con precio para reintentarlo más tarde.',
+    ),
+    'rate_limit_exceeded' => copy(
+      'Too many AI requests arrived at once. No credits were charged. Your question is retained; wait a moment and try again.',
+      'Llegaron demasiadas solicitudes de IA al mismo tiempo. No se cobraron créditos. Tu pregunta se conserva; espera un momento e inténtalo de nuevo.',
+    ),
+    'request_denied' => copy(
+      'This AI request was denied before processing. No credits were charged. Your question is retained; start a new request or retry after the account limit changes.',
+      'Esta solicitud de IA fue rechazada antes de procesarse. No se cobraron créditos. Tu pregunta se conserva; inicia una solicitud nueva o reintenta cuando cambie el límite de la cuenta.',
     ),
     'authorization_changed' => copy(
       'Your account or AI consent changed. This request was stopped.',
@@ -908,23 +936,34 @@ class _AssistantConversationScreenState
                   if (_busy)
                     Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const CircularProgressIndicator(),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              copy(
-                                'Preparing your response…',
-                                'Preparando tu respuesta…',
+                          Row(
+                            children: [
+                              const SizedBox.square(
+                                dimension: 36,
+                                child: CircularProgressIndicator(),
                               ),
-                            ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Text(
+                                  copy(
+                                    'Preparing your response…',
+                                    'Preparando tu respuesta…',
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          TextButton(
-                            key: const Key('conversation-stop-waiting'),
-                            onPressed: _stopWaiting,
-                            child: Text(
-                              copy('Stop waiting', 'Dejar de esperar'),
+                          Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: TextButton(
+                              key: const Key('conversation-stop-waiting'),
+                              onPressed: _stopWaiting,
+                              child: Text(
+                                copy('Stop waiting', 'Dejar de esperar'),
+                              ),
                             ),
                           ),
                         ],
@@ -932,6 +971,7 @@ class _AssistantConversationScreenState
                     ),
                   if (_error != null)
                     Padding(
+                      key: const Key('conversation-error'),
                       padding: const EdgeInsets.all(12),
                       child: Text(
                         _error!,
@@ -1029,7 +1069,11 @@ class _AssistantConversationScreenState
                                   _voiceController.lifecycleRevision;
                               await startVoiceInputWithConsent(
                                 context: context,
-                                onStart: _voiceController.startListening,
+                                onStart: () => _voiceController.startListening(
+                                  localeId: Localizations.localeOf(
+                                    context,
+                                  ).toLanguageTag(),
+                                ),
                                 consentStore: ref.read(
                                   voiceInputConsentStoreProvider,
                                 ),

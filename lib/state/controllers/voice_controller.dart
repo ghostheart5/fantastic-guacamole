@@ -115,7 +115,7 @@ class VoiceController extends Notifier<VoiceState> {
   /// box with the transcript. Recognized text is never auto-sent or routed as
   /// an action — the caller reads [VoiceState.recognizedText] and the user
   /// must explicitly tap send.
-  Future<void> startListening() async {
+  Future<void> startListening({String? localeId}) async {
     if (_disposed ||
         _starting ||
         _stopPending != null ||
@@ -190,6 +190,7 @@ class VoiceController extends Notifier<VoiceState> {
             if (!_isCurrent(generation) || !state.isListening) return;
             state = state.copyWith(isListening: false);
           },
+          localeId: localeId,
         );
       } finally {
         listenSettled.complete();

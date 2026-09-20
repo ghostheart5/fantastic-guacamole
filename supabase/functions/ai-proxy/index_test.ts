@@ -42,6 +42,59 @@ Deno.test("served AI GET reports the configured cohort without transport, quotes
   }
 });
 
+Deno.test("duplicate denied AI request preserves its original budget reason", async () => {
+  if (!handler) throw new Error("handler was not registered");
+  const originalFetch = globalThis.fetch;
+  let providerCalls = 0;
+  globalThis.fetch = ((url) => {
+    const path = String(url);
+    if (path.endsWith("/auth/v1/user")) {
+      return Promise.resolve(
+        Response.json({ id: "11111111-1111-4111-8111-111111111111" }),
+      );
+    }
+    if (path.endsWith("/consume_backend_rate_limit")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
+    if (path.endsWith("/reserve_ai_usage")) {
+      return Promise.resolve(Response.json({
+        allowed: false,
+        duplicate: true,
+        state: "denied",
+        reason: "daily_budget_exceeded",
+        balance: 42,
+      }));
+    }
+    if (path === "https://api.anthropic.com/v1/messages") providerCalls++;
+    throw new Error("unexpected transport target");
+  }) as typeof fetch;
+  try {
+    const input = {
+      requestId: "synthetic-denied-duplicate",
+      prompt: "Plan a fictional errand.",
+      personality: "planner",
+      context: {},
+      allowExternalAi: true,
+    };
+    const request = (extra: Record<string, unknown>) =>
+      new Request("https://local.example/ai-proxy", {
+        method: "POST",
+        headers: { authorization: "Bearer synthetic-session" },
+        body: JSON.stringify({ ...input, ...extra }),
+      });
+    const quoted = await handler(request({ quoteOnly: true }));
+    const { quote } = await quoted.json();
+    const response = await handler(request({ quote }));
+    const body = await response.json();
+    if (
+      response.status !== 429 || body.error !== "daily_budget_exceeded" ||
+      body.remainingCredits !== 42 || providerCalls !== 0
+    ) throw new Error("duplicate denial lost its original reason");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 for (
   const failure of [
     401,
