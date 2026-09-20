@@ -112,9 +112,9 @@ class _PlanAndCreditsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text(
-            'PLAN & CREDITS',
-            style: TextStyle(
+          Text(
+            journeyText(context, 'PLAN & CREDITS', 'PLANES Y CRÉDITOS'),
+            style: const TextStyle(
               color: AppColors.neonCyan,
               fontSize: 10,
               fontWeight: FontWeight.w900,
@@ -122,9 +122,9 @@ class _PlanAndCreditsCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 5),
-          const Text(
-            'Access and usage',
-            style: TextStyle(
+          Text(
+            journeyText(context, 'Access and usage', 'Acceso y uso'),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.w900,
@@ -135,10 +135,14 @@ class _PlanAndCreditsCard extends StatelessWidget {
             key: const Key('settings_manage_plan'),
             icon: Icons.workspace_premium_rounded,
             accent: AppColors.memoryAmber,
-            eyebrow: 'SUBSCRIPTION',
+            eyebrow: journeyText(context, 'SUBSCRIPTION', 'SUSCRIPCIÓN'),
             title: planStatus,
             subtitle: planDetail,
-            actionLabel: 'Manage plan',
+            actionLabel: journeyText(
+              context,
+              'Manage plan',
+              'Administrar plan',
+            ),
             onTap: onOpenPlan,
           ),
           const SizedBox(height: 9),
@@ -149,7 +153,7 @@ class _PlanAndCreditsCard extends StatelessWidget {
             eyebrow: creditLabel.toUpperCase(),
             title: creditValue,
             subtitle: creditDetail,
-            actionLabel: 'View credits',
+            actionLabel: journeyText(context, 'View credits', 'Ver créditos'),
             onTap: onOpenCredits,
           ),
         ],

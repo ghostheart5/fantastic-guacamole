@@ -538,7 +538,7 @@ void main() {
       expect(find.text('SALDO DE CRÉDITOS'), findsOneWidget);
       expect(find.text('CRÉDITOS DISPONIBLES'), findsOneWidget);
       expect(find.text('NIVEL'), findsOneWidget);
-      expect(find.text('SE RENUEVA'), findsOneWidget);
+      expect(find.text('RECARGA DEL SALDO'), findsOneWidget);
       expect(find.text('NO DISPONIBLE'), findsOneWidget);
       expect(find.text('Quedan pocos créditos de IA'), findsOneWidget);
       expect(

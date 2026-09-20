@@ -93,8 +93,6 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     String? description,
     DateTime? targetDate,
   }) async {
-    final operation = _GoalAccountOperation.capture(ref);
-    operation.requireCurrent(ref);
     final goal = GoalEntity(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       title: title.trim(),
@@ -104,6 +102,17 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
           : description?.trim(),
       targetDate: targetDate,
     );
+    return addEntity(goal);
+  }
+
+  /// Saves a fully formed goal through the canonical goal lifecycle.
+  ///
+  /// Creator supplies stable entity IDs for its confirmation ledger, so it
+  /// must use this path instead of saving directly and bypassing progression,
+  /// timeline, reminders, planning, and activity updates.
+  Future<GoalMutationResult> addEntity(GoalEntity goal) async {
+    final operation = _GoalAccountOperation.capture(ref);
+    operation.requireCurrent(ref);
     await ref.read(createGoalUseCaseProvider).call(goal);
     if (!operation.isCurrent(ref)) return const GoalMutationResult.stale();
     state = [goal, ...state];
@@ -224,7 +233,9 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     required _GoalAction action,
     required List<String> warnings,
   }) async {
-    final DateTime now = DateTime.now();
+    final DateTime now = action == _GoalAction.created
+        ? goal.createdAt
+        : DateTime.now();
     final String actionName = action.name;
     final String detailPrefix = switch (action) {
       _GoalAction.created => 'Goal created',
@@ -247,13 +258,14 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
           .read(timelineActionsProvider)
           .addMirroredEvent(
             TimelineEventEntity(
-              id: 'timeline-goal-$actionName-${now.microsecondsSinceEpoch}',
+              id: 'timeline-goal-$actionName-${goal.id}',
               type: action == _GoalAction.completed
                   ? TimelineEventType.goalComplete
                   : TimelineEventType.reflection,
               title: detailPrefix,
               detail: goal.title,
               timestamp: now,
+              relatedId: goal.id,
             ),
             shouldContinue: () => operation.isCurrent(ref),
           );

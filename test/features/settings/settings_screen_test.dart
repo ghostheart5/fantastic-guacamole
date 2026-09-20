@@ -224,9 +224,12 @@ void main() {
         ),
       );
       await tester.pump(const Duration(milliseconds: 300));
-      await tester.ensureVisible(find.text('Help & legal'));
+      final String helpLabel = locale.languageCode == 'es'
+          ? 'Ayuda y aspectos legales'
+          : 'Help & legal';
+      await tester.ensureVisible(find.text(helpLabel));
       await tester.pump();
-      await tester.tap(find.text('Help & legal').hitTestable());
+      await tester.tap(find.text(helpLabel).hitTestable());
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       final context = tester.element(find.byType(SettingsScreen));
@@ -513,7 +516,7 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 200));
-    await tester.tap(find.text('Planning & guidance'));
+    await tester.tap(find.text('Planificación y orientación'));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.scrollUntilVisible(
       find.text('Asistencia de IA externa'),
@@ -678,11 +681,11 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 200));
     await tester.scrollUntilVisible(
-      find.text('Planning & guidance'),
+      find.text('Planificación y orientación'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    await invokeNavTile(tester, 'Planning & guidance');
+    await invokeNavTile(tester, 'Planificación y orientación');
 
     expect(find.text('CONTEXTO PERSONAL'), findsOneWidget);
     expect(find.text('Añadir contexto personal'), findsOneWidget);

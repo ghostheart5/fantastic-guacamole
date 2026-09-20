@@ -9,12 +9,27 @@ import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_eng
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../helpers/trajectory_test_fixture.dart';
 
 void main() {
   group('Trajectory Engine integration', () {
+    testWidgets('localizes the observed Spanish overview', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(900, 1800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_harness(locale: const Locale('es')));
+      await tester.pump();
+
+      expect(find.text('DIRECCIÓN ACTUAL'), findsOneWidget);
+      expect(find.text('Requiere atención'), findsOneWidget);
+      expect(find.text('CARGA MODELADA'), findsOneWidget);
+      expect(find.text('IMPULSO'), findsWidgets);
+      expect(find.text('ENERGÍA'), findsWidgets);
+      expect(find.textContaining('Límite de evidencia:'), findsOneWidget);
+    });
+
     testWidgets(
       'empty plan with cached comparison withholds forecasts and restores on an active plan',
       (tester) async {
@@ -226,6 +241,7 @@ void main() {
 Widget _harness({
   TrajectoryEngineModel? model,
   TrajectoryForecastLedgerRepository? repository,
+  Locale locale = const Locale('en'),
 }) => ProviderScope(
   overrides: [
     trajectoryEngineModelProvider.overrideWithValue(
@@ -245,7 +261,16 @@ Widget _harness({
     if (repository != null)
       trajectoryForecastLedgerRepositoryProvider.overrideWithValue(repository),
   ],
-  child: const MaterialApp(home: TrajectoryEngineScreen()),
+  child: MaterialApp(
+    locale: locale,
+    supportedLocales: const <Locale>[Locale('en'), Locale('es')],
+    localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    home: const TrajectoryEngineScreen(),
+  ),
 );
 
 class _MemoryStore implements SharedPrefsStore {

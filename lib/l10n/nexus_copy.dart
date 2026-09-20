@@ -215,8 +215,8 @@ class NexusCopy {
       ? '¿Cuánto cansancio sientes ahora? La claridad se estima restando a 100% el cansancio que indicas; no es una evaluación cognitiva.'
       : 'How fatigued do you feel right now? Clarity is an estimate of 100% minus your reported fatigue, not a cognitive assessment.';
   String get checkInDisclosure => isSpanish
-      ? 'Opcional. Se usa para planificar durante un máximo de dos horas mientras la aplicación permanece abierta. Puedes borrarlo cuando quieras.'
-      : 'Optional. Used for planning for up to two hours while the app stays open. You can clear it at any time.';
+      ? 'Opcional. Se guarda en este dispositivo y se usa para planificar durante un máximo de dos horas, incluso si vuelves a abrir la aplicación. Puedes borrarlo cuando quieras.'
+      : 'Optional. Saved on this device and used for planning for up to two hours, including after you reopen the app. You can clear it at any time.';
   String get notChecked => isSpanish ? 'Sin registrar' : 'Not checked';
   String reportLabel(bool isEnergy) => isEnergy
       ? (isSpanish ? 'Energía' : 'Energy')

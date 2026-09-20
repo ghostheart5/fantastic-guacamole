@@ -11,19 +11,27 @@ class _TrajectoryOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
     final String direction = baseline.pressure >= 80
-        ? 'High pressure'
+        ? (isSpanish ? 'Presión alta' : 'High pressure')
         : baseline.pressure >= 50
-        ? 'Needs attention'
-        : 'Steady direction';
+        ? (isSpanish ? 'Requiere atención' : 'Needs attention')
+        : (isSpanish ? 'Dirección estable' : 'Steady direction');
     final Color accent = baseline.pressure >= 80
         ? const Color(0xFFFF6B88)
         : baseline.pressure >= 50
         ? const Color(0xFFFFC857)
         : const Color(0xFF6EE7F9);
-    final String momentumBand = trajectoryMomentumBand(baseline.momentum);
+    final String momentumBand = isSpanish
+        ? switch (trajectoryMomentumBand(baseline.momentum)) {
+            'BUILDING' => 'CRECIENDO',
+            'STEADY' => 'ESTABLE',
+            'FADING' => 'DISMINUYENDO',
+            final String value => value,
+          }
+        : trajectoryMomentumBand(baseline.momentum);
     return _Panel(
-      title: 'Current direction',
+      title: isSpanish ? 'Dirección actual' : 'Current direction',
       accent: accent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,7 +65,9 @@ class _TrajectoryOverviewCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${baseline.tasks.length} active commitment${baseline.tasks.length == 1 ? '' : 's'} across the next $horizonDays days.',
+                      isSpanish
+                          ? '${baseline.tasks.length} ${baseline.tasks.length == 1 ? 'compromiso activo' : 'compromisos activos'} durante los próximos $horizonDays días.'
+                          : '${baseline.tasks.length} active commitment${baseline.tasks.length == 1 ? '' : 's'} across the next $horizonDays days.',
                       style: const TextStyle(
                         color: Color(0xFFD8E2FF),
                         fontSize: 12,
@@ -74,19 +84,19 @@ class _TrajectoryOverviewCard extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: _OverviewMetric(
-                  label: 'MODELED LOAD',
+                  label: isSpanish ? 'CARGA MODELADA' : 'MODELED LOAD',
                   value: baseline.pressure >= 80
-                      ? 'HIGH'
+                      ? (isSpanish ? 'ALTA' : 'HIGH')
                       : baseline.pressure >= 50
-                      ? 'WATCH'
-                      : 'LOW',
+                      ? (isSpanish ? 'VIGILAR' : 'WATCH')
+                      : (isSpanish ? 'BAJA' : 'LOW'),
                   accent: accent,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _OverviewMetric(
-                  label: 'MOMENTUM',
+                  label: isSpanish ? 'IMPULSO' : 'MOMENTUM',
                   value: momentumBand,
                   accent: const Color(0xFF6EE7F9),
                 ),
@@ -94,10 +104,10 @@ class _TrajectoryOverviewCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _OverviewMetric(
-                  label: 'ENERGY',
+                  label: isSpanish ? 'ENERGÍA' : 'ENERGY',
                   value: baseline.hasObservedEnergy
                       ? '${baseline.energy}%'
-                      : 'NOT SET',
+                      : (isSpanish ? 'SIN REGISTRO' : 'NOT SET'),
                   accent: const Color(0xFFA78BFA),
                 ),
               ),
@@ -118,15 +128,21 @@ class _EvidenceOriginBoundary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
     final String energy = baseline.hasObservedEnergy
-        ? 'recorded'
+        ? (isSpanish ? 'registrada' : 'recorded')
+        : isSpanish
+        ? '${baseline.energyOrigin.name}; no observada'
         : '${baseline.energyOrigin.name}; not observed';
     final String availability = baseline.hasObservedAvailability
-        ? 'recorded'
+        ? (isSpanish ? 'registrada' : 'recorded')
+        : isSpanish
+        ? '${baseline.availabilityOrigin.name}; no observada'
         : '${baseline.availabilityOrigin.name}; not observed';
     return Text(
-      'Evidence boundary: energy is $energy; availability is $availability. '
-      'Task durations remain estimates and deadline effects remain projections.',
+      isSpanish
+          ? 'Límite de evidencia: la energía está $energy; la disponibilidad está $availability. Las duraciones de las tareas siguen siendo estimaciones y los efectos de las fechas límite siguen siendo proyecciones.'
+          : 'Evidence boundary: energy is $energy; availability is $availability. Task durations remain estimates and deadline effects remain projections.',
       style: const TextStyle(
         color: Color(0xFFB8C7E8),
         fontSize: 11,

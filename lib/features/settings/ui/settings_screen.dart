@@ -296,9 +296,17 @@ class SettingsScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(20),
             children: [
               TemporalScreenHeader(
-                title: 'SETTINGS',
-                subtitle: 'Preferences, guidance, and account control.',
-                eyebrow: 'PREFERENCES & ACCOUNT',
+                title: journeyText(context, 'SETTINGS', 'AJUSTES'),
+                subtitle: journeyText(
+                  context,
+                  'Preferences, guidance, and account control.',
+                  'Preferencias, orientación y control de la cuenta.',
+                ),
+                eyebrow: journeyText(
+                  context,
+                  'PREFERENCES & ACCOUNT',
+                  'PREFERENCIAS Y CUENTA',
+                ),
                 onBack: () {
                   if (Navigator.canPop(context)) {
                     context.pop();
@@ -330,8 +338,16 @@ class SettingsScreen extends ConsumerWidget {
               ],
 
               _SettingsCategory(
-                title: 'Appearance & permissions',
-                subtitle: 'Theme, sound, alerts, and microphone access',
+                title: journeyText(
+                  context,
+                  'Appearance & permissions',
+                  'Apariencia y permisos',
+                ),
+                subtitle: journeyText(
+                  context,
+                  'Theme, sound, alerts, and microphone access',
+                  'Tema, sonido, alertas y acceso al micrófono',
+                ),
                 icon: Icons.tune_rounded,
                 accent: AppColors.neonCyan,
                 child: _Section(
@@ -441,9 +457,16 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 12),
 
               _SettingsCategory(
-                title: 'Planning & guidance',
-                subtitle:
-                    'Context, reminders, planning preferences, memory, and tutorials',
+                title: journeyText(
+                  context,
+                  'Planning & guidance',
+                  'Planificación y orientación',
+                ),
+                subtitle: journeyText(
+                  context,
+                  'Context, reminders, planning preferences, memory, and tutorials',
+                  'Contexto, recordatorios, preferencias de planificación, memoria y tutoriales',
+                ),
                 icon: Icons.auto_awesome_rounded,
                 accent: AppColors.neonViolet,
                 initiallyExpanded: openContextFromNexus,
@@ -470,7 +493,7 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 12),
 
               _SettingsCategory(
-                title: 'Data & account',
+                title: journeyText(context, 'Data & account', 'Datos y cuenta'),
                 subtitle: Env.isLocalMode
                     ? 'Local profile, device data, and privacy controls'
                     : 'Cloud backup, sign out, local data, and account controls',
@@ -599,8 +622,16 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 12),
 
               _SettingsCategory(
-                title: 'Help & legal',
-                subtitle: 'Support, privacy, terms, and account assistance',
+                title: journeyText(
+                  context,
+                  'Help & legal',
+                  'Ayuda y aspectos legales',
+                ),
+                subtitle: journeyText(
+                  context,
+                  'Support, privacy, terms, and account assistance',
+                  'Soporte, privacidad, términos y ayuda con la cuenta',
+                ),
                 icon: Icons.help_outline_rounded,
                 accent: AppColors.memoryAmber,
                 child: _Section(
