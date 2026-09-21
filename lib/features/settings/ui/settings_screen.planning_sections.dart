@@ -400,6 +400,16 @@ class _PersonalizationSection extends ConsumerWidget {
       personalizationDecisionProvider('settings'),
     );
     final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
+    final List<String> spanishDecisionSignals = <String>[
+      if (profile.goalCategory.isNotEmpty) 'categoría de meta',
+      'estilo ${_planningStyleLabel(profile.planningStyle.name, isSpanish: true).toLowerCase()}',
+      'prioridad ${_priorityStrategyLabel(profile.priorityStrategy.name, isSpanish: true).toLowerCase()}',
+      if (patterns.completed + patterns.skipped > 0)
+        'historial de finalización (${(patterns.completionRate * 100).round()}%)',
+    ];
+    final String localizedDecisionExplanation = isSpanish
+        ? 'Usa ${spanishDecisionSignals.join(', ')}. Puedes cambiar estas opciones en Ajustes.'
+        : decision.explanation;
 
     return _Section(
       label: journeyText(
@@ -554,7 +564,7 @@ class _PersonalizationSection extends ConsumerWidget {
               'Why suggestions appear',
               'Por qué aparecen las sugerencias',
             ),
-            subtitle: decision.explanation,
+            subtitle: localizedDecisionExplanation,
           ),
           _NeonStatusTile(
             title: journeyText(
@@ -725,9 +735,11 @@ class _LearningLedgerSection extends ConsumerWidget {
                 .map(
                   (LearnedPreferencePattern pattern) => _NeonStatusTile(
                     title:
-                        '${_learningLabel(pattern.surface)} · ${pattern.situation}',
-                    subtitle:
-                        '${pattern.confidence.name} confidence · ${pattern.explanation}',
+                        '${_learningLabel(pattern.surface, isSpanish: ChronoSparkLocalizations.of(context).isSpanish)} · ${_learningGeneratedText(pattern.situation, isSpanish: ChronoSparkLocalizations.of(context).isSpanish)}',
+                    subtitle: _learningPatternDetail(
+                      pattern,
+                      isSpanish: ChronoSparkLocalizations.of(context).isSpanish,
+                    ),
                   ),
                 ),
           if (recent.isNotEmpty) ...<Widget>[
@@ -751,7 +763,7 @@ class _LearningLedgerSection extends ConsumerWidget {
               (DecisionOutcomeEntity outcome) => ListTile(
                 key: ValueKey<String>('learning-ledger-${outcome.id}'),
                 title: Text(
-                  '${_learningLabel(outcome.surface)} · ${outcome.kind.name}',
+                  '${_learningLabel(outcome.surface, isSpanish: ChronoSparkLocalizations.of(context).isSpanish)} · ${ChronoSparkLocalizations.of(context).isSpanish ? _learningLabel(outcome.kind.name, isSpanish: true) : outcome.kind.name}',
                   style: const TextStyle(color: Colors.white, fontSize: 14),
                 ),
                 subtitle: Text(
@@ -857,28 +869,82 @@ class _LearningLedgerSection extends ConsumerWidget {
   }
 }
 
-String _learningLabel(String value) => value
-    .split('_')
-    .where((String part) => part.isNotEmpty)
-    .map((String part) => '${part[0].toUpperCase()}${part.substring(1)}')
-    .join(' ');
+String _learningLabel(String value, {required bool isSpanish}) {
+  final String normalized = value.replaceAll('-', '_');
+  if (isSpanish) {
+    final String? translated = <String, String>{
+      'task_lifecycle': 'Ciclo de la tarea',
+      'task_execution': 'ejecución de tareas',
+      'daily_rhythm': 'Ritmo diario',
+      'daily_rhythm_occurrence': 'aparición del ritmo diario',
+      'smart_planner': 'Planificador Inteligente',
+      'shown': 'mostrada',
+      'accepted': 'aceptada',
+      'rejected': 'rechazada',
+      'completed': 'completada',
+      'skipped': 'omitida',
+    }[normalized];
+    if (translated != null) return translated;
+  }
+  return normalized
+      .split('_')
+      .where((String part) => part.isNotEmpty)
+      .map((String part) => '${part[0].toUpperCase()}${part.substring(1)}')
+      .join(' ');
+}
+
+String _learningGeneratedText(String value, {required bool isSpanish}) {
+  if (!isSpanish) return value;
+  return switch (value) {
+    'task execution' => 'ejecución de tareas',
+    'daily rhythm occurrence' => 'aparición del ritmo diario',
+    'bounded planning choice' => 'elección de planificación limitada',
+    'Completed the task.' => 'Completó la tarea.',
+    'minimum' => 'mínima',
+    _ => value,
+  };
+}
+
+String _learningPatternDetail(
+  LearnedPreferencePattern pattern, {
+  required bool isSpanish,
+}) {
+  if (!isSpanish) {
+    return '${pattern.confidence.name} confidence · ${pattern.explanation}';
+  }
+  final String confidence = switch (pattern.confidence.name) {
+    'established' => 'confianza consolidada',
+    'developing' => 'confianza en desarrollo',
+    'low' => 'confianza baja',
+    final String value => 'confianza $value',
+  };
+  final RegExpMatch? helped = RegExp(
+    r'^(\d+)% of recent weighted outcomes helped\.$',
+  ).firstMatch(pattern.explanation);
+  final String explanation = helped == null
+      ? pattern.explanation
+      : '${helped.group(1)}% de los resultados recientes ponderados ayudaron.';
+  return '$confidence · $explanation';
+}
 
 String _learningObservationDetail(
   DecisionOutcomeEntity outcome, {
   required bool isSpanish,
 }) {
   final List<String> details = <String>[
-    outcome.situation ??
-        (outcome.subjectId == null
-            ? (isSpanish ? 'orientación general' : 'general guidance')
-            : (isSpanish ? 'orientación de tareas' : 'task guidance')),
+    outcome.situation == null
+        ? (outcome.subjectId == null
+              ? (isSpanish ? 'orientación general' : 'general guidance')
+              : (isSpanish ? 'orientación de tareas' : 'task guidance'))
+        : _learningGeneratedText(outcome.situation!, isSpanish: isSpanish),
     if (outcome.optionChosen != null)
-      '${isSpanish ? 'opción' : 'option'} ${outcome.optionChosen}',
+      '${isSpanish ? 'opción' : 'option'} ${_learningGeneratedText(outcome.optionChosen!, isSpanish: isSpanish)}',
     if (outcome.optionSizeMinutes != null)
       '${outcome.optionSizeMinutes} ${isSpanish ? 'minutos' : 'minutes'}',
     if (outcome.deferralReason != null)
       '${isSpanish ? 'aplazada' : 'deferred'}: ${outcome.deferralReason}',
-    if (outcome.completionResult != null) outcome.completionResult!,
+    if (outcome.completionResult != null)
+      _learningGeneratedText(outcome.completionResult!, isSpanish: isSpanish),
     if (outcome.correction != null)
       '${isSpanish ? 'corregida a' : 'corrected to'} ${outcome.correction}',
     if (outcome.recommendationHelped != null)

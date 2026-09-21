@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_con
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_engine_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +29,20 @@ void main() {
       expect(find.text('IMPULSO'), findsWidgets);
       expect(find.text('ENERGÍA'), findsWidgets);
       expect(find.textContaining('Límite de evidencia:'), findsOneWidget);
+      await tester.drag(find.byType(ListView), const Offset(0, -1100));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('RAMAS FUTURAS'), findsWidgets);
+      expect(
+        find.text(
+          'Selecciona un camino para revisar sus consecuencias proyectadas.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('CAMINO MODELADO'), findsWidgets);
+      expect(find.text('FUTURE BRANCHES'), findsNothing);
+      expect(find.textContaining('MODELED PATH'), findsNothing);
+      expect(find.text('SUPUESTOS DE ESTE RESULTADO'), findsWidgets);
+      expect(find.text('ASSUMPTIONS FOR THIS RESULT'), findsNothing);
     });
 
     testWidgets('localizes partial evidence details and evidence origins', (
@@ -305,6 +320,7 @@ Widget _harness({
     locale: locale,
     supportedLocales: const <Locale>[Locale('en'), Locale('es')],
     localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+      ChronoSparkLocalizations.delegate,
       GlobalMaterialLocalizations.delegate,
       GlobalWidgetsLocalizations.delegate,
       GlobalCupertinoLocalizations.delegate,

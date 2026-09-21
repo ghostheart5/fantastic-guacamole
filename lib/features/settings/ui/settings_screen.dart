@@ -232,6 +232,14 @@ class SettingsScreen extends ConsumerWidget {
     final themeAsync = ref.watch(currentThemeProvider);
     final bool isDarkMode = themeAsync.asData?.value.isDark ?? true;
     final access = ref.watch(appAccessProvider);
+    final String localizedPlanStatus = _localizedPlanStatus(
+      context,
+      access.subscriptionStatusLabel,
+    );
+    final String localizedPlanDetail = _localizedPlanDetail(
+      context,
+      access.subscriptionStatusDetail,
+    );
     final walletAsync = ref.watch(aiCreditWalletProvider);
     final bool usesAiCredits = ref.watch(aiProxyAvailableProvider);
     final String creditLabel = usesAiCredits
@@ -331,13 +339,8 @@ class SettingsScreen extends ConsumerWidget {
               if (Env.subscriptionsEnabled ||
                   access.internalBillingTest) ...<Widget>[
                 _PlanAndCreditsCard(
-                  planStatus: access.subscriptionStatusLabel,
-                  planDetail: access.internalCreditTest
-                      ? copy(
-                          access.subscriptionStatusDetail,
-                          'Pruebas de licencia de Google Play. Usa un método de pago de prueba. El Planificador Inteligente y la Consola SI pueden usar IA externa después de que revises el contexto y confirmes el precio en créditos. Las herramientas locales siguen disponibles.',
-                        )
-                      : access.subscriptionStatusDetail,
+                  planStatus: localizedPlanStatus,
+                  planDetail: localizedPlanDetail,
                   creditLabel: creditLabel,
                   creditValue: creditValue,
                   creditDetail: creditDetail,

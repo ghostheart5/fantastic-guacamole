@@ -187,8 +187,16 @@ class _TrajectoryEngineScreenState
                   ],
                   const SizedBox(height: 12),
                   _DisclosurePanel(
-                    title: 'Try a custom what-if',
-                    subtitle: 'Optional simulation tools',
+                    title: journeyText(
+                      context,
+                      'Try a custom what-if',
+                      'Probar un escenario hipotético',
+                    ),
+                    subtitle: journeyText(
+                      context,
+                      'Optional simulation tools',
+                      'Herramientas opcionales de simulación',
+                    ),
                     child: _CustomScenarioComposer(
                       baseline: value.baseline,
                       horizonDays: horizonDays,
@@ -214,8 +222,16 @@ class _TrajectoryEngineScreenState
                   ),
                   const SizedBox(height: 12),
                   _DisclosurePanel(
-                    title: 'Evidence and model details',
-                    subtitle: 'Baseline, monitoring, and forecast sources',
+                    title: journeyText(
+                      context,
+                      'Evidence and model details',
+                      'Datos y detalles del modelo',
+                    ),
+                    subtitle: journeyText(
+                      context,
+                      'Baseline, monitoring, and forecast sources',
+                      'Línea base, seguimiento y fuentes de previsión',
+                    ),
                     child: Column(
                       children: <Widget>[
                         if (model.decisionIntelligence
@@ -223,7 +239,11 @@ class _TrajectoryEngineScreenState
                                 intelligence) ...<Widget>[
                           DecisionIntelligenceCard(
                             intelligence: intelligence,
-                            title: 'Decision context',
+                            title: journeyText(
+                              context,
+                              'Decision context',
+                              'Contexto de la decisión',
+                            ),
                             compact: true,
                             onAction: () => _openDecisionAction(
                               intelligence.decision.actionIntent,
@@ -302,7 +322,9 @@ class _TrajectoryEngineScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '$reconciled due forecast${reconciled == 1 ? '' : 's'} reconciled with current evidence.',
+            Localizations.localeOf(context).languageCode == 'es'
+                ? '$reconciled ${reconciled == 1 ? 'previsión pendiente conciliada' : 'previsiones pendientes conciliadas'} con los datos actuales.'
+                : '$reconciled due forecast${reconciled == 1 ? '' : 's'} reconciled with current evidence.',
           ),
         ),
       );
@@ -321,8 +343,16 @@ class _TrajectoryEngineScreenState
       SnackBar(
         content: Text(
           stored
-              ? 'Path tracked. Its forecast will be monitored against future observed evidence.'
-              : 'Sign in to keep an account-scoped forecast receipt.',
+              ? journeyText(
+                  context,
+                  'Path tracked. Its forecast will be monitored against future observed evidence.',
+                  'Camino supervisado. Su previsión se comparará con datos futuros observados.',
+                )
+              : journeyText(
+                  context,
+                  'Sign in to keep an account-scoped forecast receipt.',
+                  'Inicia sesión para guardar un recibo de previsión asociado a tu cuenta.',
+                ),
         ),
       ),
     );

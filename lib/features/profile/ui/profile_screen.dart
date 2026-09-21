@@ -18,6 +18,21 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+String _localizedIdentityLabel(BuildContext context, String value) {
+  if (Localizations.localeOf(context).languageCode != 'es') return value;
+  return switch (value) {
+    'Pattern forming' => 'Patrón en formación',
+    'The Executor' => 'La Persona Ejecutora',
+    'The Strategist' => 'La Persona Estratega',
+    'The Seeker' => 'La Persona Exploradora',
+    'Architect' => 'Arquitecta',
+    'Catalyst' => 'Catalizadora',
+    'Builder' => 'Constructora',
+    'Beginner' => 'Principiante',
+    _ => value,
+  };
+}
+
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -44,16 +59,29 @@ class _ProfileBody extends ConsumerWidget {
     BuildContext context,
     ProfileViewState state,
   ) async {
-    final String text =
-        'I am using Axiomara to run my goals, progression, and execution system.\n'
-        'Join me: ${AppUrls.website}\n'
-        'Current streak: ${state.profile.streak}d | Level ${state.profile.level}';
+    final String text = journeyText(
+      context,
+      'I am using Axiomara to run my goals, progression, and execution system.\n'
+          'Join me: ${AppUrls.website}\n'
+          'Current streak: ${state.profile.streak}d | Level ${state.profile.level}',
+      'Uso Axiomara para organizar mis metas, progreso y sistema de ejecución.\n'
+          'Únete: ${AppUrls.website}\n'
+          'Racha actual: ${state.profile.streak} días | Nivel ${state.profile.level}',
+    );
     try {
       await SharePlus.instance.share(
         ShareParams(
           text: text,
-          title: 'Join me on Axiomara',
-          subject: 'Invite to Axiomara',
+          title: journeyText(
+            context,
+            'Join me on Axiomara',
+            'Únete a mí en Axiomara',
+          ),
+          subject: journeyText(
+            context,
+            'Invite to Axiomara',
+            'Invitación a Axiomara',
+          ),
         ),
       );
       AppAnalytics.track(
@@ -225,19 +253,24 @@ class _IdentityConstellation extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
     final identity = ref.watch(identityStateProvider);
     final String archetype = ref
         .watch(identityStateProvider.notifier)
         .archetype;
     final String evidenceLabel = hasEvidence
-        ? 'Discipline ${(identity.disciplineIdentity * 100).round()} percent, '
-              'execution ${(identity.executionIdentity * 100).round()} percent, '
-              'growth ${(identity.growthIdentity * 100).round()} percent.'
+        ? isSpanish
+              ? 'Disciplina ${(identity.disciplineIdentity * 100).round()} por ciento, '
+                    'ejecución ${(identity.executionIdentity * 100).round()} por ciento, '
+                    'crecimiento ${(identity.growthIdentity * 100).round()} por ciento.'
+              : 'Discipline ${(identity.disciplineIdentity * 100).round()} percent, '
+                    'execution ${(identity.executionIdentity * 100).round()} percent, '
+                    'growth ${(identity.growthIdentity * 100).round()} percent.'
         : '$fallbackLabel.';
     return Semantics(
       container: true,
       label:
-          '${name.isEmpty ? 'Axiomara user' : name}, level $level. '
+          '${name.isEmpty ? (isSpanish ? 'Persona usuaria de Axiomara' : 'Axiomara user') : name}, ${isSpanish ? 'nivel' : 'level'} $level. '
           '$evidenceLabel',
       child: Column(
         children: <Widget>[
@@ -277,7 +310,7 @@ class _IdentityConstellation extends ConsumerWidget {
                   top: 14,
                   right: 4,
                   child: _ConstellationLabel(
-                    label: 'GROWTH',
+                    label: journeyText(context, 'GROWTH', 'CRECIMIENTO'),
                     value: identity.growthIdentity,
                     showValue: hasEvidence,
                     accent: AppColors.neonViolet,
@@ -288,7 +321,7 @@ class _IdentityConstellation extends ConsumerWidget {
                   top: 106,
                   left: 4,
                   child: _ConstellationLabel(
-                    label: 'DISCIPLINE',
+                    label: journeyText(context, 'DISCIPLINE', 'DISCIPLINA'),
                     value: identity.disciplineIdentity,
                     showValue: hasEvidence,
                     accent: AppColors.memoryAmber,
@@ -298,7 +331,7 @@ class _IdentityConstellation extends ConsumerWidget {
                   right: 4,
                   bottom: 14,
                   child: _ConstellationLabel(
-                    label: 'EXECUTION',
+                    label: journeyText(context, 'EXECUTION', 'EJECUCIÓN'),
                     value: identity.executionIdentity,
                     showValue: hasEvidence,
                     accent: AppColors.neonCyan,
@@ -309,7 +342,13 @@ class _IdentityConstellation extends ConsumerWidget {
             ),
           ),
           Text(
-            name.trim().isEmpty ? 'AXIOMARA USER' : name.toUpperCase(),
+            name.trim().isEmpty
+                ? journeyText(
+                    context,
+                    'AXIOMARA USER',
+                    'PERSONA USUARIA DE AXIOMARA',
+                  )
+                : name.toUpperCase(),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
@@ -321,7 +360,7 @@ class _IdentityConstellation extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${hasEvidence ? archetype : fallbackLabel.toUpperCase()}  ·  AXIOMARA LEVEL $level',
+            '${hasEvidence ? _localizedIdentityLabel(context, archetype) : fallbackLabel.toUpperCase()}  ·  ${journeyText(context, 'AXIOMARA LEVEL', 'NIVEL DE AXIOMARA')} $level',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
@@ -452,7 +491,7 @@ class _ProfileMetrics extends StatelessWidget {
         children: <Widget>[
           Expanded(
             child: _ProfileMetric(
-              label: 'LEVEL',
+              label: journeyText(context, 'LEVEL', 'NIVEL'),
               value: '$level',
               accent: AppColors.memoryAmber,
             ),
@@ -468,8 +507,10 @@ class _ProfileMetrics extends StatelessWidget {
           const _MetricDivider(),
           Expanded(
             child: _ProfileMetric(
-              label: 'STREAK',
-              value: '${streak}d',
+              label: journeyText(context, 'STREAK', 'RACHA'),
+              value: Localizations.localeOf(context).languageCode == 'es'
+                  ? '$streak d'
+                  : '${streak}d',
               accent: AppColors.neonCyan,
             ),
           ),
@@ -583,11 +624,16 @@ class _IdentityCard extends ConsumerWidget {
             runSpacing: 4,
             children: <Widget>[
               _ArchetypeLabel(
-                label: hasEvidence ? archetype : fallbackLabel,
+                label: hasEvidence
+                    ? _localizedIdentityLabel(context, archetype)
+                    : fallbackLabel,
                 color: AppColors.neonViolet,
               ),
               if (hasEvidence)
-                _ArchetypeLabel(label: growthTitle, color: AppColors.neonCyan),
+                _ArchetypeLabel(
+                  label: _localizedIdentityLabel(context, growthTitle),
+                  color: AppColors.neonCyan,
+                ),
             ],
           ),
           if (!hasEvidence) ...<Widget>[

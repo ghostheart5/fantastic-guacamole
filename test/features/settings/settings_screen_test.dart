@@ -388,6 +388,12 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('Asignación mensual: 300'), findsOneWidget);
+    expect(find.text('Suscripción de prueba activa'), findsOneWidget);
+    expect(
+      find.textContaining('Pruebas de licencia de Google Play'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Test subscription active'), findsNothing);
     expect(
       find.text(
         'Copia en la nube, cierre de sesión, datos locales y controles de la cuenta',

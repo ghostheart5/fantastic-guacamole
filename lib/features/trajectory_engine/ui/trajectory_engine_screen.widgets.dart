@@ -189,7 +189,11 @@ class _BaselineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _Panel(
-      title: 'Current trajectory baseline',
+      title: journeyText(
+        context,
+        'Current trajectory baseline',
+        'Línea base de trayectoria actual',
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -198,31 +202,51 @@ class _BaselineCard extends StatelessWidget {
             runSpacing: 8,
             children: <Widget>[
               _BaselineMetric(
-                label: 'Momentum',
-                value: 'modeled ${baseline.momentum}%',
+                label: journeyText(context, 'Momentum', 'Impulso'),
+                value: journeyText(
+                  context,
+                  'modeled ${baseline.momentum}%',
+                  '${baseline.momentum}% modelado',
+                ),
               ),
               _BaselineMetric(
-                label: 'Pressure',
-                value: 'modeled ${baseline.pressure}%',
+                label: journeyText(context, 'Pressure', 'Presión'),
+                value: journeyText(
+                  context,
+                  'modeled ${baseline.pressure}%',
+                  '${baseline.pressure}% modelada',
+                ),
               ),
               _BaselineMetric(
-                label: 'Energy',
+                label: journeyText(context, 'Energy', 'Energía'),
                 value: baseline.hasObservedEnergy
-                    ? '${baseline.energy}% observed'
-                    : 'not observed',
+                    ? journeyText(
+                        context,
+                        '${baseline.energy}% observed',
+                        '${baseline.energy}% registrada',
+                      )
+                    : journeyText(context, 'not observed', 'sin registro'),
               ),
               _BaselineMetric(
-                label: 'Observed outcomes',
+                label: journeyText(
+                  context,
+                  'Observed outcomes',
+                  'Resultados observados',
+                ),
                 value: '${baseline.observationCount}',
               ),
               _BaselineMetric(
-                label: 'Capacity gap',
+                label: journeyText(
+                  context,
+                  'Capacity gap',
+                  'Brecha de capacidad',
+                ),
                 value: baseline.hasObservedAvailability
                     ? '${baseline.unscheduledMinutes}m'
-                    : 'not scored',
+                    : journeyText(context, 'not scored', 'sin calcular'),
               ),
               _BaselineMetric(
-                label: 'Progression',
+                label: journeyText(context, 'Progression', 'Progreso'),
                 value:
                     'L${baseline.progression.level} • ${baseline.progression.streak}d',
               ),
@@ -231,8 +255,11 @@ class _BaselineCard extends StatelessWidget {
           const SizedBox(height: 10),
           if (baseline.personContextWarnings.isNotEmpty) ...<Widget>[
             Text(
-              'Governed Person Context: ${baseline.availableMinutes}m available / ${baseline.unscheduledMinutes}m unscheduled. '
-              'No-context comparison: ${baseline.noContextAvailableMinutes}m available / ${baseline.noContextUnscheduledMinutes}m unscheduled.',
+              Localizations.localeOf(context).languageCode == 'es'
+                  ? 'Contexto personal autorizado: ${baseline.availableMinutes} min disponibles / ${baseline.unscheduledMinutes} min sin programar. '
+                        'Comparación sin contexto: ${baseline.noContextAvailableMinutes} min disponibles / ${baseline.noContextUnscheduledMinutes} min sin programar.'
+                  : 'Governed Person Context: ${baseline.availableMinutes}m available / ${baseline.unscheduledMinutes}m unscheduled. '
+                        'No-context comparison: ${baseline.noContextAvailableMinutes}m available / ${baseline.noContextUnscheduledMinutes}m unscheduled.',
               style: const TextStyle(
                 color: Color(0xFFFFC857),
                 fontSize: 11,
@@ -242,7 +269,7 @@ class _BaselineCard extends StatelessWidget {
             const SizedBox(height: 6),
             ...baseline.personContextWarnings.map(
               (String warning) => Text(
-                '• $warning',
+                '• ${_trajectoryGeneratedText(context, warning)}',
                 style: const TextStyle(
                   color: Color(0xFFD8E2FF),
                   fontSize: 11,
@@ -253,8 +280,11 @@ class _BaselineCard extends StatelessWidget {
             const SizedBox(height: 6),
           ],
           Text(
-            '${baseline.tasks.length} task(s), ${baseline.goals.length} active goal(s), '
-            '${baseline.blocks.length} planned block(s), and ${baseline.timelineSignals.length} linked Timeline signal(s).',
+            Localizations.localeOf(context).languageCode == 'es'
+                ? '${baseline.tasks.length} tarea(s), ${baseline.goals.length} meta(s) activa(s), '
+                      '${baseline.blocks.length} bloque(s) planificado(s) y ${baseline.timelineSignals.length} señal(es) vinculada(s) de la Línea de Tiempo.'
+                : '${baseline.tasks.length} task(s), ${baseline.goals.length} active goal(s), '
+                      '${baseline.blocks.length} planned block(s), and ${baseline.timelineSignals.length} linked Timeline signal(s).',
             style: const TextStyle(
               color: Color(0xFFD8E2FF),
               fontSize: 12,
@@ -263,7 +293,9 @@ class _BaselineCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Revision ${baseline.revision} • ${baseline.confidence.band.name} confidence • ${baseline.evidenceWindow.inDays}-day evidence window',
+            Localizations.localeOf(context).languageCode == 'es'
+                ? 'Revisión ${baseline.revision} • confianza ${_trajectoryConfidenceLabel(context, baseline.confidence.band)} • ventana de datos de ${baseline.evidenceWindow.inDays} días'
+                : 'Revision ${baseline.revision} • ${_trajectoryConfidenceLabel(context, baseline.confidence.band)} confidence • ${baseline.evidenceWindow.inDays}-day evidence window',
             style: const TextStyle(
               color: Color(0xFF93A4D6),
               fontSize: 11,
@@ -286,9 +318,13 @@ class _TaskPredictionCard extends StatelessWidget {
     final summary = model.summary;
     if (!summary.hasPrediction) {
       return _Panel(
-        title: 'Observed follow-through',
+        title: journeyText(
+          context,
+          'Observed follow-through',
+          'Seguimiento observado',
+        ),
         child: Text(
-          summary.statusDetail,
+          _trajectoryGeneratedText(context, summary.statusDetail),
           style: const TextStyle(
             color: Color(0xFFD8E2FF),
             fontSize: 12,
@@ -302,12 +338,16 @@ class _TaskPredictionCard extends StatelessWidget {
     final int lower = ((summary.predictionLowerBound ?? 0) * 100).round();
     final int upper = ((summary.predictionUpperBound ?? 1) * 100).round();
     return _Panel(
-      title: 'Observed follow-through',
+      title: journeyText(
+        context,
+        'Observed follow-through',
+        'Seguimiento observado',
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            '${summary.predictionTitle}: ${summary.predictionOutcome}',
+            '${summary.predictionTitle}: ${_trajectoryGeneratedText(context, summary.predictionOutcome ?? '')}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 14,
@@ -316,7 +356,9 @@ class _TaskPredictionCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '$probability% smoothed completion estimate • $lower–$upper% interval • ${summary.predictionSampleSize} outcomes',
+            Localizations.localeOf(context).languageCode == 'es'
+                ? '$probability% de finalización estimada • intervalo $lower–$upper% • ${summary.predictionSampleSize} resultados'
+                : '$probability% smoothed completion estimate • $lower–$upper% interval • ${summary.predictionSampleSize} outcomes',
             style: const TextStyle(
               color: Color(0xFFFFC857),
               fontSize: 11,
@@ -325,7 +367,10 @@ class _TaskPredictionCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            summary.predictionExplanation ?? '',
+            _trajectoryGeneratedText(
+              context,
+              summary.predictionExplanation ?? '',
+            ),
             style: const TextStyle(
               color: Color(0xFFD8E2FF),
               fontSize: 12,
@@ -334,7 +379,7 @@ class _TaskPredictionCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${summary.predictionEvidenceSufficient ? 'Established history' : 'Limited history'} • ${summary.predictionModelVersion ?? 'method unavailable'}',
+            '${summary.predictionEvidenceSufficient ? journeyText(context, 'Established history', 'Historial consolidado') : journeyText(context, 'Limited history', 'Historial limitado')} • ${summary.predictionModelVersion ?? journeyText(context, 'method unavailable', 'método no disponible')}',
             style: const TextStyle(color: Color(0xFF93A4D6), fontSize: 11),
           ),
         ],
@@ -396,6 +441,7 @@ class _HorizonSelector extends StatelessWidget {
 }
 
 String _conciseOutcomeSummary({
+  required BuildContext context,
   required TrajectoryBaseline baseline,
   required TrajectoryScenarioOutcome outcome,
 }) {
@@ -408,6 +454,17 @@ String _conciseOutcomeSummary({
       ? 'pressure holding steady'
       : 'pressure ${pressureDelta > 0 ? 'rising' : 'falling'} by ${pressureDelta.abs()} points';
 
+  if (Localizations.localeOf(context).languageCode == 'es') {
+    final String spanishMomentum = momentumDelta == 0
+        ? 'el impulso estable'
+        : 'el impulso ${momentumDelta > 0 ? 'subiendo' : 'bajando'} ${momentumDelta.abs()} puntos';
+    final String spanishPressure = pressureDelta == 0
+        ? 'la presión estable'
+        : 'la presión ${pressureDelta > 0 ? 'subiendo' : 'bajando'} ${pressureDelta.abs()} puntos';
+    return 'Durante ${outcome.intervention.horizon.inDays} días, este camino proyecta '
+        '$spanishMomentum y $spanishPressure. Abre el informe completo para revisar '
+        'la incertidumbre y los datos de apoyo.';
+  }
   return 'Over ${outcome.intervention.horizon.inDays} days, this path projects '
       '$momentumChange and $pressureChange. Open the full report for uncertainty '
       'and supporting evidence.';
@@ -433,13 +490,15 @@ class _ScenarioComparisonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _Panel(
-      title: isRecommended ? 'Recommended adjustment' : 'Custom forecast',
+      title: isRecommended
+          ? journeyText(context, 'Recommended adjustment', 'Ajuste recomendado')
+          : journeyText(context, 'Custom forecast', 'Previsión personalizada'),
       accent: isRecommended ? AppColors.neonViolet : AppColors.neonCyan,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            outcome.intervention.title,
+            _trajectoryGeneratedText(context, outcome.intervention.title),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -479,7 +538,11 @@ class _ScenarioComparisonCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            _conciseOutcomeSummary(baseline: baseline, outcome: outcome),
+            _conciseOutcomeSummary(
+              context: context,
+              baseline: baseline,
+              outcome: outcome,
+            ),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -549,16 +612,20 @@ class _ScenarioComparisonCard extends StatelessWidget {
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
             childrenPadding: const EdgeInsets.only(top: 4),
-            title: const Text(
-              'Full impact and evidence',
-              style: TextStyle(
+            title: Text(
+              journeyText(
+                context,
+                'Full impact and evidence',
+                'Impacto completo y datos',
+              ),
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
             ),
             subtitle: Text(
-              '${outcome.confidence.band.name} confidence · ±${outcome.uncertainty} points',
+              '${_trajectoryConfidenceLabel(context, outcome.confidence.band)} ${journeyText(context, 'confidence', 'de confianza')} · ±${outcome.uncertainty} ${journeyText(context, 'points', 'puntos')}',
               style: const TextStyle(color: Color(0xFF93A4C9), fontSize: 11),
             ),
             children: <Widget>[
@@ -599,9 +666,13 @@ class _ScenarioFullDetails extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text(
-            'FULL IMPACT REPORT',
-            style: TextStyle(
+          Text(
+            journeyText(
+              context,
+              'FULL IMPACT REPORT',
+              'INFORME DE IMPACTO COMPLETO',
+            ),
+            style: const TextStyle(
               color: AppColors.neonViolet,
               fontSize: 10,
               fontWeight: FontWeight.w800,
@@ -610,7 +681,7 @@ class _ScenarioFullDetails extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            outcome.intervention.title,
+            _trajectoryGeneratedText(context, outcome.intervention.title),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -619,7 +690,7 @@ class _ScenarioFullDetails extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            outcome.intervention.description,
+            _trajectoryGeneratedText(context, outcome.intervention.description),
             style: const TextStyle(
               color: Color(0xFFD8E2FF),
               fontSize: 12,
@@ -632,13 +703,13 @@ class _ScenarioFullDetails extends StatelessWidget {
             runSpacing: 8,
             children: <Widget>[
               _MetricDelta(
-                label: 'Momentum',
+                label: journeyText(context, 'Momentum', 'Impulso'),
                 current: baseline.momentum,
                 projected: outcome.projectedMomentum,
                 uncertainty: outcome.uncertainty,
               ),
               _MetricDelta(
-                label: 'Pressure',
+                label: journeyText(context, 'Pressure', 'Presión'),
                 current: baseline.pressure,
                 projected: outcome.projectedPressure,
                 uncertainty: outcome.uncertainty,
@@ -687,9 +758,13 @@ class _ScenarioFullDetails extends StatelessWidget {
           ),
           if (outcome.goals.isNotEmpty) ...<Widget>[
             const SizedBox(height: 4),
-            const Text(
-              'GOAL DELAY PROJECTIONS',
-              style: TextStyle(
+            Text(
+              journeyText(
+                context,
+                'GOAL DELAY PROJECTIONS',
+                'PROYECCIONES DE RETRASO DE METAS',
+              ),
+              style: const TextStyle(
                 color: Color(0xFF6EE7F9),
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
@@ -711,9 +786,9 @@ class _ScenarioFullDetails extends StatelessWidget {
               ),
           ],
           const SizedBox(height: 4),
-          const Text(
-            'RISK CONTRIBUTORS',
-            style: TextStyle(
+          Text(
+            journeyText(context, 'RISK CONTRIBUTORS', 'FACTORES DE RIESGO'),
+            style: const TextStyle(
               color: Color(0xFF6EE7F9),
               fontSize: 10,
               fontWeight: FontWeight.w800,
@@ -747,7 +822,7 @@ class _ScenarioFullDetails extends StatelessWidget {
               style: const TextStyle(color: Colors.white, fontSize: 13),
             ),
             subtitle: Text(
-              '${outcome.confidence.band.name} confidence • ±${outcome.uncertainty} points • ${outcome.modelVersion}',
+              '${_trajectoryConfidenceLabel(context, outcome.confidence.band)} ${journeyText(context, 'confidence', 'de confianza')} • ±${outcome.uncertainty} ${journeyText(context, 'points', 'puntos')} • ${outcome.modelVersion}',
               style: const TextStyle(color: Color(0xFF93A4D6), fontSize: 11),
             ),
             children: <Widget>[
@@ -776,8 +851,11 @@ class _ScenarioFullDetails extends StatelessWidget {
           const SizedBox(height: 8),
           Semantics(
             container: true,
-            label:
-                'Simulation only. Opening a feature does not apply or award the projected outcome.',
+            label: journeyText(
+              context,
+              'Simulation only. Opening a feature does not apply or award the projected outcome.',
+              'Solo simulación. Abrir una función no aplica ni concede el resultado proyectado.',
+            ),
             child: Text(
               journeyText(
                 context,
@@ -899,7 +977,9 @@ class _MetricDelta extends StatelessWidget {
             ),
           ),
           Text(
-            '${delta >= 0 ? '+' : ''}$delta points',
+            Localizations.localeOf(context).languageCode == 'es'
+                ? '${delta >= 0 ? '+' : ''}$delta puntos'
+                : '${delta >= 0 ? '+' : ''}$delta points',
             style: TextStyle(
               color: favorable
                   ? const Color(0xFF6EE7F9)
@@ -1086,9 +1166,98 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
         'Los XP proyectados son informativos y esta simulación nunca los concede.',
     'No Progression reward is projected from this intervention alone.':
         'Esta intervención por sí sola no proyecta una recompensa de progreso.',
+    'Protect the Smart Planner path':
+        'Proteger el camino del Planificador Inteligente',
+    'Protect the highest-value feasible block.':
+        'Proteger el bloque viable de mayor valor.',
+    'The protected block is attempted.':
+        'Se intenta completar el bloque protegido.',
+    'Delay the milestone': 'Aplazar el hito',
+    'Maintain current course': 'Mantener el rumbo actual',
+    'Apply Smart Planner recommendation':
+        'Aplicar la recomendación del Planificador Inteligente',
+    'Reduce lower-priority scope': 'Reducir el alcance de menor prioridad',
+    'Preserve the current plan without a declared intervention.':
+        'Conservar el plan actual sin una intervención declarada.',
+    'Current completion and deferral rates remain directionally similar.':
+        'Las tasas actuales de finalización y aplazamiento mantienen una tendencia similar.',
+    'The proposed TimeBlocks are accepted and attempted.':
+        'Los bloques de tiempo propuestos se aceptan y se intentan.',
+    'Displaced work is explicitly reconciled instead of silently carried.':
+        'El trabajo desplazado se concilia de forma explícita en lugar de arrastrarse en silencio.',
+    'The task is completed without creating an unmodeled commitment.':
+        'La tarea se completa sin crear un compromiso no modelado.',
+    'The delayed work remains active and consumes later capacity.':
+        'El trabajo aplazado sigue activo y consume capacidad posterior.',
+    'The first verifiable recovery checkpoint is completed.':
+        'Se completa el primer punto de recuperación verificable.',
+    'The removed commitment is optional or safely deferred with consent.':
+        'El compromiso eliminado es opcional o puede aplazarse de forma segura con consentimiento.',
+    'The commitment is completed without creating an unmodeled obligation.':
+        'El compromiso se completa sin crear una obligación no modelada.',
+    'Projected Progression effects remain informational until an outcome is recorded on Timeline.':
+        'Los efectos proyectados en Progreso son informativos hasta registrar un resultado en la Línea de Tiempo.',
+    'The delayed commitment remains active and consumes later capacity.':
+        'El compromiso aplazado sigue activo y consume capacidad posterior.',
+    'No replacement work is assumed unless it already exists in the baseline.':
+        'No se supone trabajo de reemplazo salvo que ya exista en la línea base.',
+    'The commitment is optional or can be deferred with informed consent.':
+        'El compromiso es opcional o puede aplazarse con consentimiento informado.',
+    'The simulation does not delete or mutate the actual task.':
+        'La simulación no elimina ni modifica la tarea real.',
   };
   final translated = exact[value];
   if (translated != null) return translated;
+  if (value.startsWith('Complete ')) {
+    return 'Completar ${value.substring('Complete '.length)}';
+  }
+  if (value.startsWith('Delay ') && value.endsWith(' by one day')) {
+    return 'Aplazar ${value.substring('Delay '.length, value.length - ' by one day'.length)} un día';
+  }
+  if (value.startsWith('Recover ')) {
+    return 'Recuperar ${value.substring('Recover '.length)}';
+  }
+  if (value.startsWith('Protect ') &&
+      value.endsWith(' and use the feasible plan as the active schedule.')) {
+    final String subject = value.substring(
+      'Protect '.length,
+      value.length -
+          ' and use the feasible plan as the active schedule.'.length,
+    );
+    return 'Proteger $subject y usar el plan viable como horario activo.';
+  }
+  if (value.startsWith('Model the selected Smart Planner task as completed')) {
+    return 'Modelar la tarea seleccionada del Planificador Inteligente como completada en su bloque viable.';
+  }
+  if (value.startsWith('Model one day of slippage')) {
+    return 'Modelar un día de retraso y sus consecuencias en la Línea de Tiempo y las metas.';
+  }
+  if (value.startsWith(
+    'Apply the task-specific deadline/capacity recovery recommendation.',
+  )) {
+    return 'Aplicar la recomendación específica de recuperación de fecha límite y capacidad.';
+  }
+  if (value.startsWith('Remove ') &&
+      value.endsWith(' from the active capacity window.')) {
+    final String subject = value.substring(
+      'Remove '.length,
+      value.length - ' from the active capacity window.'.length,
+    );
+    return 'Quitar $subject de la ventana de capacidad activa.';
+  }
+  if (value.startsWith('My scenario: complete ')) {
+    return 'Mi escenario: completar ${value.substring('My scenario: complete '.length)}';
+  }
+  if (value.startsWith('My scenario: remove ')) {
+    return 'Mi escenario: quitar ${value.substring('My scenario: remove '.length)}';
+  }
+  final RegExpMatch? delay = RegExp(
+    r'^My scenario: delay (.+) (\d+) days?$',
+  ).firstMatch(value);
+  if (delay != null) {
+    final String days = delay.group(2)!;
+    return 'Mi escenario: aplazar ${delay.group(1)!} $days ${days == '1' ? 'día' : 'días'}';
+  }
   return value
       .replaceAll(
         'Smart Planner block(s) are projected',
@@ -1134,4 +1303,18 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
       .replaceAll('Projected risk is', 'El riesgo proyectado es')
       .replaceAll('against baseline', 'frente a la línea base')
       .replaceAll('changes', 'cambia');
+}
+
+String _trajectoryConfidenceLabel(
+  BuildContext context,
+  PredictiveConfidenceBand band,
+) {
+  final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
+  return switch (band) {
+    PredictiveConfidenceBand.high => isSpanish ? 'alta' : 'high',
+    PredictiveConfidenceBand.moderate => isSpanish ? 'moderada' : 'moderate',
+    PredictiveConfidenceBand.low => isSpanish ? 'baja' : 'low',
+    PredictiveConfidenceBand.insufficientEvidence =>
+      isSpanish ? 'insuficiente' : 'insufficient',
+  };
 }
