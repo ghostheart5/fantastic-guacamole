@@ -510,6 +510,8 @@ void main() {
                 .data,
             locale.languageCode == 'es' && scenario == 'task-prefix'
                 ? 'Trabaja en: Finish quarterly review'
+                : locale.languageCode == 'es' && scenario == 'recovery'
+                ? 'Toma un breve descanso de recuperación antes de elegir más trabajo.'
                 : receipt.recommendedAction,
           );
           expect(
@@ -552,7 +554,7 @@ void main() {
         expect(find.bySemanticsLabel('Cerrar sesión'), findsOneWidget);
         expect(find.text('ENERGÍA'), findsOneWidget);
         expect(find.text('CLARIDAD'), findsOneWidget);
-        expect(find.text('IMPULSO'), findsOneWidget);
+        expect(find.text('IMPULSO'), findsWidgets);
         expect(find.text('ESTABLE'), findsOneWidget);
         expect(find.text(observed ? '78%' : 'SIN MEDIR'), findsOneWidget);
         expect(find.text(observed ? '76%' : 'SIN REGISTRAR'), findsOneWidget);

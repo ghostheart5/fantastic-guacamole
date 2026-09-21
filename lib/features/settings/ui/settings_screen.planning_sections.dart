@@ -70,19 +70,26 @@ class _ReflectionReminderSectionState
   @override
   Widget build(BuildContext context) {
     return _Section(
-      label: 'DAILY REFLECTION',
+      label: journeyText(context, 'DAILY REFLECTION', 'REFLEXIÓN DIARIA'),
       accentColor: AppColors.neonViolet,
       child: Column(
         children: [
           _NeonToggleTile(
-            title: 'Reflection Reminder',
+            title: journeyText(
+              context,
+              'Reflection Reminder',
+              'Recordatorio de reflexión',
+            ),
             value: _enabled,
             onChanged: _toggle,
           ),
           if (_enabled)
             SmartPressable(
-              semanticLabel:
-                  'Change reflection reminder time, current ${_time.format(context)}',
+              semanticLabel: journeyText(
+                context,
+                'Change reflection reminder time, current ${_time.format(context)}',
+                'Cambiar la hora del recordatorio de reflexión; ahora es ${_time.format(context)}',
+              ),
               onTap: _pickTime,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -94,10 +101,17 @@ class _ReflectionReminderSectionState
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Reminder Time',
-                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                          journeyText(
+                            context,
+                            'Reminder Time',
+                            'Hora del recordatorio',
+                          ),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -216,41 +230,84 @@ class _ReminderAutomationSectionState
   @override
   Widget build(BuildContext context) {
     return _Section(
-      label: 'REMINDER AUTOMATION',
+      label: journeyText(
+        context,
+        'REMINDER AUTOMATION',
+        'AUTOMATIZACIÓN DE RECORDATORIOS',
+      ),
       accentColor: AppColors.neonCyan,
       child: Column(
         children: [
           _NeonToggleTile(
-            title: 'Goal Reminders',
+            title: journeyText(
+              context,
+              'Goal Reminders',
+              'Recordatorios de metas',
+            ),
             value: _goalEnabled,
             onChanged: _toggleGoal,
           ),
-          const _NeonStatusTile(
-            title: 'Goal Reminder Rule',
-            subtitle: 'Schedules around target date (prefers 1 day before).',
+          _NeonStatusTile(
+            title: journeyText(
+              context,
+              'Goal Reminder Rule',
+              'Regla de recordatorios de metas',
+            ),
+            subtitle: journeyText(
+              context,
+              'Schedules around target date (prefers 1 day before).',
+              'Se programa cerca de la fecha objetivo, preferiblemente un día antes.',
+            ),
           ),
           _NeonToggleTile(
-            title: 'Habit Reminders',
+            title: journeyText(
+              context,
+              'Habit Reminders',
+              'Recordatorios de ritmos',
+            ),
             value: _habitEnabled,
             onChanged: _toggleHabit,
           ),
-          const _NeonStatusTile(
-            title: 'Habit Reminder Rule',
-            subtitle: 'Schedules daily cadence for the first active habit.',
+          _NeonStatusTile(
+            title: journeyText(
+              context,
+              'Habit Reminder Rule',
+              'Regla de recordatorios de ritmos',
+            ),
+            subtitle: journeyText(
+              context,
+              'Schedules daily cadence for the first active habit.',
+              'Programa una cadencia diaria para el primer ritmo activo.',
+            ),
           ),
           _NeonToggleTile(
-            title: 'Daily Planning Reminder',
+            title: journeyText(
+              context,
+              'Daily Planning Reminder',
+              'Recordatorio de planificación diaria',
+            ),
             value: _dailyPlanningEnabled,
             onChanged: _toggleDailyPlanning,
           ),
-          const _NeonStatusTile(
-            title: 'Daily Planning Rule',
-            subtitle: 'Triggers once each day at the selected planning time.',
+          _NeonStatusTile(
+            title: journeyText(
+              context,
+              'Daily Planning Rule',
+              'Regla de planificación diaria',
+            ),
+            subtitle: journeyText(
+              context,
+              'Triggers once each day at the selected planning time.',
+              'Se activa una vez al día a la hora de planificación elegida.',
+            ),
           ),
           if (_dailyPlanningEnabled)
             SmartPressable(
-              semanticLabel:
-                  'Change daily planning time, current ${_dailyPlanningTime.format(context)}',
+              semanticLabel: journeyText(
+                context,
+                'Change daily planning time, current ${_dailyPlanningTime.format(context)}',
+                'Cambiar la hora de planificación diaria; ahora es ${_dailyPlanningTime.format(context)}',
+              ),
               onTap: _pickDailyPlanningTime,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -262,10 +319,17 @@ class _ReminderAutomationSectionState
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Daily Planning Time',
-                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                          journeyText(
+                            context,
+                            'Daily Planning Time',
+                            'Hora de planificación diaria',
+                          ),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -338,16 +402,24 @@ class _PersonalizationSection extends ConsumerWidget {
     final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
 
     return _Section(
-      label: 'PLANNING PERSONALIZATION',
+      label: journeyText(
+        context,
+        'PLANNING PERSONALIZATION',
+        'PERSONALIZACIÓN DE LA PLANIFICACIÓN',
+      ),
       accentColor: AppColors.neonCyan,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 10, 16, 4),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
             child: Text(
-              'These choices tune guidance. You can change them at any time; learned patterns remain separate from your explicit preferences.',
-              style: TextStyle(
+              journeyText(
+                context,
+                'These choices tune guidance. You can change them at any time; learned patterns remain separate from your explicit preferences.',
+                'Estas opciones ajustan la orientación. Puedes cambiarlas cuando quieras; los patrones aprendidos permanecen separados de tus preferencias explícitas.',
+              ),
+              style: const TextStyle(
                 color: Colors.white60,
                 fontSize: 12,
                 height: 1.4,
@@ -355,7 +427,11 @@ class _PersonalizationSection extends ConsumerWidget {
             ),
           ),
           _PreferenceDropdown<String>(
-            label: 'Planning style',
+            label: journeyText(
+              context,
+              'Planning style',
+              'Estilo de planificación',
+            ),
             value: profile.planningStyle.name,
             items: const <String>[
               'flexible',
@@ -363,6 +439,8 @@ class _PersonalizationSection extends ConsumerWidget {
               'energyMatched',
               'singleTask',
             ],
+            itemLabel: (String value) =>
+                _planningStyleLabel(value, isSpanish: isSpanish),
             onChanged: (String value) => _save(
               context,
               ref,
@@ -372,7 +450,11 @@ class _PersonalizationSection extends ConsumerWidget {
             ),
           ),
           _PreferenceDropdown<String>(
-            label: 'Priority strategy',
+            label: journeyText(
+              context,
+              'Priority strategy',
+              'Estrategia de prioridades',
+            ),
             value: profile.priorityStrategy.name,
             items: const <String>[
               'balanced',
@@ -381,6 +463,8 @@ class _PersonalizationSection extends ConsumerWidget {
               'goalFirst',
               'quickWins',
             ],
+            itemLabel: (String value) =>
+                _priorityStrategyLabel(value, isSpanish: isSpanish),
             onChanged: (String value) => _save(
               context,
               ref,
@@ -390,7 +474,11 @@ class _PersonalizationSection extends ConsumerWidget {
             ),
           ),
           _PreferenceDropdown<String>(
-            label: 'Missed-task recovery',
+            label: journeyText(
+              context,
+              'Missed-task recovery',
+              'Recuperación de tareas incumplidas',
+            ),
             value: profile.recoveryPolicy.name,
             items: const <String>[
               'askFirst',
@@ -398,6 +486,8 @@ class _PersonalizationSection extends ConsumerWidget {
               'reduceScope',
               'recoveryQueue',
             ],
+            itemLabel: (String value) =>
+                _recoveryPolicyLabel(value, isSpanish: isSpanish),
             onChanged: (String value) => _save(
               context,
               ref,
@@ -407,13 +497,21 @@ class _PersonalizationSection extends ConsumerWidget {
             ),
           ),
           _NeonToggleTile(
-            title: 'Use emotional state in guidance',
+            title: journeyText(
+              context,
+              'Use emotional state in guidance',
+              'Usar el estado emocional en la orientación',
+            ),
             value: profile.useEmotionSignals,
             onChanged: (bool value) =>
                 _save(context, ref, profile.copyWith(useEmotionSignals: value)),
           ),
           _NeonToggleTile(
-            title: 'Allow saved preferences in future guidance',
+            title: journeyText(
+              context,
+              'Allow saved preferences in future guidance',
+              'Usar las preferencias guardadas en orientaciones futuras',
+            ),
             value: profile.useMemoryContext,
             onChanged: (bool value) =>
                 _save(context, ref, profile.copyWith(useMemoryContext: value)),
@@ -451,17 +549,36 @@ class _PersonalizationSection extends ConsumerWidget {
           if (ref.watch(internalCreditTestEnabledProvider))
             const InternalCreditTestPanel(),
           _NeonStatusTile(
-            title: 'Why suggestions appear',
+            title: journeyText(
+              context,
+              'Why suggestions appear',
+              'Por qué aparecen las sugerencias',
+            ),
             subtitle: decision.explanation,
           ),
           _NeonStatusTile(
-            title: 'Learned evidence',
-            subtitle:
-                '${patterns.completed} completed · ${patterns.skipped} skipped · ${(patterns.completionRate * 100).round()}% completion rate',
+            title: journeyText(
+              context,
+              'Learned evidence',
+              'Evidencia aprendida',
+            ),
+            subtitle: journeyText(
+              context,
+              '${patterns.completed} completed · ${patterns.skipped} skipped · ${(patterns.completionRate * 100).round()}% completion rate',
+              '${patterns.completed} completadas · ${patterns.skipped} omitidas · ${(patterns.completionRate * 100).round()}% de finalización',
+            ),
           ),
           _NeonNavTile(
-            title: 'Reset learned planning patterns',
-            subtitle: 'Deletes inferred completion/skip evidence only.',
+            title: journeyText(
+              context,
+              'Reset learned planning patterns',
+              'Restablecer patrones de planificación aprendidos',
+            ),
+            subtitle: journeyText(
+              context,
+              'Deletes inferred completion/skip evidence only.',
+              'Elimina solo la evidencia inferida de finalización y omisión.',
+            ),
             onTap: () => unawaited(
               ref.read(observedPlanningPatternsProvider.notifier).reset(),
             ),
@@ -470,6 +587,40 @@ class _PersonalizationSection extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _planningStyleLabel(String value, {required bool isSpanish}) {
+  if (!isSpanish) return value;
+  return switch (value) {
+    'flexible' => 'Flexible',
+    'timeBlocked' => 'Por bloques de tiempo',
+    'energyMatched' => 'Adaptado a la energía',
+    'singleTask' => 'Una tarea a la vez',
+    _ => value,
+  };
+}
+
+String _priorityStrategyLabel(String value, {required bool isSpanish}) {
+  if (!isSpanish) return value;
+  return switch (value) {
+    'balanced' => 'Equilibrada',
+    'deadlineFirst' => 'Primero las fechas límite',
+    'energyFirst' => 'Primero la energía',
+    'goalFirst' => 'Primero las metas',
+    'quickWins' => 'Victorias rápidas',
+    _ => value,
+  };
+}
+
+String _recoveryPolicyLabel(String value, {required bool isSpanish}) {
+  if (!isSpanish) return value;
+  return switch (value) {
+    'askFirst' => 'Preguntar primero',
+    'reschedule' => 'Reprogramar',
+    'reduceScope' => 'Reducir el alcance',
+    'recoveryQueue' => 'Cola de recuperación',
+    _ => value,
+  };
 }
 
 class _LearningLedgerSection extends ConsumerWidget {
@@ -491,16 +642,24 @@ class _LearningLedgerSection extends ConsumerWidget {
         .toList(growable: false);
 
     return _Section(
-      label: 'WHAT CHANGED FROM YOUR FEEDBACK',
+      label: journeyText(
+        context,
+        'WHAT CHANGED FROM YOUR FEEDBACK',
+        'QUÉ CAMBIÓ CON TUS COMENTARIOS',
+      ),
       accentColor: AppColors.neonViolet,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
             child: Text(
-              'Axiomara learns only bounded support preferences from the outcomes below. These are not facts about you, and low-confidence patterns do not change recommendations.',
-              style: TextStyle(
+              journeyText(
+                context,
+                'Axiomara learns only bounded support preferences from the outcomes below. These are not facts about you, and low-confidence patterns do not change recommendations.',
+                'Axiomara aprende solo preferencias limitadas de apoyo a partir de los resultados siguientes. No son datos sobre ti, y los patrones de baja confianza no cambian las recomendaciones.',
+              ),
+              style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 14,
                 height: 1.4,
@@ -509,7 +668,11 @@ class _LearningLedgerSection extends ConsumerWidget {
           ),
           _NeonToggleTile(
             key: const Key('learning-feedback-toggle'),
-            title: 'Use feedback for learning',
+            title: journeyText(
+              context,
+              'Use feedback for learning',
+              'Usar comentarios para aprender',
+            ),
             value: !paused,
             onChanged: outcomesAsync.isLoading
                 ? null
@@ -520,19 +683,41 @@ class _LearningLedgerSection extends ConsumerWidget {
                   ),
           ),
           _NeonStatusTile(
-            title: 'Reviewable observations',
+            title: journeyText(
+              context,
+              'Reviewable observations',
+              'Observaciones revisables',
+            ),
             subtitle: outcomesAsync.when(
-              loading: () => 'Loading the account-scoped ledger...',
-              error: (_, _) => 'Ledger unavailable. No learning is applied.',
-              data: (List<DecisionOutcomeEntity> values) =>
-                  '${values.length} saved locally · maximum 256 · recent evidence decays with a 30-day half-life.',
+              loading: () => journeyText(
+                context,
+                'Loading the account-scoped ledger...',
+                'Cargando el registro de esta cuenta...',
+              ),
+              error: (_, _) => journeyText(
+                context,
+                'Ledger unavailable. No learning is applied.',
+                'El registro no está disponible. No se aplica ningún aprendizaje.',
+              ),
+              data: (List<DecisionOutcomeEntity> values) => journeyText(
+                context,
+                '${values.length} saved locally · maximum 256 · recent evidence decays with a 30-day half-life.',
+                '${values.length} guardadas localmente · máximo 256 · la evidencia reciente pierde peso con una semivida de 30 días.',
+              ),
             ),
           ),
           if (outcomesAsync.hasValue && summary.patterns.isEmpty)
-            const _NeonStatusTile(
-              title: 'Learned preferences',
-              subtitle:
-                  'None yet. At least three recent outcomes are required before a pattern may influence guidance.',
+            _NeonStatusTile(
+              title: journeyText(
+                context,
+                'Learned preferences',
+                'Preferencias aprendidas',
+              ),
+              subtitle: journeyText(
+                context,
+                'None yet. At least three recent outcomes are required before a pattern may influence guidance.',
+                'Todavía no hay ninguna. Se requieren al menos tres resultados recientes antes de que un patrón pueda influir en la orientación.',
+              ),
             )
           else if (outcomesAsync.hasValue)
             ...summary.patterns
@@ -546,11 +731,15 @@ class _LearningLedgerSection extends ConsumerWidget {
                   ),
                 ),
           if (recent.isNotEmpty) ...<Widget>[
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Text(
-                'RECENT RAW OBSERVATIONS',
-                style: TextStyle(
+                journeyText(
+                  context,
+                  'RECENT RAW OBSERVATIONS',
+                  'OBSERVACIONES RECIENTES SIN PROCESAR',
+                ),
+                style: const TextStyle(
                   color: AppColors.neonViolet,
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
@@ -566,7 +755,10 @@ class _LearningLedgerSection extends ConsumerWidget {
                   style: const TextStyle(color: Colors.white, fontSize: 14),
                 ),
                 subtitle: Text(
-                  _learningObservationDetail(outcome),
+                  _learningObservationDetail(
+                    outcome,
+                    isSpanish: ChronoSparkLocalizations.of(context).isSpanish,
+                  ),
                   style: const TextStyle(color: Colors.white60, fontSize: 12),
                 ),
                 trailing: PopupMenuButton<String>(
@@ -671,18 +863,28 @@ String _learningLabel(String value) => value
     .map((String part) => '${part[0].toUpperCase()}${part.substring(1)}')
     .join(' ');
 
-String _learningObservationDetail(DecisionOutcomeEntity outcome) {
+String _learningObservationDetail(
+  DecisionOutcomeEntity outcome, {
+  required bool isSpanish,
+}) {
   final List<String> details = <String>[
     outcome.situation ??
-        (outcome.subjectId == null ? 'general guidance' : 'task guidance'),
-    if (outcome.optionChosen != null) 'option ${outcome.optionChosen}',
+        (outcome.subjectId == null
+            ? (isSpanish ? 'orientación general' : 'general guidance')
+            : (isSpanish ? 'orientación de tareas' : 'task guidance')),
+    if (outcome.optionChosen != null)
+      '${isSpanish ? 'opción' : 'option'} ${outcome.optionChosen}',
     if (outcome.optionSizeMinutes != null)
-      '${outcome.optionSizeMinutes} minutes',
-    if (outcome.deferralReason != null) 'deferred: ${outcome.deferralReason}',
+      '${outcome.optionSizeMinutes} ${isSpanish ? 'minutos' : 'minutes'}',
+    if (outcome.deferralReason != null)
+      '${isSpanish ? 'aplazada' : 'deferred'}: ${outcome.deferralReason}',
     if (outcome.completionResult != null) outcome.completionResult!,
-    if (outcome.correction != null) 'corrected to ${outcome.correction}',
+    if (outcome.correction != null)
+      '${isSpanish ? 'corregida a' : 'corrected to'} ${outcome.correction}',
     if (outcome.recommendationHelped != null)
-      outcome.recommendationHelped! ? 'helped' : 'did not help',
+      outcome.recommendationHelped!
+          ? (isSpanish ? 'ayudó' : 'helped')
+          : (isSpanish ? 'no ayudó' : 'did not help'),
   ];
   return details.join(' · ');
 }

@@ -112,6 +112,23 @@ class NexusCopy {
       : 'This scheduled task is the nearest concrete commitment.';
   String workOn(String taskTitle) =>
       isSpanish ? 'Trabaja en: $taskTitle' : 'Work on: $taskTitle';
+  String systemAction(String value) {
+    if (!isSpanish) return value;
+    const String workPrefix = 'Work on: ';
+    if (value.startsWith(workPrefix)) {
+      return 'Trabaja en: ${value.substring(workPrefix.length)}';
+    }
+    return switch (value) {
+      'Take a short recovery break before choosing more work.' =>
+        'Toma un breve descanso de recuperación antes de elegir más trabajo.',
+      'Capture one actionable task in Creator.' =>
+        'Registra una tarea realizable en el Constructor de Realidad.',
+      'Reconcile unscheduled work in Smart Planner.' =>
+        'Concilia el trabajo no programado en el Planificador Inteligente.',
+      _ => value,
+    };
+  }
+
   String systemRationale(String value) => !isSpanish
       ? value
       : switch (value) {
@@ -168,8 +185,28 @@ class NexusCopy {
   }) => isSpanish
       ? '${requiresConfirmation ? 'Requiere confirmación' : 'Revisión iniciada por ti'} · ${reversible ? 'Acción reversible' : 'Revisa el impacto antes de continuar'}'
       : '${requiresConfirmation ? 'Confirmation required' : 'You initiate the action'} · ${reversible ? 'Reversible action' : 'Review impact before continuing'}';
-  String delayed(String consequence) =>
-      isSpanish ? 'SI ESPERAS: $consequence' : 'IF DELAYED: $consequence';
+  String delayed(String consequence) => isSpanish
+      ? 'SI ESPERAS: ${systemConsequence(consequence)}'
+      : 'IF DELAYED: $consequence';
+  String systemConsequence(String value) => !isSpanish
+      ? value
+      : switch (value) {
+          'Waiting leaves the current priority unresolved and makes your next step less clear.' =>
+            'La prioridad actual queda sin resolver y el siguiente paso será menos claro.',
+          'Waiting can increase rollover pressure and reduce schedule flexibility.' =>
+            'Esperar puede aumentar la presión acumulada y reducir la flexibilidad del calendario.',
+          _ when value.startsWith('Without reducing or moving work, ') =>
+            value
+                .replaceFirst(
+                  'Without reducing or moving work, ',
+                  'Sin reducir ni mover trabajo, ',
+                )
+                .replaceFirst(
+                  ' minutes remain outside available capacity.',
+                  ' minutos quedan fuera de la capacidad disponible.',
+                ),
+          _ => value,
+        };
   String get suggestionUnavailable => isSpanish
       ? 'No se pudo cargar la sugerencia actual a partir de la evidencia local de planificación.'
       : 'The current suggestion could not load from local planning evidence.';

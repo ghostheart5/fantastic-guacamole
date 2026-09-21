@@ -617,7 +617,7 @@ class _PlannerSuggestionContent extends StatelessWidget {
     // or translate a user-authored task title to authorize completion.
     final displayTitle = showsTask && title == 'Work on: ${block!.title}'
         ? copy.workOn(block!.title)
-        : title;
+        : copy.systemAction(title);
     final displayRationale =
         decision?.personContextExplanations.isNotEmpty ?? false
         ? rationale

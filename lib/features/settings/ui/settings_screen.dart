@@ -220,6 +220,8 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    String copy(String english, String spanish) =>
+        journeyText(context, english, spanish);
     ref.watch(subscriptionStatusRefreshProvider);
     ref.watch(extended_domain.extendedDomainBootstrapProvider);
     final int extendedSettingsCount = ref
@@ -233,33 +235,28 @@ class SettingsScreen extends ConsumerWidget {
     final walletAsync = ref.watch(aiCreditWalletProvider);
     final bool usesAiCredits = ref.watch(aiProxyAvailableProvider);
     final String creditLabel = usesAiCredits
-        ? journeyText(context, 'AI credits', 'Créditos de IA')
-        : journeyText(context, 'Smart credits', 'Créditos inteligentes');
+        ? copy('AI credits', 'Créditos de IA')
+        : copy('Smart credits', 'Créditos inteligentes');
     final String creditValue = walletAsync.when(
-      data: (wallet) => journeyText(
-        context,
+      data: (wallet) => copy(
         '${wallet.balance} credits available',
         '${wallet.balance} créditos disponibles',
       ),
-      loading: () => journeyText(context, 'Loading balance', 'Cargando saldo'),
-      error: (_, _) =>
-          journeyText(context, 'Balance unavailable', 'Saldo no disponible'),
+      loading: () => copy('Loading balance', 'Cargando saldo'),
+      error: (_, _) => copy('Balance unavailable', 'Saldo no disponible'),
     );
     final String creditDetail = walletAsync.when(
-      data: (wallet) => journeyText(
-        context,
+      data: (wallet) => copy(
         '${wallet.balance - wallet.purchasedCredits} included · ${wallet.purchasedCredits} purchased (do not expire). '
             'Monthly allowance: ${wallet.allowance} · resets ${MaterialLocalizations.of(context).formatMediumDate(wallet.resetAt)}',
         '${wallet.balance - wallet.purchasedCredits} incluidos · ${wallet.purchasedCredits} comprados (no caducan). '
             'Asignación mensual: ${wallet.allowance} · se restablece el ${MaterialLocalizations.of(context).formatMediumDate(wallet.resetAt)}',
       ),
-      loading: () => journeyText(
-        context,
+      loading: () => copy(
         'Reading this account’s credit wallet.',
         'Consultando los créditos de esta cuenta.',
       ),
-      error: (_, _) => journeyText(
-        context,
+      error: (_, _) => copy(
         'Open credits to retry and review usage.',
         'Abre Créditos para reintentar y revisar el uso.',
       ),
@@ -315,17 +312,12 @@ class SettingsScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(20),
             children: [
               TemporalScreenHeader(
-                title: journeyText(context, 'SETTINGS', 'AJUSTES'),
-                subtitle: journeyText(
-                  context,
+                title: copy('SETTINGS', 'AJUSTES'),
+                subtitle: copy(
                   'Preferences, guidance, and account control.',
                   'Preferencias, orientación y control de la cuenta.',
                 ),
-                eyebrow: journeyText(
-                  context,
-                  'PREFERENCES & ACCOUNT',
-                  'PREFERENCIAS Y CUENTA',
-                ),
+                eyebrow: copy('PREFERENCES & ACCOUNT', 'PREFERENCIAS Y CUENTA'),
                 onBack: () {
                   if (Navigator.canPop(context)) {
                     context.pop();
@@ -341,8 +333,7 @@ class SettingsScreen extends ConsumerWidget {
                 _PlanAndCreditsCard(
                   planStatus: access.subscriptionStatusLabel,
                   planDetail: access.internalCreditTest
-                      ? journeyText(
-                          context,
+                      ? copy(
                           access.subscriptionStatusDetail,
                           'Pruebas de licencia de Google Play. Usa un método de pago de prueba. El Planificador Inteligente y la Consola SI pueden usar IA externa después de que revises el contexto y confirmes el precio en créditos. Las herramientas locales siguen disponibles.',
                         )
@@ -357,25 +348,26 @@ class SettingsScreen extends ConsumerWidget {
               ],
 
               _SettingsCategory(
-                title: journeyText(
-                  context,
+                title: copy(
                   'Appearance & permissions',
                   'Apariencia y permisos',
                 ),
-                subtitle: journeyText(
-                  context,
+                subtitle: copy(
                   'Theme, sound, alerts, and microphone access',
                   'Tema, sonido, alertas y acceso al micrófono',
                 ),
                 icon: Icons.tune_rounded,
                 accent: AppColors.neonCyan,
                 child: _Section(
-                  label: 'APPEARANCE & PERMISSIONS',
+                  label: copy(
+                    'APPEARANCE & PERMISSIONS',
+                    'APARIENCIA Y PERMISOS',
+                  ),
                   accentColor: AppColors.neonCyan,
                   child: Column(
                     children: [
                       _NeonToggleTile(
-                        title: 'Dark Mode',
+                        title: copy('Dark Mode', 'Modo oscuro'),
                         value: isDarkMode,
                         onChanged: (bool enabled) {
                           final AppThemeEntity next = enabled
@@ -385,7 +377,7 @@ class SettingsScreen extends ConsumerWidget {
                         },
                       ),
                       _NeonToggleTile(
-                        title: 'Audio FX',
+                        title: copy('Audio FX', 'Efectos de sonido'),
                         value: soundEnabled,
                         onChanged: (v) =>
                             ref.read(soundEnabledProvider.notifier).set(v),
@@ -396,15 +388,25 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                         builder: (context, granted, _) {
                           final String subtitle = switch (granted) {
-                            true => 'Granted',
-                            false => 'Denied (scheduling disabled)',
-                            null =>
+                            true => copy('Granted', 'Concedido'),
+                            false => copy(
+                              'Denied (scheduling disabled)',
+                              'Denegado (programación desactivada)',
+                            ),
+                            null => copy(
                               'Unknown until app initializes notifications',
+                              'Desconocido hasta que la aplicación inicie las notificaciones',
+                            ),
                           };
                           return _NeonStatusTile(
-                            title: 'Alert Permission',
-                            subtitle:
-                                '$subtitle · reminder text may appear in device previews',
+                            title: copy(
+                              'Alert Permission',
+                              'Permiso de notificaciones',
+                            ),
+                            subtitle: copy(
+                              '$subtitle · reminder text may appear in device previews',
+                              '$subtitle · el texto de los recordatorios puede aparecer en las vistas previas del dispositivo',
+                            ),
                           );
                         },
                       ),
@@ -430,9 +432,12 @@ class SettingsScreen extends ConsumerWidget {
                                 return;
                               }
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
+                                SnackBar(
                                   content: Text(
-                                    'Open your device app settings and enable notifications for Axiomara.',
+                                    copy(
+                                      'Open your device app settings and enable notifications for Axiomara.',
+                                      'Abre los ajustes de aplicaciones del dispositivo y activa las notificaciones para Axiomara.',
+                                    ),
                                   ),
                                 ),
                               );
@@ -460,9 +465,12 @@ class SettingsScreen extends ConsumerWidget {
                             return;
                           }
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
-                                'Open your device app settings and enable microphone access for Axiomara.',
+                                copy(
+                                  'Open your device app settings and enable microphone access for Axiomara.',
+                                  'Abre los ajustes de aplicaciones del dispositivo y permite el acceso al micrófono para Axiomara.',
+                                ),
                               ),
                             ),
                           );
@@ -476,13 +484,11 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 12),
 
               _SettingsCategory(
-                title: journeyText(
-                  context,
+                title: copy(
                   'Planning & guidance',
                   'Planificación y orientación',
                 ),
-                subtitle: journeyText(
-                  context,
+                subtitle: copy(
                   'Context, reminders, planning preferences, memory, and tutorials',
                   'Contexto, recordatorios, preferencias de planificación, memoria y tutoriales',
                 ),
@@ -512,15 +518,13 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 12),
 
               _SettingsCategory(
-                title: journeyText(context, 'Data & account', 'Datos y cuenta'),
+                title: copy('Data & account', 'Datos y cuenta'),
                 subtitle: Env.isLocalMode
-                    ? journeyText(
-                        context,
+                    ? copy(
                         'Local profile, device data, and privacy controls',
                         'Perfil local, datos del dispositivo y controles de privacidad',
                       )
-                    : journeyText(
-                        context,
+                    : copy(
                         'Cloud backup, sign out, local data, and account controls',
                         'Copia en la nube, cierre de sesión, datos locales y controles de la cuenta',
                       ),
@@ -533,14 +537,20 @@ class SettingsScreen extends ConsumerWidget {
                     if (telemetryAccountId != null &&
                         Env.cloudServicesEnabled) ...<Widget>[
                       _Section(
-                        label: 'PRIVATE DIAGNOSTICS',
+                        label: copy(
+                          'PRIVATE DIAGNOSTICS',
+                          'DIAGNÓSTICOS PRIVADOS',
+                        ),
                         accentColor: AppColors.neonCyan,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            const Text(
-                              'Choose whether this account may share anonymous usage or crash diagnostics. Both services remain off in this release until their separate launch gates are approved.',
-                              style: TextStyle(
+                            Text(
+                              copy(
+                                'Choose whether this account may share anonymous usage or crash diagnostics. Both services remain off in this release until their separate launch gates are approved.',
+                                'Elige si esta cuenta puede compartir diagnósticos anónimos de uso o fallos. Ambos servicios permanecen desactivados en esta versión hasta que se aprueben sus controles de lanzamiento.',
+                              ),
+                              style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 14,
                                 height: 1.4,
@@ -548,7 +558,10 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 8),
                             _NeonToggleTile(
-                              title: 'Anonymous usage diagnostics',
+                              title: copy(
+                                'Anonymous usage diagnostics',
+                                'Diagnósticos anónimos de uso',
+                              ),
                               value: telemetryConsent.analytics,
                               onChanged:
                                   telemetryConsentAsync?.isLoading == true
@@ -562,7 +575,10 @@ class SettingsScreen extends ConsumerWidget {
                                     ),
                             ),
                             _NeonToggleTile(
-                              title: 'Anonymous crash diagnostics',
+                              title: copy(
+                                'Anonymous crash diagnostics',
+                                'Diagnósticos anónimos de fallos',
+                              ),
                               value: telemetryConsent.crashReporting,
                               onChanged:
                                   telemetryConsentAsync?.isLoading == true
@@ -581,21 +597,33 @@ class SettingsScreen extends ConsumerWidget {
                       const SizedBox(height: 10),
                     ],
                     _Section(
-                      label: 'ACCOUNT & DEVICE',
+                      label: copy('ACCOUNT & DEVICE', 'CUENTA Y DISPOSITIVO'),
                       accentColor: AppColors.neonViolet,
                       child: Column(
                         children: <Widget>[
                           _NeonNavTile(
                             title: Env.isLocalMode
-                                ? 'Close Profile'
+                                ? copy('Close Profile', 'Cerrar perfil')
                                 : hasMockSignIn
-                                ? 'Exit Tester Mode'
-                                : 'Log Out',
+                                ? copy(
+                                    'Exit Tester Mode',
+                                    'Salir del modo de prueba',
+                                  )
+                                : copy('Log Out', 'Cerrar sesión'),
                             subtitle: Env.isLocalMode
-                                ? 'Close this profile and keep its data on this device.'
+                                ? copy(
+                                    'Close this profile and keep its data on this device.',
+                                    'Cierra este perfil y conserva sus datos en este dispositivo.',
+                                  )
                                 : hasMockSignIn
-                                ? 'Return to login and disable the current tester sign-in state.'
-                                : 'Sign out and return to login.',
+                                ? copy(
+                                    'Return to login and disable the current tester sign-in state.',
+                                    'Vuelve al inicio de sesión y desactiva el estado actual de acceso de prueba.',
+                                  )
+                                : copy(
+                                    'Sign out and return to login.',
+                                    'Cierra la sesión y vuelve al inicio de sesión.',
+                                  ),
                             onTap: () => unawaited(
                               _signOut(
                                 context,
@@ -605,30 +633,52 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                           ),
                           _NeonNavTile(
-                            title: 'Clear Local Data',
-                            subtitle:
-                                'Remove saved planning data, offline actions, notifications, and local intelligence from this device.',
+                            title: copy(
+                              'Clear Local Data',
+                              'Borrar datos locales',
+                            ),
+                            subtitle: copy(
+                              'Remove saved planning data, offline actions, notifications, and local intelligence from this device.',
+                              'Elimina de este dispositivo los datos de planificación guardados, las acciones sin conexión, las notificaciones y la inteligencia local.',
+                            ),
                             onTap: () =>
                                 unawaited(_confirmClearLocalData(context, ref)),
                           ),
                           if (access.hasTesterFullAccess)
                             _NeonNavTile(
-                              title: 'Reset Tester Data',
-                              subtitle:
-                                  'Erase local test content and restart onboarding.',
+                              title: copy(
+                                'Reset Tester Data',
+                                'Restablecer datos de prueba',
+                              ),
+                              subtitle: copy(
+                                'Erase local test content and restart onboarding.',
+                                'Borra el contenido local de prueba y reinicia la introducción.',
+                              ),
                               onTap: () =>
                                   unawaited(_confirmTesterReset(context, ref)),
                             ),
                           if (!hasMockSignIn)
                             _NeonNavTile(
                               title: Env.isLocalMode
-                                  ? 'Delete Local Profile'
-                                  : 'Delete Account',
+                                  ? copy(
+                                      'Delete Local Profile',
+                                      'Eliminar perfil local',
+                                    )
+                                  : copy('Delete Account', 'Eliminar cuenta'),
                               subtitle: Env.isLocalMode
-                                  ? 'Permanently remove this profile and its data from this device.'
+                                  ? copy(
+                                      'Permanently remove this profile and its data from this device.',
+                                      'Elimina permanentemente este perfil y sus datos del dispositivo.',
+                                    )
                                   : accountDeletionConfigured
-                                  ? 'Permanent deletion of account and synced data.'
-                                  : 'Deletion endpoint unavailable in this build; request deletion via support.',
+                                  ? copy(
+                                      'Permanent deletion of account and synced data.',
+                                      'Elimina permanentemente la cuenta y los datos sincronizados.',
+                                    )
+                                  : copy(
+                                      'Deletion endpoint unavailable in this build; request deletion via support.',
+                                      'La eliminación no está disponible en esta versión; solicítala al equipo de soporte.',
+                                    ),
                               onTap: () => unawaited(
                                 Env.isLocalMode
                                     ? _confirmDeleteLocalProfile(context, ref)
@@ -649,25 +699,20 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 12),
 
               _SettingsCategory(
-                title: journeyText(
-                  context,
-                  'Help & legal',
-                  'Ayuda y aspectos legales',
-                ),
-                subtitle: journeyText(
-                  context,
+                title: copy('Help & legal', 'Ayuda y aspectos legales'),
+                subtitle: copy(
                   'Support, privacy, terms, and account assistance',
                   'Soporte, privacidad, términos y ayuda con la cuenta',
                 ),
                 icon: Icons.help_outline_rounded,
                 accent: AppColors.memoryAmber,
                 child: _Section(
-                  label: 'HELP & LEGAL',
+                  label: copy('HELP & LEGAL', 'AYUDA Y ASPECTOS LEGALES'),
                   accentColor: AppColors.memoryAmber,
                   child: Column(
                     children: [
                       _NeonNavTile(
-                        title: 'Privacy Policy',
+                        title: copy('Privacy Policy', 'Política de privacidad'),
                         subtitle: AppUrls.privacy,
                         onTap: () => unawaited(
                           _openExternalWithFallback(
@@ -675,19 +720,28 @@ class SettingsScreen extends ConsumerWidget {
                             ref: ref,
                             url: AppUrls.privacy,
                             fallbackRoute: routes.privacy,
-                            failureLabel: 'Privacy policy link unavailable.',
+                            failureLabel: copy(
+                              'Privacy policy link unavailable.',
+                              'El enlace a la política de privacidad no está disponible.',
+                            ),
                           ),
                         ),
                       ),
                       _NeonNavTile(
-                        title: 'Terms of Service',
+                        title: copy(
+                          'Terms of Service',
+                          'Términos del servicio',
+                        ),
                         onTap: () => unawaited(
                           _openExternalWithFallback(
                             context: context,
                             ref: ref,
                             url: AppUrls.terms,
                             fallbackRoute: routes.terms,
-                            failureLabel: 'Terms link unavailable.',
+                            failureLabel: copy(
+                              'Terms link unavailable.',
+                              'El enlace a los términos no está disponible.',
+                            ),
                           ),
                         ),
                       ),
@@ -701,37 +755,52 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                       ),
                       _NeonNavTile(
-                        title: 'Support',
-                        subtitle: 'Help center: ${AppUrls.support}',
+                        title: copy('Support', 'Soporte'),
+                        subtitle: copy(
+                          'Help center: ${AppUrls.support}',
+                          'Centro de ayuda: ${AppUrls.support}',
+                        ),
                         onTap: () => unawaited(
                           _openExternalWithFallback(
                             context: context,
                             ref: ref,
                             url: AppUrls.support,
                             fallbackRoute: routes.support,
-                            failureLabel: 'Support link unavailable.',
+                            failureLabel: copy(
+                              'Support link unavailable.',
+                              'El enlace de soporte no está disponible.',
+                            ),
                           ),
                         ),
                       ),
                       _NeonNavTile(
-                        title: 'Contact Support',
-                        subtitle:
-                            'Review app/device context before sending; no stable device ID is included.',
+                        title: copy('Contact Support', 'Contactar con soporte'),
+                        subtitle: copy(
+                          'Review app/device context before sending; no stable device ID is included.',
+                          'Revisa el contexto de la aplicación y del dispositivo antes de enviarlo; no se incluye ningún identificador estable del dispositivo.',
+                        ),
                         onTap: () => unawaited(
                           _contactSupportWithDiagnostics(context, ref),
                         ),
                       ),
                       _NeonNavTile(
-                        title: 'Copy Support Email',
-                        subtitle:
-                            'Copy prefilled support email template to clipboard',
+                        title: copy(
+                          'Copy Support Email',
+                          'Copiar correo para soporte',
+                        ),
+                        subtitle: copy(
+                          'Copy prefilled support email template to clipboard',
+                          'Copia al portapapeles una plantilla de correo para soporte.',
+                        ),
                         onTap: () =>
                             unawaited(_copySupportEmailTemplate(context)),
                       ),
                       _NeonNavTile(
-                        title: 'Copy Diagnostics',
-                        subtitle:
-                            'Copy a reviewable, identifier-free support summary',
+                        title: copy('Copy Diagnostics', 'Copiar diagnósticos'),
+                        subtitle: copy(
+                          'Copy a reviewable, identifier-free support summary',
+                          'Copia un resumen revisable para soporte sin identificadores.',
+                        ),
                         onTap: () =>
                             unawaited(_copyDiagnosticsToClipboard(context)),
                       ),

@@ -582,6 +582,50 @@ void main() {
     expect(find.text('Allow external AI assistance'), findsNothing);
   });
 
+  testWidgets('Spanish expanded settings keep release controls localized', (
+    WidgetTester tester,
+  ) async {
+    useTallSurface(tester);
+    final ProviderContainer container = createContainer();
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          locale: Locale('es'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: <LocalizationsDelegate<dynamic>>[
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: SettingsScreen(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await tester.tap(find.text('Apariencia y permisos'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('APARIENCIA Y PERMISOS'), findsOneWidget);
+    expect(find.text('Modo oscuro'), findsOneWidget);
+    expect(find.text('Efectos de sonido'), findsOneWidget);
+    expect(find.text('APPEARANCE & PERMISSIONS'), findsNothing);
+    expect(find.text('Dark Mode'), findsNothing);
+
+    await tester.tap(find.text('Apariencia y permisos'));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('Planificación y orientación'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.scrollUntilVisible(
+      find.text('REFLEXIÓN DIARIA'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Recordatorio de reflexión'), findsOneWidget);
+    expect(find.text('DAILY REFLECTION'), findsNothing);
+  });
+
   testWidgets('Context entry opens its governance controls directly', (
     WidgetTester tester,
   ) async {

@@ -364,16 +364,20 @@ class _MemoryGovernanceSection extends ConsumerWidget {
     final List<MemoryEntity> memories = ref.watch(memoriesProvider);
     final bool unreadable = ref.watch(memoryReadCorruptedProvider);
     return _Section(
-      label: 'MEMORY GOVERNANCE',
+      label: journeyText(context, 'MEMORY GOVERNANCE', 'CONTROL DE LA MEMORIA'),
       accentColor: AppColors.memoryAmber,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 10, 16, 4),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
             child: Text(
-              'Use only this time is the default. Durable memory requires an explicit confirmation, stays in the source surface, expires automatically, and always creates a receipt. Raw emotional and crisis disclosures are not retained. SI durable interpretive memory is disabled.',
-              style: TextStyle(
+              journeyText(
+                context,
+                'Use only this time is the default. Durable memory requires an explicit confirmation, stays in the source surface, expires automatically, and always creates a receipt. Raw emotional and crisis disclosures are not retained. SI durable interpretive memory is disabled.',
+                'Usar solo esta vez es la opción predeterminada. La memoria duradera requiere una confirmación explícita, permanece en su área de origen, caduca automáticamente y siempre crea un registro. No se conservan expresiones emocionales ni de crisis sin procesar. La memoria interpretativa duradera de SI está desactivada.',
+              ),
+              style: const TextStyle(
                 color: Colors.white60,
                 fontSize: 12,
                 height: 1.4,
@@ -381,36 +385,91 @@ class _MemoryGovernanceSection extends ConsumerWidget {
             ),
           ),
           _NeonStatusTile(
-            title: 'Active memory receipts',
+            title: journeyText(
+              context,
+              'Active memory receipts',
+              'Registros de memoria activos',
+            ),
             subtitle: unreadable
-                ? 'Unreadable retained data detected · review or delete it'
-                : '${memories.length} · account-scoped · surface-scoped · expiring',
+                ? journeyText(
+                    context,
+                    'Unreadable retained data detected · review or delete it',
+                    'Se detectaron datos conservados ilegibles · revísalos o elimínalos',
+                  )
+                : journeyText(
+                    context,
+                    '${memories.length} · account-scoped · surface-scoped · expiring',
+                    '${memories.length} · limitados a la cuenta · limitados al área · con caducidad',
+                  ),
           ),
-          const _NeonStatusTile(
-            title: 'SI Console durable memory',
-            subtitle:
-                'Disabled — SI cannot save or retrieve interpretive memory.',
+          _NeonStatusTile(
+            title: journeyText(
+              context,
+              'SI Console durable memory',
+              'Memoria duradera de la Consola SI',
+            ),
+            subtitle: journeyText(
+              context,
+              'Disabled — SI cannot save or retrieve interpretive memory.',
+              'Desactivada: SI no puede guardar ni recuperar memoria interpretativa.',
+            ),
           ),
           _NeonNavTile(
-            title: 'Review memory receipts',
-            subtitle: 'View exact text, purpose, source, expiry, and controls.',
+            title: journeyText(
+              context,
+              'Review memory receipts',
+              'Revisar registros de memoria',
+            ),
+            subtitle: journeyText(
+              context,
+              'View exact text, purpose, source, expiry, and controls.',
+              'Consulta el texto exacto, el propósito, el origen, la caducidad y los controles.',
+            ),
             onTap: () => unawaited(_reviewReceipts(context)),
           ),
           _NeonNavTile(
-            title: 'Export memory receipts',
-            subtitle: 'Copies governed receipts only — never raw transcripts.',
+            title: journeyText(
+              context,
+              'Export memory receipts',
+              'Exportar registros de memoria',
+            ),
+            subtitle: journeyText(
+              context,
+              'Copies governed receipts only — never raw transcripts.',
+              'Copia solo los registros controlados, nunca transcripciones sin procesar.',
+            ),
             onTap: () => unawaited(_exportReceipts(context, ref)),
           ),
           _NeonNavTile(
-            title: 'Delete all durable memories',
+            title: journeyText(
+              context,
+              'Delete all durable memories',
+              'Eliminar todas las memorias duraderas',
+            ),
             subtitle: unreadable
-                ? 'Permanently removes the unreadable account-scoped payload.'
-                : 'Permanently removes all ${memories.length} active receipts.',
+                ? journeyText(
+                    context,
+                    'Permanently removes the unreadable account-scoped payload.',
+                    'Elimina permanentemente los datos ilegibles de esta cuenta.',
+                  )
+                : journeyText(
+                    context,
+                    'Permanently removes all ${memories.length} active receipts.',
+                    'Elimina permanentemente los ${memories.length} registros activos.',
+                  ),
             onTap: () => unawaited(_deleteAll(context, ref, memories.length)),
           ),
           _NeonNavTile(
-            title: 'Clear short-lived assistant context',
-            subtitle: 'Clears surface-local context separately.',
+            title: journeyText(
+              context,
+              'Clear short-lived assistant context',
+              'Borrar el contexto temporal del asistente',
+            ),
+            subtitle: journeyText(
+              context,
+              'Clears surface-local context separately.',
+              'Borra por separado el contexto temporal de cada área.',
+            ),
             onTap: () => unawaited(_clearAssistantContext(context, ref)),
           ),
         ],
@@ -425,12 +484,14 @@ class _PreferenceDropdown<T> extends StatelessWidget {
     required this.value,
     required this.items,
     required this.onChanged,
+    this.itemLabel,
   });
 
   final String label;
   final T value;
   final List<T> items;
   final ValueChanged<T> onChanged;
+  final String Function(T value)? itemLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -457,7 +518,7 @@ class _PreferenceDropdown<T> extends StatelessWidget {
                 (T item) => DropdownMenuItem<T>(
                   value: item,
                   child: Text(
-                    item.toString().split('.').last,
+                    itemLabel?.call(item) ?? item.toString().split('.').last,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -488,17 +549,26 @@ class _AssistantReleaseSection extends ConsumerWidget {
       ),
     );
     final AssistantReleaseConfig? loadedConfig = config.asData?.value;
+    final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
     return _Section(
-      label: 'ASSISTANT RELEASE CONTROL',
+      label: journeyText(
+        context,
+        'ASSISTANT RELEASE CONTROL',
+        'CONTROL DE VERSIÓN DEL ASISTENTE',
+      ),
       accentColor: AppColors.neonViolet,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 10, 16, 4),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
             child: Text(
-              'New assistant behavior is assigned deterministically. Joining beta is optional; leaving removes beta eligibility. Planner, SI, memory, critic, and optional external explanation each have an independent emergency rollback.',
-              style: TextStyle(
+              journeyText(
+                context,
+                'New assistant behavior is assigned deterministically. Joining beta is optional; leaving removes beta eligibility. Planner, SI, memory, critic, and optional external explanation each have an independent emergency rollback.',
+                'El comportamiento nuevo del asistente se asigna de forma determinista. Unirse a la beta es opcional; salir elimina la elegibilidad. El Planificador, SI, la memoria, el crítico y la explicación externa opcional tienen cada uno una reversión de emergencia independiente.',
+              ),
+              style: const TextStyle(
                 color: Colors.white60,
                 fontSize: 12,
                 height: 1.4,
@@ -506,7 +576,11 @@ class _AssistantReleaseSection extends ConsumerWidget {
             ),
           ),
           _NeonToggleTile(
-            title: 'Join opt-in assistant beta',
+            title: journeyText(
+              context,
+              'Join opt-in assistant beta',
+              'Unirse voluntariamente a la beta del asistente',
+            ),
             value: optIn.asData?.value ?? false,
             onChanged: optIn.isLoading
                 ? null
@@ -517,36 +591,78 @@ class _AssistantReleaseSection extends ConsumerWidget {
                   ),
           ),
           _NeonStatusTile(
-            title: 'Release stage',
+            title: journeyText(
+              context,
+              'Release stage',
+              'Etapa de lanzamiento',
+            ),
             subtitle: loadedConfig == null
-                ? 'Loading fail-closed release configuration...'
+                ? journeyText(
+                    context,
+                    'Loading fail-closed release configuration...',
+                    'Cargando una configuración de lanzamiento segura por defecto...',
+                  )
                 : loadedConfig.configurationValid
                 ? loadedConfig.stage.name
-                : 'Disabled: ${loadedConfig.configurationIssue}',
+                : journeyText(
+                    context,
+                    'Disabled: ${loadedConfig.configurationIssue}',
+                    'Desactivada: ${loadedConfig.configurationIssue}',
+                  ),
           ),
           _NeonStatusTile(
-            title: 'Your Planner cohort',
+            title: journeyText(
+              context,
+              'Your Planner cohort',
+              'Tu cohorte del Planificador',
+            ),
             subtitle: plannerDecision.when(
               data: (AssistantReleaseDecision decision) =>
-                  '${decision.cohort.name} · ${decision.enabled ? 'enabled' : 'not enabled'}',
-              loading: () => 'Resolving without exposing account identity...',
-              error: (Object _, StackTrace _) =>
-                  'Disabled because release state could not be verified.',
+                  '${decision.cohort.name} · ${decision.enabled ? (isSpanish ? 'habilitada' : 'enabled') : (isSpanish ? 'no habilitada' : 'not enabled')}',
+              loading: () => journeyText(
+                context,
+                'Resolving without exposing account identity...',
+                'Resolviendo sin exponer la identidad de la cuenta...',
+              ),
+              error: (Object _, StackTrace _) => journeyText(
+                context,
+                'Disabled because release state could not be verified.',
+                'Desactivada porque no se pudo verificar el estado del lanzamiento.',
+              ),
             ),
           ),
           _NeonStatusTile(
-            title: 'Privacy-safe shadow evaluation',
+            title: journeyText(
+              context,
+              'Privacy-safe shadow evaluation',
+              'Evaluación paralela con privacidad',
+            ),
             subtitle: loadedConfig?.shadowEvaluationEnabled == true
-                ? 'Enabled for digests and finding codes only; cannot publish or write.'
-                : 'Disabled',
+                ? journeyText(
+                    context,
+                    'Enabled for digests and finding codes only; cannot publish or write.',
+                    'Habilitada solo para resúmenes y códigos de hallazgos; no puede publicar ni escribir.',
+                  )
+                : journeyText(context, 'Disabled', 'Desactivada'),
           ),
           for (final AssistantReleaseCapability capability
               in AssistantReleaseCapability.values)
             _NeonStatusTile(
-              title: _assistantCapabilityLabel(capability),
+              title: _assistantCapabilityLabel(
+                capability,
+                isSpanish: isSpanish,
+              ),
               subtitle: loadedConfig?.isRolledBack(capability) == true
-                  ? 'Emergency rollback active'
-                  : 'Independent rollback ready',
+                  ? journeyText(
+                      context,
+                      'Emergency rollback active',
+                      'Reversión de emergencia activa',
+                    )
+                  : journeyText(
+                      context,
+                      'Independent rollback ready',
+                      'Reversión independiente lista',
+                    ),
             ),
         ],
       ),
@@ -554,14 +670,21 @@ class _AssistantReleaseSection extends ConsumerWidget {
   }
 }
 
-String _assistantCapabilityLabel(AssistantReleaseCapability capability) {
+String _assistantCapabilityLabel(
+  AssistantReleaseCapability capability, {
+  required bool isSpanish,
+}) {
   return switch (capability) {
     AssistantReleaseCapability.smartPlannerV2 => 'Smart Planner V2',
     AssistantReleaseCapability.siConsoleV2 => 'SI Console V2',
-    AssistantReleaseCapability.governedMemory => 'Governed memory',
-    AssistantReleaseCapability.safetyCritic => 'Safety critic',
+    AssistantReleaseCapability.governedMemory =>
+      isSpanish ? 'Memoria controlada' : 'Governed memory',
+    AssistantReleaseCapability.safetyCritic =>
+      isSpanish ? 'Crítico de seguridad' : 'Safety critic',
     AssistantReleaseCapability.plannerExplanation =>
-      'Optional Planner explanation',
+      isSpanish
+          ? 'Explicación opcional del Planificador'
+          : 'Optional Planner explanation',
   };
 }
 
@@ -574,15 +697,23 @@ class _AdaptiveGuidanceSection extends ConsumerWidget {
       adaptiveGuidanceProvider,
     );
     return _Section(
-      label: 'ADAPTIVE GUIDE',
+      label: journeyText(context, 'ADAPTIVE GUIDE', 'GUÍA ADAPTATIVA'),
       accentColor: AppColors.memoryAmber,
       child: guidance.when(
-        loading: () => const _NeonStatusTile(
-          title: 'Loading guide',
-          subtitle: 'Reading account-scoped progress...',
+        loading: () => _NeonStatusTile(
+          title: journeyText(context, 'Loading guide', 'Cargando la guía'),
+          subtitle: journeyText(
+            context,
+            'Reading account-scoped progress...',
+            'Leyendo el progreso de esta cuenta...',
+          ),
         ),
         error: (Object error, StackTrace _) => _NeonStatusTile(
-          title: 'Guide unavailable',
+          title: journeyText(
+            context,
+            'Guide unavailable',
+            'Guía no disponible',
+          ),
           subtitle: settingsPublicFailureMessage(
             context,
             error,
@@ -597,22 +728,46 @@ class _AdaptiveGuidanceSection extends ConsumerWidget {
             children: <Widget>[
               _NeonStatusTile(
                 title: state.coreComplete
-                    ? 'Contextual guidance active'
-                    : 'Learning the core workflow',
-                subtitle:
-                    '${state.milestones.length} real outcomes observed · '
-                    '${state.skippedLessons.length} prompts muted',
+                    ? journeyText(
+                        context,
+                        'Contextual guidance active',
+                        'Orientación contextual activa',
+                      )
+                    : journeyText(
+                        context,
+                        'Learning the core workflow',
+                        'Aprendiendo el flujo principal',
+                      ),
+                subtitle: journeyText(
+                  context,
+                  '${state.milestones.length} real outcomes observed · ${state.skippedLessons.length} prompts muted',
+                  '${state.milestones.length} resultados reales observados · ${state.skippedLessons.length} avisos silenciados',
+                ),
               ),
               _NeonNavTile(
-                title: 'Restart Adaptive Guide',
-                subtitle:
-                    'Keeps real outcomes and reopens the next relevant contextual intervention.',
+                title: journeyText(
+                  context,
+                  'Restart Adaptive Guide',
+                  'Reiniciar la Guía Adaptativa',
+                ),
+                subtitle: journeyText(
+                  context,
+                  'Keeps real outcomes and reopens the next relevant contextual intervention.',
+                  'Conserva los resultados reales y vuelve a abrir la siguiente intervención contextual pertinente.',
+                ),
                 onTap: () => unawaited(_restartGuide(context, ref)),
               ),
               _NeonNavTile(
-                title: 'Restart first setup',
-                subtitle:
-                    'Reopens welcome and account setup. Keeps tasks, milestones, and Adaptive Guide progress.',
+                title: journeyText(
+                  context,
+                  'Restart first setup',
+                  'Reiniciar la configuración inicial',
+                ),
+                subtitle: journeyText(
+                  context,
+                  'Reopens welcome and account setup. Keeps tasks, milestones, and Adaptive Guide progress.',
+                  'Vuelve a abrir la bienvenida y la configuración de la cuenta. Conserva las tareas, los hitos y el progreso de la Guía Adaptativa.',
+                ),
                 onTap: () => unawaited(_restartFirstSetup(context, ref)),
               ),
             ],
