@@ -518,7 +518,7 @@ bool _claimsCompletedMutation(String value) {
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b',
     ),
     RegExp(
-      r'(^|[.!?]\s+)done(\s*[-—:,]\s*|\s*[.!?]\s+)(your|the)\s+'
+      r'(^|[.!?]\s+)done(\s*[-—:,;]\s*|\s*[.!?]\s+)(your|the)\s+'
       r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
       r'reminder|commitment|milestone|routine)\s+is\s+'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b',
@@ -568,7 +568,7 @@ bool _claimsCompletedMutation(String value) {
 String _removeUnsupportedMutationClaims(String value) {
   final List<RegExp> unsupportedSentences = <RegExp>[
     RegExp(
-      r'(^|(?<=[.!?])\s+)done(\s*[-—:,]\s*|\s*[.!?]\s+)(your|the)\s+'
+      r'(^|(?<=[.!?])\s+)done(\s*[-—:,;]\s*|\s*[.!?]\s+)(your|the)\s+'
       r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
       r'reminder|commitment|milestone|routine)\s+is\s+'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b'

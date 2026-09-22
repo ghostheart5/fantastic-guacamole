@@ -176,24 +176,31 @@ void main() {
   );
 
   test('a grocery question does not become an asserted objective', () async {
-    final ProviderContainer container = plannerContainer();
-    addTearDown(container.dispose);
+    for (final String notes in <String>[
+      'Do I need groceries before 7 PM?',
+      'Do you think I need groceries before 7 PM?',
+      'Can you tell me whether I need groceries before 7 PM?',
+    ]) {
+      final ProviderContainer container = plannerContainer();
+      addTearDown(container.dispose);
 
-    final SmartPlannerResult result = await container
-        .read(smartPlannerQueryControllerProvider)
-        .requestPlanningGuidance(
-          energy: null,
-          emotion: null,
-          notes: 'Do I need groceries before 7 PM?',
-          history: const <Map<String, String>>[],
-          previousSavedNotes: null,
-        );
+      final SmartPlannerResult result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: null,
+            emotion: null,
+            notes: notes,
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
 
-    expect(result.plannerResponse.isClarification, isTrue);
-    expect(
-      result.plannerResponse.toAccessibleText().toLowerCase(),
-      isNot(contains('plan essential groceries before 7 pm')),
-    );
+      expect(result.plannerResponse.isClarification, isTrue, reason: notes);
+      expect(
+        result.plannerResponse.toAccessibleText().toLowerCase(),
+        isNot(contains('plan essential groceries before 7 pm')),
+        reason: notes,
+      );
+    }
   });
 
   test(

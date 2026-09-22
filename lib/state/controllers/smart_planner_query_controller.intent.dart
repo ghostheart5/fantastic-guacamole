@@ -690,8 +690,10 @@ String _plannerWithoutQuotedText(String text) => text.replaceAll(
 bool _plannerHistoricalOrUncertain(String text) {
   if (RegExp(r'(?:^|[,;:]\s*)¿').hasMatch(text) ||
       RegExp(
-        r'(?:^|[,;:]\s*)(?:do|does|did|should|must|can|could|would|will)\s+'
-        r'(?:i|we|my|our)\b',
+        r'(?:^|[,;:]\s*)(?:(?:do|does|did|should|must|can|could|would|will)\s+'
+        r'(?:i|we|my|our)\b|(?:do|does|did)\s+you\s+(?:think|believe|feel)\b|'
+        r'(?:can|could|would|will)\s+you\s+(?:tell|say|confirm|determine|check)\s+'
+        r'(?:me\s+)?(?:whether|if)\b)',
         caseSensitive: false,
       ).hasMatch(text)) {
     return true;
@@ -704,8 +706,10 @@ bool _plannerHistoricalOrUncertain(String text) {
 
 String _plannerDeclarativePrefix(String text) {
   final RegExpMatch? question = RegExp(
-    r'(?:^|[,;:]\s*)(?=¿|(?:do|does|did|should|must|can|could|would|will)\s+'
-    r'(?:i|we|my|our)\b)',
+    r'(?:^|[,;:]\s*)(?=¿|(?:(?:do|does|did|should|must|can|could|would|will)\s+'
+    r'(?:i|we|my|our)\b|(?:do|does|did)\s+you\s+(?:think|believe|feel)\b|'
+    r'(?:can|could|would|will)\s+you\s+(?:tell|say|confirm|determine|check)\s+'
+    r'(?:me\s+)?(?:whether|if)\b))',
     caseSensitive: false,
   ).firstMatch(text);
   if (question == null) return text;

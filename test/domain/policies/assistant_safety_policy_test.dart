@@ -131,6 +131,7 @@ void main() {
       'Done! Your appointment is scheduled for 5 PM.',
       'Done. Your appointment is scheduled for 5 PM.',
       'Done, your appointment is scheduled for 5 PM.',
+      'Done; your appointment is scheduled for 5 PM.',
       'Your appointment has been scheduled for 5 PM.',
       'Your meeting has been created.',
       'Your reminder has been saved.',
