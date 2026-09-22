@@ -540,6 +540,9 @@ for (const settlementFailure of ["timeout", "network"] as const) {
           throw new Error("uncertain success was incorrectly refunded");
         }
         settlementCalls++;
+        if (!init?.signal) {
+          throw new Error("success settlement attempt is missing its deadline");
+        }
         if (settlementCalls === 1) {
           return Promise.reject(
             settlementFailure === "timeout"

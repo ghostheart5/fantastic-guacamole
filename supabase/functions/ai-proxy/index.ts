@@ -118,7 +118,6 @@ async function settleReservation(
     failureCode?: string;
     responsePayload?: Record<string, unknown>;
   } = {},
-  bounded = true,
 ): Promise<Record<string, unknown> | null> {
   const body = {
     p_user_id: userId,
@@ -141,9 +140,7 @@ async function settleReservation(
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
-      ...(bounded
-        ? { signal: AbortSignal.timeout(SETTLEMENT_TIMEOUT_MS) }
-        : {}),
+      signal: AbortSignal.timeout(SETTLEMENT_TIMEOUT_MS),
     },
   );
   if (!response.ok) {
@@ -191,9 +188,10 @@ async function settleSuccessDefinitively(
   }
   // A timeout, abort, connection reset, or retryable HTTP/null result cannot
   // prove whether PostgreSQL committed. Reissue the idempotent settlement
-  // without another abort so the row lock returns its authoritative state. A
-  // reconciliation response can be lost too, so repeat it before giving up
-  // certainty.
+  // with a fresh bounded request so the row lock can return its authoritative
+  // state without allowing an unhealthy connection to hold the paid reply
+  // forever. A reconciliation response can be lost too, so repeat it before
+  // giving up certainty.
   if (outcomeWasAmbiguous) {
     for (
       let attempt = 0;
@@ -206,7 +204,6 @@ async function settleSuccessDefinitively(
           requestId,
           true,
           details,
-          false,
         );
         if (reconciliation !== null) return reconciliation;
         lastFailure = new Error(

@@ -157,6 +157,13 @@ The release review fits in the available time.`;
     throw new Error("direct English recommendation was accepted");
   }
   if (
+    containsRecommendationContradiction(
+      "I don't recommend visiting the pharmacy first. The pharmacy is closed.",
+    )
+  ) {
+    throw new Error("first-person negated recommendation was rejected");
+  }
+  if (
     !containsRecommendationContradiction(
       "You should visit the pharmacy. The pharmacy is closed.",
     )

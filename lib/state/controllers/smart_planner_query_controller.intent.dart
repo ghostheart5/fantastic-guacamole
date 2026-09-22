@@ -972,6 +972,7 @@ String? _explicitGroceryNeedAction(String source) {
 
 bool _plannerRejectsGroceryNeed(String clause) => RegExp(
   r"\b(?:do not|don['’]t|never|no longer)\s+(?:still\s+)?need\b[^.!?;]{0,35}\b(?:grocer(?:y|ies)|food)\b"
+  r"|\b(?:do not|don['’]t)\s+(?:think|believe|feel)\b[^.!?;]{0,45}\b(?:i|we)\b[^.!?;]{0,30}\b(?:still\s+)?need\b[^.!?;]{0,35}\b(?:grocer(?:y|ies)|food)\b"
   r'|\b(?:avoid|skip|exclude)\s+(?:the\s+)?(?:grocer(?:y|ies)|food)\b'
   r'|\b(?:grocer(?:y|ies)|food)\b[^.!?;]{0,55}\b(?:can wait|can be deferred|(?:is|are) optional|(?:is|are) not urgent)\b'
   r'|\b(?:can wait|can be deferred|(?:is|are) optional|(?:is|are) not urgent)\b[^.!?;]{0,55}\b(?:grocer(?:y|ies)|food)\b'
