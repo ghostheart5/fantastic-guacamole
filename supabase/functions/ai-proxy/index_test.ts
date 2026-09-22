@@ -2,6 +2,9 @@
 // Only transport/configuration are substituted; no network or credentials.
 type Handler = (request: Request) => Promise<Response>;
 let handler: Handler | undefined;
+let remainingProviderTimeoutMs:
+  | ((startedAtMs: number, nowMs?: number) => number)
+  | undefined;
 const originalServe = Deno.serve;
 const originalEnvGet = Deno.env.get;
 try {
@@ -15,11 +18,30 @@ try {
   Reflect.set(Deno, "serve", (value: Handler) => {
     handler = value;
   });
-  await import("./index.ts");
+  const module = await import("./index.ts");
+  remainingProviderTimeoutMs = module.remainingProviderTimeoutMs;
 } finally {
   Reflect.set(Deno, "serve", originalServe);
   Reflect.set(Deno.env, "get", originalEnvGet);
 }
+
+Deno.test("provider retries share one bounded deadline", () => {
+  if (!remainingProviderTimeoutMs) {
+    throw new Error("provider deadline helper was not exported");
+  }
+  const startedAtMs = 1_000_000;
+  if (remainingProviderTimeoutMs(startedAtMs, startedAtMs) !== 25_000) {
+    throw new Error("first provider call did not keep its 25 second cap");
+  }
+  if (
+    remainingProviderTimeoutMs(startedAtMs, startedAtMs + 20_000) !== 18_000
+  ) {
+    throw new Error("repair call did not inherit the remaining flow budget");
+  }
+  if (remainingProviderTimeoutMs(startedAtMs, startedAtMs + 38_000) !== 0) {
+    throw new Error("expired provider flow received another timeout window");
+  }
+});
 
 Deno.test("served AI GET reports the configured cohort without transport, quotes or spending", async () => {
   if (!handler) throw new Error("handler was not registered");

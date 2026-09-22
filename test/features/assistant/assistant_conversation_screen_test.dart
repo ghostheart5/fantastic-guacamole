@@ -1028,14 +1028,18 @@ void main() {
     },
   );
 
-  testWidgets('stop waiting keeps a paid request available for safe retry', (
+  testWidgets('stop waiting preserves and publishes the paid late reply', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(412, 915));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final never = Completer<({int status, Map<String, dynamic> data})>();
+    String? executedRequestId;
     final container = setup((body) async {
-      if (body['quoteOnly'] != true) return never.future;
+      if (body['quoteOnly'] != true) {
+        executedRequestId = body['requestId'] as String?;
+        return never.future;
+      }
       return (
         status: 200,
         data: <String, dynamic>{
@@ -1084,17 +1088,31 @@ void main() {
     await tester.pump();
 
     expect(
-      find.textContaining('same priced request is retained'),
+      find.textContaining('paid request is still finishing safely'),
       findsOneWidget,
     );
-    expect(find.text('Retry same request'), findsOneWidget);
+    expect(find.text('Retry same request'), findsNothing);
     expect(find.text('Preparing your response…'), findsNothing);
     expect(tester.takeException(), isNull);
     never.complete((
-      status: 409,
-      data: <String, dynamic>{'error': 'request_pending'},
+      status: 200,
+      data: <String, dynamic>{
+        'requestId': executedRequestId,
+        'message': 'The late paid response is preserved.',
+        'creditsCharged': 4,
+        'remainingCredits': 20,
+        'model': 'transport-fixture',
+      },
     ));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.text('The late paid response is preserved.'), findsOneWidget);
+    expect(find.textContaining('still finishing safely'), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('conversation-input')))
+          .readOnly,
+      isFalse,
+    );
   });
 
   testWidgets('real conversation Advanced fields survive a phone keyboard', (

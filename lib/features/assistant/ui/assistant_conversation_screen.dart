@@ -46,6 +46,7 @@ class _AssistantConversationScreenState
   final List<Map<String, String>> _history = [];
   late final VoiceController _voiceController;
   bool _busy = false;
+  bool _waitIndicatorDismissed = false;
   String? _error;
   ConversationQuote? _pending;
   int _generation = 0;
@@ -170,6 +171,7 @@ class _AssistantConversationScreenState
     }
     setState(() {
       _busy = true;
+      _waitIndicatorDismissed = false;
       _error = null;
     });
     bool current() =>
@@ -278,6 +280,7 @@ class _AssistantConversationScreenState
         ]);
         _input.clear();
         _pending = null;
+        _error = null;
       });
       ref.invalidate(aiCreditWalletProvider);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -304,7 +307,12 @@ class _AssistantConversationScreenState
         ),
       );
     } finally {
-      if (current()) setState(() => _busy = false);
+      if (current()) {
+        setState(() {
+          _busy = false;
+          _waitIndicatorDismissed = false;
+        });
+      }
     }
   }
 
@@ -325,17 +333,20 @@ class _AssistantConversationScreenState
   void _stopWaiting() {
     if (!_busy) return;
     setState(() {
-      _operation++;
-      _busy = false;
-      _error = _pending == null
-          ? copy(
-              'Stopped waiting before a paid request was confirmed. Your question is retained.',
-              'Se detuvo la espera antes de confirmar una solicitud de pago. Tu pregunta se conserva.',
-            )
-          : copy(
-              'Stopped waiting. The same priced request is retained so you can retry it without creating a second charge.',
-              'Se detuvo la espera. Se conserva la misma solicitud con precio para que puedas reintentarla sin crear un segundo cobro.',
-            );
+      if (_pending == null) {
+        _operation++;
+        _busy = false;
+        _error = copy(
+          'Stopped waiting before a paid request was confirmed. Your question is retained.',
+          'Se detuvo la espera antes de confirmar una solicitud de pago. Tu pregunta se conserva.',
+        );
+        return;
+      }
+      _waitIndicatorDismissed = true;
+      _error = copy(
+        'The paid request is still finishing safely. Stay on this screen; its confirmed reply will appear when ready, without another charge.',
+        'La solicitud pagada sigue finalizando de forma segura. Permanece en esta pantalla; la respuesta confirmada aparecerá cuando esté lista, sin otro cobro.',
+      );
     });
   }
 
@@ -592,6 +603,7 @@ class _AssistantConversationScreenState
           _range = SIV2TimeRange.all;
           _sources = SIV2Source.values.toSet();
           _busy = false;
+          _waitIndicatorDismissed = false;
           _error = null;
         });
       }
@@ -637,12 +649,16 @@ class _AssistantConversationScreenState
         ? ref.watch(siV2EvidenceSnapshotProvider).asData?.value.tasks
         : null;
     final enabled = consent && !_busy && _pending == null;
-    return Scaffold(
+    return PopScope(
+      canPop: !_busy,
+      child: Scaffold(
       backgroundColor: const Color(0xFF07111C),
       appBar: AppBar(
         title: Text(planner ? 'Smart Planner' : 'SI Console'),
         leading: BackButton(
-          onPressed: () => goToAppView(context, ref, AppView.nexus),
+          onPressed: _busy
+              ? null
+              : () => goToAppView(context, ref, AppView.nexus),
         ),
         actions: [
           IconButton(
@@ -933,7 +949,7 @@ class _AssistantConversationScreenState
                       ),
                     ),
                   ),
-                  if (_busy)
+                  if (_busy && !_waitIndicatorDismissed)
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -1098,6 +1114,7 @@ class _AssistantConversationScreenState
             ),
           ],
         ),
+      ),
       ),
     );
   }

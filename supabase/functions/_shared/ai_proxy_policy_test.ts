@@ -68,6 +68,20 @@ The release review fits in the available time.`;
   ) {
     throw new Error("Spanish contradiction was accepted");
   }
+  if (
+    !containsRecommendationContradiction(
+      "First, buy groceries. The grocery window has passed, so that task is not actionable.",
+    )
+  ) {
+    throw new Error("English prefix contradiction was accepted");
+  }
+  if (
+    !containsRecommendationContradiction(
+      "Primero, compra alimentos. La ventana ya paso y esa tarea no es viable ahora.",
+    )
+  ) {
+    throw new Error("Spanish prefix contradiction was accepted");
+  }
 });
 
 Deno.test("rejects oversized and deeply nested context", () => {

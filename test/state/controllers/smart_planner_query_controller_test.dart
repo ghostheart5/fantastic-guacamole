@@ -176,6 +176,75 @@ void main() {
   );
 
   test(
+    'an explicit grocery deferral does not become the current action',
+    () async {
+      final tasks = _MemoryTaskRepository([
+        TaskEntity(
+          id: 'grocery-list',
+          title: 'Plan the household grocery list',
+          createdAt: DateTime.utc(2026, 8, 29),
+        ),
+        TaskEntity(
+          id: 'release-evidence',
+          title: 'Review release evidence',
+          createdAt: DateTime.utc(2026, 8, 29),
+        ),
+      ]);
+      final container = plannerContainer(tasks: tasks);
+      addTearDown(container.dispose);
+      final response =
+          (await container
+                  .read(smartPlannerQueryControllerProvider)
+                  .requestPlanningGuidance(
+                    energy: null,
+                    emotion: null,
+                    notes:
+                        'I need groceries, but they can wait until tomorrow. I need to review release evidence tonight. What should I do first?',
+                    history: const [],
+                    previousSavedNotes: null,
+                  ))
+              .plannerResponse;
+      expect(response.nextStep.toLowerCase(), isNot(contains('grocery')));
+      expect(response.toAccessibleText().toLowerCase(), contains('release'));
+      expect(tasks.writeCalls, 0);
+    },
+  );
+
+  test(
+    'a grocery correction does not continue an unrelated prior objective',
+    () async {
+      const initialPrompt =
+          'I need to finish the quarterly report before 6 pm. What should I do?';
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(smartPlannerQueryControllerProvider);
+      final initial = await controller.requestPlanningGuidance(
+        energy: null,
+        emotion: null,
+        notes: initialPrompt,
+        history: const <Map<String, String>>[],
+        previousSavedNotes: null,
+      );
+      final followUp = await controller.requestFollowUpResult(
+        input: 'Actually, groceries are essential.',
+        energy: null,
+        emotion: null,
+        reflection: initialPrompt,
+        history: <Map<String, String>>[
+          const <String, String>{'role': 'user', 'content': initialPrompt},
+          <String, String>{
+            'role': 'assistant',
+            'content': initial.plannerResponse.toAccessibleText(),
+          },
+        ],
+      );
+      final text = followUp.plannerResponse.toAccessibleText().toLowerCase();
+      expect(text, contains('grocer'));
+      expect(text, isNot(contains('quarterly report')));
+    },
+  );
+
+  test(
     'tired grocery deadline stays actionable through an essential follow-up',
     () async {
       const String initialPrompt =

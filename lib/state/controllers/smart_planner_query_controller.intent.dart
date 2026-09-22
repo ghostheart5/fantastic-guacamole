@@ -951,7 +951,11 @@ String? _explicitGroceryNeedAction(String source) {
 bool _plannerRejectsGroceryNeed(String clause) => RegExp(
   r"\b(?:do not|don['’]t|never|no longer)\s+(?:still\s+)?need\b[^.!?;]{0,35}\b(?:grocer(?:y|ies)|food)\b"
   r'|\b(?:avoid|skip|exclude)\s+(?:the\s+)?(?:grocer(?:y|ies)|food)\b'
-  r'|\b(?:no necesito|ya no necesito|evita|omitir|excluir)\b[^.!?;]{0,35}\b(?:compras|comida|alimentos)\b',
+  r'|\b(?:grocer(?:y|ies)|food)\b[^.!?;]{0,55}\b(?:can wait|can be deferred|(?:is|are) optional|(?:is|are) not urgent)\b'
+  r'|\b(?:can wait|can be deferred|(?:is|are) optional|(?:is|are) not urgent)\b[^.!?;]{0,55}\b(?:grocer(?:y|ies)|food)\b'
+  r'|\b(?:no necesito|ya no necesito|evita|omitir|excluir)\b[^.!?;]{0,35}\b(?:compras|comida|alimentos)\b'
+  r'|\b(?:compras|comida|alimentos)\b[^.!?;]{0,55}\b(?:puede esperar|pueden esperar|se puede aplazar|son opcionales|es opcional|no es urgente|no son urgentes)\b'
+  r'|\b(?:puede esperar|pueden esperar|se puede aplazar|son opcionales|es opcional|no es urgente|no son urgentes)\b[^.!?;]{0,55}\b(?:compras|comida|alimentos)\b',
   caseSensitive: false,
 ).hasMatch(clause);
 

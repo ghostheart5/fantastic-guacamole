@@ -119,9 +119,13 @@ export function containsRecommendationContradiction(value: string): boolean {
     .replaceAll(/[\u2018\u2019]/g, "'")
     .replaceAll(/\s+/g, " ")
     .trim();
-  const opening = normalized.match(
+  const suffixOpening = normalized.match(
     /^(.{1,90}?)\s+(?:first|primero|primera)\b/,
   );
+  const prefixOpening = normalized.match(
+    /^(?:first|primero|primera)\s*,?\s+(.{1,90}?)(?=[.!?;,:]|$)/,
+  );
+  const opening = suffixOpening ?? prefixOpening;
   if (!opening) return false;
 
   const candidateTokens = opening[1]
@@ -140,7 +144,12 @@ export function containsRecommendationContradiction(value: string): boolean {
   const clauses = rest.split(/[.!?;,:\n]+|\b(?:and|but|y|pero)\b/);
   return clauses.some((clause) => {
     const words = clause.split(/[^a-z0-9']+/).map(stemToken);
-    if (!candidateTokens.some((candidate) => words.includes(candidate))) {
+    const refersToRecommendation = candidateTokens.some((candidate) =>
+      words.includes(candidate)
+    ) ||
+      /\b(?:this|that|the)\s+(?:task|step|choice|option)\b|\b(?:esta|esa|la)\s+(?:tarea|opcion|eleccion)\b|\b(?:este|ese|el)\s+paso\b/
+        .test(clause);
+    if (!refersToRecommendation) {
       return false;
     }
     const rulesOut =

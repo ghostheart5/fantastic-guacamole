@@ -38,6 +38,8 @@ const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 1024;
+const PROVIDER_FLOW_BUDGET_MS = 38_000;
+const PROVIDER_CALL_CAP_MS = 25_000;
 const internalAiCohort = parseInternalAiCohort(
   Deno.env.get("CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS"),
 );
@@ -126,6 +128,7 @@ async function settleReservation(
 }
 
 Deno.serve(async (req: Request) => {
+  const providerFlowStartedAt = Date.now();
   const preflight = await internalAiPreflightResponse(
     req,
     internalAiCohort,
@@ -278,10 +281,14 @@ Deno.serve(async (req: Request) => {
     }
     reservation = { userId, requestId };
 
+    const upstreamTimeoutMs = remainingProviderTimeoutMs(providerFlowStartedAt);
+    if (upstreamTimeoutMs <= 0) {
+      throw new DOMException("Provider flow deadline exceeded", "TimeoutError");
+    }
     const upstream = await fetch(ANTHROPIC_API, {
       method: "POST",
       // Leave time to refund a reservation before the edge request expires.
-      signal: AbortSignal.timeout(25_000),
+      signal: AbortSignal.timeout(upstreamTimeoutMs),
       headers: {
         "Content-Type": "application/json",
         "x-api-key": ANTHROPIC_API_KEY,
@@ -379,9 +386,18 @@ Deno.serve(async (req: Request) => {
       };
       let repaired: unknown;
       try {
+        const repairTimeoutMs = remainingProviderTimeoutMs(
+          providerFlowStartedAt,
+        );
+        if (repairTimeoutMs <= 0) {
+          throw new DOMException(
+            "Provider repair deadline exceeded",
+            "TimeoutError",
+          );
+        }
         const response = await fetch(ANTHROPIC_API, {
           method: "POST",
-          signal: AbortSignal.timeout(25_000),
+          signal: AbortSignal.timeout(repairTimeoutMs),
           headers: {
             "Content-Type": "application/json",
             "x-api-key": ANTHROPIC_API_KEY,
@@ -509,4 +525,15 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : null;
+}
+
+export function remainingProviderTimeoutMs(
+  startedAtMs: number,
+  nowMs = Date.now(),
+): number {
+  const elapsedMs = Math.max(0, nowMs - startedAtMs);
+  return Math.max(
+    0,
+    Math.min(PROVIDER_CALL_CAP_MS, PROVIDER_FLOW_BUDGET_MS - elapsedMs),
+  );
 }
