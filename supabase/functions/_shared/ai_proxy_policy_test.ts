@@ -73,6 +73,13 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
     )
   ) throw new Error("Spanish start-as-departure response was accepted");
   if (
+    !containsScheduledStartDepartureConfusion(
+      "Inicio programado: 19:13. Salida: 19:13. Llegada: 19:28.",
+      context,
+      "¿Hay un conflicto con el cierre de la tienda?",
+    )
+  ) throw new Error("24-hour start-as-departure response was accepted");
+  if (
     containsScheduledStartDepartureConfusion(
       "Leave by 6:58 PM, arrive and begin shopping at 7:13 PM, finish at 7:43 PM before the 8 PM close.",
       context,
@@ -86,6 +93,27 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "What if I depart at 7:13 PM?",
     )
   ) throw new Error("user-proposed departure was rejected");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "If you depart at 7:13 PM, you will arrive at 7:28 PM.",
+      context,
+      "Would that work?",
+      ["What if I depart at 7:13 PM?"],
+    )
+  ) throw new Error("departure from user history was rejected");
+  for (
+    const clarification of [
+      "7:13 PM is not the departure; leave at 6:58 PM.",
+      "Do not depart at 7:13 PM; leave at 6:58 PM.",
+      "19:13 no es la salida; sal a las 18:58.",
+    ]
+  ) {
+    if (
+      containsScheduledStartDepartureConfusion(clarification, context, prompt)
+    ) {
+      throw new Error("negated departure clarification was rejected");
+    }
+  }
 });
 
 Deno.test("detects a direct recommendation contradicted by its own evidence", () => {

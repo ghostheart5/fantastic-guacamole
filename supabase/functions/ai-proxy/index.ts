@@ -358,6 +358,8 @@ Deno.serve(async (req: Request) => {
         recentHistory.at(-1)?.content === prompt
       ? recentHistory
       : [...recentHistory, { role: "user" as const, content: prompt }];
+    const userMessages = messages.filter((item) => item.role === "user")
+      .map((item) => item.content);
     const upstreamBody: Record<string, unknown> = {
       model: DEFAULT_MODEL,
       max_tokens: maxTokens,
@@ -529,6 +531,7 @@ Deno.serve(async (req: Request) => {
       message,
       body.context,
       prompt,
+      userMessages,
     );
     if (containsRecommendationContradiction(message) || confusedTaskStart) {
       const repairBody: Record<string, unknown> = {
@@ -679,6 +682,7 @@ Deno.serve(async (req: Request) => {
           repairedMessage,
           body.context,
           prompt,
+          userMessages,
         )
       ) {
         await settleReservation(userId, requestId, false, {

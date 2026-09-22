@@ -112,6 +112,7 @@ export function containsScheduledStartDepartureConfusion(
   value: string,
   context: unknown,
   prompt: string,
+  priorUserMessages: readonly string[] = [],
 ): boolean {
   if (!context || typeof context !== "object" || Array.isArray(context)) {
     return false;
@@ -121,7 +122,7 @@ export function containsScheduledStartDepartureConfusion(
   const scenario = typeof record.scenarioAssumption === "string"
     ? record.scenarioAssumption
     : "";
-  const userWords = `${prompt} ${scenario}`;
+  const userWords = [prompt, scenario, ...priorUserMessages].join("\n");
   return record.tasks.some((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
       return false;
@@ -136,17 +137,41 @@ export function containsScheduledStartDepartureConfusion(
     if (!start) return false;
     const hour = Number(start[1]);
     if (hour > 23) return false;
-    const clock = `${hour % 12 || 12}:${start[2]}\\s*` +
+    const clock12 = `${hour % 12 || 12}:${start[2]}\\s*` +
       (hour < 12 ? "a\\.?\\s*m\\.?" : "p\\.?\\s*m\\.?");
-    const departure = "(?:depart(?:ing|ure)?|leave|leaving|salir|salida)";
-    const explicitDeparture = new RegExp(
-      `\\b${departure}\\b[^,;.!?\\n]{0,35}${clock}|` +
-        `${clock}[^,;.!?\\n]{0,25}\\b${departure}\\b`,
-      "i",
-    );
-    if (explicitDeparture.test(userWords)) return false;
-    return explicitDeparture.test(value);
+    const clock = `(?:${clock12}|${start[1]}:${start[2]})`;
+    if (hasAffirmativeDepartureAt(userWords, clock)) return false;
+    return hasAffirmativeDepartureAt(value, clock);
   });
+}
+
+function hasAffirmativeDepartureAt(value: string, clock: string): boolean {
+  const departure = "(?:depart(?:ing|ure)?|leave|leaving|salir|salida)";
+  const verbFirst = new RegExp(
+    `\\b${departure}\\b[^,;.!?\\n]{0,35}${clock}`,
+    "gi",
+  );
+  for (const match of value.matchAll(verbFirst)) {
+    const before = value.slice(Math.max(0, match.index - 32), match.index);
+    if (
+      !/(?:\b(?:do|does|did|should|must|would|will|can)\s+not|\b(?:don't|doesn't|didn't|shouldn't|mustn't|wouldn't|won't|can't|never|avoid|no))\s*$/i
+        .test(before)
+    ) return true;
+  }
+  const clockFirst = new RegExp(
+    `${clock}[^,;.!?\\n]{0,25}\\b${departure}\\b`,
+    "gi",
+  );
+  const clockOnly = new RegExp(`^${clock}`, "i");
+  for (const match of value.matchAll(clockFirst)) {
+    const bridge = match[0].replace(clockOnly, "");
+    if (
+      !/\b(?:not|never|no|isn't|wasn't|shouldn't|cannot|can't)\b/i.test(bridge)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function containsBlockedAssistantClaim(value: string): boolean {
