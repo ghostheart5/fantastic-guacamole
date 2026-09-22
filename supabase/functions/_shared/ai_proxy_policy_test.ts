@@ -153,6 +153,8 @@ Deno.test("blocks unsupported and prompt-disclosure claims", () => {
       "Tus tareas han sido programadas para las 5.",
       "Te he programado tu tarea para las 5.",
       "Ya te he programado tu tarea para las 5.",
+      "Axiomara ya ha programado tu tarea para las 5.",
+      "Axiomara te ha programado tu tarea para las 5.",
     ]
   ) {
     if (!containsBlockedAssistantClaim(text)) {

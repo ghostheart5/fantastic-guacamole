@@ -170,21 +170,36 @@ void main() {
     }
   });
 
-  test('Spanish current product mutation claim is rejected and removable', () {
-    final AssistantSafetyOutcome outcome = pipeline.evaluate(
-      _safeReview(
-        responseText:
-            'Axiomara ha programado tu tarea. '
-            'Puedes revisar la hora antes de decidir.',
-      ),
-    );
+  test(
+    'Spanish current product mutation claims are rejected and removable',
+    () {
+      for (final String claim in <String>[
+        'Axiomara ha programado tu tarea.',
+        'Axiomara ya ha programado tu tarea.',
+        'Axiomara te ha programado tu tarea.',
+      ]) {
+        final AssistantSafetyOutcome outcome = pipeline.evaluate(
+          _safeReview(
+            responseText: '$claim Puedes revisar la hora antes de decidir.',
+          ),
+        );
 
-    expect(outcome.mayPublish, isTrue);
-    expect(outcome.receipt.disposition, AssistantSafetyDisposition.repaired);
-    expect(outcome.receipt.findingCodes, contains('write_authority_violation'));
-    expect(outcome.publishableText, isNot(contains('ha programado')));
-    expect(outcome.publishableText, contains('revisar la hora'));
-  });
+        expect(outcome.mayPublish, isTrue, reason: claim);
+        expect(
+          outcome.receipt.disposition,
+          AssistantSafetyDisposition.repaired,
+          reason: claim,
+        );
+        expect(
+          outcome.receipt.findingCodes,
+          contains('write_authority_violation'),
+          reason: claim,
+        );
+        expect(outcome.publishableText, isNot(contains(claim)), reason: claim);
+        expect(outcome.publishableText, contains('revisar la hora'));
+      }
+    },
+  );
 
   test('Spanish conditional Si is not treated as the SI product', () {
     final AssistantSafetyOutcome outcome = pipeline.evaluate(

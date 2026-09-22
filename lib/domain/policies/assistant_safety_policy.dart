@@ -487,6 +487,8 @@ bool _claimsCompletedMutation(String value) {
     ),
     RegExp(
       r'\b(yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+'
+      r'((ya|ahora|finalmente)\s+)?'
+      r'((te|le|les|se|lo|la|los|las|me|nos)\s+)?'
       r'((he|ha|hemos|han)\s+)?'
       r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
       r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|'
@@ -553,6 +555,8 @@ String _removeUnsupportedMutationClaims(String value) {
       r'(axiomara|chronospark|the assistant)\s+((has|have)\s+)?)'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b|'
       r'(yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+'
+      r'((ya|ahora|finalmente)\s+)?'
+      r'((te|le|les|se|lo|la|los|las|me|nos)\s+)?'
       r'((he|ha|hemos|han)\s+)?'
       r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
       r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|'

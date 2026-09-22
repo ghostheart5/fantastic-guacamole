@@ -301,6 +301,9 @@ class _AssistantConversationScreenState
         'daily_budget_exceeded',
         'insufficient_credits',
         'credits_exhausted',
+        'request_refunded',
+        'unsafe_upstream_response',
+        'inconsistent_upstream_response',
       }.contains(error.code)) {
         _pending = null;
       }
@@ -399,7 +402,13 @@ class _AssistantConversationScreenState
       'Your account or AI consent changed. This request was stopped.',
       'Cambió tu cuenta o consentimiento de IA. Se detuvo esta solicitud.',
     ),
-    'response_withheld' || 'unsafe_upstream_response' => copy(
+    'request_refunded' ||
+    'unsafe_upstream_response' ||
+    'inconsistent_upstream_response' => copy(
+      'The request ended without a usable reply and its credits were refunded. No credits were charged. Your question is retained; start a new request and review a new quote.',
+      'La solicitud terminó sin una respuesta utilizable y se reembolsaron sus créditos. No se cobraron créditos. Tu pregunta se conserva; inicia una solicitud nueva y revisa una cotización nueva.',
+    ),
+    'response_withheld' => copy(
       'The reply did not pass the response check. It has not been replaced with a stock answer. Check your credit balance before another request.',
       'La respuesta no superó la comprobación. No se sustituyó por una respuesta prefabricada. Revisa el saldo antes de otra solicitud.',
     ),

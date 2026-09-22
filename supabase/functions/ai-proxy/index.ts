@@ -117,8 +117,9 @@ async function settleReservation(
     failureCode?: string;
     responsePayload?: Record<string, unknown>;
   } = {},
+  bounded = true,
 ): Promise<Record<string, unknown> | null> {
-  return await serviceRpc(config, "settle_ai_usage", {
+  const body = {
     p_user_id: userId,
     p_request_key: requestId,
     p_succeeded: succeeded,
@@ -127,11 +128,36 @@ async function settleReservation(
     p_provider_request_id: details.providerRequestId ?? null,
     p_failure_code: details.failureCode ?? null,
     p_response_payload: details.responsePayload ?? {},
-  }, (input, init) =>
-    fetch(input, {
-      ...init,
-      signal: AbortSignal.timeout(SETTLEMENT_TIMEOUT_MS),
-    }));
+  };
+  if (!bounded) return await serviceRpc(config, "settle_ai_usage", body);
+  return await serviceRpc(
+    config,
+    "settle_ai_usage",
+    body,
+    (input, init) =>
+      fetch(input, {
+        ...init,
+        signal: AbortSignal.timeout(SETTLEMENT_TIMEOUT_MS),
+      }),
+  );
+}
+
+async function settleSuccessDefinitively(
+  userId: string,
+  requestId: string,
+  details: Parameters<typeof settleReservation>[3],
+): Promise<Record<string, unknown> | null> {
+  try {
+    return await settleReservation(userId, requestId, true, details);
+  } catch (error) {
+    if (!(error instanceof DOMException) || error.name !== "TimeoutError") {
+      throw error;
+    }
+    // A client-side abort cannot prove whether PostgreSQL committed. Reissuing
+    // the idempotent settlement without another abort waits for the row lock
+    // and returns the authoritative completed/refunded state.
+    return await settleReservation(userId, requestId, true, details, false);
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -493,7 +519,7 @@ Deno.serve(async (req: Request) => {
       creditsCharged: cost,
       remainingCredits: Number(reserved.balance ?? 0),
     };
-    const settled = await settleReservation(userId, requestId, true, {
+    const settled = await settleSuccessDefinitively(userId, requestId, {
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
       providerRequestId: finalProviderRequestId,

@@ -481,6 +481,9 @@ void main() {
     'request_denied': 'denied before processing',
     'provider_cost_budget_exceeded': 'service spending limit',
     'rate_limit_exceeded': 'Too many AI requests',
+    'request_refunded': 'credits were refunded',
+    'unsafe_upstream_response': 'credits were refunded',
+    'inconsistent_upstream_response': 'credits were refunded',
   }.entries) {
     testWidgets(
       '${failure.key} is visible, explains no charge and gives the valid next action',
@@ -541,6 +544,9 @@ void main() {
           'daily_budget_exceeded',
           'insufficient_credits',
           'credits_exhausted',
+          'request_refunded',
+          'unsafe_upstream_response',
+          'inconsistent_upstream_response',
         }.contains(failure.key)) {
           expect(find.text('Retry same request'), findsNothing);
           expect(find.textContaining('new request'), findsOneWidget);
