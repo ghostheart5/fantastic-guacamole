@@ -485,6 +485,10 @@ void main() {
     'request_refunded': 'credits were refunded',
     'unsafe_upstream_response': 'credits were refunded',
     'inconsistent_upstream_response': 'credits were refunded',
+    'upstream_ai_error': 'credits were refunded',
+    'truncated_upstream_response': 'credits were refunded',
+    'invalid_upstream_response': 'credits were refunded',
+    'empty_upstream_response': 'credits were refunded',
   }.entries) {
     testWidgets(
       '${failure.key} is visible, explains no charge and gives the valid next action',
@@ -556,6 +560,10 @@ void main() {
           'request_refunded',
           'unsafe_upstream_response',
           'inconsistent_upstream_response',
+          'upstream_ai_error',
+          'truncated_upstream_response',
+          'invalid_upstream_response',
+          'empty_upstream_response',
         }.contains(failure.key)) {
           expect(find.text('Retry same request'), findsNothing);
           expect(find.textContaining('new request'), findsOneWidget);

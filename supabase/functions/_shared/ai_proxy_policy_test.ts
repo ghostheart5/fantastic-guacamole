@@ -191,6 +191,12 @@ The release review fits in the available time.`;
       "First, don't visit the pharmacy. The pharmacy is closed.",
     ) ||
     containsRecommendationContradiction(
+      "First, you should not visit the pharmacy. The pharmacy is closed.",
+    ) ||
+    containsRecommendationContradiction(
+      "You should not visit the pharmacy first. The pharmacy is closed.",
+    ) ||
+    containsRecommendationContradiction(
       "Don't visit the pharmacy first. The pharmacy is closed.",
     ) ||
     containsRecommendationContradiction(

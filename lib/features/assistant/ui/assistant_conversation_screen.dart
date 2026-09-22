@@ -303,6 +303,10 @@ class _AssistantConversationScreenState
         'response_withheld',
         'unsafe_upstream_response',
         'inconsistent_upstream_response',
+        'upstream_ai_error',
+        'truncated_upstream_response',
+        'invalid_upstream_response',
+        'empty_upstream_response',
       }.contains(error.code)) {
         _pending = null;
       }
@@ -403,7 +407,11 @@ class _AssistantConversationScreenState
     ),
     'request_refunded' ||
     'unsafe_upstream_response' ||
-    'inconsistent_upstream_response' => copy(
+    'inconsistent_upstream_response' ||
+    'upstream_ai_error' ||
+    'truncated_upstream_response' ||
+    'invalid_upstream_response' ||
+    'empty_upstream_response' => copy(
       'The request ended without a usable reply and its credits were refunded. No credits were charged. Your question is retained; start a new request and review a new quote.',
       'La solicitud terminó sin una respuesta utilizable y se reembolsaron sus créditos. No se cobraron créditos. Tu pregunta se conserva; inicia una solicitud nueva y revisa una cotización nueva.',
     ),

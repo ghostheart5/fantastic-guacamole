@@ -150,14 +150,12 @@ export function containsRecommendationContradiction(value: string): boolean {
   if (!opening) return false;
 
   let openingCandidate = opening.slice(1).find((group) => group) ?? "";
-  if (opening === directOpening) {
-    openingCandidate = openingCandidate.replace(
-      /^(?:(?:that\s+)?(?:you|we|they|he|she|it)\s+|that\s+|(?:que\s+)?(?:tu|usted|ustedes|ellos|ellas)\s+|que\s+)/,
-      "",
-    );
-  }
+  openingCandidate = openingCandidate.replace(
+    /^(?:(?:that\s+)?(?:you|we|they|he|she|it)\s+|that\s+|(?:que\s+)?(?:tu|usted|ustedes|ellos|ellas)\s+|que\s+)/,
+    "",
+  );
   if (
-    /^(?:not\b|do\s+not\b|(?:don|doesn|isn|aren|shouldn|can)'t\b|cannot\b|avoid(?:ing)?\b|no\b|evita(?:r)?\b)/
+    /^(?:not\b|do\s+not\b|should\s+not\b|(?:don|doesn|isn|aren|shouldn|can)'t\b|cannot\b|avoid(?:ing)?\b|no\b|evita(?:r)?\b)/
       .test(openingCandidate)
   ) return false;
   const candidateTokens = openingCandidate
