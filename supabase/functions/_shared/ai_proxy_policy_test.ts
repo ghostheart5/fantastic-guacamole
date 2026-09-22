@@ -121,6 +121,20 @@ The release review fits in the available time.`;
   }
   if (
     !containsRecommendationContradiction(
+      "First, visit the pharmacy. The pharmacy is closed.",
+    )
+  ) {
+    throw new Error("closed English recommendation was accepted");
+  }
+  if (
+    !containsRecommendationContradiction(
+      "Primero, visita la farmacia. La farmacia está cerrada.",
+    )
+  ) {
+    throw new Error("closed Spanish recommendation was accepted");
+  }
+  if (
+    !containsRecommendationContradiction(
       "Empieza con alimentos. Los alimentos no son viables hoy.",
     )
   ) {

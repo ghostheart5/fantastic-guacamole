@@ -150,14 +150,20 @@ async function settleSuccessDefinitively(
   try {
     return await settleReservation(userId, requestId, true, details);
   } catch (error) {
-    if (!(error instanceof DOMException) || error.name !== "TimeoutError") {
+    if (!isAmbiguousSettlementTransportError(error)) {
       throw error;
     }
-    // A client-side abort cannot prove whether PostgreSQL committed. Reissuing
-    // the idempotent settlement without another abort waits for the row lock
-    // and returns the authoritative completed/refunded state.
+    // A timeout, abort, or connection reset cannot prove whether PostgreSQL
+    // committed. Reissuing the idempotent settlement without another abort
+    // waits for the row lock and returns the authoritative state.
     return await settleReservation(userId, requestId, true, details, false);
   }
+}
+
+function isAmbiguousSettlementTransportError(error: unknown): boolean {
+  return error instanceof TypeError ||
+    (error instanceof DOMException &&
+      ["TimeoutError", "AbortError", "NetworkError"].includes(error.name));
 }
 
 Deno.serve(async (req: Request) => {
