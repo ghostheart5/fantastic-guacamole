@@ -693,7 +693,10 @@ bool _plannerHistoricalOrUncertain(String text) {
         r'(?:^|[,;:]\s*)(?:(?:do|does|did|should|must|can|could|would|will)\s+'
         r'(?:i|we|my|our)\b|(?:do|does|did)\s+you\s+(?:think|believe|feel)\b|'
         r'(?:can|could|would|will)\s+you\s+(?:tell|say|confirm|determine|check)\s+'
-        r'(?:me\s+)?(?:whether|if)\b)',
+        r'(?:me\s+)?(?:whether|if)\b|'
+        r"(?:i\s+(?:wonder|(?:am|was)\s+wondering)|i['’]m\s+wondering|"
+        r"we\s+(?:wonder|(?:are|were)\s+wondering)|we['’]re\s+wondering)\s+"
+        r'(?:whether|if)\b|(?:me\s+pregunto|nos\s+preguntamos)\s+si\b)',
         caseSensitive: false,
       ).hasMatch(text)) {
     return true;
@@ -709,7 +712,10 @@ String _plannerDeclarativePrefix(String text) {
     r'(?:^|[,;:]\s*)(?=¿|(?:(?:do|does|did|should|must|can|could|would|will)\s+'
     r'(?:i|we|my|our)\b|(?:do|does|did)\s+you\s+(?:think|believe|feel)\b|'
     r'(?:can|could|would|will)\s+you\s+(?:tell|say|confirm|determine|check)\s+'
-    r'(?:me\s+)?(?:whether|if)\b))',
+    r'(?:me\s+)?(?:whether|if)\b|'
+    r"(?:i\s+(?:wonder|(?:am|was)\s+wondering)|i['’]m\s+wondering|"
+    r"we\s+(?:wonder|(?:are|were)\s+wondering)|we['’]re\s+wondering)\s+"
+    r'(?:whether|if)\b|(?:me\s+pregunto|nos\s+preguntamos)\s+si\b))',
     caseSensitive: false,
   ).firstMatch(text);
   if (question == null) return text;

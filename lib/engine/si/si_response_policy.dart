@@ -224,7 +224,7 @@ bool containsRecommendationContradiction(String text) {
     RegExp(r'^(?:start|begin)\s+with\s+(.{1,90}?)(?=[.!?;,:]|$)'),
     RegExp(r'^(?:empieza|comienza)\s+con\s+(.{1,90}?)(?=[.!?;,:]|$)'),
     RegExp(
-      r'^(?:(?:i|we)\s+recommend|you\s+should|(?:te\s+)?recomiendo|(?:tu\s+|usted\s+)?deberia(?:s)?)\s+(.{1,90}?)(?=[.!?;,:]|$)',
+      r'^(?:(?:i|we)\s+recommend|(?:my|our)\s+recommendation\s+(?:is|would\s+be)(?:\s+(?:to|that))?|you\s+should|(?:te\s+)?recomiendo|(?:mi|nuestra)\s+recomendacion\s+(?:es|seria)(?:\s+que)?|(?:tu\s+|usted\s+)?deberia(?:s)?)\s+(.{1,90}?)(?=[.!?;,:]|$)',
     ),
   ];
   RegExpMatch? opening;

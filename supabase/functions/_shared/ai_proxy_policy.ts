@@ -144,7 +144,7 @@ export function containsRecommendationContradiction(value: string): boolean {
     /^(?:start|begin)\s+with\s+(.{1,90}?)(?=[.!?;,:]|$)|^(?:empieza|comienza)\s+con\s+(.{1,90}?)(?=[.!?;,:]|$)/,
   );
   const directOpening = normalized.match(
-    /^(?:(?:i|we)\s+recommend|you\s+should|(?:te\s+)?recomiendo|(?:tu\s+|usted\s+)?deberia(?:s)?)\s+(.{1,90}?)(?=[.!?;,:]|$)/,
+    /^(?:(?:i|we)\s+recommend|(?:my|our)\s+recommendation\s+(?:is|would\s+be)(?:\s+(?:to|that))?|you\s+should|(?:te\s+)?recomiendo|(?:mi|nuestra)\s+recomendacion\s+(?:es|seria)(?:\s+que)?|(?:tu\s+|usted\s+)?deberia(?:s)?)\s+(.{1,90}?)(?=[.!?;,:]|$)/,
   );
   const opening = suffixOpening ?? prefixOpening ?? imperativeOpening ??
     directOpening;

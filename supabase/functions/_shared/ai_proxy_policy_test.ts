@@ -205,9 +205,15 @@ The release review fits in the available time.`;
   if (
     !containsRecommendationContradiction(
       "I recommend visiting the pharmacy. The pharmacy is closed.",
+    ) ||
+    !containsRecommendationContradiction(
+      "My recommendation is to visit the pharmacy. The pharmacy is closed.",
+    ) ||
+    !containsRecommendationContradiction(
+      "Our recommendation would be to visit the pharmacy. The pharmacy is closed.",
     )
   ) {
-    throw new Error("direct English recommendation was accepted");
+    throw new Error("direct or nominal English recommendation was accepted");
   }
   if (
     containsRecommendationContradiction(
@@ -226,9 +232,12 @@ The release review fits in the available time.`;
   if (
     !containsRecommendationContradiction(
       "Te recomiendo visitar la farmacia. La farmacia está cerrada.",
+    ) ||
+    !containsRecommendationContradiction(
+      "Mi recomendación es visitar la farmacia. La farmacia está cerrada.",
     )
   ) {
-    throw new Error("direct Spanish recommendation was accepted");
+    throw new Error("direct or nominal Spanish recommendation was accepted");
   }
   if (
     containsRecommendationContradiction(
