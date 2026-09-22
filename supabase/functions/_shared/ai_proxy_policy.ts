@@ -142,10 +142,14 @@ export function containsRecommendationContradiction(value: string): boolean {
   const imperativeOpening = normalized.match(
     /^(?:start|begin)\s+with\s+(.{1,90}?)(?=[.!?;,:]|$)|^(?:empieza|comienza)\s+con\s+(.{1,90}?)(?=[.!?;,:]|$)/,
   );
-  const opening = suffixOpening ?? prefixOpening ?? imperativeOpening;
+  const directOpening = normalized.match(
+    /^(?:i|we)\s+recommend(?:\s+that)?\s+(?!not\b)(.{1,90}?)(?=[.!?;,:]|$)|^you\s+should\s+(?!not\b)(.{1,90}?)(?=[.!?;,:]|$)|^(?:te\s+)?recomiendo(?:\s+que)?\s+(?!no\b)(.{1,90}?)(?=[.!?;,:]|$)|^(?:tu\s+|usted\s+)?deberia(?:s)?\s+(?!no\b)(.{1,90}?)(?=[.!?;,:]|$)/,
+  );
+  const opening = suffixOpening ?? prefixOpening ?? imperativeOpening ??
+    directOpening;
   if (!opening) return false;
 
-  const openingCandidate = opening[1] ?? opening[2] ?? "";
+  const openingCandidate = opening.slice(1).find((group) => group) ?? "";
   const candidateTokens = openingCandidate
     .replace(
       /^(?:do|choose|start|complete|handle|buy|review|work on|haz|elige|empieza|completa|maneja|compra|revisa|trabaja en)\s+/,

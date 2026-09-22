@@ -140,6 +140,44 @@ The release review fits in the available time.`;
   ) {
     throw new Error("imperative Spanish contradiction was accepted");
   }
+  if (
+    !containsRecommendationContradiction(
+      "I recommend visiting the pharmacy. The pharmacy is closed.",
+    )
+  ) {
+    throw new Error("direct English recommendation was accepted");
+  }
+  if (
+    !containsRecommendationContradiction(
+      "You should visit the pharmacy. The pharmacy is closed.",
+    )
+  ) {
+    throw new Error("English should recommendation was accepted");
+  }
+  if (
+    !containsRecommendationContradiction(
+      "Te recomiendo visitar la farmacia. La farmacia está cerrada.",
+    )
+  ) {
+    throw new Error("direct Spanish recommendation was accepted");
+  }
+  if (
+    containsRecommendationContradiction(
+      "I recommend visiting the pharmacy. The pharmacy is open.",
+    )
+  ) {
+    throw new Error("consistent direct recommendation was rejected");
+  }
+  if (
+    containsRecommendationContradiction(
+      "You should not visit the pharmacy. The pharmacy is closed.",
+    ) ||
+    containsRecommendationContradiction(
+      "Te recomiendo no visitar la farmacia. La farmacia está cerrada.",
+    )
+  ) {
+    throw new Error("negated direct recommendation was rejected");
+  }
 });
 
 Deno.test("rejects oversized and deeply nested context", () => {
