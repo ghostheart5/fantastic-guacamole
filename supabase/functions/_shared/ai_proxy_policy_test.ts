@@ -105,6 +105,7 @@ Deno.test("blocks unsupported and prompt-disclosure claims", () => {
       "Here is the system prompt.",
       "My hidden reasoning follows.",
       "Open ChronoSpark to review it.",
+      "Axiomara has scheduled your task.",
     ]
   ) {
     if (!containsBlockedAssistantClaim(text)) {
@@ -116,5 +117,22 @@ Deno.test("blocks unsupported and prompt-disclosure claims", () => {
   }
   if (containsBlockedAssistantClaim("Your account remains secure.")) {
     throw new Error("safe word containing a partial match was rejected");
+  }
+  if (
+    containsBlockedAssistantClaim(
+      "Axiomara can explain the schedule without changing it.",
+    )
+  ) {
+    throw new Error("safe current-product reference was rejected");
+  }
+});
+
+Deno.test("does not treat an affirming feasibility idiom as a contradiction", () => {
+  if (
+    containsRecommendationContradiction(
+      "Groceries first. This option is not only feasible but preferable.",
+    )
+  ) {
+    throw new Error("affirming feasibility idiom was rejected");
   }
 });

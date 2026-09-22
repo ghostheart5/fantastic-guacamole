@@ -479,14 +479,14 @@ bool _looksLikeInstructionInjection(String value) {
 bool _claimsCompletedMutation(String value) {
   final String normalized = value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
   return RegExp(
-    r'\b(i|we|si|chronospark|the assistant)\s+((has|have)\s+)?'
+    r'\b(i|we|si|axiomara|chronospark|the assistant)\s+((has|have)\s+)?'
     r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
   ).hasMatch(normalized);
 }
 
 String _removeUnsupportedMutationClaims(String value) {
   final RegExp unsupportedSentence = RegExp(
-    r'(^|(?<=[.!?])\s+)(i|we|si|chronospark|the assistant)\s+'
+    r'(^|(?<=[.!?])\s+)(i|we|si|axiomara|chronospark|the assistant)\s+'
     r'((has|have)\s+)?'
     r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b'
     r'[^.!?\n]*(?:[.!?]|$)',
@@ -548,7 +548,7 @@ int? _latestDepartureMinutes(String value) {
 Iterable<int> _leaveByTimes(String value) sync* {
   final List<RegExp> patterns = <RegExp>[
     RegExp(
-      r'\bleav(?:e|ing)\s+by\s+(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\b',
+      r'\bleav(?:e|ing)\s+(?:by|at)\s+(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\b',
       caseSensitive: false,
     ),
     RegExp(

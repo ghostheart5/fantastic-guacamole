@@ -108,6 +108,7 @@ export function containsBlockedAssistantClaim(value: string): boolean {
     /\bdeveloper message\b/,
     /\bhidden reasoning\b/,
     /\bchronospark\b/,
+    /\b(?:i|we|si|axiomara|the assistant)\s+(?:(?:has|have)\s+)?(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
   ].some((pattern) => pattern.test(normalized));
 }
 
@@ -153,14 +154,8 @@ export function containsRecommendationContradiction(value: string): boolean {
       return false;
     }
     const rulesOut =
-      /\b(?:not|no|neither|cannot|can't|isn't|aren't|unable|unavailable|impossible|ni|ninguno|ninguna|nunca)\b/
-        .test(
-          clause,
-        ) &&
-      /\b(?:actionable|feasible|available|open|possible|ready|fit|fits|window|windows|accionable|viable|disponible|abierto|abierta|posible|listo|lista|encaja|ventana|ventanas)\b/
-        .test(
-          clause,
-        );
+      /\b(?:(?:not(?!\s+only\b)|no|neither|cannot|can't|isn't|aren't|unable|unavailable|impossible|ni|ninguno|ninguna|nunca)\b[^.!?;,:]{0,40}\b(?:actionable|feasible|available|open|possible|ready|fit|fits|window|windows|accionable|viable|disponible|abierto|abierta|posible|listo|lista|encaja|ventana|ventanas))\b/
+        .test(clause);
     const passedWindow =
       /\b(?:window|windows|deadline|deadlines|time|times|ventana|ventanas|plazo|plazos|hora|horas)\b/
         .test(

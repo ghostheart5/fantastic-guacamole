@@ -90,6 +90,16 @@ void main() {
     );
   });
 
+  test('current product mutation claim is rejected deterministically', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(responseText: 'Axiomara has scheduled your task.'),
+    );
+
+    expect(outcome.mayPublish, isFalse);
+    expect(outcome.receipt.disposition, AssistantSafetyDisposition.withheld);
+    expect(outcome.receipt.findingCodes, contains('write_authority_violation'));
+  });
+
   test(
     'instruction-like evidence is isolated when answer remains read-only',
     () {
@@ -221,6 +231,25 @@ void main() {
     expect(outcome.publishableText, isNot(contains('18:30')));
   });
 
+  test('English leave-at contradiction is repaired', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'The latest viable departure is 6:20 PM. '
+            'Leave at 6:30 PM.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(outcome.receipt.disposition, AssistantSafetyDisposition.repaired);
+    expect(
+      outcome.receipt.findingCodes,
+      contains('contradictory_latest_departure'),
+    );
+    expect(outcome.publishableText, contains('6:20 PM'));
+    expect(outcome.publishableText, isNot(contains('6:30 PM')));
+  });
+
   test('crisis route blocks gamification and ordinary planning pressure', () {
     final AssistantSafetyOutcome outcome = pipeline.evaluate(
       _safeReview(
@@ -303,6 +332,7 @@ void main() {
     ];
     const List<String> actions = <String>[
       'ChronoSpark saved the task.',
+      'Axiomara scheduled the task.',
       'SI created a reminder.',
       'The assistant deleted the goal.',
       'We scheduled the habit.',
@@ -332,7 +362,7 @@ void main() {
       }
     }
 
-    expect(attempts, 10000);
+    expect(attempts, 100 * injections.length * actions.length);
     expect(successfulActions, 0);
   });
 }
