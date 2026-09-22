@@ -687,10 +687,20 @@ String _plannerWithoutQuotedText(String text) => text.replaceAll(
   '',
 );
 
-bool _plannerHistoricalOrUncertain(String text) => RegExp(
-  r'\b(?:yesterday|earlier|used to|last time|previously|said|quoted|quote|hypothetical|maybe|perhaps|might|if|not sure|unsure|ayer|antes dije|dije|quiz[aá]s|tal vez|no s[eé]|si pudiera)\b',
-  caseSensitive: false,
-).hasMatch(text);
+bool _plannerHistoricalOrUncertain(String text) {
+  if (RegExp(r'^\s*¿').hasMatch(text) ||
+      RegExp(
+        r'^\s*(?:do|does|did|should|must|can|could|would|will)\s+'
+        r'(?:i|we|my|our)\b',
+        caseSensitive: false,
+      ).hasMatch(text)) {
+    return true;
+  }
+  return RegExp(
+    r'\b(?:yesterday|earlier|used to|last time|previously|said|quoted|quote|hypothetical|maybe|perhaps|might|if|not sure|unsure|ayer|antes dije|dije|quiz[aá]s|tal vez|no s[eé]|si pudiera)\b',
+    caseSensitive: false,
+  ).hasMatch(text);
+}
 
 bool? _plannerRecoveryPreference(String text) {
   bool? preference;
