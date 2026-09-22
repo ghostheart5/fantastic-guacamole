@@ -134,10 +134,12 @@ Deno.test("blocks unsupported and prompt-disclosure claims", () => {
   ) {
     throw new Error("Spanish conditional was mistaken for the SI product");
   }
-  for (const unsafe of [
-    "He programado tu tarea.",
-    "Revisa el plan. Hemos completado la tarea.",
-  ]) {
+  for (
+    const unsafe of [
+      "He programado tu tarea.",
+      "Revisa el plan. Hemos completado la tarea.",
+    ]
+  ) {
     if (!containsBlockedAssistantClaim(unsafe)) {
       throw new Error(`subjectless Spanish mutation claim escaped: ${unsafe}`);
     }
