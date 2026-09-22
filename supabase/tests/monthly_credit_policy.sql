@@ -28,9 +28,14 @@ begin
   assert wallet.allowance_remaining=10 and wallet.bonus_balance=100,'monthly allowance spent before purchased';
   perform public.settle_ai_usage(a,'policy-spend-01',true,100,100);
   perform public.reserve_ai_usage(a,'policy-spend-02',15,repeat('b',64));
+  result:=public.reserve_ai_repair_budget(a,'policy-spend-02',60000);
+  assert (result->>'allowed')::boolean,'repair provider budget expanded';
   select * into wallet from public.monetization_wallets where billing_principal_id=principal;
   assert wallet.allowance_remaining=0 and wallet.bonus_balance=95,'spending crosses balance buckets correctly';
   perform public.settle_ai_usage(a,'policy-spend-02',false,0,0,null,'test_failure');
+  assert (select accounted_provider_cost_microusd=0 from public.ai_usage_requests
+    where user_id=a and request_key='policy-spend-02'),
+    'handled refund accounts actual provider usage rather than unused repair budget';
   select * into wallet from public.monetization_wallets where billing_principal_id=principal;
   assert wallet.allowance_remaining=10 and wallet.bonus_balance=100,'failed request restores original buckets';
   perform public.settle_ai_usage(a,'policy-spend-02',false);

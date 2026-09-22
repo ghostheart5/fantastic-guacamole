@@ -540,17 +540,25 @@ Deno.serve(async (req: Request) => {
           },
         ],
       };
-      const repairBudget = await serviceRpc(
-        config,
-        "reserve_ai_repair_budget",
-        {
-          p_user_id: userId,
-          p_request_key: requestId,
-          p_required_provider_cost_microusd:
-            cost * MAX_PROVIDER_MICROUSD_PER_CREDIT +
-            quotedProviderCostMicrousd(repairBody),
-        },
-      );
+      let repairBudget: Record<string, unknown> | null = null;
+      try {
+        repairBudget = await serviceRpc(
+          config,
+          "reserve_ai_repair_budget",
+          {
+            p_user_id: userId,
+            p_request_key: requestId,
+            p_required_provider_cost_microusd:
+              cost * MAX_PROVIDER_MICROUSD_PER_CREDIT +
+              quotedProviderCostMicrousd(repairBody),
+          },
+        );
+      } catch (error) {
+        // A lost RPC response can follow a committed repair-budget expansion.
+        // The refund settlement below includes the first provider usage so the
+        // database accounts only work that actually occurred.
+        console.error("AI repair budget check failed", error);
+      }
       if (!repairBudget) {
         await settleReservation(userId, requestId, false, {
           inputTokens,
@@ -728,17 +736,24 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(req, responsePayload);
   } catch (error) {
     if (reservation) {
-      await settleReservation(
-        reservation.userId,
-        reservation.requestId,
-        false,
-        {
-          failureCode: error instanceof DOMException &&
-              error.name === "TimeoutError"
-            ? "provider_timeout"
-            : "unhandled_proxy_failure",
-        },
-      );
+      try {
+        await settleReservation(
+          reservation.userId,
+          reservation.requestId,
+          false,
+          {
+            failureCode: error instanceof DOMException &&
+                error.name === "TimeoutError"
+              ? "provider_timeout"
+              : "unhandled_proxy_failure",
+          },
+        );
+      } catch (settlementError) {
+        // Cleanup must never replace the deterministic client failure. The
+        // stale-reservation job remains the refund backstop when settlement is
+        // temporarily unavailable.
+        console.error("AI failure settlement failed", settlementError);
+      }
     }
     return jsonResponse(req, { error: "request_failed" }, 500);
   }

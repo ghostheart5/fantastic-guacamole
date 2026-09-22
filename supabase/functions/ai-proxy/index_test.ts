@@ -281,7 +281,7 @@ Deno.test("blocked repair output refunds with both provider calls accounted", as
   }
 });
 
-for (const budgetFailure of ["denied", "unavailable"] as const) {
+for (const budgetFailure of ["denied", "unavailable", "network"] as const) {
   Deno.test(`repair call stops and returns a terminal refund when budget is ${budgetFailure}`, async () => {
     if (!handler) throw new Error("handler was not registered");
     const originalFetch = globalThis.fetch;
@@ -313,7 +313,9 @@ for (const budgetFailure of ["denied", "unavailable"] as const) {
             allowed: false,
             reason: failureCode,
           }))
-          : Promise.resolve(new Response(null, { status: 503 }));
+          : budgetFailure === "unavailable"
+          ? Promise.resolve(new Response(null, { status: 503 }))
+          : Promise.reject(new TypeError("synthetic lost repair response"));
       }
       if (path.endsWith("/settle_ai_usage")) {
         const body = JSON.parse(String(init?.body));
@@ -367,6 +369,65 @@ for (const budgetFailure of ["denied", "unavailable"] as const) {
     }
   });
 }
+
+Deno.test("failure settlement outage preserves deterministic client error", async () => {
+  if (!handler) throw new Error("handler was not registered");
+  const originalFetch = globalThis.fetch;
+  let settlementCalls = 0;
+  globalThis.fetch = ((url) => {
+    const path = String(url);
+    if (path.endsWith("/auth/v1/user")) {
+      return Promise.resolve(
+        Response.json({ id: "11111111-1111-4111-8111-111111111111" }),
+      );
+    }
+    if (path.endsWith("/consume_backend_rate_limit")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
+    if (path.endsWith("/reserve_ai_usage")) {
+      return Promise.resolve(
+        Response.json({ allowed: true, duplicate: false, balance: 84 }),
+      );
+    }
+    if (path.endsWith("/settle_ai_usage")) {
+      settlementCalls++;
+      return Promise.resolve(new Response(null, { status: 503 }));
+    }
+    if (path === "https://api.anthropic.com/v1/messages") {
+      return Promise.reject(new TypeError("synthetic provider outage"));
+    }
+    throw new Error(`unexpected transport target: ${path}`);
+  }) as typeof fetch;
+  try {
+    const input = {
+      requestId: "synthetic-failure-settlement-outage",
+      prompt: "Review my visible plan.",
+      personality: "planner",
+      context: {},
+      allowExternalAi: true,
+    };
+    const request = (extra: Record<string, unknown>) =>
+      new Request("https://local.example/ai-proxy", {
+        method: "POST",
+        headers: { authorization: "Bearer synthetic-session" },
+        body: JSON.stringify({ ...input, ...extra }),
+      });
+    const quoted = await handler(request({ quoteOnly: true }));
+    const { quote } = await quoted.json();
+    const response = await handler(request({ quote }));
+    const body = await response.json();
+    if (
+      response.status !== 500 || body.error !== "request_failed" ||
+      settlementCalls !== 1
+    ) {
+      throw new Error(
+        "settlement outage replaced deterministic client failure",
+      );
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 
 for (const settlementFailure of ["timeout", "network"] as const) {
   Deno.test(`${settlementFailure} success settlement failure is reconciled before reply`, async () => {

@@ -156,9 +156,10 @@ export function containsRecommendationContradiction(value: string): boolean {
       "",
     );
     if (
-      /^(?:not\b|do\s+not\b|avoid(?:ing)?\b|no\b|evita(?:r)?\b)/.test(
-        openingCandidate,
-      )
+      /^(?:not\b|do\s+not\b|(?:don|doesn|isn|aren|shouldn|can)'t\b|cannot\b|avoid(?:ing)?\b|no\b|evita(?:r)?\b)/
+        .test(
+          openingCandidate,
+        )
     ) return false;
   }
   const candidateTokens = openingCandidate
