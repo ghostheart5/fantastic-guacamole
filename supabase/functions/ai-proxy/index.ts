@@ -438,8 +438,11 @@ Deno.serve(async (req: Request) => {
         reservation = null;
         return jsonResponse(
           req,
-          { requestId, error: "credit_reservation_failed" },
-          503,
+          {
+            requestId,
+            error: "request_refunded",
+          },
+          409,
         );
       }
       if (repairBudget.allowed !== true) {
@@ -453,7 +456,11 @@ Deno.serve(async (req: Request) => {
           failureCode: reason,
         });
         reservation = null;
-        return jsonResponse(req, { requestId, error: reason }, 429);
+        return jsonResponse(
+          req,
+          { requestId, error: "request_refunded" },
+          409,
+        );
       }
       let repaired: unknown;
       try {

@@ -281,87 +281,92 @@ Deno.test("blocked repair output refunds with both provider calls accounted", as
   }
 });
 
-Deno.test("repair provider call is blocked when extra cost headroom is denied", async () => {
-  if (!handler) throw new Error("handler was not registered");
-  const originalFetch = globalThis.fetch;
-  let providerCalls = 0;
-  let repairBudgetCalls = 0;
-  let settlements = 0;
-  globalThis.fetch = ((url, init) => {
-    const path = String(url);
-    if (path.endsWith("/auth/v1/user")) {
-      return Promise.resolve(
-        Response.json({ id: "11111111-1111-4111-8111-111111111111" }),
-      );
-    }
-    if (path.endsWith("/consume_backend_rate_limit")) {
-      return Promise.resolve(Response.json({ allowed: true }));
-    }
-    if (path.endsWith("/reserve_ai_usage")) {
-      return Promise.resolve(
-        Response.json({ allowed: true, duplicate: false, balance: 84 }),
-      );
-    }
-    if (path.endsWith("/reserve_ai_repair_budget")) {
-      repairBudgetCalls++;
-      return Promise.resolve(Response.json({
-        allowed: false,
-        reason: "provider_cost_budget_exceeded",
-      }));
-    }
-    if (path.endsWith("/settle_ai_usage")) {
-      const body = JSON.parse(String(init?.body));
+for (const budgetFailure of ["denied", "unavailable"] as const) {
+  Deno.test(`repair call stops and returns a terminal refund when budget is ${budgetFailure}`, async () => {
+    if (!handler) throw new Error("handler was not registered");
+    const originalFetch = globalThis.fetch;
+    let providerCalls = 0;
+    let repairBudgetCalls = 0;
+    let settlements = 0;
+    const failureCode = budgetFailure === "denied"
+      ? "provider_cost_budget_exceeded"
+      : "repair_budget_check_failed";
+    globalThis.fetch = ((url, init) => {
+      const path = String(url);
+      if (path.endsWith("/auth/v1/user")) {
+        return Promise.resolve(
+          Response.json({ id: "11111111-1111-4111-8111-111111111111" }),
+        );
+      }
+      if (path.endsWith("/consume_backend_rate_limit")) {
+        return Promise.resolve(Response.json({ allowed: true }));
+      }
+      if (path.endsWith("/reserve_ai_usage")) {
+        return Promise.resolve(
+          Response.json({ allowed: true, duplicate: false, balance: 84 }),
+        );
+      }
+      if (path.endsWith("/reserve_ai_repair_budget")) {
+        repairBudgetCalls++;
+        return budgetFailure === "denied"
+          ? Promise.resolve(Response.json({
+            allowed: false,
+            reason: failureCode,
+          }))
+          : Promise.resolve(new Response(null, { status: 503 }));
+      }
+      if (path.endsWith("/settle_ai_usage")) {
+        const body = JSON.parse(String(init?.body));
+        if (
+          body.p_succeeded !== false || body.p_input_tokens !== 10 ||
+          body.p_output_tokens !== 10 || body.p_failure_code !== failureCode
+        ) throw new Error("repair budget failure lost first-call accounting");
+        settlements++;
+        return Promise.resolve(Response.json({ state: "refunded" }));
+      }
+      if (path === "https://api.anthropic.com/v1/messages") {
+        providerCalls++;
+        return Promise.resolve(Response.json({
+          id: "provider-first-only",
+          model: "claude-sonnet-4-6",
+          stop_reason: "end_turn",
+          content: [{
+            type: "text",
+            text:
+              "Groceries first, then release evidence. Neither grocery task is actionable right now.",
+          }],
+          usage: { input_tokens: 10, output_tokens: 10 },
+        }));
+      }
+      throw new Error(`unexpected transport target: ${path}`);
+    }) as typeof fetch;
+    try {
+      const input = {
+        requestId: `synthetic-repair-budget-${budgetFailure}`,
+        prompt: "Should I buy groceries or review release evidence first?",
+        personality: "planner",
+        context: {},
+        allowExternalAi: true,
+      };
+      const request = (extra: Record<string, unknown>) =>
+        new Request("https://local.example/ai-proxy", {
+          method: "POST",
+          headers: { authorization: "Bearer synthetic-session" },
+          body: JSON.stringify({ ...input, ...extra }),
+        });
+      const quoted = await handler(request({ quoteOnly: true }));
+      const { quote } = await quoted.json();
+      const response = await handler(request({ quote }));
+      const body = await response.json();
       if (
-        body.p_succeeded !== false || body.p_input_tokens !== 10 ||
-        body.p_output_tokens !== 10 ||
-        body.p_failure_code !== "provider_cost_budget_exceeded"
-      ) throw new Error("denied repair budget did not refund first-call usage");
-      settlements++;
-      return Promise.resolve(Response.json({ state: "refunded" }));
+        response.status !== 409 || body.error !== "request_refunded" ||
+        providerCalls !== 1 || repairBudgetCalls !== 1 || settlements !== 1
+      ) throw new Error("repair budget failure did not terminate its quote");
+    } finally {
+      globalThis.fetch = originalFetch;
     }
-    if (path === "https://api.anthropic.com/v1/messages") {
-      providerCalls++;
-      return Promise.resolve(Response.json({
-        id: "provider-first-only",
-        model: "claude-sonnet-4-6",
-        stop_reason: "end_turn",
-        content: [{
-          type: "text",
-          text:
-            "Groceries first, then release evidence. Neither grocery task is actionable right now.",
-        }],
-        usage: { input_tokens: 10, output_tokens: 10 },
-      }));
-    }
-    throw new Error(`unexpected transport target: ${path}`);
-  }) as typeof fetch;
-  try {
-    const input = {
-      requestId: "synthetic-repair-budget-denied",
-      prompt: "Should I buy groceries or review release evidence first?",
-      personality: "planner",
-      context: {},
-      allowExternalAi: true,
-    };
-    const request = (extra: Record<string, unknown>) =>
-      new Request("https://local.example/ai-proxy", {
-        method: "POST",
-        headers: { authorization: "Bearer synthetic-session" },
-        body: JSON.stringify({ ...input, ...extra }),
-      });
-    const quoted = await handler(request({ quoteOnly: true }));
-    const { quote } = await quoted.json();
-    const response = await handler(request({ quote }));
-    const body = await response.json();
-    if (
-      response.status !== 429 ||
-      body.error !== "provider_cost_budget_exceeded" ||
-      providerCalls !== 1 || repairBudgetCalls !== 1 || settlements !== 1
-    ) throw new Error("repair call escaped its provider budget gate");
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
+  });
+}
 
 Deno.test("timed-out success settlement is reconciled before reply", async () => {
   if (!handler) throw new Error("handler was not registered");
