@@ -173,6 +173,10 @@ async function settleSuccessDefinitively(
   requestId: string,
   details: Parameters<typeof settleReservation>[3],
 ): Promise<Record<string, unknown> | null> {
+  let lastFailure: unknown = new Error(
+    "AI success settlement returned no authoritative state",
+  );
+  let outcomeWasAmbiguous = false;
   try {
     const initialSettlement = await settleReservation(
       userId,
@@ -182,49 +186,93 @@ async function settleSuccessDefinitively(
     );
     if (initialSettlement !== null) return initialSettlement;
   } catch (error) {
-    if (!isAmbiguousSettlementTransportError(error)) {
-      throw error;
-    }
+    lastFailure = error;
+    outcomeWasAmbiguous = isAmbiguousSettlementTransportError(error);
   }
   // A timeout, abort, connection reset, or retryable HTTP/null result cannot
   // prove whether PostgreSQL committed. Reissue the idempotent settlement
   // without another abort so the row lock returns its authoritative state. A
   // reconciliation response can be lost too, so repeat it before giving up
   // certainty.
-  let lastAmbiguousError: unknown = new Error(
-    "AI success settlement returned no authoritative state",
-  );
-  for (
-    let attempt = 0;
-    attempt < SUCCESS_SETTLEMENT_RECONCILIATION_ATTEMPTS;
-    attempt++
-  ) {
-    try {
-      const reconciliation = await settleReservation(
-        userId,
-        requestId,
-        true,
-        details,
-        false,
-      );
-      if (reconciliation !== null) return reconciliation;
-      lastAmbiguousError = new Error(
-        "AI success settlement reconciliation returned no authoritative state",
-      );
-    } catch (reconciliationError) {
-      if (!isAmbiguousSettlementTransportError(reconciliationError)) {
-        throw reconciliationError;
+  if (outcomeWasAmbiguous) {
+    for (
+      let attempt = 0;
+      attempt < SUCCESS_SETTLEMENT_RECONCILIATION_ATTEMPTS;
+      attempt++
+    ) {
+      try {
+        const reconciliation = await settleReservation(
+          userId,
+          requestId,
+          true,
+          details,
+          false,
+        );
+        if (reconciliation !== null) return reconciliation;
+        lastFailure = new Error(
+          "AI success settlement reconciliation returned no authoritative state",
+        );
+      } catch (reconciliationError) {
+        lastFailure = reconciliationError;
+        if (!isAmbiguousSettlementTransportError(reconciliationError)) break;
       }
-      lastAmbiguousError = reconciliationError;
     }
   }
-  throw new SuccessSettlementStillAmbiguousError(lastAmbiguousError);
+  const authoritativeState = await loadAiUsageSettlementState(
+    userId,
+    requestId,
+  );
+  if (authoritativeState === "completed") {
+    return { state: "completed", duplicate: true };
+  }
+  if (outcomeWasAmbiguous) {
+    throw new SuccessSettlementStillAmbiguousError(lastFailure);
+  }
+  throw new SuccessSettlementUnavailableError(lastFailure);
+}
+
+async function loadAiUsageSettlementState(
+  userId: string,
+  requestId: string,
+): Promise<string | null> {
+  if (!config.supabaseUrl || !config.secretKey) return null;
+  const url = new URL(`${config.supabaseUrl}/rest/v1/ai_usage_requests`);
+  url.searchParams.set("user_id", `eq.${userId}`);
+  url.searchParams.set("request_key", `eq.${requestId}`);
+  url.searchParams.set("select", "state");
+  url.searchParams.set("limit", "1");
+  try {
+    const response = await fetch(url, {
+      headers: {
+        apikey: config.secretKey,
+        Authorization: `Bearer ${config.secretKey}`,
+      },
+      signal: AbortSignal.timeout(SETTLEMENT_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      await response.body?.cancel();
+      return null;
+    }
+    const value = await response.json();
+    if (!Array.isArray(value) || value.length !== 1) return null;
+    const state = value[0]?.state;
+    return typeof state === "string" ? state : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 class SuccessSettlementStillAmbiguousError extends Error {
   constructor(override readonly cause: unknown) {
     super("AI success settlement remained transport-ambiguous");
     this.name = "SuccessSettlementStillAmbiguousError";
+  }
+}
+
+class SuccessSettlementUnavailableError extends Error {
+  constructor(override readonly cause: unknown) {
+    super("AI success settlement was unavailable");
+    this.name = "SuccessSettlementUnavailableError";
   }
 }
 
@@ -657,10 +705,14 @@ Deno.serve(async (req: Request) => {
         responsePayload: {},
       });
     } catch (error) {
-      if (!(error instanceof SuccessSettlementStillAmbiguousError)) throw error;
+      if (
+        !(error instanceof SuccessSettlementStillAmbiguousError) &&
+        !(error instanceof SuccessSettlementUnavailableError)
+      ) throw error;
       // The wallet was already debited by the reservation and every success
-      // settlement attempt may have committed. Never refund an uncertain
-      // success and never hide the generated paid reply from the caller.
+      // settlement attempt may have committed. Never hide the generated paid
+      // reply or retry a broken settlement endpoint as a refund. If the row is
+      // still reserved, the scheduled stale-reservation job refunds it.
       reservation = null;
       console.error(error.message);
       return jsonResponse(req, responsePayload);
