@@ -298,6 +298,9 @@ class _AssistantConversationScreenState
         'credits_exhausted',
         'request_completed',
         'request_refunded',
+        'quote_expired',
+        'credit_quote_required',
+        'response_withheld',
         'unsafe_upstream_response',
         'inconsistent_upstream_response',
       }.contains(error.code)) {

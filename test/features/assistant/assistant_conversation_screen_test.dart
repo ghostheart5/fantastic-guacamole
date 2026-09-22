@@ -575,6 +575,72 @@ void main() {
     );
   }
 
+  for (final failure in <String, String>{
+    'quote_expired': 'price expired',
+    'credit_quote_required': 'price expired',
+    'response_withheld': 'did not pass the response check',
+  }.entries) {
+    testWidgets('${failure.key} unlocks a fresh request', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final container = setup(
+        (body) async => (
+          status: body['quoteOnly'] == true ? 200 : 409,
+          data: body['quoteOnly'] == true
+              ? <String, dynamic>{
+                  'requestId': body['requestId'],
+                  'quote': <String, dynamic>{
+                    'credits': 4,
+                    'digest': 'fixture',
+                    'proof': 'fixture',
+                    'policy': 'fixture',
+                    'expiresAt': DateTime.now()
+                        .add(const Duration(minutes: 5))
+                        .millisecondsSinceEpoch,
+                  },
+                }
+              : <String, dynamic>{'error': failure.key},
+        ),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Keep this question for a fresh request.',
+      );
+      await tester.tap(find.byTooltip('Send to AI'));
+      await waitFor(tester, find.text('Get credit price'));
+      await tester.tap(find.text('Get credit price'));
+      await waitFor(tester, find.text('Use 4 credits'));
+      await tester.tap(find.text('Use 4 credits'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining(failure.value), findsOneWidget);
+      expect(find.text('Retry same request'), findsNothing);
+      final input = tester.widget<TextField>(
+        find.byKey(const Key('conversation-input')),
+      );
+      expect(input.enabled, isTrue);
+      expect(input.controller!.text, 'Keep this question for a fresh request.');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'Spanish daily AI limit is readable at 150 percent and requires a new request',
     (tester) async {
