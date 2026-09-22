@@ -702,6 +702,16 @@ bool _plannerHistoricalOrUncertain(String text) {
   ).hasMatch(text);
 }
 
+String _plannerDeclarativePrefix(String text) {
+  final RegExpMatch? question = RegExp(
+    r'(?:^|[,;:]\s*)(?=(?:do|does|did|should|must|can|could|would|will)\s+'
+    r'(?:i|we|my|our)\b)',
+    caseSensitive: false,
+  ).firstMatch(text);
+  if (question == null) return text;
+  return text.substring(0, question.start).trim();
+}
+
 bool? _plannerRecoveryPreference(String text) {
   bool? preference;
   for (final clause in text.split(
@@ -928,24 +938,26 @@ String? _explicitGroceryNeedAction(String source) {
   for (final clause in _plannerWithoutQuotedText(
     source,
   ).split(RegExp(r'[.!?;\n]+'))) {
-    if (_plannerHistoricalOrUncertain(clause) ||
-        _plannerRejectsGroceryNeed(clause)) {
+    final String declarative = _plannerDeclarativePrefix(clause);
+    if (declarative.isEmpty ||
+        _plannerHistoricalOrUncertain(declarative) ||
+        _plannerRejectsGroceryNeed(declarative)) {
       continue;
     }
     final bool spanish = RegExp(
       r'\b(?:necesito|necesitamos)\b[^.!?;]{0,45}\b(?:compras|comida|alimentos)\b',
       caseSensitive: false,
-    ).hasMatch(clause);
+    ).hasMatch(declarative);
     final bool english = RegExp(
       r'\b(?:i|we)\b[^.!?;]{0,60}\b(?:still\s+)?need\s+(?:to\s+(?:get|buy|shop for)\s+)?(?:the\s+)?grocer(?:y|ies)\b',
       caseSensitive: false,
-    ).hasMatch(clause);
+    ).hasMatch(declarative);
     if (!spanish && !english) continue;
 
     final deadline = RegExp(
       r'\b(?:before|by|antes de)\s+(?:las\s+)?(\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)\b',
       caseSensitive: false,
-    ).firstMatch(clause)?.group(1)?.trim();
+    ).firstMatch(declarative)?.group(1)?.trim();
     if (spanish) {
       return deadline == null
           ? 'Planificar compras esenciales'

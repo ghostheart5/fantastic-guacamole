@@ -220,6 +220,27 @@ void main() {
     },
   );
 
+  test('a stated grocery need survives a trailing planning question', () async {
+    final ProviderContainer container = plannerContainer();
+    addTearDown(container.dispose);
+
+    final SmartPlannerResult result = await container
+        .read(smartPlannerQueryControllerProvider)
+        .requestPlanningGuidance(
+          energy: null,
+          emotion: null,
+          notes: 'I need groceries before 7 PM, can we make a plan?',
+          history: const <Map<String, String>>[],
+          previousSavedNotes: null,
+        );
+
+    expect(result.plannerResponse.isClarification, isFalse);
+    expect(
+      result.plannerResponse.toAccessibleText().toLowerCase(),
+      contains('plan essential groceries before 7 pm'),
+    );
+  });
+
   test(
     'an explicit grocery deferral does not become the current action',
     () async {
