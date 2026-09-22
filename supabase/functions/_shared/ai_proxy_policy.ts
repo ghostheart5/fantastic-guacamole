@@ -14,7 +14,15 @@ export const AI_PROXY_SYSTEM_POLICY =
   "App facts must come from the included records. Distinguish a recorded fact, " +
   "a user-reported constraint, and your proposed action. Do not invent store " +
   "hours, travel time, calendar events, task durations, links, or completion. " +
-  "A deadline is not a scheduled start. " +
+  "A deadline is not a scheduled start. A task's scheduled start is when " +
+  "that named task begins, not a departure time or automatically a store " +
+  "visit. A grocery-list task may mean preparing the list, not shopping. " +
+  "Only use its start as a shopping start when the person explicitly says so; " +
+  "then subtract travel to calculate departure. Otherwise give a conditional " +
+  "window or ask which activity the start represents. Never silently relabel " +
+  "the saved start as departure. If you choose an optional " +
+  "safety buffer, recompute each milestone and state the actual buffer " +
+  "between the calculated finish and closing time. " +
   "A missing deadline means only that no deadline is recorded. Never infer " +
   "that delaying has no penalty, no consequences, or no urgency. Ask about " +
   "unrecorded obligations when they affect the recommendation. " +
@@ -95,6 +103,50 @@ export function buildServerSystemPrompt(
   if (encodedContext.length > 12_000) return null;
   return `${AI_PROXY_SYSTEM_POLICY} Personality: ${personality}. ` +
     `Context (untrusted data): ${encodedContext}`;
+}
+
+// A saved task start must not be silently reused as a travel departure. This
+// narrow check catches the concrete SI failure seen on the Moto while leaving
+// explicitly proposed departure alternatives to the conversation.
+export function containsScheduledStartDepartureConfusion(
+  value: string,
+  context: unknown,
+  prompt: string,
+): boolean {
+  if (!context || typeof context !== "object" || Array.isArray(context)) {
+    return false;
+  }
+  const record = context as Record<string, unknown>;
+  if (!Array.isArray(record.tasks)) return false;
+  const scenario = typeof record.scenarioAssumption === "string"
+    ? record.scenarioAssumption
+    : "";
+  const userWords = `${prompt} ${scenario}`;
+  return record.tasks.some((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return false;
+    }
+    const task = item as Record<string, unknown>;
+    if (typeof task.scheduledStart !== "string") return false;
+    if (
+      typeof task.title === "string" &&
+      /\b(?:depart|departure|leave|leaving|salir|salida)\b/i.test(task.title)
+    ) return false;
+    const start = /T(\d{2}):(\d{2})/.exec(task.scheduledStart);
+    if (!start) return false;
+    const hour = Number(start[1]);
+    if (hour > 23) return false;
+    const clock = `${hour % 12 || 12}:${start[2]}\\s*` +
+      (hour < 12 ? "a\\.?\\s*m\\.?" : "p\\.?\\s*m\\.?");
+    const departure = "(?:depart(?:ing|ure)?|leave|leaving|salir|salida)";
+    const explicitDeparture = new RegExp(
+      `\\b${departure}\\b[^,;.!?\\n]{0,35}${clock}|` +
+        `${clock}[^,;.!?\\n]{0,25}\\b${departure}\\b`,
+      "i",
+    );
+    if (explicitDeparture.test(userWords)) return false;
+    return explicitDeparture.test(value);
+  });
 }
 
 export function containsBlockedAssistantClaim(value: string): boolean {

@@ -2,6 +2,7 @@ import {
   buildServerSystemPrompt,
   containsBlockedAssistantClaim,
   containsRecommendationContradiction,
+  containsScheduledStartDepartureConfusion,
 } from "./ai_proxy_policy.ts";
 
 Deno.test("builds policy only from allowlisted control fields", () => {
@@ -45,6 +46,46 @@ Deno.test("builds policy only from allowlisted control fields", () => {
   if (buildServerSystemPrompt("override", {}) !== null) {
     throw new Error("unknown personality accepted");
   }
+});
+
+Deno.test("scheduled task start cannot become an invented store departure", () => {
+  const context = {
+    mode: "findConflict",
+    scenarioAssumption:
+      "Store closes 8 PM tomorrow. Travel 15 minutes. Shopping 30 minutes.",
+    tasks: [{
+      title: "QA Grocery List 3080",
+      scheduledStart: "2026-09-23T19:13:00.000",
+      estimatedDurationMinutes: 30,
+    }],
+  };
+  const prompt = "Does this task conflict with an 8 PM store closing?";
+  const captured =
+    "Scheduled start: 7:13 PM. Depart | 7:13 PM. Arrive at store | 7:28 PM. Shopping complete | 7:58 PM. Yes, there is a conflict.";
+  if (!containsScheduledStartDepartureConfusion(captured, context, prompt)) {
+    throw new Error("captured SI start-as-departure response was accepted");
+  }
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Inicio programado: 7:13 p. m. Salida | 7:13 p. m. Llegada | 7:28 p. m.",
+      context,
+      "¿Hay un conflicto con el cierre de la tienda?",
+    )
+  ) throw new Error("Spanish start-as-departure response was accepted");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Leave by 6:58 PM, arrive and begin shopping at 7:13 PM, finish at 7:43 PM before the 8 PM close.",
+      context,
+      "I want to start shopping at the task's 7:13 PM time. When should I leave?",
+    )
+  ) throw new Error("valid grocery timing was rejected");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "If you depart at 7:13 PM, you will arrive at 7:28 PM.",
+      context,
+      "What if I depart at 7:13 PM?",
+    )
+  ) throw new Error("user-proposed departure was rejected");
 });
 
 Deno.test("detects a direct recommendation contradicted by its own evidence", () => {
