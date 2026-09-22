@@ -90,6 +90,13 @@ The release review fits in the available time.`;
     throw new Error("English pronoun contradiction was accepted");
   }
   if (
+    containsRecommendationContradiction(
+      "First, call the dentist. It is not possible to know the wait time in advance.",
+    )
+  ) {
+    throw new Error("dummy pronoun was mistaken for the recommendation");
+  }
+  if (
     !containsRecommendationContradiction(
       "Primero, compra alimentos. Eso no es viable hoy.",
     )

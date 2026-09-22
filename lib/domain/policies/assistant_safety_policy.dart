@@ -756,9 +756,18 @@ Iterable<_DepartureClock> _leaveByClocks(String value) sync* {
   ];
   for (final RegExp pattern in patterns) {
     for (final RegExpMatch match in pattern.allMatches(value)) {
+      if (_isNegatedDepartureAdvice(value, match.start)) continue;
       yield _departureClock(match);
     }
   }
+}
+
+bool _isNegatedDepartureAdvice(String value, int matchStart) {
+  final String prefix = value.substring(0, matchStart).toLowerCase();
+  return RegExp(
+    r"\b(?:do\s+not|don't|should\s+not|must\s+not|never|avoid|"
+    r'no(?:\s+(?:debes|deber[ií]as))?|nunca|evita)\s*$',
+  ).hasMatch(prefix);
 }
 
 _DepartureClock _departureClock(RegExpMatch match) {

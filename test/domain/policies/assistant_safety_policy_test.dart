@@ -403,6 +403,22 @@ void main() {
     expect(outcome.publishableText, isNot(contains('6:30 PM')));
   });
 
+  test('later departure warning remains valid and intact', () {
+    const String response =
+        'The latest departure is 6:20 PM. '
+        'Do not leave at 6:30 PM; you would be late.';
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(responseText: response),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(
+      outcome.receipt.findingCodes,
+      isNot(contains('contradictory_latest_departure')),
+    );
+    expect(outcome.publishableText, response);
+  });
+
   test('English 24-hour departure contradiction is repaired', () {
     final AssistantSafetyOutcome outcome = pipeline.evaluate(
       _safeReview(

@@ -162,11 +162,19 @@ export function containsRecommendationContradiction(value: string): boolean {
   const clauses = rest.split(/[.!?;,:\n]+|\b(?:and|but|y|pero)\b/);
   return clauses.some((clause) => {
     const words = clause.split(/[^a-z0-9']+/).map(stemToken);
-    const refersToRecommendation = candidateTokens.some((candidate) =>
+    const namesRecommendation = candidateTokens.some((candidate) =>
       words.includes(candidate)
-    ) ||
-      /\b(?:it|they)\b|\b(?:eso|esto|ello)\b|\b(?:this|that|the)\s+(?:task|step|choice|option)\b|\b(?:esta|esa|la)\s+(?:tarea|opcion|eleccion)\b|\b(?:este|ese|el)\s+paso\b/
+    );
+    const explicitlyReferencesRecommendation =
+      /\b(?:this|that|the)\s+(?:task|step|choice|option)\b|\b(?:esta|esa|la)\s+(?:tarea|opcion|eleccion)\b|\b(?:este|ese|el)\s+paso\b/
         .test(clause);
+    const usesBarePronoun = /\b(?:it|they|eso|esto|ello)\b/.test(clause);
+    const usesDummyPronoun =
+      /\bit\s+(?:is|was|may\s+be|might\s+be)\s+(?:not\s+possible|impossible)\s+(?:to|that)\b/
+        .test(clause);
+    const refersToRecommendation = namesRecommendation ||
+      explicitlyReferencesRecommendation ||
+      (usesBarePronoun && !usesDummyPronoun);
     if (!refersToRecommendation) {
       return false;
     }
