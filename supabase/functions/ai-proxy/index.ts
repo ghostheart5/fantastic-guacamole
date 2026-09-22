@@ -149,32 +149,51 @@ async function settleSuccessDefinitively(
   details: Parameters<typeof settleReservation>[3],
 ): Promise<Record<string, unknown> | null> {
   try {
-    return await settleReservation(userId, requestId, true, details);
+    const initialSettlement = await settleReservation(
+      userId,
+      requestId,
+      true,
+      details,
+    );
+    if (initialSettlement !== null) return initialSettlement;
   } catch (error) {
     if (!isAmbiguousSettlementTransportError(error)) {
       throw error;
     }
-    // A timeout, abort, or connection reset cannot prove whether PostgreSQL
-    // committed. Reissue the idempotent settlement without another abort so
-    // the row lock returns its authoritative state. A reconciliation response
-    // can be lost too, so repeat that request before giving up certainty.
-    let lastAmbiguousError: unknown = error;
-    for (
-      let attempt = 0;
-      attempt < SUCCESS_SETTLEMENT_RECONCILIATION_ATTEMPTS;
-      attempt++
-    ) {
-      try {
-        return await settleReservation(userId, requestId, true, details, false);
-      } catch (reconciliationError) {
-        if (!isAmbiguousSettlementTransportError(reconciliationError)) {
-          throw reconciliationError;
-        }
-        lastAmbiguousError = reconciliationError;
-      }
-    }
-    throw new SuccessSettlementStillAmbiguousError(lastAmbiguousError);
   }
+  // A timeout, abort, connection reset, or retryable HTTP/null result cannot
+  // prove whether PostgreSQL committed. Reissue the idempotent settlement
+  // without another abort so the row lock returns its authoritative state. A
+  // reconciliation response can be lost too, so repeat it before giving up
+  // certainty.
+  let lastAmbiguousError: unknown = new Error(
+    "AI success settlement returned no authoritative state",
+  );
+  for (
+    let attempt = 0;
+    attempt < SUCCESS_SETTLEMENT_RECONCILIATION_ATTEMPTS;
+    attempt++
+  ) {
+    try {
+      const reconciliation = await settleReservation(
+        userId,
+        requestId,
+        true,
+        details,
+        false,
+      );
+      if (reconciliation !== null) return reconciliation;
+      lastAmbiguousError = new Error(
+        "AI success settlement reconciliation returned no authoritative state",
+      );
+    } catch (reconciliationError) {
+      if (!isAmbiguousSettlementTransportError(reconciliationError)) {
+        throw reconciliationError;
+      }
+      lastAmbiguousError = reconciliationError;
+    }
+  }
+  throw new SuccessSettlementStillAmbiguousError(lastAmbiguousError);
 }
 
 class SuccessSettlementStillAmbiguousError extends Error {

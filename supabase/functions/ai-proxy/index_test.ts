@@ -474,9 +474,14 @@ Deno.test("a lost reconciliation response is retried to an authoritative settlem
         refunds++;
         return Promise.resolve(Response.json({ state: "refunded" }));
       }
-      if (settlementCalls <= 2) {
+      if (settlementCalls === 1) {
         return Promise.reject(
           new TypeError("synthetic lost settlement response"),
+        );
+      }
+      if (settlementCalls === 2) {
+        return Promise.resolve(
+          Response.json({ error: "synthetic proxy failure" }, { status: 503 }),
         );
       }
       return Promise.resolve(Response.json({ state: "completed" }));
