@@ -130,17 +130,42 @@ async function settleReservation(
     p_failure_code: details.failureCode ?? null,
     p_response_payload: details.responsePayload ?? {},
   };
-  if (!bounded) return await serviceRpc(config, "settle_ai_usage", body);
-  return await serviceRpc(
-    config,
-    "settle_ai_usage",
-    body,
-    (input, init) =>
-      fetch(input, {
-        ...init,
-        signal: AbortSignal.timeout(SETTLEMENT_TIMEOUT_MS),
-      }),
+  if (!config.supabaseUrl || !config.secretKey) return null;
+  const response = await fetch(
+    `${config.supabaseUrl}/rest/v1/rpc/settle_ai_usage`,
+    {
+      method: "POST",
+      headers: {
+        apikey: config.secretKey,
+        Authorization: `Bearer ${config.secretKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      ...(bounded
+        ? { signal: AbortSignal.timeout(SETTLEMENT_TIMEOUT_MS) }
+        : {}),
+    },
   );
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new SettlementHttpError(response.status);
+  }
+  const value = await response.json();
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("AI settlement returned an invalid response");
+  }
+  return value as Record<string, unknown>;
+}
+
+class SettlementHttpError extends Error {
+  readonly ambiguous: boolean;
+
+  constructor(readonly status: number) {
+    super(`AI settlement HTTP ${status}`);
+    this.name = "SettlementHttpError";
+    this.ambiguous = status === 408 || status === 425 || status === 429 ||
+      status >= 500;
+  }
 }
 
 async function settleSuccessDefinitively(
@@ -204,7 +229,8 @@ class SuccessSettlementStillAmbiguousError extends Error {
 }
 
 function isAmbiguousSettlementTransportError(error: unknown): boolean {
-  return error instanceof TypeError ||
+  return (error instanceof SettlementHttpError && error.ambiguous) ||
+    error instanceof TypeError ||
     (error instanceof DOMException &&
       ["TimeoutError", "AbortError", "NetworkError"].includes(error.name));
 }

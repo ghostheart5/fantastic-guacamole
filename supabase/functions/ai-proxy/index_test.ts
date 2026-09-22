@@ -596,6 +596,84 @@ Deno.test("an exhausted ambiguous settlement still delivers the paid reply", asy
   }
 });
 
+for (const deterministicStatus of [400, 401, 404] as const) {
+  Deno.test(`deterministic settlement HTTP ${deterministicStatus} fails closed and refunds`, async () => {
+    if (!handler) throw new Error("handler was not registered");
+    const originalFetch = globalThis.fetch;
+    let successSettlements = 0;
+    let refunds = 0;
+    globalThis.fetch = ((url, init) => {
+      const path = String(url);
+      if (path.endsWith("/auth/v1/user")) {
+        return Promise.resolve(
+          Response.json({ id: "11111111-1111-4111-8111-111111111111" }),
+        );
+      }
+      if (path.endsWith("/consume_backend_rate_limit")) {
+        return Promise.resolve(Response.json({ allowed: true }));
+      }
+      if (path.endsWith("/reserve_ai_usage")) {
+        return Promise.resolve(
+          Response.json({ allowed: true, duplicate: false, balance: 81 }),
+        );
+      }
+      if (path.endsWith("/settle_ai_usage")) {
+        const body = JSON.parse(String(init?.body));
+        if (body.p_succeeded === true) {
+          successSettlements++;
+          return Promise.resolve(
+            Response.json(
+              { error: "synthetic deterministic settlement failure" },
+              { status: deterministicStatus },
+            ),
+          );
+        }
+        refunds++;
+        return Promise.resolve(Response.json({ state: "refunded" }));
+      }
+      if (path === "https://api.anthropic.com/v1/messages") {
+        return Promise.resolve(Response.json({
+          id: `provider-deterministic-settlement-${deterministicStatus}`,
+          model: "claude-sonnet-4-6",
+          stop_reason: "end_turn",
+          content: [{ type: "text", text: "Review the visible plan." }],
+          usage: { input_tokens: 10, output_tokens: 5 },
+        }));
+      }
+      throw new Error(`unexpected transport target: ${path}`);
+    }) as typeof fetch;
+    try {
+      const input = {
+        requestId: `synthetic-deterministic-settlement-${deterministicStatus}`,
+        prompt: "Review my visible plan.",
+        personality: "planner",
+        context: {},
+        allowExternalAi: true,
+      };
+      const request = (extra: Record<string, unknown>) =>
+        new Request("https://local.example/ai-proxy", {
+          method: "POST",
+          headers: { authorization: "Bearer synthetic-session" },
+          body: JSON.stringify({ ...input, ...extra }),
+        });
+      const quoted = await handler(request({ quoteOnly: true }));
+      const { quote } = await quoted.json();
+      const response = await handler(request({ quote }));
+      const body = await response.json();
+      if (
+        response.status !== 500 || body.error !== "request_failed" ||
+        successSettlements !== 1 || refunds !== 1
+      ) {
+        throw new Error(
+          `deterministic settlement HTTP ${deterministicStatus} did not fail closed`,
+        );
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+}
+
 for (
   const failure of [
     401,
