@@ -174,6 +174,18 @@ The release review fits in the available time.`;
     ) ||
     containsRecommendationContradiction(
       "Te recomiendo no visitar la farmacia. La farmacia está cerrada.",
+    ) ||
+    containsRecommendationContradiction(
+      "I recommend that you not visit the pharmacy. The pharmacy is closed.",
+    ) ||
+    containsRecommendationContradiction(
+      "Te recomiendo que no visites la farmacia. La farmacia está cerrada.",
+    ) ||
+    containsRecommendationContradiction(
+      "I recommend avoiding the pharmacy. The pharmacy is closed.",
+    ) ||
+    containsRecommendationContradiction(
+      "Deberías evitar la farmacia. La farmacia está cerrada.",
     )
   ) {
     throw new Error("negated direct recommendation was rejected");
