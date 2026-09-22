@@ -109,7 +109,7 @@ export function containsBlockedAssistantClaim(value: string): boolean {
     /\bdeveloper message\b/,
     /\bhidden reasoning\b/,
     /\bchronospark\b/,
-    /\b(?:(?:i|we)(?:['’]ve\s+|\s+(?:(?:has|have)\s+)?)|(?:axiomara|the assistant)\s+(?:(?:has|have)\s+)?)(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
+    /\b(?:(?:i|we)(?:['’]ve\s+|\s+(?:(?:has|have)\s+)?)|(?:axiomara|the assistant)\s+(?:(?:has|have)\s+)?)(?:(?:already|now|just|successfully|finally)\s+)?(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
     /\b(?:your|the)\s+(?:task|goal|habit|note|event|plan|schedule|request)\s+(?:has been|is now)\s+(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
     /\b(?:your|the)\s+(?:tasks|goals|habits|notes|events|plans|schedules|requests)\s+(?:have been|are now)\s+(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
     /\b(?:tu|su|la|el)\s+(?:tarea|meta|habito|hábito|nota|evento|plan|horario|solicitud)\s+(?:ha sido|fue|esta ahora|está ahora)\s+(?:guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa])\b/,
@@ -120,7 +120,7 @@ export function containsBlockedAssistantClaim(value: string): boolean {
   ].some((pattern) => pattern.test(normalized));
   if (blocked) return true;
   return [
-    /\bSI\s+(?:(?:has|have)\s+)?(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
+    /\bSI\s+(?:(?:has|have)\s+)?(?:(?:already|now|just|successfully|finally)\s+)?(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
     /\bSI\s+(?:(?:he|ha|hemos|han)\s+)?(?:guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|guard[eéó]|cre[eéó]|elimin[eéó]|program[eéó]|complet[eéó]|actualic[eé]|actualiz[oó]|envi[eéó]|apliqu[eé]|aplic[oó]|compr[eéó]|cambi[eéó])(?=\s|[.!?,;:]|$)/,
   ].some((pattern) => pattern.test(collapsed));
 }

@@ -104,6 +104,8 @@ void main() {
     for (final String claim in <String>[
       "I've scheduled your task.",
       'We’ve completed the plan.',
+      "I've now scheduled your task.",
+      'Axiomara has already updated your plan.',
     ]) {
       final AssistantSafetyOutcome outcome = pipeline.evaluate(
         _safeReview(responseText: '$claim Review the proposed time.'),

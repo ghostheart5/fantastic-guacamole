@@ -1205,6 +1205,8 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
         'El compromiso es opcional o puede aplazarse con consentimiento informado.',
     'The simulation does not delete or mutate the actual task.':
         'La simulación no elimina ni modifica la tarea real.',
+    'Remove this commitment from the active capacity window and compare the resulting tradeoff.':
+        'Quitar este compromiso de la ventana de capacidad activa y comparar la compensación resultante.',
   };
   final translated = exact[value];
   if (translated != null) return translated;

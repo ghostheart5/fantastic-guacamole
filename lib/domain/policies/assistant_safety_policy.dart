@@ -483,6 +483,7 @@ bool _claimsCompletedMutation(String value) {
     RegExp(
       r"\b((i|we)(?:[’']ve\s+|\s+(?:(has|have)\s+)?)|"
       r'(axiomara|chronospark|the assistant)\s+((has|have)\s+)?)'
+      r'((already|now|just|successfully|finally)\s+)?'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
     ),
     RegExp(
@@ -540,6 +541,7 @@ bool _claimsCompletedMutation(String value) {
   return <RegExp>[
     RegExp(
       r'\bSI\s+((has|have)\s+)?'
+      r'((already|now|just|successfully|finally)\s+)?'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
     ),
     RegExp(
@@ -559,6 +561,7 @@ String _removeUnsupportedMutationClaims(String value) {
       r'(^|(?<=[.!?])\s+)('
       r"((i|we)(?:[’']ve\s+|\s+(?:(has|have)\s+)?)|"
       r'(axiomara|chronospark|the assistant)\s+((has|have)\s+)?)'
+      r'((already|now|just|successfully|finally)\s+)?'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b|'
       r'(yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+'
       r'((ya|ahora|finalmente)\s+)?'
@@ -576,6 +579,7 @@ String _removeUnsupportedMutationClaims(String value) {
     RegExp(
       r'(^|(?<=[.!?])\s+)SI\s+('
       r'((has|have)\s+)?'
+      r'((already|now|just|successfully|finally)\s+)?'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b|'
       r'((he|ha|hemos|han)\s+)?'
       r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'

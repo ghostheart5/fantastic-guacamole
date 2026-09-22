@@ -474,21 +474,28 @@ Deno.serve(async (req: Request) => {
         )
         ? repairedUsage!.output_tokens as number
         : null;
+      const repairedUsageIsValid = repairedInputTokens !== null &&
+        repairedInputTokens > 0 &&
+        repairedOutputTokens !== null &&
+        repairedOutputTokens >= 0 &&
+        repairedOutputTokens <= maxTokens;
       if (
         repairedRecord?.stop_reason !== "end_turn" ||
         !repairedMessage ||
-        repairedInputTokens === null ||
-        repairedInputTokens <= 0 ||
-        repairedOutputTokens === null ||
-        repairedOutputTokens < 0 ||
-        repairedOutputTokens > maxTokens ||
+        !repairedUsageIsValid ||
         containsBlockedAssistantClaim(repairedMessage) ||
         containsRecommendationContradiction(repairedMessage)
       ) {
         await settleReservation(userId, requestId, false, {
-          inputTokens,
-          outputTokens,
-          providerRequestId: finalProviderRequestId,
+          inputTokens: repairedUsageIsValid
+            ? totalInputTokens + repairedInputTokens
+            : totalInputTokens,
+          outputTokens: repairedUsageIsValid
+            ? totalOutputTokens + repairedOutputTokens
+            : totalOutputTokens,
+          providerRequestId: typeof repairedRecord?.id === "string"
+            ? repairedRecord.id
+            : finalProviderRequestId,
           failureCode: "inconsistent_provider_output",
         });
         reservation = null;
@@ -505,8 +512,8 @@ Deno.serve(async (req: Request) => {
       finalProviderRequestId = typeof repairedRecord?.id === "string"
         ? repairedRecord.id
         : finalProviderRequestId;
-      totalInputTokens += repairedInputTokens;
-      totalOutputTokens += repairedOutputTokens;
+      totalInputTokens += repairedInputTokens!;
+      totalOutputTokens += repairedOutputTokens!;
     }
     const responsePayload: ProxyResponse = {
       message: finalMessage,
