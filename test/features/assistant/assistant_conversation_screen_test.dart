@@ -1161,6 +1161,67 @@ void main() {
     },
   );
 
+  testWidgets(
+    'quote timeout preserves the question and requires a fresh quote',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final never = Completer<({int status, Map<String, dynamic> data})>();
+      final container = setup(
+        (_) => never.future,
+        requestTimeout: const Duration(milliseconds: 100),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Keep this question while the quote times out.',
+      );
+      await tester.tap(find.byTooltip('Send to AI'));
+      await waitFor(tester, find.text('Get credit price'));
+      await tester.tap(find.text('Get credit price'));
+      await tester.pump(const Duration(milliseconds: 101));
+      await tester.pump();
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('conversation-error')),
+          matching: find.textContaining('credit price'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('No paid request was confirmed'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('fresh quote'), findsOneWidget);
+      expect(find.text('Retry same request'), findsNothing);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('conversation-input')))
+            .controller!
+            .text,
+        'Keep this question while the quote times out.',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('stop waiting preserves and publishes the paid late reply', (
     tester,
   ) async {

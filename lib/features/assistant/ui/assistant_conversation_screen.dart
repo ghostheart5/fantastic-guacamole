@@ -228,8 +228,7 @@ class _AssistantConversationScreenState
             .quote(packet)
             .timeout(
               ref.read(conversationRequestTimeoutProvider),
-              onTimeout: () =>
-                  throw const ConversationFailure('request_timeout'),
+              onTimeout: () => throw const ConversationFailure('quote_timeout'),
             );
         if (!current()) return;
         final accepted = await _confirm(
@@ -371,6 +370,10 @@ class _AssistantConversationScreenState
     'quote_expired' || 'credit_quote_required' => copy(
       'The price expired. Start a new request to review a new quote.',
       'El precio caducó. Inicia otra solicitud para revisar una nueva cotización.',
+    ),
+    'quote_timeout' => copy(
+      'The AI service took too long to provide a credit price. No paid request was confirmed. Your question is retained; start a new request to review a fresh quote.',
+      'El servicio de IA tardó demasiado en proporcionar un precio en créditos. No se confirmó ninguna solicitud de pago. Tu pregunta se conserva; inicia una solicitud nueva para revisar una cotización nueva.',
     ),
     'request_timeout' => copy(
       'The AI service took too long to confirm a reply. Your question and the same priced request are retained. Retry the same request to avoid a second charge.',

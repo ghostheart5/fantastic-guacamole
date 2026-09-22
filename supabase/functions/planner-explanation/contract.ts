@@ -443,7 +443,7 @@ function assertSafeExplanation(
     /\b(?:as your therapist|i am your therapist|therapy|treatment plan)\b/,
     /\b(?:you are|youre|you feel|you seem|you sound|you must be|you have)\b/,
     /\b(?:your identity is|as a person who|the kind of person you are)\b/,
-    /\b(?:i|we|chronospark|the planner|the system) (?:have )?(?:saved|moved|changed|created|deleted|completed|scheduled|sent|booked|updated|executed)\b/,
+    /\b(?:i|we|axiomara|chronospark|the planner|the system) (?:have )?(?:saved|moved|changed|created|deleted|completed|scheduled|sent|booked|updated|executed)\b/,
     /\b(?:was|has been|is now) (?:saved|moved|changed|created|deleted|completed|scheduled|sent|booked|updated|executed)\b/,
     /\b(?:you must|you should|you need to|you have to)\b/,
     /\b(?:urgent|immediately|right now|only choice|no excuse|before it is too late|guaranteed)\b/,

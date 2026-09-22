@@ -534,6 +534,10 @@ Deno.test("unsafe provider claims and provenance are refunded", async () => {
       sourceClauseIds: ["plan_focus"],
     },
     {
+      explanation: "Axiomara scheduled your task.",
+      sourceClauseIds: ["plan_focus"],
+    },
+    {
       explanation: "You must do this immediately.",
       sourceClauseIds: ["next_step"],
     },

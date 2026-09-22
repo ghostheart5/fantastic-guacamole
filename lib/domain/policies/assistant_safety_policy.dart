@@ -500,6 +500,12 @@ bool _claimsCompletedMutation(String value) {
       r'(guardado|creado|eliminado|programado|completado|actualizado|'
       r'enviado|aplicado|comprado|cambiado)\b',
     ),
+    RegExp(
+      r'\b(your|the)\s+'
+      r'(task|goal|habit|note|event|plan|schedule|request)\s+'
+      r'(has been|is now)\s+'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
+    ),
   ].any((RegExp pattern) => pattern.hasMatch(normalized));
   if (genericClaim) return true;
   return <RegExp>[
@@ -553,6 +559,17 @@ String _removeUnsupportedMutationClaims(String value) {
       r'(^|(?<=[.!?])\s+)(he|hemos)\s+'
       r'(guardado|creado|eliminado|programado|completado|actualizado|'
       r'enviado|aplicado|comprado|cambiado)\b'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
+    RegExp(
+      r'(^|(?<=[.!?])\s+)'
+      r'(?:done\s*[-—:]?\s*)?'
+      r'(your|the)\s+'
+      r'(task|goal|habit|note|event|plan|schedule|request)\s+'
+      r'(has been|is now)\s+'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b'
       r'[^.!?\n]*(?:[.!?]|$)',
       caseSensitive: false,
       multiLine: true,
@@ -629,6 +646,12 @@ _DepartureClock? _latestDepartureClock(String value) {
       caseSensitive: false,
     ),
     RegExp(
+      r'\byou\s+(?:must|need\s+to|have\s+to)\s+leave\s+by\s+'
+      r'(\d{1,2})(?::(\d{2}))?(?:\s*([ap])\.?m\.?)?\s+'
+      r'(?:at\s+the\s+latest|at\s+latest|latest)\b',
+      caseSensitive: false,
+    ),
+    RegExp(
       r'\bla\s+salida(?:\s+viable)?\s+m[aá]s\s+tarde(?:\s+posible)?\s*'
       r'(?:es|:)\s*(?:a\s+las\s*)?(\d{1,2})(?::(\d{2}))?'
       r'(?:\s*([ap])\.?\s*m\.?)?\b',
@@ -680,6 +703,15 @@ _DepartureClock _departureClock(RegExpMatch match) {
 
 bool _occursAfter(_DepartureClock candidate, _DepartureClock latest) {
   int candidateMinutes = candidate.minutes;
+  if (candidate.suffix == null &&
+      !candidate.uses24Hour &&
+      latest.suffix != null) {
+    final int hour = candidateMinutes ~/ 60;
+    final int minute = candidateMinutes.remainder(60);
+    final int normalizedHour = hour == 12 ? 0 : hour;
+    candidateMinutes =
+        normalizedHour * 60 + minute + (latest.suffix == 'p' ? 12 * 60 : 0);
+  }
   final bool explicitMidnightRollover =
       latest.suffix == 'p' && candidate.suffix == 'a';
   final bool twentyFourHourMidnightRollover =

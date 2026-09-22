@@ -120,6 +120,21 @@ void main() {
     }
   });
 
+  test('passive English mutation confirmations are removed', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'Done — your task has been scheduled for 5 PM. '
+            'Review the proposed time.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(outcome.receipt.findingCodes, contains('write_authority_violation'));
+    expect(outcome.publishableText, isNot(contains('has been scheduled')));
+    expect(outcome.publishableText, contains('Review the proposed time.'));
+  });
+
   test('Spanish current product mutation claim is rejected and removable', () {
     final AssistantSafetyOutcome outcome = pipeline.evaluate(
       _safeReview(
@@ -349,6 +364,44 @@ void main() {
     );
     expect(outcome.publishableText, contains('18:20'));
     expect(outcome.publishableText, isNot(contains('18:30')));
+  });
+
+  test('leave-by-at-latest wording establishes the departure bound', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'You must leave by 6:20 PM at the latest. '
+            'Leave at 6:30 PM.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(outcome.receipt.disposition, AssistantSafetyDisposition.repaired);
+    expect(
+      outcome.receipt.findingCodes,
+      contains('contradictory_latest_departure'),
+    );
+    expect(outcome.publishableText, contains('6:20 PM'));
+    expect(outcome.publishableText, isNot(contains('6:30 PM')));
+  });
+
+  test('suffix-less advice inherits the bound meridiem', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'The latest viable departure is 6:20 PM. '
+            'Leave at 6:30.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(outcome.receipt.disposition, AssistantSafetyDisposition.repaired);
+    expect(
+      outcome.receipt.findingCodes,
+      contains('contradictory_latest_departure'),
+    );
+    expect(outcome.publishableText, contains('6:20 PM'));
+    expect(outcome.publishableText, isNot(contains('6:30')));
   });
 
   test('departure contradiction across midnight is repaired', () {
