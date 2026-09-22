@@ -470,6 +470,91 @@ for (
   });
 }
 
+Deno.test("expired repair flow settles only first provider usage", async () => {
+  if (!handler) throw new Error("handler was not registered");
+  const originalFetch = globalThis.fetch;
+  const originalDateNow = Date.now;
+  let flowExpired = false;
+  let providerCalls = 0;
+  let settlements = 0;
+  Date.now = () => flowExpired ? 21_000 : 0;
+  globalThis.fetch = ((url, init) => {
+    const path = String(url);
+    if (path.endsWith("/auth/v1/user")) {
+      return Promise.resolve(
+        Response.json({ id: "11111111-1111-4111-8111-111111111111" }),
+      );
+    }
+    if (path.endsWith("/consume_backend_rate_limit")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
+    if (path.endsWith("/reserve_ai_usage")) {
+      return Promise.resolve(
+        Response.json({ allowed: true, duplicate: false, balance: 84 }),
+      );
+    }
+    if (path.endsWith("/reserve_ai_repair_budget")) {
+      flowExpired = true;
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
+    if (path.endsWith("/settle_ai_usage")) {
+      const body = JSON.parse(String(init?.body));
+      if (
+        body.p_succeeded !== false || body.p_input_tokens !== 10 ||
+        body.p_output_tokens !== 10 ||
+        body.p_failure_code !== "inconsistent_provider_output"
+      ) throw new Error("pre-fetch expiry lost first-call accounting");
+      settlements++;
+      return Promise.resolve(Response.json({ state: "refunded" }));
+    }
+    if (path === "https://api.anthropic.com/v1/messages") {
+      providerCalls++;
+      if (providerCalls > 1) {
+        throw new Error("repair provider call started after flow expiry");
+      }
+      return Promise.resolve(Response.json({
+        id: "provider-first-before-flow-expiry",
+        model: "claude-sonnet-4-6",
+        stop_reason: "end_turn",
+        content: [{
+          type: "text",
+          text:
+            "Groceries first, then release evidence. Neither grocery task is actionable right now.",
+        }],
+        usage: { input_tokens: 10, output_tokens: 10 },
+      }));
+    }
+    throw new Error(`unexpected transport target: ${path}`);
+  }) as typeof fetch;
+  try {
+    const input = {
+      requestId: "synthetic-expired-before-repair-provider",
+      prompt: "Should I buy groceries or review release evidence first?",
+      personality: "planner",
+      context: {},
+      allowExternalAi: true,
+    };
+    const request = (extra: Record<string, unknown>) =>
+      new Request("https://local.example/ai-proxy", {
+        method: "POST",
+        headers: { authorization: "Bearer synthetic-session" },
+        body: JSON.stringify({ ...input, ...extra }),
+      });
+    const quoted = await handler(request({ quoteOnly: true }));
+    const { quote } = await quoted.json();
+    const response = await handler(request({ quote }));
+    const body = await response.json();
+    if (
+      response.status !== 502 ||
+      body.error !== "inconsistent_upstream_response" ||
+      providerCalls !== 1 || settlements !== 1
+    ) throw new Error("pre-fetch expiry was not refunded exactly once");
+  } finally {
+    globalThis.fetch = originalFetch;
+    Date.now = originalDateNow;
+  }
+});
+
 Deno.test("failure settlement outage preserves deterministic client error", async () => {
   if (!handler) throw new Error("handler was not registered");
   const originalFetch = globalThis.fetch;

@@ -149,6 +149,13 @@ The release review fits in the available time.`;
   }
   if (
     !containsRecommendationContradiction(
+      "We have to visit the pharmacy first. It is closed.",
+    )
+  ) {
+    throw new Error("obligation recommendation was accepted");
+  }
+  if (
+    !containsRecommendationContradiction(
       "Start with groceries. Groceries are not feasible today.",
     )
   ) {
@@ -339,6 +346,7 @@ Deno.test("blocks unsupported and prompt-disclosure claims", () => {
       "We’ve completed it.",
       "I've now scheduled your task.",
       "Axiomara has already updated your plan.",
+      "I booked your appointment for 5 PM.",
       "Done — your task has been scheduled for 5 PM.",
       "Done — your appointment is scheduled for 5 PM.",
       "Done! Your appointment is scheduled for 5 PM.",

@@ -593,6 +593,7 @@ Deno.serve(async (req: Request) => {
         );
       }
       let repaired: unknown;
+      let repairProviderCallStarted = false;
       try {
         const repairTimeoutMs = remainingProviderTimeoutMs(
           providerFlowStartedAt,
@@ -603,6 +604,7 @@ Deno.serve(async (req: Request) => {
             "TimeoutError",
           );
         }
+        repairProviderCallStarted = true;
         const response = await fetch(ANTHROPIC_API, {
           method: "POST",
           signal: AbortSignal.timeout(repairTimeoutMs),
@@ -620,6 +622,12 @@ Deno.serve(async (req: Request) => {
         repaired = await response.json();
       } catch {
         await settleReservation(userId, requestId, false, {
+          ...(!repairProviderCallStarted
+            ? {
+              inputTokens: totalInputTokens,
+              outputTokens: totalOutputTokens,
+            }
+            : {}),
           providerRequestId: finalProviderRequestId,
           failureCode: "inconsistent_provider_output",
         });

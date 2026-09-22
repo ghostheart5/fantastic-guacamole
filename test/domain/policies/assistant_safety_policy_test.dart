@@ -108,6 +108,7 @@ void main() {
       'Axiomara has already updated your plan.',
       'Axiomara changed your plan.',
       'I purchased the groceries.',
+      'I booked your appointment for 5 PM.',
     ]) {
       final AssistantSafetyOutcome outcome = pipeline.evaluate(
         _safeReview(responseText: '$claim Review the proposed time.'),

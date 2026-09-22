@@ -160,6 +160,12 @@ void main() {
       );
       expect(
         isPolicyAcceptableResponse(
+          'We have to visit the pharmacy first. It is closed.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
           "I don't recommend visiting the pharmacy first. The pharmacy has closed.",
         ),
         isTrue,
