@@ -480,27 +480,26 @@ void main() {
         contains('compr'),
       );
 
-      final SmartPlannerResult
-      followUp = await controller.requestFollowUpResult(
-        input:
-            'The task is already scheduled at 5:38 PM. Should I leave earlier?',
-        energy: 0.55,
-        emotion: null,
-        reflection: initialPrompt,
-        history: <Map<String, String>>[
-          const <String, String>{'role': 'user', 'content': initialPrompt},
-          <String, String>{
-            'role': 'assistant',
-            'content': initial.plannerResponse.toAccessibleText(),
-          },
-        ],
-        currentPlan: PlannerConversationSnapshot(
-          originalObjective: initialPrompt,
-          currentPlan: initial.plannerResponse,
-          userContext: initial.plannerResponse.userContext,
-        ),
-        languageCode: 'es',
-      );
+      final SmartPlannerResult followUp = await controller
+          .requestFollowUpResult(
+            input: 'The task is at 6 PM. Should I leave earlier than 5:38 PM?',
+            energy: 0.55,
+            emotion: null,
+            reflection: initialPrompt,
+            history: <Map<String, String>>[
+              const <String, String>{'role': 'user', 'content': initialPrompt},
+              <String, String>{
+                'role': 'assistant',
+                'content': initial.plannerResponse.toAccessibleText(),
+              },
+            ],
+            currentPlan: PlannerConversationSnapshot(
+              originalObjective: initialPrompt,
+              currentPlan: initial.plannerResponse,
+              userContext: initial.plannerResponse.userContext,
+            ),
+            languageCode: 'es',
+          );
       final String answer = followUp.plannerResponse
           .toAccessibleText()
           .toLowerCase();
@@ -546,6 +545,51 @@ void main() {
     expect(answer, contains('5 PM'));
     expect(answer, isNot(contains('before 2')));
   });
+
+  test(
+    'timing follow-up does not treat an appointment clock as departure',
+    () async {
+      const String initialPrompt =
+          'I need to prepare for my dentist appointment. What should I do next?';
+      final ProviderContainer container = plannerContainer();
+      addTearDown(container.dispose);
+      final SmartPlannerQueryController controller = container.read(
+        smartPlannerQueryControllerProvider,
+      );
+      final SmartPlannerResult initial = await controller
+          .requestPlanningGuidance(
+            energy: null,
+            emotion: null,
+            notes: initialPrompt,
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+      final SmartPlannerResult followUp = await controller
+          .requestFollowUpResult(
+            input: 'Should I leave earlier because my appointment is at 6 PM?',
+            energy: null,
+            emotion: null,
+            reflection: initialPrompt,
+            history: <Map<String, String>>[
+              const <String, String>{'role': 'user', 'content': initialPrompt},
+              <String, String>{
+                'role': 'assistant',
+                'content': initial.plannerResponse.toAccessibleText(),
+              },
+            ],
+            currentPlan: PlannerConversationSnapshot(
+              originalObjective: initialPrompt,
+              currentPlan: initial.plannerResponse,
+              userContext: initial.plannerResponse.userContext,
+            ),
+          );
+
+      expect(
+        followUp.plannerResponse.whatIHeard.toLowerCase(),
+        isNot(contains('leaving at 6 pm')),
+      );
+    },
+  );
 
   test('timing follow-up stays relevant for a non-grocery plan', () async {
     const String initialPrompt =

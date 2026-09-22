@@ -188,13 +188,11 @@ String? _plannerDepartureClock(String input) {
       r'(\d{1,2}:\d{2}\s*(?:a\.?\s*m\.?|p\.?\s*m\.?)?|\d{1,2}\s*(?:a\.?\s*m\.?|p\.?\s*m\.?))';
   final List<RegExp> afterLeave = <RegExp>[
     RegExp(
-      r'\bleave\s+(?:any\s+)?earlier\b[^.!?;]{0,35}?\b(?:than|at|by)?\s*' +
-          clock,
+      r'\bleave\s+(?:any\s+)?earlier\s+(?:than|at|by)\s*' + clock,
       caseSensitive: false,
     ),
     RegExp(
-      r'\bsalir\s+m[aá]s\s+temprano\b[^.!?;]{0,35}?\b(?:que|de|a\s+las)?\s*' +
-          clock,
+      r'\bsalir\s+m[aá]s\s+temprano\s+(?:que|de|a\s+las|antes\s+de)\s*' + clock,
       caseSensitive: false,
     ),
   ];
@@ -202,10 +200,5 @@ String? _plannerDepartureClock(String input) {
     final String? value = pattern.firstMatch(input)?.group(1)?.trim();
     if (value != null) return value;
   }
-  final RegExp beforeLeave = RegExp(
-    clock +
-        r'[^.!?;]{0,60}\b(?:leave\s+(?:any\s+)?earlier|salir\s+m[aá]s\s+temprano)\b',
-    caseSensitive: false,
-  );
-  return beforeLeave.firstMatch(input)?.group(1)?.trim();
+  return null;
 }

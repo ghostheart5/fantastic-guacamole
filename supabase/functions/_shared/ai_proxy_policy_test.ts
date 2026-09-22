@@ -106,6 +106,15 @@ The release review fits in the available time.`;
     );
   }
   if (
+    containsRecommendationContradiction(
+      "First, call the dentist. It may not be possible to know the wait time in advance.",
+    )
+  ) {
+    throw new Error(
+      "modal dummy pronoun was mistaken for the recommendation",
+    );
+  }
+  if (
     !containsRecommendationContradiction(
       "Primero, compra alimentos. Eso no es viable hoy.",
     )
