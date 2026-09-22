@@ -125,6 +125,7 @@ void main() {
   test('passive English mutation confirmations are removed', () {
     for (final String claim in <String>[
       'Done — your task has been scheduled for 5 PM.',
+      'Done — your appointment is scheduled for 5 PM.',
       'Your appointment has been scheduled for 5 PM.',
       'Your meeting has been created.',
       'Your reminder has been saved.',
@@ -142,6 +143,21 @@ void main() {
       expect(outcome.publishableText, isNot(contains(claim)), reason: claim);
       expect(outcome.publishableText, contains('Review the proposed time.'));
     }
+  });
+
+  test('an existing scheduled record is not a mutation confirmation', () {
+    const String response =
+        'Your appointment is scheduled for 5 PM. Review the saved details.';
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(responseText: response),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(
+      outcome.receipt.findingCodes,
+      isNot(contains('write_authority_violation')),
+    );
+    expect(outcome.publishableText, response);
   });
 
   test('passive Spanish mutation confirmations are removed', () {
@@ -423,6 +439,25 @@ void main() {
         responseText:
             'The latest departure is 6:20 PM. '
             'Leave no later than 6:30 PM.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(outcome.receipt.disposition, AssistantSafetyDisposition.repaired);
+    expect(
+      outcome.receipt.findingCodes,
+      contains('contradictory_latest_departure'),
+    );
+    expect(outcome.publishableText, contains('6:20 PM'));
+    expect(outcome.publishableText, isNot(contains('6:30 PM')));
+  });
+
+  test('English depart-at contradiction is repaired', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'The latest departure is 6:20 PM. '
+            'Depart at 6:30 PM.',
       ),
     );
 

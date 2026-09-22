@@ -518,6 +518,12 @@ bool _claimsCompletedMutation(String value) {
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
     ),
     RegExp(
+      r'(^|[.!?]\s+)done\s*[-—:]\s*(your|the)\s+'
+      r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
+      r'reminder|commitment|milestone|routine)\s+is\s+'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
+    ),
+    RegExp(
       r'\b(your|the)\s+'
       r'(tasks|goals|habits|notes|events|plans|schedules|requests|appointments|'
       r'meetings|reminders|commitments|milestones|routines)\s+'
@@ -561,6 +567,15 @@ bool _claimsCompletedMutation(String value) {
 
 String _removeUnsupportedMutationClaims(String value) {
   final List<RegExp> unsupportedSentences = <RegExp>[
+    RegExp(
+      r'(^|(?<=[.!?])\s+)done\s*[-—:]\s*(your|the)\s+'
+      r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
+      r'reminder|commitment|milestone|routine)\s+is\s+'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
     RegExp(
       r'(^|(?<=[.!?])\s+)('
       r"((i|we)(?:[’']ve\s+|\s+(?:(has|have)\s+)?)|"
@@ -753,7 +768,7 @@ _DepartureClock? _latestDepartureClock(String value) {
 Iterable<_DepartureClock> _leaveByClocks(String value) sync* {
   final List<RegExp> patterns = <RegExp>[
     RegExp(
-      r'\bleav(?:e|ing)\s+(?:by|at|no\s+later\s+than)\s+(\d{1,2})(?::(\d{2}))?(?:\s*([ap])\.?m\.?)?\b',
+      r'\b(?:leav(?:e|ing)|depart(?:ing)?)\s+(?:by|at|no\s+later\s+than)\s+(\d{1,2})(?::(\d{2}))?(?:\s*([ap])\.?m\.?)?\b',
       caseSensitive: false,
     ),
     RegExp(

@@ -110,6 +110,7 @@ export function containsBlockedAssistantClaim(value: string): boolean {
     /\bhidden reasoning\b/,
     /\bchronospark\b/,
     /\b(?:(?:i|we)(?:['’]ve\s+|\s+(?:(?:has|have)\s+)?)|(?:axiomara|the assistant)\s+(?:(?:has|have)\s+)?)(?:(?:already|now|just|successfully|finally)\s+)?(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
+    /(?:^|[.!?]\s+)done\s*[-—:]\s*(?:your|the)\s+(?:task|goal|habit|note|event|plan|schedule|request|appointment|meeting|reminder|commitment|milestone|routine)\s+is\s+(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
     /\b(?:your|the)\s+(?:task|goal|habit|note|event|plan|schedule|request|appointment|meeting|reminder|commitment|milestone|routine)\s+(?:has been|is now)\s+(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
     /\b(?:your|the)\s+(?:tasks|goals|habits|notes|events|plans|schedules|requests|appointments|meetings|reminders|commitments|milestones|routines)\s+(?:have been|are now)\s+(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
     /\b(?:tu|su|la|el)\s+(?:tarea|meta|habito|hábito|nota|evento|plan|horario|solicitud|cita|reunión|recordatorio|compromiso|hito|rutina)\s+(?:ha sido|fue|esta ahora|está ahora)\s+(?:guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa])\b/,

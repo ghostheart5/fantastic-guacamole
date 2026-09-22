@@ -254,6 +254,7 @@ Deno.test("blocks unsupported and prompt-disclosure claims", () => {
       "I've now scheduled your task.",
       "Axiomara has already updated your plan.",
       "Done — your task has been scheduled for 5 PM.",
+      "Done — your appointment is scheduled for 5 PM.",
       "Your tasks have been scheduled for 5 PM.",
       "Your appointment has been scheduled for 5 PM.",
       "Your meeting has been created.",
@@ -278,6 +279,11 @@ Deno.test("blocks unsupported and prompt-disclosure claims", () => {
   }
   if (containsBlockedAssistantClaim("Your account remains secure.")) {
     throw new Error("safe word containing a partial match was rejected");
+  }
+  if (
+    containsBlockedAssistantClaim("Your appointment is scheduled for 5 PM.")
+  ) {
+    throw new Error("an existing scheduled record was mistaken for a mutation");
   }
   if (
     containsBlockedAssistantClaim(
