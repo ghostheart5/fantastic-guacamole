@@ -152,7 +152,7 @@ export function containsRecommendationContradiction(value: string): boolean {
   let openingCandidate = opening.slice(1).find((group) => group) ?? "";
   if (opening === directOpening) {
     openingCandidate = openingCandidate.replace(
-      /^(?:that\s+(?:(?:you|we|they|he|she|it)\s+)?|que\s+(?:(?:tu|usted|ustedes|ellos|ellas)\s+)?)/,
+      /^(?:(?:that\s+)?(?:you|we|they|he|she|it)\s+|that\s+|(?:que\s+)?(?:tu|usted|ustedes|ellos|ellas)\s+|que\s+)/,
       "",
     );
     if (

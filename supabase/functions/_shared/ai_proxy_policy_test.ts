@@ -179,6 +179,9 @@ The release review fits in the available time.`;
       "I recommend that you not visit the pharmacy. The pharmacy is closed.",
     ) ||
     containsRecommendationContradiction(
+      "I recommend you not visit the pharmacy. The pharmacy is closed.",
+    ) ||
+    containsRecommendationContradiction(
       "Te recomiendo que no visites la farmacia. La farmacia está cerrada.",
     ) ||
     containsRecommendationContradiction(
