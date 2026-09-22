@@ -12,6 +12,8 @@ typedef CreditTestReply = ({int status, Map<String, dynamic> data});
 typedef CreditTestTransport =
     Future<CreditTestReply> Function(Map<String, dynamic> body);
 
+const internalCreditTestTransportTimeout = Duration(seconds: 45);
+
 final internalCreditTestTransportProvider = Provider<CreditTestTransport>((
   ref,
 ) {
@@ -21,7 +23,7 @@ final internalCreditTestTransportProvider = Provider<CreditTestTransport>((
     try {
       final response = await client!.functions
           .invoke('ai-proxy', body: body)
-          .timeout(const Duration(seconds: 45));
+          .timeout(internalCreditTestTransportTimeout);
       return (
         status: response.status,
         data: Map<String, dynamic>.from(response.data as Map),

@@ -507,11 +507,24 @@ bool _claimsCompletedMutation(String value) {
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
     ),
     RegExp(
+      r'\b(your|the)\s+'
+      r'(tasks|goals|habits|notes|events|plans|schedules|requests)\s+'
+      r'(have been|are now)\s+'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
+    ),
+    RegExp(
       r'\b(tu|su|la|el)\s+'
       r'(tarea|meta|h[aá]bito|nota|evento|plan|horario|solicitud)\s+'
       r'(ha sido|fue|est[aá] ahora)\s+'
       r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
       r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa])\b',
+    ),
+    RegExp(
+      r'\b(tus|sus|las|los)\s+'
+      r'(tareas|metas|h[aá]bitos|notas|eventos|planes|horarios|solicitudes)\s+'
+      r'(han sido|fueron|est[aá]n ahora)\s+'
+      r'(guardad[oa]s|cread[oa]s|eliminad[oa]s|programad[oa]s|completad[oa]s|'
+      r'actualizad[oa]s|enviad[oa]s|aplicad[oa]s|comprad[oa]s|cambiad[oa]s)\b',
     ),
   ].any((RegExp pattern) => pattern.hasMatch(normalized));
   if (genericClaim) return true;
@@ -583,11 +596,32 @@ String _removeUnsupportedMutationClaims(String value) {
     ),
     RegExp(
       r'(^|(?<=[.!?])\s+)'
+      r'(your|the)\s+'
+      r'(tasks|goals|habits|notes|events|plans|schedules|requests)\s+'
+      r'(have been|are now)\s+'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
+    RegExp(
+      r'(^|(?<=[.!?])\s+)'
       r'(tu|su|la|el)\s+'
       r'(tarea|meta|h[aá]bito|nota|evento|plan|horario|solicitud)\s+'
       r'(ha sido|fue|est[aá] ahora)\s+'
       r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
       r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa])\b'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
+    RegExp(
+      r'(^|(?<=[.!?])\s+)'
+      r'(tus|sus|las|los)\s+'
+      r'(tareas|metas|h[aá]bitos|notas|eventos|planes|horarios|solicitudes)\s+'
+      r'(han sido|fueron|est[aá]n ahora)\s+'
+      r'(guardad[oa]s|cread[oa]s|eliminad[oa]s|programad[oa]s|completad[oa]s|'
+      r'actualizad[oa]s|enviad[oa]s|aplicad[oa]s|comprad[oa]s|cambiad[oa]s)\b'
       r'[^.!?\n]*(?:[.!?]|$)',
       caseSensitive: false,
       multiLine: true,

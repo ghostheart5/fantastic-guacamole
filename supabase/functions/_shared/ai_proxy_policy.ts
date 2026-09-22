@@ -111,7 +111,9 @@ export function containsBlockedAssistantClaim(value: string): boolean {
     /\bchronospark\b/,
     /\b(?:(?:i|we)(?:['’]ve\s+|\s+(?:(?:has|have)\s+)?)|(?:axiomara|the assistant)\s+(?:(?:has|have)\s+)?)(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
     /\b(?:your|the)\s+(?:task|goal|habit|note|event|plan|schedule|request)\s+(?:has been|is now)\s+(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
+    /\b(?:your|the)\s+(?:tasks|goals|habits|notes|events|plans|schedules|requests)\s+(?:have been|are now)\s+(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
     /\b(?:tu|su|la|el)\s+(?:tarea|meta|habito|hábito|nota|evento|plan|horario|solicitud)\s+(?:ha sido|fue|esta ahora|está ahora)\s+(?:guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa])\b/,
+    /\b(?:tus|sus|las|los)\s+(?:tareas|metas|habitos|hábitos|notas|eventos|planes|horarios|solicitudes)\s+(?:han sido|fueron|estan ahora|están ahora)\s+(?:guardad[oa]s|cread[oa]s|eliminad[oa]s|programad[oa]s|completad[oa]s|actualizad[oa]s|enviad[oa]s|aplicad[oa]s|comprad[oa]s|cambiad[oa]s)\b/,
     /\b(?:yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+(?:(?:he|ha|hemos|han)\s+)?(?:guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|guard[eéó]|cre[eéó]|elimin[eéó]|program[eéó]|complet[eéó]|actualic[eé]|actualiz[oó]|envi[eéó]|apliqu[eé]|aplic[oó]|compr[eéó]|cambi[eéó])(?=\s|[.!?,;:]|$)/,
     /(?:^|[.!?]\s+)(?:he|hemos)\s+(?:guardado|creado|eliminado|programado|completado|actualizado|enviado|aplicado|comprado|cambiado)\b/,
   ].some((pattern) => pattern.test(normalized));

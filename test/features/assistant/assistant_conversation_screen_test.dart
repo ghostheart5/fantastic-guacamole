@@ -20,6 +20,7 @@ import 'package:fantastic_guacamole/state/providers/assistant_release_provider.d
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/internal_credit_test_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
@@ -118,6 +119,16 @@ ProviderContainer setup(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('conversation deadline precedes the production transport deadline', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    expect(
+      container.read(conversationRequestTimeoutProvider),
+      lessThan(internalCreditTestTransportTimeout),
+    );
+  });
   for (final surface in ConversationSurface.values) {
     for (final scale in [1.0, 1.6]) {
       testWidgets('expanded $surface floating label is not clipped at $scale', (

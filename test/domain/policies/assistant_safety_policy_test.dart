@@ -150,6 +150,26 @@ void main() {
     expect(outcome.publishableText, contains('Revisa la hora propuesta.'));
   });
 
+  test('plural passive mutation confirmations are removed bilingually', () {
+    for (final String claim in <String>[
+      'Your tasks have been scheduled for 5 PM.',
+      'Tus tareas han sido programadas para las 5.',
+    ]) {
+      final AssistantSafetyOutcome outcome = pipeline.evaluate(
+        _safeReview(responseText: '$claim Review the proposed times.'),
+      );
+
+      expect(outcome.mayPublish, isTrue, reason: claim);
+      expect(
+        outcome.receipt.findingCodes,
+        contains('write_authority_violation'),
+        reason: claim,
+      );
+      expect(outcome.publishableText, isNot(contains(claim)), reason: claim);
+      expect(outcome.publishableText, contains('Review the proposed times.'));
+    }
+  });
+
   test('Spanish current product mutation claim is rejected and removable', () {
     final AssistantSafetyOutcome outcome = pipeline.evaluate(
       _safeReview(

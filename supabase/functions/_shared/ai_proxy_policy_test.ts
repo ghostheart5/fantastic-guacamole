@@ -148,7 +148,9 @@ Deno.test("blocks unsupported and prompt-disclosure claims", () => {
       "I've scheduled your task.",
       "We’ve completed it.",
       "Done — your task has been scheduled for 5 PM.",
+      "Your tasks have been scheduled for 5 PM.",
       "Tu tarea ha sido programada para las 5.",
+      "Tus tareas han sido programadas para las 5.",
     ]
   ) {
     if (!containsBlockedAssistantClaim(text)) {

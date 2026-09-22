@@ -32,7 +32,7 @@ final conversationTransportProvider = Provider<ConversationTransport>(
 /// still recover if a platform client leaves that future unresolved. Tests can
 /// shorten this without weakening the release default.
 final conversationRequestTimeoutProvider = Provider<Duration>(
-  (ref) => const Duration(seconds: 50),
+  (ref) => const Duration(seconds: 40),
 );
 
 final conversationServiceProvider = Provider<ConversationService>((ref) {
