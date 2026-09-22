@@ -85,6 +85,27 @@ void main() {
       expect(accepted, isFalse);
     });
 
+    test('policy gate rejects perfect-tense closure contradictions', () {
+      expect(
+        isPolicyAcceptableResponse(
+          'First, visit the pharmacy. The pharmacy has closed.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'Primero, visita la farmacia. La farmacia ha cerrado.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          "I don't recommend visiting the pharmacy first. The pharmacy has closed.",
+        ),
+        isTrue,
+      );
+    });
+
     test(
       'blocks mutation claims when the response did not execute a use case',
       () {

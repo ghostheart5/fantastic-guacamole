@@ -137,10 +137,24 @@ The release review fits in the available time.`;
   }
   if (
     !containsRecommendationContradiction(
+      "First, visit the pharmacy. The pharmacy has closed.",
+    )
+  ) {
+    throw new Error("perfect-tense English closure was accepted");
+  }
+  if (
+    !containsRecommendationContradiction(
       "Primero, visita la farmacia. La farmacia está cerrada.",
     )
   ) {
     throw new Error("closed Spanish recommendation was accepted");
+  }
+  if (
+    !containsRecommendationContradiction(
+      "Primero, visita la farmacia. La farmacia ha cerrado.",
+    )
+  ) {
+    throw new Error("perfect-tense Spanish closure was accepted");
   }
   if (
     !containsRecommendationContradiction(

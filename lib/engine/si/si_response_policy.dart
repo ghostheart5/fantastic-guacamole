@@ -203,7 +203,83 @@ bool isPolicyAcceptableResponse(String text) {
     return false;
   }
   return !lowered.contains('as an ai language model') &&
-      !lowered.contains('ignore safety');
+      !lowered.contains('ignore safety') &&
+      !containsRecommendationContradiction(text);
+}
+
+bool containsRecommendationContradiction(String text) {
+  final String normalized = text
+      .toLowerCase()
+      .replaceAll('’', "'")
+      .replaceAll(RegExp('[áàäâ]'), 'a')
+      .replaceAll(RegExp('[éèëê]'), 'e')
+      .replaceAll(RegExp('[íìïî]'), 'i')
+      .replaceAll(RegExp('[óòöô]'), 'o')
+      .replaceAll(RegExp('[úùüû]'), 'u')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  final List<RegExp> openings = <RegExp>[
+    RegExp(r'^(.{1,90}?)\s+(?:first|primero|primera)\b'),
+    RegExp(r'^(?:first|primero|primera)\s*,?\s+(.{1,90}?)(?=[.!?;,:]|$)'),
+    RegExp(r'^(?:start|begin)\s+with\s+(.{1,90}?)(?=[.!?;,:]|$)'),
+    RegExp(r'^(?:empieza|comienza)\s+con\s+(.{1,90}?)(?=[.!?;,:]|$)'),
+    RegExp(
+      r'^(?:(?:i|we)\s+recommend|you\s+should|(?:te\s+)?recomiendo|(?:tu\s+|usted\s+)?deberia(?:s)?)\s+(.{1,90}?)(?=[.!?;,:]|$)',
+    ),
+  ];
+  RegExpMatch? opening;
+  for (final RegExp pattern in openings) {
+    opening = pattern.firstMatch(normalized);
+    if (opening != null) break;
+  }
+  if (opening == null) return false;
+
+  String candidate = opening.group(1) ?? '';
+  candidate = candidate.replaceFirst(
+    RegExp(
+      r'^(?:(?:that\s+)?(?:i|you|we|they|he|she|it)\s+|that\s+|(?:que\s+)?(?:tu|usted|ustedes|ellos|ellas)\s+|que\s+)',
+    ),
+    '',
+  );
+  if (RegExp(
+    r"^(?:not\b|do\s+not\b|should\s+not\b|(?:don|doesn|isn|aren|shouldn|can)'t\b|cannot\b|avoid(?:ing)?\b|no\b|evita(?:r)?\b)",
+  ).hasMatch(candidate)) {
+    return false;
+  }
+  final Set<String> subjects = candidate
+      .replaceFirst(
+        RegExp(
+          r'^(?:do|choose|start|complete|handle|buy|review|visit|work on|haz|elige|empieza|completa|maneja|compra|revisa|visita|trabaja en)\s+',
+        ),
+        '',
+      )
+      .split(RegExp(r'[^a-z0-9]+'))
+      .where((String token) => token.length >= 4)
+      .where(
+        (String token) => !const <String>{
+          'then',
+          'your',
+          'with',
+          'that',
+          'this',
+        }.contains(token),
+      )
+      .toSet();
+  if (subjects.isEmpty) return false;
+
+  final String remainder = normalized.substring(opening.group(0)!.length);
+  return remainder.split(RegExp(r'[.!?;,:\n]+|\b(?:and|but|y|pero)\b')).any((
+    String clause,
+  ) {
+    final Set<String> words = clause
+        .split(RegExp(r"[^a-z0-9']+"))
+        .where((String token) => token.isNotEmpty)
+        .toSet();
+    if (!subjects.any(words.contains)) return false;
+    return RegExp(
+      r'\b(?:(?:is|are|was|were)\s+(?:already\s+|currently\s+)?closed|(?:has|have|had)\s+(?:already\s+)?closed)\b|\b(?:(?:esta|estan|estaba|estaban)\s+(?:ya\s+)?cerrad[oa]s?|(?:ha|han|habia|habian)\s+(?:ya\s+)?cerrad[oa]s?)\b',
+    ).hasMatch(clause);
+  });
 }
 
 bool isSubstantiallyRepeatedResponse({
