@@ -296,6 +296,7 @@ class _AssistantConversationScreenState
       });
     } on ConversationFailure catch (error) {
       if (!current()) return;
+      if (error.code == 'daily_budget_exceeded') _pending = null;
       _showFailure(_failureText(error.code));
       ref.invalidate(aiCreditWalletProvider);
     } on Object {
@@ -368,8 +369,8 @@ class _AssistantConversationScreenState
       'El servicio de IA tardó demasiado en confirmar una respuesta. Se conservan tu pregunta y la misma solicitud con precio. Reintenta la misma solicitud para evitar un segundo cobro.',
     ),
     'daily_budget_exceeded' => copy(
-      'You reached the rolling daily AI safety limit. No credits were charged. Your question and priced request are retained; retry after the limit resets.',
-      'Alcanzaste el límite diario móvil de seguridad de IA. No se cobraron créditos. Se conservan tu pregunta y la solicitud con precio; reintenta cuando se restablezca el límite.',
+      'You reached the rolling daily AI safety limit. No credits were charged. Your question is retained, but this priced request cannot be reused. Start a new request and review a new quote after the limit resets.',
+      'Alcanzaste el límite diario móvil de seguridad de IA. No se cobraron créditos. Tu pregunta se conserva, pero esta solicitud con precio no se puede reutilizar. Inicia una solicitud nueva y revisa una nueva cotización cuando se restablezca el límite.',
     ),
     'provider_cost_budget_exceeded' => copy(
       'AI requests are temporarily paused by the service spending limit. No credits were charged. Your question and priced request are retained for a later retry.',

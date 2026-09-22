@@ -470,7 +470,7 @@ void main() {
     'rate_limit_exceeded': 'Too many AI requests',
   }.entries) {
     testWidgets(
-      '${failure.key} is visible, explains no charge and preserves retry',
+      '${failure.key} is visible, explains no charge and gives the valid next action',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(412, 915));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -524,7 +524,13 @@ void main() {
         expect(find.byKey(const Key('conversation-error')), findsOneWidget);
         expect(find.textContaining(failure.value), findsOneWidget);
         expect(find.textContaining('No credits were charged'), findsOneWidget);
-        expect(find.text('Retry same request'), findsOneWidget);
+        if (failure.key == 'daily_budget_exceeded') {
+          expect(find.text('Retry same request'), findsNothing);
+          expect(find.textContaining('cannot be reused'), findsOneWidget);
+          expect(find.textContaining('Start a new request'), findsOneWidget);
+        } else {
+          expect(find.text('Retry same request'), findsOneWidget);
+        }
         expect(
           tester
               .widget<TextField>(find.byKey(const Key('conversation-input')))
@@ -538,7 +544,7 @@ void main() {
   }
 
   testWidgets(
-    'Spanish daily AI limit is readable at 150 percent and preserves retry',
+    'Spanish daily AI limit is readable at 150 percent and requires a new request',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(412, 915));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -607,7 +613,9 @@ void main() {
       expect(find.byKey(const Key('conversation-error')), findsOneWidget);
       expect(find.textContaining('límite diario móvil'), findsOneWidget);
       expect(find.textContaining('No se cobraron créditos'), findsOneWidget);
-      expect(find.text('Reintentar la misma solicitud'), findsOneWidget);
+      expect(find.text('Reintentar la misma solicitud'), findsNothing);
+      expect(find.textContaining('no se puede reutilizar'), findsOneWidget);
+      expect(find.textContaining('Inicia una solicitud nueva'), findsOneWidget);
       expect(tester.takeException(), isNull, reason: 'failure presentation');
     },
   );

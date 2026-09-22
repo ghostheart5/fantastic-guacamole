@@ -477,15 +477,16 @@ bool _looksLikeInstructionInjection(String value) {
 }
 
 bool _claimsCompletedMutation(String value) {
-  final String normalized = value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
-  return <RegExp>[
+  final String collapsed = value.replaceAll(RegExp(r'\s+'), ' ');
+  final String normalized = collapsed.toLowerCase();
+  final bool genericClaim = <RegExp>[
     RegExp(
-      r'\b(i|we|si|axiomara|chronospark|the assistant)\s+'
+      r'\b(i|we|axiomara|chronospark|the assistant)\s+'
       r'((has|have)\s+)?'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
     ),
     RegExp(
-      r'\b(yo|nosotros|nosotras|si|axiomara|el asistente|la asistente)\s+'
+      r'\b(yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+'
       r'((he|ha|hemos|han)\s+)?'
       r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
       r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|'
@@ -495,40 +496,71 @@ bool _claimsCompletedMutation(String value) {
       r'(?=\s|[.!?,;:]|$)',
     ),
   ].any((RegExp pattern) => pattern.hasMatch(normalized));
+  if (genericClaim) return true;
+  return <RegExp>[
+    RegExp(
+      r'\bSI\s+((has|have)\s+)?'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
+    ),
+    RegExp(
+      r'\bSI\s+((he|ha|hemos|han)\s+)?'
+      r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
+      r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|'
+      r'guard[eéó]|cre[eéó]|elimin[eéó]|program[eéó]|complet[eéó]|'
+      r'actualic[eé]|actualiz[oó]|envi[eéó]|apliqu[eé]|aplic[oó]|'
+      r'compr[eéó]|cambi[eéó])(?=\s|[.!?,;:]|$)',
+    ),
+  ].any((RegExp pattern) => pattern.hasMatch(collapsed));
 }
 
 String _removeUnsupportedMutationClaims(String value) {
-  final RegExp unsupportedSentence = RegExp(
-    r'(^|(?<=[.!?])\s+)('
-    r'(i|we|si|axiomara|chronospark|the assistant)\s+'
-    r'((has|have)\s+)?'
-    r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b|'
-    r'(yo|nosotros|nosotras|si|axiomara|el asistente|la asistente)\s+'
-    r'((he|ha|hemos|han)\s+)?'
-    r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
-    r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|'
-    r'guard[eéó]|cre[eéó]|elimin[eéó]|program[eéó]|complet[eéó]|'
-    r'actualic[eé]|actualiz[oó]|envi[eéó]|apliqu[eé]|aplic[oó]|'
-    r'compr[eéó]|cambi[eéó])'
-    r'(?=\s|[.!?,;:]|$))'
-    r'[^.!?\n]*(?:[.!?]|$)',
-    caseSensitive: false,
-    multiLine: true,
-  );
-  return value
-      .replaceAll(unsupportedSentence, '')
-      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
-      .trim();
+  final List<RegExp> unsupportedSentences = <RegExp>[
+    RegExp(
+      r'(^|(?<=[.!?])\s+)('
+      r'(i|we|axiomara|chronospark|the assistant)\s+'
+      r'((has|have)\s+)?'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b|'
+      r'(yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+'
+      r'((he|ha|hemos|han)\s+)?'
+      r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
+      r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|'
+      r'guard[eéó]|cre[eéó]|elimin[eéó]|program[eéó]|complet[eéó]|'
+      r'actualic[eé]|actualiz[oó]|envi[eéó]|apliqu[eé]|aplic[oó]|'
+      r'compr[eéó]|cambi[eéó])(?=\s|[.!?,;:]|$))'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
+    RegExp(
+      r'(^|(?<=[.!?])\s+)SI\s+('
+      r'((has|have)\s+)?'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b|'
+      r'((he|ha|hemos|han)\s+)?'
+      r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
+      r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|'
+      r'guard[eéó]|cre[eéó]|elimin[eéó]|program[eéó]|complet[eéó]|'
+      r'actualic[eé]|actualiz[oó]|envi[eéó]|apliqu[eé]|aplic[oó]|'
+      r'compr[eéó]|cambi[eéó])(?=\s|[.!?,;:]|$))'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      multiLine: true,
+    ),
+  ];
+  String repaired = value;
+  for (final RegExp pattern in unsupportedSentences) {
+    repaired = repaired.replaceAll(pattern, '');
+  }
+  return repaired.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
 }
 
 bool _hasContradictoryLatestDeparture(String value) {
-  int? activeLatest;
+  _DepartureClock? activeLatest;
   for (final String segment in _departureSegments(value)) {
-    activeLatest = _latestDepartureMinutes(segment) ?? activeLatest;
-    if (activeLatest != null &&
-        _leaveByTimes(
+    activeLatest = _latestDepartureClock(segment) ?? activeLatest;
+    final _DepartureClock? latest = activeLatest;
+    if (latest != null &&
+        _leaveByClocks(
           segment,
-        ).any((int candidate) => candidate > activeLatest!)) {
+        ).any((_DepartureClock candidate) => _occursAfter(candidate, latest))) {
       return true;
     }
   }
@@ -536,15 +568,16 @@ bool _hasContradictoryLatestDeparture(String value) {
 }
 
 String _removeContradictoryLatestDepartureAdvice(String value) {
-  int? activeLatest;
+  _DepartureClock? activeLatest;
   final List<String> retained = <String>[];
   for (final String segment in _departureSegments(value)) {
-    activeLatest = _latestDepartureMinutes(segment) ?? activeLatest;
+    activeLatest = _latestDepartureClock(segment) ?? activeLatest;
+    final _DepartureClock? latest = activeLatest;
     final bool contradicts =
-        activeLatest != null &&
-        _leaveByTimes(
+        latest != null &&
+        _leaveByClocks(
           segment,
-        ).any((int candidate) => candidate > activeLatest!);
+        ).any((_DepartureClock candidate) => _occursAfter(candidate, latest));
     if (!contradicts) retained.add(segment);
   }
   return retained.join(' ').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
@@ -561,7 +594,9 @@ Iterable<String> _departureSegments(String value) => value
     .map((String segment) => segment.trim())
     .where((String segment) => segment.isNotEmpty);
 
-int? _latestDepartureMinutes(String value) {
+typedef _DepartureClock = ({int minutes, String? suffix, bool uses24Hour});
+
+_DepartureClock? _latestDepartureClock(String value) {
   final List<RegExp> patterns = <RegExp>[
     RegExp(
       r'\b(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\s+is\s+(?:the\s+)?'
@@ -582,12 +617,12 @@ int? _latestDepartureMinutes(String value) {
   ];
   for (final RegExp pattern in patterns) {
     final RegExpMatch? match = pattern.firstMatch(value);
-    if (match != null) return _clockMinutes(match);
+    if (match != null) return _departureClock(match);
   }
   return null;
 }
 
-Iterable<int> _leaveByTimes(String value) sync* {
+Iterable<_DepartureClock> _leaveByClocks(String value) sync* {
   final List<RegExp> patterns = <RegExp>[
     RegExp(
       r'\bleav(?:e|ing)\s+(?:by|at)\s+(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\b',
@@ -601,21 +636,41 @@ Iterable<int> _leaveByTimes(String value) sync* {
   ];
   for (final RegExp pattern in patterns) {
     for (final RegExpMatch match in pattern.allMatches(value)) {
-      yield _clockMinutes(match);
+      yield _departureClock(match);
     }
   }
 }
 
-int _clockMinutes(RegExpMatch match) {
+_DepartureClock _departureClock(RegExpMatch match) {
   int hour = int.parse(match.group(1)!);
+  final int rawHour = hour;
   final int minute = int.tryParse(match.group(2) ?? '') ?? 0;
   final String? suffix = match.group(3)?.toLowerCase();
   if (suffix != null) {
     final bool isPm = suffix == 'p';
     if (hour == 12) hour = 0;
-    return hour * 60 + minute + (isPm ? 12 * 60 : 0);
+    return (
+      minutes: hour * 60 + minute + (isPm ? 12 * 60 : 0),
+      suffix: suffix,
+      uses24Hour: false,
+    );
   }
-  return hour * 60 + minute;
+  return (minutes: hour * 60 + minute, suffix: null, uses24Hour: rawHour > 12);
+}
+
+bool _occursAfter(_DepartureClock candidate, _DepartureClock latest) {
+  int candidateMinutes = candidate.minutes;
+  final bool explicitMidnightRollover =
+      latest.suffix == 'p' && candidate.suffix == 'a';
+  final bool twentyFourHourMidnightRollover =
+      latest.uses24Hour &&
+      candidate.suffix == null &&
+      latest.minutes >= 18 * 60 &&
+      candidate.minutes < 6 * 60;
+  if (explicitMidnightRollover || twentyFourHourMidnightRollover) {
+    candidateMinutes += 24 * 60;
+  }
+  return candidateMinutes > latest.minutes;
 }
 
 bool _containsHiddenReasoning(String value) {

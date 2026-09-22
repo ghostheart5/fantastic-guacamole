@@ -127,6 +127,13 @@ Deno.test("blocks unsupported and prompt-disclosure claims", () => {
   ) {
     throw new Error("safe current-product reference was rejected");
   }
+  if (
+    containsBlockedAssistantClaim(
+      "Si ha completado la tarea, revisa el siguiente paso.",
+    )
+  ) {
+    throw new Error("Spanish conditional was mistaken for the SI product");
+  }
 });
 
 Deno.test("does not treat an affirming feasibility idiom as a contradiction", () => {

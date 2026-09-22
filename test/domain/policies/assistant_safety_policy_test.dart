@@ -116,6 +116,21 @@ void main() {
     expect(outcome.publishableText, contains('revisar la hora'));
   });
 
+  test('Spanish conditional Si is not treated as the SI product', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText: 'Si ha completado la tarea, revisa el siguiente paso.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(
+      outcome.receipt.findingCodes,
+      isNot(contains('write_authority_violation')),
+    );
+    expect(outcome.publishableText, contains('Si ha completado'));
+  });
+
   test(
     'instruction-like evidence is isolated when answer remains read-only',
     () {
@@ -264,6 +279,25 @@ void main() {
     );
     expect(outcome.publishableText, contains('6:20 PM'));
     expect(outcome.publishableText, isNot(contains('6:30 PM')));
+  });
+
+  test('departure contradiction across midnight is repaired', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'The latest viable departure is 11:50 PM. '
+            'Leave at 12:05 AM.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(outcome.receipt.disposition, AssistantSafetyDisposition.repaired);
+    expect(
+      outcome.receipt.findingCodes,
+      contains('contradictory_latest_departure'),
+    );
+    expect(outcome.publishableText, contains('11:50 PM'));
+    expect(outcome.publishableText, isNot(contains('12:05 AM')));
   });
 
   test('each departure option uses its own latest bound', () {
