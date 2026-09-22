@@ -465,6 +465,8 @@ void main() {
 
   for (final failure in <String, String>{
     'daily_budget_exceeded': 'rolling daily AI safety limit',
+    'insufficient_credits': 'not have enough AI credits',
+    'credits_exhausted': 'not have enough AI credits',
     'request_denied': 'denied before processing',
     'provider_cost_budget_exceeded': 'service spending limit',
     'rate_limit_exceeded': 'Too many AI requests',
@@ -524,10 +526,14 @@ void main() {
         expect(find.byKey(const Key('conversation-error')), findsOneWidget);
         expect(find.textContaining(failure.value), findsOneWidget);
         expect(find.textContaining('No credits were charged'), findsOneWidget);
-        if (failure.key == 'daily_budget_exceeded') {
+        if (<String>{
+          'daily_budget_exceeded',
+          'insufficient_credits',
+          'credits_exhausted',
+        }.contains(failure.key)) {
           expect(find.text('Retry same request'), findsNothing);
-          expect(find.textContaining('cannot be reused'), findsOneWidget);
-          expect(find.textContaining('Start a new request'), findsOneWidget);
+          expect(find.textContaining('new request'), findsOneWidget);
+          expect(find.textContaining('new quote'), findsOneWidget);
         } else {
           expect(find.text('Retry same request'), findsOneWidget);
         }
@@ -617,6 +623,82 @@ void main() {
       expect(find.textContaining('no se puede reutilizar'), findsOneWidget);
       expect(find.textContaining('Inicia una solicitud nueva'), findsOneWidget);
       expect(tester.takeException(), isNull, reason: 'failure presentation');
+    },
+  );
+
+  testWidgets(
+    'Spanish insufficient credits preserves input and requires a new quote',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final container = setup(
+        (body) async => (
+          status: body['quoteOnly'] == true ? 200 : 402,
+          data: body['quoteOnly'] == true
+              ? <String, dynamic>{
+                  'requestId': body['requestId'],
+                  'quote': <String, dynamic>{
+                    'credits': 4,
+                    'digest': 'fixture',
+                    'proof': 'fixture',
+                    'policy': 'fixture',
+                    'expiresAt': DateTime.now()
+                        .add(const Duration(minutes: 5))
+                        .millisecondsSinceEpoch,
+                  },
+                }
+              : <String, dynamic>{'error': 'insufficient_credits'},
+        ),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: const Locale('es'),
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              ChronoSparkLocalizations.delegate,
+              ...GlobalMaterialLocalizations.delegates,
+            ],
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Conserva esta pregunta.',
+      );
+      await tester.tap(find.byTooltip('Enviar a IA'));
+      await waitFor(tester, find.text('Consultar precio'));
+      await tester.tap(find.text('Consultar precio'));
+      await waitFor(tester, find.text('Usar 4 créditos'));
+      await tester.tap(find.text('Usar 4 créditos'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('No tienes suficientes créditos'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('No se cobraron créditos'), findsOneWidget);
+      expect(find.text('Reintentar la misma solicitud'), findsNothing);
+      expect(find.textContaining('solicitud nueva'), findsOneWidget);
+      expect(find.textContaining('cotización'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('conversation-input')))
+            .controller!
+            .text,
+        'Conserva esta pregunta.',
+      );
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -894,6 +976,49 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'dictation uses the replacement voice controller after provider invalidation',
+    (tester) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      final voice = _ConversationVoiceController();
+      final container = setup(
+        (_) async => throw StateError('Dictation must not send'),
+        voiceController: voice,
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final revision = voice.lifecycleRevision;
+      container.invalidate(voiceControllerProvider);
+      await tester.pumpAndSettle();
+      expect(voice.lifecycleRevision, isNot(revision));
+
+      await tester.tap(find.byTooltip('Start voice input'));
+      await tester.pumpAndSettle();
+      final agree = find.text('Agree and dictate');
+      await tester.ensureVisible(agree);
+      await tester.tap(agree);
+      await tester.pumpAndSettle();
+
+      expect(voice.starts, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('SI publishes the safe remainder of a repaired model reply', (
     tester,

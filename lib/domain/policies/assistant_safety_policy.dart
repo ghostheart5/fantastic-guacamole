@@ -481,8 +481,8 @@ bool _claimsCompletedMutation(String value) {
   final String normalized = collapsed.toLowerCase();
   final bool genericClaim = <RegExp>[
     RegExp(
-      r'\b(i|we|axiomara|chronospark|the assistant)\s+'
-      r'((has|have)\s+)?'
+      r"\b((i|we)(?:[’']ve\s+|\s+(?:(has|have)\s+)?)|"
+      r'(axiomara|chronospark|the assistant)\s+((has|have)\s+)?)'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
     ),
     RegExp(
@@ -522,8 +522,8 @@ String _removeUnsupportedMutationClaims(String value) {
   final List<RegExp> unsupportedSentences = <RegExp>[
     RegExp(
       r'(^|(?<=[.!?])\s+)('
-      r'(i|we|axiomara|chronospark|the assistant)\s+'
-      r'((has|have)\s+)?'
+      r"((i|we)(?:[’']ve\s+|\s+(?:(has|have)\s+)?)|"
+      r'(axiomara|chronospark|the assistant)\s+((has|have)\s+)?)'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b|'
       r'(yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+'
       r'((he|ha|hemos|han)\s+)?'
@@ -619,13 +619,13 @@ typedef _DepartureClock = ({int minutes, String? suffix, bool uses24Hour});
 _DepartureClock? _latestDepartureClock(String value) {
   final List<RegExp> patterns = <RegExp>[
     RegExp(
-      r'\b(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\s+is\s+(?:the\s+)?'
+      r'\b(\d{1,2})(?::(\d{2}))?(?:\s*([ap])\.?m\.?)?\s+is\s+(?:the\s+)?'
       r'(?:absolute\s+)?latest(?:\s+viable)?\s+departure\b',
       caseSensitive: false,
     ),
     RegExp(
       r'\blatest(?:\s+viable)?\s+departure(?:\s+time)?\s*(?:is|:)\s*'
-      r'(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\b',
+      r'(\d{1,2})(?::(\d{2}))?(?:\s*([ap])\.?m\.?)?\b',
       caseSensitive: false,
     ),
     RegExp(
@@ -645,7 +645,7 @@ _DepartureClock? _latestDepartureClock(String value) {
 Iterable<_DepartureClock> _leaveByClocks(String value) sync* {
   final List<RegExp> patterns = <RegExp>[
     RegExp(
-      r'\bleav(?:e|ing)\s+(?:by|at)\s+(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\b',
+      r'\bleav(?:e|ing)\s+(?:by|at)\s+(\d{1,2})(?::(\d{2}))?(?:\s*([ap])\.?m\.?)?\b',
       caseSensitive: false,
     ),
     RegExp(

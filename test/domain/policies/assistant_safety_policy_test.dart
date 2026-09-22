@@ -100,6 +100,26 @@ void main() {
     expect(outcome.receipt.findingCodes, contains('write_authority_violation'));
   });
 
+  test('contracted English mutation claims are removed', () {
+    for (final String claim in <String>[
+      "I've scheduled your task.",
+      'We’ve completed the plan.',
+    ]) {
+      final AssistantSafetyOutcome outcome = pipeline.evaluate(
+        _safeReview(responseText: '$claim Review the proposed time.'),
+      );
+
+      expect(outcome.mayPublish, isTrue, reason: claim);
+      expect(
+        outcome.receipt.findingCodes,
+        contains('write_authority_violation'),
+        reason: claim,
+      );
+      expect(outcome.publishableText, isNot(contains(claim)), reason: claim);
+      expect(outcome.publishableText, contains('Review the proposed time.'));
+    }
+  });
+
   test('Spanish current product mutation claim is rejected and removable', () {
     final AssistantSafetyOutcome outcome = pipeline.evaluate(
       _safeReview(
@@ -310,6 +330,25 @@ void main() {
     );
     expect(outcome.publishableText, contains('6:20 PM'));
     expect(outcome.publishableText, isNot(contains('6:30 PM')));
+  });
+
+  test('English 24-hour departure contradiction is repaired', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'The latest viable departure is 18:20. '
+            'Leave at 18:30.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(outcome.receipt.disposition, AssistantSafetyDisposition.repaired);
+    expect(
+      outcome.receipt.findingCodes,
+      contains('contradictory_latest_departure'),
+    );
+    expect(outcome.publishableText, contains('18:20'));
+    expect(outcome.publishableText, isNot(contains('18:30')));
   });
 
   test('departure contradiction across midnight is repaired', () {

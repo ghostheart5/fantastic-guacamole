@@ -109,7 +109,7 @@ export function containsBlockedAssistantClaim(value: string): boolean {
     /\bdeveloper message\b/,
     /\bhidden reasoning\b/,
     /\bchronospark\b/,
-    /\b(?:i|we|axiomara|the assistant)\s+(?:(?:has|have)\s+)?(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
+    /\b(?:(?:i|we)(?:['’]ve\s+|\s+(?:(?:has|have)\s+)?)|(?:axiomara|the assistant)\s+(?:(?:has|have)\s+)?)(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
     /\b(?:yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+(?:(?:he|ha|hemos|han)\s+)?(?:guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|guard[eéó]|cre[eéó]|elimin[eéó]|program[eéó]|complet[eéó]|actualic[eé]|actualiz[oó]|envi[eéó]|apliqu[eé]|aplic[oó]|compr[eéó]|cambi[eéó])(?=\s|[.!?,;:]|$)/,
     /(?:^|[.!?]\s+)(?:he|hemos)\s+(?:guardado|creado|eliminado|programado|completado|actualizado|enviado|aplicado|comprado|cambiado)\b/,
   ].some((pattern) => pattern.test(normalized));
@@ -156,7 +156,7 @@ export function containsRecommendationContradiction(value: string): boolean {
     const refersToRecommendation = candidateTokens.some((candidate) =>
       words.includes(candidate)
     ) ||
-      /\b(?:this|that|the)\s+(?:task|step|choice|option)\b|\b(?:esta|esa|la)\s+(?:tarea|opcion|eleccion)\b|\b(?:este|ese|el)\s+paso\b/
+      /\b(?:it|they|this|that)\b|\b(?:eso|esto|ello|esa|ese|esta|este)\b|\b(?:this|that|the)\s+(?:task|step|choice|option)\b|\b(?:esta|esa|la)\s+(?:tarea|opcion|eleccion)\b|\b(?:este|ese|el)\s+paso\b/
         .test(clause);
     if (!refersToRecommendation) {
       return false;

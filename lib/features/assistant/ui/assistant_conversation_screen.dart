@@ -44,7 +44,7 @@ class _AssistantConversationScreenState
   final _scenario = TextEditingController();
   final _scroll = ScrollController();
   final List<Map<String, String>> _history = [];
-  late final VoiceController _voiceController;
+  VoiceController? _voiceControllerForDispose;
   bool _busy = false;
   bool _waitIndicatorDismissed = false;
   String? _error;
@@ -65,7 +65,6 @@ class _AssistantConversationScreenState
   @override
   void initState() {
     super.initState();
-    _voiceController = ref.read(voiceControllerProvider.notifier);
     if (widget.surface != ConversationSurface.planner) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -84,9 +83,12 @@ class _AssistantConversationScreenState
 
   @override
   void dispose() {
+    final VoiceController? voiceController = _voiceControllerForDispose;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
-        unawaited(_voiceController.stopListening());
+        if (voiceController != null) {
+          unawaited(voiceController.stopListening());
+        }
       } on Object {
         // The provider may have been disposed with an account or app boundary.
       }
@@ -296,7 +298,13 @@ class _AssistantConversationScreenState
       });
     } on ConversationFailure catch (error) {
       if (!current()) return;
-      if (error.code == 'daily_budget_exceeded') _pending = null;
+      if (<String>{
+        'daily_budget_exceeded',
+        'insufficient_credits',
+        'credits_exhausted',
+      }.contains(error.code)) {
+        _pending = null;
+      }
       _showFailure(_failureText(error.code));
       ref.invalidate(aiCreditWalletProvider);
     } on Object {
@@ -353,8 +361,8 @@ class _AssistantConversationScreenState
 
   String _failureText(String code) => switch (code) {
     'insufficient_credits' || 'credits_exhausted' => copy(
-      'You do not have enough AI credits. No model answer was generated.',
-      'No tienes suficientes créditos de IA. No se generó una respuesta del modelo.',
+      'You do not have enough AI credits. No model answer was generated. No credits were charged. Add credits or wait for your allowance, then start a new request and review a new quote.',
+      'No tienes suficientes créditos de IA. No se generó una respuesta del modelo. No se cobraron créditos. Añade créditos o espera tu asignación; después inicia una solicitud nueva y revisa una nueva cotización.',
     ),
     'request_completed' => copy(
       'The server already completed this request, but its reply is unavailable. It did not charge again. Check your credit balance before starting another request.',
@@ -588,7 +596,7 @@ class _AssistantConversationScreenState
       if (previous?.v2Namespace != next.v2Namespace) {
         final dialog = _dialogContext;
         if (dialog != null && dialog.mounted) Navigator.pop(dialog, false);
-        unawaited(_voiceController.stopListening());
+        unawaited(ref.read(voiceControllerProvider.notifier).stopListening());
         setState(() {
           _generation++;
           _history.clear();
@@ -611,6 +619,7 @@ class _AssistantConversationScreenState
     });
     final consent = ref.watch(personalizationProfileProvider).externalAiAllowed;
     final VoiceState voice = ref.watch(voiceControllerProvider);
+    _voiceControllerForDispose = ref.read(voiceControllerProvider.notifier);
     final bool listening = voice.isListening;
     ref.listen<VoiceState>(voiceControllerProvider, (previous, next) {
       if (next.error != null &&
@@ -642,7 +651,7 @@ class _AssistantConversationScreenState
       }
       if (stoppedListening) {
         _dictationDraftBase = '';
-        _voiceController.clearRecognizedText();
+        ref.read(voiceControllerProvider.notifier).clearRecognizedText();
       }
     });
     final planner = widget.surface == ConversationSurface.planner;
@@ -1076,15 +1085,20 @@ class _AssistantConversationScreenState
                           ? null
                           : () async {
                               if (listening) {
-                                await _voiceController.stopListening();
+                                await ref
+                                    .read(voiceControllerProvider.notifier)
+                                    .stopListening();
                                 return;
                               }
+                              final VoiceController voiceController = ref.read(
+                                voiceControllerProvider.notifier,
+                              );
                               _dictationDraftBase = _input.text;
                               final int revision =
-                                  _voiceController.lifecycleRevision;
+                                  voiceController.lifecycleRevision;
                               await startVoiceInputWithConsent(
                                 context: context,
-                                onStart: () => _voiceController.startListening(
+                                onStart: () => voiceController.startListening(
                                   localeId: Localizations.localeOf(
                                     context,
                                   ).toLanguageTag(),
@@ -1093,7 +1107,7 @@ class _AssistantConversationScreenState
                                   voiceInputConsentStoreProvider,
                                 ),
                                 isCurrentRequest: () =>
-                                    _voiceController.lifecycleRevision ==
+                                    voiceController.lifecycleRevision ==
                                     revision,
                               );
                             },

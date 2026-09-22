@@ -82,6 +82,20 @@ The release review fits in the available time.`;
   ) {
     throw new Error("Spanish prefix contradiction was accepted");
   }
+  if (
+    !containsRecommendationContradiction(
+      "First, buy groceries. It is not feasible today.",
+    )
+  ) {
+    throw new Error("English pronoun contradiction was accepted");
+  }
+  if (
+    !containsRecommendationContradiction(
+      "Primero, compra alimentos. Eso no es viable hoy.",
+    )
+  ) {
+    throw new Error("Spanish pronoun contradiction was accepted");
+  }
 });
 
 Deno.test("rejects oversized and deeply nested context", () => {
@@ -108,6 +122,8 @@ Deno.test("blocks unsupported and prompt-disclosure claims", () => {
       "Axiomara has scheduled your task.",
       "Axiomara ha programado tu tarea.",
       "SI guardó tu nota.",
+      "I've scheduled your task.",
+      "We’ve completed it.",
     ]
   ) {
     if (!containsBlockedAssistantClaim(text)) {
