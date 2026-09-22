@@ -266,6 +266,37 @@ void main() {
   );
 
   test(
+    'a negated Spanish grocery belief does not become an asserted objective',
+    () async {
+      for (final String notes in <String>[
+        'No creo que necesito compras antes de las 7 PM.',
+        'No pensamos que necesitamos alimentos antes de las 7 PM.',
+      ]) {
+        final ProviderContainer container = plannerContainer();
+        addTearDown(container.dispose);
+
+        final SmartPlannerResult result = await container
+            .read(smartPlannerQueryControllerProvider)
+            .requestPlanningGuidance(
+              energy: null,
+              emotion: null,
+              notes: notes,
+              history: const <Map<String, String>>[],
+              previousSavedNotes: null,
+              languageCode: 'es',
+            );
+
+        expect(result.plannerResponse.isClarification, isTrue, reason: notes);
+        expect(
+          result.plannerResponse.toAccessibleText().toLowerCase(),
+          isNot(contains('planificar compras esenciales antes de las 7 pm')),
+          reason: notes,
+        );
+      }
+    },
+  );
+
+  test(
     'an introduced Spanish grocery question is not an asserted objective',
     () async {
       final ProviderContainer container = plannerContainer();

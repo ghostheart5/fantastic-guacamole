@@ -977,6 +977,7 @@ bool _plannerRejectsGroceryNeed(String clause) => RegExp(
   r'|\b(?:grocer(?:y|ies)|food)\b[^.!?;]{0,55}\b(?:can wait|can be deferred|(?:is|are) optional|(?:is|are) not urgent)\b'
   r'|\b(?:can wait|can be deferred|(?:is|are) optional|(?:is|are) not urgent)\b[^.!?;]{0,55}\b(?:grocer(?:y|ies)|food)\b'
   r'|\b(?:no necesito|ya no necesito|evita|omitir|excluir)\b[^.!?;]{0,35}\b(?:compras|comida|alimentos)\b'
+  r'|\bno\s+(?:creo|creemos|pienso|pensamos|considero|consideramos|siento|sentimos)\s+que\b[^.!?;]{0,55}\b(?:necesito|necesitamos)\b[^.!?;]{0,35}\b(?:compras|comida|alimentos)\b'
   r'|\b(?:compras|comida|alimentos)\b[^.!?;]{0,55}\b(?:puede esperar|pueden esperar|se puede aplazar|son opcionales|es opcional|no es urgente|no son urgentes)\b'
   r'|\b(?:puede esperar|pueden esperar|se puede aplazar|son opcionales|es opcional|no es urgente|no son urgentes)\b[^.!?;]{0,55}\b(?:compras|comida|alimentos)\b',
   caseSensitive: false,
