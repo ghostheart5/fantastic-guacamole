@@ -252,6 +252,12 @@ bool containsRecommendationContradiction(String text) {
   if (opening == null) return false;
 
   String candidate = opening.group(1) ?? '';
+  if (suffixOpeningIsObligation && opening == suffixOpening) {
+    candidate = candidate.replaceFirst(
+      RegExp(r'^(?:i|we|you)\s+(?:have|has)\s+to\s+'),
+      '',
+    );
+  }
   candidate = candidate.replaceFirst(
     RegExp(
       r'^(?:(?:that\s+)?(?:i|you|we|they|he|she|it)\s+|that\s+|(?:que\s+)?(?:tu|usted|ustedes|ellos|ellas)\s+|que\s+)',

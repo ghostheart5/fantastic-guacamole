@@ -162,6 +162,12 @@ export function containsRecommendationContradiction(value: string): boolean {
   if (!opening) return false;
 
   let openingCandidate = opening.slice(1).find((group) => group) ?? "";
+  if (suffixOpeningIsObligation && opening === suffixOpening) {
+    openingCandidate = openingCandidate.replace(
+      /^(?:i|we|you)\s+(?:have|has)\s+to\s+/,
+      "",
+    );
+  }
   openingCandidate = openingCandidate.replace(
     /^(?:(?:that\s+)?(?:i|you|we|they|he|she|it)\s+|that\s+|(?:que\s+)?(?:tu|usted|ustedes|ellos|ellas)\s+|que\s+)/,
     "",

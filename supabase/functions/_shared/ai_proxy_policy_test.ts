@@ -155,6 +155,13 @@ The release review fits in the available time.`;
     throw new Error("obligation recommendation was accepted");
   }
   if (
+    containsRecommendationContradiction(
+      "We have to avoid visiting the pharmacy first. It is closed.",
+    )
+  ) {
+    throw new Error("negated obligation was treated as a contradiction");
+  }
+  if (
     !containsRecommendationContradiction(
       "Start with groceries. Groceries are not feasible today.",
     )
