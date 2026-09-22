@@ -512,26 +512,30 @@ bool _claimsCompletedMutation(String value) {
     ),
     RegExp(
       r'\b(your|the)\s+'
-      r'(task|goal|habit|note|event|plan|schedule|request)\s+'
+      r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
+      r'reminder|commitment|milestone|routine)\s+'
       r'(has been|is now)\s+'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
     ),
     RegExp(
       r'\b(your|the)\s+'
-      r'(tasks|goals|habits|notes|events|plans|schedules|requests)\s+'
+      r'(tasks|goals|habits|notes|events|plans|schedules|requests|appointments|'
+      r'meetings|reminders|commitments|milestones|routines)\s+'
       r'(have been|are now)\s+'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
     ),
     RegExp(
       r'\b(tu|su|la|el)\s+'
-      r'(tarea|meta|h[aá]bito|nota|evento|plan|horario|solicitud)\s+'
+      r'(tarea|meta|h[aá]bito|nota|evento|plan|horario|solicitud|cita|'
+      r'reuni[oó]n|recordatorio|compromiso|hito|rutina)\s+'
       r'(ha sido|fue|est[aá] ahora)\s+'
       r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
       r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa])\b',
     ),
     RegExp(
       r'\b(tus|sus|las|los)\s+'
-      r'(tareas|metas|h[aá]bitos|notas|eventos|planes|horarios|solicitudes)\s+'
+      r'(tareas|metas|h[aá]bitos|notas|eventos|planes|horarios|solicitudes|'
+      r'citas|reuniones|recordatorios|compromisos|hitos|rutinas)\s+'
       r'(han sido|fueron|est[aá]n ahora)\s+'
       r'(guardad[oa]s|cread[oa]s|eliminad[oa]s|programad[oa]s|completad[oa]s|'
       r'actualizad[oa]s|enviad[oa]s|aplicad[oa]s|comprad[oa]s|cambiad[oa]s)\b',
@@ -612,7 +616,8 @@ String _removeUnsupportedMutationClaims(String value) {
       r'(^|(?<=[.!?])\s+)'
       r'(?:done\s*[-—:]?\s*)?'
       r'(your|the)\s+'
-      r'(task|goal|habit|note|event|plan|schedule|request)\s+'
+      r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
+      r'reminder|commitment|milestone|routine)\s+'
       r'(has been|is now)\s+'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b'
       r'[^.!?\n]*(?:[.!?]|$)',
@@ -622,7 +627,8 @@ String _removeUnsupportedMutationClaims(String value) {
     RegExp(
       r'(^|(?<=[.!?])\s+)'
       r'(your|the)\s+'
-      r'(tasks|goals|habits|notes|events|plans|schedules|requests)\s+'
+      r'(tasks|goals|habits|notes|events|plans|schedules|requests|appointments|'
+      r'meetings|reminders|commitments|milestones|routines)\s+'
       r'(have been|are now)\s+'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b'
       r'[^.!?\n]*(?:[.!?]|$)',
@@ -632,7 +638,8 @@ String _removeUnsupportedMutationClaims(String value) {
     RegExp(
       r'(^|(?<=[.!?])\s+)'
       r'(tu|su|la|el)\s+'
-      r'(tarea|meta|h[aá]bito|nota|evento|plan|horario|solicitud)\s+'
+      r'(tarea|meta|h[aá]bito|nota|evento|plan|horario|solicitud|cita|'
+      r'reuni[oó]n|recordatorio|compromiso|hito|rutina)\s+'
       r'(ha sido|fue|est[aá] ahora)\s+'
       r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
       r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa])\b'
@@ -643,7 +650,8 @@ String _removeUnsupportedMutationClaims(String value) {
     RegExp(
       r'(^|(?<=[.!?])\s+)'
       r'(tus|sus|las|los)\s+'
-      r'(tareas|metas|h[aá]bitos|notas|eventos|planes|horarios|solicitudes)\s+'
+      r'(tareas|metas|h[aá]bitos|notas|eventos|planes|horarios|solicitudes|'
+      r'citas|reuniones|recordatorios|compromisos|hitos|rutinas)\s+'
       r'(han sido|fueron|est[aá]n ahora)\s+'
       r'(guardad[oa]s|cread[oa]s|eliminad[oa]s|programad[oa]s|completad[oa]s|'
       r'actualizad[oa]s|enviad[oa]s|aplicad[oa]s|comprad[oa]s|cambiad[oa]s)\b'
@@ -794,9 +802,17 @@ bool _occursAfter(_DepartureClock candidate, _DepartureClock latest) {
       latest.suffix != null) {
     final int hour = candidateMinutes ~/ 60;
     final int minute = candidateMinutes.remainder(60);
-    final int normalizedHour = hour == 12 ? 0 : hour;
-    candidateMinutes =
-        normalizedHour * 60 + minute + (latest.suffix == 'p' ? 12 * 60 : 0);
+    final int latestHour = latest.minutes ~/ 60;
+    if (hour == 12) {
+      candidateMinutes = switch (latest.suffix) {
+        'a' => (latestHour == 0 ? 0 : 12 * 60) + minute,
+        'p' => (latestHour == 12 ? 12 * 60 : 24 * 60) + minute,
+        _ => candidateMinutes,
+      };
+    } else {
+      candidateMinutes =
+          hour * 60 + minute + (latest.suffix == 'p' ? 12 * 60 : 0);
+    }
   }
   final bool explicitMidnightRollover =
       latest.suffix == 'p' && candidate.suffix == 'a';

@@ -123,33 +123,47 @@ void main() {
   });
 
   test('passive English mutation confirmations are removed', () {
-    final AssistantSafetyOutcome outcome = pipeline.evaluate(
-      _safeReview(
-        responseText:
-            'Done — your task has been scheduled for 5 PM. '
-            'Review the proposed time.',
-      ),
-    );
+    for (final String claim in <String>[
+      'Done — your task has been scheduled for 5 PM.',
+      'Your appointment has been scheduled for 5 PM.',
+      'Your meeting has been created.',
+      'Your reminder has been saved.',
+    ]) {
+      final AssistantSafetyOutcome outcome = pipeline.evaluate(
+        _safeReview(responseText: '$claim Review the proposed time.'),
+      );
 
-    expect(outcome.mayPublish, isTrue);
-    expect(outcome.receipt.findingCodes, contains('write_authority_violation'));
-    expect(outcome.publishableText, isNot(contains('has been scheduled')));
-    expect(outcome.publishableText, contains('Review the proposed time.'));
+      expect(outcome.mayPublish, isTrue, reason: claim);
+      expect(
+        outcome.receipt.findingCodes,
+        contains('write_authority_violation'),
+        reason: claim,
+      );
+      expect(outcome.publishableText, isNot(contains(claim)), reason: claim);
+      expect(outcome.publishableText, contains('Review the proposed time.'));
+    }
   });
 
   test('passive Spanish mutation confirmations are removed', () {
-    final AssistantSafetyOutcome outcome = pipeline.evaluate(
-      _safeReview(
-        responseText:
-            'Tu tarea ha sido programada para las 5. '
-            'Revisa la hora propuesta.',
-      ),
-    );
+    for (final String claim in <String>[
+      'Tu tarea ha sido programada para las 5.',
+      'Tu cita ha sido programada para las 5.',
+      'Tu reunión ha sido creada.',
+      'Tu recordatorio ha sido guardado.',
+    ]) {
+      final AssistantSafetyOutcome outcome = pipeline.evaluate(
+        _safeReview(responseText: '$claim Revisa la hora propuesta.'),
+      );
 
-    expect(outcome.mayPublish, isTrue);
-    expect(outcome.receipt.findingCodes, contains('write_authority_violation'));
-    expect(outcome.publishableText, isNot(contains('ha sido programada')));
-    expect(outcome.publishableText, contains('Revisa la hora propuesta.'));
+      expect(outcome.mayPublish, isTrue, reason: claim);
+      expect(
+        outcome.receipt.findingCodes,
+        contains('write_authority_violation'),
+        reason: claim,
+      );
+      expect(outcome.publishableText, isNot(contains(claim)), reason: claim);
+      expect(outcome.publishableText, contains('Revisa la hora propuesta.'));
+    }
   });
 
   test('plural passive mutation confirmations are removed bilingually', () {
@@ -436,6 +450,42 @@ void main() {
     );
     expect(outcome.publishableText, contains('18:20'));
     expect(outcome.publishableText, isNot(contains('18:30')));
+  });
+
+  test('suffix-less departure crossing noon is repaired', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'The latest departure is 11:50 AM. '
+            'Leave at 12:10.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(
+      outcome.receipt.findingCodes,
+      contains('contradictory_latest_departure'),
+    );
+    expect(outcome.publishableText, contains('11:50 AM'));
+    expect(outcome.publishableText, isNot(contains('12:10')));
+  });
+
+  test('suffix-less departure crossing midnight is repaired', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'The latest departure is 11:50 PM. '
+            'Leave at 12:10.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(
+      outcome.receipt.findingCodes,
+      contains('contradictory_latest_departure'),
+    );
+    expect(outcome.publishableText, contains('11:50 PM'));
+    expect(outcome.publishableText, isNot(contains('12:10')));
   });
 
   test('leave-by-at-latest wording establishes the departure bound', () {
