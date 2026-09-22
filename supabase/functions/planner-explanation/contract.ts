@@ -1,3 +1,5 @@
+import { containsBlockedAssistantClaim } from "../_shared/ai_proxy_policy.ts";
+
 export const PLANNER_EXPLANATION_SCHEMA_VERSION = 1;
 export const PLANNER_EXPLANATION_DISCLOSURE_VERSION = 1;
 export const PLANNER_EXPLANATION_RESPONSE_SCHEMA_VERSION = 1;
@@ -450,7 +452,10 @@ function assertSafeExplanation(
     /\b(?:override|ignore|bypass) (?:the )?deterministic\b/,
     /\b(?:confirmation is unnecessary|without confirmation|consent is unnecessary)\b/,
   ];
-  if (unsafePatterns.some((pattern) => pattern.test(normalized))) {
+  if (
+    unsafePatterns.some((pattern) => pattern.test(normalized)) ||
+    containsBlockedAssistantClaim(explanation)
+  ) {
     throw new ProviderOutputFailure("provider_output_unsafe");
   }
 

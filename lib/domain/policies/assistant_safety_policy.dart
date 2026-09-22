@@ -496,7 +496,8 @@ bool _claimsCompletedMutation(String value) {
       r'(?=\s|[.!?,;:]|$)',
     ),
     RegExp(
-      r'(^|[.!?]\s+)(he|hemos)\s+'
+      r'(^|[.!?]\s+)((ya|ahora|finalmente)\s+)?'
+      r'((te|le|les|se|lo|la|los|las|me|nos)\s+)?(he|hemos)\s+'
       r'(guardado|creado|eliminado|programado|completado|actualizado|'
       r'enviado|aplicado|comprado|cambiado)\b',
     ),
@@ -576,7 +577,8 @@ String _removeUnsupportedMutationClaims(String value) {
       multiLine: true,
     ),
     RegExp(
-      r'(^|(?<=[.!?])\s+)(he|hemos)\s+'
+      r'(^|(?<=[.!?])\s+)((ya|ahora|finalmente)\s+)?'
+      r'((te|le|les|se|lo|la|los|las|me|nos)\s+)?(he|hemos)\s+'
       r'(guardado|creado|eliminado|programado|completado|actualizado|'
       r'enviado|aplicado|comprado|cambiado)\b'
       r'[^.!?\n]*(?:[.!?]|$)',

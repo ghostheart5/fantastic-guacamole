@@ -38,8 +38,11 @@ const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 1024;
-const PROVIDER_FLOW_BUDGET_MS = 38_000;
-const PROVIDER_CALL_CAP_MS = 25_000;
+const PROVIDER_FLOW_BUDGET_MS = 20_000;
+const PROVIDER_CALL_CAP_MS = 20_000;
+const SETTLEMENT_TIMEOUT_MS = 8_000;
+export const MAX_SERVER_EXECUTION_BUDGET_MS = PROVIDER_FLOW_BUDGET_MS +
+  (SETTLEMENT_TIMEOUT_MS * 2);
 const internalAiCohort = parseInternalAiCohort(
   Deno.env.get("CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS"),
 );
@@ -124,7 +127,11 @@ async function settleReservation(
     p_provider_request_id: details.providerRequestId ?? null,
     p_failure_code: details.failureCode ?? null,
     p_response_payload: details.responsePayload ?? {},
-  });
+  }, (input, init) =>
+    fetch(input, {
+      ...init,
+      signal: AbortSignal.timeout(SETTLEMENT_TIMEOUT_MS),
+    }));
 }
 
 Deno.serve(async (req: Request) => {
