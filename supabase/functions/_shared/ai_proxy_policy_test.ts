@@ -157,6 +157,9 @@ The release review fits in the available time.`;
     ) ||
     !containsRecommendationContradiction(
       "First, visit the pharmacy. It has recently closed.",
+    ) ||
+    !containsRecommendationContradiction(
+      "First, visit the pharmacy. The pharmacy is temporarily closed.",
     )
   ) {
     throw new Error("current adverbial or pronoun closure was accepted");
@@ -171,6 +174,9 @@ The release review fits in the available time.`;
   if (
     !containsRecommendationContradiction(
       "Primero, visita la farmacia. La farmacia está cerrada.",
+    ) ||
+    !containsRecommendationContradiction(
+      "Primero, visita la farmacia. La farmacia está temporalmente cerrada.",
     )
   ) {
     throw new Error("closed Spanish recommendation was accepted");
@@ -311,6 +317,7 @@ Deno.test("blocks unsupported and prompt-disclosure claims", () => {
       "Done — your appointment is scheduled for 5 PM.",
       "Done! Your appointment is scheduled for 5 PM.",
       "Done. Your appointment is scheduled for 5 PM.",
+      "Done, your appointment is scheduled for 5 PM.",
       "Your tasks have been scheduled for 5 PM.",
       "Your appointment has been scheduled for 5 PM.",
       "Your meeting has been created.",

@@ -110,7 +110,7 @@ export function containsBlockedAssistantClaim(value: string): boolean {
     /\bhidden reasoning\b/,
     /\bchronospark\b/,
     /\b(?:(?:i|we)(?:['’]ve\s+|\s+(?:(?:has|have)\s+)?)|(?:axiomara|the assistant)\s+(?:(?:has|have)\s+)?)(?:(?:already|now|just|successfully|finally)\s+)?(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
-    /(?:^|[.!?]\s+)done(?:\s*[-—:]\s*|\s*[.!?]\s+)(?:your|the)\s+(?:task|goal|habit|note|event|plan|schedule|request|appointment|meeting|reminder|commitment|milestone|routine)\s+is\s+(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
+    /(?:^|[.!?]\s+)done(?:\s*[-—:,]\s*|\s*[.!?]\s+)(?:your|the)\s+(?:task|goal|habit|note|event|plan|schedule|request|appointment|meeting|reminder|commitment|milestone|routine)\s+is\s+(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
     /\b(?:your|the)\s+(?:task|goal|habit|note|event|plan|schedule|request|appointment|meeting|reminder|commitment|milestone|routine)\s+(?:has been|is now)\s+(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
     /\b(?:your|the)\s+(?:tasks|goals|habits|notes|events|plans|schedules|requests|appointments|meetings|reminders|commitments|milestones|routines)\s+(?:have been|are now)\s+(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
     /\b(?:tu|su|la|el)\s+(?:tarea|meta|habito|hábito|nota|evento|plan|horario|solicitud|cita|reunión|recordatorio|compromiso|hito|rutina)\s+(?:ha sido|fue|esta ahora|está ahora)\s+(?:guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa])\b/,
@@ -194,7 +194,7 @@ export function containsRecommendationContradiction(value: string): boolean {
     const rulesOut =
       /\b(?:(?:not(?!\s+only\b)|no|neither|cannot|can't|isn't|aren't|unable|unavailable|impossible|ni|ninguno|ninguna|nunca)\b[^.!?;,:]{0,40}\b(?:actionable|feasible|available|open|possible|ready|fit|fits|window|windows|accionables?|viables?|disponibles?|abiert[oa]s?|posibles?|list[oa]s?|encaja|ventanas?))\b/
         .test(clause) ||
-      /\b(?:(?:is|are)\s+(?:already\s+|currently\s+)?closed|(?:has|have)\s+(?:(?:already|just|recently)\s+)?closed)\b|\b(?:(?:esta|estan)\s+(?:ya\s+)?cerrad[oa]s?|(?:recien\s+)?(?:ha|han)\s+(?:(?:ya|recientemente)\s+)?cerrad[oa]s?|acaba(?:n)?\s+de\s+cerrar)\b/
+      /\b(?:(?:is|are)\s+(?:(?:already|currently|temporarily)\s+)?closed|(?:has|have)\s+(?:(?:already|just|recently)\s+)?closed)\b|\b(?:(?:esta|estan)\s+(?:(?:ya|temporalmente)\s+)?cerrad[oa]s?|(?:recien\s+)?(?:ha|han)\s+(?:(?:ya|recientemente)\s+)?cerrad[oa]s?|acaba(?:n)?\s+de\s+cerrar)\b/
         .test(clause);
     const passedWindow =
       /\b(?:window|windows|deadline|deadlines|time|times|ventana|ventanas|plazo|plazos|hora|horas)\b/

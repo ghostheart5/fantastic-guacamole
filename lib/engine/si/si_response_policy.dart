@@ -279,13 +279,13 @@ bool containsRecommendationContradiction(String text) {
       const <String>{'it', 'they', 'eso', 'esto', 'ello'}.contains,
     );
     final bool usesDummyPronoun = RegExp(
-      r"\bit\s+(?:(?:is|was|may\s+be|might\s+be)\s+(?:not\s+possible|impossible)|(?:isn't|wasn't)\s+possible)\s+(?:to|that)\b",
+      r"\bit\s+(?:(?:is|was)\s+(?:not\s+possible|impossible)|(?:may|might)\s+(?:(?:not\s+be|be\s+not)\s+possible|be\s+impossible)|(?:isn't|wasn't)\s+possible)\s+(?:to|that)\b",
     ).hasMatch(clause);
     final bool refersToRecommendation =
         subjects.any(words.contains) || (usesPronoun && !usesDummyPronoun);
     if (!refersToRecommendation) return false;
     return RegExp(
-      r'\b(?:(?:is|are)\s+(?:already\s+|currently\s+)?closed|(?:has|have)\s+(?:(?:already|just|recently)\s+)?closed)\b|\b(?:(?:esta|estan)\s+(?:ya\s+)?cerrad[oa]s?|(?:recien\s+)?(?:ha|han)\s+(?:(?:ya|recientemente)\s+)?cerrad[oa]s?|acaba(?:n)?\s+de\s+cerrar)\b',
+      r'\b(?:(?:is|are)\s+(?:(?:already|currently|temporarily)\s+)?closed|(?:has|have)\s+(?:(?:already|just|recently)\s+)?closed)\b|\b(?:(?:esta|estan)\s+(?:(?:ya|temporalmente)\s+)?cerrad[oa]s?|(?:recien\s+)?(?:ha|han)\s+(?:(?:ya|recientemente)\s+)?cerrad[oa]s?|acaba(?:n)?\s+de\s+cerrar)\b',
     ).hasMatch(clause);
   });
 }

@@ -112,6 +112,24 @@ void main() {
       );
       expect(
         isPolicyAcceptableResponse(
+          'First, visit the pharmacy. The pharmacy is temporarily closed.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'Primero, visita la farmacia. La farmacia está temporalmente cerrada.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'First, call the dentist. It may not be possible to know the wait time in advance.',
+        ),
+        isTrue,
+      );
+      expect(
+        isPolicyAcceptableResponse(
           "I don't recommend visiting the pharmacy first. The pharmacy has closed.",
         ),
         isTrue,
