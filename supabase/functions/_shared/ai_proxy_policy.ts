@@ -139,7 +139,7 @@ export function containsRecommendationContradiction(value: string): boolean {
     /^(.{1,90}?)\s+(?:first|primero|primera)\b/,
   );
   const suffixOpeningIsObligation = suffixOpeningCandidate &&
-    /^(?:i|we|you)\s+(?:have|has)\s+to\b/.test(
+    /^(?:i|we|you)\s+(?:have|has|need|needs)\s+to\b/.test(
       suffixOpeningCandidate[1],
     );
   const suffixOpening = suffixOpeningCandidate &&
@@ -164,7 +164,7 @@ export function containsRecommendationContradiction(value: string): boolean {
   let openingCandidate = opening.slice(1).find((group) => group) ?? "";
   if (suffixOpeningIsObligation && opening === suffixOpening) {
     openingCandidate = openingCandidate.replace(
-      /^(?:i|we|you)\s+(?:have|has)\s+to\s+/,
+      /^(?:i|we|you)\s+(?:have|has|need|needs)\s+to\s+/,
       "",
     );
   }

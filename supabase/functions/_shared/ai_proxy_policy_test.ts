@@ -162,6 +162,16 @@ The release review fits in the available time.`;
     throw new Error("negated obligation was treated as a contradiction");
   }
   if (
+    containsRecommendationContradiction(
+      "We need to avoid visiting the pharmacy first. It is closed.",
+    ) ||
+    !containsRecommendationContradiction(
+      "We need to visit the pharmacy first. It is closed.",
+    )
+  ) {
+    throw new Error("need-to obligation had the wrong contradiction verdict");
+  }
+  if (
     !containsRecommendationContradiction(
       "Start with groceries. Groceries are not feasible today.",
     )

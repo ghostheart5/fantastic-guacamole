@@ -224,7 +224,7 @@ bool containsRecommendationContradiction(String text) {
   final bool suffixOpeningIsObligation =
       suffixOpeningCandidate != null &&
       RegExp(
-        r'^(?:i|we|you)\s+(?:have|has)\s+to\b',
+        r'^(?:i|we|you)\s+(?:have|has|need|needs)\s+to\b',
       ).hasMatch(suffixOpeningCandidate.group(1)!);
   final RegExpMatch? suffixOpening =
       suffixOpeningCandidate != null &&
@@ -254,7 +254,7 @@ bool containsRecommendationContradiction(String text) {
   String candidate = opening.group(1) ?? '';
   if (suffixOpeningIsObligation && opening == suffixOpening) {
     candidate = candidate.replaceFirst(
-      RegExp(r'^(?:i|we|you)\s+(?:have|has)\s+to\s+'),
+      RegExp(r'^(?:i|we|you)\s+(?:have|has|need|needs)\s+to\s+'),
       '',
     );
   }
