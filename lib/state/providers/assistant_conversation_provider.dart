@@ -34,6 +34,12 @@ final conversationRequestTimeoutProvider = Provider<Duration>(
   (ref) => const Duration(seconds: 40),
 );
 
+/// Releases the conversation UI if a paid transport never completes. The
+/// original request keeps running so an authoritative late reply can appear.
+final conversationPaidWaitTimeoutProvider = Provider<Duration>(
+  (ref) => const Duration(seconds: 60),
+);
+
 final conversationServiceProvider = Provider<ConversationService>((ref) {
   final account = ref.watch(accountStorageScopeProvider).v2Namespace;
   final generation = ref.watch(authSessionBoundaryProvider).generation;

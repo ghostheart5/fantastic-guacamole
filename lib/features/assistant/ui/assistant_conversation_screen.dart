@@ -51,6 +51,7 @@ class _AssistantConversationScreenState
   ConversationQuote? _pending;
   int _generation = 0;
   int _operation = 0;
+  Timer? _paidWaitTimer;
   BuildContext? _dialogContext;
   String _dictationDraftBase = '';
   double? _energy;
@@ -83,6 +84,7 @@ class _AssistantConversationScreenState
 
   @override
   void dispose() {
+    _paidWaitTimer?.cancel();
     final VoiceController? voiceController = _voiceControllerForDispose;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
@@ -151,6 +153,7 @@ class _AssistantConversationScreenState
 
   Future<void> _send({bool retry = false}) async {
     if (_busy || (!retry && _input.text.trim().isEmpty)) return;
+    _paidWaitTimer?.cancel();
     final generation = _generation;
     final operation = ++_operation;
     final prompt = retry
@@ -247,6 +250,14 @@ class _AssistantConversationScreenState
         if (!current() || !accepted) return;
         _pending = quote;
       }
+      _paidWaitTimer = Timer(ref.read(conversationPaidWaitTimeoutProvider), () {
+        if (!current() || !_busy) return;
+        setState(() {
+          _busy = false;
+          _waitIndicatorDismissed = false;
+          _error = _failureText('request_timeout');
+        });
+      });
       final answer = await service.execute(quote);
       if (!current()) return;
       final review = const AssistantSafetyPipeline().evaluate(
@@ -321,6 +332,8 @@ class _AssistantConversationScreenState
         ),
       );
     } finally {
+      _paidWaitTimer?.cancel();
+      _paidWaitTimer = null;
       if (current()) {
         setState(() {
           _busy = false;
@@ -358,8 +371,8 @@ class _AssistantConversationScreenState
       }
       _waitIndicatorDismissed = true;
       _error = copy(
-        'The paid request is still finishing safely. Stay on this screen; its confirmed reply will appear when ready, without another charge.',
-        'La solicitud pagada sigue finalizando de forma segura. Permanece en esta pantalla; la respuesta confirmada aparecerá cuando esté lista, sin otro cobro.',
+        'The paid request is still finishing safely. Its confirmed reply will appear here if it arrives. If the wait expires, you can leave or retry this same priced request without another charge.',
+        'La solicitud pagada sigue finalizando de forma segura. La respuesta confirmada aparecerá aquí si llega. Si vence la espera, puedes salir o reintentar esta misma solicitud con precio sin otro cobro.',
       );
     });
   }
