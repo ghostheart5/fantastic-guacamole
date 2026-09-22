@@ -370,6 +370,44 @@ void main() {
     },
   );
 
+  test('timing follow-up ignores unrelated bare numbers', () async {
+    const String initialPrompt =
+        'I need groceries before dinner. What should I do next?';
+    final ProviderContainer container = plannerContainer();
+    addTearDown(container.dispose);
+    final SmartPlannerQueryController controller = container.read(
+      smartPlannerQueryControllerProvider,
+    );
+    final SmartPlannerResult initial = await controller.requestPlanningGuidance(
+      energy: null,
+      emotion: null,
+      notes: initialPrompt,
+      history: const <Map<String, String>>[],
+      previousSavedNotes: null,
+    );
+    final SmartPlannerResult followUp = await controller.requestFollowUpResult(
+      input: 'I have 2 errands; should I leave earlier than 5 PM?',
+      energy: null,
+      emotion: null,
+      reflection: initialPrompt,
+      history: <Map<String, String>>[
+        const <String, String>{'role': 'user', 'content': initialPrompt},
+        <String, String>{
+          'role': 'assistant',
+          'content': initial.plannerResponse.toAccessibleText(),
+        },
+      ],
+      currentPlan: PlannerConversationSnapshot(
+        originalObjective: initialPrompt,
+        currentPlan: initial.plannerResponse,
+        userContext: initial.plannerResponse.userContext,
+      ),
+    );
+    final String answer = followUp.plannerResponse.toAccessibleText();
+    expect(answer, contains('5 PM'));
+    expect(answer, isNot(contains('before 2')));
+  });
+
   test('Moto grocery phrasing makes an actual five-minute first step', () async {
     final tasks = _MemoryTaskRepository([
       TaskEntity(

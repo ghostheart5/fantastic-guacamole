@@ -202,6 +202,25 @@ void main() {
     expect(outcome.publishableText, contains('finish by 7:00 PM'));
   });
 
+  test('Spanish 24-hour departure contradiction is repaired', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'La salida viable más tarde es a las 18:20. '
+            'Salir a las 18:30 todavía funciona.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(outcome.receipt.disposition, AssistantSafetyDisposition.repaired);
+    expect(
+      outcome.receipt.findingCodes,
+      contains('contradictory_latest_departure'),
+    );
+    expect(outcome.publishableText, contains('18:20'));
+    expect(outcome.publishableText, isNot(contains('18:30')));
+  });
+
   test('crisis route blocks gamification and ordinary planning pressure', () {
     final AssistantSafetyOutcome outcome = pipeline.evaluate(
       _safeReview(

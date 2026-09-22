@@ -531,6 +531,12 @@ int? _latestDepartureMinutes(String value) {
       r'(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\b',
       caseSensitive: false,
     ),
+    RegExp(
+      r'\bla\s+salida(?:\s+viable)?\s+m[aá]s\s+tarde(?:\s+posible)?\s*'
+      r'(?:es|:)\s*(?:a\s+las\s*)?(\d{1,2})(?::(\d{2}))?'
+      r'(?:\s*([ap])\.?\s*m\.?)?\b',
+      caseSensitive: false,
+    ),
   ];
   for (final RegExp pattern in patterns) {
     final RegExpMatch? match = pattern.firstMatch(value);
@@ -540,21 +546,34 @@ int? _latestDepartureMinutes(String value) {
 }
 
 Iterable<int> _leaveByTimes(String value) sync* {
-  final RegExp pattern = RegExp(
-    r'\bleav(?:e|ing)\s+by\s+(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\b',
-    caseSensitive: false,
-  );
-  for (final RegExpMatch match in pattern.allMatches(value)) {
-    yield _clockMinutes(match);
+  final List<RegExp> patterns = <RegExp>[
+    RegExp(
+      r'\bleav(?:e|ing)\s+by\s+(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\b',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'\bsalir\s+(?:a\s+las|antes\s+de\s+las)\s+'
+      r'(\d{1,2})(?::(\d{2}))?(?:\s*([ap])\.?\s*m\.?)?\b',
+      caseSensitive: false,
+    ),
+  ];
+  for (final RegExp pattern in patterns) {
+    for (final RegExpMatch match in pattern.allMatches(value)) {
+      yield _clockMinutes(match);
+    }
   }
 }
 
 int _clockMinutes(RegExpMatch match) {
   int hour = int.parse(match.group(1)!);
   final int minute = int.tryParse(match.group(2) ?? '') ?? 0;
-  final bool isPm = match.group(3)!.toLowerCase() == 'p';
-  if (hour == 12) hour = 0;
-  return hour * 60 + minute + (isPm ? 12 * 60 : 0);
+  final String? suffix = match.group(3)?.toLowerCase();
+  if (suffix != null) {
+    final bool isPm = suffix == 'p';
+    if (hour == 12) hour = 0;
+    return hour * 60 + minute + (isPm ? 12 * 60 : 0);
+  }
+  return hour * 60 + minute;
 }
 
 bool _containsHiddenReasoning(String value) {

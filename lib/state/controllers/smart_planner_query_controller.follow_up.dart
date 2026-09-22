@@ -20,10 +20,7 @@ _PlannerFollowUpKind? _plannerFollowUpKind(String input) {
         r'\b(?:should|do|can)\s+i\s+leave\s+(?:any\s+)?earlier\b|\b(?:debo|puedo)\s+salir\s+m[aá]s\s+temprano\b',
         caseSensitive: false,
       ).hasMatch(text) &&
-      RegExp(
-        r'\b\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?\b',
-        caseSensitive: false,
-      ).hasMatch(text)) {
+      _plannerDepartureClock(text) != null) {
     return _PlannerFollowUpKind.timing;
   }
   if (RegExp(
@@ -130,11 +127,7 @@ PlannerV2Response? _answerDisplayedPlanFollowUp({
       );
     case _PlannerFollowUpKind.timing:
       final String departure =
-          RegExp(
-            r'\b(\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)\b',
-            caseSensitive: false,
-          ).firstMatch(input)?.group(1)?.trim() ??
-          copy('that time', 'esa hora');
+          _plannerDepartureClock(input) ?? copy('that time', 'esa hora');
       return plan.copyWith(
         whatIHeard: copy(
           'You are checking whether leaving at $departure gives the plan enough buffer.',
@@ -188,4 +181,31 @@ PlannerV2Response? _answerDisplayedPlanFollowUp({
         userContext: context,
       );
   }
+}
+
+String? _plannerDepartureClock(String input) {
+  const String clock =
+      r'(\d{1,2}:\d{2}\s*(?:a\.?\s*m\.?|p\.?\s*m\.?)?|\d{1,2}\s*(?:a\.?\s*m\.?|p\.?\s*m\.?))';
+  final List<RegExp> afterLeave = <RegExp>[
+    RegExp(
+      r'\bleave\s+(?:any\s+)?earlier\b[^.!?;]{0,35}?\b(?:than|at|by)?\s*' +
+          clock,
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'\bsalir\s+m[aá]s\s+temprano\b[^.!?;]{0,35}?\b(?:que|de|a\s+las)?\s*' +
+          clock,
+      caseSensitive: false,
+    ),
+  ];
+  for (final RegExp pattern in afterLeave) {
+    final String? value = pattern.firstMatch(input)?.group(1)?.trim();
+    if (value != null) return value;
+  }
+  final RegExp beforeLeave = RegExp(
+    clock +
+        r'[^.!?;]{0,60}\b(?:leave\s+(?:any\s+)?earlier|salir\s+m[aá]s\s+temprano)\b',
+    caseSensitive: false,
+  );
+  return beforeLeave.firstMatch(input)?.group(1)?.trim();
 }
