@@ -155,13 +155,11 @@ export function containsRecommendationContradiction(value: string): boolean {
       /^(?:(?:that\s+)?(?:you|we|they|he|she|it)\s+|that\s+|(?:que\s+)?(?:tu|usted|ustedes|ellos|ellas)\s+|que\s+)/,
       "",
     );
-    if (
-      /^(?:not\b|do\s+not\b|(?:don|doesn|isn|aren|shouldn|can)'t\b|cannot\b|avoid(?:ing)?\b|no\b|evita(?:r)?\b)/
-        .test(
-          openingCandidate,
-        )
-    ) return false;
   }
+  if (
+    /^(?:not\b|do\s+not\b|(?:don|doesn|isn|aren|shouldn|can)'t\b|cannot\b|avoid(?:ing)?\b|no\b|evita(?:r)?\b)/
+      .test(openingCandidate)
+  ) return false;
   const candidateTokens = openingCandidate
     .replace(
       /^(?:do|choose|start|complete|handle|buy|review|work on|haz|elige|empieza|completa|maneja|compra|revisa|trabaja en)\s+/,

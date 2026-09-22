@@ -188,6 +188,15 @@ The release review fits in the available time.`;
       "I recommend that she doesn't visit the pharmacy. The pharmacy is closed.",
     ) ||
     containsRecommendationContradiction(
+      "First, don't visit the pharmacy. The pharmacy is closed.",
+    ) ||
+    containsRecommendationContradiction(
+      "Don't visit the pharmacy first. The pharmacy is closed.",
+    ) ||
+    containsRecommendationContradiction(
+      "Start with avoiding the pharmacy. The pharmacy is closed.",
+    ) ||
+    containsRecommendationContradiction(
       "Te recomiendo que no visites la farmacia. La farmacia está cerrada.",
     ) ||
     containsRecommendationContradiction(

@@ -621,8 +621,6 @@ Deno.serve(async (req: Request) => {
         repaired = await response.json();
       } catch {
         await settleReservation(userId, requestId, false, {
-          inputTokens,
-          outputTokens,
           providerRequestId: finalProviderRequestId,
           failureCode: "inconsistent_provider_output",
         });
@@ -665,12 +663,12 @@ Deno.serve(async (req: Request) => {
         containsRecommendationContradiction(repairedMessage)
       ) {
         await settleReservation(userId, requestId, false, {
-          inputTokens: repairedUsageIsValid
-            ? totalInputTokens + repairedInputTokens
-            : totalInputTokens,
-          outputTokens: repairedUsageIsValid
-            ? totalOutputTokens + repairedOutputTokens
-            : totalOutputTokens,
+          ...(repairedUsageIsValid
+            ? {
+              inputTokens: totalInputTokens + repairedInputTokens,
+              outputTokens: totalOutputTokens + repairedOutputTokens,
+            }
+            : {}),
           providerRequestId: typeof repairedRecord?.id === "string"
             ? repairedRecord.id
             : finalProviderRequestId,
