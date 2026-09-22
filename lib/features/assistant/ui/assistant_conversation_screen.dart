@@ -247,12 +247,7 @@ class _AssistantConversationScreenState
         if (!current() || !accepted) return;
         _pending = quote;
       }
-      final answer = await service
-          .execute(quote)
-          .timeout(
-            ref.read(conversationRequestTimeoutProvider),
-            onTimeout: () => throw const ConversationFailure('request_timeout'),
-          );
+      final answer = await service.execute(quote);
       if (!current()) return;
       final review = const AssistantSafetyPipeline().evaluate(
         AssistantSafetyReview(
@@ -301,6 +296,7 @@ class _AssistantConversationScreenState
         'daily_budget_exceeded',
         'insufficient_credits',
         'credits_exhausted',
+        'request_completed',
         'request_refunded',
         'unsafe_upstream_response',
         'inconsistent_upstream_response',
@@ -367,8 +363,8 @@ class _AssistantConversationScreenState
       'No tienes suficientes créditos de IA. No se generó una respuesta del modelo. No se cobraron créditos. Añade créditos o espera tu asignación; después inicia una solicitud nueva y revisa una nueva cotización.',
     ),
     'request_completed' => copy(
-      'The server already completed this request, but its reply is unavailable. It did not charge again. Check your credit balance before starting another request.',
-      'El servidor ya completó esta solicitud, pero la respuesta no está disponible. No se cobró otra vez. Revisa el saldo antes de iniciar otra solicitud.',
+      'The server already completed this request, but its reply is unavailable. It did not charge again. Check your credit balance, then start a new request and review a new quote.',
+      'El servidor ya completó esta solicitud, pero la respuesta no está disponible. No se cobró otra vez. Revisa el saldo, luego inicia una solicitud nueva y revisa una cotización nueva.',
     ),
     'quote_expired' || 'credit_quote_required' => copy(
       'The price expired. Start a new request to review a new quote.',

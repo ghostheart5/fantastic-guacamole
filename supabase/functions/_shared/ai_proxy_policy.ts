@@ -116,6 +116,7 @@ export function containsBlockedAssistantClaim(value: string): boolean {
     /\b(?:tus|sus|las|los)\s+(?:tareas|metas|habitos|hábitos|notas|eventos|planes|horarios|solicitudes)\s+(?:han sido|fueron|estan ahora|están ahora)\s+(?:guardad[oa]s|cread[oa]s|eliminad[oa]s|programad[oa]s|completad[oa]s|actualizad[oa]s|enviad[oa]s|aplicad[oa]s|comprad[oa]s|cambiad[oa]s)\b/,
     /\b(?:yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+(?:(?:ya|ahora|finalmente)\s+)?(?:(?:te|le|les|se|lo|la|los|las|me|nos)\s+)?(?:(?:he|ha|hemos|han)\s+)?(?:guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|guard[eéó]|cre[eéó]|elimin[eéó]|program[eéó]|complet[eéó]|actualic[eé]|actualiz[oó]|envi[eéó]|apliqu[eé]|aplic[oó]|compr[eéó]|cambi[eéó])(?=\s|[.!?,;:]|$)/,
     /(?:^|[.!?]\s+)(?:(?:ya|ahora|finalmente)\s+)?(?:(?:te|le|les|se|lo|la|los|las|me|nos)\s+)?(?:he|hemos)\s+(?:guardado|creado|eliminado|programado|completado|actualizado|enviado|aplicado|comprado|cambiado)\b/,
+    /(?:^|[.!?]\s+)(?:(?:ya|ahora|finalmente)\s+)?(?:(?:te|le|les|se|lo|la|los|las|me|nos)\s+)?(?:guardé|creé|eliminé|programé|completé|actualicé|envié|apliqué|compré|cambié)(?=\s|[.!?,;:]|$)/,
   ].some((pattern) => pattern.test(normalized));
   if (blocked) return true;
   return [

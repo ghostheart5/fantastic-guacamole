@@ -26,11 +26,10 @@ final conversationTransportProvider = Provider<ConversationTransport>(
   (ref) => ref.watch(internalCreditTestTransportProvider),
 );
 
-/// A second, UI-facing deadline around quote and execution requests.
+/// A second, UI-facing deadline around quote requests.
 ///
-/// The transport has its own network timeout, but the conversation screen must
-/// still recover if a platform client leaves that future unresolved. Tests can
-/// shorten this without weakening the release default.
+/// Paid execution is deliberately not abandoned: its authoritative settlement
+/// and reply continue after the person dismisses the wait indicator.
 final conversationRequestTimeoutProvider = Provider<Duration>(
   (ref) => const Duration(seconds: 40),
 );

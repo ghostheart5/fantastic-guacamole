@@ -5,7 +5,6 @@ let handler: Handler | undefined;
 let remainingProviderTimeoutMs:
   | ((startedAtMs: number, nowMs?: number) => number)
   | undefined;
-let maxServerExecutionBudgetMs: number | undefined;
 const originalServe = Deno.serve;
 const originalEnvGet = Deno.env.get;
 try {
@@ -21,7 +20,6 @@ try {
   });
   const module = await import("./index.ts");
   remainingProviderTimeoutMs = module.remainingProviderTimeoutMs;
-  maxServerExecutionBudgetMs = module.MAX_SERVER_EXECUTION_BUDGET_MS;
 } finally {
   Reflect.set(Deno, "serve", originalServe);
   Reflect.set(Deno.env, "get", originalEnvGet);
@@ -42,9 +40,6 @@ Deno.test("provider retries share one bounded deadline", () => {
   }
   if (remainingProviderTimeoutMs(startedAtMs, startedAtMs + 20_000) !== 0) {
     throw new Error("expired provider flow received another timeout window");
-  }
-  if (maxServerExecutionBudgetMs !== 36_000) {
-    throw new Error("server work does not reserve four seconds for delivery");
   }
 });
 

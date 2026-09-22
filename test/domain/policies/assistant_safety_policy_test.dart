@@ -222,6 +222,8 @@ void main() {
       'Hemos completado la tarea.',
       'Te he programado tu tarea.',
       'Ya te he programado tu tarea.',
+      'Ya programé tu tarea.',
+      'Te programé tu tarea.',
     ]) {
       final AssistantSafetyOutcome outcome = pipeline.evaluate(
         _safeReview(

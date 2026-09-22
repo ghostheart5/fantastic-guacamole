@@ -12,7 +12,7 @@ typedef CreditTestReply = ({int status, Map<String, dynamic> data});
 typedef CreditTestTransport =
     Future<CreditTestReply> Function(Map<String, dynamic> body);
 
-const internalCreditTestTransportTimeout = Duration(seconds: 45);
+const internalCreditTestQuoteTransportTimeout = Duration(seconds: 45);
 
 final internalCreditTestTransportProvider = Provider<CreditTestTransport>((
   ref,
@@ -21,9 +21,10 @@ final internalCreditTestTransportProvider = Provider<CreditTestTransport>((
   return (body) async {
     if (client?.auth.currentUser == null) throw StateError('Sign-in required');
     try {
-      final response = await client!.functions
-          .invoke('ai-proxy', body: body)
-          .timeout(internalCreditTestTransportTimeout);
+      final invocation = client!.functions.invoke('ai-proxy', body: body);
+      final response = body['quoteOnly'] == true
+          ? await invocation.timeout(internalCreditTestQuoteTransportTimeout)
+          : await invocation;
       return (
         status: response.status,
         data: Map<String, dynamic>.from(response.data as Map),

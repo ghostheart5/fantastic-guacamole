@@ -126,7 +126,7 @@ void main() {
 
     expect(
       container.read(conversationRequestTimeoutProvider),
-      lessThan(internalCreditTestTransportTimeout),
+      lessThan(internalCreditTestQuoteTransportTimeout),
     );
   });
   for (final surface in ConversationSurface.values) {
@@ -481,6 +481,7 @@ void main() {
     'request_denied': 'denied before processing',
     'provider_cost_budget_exceeded': 'service spending limit',
     'rate_limit_exceeded': 'Too many AI requests',
+    'request_completed': 'server already completed',
     'request_refunded': 'credits were refunded',
     'unsafe_upstream_response': 'credits were refunded',
     'inconsistent_upstream_response': 'credits were refunded',
@@ -539,11 +540,19 @@ void main() {
 
         expect(find.byKey(const Key('conversation-error')), findsOneWidget);
         expect(find.textContaining(failure.value), findsOneWidget);
-        expect(find.textContaining('No credits were charged'), findsOneWidget);
+        if (failure.key == 'request_completed') {
+          expect(find.textContaining('did not charge again'), findsOneWidget);
+        } else {
+          expect(
+            find.textContaining('No credits were charged'),
+            findsOneWidget,
+          );
+        }
         if (<String>{
           'daily_budget_exceeded',
           'insufficient_credits',
           'credits_exhausted',
+          'request_completed',
           'request_refunded',
           'unsafe_upstream_response',
           'inconsistent_upstream_response',
@@ -1108,7 +1117,7 @@ void main() {
   });
 
   testWidgets(
-    'paid conversation timeout restores controls and keeps same-request retry',
+    'paid conversation continues beyond the quote deadline and publishes',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(412, 915));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1165,15 +1174,26 @@ void main() {
       await tester.pump(const Duration(milliseconds: 101));
       await tester.pump();
 
-      expect(find.textContaining('took too long'), findsOneWidget);
-      expect(find.text('Retry same request'), findsOneWidget);
-      expect(
-        tester
-            .widget<TextField>(find.byKey(const Key('conversation-input')))
-            .readOnly,
-        isFalse,
-      );
+      expect(find.textContaining('took too long'), findsNothing);
+      expect(find.text('Stop waiting'), findsOneWidget);
       expect(sent, hasLength(2));
+      never.complete((
+        status: 200,
+        data: <String, dynamic>{
+          'requestId': sent.last['requestId'],
+          'message': 'The authoritative paid reply arrived safely.',
+          'model': 'synthetic-model',
+          'creditsCharged': 4,
+          'remainingCredits': 16,
+        },
+      ));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('The authoritative paid reply arrived safely.'),
+        findsOneWidget,
+      );
+      expect(find.text('Retry same request'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

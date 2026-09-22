@@ -504,6 +504,12 @@ bool _claimsCompletedMutation(String value) {
       r'enviado|aplicado|comprado|cambiado)\b',
     ),
     RegExp(
+      r'(^|[.!?]\s+)((ya|ahora|finalmente)\s+)?'
+      r'((te|le|les|se|lo|la|los|las|me|nos)\s+)?'
+      r'(guardé|creé|eliminé|programé|completé|actualicé|envié|apliqué|'
+      r'compré|cambié)(?=\s|[.!?,;:]|$)',
+    ),
+    RegExp(
       r'\b(your|the)\s+'
       r'(task|goal|habit|note|event|plan|schedule|request)\s+'
       r'(has been|is now)\s+'
@@ -585,6 +591,15 @@ String _removeUnsupportedMutationClaims(String value) {
       r'((te|le|les|se|lo|la|los|las|me|nos)\s+)?(he|hemos)\s+'
       r'(guardado|creado|eliminado|programado|completado|actualizado|'
       r'enviado|aplicado|comprado|cambiado)\b'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
+    RegExp(
+      r'(^|(?<=[.!?])\s+)((ya|ahora|finalmente)\s+)?'
+      r'((te|le|les|se|lo|la|los|las|me|nos)\s+)?'
+      r'(guardé|creé|eliminé|programé|completé|actualicé|envié|apliqué|'
+      r'compré|cambié)(?=\s|[.!?,;:]|$)'
       r'[^.!?\n]*(?:[.!?]|$)',
       caseSensitive: false,
       multiLine: true,
