@@ -106,6 +106,8 @@ Deno.test("blocks unsupported and prompt-disclosure claims", () => {
       "My hidden reasoning follows.",
       "Open ChronoSpark to review it.",
       "Axiomara has scheduled your task.",
+      "Axiomara ha programado tu tarea.",
+      "SI guardó tu nota.",
     ]
   ) {
     if (!containsBlockedAssistantClaim(text)) {

@@ -478,17 +478,39 @@ bool _looksLikeInstructionInjection(String value) {
 
 bool _claimsCompletedMutation(String value) {
   final String normalized = value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
-  return RegExp(
-    r'\b(i|we|si|axiomara|chronospark|the assistant)\s+((has|have)\s+)?'
-    r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
-  ).hasMatch(normalized);
+  return <RegExp>[
+    RegExp(
+      r'\b(i|we|si|axiomara|chronospark|the assistant)\s+'
+      r'((has|have)\s+)?'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
+    ),
+    RegExp(
+      r'\b(yo|nosotros|nosotras|si|axiomara|el asistente|la asistente)\s+'
+      r'((he|ha|hemos|han)\s+)?'
+      r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
+      r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|'
+      r'guard[eéó]|cre[eéó]|elimin[eéó]|program[eéó]|complet[eéó]|'
+      r'actualic[eé]|actualiz[oó]|envi[eéó]|apliqu[eé]|aplic[oó]|'
+      r'compr[eéó]|cambi[eéó])'
+      r'(?=\s|[.!?,;:]|$)',
+    ),
+  ].any((RegExp pattern) => pattern.hasMatch(normalized));
 }
 
 String _removeUnsupportedMutationClaims(String value) {
   final RegExp unsupportedSentence = RegExp(
-    r'(^|(?<=[.!?])\s+)(i|we|si|axiomara|chronospark|the assistant)\s+'
+    r'(^|(?<=[.!?])\s+)('
+    r'(i|we|si|axiomara|chronospark|the assistant)\s+'
     r'((has|have)\s+)?'
-    r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b'
+    r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b|'
+    r'(yo|nosotros|nosotras|si|axiomara|el asistente|la asistente)\s+'
+    r'((he|ha|hemos|han)\s+)?'
+    r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
+    r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|'
+    r'guard[eéó]|cre[eéó]|elimin[eéó]|program[eéó]|complet[eéó]|'
+    r'actualic[eé]|actualiz[oó]|envi[eéó]|apliqu[eé]|aplic[oó]|'
+    r'compr[eéó]|cambi[eéó])'
+    r'(?=\s|[.!?,;:]|$))'
     r'[^.!?\n]*(?:[.!?]|$)',
     caseSensitive: false,
     multiLine: true,
@@ -500,24 +522,44 @@ String _removeUnsupportedMutationClaims(String value) {
 }
 
 bool _hasContradictoryLatestDeparture(String value) {
-  final int? latest = _latestDepartureMinutes(value);
-  if (latest == null) return false;
-  return _leaveByTimes(value).any((int candidate) => candidate > latest);
+  int? activeLatest;
+  for (final String segment in _departureSegments(value)) {
+    activeLatest = _latestDepartureMinutes(segment) ?? activeLatest;
+    if (activeLatest != null &&
+        _leaveByTimes(
+          segment,
+        ).any((int candidate) => candidate > activeLatest!)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 String _removeContradictoryLatestDepartureAdvice(String value) {
-  final int? latest = _latestDepartureMinutes(value);
-  if (latest == null) return value;
-  return value
-      .split(RegExp(r'(?<=[.!?])\s+'))
-      .where(
-        (String sentence) =>
-            !_leaveByTimes(sentence).any((int candidate) => candidate > latest),
-      )
-      .join(' ')
-      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
-      .trim();
+  int? activeLatest;
+  final List<String> retained = <String>[];
+  for (final String segment in _departureSegments(value)) {
+    activeLatest = _latestDepartureMinutes(segment) ?? activeLatest;
+    final bool contradicts =
+        activeLatest != null &&
+        _leaveByTimes(
+          segment,
+        ).any((int candidate) => candidate > activeLatest!);
+    if (!contradicts) retained.add(segment);
+  }
+  return retained.join(' ').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
 }
+
+Iterable<String> _departureSegments(String value) => value
+    .split(
+      RegExp(
+        r'(?<=[.!?;])\s+|\r?\n+|'
+        r'(?=\b(?:option|scenario|opci[oó]n|escenario)\s+[a-z0-9]+\b)',
+        caseSensitive: false,
+      ),
+    )
+    .map((String segment) => segment.trim())
+    .where((String segment) => segment.isNotEmpty);
 
 int? _latestDepartureMinutes(String value) {
   final List<RegExp> patterns = <RegExp>[

@@ -100,6 +100,22 @@ void main() {
     expect(outcome.receipt.findingCodes, contains('write_authority_violation'));
   });
 
+  test('Spanish current product mutation claim is rejected and removable', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'Axiomara ha programado tu tarea. '
+            'Puedes revisar la hora antes de decidir.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(outcome.receipt.disposition, AssistantSafetyDisposition.repaired);
+    expect(outcome.receipt.findingCodes, contains('write_authority_violation'));
+    expect(outcome.publishableText, isNot(contains('ha programado')));
+    expect(outcome.publishableText, contains('revisar la hora'));
+  });
+
   test(
     'instruction-like evidence is isolated when answer remains read-only',
     () {
@@ -250,6 +266,43 @@ void main() {
     expect(outcome.publishableText, isNot(contains('6:30 PM')));
   });
 
+  test('each departure option uses its own latest bound', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            "Option A's latest viable departure is 5:00 PM; "
+            'Leave at 4:50 PM; '
+            "Option B's latest viable departure is 7:00 PM; "
+            'Leave at 6:50 PM.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(
+      outcome.receipt.findingCodes,
+      isNot(contains('contradictory_latest_departure')),
+    );
+    expect(outcome.publishableText, contains('4:50 PM'));
+    expect(outcome.publishableText, contains('6:50 PM'));
+  });
+
+  test('departure repair removes only the invalid option advice', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'Option A: The latest viable departure is 5:00 PM. '
+            'Leave at 5:10 PM. '
+            'Option B: The latest viable departure is 7:00 PM. '
+            'Leave at 6:50 PM.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(outcome.receipt.disposition, AssistantSafetyDisposition.repaired);
+    expect(outcome.publishableText, isNot(contains('5:10 PM')));
+    expect(outcome.publishableText, contains('6:50 PM'));
+  });
+
   test('crisis route blocks gamification and ordinary planning pressure', () {
     final AssistantSafetyOutcome outcome = pipeline.evaluate(
       _safeReview(
@@ -333,6 +386,7 @@ void main() {
     const List<String> actions = <String>[
       'ChronoSpark saved the task.',
       'Axiomara scheduled the task.',
+      'Axiomara ha programado la tarea.',
       'SI created a reminder.',
       'The assistant deleted the goal.',
       'We scheduled the habit.',
