@@ -95,6 +95,86 @@ Deno.test("duplicate denied AI request preserves its original budget reason", as
   }
 });
 
+Deno.test("contradictory Planner verdict is repaired before one settled response", async () => {
+  if (!handler) throw new Error("handler was not registered");
+  const originalFetch = globalThis.fetch;
+  let providerCalls = 0;
+  let reservations = 0;
+  let settlements = 0;
+  globalThis.fetch = ((url, init) => {
+    const path = String(url);
+    if (path.endsWith("/auth/v1/user")) {
+      return Promise.resolve(
+        Response.json({ id: "11111111-1111-4111-8111-111111111111" }),
+      );
+    }
+    if (path.endsWith("/consume_backend_rate_limit")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
+    if (path.endsWith("/reserve_ai_usage")) {
+      reservations++;
+      return Promise.resolve(
+        Response.json({ allowed: true, duplicate: false, balance: 84 }),
+      );
+    }
+    if (path.endsWith("/settle_ai_usage")) {
+      const body = JSON.parse(String(init?.body));
+      if (
+        body.p_succeeded !== true || body.p_input_tokens !== 30 ||
+        body.p_output_tokens !== 17
+      ) throw new Error("repaired usage was not settled once in full");
+      settlements++;
+      return Promise.resolve(Response.json({ state: "completed" }));
+    }
+    if (path === "https://api.anthropic.com/v1/messages") {
+      providerCalls++;
+      const repaired = providerCalls === 2;
+      return Promise.resolve(Response.json({
+        id: repaired ? "provider-repair" : "provider-first",
+        model: "claude-sonnet-4-6",
+        stop_reason: "end_turn",
+        content: [{
+          type: "text",
+          text: repaired
+            ? "Review release evidence first. The grocery window has passed, and release review fits now."
+            : "Groceries first, then release evidence. Neither grocery task is actionable right now.",
+        }],
+        usage: repaired
+          ? { input_tokens: 20, output_tokens: 7 }
+          : { input_tokens: 10, output_tokens: 10 },
+      }));
+    }
+    throw new Error(`unexpected transport target: ${path}`);
+  }) as typeof fetch;
+  try {
+    const input = {
+      requestId: "synthetic-contradiction-repair",
+      prompt: "Should I buy groceries or review release evidence first?",
+      personality: "planner",
+      context: {},
+      allowExternalAi: true,
+    };
+    const request = (extra: Record<string, unknown>) =>
+      new Request("https://local.example/ai-proxy", {
+        method: "POST",
+        headers: { authorization: "Bearer synthetic-session" },
+        body: JSON.stringify({ ...input, ...extra }),
+      });
+    const quoted = await handler(request({ quoteOnly: true }));
+    const { quote } = await quoted.json();
+    const response = await handler(request({ quote }));
+    const body = await response.json();
+    if (
+      response.status !== 200 ||
+      body.message !==
+        "Review release evidence first. The grocery window has passed, and release review fits now." ||
+      providerCalls !== 2 || reservations !== 1 || settlements !== 1
+    ) throw new Error("contradictory response was not repaired exactly once");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 for (
   const failure of [
     401,

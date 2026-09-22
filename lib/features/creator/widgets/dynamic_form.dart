@@ -786,6 +786,12 @@ class _DateField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String displayedValue = selected == null
+        ? emptyLabel
+        : _formatDate(context, selected!, includeTime);
+    final String fieldSemanticLabel = selected == null
+        ? emptyLabel.replaceAll('...', '')
+        : '$label: $displayedValue';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -793,7 +799,7 @@ class _DateField extends StatelessWidget {
         const SizedBox(height: 8),
         SmartPressable(
           onTap: () => _pick(context),
-          semanticLabel: emptyLabel.replaceAll('...', ''),
+          semanticLabel: fieldSemanticLabel,
           child: Container(
             constraints: const BoxConstraints(minHeight: 48),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -808,9 +814,7 @@ class _DateField extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    selected == null
-                        ? emptyLabel
-                        : _formatDate(context, selected!, includeTime),
+                    displayedValue,
                     style: TextStyle(
                       fontSize: 13,
                       color: selected == null

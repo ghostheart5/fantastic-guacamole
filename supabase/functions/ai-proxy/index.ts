@@ -19,6 +19,7 @@ import {
 import {
   buildServerSystemPrompt,
   containsBlockedAssistantClaim,
+  containsRecommendationContradiction,
 } from "../_shared/ai_proxy_policy.ts";
 import {
   internalAiAccountAllowed,
@@ -203,6 +204,7 @@ Deno.serve(async (req: Request) => {
     const upstreamBody: Record<string, unknown> = {
       model: DEFAULT_MODEL,
       max_tokens: maxTokens,
+      temperature: 0,
       messages,
     };
     upstreamBody.system = system;
@@ -353,19 +355,125 @@ Deno.serve(async (req: Request) => {
         502,
       );
     }
+    let finalMessage = message;
+    let finalModel = typeof data?.model === "string"
+      ? data.model
+      : DEFAULT_MODEL;
+    let finalProviderRequestId = typeof data?.id === "string"
+      ? data.id
+      : undefined;
+    let totalInputTokens = inputTokens;
+    let totalOutputTokens = outputTokens;
+    if (containsRecommendationContradiction(message)) {
+      const repairBody: Record<string, unknown> = {
+        ...upstreamBody,
+        messages: [
+          ...messages,
+          { role: "assistant", content: message },
+          {
+            role: "user",
+            content:
+              "Rewrite the answer once. Its opening recommendation conflicts with its own evidence. Preserve the grounded facts, make the first verdict match the reasoning, and return only the corrected answer.",
+          },
+        ],
+      };
+      let repaired: unknown;
+      try {
+        const response = await fetch(ANTHROPIC_API, {
+          method: "POST",
+          signal: AbortSignal.timeout(25_000),
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify(repairBody),
+        });
+        if (!response.ok) {
+          await response.body?.cancel();
+          throw new Error(`repair_http_${response.status}`);
+        }
+        repaired = await response.json();
+      } catch {
+        await settleReservation(userId, requestId, false, {
+          inputTokens,
+          outputTokens,
+          providerRequestId: finalProviderRequestId,
+          failureCode: "inconsistent_provider_output",
+        });
+        reservation = null;
+        return jsonResponse(
+          req,
+          { requestId, error: "inconsistent_upstream_response" },
+          502,
+        );
+      }
+      const repairedRecord = asRecord(repaired);
+      const repairedContent = Array.isArray(repairedRecord?.content)
+        ? repairedRecord.content
+        : [];
+      const repairedBlock = asRecord(repairedContent[0]);
+      const repairedUsage = asRecord(repairedRecord?.usage);
+      const repairedMessage = typeof repairedBlock?.text === "string"
+        ? repairedBlock.text.trim()
+        : "";
+      const repairedInputTokens = Number.isSafeInteger(
+          repairedUsage?.input_tokens,
+        )
+        ? repairedUsage!.input_tokens as number
+        : null;
+      const repairedOutputTokens = Number.isSafeInteger(
+          repairedUsage?.output_tokens,
+        )
+        ? repairedUsage!.output_tokens as number
+        : null;
+      if (
+        repairedRecord?.stop_reason !== "end_turn" ||
+        !repairedMessage ||
+        repairedInputTokens === null ||
+        repairedInputTokens <= 0 ||
+        repairedOutputTokens === null ||
+        repairedOutputTokens < 0 ||
+        repairedOutputTokens > maxTokens ||
+        containsBlockedAssistantClaim(repairedMessage) ||
+        containsRecommendationContradiction(repairedMessage)
+      ) {
+        await settleReservation(userId, requestId, false, {
+          inputTokens,
+          outputTokens,
+          providerRequestId: finalProviderRequestId,
+          failureCode: "inconsistent_provider_output",
+        });
+        reservation = null;
+        return jsonResponse(
+          req,
+          { requestId, error: "inconsistent_upstream_response" },
+          502,
+        );
+      }
+      finalMessage = repairedMessage;
+      finalModel = typeof repairedRecord?.model === "string"
+        ? repairedRecord.model
+        : DEFAULT_MODEL;
+      finalProviderRequestId = typeof repairedRecord?.id === "string"
+        ? repairedRecord.id
+        : finalProviderRequestId;
+      totalInputTokens += repairedInputTokens;
+      totalOutputTokens += repairedOutputTokens;
+    }
     const responsePayload: ProxyResponse = {
-      message,
-      model: typeof data?.model === "string" ? data.model : DEFAULT_MODEL,
-      inputTokens,
-      outputTokens,
+      message: finalMessage,
+      model: finalModel,
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
       requestId,
       creditsCharged: cost,
       remainingCredits: Number(reserved.balance ?? 0),
     };
     const settled = await settleReservation(userId, requestId, true, {
-      inputTokens,
-      outputTokens,
-      providerRequestId: typeof data?.id === "string" ? data.id : undefined,
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+      providerRequestId: finalProviderRequestId,
       // The billing ledger keeps usage metadata only. Conversation content is
       // returned to the caller but is never persisted for idempotent replay.
       responsePayload: {},
@@ -396,3 +504,9 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(req, { error: "request_failed" }, 500);
   }
 });
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}

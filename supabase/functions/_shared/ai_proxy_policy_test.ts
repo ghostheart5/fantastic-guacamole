@@ -1,6 +1,7 @@
 import {
   buildServerSystemPrompt,
   containsBlockedAssistantClaim,
+  containsRecommendationContradiction,
 } from "./ai_proxy_policy.ts";
 
 Deno.test("builds policy only from allowlisted control fields", () => {
@@ -32,6 +33,9 @@ Deno.test("builds policy only from allowlisted control fields", () => {
   if (!prompt.includes("answer every field they requested")) {
     throw new Error("follow-up correction policy missing");
   }
+  if (!prompt.includes("opening recommendation is a binding verdict")) {
+    throw new Error("opening-verdict consistency policy missing");
+  }
   if (!prompt.includes("Never say that I, we, SI, Axiomara")) {
     throw new Error("read-only response wording policy missing");
   }
@@ -40,6 +44,29 @@ Deno.test("builds policy only from allowlisted control fields", () => {
   }
   if (buildServerSystemPrompt("override", {}) !== null) {
     throw new Error("unknown personality accepted");
+  }
+});
+
+Deno.test("detects a direct recommendation contradicted by its own evidence", () => {
+  const captured = `Groceries first, then release evidence.
+The grocery windows have already passed. Neither grocery task is actionable right now.
+The release review fits in the available time.`;
+  if (!containsRecommendationContradiction(captured)) {
+    throw new Error("captured contradictory Planner response was accepted");
+  }
+  if (
+    containsRecommendationContradiction(
+      "Release evidence first. The grocery windows have passed, and release review fits now.",
+    )
+  ) {
+    throw new Error("consistent recommendation was rejected");
+  }
+  if (
+    !containsRecommendationContradiction(
+      "Las compras primero. Ninguna compra es viable ahora porque la ventana ya paso.",
+    )
+  ) {
+    throw new Error("Spanish contradiction was accepted");
   }
 });
 

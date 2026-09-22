@@ -18,6 +18,11 @@ export const AI_PROXY_SYSTEM_POLICY =
   "A missing deadline means only that no deadline is recorded. Never infer " +
   "that delaying has no penalty, no consequences, or no urgency. Ask about " +
   "unrecorded obligations when they affect the recommendation. " +
+  "The opening recommendation is a binding verdict. Never recommend an " +
+  "option first and later call that same option not actionable, unavailable, " +
+  "infeasible, closed, or already past. If the evidence rules out the option " +
+  "you initially considered, rewrite the opening recommendation before " +
+  "responding so the verdict and reasoning agree. " +
   "When contextScope is attachedTaskOnly, use only that task and the current " +
   "conversation; do not claim to have checked other commitments. " +
   "For a timing question, use explicit availability and durations to calculate " +
@@ -104,4 +109,86 @@ export function containsBlockedAssistantClaim(value: string): boolean {
     /\bhidden reasoning\b/,
     /\bchronospark\b/,
   ].some((pattern) => pattern.test(normalized));
+}
+
+export function containsRecommendationContradiction(value: string): boolean {
+  const normalized = value
+    .normalize("NFD")
+    .replaceAll(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replaceAll(/[\u2018\u2019]/g, "'")
+    .replaceAll(/\s+/g, " ")
+    .trim();
+  const opening = normalized.match(
+    /^(.{1,90}?)\s+(?:first|primero|primera)\b/,
+  );
+  if (!opening) return false;
+
+  const candidateTokens = opening[1]
+    .replace(
+      /^(?:do|choose|start|complete|handle|buy|review|work on|haz|elige|empieza|completa|maneja|compra|revisa|trabaja en)\s+/,
+      "",
+    )
+    .split(/[^a-z0-9]+/)
+    .map(stemToken)
+    .filter((token) =>
+      token.length >= 4 && !recommendationStopWords.has(token)
+    );
+  if (candidateTokens.length === 0) return false;
+
+  const rest = normalized.slice(opening[0].length);
+  const clauses = rest.split(/[.!?;,:\n]+|\b(?:and|but|y|pero)\b/);
+  return clauses.some((clause) => {
+    const words = clause.split(/[^a-z0-9']+/).map(stemToken);
+    if (!candidateTokens.some((candidate) => words.includes(candidate))) {
+      return false;
+    }
+    const rulesOut =
+      /\b(?:not|no|neither|cannot|can't|isn't|aren't|unable|unavailable|impossible|ni|ninguno|ninguna|nunca)\b/
+        .test(
+          clause,
+        ) &&
+      /\b(?:actionable|feasible|available|open|possible|ready|fit|fits|window|windows|accionable|viable|disponible|abierto|abierta|posible|listo|lista|encaja|ventana|ventanas)\b/
+        .test(
+          clause,
+        );
+    const passedWindow =
+      /\b(?:window|windows|deadline|deadlines|time|times|ventana|ventanas|plazo|plazos|hora|horas)\b/
+        .test(
+          clause,
+        ) && (/\b(?:has|have|had)\s+(?:already\s+)?passed\b/.test(clause) ||
+          /\b(?:ya\s+)?(?:paso|pasaron|ha\s+pasado|han\s+pasado)\b/.test(
+            clause,
+          ));
+    return rulesOut || passedWindow;
+  });
+}
+
+const recommendationStopWords = new Set([
+  "then",
+  "your",
+  "the",
+  "this",
+  "that",
+  "with",
+  "luego",
+  "despues",
+  "tu",
+  "tus",
+  "el",
+  "la",
+  "los",
+  "las",
+  "este",
+  "esta",
+]);
+
+function stemToken(value: string): string {
+  if (value.endsWith("ies") && value.length > 4) {
+    return `${value.slice(0, -3)}y`;
+  }
+  if (value.endsWith("s") && !value.endsWith("ss") && value.length > 4) {
+    return value.slice(0, -1);
+  }
+  return value;
 }

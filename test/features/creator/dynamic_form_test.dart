@@ -155,6 +155,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
+    expect(
+      find.bySemanticsLabel(RegExp(r'^SCHEDULE: .+')),
+      findsOneWidget,
+      reason: 'The selected date and time must be announced, not just shown.',
+    );
     await tester.ensureVisible(find.text('Add deadline...'));
     await tester.tap(find.text('Add deadline...'));
     await tester.pumpAndSettle();
