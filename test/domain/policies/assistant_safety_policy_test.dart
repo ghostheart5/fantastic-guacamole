@@ -433,6 +433,22 @@ void main() {
     expect(outcome.publishableText, response);
   });
 
+  test('auxiliary departure warning remains valid and intact', () {
+    const String response =
+        'The latest departure is 6:20 PM. '
+        'You should not be leaving at 6:30 PM.';
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(responseText: response),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(
+      outcome.receipt.findingCodes,
+      isNot(contains('contradictory_latest_departure')),
+    );
+    expect(outcome.publishableText, response);
+  });
+
   test('English 24-hour departure contradiction is repaired', () {
     final AssistantSafetyOutcome outcome = pipeline.evaluate(
       _safeReview(
@@ -486,6 +502,24 @@ void main() {
     );
     expect(outcome.publishableText, contains('11:50 PM'));
     expect(outcome.publishableText, isNot(contains('12:10')));
+  });
+
+  test('suffixed departure after a 24-hour bound is repaired', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'The latest departure is 23:50. '
+            'Leave at 12:10 AM.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(
+      outcome.receipt.findingCodes,
+      contains('contradictory_latest_departure'),
+    );
+    expect(outcome.publishableText, contains('23:50'));
+    expect(outcome.publishableText, isNot(contains('12:10 AM')));
   });
 
   test('leave-by-at-latest wording establishes the departure bound', () {

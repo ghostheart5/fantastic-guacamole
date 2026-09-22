@@ -773,7 +773,8 @@ Iterable<_DepartureClock> _leaveByClocks(String value) sync* {
 bool _isNegatedDepartureAdvice(String value, int matchStart) {
   final String prefix = value.substring(0, matchStart).toLowerCase();
   return RegExp(
-    r"\b(?:do\s+not|don't|should\s+not|must\s+not|never|avoid|"
+    r"\b(?:do\s+not|don't|should\s+not(?:\s+be)?|"
+    r'must\s+not(?:\s+be)?|never|avoid|'
     r'no(?:\s+(?:debes|deber[ií]as))?|nunca|evita)\s*$',
   ).hasMatch(prefix);
 }
@@ -818,7 +819,6 @@ bool _occursAfter(_DepartureClock candidate, _DepartureClock latest) {
       latest.suffix == 'p' && candidate.suffix == 'a';
   final bool twentyFourHourMidnightRollover =
       latest.uses24Hour &&
-      candidate.suffix == null &&
       latest.minutes >= 18 * 60 &&
       candidate.minutes < 6 * 60;
   if (explicitMidnightRollover || twentyFourHourMidnightRollover) {
