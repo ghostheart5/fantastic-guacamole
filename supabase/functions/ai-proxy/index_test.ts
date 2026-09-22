@@ -447,6 +447,150 @@ for (const settlementFailure of ["timeout", "network"] as const) {
   });
 }
 
+Deno.test("a lost reconciliation response is retried to an authoritative settlement", async () => {
+  if (!handler) throw new Error("handler was not registered");
+  const originalFetch = globalThis.fetch;
+  let settlementCalls = 0;
+  let refunds = 0;
+  globalThis.fetch = ((url, init) => {
+    const path = String(url);
+    if (path.endsWith("/auth/v1/user")) {
+      return Promise.resolve(
+        Response.json({ id: "11111111-1111-4111-8111-111111111111" }),
+      );
+    }
+    if (path.endsWith("/consume_backend_rate_limit")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
+    if (path.endsWith("/reserve_ai_usage")) {
+      return Promise.resolve(
+        Response.json({ allowed: true, duplicate: false, balance: 83 }),
+      );
+    }
+    if (path.endsWith("/settle_ai_usage")) {
+      const body = JSON.parse(String(init?.body));
+      settlementCalls++;
+      if (body.p_succeeded !== true) {
+        refunds++;
+        return Promise.resolve(Response.json({ state: "refunded" }));
+      }
+      if (settlementCalls <= 2) {
+        return Promise.reject(
+          new TypeError("synthetic lost settlement response"),
+        );
+      }
+      return Promise.resolve(Response.json({ state: "completed" }));
+    }
+    if (path === "https://api.anthropic.com/v1/messages") {
+      return Promise.resolve(Response.json({
+        id: "provider-double-settlement-reconcile",
+        model: "claude-sonnet-4-6",
+        stop_reason: "end_turn",
+        content: [{ type: "text", text: "Review the visible plan." }],
+        usage: { input_tokens: 10, output_tokens: 5 },
+      }));
+    }
+    throw new Error(`unexpected transport target: ${path}`);
+  }) as typeof fetch;
+  try {
+    const input = {
+      requestId: "synthetic-double-settlement-reconcile",
+      prompt: "Review my visible plan.",
+      personality: "planner",
+      context: {},
+      allowExternalAi: true,
+    };
+    const request = (extra: Record<string, unknown>) =>
+      new Request("https://local.example/ai-proxy", {
+        method: "POST",
+        headers: { authorization: "Bearer synthetic-session" },
+        body: JSON.stringify({ ...input, ...extra }),
+      });
+    const quoted = await handler(request({ quoteOnly: true }));
+    const { quote } = await quoted.json();
+    const response = await handler(request({ quote }));
+    const body = await response.json();
+    if (
+      response.status !== 200 ||
+      body.message !== "Review the visible plan." ||
+      settlementCalls !== 3 || refunds !== 0
+    ) {
+      throw new Error("lost reconciliation response was not recovered");
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("an exhausted ambiguous settlement still delivers the paid reply", async () => {
+  if (!handler) throw new Error("handler was not registered");
+  const originalFetch = globalThis.fetch;
+  let settlementCalls = 0;
+  let refunds = 0;
+  globalThis.fetch = ((url, init) => {
+    const path = String(url);
+    if (path.endsWith("/auth/v1/user")) {
+      return Promise.resolve(
+        Response.json({ id: "11111111-1111-4111-8111-111111111111" }),
+      );
+    }
+    if (path.endsWith("/consume_backend_rate_limit")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
+    if (path.endsWith("/reserve_ai_usage")) {
+      return Promise.resolve(
+        Response.json({ allowed: true, duplicate: false, balance: 82 }),
+      );
+    }
+    if (path.endsWith("/settle_ai_usage")) {
+      const body = JSON.parse(String(init?.body));
+      settlementCalls++;
+      if (body.p_succeeded !== true) refunds++;
+      return Promise.reject(
+        new TypeError("synthetic persistent settlement response loss"),
+      );
+    }
+    if (path === "https://api.anthropic.com/v1/messages") {
+      return Promise.resolve(Response.json({
+        id: "provider-ambiguous-settlement-delivery",
+        model: "claude-sonnet-4-6",
+        stop_reason: "end_turn",
+        content: [{ type: "text", text: "Review the visible plan." }],
+        usage: { input_tokens: 10, output_tokens: 5 },
+      }));
+    }
+    throw new Error(`unexpected transport target: ${path}`);
+  }) as typeof fetch;
+  try {
+    const input = {
+      requestId: "synthetic-ambiguous-settlement-delivery",
+      prompt: "Review my visible plan.",
+      personality: "planner",
+      context: {},
+      allowExternalAi: true,
+    };
+    const request = (extra: Record<string, unknown>) =>
+      new Request("https://local.example/ai-proxy", {
+        method: "POST",
+        headers: { authorization: "Bearer synthetic-session" },
+        body: JSON.stringify({ ...input, ...extra }),
+      });
+    const quoted = await handler(request({ quoteOnly: true }));
+    const { quote } = await quoted.json();
+    const response = await handler(request({ quote }));
+    const body = await response.json();
+    if (
+      response.status !== 200 ||
+      body.message !== "Review the visible plan." ||
+      settlementCalls !== 3 || refunds !== 0
+    ) {
+      throw new Error("ambiguous settlement hid or refunded the paid reply");
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 for (
   const failure of [
     401,

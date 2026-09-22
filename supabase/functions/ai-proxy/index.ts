@@ -43,6 +43,7 @@ const MAX_TOKENS = 1024;
 const PROVIDER_FLOW_BUDGET_MS = 20_000;
 const PROVIDER_CALL_CAP_MS = 20_000;
 const SETTLEMENT_TIMEOUT_MS = 8_000;
+const SUCCESS_SETTLEMENT_RECONCILIATION_ATTEMPTS = 2;
 const internalAiCohort = parseInternalAiCohort(
   Deno.env.get("CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS"),
 );
@@ -154,9 +155,32 @@ async function settleSuccessDefinitively(
       throw error;
     }
     // A timeout, abort, or connection reset cannot prove whether PostgreSQL
-    // committed. Reissuing the idempotent settlement without another abort
-    // waits for the row lock and returns the authoritative state.
-    return await settleReservation(userId, requestId, true, details, false);
+    // committed. Reissue the idempotent settlement without another abort so
+    // the row lock returns its authoritative state. A reconciliation response
+    // can be lost too, so repeat that request before giving up certainty.
+    let lastAmbiguousError: unknown = error;
+    for (
+      let attempt = 0;
+      attempt < SUCCESS_SETTLEMENT_RECONCILIATION_ATTEMPTS;
+      attempt++
+    ) {
+      try {
+        return await settleReservation(userId, requestId, true, details, false);
+      } catch (reconciliationError) {
+        if (!isAmbiguousSettlementTransportError(reconciliationError)) {
+          throw reconciliationError;
+        }
+        lastAmbiguousError = reconciliationError;
+      }
+    }
+    throw new SuccessSettlementStillAmbiguousError(lastAmbiguousError);
+  }
+}
+
+class SuccessSettlementStillAmbiguousError extends Error {
+  constructor(override readonly cause: unknown) {
+    super("AI success settlement remained transport-ambiguous");
+    this.name = "SuccessSettlementStillAmbiguousError";
   }
 }
 
@@ -577,14 +601,25 @@ Deno.serve(async (req: Request) => {
       creditsCharged: cost,
       remainingCredits: Number(reserved.balance ?? 0),
     };
-    const settled = await settleSuccessDefinitively(userId, requestId, {
-      inputTokens: totalInputTokens,
-      outputTokens: totalOutputTokens,
-      providerRequestId: finalProviderRequestId,
-      // The billing ledger keeps usage metadata only. Conversation content is
-      // returned to the caller but is never persisted for idempotent replay.
-      responsePayload: {},
-    });
+    let settled: Record<string, unknown> | null;
+    try {
+      settled = await settleSuccessDefinitively(userId, requestId, {
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
+        providerRequestId: finalProviderRequestId,
+        // The billing ledger keeps usage metadata only. Conversation content is
+        // returned to the caller but is never persisted for idempotent replay.
+        responsePayload: {},
+      });
+    } catch (error) {
+      if (!(error instanceof SuccessSettlementStillAmbiguousError)) throw error;
+      // The wallet was already debited by the reservation and every success
+      // settlement attempt may have committed. Never refund an uncertain
+      // success and never hide the generated paid reply from the caller.
+      reservation = null;
+      console.error(error.message);
+      return jsonResponse(req, responsePayload);
+    }
     if (settled?.state !== "completed") {
       return jsonResponse(
         req,
