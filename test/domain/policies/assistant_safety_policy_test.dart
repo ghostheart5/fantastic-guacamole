@@ -106,6 +106,8 @@ void main() {
       'We’ve completed the plan.',
       "I've now scheduled your task.",
       'Axiomara has already updated your plan.',
+      'Axiomara changed your plan.',
+      'I purchased the groceries.',
     ]) {
       final AssistantSafetyOutcome outcome = pipeline.evaluate(
         _safeReview(responseText: '$claim Review the proposed time.'),

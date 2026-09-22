@@ -549,6 +549,8 @@ Deno.serve(async (req: Request) => {
               cost * MAX_PROVIDER_MICROUSD_PER_CREDIT +
               quotedProviderCostMicrousd(repairBody),
           },
+          fetch,
+          AbortSignal.timeout(SETTLEMENT_TIMEOUT_MS),
         );
       } catch (error) {
         // A lost RPC response can follow a committed repair-budget expansion.

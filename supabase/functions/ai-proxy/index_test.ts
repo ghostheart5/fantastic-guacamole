@@ -366,7 +366,14 @@ Deno.test("unknown repair usage preserves the expanded provider reservation", as
   }
 });
 
-for (const budgetFailure of ["denied", "unavailable", "network"] as const) {
+for (
+  const budgetFailure of [
+    "denied",
+    "unavailable",
+    "network",
+    "timeout",
+  ] as const
+) {
   Deno.test(`repair call stops and returns a terminal refund when budget is ${budgetFailure}`, async () => {
     if (!handler) throw new Error("handler was not registered");
     const originalFetch = globalThis.fetch;
@@ -393,6 +400,14 @@ for (const budgetFailure of ["denied", "unavailable", "network"] as const) {
       }
       if (path.endsWith("/reserve_ai_repair_budget")) {
         repairBudgetCalls++;
+        if (budgetFailure === "timeout") {
+          if (!init?.signal) {
+            throw new Error("repair budget timeout is missing");
+          }
+          return Promise.reject(
+            new DOMException("synthetic repair budget timeout", "TimeoutError"),
+          );
+        }
         return budgetFailure === "denied"
           ? Promise.resolve(Response.json({
             allowed: false,

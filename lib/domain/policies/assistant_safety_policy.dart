@@ -484,7 +484,7 @@ bool _claimsCompletedMutation(String value) {
       r"\b((i|we)(?:[’']ve\s+|\s+(?:(has|have)\s+)?)|"
       r'(axiomara|chronospark|the assistant)\s+((has|have)\s+)?)'
       r'((already|now|just|successfully|finally)\s+)?'
-      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b',
     ),
     RegExp(
       r'\b(yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+'
@@ -515,20 +515,20 @@ bool _claimsCompletedMutation(String value) {
       r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
       r'reminder|commitment|milestone|routine)\s+'
       r'(has been|is now)\s+'
-      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b',
     ),
     RegExp(
       r'(^|[.!?]\s+)done(\s*[-—:]\s*|\s*[.!?]\s+)(your|the)\s+'
       r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
       r'reminder|commitment|milestone|routine)\s+is\s+'
-      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b',
     ),
     RegExp(
       r'\b(your|the)\s+'
       r'(tasks|goals|habits|notes|events|plans|schedules|requests|appointments|'
       r'meetings|reminders|commitments|milestones|routines)\s+'
       r'(have been|are now)\s+'
-      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b',
     ),
     RegExp(
       r'\b(tu|su|la|el)\s+'
@@ -552,7 +552,7 @@ bool _claimsCompletedMutation(String value) {
     RegExp(
       r'\bSI\s+((has|have)\s+)?'
       r'((already|now|just|successfully|finally)\s+)?'
-      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b',
     ),
     RegExp(
       r'\bSI\s+((he|ha|hemos|han)\s+)?'
@@ -571,7 +571,7 @@ String _removeUnsupportedMutationClaims(String value) {
       r'(^|(?<=[.!?])\s+)done(\s*[-—:]\s*|\s*[.!?]\s+)(your|the)\s+'
       r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
       r'reminder|commitment|milestone|routine)\s+is\s+'
-      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b'
       r'[^.!?\n]*(?:[.!?]|$)',
       caseSensitive: false,
       multiLine: true,
@@ -581,7 +581,7 @@ String _removeUnsupportedMutationClaims(String value) {
       r"((i|we)(?:[’']ve\s+|\s+(?:(has|have)\s+)?)|"
       r'(axiomara|chronospark|the assistant)\s+((has|have)\s+)?)'
       r'((already|now|just|successfully|finally)\s+)?'
-      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b|'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b|'
       r'(yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+'
       r'((ya|ahora|finalmente)\s+)?'
       r'((te|le|les|se|lo|la|los|las|me|nos)\s+)?'
@@ -599,7 +599,7 @@ String _removeUnsupportedMutationClaims(String value) {
       r'(^|(?<=[.!?])\s+)SI\s+('
       r'((has|have)\s+)?'
       r'((already|now|just|successfully|finally)\s+)?'
-      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b|'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b|'
       r'((he|ha|hemos|han)\s+)?'
       r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
       r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|'
@@ -634,7 +634,7 @@ String _removeUnsupportedMutationClaims(String value) {
       r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
       r'reminder|commitment|milestone|routine)\s+'
       r'(has been|is now)\s+'
-      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b'
       r'[^.!?\n]*(?:[.!?]|$)',
       caseSensitive: false,
       multiLine: true,
@@ -645,7 +645,7 @@ String _removeUnsupportedMutationClaims(String value) {
       r'(tasks|goals|habits|notes|events|plans|schedules|requests|appointments|'
       r'meetings|reminders|commitments|milestones|routines)\s+'
       r'(have been|are now)\s+'
-      r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b'
       r'[^.!?\n]*(?:[.!?]|$)',
       caseSensitive: false,
       multiLine: true,
