@@ -197,6 +197,30 @@ void main() {
   });
 
   test(
+    'an introduced grocery question does not become an asserted objective',
+    () async {
+      final ProviderContainer container = plannerContainer();
+      addTearDown(container.dispose);
+
+      final SmartPlannerResult result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: null,
+            emotion: null,
+            notes: 'Today, do I need groceries before 7 PM?',
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+
+      expect(result.plannerResponse.isClarification, isTrue);
+      expect(
+        result.plannerResponse.toAccessibleText().toLowerCase(),
+        isNot(contains('plan essential groceries before 7 pm')),
+      );
+    },
+  );
+
+  test(
     'an explicit grocery deferral does not become the current action',
     () async {
       final tasks = _MemoryTaskRepository([

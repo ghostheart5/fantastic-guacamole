@@ -97,6 +97,15 @@ The release review fits in the available time.`;
     throw new Error("dummy pronoun was mistaken for the recommendation");
   }
   if (
+    containsRecommendationContradiction(
+      "First, call the dentist. It isn't possible to know the wait time in advance.",
+    )
+  ) {
+    throw new Error(
+      "contracted dummy pronoun was mistaken for the recommendation",
+    );
+  }
+  if (
     !containsRecommendationContradiction(
       "Primero, compra alimentos. Eso no es viable hoy.",
     )

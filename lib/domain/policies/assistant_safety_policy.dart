@@ -753,7 +753,7 @@ _DepartureClock? _latestDepartureClock(String value) {
 Iterable<_DepartureClock> _leaveByClocks(String value) sync* {
   final List<RegExp> patterns = <RegExp>[
     RegExp(
-      r'\bleav(?:e|ing)\s+(?:by|at)\s+(\d{1,2})(?::(\d{2}))?(?:\s*([ap])\.?m\.?)?\b',
+      r'\bleav(?:e|ing)\s+(?:by|at|no\s+later\s+than)\s+(\d{1,2})(?::(\d{2}))?(?:\s*([ap])\.?m\.?)?\b',
       caseSensitive: false,
     ),
     RegExp(

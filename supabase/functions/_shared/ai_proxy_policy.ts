@@ -182,7 +182,7 @@ export function containsRecommendationContradiction(value: string): boolean {
         .test(clause);
     const usesBarePronoun = /\b(?:it|they|eso|esto|ello)\b/.test(clause);
     const usesDummyPronoun =
-      /\bit\s+(?:is|was|may\s+be|might\s+be)\s+(?:not\s+possible|impossible)\s+(?:to|that)\b/
+      /\bit\s+(?:(?:is|was|may\s+be|might\s+be)\s+(?:not\s+possible|impossible)|(?:isn't|wasn't)\s+possible)\s+(?:to|that)\b/
         .test(clause);
     const refersToRecommendation = namesRecommendation ||
       explicitlyReferencesRecommendation ||

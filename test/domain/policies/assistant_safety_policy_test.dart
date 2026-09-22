@@ -417,6 +417,25 @@ void main() {
     expect(outcome.publishableText, isNot(contains('6:30 PM')));
   });
 
+  test('English no-later-than contradiction is repaired', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'The latest departure is 6:20 PM. '
+            'Leave no later than 6:30 PM.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(outcome.receipt.disposition, AssistantSafetyDisposition.repaired);
+    expect(
+      outcome.receipt.findingCodes,
+      contains('contradictory_latest_departure'),
+    );
+    expect(outcome.publishableText, contains('6:20 PM'));
+    expect(outcome.publishableText, isNot(contains('6:30 PM')));
+  });
+
   test('later departure warning remains valid and intact', () {
     const String response =
         'The latest departure is 6:20 PM. '
