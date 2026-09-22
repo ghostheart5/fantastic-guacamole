@@ -134,9 +134,14 @@ export function containsRecommendationContradiction(value: string): boolean {
     .replaceAll(/[\u2018\u2019]/g, "'")
     .replaceAll(/\s+/g, " ")
     .trim();
-  const suffixOpening = normalized.match(
+  const suffixOpeningCandidate = normalized.match(
     /^(.{1,90}?)\s+(?:first|primero|primera)\b/,
   );
+  const suffixOpening = suffixOpeningCandidate &&
+      !/\b(?:is|are|was|were|has|have|had|does|did|closed|opened|arrived|left|started|began|finished|ended|happened|occurred|failed|passed|ran|went|came|became|remained|esta|estan|estaba|estaban|cerro|cerraron|abrio|abrieron|llego|llegaron|salio|salieron|empezo|empezaron|termino|terminaron|fallo|fallaron|paso|pasaron)\b/
+        .test(suffixOpeningCandidate[1])
+    ? suffixOpeningCandidate
+    : null;
   const prefixOpening = normalized.match(
     /^(?:first|primero|primera)\s*,?\s+(.{1,90}?)(?=[.!?;,:]|$)/,
   );

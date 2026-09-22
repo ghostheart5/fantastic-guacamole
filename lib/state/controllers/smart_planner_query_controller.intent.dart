@@ -702,7 +702,7 @@ bool _plannerHistoricalOrUncertain(String text) {
     return true;
   }
   return RegExp(
-    r'\b(?:yesterday|earlier|used to|last time|previously|said|quoted|quote|hypothetical|maybe|perhaps|might|if|not sure|unsure|ayer|antes dije|dije|quiz[aá]s|tal vez|no s[eé]|si pudiera)\b',
+    r'\b(?:yesterday|earlier|used to|last time|previously|said|quoted|quote|hypothetical|maybe|perhaps|might|if|not sure|unsure|(?:i|we)\s+doubt|ayer|antes dije|dije|quiz[aá]s|tal vez|no s[eé]|si pudiera|(?:dudo|dudamos)(?:\s+que)?)\b',
     caseSensitive: false,
   ).hasMatch(text);
 }

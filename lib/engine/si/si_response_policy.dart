@@ -218,8 +218,17 @@ bool containsRecommendationContradiction(String text) {
       .replaceAll(RegExp('[úùüû]'), 'u')
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
+  final RegExpMatch? suffixOpeningCandidate = RegExp(
+    r'^(.{1,90}?)\s+(?:first|primero|primera)\b',
+  ).firstMatch(normalized);
+  final RegExpMatch? suffixOpening =
+      suffixOpeningCandidate != null &&
+          !RegExp(
+            r'\b(?:is|are|was|were|has|have|had|does|did|closed|opened|arrived|left|started|began|finished|ended|happened|occurred|failed|passed|ran|went|came|became|remained|esta|estan|estaba|estaban|cerro|cerraron|abrio|abrieron|llego|llegaron|salio|salieron|empezo|empezaron|termino|terminaron|fallo|fallaron|paso|pasaron)\b',
+          ).hasMatch(suffixOpeningCandidate.group(1)!)
+      ? suffixOpeningCandidate
+      : null;
   final List<RegExp> openings = <RegExp>[
-    RegExp(r'^(.{1,90}?)\s+(?:first|primero|primera)\b'),
     RegExp(r'^(?:first|primero|primera)\s*,?\s+(.{1,90}?)(?=[.!?;,:]|$)'),
     RegExp(r'^(?:start|begin)\s+with\s+(.{1,90}?)(?=[.!?;,:]|$)'),
     RegExp(r'^(?:empieza|comienza)\s+con\s+(.{1,90}?)(?=[.!?;,:]|$)'),
@@ -227,10 +236,12 @@ bool containsRecommendationContradiction(String text) {
       r'^(?:(?:i|we)\s+recommend|(?:my|our)\s+recommendation\s+(?:is|would\s+be)(?:\s+(?:to|that))?|you\s+should|(?:te\s+)?recomiendo|(?:mi|nuestra)\s+recomendacion\s+(?:es|seria)(?:\s+que)?|(?:tu\s+|usted\s+)?deberia(?:s)?)\s+(.{1,90}?)(?=[.!?;,:]|$)',
     ),
   ];
-  RegExpMatch? opening;
-  for (final RegExp pattern in openings) {
-    opening = pattern.firstMatch(normalized);
-    if (opening != null) break;
+  RegExpMatch? opening = suffixOpening;
+  if (opening == null) {
+    for (final RegExp pattern in openings) {
+      opening = pattern.firstMatch(normalized);
+      if (opening != null) break;
+    }
   }
   if (opening == null) return false;
 

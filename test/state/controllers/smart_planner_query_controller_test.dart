@@ -182,6 +182,8 @@ void main() {
       'Can you tell me whether I need groceries before 7 PM?',
       'I wonder whether I need groceries before 7 PM?',
       "I'm wondering if I need groceries before 7 PM?",
+      'I doubt I need groceries before 7 PM.',
+      'We doubt we need groceries before 7 PM.',
     ]) {
       final ProviderContainer container = plannerContainer();
       addTearDown(container.dispose);
@@ -311,6 +313,7 @@ void main() {
       for (final String notes in <String>[
         'Hoy, ¿necesito compras antes de las 7 PM?',
         'Me pregunto si necesito compras antes de las 7 PM?',
+        'Dudo que necesito compras antes de las 7 PM.',
       ]) {
         final ProviderContainer container = plannerContainer();
         addTearDown(container.dispose);

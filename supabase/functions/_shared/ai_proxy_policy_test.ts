@@ -131,6 +131,16 @@ The release review fits in the available time.`;
     );
   }
   if (
+    containsRecommendationContradiction(
+      "The pharmacy closed first. It is closed now.",
+    ) ||
+    containsRecommendationContradiction(
+      "The pharmacy opened first. It is closed now.",
+    )
+  ) {
+    throw new Error("factual chronology was mistaken for a recommendation");
+  }
+  if (
     !containsRecommendationContradiction(
       "Start with groceries. Groceries are not feasible today.",
     )
