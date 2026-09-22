@@ -5,8 +5,10 @@ import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/value_objects/ai_content_report_reason.dart';
+import 'package:fantastic_guacamole/features/permissions/voice_input_consent.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
+import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/ai_content_report_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
@@ -14,6 +16,7 @@ import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
+import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/ui/system/crisis_dialog.dart';
 import 'package:flutter/material.dart';
@@ -41,11 +44,16 @@ class _AssistantConversationScreenState
   final _scenario = TextEditingController();
   final _scroll = ScrollController();
   final List<Map<String, String>> _history = [];
+  VoiceController? _voiceControllerForDispose;
   bool _busy = false;
+  bool _waitIndicatorDismissed = false;
   String? _error;
   ConversationQuote? _pending;
   int _generation = 0;
+  int _operation = 0;
+  Timer? _paidWaitTimer;
   BuildContext? _dialogContext;
+  String _dictationDraftBase = '';
   double? _energy;
   String? _attachedTaskId;
   bool _attachedTaskOnly = true;
@@ -76,6 +84,17 @@ class _AssistantConversationScreenState
 
   @override
   void dispose() {
+    _paidWaitTimer?.cancel();
+    final VoiceController? voiceController = _voiceControllerForDispose;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        if (voiceController != null) {
+          unawaited(voiceController.stopListening());
+        }
+      } on Object {
+        // The provider may have been disposed with an account or app boundary.
+      }
+    });
     final dialog = _dialogContext;
     final route = dialog != null && dialog.mounted
         ? ModalRoute.of(dialog)
@@ -134,7 +153,9 @@ class _AssistantConversationScreenState
 
   Future<void> _send({bool retry = false}) async {
     if (_busy || (!retry && _input.text.trim().isEmpty)) return;
+    _paidWaitTimer?.cancel();
     final generation = _generation;
+    final operation = ++_operation;
     final prompt = retry
         ? _pending?.packet.toJson()['prompt'] as String?
         : _input.text.trim();
@@ -155,9 +176,11 @@ class _AssistantConversationScreenState
     }
     setState(() {
       _busy = true;
+      _waitIndicatorDismissed = false;
       _error = null;
     });
-    bool current() => mounted && generation == _generation;
+    bool current() =>
+        mounted && generation == _generation && operation == _operation;
     try {
       final service = ref.read(conversationServiceProvider);
       var quote = retry ? _pending : null;
@@ -196,9 +219,7 @@ class _AssistantConversationScreenState
               const SizedBox(height: 12),
               SelectableText(prompt),
               ExpansionTile(
-                title: Text(
-                  copy('Included app context', 'Contexto de la app incluido'),
-                ),
+                title: Text(copy('Included app context', 'Contexto incluido')),
                 children: [SelectableText(_contextPreview(packet))],
               ),
             ],
@@ -206,7 +227,12 @@ class _AssistantConversationScreenState
           action: copy('Get credit price', 'Consultar precio'),
         );
         if (!current() || !proceed) return;
-        quote = await service.quote(packet);
+        quote = await service
+            .quote(packet)
+            .timeout(
+              ref.read(conversationRequestTimeoutProvider),
+              onTimeout: () => throw const ConversationFailure('quote_timeout'),
+            );
         if (!current()) return;
         final accepted = await _confirm(
           title: copy('Confirm AI request', 'Confirmar solicitud de IA'),
@@ -224,6 +250,14 @@ class _AssistantConversationScreenState
         if (!current() || !accepted) return;
         _pending = quote;
       }
+      _paidWaitTimer = Timer(ref.read(conversationPaidWaitTimeoutProvider), () {
+        if (!current() || !_busy) return;
+        setState(() {
+          _busy = false;
+          _waitIndicatorDismissed = false;
+          _error = _failureText('request_timeout');
+        });
+      });
       final answer = await service.execute(quote);
       if (!current()) return;
       final review = const AssistantSafetyPipeline().evaluate(
@@ -243,16 +277,17 @@ class _AssistantConversationScreenState
           risk: AssistantSafetyRisk.complex,
         ),
       );
-      if (!review.mayPublish || review.publishableText != answer.text) {
+      if (!review.mayPublish) {
         throw const ConversationFailure('response_withheld');
       }
       setState(() {
         _history.addAll([
           {'role': 'user', 'content': prompt},
-          {'role': 'assistant', 'content': answer.text},
+          {'role': 'assistant', 'content': review.publishableText},
         ]);
         _input.clear();
         _pending = null;
+        _error = null;
       });
       ref.invalidate(aiCreditWalletProvider);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -268,39 +303,132 @@ class _AssistantConversationScreenState
       });
     } on ConversationFailure catch (error) {
       if (!current()) return;
-      setState(() => _error = _failureText(error.code));
+      if (<String>{
+        'daily_budget_exceeded',
+        'insufficient_credits',
+        'credits_exhausted',
+        'request_completed',
+        'request_refunded',
+        'quote_expired',
+        'credit_quote_required',
+        'response_withheld',
+        'unsafe_upstream_response',
+        'inconsistent_upstream_response',
+        'upstream_ai_error',
+        'truncated_upstream_response',
+        'invalid_upstream_response',
+        'empty_upstream_response',
+      }.contains(error.code)) {
+        _pending = null;
+      }
+      _showFailure(_failureText(error.code));
       ref.invalidate(aiCreditWalletProvider);
     } on Object {
       if (!current()) return;
-      setState(
-        () => _error = copy(
+      _showFailure(
+        copy(
           'The AI service did not confirm a reply. Your question is retained. If you already confirmed payment, retry the same request to avoid a second charge.',
           'El servicio de IA no confirmó una respuesta. Tu pregunta se conserva. Si ya confirmaste el pago, reintenta la misma solicitud para evitar otro cobro.',
         ),
       );
     } finally {
-      if (current()) setState(() => _busy = false);
+      _paidWaitTimer?.cancel();
+      _paidWaitTimer = null;
+      if (current()) {
+        setState(() {
+          _busy = false;
+          _waitIndicatorDismissed = false;
+        });
+      }
     }
+  }
+
+  void _showFailure(String message) {
+    setState(() => _error = message);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      unawaited(
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        ),
+      );
+    });
+  }
+
+  void _stopWaiting() {
+    if (!_busy) return;
+    setState(() {
+      if (_pending == null) {
+        _operation++;
+        _busy = false;
+        _error = copy(
+          'Stopped waiting before a paid request was confirmed. Your question is retained.',
+          'Se detuvo la espera antes de confirmar una solicitud de pago. Tu pregunta se conserva.',
+        );
+        return;
+      }
+      _waitIndicatorDismissed = true;
+      _error = copy(
+        'The paid request is still finishing safely. Its confirmed reply will appear here if it arrives. If the wait expires, you can leave or retry this same priced request without another charge.',
+        'La solicitud pagada sigue finalizando de forma segura. La respuesta confirmada aparecerá aquí si llega. Si vence la espera, puedes salir o reintentar esta misma solicitud con precio sin otro cobro.',
+      );
+    });
   }
 
   String _failureText(String code) => switch (code) {
     'insufficient_credits' || 'credits_exhausted' => copy(
-      'You do not have enough AI credits. No model answer was generated.',
-      'No tienes suficientes créditos de IA. No se generó una respuesta del modelo.',
+      'You do not have enough AI credits. No model answer was generated. No credits were charged. Add credits or wait for your allowance, then start a new request and review a new quote.',
+      'No tienes suficientes créditos de IA. No se generó una respuesta del modelo. No se cobraron créditos. Añade créditos o espera tu asignación; después inicia una solicitud nueva y revisa una nueva cotización.',
     ),
     'request_completed' => copy(
-      'The server already completed this request, but its reply is unavailable. It did not charge again. Check your credit balance before starting another request.',
-      'El servidor ya completó esta solicitud, pero la respuesta no está disponible. No se cobró otra vez. Revisa el saldo antes de iniciar otra solicitud.',
+      'The server already completed this request, but its reply is unavailable. It did not charge again. Check your credit balance, then start a new request and review a new quote.',
+      'El servidor ya completó esta solicitud, pero la respuesta no está disponible. No se cobró otra vez. Revisa el saldo, luego inicia una solicitud nueva y revisa una cotización nueva.',
     ),
     'quote_expired' || 'credit_quote_required' => copy(
       'The price expired. Start a new request to review a new quote.',
       'El precio caducó. Inicia otra solicitud para revisar una nueva cotización.',
     ),
+    'quote_timeout' => copy(
+      'The AI service took too long to provide a credit price. No paid request was confirmed. Your question is retained; start a new request to review a fresh quote.',
+      'El servicio de IA tardó demasiado en proporcionar un precio en créditos. No se confirmó ninguna solicitud de pago. Tu pregunta se conserva; inicia una solicitud nueva para revisar una cotización nueva.',
+    ),
+    'request_timeout' => copy(
+      'The AI service took too long to confirm a reply. Your question and the same priced request are retained. Retry the same request to avoid a second charge.',
+      'El servicio de IA tardó demasiado en confirmar una respuesta. Se conservan tu pregunta y la misma solicitud con precio. Reintenta la misma solicitud para evitar un segundo cobro.',
+    ),
+    'daily_budget_exceeded' => copy(
+      'You reached the rolling daily AI safety limit. No credits were charged. Your question is retained, but this priced request cannot be reused. Start a new request and review a new quote after the limit resets.',
+      'Alcanzaste el límite diario móvil de seguridad de IA. No se cobraron créditos. Tu pregunta se conserva, pero esta solicitud con precio no se puede reutilizar. Inicia una solicitud nueva y revisa una nueva cotización cuando se restablezca el límite.',
+    ),
+    'provider_cost_budget_exceeded' => copy(
+      'AI requests are temporarily paused by the service spending limit. No credits were charged. Your question and priced request are retained for a later retry.',
+      'Las solicitudes de IA están pausadas temporalmente por el límite de gasto del servicio. No se cobraron créditos. Se conservan tu pregunta y la solicitud con precio para reintentarlo más tarde.',
+    ),
+    'rate_limit_exceeded' => copy(
+      'Too many AI requests arrived at once. No credits were charged. Your question is retained; wait a moment and try again.',
+      'Llegaron demasiadas solicitudes de IA al mismo tiempo. No se cobraron créditos. Tu pregunta se conserva; espera un momento e inténtalo de nuevo.',
+    ),
+    'request_denied' => copy(
+      'This AI request was denied before processing. No credits were charged. Your question is retained; start a new request or retry after the account limit changes.',
+      'Esta solicitud de IA fue rechazada antes de procesarse. No se cobraron créditos. Tu pregunta se conserva; inicia una solicitud nueva o reintenta cuando cambie el límite de la cuenta.',
+    ),
     'authorization_changed' => copy(
       'Your account or AI consent changed. This request was stopped.',
       'Cambió tu cuenta o consentimiento de IA. Se detuvo esta solicitud.',
     ),
-    'response_withheld' || 'unsafe_upstream_response' => copy(
+    'request_refunded' ||
+    'unsafe_upstream_response' ||
+    'inconsistent_upstream_response' ||
+    'upstream_ai_error' ||
+    'truncated_upstream_response' ||
+    'invalid_upstream_response' ||
+    'empty_upstream_response' => copy(
+      'The request ended without a usable reply and its credits were refunded. No credits were charged. Your question is retained; start a new request and review a new quote.',
+      'La solicitud terminó sin una respuesta utilizable y se reembolsaron sus créditos. No se cobraron créditos. Tu pregunta se conserva; inicia una solicitud nueva y revisa una cotización nueva.',
+    ),
+    'response_withheld' => copy(
       'The reply did not pass the response check. It has not been replaced with a stock answer. Check your credit balance before another request.',
       'La respuesta no superó la comprobación. No se sustituyó por una respuesta prefabricada. Revisa el saldo antes de otra solicitud.',
     ),
@@ -500,11 +628,13 @@ class _AssistantConversationScreenState
       if (previous?.v2Namespace != next.v2Namespace) {
         final dialog = _dialogContext;
         if (dialog != null && dialog.mounted) Navigator.pop(dialog, false);
+        unawaited(ref.read(voiceControllerProvider.notifier).stopListening());
         setState(() {
           _generation++;
           _history.clear();
           _pending = null;
           _input.clear();
+          _dictationDraftBase = '';
           _filter.clear();
           _scenario.clear();
           _attachedTaskId = null;
@@ -514,22 +644,61 @@ class _AssistantConversationScreenState
           _range = SIV2TimeRange.all;
           _sources = SIV2Source.values.toSet();
           _busy = false;
+          _waitIndicatorDismissed = false;
           _error = null;
         });
       }
     });
     final consent = ref.watch(personalizationProfileProvider).externalAiAllowed;
+    final VoiceState voice = ref.watch(voiceControllerProvider);
+    _voiceControllerForDispose = ref.read(voiceControllerProvider.notifier);
+    final bool listening = voice.isListening;
+    ref.listen<VoiceState>(voiceControllerProvider, (previous, next) {
+      if (next.error != null &&
+          next.error != previous?.error &&
+          context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              copy(
+                'Voice input is unavailable. Check microphone permission and try again.',
+                'La entrada de voz no está disponible. Revisa el permiso del micrófono e inténtalo de nuevo.',
+              ),
+            ),
+          ),
+        );
+      }
+      final bool stoppedListening =
+          (previous?.isListening ?? false) && !next.isListening;
+      if ((next.isListening || stoppedListening) &&
+          next.recognizedText.trim().isNotEmpty) {
+        final String transcript = next.recognizedText.trim();
+        final String combined = <String>[
+          if (_dictationDraftBase.trim().isNotEmpty) _dictationDraftBase.trim(),
+          transcript,
+        ].join(' ').trim();
+        _input
+          ..text = combined
+          ..selection = TextSelection.collapsed(offset: combined.length);
+      }
+      if (stoppedListening) {
+        _dictationDraftBase = '';
+        ref.read(voiceControllerProvider.notifier).clearRecognizedText();
+      }
+    });
     final planner = widget.surface == ConversationSurface.planner;
     final tasks = planner
         ? ref.watch(siV2EvidenceSnapshotProvider).asData?.value.tasks
         : null;
     final enabled = consent && !_busy && _pending == null;
-    return Scaffold(
+    final scaffold = Scaffold(
       backgroundColor: const Color(0xFF07111C),
       appBar: AppBar(
         title: Text(planner ? 'Smart Planner' : 'SI Console'),
         leading: BackButton(
-          onPressed: () => goToAppView(context, ref, AppView.nexus),
+          onPressed: _busy
+              ? null
+              : () => goToAppView(context, ref, AppView.nexus),
         ),
         actions: [
           IconButton(
@@ -820,18 +989,36 @@ class _AssistantConversationScreenState
                       ),
                     ),
                   ),
-                  if (_busy)
+                  if (_busy && !_waitIndicatorDismissed)
                     Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const CircularProgressIndicator(),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              copy(
-                                'Preparing your response…',
-                                'Preparando tu respuesta…',
+                          Row(
+                            children: [
+                              const SizedBox.square(
+                                dimension: 36,
+                                child: CircularProgressIndicator(),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Text(
+                                  copy(
+                                    'Preparing your response…',
+                                    'Preparando tu respuesta…',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: TextButton(
+                              key: const Key('conversation-stop-waiting'),
+                              onPressed: _stopWaiting,
+                              child: Text(
+                                copy('Stop waiting', 'Dejar de esperar'),
                               ),
                             ),
                           ),
@@ -840,6 +1027,7 @@ class _AssistantConversationScreenState
                     ),
                   if (_error != null)
                     Padding(
+                      key: const Key('conversation-error'),
                       padding: const EdgeInsets.all(12),
                       child: Text(
                         _error!,
@@ -903,6 +1091,7 @@ class _AssistantConversationScreenState
                       key: const Key('conversation-input'),
                       controller: _input,
                       enabled: enabled,
+                      readOnly: listening,
                       minLines: 1,
                       maxLines: 5,
                       maxLength: 4000,
@@ -916,9 +1105,53 @@ class _AssistantConversationScreenState
                     ),
                   ),
                   const SizedBox(width: 8),
+                  if (ref.watch(voiceInputEnabledProvider)) ...[
+                    IconButton(
+                      tooltip: copy(
+                        listening ? 'Stop voice input' : 'Start voice input',
+                        listening
+                            ? 'Detener entrada de voz'
+                            : 'Iniciar entrada de voz',
+                      ),
+                      onPressed: !enabled && !listening
+                          ? null
+                          : () async {
+                              if (listening) {
+                                await ref
+                                    .read(voiceControllerProvider.notifier)
+                                    .stopListening();
+                                return;
+                              }
+                              final VoiceController voiceController = ref.read(
+                                voiceControllerProvider.notifier,
+                              );
+                              _dictationDraftBase = _input.text;
+                              final int revision =
+                                  voiceController.lifecycleRevision;
+                              await startVoiceInputWithConsent(
+                                context: context,
+                                onStart: () => voiceController.startListening(
+                                  localeId: Localizations.localeOf(
+                                    context,
+                                  ).toLanguageTag(),
+                                ),
+                                consentStore: ref.read(
+                                  voiceInputConsentStoreProvider,
+                                ),
+                                isCurrentRequest: () =>
+                                    voiceController.lifecycleRevision ==
+                                    revision,
+                              );
+                            },
+                      icon: Icon(
+                        listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
                   IconButton(
                     tooltip: copy('Send to AI', 'Enviar a IA'),
-                    onPressed: enabled ? () => _send() : null,
+                    onPressed: enabled && !listening ? () => _send() : null,
                     icon: const Icon(Icons.send_rounded),
                   ),
                 ],
@@ -928,6 +1161,7 @@ class _AssistantConversationScreenState
         ),
       ),
     );
+    return PopScope(canPop: !_busy, child: scaffold);
   }
 
   String _intentLabel(SIV2Intent value) => switch (value) {

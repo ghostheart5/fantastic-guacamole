@@ -11,6 +11,8 @@ import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
@@ -18,11 +20,14 @@ import 'package:fantastic_guacamole/state/providers/assistant_release_provider.d
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/internal_credit_test_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
+import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -56,6 +61,9 @@ ProviderContainer setup(
   SIV2ReadGateway? readGateway,
   ITaskRepository? taskRepository,
   ConsentedHumanContext? humanContext,
+  VoiceController? voiceController,
+  Duration? requestTimeout,
+  Duration? paidWaitTimeout,
 }) => ProviderContainer(
   overrides: [
     accountStorageScopeProvider.overrideWith(
@@ -65,6 +73,10 @@ ProviderContainer setup(
     assistantConversationAvailableProvider.overrideWithValue(true),
     personalizationProfileProvider.overrideWith(_Consent.new),
     conversationTransportProvider.overrideWithValue(transport),
+    if (requestTimeout != null)
+      conversationRequestTimeoutProvider.overrideWithValue(requestTimeout),
+    if (paidWaitTimeout != null)
+      conversationPaidWaitTimeoutProvider.overrideWithValue(paidWaitTimeout),
     siV2ReadGatewayProvider.overrideWithValue(readGateway ?? gateway),
     siV2EvidenceSnapshotProvider.overrideWith(
       (ref) => (readGateway ?? gateway).read(observedAt: DateTime.now()),
@@ -81,6 +93,14 @@ ProviderContainer setup(
         taskId: 'grocery',
       ),
     ),
+    if (voiceController != null)
+      voiceInputEnabledProvider.overrideWithValue(true),
+    if (voiceController != null)
+      voiceControllerProvider.overrideWith(() => voiceController),
+    if (voiceController != null)
+      voiceInputConsentStoreProvider.overrideWithValue(
+        VoiceInputConsentStore(const AccountStorageScope.unsafe()),
+      ),
     for (final capability in [
       AssistantReleaseCapability.smartPlannerV2,
       AssistantReleaseCapability.siConsoleV2,
@@ -102,6 +122,16 @@ ProviderContainer setup(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('conversation deadline precedes the production transport deadline', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    expect(
+      container.read(conversationRequestTimeoutProvider),
+      lessThan(internalCreditTestQuoteTransportTimeout),
+    );
+  });
   for (final surface in ConversationSurface.values) {
     for (final scale in [1.0, 1.6]) {
       testWidgets('expanded $surface floating label is not clipped at $scale', (
@@ -402,6 +432,379 @@ void main() {
     expect(finder, findsOneWidget);
   }
 
+  testWidgets('Spanish conversation dictation requests Spanish recognition', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final voice = _ConversationVoiceController();
+    final container = setup(
+      (_) async => throw StateError('Dictation must not send a request'),
+      voiceController: voice,
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          locale: const Locale('es'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            ChronoSparkLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Iniciar entrada de voz'));
+    await tester.pumpAndSettle();
+    final agree = find.text('Aceptar y dictar');
+    await tester.ensureVisible(agree);
+    await tester.tap(agree);
+    await tester.pumpAndSettle();
+
+    expect(voice.lastLocaleId, 'es');
+    expect(voice.starts, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final failure in <String, String>{
+    'daily_budget_exceeded': 'rolling daily AI safety limit',
+    'insufficient_credits': 'not have enough AI credits',
+    'credits_exhausted': 'not have enough AI credits',
+    'request_denied': 'denied before processing',
+    'provider_cost_budget_exceeded': 'service spending limit',
+    'rate_limit_exceeded': 'Too many AI requests',
+    'request_completed': 'server already completed',
+    'request_refunded': 'credits were refunded',
+    'unsafe_upstream_response': 'credits were refunded',
+    'inconsistent_upstream_response': 'credits were refunded',
+    'upstream_ai_error': 'credits were refunded',
+    'truncated_upstream_response': 'credits were refunded',
+    'invalid_upstream_response': 'credits were refunded',
+    'empty_upstream_response': 'credits were refunded',
+  }.entries) {
+    testWidgets(
+      '${failure.key} is visible, explains no charge and gives the valid next action',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final container = setup(
+          (body) async => (
+            status: body['quoteOnly'] == true ? 200 : 429,
+            data: body['quoteOnly'] == true
+                ? <String, dynamic>{
+                    'requestId': body['requestId'],
+                    'quote': <String, dynamic>{
+                      'credits': 4,
+                      'digest': 'fixture',
+                      'proof': 'fixture',
+                      'policy': 'fixture',
+                      'expiresAt': DateTime.now()
+                          .add(const Duration(minutes: 5))
+                          .millisecondsSinceEpoch,
+                    },
+                  }
+                : <String, dynamic>{'error': failure.key},
+          ),
+        );
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: ThemeData.dark(),
+              home: AssistantConversationScreen(
+                surface: ConversationSurface.si,
+                onLocalTools: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('conversation-input')),
+          'Keep this question for a safe retry.',
+        );
+        await tester.tap(find.byTooltip('Send to AI'));
+        await waitFor(tester, find.text('Get credit price'));
+        await tester.tap(find.text('Get credit price'));
+        await waitFor(tester, find.text('Use 4 credits'));
+        await tester.tap(find.text('Use 4 credits'));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('conversation-error')), findsOneWidget);
+        expect(find.textContaining(failure.value), findsOneWidget);
+        if (failure.key == 'request_completed') {
+          expect(find.textContaining('did not charge again'), findsOneWidget);
+        } else {
+          expect(
+            find.textContaining('No credits were charged'),
+            findsOneWidget,
+          );
+        }
+        if (<String>{
+          'daily_budget_exceeded',
+          'insufficient_credits',
+          'credits_exhausted',
+          'request_completed',
+          'request_refunded',
+          'unsafe_upstream_response',
+          'inconsistent_upstream_response',
+          'upstream_ai_error',
+          'truncated_upstream_response',
+          'invalid_upstream_response',
+          'empty_upstream_response',
+        }.contains(failure.key)) {
+          expect(find.text('Retry same request'), findsNothing);
+          expect(find.textContaining('new request'), findsOneWidget);
+          expect(find.textContaining('new quote'), findsOneWidget);
+        } else {
+          expect(find.text('Retry same request'), findsOneWidget);
+        }
+        expect(
+          tester
+              .widget<TextField>(find.byKey(const Key('conversation-input')))
+              .controller!
+              .text,
+          'Keep this question for a safe retry.',
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final failure in <String, String>{
+    'quote_expired': 'price expired',
+    'credit_quote_required': 'price expired',
+    'response_withheld': 'did not pass the response check',
+  }.entries) {
+    testWidgets('${failure.key} unlocks a fresh request', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final container = setup(
+        (body) async => (
+          status: body['quoteOnly'] == true ? 200 : 409,
+          data: body['quoteOnly'] == true
+              ? <String, dynamic>{
+                  'requestId': body['requestId'],
+                  'quote': <String, dynamic>{
+                    'credits': 4,
+                    'digest': 'fixture',
+                    'proof': 'fixture',
+                    'policy': 'fixture',
+                    'expiresAt': DateTime.now()
+                        .add(const Duration(minutes: 5))
+                        .millisecondsSinceEpoch,
+                  },
+                }
+              : <String, dynamic>{'error': failure.key},
+        ),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Keep this question for a fresh request.',
+      );
+      await tester.tap(find.byTooltip('Send to AI'));
+      await waitFor(tester, find.text('Get credit price'));
+      await tester.tap(find.text('Get credit price'));
+      await waitFor(tester, find.text('Use 4 credits'));
+      await tester.tap(find.text('Use 4 credits'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining(failure.value), findsOneWidget);
+      expect(find.text('Retry same request'), findsNothing);
+      final input = tester.widget<TextField>(
+        find.byKey(const Key('conversation-input')),
+      );
+      expect(input.enabled, isTrue);
+      expect(input.controller!.text, 'Keep this question for a fresh request.');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'Spanish daily AI limit is readable at 150 percent and requires a new request',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final container = setup(
+        (body) async => (
+          status: body['quoteOnly'] == true ? 200 : 429,
+          data: body['quoteOnly'] == true
+              ? <String, dynamic>{
+                  'requestId': body['requestId'],
+                  'quote': <String, dynamic>{
+                    'credits': 4,
+                    'digest': 'fixture',
+                    'proof': 'fixture',
+                    'policy': 'fixture',
+                    'expiresAt': DateTime.now()
+                        .add(const Duration(minutes: 5))
+                        .millisecondsSinceEpoch,
+                  },
+                }
+              : <String, dynamic>{'error': 'daily_budget_exceeded'},
+        ),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: const Locale('es'),
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              ChronoSparkLocalizations.delegate,
+              ...GlobalMaterialLocalizations.delegates,
+            ],
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(1.5)),
+              child: child!,
+            ),
+            theme: ThemeData.dark(),
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: 'initial Spanish layout');
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Conserva esta pregunta para reintentar.',
+      );
+      await tester.tap(find.byTooltip('Enviar a IA'));
+      await waitFor(tester, find.text('Consultar precio'));
+      expect(tester.takeException(), isNull, reason: 'disclosure dialog');
+      await tester.tap(find.text('Consultar precio'));
+      await waitFor(tester, find.text('Usar 4 créditos'));
+      expect(tester.takeException(), isNull, reason: 'price dialog');
+      await tester.tap(find.text('Usar 4 créditos'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('conversation-error')), findsOneWidget);
+      expect(find.textContaining('límite diario móvil'), findsOneWidget);
+      expect(find.textContaining('No se cobraron créditos'), findsOneWidget);
+      expect(find.text('Reintentar la misma solicitud'), findsNothing);
+      expect(find.textContaining('no se puede reutilizar'), findsOneWidget);
+      expect(find.textContaining('Inicia una solicitud nueva'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: 'failure presentation');
+    },
+  );
+
+  testWidgets(
+    'Spanish insufficient credits preserves input and requires a new quote',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final container = setup(
+        (body) async => (
+          status: body['quoteOnly'] == true ? 200 : 402,
+          data: body['quoteOnly'] == true
+              ? <String, dynamic>{
+                  'requestId': body['requestId'],
+                  'quote': <String, dynamic>{
+                    'credits': 4,
+                    'digest': 'fixture',
+                    'proof': 'fixture',
+                    'policy': 'fixture',
+                    'expiresAt': DateTime.now()
+                        .add(const Duration(minutes: 5))
+                        .millisecondsSinceEpoch,
+                  },
+                }
+              : <String, dynamic>{'error': 'insufficient_credits'},
+        ),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: const Locale('es'),
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              ChronoSparkLocalizations.delegate,
+              ...GlobalMaterialLocalizations.delegates,
+            ],
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Conserva esta pregunta.',
+      );
+      await tester.tap(find.byTooltip('Enviar a IA'));
+      await waitFor(tester, find.text('Consultar precio'));
+      await tester.tap(find.text('Consultar precio'));
+      await waitFor(tester, find.text('Usar 4 créditos'));
+      await tester.tap(find.text('Usar 4 créditos'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('No tienes suficientes créditos'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('No se cobraron créditos'), findsOneWidget);
+      expect(find.text('Reintentar la misma solicitud'), findsNothing);
+      expect(find.textContaining('solicitud nueva'), findsOneWidget);
+      expect(find.textContaining('cotización'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('conversation-input')))
+            .controller!
+            .text,
+        'Conserva esta pregunta.',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test(
     'packet preserves an attached grocery task, note and clock fields',
     () async {
@@ -465,6 +868,83 @@ void main() {
   );
 
   for (final surface in ConversationSurface.values) {
+    testWidgets(
+      '${surface.name} dictation requires consent, fills the draft and never auto-sends',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        final voice = _ConversationVoiceController();
+        final sent = <Map<String, dynamic>>[];
+        final container = setup((body) async {
+          sent.add(body);
+          throw StateError('Dictation must not send an AI request');
+        }, voiceController: voice);
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump();
+          container.dispose();
+        });
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: AssistantConversationScreen(
+                surface: surface,
+                onLocalTools: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('conversation-input')),
+          'Groceries',
+        );
+        await tester.tap(find.byTooltip('Start voice input'));
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('may send audio to its servers'),
+          findsOneWidget,
+        );
+        final Finder agree = find.text('Agree and dictate');
+        await tester.ensureVisible(agree);
+        await tester.tap(agree);
+        await tester.pumpAndSettle();
+        expect(voice.starts, 1);
+
+        voice.emitTranscript('before 7 pm', listening: true);
+        await tester.pump();
+        final Finder input = find.byKey(const Key('conversation-input'));
+        expect(
+          tester.widget<TextField>(input).controller!.text,
+          'Groceries before 7 pm',
+        );
+        expect(tester.widget<TextField>(input).readOnly, isTrue);
+        expect(
+          tester
+              .widget<IconButton>(
+                find.widgetWithIcon(IconButton, Icons.send_rounded),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(sent, isEmpty);
+
+        voice.emitTranscript('before 7 pm', listening: false);
+        await tester.pump();
+        expect(tester.widget<TextField>(input).readOnly, isFalse);
+        expect(
+          tester.widget<TextField>(input).controller!.text,
+          'Groceries before 7 pm',
+        );
+        expect(sent, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     testWidgets(
       '${surface.name} obtains consent and price then sends a real conversation payload',
       (tester) async {
@@ -599,6 +1079,430 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'dictation uses the replacement voice controller after provider invalidation',
+    (tester) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      final voice = _ConversationVoiceController();
+      final container = setup(
+        (_) async => throw StateError('Dictation must not send'),
+        voiceController: voice,
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final revision = voice.lifecycleRevision;
+      container.invalidate(voiceControllerProvider);
+      await tester.pumpAndSettle();
+      expect(voice.lifecycleRevision, isNot(revision));
+
+      await tester.tap(find.byTooltip('Start voice input'));
+      await tester.pumpAndSettle();
+      final agree = find.text('Agree and dictate');
+      await tester.ensureVisible(agree);
+      await tester.tap(agree);
+      await tester.pumpAndSettle();
+
+      expect(voice.starts, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('SI publishes the safe remainder of a repaired model reply', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final container = setup((body) async {
+      return (
+        status: 200,
+        data: body['quoteOnly'] == true
+            ? {
+                'requestId': body['requestId'],
+                'quote': {
+                  'credits': 4,
+                  'digest': 'fixture',
+                  'proof': 'fixture',
+                  'policy': 'fixture',
+                  'expiresAt': DateTime.now()
+                      .add(const Duration(minutes: 5))
+                      .millisecondsSinceEpoch,
+                },
+              }
+            : {
+                'requestId': body['requestId'],
+                'message':
+                    'SI has completed the comparison. '
+                    'With 35 minutes, finish at 7:15 PM. '
+                    'With 20 minutes, finish at 7:00 PM with zero buffer.',
+                'creditsCharged': 4,
+                'remainingCredits': 20,
+                'model': 'transport-fixture',
+              },
+      );
+    });
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'Compare the grocery timing.',
+    );
+    await tester.tap(find.byTooltip('Send to AI'));
+    await waitFor(tester, find.text('Get credit price'));
+    await tester.tap(find.text('Get credit price'));
+    await waitFor(tester, find.text('Use 4 credits'));
+    await tester.tap(find.text('Use 4 credits'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('SI has completed'), findsNothing);
+    expect(find.textContaining('finish at 7:15 PM'), findsOneWidget);
+    expect(find.textContaining('finish at 7:00 PM'), findsOneWidget);
+    expect(
+      find.textContaining('did not pass the response check'),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'paid conversation continues beyond the quote deadline and publishes',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final never = Completer<({int status, Map<String, dynamic> data})>();
+      final sent = <Map<String, dynamic>>[];
+      final container = setup((body) async {
+        sent.add(body);
+        if (body['quoteOnly'] != true) return never.future;
+        return (
+          status: 200,
+          data: <String, dynamic>{
+            'requestId': body['requestId'],
+            'quote': <String, dynamic>{
+              'credits': 4,
+              'digest': 'fixture',
+              'proof': 'fixture',
+              'policy': 'fixture',
+              'expiresAt': DateTime.now()
+                  .add(const Duration(minutes: 5))
+                  .millisecondsSinceEpoch,
+            },
+          },
+        );
+      }, requestTimeout: const Duration(milliseconds: 100));
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Compare my two options.',
+      );
+      await tester.tap(find.byTooltip('Send to AI'));
+      await waitFor(tester, find.text('Get credit price'));
+      await tester.tap(find.text('Get credit price'));
+      await waitFor(tester, find.text('Use 4 credits'));
+      await tester.tap(find.text('Use 4 credits'));
+      await tester.pump();
+      expect(find.text('Stop waiting'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 101));
+      await tester.pump();
+
+      expect(find.textContaining('took too long'), findsNothing);
+      expect(find.text('Stop waiting'), findsOneWidget);
+      expect(sent, hasLength(2));
+      never.complete((
+        status: 200,
+        data: <String, dynamic>{
+          'requestId': sent.last['requestId'],
+          'message': 'The authoritative paid reply arrived safely.',
+          'model': 'synthetic-model',
+          'creditsCharged': 4,
+          'remainingCredits': 16,
+        },
+      ));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('The authoritative paid reply arrived safely.'),
+        findsOneWidget,
+      );
+      expect(find.text('Retry same request'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'quote timeout preserves the question and requires a fresh quote',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final never = Completer<({int status, Map<String, dynamic> data})>();
+      final container = setup(
+        (_) => never.future,
+        requestTimeout: const Duration(milliseconds: 100),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Keep this question while the quote times out.',
+      );
+      await tester.tap(find.byTooltip('Send to AI'));
+      await waitFor(tester, find.text('Get credit price'));
+      await tester.tap(find.text('Get credit price'));
+      await tester.pump(const Duration(milliseconds: 101));
+      await tester.pump();
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('conversation-error')),
+          matching: find.textContaining('credit price'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('No paid request was confirmed'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('fresh quote'), findsOneWidget);
+      expect(find.text('Retry same request'), findsNothing);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('conversation-input')))
+            .controller!
+            .text,
+        'Keep this question while the quote times out.',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('stop waiting preserves and publishes the paid late reply', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final never = Completer<({int status, Map<String, dynamic> data})>();
+    String? executedRequestId;
+    final container = setup((body) async {
+      if (body['quoteOnly'] != true) {
+        executedRequestId = body['requestId'] as String?;
+        return never.future;
+      }
+      return (
+        status: 200,
+        data: <String, dynamic>{
+          'requestId': body['requestId'],
+          'quote': <String, dynamic>{
+            'credits': 4,
+            'digest': 'fixture',
+            'proof': 'fixture',
+            'policy': 'fixture',
+            'expiresAt': DateTime.now()
+                .add(const Duration(minutes: 5))
+                .millisecondsSinceEpoch,
+          },
+        },
+      );
+    }, requestTimeout: const Duration(minutes: 1));
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: ThemeData.dark(),
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'Compare my two options.',
+    );
+    await tester.tap(find.byTooltip('Send to AI'));
+    await waitFor(tester, find.text('Get credit price'));
+    await tester.tap(find.text('Get credit price'));
+    await waitFor(tester, find.text('Use 4 credits'));
+    await tester.tap(find.text('Use 4 credits'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('conversation-stop-waiting')));
+    await tester.pump();
+
+    expect(
+      find.textContaining('paid request is still finishing safely'),
+      findsOneWidget,
+    );
+    expect(find.text('Retry same request'), findsNothing);
+    expect(find.text('Preparing your response…'), findsNothing);
+    expect(tester.takeException(), isNull);
+    never.complete((
+      status: 200,
+      data: <String, dynamic>{
+        'requestId': executedRequestId,
+        'message': 'The late paid response is preserved.',
+        'creditsCharged': 4,
+        'remainingCredits': 20,
+        'model': 'transport-fixture',
+      },
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('The late paid response is preserved.'), findsOneWidget);
+    expect(find.textContaining('still finishing safely'), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('conversation-input')))
+          .readOnly,
+      isFalse,
+    );
+  });
+
+  testWidgets('paid execution releases a stuck screen and keeps a late reply', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final never = Completer<({int status, Map<String, dynamic> data})>();
+    String? executedRequestId;
+    final container = setup((body) async {
+      if (body['quoteOnly'] != true) {
+        executedRequestId = body['requestId'] as String?;
+        return never.future;
+      }
+      return (
+        status: 200,
+        data: <String, dynamic>{
+          'requestId': body['requestId'],
+          'quote': <String, dynamic>{
+            'credits': 4,
+            'digest': 'fixture',
+            'proof': 'fixture',
+            'policy': 'fixture',
+            'expiresAt': DateTime.now()
+                .add(const Duration(minutes: 5))
+                .millisecondsSinceEpoch,
+          },
+        },
+      );
+    }, paidWaitTimeout: const Duration(milliseconds: 100));
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'Compare my two options.',
+    );
+    await tester.tap(find.byTooltip('Send to AI'));
+    await waitFor(tester, find.text('Get credit price'));
+    await tester.tap(find.text('Get credit price'));
+    await waitFor(tester, find.text('Use 4 credits'));
+    await tester.tap(find.text('Use 4 credits'));
+    await tester.pump();
+    expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, isFalse);
+
+    await tester.pump(const Duration(milliseconds: 101));
+    await tester.pump();
+    expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, isTrue);
+    expect(find.text('Retry same request'), findsOneWidget);
+    expect(
+      find.textContaining('took too long to confirm a reply'),
+      findsOneWidget,
+    );
+
+    never.complete((
+      status: 200,
+      data: <String, dynamic>{
+        'requestId': executedRequestId,
+        'message': 'The late paid response arrived.',
+        'creditsCharged': 4,
+        'remainingCredits': 20,
+        'model': 'transport-fixture',
+      },
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('The late paid response arrived.'), findsOneWidget);
+    expect(find.text('Retry same request'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('real conversation Advanced fields survive a phone keyboard', (
     tester,
@@ -761,6 +1665,40 @@ class _Boundary extends AuthSessionBoundaryNotifier {
     isTransitioning: false,
     isStorageReady: true,
   );
+}
+
+final class _ConversationVoiceController extends VoiceController {
+  int starts = 0;
+  int stops = 0;
+  int revision = 0;
+  String? lastLocaleId;
+
+  @override
+  int get lifecycleRevision => revision;
+
+  @override
+  VoiceState build() {
+    revision++;
+    ref.onDispose(() => revision++);
+    return const VoiceState();
+  }
+
+  @override
+  Future<void> startListening({String? localeId}) async {
+    starts++;
+    lastLocaleId = localeId;
+    state = state.copyWith(isAvailable: true, isListening: true);
+  }
+
+  @override
+  Future<void> stopListening() async {
+    stops++;
+    state = state.copyWith(isListening: false);
+  }
+
+  void emitTranscript(String text, {required bool listening}) {
+    state = state.copyWith(isListening: listening, recognizedText: text);
+  }
 }
 
 class _Tasks implements ITaskRepository {

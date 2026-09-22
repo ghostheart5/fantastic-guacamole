@@ -86,7 +86,8 @@ final class _PlannerConversationContext {
     int? priorTimeLimitSeconds = currentUserContext?.timeLimitSeconds;
     if (currentUserContext == null) {
       for (final turn in boundedPrior) {
-        if (priorSubject.isEmpty || !_continuesPlannerObjective(turn)) {
+        if (priorSubject.isEmpty ||
+            !_continuesPlannerObjective(turn, priorSubject: priorSubject)) {
           priorSubject = turn;
           retainedConstraints.clear();
           priorTimeLimitMinutes = _explicitPlanningTimeLimit(turn);
@@ -104,7 +105,10 @@ final class _PlannerConversationContext {
         isFollowUp &&
         priorSubject.isNotEmpty &&
         (declineOnly ||
-            _continuesPlannerObjective(normalizedInput) ||
+            _continuesPlannerObjective(
+              normalizedInput,
+              priorSubject: priorSubject,
+            ) ||
             respondingToPlanQuestion &&
                 _repeatsPlannerObjective(normalizedInput, priorSubject) ||
             respondingToPlanQuestion &&
@@ -220,7 +224,7 @@ bool _optsIntoSavedContext(String input) =>
     ).hasMatch(input) &&
     !_negatedPlannerClause(input);
 
-bool _continuesPlannerObjective(String input) {
+bool _continuesPlannerObjective(String input, {String priorSubject = ''}) {
   if (_plannerFollowUpKind(input) != null) return true;
   // A named new action wins over a loose pronoun such as "this evening".
   if (_extractPlannerAction(input) != null ||
@@ -230,13 +234,20 @@ bool _continuesPlannerObjective(String input) {
       ).hasMatch(input)) {
     return false;
   }
-  return _declinesSavedChoice(input) ||
+  final generalContinuation =
+      _declinesSavedChoice(input) ||
       _explicitPlanningTimeLimit(input) != null ||
       _negatedPlannerClause(input) ||
       RegExp(
         r'\b(it|that|those|these|earlier|previous|smaller|shorter|instead|tomorrow|interruptions|interrupciones|eso|anterior|menos|mañana)\b|^why\b|^por qu[eé]\b|^can you make\b|^make this\b|^this (?:one|plan)\b|^(?:keep|mant[eé]n)\b',
         caseSensitive: false,
       ).hasMatch(input);
+  if (generalContinuation) return true;
+  final groceryContinuation = RegExp(
+    r'\b(?:grocer(?:y|ies)|compras|comida)\b[^.!?;]{0,55}\b(?:essential|store closes|closes at|esencial|cierra)\b',
+    caseSensitive: false,
+  ).hasMatch(input);
+  return groceryContinuation && _plannerCurrentGroceryContext(priorSubject);
 }
 
 bool _repeatsPlannerObjective(String input, String priorSubject) {

@@ -175,6 +175,526 @@ void main() {
     },
   );
 
+  test('a grocery question does not become an asserted objective', () async {
+    for (final String notes in <String>[
+      'Do I need groceries before 7 PM?',
+      'Do you think I need groceries before 7 PM?',
+      'Can you tell me whether I need groceries before 7 PM?',
+      'I wonder whether I need groceries before 7 PM?',
+      "I'm wondering if I need groceries before 7 PM?",
+      'I doubt I need groceries before 7 PM.',
+      'We doubt we need groceries before 7 PM.',
+    ]) {
+      final ProviderContainer container = plannerContainer();
+      addTearDown(container.dispose);
+
+      final SmartPlannerResult result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: null,
+            emotion: null,
+            notes: notes,
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+
+      expect(result.plannerResponse.isClarification, isTrue, reason: notes);
+      expect(
+        result.plannerResponse.toAccessibleText().toLowerCase(),
+        isNot(contains('plan essential groceries before 7 pm')),
+        reason: notes,
+      );
+    }
+  });
+
+  test(
+    'an introduced grocery question does not become an asserted objective',
+    () async {
+      final ProviderContainer container = plannerContainer();
+      addTearDown(container.dispose);
+
+      final SmartPlannerResult result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: null,
+            emotion: null,
+            notes: 'Today, do I need groceries before 7 PM?',
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+
+      expect(result.plannerResponse.isClarification, isTrue);
+      expect(
+        result.plannerResponse.toAccessibleText().toLowerCase(),
+        isNot(contains('plan essential groceries before 7 pm')),
+      );
+    },
+  );
+
+  test('a stated grocery need survives a trailing planning question', () async {
+    final ProviderContainer container = plannerContainer();
+    addTearDown(container.dispose);
+
+    final SmartPlannerResult result = await container
+        .read(smartPlannerQueryControllerProvider)
+        .requestPlanningGuidance(
+          energy: null,
+          emotion: null,
+          notes: 'I need groceries before 7 PM, can we make a plan?',
+          history: const <Map<String, String>>[],
+          previousSavedNotes: null,
+        );
+
+    expect(result.plannerResponse.isClarification, isFalse);
+    expect(
+      result.plannerResponse.toAccessibleText().toLowerCase(),
+      contains('plan essential groceries before 7 pm'),
+    );
+  });
+
+  test(
+    'a negated grocery belief does not become an asserted objective',
+    () async {
+      final ProviderContainer container = plannerContainer();
+      addTearDown(container.dispose);
+
+      final SmartPlannerResult result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: null,
+            emotion: null,
+            notes: "I don't think I need groceries before 7 PM.",
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+
+      expect(result.plannerResponse.isClarification, isTrue);
+      expect(
+        result.plannerResponse.toAccessibleText().toLowerCase(),
+        isNot(contains('plan essential groceries before 7 pm')),
+      );
+    },
+  );
+
+  test(
+    'a negated Spanish grocery belief does not become an asserted objective',
+    () async {
+      for (final String notes in <String>[
+        'No creo que necesito compras antes de las 7 PM.',
+        'No pensamos que necesitamos alimentos antes de las 7 PM.',
+      ]) {
+        final ProviderContainer container = plannerContainer();
+        addTearDown(container.dispose);
+
+        final SmartPlannerResult result = await container
+            .read(smartPlannerQueryControllerProvider)
+            .requestPlanningGuidance(
+              energy: null,
+              emotion: null,
+              notes: notes,
+              history: const <Map<String, String>>[],
+              previousSavedNotes: null,
+              languageCode: 'es',
+            );
+
+        expect(result.plannerResponse.isClarification, isTrue, reason: notes);
+        expect(
+          result.plannerResponse.toAccessibleText().toLowerCase(),
+          isNot(contains('planificar compras esenciales antes de las 7 pm')),
+          reason: notes,
+        );
+      }
+    },
+  );
+
+  test(
+    'an introduced Spanish grocery question is not an asserted objective',
+    () async {
+      for (final String notes in <String>[
+        'Hoy, ¿necesito compras antes de las 7 PM?',
+        'Me pregunto si necesito compras antes de las 7 PM?',
+        'Dudo que necesito compras antes de las 7 PM.',
+      ]) {
+        final ProviderContainer container = plannerContainer();
+        addTearDown(container.dispose);
+
+        final SmartPlannerResult result = await container
+            .read(smartPlannerQueryControllerProvider)
+            .requestPlanningGuidance(
+              energy: null,
+              emotion: null,
+              notes: notes,
+              history: const <Map<String, String>>[],
+              previousSavedNotes: null,
+              languageCode: 'es',
+            );
+
+        expect(result.plannerResponse.isClarification, isTrue, reason: notes);
+        expect(
+          result.plannerResponse.toAccessibleText().toLowerCase(),
+          isNot(contains('planificar compras esenciales antes de las 7 pm')),
+          reason: notes,
+        );
+      }
+    },
+  );
+
+  test(
+    'a stated Spanish grocery need survives a trailing planning question',
+    () async {
+      final ProviderContainer container = plannerContainer();
+      addTearDown(container.dispose);
+
+      final SmartPlannerResult result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: null,
+            emotion: null,
+            notes:
+                'Necesito compras antes de las 7 PM, ¿podemos hacer un plan?',
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+
+      expect(result.plannerResponse.isClarification, isFalse);
+      expect(
+        result.plannerResponse.toAccessibleText().toLowerCase(),
+        contains('planificar compras esenciales antes de las 7 pm'),
+      );
+    },
+  );
+
+  test(
+    'an explicit grocery deferral does not become the current action',
+    () async {
+      final tasks = _MemoryTaskRepository([
+        TaskEntity(
+          id: 'grocery-list',
+          title: 'Plan the household grocery list',
+          createdAt: DateTime.utc(2026, 8, 29),
+        ),
+        TaskEntity(
+          id: 'release-evidence',
+          title: 'Review release evidence',
+          createdAt: DateTime.utc(2026, 8, 29),
+        ),
+      ]);
+      final container = plannerContainer(tasks: tasks);
+      addTearDown(container.dispose);
+      final response =
+          (await container
+                  .read(smartPlannerQueryControllerProvider)
+                  .requestPlanningGuidance(
+                    energy: null,
+                    emotion: null,
+                    notes:
+                        'I need groceries, but they can wait until tomorrow. I need to review release evidence tonight. What should I do first?',
+                    history: const [],
+                    previousSavedNotes: null,
+                  ))
+              .plannerResponse;
+      expect(response.nextStep.toLowerCase(), isNot(contains('grocery')));
+      expect(response.toAccessibleText().toLowerCase(), contains('release'));
+      expect(tasks.writeCalls, 0);
+    },
+  );
+
+  test(
+    'a grocery correction does not continue an unrelated prior objective',
+    () async {
+      const initialPrompt =
+          'I need to finish the quarterly report before 6 pm. What should I do?';
+      final container = plannerContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(smartPlannerQueryControllerProvider);
+      final initial = await controller.requestPlanningGuidance(
+        energy: null,
+        emotion: null,
+        notes: initialPrompt,
+        history: const <Map<String, String>>[],
+        previousSavedNotes: null,
+      );
+      final followUp = await controller.requestFollowUpResult(
+        input: 'Actually, groceries are essential.',
+        energy: null,
+        emotion: null,
+        reflection: initialPrompt,
+        history: <Map<String, String>>[
+          const <String, String>{'role': 'user', 'content': initialPrompt},
+          <String, String>{
+            'role': 'assistant',
+            'content': initial.plannerResponse.toAccessibleText(),
+          },
+        ],
+      );
+      final text = followUp.plannerResponse.toAccessibleText().toLowerCase();
+      expect(text, contains('grocer'));
+      expect(text, isNot(contains('quarterly report')));
+    },
+  );
+
+  test(
+    'tired grocery deadline stays actionable through an essential follow-up',
+    () async {
+      const String initialPrompt =
+          'I am tired and need groceries before 7 pm. What should I do?';
+      final ProviderContainer container = plannerContainer();
+      addTearDown(container.dispose);
+      final SmartPlannerQueryController controller = container.read(
+        smartPlannerQueryControllerProvider,
+      );
+
+      final SmartPlannerResult initial = await controller
+          .requestPlanningGuidance(
+            energy: null,
+            emotion: null,
+            notes: initialPrompt,
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+      expect(
+        initial.plannerResponse.isClarification,
+        isFalse,
+        reason: initial.plannerResponse.toAccessibleText(),
+      );
+      expect(
+        initial.plannerResponse.nextStep.toLowerCase(),
+        contains('grocer'),
+      );
+      expect(
+        initial.plannerResponse.toAccessibleText().toLowerCase(),
+        contains('before 7 pm'),
+      );
+      expect(
+        initial.plannerResponse.toAccessibleText().toLowerCase(),
+        isNot(contains('make room for recovery')),
+      );
+
+      final SmartPlannerResult followUp = await controller
+          .requestFollowUpResult(
+            input: 'Groceries are essential and the store closes at 7.',
+            energy: null,
+            emotion: null,
+            reflection: initialPrompt,
+            history: <Map<String, String>>[
+              const <String, String>{'role': 'user', 'content': initialPrompt},
+              <String, String>{
+                'role': 'assistant',
+                'content': initial.plannerResponse.toAccessibleText(),
+              },
+            ],
+          );
+      expect(followUp.plannerResponse.isClarification, isFalse);
+      expect(
+        followUp.plannerResponse.nextStep.toLowerCase(),
+        contains('grocer'),
+      );
+      expect(
+        followUp.plannerResponse.toAccessibleText().toLowerCase(),
+        contains('7'),
+      );
+      expect(
+        followUp.plannerResponse.toAccessibleText(),
+        isNot(contains('What exactly do you need to do')),
+      );
+    },
+  );
+
+  test(
+    'real-life grocery timing check-in and follow-up stay actionable',
+    () async {
+      const String initialPrompt =
+          'I feel stressed because I need groceries before dinner, have 55% energy, and want to avoid traffic. What should I do next?';
+      final ProviderContainer container = plannerContainer();
+      addTearDown(container.dispose);
+      final SmartPlannerQueryController controller = container.read(
+        smartPlannerQueryControllerProvider,
+      );
+
+      final SmartPlannerResult initial = await controller
+          .requestPlanningGuidance(
+            energy: 0.55,
+            emotion: null,
+            notes: initialPrompt,
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+            languageCode: 'es',
+          );
+      expect(
+        initial.plannerResponse.isClarification,
+        isFalse,
+        reason: initial.plannerResponse.toAccessibleText(),
+      );
+      expect(
+        initial.plannerResponse.toAccessibleText().toLowerCase(),
+        contains('compr'),
+      );
+
+      final SmartPlannerResult followUp = await controller
+          .requestFollowUpResult(
+            input: 'The task is at 6 PM. Should I leave earlier than 5:38 PM?',
+            energy: 0.55,
+            emotion: null,
+            reflection: initialPrompt,
+            history: <Map<String, String>>[
+              const <String, String>{'role': 'user', 'content': initialPrompt},
+              <String, String>{
+                'role': 'assistant',
+                'content': initial.plannerResponse.toAccessibleText(),
+              },
+            ],
+            currentPlan: PlannerConversationSnapshot(
+              originalObjective: initialPrompt,
+              currentPlan: initial.plannerResponse,
+              userContext: initial.plannerResponse.userContext,
+            ),
+            languageCode: 'es',
+          );
+      final String answer = followUp.plannerResponse
+          .toAccessibleText()
+          .toLowerCase();
+      expect(answer, contains('5:38'));
+      expect(answer, isNot(contains('¿qué necesitas hacer exactamente')));
+    },
+  );
+
+  test('timing follow-up ignores unrelated bare numbers', () async {
+    const String initialPrompt =
+        'I need groceries before dinner. What should I do next?';
+    final ProviderContainer container = plannerContainer();
+    addTearDown(container.dispose);
+    final SmartPlannerQueryController controller = container.read(
+      smartPlannerQueryControllerProvider,
+    );
+    final SmartPlannerResult initial = await controller.requestPlanningGuidance(
+      energy: null,
+      emotion: null,
+      notes: initialPrompt,
+      history: const <Map<String, String>>[],
+      previousSavedNotes: null,
+    );
+    final SmartPlannerResult followUp = await controller.requestFollowUpResult(
+      input: 'I have 2 errands; should I leave earlier than 5 PM?',
+      energy: null,
+      emotion: null,
+      reflection: initialPrompt,
+      history: <Map<String, String>>[
+        const <String, String>{'role': 'user', 'content': initialPrompt},
+        <String, String>{
+          'role': 'assistant',
+          'content': initial.plannerResponse.toAccessibleText(),
+        },
+      ],
+      currentPlan: PlannerConversationSnapshot(
+        originalObjective: initialPrompt,
+        currentPlan: initial.plannerResponse,
+        userContext: initial.plannerResponse.userContext,
+      ),
+    );
+    final String answer = followUp.plannerResponse.toAccessibleText();
+    expect(answer, contains('5 PM'));
+    expect(answer, isNot(contains('before 2')));
+  });
+
+  test(
+    'timing follow-up does not treat an appointment clock as departure',
+    () async {
+      const String initialPrompt =
+          'I need to prepare for my dentist appointment. What should I do next?';
+      final ProviderContainer container = plannerContainer();
+      addTearDown(container.dispose);
+      final SmartPlannerQueryController controller = container.read(
+        smartPlannerQueryControllerProvider,
+      );
+      final SmartPlannerResult initial = await controller
+          .requestPlanningGuidance(
+            energy: null,
+            emotion: null,
+            notes: initialPrompt,
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+      final SmartPlannerResult followUp = await controller
+          .requestFollowUpResult(
+            input: 'Should I leave earlier because my appointment is at 6 PM?',
+            energy: null,
+            emotion: null,
+            reflection: initialPrompt,
+            history: <Map<String, String>>[
+              const <String, String>{'role': 'user', 'content': initialPrompt},
+              <String, String>{
+                'role': 'assistant',
+                'content': initial.plannerResponse.toAccessibleText(),
+              },
+            ],
+            currentPlan: PlannerConversationSnapshot(
+              originalObjective: initialPrompt,
+              currentPlan: initial.plannerResponse,
+              userContext: initial.plannerResponse.userContext,
+            ),
+          );
+
+      expect(
+        followUp.plannerResponse.whatIHeard.toLowerCase(),
+        isNot(contains('leaving at 6 pm')),
+      );
+    },
+  );
+
+  test('timing follow-up stays relevant for a non-grocery plan', () async {
+    const String initialPrompt =
+        'I need to prepare for my dentist appointment across town at 5 PM. What should I do next?';
+    final ProviderContainer container = plannerContainer(
+      tasks: _MemoryTaskRepository(<TaskEntity>[
+        TaskEntity(
+          id: 'dentist-prep',
+          title: 'Prepare for dentist appointment',
+          createdAt: DateTime.utc(2026, 8, 29),
+          scheduledFor: DateTime.utc(2026, 8, 29, 17),
+        ),
+      ]),
+    );
+    addTearDown(container.dispose);
+    final SmartPlannerQueryController controller = container.read(
+      smartPlannerQueryControllerProvider,
+    );
+    final SmartPlannerResult initial = await controller.requestPlanningGuidance(
+      energy: null,
+      emotion: null,
+      notes: initialPrompt,
+      history: const <Map<String, String>>[],
+      previousSavedNotes: null,
+    );
+    final SmartPlannerResult followUp = await controller.requestFollowUpResult(
+      input: 'Should I leave earlier than 4:15 PM?',
+      energy: null,
+      emotion: null,
+      reflection: initialPrompt,
+      history: <Map<String, String>>[
+        const <String, String>{'role': 'user', 'content': initialPrompt},
+        <String, String>{
+          'role': 'assistant',
+          'content': initial.plannerResponse.toAccessibleText(),
+        },
+      ],
+      currentPlan: PlannerConversationSnapshot(
+        originalObjective: initialPrompt,
+        currentPlan: initial.plannerResponse,
+        userContext: initial.plannerResponse.userContext,
+      ),
+    );
+
+    final String answer = followUp.plannerResponse.toAccessibleText();
+    expect(answer, contains('4:15 PM'));
+    expect(
+      followUp.plannerResponse.conversationReply?.toLowerCase(),
+      contains('travel and activity time'),
+    );
+    expect(answer.toLowerCase(), isNot(contains('shopping')));
+    expect(answer.toLowerCase(), isNot(contains('dinner')));
+    expect(answer.toLowerCase(), isNot(contains('store')));
+  });
+
   test('Moto grocery phrasing makes an actual five-minute first step', () async {
     final tasks = _MemoryTaskRepository([
       TaskEntity(

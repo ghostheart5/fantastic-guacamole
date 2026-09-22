@@ -13,6 +13,7 @@ class _TrajectoryReport extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
     final String riskName = summary.riskBand.name;
     final Color accent = switch (riskName) {
       'critical' => AppColors.recallRed,
@@ -20,37 +21,58 @@ class _TrajectoryReport extends StatelessWidget {
       _ => AppColors.neonViolet,
     };
     final String headline = vitals.unavailableDetail != null
-        ? 'Trajectory ${vitals.momentumLabel.toLowerCase()}'
+        ? isSpanish
+              ? 'Trayectoria ${vitals.momentumLabel.toLowerCase()}'
+              : 'Trajectory ${vitals.momentumLabel.toLowerCase()}'
         : summary.predictionEvidenceSufficient
-        ? summary.predictionOutcome!
+        ? _localizedPredictionOutcome(
+            summary.predictionOutcome!,
+            isSpanish: isSpanish,
+          )
+        : isSpanish
+        ? 'Señal de presión ${_spanishRiskName(riskName)}'
         : '${_titleCase(riskName)} pressure signal';
     final String report =
-        vitals.unavailableDetail ??
+        (vitals.unavailableDetail == null
+            ? null
+            : _localizedTrajectoryCopy(
+                vitals.unavailableDetail!,
+                isSpanish: isSpanish,
+              )) ??
         (summary.predictionEvidenceSufficient
-            ? '${((summary.predictionProbability ?? 0) * 100).round()}% observed follow-through across ${summary.predictionSampleSize} outcomes.'
-            : _cleanTrajectoryCopy(
-                summary.statusDetail.isNotEmpty
-                    ? summary.statusDetail
-                    : summary.alert,
+            ? isSpanish
+                  ? '${((summary.predictionProbability ?? 0) * 100).round()}% de cumplimiento observado en ${summary.predictionSampleSize} resultados.'
+                  : '${((summary.predictionProbability ?? 0) * 100).round()}% observed follow-through across ${summary.predictionSampleSize} outcomes.'
+            : _localizedTrajectoryCopy(
+                _cleanTrajectoryCopy(
+                  summary.statusDetail.isNotEmpty
+                      ? summary.statusDetail
+                      : summary.alert,
+                ),
+                isSpanish: isSpanish,
               ));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         _SectionHeading(
-          eyebrow: 'TRAJECTORY ENGINE',
-          title: 'Current report',
+          eyebrow: isSpanish ? 'MOTOR DE TRAYECTORIA' : 'TRAJECTORY ENGINE',
+          title: isSpanish ? 'Informe actual' : 'Current report',
           icon: Icons.insights_rounded,
           accent: accent,
         ),
         const SizedBox(height: 9),
         SmartPressable(
           onTap: onOpen,
-          semanticLabel:
-              'Open Trajectory Engine. $headline. $report '
-              'Pressure ${vitals.pressurePercent == null ? 'unavailable' : '${vitals.pressurePercent} percent'}. '
-              'Momentum ${vitals.momentumPercent == null ? 'unavailable' : '${vitals.momentumPercent} percent'}. '
-              'Active commitments ${vitals.activeCount?.toString() ?? 'unavailable'}.',
+          semanticLabel: isSpanish
+              ? 'Abrir el Motor de Trayectoria. $headline. $report '
+                    'Presión ${vitals.pressurePercent == null ? 'no disponible' : '${vitals.pressurePercent} por ciento'}. '
+                    'Impulso ${vitals.momentumPercent == null ? 'no disponible' : '${vitals.momentumPercent} por ciento'}. '
+                    'Compromisos activos ${vitals.activeCount?.toString() ?? 'no disponibles'}.'
+              : 'Open Trajectory Engine. $headline. $report '
+                    'Pressure ${vitals.pressurePercent == null ? 'unavailable' : '${vitals.pressurePercent} percent'}. '
+                    'Momentum ${vitals.momentumPercent == null ? 'unavailable' : '${vitals.momentumPercent} percent'}. '
+                    'Active commitments ${vitals.activeCount?.toString() ?? 'unavailable'}.',
           child: _GlassPanel(
             accent: accent,
             child: Column(
@@ -89,7 +111,7 @@ class _TrajectoryReport extends StatelessWidget {
                   children: <Widget>[
                     Expanded(
                       child: _MetricCell(
-                        label: 'PRESSURE',
+                        label: isSpanish ? 'PRESIÓN' : 'PRESSURE',
                         value: vitals.pressurePercent == null
                             ? '—'
                             : '${vitals.pressurePercent}%',
@@ -99,7 +121,7 @@ class _TrajectoryReport extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: _MetricCell(
-                        label: 'MOMENTUM',
+                        label: isSpanish ? 'IMPULSO' : 'MOMENTUM',
                         value: vitals.momentumPercent == null
                             ? '—'
                             : '${vitals.momentumPercent}%',
@@ -109,7 +131,7 @@ class _TrajectoryReport extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: _MetricCell(
-                        label: 'ACTIVE',
+                        label: isSpanish ? 'ACTIVOS' : 'ACTIVE',
                         value: vitals.activeCount?.toString() ?? '—',
                         accent: AppColors.neonViolet,
                       ),
@@ -188,19 +210,21 @@ class _TimelineSnapshot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
     final List<_TimelineDisplayItem> summary = _buildTimelineSummary(
       events: events,
       tasks: tasks.asData?.value,
       tasksLoading: tasks.isLoading,
       goals: goals,
+      isSpanish: isSpanish,
     );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const _SectionHeading(
-          eyebrow: 'TIMELINE',
-          title: 'Today at a glance',
+        _SectionHeading(
+          eyebrow: isSpanish ? 'CRONOLOGÍA' : 'TIMELINE',
+          title: isSpanish ? 'Hoy de un vistazo' : 'Today at a glance',
           icon: Icons.timeline_rounded,
           accent: AppColors.neonCyan,
         ),
@@ -217,26 +241,31 @@ class _TimelineSnapshot extends StatelessWidget {
               const _PanelDivider(),
               SmartPressable(
                 onTap: onOpen,
-                semanticLabel: 'Open Timeline',
+                semanticLabel: isSpanish ? 'Abrir Cronología' : 'Open Timeline',
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(
                     minHeight: AppSizes.touchTarget,
                   ),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     child: Row(
                       children: <Widget>[
                         Expanded(
                           child: Text(
-                            'Open full Timeline',
-                            style: TextStyle(
+                            isSpanish
+                                ? 'Abrir la Cronología completa'
+                                : 'Open full Timeline',
+                            style: const TextStyle(
                               color: AppColors.neonCyan,
                               fontSize: AppSizes.fontBodyLg,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                         ),
-                        Icon(
+                        const Icon(
                           Icons.arrow_forward_rounded,
                           color: AppColors.neonCyan,
                           size: 20,
@@ -557,6 +586,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
   required List<TaskEntity>? tasks,
   required bool tasksLoading,
   required List<GoalEntity> goals,
+  required bool isSpanish,
 }) {
   final DateTime now = DateTime.now();
   final DateTime today = DateTime(now.year, now.month, now.day);
@@ -639,37 +669,45 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
         );
 
   final _TimelineDisplayItem latestItem = latest == null
-      ? const _TimelineDisplayItem(
-          label: 'LAST ADDED',
-          title: 'No recent activity',
-          detail: 'Your latest Timeline addition will appear here.',
+      ? _TimelineDisplayItem(
+          label: isSpanish ? 'ÚLTIMO AÑADIDO' : 'LAST ADDED',
+          title: isSpanish ? 'Sin actividad reciente' : 'No recent activity',
+          detail: isSpanish
+              ? 'Tu última incorporación a la Cronología aparecerá aquí.'
+              : 'Your latest Timeline addition will appear here.',
           accent: AppColors.memoryAmber,
         )
       : _TimelineDisplayItem(
-          label: 'LAST ADDED',
+          label: isSpanish ? 'ÚLTIMO AÑADIDO' : 'LAST ADDED',
           title: _latestAdditionTitle(latest),
-          detail: _latestAdditionDetail(latest),
+          detail: _latestAdditionDetail(latest, isSpanish: isSpanish),
           when: latest.timestamp,
           accent: AppColors.memoryAmber,
         );
 
   final _TimelineDisplayItem todayItem;
   if (tasksLoading && tasks == null) {
-    todayItem = const _TimelineDisplayItem(
-      label: 'DUE TODAY',
-      title: 'Checking today’s schedule…',
-      detail: 'Your current commitments are still loading.',
+    todayItem = _TimelineDisplayItem(
+      label: isSpanish ? 'PARA HOY' : 'DUE TODAY',
+      title: isSpanish
+          ? 'Comprobando el calendario de hoy…'
+          : 'Checking today’s schedule…',
+      detail: isSpanish
+          ? 'Tus compromisos actuales todavía se están cargando.'
+          : 'Your current commitments are still loading.',
       accent: AppColors.neonCyan,
     );
   } else if (dueToday.isEmpty && dueEvents.isEmpty) {
     todayItem = _TimelineDisplayItem(
-      label: 'DUE TODAY',
+      label: isSpanish ? 'PARA HOY' : 'DUE TODAY',
       title: overdue.isEmpty && overdueEvents.isEmpty
-          ? 'Take a break'
-          : 'Nothing is due today',
+          ? (isSpanish ? 'Tómate un descanso' : 'Take a break')
+          : (isSpanish ? 'No hay vencimientos hoy' : 'Nothing is due today'),
       detail: overdue.isEmpty && overdueEvents.isEmpty
-          ? 'Nothing is due today.'
-          : 'Review the overdue item below before taking a break.',
+          ? (isSpanish ? 'No hay vencimientos hoy.' : 'Nothing is due today.')
+          : (isSpanish
+                ? 'Revisa el elemento vencido antes de tomarte un descanso.'
+                : 'Review the overdue item below before taking a break.'),
       accent: AppColors.neonCyan,
     );
   } else {
@@ -679,11 +717,15 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
         ? null
         : dueEvents.first;
     todayItem = _TimelineDisplayItem(
-      label: 'DUE TODAY',
+      label: isSpanish ? 'PARA HOY' : 'DUE TODAY',
       title: firstTask?.title ?? firstEvent!.title,
       detail: dueCount == 1
-          ? 'One commitment is due today.'
-          : '$dueCount commitments are due today.',
+          ? (isSpanish
+                ? 'Un compromiso vence hoy.'
+                : 'One commitment is due today.')
+          : (isSpanish
+                ? '$dueCount compromisos vencen hoy.'
+                : '$dueCount commitments are due today.'),
       when: firstTask == null ? firstEvent!.dueAt : _taskDeadline(firstTask),
       accent: AppColors.neonCyan,
     );
@@ -691,20 +733,24 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
 
   final _TimelineDisplayItem overdueItem =
       overdue.isEmpty && overdueEvents.isEmpty
-      ? const _TimelineDisplayItem(
-          label: 'OVERDUE',
-          title: 'You’re all caught up',
-          detail: 'Nothing is overdue.',
+      ? _TimelineDisplayItem(
+          label: isSpanish ? 'VENCIDO' : 'OVERDUE',
+          title: isSpanish ? 'Todo está al día' : 'You’re all caught up',
+          detail: isSpanish ? 'No hay nada vencido.' : 'Nothing is overdue.',
           accent: AppColors.neonViolet,
         )
       : _TimelineDisplayItem(
-          label: 'OVERDUE',
+          label: isSpanish ? 'VENCIDO' : 'OVERDUE',
           title: overdue.isNotEmpty
               ? overdue.first.title
               : overdueEvents.first.title,
           detail: overdue.length + overdueEvents.length == 1
-              ? 'One commitment needs attention.'
-              : '${overdue.length + overdueEvents.length} commitments need attention.',
+              ? (isSpanish
+                    ? 'Un compromiso requiere atención.'
+                    : 'One commitment needs attention.')
+              : (isSpanish
+                    ? '${overdue.length + overdueEvents.length} compromisos requieren atención.'
+                    : '${overdue.length + overdueEvents.length} commitments need attention.'),
           when: overdue.isNotEmpty
               ? _taskDeadline(overdue.first)
               : overdueEvents.first.dueAt,
@@ -735,10 +781,15 @@ String _latestAdditionTitle(TimelineEventEntity event) {
   return marker > 0 ? detail.substring(0, marker).trim() : title;
 }
 
-String _latestAdditionDetail(TimelineEventEntity event) {
+String _latestAdditionDetail(
+  TimelineEventEntity event, {
+  required bool isSpanish,
+}) {
   final String title = event.title.trim();
   return title.toLowerCase().endsWith('added')
-      ? '$title in Timeline.'
+      ? isSpanish
+            ? '$title en la Cronología.'
+            : '$title in Timeline.'
       : event.detail.trim();
 }
 
@@ -852,6 +903,40 @@ String _firstNonEmpty(List<String?> values) {
 
 String _cleanTrajectoryCopy(String value) {
   return value.replaceFirst(RegExp(r'^SI (STATUS|ALERT):\s*'), '').trim();
+}
+
+String _localizedTrajectoryCopy(String value, {required bool isSpanish}) {
+  if (!isSpanish) return value;
+  return switch (_cleanTrajectoryCopy(value)) {
+    'trajectory data is temporarily unavailable.' =>
+      'Los datos de trayectoria no están disponibles temporalmente.',
+    'add a current energy check-in before capacity guidance.' =>
+      'Registra tu energía actual antes de recibir orientación sobre capacidad.',
+    'load is high, reduce task density.' =>
+      'La carga es alta; reduce la densidad de tareas.',
+    'trajectory is stable but watch drift.' =>
+      'La trayectoria es estable, pero vigila las desviaciones.',
+    'current load signal is low.' => 'La señal de carga actual es baja.',
+    final String cleaned => cleaned,
+  };
+}
+
+String _spanishRiskName(String value) => switch (value) {
+  'critical' => 'crítica',
+  'elevated' => 'alta',
+  'watch' => 'moderada',
+  'low' => 'baja',
+  _ => value,
+};
+
+String _localizedPredictionOutcome(String value, {required bool isSpanish}) {
+  if (!isSpanish) return value;
+  return switch (value) {
+    'Higher observed follow-through' => 'Mayor cumplimiento observado',
+    'Lower observed follow-through' => 'Menor cumplimiento observado',
+    'Mixed observed follow-through' => 'Cumplimiento observado mixto',
+    _ => value,
+  };
 }
 
 String _titleCase(String value) {

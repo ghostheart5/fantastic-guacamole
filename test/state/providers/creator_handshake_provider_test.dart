@@ -27,6 +27,7 @@ import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.d
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
+import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -58,6 +59,8 @@ void main() {
         final goal = harness.goalRepository.goals.single;
         await harness.notifier.confirm();
         expect(harness.goalRepository.saveCalls, 1);
+        expect(harness.profile.xp, 12);
+        expect(harness.profile.xpBySource['goal_created'], 12);
         if (!failHistory) {
           expect(history.events.single.title, 'Goal created');
           expect(history.events.single.relatedId, goal.id);
@@ -68,6 +71,7 @@ void main() {
           CreatorHandshakePhase.undone,
         );
         await harness.notifier.undo();
+        expect(harness.profile.xp, 12);
         expect(harness.goalRepository.goals, isEmpty);
         expect(harness.goalRepository.deleteCalls, 1);
         expect(
@@ -1139,6 +1143,7 @@ class _Harness {
         personContextForSurfaceProvider(
           _creatorPersonContextTestRequest,
         ).overrideWith((Ref ref) => ref.watch(_personContextTestProvider)),
+        profileProvider.overrideWith(_RecordingProfileController.new),
       ],
     );
   }
@@ -1157,6 +1162,7 @@ class _Harness {
   PersonContextView? get creatorPersonContext => container.read(
     personContextForSurfaceProvider(_creatorPersonContextTestRequest),
   );
+  ProfileState get profile => container.read(profileProvider);
 
   void setPersonContext(PersonContextView? view) {
     container.read(_personContextTestProvider.notifier).set(view);
@@ -1185,6 +1191,26 @@ class _PersonContextTestNotifier extends Notifier<PersonContextView?> {
   PersonContextView? build() => null;
 
   void set(PersonContextView? view) => state = view;
+}
+
+class _RecordingProfileController extends ProfileController {
+  @override
+  ProfileState build() => ProfileState();
+
+  @override
+  Future<void> awardXP(
+    int amount, {
+    required String source,
+    bool Function()? shouldContinue,
+  }) async {
+    if (shouldContinue?.call() == false) return;
+    final Map<String, int> sources = <String, int>{...state.xpBySource};
+    sources[source] = (sources[source] ?? 0) + amount;
+    state = state.copyWith(
+      xp: state.xp + amount,
+      xpBySource: Map<String, int>.unmodifiable(sources),
+    );
+  }
 }
 
 class _MemoryTaskRepository implements ITaskRepository {

@@ -1,6 +1,8 @@
 import {
   createCreditQuote,
+  MAX_PROVIDER_MICROUSD_PER_CREDIT,
   quotedCreditCost,
+  quotedProviderCostMicrousd,
   verifyCreditQuote,
 } from "../_shared/ai_credit_quote.ts";
 /// <reference lib="deno.ns" />
@@ -19,6 +21,7 @@ import {
 import {
   buildServerSystemPrompt,
   containsBlockedAssistantClaim,
+  containsRecommendationContradiction,
 } from "../_shared/ai_proxy_policy.ts";
 import {
   internalAiAccountAllowed,
@@ -37,6 +40,10 @@ const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 1024;
+const PROVIDER_FLOW_BUDGET_MS = 20_000;
+const PROVIDER_CALL_CAP_MS = 20_000;
+const SETTLEMENT_TIMEOUT_MS = 8_000;
+const SUCCESS_SETTLEMENT_RECONCILIATION_ATTEMPTS = 2;
 const internalAiCohort = parseInternalAiCohort(
   Deno.env.get("CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS"),
 );
@@ -112,7 +119,7 @@ async function settleReservation(
     responsePayload?: Record<string, unknown>;
   } = {},
 ): Promise<Record<string, unknown> | null> {
-  return await serviceRpc(config, "settle_ai_usage", {
+  const body = {
     p_user_id: userId,
     p_request_key: requestId,
     p_succeeded: succeeded,
@@ -121,10 +128,160 @@ async function settleReservation(
     p_provider_request_id: details.providerRequestId ?? null,
     p_failure_code: details.failureCode ?? null,
     p_response_payload: details.responsePayload ?? {},
-  });
+  };
+  if (!config.supabaseUrl || !config.secretKey) return null;
+  const response = await fetch(
+    `${config.supabaseUrl}/rest/v1/rpc/settle_ai_usage`,
+    {
+      method: "POST",
+      headers: {
+        apikey: config.secretKey,
+        Authorization: `Bearer ${config.secretKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(SETTLEMENT_TIMEOUT_MS),
+    },
+  );
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new SettlementHttpError(response.status);
+  }
+  const value = await response.json();
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("AI settlement returned an invalid response");
+  }
+  return value as Record<string, unknown>;
+}
+
+class SettlementHttpError extends Error {
+  readonly ambiguous: boolean;
+
+  constructor(readonly status: number) {
+    super(`AI settlement HTTP ${status}`);
+    this.name = "SettlementHttpError";
+    this.ambiguous = status === 408 || status === 425 || status === 429 ||
+      status >= 500;
+  }
+}
+
+async function settleSuccessDefinitively(
+  userId: string,
+  requestId: string,
+  details: Parameters<typeof settleReservation>[3],
+): Promise<Record<string, unknown> | null> {
+  let lastFailure: unknown = new Error(
+    "AI success settlement returned no authoritative state",
+  );
+  let outcomeWasAmbiguous = false;
+  try {
+    const initialSettlement = await settleReservation(
+      userId,
+      requestId,
+      true,
+      details,
+    );
+    if (initialSettlement !== null) return initialSettlement;
+  } catch (error) {
+    lastFailure = error;
+    outcomeWasAmbiguous = isAmbiguousSettlementTransportError(error);
+  }
+  // A timeout, abort, connection reset, or retryable HTTP/null result cannot
+  // prove whether PostgreSQL committed. Reissue the idempotent settlement
+  // with a fresh bounded request so the row lock can return its authoritative
+  // state without allowing an unhealthy connection to hold the paid reply
+  // forever. A reconciliation response can be lost too, so repeat it before
+  // giving up certainty.
+  if (outcomeWasAmbiguous) {
+    for (
+      let attempt = 0;
+      attempt < SUCCESS_SETTLEMENT_RECONCILIATION_ATTEMPTS;
+      attempt++
+    ) {
+      try {
+        const reconciliation = await settleReservation(
+          userId,
+          requestId,
+          true,
+          details,
+        );
+        if (reconciliation !== null) return reconciliation;
+        lastFailure = new Error(
+          "AI success settlement reconciliation returned no authoritative state",
+        );
+      } catch (reconciliationError) {
+        lastFailure = reconciliationError;
+        if (!isAmbiguousSettlementTransportError(reconciliationError)) break;
+      }
+    }
+  }
+  const authoritativeState = await loadAiUsageSettlementState(
+    userId,
+    requestId,
+  );
+  if (authoritativeState === "completed") {
+    return { state: "completed", duplicate: true };
+  }
+  if (outcomeWasAmbiguous) {
+    throw new SuccessSettlementStillAmbiguousError(lastFailure);
+  }
+  throw new SuccessSettlementUnavailableError(lastFailure);
+}
+
+async function loadAiUsageSettlementState(
+  userId: string,
+  requestId: string,
+): Promise<string | null> {
+  if (!config.supabaseUrl || !config.secretKey) return null;
+  const url = new URL(`${config.supabaseUrl}/rest/v1/ai_usage_requests`);
+  url.searchParams.set("user_id", `eq.${userId}`);
+  url.searchParams.set("request_key", `eq.${requestId}`);
+  url.searchParams.set("select", "state");
+  url.searchParams.set("limit", "1");
+  try {
+    const response = await fetch(url, {
+      headers: {
+        apikey: config.secretKey,
+        Authorization: `Bearer ${config.secretKey}`,
+      },
+      signal: AbortSignal.timeout(SETTLEMENT_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      await response.body?.cancel();
+      return null;
+    }
+    const value = await response.json();
+    if (!Array.isArray(value) || value.length !== 1) return null;
+    const state = value[0]?.state;
+    return typeof state === "string" ? state : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+class SuccessSettlementStillAmbiguousError extends Error {
+  constructor(override readonly cause: unknown) {
+    super("AI success settlement remained transport-ambiguous");
+    this.name = "SuccessSettlementStillAmbiguousError";
+  }
+}
+
+class SuccessSettlementUnavailableError extends Error {
+  constructor(override readonly cause: unknown) {
+    super("AI success settlement was unavailable");
+    this.name = "SuccessSettlementUnavailableError";
+  }
+}
+
+function isAmbiguousSettlementTransportError(error: unknown): boolean {
+  return (error instanceof SettlementHttpError && error.ambiguous) ||
+    error instanceof TypeError ||
+    (error instanceof DOMException &&
+      ["TimeoutError", "AbortError", "NetworkError"].includes(error.name));
 }
 
 Deno.serve(async (req: Request) => {
+  const providerFlowStartedAt = Date.now();
   const preflight = await internalAiPreflightResponse(
     req,
     internalAiCohort,
@@ -203,6 +360,7 @@ Deno.serve(async (req: Request) => {
     const upstreamBody: Record<string, unknown> = {
       model: DEFAULT_MODEL,
       max_tokens: maxTokens,
+      temperature: 0,
       messages,
     };
     upstreamBody.system = system;
@@ -255,11 +413,16 @@ Deno.serve(async (req: Request) => {
         reserved.state === "completed" && cachedResponse &&
         typeof cachedResponse.message === "string"
       ) return jsonResponse(req, cachedResponse as ProxyResponse);
+      const state = String(reserved.state ?? "unknown");
+      const error = state === "denied" &&
+          typeof reserved.reason === "string" && reserved.reason.length > 0
+        ? reserved.reason
+        : `request_${state}`;
       return jsonResponse(req, {
         requestId,
         remainingCredits: Number(reserved.balance ?? 0),
-        error: `request_${reserved.state ?? "unknown"}`,
-      }, 409);
+        error,
+      }, state === "denied" ? aiReservationFailureStatus(error) : 409);
     }
     if (reserved.allowed !== true) {
       const reason = String(reserved.reason ?? "credits_unavailable");
@@ -271,10 +434,14 @@ Deno.serve(async (req: Request) => {
     }
     reservation = { userId, requestId };
 
+    const upstreamTimeoutMs = remainingProviderTimeoutMs(providerFlowStartedAt);
+    if (upstreamTimeoutMs <= 0) {
+      throw new DOMException("Provider flow deadline exceeded", "TimeoutError");
+    }
     const upstream = await fetch(ANTHROPIC_API, {
       method: "POST",
       // Leave time to refund a reservation before the edge request expires.
-      signal: AbortSignal.timeout(25_000),
+      signal: AbortSignal.timeout(upstreamTimeoutMs),
       headers: {
         "Content-Type": "application/json",
         "x-api-key": ANTHROPIC_API_KEY,
@@ -348,23 +515,221 @@ Deno.serve(async (req: Request) => {
         502,
       );
     }
+    let finalMessage = message;
+    let finalModel = typeof data?.model === "string"
+      ? data.model
+      : DEFAULT_MODEL;
+    let finalProviderRequestId = typeof data?.id === "string"
+      ? data.id
+      : undefined;
+    let totalInputTokens = inputTokens;
+    let totalOutputTokens = outputTokens;
+    if (containsRecommendationContradiction(message)) {
+      const repairBody: Record<string, unknown> = {
+        ...upstreamBody,
+        messages: [
+          ...messages,
+          { role: "assistant", content: message },
+          {
+            role: "user",
+            content:
+              "Rewrite the answer once. Its opening recommendation conflicts with its own evidence. Preserve the grounded facts, make the first verdict match the reasoning, and return only the corrected answer.",
+          },
+        ],
+      };
+      let repairBudget: Record<string, unknown> | null = null;
+      try {
+        repairBudget = await serviceRpc(
+          config,
+          "reserve_ai_repair_budget",
+          {
+            p_user_id: userId,
+            p_request_key: requestId,
+            p_required_provider_cost_microusd:
+              cost * MAX_PROVIDER_MICROUSD_PER_CREDIT +
+              quotedProviderCostMicrousd(repairBody),
+          },
+          fetch,
+          AbortSignal.timeout(SETTLEMENT_TIMEOUT_MS),
+        );
+      } catch (error) {
+        // A lost RPC response can follow a committed repair-budget expansion.
+        // The refund settlement below includes the first provider usage so the
+        // database accounts only work that actually occurred.
+        console.error("AI repair budget check failed", error);
+      }
+      if (!repairBudget) {
+        await settleReservation(userId, requestId, false, {
+          inputTokens,
+          outputTokens,
+          providerRequestId: finalProviderRequestId,
+          failureCode: "repair_budget_check_failed",
+        });
+        reservation = null;
+        return jsonResponse(
+          req,
+          {
+            requestId,
+            error: "request_refunded",
+          },
+          409,
+        );
+      }
+      if (repairBudget.allowed !== true) {
+        const reason = String(
+          repairBudget.reason ?? "provider_cost_budget_exceeded",
+        );
+        await settleReservation(userId, requestId, false, {
+          inputTokens,
+          outputTokens,
+          providerRequestId: finalProviderRequestId,
+          failureCode: reason,
+        });
+        reservation = null;
+        return jsonResponse(
+          req,
+          { requestId, error: "request_refunded" },
+          409,
+        );
+      }
+      let repaired: unknown;
+      let repairProviderCallStarted = false;
+      try {
+        const repairTimeoutMs = remainingProviderTimeoutMs(
+          providerFlowStartedAt,
+        );
+        if (repairTimeoutMs <= 0) {
+          throw new DOMException(
+            "Provider repair deadline exceeded",
+            "TimeoutError",
+          );
+        }
+        repairProviderCallStarted = true;
+        const response = await fetch(ANTHROPIC_API, {
+          method: "POST",
+          signal: AbortSignal.timeout(repairTimeoutMs),
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify(repairBody),
+        });
+        if (!response.ok) {
+          await response.body?.cancel();
+          throw new Error(`repair_http_${response.status}`);
+        }
+        repaired = await response.json();
+      } catch {
+        await settleReservation(userId, requestId, false, {
+          ...(!repairProviderCallStarted
+            ? {
+              inputTokens: totalInputTokens,
+              outputTokens: totalOutputTokens,
+            }
+            : {}),
+          providerRequestId: finalProviderRequestId,
+          failureCode: "inconsistent_provider_output",
+        });
+        reservation = null;
+        return jsonResponse(
+          req,
+          { requestId, error: "inconsistent_upstream_response" },
+          502,
+        );
+      }
+      const repairedRecord = asRecord(repaired);
+      const repairedContent = Array.isArray(repairedRecord?.content)
+        ? repairedRecord.content
+        : [];
+      const repairedBlock = asRecord(repairedContent[0]);
+      const repairedUsage = asRecord(repairedRecord?.usage);
+      const repairedMessage = typeof repairedBlock?.text === "string"
+        ? repairedBlock.text.trim()
+        : "";
+      const repairedInputTokens = Number.isSafeInteger(
+          repairedUsage?.input_tokens,
+        )
+        ? repairedUsage!.input_tokens as number
+        : null;
+      const repairedOutputTokens = Number.isSafeInteger(
+          repairedUsage?.output_tokens,
+        )
+        ? repairedUsage!.output_tokens as number
+        : null;
+      const repairedUsageIsValid = repairedInputTokens !== null &&
+        repairedInputTokens > 0 &&
+        repairedOutputTokens !== null &&
+        repairedOutputTokens >= 0 &&
+        repairedOutputTokens <= maxTokens;
+      if (
+        repairedRecord?.stop_reason !== "end_turn" ||
+        !repairedMessage ||
+        !repairedUsageIsValid ||
+        containsBlockedAssistantClaim(repairedMessage) ||
+        containsRecommendationContradiction(repairedMessage)
+      ) {
+        await settleReservation(userId, requestId, false, {
+          ...(repairedUsageIsValid
+            ? {
+              inputTokens: totalInputTokens + repairedInputTokens,
+              outputTokens: totalOutputTokens + repairedOutputTokens,
+            }
+            : {}),
+          providerRequestId: typeof repairedRecord?.id === "string"
+            ? repairedRecord.id
+            : finalProviderRequestId,
+          failureCode: "inconsistent_provider_output",
+        });
+        reservation = null;
+        return jsonResponse(
+          req,
+          { requestId, error: "inconsistent_upstream_response" },
+          502,
+        );
+      }
+      finalMessage = repairedMessage;
+      finalModel = typeof repairedRecord?.model === "string"
+        ? repairedRecord.model
+        : DEFAULT_MODEL;
+      finalProviderRequestId = typeof repairedRecord?.id === "string"
+        ? repairedRecord.id
+        : finalProviderRequestId;
+      totalInputTokens += repairedInputTokens!;
+      totalOutputTokens += repairedOutputTokens!;
+    }
     const responsePayload: ProxyResponse = {
-      message,
-      model: typeof data?.model === "string" ? data.model : DEFAULT_MODEL,
-      inputTokens,
-      outputTokens,
+      message: finalMessage,
+      model: finalModel,
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
       requestId,
       creditsCharged: cost,
       remainingCredits: Number(reserved.balance ?? 0),
     };
-    const settled = await settleReservation(userId, requestId, true, {
-      inputTokens,
-      outputTokens,
-      providerRequestId: typeof data?.id === "string" ? data.id : undefined,
-      // The billing ledger keeps usage metadata only. Conversation content is
-      // returned to the caller but is never persisted for idempotent replay.
-      responsePayload: {},
-    });
+    let settled: Record<string, unknown> | null;
+    try {
+      settled = await settleSuccessDefinitively(userId, requestId, {
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
+        providerRequestId: finalProviderRequestId,
+        // The billing ledger keeps usage metadata only. Conversation content is
+        // returned to the caller but is never persisted for idempotent replay.
+        responsePayload: {},
+      });
+    } catch (error) {
+      if (
+        !(error instanceof SuccessSettlementStillAmbiguousError) &&
+        !(error instanceof SuccessSettlementUnavailableError)
+      ) throw error;
+      // The wallet was already debited by the reservation and every success
+      // settlement attempt may have committed. Never hide the generated paid
+      // reply or retry a broken settlement endpoint as a refund. If the row is
+      // still reserved, the scheduled stale-reservation job refunds it.
+      reservation = null;
+      console.error(error.message);
+      return jsonResponse(req, responsePayload);
+    }
     if (settled?.state !== "completed") {
       return jsonResponse(
         req,
@@ -376,18 +741,42 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(req, responsePayload);
   } catch (error) {
     if (reservation) {
-      await settleReservation(
-        reservation.userId,
-        reservation.requestId,
-        false,
-        {
-          failureCode: error instanceof DOMException &&
-              error.name === "TimeoutError"
-            ? "provider_timeout"
-            : "unhandled_proxy_failure",
-        },
-      );
+      try {
+        await settleReservation(
+          reservation.userId,
+          reservation.requestId,
+          false,
+          {
+            failureCode: error instanceof DOMException &&
+                error.name === "TimeoutError"
+              ? "provider_timeout"
+              : "unhandled_proxy_failure",
+          },
+        );
+      } catch (settlementError) {
+        // Cleanup must never replace the deterministic client failure. The
+        // stale-reservation job remains the refund backstop when settlement is
+        // temporarily unavailable.
+        console.error("AI failure settlement failed", settlementError);
+      }
     }
     return jsonResponse(req, { error: "request_failed" }, 500);
   }
 });
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+export function remainingProviderTimeoutMs(
+  startedAtMs: number,
+  nowMs = Date.now(),
+): number {
+  const elapsedMs = Math.max(0, nowMs - startedAtMs);
+  return Math.max(
+    0,
+    Math.min(PROVIDER_CALL_CAP_MS, PROVIDER_FLOW_BUDGET_MS - elapsedMs),
+  );
+}

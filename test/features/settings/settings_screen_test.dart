@@ -224,9 +224,12 @@ void main() {
         ),
       );
       await tester.pump(const Duration(milliseconds: 300));
-      await tester.ensureVisible(find.text('Help & legal'));
+      final String helpLabel = locale.languageCode == 'es'
+          ? 'Ayuda y aspectos legales'
+          : 'Help & legal';
+      await tester.ensureVisible(find.text(helpLabel));
       await tester.pump();
-      await tester.tap(find.text('Help & legal').hitTestable());
+      await tester.tap(find.text(helpLabel).hitTestable());
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       final context = tester.element(find.byType(SettingsScreen));
@@ -344,6 +347,61 @@ void main() {
     );
     expect(find.textContaining('Free allowance'), findsNothing);
     expect(find.textContaining('Monthly allowance: 300'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Spanish settings localize wallet and account descriptions', (
+    tester,
+  ) async {
+    useTallSurface(tester);
+    final container = createContainer(
+      billingAccess: true,
+      wallet: serverAiCreditWallet({
+        'tier': 'premium_monthly',
+        'balance': 399,
+        'purchased_credits': 100,
+        'period_credits': 300,
+        'period_ends_at': '2026-09-08T04:39:00Z',
+      }),
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          locale: Locale('es'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: <LocalizationsDelegate<dynamic>>[
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: SettingsScreen(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('399 créditos disponibles'), findsOneWidget);
+    expect(
+      find.textContaining('299 incluidos · 100 comprados (no caducan)'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Asignación mensual: 300'), findsOneWidget);
+    expect(find.text('Suscripción de prueba activa'), findsOneWidget);
+    expect(
+      find.textContaining('Pruebas de licencia de Google Play'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Test subscription active'), findsNothing);
+    expect(
+      find.text(
+        'Copia en la nube, cierre de sesión, datos locales y controles de la cuenta',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('credits available'), findsNothing);
+    expect(find.textContaining('Cloud backup'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -513,7 +571,7 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 200));
-    await tester.tap(find.text('Planning & guidance'));
+    await tester.tap(find.text('Planificación y orientación'));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.scrollUntilVisible(
       find.text('Asistencia de IA externa'),
@@ -528,6 +586,50 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Allow external AI assistance'), findsNothing);
+  });
+
+  testWidgets('Spanish expanded settings keep release controls localized', (
+    WidgetTester tester,
+  ) async {
+    useTallSurface(tester);
+    final ProviderContainer container = createContainer();
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          locale: Locale('es'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: <LocalizationsDelegate<dynamic>>[
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: SettingsScreen(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await tester.tap(find.text('Apariencia y permisos'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('APARIENCIA Y PERMISOS'), findsOneWidget);
+    expect(find.text('Modo oscuro'), findsOneWidget);
+    expect(find.text('Efectos de sonido'), findsOneWidget);
+    expect(find.text('APPEARANCE & PERMISSIONS'), findsNothing);
+    expect(find.text('Dark Mode'), findsNothing);
+
+    await tester.tap(find.text('Apariencia y permisos'));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('Planificación y orientación'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.scrollUntilVisible(
+      find.text('REFLEXIÓN DIARIA'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Recordatorio de reflexión'), findsOneWidget);
+    expect(find.text('DAILY REFLECTION'), findsNothing);
   });
 
   testWidgets('Context entry opens its governance controls directly', (
@@ -678,11 +780,11 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 200));
     await tester.scrollUntilVisible(
-      find.text('Planning & guidance'),
+      find.text('Planificación y orientación'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    await invokeNavTile(tester, 'Planning & guidance');
+    await invokeNavTile(tester, 'Planificación y orientación');
 
     expect(find.text('CONTEXTO PERSONAL'), findsOneWidget);
     expect(find.text('Añadir contexto personal'), findsOneWidget);

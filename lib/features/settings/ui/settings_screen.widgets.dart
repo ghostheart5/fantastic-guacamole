@@ -1,5 +1,40 @@
 part of 'settings_screen.dart';
 
+String _localizedPlanStatus(BuildContext context, String status) {
+  final String spanish = switch (status) {
+    'Local profile' => 'Perfil local',
+    'Test subscription active' => 'Suscripción de prueba activa',
+    'Billing test ready' => 'Prueba de facturación lista',
+    'Plans unavailable' => 'Planes no disponibles',
+    'Unlocked for testing' => 'Desbloqueado para pruebas',
+    'Premium active' => 'Premium activo',
+    'Premium locked' => 'Premium bloqueado',
+    _ => status,
+  };
+  return journeyText(context, status, spanish);
+}
+
+String _localizedPlanDetail(BuildContext context, String detail) {
+  final String spanish = switch (detail) {
+    'Google Play license testing. Use a test payment method. Smart Planner and SI Console can use external AI after you review the app context and confirm the credit price. On-device tools remain available.' =>
+      'Pruebas de licencia de Google Play. Usa un método de pago de prueba. El Planificador Inteligente y la Consola SI pueden usar IA externa después de que revises el contexto y confirmes el precio en créditos. Las herramientas locales siguen disponibles.',
+    'Google Play license testing. Use a test payment method. AI and credit spending remain unavailable.' =>
+      'Pruebas de licencia de Google Play. Usa un método de pago de prueba. La IA y el gasto de créditos siguen sin estar disponibles.',
+    'Your profile and plans are stored on this device. No subscription is required.' =>
+      'Tu perfil y tus planes se guardan en este dispositivo. No se requiere suscripción.',
+    'Subscriptions are disabled while launch-readiness work is completed.' =>
+      'Las suscripciones están desactivadas mientras finaliza la preparación del lanzamiento.',
+    'This QA build bypasses premium restrictions and does not use live billing.' =>
+      'Esta compilación de pruebas omite las restricciones premium y no usa facturación real.',
+    'Premium features are currently unlocked for this account.' =>
+      'Las funciones premium están desbloqueadas para esta cuenta.',
+    'Premium access is not yet provisioned in this build.' =>
+      'El acceso premium aún no está habilitado en esta compilación.',
+    _ => detail,
+  };
+  return journeyText(context, detail, spanish);
+}
+
 class _Section extends StatelessWidget {
   const _Section({
     required this.label,
@@ -112,9 +147,9 @@ class _PlanAndCreditsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text(
-            'PLAN & CREDITS',
-            style: TextStyle(
+          Text(
+            journeyText(context, 'PLAN & CREDITS', 'PLANES Y CRÉDITOS'),
+            style: const TextStyle(
               color: AppColors.neonCyan,
               fontSize: 10,
               fontWeight: FontWeight.w900,
@@ -122,9 +157,9 @@ class _PlanAndCreditsCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 5),
-          const Text(
-            'Access and usage',
-            style: TextStyle(
+          Text(
+            journeyText(context, 'Access and usage', 'Acceso y uso'),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.w900,
@@ -135,10 +170,14 @@ class _PlanAndCreditsCard extends StatelessWidget {
             key: const Key('settings_manage_plan'),
             icon: Icons.workspace_premium_rounded,
             accent: AppColors.memoryAmber,
-            eyebrow: 'SUBSCRIPTION',
+            eyebrow: journeyText(context, 'SUBSCRIPTION', 'SUSCRIPCIÓN'),
             title: planStatus,
             subtitle: planDetail,
-            actionLabel: 'Manage plan',
+            actionLabel: journeyText(
+              context,
+              'Manage plan',
+              'Administrar plan',
+            ),
             onTap: onOpenPlan,
           ),
           const SizedBox(height: 9),
@@ -149,7 +188,7 @@ class _PlanAndCreditsCard extends StatelessWidget {
             eyebrow: creditLabel.toUpperCase(),
             title: creditValue,
             subtitle: creditDetail,
-            actionLabel: 'View credits',
+            actionLabel: journeyText(context, 'View credits', 'Ver créditos'),
             onTap: onOpenCredits,
           ),
         ],

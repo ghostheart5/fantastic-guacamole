@@ -85,6 +85,117 @@ void main() {
       expect(accepted, isFalse);
     });
 
+    test('policy gate rejects perfect-tense closure contradictions', () {
+      expect(
+        isPolicyAcceptableResponse(
+          'First, visit the pharmacy. The pharmacy has closed.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'Primero, visita la farmacia. La farmacia ha cerrado.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'First, visit the pharmacy. The pharmacy has just closed.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'First, visit the pharmacy. It has recently closed.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'First, visit the pharmacy. The pharmacy is temporarily closed.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'Primero, visita la farmacia. La farmacia está temporalmente cerrada.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'First, call the dentist. It may not be possible to know the wait time in advance.',
+        ),
+        isTrue,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'My recommendation is to visit the pharmacy. The pharmacy is closed.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'Mi recomendación es visitar la farmacia. La farmacia está cerrada.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'The pharmacy closed first. It is closed now.',
+        ),
+        isTrue,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'The pharmacy opened first. It is closed now.',
+        ),
+        isTrue,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'Visit the pharmacy that is nearest first. It is closed.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'We have to visit the pharmacy first. It is closed.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'We have to avoid visiting the pharmacy first. It is closed.',
+        ),
+        isTrue,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'We need to avoid visiting the pharmacy first. It is closed.',
+        ),
+        isTrue,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'We need to visit the pharmacy first. It is closed.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          "I don't recommend visiting the pharmacy first. The pharmacy has closed.",
+        ),
+        isTrue,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'First, visit the pharmacy. The pharmacy had closed yesterday but reopened today.',
+        ),
+        isTrue,
+      );
+    });
+
     test(
       'blocks mutation claims when the response did not execute a use case',
       () {

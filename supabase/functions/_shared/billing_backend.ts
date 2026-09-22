@@ -54,6 +54,7 @@ export async function serviceRpc(
   name: string,
   body: JsonObject,
   fetcher: typeof fetch = fetch,
+  signal?: AbortSignal,
 ): Promise<JsonObject | null> {
   if (!config.supabaseUrl || !config.secretKey) return null;
   const response = await fetcher(
@@ -66,6 +67,7 @@ export async function serviceRpc(
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      signal,
     },
   );
   if (!response.ok) {

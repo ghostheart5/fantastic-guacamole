@@ -23,6 +23,7 @@ abstract class SpeechRecognitionService {
   Future<void> listen({
     required void Function(String text, bool isFinal) onResult,
     required void Function() onDone,
+    String? localeId,
   });
 
   Future<void> stop();
@@ -116,6 +117,7 @@ class PluginSpeechRecognitionService implements SpeechRecognitionService {
   Future<void> listen({
     required void Function(String text, bool isFinal) onResult,
     required void Function() onDone,
+    String? localeId,
   }) async {
     if (!_initialized ||
         _starting ||
@@ -139,6 +141,7 @@ class PluginSpeechRecognitionService implements SpeechRecognitionService {
           listenMode: ListenMode.confirmation,
           listenFor: _listenFor,
           pauseFor: _pauseFor,
+          localeId: localeId,
         ),
       );
       // speech_to_text discards a native `listen: false` return. Require a

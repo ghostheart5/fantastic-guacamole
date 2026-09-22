@@ -842,10 +842,9 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         return;
       case final CreatorGoalMutation mutation:
         await ref
-            .read(createGoalUseCaseProvider)
-            .call(_goalEntityFromMutation(mutation));
+            .read(goalsProvider.notifier)
+            .addEntity(_goalEntityFromMutation(mutation));
         owner.check();
-        await _bestEffort(() => _recordGoalHistory(mutation, owner));
         return;
       case final CreatorHabitMutation mutation:
         final List<HabitEntity> current = await ref

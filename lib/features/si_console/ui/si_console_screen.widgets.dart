@@ -737,7 +737,7 @@ class _ResponseToneTag extends StatelessWidget {
         border: Border.all(color: _color.withValues(alpha: 0.3)),
       ),
       child: Text(
-        'RESPONSE TONE: ${tone.toUpperCase()}',
+        '${journeyText(context, 'RESPONSE TONE', 'TONO DE RESPUESTA')}: ${tone.toUpperCase()}',
         style: TextStyle(
           fontSize: 8,
           letterSpacing: 0,
@@ -754,16 +754,24 @@ class _ProcessingModeTag extends StatelessWidget {
 
   final AIProcessingMode mode;
 
-  String get _label {
+  String _label(BuildContext context) {
     switch (mode) {
       case AIProcessingMode.external:
-        return 'External AI';
+        return journeyText(context, 'External AI', 'IA externa');
       case AIProcessingMode.onDevice:
-        return 'On device';
+        return journeyText(context, 'On device', 'En el dispositivo');
       case AIProcessingMode.onDeviceFallback:
-        return 'On-device fallback';
+        return journeyText(
+          context,
+          'On-device fallback',
+          'Alternativa en el dispositivo',
+        );
       case AIProcessingMode.unknown:
-        return 'Processing unknown';
+        return journeyText(
+          context,
+          'Processing unknown',
+          'Procesamiento desconocido',
+        );
     }
   }
 
@@ -782,8 +790,13 @@ class _ProcessingModeTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String label = _label(context);
     return Semantics(
-      label: 'Processing mode: $_label',
+      label: journeyText(
+        context,
+        'Processing mode: $label',
+        'Modo de procesamiento: $label',
+      ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
@@ -792,7 +805,7 @@ class _ProcessingModeTag extends StatelessWidget {
           border: Border.all(color: _color.withValues(alpha: 0.55)),
         ),
         child: Text(
-          _label,
+          label,
           style: TextStyle(
             color: _color,
             fontSize: 11,
@@ -910,6 +923,7 @@ class _InputBar extends ConsumerWidget {
     required this.controller,
     required this.entityFilterController,
     required this.scenarioAssumptionController,
+    required this.advancedComposerController,
     required this.onSend,
     required this.intent,
     required this.sources,
@@ -924,6 +938,7 @@ class _InputBar extends ConsumerWidget {
   final TextEditingController controller;
   final TextEditingController entityFilterController;
   final TextEditingController scenarioAssumptionController;
+  final ExpansibleController advancedComposerController;
   final VoidCallback onSend;
   final SIV2Intent intent;
   final Set<SIV2Source> sources;
@@ -1017,6 +1032,7 @@ class _InputBar extends ConsumerWidget {
                     color: Colors.transparent,
                     child: ExpansionTile(
                       key: const Key('si-v2-advanced'),
+                      controller: advancedComposerController,
                       tilePadding: EdgeInsets.zero,
                       childrenPadding: EdgeInsets.zero,
                       title: Text(
@@ -1397,7 +1413,11 @@ class _InputBar extends ConsumerWidget {
                                 controller.lifecycleRevision;
                             await startVoiceInputWithConsent(
                               context: context,
-                              onStart: controller.startListening,
+                              onStart: () => controller.startListening(
+                                localeId: Localizations.localeOf(
+                                  context,
+                                ).toLanguageTag(),
+                              ),
                               consentStore: ref.read(
                                 voiceInputConsentStoreProvider,
                               ),

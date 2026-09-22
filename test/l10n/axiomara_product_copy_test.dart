@@ -23,11 +23,17 @@ void main() {
     expect(english.nextMove, contains('Uncertainty'));
     expect(english.loopControlNote, contains('Nothing changes'));
     expect(english.realLifeSituations, hasLength(3));
+    expect(english.checkInDisclosure, contains('after you reopen the app'));
+    expect(english.checkInDisclosure, contains('Saved on this device'));
 
     expect(spanish.currentDecision, 'PAQUETE DE DECISIÓN EN VIVO');
     expect(spanish.nextMove, contains('Incertidumbre'));
     expect(spanish.loopControlNote, contains('Nada cambia'));
     expect(spanish.realLifeSituations, hasLength(3));
+    expect(spanish.checkInDisclosure, contains('vuelves a abrir'));
+    expect(spanish.checkInDisclosure, contains('este dispositivo'));
+    expect(english.momentumValue('BUILDING'), 'BUILDING');
+    expect(spanish.momentumValue('BUILDING'), 'CRECIENDO');
   });
 
   test('all nine navigation surfaces use the new product language', () {

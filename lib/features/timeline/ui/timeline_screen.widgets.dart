@@ -776,13 +776,18 @@ class _TimelineHeader extends StatelessWidget {
               fontWeight: FontWeight.w900,
             ),
           ),
-          Text(
-            journeyText(context, 'EVENTS', 'EVENTOS'),
-            style: const TextStyle(
-              color: Color(0xFF8B99B8),
-              fontSize: 8,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              journeyText(context, 'EVENTS', 'EVENTOS'),
+              maxLines: 1,
+              softWrap: false,
+              style: const TextStyle(
+                color: Color(0xFF8B99B8),
+                fontSize: 8,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
             ),
           ),
         ],
@@ -1016,8 +1021,9 @@ class _TimelineMetric extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.visible,
             style: const TextStyle(
               color: Color(0xFF8E9BBA),
               fontSize: 7,

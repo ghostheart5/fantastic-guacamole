@@ -247,13 +247,20 @@ class _CloudDataControlSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (Env.isLocalMode) {
-      return const _Section(
-        label: 'YOUR DATA',
+      return _Section(
+        label: journeyText(context, 'YOUR DATA', 'TUS DATOS'),
         accentColor: AppColors.neonCyan,
         child: _NeonStatusTile(
-          title: 'Stored on this device',
-          subtitle:
-              'Your local profile and planning data stay on this device. Cloud backup, sync, and account recovery are unavailable. Removing the app or losing this device can permanently lose your data.',
+          title: journeyText(
+            context,
+            'Stored on this device',
+            'Guardados en este dispositivo',
+          ),
+          subtitle: journeyText(
+            context,
+            'Your local profile and planning data stay on this device. Cloud backup, sync, and account recovery are unavailable. Removing the app or losing this device can permanently lose your data.',
+            'Tu perfil local y tus datos de planificación permanecen en este dispositivo. La copia en la nube, la sincronización y la recuperación de la cuenta no están disponibles. Si desinstalas la aplicación o pierdes el dispositivo, podrías perder los datos permanentemente.',
+          ),
         ),
       );
     }
@@ -261,12 +268,16 @@ class _CloudDataControlSection extends ConsumerWidget {
     final bool enabled = syncAsync.asData?.value ?? false;
     final bool available = Env.enableCloudSync;
     return _Section(
-      label: 'YOUR DATA',
+      label: journeyText(context, 'YOUR DATA', 'TUS DATOS'),
       accentColor: AppColors.neonCyan,
       child: Column(
         children: [
           _NeonToggleTile(
-            title: 'Cloud Backup',
+            title: journeyText(
+              context,
+              'Cloud Backup',
+              'Copia de seguridad en la nube',
+            ),
             value: enabled && available,
             onChanged: (bool value) {
               if (!available) return;
@@ -278,30 +289,67 @@ class _CloudDataControlSection extends ConsumerWidget {
             },
           ),
           _NeonStatusTile(
-            title: 'Storage scope',
+            title: journeyText(
+              context,
+              'Storage scope',
+              'Alcance del almacenamiento',
+            ),
             subtitle: !available
-                ? 'This build is local-only.'
+                ? journeyText(
+                    context,
+                    'This build is local-only.',
+                    'Esta versión funciona solo de forma local.',
+                  )
                 : enabled
-                ? 'Tasks, profile, and settings may be encrypted and synced to your account.'
-                : 'Local-only. Nothing is sent to cloud backup.',
+                ? journeyText(
+                    context,
+                    'Tasks, profile, and settings may be encrypted and synced to your account.',
+                    'Las tareas, el perfil y los ajustes pueden cifrarse y sincronizarse con tu cuenta.',
+                  )
+                : journeyText(
+                    context,
+                    'Local-only. Nothing is sent to cloud backup.',
+                    'Solo local. No se envía nada a la copia de seguridad en la nube.',
+                  ),
           ),
           if (available)
             _NeonNavTile(
-              title: 'Backup recovery key',
-              subtitle:
-                  'Reveal or restore the key needed on a replacement device.',
+              title: journeyText(
+                context,
+                'Backup recovery key',
+                'Clave de recuperación de la copia',
+              ),
+              subtitle: journeyText(
+                context,
+                'Reveal or restore the key needed on a replacement device.',
+                'Muestra o restaura la clave necesaria en un dispositivo de reemplazo.',
+              ),
               onTap: () => _showBackupRecoveryKeyDialog(context, ref),
             )
           else
-            const _NeonStatusTile(
-              title: 'Backup recovery key',
-              subtitle:
-                  'Available when cloud backup is enabled for this build.',
+            _NeonStatusTile(
+              title: journeyText(
+                context,
+                'Backup recovery key',
+                'Clave de recuperación de la copia',
+              ),
+              subtitle: journeyText(
+                context,
+                'Available when cloud backup is enabled for this build.',
+                'Disponible cuando la copia en la nube está habilitada para esta versión.',
+              ),
             ),
-          const _NeonStatusTile(
-            title: 'Guidance processing',
-            subtitle:
-                'Smart Planner and SI Console explain when a request stays local or uses an opted-in external service.',
+          _NeonStatusTile(
+            title: journeyText(
+              context,
+              'Guidance processing',
+              'Procesamiento de la orientación',
+            ),
+            subtitle: journeyText(
+              context,
+              'Smart Planner and SI Console explain when a request stays local or uses an opted-in external service.',
+              'El Planificador Inteligente y la Consola SI explican cuándo una solicitud permanece local o usa un servicio externo autorizado.',
+            ),
           ),
         ],
       ),

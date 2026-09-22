@@ -419,6 +419,7 @@ class _ControlledSpeechService implements SpeechRecognitionService {
   Future<void> listen({
     required void Function(String, bool) onResult,
     required void Function() onDone,
+    String? localeId,
   }) async {
     _onResult = onResult;
     isListening = true;

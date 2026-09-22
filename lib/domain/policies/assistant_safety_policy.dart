@@ -144,7 +144,6 @@ final class BoundedAssistantEvidenceCritic implements AssistantEvidenceCritic {
       );
     }
     if (packet.validatorFindings.contains('injection_to_action') ||
-        packet.validatorFindings.contains('write_authority_violation') ||
         packet.validatorFindings.contains('evidence_outside_app')) {
       return const AssistantCriticDecision(
         verdict: AssistantCriticVerdict.reject,
@@ -267,6 +266,7 @@ final class AssistantSafetyPipeline {
     'assistant_contract_validator_v1',
     'evidence_authority_validator_v1',
     'prompt_injection_action_validator_v1',
+    'timeline_consistency_validator_v1',
     'crisis_pressure_validator_v1',
     'bounded_execution_validator_v1',
   ];
@@ -323,9 +323,32 @@ final class AssistantSafetyPipeline {
     );
     if (decision.verdict == AssistantCriticVerdict.requestRepair &&
         review.budget.repairAttempts == 0) {
-      const String repaired =
+      final String repaired = switch (findings) {
+        ['write_authority_violation'] => _removeUnsupportedMutationClaims(
+          review.responseText,
+        ),
+        ['contradictory_latest_departure'] =>
+          _removeContradictoryLatestDepartureAdvice(review.responseText),
+        _ =>
           'I could not validate the first draft. Review the current evidence '
-          'links and ask for one narrower, read-only answer.';
+              'links and ask for one narrower, read-only answer.',
+      };
+      if (repaired.isEmpty ||
+          _claimsCompletedMutation(repaired) ||
+          _hasContradictoryLatestDeparture(repaired)) {
+        return AssistantSafetyOutcome(
+          publishableText: '',
+          receipt: _receipt(
+            review: review,
+            digest: digest,
+            evaluatedAt: evaluatedAt,
+            disposition: AssistantSafetyDisposition.withheld,
+            findings: findings,
+            criticInvoked: true,
+            criticCode: 'deterministic_repair_failed',
+          ),
+        );
+      }
       return AssistantSafetyOutcome(
         publishableText: repaired,
         receipt: _receipt(
@@ -391,6 +414,9 @@ final class AssistantSafetyPipeline {
     if (_containsHiddenReasoning(review.responseText)) {
       findings.add('hidden_reasoning_exposed');
     }
+    if (_hasContradictoryLatestDeparture(review.responseText)) {
+      findings.add('contradictory_latest_departure');
+    }
     if (review.crisisDetected &&
         _containsProductivityPressure(review.responseText)) {
       findings.add('crisis_productivity_pressure');
@@ -451,11 +477,369 @@ bool _looksLikeInstructionInjection(String value) {
 }
 
 bool _claimsCompletedMutation(String value) {
-  final String normalized = value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  final String collapsed = value.replaceAll(RegExp(r'\s+'), ' ');
+  final String normalized = collapsed.toLowerCase();
+  final bool genericClaim = <RegExp>[
+    RegExp(
+      r"\b((i|we)(?:[’']ve\s+|\s+(?:(has|have)\s+)?)|"
+      r'(axiomara|chronospark|the assistant)\s+((has|have)\s+)?)'
+      r'((already|now|just|successfully|finally)\s+)?'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed)\b',
+    ),
+    RegExp(
+      r'\b(yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+'
+      r'((ya|ahora|finalmente)\s+)?'
+      r'((te|le|les|se|lo|la|los|las|me|nos)\s+)?'
+      r'((he|ha|hemos|han)\s+)?'
+      r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
+      r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|'
+      r'guard[eéó]|cre[eéó]|elimin[eéó]|program[eéó]|complet[eéó]|'
+      r'actualic[eé]|actualiz[oó]|envi[eéó]|apliqu[eé]|aplic[oó]|'
+      r'compr[eéó]|cambi[eéó])'
+      r'(?=\s|[.!?,;:]|$)',
+    ),
+    RegExp(
+      r'(^|[.!?]\s+)((ya|ahora|finalmente)\s+)?'
+      r'((te|le|les|se|lo|la|los|las|me|nos)\s+)?(he|hemos)\s+'
+      r'(guardado|creado|eliminado|programado|completado|actualizado|'
+      r'enviado|aplicado|comprado|cambiado)\b',
+    ),
+    RegExp(
+      r'(^|[.!?]\s+)((ya|ahora|finalmente)\s+)?'
+      r'((te|le|les|se|lo|la|los|las|me|nos)\s+)?'
+      r'(guardé|creé|eliminé|programé|completé|actualicé|envié|apliqué|'
+      r'compré|cambié)(?=\s|[.!?,;:]|$)',
+    ),
+    RegExp(
+      r'\b(your|the)\s+'
+      r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
+      r'reminder|commitment|milestone|routine)\s+'
+      r'(has been|is now)\s+'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed)\b',
+    ),
+    RegExp(
+      r'(^|[.!?]\s+)done(\s*[-—:,;]\s*|\s*[.!?]\s+)(your|the)\s+'
+      r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
+      r'reminder|commitment|milestone|routine)\s+is\s+'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed)\b',
+    ),
+    RegExp(
+      r'\b(your|the)\s+'
+      r'(tasks|goals|habits|notes|events|plans|schedules|requests|appointments|'
+      r'meetings|reminders|commitments|milestones|routines)\s+'
+      r'(have been|are now)\s+'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed)\b',
+    ),
+    RegExp(
+      r'\b(tu|su|la|el)\s+'
+      r'(tarea|meta|h[aá]bito|nota|evento|plan|horario|solicitud|cita|'
+      r'reuni[oó]n|recordatorio|compromiso|hito|rutina)\s+'
+      r'(ha sido|fue|est[aá] ahora)\s+'
+      r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
+      r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa])\b',
+    ),
+    RegExp(
+      r'\b(tus|sus|las|los)\s+'
+      r'(tareas|metas|h[aá]bitos|notas|eventos|planes|horarios|solicitudes|'
+      r'citas|reuniones|recordatorios|compromisos|hitos|rutinas)\s+'
+      r'(han sido|fueron|est[aá]n ahora)\s+'
+      r'(guardad[oa]s|cread[oa]s|eliminad[oa]s|programad[oa]s|completad[oa]s|'
+      r'actualizad[oa]s|enviad[oa]s|aplicad[oa]s|comprad[oa]s|cambiad[oa]s)\b',
+    ),
+  ].any((RegExp pattern) => pattern.hasMatch(normalized));
+  if (genericClaim) return true;
+  return <RegExp>[
+    RegExp(
+      r'\bSI\s+((has|have)\s+)?'
+      r'((already|now|just|successfully|finally)\s+)?'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed)\b',
+    ),
+    RegExp(
+      r'\bSI\s+((he|ha|hemos|han)\s+)?'
+      r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
+      r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|'
+      r'guard[eéó]|cre[eéó]|elimin[eéó]|program[eéó]|complet[eéó]|'
+      r'actualic[eé]|actualiz[oó]|envi[eéó]|apliqu[eé]|aplic[oó]|'
+      r'compr[eéó]|cambi[eéó])(?=\s|[.!?,;:]|$)',
+    ),
+  ].any((RegExp pattern) => pattern.hasMatch(collapsed));
+}
+
+String _removeUnsupportedMutationClaims(String value) {
+  final List<RegExp> unsupportedSentences = <RegExp>[
+    RegExp(
+      r'(^|(?<=[.!?])\s+)done(\s*[-—:,;]\s*|\s*[.!?]\s+)(your|the)\s+'
+      r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
+      r'reminder|commitment|milestone|routine)\s+is\s+'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed)\b'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
+    RegExp(
+      r'(^|(?<=[.!?])\s+)('
+      r"((i|we)(?:[’']ve\s+|\s+(?:(has|have)\s+)?)|"
+      r'(axiomara|chronospark|the assistant)\s+((has|have)\s+)?)'
+      r'((already|now|just|successfully|finally)\s+)?'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed)\b|'
+      r'(yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+'
+      r'((ya|ahora|finalmente)\s+)?'
+      r'((te|le|les|se|lo|la|los|las|me|nos)\s+)?'
+      r'((he|ha|hemos|han)\s+)?'
+      r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
+      r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|'
+      r'guard[eéó]|cre[eéó]|elimin[eéó]|program[eéó]|complet[eéó]|'
+      r'actualic[eé]|actualiz[oó]|envi[eéó]|apliqu[eé]|aplic[oó]|'
+      r'compr[eéó]|cambi[eéó])(?=\s|[.!?,;:]|$))'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
+    RegExp(
+      r'(^|(?<=[.!?])\s+)SI\s+('
+      r'((has|have)\s+)?'
+      r'((already|now|just|successfully|finally)\s+)?'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed)\b|'
+      r'((he|ha|hemos|han)\s+)?'
+      r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
+      r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|'
+      r'guard[eéó]|cre[eéó]|elimin[eéó]|program[eéó]|complet[eéó]|'
+      r'actualic[eé]|actualiz[oó]|envi[eéó]|apliqu[eé]|aplic[oó]|'
+      r'compr[eéó]|cambi[eéó])(?=\s|[.!?,;:]|$))'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      multiLine: true,
+    ),
+    RegExp(
+      r'(^|(?<=[.!?])\s+)((ya|ahora|finalmente)\s+)?'
+      r'((te|le|les|se|lo|la|los|las|me|nos)\s+)?(he|hemos)\s+'
+      r'(guardado|creado|eliminado|programado|completado|actualizado|'
+      r'enviado|aplicado|comprado|cambiado)\b'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
+    RegExp(
+      r'(^|(?<=[.!?])\s+)((ya|ahora|finalmente)\s+)?'
+      r'((te|le|les|se|lo|la|los|las|me|nos)\s+)?'
+      r'(guardé|creé|eliminé|programé|completé|actualicé|envié|apliqué|'
+      r'compré|cambié)(?=\s|[.!?,;:]|$)'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
+    RegExp(
+      r'(^|(?<=[.!?])\s+)'
+      r'(?:done\s*[-—:]?\s*)?'
+      r'(your|the)\s+'
+      r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
+      r'reminder|commitment|milestone|routine)\s+'
+      r'(has been|is now)\s+'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed)\b'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
+    RegExp(
+      r'(^|(?<=[.!?])\s+)'
+      r'(your|the)\s+'
+      r'(tasks|goals|habits|notes|events|plans|schedules|requests|appointments|'
+      r'meetings|reminders|commitments|milestones|routines)\s+'
+      r'(have been|are now)\s+'
+      r'(saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed)\b'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
+    RegExp(
+      r'(^|(?<=[.!?])\s+)'
+      r'(tu|su|la|el)\s+'
+      r'(tarea|meta|h[aá]bito|nota|evento|plan|horario|solicitud|cita|'
+      r'reuni[oó]n|recordatorio|compromiso|hito|rutina)\s+'
+      r'(ha sido|fue|est[aá] ahora)\s+'
+      r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
+      r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa])\b'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
+    RegExp(
+      r'(^|(?<=[.!?])\s+)'
+      r'(tus|sus|las|los)\s+'
+      r'(tareas|metas|h[aá]bitos|notas|eventos|planes|horarios|solicitudes|'
+      r'citas|reuniones|recordatorios|compromisos|hitos|rutinas)\s+'
+      r'(han sido|fueron|est[aá]n ahora)\s+'
+      r'(guardad[oa]s|cread[oa]s|eliminad[oa]s|programad[oa]s|completad[oa]s|'
+      r'actualizad[oa]s|enviad[oa]s|aplicad[oa]s|comprad[oa]s|cambiad[oa]s)\b'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
+  ];
+  String repaired = value;
+  for (final RegExp pattern in unsupportedSentences) {
+    repaired = repaired.replaceAll(pattern, '');
+  }
+  return repaired.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+}
+
+bool _hasContradictoryLatestDeparture(String value) {
+  _DepartureClock? activeLatest;
+  for (final String segment in _departureSegments(value)) {
+    if (_startsDepartureScenario(segment)) activeLatest = null;
+    activeLatest = _latestDepartureClock(segment) ?? activeLatest;
+    final _DepartureClock? latest = activeLatest;
+    if (latest != null &&
+        _leaveByClocks(
+          segment,
+        ).any((_DepartureClock candidate) => _occursAfter(candidate, latest))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+String _removeContradictoryLatestDepartureAdvice(String value) {
+  _DepartureClock? activeLatest;
+  final List<String> retained = <String>[];
+  for (final String segment in _departureSegments(value)) {
+    if (_startsDepartureScenario(segment)) activeLatest = null;
+    activeLatest = _latestDepartureClock(segment) ?? activeLatest;
+    final _DepartureClock? latest = activeLatest;
+    final bool contradicts =
+        latest != null &&
+        _leaveByClocks(
+          segment,
+        ).any((_DepartureClock candidate) => _occursAfter(candidate, latest));
+    if (!contradicts) retained.add(segment);
+  }
+  return retained.join(' ').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+}
+
+Iterable<String> _departureSegments(String value) => value
+    .split(
+      RegExp(
+        r'(?<=[.!?;])\s+|\r?\n+|'
+        r'(?=\b(?:option|scenario|opci[oó]n|escenario)\s+[a-z0-9]+\b)',
+        caseSensitive: false,
+      ),
+    )
+    .map((String segment) => segment.trim())
+    .where((String segment) => segment.isNotEmpty);
+
+bool _startsDepartureScenario(String value) => RegExp(
+  r'^(?:option|scenario|opci[oó]n|escenario)\s+[a-z0-9]+\b',
+  caseSensitive: false,
+).hasMatch(value);
+
+typedef _DepartureClock = ({int minutes, String? suffix, bool uses24Hour});
+
+_DepartureClock? _latestDepartureClock(String value) {
+  final List<RegExp> patterns = <RegExp>[
+    RegExp(
+      r'\b(\d{1,2})(?::(\d{2}))?(?:\s*([ap])\.?m\.?)?\s+is\s+(?:the\s+)?'
+      r'(?:absolute\s+)?latest(?:\s+viable)?\s+departure\b',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'\blatest(?:\s+viable)?\s+departure(?:\s+time)?\s*(?:is|:)\s*'
+      r'(\d{1,2})(?::(\d{2}))?(?:\s*([ap])\.?m\.?)?\b',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'\byou\s+(?:must|need\s+to|have\s+to)\s+leave\s+by\s+'
+      r'(\d{1,2})(?::(\d{2}))?(?:\s*([ap])\.?m\.?)?\s+'
+      r'(?:at\s+the\s+latest|at\s+latest|latest)\b',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'\bla\s+salida(?:\s+viable)?\s+m[aá]s\s+tarde(?:\s+posible)?\s*'
+      r'(?:es|:)\s*(?:a\s+las\s*)?(\d{1,2})(?::(\d{2}))?'
+      r'(?:\s*([ap])\.?\s*m\.?)?\b',
+      caseSensitive: false,
+    ),
+  ];
+  for (final RegExp pattern in patterns) {
+    final RegExpMatch? match = pattern.firstMatch(value);
+    if (match != null) return _departureClock(match);
+  }
+  return null;
+}
+
+Iterable<_DepartureClock> _leaveByClocks(String value) sync* {
+  final List<RegExp> patterns = <RegExp>[
+    RegExp(
+      r'\b(?:leav(?:e|ing)|depart(?:ing)?)\s+(?:by|at|no\s+later\s+than)\s+(\d{1,2})(?::(\d{2}))?(?:\s*([ap])\.?m\.?)?\b',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'\bsalir\s+(?:a\s+las|antes\s+de\s+las)\s+'
+      r'(\d{1,2})(?::(\d{2}))?(?:\s*([ap])\.?\s*m\.?)?\b',
+      caseSensitive: false,
+    ),
+  ];
+  for (final RegExp pattern in patterns) {
+    for (final RegExpMatch match in pattern.allMatches(value)) {
+      if (_isNegatedDepartureAdvice(value, match.start)) continue;
+      yield _departureClock(match);
+    }
+  }
+}
+
+bool _isNegatedDepartureAdvice(String value, int matchStart) {
+  final String prefix = value.substring(0, matchStart).toLowerCase();
   return RegExp(
-    r'\b(i|we|si|chronospark|the assistant)\s+((has|have)\s+)?'
-    r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
-  ).hasMatch(normalized);
+    r"\b(?:do\s+not|don't|should\s+not(?:\s+be)?|shouldn't(?:\s+be)?|"
+    r"must\s+not(?:\s+be)?|mustn't(?:\s+be)?|cannot|can't|never|avoid|"
+    r'no(?:\s+(?:debes|deber[ií]as))?|nunca|evita)\s*$',
+  ).hasMatch(prefix);
+}
+
+_DepartureClock _departureClock(RegExpMatch match) {
+  int hour = int.parse(match.group(1)!);
+  final int rawHour = hour;
+  final int minute = int.tryParse(match.group(2) ?? '') ?? 0;
+  final String? suffix = match.group(3)?.toLowerCase();
+  if (suffix != null) {
+    final bool isPm = suffix == 'p';
+    if (hour == 12) hour = 0;
+    return (
+      minutes: hour * 60 + minute + (isPm ? 12 * 60 : 0),
+      suffix: suffix,
+      uses24Hour: false,
+    );
+  }
+  return (minutes: hour * 60 + minute, suffix: null, uses24Hour: rawHour > 12);
+}
+
+bool _occursAfter(_DepartureClock candidate, _DepartureClock latest) {
+  int candidateMinutes = candidate.minutes;
+  if (candidate.suffix == null &&
+      !candidate.uses24Hour &&
+      latest.suffix != null) {
+    final int hour = candidateMinutes ~/ 60;
+    final int minute = candidateMinutes.remainder(60);
+    final int latestHour = latest.minutes ~/ 60;
+    if (hour == 12) {
+      candidateMinutes = switch (latest.suffix) {
+        'a' => (latestHour == 0 ? 0 : 12 * 60) + minute,
+        'p' => (latestHour == 12 ? 12 * 60 : 24 * 60) + minute,
+        _ => candidateMinutes,
+      };
+    } else {
+      candidateMinutes =
+          hour * 60 + minute + (latest.suffix == 'p' ? 12 * 60 : 0);
+    }
+  }
+  final bool explicitMidnightRollover =
+      latest.suffix == 'p' && candidate.suffix == 'a';
+  final bool twentyFourHourMidnightRollover =
+      latest.uses24Hour &&
+      latest.minutes >= 18 * 60 &&
+      candidate.minutes < 6 * 60;
+  if (explicitMidnightRollover || twentyFourHourMidnightRollover) {
+    candidateMinutes += 24 * 60;
+  }
+  return candidateMinutes > latest.minutes;
 }
 
 bool _containsHiddenReasoning(String value) {

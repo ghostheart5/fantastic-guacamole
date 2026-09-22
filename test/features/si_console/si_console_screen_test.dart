@@ -657,6 +657,47 @@ void main() {
     expect(field.controller?.text, '/tasks ');
     expect(port.calls, 0);
   });
+
+  testWidgets(
+    'sending collapses Advanced so the latest response stays readable at large text',
+    (WidgetTester tester) async {
+      final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
+      final ProviderContainer container = _container(port, snapshot);
+      addTearDown(() => _dispose(tester, container));
+      await _pumpScreen(tester, container, textScaler: 1.5);
+
+      await tester.tap(find.byKey(const Key('si-v2-advanced')));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        tester
+            .widget<ExpansionTile>(find.byKey(const Key('si-v2-advanced')))
+            .controller
+            ?.isExpanded,
+        isTrue,
+      );
+
+      await tester.enterText(
+        find.byKey(const Key('si-query-input')),
+        'What should I do next?',
+      );
+      await tester.tap(find.byIcon(Icons.send_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(port.calls, 1);
+      expect(
+        tester
+            .widget<ExpansionTile>(find.byKey(const Key('si-v2-advanced')))
+            .controller
+            ?.isExpanded,
+        isFalse,
+      );
+      expect(
+        find.byKey(const Key('si-latest-response-anchor')),
+        findsOneWidget,
+      );
+    },
+  );
 }
 
 ProviderContainer _container(
@@ -705,12 +746,19 @@ Future<void> _pumpScreen(
   WidgetTester tester,
   ProviderContainer container, {
   Locale locale = const Locale('en'),
+  double textScaler = 1,
 }) async {
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
         locale: locale,
+        builder: (BuildContext context, Widget? child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScaler)),
+          child: child!,
+        ),
         supportedLocales: ChronoSparkLocalizations.supportedLocales,
         localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
           ChronoSparkLocalizations.delegate,
@@ -840,7 +888,7 @@ class _RecordingConsentVoiceController extends VoiceController {
   }
 
   @override
-  Future<void> startListening() async {
+  Future<void> startListening({String? localeId}) async {
     starts++;
     if (failStart) {
       state = state.copyWith(error: 'private-platform-diagnostic');

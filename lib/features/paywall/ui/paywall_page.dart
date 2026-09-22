@@ -29,6 +29,16 @@ bool resolvePaywallRestoreAvailability({required bool paidCreditPlansEnabled}) {
   return paidCreditPlansEnabled;
 }
 
+String? canonicalPaywallSubscriptionPlanId(String? planId) {
+  final String normalized = planId?.trim().toLowerCase() ?? '';
+  if (normalized.isEmpty) return null;
+  if (normalized.contains('annual') || normalized.contains('yearly')) {
+    return 'annual';
+  }
+  if (normalized.contains('month')) return 'monthly';
+  return normalized;
+}
+
 String resolvePaywallPurchaseResultMessage(
   SubscriptionState subscription, {
   required bool testingMode,
@@ -207,6 +217,14 @@ class _PaywallCopy {
 
   String get plansAndCredits => _select('PLAN & CREDITS', 'PLANES Y CRÉDITOS');
 
+  String get subscriptionTesting =>
+      _select('Subscription testing', 'Pruebas de suscripción');
+
+  String get googlePlayLicenseTest =>
+      _select('GOOGLE PLAY LICENSE TEST', 'PRUEBA DE LICENCIA DE GOOGLE PLAY');
+
+  String get licenseTest => _select('License test', 'Prueba de licencia');
+
   String subscriptionSubtitle(String localizedTitle) => _select(
     '${localizedTitle.toUpperCase()} · Subscription status and external-assistant credit allowance.',
     '${localizedTitle.toUpperCase()} · Estado de la suscripción y saldo de créditos del asistente externo.',
@@ -258,8 +276,10 @@ class _PaywallCopy {
 
   String get simulateUnlock => _select('Simulate unlock', 'Simular desbloqueo');
 
-  String get currentSubscriptionActive =>
-      _select('Current subscription active', 'Suscripción actual activa');
+  String get currentPlan => _select('Current plan', 'Plan actual');
+
+  String get changePlanInGooglePlay =>
+      _select('Change in Google Play', 'Cambiar en Google Play');
 
   String get choosePlan => _select('Choose plan', 'Elegir plan');
 
@@ -292,7 +312,7 @@ class _PaywallCopy {
 
   String get tier => _select('Tier', 'Nivel');
 
-  String get resets => _select('Resets', 'Se renueva');
+  String get resets => _select('Allowance refill', 'Recarga del saldo');
 
   String get soon => _select('Soon', 'Pronto');
 
@@ -841,11 +861,11 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
             children: [
               TemporalScreenHeader(
                 title: billingTest
-                    ? 'Subscription testing'
+                    ? copy.subscriptionTesting
                     : copy.plansAndCredits,
                 subtitle: copy.subscriptionSubtitle(localizedConfigTitle),
                 eyebrow: billingTest
-                    ? 'GOOGLE PLAY LICENSE TEST'
+                    ? copy.googlePlayLicenseTest
                     : paywallTestingMode
                     ? copy.unlockedForTesting
                     : copy.temporalCommerce,
@@ -870,7 +890,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                 const SizedBox(height: 14),
               ],
               _HeroCard(
-                badgeLabel: billingTest ? 'License test' : null,
+                badgeLabel: billingTest ? copy.licenseTest : null,
                 title: localizedConfigTitle,
                 body: copy.configBody(config.body),
                 isPremium:
@@ -944,8 +964,14 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                 ],
                 const SizedBox(height: 14),
               ],
-              ...(_showAllPlans ? config.plans : prioritizedPlans).map(
-                (PaywallPlan plan) => Padding(
+              ...(_showAllPlans ? config.plans : prioritizedPlans).map((
+                PaywallPlan plan,
+              ) {
+                final bool isCurrentPlan =
+                    hasActiveSubscription &&
+                    canonicalPaywallSubscriptionPlanId(subscription?.planId) ==
+                        plan.id;
+                return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Container(
                     padding: const EdgeInsets.all(16),
@@ -1027,7 +1053,9 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                                       ? copy.simulateUnlock
                                       : hasActiveSubscription &&
                                             !plan.isCreditPack
-                                      ? copy.currentSubscriptionActive
+                                      ? isCurrentPlan
+                                            ? copy.currentPlan
+                                            : copy.changePlanInGooglePlay
                                       : copy.choosePlan,
                                 ),
                               ),
@@ -1037,8 +1065,8 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                       ],
                     ),
                   ),
-                ),
-              ),
+                );
+              }),
               if (config.plans.length > prioritizedPlans.length)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),

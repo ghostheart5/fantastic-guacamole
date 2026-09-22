@@ -6,9 +6,8 @@ import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provid
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Explicit, optional operating context. It expires after two hours or at
-/// the app closing and
-/// is fenced against sign-out/account changes while the dialog is open.
+/// Explicit, optional operating context. It expires after two hours and is
+/// fenced against sign-out/account changes while the dialog is open.
 class HumanStateCheckInDialog extends ConsumerStatefulWidget {
   const HumanStateCheckInDialog({required this.energy, super.key});
 

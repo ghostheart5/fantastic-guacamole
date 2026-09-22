@@ -1,10 +1,12 @@
+import { containsBlockedAssistantClaim } from "../_shared/ai_proxy_policy.ts";
+
 export const PLANNER_EXPLANATION_SCHEMA_VERSION = 1;
 export const PLANNER_EXPLANATION_DISCLOSURE_VERSION = 1;
 export const PLANNER_EXPLANATION_RESPONSE_SCHEMA_VERSION = 1;
 export const PLANNER_EXPLANATION_SURFACE = "smart_planner_explanation";
 export const PLANNER_EXPLANATION_PROVIDER = "Anthropic";
 export const PLANNER_EXPLANATION_PROMPT_VERSION =
-  "smart-planner-explanation-v1";
+  "axiomara-now-engine-explanation-v2";
 export const PLANNER_EXPLANATION_REPLAY_WINDOW_SECONDS = 240;
 export const PLANNER_EXPLANATION_PROVIDER_RETENTION_STATUS =
   "verified_external_gate";
@@ -438,18 +440,22 @@ function assertSafeExplanation(
 ): void {
   const normalized = safetyNormalized(explanation);
   const unsafePatterns = [
+    /\bchronospark\b/,
     /\b(?:diagnos(?:e|ed|is|tic)|disorder|mental illness|medical condition)\b/,
     /\b(?:as your therapist|i am your therapist|therapy|treatment plan)\b/,
     /\b(?:you are|youre|you feel|you seem|you sound|you must be|you have)\b/,
     /\b(?:your identity is|as a person who|the kind of person you are)\b/,
-    /\b(?:i|we|chronospark|the planner|the system) (?:have )?(?:saved|moved|changed|created|deleted|completed|scheduled|sent|booked|updated|executed)\b/,
+    /\b(?:i|we|axiomara|chronospark|the planner|the system) (?:have )?(?:saved|moved|changed|created|deleted|completed|scheduled|sent|booked|updated|executed)\b/,
     /\b(?:was|has been|is now) (?:saved|moved|changed|created|deleted|completed|scheduled|sent|booked|updated|executed)\b/,
     /\b(?:you must|you should|you need to|you have to)\b/,
     /\b(?:urgent|immediately|right now|only choice|no excuse|before it is too late|guaranteed)\b/,
     /\b(?:override|ignore|bypass) (?:the )?deterministic\b/,
     /\b(?:confirmation is unnecessary|without confirmation|consent is unnecessary)\b/,
   ];
-  if (unsafePatterns.some((pattern) => pattern.test(normalized))) {
+  if (
+    unsafePatterns.some((pattern) => pattern.test(normalized)) ||
+    containsBlockedAssistantClaim(explanation)
+  ) {
     throw new ProviderOutputFailure("provider_output_unsafe");
   }
 

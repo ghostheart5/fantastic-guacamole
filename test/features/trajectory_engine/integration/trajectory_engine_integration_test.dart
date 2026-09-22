@@ -4,17 +4,139 @@ import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
+import 'package:fantastic_guacamole/engine/trajectory/future_consequence_engine.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_engine_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../helpers/trajectory_test_fixture.dart';
 
 void main() {
   group('Trajectory Engine integration', () {
+    testWidgets('localizes the observed Spanish overview', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(900, 1800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_harness(locale: const Locale('es')));
+      await tester.pump();
+
+      expect(find.text('DIRECCIÓN ACTUAL'), findsOneWidget);
+      expect(find.text('Requiere atención'), findsOneWidget);
+      expect(find.text('CARGA MODELADA'), findsOneWidget);
+      expect(find.text('IMPULSO'), findsWidgets);
+      expect(find.text('ENERGÍA'), findsWidgets);
+      expect(find.textContaining('Límite de evidencia:'), findsOneWidget);
+      await tester.drag(find.byType(ListView), const Offset(0, -1100));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('RAMAS FUTURAS'), findsWidgets);
+      expect(
+        find.text(
+          'Selecciona un camino para revisar sus consecuencias proyectadas.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('CAMINO MODELADO'), findsWidgets);
+      expect(find.text('FUTURE BRANCHES'), findsNothing);
+      expect(find.textContaining('MODELED PATH'), findsNothing);
+      expect(find.text('SUPUESTOS DE ESTE RESULTADO'), findsWidgets);
+      expect(find.text('ASSUMPTIONS FOR THIS RESULT'), findsNothing);
+    });
+
+    testWidgets('localizes the fixed custom-removal description in Spanish', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(900, 1800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final TrajectoryEngineModel fixture = trajectoryTestEngineModel();
+      final TrajectoryBaseline baseline = trajectoryTestBaseline();
+      final TrajectoryComparison
+      comparison = const FutureConsequenceEngine().compare(
+        baseline: baseline,
+        generatedAt: trajectoryFixtureNow,
+        interventions: <TrajectoryIntervention>[
+          TrajectoryIntervention(
+            id: 'custom-remove-task-polish-7',
+            type: TrajectoryInterventionType.reduceScope,
+            title: 'My scenario: remove Polish optional copy',
+            horizon: const Duration(days: 7),
+            description:
+                'Remove this commitment from the active capacity window and compare the resulting tradeoff.',
+            subjectId: 'task-polish',
+            displacedSubjectIds: <String>['task-polish'],
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        _harness(
+          locale: const Locale('es'),
+          model: TrajectoryEngineModel(
+            status: TrajectoryEngineStatus.ready,
+            summary: fixture.summary,
+            momentum: fixture.momentum,
+            comparison: comparison,
+            statusDetail: fixture.statusDetail,
+            hasAvailableNetworkInterface: true,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      const String localized =
+          'Quitar este compromiso de la ventana de capacidad activa y comparar la compensación resultante.';
+      await tester.scrollUntilVisible(
+        find.text(localized),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text(localized), findsOneWidget);
+      expect(find.textContaining('Quitar this commitment'), findsNothing);
+      expect(find.textContaining('Remove this commitment'), findsNothing);
+    });
+
+    testWidgets('localizes partial evidence details and evidence origins', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(900, 1800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final TrajectoryEngineModel fixture = trajectoryTestEngineModel();
+      final TrajectoryComparison comparison = trajectoryTestComparison(
+        baseline: trajectoryTestBaseline(
+          energyOrigin: PredictiveEvidenceOrigin.estimated,
+          availabilityOrigin: PredictiveEvidenceOrigin.unavailable,
+        ),
+      );
+      await tester.pumpWidget(
+        _harness(
+          locale: const Locale('es'),
+          model: TrajectoryEngineModel(
+            status: TrajectoryEngineStatus.partial,
+            summary: fixture.summary,
+            momentum: fixture.momentum,
+            comparison: comparison,
+            statusDetail:
+                'Future paths are conditional models. Working availability is not configured, so capacity risk, goal dates, and best-fit claims are withheld.',
+            hasAvailableNetworkInterface: true,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.textContaining('Los caminos futuros son modelos condicionales'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Future paths are conditional'), findsNothing);
+      expect(
+        find.textContaining('disponibilidad está sin datos observados'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('unavailable'), findsNothing);
+    });
+
     testWidgets(
       'empty plan with cached comparison withholds forecasts and restores on an active plan',
       (tester) async {
@@ -226,6 +348,7 @@ void main() {
 Widget _harness({
   TrajectoryEngineModel? model,
   TrajectoryForecastLedgerRepository? repository,
+  Locale locale = const Locale('en'),
 }) => ProviderScope(
   overrides: [
     trajectoryEngineModelProvider.overrideWithValue(
@@ -245,7 +368,17 @@ Widget _harness({
     if (repository != null)
       trajectoryForecastLedgerRepositoryProvider.overrideWithValue(repository),
   ],
-  child: const MaterialApp(home: TrajectoryEngineScreen()),
+  child: MaterialApp(
+    locale: locale,
+    supportedLocales: const <Locale>[Locale('en'), Locale('es')],
+    localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+      ChronoSparkLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    home: const TrajectoryEngineScreen(),
+  ),
 );
 
 class _MemoryStore implements SharedPrefsStore {

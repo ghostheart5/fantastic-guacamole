@@ -4,11 +4,13 @@ import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/engine/si/offline/identity_engine.dart';
 import 'package:fantastic_guacamole/features/profile/ui/profile_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -23,6 +25,7 @@ void main() {
     ProfileState state, {
     GoRouter? router,
     TrajectorySummaryView? trajectory,
+    Locale locale = const Locale('en'),
   }) async {
     tester.platformDispatcher.views.first
       ..physicalSize = const Size(1200, 4000)
@@ -56,8 +59,28 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: router == null
-            ? const MaterialApp(home: ProfileScreen())
-            : MaterialApp.router(routerConfig: router),
+            ? MaterialApp(
+                locale: locale,
+                supportedLocales: ChronoSparkLocalizations.supportedLocales,
+                localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+                  ChronoSparkLocalizations.delegate,
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                ],
+                home: const ProfileScreen(),
+              )
+            : MaterialApp.router(
+                locale: locale,
+                supportedLocales: ChronoSparkLocalizations.supportedLocales,
+                localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+                  ChronoSparkLocalizations.delegate,
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                ],
+                routerConfig: router,
+              ),
       ),
     );
     await tester.pump();
@@ -113,6 +136,28 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byType(ProfileScreen), findsOneWidget);
+  });
+
+  testWidgets('Spanish profile localizes identity and progress labels', (
+    WidgetTester tester,
+  ) async {
+    await pumpProfile(
+      tester,
+      ProfileState(xp: 174, level: 2, streak: 2, name: ''),
+      locale: const Locale('es'),
+    );
+
+    expect(find.text('CRECIMIENTO'), findsOneWidget);
+    expect(find.text('DISCIPLINA'), findsOneWidget);
+    expect(find.text('EJECUCIÓN'), findsOneWidget);
+    expect(find.text('NIVEL'), findsOneWidget);
+    expect(find.text('RACHA'), findsOneWidget);
+    expect(find.textContaining('NIVEL DE AXIOMARA 2'), findsOneWidget);
+    expect(find.text('GROWTH'), findsNothing);
+    expect(find.text('DISCIPLINE'), findsNothing);
+    expect(find.text('EXECUTION'), findsNothing);
+    expect(find.text('STREAK'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('does not reveal inferred identity from activity alone', (

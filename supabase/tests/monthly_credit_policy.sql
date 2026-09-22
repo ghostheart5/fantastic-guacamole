@@ -28,9 +28,14 @@ begin
   assert wallet.allowance_remaining=10 and wallet.bonus_balance=100,'monthly allowance spent before purchased';
   perform public.settle_ai_usage(a,'policy-spend-01',true,100,100);
   perform public.reserve_ai_usage(a,'policy-spend-02',15,repeat('b',64));
+  result:=public.reserve_ai_repair_budget(a,'policy-spend-02',60000);
+  assert (result->>'allowed')::boolean,'repair provider budget expanded';
   select * into wallet from public.monetization_wallets where billing_principal_id=principal;
   assert wallet.allowance_remaining=0 and wallet.bonus_balance=95,'spending crosses balance buckets correctly';
   perform public.settle_ai_usage(a,'policy-spend-02',false,0,0,null,'test_failure');
+  assert (select accounted_provider_cost_microusd=0 from public.ai_usage_requests
+    where user_id=a and request_key='policy-spend-02'),
+    'handled refund accounts actual provider usage rather than unused repair budget';
   select * into wallet from public.monetization_wallets where billing_principal_id=principal;
   assert wallet.allowance_remaining=10 and wallet.bonus_balance=100,'failed request restores original buckets';
   perform public.settle_ai_usage(a,'policy-spend-02',false);
@@ -88,6 +93,14 @@ begin
   perform public.revoke_verified_credit_topup(repeat('6',64),null,'policy-voided-before-verify');
   result:=public.grant_verified_credit_topup(b,repeat('6',64),'chronospark_credits_300','policy-voided-before-verify');
   assert not (result->>'granted')::boolean,'voided notification without SKU blocks later grant';
+  update public.monetization_wallets
+  set balance=0,allowance_remaining=0,bonus_balance=0
+  where user_id=b;
+  result:=public.reserve_ai_usage(b,'policy-duplicate-denial',1,repeat('f',64));
+  assert result->>'reason'='insufficient_credits','first denial reports its reason';
+  result:=public.reserve_ai_usage(b,'policy-duplicate-denial',1,repeat('f',64));
+  assert (result->>'duplicate')::boolean
+    and result->>'reason'='insufficient_credits','duplicate denial preserves its reason';
   assert (public.credit_topup_owner(encode(extensions.digest(b::text,'sha256'),'hex'))->>'userId')::uuid=b,'delayed purchase resolves the bound active account';
   assert not has_function_privilege('anon','public.grant_verified_credit_topup(uuid,text,text,text)','execute'),'anonymous cannot grant';
   assert not has_function_privilege('authenticated','public.grant_verified_credit_topup(uuid,text,text,text)','execute'),'client cannot grant itself';

@@ -26,6 +26,20 @@ final conversationTransportProvider = Provider<ConversationTransport>(
   (ref) => ref.watch(internalCreditTestTransportProvider),
 );
 
+/// A second, UI-facing deadline around quote requests.
+///
+/// Paid execution is deliberately not abandoned: its authoritative settlement
+/// and reply continue after the person dismisses the wait indicator.
+final conversationRequestTimeoutProvider = Provider<Duration>(
+  (ref) => const Duration(seconds: 40),
+);
+
+/// Releases the conversation UI if a paid transport never completes. The
+/// original request keeps running so an authoritative late reply can appear.
+final conversationPaidWaitTimeoutProvider = Provider<Duration>(
+  (ref) => const Duration(seconds: 60),
+);
+
 final conversationServiceProvider = Provider<ConversationService>((ref) {
   final account = ref.watch(accountStorageScopeProvider).v2Namespace;
   final generation = ref.watch(authSessionBoundaryProvider).generation;

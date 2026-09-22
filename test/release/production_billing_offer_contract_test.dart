@@ -48,7 +48,8 @@ void main() {
     );
     expect(repository, contains('Manage plan changes in Google Play.'));
     expect(page, contains('!hasActiveSubscription'));
-    expect(page, contains('Current subscription active'));
+    expect(page, contains('Current plan'));
+    expect(page, contains('Change in Google Play'));
   });
 
   test(

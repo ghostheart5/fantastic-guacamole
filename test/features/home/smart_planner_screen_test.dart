@@ -2297,7 +2297,7 @@ class _RecordingConsentVoiceController extends VoiceController {
   }
 
   @override
-  Future<void> startListening() async {
+  Future<void> startListening({String? localeId}) async {
     starts++;
     if (failStart) {
       state = state.copyWith(error: 'private-platform-diagnostic');

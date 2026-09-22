@@ -11,19 +11,27 @@ class _TrajectoryOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
     final String direction = baseline.pressure >= 80
-        ? 'High pressure'
+        ? (isSpanish ? 'Presión alta' : 'High pressure')
         : baseline.pressure >= 50
-        ? 'Needs attention'
-        : 'Steady direction';
+        ? (isSpanish ? 'Requiere atención' : 'Needs attention')
+        : (isSpanish ? 'Dirección estable' : 'Steady direction');
     final Color accent = baseline.pressure >= 80
         ? const Color(0xFFFF6B88)
         : baseline.pressure >= 50
         ? const Color(0xFFFFC857)
         : const Color(0xFF6EE7F9);
-    final String momentumBand = trajectoryMomentumBand(baseline.momentum);
+    final String momentumBand = isSpanish
+        ? switch (trajectoryMomentumBand(baseline.momentum)) {
+            'BUILDING' => 'CRECIENDO',
+            'STEADY' => 'ESTABLE',
+            'FADING' => 'DISMINUYENDO',
+            final String value => value,
+          }
+        : trajectoryMomentumBand(baseline.momentum);
     return _Panel(
-      title: 'Current direction',
+      title: isSpanish ? 'Dirección actual' : 'Current direction',
       accent: accent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,7 +65,9 @@ class _TrajectoryOverviewCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${baseline.tasks.length} active commitment${baseline.tasks.length == 1 ? '' : 's'} across the next $horizonDays days.',
+                      isSpanish
+                          ? '${baseline.tasks.length} ${baseline.tasks.length == 1 ? 'compromiso activo' : 'compromisos activos'} durante los próximos $horizonDays días.'
+                          : '${baseline.tasks.length} active commitment${baseline.tasks.length == 1 ? '' : 's'} across the next $horizonDays days.',
                       style: const TextStyle(
                         color: Color(0xFFD8E2FF),
                         fontSize: 12,
@@ -74,19 +84,19 @@ class _TrajectoryOverviewCard extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: _OverviewMetric(
-                  label: 'MODELED LOAD',
+                  label: isSpanish ? 'CARGA MODELADA' : 'MODELED LOAD',
                   value: baseline.pressure >= 80
-                      ? 'HIGH'
+                      ? (isSpanish ? 'ALTA' : 'HIGH')
                       : baseline.pressure >= 50
-                      ? 'WATCH'
-                      : 'LOW',
+                      ? (isSpanish ? 'VIGILAR' : 'WATCH')
+                      : (isSpanish ? 'BAJA' : 'LOW'),
                   accent: accent,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _OverviewMetric(
-                  label: 'MOMENTUM',
+                  label: isSpanish ? 'IMPULSO' : 'MOMENTUM',
                   value: momentumBand,
                   accent: const Color(0xFF6EE7F9),
                 ),
@@ -94,10 +104,10 @@ class _TrajectoryOverviewCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _OverviewMetric(
-                  label: 'ENERGY',
+                  label: isSpanish ? 'ENERGÍA' : 'ENERGY',
                   value: baseline.hasObservedEnergy
                       ? '${baseline.energy}%'
-                      : 'NOT SET',
+                      : (isSpanish ? 'SIN REGISTRO' : 'NOT SET'),
                   accent: const Color(0xFFA78BFA),
                 ),
               ),
@@ -118,15 +128,21 @@ class _EvidenceOriginBoundary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
     final String energy = baseline.hasObservedEnergy
-        ? 'recorded'
+        ? (isSpanish ? 'registrada' : 'recorded')
+        : isSpanish
+        ? _spanishUnobservedEvidenceState(baseline.energyOrigin)
         : '${baseline.energyOrigin.name}; not observed';
     final String availability = baseline.hasObservedAvailability
-        ? 'recorded'
+        ? (isSpanish ? 'registrada' : 'recorded')
+        : isSpanish
+        ? _spanishUnobservedEvidenceState(baseline.availabilityOrigin)
         : '${baseline.availabilityOrigin.name}; not observed';
     return Text(
-      'Evidence boundary: energy is $energy; availability is $availability. '
-      'Task durations remain estimates and deadline effects remain projections.',
+      isSpanish
+          ? 'Límite de evidencia: la energía está $energy; la disponibilidad está $availability. Las duraciones de las tareas siguen siendo estimaciones y los efectos de las fechas límite siguen siendo proyecciones.'
+          : 'Evidence boundary: energy is $energy; availability is $availability. Task durations remain estimates and deadline effects remain projections.',
       style: const TextStyle(
         color: Color(0xFFB8C7E8),
         fontSize: 11,
@@ -135,6 +151,16 @@ class _EvidenceOriginBoundary extends StatelessWidget {
     );
   }
 }
+
+String _spanishUnobservedEvidenceState(PredictiveEvidenceOrigin origin) =>
+    switch (origin) {
+      PredictiveEvidenceOrigin.observed => 'registrada',
+      PredictiveEvidenceOrigin.estimated => 'estimada; no observada',
+      PredictiveEvidenceOrigin.inferred => 'inferida; no observada',
+      PredictiveEvidenceOrigin.legacy =>
+        'basada en datos heredados; no observada',
+      PredictiveEvidenceOrigin.unavailable => 'sin datos observados',
+    };
 
 class _ResultAssumptions extends StatelessWidget {
   const _ResultAssumptions({required this.assumptions});
@@ -160,9 +186,13 @@ class _ResultAssumptions extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text(
-            'ASSUMPTIONS FOR THIS RESULT',
-            style: TextStyle(
+          Text(
+            journeyText(
+              context,
+              'ASSUMPTIONS FOR THIS RESULT',
+              'SUPUESTOS DE ESTE RESULTADO',
+            ),
+            style: const TextStyle(
               color: Color(0xFFFFC857),
               fontSize: 9,
               fontWeight: FontWeight.w800,
@@ -170,9 +200,13 @@ class _ResultAssumptions extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           if (visible.isEmpty)
-            const Text(
-              'No additional scenario assumptions were listed. Task durations and future availability remain modeled.',
-              style: TextStyle(
+            Text(
+              journeyText(
+                context,
+                'No additional scenario assumptions were listed. Task durations and future availability remain modeled.',
+                'No se indicaron supuestos adicionales. Las duraciones y la disponibilidad futura siguen siendo estimaciones.',
+              ),
+              style: const TextStyle(
                 color: Color(0xFFD8E2FF),
                 fontSize: 10,
                 height: 1.3,
@@ -183,7 +217,7 @@ class _ResultAssumptions extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 2),
                 child: Text(
-                  '• $assumption',
+                  '• ${_trajectoryGeneratedText(context, assumption)}',
                   style: const TextStyle(
                     color: Color(0xFFD8E2FF),
                     fontSize: 10,
@@ -214,6 +248,7 @@ class _FutureBranches extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
     final List<TrajectoryScenarioOutcome> visible = outcomes.take(3).toList();
     TrajectoryScenarioOutcome? selected;
     for (final TrajectoryScenarioOutcome item in outcomes) {
@@ -236,9 +271,9 @@ class _FutureBranches extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text(
-            'FUTURE BRANCHES',
-            style: TextStyle(
+          Text(
+            journeyText(context, 'FUTURE BRANCHES', 'RAMAS FUTURAS'),
+            style: const TextStyle(
               color: AppColors.neonViolet,
               fontSize: 11,
               fontWeight: FontWeight.w800,
@@ -246,9 +281,13 @@ class _FutureBranches extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Select a path to preview its projected consequences.',
-            style: TextStyle(
+          Text(
+            journeyText(
+              context,
+              'Select a path to preview its projected consequences.',
+              'Selecciona un camino para revisar sus consecuencias proyectadas.',
+            ),
+            style: const TextStyle(
               color: Colors.white70,
               fontSize: 12,
               height: 1.35,
@@ -260,7 +299,9 @@ class _FutureBranches extends StatelessWidget {
             _BranchRow(
               outcome: visible[index],
               label: canRecommend && visible[index].id == recommendedId
-                  ? 'BEST-FIT'
+                  ? (isSpanish ? 'MEJOR AJUSTE' : 'BEST-FIT')
+                  : isSpanish
+                  ? 'CAMINO MODELADO ${index + 1}'
                   : 'MODELED PATH ${index + 1}',
               accent: switch (index % 3) {
                 0 => AppColors.neonCyan,
@@ -296,12 +337,17 @@ class _BranchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
     final int momentumLow = (outcome.projectedMomentum - outcome.uncertainty)
         .clamp(0, 100);
-    final String confidenceLabel = switch (outcome.confidence.band) {
-      PredictiveConfidenceBand.insufficientEvidence => 'insufficient',
-      final band => band.name,
-    };
+    final String confidenceLabel = _trajectoryConfidenceLabel(
+      context,
+      outcome.confidence.band,
+    );
+    final String interventionTitle = _trajectoryGeneratedText(
+      context,
+      outcome.intervention.title,
+    );
     final int momentumHigh = (outcome.projectedMomentum + outcome.uncertainty)
         .clamp(0, 100);
     final int pressureLow = (outcome.projectedPressure - outcome.uncertainty)
@@ -311,7 +357,7 @@ class _BranchRow extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: '$label. ${outcome.intervention.title}',
+      label: '$label. $interventionTitle',
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -356,7 +402,7 @@ class _BranchRow extends StatelessWidget {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          outcome.intervention.title,
+                          interventionTitle,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -370,7 +416,9 @@ class _BranchRow extends StatelessWidget {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          'Momentum $momentumLow–$momentumHigh%  ·  Pressure $pressureLow–$pressureHigh%  ·  $confidenceLabel evidence',
+                          isSpanish
+                              ? 'Impulso $momentumLow–$momentumHigh%  ·  Presión $pressureLow–$pressureHigh%  ·  Evidencia $confidenceLabel'
+                              : 'Momentum $momentumLow–$momentumHigh%  ·  Pressure $pressureLow–$pressureHigh%  ·  $confidenceLabel evidence',
                           style: const TextStyle(
                             color: Colors.white60,
                             fontSize: 11,
@@ -530,20 +578,36 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
     if (widget.baseline.tasks.isEmpty) return const SizedBox.shrink();
     final bool showsDelay = _adjustment == TrajectoryCustomAdjustment.delay;
     return _Panel(
-      title: 'Compose a what-if path',
+      title: journeyText(
+        context,
+        'Compose a what-if path',
+        'Crear un camino hipotético',
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text(
-            'Choose one explicit change. Axiomara will compare its capacity, risk, goal-timing, Timeline, and Progression consequences without changing your real plan.',
-            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+          Text(
+            journeyText(
+              context,
+              'Choose one explicit change. Axiomara will compare its capacity, risk, goal-timing, Timeline, and Progression consequences without changing your real plan.',
+              'Elige un cambio concreto. Axiomara comparará sus consecuencias en capacidad, riesgo, fechas de metas, Línea de Tiempo y Progreso sin cambiar tu plan real.',
+            ),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 12),
           DropdownRouteKeyboardGuard(
             child: DropdownButtonFormField<String>(
               initialValue: _subjectId,
-              decoration: const InputDecoration(
-                labelText: 'Commitment to change',
+              decoration: InputDecoration(
+                labelText: journeyText(
+                  context,
+                  'Commitment to change',
+                  'Compromiso que quieres cambiar',
+                ),
               ),
               items: widget.baseline.tasks
                   .map(
@@ -595,7 +659,9 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
           if (showsDelay) ...<Widget>[
             const SizedBox(height: 10),
             Text(
-              'Declared delay: ${_delayDays.round()} day${_delayDays.round() == 1 ? '' : 's'}',
+              Localizations.localeOf(context).languageCode == 'es'
+                  ? 'Aplazamiento declarado: ${_delayDays.round()} ${_delayDays.round() == 1 ? 'día' : 'días'}'
+                  : 'Declared delay: ${_delayDays.round()} day${_delayDays.round() == 1 ? '' : 's'}',
               style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
             Slider(
@@ -603,7 +669,9 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
               min: 1,
               max: 14,
               divisions: 13,
-              label: '${_delayDays.round()} days',
+              label: Localizations.localeOf(context).languageCode == 'es'
+                  ? '${_delayDays.round()} días'
+                  : '${_delayDays.round()} days',
               onChanged: (double value) => setState(() => _delayDays = value),
             ),
           ],
@@ -668,22 +736,37 @@ class _CalibrationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
     final TrajectoryCalibrationSummary? value = summary.asData?.value;
     final String state = value == null
-        ? (summary.isLoading ? 'loading' : 'unavailable')
+        ? (summary.isLoading
+              ? (isSpanish ? 'cargando' : 'loading')
+              : (isSpanish ? 'no disponible' : 'unavailable'))
         : value.resolvedForecasts == 0
-        ? 'provisional'
-        : 'monitored';
+        ? (isSpanish ? 'provisional' : 'provisional')
+        : (isSpanish ? 'supervisado' : 'monitored');
     final String detail = value == null
-        ? 'Monitoring evidence is not currently available.'
+        ? (isSpanish
+              ? 'Los datos de seguimiento no están disponibles en este momento.'
+              : 'Monitoring evidence is not currently available.')
         : value.resolvedForecasts == 0
-        ? 'No tracked path has reached its horizon yet. Forecasts remain provisional.'
+        ? (isSpanish
+              ? 'Ningún camino supervisado ha alcanzado su horizonte. Las previsiones siguen siendo provisionales.'
+              : 'No tracked path has reached its horizon yet. Forecasts remain provisional.')
+        : isSpanish
+        ? '${value.resolvedForecasts} resueltas y supervisadas • error de impulso ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} puntos • error de presión ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} puntos • cobertura del intervalo ${(value.intervalCoverage * 100).round()}%. Los coeficientes y la incertidumbre no cambian.'
         : '${value.resolvedForecasts} resolved and monitored • momentum error ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} points • pressure error ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} points • interval coverage ${(value.intervalCoverage * 100).round()}%. Coefficients and uncertainty are unchanged.';
     return _Panel(
-      title: 'Forecast monitoring',
+      title: journeyText(
+        context,
+        'Forecast monitoring',
+        'Seguimiento de previsiones',
+      ),
       child: Semantics(
         container: true,
-        label: 'Forecast monitoring $state. $detail',
+        label: isSpanish
+            ? 'Seguimiento de previsiones $state. $detail'
+            : 'Forecast monitoring $state. $detail',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[

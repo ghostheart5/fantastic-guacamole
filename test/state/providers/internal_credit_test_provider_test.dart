@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/features/settings/widgets/internal_credit_test_panel.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -10,6 +11,7 @@ import 'package:fantastic_guacamole/state/providers/internal_credit_test_provide
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -126,6 +128,38 @@ void main() {
     );
     expect(button.onPressed, isNull);
     expect(calls, 0);
+  });
+
+  testWidgets('Spanish panel localizes the synthetic test state', (
+    tester,
+  ) async {
+    final container = createCreditContainer((body) async => success(body));
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          locale: Locale('es'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: <LocalizationsDelegate<dynamic>>[
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: Scaffold(
+            body: SingleChildScrollView(child: InternalCreditTestPanel()),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Lista para una prueba sintética de créditos.'),
+      findsOneWidget,
+    );
+    expect(find.text('Ready for a synthetic credit test.'), findsNothing);
   });
 
   testWidgets(

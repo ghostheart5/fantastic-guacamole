@@ -687,10 +687,40 @@ String _plannerWithoutQuotedText(String text) => text.replaceAll(
   '',
 );
 
-bool _plannerHistoricalOrUncertain(String text) => RegExp(
-  r'\b(?:yesterday|earlier|used to|last time|previously|said|quoted|quote|hypothetical|maybe|perhaps|might|if|not sure|unsure|ayer|antes dije|dije|quiz[aá]s|tal vez|no s[eé]|si pudiera)\b',
-  caseSensitive: false,
-).hasMatch(text);
+bool _plannerHistoricalOrUncertain(String text) {
+  if (RegExp(r'(?:^|[,;:]\s*)¿').hasMatch(text) ||
+      RegExp(
+        r'(?:^|[,;:]\s*)(?:(?:do|does|did|should|must|can|could|would|will)\s+'
+        r'(?:i|we|my|our)\b|(?:do|does|did)\s+you\s+(?:think|believe|feel)\b|'
+        r'(?:can|could|would|will)\s+you\s+(?:tell|say|confirm|determine|check)\s+'
+        r'(?:me\s+)?(?:whether|if)\b|'
+        r"(?:i\s+(?:wonder|(?:am|was)\s+wondering)|i['’]m\s+wondering|"
+        r"we\s+(?:wonder|(?:are|were)\s+wondering)|we['’]re\s+wondering)\s+"
+        r'(?:whether|if)\b|(?:me\s+pregunto|nos\s+preguntamos)\s+si\b)',
+        caseSensitive: false,
+      ).hasMatch(text)) {
+    return true;
+  }
+  return RegExp(
+    r'\b(?:yesterday|earlier|used to|last time|previously|said|quoted|quote|hypothetical|maybe|perhaps|might|if|not sure|unsure|(?:i|we)\s+doubt|ayer|antes dije|dije|quiz[aá]s|tal vez|no s[eé]|si pudiera|(?:dudo|dudamos)(?:\s+que)?)\b',
+    caseSensitive: false,
+  ).hasMatch(text);
+}
+
+String _plannerDeclarativePrefix(String text) {
+  final RegExpMatch? question = RegExp(
+    r'(?:^|[,;:]\s*)(?=¿|(?:(?:do|does|did|should|must|can|could|would|will)\s+'
+    r'(?:i|we|my|our)\b|(?:do|does|did)\s+you\s+(?:think|believe|feel)\b|'
+    r'(?:can|could|would|will)\s+you\s+(?:tell|say|confirm|determine|check)\s+'
+    r'(?:me\s+)?(?:whether|if)\b|'
+    r"(?:i\s+(?:wonder|(?:am|was)\s+wondering)|i['’]m\s+wondering|"
+    r"we\s+(?:wonder|(?:are|were)\s+wondering)|we['’]re\s+wondering)\s+"
+    r'(?:whether|if)\b|(?:me\s+pregunto|nos\s+preguntamos)\s+si\b))',
+    caseSensitive: false,
+  ).firstMatch(text);
+  if (question == null) return text;
+  return text.substring(0, question.start).trim();
+}
 
 bool? _plannerRecoveryPreference(String text) {
   bool? preference;
@@ -887,6 +917,10 @@ String? _extractPlannerAction(String source) {
   if (candidates.isNotEmpty) {
     return null;
   }
+  final groceryNeed = _explicitGroceryNeedAction(source);
+  if (groceryNeed != null) {
+    return groceryNeed;
+  }
   for (final clause in _plannerWithoutQuotedText(
     source,
   ).split(RegExp(r'[.!?;,\n]+'))) {
@@ -909,6 +943,55 @@ String? _extractPlannerAction(String source) {
   }
   return null;
 }
+
+String? _explicitGroceryNeedAction(String source) {
+  for (final clause in _plannerWithoutQuotedText(
+    source,
+  ).split(RegExp(r'[.!?;\n]+'))) {
+    final String declarative = _plannerDeclarativePrefix(clause);
+    if (declarative.isEmpty ||
+        _plannerHistoricalOrUncertain(declarative) ||
+        _plannerRejectsGroceryNeed(declarative)) {
+      continue;
+    }
+    final bool spanish = RegExp(
+      r'\b(?:necesito|necesitamos)\b[^.!?;]{0,45}\b(?:compras|comida|alimentos)\b',
+      caseSensitive: false,
+    ).hasMatch(declarative);
+    final bool english = RegExp(
+      r'\b(?:i|we)\b[^.!?;]{0,60}\b(?:still\s+)?need\s+(?:to\s+(?:get|buy|shop for)\s+)?(?:the\s+)?grocer(?:y|ies)\b',
+      caseSensitive: false,
+    ).hasMatch(declarative);
+    if (!spanish && !english) continue;
+
+    final deadline = RegExp(
+      r'\b(?:before|by|antes de)\s+(?:las\s+)?(\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)\b',
+      caseSensitive: false,
+    ).firstMatch(declarative)?.group(1)?.trim();
+    if (spanish) {
+      return deadline == null
+          ? 'Planificar compras esenciales'
+          : 'Planificar compras esenciales antes de las $deadline';
+    }
+    return deadline == null
+        ? 'Plan essential groceries'
+        : 'Plan essential groceries before $deadline';
+  }
+  return null;
+}
+
+bool _plannerRejectsGroceryNeed(String clause) => RegExp(
+  r"\b(?:do not|don['’]t|never|no longer)\s+(?:still\s+)?need\b[^.!?;]{0,35}\b(?:grocer(?:y|ies)|food)\b"
+  r"|\b(?:do not|don['’]t)\s+(?:think|believe|feel)\b[^.!?;]{0,45}\b(?:i|we)\b[^.!?;]{0,30}\b(?:still\s+)?need\b[^.!?;]{0,35}\b(?:grocer(?:y|ies)|food)\b"
+  r'|\b(?:avoid|skip|exclude)\s+(?:the\s+)?(?:grocer(?:y|ies)|food)\b'
+  r'|\b(?:grocer(?:y|ies)|food)\b[^.!?;]{0,55}\b(?:can wait|can be deferred|(?:is|are) optional|(?:is|are) not urgent)\b'
+  r'|\b(?:can wait|can be deferred|(?:is|are) optional|(?:is|are) not urgent)\b[^.!?;]{0,55}\b(?:grocer(?:y|ies)|food)\b'
+  r'|\b(?:no necesito|ya no necesito|evita|omitir|excluir)\b[^.!?;]{0,35}\b(?:compras|comida|alimentos)\b'
+  r'|\bno\s+(?:creo|creemos|pienso|pensamos|considero|consideramos|siento|sentimos)\s+que\b[^.!?;]{0,55}\b(?:necesito|necesitamos)\b[^.!?;]{0,35}\b(?:compras|comida|alimentos)\b'
+  r'|\b(?:compras|comida|alimentos)\b[^.!?;]{0,55}\b(?:puede esperar|pueden esperar|se puede aplazar|son opcionales|es opcional|no es urgente|no son urgentes)\b'
+  r'|\b(?:puede esperar|pueden esperar|se puede aplazar|son opcionales|es opcional|no es urgente|no son urgentes)\b[^.!?;]{0,55}\b(?:compras|comida|alimentos)\b',
+  caseSensitive: false,
+).hasMatch(clause);
 
 String? _savedPlannerAction(String title) {
   if (RegExp(
