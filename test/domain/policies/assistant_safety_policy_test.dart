@@ -126,6 +126,8 @@ void main() {
     for (final String claim in <String>[
       'Done — your task has been scheduled for 5 PM.',
       'Done — your appointment is scheduled for 5 PM.',
+      'Done! Your appointment is scheduled for 5 PM.',
+      'Done. Your appointment is scheduled for 5 PM.',
       'Your appointment has been scheduled for 5 PM.',
       'Your meeting has been created.',
       'Your reminder has been saved.',
@@ -488,19 +490,25 @@ void main() {
   });
 
   test('auxiliary departure warning remains valid and intact', () {
-    const String response =
-        'The latest departure is 6:20 PM. '
-        'You should not be leaving at 6:30 PM.';
-    final AssistantSafetyOutcome outcome = pipeline.evaluate(
-      _safeReview(responseText: response),
-    );
+    for (final String warning in <String>[
+      'You should not be leaving at 6:30 PM.',
+      "You shouldn't depart at 6:30 PM.",
+      "You mustn't depart at 6:30 PM.",
+      "You can't depart at 6:30 PM.",
+    ]) {
+      final String response = 'The latest departure is 6:20 PM. $warning';
+      final AssistantSafetyOutcome outcome = pipeline.evaluate(
+        _safeReview(responseText: response),
+      );
 
-    expect(outcome.mayPublish, isTrue);
-    expect(
-      outcome.receipt.findingCodes,
-      isNot(contains('contradictory_latest_departure')),
-    );
-    expect(outcome.publishableText, response);
+      expect(outcome.mayPublish, isTrue, reason: warning);
+      expect(
+        outcome.receipt.findingCodes,
+        isNot(contains('contradictory_latest_departure')),
+        reason: warning,
+      );
+      expect(outcome.publishableText, response, reason: warning);
+    }
   });
 
   test('English 24-hour departure contradiction is repaired', () {

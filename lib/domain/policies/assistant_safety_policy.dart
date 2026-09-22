@@ -518,7 +518,7 @@ bool _claimsCompletedMutation(String value) {
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
     ),
     RegExp(
-      r'(^|[.!?]\s+)done\s*[-—:]\s*(your|the)\s+'
+      r'(^|[.!?]\s+)done(\s*[-—:]\s*|\s*[.!?]\s+)(your|the)\s+'
       r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
       r'reminder|commitment|milestone|routine)\s+is\s+'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
@@ -568,7 +568,7 @@ bool _claimsCompletedMutation(String value) {
 String _removeUnsupportedMutationClaims(String value) {
   final List<RegExp> unsupportedSentences = <RegExp>[
     RegExp(
-      r'(^|(?<=[.!?])\s+)done\s*[-—:]\s*(your|the)\s+'
+      r'(^|(?<=[.!?])\s+)done(\s*[-—:]\s*|\s*[.!?]\s+)(your|the)\s+'
       r'(task|goal|habit|note|event|plan|schedule|request|appointment|meeting|'
       r'reminder|commitment|milestone|routine)\s+is\s+'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b'
@@ -788,8 +788,8 @@ Iterable<_DepartureClock> _leaveByClocks(String value) sync* {
 bool _isNegatedDepartureAdvice(String value, int matchStart) {
   final String prefix = value.substring(0, matchStart).toLowerCase();
   return RegExp(
-    r"\b(?:do\s+not|don't|should\s+not(?:\s+be)?|"
-    r'must\s+not(?:\s+be)?|never|avoid|'
+    r"\b(?:do\s+not|don't|should\s+not(?:\s+be)?|shouldn't(?:\s+be)?|"
+    r"must\s+not(?:\s+be)?|mustn't(?:\s+be)?|cannot|can't|never|avoid|"
     r'no(?:\s+(?:debes|deber[ií]as))?|nunca|evita)\s*$',
   ).hasMatch(prefix);
 }
