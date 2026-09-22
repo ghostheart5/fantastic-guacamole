@@ -134,12 +134,12 @@ PlannerV2Response? _answerDisplayedPlanFollowUp({
           'Quieres comprobar si salir a las $departure deja margen suficiente para el plan.',
         ),
         conversationReply: copy(
-          'I cannot verify traffic, travel time, time in the store, or your dinner deadline from the current evidence. Leaving before $departure creates more buffer. To judge whether that is necessary, compare your expected round-trip and shopping time with the time remaining before dinner.',
-          'No puedo verificar el tráfico, el tiempo de viaje, el tiempo dentro de la tienda ni la hora límite de la cena con la información actual. Salir antes de las $departure deja más margen. Para decidir si hace falta, compara el viaje de ida y vuelta y el tiempo de compra previstos con el tiempo disponible antes de cenar.',
+          'I cannot verify live traffic, travel time, wait time, or your arrival deadline from the current evidence. Leaving before $departure creates more buffer. To judge whether that is necessary, compare your expected travel and activity time with the time remaining before the fixed deadline.',
+          'No puedo verificar el tráfico en tiempo real, el tiempo de viaje, el tiempo de espera ni tu hora límite de llegada con la información actual. Salir antes de las $departure deja más margen. Para decidir si hace falta, compara el viaje y el tiempo de la actividad previstos con el tiempo disponible antes del límite fijo.',
         ),
         usefulQuestion: copy(
-          'How many minutes do you expect for travel and shopping, and what time must you be home?',
-          '¿Cuántos minutos calculas para el viaje y la compra, y a qué hora necesitas estar en casa?',
+          'How many minutes do you expect for travel and the activity, and what time must you arrive or be back?',
+          '¿Cuántos minutos calculas para el viaje y la actividad, y a qué hora necesitas llegar o regresar?',
         ),
         userContext: context,
       );

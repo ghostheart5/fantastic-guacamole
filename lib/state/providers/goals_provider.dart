@@ -52,6 +52,7 @@ final goalProgressProvider = FutureProvider.family<GoalProgressView, String>((
 class GoalsNotifier extends Notifier<List<GoalEntity>> {
   final Map<(String?, int, String), Future<GoalMutationResult>>
   _pendingCompletions = <(String?, int, String), Future<GoalMutationResult>>{};
+  int _timelineUpdateSequence = 0;
 
   @override
   List<GoalEntity> build() {
@@ -242,6 +243,10 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
       _GoalAction.updated => 'Goal updated',
       _GoalAction.completed => 'Goal completed',
     };
+    final String timelineEventId = action == _GoalAction.updated
+        ? 'timeline-goal-$actionName-${goal.id}-'
+              '${now.toUtc().microsecondsSinceEpoch}-${_timelineUpdateSequence++}'
+        : 'timeline-goal-$actionName-${goal.id}';
 
     await _auxiliary(operation, 'history', () async {
       await ref
@@ -258,7 +263,7 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
           .read(timelineActionsProvider)
           .addMirroredEvent(
             TimelineEventEntity(
-              id: 'timeline-goal-$actionName-${goal.id}',
+              id: timelineEventId,
               type: action == _GoalAction.completed
                   ? TimelineEventType.goalComplete
                   : TimelineEventType.reflection,
