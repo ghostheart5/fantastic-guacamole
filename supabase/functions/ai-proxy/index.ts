@@ -1,6 +1,8 @@
 import {
   createCreditQuote,
+  MAX_PROVIDER_MICROUSD_PER_CREDIT,
   quotedCreditCost,
+  quotedProviderCostMicrousd,
   verifyCreditQuote,
 } from "../_shared/ai_credit_quote.ts";
 /// <reference lib="deno.ns" />
@@ -415,6 +417,44 @@ Deno.serve(async (req: Request) => {
           },
         ],
       };
+      const repairBudget = await serviceRpc(
+        config,
+        "reserve_ai_repair_budget",
+        {
+          p_user_id: userId,
+          p_request_key: requestId,
+          p_required_provider_cost_microusd:
+            cost * MAX_PROVIDER_MICROUSD_PER_CREDIT +
+            quotedProviderCostMicrousd(repairBody),
+        },
+      );
+      if (!repairBudget) {
+        await settleReservation(userId, requestId, false, {
+          inputTokens,
+          outputTokens,
+          providerRequestId: finalProviderRequestId,
+          failureCode: "repair_budget_check_failed",
+        });
+        reservation = null;
+        return jsonResponse(
+          req,
+          { requestId, error: "credit_reservation_failed" },
+          503,
+        );
+      }
+      if (repairBudget.allowed !== true) {
+        const reason = String(
+          repairBudget.reason ?? "provider_cost_budget_exceeded",
+        );
+        await settleReservation(userId, requestId, false, {
+          inputTokens,
+          outputTokens,
+          providerRequestId: finalProviderRequestId,
+          failureCode: reason,
+        });
+        reservation = null;
+        return jsonResponse(req, { requestId, error: reason }, 429);
+      }
       let repaired: unknown;
       try {
         const repairTimeoutMs = remainingProviderTimeoutMs(

@@ -4,17 +4,23 @@ export const CREDIT_POLICY = "monthly-credits-v2-sonnet46-20260908";
 export const MAX_PROVIDER_MICROUSD_PER_CREDIT = 3000;
 // Includes a conservative framing allowance. Count all serialized request bytes,
 // not only the newest prompt; UTF-8 bytes bound text-token encoding size.
-export function quotedCreditCost(upstream: Record<string, unknown>): number {
+export function quotedProviderCostMicrousd(
+  upstream: Record<string, unknown>,
+): number {
   const max = upstream.max_tokens;
   if (!Number.isInteger(max) || Number(max) < 1 || Number(max) > 1024) {
     throw new Error("invalid_output_limit");
   }
   const bytes = new TextEncoder().encode(JSON.stringify(upstream)).length;
   if (bytes > 64000) throw new Error("request_too_large");
+  return (bytes + 1024) * 3 + Number(max) * 15;
+}
+
+export function quotedCreditCost(upstream: Record<string, unknown>): number {
   return Math.max(
     1,
     Math.ceil(
-      ((bytes + 1024) * 3 + Number(max) * 15) /
+      quotedProviderCostMicrousd(upstream) /
         MAX_PROVIDER_MICROUSD_PER_CREDIT,
     ),
   );

@@ -243,7 +243,7 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
       _GoalAction.updated => 'Goal updated',
       _GoalAction.completed => 'Goal completed',
     };
-    final String timelineEventId = action == _GoalAction.updated
+    final String timelineEventId = action != _GoalAction.created
         ? 'timeline-goal-$actionName-${goal.id}-'
               '${now.toUtc().microsecondsSinceEpoch}-${_timelineUpdateSequence++}'
         : 'timeline-goal-$actionName-${goal.id}';

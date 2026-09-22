@@ -1,6 +1,8 @@
 import {
   createCreditQuote,
+  MAX_PROVIDER_MICROUSD_PER_CREDIT,
   quotedCreditCost,
+  quotedProviderCostMicrousd,
   verifyCreditQuote,
 } from "./ai_credit_quote.ts";
 const request = {
@@ -83,6 +85,14 @@ Deno.test("long history and non-ASCII context increase the quoted budget", () =>
   const long = quotedCreditCost({ ...request, system: "🙂".repeat(2000) });
   assert(long > short);
   assert(quotedCreditCost({ ...request, max_tokens: 1024 }) > short);
+});
+Deno.test("provider reserve exposes the conservative pre-rounding cost", () => {
+  const providerCost = quotedProviderCostMicrousd(request);
+  assert(providerCost > 0);
+  assert(
+    quotedCreditCost(request) ===
+      Math.ceil(providerCost / MAX_PROVIDER_MICROUSD_PER_CREDIT),
+  );
 });
 Deno.test("invalid output budgets are rejected", () => {
   for (const max_tokens of [0, -1, 1025, NaN, 1.5, "256"]) {

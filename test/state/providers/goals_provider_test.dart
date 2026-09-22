@@ -128,6 +128,12 @@ void main() {
         isTrue,
       );
 
+      final GoalEntity completedCreated = goals.goals.singleWhere(
+        (GoalEntity goal) => goal.id == created.id,
+      );
+      await notifier.reopen(completedCreated);
+      await notifier.complete(created.id);
+
       await notifier.remove('active');
       expect(container.read(goalsProvider), isEmpty);
       expect(
@@ -137,6 +143,8 @@ void main() {
         <String>[
           'goal_created',
           'goal_updated',
+          'goal_updated',
+          'goal_completed',
           'goal_updated',
           'goal_completed',
           'goal_completed',
@@ -149,6 +157,8 @@ void main() {
           TimelineEventType.reflection,
           TimelineEventType.reflection,
           TimelineEventType.goalComplete,
+          TimelineEventType.reflection,
+          TimelineEventType.goalComplete,
           TimelineEventType.goalComplete,
         ],
       );
@@ -156,16 +166,33 @@ void main() {
           .where((TimelineEventEntity event) => event.title == 'Goal updated')
           .map((TimelineEventEntity event) => event.id)
           .toList(growable: false);
-      expect(updateEventIds, hasLength(2));
-      expect(updateEventIds.toSet(), hasLength(2));
+      expect(updateEventIds, hasLength(3));
+      expect(updateEventIds.toSet(), hasLength(3));
       expect(
         updateEventIds.every(
           (String id) => id.startsWith('timeline-goal-updated-${created.id}-'),
         ),
         isTrue,
       );
-      expect(profile.awards, <int>[12, 6, 6, 40, 40]);
-      expect(goals.saveCalls, 5);
+      final List<String> repeatedCompletionIds = timeline.events
+          .where(
+            (TimelineEventEntity event) =>
+                event.title == 'Goal completed' &&
+                event.relatedId == created.id,
+          )
+          .map((TimelineEventEntity event) => event.id)
+          .toList(growable: false);
+      expect(repeatedCompletionIds, hasLength(2));
+      expect(repeatedCompletionIds.toSet(), hasLength(2));
+      expect(
+        repeatedCompletionIds.every(
+          (String id) =>
+              id.startsWith('timeline-goal-completed-${created.id}-'),
+        ),
+        isTrue,
+      );
+      expect(profile.awards, <int>[12, 6, 6, 40, 6, 40, 40]);
+      expect(goals.saveCalls, 7);
     },
   );
 }
