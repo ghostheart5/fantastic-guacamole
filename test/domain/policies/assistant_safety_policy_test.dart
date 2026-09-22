@@ -131,6 +131,37 @@ void main() {
     expect(outcome.publishableText, contains('Si ha completado'));
   });
 
+  test('subjectless Spanish mutation claims are removed', () {
+    for (final String claim in <String>[
+      'He programado tu tarea.',
+      'Hemos completado la tarea.',
+    ]) {
+      final AssistantSafetyOutcome outcome = pipeline.evaluate(
+        _safeReview(
+          responseText: '$claim Revisa la hora y confirma el cambio.',
+        ),
+      );
+
+      expect(outcome.mayPublish, isTrue, reason: claim);
+      expect(
+        outcome.receipt.disposition,
+        AssistantSafetyDisposition.repaired,
+        reason: claim,
+      );
+      expect(
+        outcome.receipt.findingCodes,
+        contains('write_authority_violation'),
+        reason: claim,
+      );
+      expect(outcome.publishableText, isNot(contains(claim)), reason: claim);
+      expect(
+        outcome.publishableText,
+        contains('Revisa la hora'),
+        reason: claim,
+      );
+    }
+  });
+
   test(
     'instruction-like evidence is isolated when answer remains read-only',
     () {
@@ -298,6 +329,24 @@ void main() {
     );
     expect(outcome.publishableText, contains('11:50 PM'));
     expect(outcome.publishableText, isNot(contains('12:05 AM')));
+  });
+
+  test('a new option without a bound does not inherit the prior bound', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'Option A: The latest viable departure is 5 PM. Leave by 5 PM. '
+            'Option B: Leave at 6 PM to arrive by 7 PM.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(
+      outcome.receipt.findingCodes,
+      isNot(contains('contradictory_latest_departure')),
+    );
+    expect(outcome.publishableText, contains('Option B'));
+    expect(outcome.publishableText, contains('Leave at 6 PM'));
   });
 
   test('each departure option uses its own latest bound', () {

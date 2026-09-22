@@ -495,6 +495,11 @@ bool _claimsCompletedMutation(String value) {
       r'compr[eéó]|cambi[eéó])'
       r'(?=\s|[.!?,;:]|$)',
     ),
+    RegExp(
+      r'(^|[.!?]\s+)(he|hemos)\s+'
+      r'(guardado|creado|eliminado|programado|completado|actualizado|'
+      r'enviado|aplicado|comprado|cambiado)\b',
+    ),
   ].any((RegExp pattern) => pattern.hasMatch(normalized));
   if (genericClaim) return true;
   return <RegExp>[
@@ -544,6 +549,14 @@ String _removeUnsupportedMutationClaims(String value) {
       r'[^.!?\n]*(?:[.!?]|$)',
       multiLine: true,
     ),
+    RegExp(
+      r'(^|(?<=[.!?])\s+)(he|hemos)\s+'
+      r'(guardado|creado|eliminado|programado|completado|actualizado|'
+      r'enviado|aplicado|comprado|cambiado)\b'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
   ];
   String repaired = value;
   for (final RegExp pattern in unsupportedSentences) {
@@ -555,6 +568,7 @@ String _removeUnsupportedMutationClaims(String value) {
 bool _hasContradictoryLatestDeparture(String value) {
   _DepartureClock? activeLatest;
   for (final String segment in _departureSegments(value)) {
+    if (_startsDepartureScenario(segment)) activeLatest = null;
     activeLatest = _latestDepartureClock(segment) ?? activeLatest;
     final _DepartureClock? latest = activeLatest;
     if (latest != null &&
@@ -571,6 +585,7 @@ String _removeContradictoryLatestDepartureAdvice(String value) {
   _DepartureClock? activeLatest;
   final List<String> retained = <String>[];
   for (final String segment in _departureSegments(value)) {
+    if (_startsDepartureScenario(segment)) activeLatest = null;
     activeLatest = _latestDepartureClock(segment) ?? activeLatest;
     final _DepartureClock? latest = activeLatest;
     final bool contradicts =
@@ -593,6 +608,11 @@ Iterable<String> _departureSegments(String value) => value
     )
     .map((String segment) => segment.trim())
     .where((String segment) => segment.isNotEmpty);
+
+bool _startsDepartureScenario(String value) => RegExp(
+  r'^(?:option|scenario|opci[oó]n|escenario)\s+[a-z0-9]+\b',
+  caseSensitive: false,
+).hasMatch(value);
 
 typedef _DepartureClock = ({int minutes, String? suffix, bool uses24Hour});
 
