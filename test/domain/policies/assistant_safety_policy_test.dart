@@ -135,6 +135,21 @@ void main() {
     expect(outcome.publishableText, contains('Review the proposed time.'));
   });
 
+  test('passive Spanish mutation confirmations are removed', () {
+    final AssistantSafetyOutcome outcome = pipeline.evaluate(
+      _safeReview(
+        responseText:
+            'Tu tarea ha sido programada para las 5. '
+            'Revisa la hora propuesta.',
+      ),
+    );
+
+    expect(outcome.mayPublish, isTrue);
+    expect(outcome.receipt.findingCodes, contains('write_authority_violation'));
+    expect(outcome.publishableText, isNot(contains('ha sido programada')));
+    expect(outcome.publishableText, contains('Revisa la hora propuesta.'));
+  });
+
   test('Spanish current product mutation claim is rejected and removable', () {
     final AssistantSafetyOutcome outcome = pipeline.evaluate(
       _safeReview(

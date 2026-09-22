@@ -111,6 +111,7 @@ export function containsBlockedAssistantClaim(value: string): boolean {
     /\bchronospark\b/,
     /\b(?:(?:i|we)(?:['’]ve\s+|\s+(?:(?:has|have)\s+)?)|(?:axiomara|the assistant)\s+(?:(?:has|have)\s+)?)(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
     /\b(?:your|the)\s+(?:task|goal|habit|note|event|plan|schedule|request)\s+(?:has been|is now)\s+(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|changed)\b/,
+    /\b(?:tu|su|la|el)\s+(?:tarea|meta|habito|hábito|nota|evento|plan|horario|solicitud)\s+(?:ha sido|fue|esta ahora|está ahora)\s+(?:guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa])\b/,
     /\b(?:yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+(?:(?:he|ha|hemos|han)\s+)?(?:guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa]|guard[eéó]|cre[eéó]|elimin[eéó]|program[eéó]|complet[eéó]|actualic[eé]|actualiz[oó]|envi[eéó]|apliqu[eé]|aplic[oó]|compr[eéó]|cambi[eéó])(?=\s|[.!?,;:]|$)/,
     /(?:^|[.!?]\s+)(?:he|hemos)\s+(?:guardado|creado|eliminado|programado|completado|actualizado|enviado|aplicado|comprado|cambiado)\b/,
   ].some((pattern) => pattern.test(normalized));
@@ -135,10 +136,14 @@ export function containsRecommendationContradiction(value: string): boolean {
   const prefixOpening = normalized.match(
     /^(?:first|primero|primera)\s*,?\s+(.{1,90}?)(?=[.!?;,:]|$)/,
   );
-  const opening = suffixOpening ?? prefixOpening;
+  const imperativeOpening = normalized.match(
+    /^(?:start|begin)\s+with\s+(.{1,90}?)(?=[.!?;,:]|$)|^(?:empieza|comienza)\s+con\s+(.{1,90}?)(?=[.!?;,:]|$)/,
+  );
+  const opening = suffixOpening ?? prefixOpening ?? imperativeOpening;
   if (!opening) return false;
 
-  const candidateTokens = opening[1]
+  const openingCandidate = opening[1] ?? opening[2] ?? "";
+  const candidateTokens = openingCandidate
     .replace(
       /^(?:do|choose|start|complete|handle|buy|review|work on|haz|elige|empieza|completa|maneja|compra|revisa|trabaja en)\s+/,
       "",
@@ -163,7 +168,7 @@ export function containsRecommendationContradiction(value: string): boolean {
       return false;
     }
     const rulesOut =
-      /\b(?:(?:not(?!\s+only\b)|no|neither|cannot|can't|isn't|aren't|unable|unavailable|impossible|ni|ninguno|ninguna|nunca)\b[^.!?;,:]{0,40}\b(?:actionable|feasible|available|open|possible|ready|fit|fits|window|windows|accionable|viable|disponible|abierto|abierta|posible|listo|lista|encaja|ventana|ventanas))\b/
+      /\b(?:(?:not(?!\s+only\b)|no|neither|cannot|can't|isn't|aren't|unable|unavailable|impossible|ni|ninguno|ninguna|nunca)\b[^.!?;,:]{0,40}\b(?:actionable|feasible|available|open|possible|ready|fit|fits|window|windows|accionables?|viables?|disponibles?|abiert[oa]s?|posibles?|list[oa]s?|encaja|ventanas?))\b/
         .test(clause);
     const passedWindow =
       /\b(?:window|windows|deadline|deadlines|time|times|ventana|ventanas|plazo|plazos|hora|horas)\b/

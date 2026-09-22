@@ -105,6 +105,20 @@ The release review fits in the available time.`;
       "discourse marker was mistaken for a recommendation reference",
     );
   }
+  if (
+    !containsRecommendationContradiction(
+      "Start with groceries. Groceries are not feasible today.",
+    )
+  ) {
+    throw new Error("imperative English contradiction was accepted");
+  }
+  if (
+    !containsRecommendationContradiction(
+      "Empieza con alimentos. Los alimentos no son viables hoy.",
+    )
+  ) {
+    throw new Error("imperative Spanish contradiction was accepted");
+  }
 });
 
 Deno.test("rejects oversized and deeply nested context", () => {
@@ -134,6 +148,7 @@ Deno.test("blocks unsupported and prompt-disclosure claims", () => {
       "I've scheduled your task.",
       "We’ve completed it.",
       "Done — your task has been scheduled for 5 PM.",
+      "Tu tarea ha sido programada para las 5.",
     ]
   ) {
     if (!containsBlockedAssistantClaim(text)) {

@@ -506,6 +506,13 @@ bool _claimsCompletedMutation(String value) {
       r'(has been|is now)\s+'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b',
     ),
+    RegExp(
+      r'\b(tu|su|la|el)\s+'
+      r'(tarea|meta|h[aá]bito|nota|evento|plan|horario|solicitud)\s+'
+      r'(ha sido|fue|est[aá] ahora)\s+'
+      r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
+      r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa])\b',
+    ),
   ].any((RegExp pattern) => pattern.hasMatch(normalized));
   if (genericClaim) return true;
   return <RegExp>[
@@ -570,6 +577,17 @@ String _removeUnsupportedMutationClaims(String value) {
       r'(task|goal|habit|note|event|plan|schedule|request)\s+'
       r'(has been|is now)\s+'
       r'(saved|created|deleted|scheduled|completed|updated|sent|applied)\b'
+      r'[^.!?\n]*(?:[.!?]|$)',
+      caseSensitive: false,
+      multiLine: true,
+    ),
+    RegExp(
+      r'(^|(?<=[.!?])\s+)'
+      r'(tu|su|la|el)\s+'
+      r'(tarea|meta|h[aá]bito|nota|evento|plan|horario|solicitud)\s+'
+      r'(ha sido|fue|est[aá] ahora)\s+'
+      r'(guardad[oa]|cread[oa]|eliminad[oa]|programad[oa]|completad[oa]|'
+      r'actualizad[oa]|enviad[oa]|aplicad[oa]|comprad[oa]|cambiad[oa])\b'
       r'[^.!?\n]*(?:[.!?]|$)',
       caseSensitive: false,
       multiLine: true,
