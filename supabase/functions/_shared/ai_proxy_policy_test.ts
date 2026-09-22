@@ -144,6 +144,23 @@ The release review fits in the available time.`;
   }
   if (
     !containsRecommendationContradiction(
+      "First, visit the pharmacy. The pharmacy has just closed.",
+    ) ||
+    !containsRecommendationContradiction(
+      "First, visit the pharmacy. It has recently closed.",
+    )
+  ) {
+    throw new Error("current adverbial or pronoun closure was accepted");
+  }
+  if (
+    containsRecommendationContradiction(
+      "First, visit the pharmacy. The pharmacy had closed yesterday but reopened today.",
+    )
+  ) {
+    throw new Error("historical closure invalidated a current recommendation");
+  }
+  if (
+    !containsRecommendationContradiction(
       "Primero, visita la farmacia. La farmacia está cerrada.",
     )
   ) {
@@ -155,6 +172,13 @@ The release review fits in the available time.`;
     )
   ) {
     throw new Error("perfect-tense Spanish closure was accepted");
+  }
+  if (
+    !containsRecommendationContradiction(
+      "Primero, visita la farmacia. La farmacia acaba de cerrar.",
+    )
+  ) {
+    throw new Error("current Spanish closure was accepted");
   }
   if (
     !containsRecommendationContradiction(

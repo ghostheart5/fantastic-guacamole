@@ -275,9 +275,17 @@ bool containsRecommendationContradiction(String text) {
         .split(RegExp(r"[^a-z0-9']+"))
         .where((String token) => token.isNotEmpty)
         .toSet();
-    if (!subjects.any(words.contains)) return false;
+    final bool usesPronoun = words.any(
+      const <String>{'it', 'they', 'eso', 'esto', 'ello'}.contains,
+    );
+    final bool usesDummyPronoun = RegExp(
+      r"\bit\s+(?:(?:is|was|may\s+be|might\s+be)\s+(?:not\s+possible|impossible)|(?:isn't|wasn't)\s+possible)\s+(?:to|that)\b",
+    ).hasMatch(clause);
+    final bool refersToRecommendation =
+        subjects.any(words.contains) || (usesPronoun && !usesDummyPronoun);
+    if (!refersToRecommendation) return false;
     return RegExp(
-      r'\b(?:(?:is|are|was|were)\s+(?:already\s+|currently\s+)?closed|(?:has|have|had)\s+(?:already\s+)?closed)\b|\b(?:(?:esta|estan|estaba|estaban)\s+(?:ya\s+)?cerrad[oa]s?|(?:ha|han|habia|habian)\s+(?:ya\s+)?cerrad[oa]s?)\b',
+      r'\b(?:(?:is|are)\s+(?:already\s+|currently\s+)?closed|(?:has|have)\s+(?:(?:already|just|recently)\s+)?closed)\b|\b(?:(?:esta|estan)\s+(?:ya\s+)?cerrad[oa]s?|(?:recien\s+)?(?:ha|han)\s+(?:(?:ya|recientemente)\s+)?cerrad[oa]s?|acaba(?:n)?\s+de\s+cerrar)\b',
     ).hasMatch(clause);
   });
 }

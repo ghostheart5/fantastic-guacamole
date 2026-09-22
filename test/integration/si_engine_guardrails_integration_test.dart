@@ -100,7 +100,25 @@ void main() {
       );
       expect(
         isPolicyAcceptableResponse(
+          'First, visit the pharmacy. The pharmacy has just closed.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'First, visit the pharmacy. It has recently closed.',
+        ),
+        isFalse,
+      );
+      expect(
+        isPolicyAcceptableResponse(
           "I don't recommend visiting the pharmacy first. The pharmacy has closed.",
+        ),
+        isTrue,
+      );
+      expect(
+        isPolicyAcceptableResponse(
+          'First, visit the pharmacy. The pharmacy had closed yesterday but reopened today.',
         ),
         isTrue,
       );

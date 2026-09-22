@@ -194,7 +194,7 @@ export function containsRecommendationContradiction(value: string): boolean {
     const rulesOut =
       /\b(?:(?:not(?!\s+only\b)|no|neither|cannot|can't|isn't|aren't|unable|unavailable|impossible|ni|ninguno|ninguna|nunca)\b[^.!?;,:]{0,40}\b(?:actionable|feasible|available|open|possible|ready|fit|fits|window|windows|accionables?|viables?|disponibles?|abiert[oa]s?|posibles?|list[oa]s?|encaja|ventanas?))\b/
         .test(clause) ||
-      /\b(?:(?:is|are|was|were)\s+(?:already\s+|currently\s+)?closed|(?:has|have|had)\s+(?:already\s+)?closed)\b|\b(?:(?:esta|estan|estaba|estaban)\s+(?:ya\s+)?cerrad[oa]s?|(?:ha|han|habia|habian)\s+(?:ya\s+)?cerrad[oa]s?)\b/
+      /\b(?:(?:is|are)\s+(?:already\s+|currently\s+)?closed|(?:has|have)\s+(?:(?:already|just|recently)\s+)?closed)\b|\b(?:(?:esta|estan)\s+(?:ya\s+)?cerrad[oa]s?|(?:recien\s+)?(?:ha|han)\s+(?:(?:ya|recientemente)\s+)?cerrad[oa]s?|acaba(?:n)?\s+de\s+cerrar)\b/
         .test(clause);
     const passedWindow =
       /\b(?:window|windows|deadline|deadlines|time|times|ventana|ventanas|plazo|plazos|hora|horas)\b/
