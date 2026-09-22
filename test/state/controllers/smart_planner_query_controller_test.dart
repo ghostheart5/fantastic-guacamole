@@ -242,6 +242,55 @@ void main() {
   });
 
   test(
+    'an introduced Spanish grocery question is not an asserted objective',
+    () async {
+      final ProviderContainer container = plannerContainer();
+      addTearDown(container.dispose);
+
+      final SmartPlannerResult result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: null,
+            emotion: null,
+            notes: 'Hoy, ¿necesito compras antes de las 7 PM?',
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+
+      expect(result.plannerResponse.isClarification, isTrue);
+      expect(
+        result.plannerResponse.toAccessibleText().toLowerCase(),
+        isNot(contains('planificar compras esenciales antes de las 7 pm')),
+      );
+    },
+  );
+
+  test(
+    'a stated Spanish grocery need survives a trailing planning question',
+    () async {
+      final ProviderContainer container = plannerContainer();
+      addTearDown(container.dispose);
+
+      final SmartPlannerResult result = await container
+          .read(smartPlannerQueryControllerProvider)
+          .requestPlanningGuidance(
+            energy: null,
+            emotion: null,
+            notes:
+                'Necesito compras antes de las 7 PM, ¿podemos hacer un plan?',
+            history: const <Map<String, String>>[],
+            previousSavedNotes: null,
+          );
+
+      expect(result.plannerResponse.isClarification, isFalse);
+      expect(
+        result.plannerResponse.toAccessibleText().toLowerCase(),
+        contains('planificar compras esenciales antes de las 7 pm'),
+      );
+    },
+  );
+
+  test(
     'an explicit grocery deferral does not become the current action',
     () async {
       final tasks = _MemoryTaskRepository([

@@ -688,7 +688,7 @@ String _plannerWithoutQuotedText(String text) => text.replaceAll(
 );
 
 bool _plannerHistoricalOrUncertain(String text) {
-  if (RegExp(r'^\s*¿').hasMatch(text) ||
+  if (RegExp(r'(?:^|[,;:]\s*)¿').hasMatch(text) ||
       RegExp(
         r'(?:^|[,;:]\s*)(?:do|does|did|should|must|can|could|would|will)\s+'
         r'(?:i|we|my|our)\b',
@@ -704,7 +704,7 @@ bool _plannerHistoricalOrUncertain(String text) {
 
 String _plannerDeclarativePrefix(String text) {
   final RegExpMatch? question = RegExp(
-    r'(?:^|[,;:]\s*)(?=(?:do|does|did|should|must|can|could|would|will)\s+'
+    r'(?:^|[,;:]\s*)(?=¿|(?:do|does|did|should|must|can|could|would|will)\s+'
     r'(?:i|we|my|our)\b)',
     caseSensitive: false,
   ).firstMatch(text);
