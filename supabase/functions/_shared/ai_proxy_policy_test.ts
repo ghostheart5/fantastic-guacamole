@@ -142,6 +142,13 @@ The release review fits in the available time.`;
   }
   if (
     !containsRecommendationContradiction(
+      "Visit the pharmacy that is nearest first. It is closed.",
+    )
+  ) {
+    throw new Error("relative-clause recommendation was accepted");
+  }
+  if (
+    !containsRecommendationContradiction(
       "Start with groceries. Groceries are not feasible today.",
     )
   ) {

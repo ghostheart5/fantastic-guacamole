@@ -224,7 +224,7 @@ bool containsRecommendationContradiction(String text) {
   final RegExpMatch? suffixOpening =
       suffixOpeningCandidate != null &&
           !RegExp(
-            r'\b(?:is|are|was|were|has|have|had|does|did|closed|opened|arrived|left|started|began|finished|ended|happened|occurred|failed|passed|ran|went|came|became|remained|esta|estan|estaba|estaban|cerro|cerraron|abrio|abrieron|llego|llegaron|salio|salieron|empezo|empezaron|termino|terminaron|fallo|fallaron|paso|pasaron)\b',
+            r'^(?:(?:the|a|an|this|that|these|those|it|he|she|we|they|i|you|el|la|los|las|un|una|este|esta|estos|estas|eso|esa|esos|esas|yo|tu|usted|nosotros|nosotras|ellos|ellas)\b.{0,70}?)?\b(?:is|are|was|were|has|have|had|does|did|closed|opened|arrived|left|started|began|finished|ended|happened|occurred|failed|passed|ran|went|came|became|remained|esta|estan|estaba|estaban|cerro|cerraron|abrio|abrieron|llego|llegaron|salio|salieron|empezo|empezaron|termino|terminaron|fallo|fallaron|paso|pasaron)\b',
           ).hasMatch(suffixOpeningCandidate.group(1)!)
       ? suffixOpeningCandidate
       : null;
