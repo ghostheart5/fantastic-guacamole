@@ -96,6 +96,15 @@ The release review fits in the available time.`;
   ) {
     throw new Error("Spanish pronoun contradiction was accepted");
   }
+  if (
+    containsRecommendationContradiction(
+      "First, buy groceries. That said, the release is not feasible today.",
+    )
+  ) {
+    throw new Error(
+      "discourse marker was mistaken for a recommendation reference",
+    );
+  }
 });
 
 Deno.test("rejects oversized and deeply nested context", () => {

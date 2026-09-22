@@ -156,7 +156,7 @@ export function containsRecommendationContradiction(value: string): boolean {
     const refersToRecommendation = candidateTokens.some((candidate) =>
       words.includes(candidate)
     ) ||
-      /\b(?:it|they|this|that)\b|\b(?:eso|esto|ello|esa|ese|esta|este)\b|\b(?:this|that|the)\s+(?:task|step|choice|option)\b|\b(?:esta|esa|la)\s+(?:tarea|opcion|eleccion)\b|\b(?:este|ese|el)\s+paso\b/
+      /\b(?:it|they)\b|\b(?:eso|esto|ello)\b|\b(?:this|that|the)\s+(?:task|step|choice|option)\b|\b(?:esta|esa|la)\s+(?:tarea|opcion|eleccion)\b|\b(?:este|ese|el)\s+paso\b/
         .test(clause);
     if (!refersToRecommendation) {
       return false;
