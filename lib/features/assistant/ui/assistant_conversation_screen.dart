@@ -649,9 +649,7 @@ class _AssistantConversationScreenState
         ? ref.watch(siV2EvidenceSnapshotProvider).asData?.value.tasks
         : null;
     final enabled = consent && !_busy && _pending == null;
-    return PopScope(
-      canPop: !_busy,
-      child: Scaffold(
+    final scaffold = Scaffold(
       backgroundColor: const Color(0xFF07111C),
       appBar: AppBar(
         title: Text(planner ? 'Smart Planner' : 'SI Console'),
@@ -1115,8 +1113,8 @@ class _AssistantConversationScreenState
           ],
         ),
       ),
-      ),
     );
+    return PopScope(canPop: !_busy, child: scaffold);
   }
 
   String _intentLabel(SIV2Intent value) => switch (value) {
