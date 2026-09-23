@@ -131,6 +131,17 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
     )
   ) throw new Error("newer departure correction did not revoke history");
   if (
+    !containsScheduledStartDepartureConfusion(
+      "Depart at 7:13 PM and arrive at 7:28 PM.",
+      {
+        ...context,
+        scenarioAssumption: "Do not leave at 7:13 PM.",
+      },
+      "What time should I leave?",
+      ["Leave at 7:13 PM."],
+    )
+  ) throw new Error("current scenario did not revoke historical departure");
+  if (
     containsScheduledStartDepartureConfusion(
       "Depart at 7:13 PM and arrive at 7:28 PM.",
       context,
@@ -174,6 +185,13 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
   ) throw new Error("named task's start-as-departure error was missed");
   if (
     !containsScheduledStartDepartureConfusion(
+      "For Task A, leave at 7:13 PM to arrive at 7:28 PM.",
+      twoTasks,
+      "For Shopping Task B, leave at 7:13 PM. What about Task A?",
+    )
+  ) throw new Error("Task B proposal exempted Task A start confusion");
+  if (
+    !containsScheduledStartDepartureConfusion(
       "For Groceries, depart at 7:13 PM to arrive at 7:28 PM.",
       {
         ...context,
@@ -197,19 +215,22 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       )
     ) throw new Error(`non-travel title bypassed the guard: ${title}`);
   }
-  if (
-    containsScheduledStartDepartureConfusion(
-      "Depart at 7:13 PM to go to the store.",
-      {
-        ...context,
-        tasks: [{
-          title: "Depart for store",
-          scheduledStart: "2026-09-23T19:13:00.000",
-        }],
-      },
-      "When should I go to the store?",
-    )
-  ) throw new Error("actual departure task was treated as list preparation");
+  for (const title of ["Depart for store", "Drive to store", "Head to store"]) {
+    if (
+      containsScheduledStartDepartureConfusion(
+        "Drive to the store at 7:13 PM.",
+        {
+          ...context,
+          tasks: [{ title, scheduledStart: "2026-09-23T19:13:00.000" }],
+        },
+        "When should I go to the store?",
+      )
+    ) {
+      throw new Error(
+        `actual travel task was treated as preparation: ${title}`,
+      );
+    }
+  }
 });
 
 Deno.test("detects a direct recommendation contradicted by its own evidence", () => {

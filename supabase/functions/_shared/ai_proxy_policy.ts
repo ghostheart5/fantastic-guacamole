@@ -122,8 +122,9 @@ export function containsScheduledStartDepartureConfusion(
   const scenario = typeof record.scenarioAssumption === "string"
     ? record.scenarioAssumption
     : "";
-  const userTurns = [scenario, ...priorUserMessages];
-  if (userTurns.at(-1) !== prompt) userTurns.push(prompt);
+  const userTurns = [...priorUserMessages];
+  if (userTurns.at(-1) === prompt) userTurns.pop();
+  userTurns.push(scenario, prompt);
   const taskTitles = record.tasks.map((item) =>
     item && typeof item === "object" && !Array.isArray(item) &&
       typeof item.title === "string" && item.title.trim()
@@ -138,7 +139,7 @@ export function containsScheduledStartDepartureConfusion(
     if (typeof task.scheduledStart !== "string") return false;
     if (
       typeof task.title === "string" &&
-      /^(?:(?:depart|departure|leave|leaving)\s+(?:for|to|toward|from)|(?:salir|salida)\s+(?:a|hacia|de))\b/i
+      /^(?:(?:depart|departure|leave|leaving)\s+(?:for|to|toward|from)|(?:head|heading|drive|driving|go|going|travel|traveling|travelling)\s+to|set\s+off\s+(?:for|to)|(?:salir|salida)\s+(?:a|hacia|de))\b/i
         .test(task.title.trim())
     ) return false;
     const start = /T(\d{2}):(\d{2})/.exec(task.scheduledStart);
@@ -150,7 +151,12 @@ export function containsScheduledStartDepartureConfusion(
     const clock = `(?:${clock12}|${start[1]}:${start[2]})`;
     let explicitlyProposedDeparture = false;
     for (const turn of userTurns) {
-      const latest = latestDepartureMentionAt(turn, clock);
+      const latest = latestDepartureMentionAt(
+        turn,
+        clock,
+        task.title,
+        taskTitles,
+      );
       if (latest !== null) explicitlyProposedDeparture = latest;
     }
     if (explicitlyProposedDeparture) return false;
