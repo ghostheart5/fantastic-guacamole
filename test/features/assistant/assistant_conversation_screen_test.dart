@@ -27,10 +27,13 @@ import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 final scope = AccountStorageScope.authenticated('synthetic-review');
 final records = [
@@ -131,6 +134,33 @@ void main() {
       container.read(conversationRequestTimeoutProvider),
       lessThan(internalCreditTestQuoteTransportTimeout),
     );
+  });
+
+  test('SI refuses a UTC fallback when the native zone is London', () async {
+    tzdata.initializeTimeZones();
+    final previousZone = tz.local;
+    tz.setLocalLocation(tz.UTC);
+    addTearDown(() => tz.setLocalLocation(previousZone));
+    const channel = MethodChannel('flutter_timezone');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (_) async => 'Europe/London');
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    final container = setup(
+      (_) async => throw StateError('No transport should run'),
+    );
+    addTearDown(container.dispose);
+    final packet = await container
+        .read(conversationPacketFactoryProvider)
+        .build(
+          surface: ConversationSurface.si,
+          prompt: 'Does Grocery list conflict with an 8 PM store closing?',
+          history: [],
+          languageCode: 'en',
+          intent: SIV2Intent.findConflict,
+          sources: {SIV2Source.tasks},
+        );
+    expect((packet.toJson()['context'] as Map)['taskTimeZoneId'], isNull);
   });
   for (final surface in ConversationSurface.values) {
     for (final scale in [1.0, 1.6]) {

@@ -27,6 +27,43 @@ Deno.test("extracts the Moto closing and durations without using the task start"
   }
 });
 
+Deno.test("routes and verifies closed-by phrasing in English and Spanish", () => {
+  const examples = [
+    {
+      prompt: "Is the store closed by 8 PM?",
+      closingQuote: "store closed by 8 PM",
+      language: "en",
+    },
+    {
+      prompt: "¿Está cerrado el supermercado a las 8 p. m.?",
+      closingQuote: "cerrado el supermercado a las 8 p. m.",
+      language: "es",
+    },
+  ];
+  for (const example of examples) {
+    const context = {
+      surface: "si",
+      mode: "findConflict",
+      language: example.language,
+      taskTimeZoneId: "America/Chicago",
+      scenarioAssumption: "Travel 15 minutes. Shopping 30 minutes.",
+      tasks: [{ id: "grocery", scheduledStart: "2026-09-23T19:13:00" }],
+    };
+    const request = siTimingRequest(context, example.prompt);
+    if (!request) {
+      throw new Error(`${example.language} closed-by route was missed`);
+    }
+    const facts = parseSiTimingExtraction({
+      closingQuote: example.closingQuote,
+      travelQuote: "Travel 15 minutes",
+      activityQuote: "Shopping 30 minutes",
+    }, request.userTurns);
+    if (facts?.closing.value !== 1200) {
+      throw new Error(`${example.language} closing quote was rejected`);
+    }
+  }
+});
+
 Deno.test("rejects a task-start quote substituted for store closing", () => {
   const turns = [
     "Store closes 8 PM. Travel 15 minutes. Shopping 30 minutes. Task starts 7:13 PM.",

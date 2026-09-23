@@ -60,7 +60,8 @@ export function siTimingRequest(
   // Route by the selected analysis mode and a closing-time question, never by
   // words in the model's answer. Other SI conversation paths stay untouched.
   if (
-    !/\b(?:clos(?:e|es|ing)|shuts?|cierra|cierre)\b/i.test(currentText) ||
+    !/\b(?:clos(?:e|es|ing|ed)|shuts?|cierra|cierre|cerrad[oa]s?)\b/i
+      .test(currentText) ||
     !/\b(?:shop(?:ping)?|grocer(?:y|ies)|supermarket|compras?|supermercado)\b/i
       .test(
         currentText,
@@ -185,7 +186,8 @@ export function parseSiTimingExtraction(
   // These are extraction confidence checks, not a broad free-text answer
   // classifier. Unusual wording gets a clarification rather than false math.
   if (
-    !/\b(?:clos(?:e|es|ing)|shuts?|cierra|cierre)\b/i.test(closingQuote) ||
+    !/\b(?:clos(?:e|es|ing|ed)|shuts?|cierra|cierre|cerrad[oa]s?)\b/i
+      .test(closingQuote) ||
     !/\b(?:travel|drive|walk|trip|viaje|trayecto|conducir|caminar)\b/i.test(
       travelQuote,
     ) ||
