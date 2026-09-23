@@ -200,6 +200,103 @@ Deno.test("contradictory Planner verdict is repaired before one settled response
   }
 });
 
+Deno.test("served SI repairs task-start departure confusion before settlement", async () => {
+  if (!handler) throw new Error("handler was not registered");
+  const originalFetch = globalThis.fetch;
+  let providerCalls = 0;
+  let settlements = 0;
+  globalThis.fetch = ((url, init) => {
+    const path = String(url);
+    if (path.endsWith("/auth/v1/user")) {
+      return Promise.resolve(Response.json({
+        id: "11111111-1111-4111-8111-111111111111",
+      }));
+    }
+    if (path.endsWith("/consume_backend_rate_limit")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
+    if (path.endsWith("/reserve_ai_usage")) {
+      return Promise.resolve(Response.json({
+        allowed: true,
+        duplicate: false,
+        balance: 84,
+      }));
+    }
+    if (path.endsWith("/reserve_ai_repair_budget")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
+    if (path.endsWith("/settle_ai_usage")) {
+      if (JSON.parse(String(init?.body)).p_succeeded !== true) {
+        throw new Error("corrected response was not settled as success");
+      }
+      settlements++;
+      return Promise.resolve(Response.json({ state: "completed" }));
+    }
+    if (path === "https://api.anthropic.com/v1/messages") {
+      providerCalls++;
+      const request = JSON.parse(String(init?.body));
+      const repaired = providerCalls === 2;
+      if (
+        repaired &&
+        (!request.messages.at(-1).content.includes(
+          "scheduled start as a travel departure",
+        ) ||
+          !request.messages.at(-1).content.includes(
+            "opening recommendation conflicts with its own evidence",
+          ))
+      ) throw new Error("repair did not explain both captured errors");
+      return Promise.resolve(Response.json({
+        id: repaired ? "provider-repair" : "provider-first",
+        model: "claude-sonnet-4-6",
+        stop_reason: "end_turn",
+        content: [{
+          type: "text",
+          text: repaired
+            ? "If 7:13 PM is your shopping start, leave by 6:58 PM, then finish by 7:43 PM before the hypothetical 8 PM close. If the saved task is only list preparation, its start does not set your store departure."
+            : "Groceries first, then release evidence. Neither grocery task is actionable right now. Scheduled start: 7:13 PM. Depart | 7:13 PM. Arrive at store | 7:28 PM. Shopping complete | 7:58 PM.",
+        }],
+        usage: repaired
+          ? { input_tokens: 20, output_tokens: 7 }
+          : { input_tokens: 10, output_tokens: 10 },
+      }));
+    }
+    throw new Error(`unexpected transport target: ${path}`);
+  }) as typeof fetch;
+  try {
+    const input = {
+      requestId: "synthetic-si-task-start-repair",
+      prompt: "Does this task conflict with an 8 PM store closing?",
+      personality: "strategist",
+      context: {
+        mode: "findConflict",
+        scenarioAssumption: "Store closes 8 PM tomorrow. Travel 15 minutes.",
+        tasks: [{
+          title: "QA Grocery List 3080",
+          scheduledStart: "2026-09-23T19:13:00.000",
+        }],
+      },
+      allowExternalAi: true,
+    };
+    const request = (extra: Record<string, unknown>) =>
+      new Request("https://local.example/ai-proxy", {
+        method: "POST",
+        headers: { authorization: "Bearer synthetic-session" },
+        body: JSON.stringify({ ...input, ...extra }),
+      });
+    const { quote } = await (await handler(request({ quoteOnly: true })))
+      .json();
+    const response = await handler(request({ quote }));
+    const body = await response.json();
+    if (
+      response.status !== 200 ||
+      !body.message.startsWith("If 7:13 PM is your shopping start") ||
+      providerCalls !== 2 || settlements !== 1
+    ) throw new Error("task-start confusion was not repaired exactly once");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 Deno.test("blocked repair output refunds with both provider calls accounted", async () => {
   if (!handler) throw new Error("handler was not registered");
   const originalFetch = globalThis.fetch;
