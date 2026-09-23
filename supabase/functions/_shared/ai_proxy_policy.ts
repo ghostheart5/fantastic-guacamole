@@ -309,11 +309,22 @@ function latestDepartureMentionAt(
   for (const match of normalizedValue.matchAll(clockFirst)) {
     const bridge = match[0].replace(clockOnly, "");
     if (namesThisTask(match.index)) {
+      const before = normalizedValue.slice(
+        Math.max(0, match.index - 50),
+        match.index,
+      );
+      const after = normalizedValue.slice(
+        match.index + match[0].length,
+        match.index + match[0].length + 60,
+      );
       mentions.push({
         index: match.index,
-        affirmative:
+        affirmative: (userProposal ||
+          !/\bif(?:\s+[\p{L}\p{M}\p{N}]+){0,3}\s*$/iu.test(before)) &&
           !/\b(?:not|never|no|isn't|wasn't|shouldn't|cannot|can't|too\s+late|unsafe|impossible)\b/i
-            .test(bridge),
+            .test(bridge) &&
+          !/^\s*(?:(?:would|will|could|may|might|is|was)\s+(?:be\s+)?(?:too\s+late|unsafe|impossible|unworkable|not\s+(?:work|fit|leave\s+enough\s+time)))/i
+            .test(after),
       });
     }
   }
@@ -322,6 +333,13 @@ function latestDepartureMentionAt(
     let header: string[] | null = null;
     let offset = 0;
     const clockCell = new RegExp(`^${clock}$`, "iu");
+    const headerText = (cell: string): string =>
+      cell.replace(/[*_`]/g, "").trim().toLowerCase();
+    const departureHeader = (cell: string): boolean =>
+      /^(?:departure(?:\s+time)?|depart|leave(?:\s+time)?|salida(?:\s+hora)?|salir)$/i
+        .test(headerText(cell));
+    const taskHeader = (cell: string): boolean =>
+      /^(?:task|tarea)$/i.test(headerText(cell));
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) {
@@ -330,19 +348,11 @@ function latestDepartureMentionAt(
         const cells = trimmed.slice(1, -1).split("|").map((cell) =>
           cell.trim()
         );
-        if (
-          cells.some((cell) =>
-            /^(?:departure|depart|leave|salida|salir)$/i.test(cell)
-          )
-        ) {
+        if (cells.some(departureHeader)) {
           header = cells;
         } else if (header && !cells.every((cell) => /^:?-{3,}:?$/.test(cell))) {
-          const departureIndex = header.findIndex((cell) =>
-            /^(?:departure|depart|leave|salida|salir)$/i.test(cell)
-          );
-          const taskIndex = header.findIndex((cell) =>
-            /^(?:task|tarea)$/i.test(cell)
-          );
+          const departureIndex = header.findIndex(departureHeader);
+          const taskIndex = header.findIndex(taskHeader);
           const namedTask = taskIndex < 0 || !cells[taskIndex] ||
             (typeof taskTitle === "string" &&
               cells[taskIndex].toLowerCase() ===

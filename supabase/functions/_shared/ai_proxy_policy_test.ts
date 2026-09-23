@@ -197,6 +197,7 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "19:13 no es la salida; sal a las 18:58.",
       "No deberías salir a las 19:13; sal a las 18:58.",
       "Leaving at 7:13 PM would be too late; leave at 6:58 PM.",
+      "A 7:13 PM departure would be too late; leave at 6:58 PM.",
       "If you leave at 7:13 PM, that is hypothetical; leave at 6:58 PM.",
     ]
   ) {
@@ -285,6 +286,20 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "Compare Task A with Shopping Task B.",
     )
   ) throw new Error("Markdown departure column bypassed the guard");
+  for (
+    const table of [
+      "| Task | Departure time |\n| --- | --- |\n| Task A | 7:13 PM |",
+      "| **Task** | **Departure** |\n| --- | --- |\n| Task A | 7:13 PM |",
+    ]
+  ) {
+    if (
+      !containsScheduledStartDepartureConfusion(
+        table,
+        twoTasks,
+        "Compare Task A with Shopping Task B.",
+      )
+    ) throw new Error("formatted Markdown departure header bypassed guard");
+  }
   if (
     containsScheduledStartDepartureConfusion(
       "| Task | Departure |\n| --- | --- |\n| Shopping Task B | 7:13 PM |",
