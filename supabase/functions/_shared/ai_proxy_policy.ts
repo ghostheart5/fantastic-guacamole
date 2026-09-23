@@ -163,6 +163,11 @@ export function containsScheduledStartDepartureConfusion(
         true,
       );
       if (latest !== null) explicitlyProposedDeparture = latest;
+      else if (
+        explicitlyProposedDeparture &&
+        /\b(?:that|this|the|my|our)\s+departure\s+(?:is|was|would\s+be)\s+(?:too\s+late|wrong|unsafe|impossible|not\s+(?:viable|workable))\b/i
+          .test(turn)
+      ) explicitlyProposedDeparture = false;
     }
     if (explicitlyProposedDeparture) return false;
     return latestDepartureMentionAt(value, clock, task.title, taskTitles) ===
@@ -291,7 +296,8 @@ function latestDepartureMentionAt(
         /\b(?:don't|doesn't|do\s+not|does\s+not)\s+(?:need|have)\s+to\s*$/i
           .test(before) && /\buntil\b/i.test(match[0]);
       const negatedUpperBound =
-        /\b(?:don't|doesn't|do\s+not|does\s+not)\s*$/i.test(before) &&
+        /\b(?:(?:do|does|must|should|would|will|can)\s+not|don't|doesn't|mustn't|shouldn't|wouldn't|won't|can't)\s*$/i
+          .test(before) &&
         /\b(?:after|later\s+than)\b/i.test(match[0]);
       mentions.push({
         index: match.index,

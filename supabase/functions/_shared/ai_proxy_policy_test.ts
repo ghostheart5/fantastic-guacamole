@@ -170,6 +170,14 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
   ) throw new Error("newer departure correction did not revoke history");
   if (
     !containsScheduledStartDepartureConfusion(
+      "Depart at 7:13 PM and arrive at 7:28 PM.",
+      context,
+      "Actually, that departure is too late; when should I leave?",
+      ["What if I depart at 7:13 PM?"],
+    )
+  ) throw new Error("anaphoric rejection did not revoke history");
+  if (
+    !containsScheduledStartDepartureConfusion(
       "Depart at 7:13 PM to reach the store.",
       context,
       "Leave the 7:13 PM task unchanged; when should I depart?",
@@ -257,6 +265,8 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
     const advice of [
       "Don't leave after 7:13 PM.",
       "Do not leave any later than 7:13 PM.",
+      "You must not leave after 7:13 PM.",
+      "You should not leave later than 7:13 PM.",
     ]
   ) {
     if (!containsScheduledStartDepartureConfusion(advice, context, prompt)) {
