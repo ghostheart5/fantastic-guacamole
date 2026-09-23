@@ -353,6 +353,13 @@ void main() {
 
     expect(context['selectedSources'], ['tasks']);
     expect(context['tasks'], isNotEmpty);
+    final work = (context['tasks'] as List)
+        .cast<Map<String, dynamic>>()
+        .firstWhere((task) => task['id'] == 'work');
+    expect(
+      work['scheduledStartUtcOffsetMinutes'],
+      DateTime(2026, 9, 16, 9).toLocal().timeZoneOffset.inMinutes,
+    );
     expect(context['goals'], isEmpty);
   });
 

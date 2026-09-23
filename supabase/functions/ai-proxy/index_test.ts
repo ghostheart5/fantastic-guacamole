@@ -200,6 +200,127 @@ Deno.test("contradictory Planner verdict is repaired before one settled response
   }
 });
 
+Deno.test("served SI timing uses one quoted provider call and deterministic window", async () => {
+  if (!handler) throw new Error("handler was not registered");
+  const originalFetch = globalThis.fetch;
+  let providerCalls = 0;
+  let repairCalls = 0;
+  let settlements = 0;
+  globalThis.fetch = ((url, init) => {
+    const path = String(url);
+    if (path.endsWith("/auth/v1/user")) {
+      return Promise.resolve(
+        Response.json({ id: "11111111-1111-4111-8111-111111111111" }),
+      );
+    }
+    if (path.endsWith("/consume_backend_rate_limit")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
+    if (path.endsWith("/reserve_ai_usage")) {
+      return Promise.resolve(Response.json({
+        allowed: true,
+        duplicate: false,
+        balance: 84,
+      }));
+    }
+    if (path.endsWith("/reserve_ai_repair_budget")) {
+      repairCalls++;
+      throw new Error("timing answer must not enter paid repair");
+    }
+    if (path.endsWith("/settle_ai_usage")) {
+      const payload = JSON.parse(String(init?.body));
+      if (
+        payload.p_succeeded !== true || payload.p_input_tokens !== 24 ||
+        payload.p_output_tokens !== 30
+      ) throw new Error("structured timing usage was not settled once");
+      settlements++;
+      return Promise.resolve(Response.json({ state: "completed" }));
+    }
+    if (path === "https://api.anthropic.com/v1/messages") {
+      providerCalls++;
+      const upstream = JSON.parse(String(init?.body));
+      if (
+        upstream.output_config?.format?.type !== "json_schema" ||
+        !upstream.system.includes("Do not infer a departure")
+      ) throw new Error("structured timing contract was not sent to provider");
+      return Promise.resolve(Response.json({
+        id: "timing-provider",
+        model: "claude-sonnet-4-6",
+        stop_reason: "end_turn",
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            closingQuote: providerCalls === 1
+              ? "8 PM store closing"
+              : "Task starts 7:13 PM",
+            travelQuote: "Travel 15 minutes",
+            activityQuote: "Shopping 30 minutes",
+          }),
+        }],
+        usage: { input_tokens: 24, output_tokens: 30 },
+      }));
+    }
+    throw new Error(`unexpected transport target: ${path}`);
+  }) as typeof fetch;
+  try {
+    const input = {
+      requestId: "synthetic-si-timing-window",
+      prompt: "Does this task conflict with an 8 PM store closing?",
+      personality: "strategist",
+      context: {
+        surface: "si",
+        mode: "findConflict",
+        language: "en",
+        scenarioAssumption:
+          "Travel 15 minutes. Shopping 30 minutes. Task starts 7:13 PM.",
+        tasks: [{
+          id: "grocery",
+          scheduledStart: "2099-09-23T19:13:00",
+          scheduledStartUtcOffsetMinutes: -300,
+        }],
+      },
+      allowExternalAi: true,
+    };
+    const request = (extra: Record<string, unknown>) =>
+      new Request("https://local.example/ai-proxy", {
+        method: "POST",
+        headers: { authorization: "Bearer synthetic-session" },
+        body: JSON.stringify({ ...input, ...extra }),
+      });
+    const quoted = await handler(request({ quoteOnly: true }));
+    const { quote } = await quoted.json();
+    const response = await handler(request({ quote }));
+    const body = await response.json();
+    if (
+      response.status !== 200 ||
+      !body.message.includes("does not establish when you leave") ||
+      !body.message.includes("7:15 PM") ||
+      !body.message.includes("7:00 PM") ||
+      body.message.includes("there is a conflict") ||
+      providerCalls !== 1 || repairCalls !== 0 || settlements !== 1
+    ) throw new Error(`SI timing contract failed: ${JSON.stringify(body)}`);
+    const badQuote = await handler(request({
+      requestId: "synthetic-si-timing-bad-quote",
+      quoteOnly: true,
+    }));
+    const { quote: secondQuote } = await badQuote.json();
+    const clarified = await handler(request({
+      requestId: "synthetic-si-timing-bad-quote",
+      quote: secondQuote,
+    }));
+    const clarifiedBody = await clarified.json();
+    if (
+      clarified.status !== 200 ||
+      !clarifiedBody.message.includes("Please confirm the closing time") ||
+      clarifiedBody.message.includes("7:13 PM departure") ||
+      Number(providerCalls) !== 2 || repairCalls !== 0 ||
+      Number(settlements) !== 2
+    ) throw new Error("unverified timing quote entered paid repair or 502");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 Deno.test("blocked repair output refunds with both provider calls accounted", async () => {
   if (!handler) throw new Error("handler was not registered");
   const originalFetch = globalThis.fetch;

@@ -260,6 +260,10 @@ final class ConversationPacketFactory {
                 'title': bounded(t.title, 240),
                 'priority': t.priority,
                 'scheduledStart': localDate(t.scheduledFor),
+                'scheduledStartUtcOffsetMinutes': t.scheduledFor
+                    ?.toLocal()
+                    .timeZoneOffset
+                    .inMinutes,
                 'deadline': localDate(t.dueDate),
                 'goalId': t.goalId,
                 'description': bounded(
