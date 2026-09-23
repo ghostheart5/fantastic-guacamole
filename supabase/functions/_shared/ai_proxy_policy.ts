@@ -255,7 +255,20 @@ function latestDepartureMentionAt(
         previousLineEnd = previousLineStart - 1;
       }
     }
-    return named.length === 1 && named[0] === taskTitle.trim();
+    if (named.length === 1) return named[0] === taskTitle.trim();
+    if (named.length > 1) {
+      const beforeVerb = titleSpans.filter((span) => span.end <= index - left)
+        .sort((a, b) => b.end - a.end);
+      const nearest = beforeVerb[0];
+      if (nearest) {
+        const bridge = sentence.slice(nearest.end, index - left);
+        if (
+          /^\s*(?:,\s*|(?:requires?|needs?|must|should|plans?|means?)\s+)(?:to\s+)?$/i
+            .test(bridge)
+        ) return nearest.title === taskTitle.trim();
+      }
+    }
+    return false;
   };
   const verbFirst = new RegExp(
     `${boundedDeparture}(?:(?!\\d{1,2}:\\d{2})[^,;.!?\\n]){0,35}${clock}`,
@@ -277,6 +290,9 @@ function latestDepartureMentionAt(
         affirmative: !(userProposal &&
           /^leave\s+(?:(?:the|a|my)\s+)?\d{1,2}:\d{2}/i.test(match[0]) &&
           /^\s+(?:task|appointment|event|schedule)\b/i.test(after)) &&
+          !(userProposal &&
+            /\b(?:before|after|by|earlier\s+than|later\s+than)\s+\d{1,2}(?::\d{2})?/i
+              .test(match[0])) &&
           !negatedDeparturePrefix.test(before) &&
           (userProposal ||
             !/\bif(?:\s+[\p{L}\p{M}\p{N}]+){0,3}\s*$/iu.test(before)) &&
@@ -299,6 +315,51 @@ function latestDepartureMentionAt(
           !/\b(?:not|never|no|isn't|wasn't|shouldn't|cannot|can't|too\s+late|unsafe|impossible)\b/i
             .test(bridge),
       });
+    }
+  }
+  if (!userProposal) {
+    const lines = normalizedValue.split("\n");
+    let header: string[] | null = null;
+    let offset = 0;
+    const clockCell = new RegExp(`^${clock}$`, "iu");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) {
+        header = null;
+      } else {
+        const cells = trimmed.slice(1, -1).split("|").map((cell) =>
+          cell.trim()
+        );
+        if (
+          cells.some((cell) =>
+            /^(?:departure|depart|leave|salida|salir)$/i.test(cell)
+          )
+        ) {
+          header = cells;
+        } else if (header && !cells.every((cell) => /^:?-{3,}:?$/.test(cell))) {
+          const departureIndex = header.findIndex((cell) =>
+            /^(?:departure|depart|leave|salida|salir)$/i.test(cell)
+          );
+          const taskIndex = header.findIndex((cell) =>
+            /^(?:task|tarea)$/i.test(cell)
+          );
+          const namedTask = taskIndex < 0 || !cells[taskIndex] ||
+            (typeof taskTitle === "string" &&
+              cells[taskIndex].toLowerCase() ===
+                taskTitle.trim().toLowerCase());
+          if (
+            departureIndex >= 0 && departureIndex < cells.length &&
+            clockCell.test(cells[departureIndex]) && namedTask &&
+            (taskTitles.length <= 1 || taskIndex >= 0)
+          ) {
+            mentions.push({
+              index: offset + line.indexOf(cells[departureIndex]),
+              affirmative: true,
+            });
+          }
+        }
+      }
+      offset += line.length + 1;
     }
   }
   mentions.sort((a, b) => a.index - b.index);

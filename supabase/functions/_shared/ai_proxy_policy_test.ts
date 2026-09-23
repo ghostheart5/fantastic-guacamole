@@ -164,6 +164,13 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
   ) throw new Error("leaving a task unchanged authorized a departure");
   if (
     !containsScheduledStartDepartureConfusion(
+      "Leave at 7:13 PM to reach the store.",
+      context,
+      "I need to leave before 7:13 PM. What time should I depart?",
+    )
+  ) throw new Error("departure bound authorized its exact clock");
+  if (
+    !containsScheduledStartDepartureConfusion(
       "Depart at 7:13 PM and arrive at 7:28 PM.",
       {
         ...context,
@@ -222,6 +229,20 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
   ) throw new Error("named task's start-as-departure error was missed");
   if (
     !containsScheduledStartDepartureConfusion(
+      "Unlike Shopping Task B, Task A requires leaving at 7:13 PM.",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("multi-task comparison lost local attribution");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Unlike Task A, Shopping Task B requires leaving at 7:13 PM.",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("multi-task comparison attributed the other task");
+  if (
+    !containsScheduledStartDepartureConfusion(
       "For Dr. appointment, leave at 7:13 PM to arrive at 7:28 PM.",
       {
         ...context,
@@ -257,6 +278,20 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "Compare Task A with Shopping Task B.",
     )
   ) throw new Error("task heading was lost across a metadata row");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "| Task | Departure |\n| --- | --- |\n| Task A | 7:13 PM |\n| Shopping Task B | 7:00 PM |",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("Markdown departure column bypassed the guard");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "| Task | Departure |\n| --- | --- |\n| Shopping Task B | 7:13 PM |",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("Markdown departure column matched the wrong task");
   if (
     containsScheduledStartDepartureConfusion(
       "Shopping Task B:\nDepart | 7:13 PM to arrive at 7:28 PM.",
