@@ -156,6 +156,7 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "Do not plan to leave at 7:13 PM; leave at 6:58 PM.",
       "Don’t leave at 7:13 PM; leave at 6:58 PM.",
       "19:13 no es la salida; sal a las 18:58.",
+      "No deberías salir a las 19:13; sal a las 18:58.",
     ]
   ) {
     if (
@@ -192,6 +193,20 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "For Shopping Task B, leave at 7:13 PM. What about Task A?",
     )
   ) throw new Error("Task B proposal exempted Task A start confusion");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Task A:\nDepart | 7:13 PM.",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("task heading did not attribute its departure row");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Shopping Task B:\nDepart | 7:13 PM to arrive at 7:28 PM.",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("other task heading misattributed the departure row");
   if (
     !containsScheduledStartDepartureConfusion(
       "For Groceries, depart at 7:13 PM to arrive at 7:28 PM.",
@@ -233,6 +248,19 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       );
     }
   }
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Sal a las 19:13 para ir a la tienda.",
+      {
+        ...context,
+        tasks: [{
+          title: "Ir a la tienda",
+          scheduledStart: "2026-09-23T19:13:00.000",
+        }],
+      },
+      "¿Cuándo debo salir?",
+    )
+  ) throw new Error("Spanish travel task was treated as list preparation");
   if (
     !containsScheduledStartDepartureConfusion(
       "Leave at 7 PM to go to the store.",

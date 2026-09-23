@@ -139,7 +139,7 @@ export function containsScheduledStartDepartureConfusion(
     if (typeof task.scheduledStart !== "string") return false;
     if (
       typeof task.title === "string" &&
-      /^(?:(?:depart|departure|leave|leaving)\s+(?:for|to|toward|from)|(?:head|heading|drive|driving|go|going|travel|traveling|travelling)\s+to|set\s+off\s+(?:for|to)|(?:salir|salida)\s+(?:a|hacia|de))\b/i
+      /^(?:(?:depart|departure|leave|leaving)\s+(?:for|to|toward|from)|(?:head|heading|drive|driving|go|going|travel|traveling|travelling)\s+to|set\s+off\s+(?:for|to)|(?:salir|salida)\s+(?:a|hacia|de)|(?:ir|conducir|manejar|viajar|caminar|dirigirse)\s+(?:a|hacia))\b/i
         .test(task.title.trim())
     ) return false;
     const start = /T(\d{2}):(\d{2})/.exec(task.scheduledStart);
@@ -171,7 +171,7 @@ const departureWord =
 const boundedDeparture =
   `(?<![\\p{L}\\p{N}])${departureWord}(?![\\p{L}\\p{N}])`;
 const negatedDeparturePrefix =
-  /(?:\b(?:do|does|did|should|must|would|will|can)\s+not|\b(?:don't|doesn't|didn't|shouldn't|mustn't|wouldn't|won't|can't|never|avoid|no|not))(?:\s+\w+){0,3}\s*$/i;
+  /(?:\b(?:do|does|did|should|must|would|will|can)\s+not|\b(?:don't|doesn't|didn't|shouldn't|mustn't|wouldn't|won't|can't|never|avoid|no|not))(?:\s+[\p{L}\p{M}\p{N}]+){0,3}\s*$/iu;
 
 function latestDepartureMentionAt(
   value: string,
@@ -197,7 +197,8 @@ function latestDepartureMentionAt(
       left,
       boundary < 0 ? value.length : index + boundary,
     ).toLowerCase();
-    const named = [...new Set(taskTitles)].filter((title) => {
+    const titles = [...new Set(taskTitles)];
+    let named = titles.filter((title) => {
       if (!title) return false;
       const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       return new RegExp(
@@ -205,6 +206,18 @@ function latestDepartureMentionAt(
         "iu",
       ).test(sentence);
     });
+    if (named.length === 0 && left > 0 && value[left - 1] === "\n") {
+      const previousLineEnd = left - 1;
+      const previousLineStart = value.lastIndexOf("\n", previousLineEnd - 1) +
+        1;
+      const heading = value.slice(previousLineStart, previousLineEnd).trim()
+        .replace(/^[#*>|\-\s]+/, "")
+        .replace(/[:|#*\s]+$/, "")
+        .toLowerCase();
+      named = titles.filter((title) =>
+        title && title.toLowerCase() === heading
+      );
+    }
     return named.length === 1 && named[0] === taskTitle.trim();
   };
   const verbFirst = new RegExp(
