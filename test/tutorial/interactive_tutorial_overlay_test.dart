@@ -244,6 +244,48 @@ void main() {
     },
   );
 
+  testWidgets('modal login action remains usable in a short viewport', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey targetKey = GlobalKey();
+    bool startedLogin = false;
+    await tester.binding.setSurfaceSize(const Size(640, 360));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: <Widget>[
+              Positioned(
+                left: 12,
+                top: 24,
+                right: 12,
+                height: 312,
+                child: SizedBox(key: targetKey),
+              ),
+              InteractiveTutorialOverlay(
+                targetKey: targetKey,
+                title: 'Sign in or create your account',
+                body: 'Sign in to continue setup.',
+                primaryLabel: 'Start login',
+                onPrimary: () => startedLogin = true,
+                allowTargetInteraction: false,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Start login').hitTestable(), findsOneWidget);
+    await tester.tap(find.text('Start login'));
+    expect(startedLogin, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('announces the callout as a live modal dialog', (
     WidgetTester tester,
   ) async {

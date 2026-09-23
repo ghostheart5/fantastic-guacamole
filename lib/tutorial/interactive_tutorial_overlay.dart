@@ -381,21 +381,19 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
     final double textScale = MediaQuery.textScalerOf(context).scale(1);
     final double fullRegionHeight = usableBottom - usableTop;
     final double minimumReadableHeight = math.min(320, fullRegionHeight);
-    final double minimumPinnedActionHeight = math.max(400, 160 * textScale);
     bool pinActionsInSafeViewport = false;
     if ((textScale >= 1.5 || !widget.allowTargetInteraction) &&
         widget.primaryEnabled &&
-        fullRegionHeight >= minimumPinnedActionHeight &&
         regionBottom - regionTop < minimumReadableHeight) {
       // A large spotlight can leave only a thin strip for the guide, even at
       // normal text size. Modal guides can cover the target until their action
       // is pressed; guides that require target interaction keep the
-      // target-relative layout at normal text size. On very short viewports,
-      // the whole callout remains scrollable.
+      // target-relative layout at normal text size. Very short viewports use
+      // the full scrollable viewport so the action is never hidden entirely.
       regionTop = usableTop;
       regionBottom = usableBottom;
       alignment = Alignment.center;
-      pinActionsInSafeViewport = true;
+      pinActionsInSafeViewport = fullRegionHeight >= 160 * textScale;
     }
     final double regionHeight = regionBottom - regionTop;
     if (calloutWidth <= 0 || regionHeight <= 0) {
