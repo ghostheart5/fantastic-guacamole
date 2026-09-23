@@ -139,7 +139,7 @@ export function containsScheduledStartDepartureConfusion(
     if (typeof task.scheduledStart !== "string") return false;
     if (
       typeof task.title === "string" &&
-      /^(?:(?:depart|departure|leave|leaving)\s+(?:for|to|toward|from)|(?:head|heading|drive|driving|go|going|travel|traveling|travelling)\s+to|set\s+off\s+(?:for|to)|(?:salir|salida)\s+(?:a|hacia|de)|(?:ir|conducir|manejar|viajar|caminar|dirigirse)\s+(?:a|hacia))\b/i
+      /^(?:(?:depart|departure|leave|leaving)\s+(?:for|to|toward|from)|(?:head|heading|drive|driving|travel|traveling|travelling)\s+to|(?:go|going)\s+to\s+(?:(?:the|a|my)\s+)?(?:store|market|shop|office|work|school|gym|home|hospital|clinic|bank|airport|station|library|restaurant|pharmacy|park)\b|set\s+off\s+(?:for|to)|(?:salir|salida)\s+(?:a|hacia|de)|(?:conducir|manejar|viajar|caminar|dirigirse)\s+(?:a|hacia)|ir\s+(?:hacia|a\s+(?:(?:la|el|los|las|un|una)\s+)?(?:tienda|mercado|trabajo|escuela|casa|oficina|gimnasio|hospital|estación|farmacia|parque)))\b/i
         .test(task.title.trim())
     ) return false;
     const start = /T(\d{2}):(\d{2})/.exec(task.scheduledStart);
@@ -157,6 +157,7 @@ export function containsScheduledStartDepartureConfusion(
         clock,
         task.title,
         taskTitles,
+        true,
       );
       if (latest !== null) explicitlyProposedDeparture = latest;
     }
@@ -178,6 +179,7 @@ function latestDepartureMentionAt(
   clock: string,
   taskTitle?: unknown,
   taskTitles: readonly string[] = [],
+  userProposal = false,
 ): boolean | null {
   const normalizedValue = value.replaceAll("’", "'");
   // With multiple selected tasks, a matching clock alone is ambiguous. Only
@@ -223,16 +225,22 @@ function latestDepartureMentionAt(
       ),
     ];
     if (named.length === 0 && left > 0 && value[left - 1] === "\n") {
-      const previousLineEnd = left - 1;
-      const previousLineStart = value.lastIndexOf("\n", previousLineEnd - 1) +
-        1;
-      const heading = value.slice(previousLineStart, previousLineEnd).trim()
-        .replace(/^[#*>|\-\s]+/, "")
-        .replace(/[:|#*\s]+$/, "")
-        .toLowerCase();
-      named = titles.filter((title) =>
-        title && title.toLowerCase() === heading
-      );
+      let previousLineEnd = left - 1;
+      for (let row = 0; row < 8 && previousLineEnd >= 0; row++) {
+        const previousLineStart = value.lastIndexOf("\n", previousLineEnd - 1) +
+          1;
+        const raw = value.slice(previousLineStart, previousLineEnd).trim();
+        if (!raw) break;
+        const heading = raw.replace(/^[#*>|\-\s]+/, "")
+          .replace(/[:|#*\s]+$/, "").toLowerCase();
+        named = titles.filter((title) =>
+          title && title.toLowerCase() === heading
+        );
+        if (named.length > 0 || /:\s*$/.test(raw) || /^#{1,6}\s/.test(raw)) {
+          break;
+        }
+        previousLineEnd = previousLineStart - 1;
+      }
     }
     return named.length === 1 && named[0] === taskTitle.trim();
   };
@@ -254,7 +262,8 @@ function latestDepartureMentionAt(
       mentions.push({
         index: match.index,
         affirmative: !negatedDeparturePrefix.test(before) &&
-          !/\bif(?:\s+[\p{L}\p{M}\p{N}]+){0,3}\s*$/iu.test(before) &&
+          (userProposal ||
+            !/\bif(?:\s+[\p{L}\p{M}\p{N}]+){0,3}\s*$/iu.test(before)) &&
           !/^\s*(?:(?:would|will|could|may|might|is|was)\s+(?:be\s+)?(?:too\s+late|unsafe|impossible|unworkable|not\s+(?:work|fit|leave\s+enough\s+time)))/i
             .test(after),
       });

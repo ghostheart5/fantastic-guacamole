@@ -117,6 +117,17 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
   ) throw new Error("user-proposed departure was rejected");
   if (
     containsScheduledStartDepartureConfusion(
+      "Yes, depart at 7:13 PM if that is what you choose.",
+      context,
+      "What if I depart at 7:13 PM?",
+    )
+  ) {
+    throw new Error(
+      "conditional user proposal was treated as assistant speculation",
+    );
+  }
+  if (
+    containsScheduledStartDepartureConfusion(
       "If you depart at 7:13 PM, you will arrive at 7:28 PM.",
       context,
       "Would that work?",
@@ -203,6 +214,13 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
     )
   ) throw new Error("task heading did not attribute its departure row");
   if (
+    !containsScheduledStartDepartureConfusion(
+      "Task A:\nScheduled start | 7:13 PM\nDepart | 7:13 PM.",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("task heading was lost across a metadata row");
+  if (
     containsScheduledStartDepartureConfusion(
       "Shopping Task B:\nDepart | 7:13 PM to arrive at 7:28 PM.",
       twoTasks,
@@ -250,6 +268,19 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       )
     ) throw new Error(`non-travel title bypassed the guard: ${title}`);
   }
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Leave at 7:13 PM to go to the store.",
+      {
+        ...context,
+        tasks: [{
+          title: "Go to sleep",
+          scheduledStart: "2026-09-23T19:13:00.000",
+        }],
+      },
+      "When should I go to the store?",
+    )
+  ) throw new Error("non-travel Go to sleep title bypassed the guard");
   for (const title of ["Depart for store", "Drive to store", "Head to store"]) {
     if (
       containsScheduledStartDepartureConfusion(
