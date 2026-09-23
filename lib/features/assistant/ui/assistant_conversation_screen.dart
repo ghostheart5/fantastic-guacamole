@@ -305,6 +305,7 @@ class _AssistantConversationScreenState
       if (!current()) return;
       if (<String>{
         'daily_budget_exceeded',
+        'timing_context_missing',
         'insufficient_credits',
         'credits_exhausted',
         'request_completed',
@@ -378,6 +379,10 @@ class _AssistantConversationScreenState
   }
 
   String _failureText(String code) => switch (code) {
+    'timing_context_missing' => copy(
+      'I need one scheduled task and its local date to check this store-closing question. No credits were charged. Schedule or select the task, update the app if needed, then start a new request and review a new quote.',
+      'Necesito una tarea programada y su fecha local para comprobar esta pregunta sobre el cierre de la tienda. No se cobraron créditos de IA. Programa o selecciona la tarea, actualiza la app si hace falta y luego inicia una solicitud nueva y revisa una cotización nueva.',
+    ),
     'insufficient_credits' || 'credits_exhausted' => copy(
       'You do not have enough AI credits. No model answer was generated. No credits were charged. Add credits or wait for your allowance, then start a new request and review a new quote.',
       'No tienes suficientes créditos de IA. No se generó una respuesta del modelo. No se cobraron créditos. Añade créditos o espera tu asignación; después inicia una solicitud nueva y revisa una nueva cotización.',

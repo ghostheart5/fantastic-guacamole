@@ -15,6 +15,8 @@ import 'package:fantastic_guacamole/state/providers/personalization_provider.dar
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 // Uses the existing private, authenticated AI cohort. Public launch remains
 // contained until the new conversational experience is reviewed on-device.
@@ -171,6 +173,26 @@ final class ConversationPacketFactory {
       entityFilter: entityFilter,
       scenarioAssumption: scenario,
     );
+    String? taskTimeZoneId;
+    if (surface == ConversationSurface.si &&
+        query.intent == SIV2Intent.findConflict) {
+      try {
+        final platformZoneId =
+            (await FlutterTimezone.getLocalTimezone().timeout(
+              const Duration(seconds: 2),
+            )).identifier;
+        final platformZone = tz.getLocation(platformZoneId);
+        final localZone = tz.local;
+        if (localZone.name == platformZone.name &&
+            tz.TZDateTime.from(now, localZone).timeZoneOffset ==
+                now.timeZoneOffset) {
+          taskTimeZoneId = localZone.name;
+        }
+      } on Object {
+        // Native zone lookup or startup configuration is unavailable. The
+        // server will request task/date context before a paid calculation.
+      }
+    }
     final effectiveSources = taskOnly
         ? const <SIV2Source>{SIV2Source.tasks}
         : query.sources;
@@ -219,6 +241,8 @@ final class ConversationPacketFactory {
     ).allMatches(prompt.toLowerCase()).map((m) => m.group(0)!).toSet();
     int relevance(SIV2TaskEvidence task) => task.id == attachedId
         ? 10000
+        : task.id == local.focusTaskId
+        ? 9000
         : topic.where((term) => task.title.toLowerCase().contains(term)).length;
     tasks.sort((a, b) => relevance(b).compareTo(relevance(a)));
     final goals = snapshot.goals
@@ -242,6 +266,7 @@ final class ConversationPacketFactory {
         'language': languageCode,
         'nowLocal': now.toIso8601String(),
         'utcOffsetMinutes': now.timeZoneOffset.inMinutes,
+        'taskTimeZoneId': taskTimeZoneId,
         'mode': query.intent.name,
         'timeRange': range.name,
         'selectedSources':
@@ -252,6 +277,7 @@ final class ConversationPacketFactory {
         if (taskOnly) 'contextScope': 'attachedTaskOnly',
         if (taskDetailsUnavailable) 'taskDetailsUnavailable': true,
         'explicitlyAttachedTaskId': ?attachedId,
+        'focusedTaskId': ?local.focusTaskId,
         'tasks': tasks
             .take(12)
             .map(

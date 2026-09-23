@@ -27,10 +27,13 @@ import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 final scope = AccountStorageScope.authenticated('synthetic-review');
 final records = [
@@ -131,6 +134,33 @@ void main() {
       container.read(conversationRequestTimeoutProvider),
       lessThan(internalCreditTestQuoteTransportTimeout),
     );
+  });
+
+  test('SI refuses a UTC fallback when the native zone is London', () async {
+    tzdata.initializeTimeZones();
+    final previousZone = tz.local;
+    tz.setLocalLocation(tz.UTC);
+    addTearDown(() => tz.setLocalLocation(previousZone));
+    const channel = MethodChannel('flutter_timezone');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (_) async => 'Europe/London');
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    final container = setup(
+      (_) async => throw StateError('No transport should run'),
+    );
+    addTearDown(container.dispose);
+    final packet = await container
+        .read(conversationPacketFactoryProvider)
+        .build(
+          surface: ConversationSurface.si,
+          prompt: 'Does Grocery list conflict with an 8 PM store closing?',
+          history: [],
+          languageCode: 'en',
+          intent: SIV2Intent.findConflict,
+          sources: {SIV2Source.tasks},
+        );
+    expect((packet.toJson()['context'] as Map)['taskTimeZoneId'], isNull);
   });
   for (final surface in ConversationSurface.values) {
     for (final scale in [1.0, 1.6]) {
@@ -353,8 +383,92 @@ void main() {
 
     expect(context['selectedSources'], ['tasks']);
     expect(context['tasks'], isNotEmpty);
+    final work = (context['tasks'] as List)
+        .cast<Map<String, dynamic>>()
+        .firstWhere((task) => task['id'] == 'work');
+    expect(work['scheduledStart'], isNotNull);
+    expect(context.containsKey('taskTimeZoneId'), isTrue);
+    final zone = context['taskTimeZoneId'];
+    if (zone != null) expect(zone, isA<String>());
     expect(context['goals'], isEmpty);
   });
+
+  test(
+    'SI carries its uniquely matched grocery task among multiple tasks',
+    () async {
+      final container = setup(
+        (_) async => throw StateError('No transport should run'),
+      );
+      addTearDown(container.dispose);
+      final packet = await container
+          .read(conversationPacketFactoryProvider)
+          .build(
+            surface: ConversationSurface.si,
+            prompt: 'Does Grocery list conflict with an 8 PM store closing?',
+            history: [],
+            languageCode: 'en',
+            intent: SIV2Intent.findConflict,
+            sources: {SIV2Source.tasks},
+          );
+      final context = packet.toJson()['context'] as Map;
+      expect((context['tasks'] as List).length, greaterThan(1));
+      expect(context['focusedTaskId'], 'grocery');
+
+      final ambiguous = setup(
+        (_) async => throw StateError('No transport should run'),
+        readGateway: SIV2ReadGateway(
+          accountScopeId: scope.v2Namespace!,
+          readTasks: () async => [
+            ...records,
+            TaskEntity(id: 'grocery-copy', title: 'Grocery list'),
+          ],
+          readGoals: () async => [],
+          readMilestones: () async => [],
+          readTimeline: () async => [],
+        ),
+      );
+      addTearDown(ambiguous.dispose);
+      final ambiguousPacket = await ambiguous
+          .read(conversationPacketFactoryProvider)
+          .build(
+            surface: ConversationSurface.si,
+            prompt: 'Does Grocery list conflict with an 8 PM store closing?',
+            history: [],
+            languageCode: 'en',
+            intent: SIV2Intent.findConflict,
+            sources: {SIV2Source.tasks},
+          );
+      final ambiguousContext = ambiguousPacket.toJson()['context'] as Map;
+      expect(ambiguousContext['focusedTaskId'], isNull);
+
+      final incidental = setup(
+        (_) async => throw StateError('No transport should run'),
+        readGateway: SIV2ReadGateway(
+          accountScopeId: scope.v2Namespace!,
+          readTasks: () async => [
+            ...records,
+            TaskEntity(id: 'inventory', title: 'Store inventory'),
+          ],
+          readGoals: () async => [],
+          readMilestones: () async => [],
+          readTimeline: () async => [],
+        ),
+      );
+      addTearDown(incidental.dispose);
+      final incidentalPacket = await incidental
+          .read(conversationPacketFactoryProvider)
+          .build(
+            surface: ConversationSurface.si,
+            prompt: 'Does this task conflict with an 8 PM store closing?',
+            history: [],
+            languageCode: 'en',
+            intent: SIV2Intent.findConflict,
+            sources: {SIV2Source.tasks},
+          );
+      final incidentalContext = incidentalPacket.toJson()['context'] as Map;
+      expect(incidentalContext['focusedTaskId'], isNull);
+    },
+  );
 
   for (final failure in [
     StateError('Task details unavailable'),
@@ -479,6 +593,7 @@ void main() {
 
   for (final failure in <String, String>{
     'daily_budget_exceeded': 'rolling daily AI safety limit',
+    'timing_context_missing': 'one scheduled task and its local date',
     'insufficient_credits': 'not have enough AI credits',
     'credits_exhausted': 'not have enough AI credits',
     'request_denied': 'denied before processing',
@@ -557,6 +672,7 @@ void main() {
         }
         if (<String>{
           'daily_budget_exceeded',
+          'timing_context_missing',
           'insufficient_credits',
           'credits_exhausted',
           'request_completed',

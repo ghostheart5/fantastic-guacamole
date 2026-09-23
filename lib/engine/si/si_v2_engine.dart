@@ -421,6 +421,14 @@ final class SIV2Engine {
 
     final bool refusal =
         question.focus == _SIV2QuestionFocus.unsupported || namedTaskMissing;
+    final uniquelyNamedTask =
+        !refusal &&
+        focusTask != null &&
+        question.explicitlyNamesTask(focusTask.title) &&
+        tasks
+                .where((task) => question.explicitlyNamesTask(task.title))
+                .length ==
+            1;
     final SIV2Response response = SIV2Response(
       query: query,
       snapshotRevision: snapshot.revision,
@@ -449,6 +457,7 @@ final class SIV2Engine {
         assumptionCount: scenarioAssumptions.length,
       ),
       evidenceLinks: links,
+      focusTaskId: uniquelyNamedTask ? focusTask.id : null,
     );
     return question.isSpanish
         ? _localizeSpanishResponse(response, question: question)
@@ -631,6 +640,7 @@ final class SIV2Engine {
       recommendation: recommendation,
       confidence: source.confidence,
       evidenceLinks: source.evidenceLinks,
+      focusTaskId: source.focusTaskId,
       safetyReceipt: source.safetyReceipt,
     );
   }
@@ -1760,6 +1770,14 @@ final class _SIV2Question {
     }
 
     return matches(currentTerms) * 4 + matches(priorTerms);
+  }
+
+  bool explicitlyNamesTask(String title) {
+    final normalizedTitle = _normalizeQuestion(title);
+    // A stray topic word (for example, "store" in "store closing") cannot
+    // identify a task. Single-word titles remain unresolved in free text.
+    if (_questionTerms(normalizedTitle).length < 2) return false;
+    return ' $normalizedInput '.contains(' $normalizedTitle ');
   }
 
   SIV2Statement? entityMatchStatement({

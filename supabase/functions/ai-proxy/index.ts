@@ -28,6 +28,19 @@ import {
   internalAiPreflightResponse,
   parseInternalAiCohort,
 } from "../_shared/internal_ai_cohort.ts";
+import {
+  parseSiTimingExtraction,
+  SI_TIMING_EXTRACTION_INSTRUCTION,
+  SI_TIMING_OUTPUT_CONFIG,
+  type SiTimingRequest,
+  siTimingRequest,
+  timingInputForTaskDay,
+} from "../_shared/si_timing_extraction.ts";
+import { calculateSiTiming } from "../_shared/si_timing_plan.ts";
+import {
+  recordedTaskClock,
+  renderSiTimingReply,
+} from "../_shared/si_timing_reply.ts";
 
 const config: BillingBackendConfig = {
   supabaseUrl: Deno.env.get("SUPABASE_URL") ?? "",
@@ -357,13 +370,26 @@ Deno.serve(async (req: Request) => {
         recentHistory.at(-1)?.content === prompt
       ? recentHistory
       : [...recentHistory, { role: "user" as const, content: prompt }];
+    const timingRequest = siTimingRequest(body.context, prompt);
+    if (
+      timingRequest &&
+      (!timingRequest.taskDay || !timingRequest.taskTimeZoneId)
+    ) {
+      return jsonResponse(req, {
+        requestId,
+        error: "timing_context_missing",
+      }, 422);
+    }
     const upstreamBody: Record<string, unknown> = {
       model: DEFAULT_MODEL,
       max_tokens: maxTokens,
       temperature: 0,
       messages,
     };
-    upstreamBody.system = system;
+    upstreamBody.system = timingRequest
+      ? `${system} ${SI_TIMING_EXTRACTION_INSTRUCTION}`
+      : system;
+    if (timingRequest) upstreamBody.output_config = SI_TIMING_OUTPUT_CONFIG;
     const cost = quotedCreditCost(upstreamBody);
     if (body.quoteOnly === true) {
       return jsonResponse(req, {
@@ -501,7 +527,7 @@ Deno.serve(async (req: Request) => {
         502,
       );
     }
-    if (containsBlockedAssistantClaim(message)) {
+    if (!timingRequest && containsBlockedAssistantClaim(message)) {
       await settleReservation(userId, requestId, false, {
         inputTokens,
         outputTokens,
@@ -515,7 +541,9 @@ Deno.serve(async (req: Request) => {
         502,
       );
     }
-    let finalMessage = message;
+    let finalMessage = timingRequest
+      ? structuredSiTimingReply(timingRequest, message)
+      : message;
     let finalModel = typeof data?.model === "string"
       ? data.model
       : DEFAULT_MODEL;
@@ -524,7 +552,7 @@ Deno.serve(async (req: Request) => {
       : undefined;
     let totalInputTokens = inputTokens;
     let totalOutputTokens = outputTokens;
-    if (containsRecommendationContradiction(message)) {
+    if (!timingRequest && containsRecommendationContradiction(message)) {
       const repairBody: Record<string, unknown> = {
         ...upstreamBody,
         messages: [
@@ -768,6 +796,46 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : null;
+}
+
+function structuredSiTimingReply(
+  request: SiTimingRequest,
+  providerText: string,
+  nowMs = Date.now(),
+): string {
+  const clarification = request.language === "es"
+    ? "El inicio guardado de la tarea no indica cuándo sales o empiezas a comprar. Confirma la hora de cierre, los minutos de viaje y los minutos de compra para calcular una salida con margen."
+    : "The saved task start does not tell me when you leave or begin shopping. Please confirm the closing time, travel minutes, and shopping minutes so I can calculate a departure with a cushion.";
+  if (!request.taskDay || !request.taskTimeZoneId) return clarification;
+  let structured: unknown;
+  try {
+    structured = JSON.parse(providerText);
+  } catch {
+    return clarification;
+  }
+  const facts = parseSiTimingExtraction(structured, request.userTurns);
+  if (!facts) return clarification;
+  const input = timingInputForTaskDay(
+    facts,
+    request.userTurns,
+    request.taskDay,
+    request.taskTimeZoneId,
+  );
+  if (!input) return clarification;
+  const result = calculateSiTiming(input, {
+    nowMs,
+    optionalBufferMinutes: 15,
+  });
+  return renderSiTimingReply(result, {
+    language: request.language,
+    timeZoneId: request.taskTimeZoneId,
+    travelMinutes: facts.travelMinutes.value,
+    activityMinutes: facts.activityMinutes.value,
+    recordedTaskStart: recordedTaskClock(
+      request.recordedTaskStart,
+      request.language,
+    ),
+  });
 }
 
 export function remainingProviderTimeoutMs(
