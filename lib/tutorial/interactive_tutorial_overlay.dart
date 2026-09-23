@@ -382,22 +382,20 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
     final double fullRegionHeight = usableBottom - usableTop;
     final double minimumReadableHeight = math.min(320, fullRegionHeight);
     final double minimumPinnedActionHeight = math.max(400, 160 * textScale);
-    bool pinActionsForLargeText = false;
-    if (textScale >= 1.5 &&
+    bool pinActionsInSafeViewport = false;
+    if ((textScale >= 1.5 || !widget.allowTargetInteraction) &&
         widget.primaryEnabled &&
         fullRegionHeight >= minimumPinnedActionHeight &&
         regionBottom - regionTop < minimumReadableHeight) {
-      // At large text sizes a large spotlight can leave only a thin strip for
-      // the guide. Give the actionable callout the safe viewport instead of
-      // hiding its explanation and primary action behind an undiscoverable
-      // internal scroll. Guides that require target interaction keep the
-      // target-relative layout by disabling their primary action. Extremely
-      // short viewports keep the whole callout scrollable because even the
-      // pinned action area may not fit at very large text scales.
+      // A large spotlight can leave only a thin strip for the guide, even at
+      // normal text size. Modal guides can cover the target until their action
+      // is pressed; guides that require target interaction keep the
+      // target-relative layout at normal text size. On very short viewports,
+      // the whole callout remains scrollable.
       regionTop = usableTop;
       regionBottom = usableBottom;
       alignment = Alignment.center;
-      pinActionsForLargeText = true;
+      pinActionsInSafeViewport = true;
     }
     final double regionHeight = regionBottom - regionTop;
     if (calloutWidth <= 0 || regionHeight <= 0) {
@@ -479,7 +477,7 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
                 borderRadius: BorderRadius.circular(8),
                 clipBehavior: Clip.antiAlias,
                 child: Container(
-                  height: pinActionsForLargeText ? regionHeight : null,
+                  height: pinActionsInSafeViewport ? regionHeight : null,
                   constraints: BoxConstraints(maxHeight: regionHeight),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
@@ -487,7 +485,7 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
                       color: AppColors.neonCyan.withValues(alpha: .72),
                     ),
                   ),
-                  child: pinActionsForLargeText
+                  child: pinActionsInSafeViewport
                       ? Column(
                           children: <Widget>[
                             Expanded(

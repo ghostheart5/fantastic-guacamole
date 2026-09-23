@@ -199,6 +199,51 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'modal login guide shows its explanation and action at normal text size',
+    (WidgetTester tester) async {
+      final GlobalKey targetKey = GlobalKey();
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const String explanation =
+          'Use the real account you want Axiomara to remember. '
+          'After authentication, setup continues with your display name.';
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: <Widget>[
+                Positioned(
+                  left: 12,
+                  top: 180,
+                  right: 12,
+                  height: 620,
+                  child: SizedBox(key: targetKey),
+                ),
+                InteractiveTutorialOverlay(
+                  targetKey: targetKey,
+                  stepLabel: 'First setup 2 of 3',
+                  title: 'Sign in or create your account',
+                  body: explanation,
+                  primaryLabel: 'Start login',
+                  onPrimary: () {},
+                  allowTargetInteraction: false,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.text(explanation).hitTestable(), findsOneWidget);
+      expect(find.text('Start login').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('announces the callout as a live modal dialog', (
     WidgetTester tester,
   ) async {

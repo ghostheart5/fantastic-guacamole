@@ -231,6 +231,7 @@ class _LoginScreenState extends State<LoginScreen>
                     ? 'Comenzar acceso'
                     : 'Start login',
                 onPrimary: () => setState(() => _guideVisible = false),
+                allowTargetInteraction: false,
               ),
           ],
         ),
