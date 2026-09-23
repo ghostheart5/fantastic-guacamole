@@ -190,6 +190,19 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
   ) throw new Error("train departure authorized user departure");
   if (
     !containsScheduledStartDepartureConfusion(
+      "Leave home at 7:13 AM.",
+      {
+        ...context,
+        tasks: [{
+          title: "Pack bags",
+          scheduledStart: "2026-09-23T07:13:00.000",
+        }],
+      },
+      "The train departure is at 7:13 AM; when should I leave home?",
+    )
+  ) throw new Error("verb-first train fact authorized user departure");
+  if (
+    !containsScheduledStartDepartureConfusion(
       "Leave at 7:13 PM to reach the store.",
       context,
       "I need to leave before 7:13 PM. What time should I depart?",
@@ -240,6 +253,16 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       prompt,
     )
   ) throw new Error("inverted necessity hid departure recommendation");
+  for (
+    const advice of [
+      "Don't leave after 7:13 PM.",
+      "Do not leave any later than 7:13 PM.",
+    ]
+  ) {
+    if (!containsScheduledStartDepartureConfusion(advice, context, prompt)) {
+      throw new Error(`negated upper bound hid departure advice: ${advice}`);
+    }
+  }
   const twoTasks = {
     ...context,
     tasks: [
@@ -324,6 +347,7 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "| Task | Departure time |\n| --- | --- |\n| Task A | 7:13 PM |",
       "| **Task** | **Departure** |\n| --- | --- |\n| Task A | 7:13 PM |",
       "| Task | Departure |\n| --- | --- |\n| Task A | **7:13 PM** |",
+      "| Task | Departure |\n| --- | --- |\n| **Task A** | **7:13 PM** |",
     ]
   ) {
     if (

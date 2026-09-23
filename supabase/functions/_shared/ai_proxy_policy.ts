@@ -290,15 +290,22 @@ function latestDepartureMentionAt(
       const invertedNecessity =
         /\b(?:don't|doesn't|do\s+not|does\s+not)\s+(?:need|have)\s+to\s*$/i
           .test(before) && /\buntil\b/i.test(match[0]);
+      const negatedUpperBound =
+        /\b(?:don't|doesn't|do\s+not|does\s+not)\s*$/i.test(before) &&
+        /\b(?:after|later\s+than)\b/i.test(match[0]);
       mentions.push({
         index: match.index,
         affirmative: !(userProposal &&
-          /^leave\s+(?:(?:the|a|my)\s+)?\d{1,2}:\d{2}/i.test(match[0]) &&
-          /^\s+(?:task|appointment|event|schedule)\b/i.test(after)) &&
+          /\b(?:train|bus|flight|plane|ferry|shuttle)\s+$/i.test(before) &&
+          /^departure\b/i.test(match[0])) &&
+          !(userProposal &&
+            /^leave\s+(?:(?:the|a|my)\s+)?\d{1,2}:\d{2}/i.test(match[0]) &&
+            /^\s+(?:task|appointment|event|schedule)\b/i.test(after)) &&
           !(userProposal &&
             /\b(?:before|after|by|earlier\s+than|later\s+than)\s+\d{1,2}(?::\d{2})?/i
               .test(match[0])) &&
-          (!negatedDeparturePrefix.test(before) || invertedNecessity) &&
+          (!negatedDeparturePrefix.test(before) || invertedNecessity ||
+            negatedUpperBound) &&
           (userProposal ||
             !/\bif(?:\s+[\p{L}\p{M}\p{N}]+){0,3}\s*$/iu.test(before)) &&
           !/^\s*(?:(?:would|will|could|may|might|is|was)\s+(?:be\s+)?(?:too\s+late|unsafe|impossible|unworkable|not\s+(?:work|fit|leave\s+enough\s+time)))/i
@@ -363,7 +370,7 @@ function latestDepartureMentionAt(
           const taskIndex = header.findIndex(taskHeader);
           const namedTask = taskIndex < 0 || !cells[taskIndex] ||
             (typeof taskTitle === "string" &&
-              cells[taskIndex].toLowerCase() ===
+              headerText(cells[taskIndex]) ===
                 taskTitle.trim().toLowerCase());
           if (
             departureIndex >= 0 && departureIndex < cells.length &&
