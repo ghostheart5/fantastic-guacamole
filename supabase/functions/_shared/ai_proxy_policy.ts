@@ -198,14 +198,30 @@ function latestDepartureMentionAt(
       boundary < 0 ? value.length : index + boundary,
     ).toLowerCase();
     const titles = [...new Set(taskTitles)];
-    let named = titles.filter((title) => {
-      if (!title) return false;
+    const titleSpans = titles.flatMap((title) => {
+      if (!title) return [];
       const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return new RegExp(
+      const pattern = new RegExp(
         `(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`,
-        "iu",
-      ).test(sentence);
+        "giu",
+      );
+      return [...sentence.matchAll(pattern)].map((match) => ({
+        title,
+        start: match.index,
+        end: match.index + match[0].length,
+      }));
     });
+    let named = [
+      ...new Set(
+        titleSpans.filter((span) =>
+          !titleSpans.some((other) =>
+            other !== span && other.start <= span.start &&
+            other.end >= span.end &&
+            other.end - other.start > span.end - span.start
+          )
+        ).map((span) => span.title),
+      ),
+    ];
     if (named.length === 0 && left > 0 && value[left - 1] === "\n") {
       const previousLineEnd = left - 1;
       const previousLineStart = value.lastIndexOf("\n", previousLineEnd - 1) +
@@ -231,9 +247,16 @@ function latestDepartureMentionAt(
       match.index,
     );
     if (namesThisTask(match.index)) {
+      const after = normalizedValue.slice(
+        match.index + match[0].length,
+        match.index + match[0].length + 60,
+      );
       mentions.push({
         index: match.index,
-        affirmative: !negatedDeparturePrefix.test(before),
+        affirmative: !negatedDeparturePrefix.test(before) &&
+          !/\bif(?:\s+[\p{L}\p{M}\p{N}]+){0,3}\s*$/iu.test(before) &&
+          !/^\s*(?:(?:would|will|could|may|might|is|was)\s+(?:be\s+)?(?:too\s+late|unsafe|impossible|unworkable|not\s+(?:work|fit|leave\s+enough\s+time)))/i
+            .test(after),
       });
     }
   }
@@ -248,7 +271,7 @@ function latestDepartureMentionAt(
       mentions.push({
         index: match.index,
         affirmative:
-          !/\b(?:not|never|no|isn't|wasn't|shouldn't|cannot|can't)\b/i
+          !/\b(?:not|never|no|isn't|wasn't|shouldn't|cannot|can't|too\s+late|unsafe|impossible)\b/i
             .test(bridge),
       });
     }

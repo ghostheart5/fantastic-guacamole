@@ -157,6 +157,8 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "Don’t leave at 7:13 PM; leave at 6:58 PM.",
       "19:13 no es la salida; sal a las 18:58.",
       "No deberías salir a las 19:13; sal a las 18:58.",
+      "Leaving at 7:13 PM would be too late; leave at 6:58 PM.",
+      "If you leave at 7:13 PM, that is hypothetical; leave at 6:58 PM.",
     ]
   ) {
     if (
@@ -220,6 +222,22 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "Compare both Groceries tasks.",
     )
   ) throw new Error("duplicate task titles bypassed the named-task guard");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "For Task A groceries, leave at 7:28 PM.",
+      {
+        ...context,
+        tasks: [
+          { title: "Task A", scheduledStart: "2026-09-23T19:13:00.000" },
+          {
+            title: "Task A groceries",
+            scheduledStart: "2026-09-23T19:28:00.000",
+          },
+        ],
+      },
+      "Compare Task A and Task A groceries.",
+    )
+  ) throw new Error("overlapping task title masked the specific task");
   for (const title of ["Leave feedback", "Prepare departure checklist"]) {
     if (
       !containsScheduledStartDepartureConfusion(
