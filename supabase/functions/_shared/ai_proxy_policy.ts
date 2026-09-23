@@ -150,7 +150,9 @@ export function containsScheduledStartDepartureConfusion(
     const clock12 = `${hour % 12 || 12}${minute12}\\s*` +
       (hour < 12 ? "a\\.?\\s*m\\.?" : "p\\.?\\s*m\\.?");
     const clock24Hour = hour < 10 ? `0?${hour}` : `${hour}`;
-    const clock = `(?:${clock12}|${clock24Hour}:${start[2]})`;
+    const clock = `(?:${clock12}|${clock24Hour}:${
+      start[2]
+    }(?!\\s*[ap]\\.?\\s*m\\.?))`;
     let explicitlyProposedDeparture = false;
     for (const turn of userTurns) {
       const latest = latestDepartureMentionAt(
@@ -319,8 +321,11 @@ function latestDepartureMentionAt(
       );
       mentions.push({
         index: match.index,
-        affirmative: (userProposal ||
-          !/\bif(?:\s+[\p{L}\p{M}\p{N}]+){0,3}\s*$/iu.test(before)) &&
+        affirmative: !(userProposal &&
+          /\b(?:train|bus|flight|plane|ferry|shuttle)\s+departure\b/i
+            .test(bridge)) &&
+          (userProposal ||
+            !/\bif(?:\s+[\p{L}\p{M}\p{N}]+){0,3}\s*$/iu.test(before)) &&
           !/\b(?:not|never|no|isn't|wasn't|shouldn't|cannot|can't|too\s+late|unsafe|impossible)\b/i
             .test(bridge) &&
           !/^\s*(?:(?:would|will|could|may|might|is|was)\s+(?:be\s+)?(?:too\s+late|unsafe|impossible|unworkable|not\s+(?:work|fit|leave\s+enough\s+time)))/i

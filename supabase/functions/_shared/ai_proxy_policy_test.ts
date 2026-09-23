@@ -101,6 +101,19 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "¿Cuándo debo salir?",
     )
   ) throw new Error("unpadded morning departure was accepted");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Leave at 7:13 PM for the store.",
+      {
+        ...context,
+        tasks: [{
+          title: "Pack bags",
+          scheduledStart: "2026-09-23T07:13:00.000",
+        }],
+      },
+      "When should I leave?",
+    )
+  ) throw new Error("morning start matched explicit PM departure");
   for (
     const advice of [
       "Head to the store at 7:13 PM.",
@@ -162,6 +175,19 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "Leave the 7:13 PM task unchanged; when should I depart?",
     )
   ) throw new Error("leaving a task unchanged authorized a departure");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Leave home at 7:13 AM.",
+      {
+        ...context,
+        tasks: [{
+          title: "Pack bags",
+          scheduledStart: "2026-09-23T07:13:00.000",
+        }],
+      },
+      "7:13 AM is the train departure; when should I leave home?",
+    )
+  ) throw new Error("train departure authorized user departure");
   if (
     !containsScheduledStartDepartureConfusion(
       "Leave at 7:13 PM to reach the store.",
