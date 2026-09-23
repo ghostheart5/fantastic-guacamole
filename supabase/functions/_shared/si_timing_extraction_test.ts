@@ -65,6 +65,56 @@ Deno.test("rejects invented passages and ambiguous multi-clock quotes", () => {
   ) throw new Error("multi-clock quote was accepted as one time");
 });
 
+Deno.test("does not count one combined duration as travel and shopping", () => {
+  const turns = [
+    "Store closes 8 PM. Travel and shopping take 45 minutes total.",
+  ];
+  const both = "Travel and shopping take 45 minutes total";
+  if (
+    parseSiTimingExtraction({
+      closingQuote: "Store closes 8 PM",
+      travelQuote: both,
+      activityQuote: both,
+    }, turns)
+  ) {
+    throw new Error("one total was counted twice");
+  }
+  if (
+    parseSiTimingExtraction({
+      closingQuote: "Store closes 8 PM",
+      travelQuote: both,
+      activityQuote: "shopping take 45 minutes total",
+    }, turns)
+  ) {
+    throw new Error("overlapping aggregate quotes were accepted");
+  }
+  const separatelyStated = [
+    "Store closes 8 PM. Travel and shopping take 45 minutes total. Shopping takes 30 minutes.",
+  ];
+  if (
+    parseSiTimingExtraction({
+      closingQuote: "Store closes 8 PM",
+      travelQuote: both,
+      activityQuote: "Shopping takes 30 minutes",
+    }, separatelyStated)
+  ) {
+    throw new Error("an aggregate was misused as travel-only duration");
+  }
+  const spanish = [
+    "El supermercado cierra a las 8 p. m. El viaje y la compra tardan 45 minutos en total.",
+  ];
+  const spanishTotal = "viaje y la compra tardan 45 minutos en total";
+  if (
+    parseSiTimingExtraction({
+      closingQuote: "supermercado cierra a las 8 p. m.",
+      travelQuote: spanishTotal,
+      activityQuote: spanishTotal,
+    }, spanish)
+  ) {
+    throw new Error("one Spanish total was counted twice");
+  }
+});
+
 Deno.test("reads Spanish closing and duration passages", () => {
   const turns = [
     "La tienda cierra a las 8 p. m. El viaje dura 15 minutos. La compra tarda 30 minutos.",

@@ -410,6 +410,33 @@ void main() {
           );
       final ambiguousContext = ambiguousPacket.toJson()['context'] as Map;
       expect(ambiguousContext['focusedTaskId'], isNull);
+
+      final incidental = setup(
+        (_) async => throw StateError('No transport should run'),
+        readGateway: SIV2ReadGateway(
+          accountScopeId: scope.v2Namespace!,
+          readTasks: () async => [
+            ...records,
+            TaskEntity(id: 'inventory', title: 'Store inventory'),
+          ],
+          readGoals: () async => [],
+          readMilestones: () async => [],
+          readTimeline: () async => [],
+        ),
+      );
+      addTearDown(incidental.dispose);
+      final incidentalPacket = await incidental
+          .read(conversationPacketFactoryProvider)
+          .build(
+            surface: ConversationSurface.si,
+            prompt: 'Does this task conflict with an 8 PM store closing?',
+            history: [],
+            languageCode: 'en',
+            intent: SIV2Intent.findConflict,
+            sources: {SIV2Source.tasks},
+          );
+      final incidentalContext = incidentalPacket.toJson()['context'] as Map;
+      expect(incidentalContext['focusedTaskId'], isNull);
     },
   );
 

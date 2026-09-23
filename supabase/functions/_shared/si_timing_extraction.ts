@@ -22,7 +22,9 @@ export const SI_TIMING_EXTRACTION_INSTRUCTION =
   "For this timing question, output only JSON matching the schema. " +
   "Select the shortest exact passages from the person's current question or " +
   "scenario that state a store closing clock time, a travel duration, and an " +
-  "activity or shopping duration. Use an empty string when absent or unclear. " +
+  "activity or shopping duration. Each duration must have its own stated " +
+  "number; a combined trip total cannot supply both. Use an empty string " +
+  "when either part is absent or unclear. " +
   "Do not copy a saved task's scheduled start into any of these fields. " +
   "Do not infer a departure or shopping start, and do not answer in prose.";
 
@@ -101,15 +103,24 @@ export function siTimingRequest(
   };
 }
 
+interface SourceSpan {
+  turnIndex: number;
+  start: number;
+  end: number;
+}
+
 function source(
   quote: string,
   userTurns: readonly string[],
-): number | null {
+): SourceSpan | null {
   if (!quote || quote.length > 160 || quote.trim() !== quote) return null;
-  // The current question takes priority when the same wording also appeared
-  // earlier. A quote from app records alone is never eligible.
+  // Only current user text is eligible. Repeated occurrences in one turn are
+  // ambiguous and cannot establish which numeric fact was cited.
   for (let i = userTurns.length - 1; i >= 0; i--) {
-    if (userTurns[i].includes(quote)) return i;
+    const start = userTurns[i].indexOf(quote);
+    if (start < 0) continue;
+    if (userTurns[i].indexOf(quote, start + 1) >= 0) return null;
+    return { turnIndex: i, start, end: start + quote.length };
   }
   return null;
 }
@@ -166,6 +177,11 @@ export function parseSiTimingExtraction(
   if (closingTurn === null || travelTurn === null || activityTurn === null) {
     return null;
   }
+  if (
+    travelTurn.turnIndex === activityTurn.turnIndex &&
+    travelTurn.start < activityTurn.end &&
+    activityTurn.start < travelTurn.end
+  ) return null;
   // These are extraction confidence checks, not a broad free-text answer
   // classifier. Unusual wording gets a clarification rather than false math.
   if (
@@ -175,6 +191,14 @@ export function parseSiTimingExtraction(
     ) ||
     !/\b(?:shop|shopping|grocer(?:y|ies)|supermarket|compras?|supermercado)\b/i
       .test(activityQuote)
+  ) return null;
+  // One statement about a combined trip cannot establish two independent
+  // durations, even when the model assigns that statement to both fields.
+  if (
+    /\b(?:shop(?:ping)?|compras?)\b/i.test(travelQuote) ||
+    /\b(?:travel|drive|walk|trip|viaje|trayecto|conducir|caminar)\b/i.test(
+      activityQuote,
+    )
   ) return null;
   const closingClockMinutes = clockMinute(closingQuote);
   const travelMinutes = duration(travelQuote);
@@ -187,19 +211,19 @@ export function parseSiTimingExtraction(
     closing: {
       value: closingClockMinutes,
       source: "user",
-      turnIndex: closingTurn,
+      turnIndex: closingTurn.turnIndex,
       quote: closingQuote,
     },
     travelMinutes: {
       value: travelMinutes,
       source: "user",
-      turnIndex: travelTurn,
+      turnIndex: travelTurn.turnIndex,
       quote: travelQuote,
     },
     activityMinutes: {
       value: activityMinutes,
       source: "user",
-      turnIndex: activityTurn,
+      turnIndex: activityTurn.turnIndex,
       quote: activityQuote,
     },
   };
