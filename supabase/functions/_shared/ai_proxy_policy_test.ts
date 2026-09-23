@@ -88,6 +88,18 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       )
     ) throw new Error(`Spanish departure advice was accepted: ${advice}`);
   }
+  for (
+    const advice of [
+      "Head to the store at 7:13 PM.",
+      "Drive to the store at 7:13 PM.",
+      "7:13 PM is your departure.",
+      "Saldrá a las 19:13.",
+    ]
+  ) {
+    if (!containsScheduledStartDepartureConfusion(advice, context, prompt)) {
+      throw new Error(`natural departure phrasing was accepted: ${advice}`);
+    }
+  }
   if (
     containsScheduledStartDepartureConfusion(
       "Leave by 6:58 PM, arrive and begin shopping at 7:13 PM, finish at 7:43 PM before the 8 PM close.",
@@ -118,6 +130,13 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       ["What if I depart at 7:13 PM?"],
     )
   ) throw new Error("newer departure correction did not revoke history");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Depart at 7:13 PM and arrive at 7:28 PM.",
+      context,
+      "Do not leave at 7:13 PM—actually, leave at 7:13 PM.",
+    )
+  ) throw new Error("later same-turn departure proposal was ignored");
   for (
     const clarification of [
       "7:13 PM is not the departure; leave at 6:58 PM.",
@@ -153,6 +172,19 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "Compare Task A with Shopping Task B.",
     )
   ) throw new Error("named task's start-as-departure error was missed");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "For Groceries, depart at 7:13 PM to arrive at 7:28 PM.",
+      {
+        ...context,
+        tasks: [
+          { title: "Groceries", scheduledStart: "2026-09-23T19:13:00.000" },
+          { title: "Groceries", scheduledStart: "2026-09-23T19:28:00.000" },
+        ],
+      },
+      "Compare both Groceries tasks.",
+    )
+  ) throw new Error("duplicate task titles bypassed the named-task guard");
   for (const title of ["Leave feedback", "Prepare departure checklist"]) {
     if (
       !containsScheduledStartDepartureConfusion(

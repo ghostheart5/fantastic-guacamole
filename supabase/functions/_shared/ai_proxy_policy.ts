@@ -150,54 +150,28 @@ export function containsScheduledStartDepartureConfusion(
     const clock = `(?:${clock12}|${start[1]}:${start[2]})`;
     let explicitlyProposedDeparture = false;
     for (const turn of userTurns) {
-      if (hasNegatedDepartureAt(turn, clock)) {
-        explicitlyProposedDeparture = false;
-      } else if (hasAffirmativeDepartureAt(turn, clock)) {
-        explicitlyProposedDeparture = true;
-      }
+      const latest = latestDepartureMentionAt(turn, clock);
+      if (latest !== null) explicitlyProposedDeparture = latest;
     }
     if (explicitlyProposedDeparture) return false;
-    return hasAffirmativeDepartureAt(value, clock, task.title, taskTitles);
+    return latestDepartureMentionAt(value, clock, task.title, taskTitles) ===
+      true;
   });
 }
 
 const departureWord =
-  "(?:depart(?:ing|ure)?|leave|leaving|salir|salida|sal|salgo|sales|sale|salimos|salen|salga(?:s|n|mos)?|saldr(?:é|á|emos|án))";
+  "(?:depart(?:ing|ure)?|leave|leaving|head(?:ing)?\\s+to|drive\\s+to|driving\\s+to|go\\s+to|going\\s+to|travel(?:ing|ling)?\\s+to|set\\s+off|salir|salida|sal|salgo|sales|sale|salimos|salen|salga(?:s|n|mos)?|saldr(?:é|á|emos|án))";
+const boundedDeparture =
+  `(?<![\\p{L}\\p{N}])${departureWord}(?![\\p{L}\\p{N}])`;
 const negatedDeparturePrefix =
   /(?:\b(?:do|does|did|should|must|would|will|can)\s+not|\b(?:don't|doesn't|didn't|shouldn't|mustn't|wouldn't|won't|can't|never|avoid|no|not))(?:\s+\w+){0,3}\s*$/i;
 
-function hasNegatedDepartureAt(value: string, clock: string): boolean {
-  const verbFirst = new RegExp(
-    `\\b${departureWord}\\b(?:(?!\\d{1,2}:\\d{2})[^,;.!?\\n]){0,35}${clock}`,
-    "gi",
-  );
-  for (const match of value.matchAll(verbFirst)) {
-    if (
-      negatedDeparturePrefix.test(
-        value.slice(Math.max(0, match.index - 50), match.index),
-      )
-    ) return true;
-  }
-  const clockFirst = new RegExp(
-    `${clock}[^,;.!?\\n]{0,25}\\b${departureWord}\\b`,
-    "gi",
-  );
-  for (const match of value.matchAll(clockFirst)) {
-    if (
-      /\b(?:not|never|no|isn't|wasn't|shouldn't|cannot|can't)\b/i.test(match[0])
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function hasAffirmativeDepartureAt(
+function latestDepartureMentionAt(
   value: string,
   clock: string,
   taskTitle?: unknown,
   taskTitles: readonly string[] = [],
-): boolean {
+): boolean | null {
   // With multiple selected tasks, a matching clock alone is ambiguous. Only
   // attribute the departure to the task named in the same answer sentence.
   const namesThisTask = (index: number): boolean => {
@@ -215,7 +189,7 @@ function hasAffirmativeDepartureAt(
       left,
       boundary < 0 ? value.length : index + boundary,
     ).toLowerCase();
-    const named = taskTitles.filter((title) => {
+    const named = [...new Set(taskTitles)].filter((title) => {
       if (!title) return false;
       const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       return new RegExp(
@@ -226,29 +200,37 @@ function hasAffirmativeDepartureAt(
     return named.length === 1 && named[0] === taskTitle.trim();
   };
   const verbFirst = new RegExp(
-    `\\b${departureWord}\\b(?:(?!\\d{1,2}:\\d{2})[^,;.!?\\n]){0,35}${clock}`,
-    "gi",
+    `${boundedDeparture}(?:(?!\\d{1,2}:\\d{2})[^,;.!?\\n]){0,35}${clock}`,
+    "giu",
   );
+  const mentions: Array<{ index: number; affirmative: boolean }> = [];
   for (const match of value.matchAll(verbFirst)) {
     const before = value.slice(Math.max(0, match.index - 50), match.index);
-    if (
-      !negatedDeparturePrefix.test(before)
-    ) { if (namesThisTask(match.index)) return true; }
+    if (namesThisTask(match.index)) {
+      mentions.push({
+        index: match.index,
+        affirmative: !negatedDeparturePrefix.test(before),
+      });
+    }
   }
   const clockFirst = new RegExp(
-    `${clock}[^,;.!?\\n]{0,25}\\b${departureWord}\\b`,
-    "gi",
+    `${clock}(?<!\\.)[^,;.!?\\n]{0,25}${boundedDeparture}`,
+    "giu",
   );
   const clockOnly = new RegExp(`^${clock}`, "i");
   for (const match of value.matchAll(clockFirst)) {
     const bridge = match[0].replace(clockOnly, "");
-    if (
-      !/\b(?:not|never|no|isn't|wasn't|shouldn't|cannot|can't)\b/i.test(bridge)
-    ) {
-      if (namesThisTask(match.index)) return true;
+    if (namesThisTask(match.index)) {
+      mentions.push({
+        index: match.index,
+        affirmative:
+          !/\b(?:not|never|no|isn't|wasn't|shouldn't|cannot|can't)\b/i
+            .test(bridge),
+      });
     }
   }
-  return false;
+  mentions.sort((a, b) => a.index - b.index);
+  return mentions.at(-1)?.affirmative ?? null;
 }
 
 export function containsBlockedAssistantClaim(value: string): boolean {
