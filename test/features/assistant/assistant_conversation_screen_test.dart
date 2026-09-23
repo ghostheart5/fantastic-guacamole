@@ -356,10 +356,10 @@ void main() {
     final work = (context['tasks'] as List)
         .cast<Map<String, dynamic>>()
         .firstWhere((task) => task['id'] == 'work');
-    expect(
-      work['scheduledStartUtcOffsetMinutes'],
-      DateTime(2026, 9, 16, 9).toLocal().timeZoneOffset.inMinutes,
-    );
+    expect(work['scheduledStart'], isNotNull);
+    expect(context.containsKey('taskTimeZoneId'), isTrue);
+    final zone = context['taskTimeZoneId'];
+    if (zone != null) expect(zone, isA<String>());
     expect(context['goals'], isEmpty);
   });
 
@@ -486,6 +486,7 @@ void main() {
 
   for (final failure in <String, String>{
     'daily_budget_exceeded': 'rolling daily AI safety limit',
+    'timing_context_missing': 'one scheduled task and its local date',
     'insufficient_credits': 'not have enough AI credits',
     'credits_exhausted': 'not have enough AI credits',
     'request_denied': 'denied before processing',
@@ -564,6 +565,7 @@ void main() {
         }
         if (<String>{
           'daily_budget_exceeded',
+          'timing_context_missing',
           'insufficient_credits',
           'credits_exhausted',
           'request_completed',

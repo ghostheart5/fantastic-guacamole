@@ -79,9 +79,20 @@ Deno.test("reads Spanish closing and duration passages", () => {
     facts.travelMinutes.value !== 15 ||
     facts.activityMinutes.value !== 30
   ) throw new Error("Spanish numeric timing was not extracted");
+  const supermarketTurns = [
+    "El supermercado cierra a las 8 p. m. El viaje dura 15 minutos. Estaré 30 minutos en el supermercado.",
+  ];
+  const supermarketFacts = parseSiTimingExtraction({
+    closingQuote: "supermercado cierra a las 8 p. m.",
+    travelQuote: "viaje dura 15 minutos",
+    activityQuote: "30 minutos en el supermercado",
+  }, supermarketTurns);
+  if (supermarketFacts?.activityMinutes.value !== 30) {
+    throw new Error("routed supermarket duration was rejected");
+  }
 });
 
-Deno.test("anchors a hypothetical closing to the task's local day and offset", () => {
+Deno.test("anchors a hypothetical closing to the task's local day and zone", () => {
   const turns = [
     "Store closes 8 PM. Travel 15 minutes. Shopping 30 minutes. Task starts 7:13 PM.",
   ];
@@ -91,15 +102,60 @@ Deno.test("anchors a hypothetical closing to the task's local day and offset", (
     activityQuote: "Shopping 30 minutes",
   }, turns);
   if (!facts) throw new Error("valid timing facts were rejected");
-  const input = timingInputForTaskDay(facts, turns, "2026-09-23", -300);
+  const input = timingInputForTaskDay(
+    facts,
+    turns,
+    "2026-09-23",
+    "America/Chicago",
+  );
   if (input?.closing?.value !== "2026-09-24T01:00:00.000Z") {
     throw new Error(
       `the local closing was anchored incorrectly: ${JSON.stringify(input)}`,
     );
   }
-  if (timingInputForTaskDay(facts, turns, "2026-02-30", -300)) {
+  if (timingInputForTaskDay(facts, turns, "2026-02-30", "America/Chicago")) {
     throw new Error("invalid task day was accepted");
   }
+});
+
+Deno.test("uses the closing-time offset across the fall-back transition", () => {
+  const turns = ["Store closes 8 PM. Travel 15 minutes. Shopping 30 minutes."];
+  const facts = parseSiTimingExtraction({
+    closingQuote: "Store closes 8 PM",
+    travelQuote: "Travel 15 minutes",
+    activityQuote: "Shopping 30 minutes",
+  }, turns);
+  if (!facts) throw new Error("valid timing facts were rejected");
+  const input = timingInputForTaskDay(
+    facts,
+    turns,
+    "2026-11-01",
+    "America/Chicago",
+  );
+  if (input?.closing?.value !== "2026-11-02T02:00:00.000Z") {
+    throw new Error(
+      `fall-back closing used an earlier offset: ${JSON.stringify(input)}`,
+    );
+  }
+});
+
+Deno.test("does not invent an instant for skipped or repeated local clocks", () => {
+  const check = (quote: string, taskDay: string) => {
+    const turns = [
+      `Store closes ${quote}. Travel 15 minutes. Shopping 30 minutes.`,
+    ];
+    const facts = parseSiTimingExtraction({
+      closingQuote: `Store closes ${quote}`,
+      travelQuote: "Travel 15 minutes",
+      activityQuote: "Shopping 30 minutes",
+    }, turns);
+    if (!facts) throw new Error("valid clock facts were rejected");
+    if (timingInputForTaskDay(facts, turns, taskDay, "America/Chicago")) {
+      throw new Error(`${quote} on ${taskDay} should not map to one instant`);
+    }
+  };
+  check("2:30 AM", "2026-03-08");
+  check("1:30 AM", "2026-11-01");
 });
 
 Deno.test("routes the exact SI conflict question while preserving other conversations", () => {
@@ -107,12 +163,12 @@ Deno.test("routes the exact SI conflict question while preserving other conversa
     surface: "si",
     mode: "findConflict",
     language: "en",
+    taskTimeZoneId: "America/Chicago",
     scenarioAssumption:
       "Travel 15 minutes. Shopping 30 minutes. Task starts 7:13 PM.",
     tasks: [{
       id: "grocery",
       scheduledStart: "2026-09-23T19:13:00",
-      scheduledStartUtcOffsetMinutes: -300,
     }],
   };
   const request = siTimingRequest(
@@ -121,16 +177,17 @@ Deno.test("routes the exact SI conflict question while preserving other conversa
   );
   if (
     request?.taskDay !== "2026-09-23" ||
-    request.taskUtcOffsetMinutes !== -300 ||
+    request.taskTimeZoneId !== "America/Chicago" ||
     request.userTurns.length !== 2
   ) throw new Error("the Moto SI request did not use the structured route");
   const olderAppRequest = siTimingRequest({
     ...context,
+    taskTimeZoneId: null,
     tasks: [{ id: "grocery", scheduledStart: "2026-09-23T19:13:00" }],
   }, "Does this task conflict with an 8 PM store closing?");
-  if (olderAppRequest?.taskUtcOffsetMinutes !== null) {
+  if (olderAppRequest?.taskTimeZoneId !== null) {
     throw new Error(
-      "a missing task-day offset was fabricated for an older app",
+      "a missing task timezone was fabricated for an older app",
     );
   }
   if (

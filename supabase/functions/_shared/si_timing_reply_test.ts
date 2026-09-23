@@ -34,7 +34,7 @@ Deno.test("SI gives a conditional human answer without a false task conflict", (
   const result = calculateSiTiming(facts, policy);
   const reply = renderSiTimingReply(result, {
     language: "en",
-    utcOffsetMinutes: -300,
+    timeZoneId: "America/Chicago",
     travelMinutes: 15,
     activityMinutes: 30,
     recordedTaskStart: "7:13 PM",
@@ -57,7 +57,7 @@ Deno.test("Spanish and already-passed options do not recommend impossible times"
   });
   const reply = renderSiTimingReply(result, {
     language: "es",
-    utcOffsetMinutes: -300,
+    timeZoneId: "America/Chicago",
     travelMinutes: 15,
     activityMinutes: 30,
     recordedTaskStart: "7:13 p. m.",

@@ -2,16 +2,25 @@ import type { SiTimingResult } from "./si_timing_plan.ts";
 
 export interface SiTimingReplyContext {
   language: "en" | "es";
-  utcOffsetMinutes: number;
+  timeZoneId: string;
   travelMinutes: number;
   activityMinutes: number;
   recordedTaskStart?: string;
 }
 
-function clock(iso: string, offsetMinutes: number, spanish: boolean): string {
-  const local = new Date(Date.parse(iso) + offsetMinutes * 60_000);
-  const hour = local.getUTCHours();
-  const minute = String(local.getUTCMinutes()).padStart(2, "0");
+function clock(iso: string, timeZoneId: string, spanish: boolean): string {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timeZoneId,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const values = Object.fromEntries(
+    formatter.formatToParts(new Date(iso))
+      .map((part) => [part.type, part.value]),
+  );
+  const hour = Number(values.hour);
+  const minute = values.minute;
   const hour12 = hour % 12 || 12;
   const marker = hour < 12
     ? (spanish ? "a. m." : "AM")
@@ -41,9 +50,13 @@ export function renderSiTimingReply(
   context: SiTimingReplyContext,
 ): string {
   const spanish = context.language === "es";
-  const offset = context.utcOffsetMinutes;
+  let zoneValid = false;
+  try {
+    new Intl.DateTimeFormat("en-GB", { timeZone: context.timeZoneId });
+    zoneValid = true;
+  } catch { /* fail closed */ }
   if (
-    !Number.isSafeInteger(offset) || offset < -720 || offset > 840 ||
+    !zoneValid ||
     !Number.isSafeInteger(context.travelMinutes) ||
     !Number.isSafeInteger(context.activityMinutes)
   ) {
@@ -56,7 +69,7 @@ export function renderSiTimingReply(
       ? "No voy a suponer que la hora de la tarea es tu salida. Confirma la hora de cierre y cuánto duran el viaje y la compra."
       : "I won't treat the task's start as your departure. Please confirm the closing time, travel time, and shopping duration.";
   }
-  const at = (value: string) => clock(value, offset, spanish);
+  const at = (value: string) => clock(value, context.timeZoneId, spanish);
   const taskStart = context.recordedTaskStart;
   const taskCaveat = taskStart
     ? spanish

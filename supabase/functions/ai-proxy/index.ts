@@ -371,6 +371,15 @@ Deno.serve(async (req: Request) => {
       ? recentHistory
       : [...recentHistory, { role: "user" as const, content: prompt }];
     const timingRequest = siTimingRequest(body.context, prompt);
+    if (
+      timingRequest &&
+      (!timingRequest.taskDay || !timingRequest.taskTimeZoneId)
+    ) {
+      return jsonResponse(req, {
+        requestId,
+        error: "timing_context_missing",
+      }, 422);
+    }
     const upstreamBody: Record<string, unknown> = {
       model: DEFAULT_MODEL,
       max_tokens: maxTokens,
@@ -797,9 +806,7 @@ function structuredSiTimingReply(
   const clarification = request.language === "es"
     ? "El inicio guardado de la tarea no indica cuándo sales o empiezas a comprar. Confirma la hora de cierre, los minutos de viaje y los minutos de compra para calcular una salida con margen."
     : "The saved task start does not tell me when you leave or begin shopping. Please confirm the closing time, travel minutes, and shopping minutes so I can calculate a departure with a cushion.";
-  if (
-    !request.taskDay || request.taskUtcOffsetMinutes === null
-  ) return clarification;
+  if (!request.taskDay || !request.taskTimeZoneId) return clarification;
   let structured: unknown;
   try {
     structured = JSON.parse(providerText);
@@ -812,7 +819,7 @@ function structuredSiTimingReply(
     facts,
     request.userTurns,
     request.taskDay,
-    request.taskUtcOffsetMinutes,
+    request.taskTimeZoneId,
   );
   if (!input) return clarification;
   const result = calculateSiTiming(input, {
@@ -821,7 +828,7 @@ function structuredSiTimingReply(
   });
   return renderSiTimingReply(result, {
     language: request.language,
-    utcOffsetMinutes: request.taskUtcOffsetMinutes,
+    timeZoneId: request.taskTimeZoneId,
     travelMinutes: facts.travelMinutes.value,
     activityMinutes: facts.activityMinutes.value,
     recordedTaskStart: recordedTaskClock(

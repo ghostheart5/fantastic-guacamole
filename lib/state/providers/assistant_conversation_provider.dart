@@ -15,6 +15,7 @@ import 'package:fantastic_guacamole/state/providers/personalization_provider.dar
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 // Uses the existing private, authenticated AI cohort. Public launch remains
 // contained until the new conversational experience is reviewed on-device.
@@ -138,6 +139,17 @@ final class ConversationPacketFactory {
       throw const ConversationFailure('authentication_required');
     }
     final now = DateTime.now();
+    String? taskTimeZoneId;
+    try {
+      final localZone = tz.local;
+      if (tz.TZDateTime.from(now, localZone).timeZoneOffset ==
+          now.timeZoneOffset) {
+        taskTimeZoneId = localZone.name;
+      }
+    } on Object {
+      // Startup did not configure a trustworthy IANA zone. The server will
+      // request task/date context before a paid timing calculation.
+    }
     for (final flag in [
       surface == ConversationSurface.planner
           ? AssistantReleaseCapability.smartPlannerV2
@@ -242,6 +254,7 @@ final class ConversationPacketFactory {
         'language': languageCode,
         'nowLocal': now.toIso8601String(),
         'utcOffsetMinutes': now.timeZoneOffset.inMinutes,
+        'taskTimeZoneId': taskTimeZoneId,
         'mode': query.intent.name,
         'timeRange': range.name,
         'selectedSources':
@@ -260,10 +273,6 @@ final class ConversationPacketFactory {
                 'title': bounded(t.title, 240),
                 'priority': t.priority,
                 'scheduledStart': localDate(t.scheduledFor),
-                'scheduledStartUtcOffsetMinutes': t.scheduledFor
-                    ?.toLocal()
-                    .timeZoneOffset
-                    .inMinutes,
                 'deadline': localDate(t.dueDate),
                 'goalId': t.goalId,
                 'description': bounded(

@@ -271,12 +271,12 @@ Deno.test("served SI timing uses one quoted provider call and deterministic wind
         surface: "si",
         mode: "findConflict",
         language: "en",
+        taskTimeZoneId: "America/Chicago",
         scenarioAssumption:
           "Travel 15 minutes. Shopping 30 minutes. Task starts 7:13 PM.",
         tasks: [{
           id: "grocery",
           scheduledStart: "2099-09-23T19:13:00",
-          scheduledStartUtcOffsetMinutes: -300,
         }],
       },
       allowExternalAi: true,
@@ -316,6 +316,30 @@ Deno.test("served SI timing uses one quoted provider call and deterministic wind
       Number(providerCalls) !== 2 || repairCalls !== 0 ||
       Number(settlements) !== 2
     ) throw new Error("unverified timing quote entered paid repair or 502");
+    const unanchored = await handler(request({
+      requestId: "synthetic-si-timing-no-date",
+      quoteOnly: true,
+      context: { ...input.context, taskTimeZoneId: null },
+    }));
+    const unanchoredBody = await unanchored.json();
+    if (
+      unanchored.status !== 422 ||
+      unanchoredBody.error !== "timing_context_missing" ||
+      Number(providerCalls) !== 2 || repairCalls !== 0 ||
+      Number(settlements) !== 2
+    ) throw new Error("missing task timezone was charged or sent upstream");
+    const unscheduled = await handler(request({
+      requestId: "synthetic-si-timing-no-task-date",
+      quoteOnly: true,
+      context: { ...input.context, tasks: [{ id: "grocery" }] },
+    }));
+    const unscheduledBody = await unscheduled.json();
+    if (
+      unscheduled.status !== 422 ||
+      unscheduledBody.error !== "timing_context_missing" ||
+      Number(providerCalls) !== 2 || repairCalls !== 0 ||
+      Number(settlements) !== 2
+    ) throw new Error("unscheduled task entered a paid clarification loop");
   } finally {
     globalThis.fetch = originalFetch;
   }
