@@ -231,6 +231,8 @@ final class ConversationPacketFactory {
     ).allMatches(prompt.toLowerCase()).map((m) => m.group(0)!).toSet();
     int relevance(SIV2TaskEvidence task) => task.id == attachedId
         ? 10000
+        : task.id == local.focusTaskId
+        ? 9000
         : topic.where((term) => task.title.toLowerCase().contains(term)).length;
     tasks.sort((a, b) => relevance(b).compareTo(relevance(a)));
     final goals = snapshot.goals
@@ -265,6 +267,7 @@ final class ConversationPacketFactory {
         if (taskOnly) 'contextScope': 'attachedTaskOnly',
         if (taskDetailsUnavailable) 'taskDetailsUnavailable': true,
         'explicitlyAttachedTaskId': ?attachedId,
+        'focusedTaskId': ?local.focusTaskId,
         'tasks': tasks
             .take(12)
             .map(

@@ -363,6 +363,56 @@ void main() {
     expect(context['goals'], isEmpty);
   });
 
+  test(
+    'SI carries its uniquely matched grocery task among multiple tasks',
+    () async {
+      final container = setup(
+        (_) async => throw StateError('No transport should run'),
+      );
+      addTearDown(container.dispose);
+      final packet = await container
+          .read(conversationPacketFactoryProvider)
+          .build(
+            surface: ConversationSurface.si,
+            prompt: 'Does Grocery list conflict with an 8 PM store closing?',
+            history: [],
+            languageCode: 'en',
+            intent: SIV2Intent.findConflict,
+            sources: {SIV2Source.tasks},
+          );
+      final context = packet.toJson()['context'] as Map;
+      expect((context['tasks'] as List).length, greaterThan(1));
+      expect(context['focusedTaskId'], 'grocery');
+
+      final ambiguous = setup(
+        (_) async => throw StateError('No transport should run'),
+        readGateway: SIV2ReadGateway(
+          accountScopeId: scope.v2Namespace!,
+          readTasks: () async => [
+            ...records,
+            TaskEntity(id: 'grocery-copy', title: 'Grocery list'),
+          ],
+          readGoals: () async => [],
+          readMilestones: () async => [],
+          readTimeline: () async => [],
+        ),
+      );
+      addTearDown(ambiguous.dispose);
+      final ambiguousPacket = await ambiguous
+          .read(conversationPacketFactoryProvider)
+          .build(
+            surface: ConversationSurface.si,
+            prompt: 'Does Grocery list conflict with an 8 PM store closing?',
+            history: [],
+            languageCode: 'en',
+            intent: SIV2Intent.findConflict,
+            sources: {SIV2Source.tasks},
+          );
+      final ambiguousContext = ambiguousPacket.toJson()['context'] as Map;
+      expect(ambiguousContext['focusedTaskId'], isNull);
+    },
+  );
+
   for (final failure in [
     StateError('Task details unavailable'),
     TimeoutException('Task details timed out'),

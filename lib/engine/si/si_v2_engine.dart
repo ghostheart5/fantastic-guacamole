@@ -421,6 +421,17 @@ final class SIV2Engine {
 
     final bool refusal =
         question.focus == _SIV2QuestionFocus.unsupported || namedTaskMissing;
+    final focusScore = focusTask == null
+        ? 0
+        : question.titleScore(focusTask.title);
+    final uniquelyNamedTask =
+        !refusal &&
+        focusTask != null &&
+        focusScore > 0 &&
+        tasks
+                .where((task) => question.titleScore(task.title) == focusScore)
+                .length ==
+            1;
     final SIV2Response response = SIV2Response(
       query: query,
       snapshotRevision: snapshot.revision,
@@ -449,6 +460,7 @@ final class SIV2Engine {
         assumptionCount: scenarioAssumptions.length,
       ),
       evidenceLinks: links,
+      focusTaskId: uniquelyNamedTask ? focusTask.id : null,
     );
     return question.isSpanish
         ? _localizeSpanishResponse(response, question: question)
@@ -631,6 +643,7 @@ final class SIV2Engine {
       recommendation: recommendation,
       confidence: source.confidence,
       evidenceLinks: source.evidenceLinks,
+      focusTaskId: source.focusTaskId,
       safetyReceipt: source.safetyReceipt,
     );
   }

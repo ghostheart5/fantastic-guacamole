@@ -68,13 +68,19 @@ export function siTimingRequest(
   ) return null;
   const tasks = Array.isArray(record.tasks) ? record.tasks : [];
   const attachedId = record.explicitlyAttachedTaskId;
-  const task = tasks.length === 1
-    ? tasks[0]
-    : typeof attachedId === "string"
+  const focusedId = record.focusedTaskId;
+  const chosenId = typeof attachedId === "string"
+    ? attachedId
+    : typeof focusedId === "string"
+    ? focusedId
+    : null;
+  const task = chosenId !== null
     ? tasks.find((item) =>
       item && typeof item === "object" &&
-      (item as Record<string, unknown>).id === attachedId
+      (item as Record<string, unknown>).id === chosenId
     )
+    : tasks.length === 1
+    ? tasks[0]
     : null;
   const saved = task && typeof task === "object" && !Array.isArray(task)
     ? task as Record<string, unknown>

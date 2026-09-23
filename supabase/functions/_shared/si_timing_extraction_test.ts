@@ -180,6 +180,28 @@ Deno.test("routes the exact SI conflict question while preserving other conversa
     request.taskTimeZoneId !== "America/Chicago" ||
     request.userTurns.length !== 2
   ) throw new Error("the Moto SI request did not use the structured route");
+  const multipleTasks = {
+    ...context,
+    focusedTaskId: "grocery",
+    tasks: [
+      ...context.tasks,
+      { id: "work", scheduledStart: "2026-09-24T09:00:00" },
+    ],
+  };
+  const focused = siTimingRequest(
+    multipleTasks,
+    "Does my grocery list conflict with an 8 PM store closing?",
+  );
+  if (focused?.taskDay !== "2026-09-23") {
+    throw new Error("the selected grocery task was lost among active tasks");
+  }
+  const ambiguous = siTimingRequest(
+    { ...multipleTasks, focusedTaskId: null },
+    "Does this task conflict with an 8 PM store closing?",
+  );
+  if (ambiguous?.taskDay !== null) {
+    throw new Error("multiple active tasks were silently assigned a focus");
+  }
   const olderAppRequest = siTimingRequest({
     ...context,
     taskTimeZoneId: null,
