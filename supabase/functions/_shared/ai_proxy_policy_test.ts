@@ -110,10 +110,19 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       ["What if I depart at 7:13 PM?"],
     )
   ) throw new Error("departure from user history was rejected");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Depart at 7:13 PM and arrive at 7:28 PM.",
+      context,
+      "Actually, do not depart at 7:13 PM. What time should I leave?",
+      ["What if I depart at 7:13 PM?"],
+    )
+  ) throw new Error("newer departure correction did not revoke history");
   for (
     const clarification of [
       "7:13 PM is not the departure; leave at 6:58 PM.",
       "Do not depart at 7:13 PM; leave at 6:58 PM.",
+      "Do not plan to leave at 7:13 PM; leave at 6:58 PM.",
       "19:13 no es la salida; sal a las 18:58.",
     ]
   ) {
@@ -144,6 +153,31 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "Compare Task A with Shopping Task B.",
     )
   ) throw new Error("named task's start-as-departure error was missed");
+  for (const title of ["Leave feedback", "Prepare departure checklist"]) {
+    if (
+      !containsScheduledStartDepartureConfusion(
+        "Depart at 7:13 PM to go to the store.",
+        {
+          ...context,
+          tasks: [{ title, scheduledStart: "2026-09-23T19:13:00.000" }],
+        },
+        "When should I go to the store?",
+      )
+    ) throw new Error(`non-travel title bypassed the guard: ${title}`);
+  }
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Depart at 7:13 PM to go to the store.",
+      {
+        ...context,
+        tasks: [{
+          title: "Depart for store",
+          scheduledStart: "2026-09-23T19:13:00.000",
+        }],
+      },
+      "When should I go to the store?",
+    )
+  ) throw new Error("actual departure task was treated as list preparation");
 });
 
 Deno.test("detects a direct recommendation contradicted by its own evidence", () => {

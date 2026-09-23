@@ -122,7 +122,8 @@ export function containsScheduledStartDepartureConfusion(
   const scenario = typeof record.scenarioAssumption === "string"
     ? record.scenarioAssumption
     : "";
-  const userWords = [prompt, scenario, ...priorUserMessages].join("\n");
+  const userTurns = [scenario, ...priorUserMessages];
+  if (userTurns.at(-1) !== prompt) userTurns.push(prompt);
   const taskTitles = record.tasks.map((item) =>
     item && typeof item === "object" && !Array.isArray(item) &&
       typeof item.title === "string" && item.title.trim()
@@ -137,7 +138,8 @@ export function containsScheduledStartDepartureConfusion(
     if (typeof task.scheduledStart !== "string") return false;
     if (
       typeof task.title === "string" &&
-      /\b(?:depart|departure|leave|leaving|salir|salida)\b/i.test(task.title)
+      /^(?:(?:depart|departure|leave|leaving)\s+(?:for|to|toward|from)|(?:salir|salida)\s+(?:a|hacia|de))\b/i
+        .test(task.title.trim())
     ) return false;
     const start = /T(\d{2}):(\d{2})/.exec(task.scheduledStart);
     if (!start) return false;
@@ -146,9 +148,48 @@ export function containsScheduledStartDepartureConfusion(
     const clock12 = `${hour % 12 || 12}:${start[2]}\\s*` +
       (hour < 12 ? "a\\.?\\s*m\\.?" : "p\\.?\\s*m\\.?");
     const clock = `(?:${clock12}|${start[1]}:${start[2]})`;
-    if (hasAffirmativeDepartureAt(userWords, clock)) return false;
+    let explicitlyProposedDeparture = false;
+    for (const turn of userTurns) {
+      if (hasNegatedDepartureAt(turn, clock)) {
+        explicitlyProposedDeparture = false;
+      } else if (hasAffirmativeDepartureAt(turn, clock)) {
+        explicitlyProposedDeparture = true;
+      }
+    }
+    if (explicitlyProposedDeparture) return false;
     return hasAffirmativeDepartureAt(value, clock, task.title, taskTitles);
   });
+}
+
+const departureWord =
+  "(?:depart(?:ing|ure)?|leave|leaving|salir|salida|sal|salgo|sales|sale|salimos|salen|salga(?:s|n|mos)?|saldr(?:é|á|emos|án))";
+const negatedDeparturePrefix =
+  /(?:\b(?:do|does|did|should|must|would|will|can)\s+not|\b(?:don't|doesn't|didn't|shouldn't|mustn't|wouldn't|won't|can't|never|avoid|no|not))(?:\s+\w+){0,3}\s*$/i;
+
+function hasNegatedDepartureAt(value: string, clock: string): boolean {
+  const verbFirst = new RegExp(
+    `\\b${departureWord}\\b(?:(?!\\d{1,2}:\\d{2})[^,;.!?\\n]){0,35}${clock}`,
+    "gi",
+  );
+  for (const match of value.matchAll(verbFirst)) {
+    if (
+      negatedDeparturePrefix.test(
+        value.slice(Math.max(0, match.index - 50), match.index),
+      )
+    ) return true;
+  }
+  const clockFirst = new RegExp(
+    `${clock}[^,;.!?\\n]{0,25}\\b${departureWord}\\b`,
+    "gi",
+  );
+  for (const match of value.matchAll(clockFirst)) {
+    if (
+      /\b(?:not|never|no|isn't|wasn't|shouldn't|cannot|can't)\b/i.test(match[0])
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function hasAffirmativeDepartureAt(
@@ -184,21 +225,18 @@ function hasAffirmativeDepartureAt(
     });
     return named.length === 1 && named[0] === taskTitle.trim();
   };
-  const departure =
-    "(?:depart(?:ing|ure)?|leave|leaving|salir|salida|sal|salgo|sales|sale|salimos|salen|salga(?:s|n|mos)?|saldr(?:é|á|emos|án))";
   const verbFirst = new RegExp(
-    `\\b${departure}\\b(?:(?!\\d{1,2}:\\d{2})[^,;.!?\\n]){0,35}${clock}`,
+    `\\b${departureWord}\\b(?:(?!\\d{1,2}:\\d{2})[^,;.!?\\n]){0,35}${clock}`,
     "gi",
   );
   for (const match of value.matchAll(verbFirst)) {
-    const before = value.slice(Math.max(0, match.index - 32), match.index);
+    const before = value.slice(Math.max(0, match.index - 50), match.index);
     if (
-      !/(?:\b(?:do|does|did|should|must|would|will|can)\s+not|\b(?:don't|doesn't|didn't|shouldn't|mustn't|wouldn't|won't|can't|never|avoid|no))\s*$/i
-        .test(before)
+      !negatedDeparturePrefix.test(before)
     ) { if (namesThisTask(match.index)) return true; }
   }
   const clockFirst = new RegExp(
-    `${clock}[^,;.!?\\n]{0,25}\\b${departure}\\b`,
+    `${clock}[^,;.!?\\n]{0,25}\\b${departureWord}\\b`,
     "gi",
   );
   const clockOnly = new RegExp(`^${clock}`, "i");
