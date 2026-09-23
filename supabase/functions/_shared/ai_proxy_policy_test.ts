@@ -88,6 +88,19 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       )
     ) throw new Error(`Spanish departure advice was accepted: ${advice}`);
   }
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Sal a las 7:13.",
+      {
+        ...context,
+        tasks: [{
+          title: "Lista de compras",
+          scheduledStart: "2026-09-23T07:13:00.000",
+        }],
+      },
+      "¿Cuándo debo salir?",
+    )
+  ) throw new Error("unpadded morning departure was accepted");
   for (
     const advice of [
       "Head to the store at 7:13 PM.",
@@ -310,6 +323,19 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "¿Cuándo debo salir?",
     )
   ) throw new Error("Spanish travel task was treated as list preparation");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Sal a las 19:13 para ir al mercado.",
+      {
+        ...context,
+        tasks: [{
+          title: "Ir al mercado",
+          scheduledStart: "2026-09-23T19:13:00.000",
+        }],
+      },
+      "¿Cuándo debo salir?",
+    )
+  ) throw new Error("Spanish al travel task was treated as list preparation");
   if (
     !containsScheduledStartDepartureConfusion(
       "Leave at 7 PM to go to the store.",
