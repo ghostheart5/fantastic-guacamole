@@ -238,10 +238,13 @@ Deno.test("served SI repairs task-start departure confusion before settlement", 
       const repaired = providerCalls === 2;
       if (
         repaired &&
-        !request.messages.at(-1).content.includes(
+        (!request.messages.at(-1).content.includes(
           "scheduled start as a travel departure",
-        )
-      ) throw new Error("repair did not explain the captured error");
+        ) ||
+          !request.messages.at(-1).content.includes(
+            "opening recommendation conflicts with its own evidence",
+          ))
+      ) throw new Error("repair did not explain both captured errors");
       return Promise.resolve(Response.json({
         id: repaired ? "provider-repair" : "provider-first",
         model: "claude-sonnet-4-6",
@@ -250,7 +253,7 @@ Deno.test("served SI repairs task-start departure confusion before settlement", 
           type: "text",
           text: repaired
             ? "If 7:13 PM is your shopping start, leave by 6:58 PM, then finish by 7:43 PM before the hypothetical 8 PM close. If the saved task is only list preparation, its start does not set your store departure."
-            : "Scheduled start: 7:13 PM. Depart | 7:13 PM. Arrive at store | 7:28 PM. Shopping complete | 7:58 PM.",
+            : "Groceries first, then release evidence. Neither grocery task is actionable right now. Scheduled start: 7:13 PM. Depart | 7:13 PM. Arrive at store | 7:28 PM. Shopping complete | 7:58 PM.",
         }],
         usage: repaired
           ? { input_tokens: 20, output_tokens: 7 }

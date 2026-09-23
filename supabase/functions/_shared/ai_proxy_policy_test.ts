@@ -79,6 +79,15 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "¿Hay un conflicto con el cierre de la tienda?",
     )
   ) throw new Error("24-hour start-as-departure response was accepted");
+  for (const advice of ["Sal a las 19:13", "Salga a las 19:13"]) {
+    if (
+      !containsScheduledStartDepartureConfusion(
+        advice,
+        context,
+        "¿A qué hora debo ir a la tienda?",
+      )
+    ) throw new Error(`Spanish departure advice was accepted: ${advice}`);
+  }
   if (
     containsScheduledStartDepartureConfusion(
       "Leave by 6:58 PM, arrive and begin shopping at 7:13 PM, finish at 7:43 PM before the 8 PM close.",
@@ -114,6 +123,27 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       throw new Error("negated departure clarification was rejected");
     }
   }
+  const twoTasks = {
+    ...context,
+    tasks: [
+      { title: "Task A", scheduledStart: "2026-09-23T19:13:00.000" },
+      { title: "Shopping Task B", scheduledStart: "2026-09-23T19:28:00.000" },
+    ],
+  };
+  if (
+    containsScheduledStartDepartureConfusion(
+      "For Shopping Task B, leave at 7:13 PM to arrive at its 7:28 PM start.",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("another task's valid departure was rejected");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "For Task A, leave at 7:13 PM to arrive at 7:28 PM.",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("named task's start-as-departure error was missed");
 });
 
 Deno.test("detects a direct recommendation contradicted by its own evidence", () => {

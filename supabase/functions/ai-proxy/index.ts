@@ -533,7 +533,22 @@ Deno.serve(async (req: Request) => {
       prompt,
       userMessages,
     );
-    if (containsRecommendationContradiction(message) || confusedTaskStart) {
+    const contradictoryVerdict = containsRecommendationContradiction(message);
+    if (contradictoryVerdict || confusedTaskStart) {
+      const repairInstructions = [
+        "Rewrite the answer once.",
+        ...(confusedTaskStart
+          ? [
+            "You treated a saved task's scheduled start as a travel departure. It only marks the start of the named task; a grocery list may be list preparation, not shopping. Do not assume it is shopping start unless the person explicitly linked them. Keep saved facts separate from hypothetical store hours, recalculate any conditional travel and shopping timeline and the actual closing-time buffer.",
+          ]
+          : []),
+        ...(contradictoryVerdict
+          ? [
+            "Its opening recommendation conflicts with its own evidence. Preserve the grounded facts and make the first verdict match the reasoning.",
+          ]
+          : []),
+        "Return only the corrected answer.",
+      ].join(" ");
       const repairBody: Record<string, unknown> = {
         ...upstreamBody,
         messages: [
@@ -541,9 +556,7 @@ Deno.serve(async (req: Request) => {
           { role: "assistant", content: message },
           {
             role: "user",
-            content: confusedTaskStart
-              ? "Rewrite the answer once. You treated a saved task's scheduled start as a travel departure. It only marks the start of the named task; a grocery list may be list preparation, not shopping. Do not assume it is shopping start unless the person explicitly linked them. Keep saved facts separate from hypothetical store hours, recalculate any conditional travel and shopping timeline and the actual closing-time buffer, then return only the corrected answer."
-              : "Rewrite the answer once. Its opening recommendation conflicts with its own evidence. Preserve the grounded facts, make the first verdict match the reasoning, and return only the corrected answer.",
+            content: repairInstructions,
           },
         ],
       };

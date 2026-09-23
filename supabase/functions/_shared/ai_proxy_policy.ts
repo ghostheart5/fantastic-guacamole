@@ -123,6 +123,12 @@ export function containsScheduledStartDepartureConfusion(
     ? record.scenarioAssumption
     : "";
   const userWords = [prompt, scenario, ...priorUserMessages].join("\n");
+  const taskTitles = record.tasks.map((item) =>
+    item && typeof item === "object" && !Array.isArray(item) &&
+      typeof item.title === "string" && item.title.trim()
+      ? item.title.trim()
+      : ""
+  );
   return record.tasks.some((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
       return false;
@@ -141,14 +147,47 @@ export function containsScheduledStartDepartureConfusion(
       (hour < 12 ? "a\\.?\\s*m\\.?" : "p\\.?\\s*m\\.?");
     const clock = `(?:${clock12}|${start[1]}:${start[2]})`;
     if (hasAffirmativeDepartureAt(userWords, clock)) return false;
-    return hasAffirmativeDepartureAt(value, clock);
+    return hasAffirmativeDepartureAt(value, clock, task.title, taskTitles);
   });
 }
 
-function hasAffirmativeDepartureAt(value: string, clock: string): boolean {
-  const departure = "(?:depart(?:ing|ure)?|leave|leaving|salir|salida)";
+function hasAffirmativeDepartureAt(
+  value: string,
+  clock: string,
+  taskTitle?: unknown,
+  taskTitles: readonly string[] = [],
+): boolean {
+  // With multiple selected tasks, a matching clock alone is ambiguous. Only
+  // attribute the departure to the task named in the same answer sentence.
+  const namesThisTask = (index: number): boolean => {
+    if (taskTitles.length <= 1) return true;
+    if (typeof taskTitle !== "string" || !taskTitle.trim()) return false;
+    const left = Math.max(
+      value.lastIndexOf(".", index - 1),
+      value.lastIndexOf("!", index - 1),
+      value.lastIndexOf("?", index - 1),
+      value.lastIndexOf("\n", index - 1),
+    ) + 1;
+    const remainder = value.slice(index);
+    const boundary = remainder.search(/[.!?\n]/);
+    const sentence = value.slice(
+      left,
+      boundary < 0 ? value.length : index + boundary,
+    ).toLowerCase();
+    const named = taskTitles.filter((title) => {
+      if (!title) return false;
+      const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(
+        `(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`,
+        "iu",
+      ).test(sentence);
+    });
+    return named.length === 1 && named[0] === taskTitle.trim();
+  };
+  const departure =
+    "(?:depart(?:ing|ure)?|leave|leaving|salir|salida|sal|salgo|sales|sale|salimos|salen|salga(?:s|n|mos)?|saldr(?:é|á|emos|án))";
   const verbFirst = new RegExp(
-    `\\b${departure}\\b[^,;.!?\\n]{0,35}${clock}`,
+    `\\b${departure}\\b(?:(?!\\d{1,2}:\\d{2})[^,;.!?\\n]){0,35}${clock}`,
     "gi",
   );
   for (const match of value.matchAll(verbFirst)) {
@@ -156,7 +195,7 @@ function hasAffirmativeDepartureAt(value: string, clock: string): boolean {
     if (
       !/(?:\b(?:do|does|did|should|must|would|will|can)\s+not|\b(?:don't|doesn't|didn't|shouldn't|mustn't|wouldn't|won't|can't|never|avoid|no))\s*$/i
         .test(before)
-    ) return true;
+    ) { if (namesThisTask(match.index)) return true; }
   }
   const clockFirst = new RegExp(
     `${clock}[^,;.!?\\n]{0,25}\\b${departure}\\b`,
@@ -168,7 +207,7 @@ function hasAffirmativeDepartureAt(value: string, clock: string): boolean {
     if (
       !/\b(?:not|never|no|isn't|wasn't|shouldn't|cannot|can't)\b/i.test(bridge)
     ) {
-      return true;
+      if (namesThisTask(match.index)) return true;
     }
   }
   return false;
