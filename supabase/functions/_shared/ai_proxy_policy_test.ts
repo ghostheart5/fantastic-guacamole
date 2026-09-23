@@ -157,6 +157,13 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
   ) throw new Error("newer departure correction did not revoke history");
   if (
     !containsScheduledStartDepartureConfusion(
+      "Depart at 7:13 PM to reach the store.",
+      context,
+      "Leave the 7:13 PM task unchanged; when should I depart?",
+    )
+  ) throw new Error("leaving a task unchanged authorized a departure");
+  if (
+    !containsScheduledStartDepartureConfusion(
       "Depart at 7:13 PM and arrive at 7:28 PM.",
       {
         ...context,
@@ -178,6 +185,7 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "7:13 PM is not the departure; leave at 6:58 PM.",
       "Do not depart at 7:13 PM; leave at 6:58 PM.",
       "Do not plan to leave at 7:13 PM; leave at 6:58 PM.",
+      "You cannot leave at 7:13 PM; leave at 6:58 PM.",
       "Don’t leave at 7:13 PM; leave at 6:58 PM.",
       "19:13 no es la salida; sal a las 18:58.",
       "No deberías salir a las 19:13; sal a las 18:58.",
@@ -212,6 +220,22 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "Compare Task A with Shopping Task B.",
     )
   ) throw new Error("named task's start-as-departure error was missed");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "For Dr. appointment, leave at 7:13 PM to arrive at 7:28 PM.",
+      {
+        ...context,
+        tasks: [
+          {
+            title: "Dr. appointment",
+            scheduledStart: "2026-09-23T19:13:00.000",
+          },
+          { title: "Shopping", scheduledStart: "2026-09-23T19:28:00.000" },
+        ],
+      },
+      "Compare both tasks.",
+    )
+  ) throw new Error("punctuation in task title split attribution");
   if (
     !containsScheduledStartDepartureConfusion(
       "For Task A, leave at 7:13 PM to arrive at 7:28 PM.",
