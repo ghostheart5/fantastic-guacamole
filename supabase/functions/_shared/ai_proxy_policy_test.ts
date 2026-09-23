@@ -115,6 +115,23 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
     )
   ) throw new Error("morning start matched explicit PM departure");
   for (
+    const scheduledStart of [
+      "2026-09-23T09:13:00.000",
+      "2026-09-23T13:13:00.000",
+    ]
+  ) {
+    if (
+      containsScheduledStartDepartureConfusion(
+        "Sal a las 19:13; 11:13 PM is another option.",
+        {
+          ...context,
+          tasks: [{ title: "Lista de compras", scheduledStart }],
+        },
+        "¿Cuándo debo salir?",
+      )
+    ) throw new Error(`clock suffix matched another hour: ${scheduledStart}`);
+  }
+  for (
     const advice of [
       "Head to the store at 7:13 PM.",
       "Drive to the store at 7:13 PM.",
@@ -436,7 +453,15 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "When should I go to the store?",
     )
   ) throw new Error("non-travel Go to sleep title bypassed the guard");
-  for (const title of ["Depart for store", "Drive to store", "Head to store"]) {
+  for (
+    const title of [
+      "Depart for store",
+      "Drive to store",
+      "Head to store",
+      "Walk to store",
+      "Walking to store",
+    ]
+  ) {
     if (
       containsScheduledStartDepartureConfusion(
         "Drive to the store at 7:13 PM.",

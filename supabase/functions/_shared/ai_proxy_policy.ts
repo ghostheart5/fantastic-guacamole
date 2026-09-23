@@ -139,7 +139,7 @@ export function containsScheduledStartDepartureConfusion(
     if (typeof task.scheduledStart !== "string") return false;
     if (
       typeof task.title === "string" &&
-      /^(?:(?:depart|departure|leave|leaving)\s+(?:for|to|toward|from)|(?:head|heading|drive|driving|travel|traveling|travelling)\s+to|(?:go|going)\s+to\s+(?:(?:the|a|my)\s+)?(?:store|market|shop|office|work|school|gym|home|hospital|clinic|bank|airport|station|library|restaurant|pharmacy|park)\b|set\s+off\s+(?:for|to)|(?:salir|salida)\s+(?:a|hacia|de)|(?:conducir|manejar|viajar|caminar|dirigirse)\s+(?:a|hacia)|ir\s+(?:hacia|(?:a\s+(?:(?:la|el|los|las|un|una)\s+)?|al\s+)(?:tienda|mercado|trabajo|escuela|casa|oficina|gimnasio|hospital|estación|farmacia|parque)))\b/i
+      /^(?:(?:depart|departure|leave|leaving)\s+(?:for|to|toward|from)|(?:head|heading|drive|driving|travel|traveling|travelling|walk|walking)\s+to|(?:go|going)\s+to\s+(?:(?:the|a|my)\s+)?(?:store|market|shop|office|work|school|gym|home|hospital|clinic|bank|airport|station|library|restaurant|pharmacy|park)\b|set\s+off\s+(?:for|to)|(?:salir|salida)\s+(?:a|hacia|de)|(?:conducir|manejar|viajar|caminar|dirigirse)\s+(?:a|hacia)|ir\s+(?:hacia|(?:a\s+(?:(?:la|el|los|las|un|una)\s+)?|al\s+)(?:tienda|mercado|trabajo|escuela|casa|oficina|gimnasio|hospital|estación|farmacia|parque)))\b/i
         .test(task.title.trim())
     ) return false;
     const start = /T(\d{2}):(\d{2})/.exec(task.scheduledStart);
@@ -150,7 +150,7 @@ export function containsScheduledStartDepartureConfusion(
     const clock12 = `${hour % 12 || 12}${minute12}\\s*` +
       (hour < 12 ? "a\\.?\\s*m\\.?" : "p\\.?\\s*m\\.?");
     const clock24Hour = hour < 10 ? `0?${hour}` : `${hour}`;
-    const clock = `(?:${clock12}|${clock24Hour}:${
+    const clock = `(?<!\\d)(?:${clock12}|${clock24Hour}:${
       start[2]
     }(?!\\s*[ap]\\.?\\s*m\\.?))`;
     let explicitlyProposedDeparture = false;
