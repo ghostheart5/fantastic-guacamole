@@ -287,6 +287,9 @@ function latestDepartureMentionAt(
         match.index + match[0].length,
         match.index + match[0].length + 60,
       );
+      const invertedNecessity =
+        /\b(?:don't|doesn't|do\s+not|does\s+not)\s+(?:need|have)\s+to\s*$/i
+          .test(before) && /\buntil\b/i.test(match[0]);
       mentions.push({
         index: match.index,
         affirmative: !(userProposal &&
@@ -295,7 +298,7 @@ function latestDepartureMentionAt(
           !(userProposal &&
             /\b(?:before|after|by|earlier\s+than|later\s+than)\s+\d{1,2}(?::\d{2})?/i
               .test(match[0])) &&
-          !negatedDeparturePrefix.test(before) &&
+          (!negatedDeparturePrefix.test(before) || invertedNecessity) &&
           (userProposal ||
             !/\bif(?:\s+[\p{L}\p{M}\p{N}]+){0,3}\s*$/iu.test(before)) &&
           !/^\s*(?:(?:would|will|could|may|might|is|was)\s+(?:be\s+)?(?:too\s+late|unsafe|impossible|unworkable|not\s+(?:work|fit|leave\s+enough\s+time)))/i
@@ -364,7 +367,7 @@ function latestDepartureMentionAt(
                 taskTitle.trim().toLowerCase());
           if (
             departureIndex >= 0 && departureIndex < cells.length &&
-            clockCell.test(cells[departureIndex]) && namedTask &&
+            clockCell.test(headerText(cells[departureIndex])) && namedTask &&
             (taskTitles.length <= 1 || taskIndex >= 0)
           ) {
             mentions.push({

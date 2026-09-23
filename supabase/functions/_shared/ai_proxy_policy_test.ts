@@ -233,6 +233,13 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       throw new Error("negated departure clarification was rejected");
     }
   }
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "You don't need to leave until 7:13 PM.",
+      context,
+      prompt,
+    )
+  ) throw new Error("inverted necessity hid departure recommendation");
   const twoTasks = {
     ...context,
     tasks: [
@@ -316,6 +323,7 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
     const table of [
       "| Task | Departure time |\n| --- | --- |\n| Task A | 7:13 PM |",
       "| **Task** | **Departure** |\n| --- | --- |\n| Task A | 7:13 PM |",
+      "| Task | Departure |\n| --- | --- |\n| Task A | **7:13 PM** |",
     ]
   ) {
     if (
