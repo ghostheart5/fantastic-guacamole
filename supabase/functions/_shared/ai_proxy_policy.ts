@@ -146,7 +146,8 @@ export function containsScheduledStartDepartureConfusion(
     if (!start) return false;
     const hour = Number(start[1]);
     if (hour > 23) return false;
-    const clock12 = `${hour % 12 || 12}:${start[2]}\\s*` +
+    const minute12 = start[2] === "00" ? "(?::00)?" : `:${start[2]}`;
+    const clock12 = `${hour % 12 || 12}${minute12}\\s*` +
       (hour < 12 ? "a\\.?\\s*m\\.?" : "p\\.?\\s*m\\.?");
     const clock = `(?:${clock12}|${start[1]}:${start[2]})`;
     let explicitlyProposedDeparture = false;
@@ -178,6 +179,7 @@ function latestDepartureMentionAt(
   taskTitle?: unknown,
   taskTitles: readonly string[] = [],
 ): boolean | null {
+  const normalizedValue = value.replaceAll("’", "'");
   // With multiple selected tasks, a matching clock alone is ambiguous. Only
   // attribute the departure to the task named in the same answer sentence.
   const namesThisTask = (index: number): boolean => {
@@ -210,8 +212,11 @@ function latestDepartureMentionAt(
     "giu",
   );
   const mentions: Array<{ index: number; affirmative: boolean }> = [];
-  for (const match of value.matchAll(verbFirst)) {
-    const before = value.slice(Math.max(0, match.index - 50), match.index);
+  for (const match of normalizedValue.matchAll(verbFirst)) {
+    const before = normalizedValue.slice(
+      Math.max(0, match.index - 50),
+      match.index,
+    );
     if (namesThisTask(match.index)) {
       mentions.push({
         index: match.index,
@@ -220,11 +225,11 @@ function latestDepartureMentionAt(
     }
   }
   const clockFirst = new RegExp(
-    `${clock}(?<!\\.)[^,;.!?\\n]{0,25}${boundedDeparture}`,
+    `${clock}(?:(?<!\\.)[^,;.!?\\n]{0,25}|(?<=[ap]\\.\\s?m\\.)\\s+(?:is|was|means|es|sería|seria)\\s+(?:(?:your|the|tu|su)\\s+)?)${boundedDeparture}`,
     "giu",
   );
   const clockOnly = new RegExp(`^${clock}`, "i");
-  for (const match of value.matchAll(clockFirst)) {
+  for (const match of normalizedValue.matchAll(clockFirst)) {
     const bridge = match[0].replace(clockOnly, "");
     if (namesThisTask(match.index)) {
       mentions.push({

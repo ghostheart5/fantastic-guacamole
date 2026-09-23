@@ -93,6 +93,7 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "Head to the store at 7:13 PM.",
       "Drive to the store at 7:13 PM.",
       "7:13 PM is your departure.",
+      "7:13 p.m. is your departure.",
       "Saldrá a las 19:13.",
     ]
   ) {
@@ -153,6 +154,7 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       "7:13 PM is not the departure; leave at 6:58 PM.",
       "Do not depart at 7:13 PM; leave at 6:58 PM.",
       "Do not plan to leave at 7:13 PM; leave at 6:58 PM.",
+      "Don’t leave at 7:13 PM; leave at 6:58 PM.",
       "19:13 no es la salida; sal a las 18:58.",
     ]
   ) {
@@ -231,6 +233,19 @@ Deno.test("scheduled task start cannot become an invented store departure", () =
       );
     }
   }
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Leave at 7 PM to go to the store.",
+      {
+        ...context,
+        tasks: [{
+          title: "Shopping list",
+          scheduledStart: "2026-09-23T19:00:00.000",
+        }],
+      },
+      "When should I go to the store?",
+    )
+  ) throw new Error("minute-less on-the-hour departure was accepted");
 });
 
 Deno.test("detects a direct recommendation contradicted by its own evidence", () => {
