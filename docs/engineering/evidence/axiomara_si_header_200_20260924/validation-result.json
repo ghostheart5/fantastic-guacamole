@@ -17,7 +17,8 @@
     "Debug QA build with mock tester login and disabled paywall; not Play-signed or public paid-feature proof",
     "Android 15 English screenshot only; Spanish covered by widget test",
     "No purchase or paid AI call made",
-    "Font scale restored to 1.5 and emulator gracefully stopped"
+    "Font scale restored to 1.5 and emulator gracefully stopped",
+    "The clean rebuild reproduced the installed APK; the emulator was not reinstalled after that rebuild because its binary hash was unchanged."
   ],
   "captures": [
     {
@@ -30,5 +31,10 @@
       "bytes": 1099891,
       "sha256": "ea49a75208a33ed3b6e61e39f0aff90c2c25f85876bee62452e166ae33f06c92"
     }
-  ]
+  ],
+  "testedCodeCommit": "d4b53e6d3ebd5c2274e15856c6a1ef8f8092cda0",
+  "testedTreeSha": "0f518245ee807d61383cd0713de498792dd94817",
+  "cleanRebuildApkSha256": "957d307046ef250870b2173bef79547fe580d1d476cead4b413a15029da6542f",
+  "sourceBinding": "The pictured APK was installed before commit from the two changed code files. After commit d4b53e6d with a clean worktree, the same QA build command produced a byte-identical APK SHA-256, binding the pictured binary to the committed source.",
+  "buildCommand": "flutter build apk --debug --target-platform=android-x64 --dart-define-from-file=tool/qa_defines.json"
 }
