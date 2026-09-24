@@ -252,15 +252,14 @@ grant execute on function public.queue_unadmitted_credit_topup(uuid,text,text,te
 -- admission and wallet grant are atomic under the receipt token lock.
 create function public.grant_verified_credit_topup_v2(
   p_user_id uuid, p_token_hash text, p_product_id text, p_order_id text,
-  p_admission_exempt boolean, p_admission_id text, p_purchase_time_ms bigint,
-  p_order_created_ms bigint default null
+  p_admission_exempt boolean, p_admission_id text, p_purchase_time_ms bigint
 ) returns jsonb language plpgsql security invoker set search_path = '' as $$
 declare
   v_principal uuid; v_existing public.credit_topup_purchases;
   v_admission public.public_credit_checkout_admissions;
   v_resolution public.public_credit_checkout_resolutions;
   v_wallet public.monetization_wallets; v_credits integer; v_debt_paid integer;
-  v_purchase_at timestamptz; v_order_created_at timestamptz;
+  v_purchase_at timestamptz;
 begin
   if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$'
     or nullif(btrim(p_order_id), '') is null or length(p_order_id) > 1024
@@ -309,14 +308,6 @@ begin
       return jsonb_build_object('granted', false, 'reason', 'admission_missing');
     end if;
     v_purchase_at := to_timestamp(p_purchase_time_ms / 1000.0);
-    if p_order_created_ms is not null then
-      if p_order_created_ms < 1600000000000 or
-         p_order_created_ms > 4102444800000 then
-        return jsonb_build_object('granted', false,
-          'reason', 'order_time_invalid');
-      end if;
-      v_order_created_at := to_timestamp(p_order_created_ms / 1000.0);
-    end if;
     select * into v_admission from public.public_credit_checkout_admissions
       where id = p_admission_id::uuid and billing_principal_id = v_principal
         and product_id = p_product_id for update;
@@ -335,17 +326,14 @@ begin
         'reason', 'customer_resolution_required', 'resolutionQueued', true);
     end if;
     if v_admission.consumed_token_hash is not null
-      or v_purchase_at < v_admission.issued_at - interval '1 minute'
-      or (v_order_created_at is not null and
-          v_order_created_at < v_admission.issued_at - interval '1 minute') then
+      or v_purchase_at < v_admission.issued_at - interval '1 minute' then
       return jsonb_build_object('granted', false, 'reason', 'admission_invalid');
     end if;
     if v_admission.pending_token_hash is not null and
       v_admission.pending_token_hash <> p_token_hash then
       return jsonb_build_object('granted', false, 'reason', 'admission_invalid');
     end if;
-    if coalesce(v_order_created_at, v_purchase_at) >
-        v_admission.issued_at + interval '30 minutes' and
+    if v_purchase_at > v_admission.issued_at + interval '30 minutes' and
       (v_admission.pending_token_hash is distinct from p_token_hash or
        v_admission.pending_verified_at > v_admission.issued_at + interval '30 minutes') then
       insert into public.public_credit_checkout_resolutions
@@ -380,9 +368,9 @@ begin
     'credits', v_credits, 'balance', v_wallet.balance);
 end;
 $$;
-revoke all on function public.grant_verified_credit_topup_v2(uuid,text,text,text,boolean,text,bigint,bigint)
+revoke all on function public.grant_verified_credit_topup_v2(uuid,text,text,text,boolean,text,bigint)
   from public, anon, authenticated;
-grant execute on function public.grant_verified_credit_topup_v2(uuid,text,text,text,boolean,text,bigint,bigint)
+grant execute on function public.grant_verified_credit_topup_v2(uuid,text,text,text,boolean,text,bigint)
   to service_role;
 
 -- Retire unused admissions when their checkout window closes. Keep rows

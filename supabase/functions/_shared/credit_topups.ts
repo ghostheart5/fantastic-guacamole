@@ -191,53 +191,6 @@ export async function verifyCreditTopup(input: {
       error: queued?.reason ?? "customer_resolution_retryable",
     };
   }
-  let orderCreatedAtMs: number | null = null;
-  if (requiresAdmission) {
-    // Completion time does not establish when a delayed Play checkout began.
-    // Read the exact order's creation time from Google; never trust a client
-    // timestamp to extend an unused admission after public sales close.
-    const orderUrl =
-      `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${
-        encodeURIComponent(input.packageName)
-      }/orders/${encodeURIComponent(purchase.orderId as string)}`;
-    const orderResponse = await fetcher(orderUrl, {
-      headers,
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!orderResponse.ok) {
-      await orderResponse.body?.cancel();
-      return {
-        valid: false,
-        retryable: true,
-        error: "provider_order_verification_retryable",
-      };
-    }
-    const order = await orderResponse.json() as Record<string, unknown>;
-    const lineItems = order.lineItems;
-    const createdAt = typeof order.createTime === "string" &&
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/
-          .test(
-            order.createTime,
-          )
-      ? Date.parse(order.createTime)
-      : NaN;
-    if (
-      order.orderId !== purchase.orderId ||
-      order.purchaseToken !== input.token ||
-      order.state !== "PROCESSED" ||
-      !Array.isArray(lineItems) || lineItems.length !== 1 ||
-      lineItems[0]?.productId !== input.productId ||
-      !Number.isFinite(createdAt) ||
-      createdAt < 1600000000000 || createdAt > Date.now() + 60000
-    ) {
-      return {
-        valid: false,
-        retryable: true,
-        error: "provider_order_proof_retryable",
-      };
-    }
-    orderCreatedAtMs = createdAt;
-  }
   const grant = await serviceRpc(
     input.config,
     "grant_verified_credit_topup_v2",
@@ -253,7 +206,6 @@ export async function verifyCreditTopup(input: {
       p_purchase_time_ms: !requiresAdmission
         ? null
         : Number(purchase.purchaseTimeMillis),
-      p_order_created_ms: orderCreatedAtMs,
     },
     fetcher,
   );
