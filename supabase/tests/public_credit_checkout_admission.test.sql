@@ -96,6 +96,18 @@ begin
     admission_id,purchased_at);
   assert result->>'reason'='resolution_proof_mismatch',
     'resolution token was reused with a different order';
+  result := public.revoke_verified_credit_topup(
+    repeat('c',64),'chronospark_credits_100','GPA.public-c');
+  assert (result->>'handled')::boolean and
+    (select state from public.public_credit_checkout_resolutions
+      where token_hash=repeat('c',64))='refunded',
+    'voided unfulfilled payment remained actionable in the resolution queue';
+  result := public.revoke_verified_credit_topup(
+    repeat('c',64),'chronospark_credits_100','GPA.public-c');
+  assert (result->>'duplicate')::boolean and
+    (select state from public.public_credit_checkout_resolutions
+      where token_hash=repeat('c',64))='refunded',
+    'duplicate void reopened a refunded resolution';
   admission := public.create_public_credit_checkout_admission(a,'chronospark_credits_100');
   assert admission->>'admissionId'<>admission_id,
     'expired unused admission was returned for a new checkout';

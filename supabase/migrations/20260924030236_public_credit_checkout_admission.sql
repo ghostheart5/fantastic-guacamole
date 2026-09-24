@@ -56,6 +56,64 @@ alter table public.public_credit_checkout_resolutions enable row level security;
 revoke all on public.public_credit_checkout_resolutions from public, anon, authenticated;
 grant select, insert, update on public.public_credit_checkout_resolutions to service_role;
 
+-- A trusted Play void/refund is authoritative for the resolution queue too.
+-- The same token lock used by grants and revocation makes the queue transition
+-- atomic with the purchase tombstone, including voids before fulfillment.
+create or replace function public.revoke_verified_credit_topup(
+  p_token_hash text, p_product_id text, p_order_id text
+) returns jsonb language plpgsql security invoker set search_path = '' as $$
+declare v_purchase public.credit_topup_purchases; v_wallet public.monetization_wallets;
+  v_remove integer; v_credits integer;
+begin
+  if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' then
+    raise exception 'invalid top-up token';
+  end if;
+  v_credits := case p_product_id when 'chronospark_credits_100' then 100
+    when 'chronospark_credits_300' then 300 end;
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('credit-topup:' || p_token_hash, 0));
+  update public.public_credit_checkout_resolutions
+    set state = 'refunded', last_verified_at = now()
+    where token_hash = p_token_hash and state <> 'refunded';
+  select * into v_purchase from public.credit_topup_purchases
+    where token_hash = p_token_hash for update;
+  if not found then
+    insert into public.credit_topup_purchases
+      (token_hash, product_id, order_id, credits, state, revoked_at)
+      values (p_token_hash, p_product_id, p_order_id,
+        coalesce(v_credits, 0), 'revoked', now());
+    return jsonb_build_object('handled', true, 'revoked', true);
+  end if;
+  if v_purchase.state = 'revoked' then
+    return jsonb_build_object('handled', true, 'duplicate', true);
+  end if;
+  select * into v_wallet from public.monetization_wallets
+    where billing_principal_id = v_purchase.billing_principal_id for update;
+  v_remove := least(v_wallet.bonus_balance, v_purchase.credits);
+  update public.monetization_wallets set
+    bonus_balance = bonus_balance - v_remove, balance = balance - v_remove,
+    refunded_credit_debt = refunded_credit_debt + v_purchase.credits - v_remove,
+    updated_at = now()
+    where billing_principal_id = v_purchase.billing_principal_id
+    returning * into v_wallet;
+  update public.credit_topup_purchases set state = 'revoked', revoked_at = now()
+    where token_hash = p_token_hash;
+  insert into public.monetization_credit_transactions
+    (billing_principal_id, user_id, type, amount, balance_after, source,
+     description, metadata)
+    values (v_purchase.billing_principal_id, v_wallet.user_id, 'adjustment',
+      -v_remove, v_wallet.balance, 'google_play', 'Refunded top-up removed',
+      jsonb_build_object('orderId', v_purchase.order_id,
+        'alreadySpent', v_purchase.credits - v_remove));
+  return jsonb_build_object('handled', true, 'revoked', true,
+    'removed', v_remove);
+end;
+$$;
+revoke all on function public.revoke_verified_credit_topup(text,text,text)
+  from public, anon, authenticated;
+grant execute on function public.revoke_verified_credit_topup(text,text,text)
+  to service_role;
+
 create function public.create_public_credit_checkout_admission(
   p_user_id uuid, p_product_id text
 ) returns jsonb language plpgsql security invoker set search_path = '' as $$
