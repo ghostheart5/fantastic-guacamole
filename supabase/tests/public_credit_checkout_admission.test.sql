@@ -27,6 +27,9 @@ begin
   assert not has_table_privilege('authenticated',
     'public.public_credit_checkout_resolutions', 'select'),
     'app clients cannot inspect paid-order resolution records';
+  result := public.create_public_credit_checkout_admission(a,null);
+  assert result->>'reason'='invalid_product',
+    'null product reached admission lock or insert';
   admission := public.create_public_credit_checkout_admission(a,'chronospark_credits_100');
   assert (admission->>'allowed')::boolean, 'server could not create admission';
   admission_id := admission->>'admissionId';

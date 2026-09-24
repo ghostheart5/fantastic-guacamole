@@ -61,7 +61,8 @@ create function public.create_public_credit_checkout_admission(
 ) returns jsonb language plpgsql security invoker set search_path = '' as $$
 declare v_principal uuid; v_id uuid;
 begin
-  if p_product_id not in ('chronospark_credits_100', 'chronospark_credits_300')
+  if p_product_id is null or
+    p_product_id not in ('chronospark_credits_100', 'chronospark_credits_300')
     or p_user_id is null then
     return jsonb_build_object('allowed', false, 'reason', 'invalid_product');
   end if;
