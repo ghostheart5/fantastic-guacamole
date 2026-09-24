@@ -104,7 +104,7 @@ begin
         pending_verified_at=now()-interval '3 days'+interval '5 minutes'
     where id=admission_id::uuid;
   result := public.grant_verified_credit_topup_v2(
-    a,repeat('g',64),'chronospark_credits_100','GPA.public-g',false,
+    a,repeat('1',64),'chronospark_credits_100','GPA.public-g',false,
     admission_id,purchased_at);
   assert result->>'reason'='admission_invalid',
     'pending binding was used by a different token';
@@ -122,7 +122,7 @@ begin
     null,null);
   assert (result->>'granted')::boolean, 'license-test grant requires public admission';
   assert (select count(*) from public.credit_topup_purchases where
-    token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64),repeat('f',64),repeat('g',64)))=3,
+    token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64),repeat('f',64),repeat('1',64)))=3,
     'failed or duplicate admissions changed purchased-credit ledger';
 end;
 $$;
