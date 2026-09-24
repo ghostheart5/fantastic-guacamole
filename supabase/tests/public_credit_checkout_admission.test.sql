@@ -64,10 +64,6 @@ begin
     a,repeat('a',64),'chronospark_credits_100','GPA.public-a',false,
     admission_id,purchased_at);
   assert (result->>'duplicate')::boolean, 'paid retry not idempotent';
-  result := public.grant_verified_credit_topup_v2(
-    a,repeat('b',64),'chronospark_credits_100','GPA.public-b',false,
-    admission_id,purchased_at);
-  assert result->>'reason'='admission_invalid', 'admission reused for second sale';
   admission := public.create_public_credit_checkout_admission(a,'chronospark_credits_100');
   admission_id := admission->>'admissionId';
   update public.public_credit_checkout_admissions
@@ -202,6 +198,29 @@ begin
     a,repeat('e',64),'chronospark_credits_100','GPA.test-e',true,
     null,null);
   assert (result->>'granted')::boolean, 'license-test grant requires public admission';
+  -- Two devices may have received the same live admission before either
+  -- purchase completed. The second verified paid order cannot grant credits
+  -- from it, but must remain in the customer-resolution queue.
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('b',64),'chronospark_credits_100','GPA.public-b',false,
+    (select id::text from public.public_credit_checkout_admissions
+      where consumed_token_hash=repeat('a',64)),purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean,
+    'second paid order sharing an admission was discarded or granted';
+  assert (select count(*) from public.public_credit_checkout_resolutions
+    where token_hash=repeat('b',64) and order_id='GPA.public-b'
+      and reason='admission_already_consumed'
+      and state='awaiting_resolution')=1,
+    'second paid order was not durably queued';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('b',64),'chronospark_credits_100','GPA.public-b',false,
+    (select id::text from public.public_credit_checkout_admissions
+      where consumed_token_hash=repeat('a',64)),purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (select count(*) from public.public_credit_checkout_resolutions
+      where token_hash=repeat('b',64))=1,
+    'second paid order retry was not idempotent';
   assert (select count(*) from public.credit_topup_purchases where
     state='granted' and
     token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64),repeat('f',64),repeat('1',64),repeat('2',64),repeat('3',64)))=3,

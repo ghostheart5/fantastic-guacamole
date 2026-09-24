@@ -44,7 +44,8 @@ create table public.public_credit_checkout_resolutions (
   product_id text not null check (product_id in ('chronospark_credits_100', 'chronospark_credits_300')),
   order_id text not null,
   admission_id uuid references public.public_credit_checkout_admissions(id),
-  reason text not null check (reason in ('admission_expired_unbound', 'admission_missing')),
+  reason text not null check (reason in (
+    'admission_expired_unbound', 'admission_missing', 'admission_already_consumed')),
   state text not null default 'awaiting_resolution'
     check (state in ('awaiting_resolution', 'refunded', 'fulfilled')),
   created_at timestamptz not null default now(),
@@ -349,8 +350,19 @@ begin
       return jsonb_build_object('granted', false,
         'reason', 'customer_resolution_required', 'resolutionQueued', true);
     end if;
-    if v_admission.consumed_token_hash is not null
-      or v_purchase_at < v_admission.issued_at - interval '1 minute' then
+    if v_admission.consumed_token_hash is not null then
+      -- Two checkouts can receive the same unused admission before either
+      -- completes. A second Google-verified payment must not receive credits
+      -- from that admission, but its order must remain visible for resolution.
+      insert into public.public_credit_checkout_resolutions
+        (token_hash, billing_principal_id, product_id, order_id, admission_id,
+         reason)
+        values (p_token_hash, v_principal, p_product_id, p_order_id,
+          v_admission.id, 'admission_already_consumed');
+      return jsonb_build_object('granted', false,
+        'reason', 'customer_resolution_required', 'resolutionQueued', true);
+    end if;
+    if v_purchase_at < v_admission.issued_at - interval '1 minute' then
       return jsonb_build_object('granted', false, 'reason', 'admission_invalid');
     end if;
     if v_admission.pending_token_hash is not null and
