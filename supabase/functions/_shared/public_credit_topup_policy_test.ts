@@ -40,6 +40,9 @@ Deno.test("every public sale approval must be an exact server affirmative", () =
 
 Deno.test("reviewed public rollout still honors client demand for license test", () => {
   const policy = parsePublicCreditTopupPolicy(() => "true");
+  if (creditTopupRequiresLicenseTest(policy, undefined)) {
+    throw new Error("server notification recovery rejected a public purchase");
+  }
   if (creditTopupRequiresLicenseTest(policy, false)) {
     throw new Error("reviewed public receipt wrongly forced to test");
   }
