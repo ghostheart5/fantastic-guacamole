@@ -75,12 +75,33 @@ export async function verifyCreditTopup(input: {
     input.requireTest,
   );
   if (error) return { valid: false, error };
-  const grant = await serviceRpc(input.config, "grant_verified_credit_topup", {
-    p_user_id: input.userId,
-    p_token_hash: await sha256Hex(input.token),
-    p_product_id: input.productId,
-    p_order_id: purchase.orderId,
-  }, fetcher);
+  const isLicenseTest = purchase.purchaseType === 0;
+  if (
+    !isLicenseTest &&
+    (typeof purchase.obfuscatedExternalProfileId !== "string" ||
+      typeof purchase.purchaseTimeMillis !== "string" ||
+      !/^[0-9]{13}$/.test(purchase.purchaseTimeMillis))
+  ) {
+    return { valid: false, error: "admission_missing" };
+  }
+  const grant = await serviceRpc(
+    input.config,
+    "grant_verified_credit_topup_v2",
+    {
+      p_user_id: input.userId,
+      p_token_hash: await sha256Hex(input.token),
+      p_product_id: input.productId,
+      p_order_id: purchase.orderId,
+      p_is_license_test: isLicenseTest,
+      p_admission_id: isLicenseTest
+        ? null
+        : purchase.obfuscatedExternalProfileId,
+      p_purchase_time_ms: isLicenseTest
+        ? null
+        : Number(purchase.purchaseTimeMillis),
+    },
+    fetcher,
+  );
   if (grant?.granted !== true) {
     return {
       valid: false,

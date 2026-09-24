@@ -70,6 +70,7 @@ interface VerifyRequest {
 
 interface VerifyResponse {
   checkoutAllowed?: boolean;
+  admissionId?: string;
   consumed?: boolean;
   creditsGranted?: number;
   duplicate?: boolean;
@@ -187,7 +188,12 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json() as Partial<VerifyRequest>;
     if (body.operation === "credit_sale_eligibility") {
-      if (Object.keys(body).some((key) => key !== "operation")) {
+      if (
+        Object.keys(body).some((key) =>
+          key !== "operation" && key !== "productId"
+        ) ||
+        !CREDIT_TOPUPS.has(body.productId ?? "")
+      ) {
         return jsonResponse(req, {
           valid: false,
           error: "invalid_request_body",
@@ -199,9 +205,30 @@ Deno.serve(async (req: Request) => {
           error: "service_account_not_configured",
         }, 503);
       }
+      if (!publicCreditSaleEnabled(publicCreditTopupPolicy)) {
+        return jsonResponse(req, { valid: true, checkoutAllowed: false });
+      }
+      const admission = await serviceRpc(
+        config,
+        "create_public_credit_checkout_admission",
+        {
+          p_user_id: userId,
+          p_product_id: body.productId,
+        },
+      );
+      if (
+        admission?.allowed !== true ||
+        typeof admission.admissionId !== "string"
+      ) {
+        return jsonResponse(req, {
+          valid: false,
+          error: "checkout_admission_unavailable",
+        }, 503);
+      }
       return jsonResponse(req, {
         valid: true,
-        checkoutAllowed: publicCreditSaleEnabled(publicCreditTopupPolicy),
+        checkoutAllowed: true,
+        admissionId: admission.admissionId,
       });
     }
     const productId = body.productId?.trim() ?? "";

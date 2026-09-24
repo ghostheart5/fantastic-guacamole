@@ -32,9 +32,9 @@ export function publicCreditSaleEnabled(
     policy.publicAiEnabled;
 }
 
-// Rollout closure stops new checkouts, but a purchase already completed in
-// Google Play must remain redeemable. Its provider authority and account
-// binding, rather than the current sales flag, determine fulfillment.
+// Rollout closure stops new admissions. An already admitted purchase remains
+// redeemable through its Play-echoed admission and one-use database grant.
+// License-test clients continue to demand Google's test purchase marker.
 export function creditTopupRequiresLicenseTest(
   clientRequiresTest: boolean | undefined,
 ): boolean {

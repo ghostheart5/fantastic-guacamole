@@ -1,8 +1,9 @@
 part of 'google_play_paywall_repository.dart';
 
 extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
-  Future<void> _requirePublicCreditCheckoutAllowed(
+  Future<String> _requirePublicCreditCheckoutAllowed(
     String? expectedUserId,
+    String productId,
   ) async {
     final token = _supabaseClient?.auth.currentSession?.accessToken;
     if (expectedUserId == null ||
@@ -18,7 +19,10 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $token',
             },
-            body: jsonEncode({'operation': 'credit_sale_eligibility'}),
+            body: jsonEncode({
+              'operation': 'credit_sale_eligibility',
+              'productId': productId,
+            }),
           )
           .timeout(_authorityRequestTimeout);
       final data = response.statusCode == 200
@@ -27,8 +31,10 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
       if (data is Map &&
           data['valid'] == true &&
           data['checkoutAllowed'] == true &&
+          data['admissionId'] is String &&
+          (data['admissionId'] as String).isNotEmpty &&
           _isCurrentBillingAccount(expectedUserId)) {
-        return;
+        return data['admissionId'] as String;
       }
     } on Object {
       // A failed pre-check must never open Google Play checkout.

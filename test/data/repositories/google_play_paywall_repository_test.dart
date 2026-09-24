@@ -238,7 +238,14 @@ void main() {
             ],
             notFoundIDs: const [],
           ),
-          onBuyNonConsumable: (_) async => false,
+          onBuyNonConsumable: (param) async {
+            expect(param, isA<GooglePlayPurchaseParam>());
+            expect(
+              (param as GooglePlayPurchaseParam).obfuscatedProfileId,
+              '123e4567-e89b-12d3-a456-426614174000',
+            );
+            return false;
+          },
         );
         var checks = 0;
         final repository = GooglePlayPaywallRepository(
@@ -253,9 +260,14 @@ void main() {
             expect(request.headers['authorization'], 'Bearer access-token');
             expect(jsonDecode(request.body), {
               'operation': 'credit_sale_eligibility',
+              'productId': 'chronospark_credits_100',
             });
             final responseBody = <String, Object?>{'valid': true};
             if (allowed != null) responseBody['checkoutAllowed'] = allowed;
+            if (allowed == true) {
+              responseBody['admissionId'] =
+                  '123e4567-e89b-12d3-a456-426614174000';
+            }
             return http.Response(jsonEncode(responseBody), status);
           }),
         );
@@ -264,7 +276,7 @@ void main() {
           throwsStateError,
         );
         expect(checks, 1);
-        expect(billing.queryProductCalls, allowed == true ? 1 : 0);
+        expect(billing.queryProductCalls, 1);
         expect(billing.buyCalls, allowed == true ? 1 : 0);
         repository.dispose();
         await client.dispose();

@@ -523,9 +523,6 @@ class GooglePlayPaywallRepository
     required String? expectedUserId,
     required String operationKey,
   }) async {
-    if (planId.startsWith('credits_') && !_requireTestPurchase) {
-      await _requirePublicCreditCheckoutAllowed(expectedUserId);
-    }
     final ProductDetailsResponse response = await _billingClient
         .queryProductDetails(<String>{productId});
     final ProductDetails? selectedProduct = _selectProduct(
@@ -538,6 +535,10 @@ class GooglePlayPaywallRepository
     if (!_isCurrentBillingAccount(expectedUserId)) {
       throw StateError('The signed-in account changed during billing.');
     }
+    final String? admissionId =
+        planId.startsWith('credits_') && !_requireTestPurchase
+        ? await _requirePublicCreditCheckoutAllowed(expectedUserId, productId)
+        : null;
 
     final _PendingPurchase pending = _PendingPurchase(
       productId: productId,
@@ -547,10 +548,16 @@ class GooglePlayPaywallRepository
     _pendingPurchases[operationKey] = pending;
     await _rememberPendingOwner(productId, expectedUserId);
 
-    final PurchaseParam param = PurchaseParam(
-      productDetails: selectedProduct,
-      applicationUserName: _billingAccountFingerprint(expectedUserId),
-    );
+    final PurchaseParam param = admissionId == null
+        ? PurchaseParam(
+            productDetails: selectedProduct,
+            applicationUserName: _billingAccountFingerprint(expectedUserId),
+          )
+        : GooglePlayPurchaseParam(
+            productDetails: selectedProduct,
+            applicationUserName: _billingAccountFingerprint(expectedUserId),
+            obfuscatedProfileId: admissionId,
+          );
     late final bool purchaseStarted;
     try {
       purchaseStarted = await _billingClient.buyNonConsumable(
