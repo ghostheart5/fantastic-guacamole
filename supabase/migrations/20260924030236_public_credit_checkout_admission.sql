@@ -8,6 +8,7 @@ create table public.public_credit_checkout_admissions (
   billing_principal_id uuid not null references public.billing_principals(billing_principal_id),
   product_id text not null check (product_id in ('chronospark_credits_100', 'chronospark_credits_300')),
   issued_at timestamptz not null default now(),
+  retired_at timestamptz,
   pending_token_hash text unique check (pending_token_hash ~ '^[0-9a-f]{64}$'),
   pending_verified_at timestamptz,
   consumed_token_hash text unique check (consumed_token_hash ~ '^[0-9a-f]{64}$'),
@@ -17,6 +18,18 @@ create table public.public_credit_checkout_admissions (
 );
 create index public_credit_checkout_admissions_principal_idx
   on public.public_credit_checkout_admissions (billing_principal_id, issued_at desc);
+-- At most one unused admission per account/package can be stockpiled. Pending
+-- tokens and completed purchases retain their own records independently.
+create unique index public_credit_checkout_admissions_unused_idx
+  on public.public_credit_checkout_admissions (billing_principal_id, product_id)
+  where retired_at is null and pending_token_hash is null and consumed_token_hash is null;
+create index public_credit_checkout_admissions_unused_expiry_idx
+  on public.public_credit_checkout_admissions (issued_at)
+  where retired_at is null and pending_token_hash is null and consumed_token_hash is null;
+create index public_credit_checkout_admissions_retired_expiry_idx
+  on public.public_credit_checkout_admissions (retired_at)
+  where retired_at is not null and pending_token_hash is null
+    and consumed_token_hash is null;
 alter table public.public_credit_checkout_admissions enable row level security;
 revoke all on public.public_credit_checkout_admissions from public, anon, authenticated;
 grant select, insert, update on public.public_credit_checkout_admissions to service_role;
@@ -53,6 +66,23 @@ begin
     return jsonb_build_object('allowed', false, 'reason', 'invalid_product');
   end if;
   v_principal := public.ensure_billing_principal(p_user_id);
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      'credit-admission:' || v_principal::text || ':' || p_product_id, 0));
+  -- Repeated eligibility checks return the same live admission. Remove an
+  -- expired unused one before issuing its replacement; a bound pending token
+  -- is never removed here.
+  update public.public_credit_checkout_admissions set retired_at = now()
+    where billing_principal_id = v_principal and product_id = p_product_id
+      and retired_at is null and pending_token_hash is null and consumed_token_hash is null
+      and issued_at < now() - interval '30 minutes';
+  select id into v_id from public.public_credit_checkout_admissions
+    where billing_principal_id = v_principal and product_id = p_product_id
+      and retired_at is null and pending_token_hash is null and consumed_token_hash is null
+    for update;
+  if found then
+    return jsonb_build_object('allowed', true, 'admissionId', v_id::text);
+  end if;
   insert into public.public_credit_checkout_admissions (billing_principal_id, product_id)
     values (v_principal, p_product_id) returning id into v_id;
   return jsonb_build_object('allowed', true, 'admissionId', v_id::text);
@@ -222,7 +252,21 @@ begin
     select * into v_admission from public.public_credit_checkout_admissions
       where id = p_admission_id::uuid and billing_principal_id = v_principal
         and product_id = p_product_id for update;
-    if not found or v_admission.consumed_token_hash is not null
+    if not found then
+      if exists (select 1 from public.public_credit_checkout_admissions
+        where id = p_admission_id::uuid) then
+        return jsonb_build_object('granted', false, 'reason', 'admission_invalid');
+      end if;
+      -- A verified paid order may arrive after an unused admission was
+      -- purged. Preserve the customer claim rather than silently lose it.
+      insert into public.public_credit_checkout_resolutions
+        (token_hash, billing_principal_id, product_id, order_id, reason)
+        values (p_token_hash, v_principal, p_product_id, p_order_id,
+          'admission_missing');
+      return jsonb_build_object('granted', false,
+        'reason', 'customer_resolution_required', 'resolutionQueued', true);
+    end if;
+    if v_admission.consumed_token_hash is not null
       or v_purchase_at < v_admission.issued_at - interval '1 minute' then
       return jsonb_build_object('granted', false, 'reason', 'admission_invalid');
     end if;
@@ -269,3 +313,52 @@ revoke all on function public.grant_verified_credit_topup_v2(uuid,text,text,text
   from public, anon, authenticated;
 grant execute on function public.grant_verified_credit_topup_v2(uuid,text,text,text,boolean,text,bigint)
   to service_role;
+
+-- Retire unused admissions when their checkout window closes. Keep rows
+-- linked to verified paid-order resolutions and all pending/consumed rows;
+-- purging only unbound rows cannot cancel an in-flight pending payment.
+create function public.purge_expired_public_credit_checkout_admissions()
+returns integer language plpgsql security invoker set search_path = '' as $$
+declare v_count integer;
+begin
+  update public.public_credit_checkout_admissions
+    set retired_at = now()
+    where retired_at is null and pending_token_hash is null
+      and consumed_token_hash is null
+      and issued_at < now() - interval '30 minutes';
+  with expired as (
+    select a.id from public.public_credit_checkout_admissions a
+    where a.retired_at < now() - interval '24 hours'
+      and a.pending_token_hash is null and a.consumed_token_hash is null
+      and not exists (select 1 from public.public_credit_checkout_resolutions r
+        where r.admission_id = a.id)
+    order by a.retired_at limit 1000
+  )
+  delete from public.public_credit_checkout_admissions a
+    using expired where a.id = expired.id;
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+revoke all on function public.purge_expired_public_credit_checkout_admissions()
+  from public, anon, authenticated;
+grant execute on function public.purge_expired_public_credit_checkout_admissions()
+  to service_role;
+
+create extension if not exists pg_cron;
+do $$
+declare v_job_id bigint;
+begin
+  for v_job_id in select jobid from cron.job
+    where jobname = 'chronospark-purge-public-credit-admissions'
+  loop
+    perform cron.unschedule(v_job_id);
+  end loop;
+  perform cron.schedule(
+    'chronospark-purge-public-credit-admissions',
+    '*/15 * * * *',
+    'select public.purge_expired_public_credit_checkout_admissions();');
+exception when others then
+  raise exception 'failed to configure public credit admission cleanup: %', sqlerrm;
+end;
+$$;

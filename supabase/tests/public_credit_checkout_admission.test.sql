@@ -30,6 +30,15 @@ begin
   admission := public.create_public_credit_checkout_admission(a,'chronospark_credits_100');
   assert (admission->>'allowed')::boolean, 'server could not create admission';
   admission_id := admission->>'admissionId';
+  result := public.create_public_credit_checkout_admission(a,'chronospark_credits_100');
+  assert result->>'admissionId'=admission_id,
+    'repeated eligibility created another unused admission';
+  assert (select count(*) from public.public_credit_checkout_admissions
+    where billing_principal_id=public.ensure_billing_principal(a)
+      and product_id='chronospark_credits_100'
+      and pending_token_hash is null and consumed_token_hash is null
+      and retired_at is null)=1,
+    'more than one live unused admission was stockpiled';
   result := public.grant_verified_credit_topup_v2(
     b,repeat('a',64),'chronospark_credits_100','GPA.public-a',false,
     admission_id,purchased_at);
@@ -85,6 +94,8 @@ begin
   assert result->>'reason'='resolution_proof_mismatch',
     'resolution token was reused with a different order';
   admission := public.create_public_credit_checkout_admission(a,'chronospark_credits_100');
+  assert admission->>'admissionId'<>admission_id,
+    'expired unused admission was returned for a new checkout';
   admission_id := admission->>'admissionId';
   result := public.register_verified_pending_credit_topup(
     b,repeat('f',64),'chronospark_credits_100',admission_id);
@@ -116,6 +127,21 @@ begin
     admission_id,purchased_at);
   assert (result->>'granted')::boolean,
     'payment completed after a timely verified pending binding was not granted';
+  admission := public.create_public_credit_checkout_admission(b,'chronospark_credits_300');
+  admission_id := admission->>'admissionId';
+  update public.public_credit_checkout_admissions
+    set issued_at=now()-interval '3 days',
+        retired_at=now()-interval '2 days'
+    where id=admission_id::uuid;
+  perform public.purge_expired_public_credit_checkout_admissions();
+  assert not exists (select 1 from public.public_credit_checkout_admissions
+    where id=admission_id::uuid), 'expired unbound admission was not purged';
+  result := public.grant_verified_credit_topup_v2(
+    b,repeat('3',64),'chronospark_credits_300','GPA.purged',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean,
+    'paid order arriving after admission purge was lost';
   result := public.grant_verified_credit_topup_v2(
     a,repeat('d',64),'chronospark_credits_100','GPA.public-d',false,
     null,purchased_at);
@@ -142,10 +168,10 @@ begin
     null,null);
   assert (result->>'granted')::boolean, 'license-test grant requires public admission';
   assert (select count(*) from public.credit_topup_purchases where
-    token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64),repeat('f',64),repeat('1',64),repeat('2',64)))=3,
+    token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64),repeat('f',64),repeat('1',64),repeat('2',64),repeat('3',64)))=3,
     'failed or duplicate admissions changed purchased-credit ledger';
 end;
 $$;
-select pass('public checkout admission rejects stockpiles and binds verified pending tokens without losing delayed payment');
+select pass('public checkout admission reuses and purges unused rows without losing delayed payment');
 select * from finish();
 rollback;
