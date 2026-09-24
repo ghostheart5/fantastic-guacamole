@@ -36,7 +36,7 @@ the project gates below.
 | Public AI safety/privacy | PR 128's default-closed server policy is merged but undeployed. The owner confirmed there are no signed independent privacy/legal or mental-health-safety dispositions. | Qualified, signed, dated assessments of the exact enabled app, backend, data flow, disclosures, English/Spanish distress handling, and fixes; then source-matched deployed policy and runtime tests. Technical code review is not a substitute. |
 | Public build provenance | The current workflow builds only a contained private-cohort candidate. | Reviewed public profile, exact merged SHA and green exact-source CI, source-matched backend, verified signing/AAB identity, and Play-signed installed artifact tested without changing the Moto's preserved data. |
 | Store and policy parity | Play App content showed no outstanding declaration task for the current closed-test app; the saved Health declaration says no health features. EN/ES descriptions still restrict AI to eligible private testers. The public YouTube promo depicts credit-backed AI. | Qualified Health/Data safety classification for the enabled behavior; saved EN-US, ES-419, ES-US listing and video claims checked against the exact final build; owner-side YouTube monetization and final media parity readback. |
-| Android layout and journeys | Play Test and release shows an “Edge-to-edge may not display for all users” advisory for closed release 3081. Source uses SafeArea in major screens, but the available Android 15 QA artifact has no visual captures that settle overlap on the final build. | Inspect system-bar and cutout overlap on Android 15 and 16, gesture and three-button navigation, normal and 150% text scale, login, Planner, SI, paywall, and critical bottom controls on the exact signed candidate. Record screenshot/device identity and fix any reproduced overlap. |
+| Android layout and journeys | Play Test and release shows an “Edge-to-edge may not display for all users” advisory for closed release 3081. The September 24 isolated Android 16 QA check below found no system-bar overlap on sampled screens, but it used a debug build with mock login and disabled paywall. | Inspect system-bar and cutout overlap on Android 15 and 16, gesture and three-button navigation, normal and 150% text scale, login, Planner, SI, paywall, and critical bottom controls on the exact signed candidate. Record screenshot/device identity and fix any reproduced overlap. |
 | Operations | The historical register in `EXTERNAL_GATES.md` contains open recovery, monitoring, billing lifecycle, and first-time UAT rows. | Current dated deployment parity, reconciliation/alerting, backup restore drill, support and rollback owners, signed test matrix, and dispositioned critical findings. |
 
 ## Evidence rules for the next stage
@@ -60,3 +60,25 @@ Android's [edge-to-edge guidance](https://developer.android.com/develop/ui/views
 explains that Android 15+ enforces drawing behind system bars for apps targeting
 SDK 35+. It calls for inset handling and visual overlap checks; the Play
 advisory alone does not establish a specific defect.
+
+## Isolated Android 16 visual check — September 24
+
+The new `axiomara_edge_qa_36` AVD on `emulator-5580` ran Android 16/API 36.
+The current-main app code was built as debug QA version `4.1.0+2026083084`
+(APK SHA-256 `66fa45284d595af83e28ae0f38cef3cbf9ad7e2321310dda0279a83d151aff18`,
+Android Debug certificate, installer null). A synthetic QA sign-in reached the
+Nexus. Visual captures at 100% and 150% text with gesture navigation show the
+Nexus, Planner, SI, and Settings controls clear of the system status and gesture
+areas. At 150% text, the Planner input and Get Guidance button remained
+reachable; the SI composer remained above the gesture area. The Nexus bottom
+navigation was also clear of Android's three-button controls at 150% text.
+Screenshots, hashes, device identity, and limitations are recorded in
+`C:\jtmp\axiomara-edge-qa-20260924\validation-result.json`.
+
+This narrows the Play advisory to an unproven risk on the sampled QA surfaces;
+it does not close the release gate. The check did not exercise a Play-signed
+build, public paywall, paid AI, Android 15 visual matrix, or every display
+cutout and route. A Maestro assertion using an exact standalone Planner heading
+failed because that heading was part of a longer accessibility label; the
+captured screen shows the heading, so this is a selector issue rather than a
+verified display defect.
