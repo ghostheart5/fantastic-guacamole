@@ -25,10 +25,18 @@ export function parsePublicCreditTopupPolicy(
   };
 }
 
-export function creditTopupRequiresLicenseTest(
+export function publicCreditSaleEnabled(
   policy: PublicCreditTopupPolicy,
+): boolean {
+  return policy.enabled && policy.billingReviewApproved &&
+    policy.publicAiEnabled;
+}
+
+// Rollout closure stops new checkouts, but a purchase already completed in
+// Google Play must remain redeemable. Its provider authority and account
+// binding, rather than the current sales flag, determine fulfillment.
+export function creditTopupRequiresLicenseTest(
   clientRequiresTest: boolean | undefined,
 ): boolean {
-  return clientRequiresTest === true ||
-    !(policy.enabled && policy.billingReviewApproved && policy.publicAiEnabled);
+  return clientRequiresTest === true;
 }

@@ -523,6 +523,9 @@ class GooglePlayPaywallRepository
     required String? expectedUserId,
     required String operationKey,
   }) async {
+    if (planId.startsWith('credits_') && !_requireTestPurchase) {
+      await _requirePublicCreditCheckoutAllowed(expectedUserId);
+    }
     final ProductDetailsResponse response = await _billingClient
         .queryProductDetails(<String>{productId});
     final ProductDetails? selectedProduct = _selectProduct(

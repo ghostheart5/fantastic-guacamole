@@ -1,9 +1,5 @@
 /// <reference lib="deno.ns" />
 import { CREDIT_TOPUPS, verifyCreditTopup } from "../_shared/credit_topups.ts";
-import {
-  creditTopupRequiresLicenseTest,
-  parsePublicCreditTopupPolicy,
-} from "../_shared/public_credit_topup_policy.ts";
 
 import { respondToGooglePlayRefundReview } from "../_shared/google_play_refund_review.ts";
 
@@ -43,7 +39,6 @@ const ANDROID_PACKAGE_NAME = Deno.env.get("ANDROID_PACKAGE_NAME") ??
 const RTDN_AUDIENCE = Deno.env.get("RTDN_AUDIENCE") ?? "";
 const RTDN_SERVICE_ACCOUNT_EMAIL = Deno.env.get("RTDN_SERVICE_ACCOUNT_EMAIL") ??
   "";
-const publicCreditTopupPolicy = parsePublicCreditTopupPolicy(Deno.env.get);
 const ALLOWED_PRODUCT_IDS = new Set([
   "chronospark_premium_monthly",
   "chronospark_premium_annual",
@@ -545,10 +540,8 @@ Deno.serve(async (req: Request) => {
           productId: sku,
           token,
           accessToken,
-          requireTest: creditTopupRequiresLicenseTest(
-            publicCreditTopupPolicy,
-            undefined,
-          ),
+          // A provider-verified purchase remains redeemable after sales close.
+          requireTest: false,
         });
         if (result.valid !== true) throw new Error("credit_grant_retry");
       } else if (purchase.purchaseState !== 2) {

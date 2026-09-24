@@ -17,6 +17,7 @@ import { googleSubscriptionState } from "../_shared/google_play_rtdn.ts";
 import {
   creditTopupRequiresLicenseTest,
   parsePublicCreditTopupPolicy,
+  publicCreditSaleEnabled,
 } from "../_shared/public_credit_topup_policy.ts";
 import {
   acknowledgeGooglePlaySubscription,
@@ -60,6 +61,7 @@ const LEGACY_ACCOUNT_BINDING_CUTOFF =
 const publicCreditTopupPolicy = parsePublicCreditTopupPolicy(Deno.env.get);
 
 interface VerifyRequest {
+  operation?: string;
   productId: string;
   purchaseToken: string;
   purchaseType: "subscription" | "inapp";
@@ -67,6 +69,7 @@ interface VerifyRequest {
 }
 
 interface VerifyResponse {
+  checkoutAllowed?: boolean;
   consumed?: boolean;
   creditsGranted?: number;
   duplicate?: boolean;
@@ -102,9 +105,10 @@ function cors(req: Request): Record<string, string> {
     "Vary": "Origin",
     "X-Content-Type-Options": "nosniff",
     "X-ChronoSpark-Contract": "verify-receipt-v2",
-    ...(creditTopupRequiresLicenseTest(publicCreditTopupPolicy, undefined)
-      ? { "X-ChronoSpark-Test-Purchase-Guard": "v1" }
-      : { "X-ChronoSpark-Public-Credit-Guard": "enabled-v1" }),
+    "X-ChronoSpark-Public-Credit-Checkout":
+      publicCreditSaleEnabled(publicCreditTopupPolicy)
+        ? "enabled-v1"
+        : "disabled-v1",
     ...(googleCredentialFingerprint
       ? {
         "X-ChronoSpark-Google-Credential-SHA256": googleCredentialFingerprint,
@@ -182,6 +186,24 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = await req.json() as Partial<VerifyRequest>;
+    if (body.operation === "credit_sale_eligibility") {
+      if (Object.keys(body).some((key) => key !== "operation")) {
+        return jsonResponse(req, {
+          valid: false,
+          error: "invalid_request_body",
+        }, 400);
+      }
+      if (!readServiceAccount() || !googleCredentialFingerprint) {
+        return jsonResponse(req, {
+          valid: false,
+          error: "service_account_not_configured",
+        }, 503);
+      }
+      return jsonResponse(req, {
+        valid: true,
+        checkoutAllowed: publicCreditSaleEnabled(publicCreditTopupPolicy),
+      });
+    }
     const productId = body.productId?.trim() ?? "";
     const purchaseToken = body.purchaseToken?.trim() ?? "";
     if (
@@ -214,12 +236,9 @@ Deno.serve(async (req: Request) => {
         productId,
         token: purchaseToken,
         accessToken,
-        // The request can demand a stricter test purchase, never unlock a
-        // real sale. Public sales require reviewed server-side rollout flags.
-        requireTest: creditTopupRequiresLicenseTest(
-          publicCreditTopupPolicy,
-          body.requireTestPurchase,
-        ),
+        // Closing new sales must not strand an already completed purchase.
+        // An internal client may still demand license-test proof.
+        requireTest: creditTopupRequiresLicenseTest(body.requireTestPurchase),
       });
       return jsonResponse(
         req,

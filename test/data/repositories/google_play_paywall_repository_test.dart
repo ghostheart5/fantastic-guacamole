@@ -212,6 +212,66 @@ void main() {
     );
   }
 
+  for (final (allowed, status) in <(bool?, int)>[
+    (false, 200),
+    (null, 503),
+    (null, 200),
+    (true, 200),
+  ]) {
+    test(
+      'public credit checkout uses fresh server admission ($allowed, $status)',
+      () async {
+        final client = await _authorityClient((request) async {
+          fail('Credit checkout must not substitute subscription authority.');
+        });
+        final billing = _FakeBillingClient(
+          productResponse: ProductDetailsResponse(
+            productDetails: [
+              ProductDetails(
+                id: 'chronospark_credits_100',
+                title: '100 credits',
+                description: 'One-time pack',
+                price: r'$2.99',
+                rawPrice: 2.99,
+                currencyCode: 'USD',
+              ),
+            ],
+            notFoundIDs: const [],
+          ),
+          onBuyNonConsumable: (_) async => false,
+        );
+        var checks = 0;
+        final repository = GooglePlayPaywallRepository(
+          billingClient: billing,
+          paywallTestingModeOverride: false,
+          requireTestPurchase: false,
+          supabaseClient: client,
+          receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+          httpClient: MockClient((request) async {
+            checks++;
+            expect(request.method, 'POST');
+            expect(request.headers['authorization'], 'Bearer access-token');
+            expect(jsonDecode(request.body), {
+              'operation': 'credit_sale_eligibility',
+            });
+            final responseBody = <String, Object?>{'valid': true};
+            if (allowed != null) responseBody['checkoutAllowed'] = allowed;
+            return http.Response(jsonEncode(responseBody), status);
+          }),
+        );
+        await expectLater(
+          repository.startSubscription('credits_100'),
+          throwsStateError,
+        );
+        expect(checks, 1);
+        expect(billing.queryProductCalls, allowed == true ? 1 : 0);
+        expect(billing.buyCalls, allowed == true ? 1 : 0);
+        repository.dispose();
+        await client.dispose();
+      },
+    );
+  }
+
   for (final Object? proof in <Object?>[null, false, 'true', true]) {
     test('license-test purchase requires server proof ($proof)', () async {
       final controller = StreamController<List<PurchaseDetails>>.broadcast();

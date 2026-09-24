@@ -1,6 +1,41 @@
 part of 'google_play_paywall_repository.dart';
 
 extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
+  Future<void> _requirePublicCreditCheckoutAllowed(
+    String? expectedUserId,
+  ) async {
+    final token = _supabaseClient?.auth.currentSession?.accessToken;
+    if (expectedUserId == null ||
+        token == null ||
+        !_isCurrentBillingAccount(expectedUserId)) {
+      throw StateError('Sign in before buying credits.');
+    }
+    try {
+      final response = await _httpClient
+          .post(
+            parseSecureHttpsEndpoint(_receiptVerifyEndpoint)!,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'operation': 'credit_sale_eligibility'}),
+          )
+          .timeout(_authorityRequestTimeout);
+      final data = response.statusCode == 200
+          ? jsonDecode(response.body)
+          : null;
+      if (data is Map &&
+          data['valid'] == true &&
+          data['checkoutAllowed'] == true &&
+          _isCurrentBillingAccount(expectedUserId)) {
+        return;
+      }
+    } on Object {
+      // A failed pre-check must never open Google Play checkout.
+    }
+    throw StateError('Credit packs are temporarily unavailable.');
+  }
+
   Future<bool> _verifiedCreditTopupFromServer(
     PurchaseDetails purchase, {
     required String? expectedUserId,
