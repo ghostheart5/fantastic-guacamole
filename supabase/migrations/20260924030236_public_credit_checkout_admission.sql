@@ -56,6 +56,30 @@ alter table public.public_credit_checkout_resolutions enable row level security;
 revoke all on public.public_credit_checkout_resolutions from public, anon, authenticated;
 grant select, insert, update on public.public_credit_checkout_resolutions to service_role;
 
+-- Service-only, aggregate health readback for the paid-order exception queue.
+-- No token, order, account, or admission identifier leaves this function.
+create function public.public_credit_checkout_resolution_health()
+returns jsonb language sql stable security invoker set search_path = '' as $$
+  select jsonb_build_object(
+    'awaiting', count(*) filter (where state = 'awaiting_resolution'),
+    'awaitingOverOneHour', count(*) filter (
+      where state = 'awaiting_resolution'
+        and created_at <= now() - interval '1 hour'),
+    'awaitingOverOneDay', count(*) filter (
+      where state = 'awaiting_resolution'
+        and created_at <= now() - interval '1 day'),
+    'oldestAwaitingAt', min(created_at) filter (
+      where state = 'awaiting_resolution'),
+    'refunded', count(*) filter (where state = 'refunded'),
+    'fulfilled', count(*) filter (where state = 'fulfilled')
+  )
+  from public.public_credit_checkout_resolutions;
+$$;
+revoke all on function public.public_credit_checkout_resolution_health()
+  from public, anon, authenticated;
+grant execute on function public.public_credit_checkout_resolution_health()
+  to service_role;
+
 -- A trusted Play void/refund is authoritative for the resolution queue too.
 -- The same token lock used by grants and revocation makes the queue transition
 -- atomic with the purchase tombstone, including voids before fulfillment.

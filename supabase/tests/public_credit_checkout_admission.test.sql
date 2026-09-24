@@ -27,6 +27,12 @@ begin
   assert not has_table_privilege('authenticated',
     'public.public_credit_checkout_resolutions', 'select'),
     'app clients cannot inspect paid-order resolution records';
+  assert not has_function_privilege('authenticated',
+    'public.public_credit_checkout_resolution_health()', 'execute'),
+    'app clients cannot inspect paid-order resolution counts';
+  assert has_function_privilege('service_role',
+    'public.public_credit_checkout_resolution_health()', 'execute'),
+    'service role cannot monitor paid-order resolution health';
   result := public.create_public_credit_checkout_admission(a,null);
   assert result->>'reason'='invalid_product',
     'null product reached admission lock or insert';
@@ -84,6 +90,15 @@ begin
     where token_hash=repeat('c',64) and order_id='GPA.public-c'
       and state='awaiting_resolution')=1,
     'unfulfilled verified paid order was not durably queued';
+  update public.public_credit_checkout_resolutions
+    set created_at=now()-interval '25 hours'
+    where token_hash=repeat('c',64);
+  result := public.public_credit_checkout_resolution_health();
+  assert (result->>'awaiting')::integer=1 and
+    (result->>'awaitingOverOneHour')::integer=1 and
+    (result->>'awaitingOverOneDay')::integer=1 and
+    result->>'oldestAwaitingAt' is not null,
+    'service health missed an overdue paid-order exception';
   result := public.grant_verified_credit_topup_v2(
     a,repeat('c',64),'chronospark_credits_100','GPA.public-c',false,
     admission_id,purchased_at);
@@ -102,6 +117,11 @@ begin
     (select state from public.public_credit_checkout_resolutions
       where token_hash=repeat('c',64))='refunded',
     'voided unfulfilled payment remained actionable in the resolution queue';
+  result := public.public_credit_checkout_resolution_health();
+  assert (result->>'awaiting')::integer=0 and
+    (result->>'refunded')::integer=1 and
+    result->>'oldestAwaitingAt' is null,
+    'refunded order remained in the monitoring queue';
   result := public.revoke_verified_credit_topup(
     repeat('c',64),'chronospark_credits_100','GPA.public-c');
   assert (result->>'duplicate')::boolean and
