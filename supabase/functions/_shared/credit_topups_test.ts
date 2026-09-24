@@ -261,6 +261,7 @@ Deno.test("mock standard Play credit sale grants once and consumes only after ac
       assert(args.p_admission_exempt === false);
       assert(args.p_admission_id === proof.obfuscatedExternalProfileId);
       assert(args.p_purchase_time_ms === Number(proof.purchaseTimeMillis));
+      assert(args.p_order_created_ms === Date.parse("2026-05-31T00:00:00Z"));
       return Promise.resolve(
         Response.json({ granted: true, duplicate: false }),
       );
@@ -268,6 +269,16 @@ Deno.test("mock standard Play credit sale grants once and consumes only after ac
     if (path.endsWith(":consume")) {
       events.push("consume");
       return Promise.resolve(new Response(null, { status: 204 }));
+    }
+    if (path.includes("/orders/")) {
+      events.push("order");
+      return Promise.resolve(Response.json({
+        orderId: proof.orderId,
+        purchaseToken: "mock-standard-token",
+        state: "PROCESSED",
+        createTime: "2026-05-31T00:00:00Z",
+        lineItems: [{ productId: "chronospark_credits_100" }],
+      }));
     }
     events.push("verify");
     return Promise.resolve(Response.json(proof));
@@ -288,7 +299,7 @@ Deno.test("mock standard Play credit sale grants once and consumes only after ac
   assert(result.valid === true && result.testPurchase === false);
   assert(result.creditsGranted === 100 && result.consumed === true);
   assert(result.publicAdmissionVerified === true);
-  assert(events.join(",") === "verify,grant,consume");
+  assert(events.join(",") === "verify,order,grant,consume");
 });
 Deno.test("public-client license-test credit checkout exercises the admission grant", async () => {
   const admissionId = "123e4567-e89b-12d3-a456-426614174000";
@@ -324,18 +335,138 @@ Deno.test("public-client license-test credit checkout exercises the admission gr
         assert(args.p_admission_exempt === false);
         assert(args.p_admission_id === admissionId);
         assert(args.p_purchase_time_ms === Number(proof.purchaseTimeMillis));
+        assert(args.p_order_created_ms === Date.parse("2026-05-31T00:00:00Z"));
         return Promise.resolve(Response.json({ granted: true }));
       }
       if (path.endsWith(":consume")) {
         events.push("consume");
         return Promise.resolve(new Response(null, { status: 204 }));
       }
+      if (path.includes("/orders/")) {
+        events.push("order");
+        return Promise.resolve(Response.json({
+          orderId: proof.orderId,
+          purchaseToken: "public-license-token",
+          state: "PROCESSED",
+          createTime: "2026-05-31T00:00:00Z",
+          lineItems: [{ productId: "chronospark_credits_100" }],
+        }));
+      }
       events.push("verify");
       return Promise.resolve(Response.json(proof));
     });
     assert(result.valid === true && result.testPurchase === true);
     assert(result.publicAdmissionVerified === true);
-    assert(events.join(",") === "verify,grant,consume");
+    assert(events.join(",") === "verify,order,grant,consume");
+  }
+});
+Deno.test("late Play completion forwards exact order creation rather than completion time", async () => {
+  const orderCreated = "2026-05-31T00:05:00Z";
+  const purchase = {
+    purchaseState: 0,
+    quantity: 1,
+    obfuscatedExternalAccountId: await sha256Hex("owner"),
+    obfuscatedExternalProfileId: "123e4567-e89b-12d3-a456-426614174000",
+    purchaseTimeMillis: String(Date.parse("2026-06-03T00:05:00Z")),
+    orderId: "GPA.delayed",
+    consumptionState: 0,
+  };
+  const events: string[] = [];
+  const result = await verifyCreditTopup({
+    config: {
+      supabaseUrl: "https://backend.invalid",
+      secretKey: "test-secret",
+      publishableKey: "test-public",
+    },
+    userId: "owner",
+    packageName: "com.ghostheart5.chronospark",
+    productId: "chronospark_credits_100",
+    token: "delayed-token",
+    accessToken: "test-access",
+    requireTest: false,
+  }, (url, init) => {
+    const path = String(url);
+    if (path.includes("/orders/")) {
+      events.push("order");
+      return Promise.resolve(Response.json({
+        orderId: purchase.orderId,
+        purchaseToken: "delayed-token",
+        state: "PROCESSED",
+        createTime: orderCreated,
+        lineItems: [{ productId: "chronospark_credits_100" }],
+      }));
+    }
+    if (path.endsWith("/grant_verified_credit_topup_v2")) {
+      events.push("grant");
+      const args = JSON.parse(String(init?.body));
+      assert(args.p_order_created_ms === Date.parse(orderCreated));
+      assert(args.p_purchase_time_ms === Number(purchase.purchaseTimeMillis));
+      return Promise.resolve(Response.json({ granted: true }));
+    }
+    if (path.endsWith(":consume")) {
+      events.push("consume");
+      return Promise.resolve(new Response(null, { status: 204 }));
+    }
+    events.push("purchase");
+    return Promise.resolve(Response.json(purchase));
+  });
+  assert(result.valid === true);
+  assert(events.join(",") === "purchase,order,grant,consume");
+});
+Deno.test("unmatched or unavailable Google order cannot grant or consume", async () => {
+  const purchase = {
+    purchaseState: 0,
+    quantity: 1,
+    obfuscatedExternalAccountId: await sha256Hex("owner"),
+    obfuscatedExternalProfileId: "123e4567-e89b-12d3-a456-426614174000",
+    purchaseTimeMillis: String(Date.parse("2026-06-03T00:05:00Z")),
+    orderId: "GPA.delayed",
+    consumptionState: 0,
+  };
+  const order = {
+    orderId: purchase.orderId,
+    purchaseToken: "delayed-token",
+    state: "PROCESSED",
+    createTime: "2026-05-31T00:05:00Z",
+    lineItems: [{ productId: "chronospark_credits_100" }],
+  };
+  for (
+    const badOrder of [
+      { ...order, purchaseToken: "other-token" },
+      { ...order, orderId: "GPA.other" },
+      { ...order, state: "REFUNDED" },
+      { ...order, lineItems: [{ productId: "other-product" }] },
+      { ...order, createTime: "not-a-time" },
+      null,
+    ]
+  ) {
+    const result = await verifyCreditTopup({
+      config: {
+        supabaseUrl: "https://backend.invalid",
+        secretKey: "test-secret",
+        publishableKey: "test-public",
+      },
+      userId: "owner",
+      packageName: "com.ghostheart5.chronospark",
+      productId: "chronospark_credits_100",
+      token: "delayed-token",
+      accessToken: "test-access",
+      requireTest: false,
+    }, (url) => {
+      const path = String(url);
+      if (path.includes("/orders/")) {
+        return Promise.resolve(
+          badOrder === null
+            ? new Response(null, { status: 503 })
+            : Response.json(badOrder),
+        );
+      }
+      if (path.includes("/rpc/") || path.endsWith(":consume")) {
+        throw new Error("unverified order reached grant or consume");
+      }
+      return Promise.resolve(Response.json(purchase));
+    });
+    assert(result.valid === false && result.retryable === true);
   }
 });
 Deno.test("public-client license-test receipt without a valid profile cannot bypass admission", async () => {
@@ -464,6 +595,15 @@ Deno.test("rejected public admission never consumes a paid Google receipt", asyn
     if (path.endsWith(":consume")) {
       throw new Error("unapproved purchase was consumed");
     }
+    if (path.includes("/orders/")) {
+      return Promise.resolve(Response.json({
+        orderId: proof.orderId,
+        purchaseToken: "unapproved-token",
+        state: "PROCESSED",
+        createTime: "2026-05-31T00:00:00Z",
+        lineItems: [{ productId: "chronospark_credits_100" }],
+      }));
+    }
     verifies++;
     return Promise.resolve(Response.json(proof));
   });
@@ -505,6 +645,15 @@ Deno.test("verified but unfulfilled paid order is queued and never consumed", as
     }
     if (path.endsWith(":consume")) {
       throw new Error("unfulfilled paid order was consumed");
+    }
+    if (path.includes("/orders/")) {
+      return Promise.resolve(Response.json({
+        orderId: proof.orderId,
+        purchaseToken: "unfulfilled-token",
+        state: "PROCESSED",
+        createTime: "2026-05-31T00:00:00Z",
+        lineItems: [{ productId: "chronospark_credits_100" }],
+      }));
     }
     return Promise.resolve(Response.json(proof));
   });

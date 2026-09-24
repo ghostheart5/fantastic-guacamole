@@ -16,7 +16,7 @@ begin
     'public.create_public_credit_checkout_admission(uuid,text)', 'execute'),
     'anonymous cannot issue public checkout admissions';
   assert not has_function_privilege('authenticated',
-    'public.grant_verified_credit_topup_v2(uuid,text,text,text,boolean,text,bigint)', 'execute'),
+    'public.grant_verified_credit_topup_v2(uuid,text,text,text,boolean,text,bigint,bigint)', 'execute'),
     'app clients cannot grant credits';
   assert not has_function_privilege('authenticated',
     'public.register_verified_pending_credit_topup(uuid,text,text,text)', 'execute'),
@@ -69,14 +69,14 @@ begin
     where id=admission_id::uuid;
   result := public.grant_verified_credit_topup_v2(
     a,repeat('c',64),'chronospark_credits_100','GPA.public-c',false,
-    admission_id,purchased_at);
+    admission_id,purchased_at,purchased_at);
   assert result->>'reason'='admission_invalid', 'pre-admission purchase accepted';
   update public.public_credit_checkout_admissions
     set issued_at=now()-interval '3 days'
     where id=admission_id::uuid;
   result := public.grant_verified_credit_topup_v2(
     a,repeat('c',64),'chronospark_credits_100','GPA.public-c',false,
-    admission_id,purchased_at);
+    admission_id,purchased_at,purchased_at);
   assert result->>'reason'='customer_resolution_required' and
     (result->>'resolutionQueued')::boolean,
     'stockpiled unused admission authorized a new purchase or lost its order';
@@ -142,6 +142,27 @@ begin
     admission_id,purchased_at);
   assert (result->>'granted')::boolean,
     'payment completed after a timely verified pending binding was not granted';
+  -- Google can create a pending order during the admission window and finish
+  -- payment days later while the app is offline. The exact order creation
+  -- time, verified by the Edge Function, must preserve that purchase.
+  admission := public.create_public_credit_checkout_admission(a,'chronospark_credits_100');
+  admission_id := admission->>'admissionId';
+  update public.public_credit_checkout_admissions
+    set issued_at=now()-interval '3 days' where id=admission_id::uuid;
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('4',64),'chronospark_credits_100','GPA.delayed',false,
+    admission_id,purchased_at,
+    (select floor(extract(epoch from issued_at + interval '5 minutes') * 1000)::bigint
+      from public.public_credit_checkout_admissions where id=admission_id::uuid));
+  assert (result->>'granted')::boolean,
+    'timely created Google order completed days later was not granted';
+  admission := public.create_public_credit_checkout_admission(a,'chronospark_credits_100');
+  admission_id := admission->>'admissionId';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('5',64),'chronospark_credits_100','GPA.pre-admission',false,
+    admission_id,purchased_at,purchased_at-86400000);
+  assert result->>'reason'='admission_invalid',
+    'Google order created before the admission was accepted';
   admission := public.create_public_credit_checkout_admission(b,'chronospark_credits_300');
   admission_id := admission->>'admissionId';
   update public.public_credit_checkout_admissions
@@ -184,7 +205,7 @@ begin
   assert (result->>'granted')::boolean, 'license-test grant requires public admission';
   assert (select count(*) from public.credit_topup_purchases where
     state='granted' and
-    token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64),repeat('f',64),repeat('1',64),repeat('2',64),repeat('3',64)))=3,
+    token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64),repeat('f',64),repeat('1',64),repeat('2',64),repeat('3',64),repeat('4',64),repeat('5',64)))=4,
     'failed or duplicate admissions changed purchased-credit ledger';
 end;
 $$;
