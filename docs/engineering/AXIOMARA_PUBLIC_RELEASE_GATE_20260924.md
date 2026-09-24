@@ -10,10 +10,13 @@ project gates below; no production release has been created or submitted.
 
 ## Exact artifact boundary
 
-- Current merged source is `baf802d08b4e6472820e1c229c554d90fdbc12ea`,
-  version `4.1.0+2026083084`. Reviewed PR 133 added bounded push-device
-  registration and a client check for declined registrations without enabling
-  public features. Exact-main [CI/CD run 36071219646](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/36071219646)
+- The latest merged app-code checkpoint is
+  `baf802d08b4e6472820e1c229c554d90fdbc12ea`, version
+  `4.1.0+2026083084`. This document update will have its own later commit;
+  the checks below attest the app-code checkpoint, not that later documentation
+  commit. Reviewed PR 133 added bounded push-device registration and a client
+  check for declined registrations without enabling public features.
+  Exact-main [CI/CD run 36071219646](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/36071219646)
   passed 3,396 Flutter tests and 15 QA configuration tests with zero failures
   or skips, plus static policy, Linux integration and Windows golden checks.
   [CodeQL run 36071219085](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/36071219085)
@@ -29,7 +32,7 @@ project gates below; no production release has been created or submitted.
   [35943294605](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/35943294605)
   passed 11/11 journeys on earlier QA source `ef85eeaf5e9ea64990afb3322ee3190cff6da426`;
   it used a debug QA APK, not a Play-signed public build. There is no signed
-  full-feature AAB from current main.
+  full-feature AAB from this app-code checkpoint.
 - The most recent signed contained candidate was version 2026083083 from
   `36ec3dda6120af0c39142c6106e1f73b6159e305`, candidate run
   [35932394334](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/35932394334),
