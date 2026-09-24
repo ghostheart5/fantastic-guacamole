@@ -1,0 +1,57 @@
+{
+  "capturedAtUtc": "2026-09-24T21:50:59.9926649Z",
+  "baseSourceSha": "448d4daec33529685cd6bbd66a11bacbf374cadd",
+  "branch": "codex/si-large-text-header-3088",
+  "build": "debug QA APK with tool/qa_defines.json",
+  "apkSha256": "31c7e16420dea8e2e6cc3381a319cfd8dcef9761569fd3ce96026a753b674bc8",
+  "signerSha256": "1fd0ccee20e2015826a664e9411ad730420c71fa5cd777d409e2a2b21475b1ec",
+  "device": "axiomara_edge_qa_35 / emulator-5582 / Android 15 API 35",
+  "versionCode": 2026083084,
+  "installer": null,
+  "fontScale": "2.0",
+  "change": "Large-text SI header gives controls a separate row and fits each localized title word without breaking it",
+  "observed": "Before: INTELLIGENCE divided across lines; after: DEEP and INTELLIGENCE each complete on separate lines",
+  "tests": "26 SI screen widget tests passed including English and Spanish 200 percent title checks; Flutter analyze clean",
+  "startupIncident": "An earlier saved-snapshot emulator boot stayed offline and was stopped cleanly. Cold boot with -no-snapshot-load succeeded; no Axiomara failure inferred.",
+  "limitations": [
+    "Debug QA build with mock tester login and disabled paywall; not Play-signed or public paid-feature proof",
+    "Android 15 English screenshot only; Spanish covered by widget test",
+    "No purchase or paid AI call made",
+    "Font scale restored to 1.5 and emulator gracefully stopped",
+    "before.png shows the prior QA APK; after.png shows the exact fresh-checkout APK at testedCodeCommit."
+  ],
+  "captures": [
+    {
+      "file": "before.png",
+      "bytes": 1119823,
+      "sha256": "bc662554bd09024bb28f4b2f36089ae9ddf22179e0506cffe854af5596bf767e",
+      "capturedAtUtc": "2026-09-24T20:33:02.2004498Z"
+    },
+    {
+      "file": "after.png",
+      "bytes": 1099105,
+      "sha256": "1d600678f93a018205c56bbc14ff28c20dffce1d08677dad1904d99f99258942",
+      "capturedAtUtc": "2026-09-24T21:50:59.9926649Z"
+    }
+  ],
+  "testedCodeCommit": "d4b53e6d3ebd5c2274e15856c6a1ef8f8092cda0",
+  "testedTreeSha": "0f518245ee807d61383cd0713de498792dd94817",
+  "cleanRebuildApkSha256": "31c7e16420dea8e2e6cc3381a319cfd8dcef9761569fd3ce96026a753b674bc8",
+  "sourceBinding": "A new detached worktree at code commit d4b53e6d had no build directory before the recorded command. Its clean-checkout QA build produced APK SHA-256 31c7e164..., installed in place on the isolated Android 15 emulator; after.png was captured from that binary. The before.png comparison came from the prior QA source and binary.",
+  "buildCommand": "flutter build apk --debug --target-platform=android-x64 --dart-define-from-file=tool/qa_defines.json",
+  "freshCheckoutBuild": {
+    "worktree": "C:\\jtmp\\axiomara-si-header-clean-proof",
+    "commit": "d4b53e6d3ebd5c2274e15856c6a1ef8f8092cda0",
+    "buildDirectoryInitiallyAbsent": true,
+    "gitStatusBeforeBuild": "clean",
+    "apkSha256": "31c7e16420dea8e2e6cc3381a319cfd8dcef9761569fd3ce96026a753b674bc8",
+    "installedInPlace": true,
+    "capturedAfter": "after.png",
+    "fontScaleRestored": "1.5",
+    "emulatorStopped": true
+  },
+  "beforeSourceSha": "729b3a64393401b4a8ea1b669e024a15a7e90694",
+  "beforeApkSha256": "66fa45284d595af83e28ae0f38cef3cbf9ad7e2321310dda0279a83d151aff18",
+  "captureTimeBasis": "Each timestamp is the UTC creation time of the host file pulled immediately after adb screencap; capture preceded pull by seconds. Device clock shown in the images matches America/Chicago local time.",
+  "manifestUpdatedAtUtc": "2026-09-24T21:57:03.1572848Z"
+}
