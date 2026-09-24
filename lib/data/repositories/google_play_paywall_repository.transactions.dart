@@ -42,7 +42,62 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
     throw StateError('Credit packs are temporarily unavailable.');
   }
 
-  Future<bool> _verifiedCreditTopupFromServer(
+  Future<String> _verifiedCreditTopupFromServer(
+    PurchaseDetails purchase, {
+    required String? expectedUserId,
+  }) async {
+    if (!_hasReceiptVerification ||
+        expectedUserId == null ||
+        !_isCurrentBillingAccount(expectedUserId)) {
+      return 'verification_failed';
+    }
+    final token = _supabaseClient?.auth.currentSession?.accessToken;
+    if (token == null) {
+      return 'verification_failed';
+    }
+    try {
+      final response = await _httpClient
+          .post(
+            parseSecureHttpsEndpoint(_receiptVerifyEndpoint)!,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'productId': purchase.productID,
+              'purchaseToken': purchase.verificationData.serverVerificationData,
+              'purchaseType': 'inapp',
+              if (_requireTestPurchase) 'requireTestPurchase': true,
+            }),
+          )
+          .timeout(_authorityRequestTimeout);
+      if (response.statusCode != 200 ||
+          !_isCurrentBillingAccount(expectedUserId)) {
+        return 'verification_failed';
+      }
+      final data = jsonDecode(response.body);
+      final expectedCredits = purchase.productID == 'chronospark_credits_100'
+          ? 100
+          : 300;
+      if (data is Map &&
+          data['error'] == 'customer_resolution_required' &&
+          data['resolutionQueued'] == true) {
+        return 'customer_resolution_required';
+      }
+      final bool verified =
+          data is Map &&
+          data['valid'] == true &&
+          data['consumed'] == true &&
+          data['productId'] == purchase.productID &&
+          data['creditsGranted'] == expectedCredits &&
+          (!_requireTestPurchase || data['testPurchase'] == true);
+      return verified ? 'credits_added' : 'verification_failed';
+    } on Object {
+      return 'verification_failed';
+    }
+  }
+
+  Future<bool> _registerPendingCreditTopupWithServer(
     PurchaseDetails purchase, {
     required String? expectedUserId,
   }) async {
@@ -64,10 +119,10 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
               'Authorization': 'Bearer $token',
             },
             body: jsonEncode({
+              'operation': 'credit_register_pending',
               'productId': purchase.productID,
               'purchaseToken': purchase.verificationData.serverVerificationData,
               'purchaseType': 'inapp',
-              if (_requireTestPurchase) 'requireTestPurchase': true,
             }),
           )
           .timeout(_authorityRequestTimeout);
@@ -76,15 +131,9 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
         return false;
       }
       final data = jsonDecode(response.body);
-      final expectedCredits = purchase.productID == 'chronospark_credits_100'
-          ? 100
-          : 300;
       return data is Map &&
           data['valid'] == true &&
-          data['consumed'] == true &&
-          data['productId'] == purchase.productID &&
-          data['creditsGranted'] == expectedCredits &&
-          (!_requireTestPurchase || data['testPurchase'] == true);
+          data['pendingRegistered'] == true;
     } on Object {
       return false;
     }
@@ -206,6 +255,7 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
 
   SubscriptionState _restoreOutcome(SubscriptionState state) {
     if (state.status == 'purchase_pending' ||
+        state.status == 'customer_resolution_required' ||
         state.status == 'verification_failed' ||
         state.status == 'acknowledgement_failed' ||
         state.status == 'restore_error' ||

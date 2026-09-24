@@ -1,5 +1,9 @@
 /// <reference lib="deno.ns" />
-import { CREDIT_TOPUPS, verifyCreditTopup } from "../_shared/credit_topups.ts";
+import {
+  CREDIT_TOPUPS,
+  registerPendingCreditTopup,
+  verifyCreditTopup,
+} from "../_shared/credit_topups.ts";
 
 import {
   authenticatedUserId,
@@ -71,6 +75,7 @@ interface VerifyRequest {
 interface VerifyResponse {
   checkoutAllowed?: boolean;
   admissionId?: string;
+  pendingRegistered?: boolean;
   consumed?: boolean;
   creditsGranted?: number;
   duplicate?: boolean;
@@ -256,7 +261,7 @@ Deno.serve(async (req: Request) => {
     }
     const accessToken = await getGoogleAccessToken(serviceAccount);
     if (body.purchaseType === "inapp") {
-      const result = await verifyCreditTopup({
+      const topupInput = {
         config,
         userId,
         packageName: ANDROID_PACKAGE_NAME,
@@ -266,7 +271,19 @@ Deno.serve(async (req: Request) => {
         // Closing new sales must not strand an already completed purchase.
         // An internal client may still demand license-test proof.
         requireTest: creditTopupRequiresLicenseTest(body.requireTestPurchase),
-      });
+      };
+      if (
+        body.operation !== undefined &&
+        body.operation !== "credit_register_pending"
+      ) {
+        return jsonResponse(req, {
+          valid: false,
+          error: "invalid_request_body",
+        }, 400);
+      }
+      const result = body.operation === "credit_register_pending"
+        ? await registerPendingCreditTopup(topupInput)
+        : await verifyCreditTopup(topupInput);
       return jsonResponse(
         req,
         result as unknown as VerifyResponse,

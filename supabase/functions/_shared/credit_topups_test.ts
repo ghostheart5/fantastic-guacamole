@@ -1,5 +1,6 @@
 import {
   CREDIT_TOPUPS,
+  registerPendingCreditTopup,
   validateTopupProof,
   verifyCreditTopup,
 } from "./credit_topups.ts";
@@ -11,6 +12,87 @@ Deno.test("only approved credit pack amounts exist", () => {
   assert(CREDIT_TOPUPS.size === 2);
   assert(CREDIT_TOPUPS.get("chronospark_credits_100") === 100);
   assert(CREDIT_TOPUPS.get("chronospark_credits_300") === 300);
+});
+
+Deno.test("Google-verified pending credit token binds admission without grant or consume", async () => {
+  const events: string[] = [];
+  const admissionId = "123e4567-e89b-12d3-a456-426614174000";
+  const input = {
+    config: {
+      supabaseUrl: "https://backend.invalid",
+      secretKey: "test-secret",
+      publishableKey: "test-public",
+    },
+    userId: "owner",
+    packageName: "com.ghostheart5.chronospark",
+    productId: "chronospark_credits_100",
+    token: "pending-token",
+    accessToken: "test-access",
+    requireTest: false,
+  };
+  const transport: typeof fetch = async (url, init) => {
+    const path = String(url);
+    if (path.endsWith("/register_verified_pending_credit_topup")) {
+      events.push("register");
+      const args = JSON.parse(String(init?.body));
+      assert(args.p_user_id === input.userId);
+      assert(args.p_token_hash === await sha256Hex(input.token));
+      assert(args.p_product_id === input.productId);
+      assert(args.p_admission_id === admissionId);
+      return Response.json({ registered: true, duplicate: false });
+    }
+    events.push("verify-pending");
+    return Response.json({
+      purchaseState: 2,
+      quantity: 1,
+      productId: input.productId,
+      obfuscatedExternalAccountId: await sha256Hex(input.userId),
+      obfuscatedExternalProfileId: admissionId,
+    });
+  };
+  const result = await registerPendingCreditTopup(input, transport);
+  assert(result.valid === true && result.pendingRegistered === true);
+  assert(events.join(",") === "verify-pending,register");
+});
+
+Deno.test("unverified or mismatched pending credit tokens never reach admission RPC", async () => {
+  const base = {
+    purchaseState: 2,
+    quantity: 1,
+    productId: "chronospark_credits_100",
+    obfuscatedExternalAccountId: await sha256Hex("owner"),
+    obfuscatedExternalProfileId: "123e4567-e89b-12d3-a456-426614174000",
+  };
+  const input = {
+    config: {
+      supabaseUrl: "https://backend.invalid",
+      secretKey: "test-secret",
+      publishableKey: "test-public",
+    },
+    userId: "owner",
+    packageName: "com.ghostheart5.chronospark",
+    productId: "chronospark_credits_100",
+    token: "pending-token",
+    accessToken: "test-access",
+    requireTest: false,
+  };
+  for (
+    const patch of [
+      { purchaseState: 0 },
+      { quantity: 2 },
+      { productId: "chronospark_credits_300" },
+      { obfuscatedExternalAccountId: "other-account" },
+      { obfuscatedExternalProfileId: null },
+      { purchaseType: 1 },
+    ]
+  ) {
+    let calls = 0;
+    const result = await registerPendingCreditTopup(input, () => {
+      calls++;
+      return Promise.resolve(Response.json({ ...base, ...patch }));
+    });
+    assert(result.valid === false && calls === 1);
+  }
 });
 
 Deno.test("credit purchase grants once before consume and retries safely after consume failure", async () => {
@@ -274,6 +356,47 @@ Deno.test("rejected public admission never consumes a paid Google receipt", asyn
   });
   assert(result.valid === false && result.error === "admission_invalid");
   assert(verifies === 1 && grants === 1);
+});
+Deno.test("verified but unfulfilled paid order is queued and never consumed", async () => {
+  const proof = {
+    purchaseState: 0,
+    quantity: 1,
+    obfuscatedExternalAccountId: await sha256Hex("owner"),
+    obfuscatedExternalProfileId: "123e4567-e89b-12d3-a456-426614174000",
+    purchaseTimeMillis: "1780000000000",
+    orderId: "GPA.unfulfilled",
+    consumptionState: 0,
+  };
+  let grantCalls = 0;
+  const result = await verifyCreditTopup({
+    config: {
+      supabaseUrl: "https://backend.invalid",
+      secretKey: "test-secret",
+      publishableKey: "test-public",
+    },
+    userId: "owner",
+    packageName: "com.ghostheart5.chronospark",
+    productId: "chronospark_credits_100",
+    token: "unfulfilled-token",
+    accessToken: "test-access",
+    requireTest: false,
+  }, (url) => {
+    const path = String(url);
+    if (path.endsWith("/grant_verified_credit_topup_v2")) {
+      grantCalls++;
+      return Promise.resolve(Response.json({
+        granted: false,
+        reason: "customer_resolution_required",
+        resolutionQueued: true,
+      }));
+    }
+    if (path.endsWith(":consume")) {
+      throw new Error("unfulfilled paid order was consumed");
+    }
+    return Promise.resolve(Response.json(proof));
+  });
+  assert(result.valid === false && result.resolutionQueued === true);
+  assert(result.error === "customer_resolution_required" && grantCalls === 1);
 });
 Deno.test("pending canceled real and other-account credit receipts never grant", async () => {
   const p = {

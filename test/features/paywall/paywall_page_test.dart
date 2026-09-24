@@ -594,6 +594,39 @@ void main() {
     );
   });
 
+  test(
+    'unfulfilled paid credit order gives clear English and Spanish help',
+    () {
+      const state = SubscriptionState(
+        isActive: false,
+        status: 'customer_resolution_required',
+        source: 'google_play',
+      );
+      final english = resolvePaywallPurchaseResultMessage(
+        state,
+        testingMode: false,
+      );
+      const spanish = ChronoSparkLocalizations(Locale('es'));
+      final espanol = resolvePaywallPurchaseResultMessage(
+        state,
+        testingMode: false,
+        localizations: spanish,
+      );
+      expect(english, contains('credits were not added'));
+      expect(english, contains('Contact support'));
+      expect(espanol, contains('no se añadieron créditos'));
+      expect(espanol, contains('Contacta con soporte'));
+      expect(
+        resolvePaywallRestoreResultMessage(
+          state,
+          testingMode: false,
+          localizations: spanish,
+        ),
+        espanol,
+      );
+    },
+  );
+
   test('acknowledgement failure never claims activation', () {
     expect(
       resolvePaywallPurchaseResultMessage(

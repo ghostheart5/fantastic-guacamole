@@ -79,6 +79,7 @@ void main() {
         final repository = GooglePlayPaywallRepository(
           billingClient: billing,
           paywallTestingModeOverride: false,
+          requireTestPurchase: true,
           supabaseClient: client,
           secureStore: store,
           receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
@@ -283,6 +284,168 @@ void main() {
       },
     );
   }
+
+  test(
+    'public pending credit token is registered before pending outcome',
+    () async {
+      final controller = StreamController<List<PurchaseDetails>>.broadcast();
+      final client = await _authorityClient((request) async {
+        fail('Pending credit pack must not substitute subscription authority.');
+      });
+      final operations = <String>[];
+      final billing = _FakeBillingClient(
+        purchaseStreamController: controller,
+        productResponse: ProductDetailsResponse(
+          productDetails: [
+            ProductDetails(
+              id: 'chronospark_credits_100',
+              title: '100 credits',
+              description: 'One-time pack',
+              price: r'$2.99',
+              rawPrice: 2.99,
+              currencyCode: 'USD',
+            ),
+          ],
+          notFoundIDs: const [],
+        ),
+        onBuyNonConsumable: (param) async {
+          controller.add([
+            PurchaseDetails(
+              purchaseID: 'pending-public-credit',
+              productID: param.productDetails.id,
+              verificationData: PurchaseVerificationData(
+                localVerificationData: '',
+                serverVerificationData: 'pending-public-token',
+                source: 'google_play',
+              ),
+              transactionDate: '1',
+              status: PurchaseStatus.pending,
+            ),
+          ]);
+          return true;
+        },
+      );
+      final repository = GooglePlayPaywallRepository(
+        billingClient: billing,
+        paywallTestingModeOverride: false,
+        requireTestPurchase: false,
+        supabaseClient: client,
+        secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+        receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+        httpClient: MockClient((request) async {
+          final body = jsonDecode(request.body) as Map;
+          final operation = body['operation'] as String;
+          operations.add(operation);
+          if (operation == 'credit_sale_eligibility') {
+            return http.Response(
+              jsonEncode({
+                'valid': true,
+                'checkoutAllowed': true,
+                'admissionId': '123e4567-e89b-12d3-a456-426614174000',
+              }),
+              200,
+            );
+          }
+          expect(operation, 'credit_register_pending');
+          expect(body['purchaseToken'], 'pending-public-token');
+          expect(body['purchaseType'], 'inapp');
+          return http.Response(
+            jsonEncode({'valid': true, 'pendingRegistered': true}),
+            200,
+          );
+        }),
+      );
+      final result = await repository.startSubscription('credits_100');
+      expect(result.status, 'purchase_pending');
+      expect(operations, [
+        'credit_sale_eligibility',
+        'credit_register_pending',
+      ]);
+      expect(billing.completePurchaseCalls, 0);
+      repository.dispose();
+      await controller.close();
+      await client.dispose();
+    },
+  );
+
+  test(
+    'unfulfilled public credit payment shows resolution, never credits',
+    () async {
+      final controller = StreamController<List<PurchaseDetails>>.broadcast();
+      final client = await _authorityClient((request) async {
+        fail('An unfulfilled pack must not substitute subscription authority.');
+      });
+      final billing = _FakeBillingClient(
+        purchaseStreamController: controller,
+        productResponse: ProductDetailsResponse(
+          productDetails: [
+            ProductDetails(
+              id: 'chronospark_credits_100',
+              title: '100 credits',
+              description: 'One-time pack',
+              price: r'$2.99',
+              rawPrice: 2.99,
+              currencyCode: 'USD',
+            ),
+          ],
+          notFoundIDs: const [],
+        ),
+        onBuyNonConsumable: (param) async {
+          controller.add([
+            PurchaseDetails(
+              purchaseID: 'unfulfilled-public-credit',
+              productID: param.productDetails.id,
+              verificationData: PurchaseVerificationData(
+                localVerificationData: '',
+                serverVerificationData: 'unfulfilled-public-token',
+                source: 'google_play',
+              ),
+              transactionDate: '1',
+              status: PurchaseStatus.purchased,
+            )..pendingCompletePurchase = true,
+          ]);
+          return true;
+        },
+      );
+      final repository = GooglePlayPaywallRepository(
+        billingClient: billing,
+        paywallTestingModeOverride: false,
+        requireTestPurchase: false,
+        supabaseClient: client,
+        secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+        receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+        httpClient: MockClient((request) async {
+          final body = jsonDecode(request.body) as Map;
+          if (body['operation'] == 'credit_sale_eligibility') {
+            return http.Response(
+              jsonEncode({
+                'valid': true,
+                'checkoutAllowed': true,
+                'admissionId': '123e4567-e89b-12d3-a456-426614174000',
+              }),
+              200,
+            );
+          }
+          expect(body['purchaseToken'], 'unfulfilled-public-token');
+          return http.Response(
+            jsonEncode({
+              'valid': false,
+              'error': 'customer_resolution_required',
+              'resolutionQueued': true,
+            }),
+            200,
+          );
+        }),
+      );
+      final result = await repository.startSubscription('credits_100');
+      expect(result.status, 'customer_resolution_required');
+      expect(result.isActive, isFalse);
+      expect(billing.completePurchaseCalls, 0);
+      repository.dispose();
+      await controller.close();
+      await client.dispose();
+    },
+  );
 
   for (final Object? proof in <Object?>[null, false, 'true', true]) {
     test('license-test purchase requires server proof ($proof)', () async {

@@ -67,6 +67,10 @@ String resolvePaywallPurchaseResultMessage(
           : 'Google Play reported a payment error. Check the purchase or try again.';
     case 'verification_failed':
       return copy.purchaseVerificationFailed;
+    case 'customer_resolution_required':
+      return localizations.isSpanish
+          ? 'Se verificó el pago de Google Play, pero no se añadieron créditos. Registramos el pedido para resolverlo. Contacta con soporte y no repitas la compra.'
+          : 'Google Play payment was verified, but credits were not added. We recorded the order for resolution. Contact support and do not buy it again.';
     case 'acknowledgement_failed':
       return copy.purchaseAcknowledgementFailed;
     default:
@@ -100,6 +104,12 @@ String resolvePaywallRestoreResultMessage(
       return copy.restorePending;
     case 'verification_failed':
       return copy.restoreVerificationFailed;
+    case 'customer_resolution_required':
+      return resolvePaywallPurchaseResultMessage(
+        subscription,
+        testingMode: testingMode,
+        localizations: localizations,
+      );
     case 'acknowledgement_failed':
       return copy.restoreAcknowledgementFailed;
     case 'restore_error':

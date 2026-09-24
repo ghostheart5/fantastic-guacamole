@@ -1166,7 +1166,7 @@ class GooglePlayPaywallRepository
         final String? expectedUserId =
             pending?.userId ?? restore?.userId ?? currentUserId;
         if (productId.startsWith('chronospark_credits_')) {
-          final verified = await _verifiedCreditTopupFromServer(
+          final String creditOutcome = await _verifiedCreditTopupFromServer(
             purchase,
             expectedUserId: expectedUserId,
           );
@@ -1177,12 +1177,12 @@ class GooglePlayPaywallRepository
             );
           } else {
             final outcome = _transactionOutcomeState(
-              status: verified ? 'credits_added' : 'verification_failed',
+              status: creditOutcome,
               attemptedPlanId: null,
             );
             _completePendingPurchase(pending, outcome);
             _completePendingRestore(restore, outcome);
-            if (verified) {
+            if (creditOutcome == 'credits_added') {
               _approvalPending.remove(operationKey);
               await _clearPendingOwner(productId, expectedUserId);
             }
@@ -1332,6 +1332,19 @@ class GooglePlayPaywallRepository
         _approvalPending.remove(operationKey);
         _removePendingPurchase(operationKey, pending);
       } else if (purchase.status == PurchaseStatus.pending) {
+        if (productId.startsWith('chronospark_credits_') &&
+            !_requireTestPurchase) {
+          final bool registered = await _registerPendingCreditTopupWithServer(
+            purchase,
+            expectedUserId: currentUserId,
+          );
+          if (!registered) {
+            Logger.warn(
+              'Pending Google Play credit token was not registered; '
+              'server verification must retry before completion.',
+            );
+          }
+        }
         final String? planId = _planIdForProduct(productId);
         final SubscriptionState purchasePending = _purchasePendingState(planId);
         await _rememberPendingOwner(productId, currentUserId);

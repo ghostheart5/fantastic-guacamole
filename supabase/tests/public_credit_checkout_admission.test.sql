@@ -18,6 +18,12 @@ begin
   assert not has_function_privilege('authenticated',
     'public.grant_verified_credit_topup_v2(uuid,text,text,text,boolean,text,bigint)', 'execute'),
     'app clients cannot grant credits';
+  assert not has_function_privilege('authenticated',
+    'public.register_verified_pending_credit_topup(uuid,text,text,text)', 'execute'),
+    'app clients cannot bind pending Google tokens';
+  assert not has_table_privilege('authenticated',
+    'public.public_credit_checkout_resolutions', 'select'),
+    'app clients cannot inspect paid-order resolution records';
   admission := public.create_public_credit_checkout_admission(a,'chronospark_credits_100');
   assert (admission->>'allowed')::boolean, 'server could not create admission';
   admission_id := admission->>'admissionId';
@@ -56,8 +62,57 @@ begin
   result := public.grant_verified_credit_topup_v2(
     a,repeat('c',64),'chronospark_credits_100','GPA.public-c',false,
     admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean,
+    'stockpiled unused admission authorized a new purchase or lost its order';
+  assert (select count(*) from public.public_credit_checkout_resolutions
+    where token_hash=repeat('c',64) and order_id='GPA.public-c'
+      and state='awaiting_resolution')=1,
+    'unfulfilled verified paid order was not durably queued';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('c',64),'chronospark_credits_100','GPA.public-c',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (select count(*) from public.public_credit_checkout_resolutions
+      where token_hash=repeat('c',64))=1,
+    'retry did not retain exactly one resolution record';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('c',64),'chronospark_credits_100','GPA.other',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='resolution_proof_mismatch',
+    'resolution token was reused with a different order';
+  admission := public.create_public_credit_checkout_admission(a,'chronospark_credits_100');
+  admission_id := admission->>'admissionId';
+  result := public.register_verified_pending_credit_topup(
+    b,repeat('f',64),'chronospark_credits_100',admission_id);
+  assert result->>'reason'='admission_invalid',
+    'other account registered a pending token';
+  result := public.register_verified_pending_credit_topup(
+    a,repeat('f',64),'chronospark_credits_300',admission_id);
+  assert result->>'reason'='admission_invalid',
+    'other product registered a pending token';
+  result := public.register_verified_pending_credit_topup(
+    a,repeat('f',64),'chronospark_credits_100',admission_id);
+  assert (result->>'registered')::boolean,
+    'verified pending token was not bound';
+  result := public.register_verified_pending_credit_topup(
+    a,repeat('f',64),'chronospark_credits_100',admission_id);
+  assert (result->>'duplicate')::boolean,
+    'verified pending token retry was not idempotent';
+  update public.public_credit_checkout_admissions
+    set issued_at=now()-interval '3 days',
+        pending_verified_at=now()-interval '3 days'+interval '5 minutes'
+    where id=admission_id::uuid;
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('g',64),'chronospark_credits_100','GPA.public-g',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='admission_invalid',
+    'pending binding was used by a different token';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('f',64),'chronospark_credits_100','GPA.public-f',false,
+    admission_id,purchased_at);
   assert (result->>'granted')::boolean,
-    'delayed payment after checkout admission was not granted';
+    'payment completed after a timely verified pending binding was not granted';
   result := public.grant_verified_credit_topup_v2(
     a,repeat('d',64),'chronospark_credits_100','GPA.public-d',false,
     null,purchased_at);
@@ -67,10 +122,10 @@ begin
     null,null);
   assert (result->>'granted')::boolean, 'license-test grant requires public admission';
   assert (select count(*) from public.credit_topup_purchases where
-    token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64)))=3,
+    token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64),repeat('f',64),repeat('g',64)))=3,
     'failed or duplicate admissions changed purchased-credit ledger';
 end;
 $$;
-select pass('public checkout admission binds user, product, initiation, and one receipt while honoring delayed payment');
+select pass('public checkout admission rejects stockpiles and binds verified pending tokens without losing delayed payment');
 select * from finish();
 rollback;

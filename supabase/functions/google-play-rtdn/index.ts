@@ -543,7 +543,20 @@ Deno.serve(async (req: Request) => {
           // A provider-verified purchase remains redeemable after sales close.
           requireTest: false,
         });
-        if (result.valid !== true) throw new Error("credit_grant_retry");
+        if (result.valid !== true && result.resolutionQueued !== true) {
+          throw new Error("credit_grant_retry");
+        }
+        if (result.resolutionQueued === true) {
+          await updateEvent(messageId, {
+            state: "processed",
+            failure_code: "customer_resolution_required",
+            payload: {
+              source: "google_play_rtdn",
+              creditResolution: "awaiting_resolution",
+            },
+          });
+          return new Response(null, { status: 204 });
+        }
       } else if (purchase.purchaseState !== 2) {
         throw new Error("credit_state_invalid");
       }

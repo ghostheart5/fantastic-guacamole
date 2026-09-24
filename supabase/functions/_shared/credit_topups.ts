@@ -10,6 +10,80 @@ export const CREDIT_TOPUPS = new Map([
 ]);
 type Fetcher = typeof fetch;
 
+// A pending token is authority only after the backend reads PENDING from
+// Google. This records a time-limited checkout binding without granting,
+// consuming or acknowledging the purchase.
+export async function registerPendingCreditTopup(input: {
+  config: BillingBackendConfig;
+  userId: string;
+  packageName: string;
+  productId: string;
+  token: string;
+  accessToken: string;
+  requireTest: boolean;
+}, fetcher: Fetcher = fetch): Promise<Record<string, unknown>> {
+  if (!CREDIT_TOPUPS.has(input.productId)) {
+    return { valid: false, error: "unsupported_product" };
+  }
+  const url =
+    `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${
+      encodeURIComponent(input.packageName)
+    }/purchases/products/${encodeURIComponent(input.productId)}/tokens/${
+      encodeURIComponent(input.token)
+    }`;
+  const response = await fetcher(url, {
+    headers: { Authorization: `Bearer ${input.accessToken}` },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) {
+    await response.body?.cancel();
+    return {
+      valid: false,
+      retryable: response.status >= 500 || response.status === 429,
+      error: "provider_verification_failed",
+    };
+  }
+  const purchase = await response.json() as Record<string, unknown>;
+  if (purchase.purchaseState !== 2) {
+    return { valid: false, error: "purchase_not_pending" };
+  }
+  if (
+    (purchase.quantity ?? 1) !== 1 ||
+    (purchase.productId !== undefined &&
+      purchase.productId !== input.productId) ||
+    purchase.obfuscatedExternalAccountId !== await sha256Hex(input.userId) ||
+    typeof purchase.obfuscatedExternalProfileId !== "string" ||
+    (input.requireTest && purchase.purchaseType !== 0) ||
+    (!input.requireTest && purchase.purchaseType !== undefined &&
+      purchase.purchaseType !== 0)
+  ) {
+    return { valid: false, error: "pending_proof_mismatch" };
+  }
+  const registered = await serviceRpc(
+    input.config,
+    "register_verified_pending_credit_topup",
+    {
+      p_user_id: input.userId,
+      p_token_hash: await sha256Hex(input.token),
+      p_product_id: input.productId,
+      p_admission_id: purchase.obfuscatedExternalProfileId,
+    },
+    fetcher,
+  );
+  if (registered?.registered !== true) {
+    return {
+      valid: false,
+      retryable: registered === null,
+      error: registered?.reason ?? "pending_registration_retryable",
+    };
+  }
+  return {
+    valid: true,
+    pendingRegistered: true,
+    duplicate: registered.duplicate === true,
+  };
+}
+
 export async function validateTopupProof(
   purchase: Record<string, unknown>,
   userId: string,
@@ -103,6 +177,18 @@ export async function verifyCreditTopup(input: {
     fetcher,
   );
   if (grant?.granted !== true) {
+    if (
+      grant?.reason === "customer_resolution_required" &&
+      grant.resolutionQueued === true
+    ) {
+      // The paid Google order is durably recorded for a refund/fulfillment
+      // decision. It must not be consumed or represented as delivered.
+      return {
+        valid: false,
+        error: "customer_resolution_required",
+        resolutionQueued: true,
+      };
+    }
     return {
       valid: false,
       error: grant?.reason ?? "grant_retryable",
