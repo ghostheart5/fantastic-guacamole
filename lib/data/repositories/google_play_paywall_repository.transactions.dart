@@ -1,7 +1,7 @@
 part of 'google_play_paywall_repository.dart';
 
 extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
-  Future<void> _retryPendingCreditRegistrationFromPlay(
+  Future<SubscriptionState?> _retryPendingCreditRegistrationFromPlay(
     String productId,
     String? expectedUserId,
   ) async {
@@ -10,14 +10,18 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
         !_hasReceiptVerification ||
         fingerprint == null ||
         !_isCurrentBillingAccount(expectedUserId)) {
-      return;
+      return null;
     }
     // Play's pending purchase inventory survives an app restart; no raw token
     // is written to local storage. A missing or failed inventory read leaves
     // the owner guard in place, so another checkout cannot be started.
     final List<PurchaseDetails> purchases = await _billingClient
         .restorePurchases(applicationUserName: fingerprint);
-    if (!_isCurrentBillingAccount(expectedUserId)) return;
+    if (!_isCurrentBillingAccount(expectedUserId)) return null;
+    final String operationKey = _purchaseOperationKey(
+      productId,
+      expectedUserId,
+    );
     for (final PurchaseDetails purchase in purchases) {
       if (purchase.productID != productId) continue;
       if (purchase.status == PurchaseStatus.pending) {
@@ -25,12 +29,50 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
           purchase,
           expectedUserId: expectedUserId,
         );
-      } else if (purchase.status == PurchaseStatus.purchased ||
-          purchase.status == PurchaseStatus.restored ||
-          purchase.status == PurchaseStatus.canceled) {
-        await _enqueuePurchaseUpdate(<PurchaseDetails>[purchase]);
+        return _purchasePendingState(_planIdForProduct(productId));
       }
+      if (purchase.status == PurchaseStatus.purchased ||
+          purchase.status == PurchaseStatus.restored) {
+        final String creditOutcome = await _verifiedCreditTopupFromServer(
+          purchase,
+          expectedUserId: expectedUserId,
+        );
+        if (!_isCurrentBillingAccount(expectedUserId)) return null;
+        final SubscriptionState outcome = _transactionOutcomeState(
+          status: creditOutcome,
+          attemptedPlanId: null,
+        );
+        _completePendingPurchase(null, outcome);
+        if (creditOutcome == 'credits_added') {
+          _approvalPending.remove(operationKey);
+          await _clearPendingOwner(productId, expectedUserId);
+        }
+        return outcome;
+      }
+      if (purchase.status == PurchaseStatus.canceled) {
+        if (!_isCurrentBillingAccount(expectedUserId)) return null;
+        await _clearPendingOwner(productId, expectedUserId);
+        _approvalPending.remove(operationKey);
+        final SubscriptionState canceled = _transactionOutcomeState(
+          status: 'purchase_canceled',
+          attemptedPlanId: _planIdForProduct(productId),
+        );
+        _completePendingPurchase(null, canceled);
+        return canceled;
+      }
+      // A matching item in an unrecognized/error state is not evidence that
+      // Play has removed the order. Keep the guard until a later read.
+      return _purchasePendingState(_planIdForProduct(productId));
     }
+    // Only a successful, account-bound inventory read with no matching
+    // purchase can release a stale guard. A failed read never reaches here.
+    if (_isCurrentBillingAccount(expectedUserId) &&
+        !_purchaseStarts.containsKey(operationKey) &&
+        !_pendingPurchases.containsKey(operationKey)) {
+      await _clearPendingOwner(productId, expectedUserId);
+      _approvalPending.remove(operationKey);
+    }
+    return null;
   }
 
   Future<String> _requirePublicCreditCheckoutAllowed(

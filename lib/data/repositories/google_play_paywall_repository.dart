@@ -492,32 +492,48 @@ class GooglePlayPaywallRepository
           // Google's pending inventory is the durable retry source. A failed
           // registration must not turn this owner guard into a no-op.
           try {
-            await _retryPendingCreditRegistrationFromPlay(gpId, expectedUserId);
+            final SubscriptionState? recovered =
+                await _retryPendingCreditRegistrationFromPlay(
+                  gpId,
+                  expectedUserId,
+                );
+            if (recovered != null) return recovered;
           } on Object {
             // Keep the existing owner guard; never start a second checkout.
           }
         }
-        return _purchasePendingState(planId);
+        if (await _pendingOwnerFingerprint(gpId) != null ||
+            _approvalPending.contains(operationKey)) {
+          return _purchasePendingState(planId);
+        }
       }
-      throw StateError(
-        'A pending Google Play purchase belongs to another signed-in account.',
-      );
+      if (pendingOwner != expectedFingerprint) {
+        throw StateError(
+          'A pending Google Play purchase belongs to another signed-in account.',
+        );
+      }
     }
     if (_approvalPending.contains(operationKey)) {
       if (planId.startsWith('credits_') && !_requireTestPurchase) {
         try {
-          await _retryPendingCreditRegistrationFromPlay(gpId, expectedUserId);
+          final SubscriptionState? recovered =
+              await _retryPendingCreditRegistrationFromPlay(
+                gpId,
+                expectedUserId,
+              );
+          if (recovered != null) return recovered;
         } on Object {
           // Keep the in-memory guard; never start a second checkout.
         }
       }
-      return _purchasePendingState(planId);
+      if (_approvalPending.contains(operationKey)) {
+        return _purchasePendingState(planId);
+      }
     }
     final Future<SubscriptionState>? inFlight = _purchaseStarts[operationKey];
     if (inFlight != null) {
       return inFlight;
     }
-
     final Future<SubscriptionState> purchase = _startSubscriptionOnce(
       planId: planId,
       productId: gpId,
