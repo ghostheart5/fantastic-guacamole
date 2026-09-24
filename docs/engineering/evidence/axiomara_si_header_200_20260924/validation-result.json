@@ -1,0 +1,34 @@
+{
+  "capturedAtUtc": "2026-09-24T21:15:06.5134675Z",
+  "baseSourceSha": "448d4daec33529685cd6bbd66a11bacbf374cadd",
+  "branch": "codex/si-large-text-header-3088",
+  "build": "debug QA APK with tool/qa_defines.json",
+  "apkSha256": "957d307046ef250870b2173bef79547fe580d1d476cead4b413a15029da6542f",
+  "signerSha256": "1fd0ccee20e2015826a664e9411ad730420c71fa5cd777d409e2a2b21475b1ec",
+  "device": "axiomara_edge_qa_35 / emulator-5582 / Android 15 API 35",
+  "versionCode": 2026083084,
+  "installer": null,
+  "fontScale": "2.0",
+  "change": "Large-text SI header gives controls a separate row and fits each localized title word without breaking it",
+  "observed": "Before: INTELLIGENCE divided across lines; after: DEEP and INTELLIGENCE each complete on separate lines",
+  "tests": "26 SI screen widget tests passed including English and Spanish 200 percent title checks; Flutter analyze clean",
+  "startupIncident": "Emulator Messages system app became unresponsive after boot; Wait allowed Axiomara to load, and Axiomara PID stayed alive. No app failure inferred.",
+  "limitations": [
+    "Debug QA build with mock tester login and disabled paywall; not Play-signed or public paid-feature proof",
+    "Android 15 English screenshot only; Spanish covered by widget test",
+    "No purchase or paid AI call made",
+    "Font scale restored to 1.5 and emulator gracefully stopped"
+  ],
+  "captures": [
+    {
+      "file": "before.png",
+      "bytes": 1119823,
+      "sha256": "bc662554bd09024bb28f4b2f36089ae9ddf22179e0506cffe854af5596bf767e"
+    },
+    {
+      "file": "after.png",
+      "bytes": 1099891,
+      "sha256": "ea49a75208a33ed3b6e61e39f0aff90c2c25f85876bee62452e166ae33f06c92"
+    }
+  ]
+}
