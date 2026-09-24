@@ -122,7 +122,8 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
   const guard = await response(endpoint, { headers });
   await guard.body?.cancel();
   require(guard.status === 405 && guard.headers.get('x-chronospark-contract') === 'verify-receipt-v2' &&
-    guard.headers.get('x-chronospark-test-purchase-guard') === 'v1', 'Deployed receipt verifier lacks the license-test guard');
+    guard.headers.get('x-chronospark-public-credit-checkout') === 'disabled-v1',
+  'Deployed receipt verifier does not keep public credit checkout closed');
 
   let backendRepairGate;
   try {
