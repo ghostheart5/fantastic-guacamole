@@ -123,7 +123,7 @@ select is(
   (select count(*) from public.firebase_device_registrations
    where installation_id = 'installation-aaaaaaaa-shared'),
   0::bigint,
-  'a cap rejection removes the previous owner's stale installation'
+  'a cap rejection removes the previous owner''s stale installation'
 );
 
 select * from finish();
