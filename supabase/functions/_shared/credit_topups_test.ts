@@ -122,6 +122,84 @@ Deno.test("purchased license-test credit receipt accepts its bound account", asy
       null,
   );
 });
+
+Deno.test("public credit proof accepts standard Play sales but rejects promo or rewarded types", async () => {
+  const purchase = {
+    purchaseState: 0,
+    quantity: 1,
+    obfuscatedExternalAccountId: await sha256Hex("owner"),
+    orderId: "GPA.real",
+    consumptionState: 0,
+  };
+  assert(await validateTopupProof(purchase, "owner", false) === null);
+  assert(
+    await validateTopupProof(
+      { ...purchase, purchaseType: 0 },
+      "owner",
+      false,
+    ) ===
+      null,
+  );
+  for (const purchaseType of [1, 2, 3, "0", null]) {
+    assert(
+      await validateTopupProof(
+        { ...purchase, purchaseType },
+        "owner",
+        false,
+      ) === "unsupported_purchase_type",
+    );
+  }
+  assert(
+    await validateTopupProof(purchase, "owner", true) ===
+      "test_purchase_required",
+  );
+});
+
+Deno.test("mock standard Play credit sale grants once and consumes only after account-bound proof", async () => {
+  const events: string[] = [];
+  const proof = {
+    purchaseState: 0,
+    quantity: 1,
+    obfuscatedExternalAccountId: await sha256Hex("owner"),
+    orderId: "GPA.standard",
+    consumptionState: 0,
+  };
+  const transport: typeof fetch = (url, init) => {
+    const path = String(url);
+    if (path.endsWith("/grant_verified_credit_topup")) {
+      events.push("grant");
+      const args = JSON.parse(String(init?.body));
+      assert(args.p_user_id === "owner");
+      assert(args.p_product_id === "chronospark_credits_100");
+      assert(args.p_order_id === proof.orderId);
+      return Promise.resolve(
+        Response.json({ granted: true, duplicate: false }),
+      );
+    }
+    if (path.endsWith(":consume")) {
+      events.push("consume");
+      return Promise.resolve(new Response(null, { status: 204 }));
+    }
+    events.push("verify");
+    return Promise.resolve(Response.json(proof));
+  };
+  const result = await verifyCreditTopup({
+    config: {
+      supabaseUrl: "https://backend.invalid",
+      secretKey: "test-secret",
+      publishableKey: "test-public",
+    },
+    userId: "owner",
+    packageName: "com.ghostheart5.chronospark",
+    productId: "chronospark_credits_100",
+    token: "mock-standard-token",
+    accessToken: "test-access",
+    requireTest: false,
+  }, transport);
+  assert(result.valid === true && result.testPurchase === false);
+  assert(result.creditsGranted === 100 && result.consumed === true);
+  assert(events.join(",") === "verify,grant,consume");
+});
 Deno.test("pending canceled real and other-account credit receipts never grant", async () => {
   const p = {
     purchaseState: 0,

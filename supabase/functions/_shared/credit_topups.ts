@@ -20,6 +20,10 @@ export async function validateTopupProof(
   if (requireTest && purchase.purchaseType !== 0) {
     return "test_purchase_required";
   }
+  if (
+    !requireTest && purchase.purchaseType !== undefined &&
+    purchase.purchaseType !== 0
+  ) return "unsupported_purchase_type";
   if (purchase.obfuscatedExternalAccountId !== await sha256Hex(userId)) {
     return "ownership_mismatch";
   }

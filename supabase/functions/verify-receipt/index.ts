@@ -15,6 +15,10 @@ import {
 } from "../_shared/google_auth.ts";
 import { googleSubscriptionState } from "../_shared/google_play_rtdn.ts";
 import {
+  creditTopupRequiresLicenseTest,
+  parsePublicCreditTopupPolicy,
+} from "../_shared/public_credit_topup_policy.ts";
+import {
   acknowledgeGooglePlaySubscription,
   applyGooglePlayAuthorityAfterAcknowledgement,
   buildPurchaseBindingArgs,
@@ -53,6 +57,7 @@ const ALLOWED_ORIGINS = new Set(
 const MAX_PURCHASE_TOKEN_LENGTH = 4096;
 const LEGACY_ACCOUNT_BINDING_CUTOFF =
   Deno.env.get("GOOGLE_PLAY_LEGACY_ACCOUNT_BINDING_CUTOFF")?.trim() ?? "";
+const publicCreditTopupPolicy = parsePublicCreditTopupPolicy(Deno.env.get);
 
 interface VerifyRequest {
   productId: string;
@@ -97,7 +102,9 @@ function cors(req: Request): Record<string, string> {
     "Vary": "Origin",
     "X-Content-Type-Options": "nosniff",
     "X-ChronoSpark-Contract": "verify-receipt-v2",
-    "X-ChronoSpark-Test-Purchase-Guard": "v1",
+    ...(creditTopupRequiresLicenseTest(publicCreditTopupPolicy, undefined)
+      ? { "X-ChronoSpark-Test-Purchase-Guard": "v1" }
+      : { "X-ChronoSpark-Public-Credit-Guard": "enabled-v1" }),
     ...(googleCredentialFingerprint
       ? {
         "X-ChronoSpark-Google-Credential-SHA256": googleCredentialFingerprint,
@@ -207,8 +214,12 @@ Deno.serve(async (req: Request) => {
         productId,
         token: purchaseToken,
         accessToken,
-        // Credit packs are enabled only for the internal license-test rollout.
-        requireTest: true,
+        // The request can demand a stricter test purchase, never unlock a
+        // real sale. Public sales require reviewed server-side rollout flags.
+        requireTest: creditTopupRequiresLicenseTest(
+          publicCreditTopupPolicy,
+          body.requireTestPurchase,
+        ),
       });
       return jsonResponse(
         req,
