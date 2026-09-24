@@ -183,6 +183,7 @@ begin
     null,null);
   assert (result->>'granted')::boolean, 'license-test grant requires public admission';
   assert (select count(*) from public.credit_topup_purchases where
+    state='granted' and
     token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64),repeat('f',64),repeat('1',64),repeat('2',64),repeat('3',64)))=3,
     'failed or duplicate admissions changed purchased-credit ledger';
 end;
