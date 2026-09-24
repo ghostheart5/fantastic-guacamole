@@ -76,9 +76,12 @@ reachable; the SI composer remained above the gesture area. The Nexus bottom
 navigation was also clear of Android's three-button controls at 150% text.
 On Android 15 at 150% text, the sampled Nexus navigation, Planner input and
 Get Guidance button, and SI composer were also clear of gesture and status
-bars. Screenshots, hashes, device identity, and limitations are recorded in
-`C:\jtmp\axiomara-edge-qa-20260924\validation-result.json` and
-`C:\jtmp\axiomara-edge-qa-20260924\android15-validation-result.json`.
+bars. The screenshots, SHA-256 hashes, device identity, and limitations are
+preserved in the reviewed tree under
+[`evidence/axiomara_edge_qa_20260924`](evidence/axiomara_edge_qa_20260924/README.md),
+with separate [Android 16](evidence/axiomara_edge_qa_20260924/validation-result.json)
+and [Android 15](evidence/axiomara_edge_qa_20260924/android15-validation-result.json)
+manifests.
 
 This narrows the Play advisory to an unproven risk on the sampled QA surfaces;
 it does not close the release gate. The check did not exercise a Play-signed
