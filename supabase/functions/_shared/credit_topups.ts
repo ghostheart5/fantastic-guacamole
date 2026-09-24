@@ -150,8 +150,14 @@ export async function verifyCreditTopup(input: {
   );
   if (error) return { valid: false, error };
   const isLicenseTest = purchase.purchaseType === 0;
+  // A Play license tester can exercise the public-client checkout contract.
+  // Google's echoed profile ID proves that checkout carried an admission;
+  // only the legacy internal test flow (no profile ID) is admission-exempt.
+  // A real-money purchase is never exempt regardless of client input.
+  const requiresAdmission = !isLicenseTest ||
+    typeof purchase.obfuscatedExternalProfileId === "string";
   if (
-    !isLicenseTest &&
+    requiresAdmission &&
     (typeof purchase.obfuscatedExternalProfileId !== "string" ||
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
         purchase.obfuscatedExternalProfileId,
@@ -193,11 +199,11 @@ export async function verifyCreditTopup(input: {
       p_token_hash: await sha256Hex(input.token),
       p_product_id: input.productId,
       p_order_id: purchase.orderId,
-      p_is_license_test: isLicenseTest,
-      p_admission_id: isLicenseTest
+      p_admission_exempt: !requiresAdmission,
+      p_admission_id: !requiresAdmission
         ? null
         : purchase.obfuscatedExternalProfileId,
-      p_purchase_time_ms: isLicenseTest
+      p_purchase_time_ms: !requiresAdmission
         ? null
         : Number(purchase.purchaseTimeMillis),
     },
@@ -254,6 +260,7 @@ export async function verifyCreditTopup(input: {
     valid: true,
     consumed: true,
     testPurchase: purchase.purchaseType === 0,
+    publicAdmissionVerified: requiresAdmission,
     productId: input.productId,
     creditsGranted: CREDIT_TOPUPS.get(input.productId),
     duplicate: grant.duplicate === true,

@@ -126,6 +126,7 @@ Deno.test("credit purchase grants once before consume and retries safely after c
       events.push("grant");
       const args = JSON.parse(String(init?.body));
       assert(args.p_token_hash === await sha256Hex(input.token));
+      assert(args.p_admission_exempt === true);
       const duplicate = grants > 0;
       grants = 1;
       return Response.json({ granted: true, duplicate });
@@ -144,7 +145,8 @@ Deno.test("credit purchase grants once before consume and retries safely after c
   const retry = await verifyCreditTopup(input, transport);
   assert(
     retry.valid === true && retry.duplicate === true &&
-      retry.creditsGranted === 100,
+      retry.creditsGranted === 100 &&
+      retry.publicAdmissionVerified === false,
   );
   assert(
     events.join(",") === "verify,grant,consume,verify,verify,grant,consume",
@@ -256,7 +258,7 @@ Deno.test("mock standard Play credit sale grants once and consumes only after ac
       assert(args.p_user_id === "owner");
       assert(args.p_product_id === "chronospark_credits_100");
       assert(args.p_order_id === proof.orderId);
-      assert(args.p_is_license_test === false);
+      assert(args.p_admission_exempt === false);
       assert(args.p_admission_id === proof.obfuscatedExternalProfileId);
       assert(args.p_purchase_time_ms === Number(proof.purchaseTimeMillis));
       return Promise.resolve(
@@ -285,7 +287,95 @@ Deno.test("mock standard Play credit sale grants once and consumes only after ac
   }, transport);
   assert(result.valid === true && result.testPurchase === false);
   assert(result.creditsGranted === 100 && result.consumed === true);
+  assert(result.publicAdmissionVerified === true);
   assert(events.join(",") === "verify,grant,consume");
+});
+Deno.test("public-client license-test credit checkout exercises the admission grant", async () => {
+  const admissionId = "123e4567-e89b-12d3-a456-426614174000";
+  const events: string[] = [];
+  const proof = {
+    purchaseState: 0,
+    purchaseType: 0,
+    quantity: 1,
+    obfuscatedExternalAccountId: await sha256Hex("owner"),
+    obfuscatedExternalProfileId: admissionId,
+    purchaseTimeMillis: "1780000000000",
+    orderId: "GPA.public-test",
+    consumptionState: 0,
+  };
+  const result = await verifyCreditTopup({
+    config: {
+      supabaseUrl: "https://backend.invalid",
+      secretKey: "test-secret",
+      publishableKey: "test-public",
+    },
+    userId: "owner",
+    packageName: "com.ghostheart5.chronospark",
+    productId: "chronospark_credits_100",
+    token: "public-license-token",
+    accessToken: "test-access",
+    requireTest: false,
+  }, (url, init) => {
+    const path = String(url);
+    if (path.endsWith("/grant_verified_credit_topup_v2")) {
+      events.push("grant");
+      const args = JSON.parse(String(init?.body));
+      assert(args.p_admission_exempt === false);
+      assert(args.p_admission_id === admissionId);
+      assert(args.p_purchase_time_ms === Number(proof.purchaseTimeMillis));
+      return Promise.resolve(Response.json({ granted: true }));
+    }
+    if (path.endsWith(":consume")) {
+      events.push("consume");
+      return Promise.resolve(new Response(null, { status: 204 }));
+    }
+    events.push("verify");
+    return Promise.resolve(Response.json(proof));
+  });
+  assert(result.valid === true && result.testPurchase === true);
+  assert(result.publicAdmissionVerified === true);
+  assert(events.join(",") === "verify,grant,consume");
+});
+Deno.test("license-test receipt with a malformed public profile cannot bypass admission", async () => {
+  const events: string[] = [];
+  const result = await verifyCreditTopup({
+    config: {
+      supabaseUrl: "https://backend.invalid",
+      secretKey: "test-secret",
+      publishableKey: "test-public",
+    },
+    userId: "owner",
+    packageName: "com.ghostheart5.chronospark",
+    productId: "chronospark_credits_100",
+    token: "malformed-public-test-token",
+    accessToken: "test-access",
+    requireTest: false,
+  }, async (url) => {
+    const path = String(url);
+    if (path.endsWith("/queue_unadmitted_credit_topup")) {
+      events.push("queue");
+      return Response.json({ resolutionQueued: true });
+    }
+    if (
+      path.endsWith("/grant_verified_credit_topup_v2") ||
+      path.endsWith(":consume")
+    ) {
+      throw new Error("malformed public profile was granted or consumed");
+    }
+    events.push("verify");
+    return Response.json({
+      purchaseState: 0,
+      purchaseType: 0,
+      quantity: 1,
+      obfuscatedExternalAccountId: await sha256Hex("owner"),
+      obfuscatedExternalProfileId: "not-an-admission",
+      purchaseTimeMillis: "1780000000000",
+      orderId: "GPA.malformed-public-test",
+      consumptionState: 0,
+    });
+  });
+  assert(result.valid === false && result.resolutionQueued === true);
+  assert(events.join(",") === "verify,queue");
 });
 Deno.test("standard paid receipt without admission is queued, never granted or consumed", async () => {
   const events: string[] = [];

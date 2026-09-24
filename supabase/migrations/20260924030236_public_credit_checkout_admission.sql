@@ -194,7 +194,7 @@ grant execute on function public.queue_unadmitted_credit_topup(uuid,text,text,te
 -- admission and wallet grant are atomic under the receipt token lock.
 create function public.grant_verified_credit_topup_v2(
   p_user_id uuid, p_token_hash text, p_product_id text, p_order_id text,
-  p_is_license_test boolean, p_admission_id text, p_purchase_time_ms bigint
+  p_admission_exempt boolean, p_admission_id text, p_purchase_time_ms bigint
 ) returns jsonb language plpgsql security invoker set search_path = '' as $$
 declare
   v_principal uuid; v_existing public.credit_topup_purchases;
@@ -205,7 +205,7 @@ declare
 begin
   if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$'
     or nullif(btrim(p_order_id), '') is null or length(p_order_id) > 1024
-    or p_is_license_test is null then
+    or p_admission_exempt is null then
     raise exception 'invalid top-up proof';
   end if;
   select credits into v_credits from public.monetization_credit_packages
@@ -242,7 +242,7 @@ begin
     return jsonb_build_object('granted', false,
       'reason', 'customer_resolution_required', 'resolutionQueued', true);
   end if;
-  if not p_is_license_test then
+  if not p_admission_exempt then
     if p_admission_id is null or p_admission_id !~
       '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
       or p_purchase_time_ms is null or p_purchase_time_ms < 1600000000000
