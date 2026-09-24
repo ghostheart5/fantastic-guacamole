@@ -32,7 +32,7 @@ create index public_credit_checkout_admissions_retired_expiry_idx
     and consumed_token_hash is null;
 alter table public.public_credit_checkout_admissions enable row level security;
 revoke all on public.public_credit_checkout_admissions from public, anon, authenticated;
-grant select, insert, update on public.public_credit_checkout_admissions to service_role;
+grant select, insert, update, delete on public.public_credit_checkout_admissions to service_role;
 
 -- A Google-verified completed payment which cannot safely receive credits is
 -- retained for customer resolution. Do not turn a rejected paid receipt into
