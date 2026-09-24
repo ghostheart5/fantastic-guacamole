@@ -119,12 +119,12 @@ class FirebaseSupabaseBridgeRepository {
       } on Exception catch (error) {
         if (_isOverRateLimit(error)) {
           Logger.warn(
-            'Skipped Firebase->Supabase token update due to rate limit (source=$source): $error',
+            'Skipped Firebase->Supabase token update due to rate limit (source=$source).',
           );
           return;
         }
         Logger.warn(
-          'Firebase->Supabase token sync failed non-fatally (source=$source): $error',
+          'Firebase->Supabase token sync failed non-fatally (source=$source).',
         );
       }
     });
