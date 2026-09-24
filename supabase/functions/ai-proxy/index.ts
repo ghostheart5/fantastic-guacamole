@@ -24,10 +24,14 @@ import {
   containsRecommendationContradiction,
 } from "../_shared/ai_proxy_policy.ts";
 import {
-  internalAiAccountAllowed,
   internalAiPreflightResponse,
   parseInternalAiCohort,
 } from "../_shared/internal_ai_cohort.ts";
+import {
+  aiAudienceAllowed,
+  parsePublicAiAudiencePolicy,
+  publicAiAudienceEnabled,
+} from "../_shared/ai_audience_policy.ts";
 import {
   parseSiTimingExtraction,
   SI_TIMING_EXTRACTION_INSTRUCTION,
@@ -60,6 +64,7 @@ const SUCCESS_SETTLEMENT_RECONCILIATION_ATTEMPTS = 2;
 const internalAiCohort = parseInternalAiCohort(
   Deno.env.get("CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS"),
 );
+const publicAiPolicy = parsePublicAiAudiencePolicy(Deno.env.get);
 const ALLOWED_ORIGINS = new Set(
   (Deno.env.get("ALLOWED_ORIGINS") ??
     "https://chronospark.app,https://www.chronospark.app")
@@ -303,6 +308,7 @@ Deno.serve(async (req: Request) => {
       config.supabaseUrl && config.publishableKey && config.secretKey &&
         ANTHROPIC_API_KEY,
     ),
+    publicAiAudienceEnabled(publicAiPolicy),
   );
   if (preflight) return preflight;
   if (req.method === "OPTIONS") {
@@ -318,7 +324,7 @@ Deno.serve(async (req: Request) => {
 
   const userId = await authenticatedUserId(req, config);
   if (!userId) return jsonResponse(req, { error: "unauthorized" }, 401);
-  if (!await internalAiAccountAllowed(userId, internalAiCohort)) {
+  if (!await aiAudienceAllowed(userId, internalAiCohort, publicAiPolicy)) {
     return jsonResponse(req, { error: "internal_ai_access_required" }, 403);
   }
   if (
