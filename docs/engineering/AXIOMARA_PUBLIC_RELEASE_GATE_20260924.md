@@ -10,8 +10,10 @@ project gates below; no production release has been created or submitted.
 
 ## Exact artifact boundary
 
-- Merged main is `729b3a64393401b4a8ea1b669e024a15a7e90694`, version
-  `4.1.0+2026083084`. It includes the login/tutorial repair. Android 15 hosted
+- The latest app-code checkpoint is `729b3a64393401b4a8ea1b669e024a15a7e90694`,
+  version `4.1.0+2026083084`. Main later advanced to
+  `dd9da0a3ace97f01a2e1ab0b6e2d91c422e0870d` for this documentation and
+  visual evidence only; that merge did not enable public features. Android 15 hosted
   QA run [35943294605](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/35943294605)
   passed 11/11 journeys on earlier QA source `ef85eeaf5e9ea64990afb3322ee3190cff6da426`;
   it used a debug QA APK, not a Play-signed public build. There is no signed
@@ -90,3 +92,38 @@ cutout and route. A Maestro assertion using an exact standalone Planner heading
 failed because that heading was part of a longer accessibility label; the
 captured screen shows the heading, so this is a selector issue rather than a
 verified display defect.
+
+## Play Health and Data safety classification review — September 24
+
+Read-only Play Console App content inspection found no items in **Need attention**.
+That means the current forms are actioned, not that their answers describe a
+future full-feature build. The saved **Health apps** form, last edited June 24,
+selects **My app does not have any health features**. The **Data safety** form,
+last edited September 18, selects ten data types, including **Other in-app
+messages** and **Other user-generated content**, but leaves **Health info**
+unselected. No form answer was changed or submitted during this inspection.
+
+The app exposes an optional **Emotional state** check-in and tells users to
+select it to tune planning guidance (`lib/l10n/chronospark_localizations.dart`,
+`lib/features/home/ui/smart_planner_screen.widgets.dart`). It includes an
+**anxious** state, a **Mental Wellness** goal label, and a supportive distress
+route with crisis resources. The Planner's external-assistant request contract
+can include a user-authorized `emotion` value when that path is enabled
+(`lib/state/controllers/smart_planner_query_controller.dart`). These are
+concrete reasons to reassess the saved “no health features” answer and whether
+any off-device emotional or distress data belongs under **Health info**. They do
+not, by themselves, establish a medical-device claim or prove that every
+currently distributed build transmits this data.
+
+Google's [Health declaration guidance](https://support.google.com/googleplay/android-developer/answer/14738291)
+lists **Stress management, relaxation, mental acuity** for guidance on stress,
+mindfulness, cognitive health and wellness coaching, and separately lists
+**Mental and behavioral health** for mental-health support. Its
+[Data safety guidance](https://support.google.com/googleplay/android-developer/answer/10787469)
+defines **Health info** as information about a user's health and requires a
+single declaration covering all versions presently distributed on Play. The
+qualified privacy/legal and mental-health-safety reviewers must disposition
+which categories apply to the exact enabled feature set and payloads, including
+English/Spanish claims, then reconcile the saved forms and privacy disclosures
+before a public build is submitted. Until then, do not treat the actioned forms
+as production parity evidence or select categories speculatively in Console.
