@@ -1,5 +1,5 @@
 {
-  "capturedAtUtc": "2026-09-24T21:15:06.5134675Z",
+  "capturedAtUtc": "2026-09-24T21:50:59.9926649Z",
   "baseSourceSha": "448d4daec33529685cd6bbd66a11bacbf374cadd",
   "branch": "codex/si-large-text-header-3088",
   "build": "debug QA APK with tool/qa_defines.json",
@@ -24,12 +24,14 @@
     {
       "file": "before.png",
       "bytes": 1119823,
-      "sha256": "bc662554bd09024bb28f4b2f36089ae9ddf22179e0506cffe854af5596bf767e"
+      "sha256": "bc662554bd09024bb28f4b2f36089ae9ddf22179e0506cffe854af5596bf767e",
+      "capturedAtUtc": "2026-09-24T20:33:02.2004498Z"
     },
     {
       "file": "after.png",
       "bytes": 1099105,
-      "sha256": "1d600678f93a018205c56bbc14ff28c20dffce1d08677dad1904d99f99258942"
+      "sha256": "1d600678f93a018205c56bbc14ff28c20dffce1d08677dad1904d99f99258942",
+      "capturedAtUtc": "2026-09-24T21:50:59.9926649Z"
     }
   ],
   "testedCodeCommit": "d4b53e6d3ebd5c2274e15856c6a1ef8f8092cda0",
@@ -49,5 +51,7 @@
     "emulatorStopped": true
   },
   "beforeSourceSha": "729b3a64393401b4a8ea1b669e024a15a7e90694",
-  "beforeApkSha256": "66fa45284d595af83e28ae0f38cef3cbf9ad7e2321310dda0279a83d151aff18"
+  "beforeApkSha256": "66fa45284d595af83e28ae0f38cef3cbf9ad7e2321310dda0279a83d151aff18",
+  "captureTimeBasis": "Each timestamp is the UTC creation time of the host file pulled immediately after adb screencap; capture preceded pull by seconds. Device clock shown in the images matches America/Chicago local time.",
+  "manifestUpdatedAtUtc": "2026-09-24T21:57:03.1572848Z"
 }
