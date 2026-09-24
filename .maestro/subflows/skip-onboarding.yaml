@@ -30,6 +30,16 @@ appId: com.ghostheart5.chronospark
           retryTapIfNoChange: true
       - waitForAnimationToEnd:
           timeout: 5000
+      # The first accessibility tap can race the guide's focus scroll: Maestro
+      # sees the layout move and treats that as a UI change even if the button
+      # was not pressed. Reacquire its final bounds only while it remains open.
+      - runFlow:
+          when:
+            visible: "Start login"
+          commands:
+            - tapOn: "Start login"
+            - waitForAnimationToEnd:
+                timeout: 5000
       - assertNotVisible: "Start login"
 
 # The form's semantics are hidden while the modal guide is open, so this wait
