@@ -96,7 +96,7 @@ class FirebaseSupabaseBridgeRepository {
 
       try {
         final String installationId = await _ensureInstallationId();
-        await client.rpc<dynamic>(
+        final dynamic registrationId = await client.rpc<dynamic>(
           'register_firebase_device',
           params: <String, dynamic>{
             'p_installation_id': installationId,
@@ -105,6 +105,12 @@ class FirebaseSupabaseBridgeRepository {
             'p_source': source,
           },
         );
+        if (registrationId is! num || registrationId <= 0) {
+          Logger.warn(
+            'Firebase->Supabase token sync was not accepted (source=$source).',
+          );
+          return;
+        }
         _lastSyncByOwner[ownerId] = (token: trimmed, syncedAt: now);
         Logger.log(
           'Bridge',
