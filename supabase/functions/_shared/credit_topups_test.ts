@@ -292,7 +292,6 @@ Deno.test("mock standard Play credit sale grants once and consumes only after ac
 });
 Deno.test("public-client license-test credit checkout exercises the admission grant", async () => {
   const admissionId = "123e4567-e89b-12d3-a456-426614174000";
-  const events: string[] = [];
   const proof = {
     purchaseState: 0,
     purchaseType: 0,
@@ -303,79 +302,86 @@ Deno.test("public-client license-test credit checkout exercises the admission gr
     orderId: "GPA.public-test",
     consumptionState: 0,
   };
-  const result = await verifyCreditTopup({
-    config: {
-      supabaseUrl: "https://backend.invalid",
-      secretKey: "test-secret",
-      publishableKey: "test-public",
-    },
-    userId: "owner",
-    packageName: "com.ghostheart5.chronospark",
-    productId: "chronospark_credits_100",
-    token: "public-license-token",
-    accessToken: "test-access",
-    requireTest: false,
-  }, (url, init) => {
-    const path = String(url);
-    if (path.endsWith("/grant_verified_credit_topup_v2")) {
-      events.push("grant");
-      const args = JSON.parse(String(init?.body));
-      assert(args.p_admission_exempt === false);
-      assert(args.p_admission_id === admissionId);
-      assert(args.p_purchase_time_ms === Number(proof.purchaseTimeMillis));
-      return Promise.resolve(Response.json({ granted: true }));
-    }
-    if (path.endsWith(":consume")) {
-      events.push("consume");
-      return Promise.resolve(new Response(null, { status: 204 }));
-    }
-    events.push("verify");
-    return Promise.resolve(Response.json(proof));
-  });
-  assert(result.valid === true && result.testPurchase === true);
-  assert(result.publicAdmissionVerified === true);
-  assert(events.join(",") === "verify,grant,consume");
-});
-Deno.test("license-test receipt with a malformed public profile cannot bypass admission", async () => {
-  const events: string[] = [];
-  const result = await verifyCreditTopup({
-    config: {
-      supabaseUrl: "https://backend.invalid",
-      secretKey: "test-secret",
-      publishableKey: "test-public",
-    },
-    userId: "owner",
-    packageName: "com.ghostheart5.chronospark",
-    productId: "chronospark_credits_100",
-    token: "malformed-public-test-token",
-    accessToken: "test-access",
-    requireTest: false,
-  }, async (url) => {
-    const path = String(url);
-    if (path.endsWith("/queue_unadmitted_credit_topup")) {
-      events.push("queue");
-      return Response.json({ resolutionQueued: true });
-    }
-    if (
-      path.endsWith("/grant_verified_credit_topup_v2") ||
-      path.endsWith(":consume")
-    ) {
-      throw new Error("malformed public profile was granted or consumed");
-    }
-    events.push("verify");
-    return Response.json({
-      purchaseState: 0,
-      purchaseType: 0,
-      quantity: 1,
-      obfuscatedExternalAccountId: await sha256Hex("owner"),
-      obfuscatedExternalProfileId: "not-an-admission",
-      purchaseTimeMillis: "1780000000000",
-      orderId: "GPA.malformed-public-test",
-      consumptionState: 0,
+  for (const requireTest of [false, true]) {
+    const events: string[] = [];
+    const result = await verifyCreditTopup({
+      config: {
+        supabaseUrl: "https://backend.invalid",
+        secretKey: "test-secret",
+        publishableKey: "test-public",
+      },
+      userId: "owner",
+      packageName: "com.ghostheart5.chronospark",
+      productId: "chronospark_credits_100",
+      token: "public-license-token",
+      accessToken: "test-access",
+      requireTest,
+    }, (url, init) => {
+      const path = String(url);
+      if (path.endsWith("/grant_verified_credit_topup_v2")) {
+        events.push("grant");
+        const args = JSON.parse(String(init?.body));
+        assert(args.p_admission_exempt === false);
+        assert(args.p_admission_id === admissionId);
+        assert(args.p_purchase_time_ms === Number(proof.purchaseTimeMillis));
+        return Promise.resolve(Response.json({ granted: true }));
+      }
+      if (path.endsWith(":consume")) {
+        events.push("consume");
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      events.push("verify");
+      return Promise.resolve(Response.json(proof));
     });
-  });
-  assert(result.valid === false && result.resolutionQueued === true);
-  assert(events.join(",") === "verify,queue");
+    assert(result.valid === true && result.testPurchase === true);
+    assert(result.publicAdmissionVerified === true);
+    assert(events.join(",") === "verify,grant,consume");
+  }
+});
+Deno.test("public-client license-test receipt without a valid profile cannot bypass admission", async () => {
+  for (const profileId of [undefined, "not-an-admission"]) {
+    const events: string[] = [];
+    const result = await verifyCreditTopup({
+      config: {
+        supabaseUrl: "https://backend.invalid",
+        secretKey: "test-secret",
+        publishableKey: "test-public",
+      },
+      userId: "owner",
+      packageName: "com.ghostheart5.chronospark",
+      productId: "chronospark_credits_100",
+      token: "unadmitted-public-test-token",
+      accessToken: "test-access",
+      requireTest: false,
+    }, async (url) => {
+      const path = String(url);
+      if (path.endsWith("/queue_unadmitted_credit_topup")) {
+        events.push("queue");
+        return Response.json({ resolutionQueued: true });
+      }
+      if (
+        path.endsWith("/grant_verified_credit_topup_v2") ||
+        path.endsWith(":consume")
+      ) {
+        throw new Error(
+          "missing or malformed public profile was granted or consumed",
+        );
+      }
+      events.push("verify");
+      return Response.json({
+        purchaseState: 0,
+        purchaseType: 0,
+        quantity: 1,
+        obfuscatedExternalAccountId: await sha256Hex("owner"),
+        obfuscatedExternalProfileId: profileId,
+        purchaseTimeMillis: "1780000000000",
+        orderId: "GPA.malformed-public-test",
+        consumptionState: 0,
+      });
+    });
+    assert(result.valid === false && result.resolutionQueued === true);
+    assert(events.join(",") === "verify,queue");
+  }
 });
 Deno.test("standard paid receipt without admission is queued, never granted or consumed", async () => {
   const events: string[] = [];

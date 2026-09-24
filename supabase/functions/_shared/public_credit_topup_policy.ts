@@ -2,6 +2,7 @@ import {
   parsePublicAiAudiencePolicy,
   publicAiAudienceEnabled,
 } from "./ai_audience_policy.ts";
+import { internalAiAccountAllowed } from "./internal_ai_cohort.ts";
 
 export interface PublicCreditTopupPolicy {
   readonly enabled: boolean;
@@ -39,4 +40,25 @@ export function creditTopupRequiresLicenseTest(
   clientRequiresTest: boolean | undefined,
 ): boolean {
   return clientRequiresTest === true;
+}
+
+// The request body can demand test proof, but it cannot grant the private
+// admission exemption. That requires a server-owned billing cohort match.
+export async function internalCreditTestRequestAllowed(
+  clientRequiresTest: boolean | undefined,
+  authenticatedUserId: string,
+  internalBillingCohort: ReadonlySet<string>,
+): Promise<boolean> {
+  return clientRequiresTest !== true ||
+    await internalAiAccountAllowed(authenticatedUserId, internalBillingCohort);
+}
+
+export async function internalCreditRtdnTestAllowed(
+  purchaseType: unknown,
+  admissionProfileId: unknown,
+  authenticatedUserId: string,
+  internalBillingCohort: ReadonlySet<string>,
+): Promise<boolean> {
+  return purchaseType === 0 && admissionProfileId === undefined &&
+    await internalAiAccountAllowed(authenticatedUserId, internalBillingCohort);
 }

@@ -1,5 +1,7 @@
 /// <reference lib="deno.ns" />
 import { CREDIT_TOPUPS, verifyCreditTopup } from "../_shared/credit_topups.ts";
+import { parseInternalAiCohort } from "../_shared/internal_ai_cohort.ts";
+import { internalCreditRtdnTestAllowed } from "../_shared/public_credit_topup_policy.ts";
 
 import { respondToGooglePlayRefundReview } from "../_shared/google_play_refund_review.ts";
 
@@ -36,6 +38,9 @@ const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY") ??
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANDROID_PACKAGE_NAME = Deno.env.get("ANDROID_PACKAGE_NAME") ??
   "com.ghostheart5.chronospark";
+const internalBillingCohort = parseInternalAiCohort(
+  Deno.env.get("CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"),
+);
 const RTDN_AUDIENCE = Deno.env.get("RTDN_AUDIENCE") ?? "";
 const RTDN_SERVICE_ACCOUNT_EMAIL = Deno.env.get("RTDN_SERVICE_ACCOUNT_EMAIL") ??
   "";
@@ -529,6 +534,16 @@ Deno.serve(async (req: Request) => {
         if (typeof owner?.userId !== "string") {
           throw new Error("credit_owner_unresolved");
         }
+        // The private legacy license-test flow omits a public admission
+        // profile. Only a server-owned internal billing cohort may use that
+        // test exemption; public-client tests and all paid orders require an
+        // admission even when their Play profile is absent.
+        const internalLicenseTest = await internalCreditRtdnTestAllowed(
+          purchase.purchaseType,
+          purchase.obfuscatedExternalProfileId,
+          owner.userId,
+          internalBillingCohort,
+        );
         const result = await verifyCreditTopup({
           config: {
             supabaseUrl: SUPABASE_URL,
@@ -541,7 +556,7 @@ Deno.serve(async (req: Request) => {
           token,
           accessToken,
           // A provider-verified purchase remains redeemable after sales close.
-          requireTest: false,
+          requireTest: internalLicenseTest,
         });
         if (result.valid !== true && result.resolutionQueued !== true) {
           throw new Error("credit_grant_retry");

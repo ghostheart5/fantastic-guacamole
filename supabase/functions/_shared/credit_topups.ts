@@ -150,12 +150,12 @@ export async function verifyCreditTopup(input: {
   );
   if (error) return { valid: false, error };
   const isLicenseTest = purchase.purchaseType === 0;
-  // A Play license tester can exercise the public-client checkout contract.
-  // Google's echoed profile ID proves that checkout carried an admission;
-  // only the legacy internal test flow (no profile ID) is admission-exempt.
-  // A real-money purchase is never exempt regardless of client input.
-  const requiresAdmission = !isLicenseTest ||
-    typeof purchase.obfuscatedExternalProfileId === "string";
+  // The internal license-test flow does not attach an admission profile.
+  // An authenticated server-owned cohort gates requireTest at the HTTP edge;
+  // other public-client tests are never exempt when Play omits their profile.
+  // A profile on a test receipt also forces the public admission path.
+  const requiresAdmission = !isLicenseTest || !input.requireTest ||
+    purchase.obfuscatedExternalProfileId !== undefined;
   if (
     requiresAdmission &&
     (typeof purchase.obfuscatedExternalProfileId !== "string" ||

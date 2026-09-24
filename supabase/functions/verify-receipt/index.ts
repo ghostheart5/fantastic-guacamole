@@ -17,9 +17,11 @@ import {
   googleServiceAccountCredentialFingerprint,
   sha256Hex,
 } from "../_shared/google_auth.ts";
+import { parseInternalAiCohort } from "../_shared/internal_ai_cohort.ts";
 import { googleSubscriptionState } from "../_shared/google_play_rtdn.ts";
 import {
   creditTopupRequiresLicenseTest,
+  internalCreditTestRequestAllowed,
   parsePublicCreditTopupPolicy,
   publicCreditSaleEnabled,
 } from "../_shared/public_credit_topup_policy.ts";
@@ -63,6 +65,9 @@ const MAX_PURCHASE_TOKEN_LENGTH = 4096;
 const LEGACY_ACCOUNT_BINDING_CUTOFF =
   Deno.env.get("GOOGLE_PLAY_LEGACY_ACCOUNT_BINDING_CUTOFF")?.trim() ?? "";
 const publicCreditTopupPolicy = parsePublicCreditTopupPolicy(Deno.env.get);
+const internalBillingCohort = parseInternalAiCohort(
+  Deno.env.get("CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"),
+);
 
 interface VerifyRequest {
   operation?: string;
@@ -251,6 +256,19 @@ Deno.serve(async (req: Request) => {
         { valid: false, error: "invalid_request_body" },
         400,
       );
+    }
+    if (
+      body.purchaseType === "inapp" &&
+      !await internalCreditTestRequestAllowed(
+        body.requireTestPurchase,
+        userId,
+        internalBillingCohort,
+      )
+    ) {
+      return jsonResponse(req, {
+        valid: false,
+        error: "internal_billing_test_not_allowed",
+      }, 403);
     }
     const serviceAccount = readServiceAccount();
     if (!serviceAccount) {
