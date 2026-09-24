@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(15);
 
 insert into auth.users (id, email) values
   ('11111111-1111-4111-8111-111111111111', 'device-a@example.invalid'),
@@ -57,12 +57,11 @@ select ok(
 );
 
 set local request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
-select throws_ok(
-  $$select public.register_firebase_device(
-      'installation-bbbbbbbb-1', 'token-aaaaaaaa-2', 'android', 'startup'
-    )$$,
-  '23505',
-  'duplicate key value violates unique constraint "firebase_device_registrations_token_key"',
+select is(
+  public.register_firebase_device(
+    'installation-bbbbbbbb-1', 'token-aaaaaaaa-2', 'android', 'startup'
+  ),
+  0::bigint,
   'a token alone cannot take another account registration'
 );
 select ok(
@@ -84,6 +83,47 @@ select is(
    where user_id = '22222222-2222-4222-8222-222222222222'),
   1::bigint,
   'the second account owns the transferred installation'
+);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
+select is(
+  (select count(*) from (
+    select public.register_firebase_device(
+      'installation-bbbbbbbb-' || n,
+      'token-bbbbbbbb-' || n,
+      'android',
+      'startup'
+    ) as registration_id
+    from generate_series(2, 20) n
+  ) registrations where registration_id > 0),
+  19::bigint,
+  'the second account reaches its twenty-device cap'
+);
+
+set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
+select ok(
+  public.register_firebase_device(
+    'installation-aaaaaaaa-shared', 'token-aaaaaaaa-shared', 'android', 'startup'
+  ) > 0,
+  'the previous owner has a shared installation'
+);
+
+set local request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
+select is(
+  public.register_firebase_device(
+    'installation-aaaaaaaa-shared', 'token-bbbbbbbb-shared', 'android', 'account_switch'
+  ),
+  0::bigint,
+  'a cap rejection does not claim the new account installation'
+);
+
+reset role;
+select is(
+  (select count(*) from public.firebase_device_registrations
+   where installation_id = 'installation-aaaaaaaa-shared'),
+  0::bigint,
+  'a cap rejection removes the previous owner's stale installation'
 );
 
 select * from finish();

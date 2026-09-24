@@ -38,8 +38,25 @@ begin
     raise exception using errcode = '22023', message = 'Invalid registration source.';
   end if;
 
-  -- Serialize new registrations for one account, including concurrent calls.
-  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_user_id::text, 0));
+  -- Lock the same installation and token across accounts before deciding what
+  -- may be removed. The separate namespaces and fixed order avoid lock cycles.
+  perform pg_catalog.pg_advisory_xact_lock(1, pg_catalog.hashtext(v_installation_id));
+  perform pg_catalog.pg_advisory_xact_lock(2, pg_catalog.hashtext(v_token));
+  perform pg_catalog.pg_advisory_xact_lock(3, pg_catalog.hashtext(v_user_id::text));
+
+  -- A device that changed accounts must stop receiving the previous account's
+  -- notifications even when the new owner has reached the registration cap.
+  delete from public.firebase_device_registrations
+  where installation_id = v_installation_id and user_id <> v_user_id;
+
+  -- A token alone never proves control of a different installation/account.
+  if exists (
+    select 1 from public.firebase_device_registrations
+    where token = v_token and user_id <> v_user_id
+  ) then
+    return 0;
+  end if;
+
   select exists (
     select 1 from public.firebase_device_registrations
     where user_id = v_user_id
@@ -53,12 +70,10 @@ begin
     end if;
   end if;
 
-  -- A known installation may change owner. A token alone may only displace a
-  -- registration of the same owner; otherwise the unique token key rejects it.
+  -- A token may displace another installation only within the same account.
   delete from public.firebase_device_registrations
-  where (installation_id = v_installation_id
-         or (user_id = v_user_id and token = v_token))
-    and not (user_id = v_user_id and installation_id = v_installation_id);
+  where user_id = v_user_id and token = v_token
+    and installation_id <> v_installation_id;
 
   insert into public.firebase_device_registrations (
     user_id, installation_id, token, platform, source, last_seen_at
