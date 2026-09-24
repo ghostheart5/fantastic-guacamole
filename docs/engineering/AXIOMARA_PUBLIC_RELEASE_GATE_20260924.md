@@ -18,7 +18,14 @@ project gates below; no production release has been created or submitted.
   or skips, plus static policy, Linux integration and Windows golden checks.
   [CodeQL run 36071219085](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/36071219085)
   and [database gate 36071219667](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/36071219667)
-  passed. Android 15 hosted QA run
+  passed. Exact-main [Maestro Runtime Gate 36071219710](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/36071219710)
+  passed on a clean Android 15 guest: five selected Planner, Creator, SI,
+  Timeline and Progression journeys, five JUnit cases, zero failures, errors or
+  skips, no fatal log markers, and the app alive throughout. Its installed QA
+  debug APK SHA-256 was
+  `17dbc48b5baea12b3930502745eee774bb45ffea127987269f47390e1a81576c`;
+  this is not Play-signed or enabled public-feature evidence. Earlier Android 15
+  hosted QA run
   [35943294605](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/35943294605)
   passed 11/11 journeys on earlier QA source `ef85eeaf5e9ea64990afb3322ee3190cff6da426`;
   it used a debug QA APK, not a Play-signed public build. There is no signed
