@@ -4,8 +4,9 @@
 evidence register, not a request to upload or publish. The production track is
 inactive. The latest Play-served closed-test release is 2026083081 (Release 22),
 available only to selected testers. The September 24 Play Console production
-page offered Create new release; that control does not certify the app or close
-the project gates below.
+page offered Create new release, and the app dashboard confirmed that Google
+has granted production access. Access does not certify the build or close the
+project gates below; no production release has been created or submitted.
 
 ## Exact artifact boundary
 
