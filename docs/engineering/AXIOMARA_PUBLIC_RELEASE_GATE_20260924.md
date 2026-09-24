@@ -1,0 +1,62 @@
+# Axiomara public release gate — September 24, 2026
+
+**Status: NOT READY for a full-feature production submission.** This is an
+evidence register, not a request to upload or publish. The production track is
+inactive. The latest Play-served closed-test release is 2026083081 (Release 22),
+available only to selected testers. The September 24 Play Console production
+page offered Create new release; that control does not certify the app or close
+the project gates below.
+
+## Exact artifact boundary
+
+- Merged main is `729b3a64393401b4a8ea1b669e024a15a7e90694`, version
+  `4.1.0+2026083084`. It includes the login/tutorial repair. Android 15 hosted
+  QA run [35943294605](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/35943294605)
+  passed 11/11 journeys on earlier QA source `ef85eeaf5e9ea64990afb3322ee3190cff6da426`;
+  it used a debug QA APK, not a Play-signed public build. There is no signed
+  full-feature AAB from current main.
+- The most recent signed contained candidate was version 2026083083 from
+  `36ec3dda6120af0c39142c6106e1f73b6159e305`, candidate run
+  [35932394334](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/35932394334),
+  AAB SHA-256 `a37717ed3b4d9625a094c8ec7a5ae3dbeec1ae1312c3d9572d01db3bd2d1aafc`.
+  It was not uploaded to Play. It cannot prove current-source or full-feature
+  behavior.
+- `lib/config/launch_containment.dart` still disables subscriptions, external
+  AI, credit spending, cloud sync, and cloud restore. Safety review approval is
+  also false. The signed-candidate runner requires these switches to stay off,
+  and the server public-AI stage is not deployed or enabled. Do not flip the
+  switches or repurpose the contained runner without a separately reviewed
+  public build and backend sequence.
+
+## Blocking work with direct evidence needed
+
+| Gate | Current evidence | Exit evidence |
+|---|---|---|
+| Paid checkout safety | [Draft PR 129](https://github.com/ghostheart5/fantastic-guacamole/pull/129) at `066db430480089f5849e966edd0bd432f9bef552` passed required CI, but remains unmerged/undeployed with one open P1 review thread. An offline pending payment completed after the admission window can be recorded without credits, and no approved refund or fulfillment remedy is in service. | Owner-approved customer remedy, qualified review of its financial/privacy effects, exact-head review with no unresolved findings, migration/backend deployment readback, and Play-signed license-test delayed, canceled, offline, and RTDN-only results. Never use a real charge to close this gate. |
+| Public AI safety/privacy | PR 128's default-closed server policy is merged but undeployed. The owner confirmed there are no signed independent privacy/legal or mental-health-safety dispositions. | Qualified, signed, dated assessments of the exact enabled app, backend, data flow, disclosures, English/Spanish distress handling, and fixes; then source-matched deployed policy and runtime tests. Technical code review is not a substitute. |
+| Public build provenance | The current workflow builds only a contained private-cohort candidate. | Reviewed public profile, exact merged SHA and green exact-source CI, source-matched backend, verified signing/AAB identity, and Play-signed installed artifact tested without changing the Moto's preserved data. |
+| Store and policy parity | Play App content showed no outstanding declaration task for the current closed-test app; the saved Health declaration says no health features. EN/ES descriptions still restrict AI to eligible private testers. The public YouTube promo depicts credit-backed AI. | Qualified Health/Data safety classification for the enabled behavior; saved EN-US, ES-419, ES-US listing and video claims checked against the exact final build; owner-side YouTube monetization and final media parity readback. |
+| Android layout and journeys | Play Test and release shows an “Edge-to-edge may not display for all users” advisory for closed release 3081. Source uses SafeArea in major screens, but the available Android 15 QA artifact has no visual captures that settle overlap on the final build. | Inspect system-bar and cutout overlap on Android 15 and 16, gesture and three-button navigation, normal and 150% text scale, login, Planner, SI, paywall, and critical bottom controls on the exact signed candidate. Record screenshot/device identity and fix any reproduced overlap. |
+| Operations | The historical register in `EXTERNAL_GATES.md` contains open recovery, monitoring, billing lifecycle, and first-time UAT rows. | Current dated deployment parity, reconciliation/alerting, backup restore drill, support and rollback owners, signed test matrix, and dispositioned critical findings. |
+
+## Evidence rules for the next stage
+
+1. Keep the closed test and production track unchanged while the above gates
+   are open. A green host test, a debug APK, a Console button, or a queued paid
+   order is not production approval.
+2. Use an isolated checkout for source changes and preserve the dirty canonical
+   checkout and Moto app data. Do not merge PR 129 or enable public sales to
+   make a candidate appear complete.
+3. After the owner selects and approves a customer remedy and the independent
+   dispositions exist, review the exact public build profile and backend change,
+   run exact-source CI, build and inspect the signed AAB, and execute the
+   Play-signed license-test and device matrix. Reconcile Play declarations and
+   every listing locale to that same artifact.
+4. Reassess this register against a final evidence packet. Stop before any
+   production upload, review submission, or publication until the owner gives
+   separate authorization for the concrete release.
+
+Android's [edge-to-edge guidance](https://developer.android.com/develop/ui/views/layout/edge-to-edge)
+explains that Android 15+ enforces drawing behind system bars for apps targeting
+SDK 35+. It calls for inset handling and visual overlap checks; the Play
+advisory alone does not establish a specific defect.
