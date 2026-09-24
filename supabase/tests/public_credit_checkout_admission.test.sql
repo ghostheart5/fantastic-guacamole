@@ -21,6 +21,9 @@ begin
   assert not has_function_privilege('authenticated',
     'public.register_verified_pending_credit_topup(uuid,text,text,text)', 'execute'),
     'app clients cannot bind pending Google tokens';
+  assert not has_function_privilege('authenticated',
+    'public.queue_unadmitted_credit_topup(uuid,text,text,text)', 'execute'),
+    'app clients cannot invent paid-order resolutions';
   assert not has_table_privilege('authenticated',
     'public.public_credit_checkout_resolutions', 'select'),
     'app clients cannot inspect paid-order resolution records';
@@ -117,12 +120,29 @@ begin
     a,repeat('d',64),'chronospark_credits_100','GPA.public-d',false,
     null,purchased_at);
   assert result->>'reason'='admission_missing', 'unadmitted sale accepted';
+  result := public.queue_unadmitted_credit_topup(
+    a,repeat('2',64),'chronospark_credits_100','GPA.missing');
+  assert (result->>'resolutionQueued')::boolean,
+    'verified paid order without admission was silently lost';
+  result := public.queue_unadmitted_credit_topup(
+    a,repeat('2',64),'chronospark_credits_100','GPA.missing');
+  assert (result->>'duplicate')::boolean,
+    'unadmitted paid-order retry created another resolution';
+  result := public.queue_unadmitted_credit_topup(
+    b,repeat('2',64),'chronospark_credits_100','GPA.missing');
+  assert result->>'reason'='resolution_proof_mismatch',
+    'other account reused an unfulfilled paid token';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('2',64),'chronospark_credits_100','GPA.missing',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required',
+    'later admission granted a queued unfulfilled order';
   result := public.grant_verified_credit_topup_v2(
     a,repeat('e',64),'chronospark_credits_100','GPA.test-e',true,
     null,null);
   assert (result->>'granted')::boolean, 'license-test grant requires public admission';
   assert (select count(*) from public.credit_topup_purchases where
-    token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64),repeat('f',64),repeat('1',64)))=3,
+    token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64),repeat('f',64),repeat('1',64),repeat('2',64)))=3,
     'failed or duplicate admissions changed purchased-credit ledger';
 end;
 $$;

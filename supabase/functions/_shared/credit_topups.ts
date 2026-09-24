@@ -153,10 +153,37 @@ export async function verifyCreditTopup(input: {
   if (
     !isLicenseTest &&
     (typeof purchase.obfuscatedExternalProfileId !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        purchase.obfuscatedExternalProfileId,
+      ) ||
       typeof purchase.purchaseTimeMillis !== "string" ||
-      !/^[0-9]{13}$/.test(purchase.purchaseTimeMillis))
+      !/^[0-9]{13}$/.test(purchase.purchaseTimeMillis) ||
+      Number(purchase.purchaseTimeMillis) < 1600000000000 ||
+      Number(purchase.purchaseTimeMillis) > 4102444800000)
   ) {
-    return { valid: false, error: "admission_missing" };
+    const queued = await serviceRpc(
+      input.config,
+      "queue_unadmitted_credit_topup",
+      {
+        p_user_id: input.userId,
+        p_token_hash: await sha256Hex(input.token),
+        p_product_id: input.productId,
+        p_order_id: purchase.orderId,
+      },
+      fetcher,
+    );
+    if (queued?.resolutionQueued === true) {
+      return {
+        valid: false,
+        error: "customer_resolution_required",
+        resolutionQueued: true,
+      };
+    }
+    return {
+      valid: false,
+      retryable: queued === null,
+      error: queued?.reason ?? "customer_resolution_retryable",
+    };
   }
   const grant = await serviceRpc(
     input.config,

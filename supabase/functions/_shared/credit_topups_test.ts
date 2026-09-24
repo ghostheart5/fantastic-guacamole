@@ -287,8 +287,8 @@ Deno.test("mock standard Play credit sale grants once and consumes only after ac
   assert(result.creditsGranted === 100 && result.consumed === true);
   assert(events.join(",") === "verify,grant,consume");
 });
-Deno.test("standard receipt without a Play-echoed admission never reaches wallet grant", async () => {
-  let calls = 0;
+Deno.test("standard paid receipt without admission is queued, never granted or consumed", async () => {
+  const events: string[] = [];
   const result = await verifyCreditTopup({
     config: {
       supabaseUrl: "https://backend.invalid",
@@ -301,8 +301,21 @@ Deno.test("standard receipt without a Play-echoed admission never reaches wallet
     token: "unadmitted-token",
     accessToken: "test-access",
     requireTest: false,
-  }, async () => {
-    calls++;
+  }, async (url, init) => {
+    if (String(url).endsWith("/queue_unadmitted_credit_topup")) {
+      events.push("queue");
+      const args = JSON.parse(String(init?.body));
+      assert(args.p_order_id === "GPA.unadmitted");
+      assert(args.p_token_hash === await sha256Hex("unadmitted-token"));
+      return Response.json({ resolutionQueued: true });
+    }
+    if (
+      String(url).endsWith(":consume") ||
+      String(url).endsWith("/grant_verified_credit_topup_v2")
+    ) {
+      throw new Error("unadmitted payment was delivered");
+    }
+    events.push("verify");
     return Response.json({
       purchaseState: 0,
       quantity: 1,
@@ -312,8 +325,12 @@ Deno.test("standard receipt without a Play-echoed admission never reaches wallet
       purchaseTimeMillis: "1780000000000",
     });
   });
-  assert(result.valid === false && result.error === "admission_missing");
-  assert(calls === 1);
+  assert(
+    result.valid === false &&
+      result.error === "customer_resolution_required" &&
+      result.resolutionQueued === true,
+  );
+  assert(events.join(",") === "verify,queue");
 });
 Deno.test("rejected public admission never consumes a paid Google receipt", async () => {
   const proof = {

@@ -31,7 +31,7 @@ create table public.public_credit_checkout_resolutions (
   product_id text not null check (product_id in ('chronospark_credits_100', 'chronospark_credits_300')),
   order_id text not null,
   admission_id uuid references public.public_credit_checkout_admissions(id),
-  reason text not null check (reason = 'admission_expired_unbound'),
+  reason text not null check (reason in ('admission_expired_unbound', 'admission_missing')),
   state text not null default 'awaiting_resolution'
     check (state in ('awaiting_resolution', 'refunded', 'fulfilled')),
   created_at timestamptz not null default now(),
@@ -105,6 +105,57 @@ $$;
 revoke all on function public.register_verified_pending_credit_topup(uuid,text,text,text)
   from public, anon, authenticated;
 grant execute on function public.register_verified_pending_credit_topup(uuid,text,text,text)
+  to service_role;
+
+-- The server calls this only after Google confirms PURCHASED, account owner,
+-- product, quantity, purchase type and order. An absent/malformed admission
+-- cannot grant credits, but the verified paid order must remain discoverable.
+create function public.queue_unadmitted_credit_topup(
+  p_user_id uuid, p_token_hash text, p_product_id text, p_order_id text
+) returns jsonb language plpgsql security invoker set search_path = '' as $$
+declare
+  v_principal uuid;
+  v_existing public.credit_topup_purchases;
+  v_resolution public.public_credit_checkout_resolutions;
+begin
+  if p_user_id is null or p_token_hash is null or
+    p_token_hash !~ '^[0-9a-f]{64}$' or
+    p_product_id not in ('chronospark_credits_100', 'chronospark_credits_300') or
+    nullif(btrim(p_order_id), '') is null or length(p_order_id) > 1024 then
+    return jsonb_build_object('resolutionQueued', false, 'reason', 'invalid_proof');
+  end if;
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('credit-topup:' || p_token_hash, 0));
+  v_principal := public.ensure_billing_principal(p_user_id);
+  select * into v_existing from public.credit_topup_purchases
+    where token_hash = p_token_hash for update;
+  if found then
+    return jsonb_build_object('resolutionQueued', false,
+      'reason', 'already_processed');
+  end if;
+  select * into v_resolution from public.public_credit_checkout_resolutions
+    where token_hash = p_token_hash for update;
+  if found then
+    if v_resolution.billing_principal_id is distinct from v_principal or
+      v_resolution.product_id <> p_product_id or
+      v_resolution.order_id <> p_order_id then
+      return jsonb_build_object('resolutionQueued', false,
+        'reason', 'resolution_proof_mismatch');
+    end if;
+    update public.public_credit_checkout_resolutions
+      set last_verified_at = now() where token_hash = p_token_hash;
+    return jsonb_build_object('resolutionQueued', true, 'duplicate', true);
+  end if;
+  insert into public.public_credit_checkout_resolutions
+    (token_hash, billing_principal_id, product_id, order_id, reason)
+    values (p_token_hash, v_principal, p_product_id, p_order_id,
+      'admission_missing');
+  return jsonb_build_object('resolutionQueued', true, 'duplicate', false);
+end;
+$$;
+revoke all on function public.queue_unadmitted_credit_topup(uuid,text,text,text)
+  from public, anon, authenticated;
+grant execute on function public.queue_unadmitted_credit_topup(uuid,text,text,text)
   to service_role;
 
 -- The existing four-argument grant remains for the currently deployed
