@@ -82,6 +82,34 @@ Deno.test("AI readiness GET reveals only aggregate cohort fingerprint and fails 
   ) throw new Error("preflight intercepted application request");
 });
 
+Deno.test("reviewed public audience reports ready without exposing an empty cohort", async () => {
+  const req = new Request("https://local.example/ai-proxy");
+  const ready = await internalAiPreflightResponse(
+    req,
+    new Set<string>(),
+    "ai-proxy-v2",
+    true,
+    true,
+  );
+  if (
+    ready?.status !== 405 ||
+    ready.headers.has("x-chronospark-internal-ai-cohort-sha256")
+  ) throw new Error("public readiness failed or exposed a cohort fingerprint");
+  await ready.body?.cancel();
+
+  const unconfigured = await internalAiPreflightResponse(
+    req,
+    new Set<string>(),
+    "ai-proxy-v2",
+    false,
+    true,
+  );
+  if (unconfigured?.status !== 503) {
+    throw new Error("public gate bypassed missing service configuration");
+  }
+  await unconfigured.body?.cancel();
+});
+
 Deno.test("empty, missing, duplicate, broad or malformed cohort configuration denies all", async () => {
   for (
     const value of [
