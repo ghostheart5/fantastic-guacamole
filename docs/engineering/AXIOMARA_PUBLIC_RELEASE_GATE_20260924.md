@@ -61,10 +61,11 @@ explains that Android 15+ enforces drawing behind system bars for apps targeting
 SDK 35+. It calls for inset handling and visual overlap checks; the Play
 advisory alone does not establish a specific defect.
 
-## Isolated Android 16 visual check — September 24
+## Isolated Android 15 and 16 visual check — September 24
 
-The new `axiomara_edge_qa_36` AVD on `emulator-5580` ran Android 16/API 36.
-The current-main app code was built as debug QA version `4.1.0+2026083084`
+The new `axiomara_edge_qa_36` AVD on `emulator-5580` ran Android 16/API 36,
+and `axiomara_edge_qa_35` on `emulator-5582` ran Android 15/API 35. The
+current-main app code was built once as debug QA version `4.1.0+2026083084`
 (APK SHA-256 `66fa45284d595af83e28ae0f38cef3cbf9ad7e2321310dda0279a83d151aff18`,
 Android Debug certificate, installer null). A synthetic QA sign-in reached the
 Nexus. Visual captures at 100% and 150% text with gesture navigation show the
@@ -72,12 +73,15 @@ Nexus, Planner, SI, and Settings controls clear of the system status and gesture
 areas. At 150% text, the Planner input and Get Guidance button remained
 reachable; the SI composer remained above the gesture area. The Nexus bottom
 navigation was also clear of Android's three-button controls at 150% text.
-Screenshots, hashes, device identity, and limitations are recorded in
-`C:\jtmp\axiomara-edge-qa-20260924\validation-result.json`.
+On Android 15 at 150% text, the sampled Nexus navigation, Planner input and
+Get Guidance button, and SI composer were also clear of gesture and status
+bars. Screenshots, hashes, device identity, and limitations are recorded in
+`C:\jtmp\axiomara-edge-qa-20260924\validation-result.json` and
+`C:\jtmp\axiomara-edge-qa-20260924\android15-validation-result.json`.
 
 This narrows the Play advisory to an unproven risk on the sampled QA surfaces;
 it does not close the release gate. The check did not exercise a Play-signed
-build, public paywall, paid AI, Android 15 visual matrix, or every display
+build, public paywall, paid AI, complete Android 15 visual matrix, or every display
 cutout and route. A Maestro assertion using an exact standalone Planner heading
 failed because that heading was part of a longer accessibility label; the
 captured screen shows the heading, so this is a selector issue rather than a
