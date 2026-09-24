@@ -68,6 +68,9 @@ const publicCreditTopupPolicy = parsePublicCreditTopupPolicy(Deno.env.get);
 const internalBillingCohort = parseInternalAiCohort(
   Deno.env.get("CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"),
 );
+const internalBillingCohortFingerprint = internalBillingCohort.size > 0
+  ? await sha256Hex([...internalBillingCohort].sort().join(","))
+  : null;
 
 interface VerifyRequest {
   operation?: string;
@@ -120,6 +123,12 @@ function cors(req: Request): Record<string, string> {
       publicCreditSaleEnabled(publicCreditTopupPolicy)
         ? "enabled-v1"
         : "disabled-v1",
+    ...(internalBillingCohortFingerprint
+      ? {
+        "X-ChronoSpark-Internal-Billing-Cohort-SHA256":
+          internalBillingCohortFingerprint,
+      }
+      : {}),
     ...(googleCredentialFingerprint
       ? {
         "X-ChronoSpark-Google-Credential-SHA256": googleCredentialFingerprint,

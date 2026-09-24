@@ -1,6 +1,38 @@
 part of 'google_play_paywall_repository.dart';
 
 extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
+  Future<void> _retryPendingCreditRegistrationFromPlay(
+    String productId,
+    String? expectedUserId,
+  ) async {
+    final String? fingerprint = _billingAccountFingerprint(expectedUserId);
+    if (_requireTestPurchase ||
+        !_hasReceiptVerification ||
+        fingerprint == null ||
+        !_isCurrentBillingAccount(expectedUserId)) {
+      return;
+    }
+    // Play's pending purchase inventory survives an app restart; no raw token
+    // is written to local storage. A missing or failed inventory read leaves
+    // the owner guard in place, so another checkout cannot be started.
+    final List<PurchaseDetails> purchases = await _billingClient
+        .restorePurchases(applicationUserName: fingerprint);
+    if (!_isCurrentBillingAccount(expectedUserId)) return;
+    for (final PurchaseDetails purchase in purchases) {
+      if (purchase.productID != productId) continue;
+      if (purchase.status == PurchaseStatus.pending) {
+        await _registerPendingCreditTopupWithServer(
+          purchase,
+          expectedUserId: expectedUserId,
+        );
+      } else if (purchase.status == PurchaseStatus.purchased ||
+          purchase.status == PurchaseStatus.restored ||
+          purchase.status == PurchaseStatus.canceled) {
+        await _enqueuePurchaseUpdate(<PurchaseDetails>[purchase]);
+      }
+    }
+  }
+
   Future<String> _requirePublicCreditCheckoutAllowed(
     String? expectedUserId,
     String productId,

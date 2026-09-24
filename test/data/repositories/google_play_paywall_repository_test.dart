@@ -369,6 +369,108 @@ void main() {
   );
 
   test(
+    'failed pending credit registration replays from Play without a second checkout',
+    () async {
+      final controller = StreamController<List<PurchaseDetails>>.broadcast();
+      final client = await _authorityClient(
+        (request) async => http.Response(
+          '[]',
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      );
+      final store = SecureStore(backend: InMemorySecureStoreBackend());
+      final pendingPurchase = PurchaseDetails(
+        purchaseID: 'pending-replay',
+        productID: 'chronospark_credits_100',
+        verificationData: PurchaseVerificationData(
+          localVerificationData: '',
+          serverVerificationData: 'pending-replay-token',
+          source: 'google_play',
+        ),
+        transactionDate: '1',
+        status: PurchaseStatus.pending,
+      );
+      final billing = _FakeBillingClient(
+        purchaseStreamController: controller,
+        productResponse: ProductDetailsResponse(
+          productDetails: [
+            ProductDetails(
+              id: 'chronospark_credits_100',
+              title: '100 credits',
+              description: 'One-time pack',
+              price: r'$2.99',
+              rawPrice: 2.99,
+              currencyCode: 'USD',
+            ),
+          ],
+          notFoundIDs: const [],
+        ),
+        restoredPurchases: [pendingPurchase],
+        onBuyNonConsumable: (_) async {
+          controller.add([pendingPurchase]);
+          return true;
+        },
+      );
+      var registrations = 0;
+      final httpClient = MockClient((request) async {
+        final body = jsonDecode(request.body) as Map;
+        if (body['operation'] == 'credit_sale_eligibility') {
+          return http.Response(
+            jsonEncode({
+              'valid': true,
+              'checkoutAllowed': true,
+              'admissionId': '123e4567-e89b-12d3-a456-426614174000',
+            }),
+            200,
+          );
+        }
+        expect(body['operation'], 'credit_register_pending');
+        expect(body['purchaseToken'], 'pending-replay-token');
+        registrations++;
+        return registrations < 3
+            ? http.Response('{}', 503)
+            : http.Response(
+                jsonEncode({'valid': true, 'pendingRegistered': true}),
+                200,
+              );
+      });
+      GooglePlayPaywallRepository createRepository() =>
+          GooglePlayPaywallRepository(
+            billingClient: billing,
+            paywallTestingModeOverride: false,
+            requireTestPurchase: false,
+            supabaseClient: client,
+            secureStore: store,
+            receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+            httpClient: httpClient,
+          );
+      final first = createRepository();
+      expect(
+        (await first.startSubscription('credits_100')).status,
+        'purchase_pending',
+      );
+      expect(
+        (await first.startSubscription('credits_100')).status,
+        'purchase_pending',
+      );
+      expect(registrations, 2);
+      expect(billing.restoreCalls, 1);
+      expect(billing.buyCalls, 1);
+      await first.disposeAsync();
+      final reopened = createRepository();
+      await reopened.refreshSubscriptionState(force: true);
+      expect(registrations, 3);
+      expect(billing.restoreCalls, 2);
+      expect(billing.buyCalls, 1);
+      expect(billing.completePurchaseCalls, 0);
+      await reopened.disposeAsync();
+      await controller.close();
+      await client.dispose();
+    },
+  );
+
+  test(
     'unfulfilled public credit payment shows resolution, never credits',
     () async {
       final controller = StreamController<List<PurchaseDetails>>.broadcast();

@@ -1,6 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { googleCredentialFingerprint, verifyCatalog, verifyCreditPackCatalog, verifyInternalBillingBackend, verifyRtdnTestDelivery } from './verify_internal_billing_backend.mjs';
+import { googleCredentialFingerprint, internalBillingCohortFingerprint, verifyCatalog, verifyCreditPackCatalog, verifyInternalBillingBackend, verifyRtdnTestDelivery } from './verify_internal_billing_backend.mjs';
+
+const billingDigest = 'a'.repeat(64);
+
+test('billing cohort fingerprint is order-independent and rejects unsafe inputs', () => {
+  assert.equal(internalBillingCohortFingerprint(`${billingDigest},${'b'.repeat(64)}`),
+    internalBillingCohortFingerprint(`${'b'.repeat(64)},${billingDigest}`));
+  for (const bad of ['', 'A'.repeat(64), `${billingDigest},${billingDigest}`, 'not-a-digest']) {
+    assert.throws(() => internalBillingCohortFingerprint(bad));
+  }
+});
 
 function catalog() {
   const products = [['monthly', 'P1M', '7'], ['annual', 'P1Y', '69']].map(([base, period, units]) => ({
@@ -126,13 +136,36 @@ test('billing preflight cannot succeed without the deployed repair gate even wit
     CHRONOSPARK_SUPABASE_URL: `https://${'a'.repeat(20)}.supabase.co`,
     CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT: `https://${'a'.repeat(20)}.supabase.co/functions/v1/verify-receipt`,
     SUPABASE_SECRET_KEY: 'synthetic',
+    CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS: billingDigest,
   }, async () => {
     calls++;
     return new Response('', { status: 405, headers: {
       'x-chronospark-contract': 'verify-receipt-v2', 'x-chronospark-public-credit-checkout': 'disabled-v1',
+      'x-chronospark-internal-billing-cohort-sha256': internalBillingCohortFingerprint(billingDigest),
     } });
   }), /Missing SUPABASE_ACCESS_TOKEN/);
   assert.equal(calls, 1);
+});
+
+test('candidate preflight rejects a missing or mismatched deployed billing cohort before credentials', async () => {
+  for (const hosted of [undefined, '0'.repeat(64)]) {
+    let calls = 0;
+    await assert.rejects(verifyInternalBillingBackend({
+      SUPABASE_PROJECT_REF: 'a'.repeat(20),
+      CHRONOSPARK_SUPABASE_URL: `https://${'a'.repeat(20)}.supabase.co`,
+      CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT: `https://${'a'.repeat(20)}.supabase.co/functions/v1/verify-receipt`,
+      SUPABASE_SECRET_KEY: 'synthetic',
+      CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS: billingDigest,
+    }, async () => {
+      calls++;
+      return new Response('', { status: 405, headers: {
+        'x-chronospark-contract': 'verify-receipt-v2',
+        'x-chronospark-public-credit-checkout': 'disabled-v1',
+        ...(hosted ? { 'x-chronospark-internal-billing-cohort-sha256': hosted } : {}),
+      } });
+    }), /billing cohort does not match/);
+    assert.equal(calls, 1);
+  }
 });
 
 test('RTDN gate requires a recent processed test for the exact app', () => {

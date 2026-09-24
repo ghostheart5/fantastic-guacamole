@@ -253,6 +253,7 @@ class GooglePlayPaywallRepository
       <String, _PendingPurchase>{};
   final Set<String> _approvalPending = <String>{};
   final Map<String, String> _pendingOwnerFingerprints = <String, String>{};
+  final Map<String, DateTime> _creditRegistrationRetryAt = <String, DateTime>{};
   _PendingRestore? _pendingRestore;
 
   static final Map<String, Future<void>> _persistenceQueues =
@@ -487,6 +488,15 @@ class GooglePlayPaywallRepository
     );
     if (pendingOwner != null) {
       if (pendingOwner == expectedFingerprint) {
+        if (planId.startsWith('credits_') && !_requireTestPurchase) {
+          // Google's pending inventory is the durable retry source. A failed
+          // registration must not turn this owner guard into a no-op.
+          try {
+            await _retryPendingCreditRegistrationFromPlay(gpId, expectedUserId);
+          } on Object {
+            // Keep the existing owner guard; never start a second checkout.
+          }
+        }
         return _purchasePendingState(planId);
       }
       throw StateError(
@@ -494,6 +504,13 @@ class GooglePlayPaywallRepository
       );
     }
     if (_approvalPending.contains(operationKey)) {
+      if (planId.startsWith('credits_') && !_requireTestPurchase) {
+        try {
+          await _retryPendingCreditRegistrationFromPlay(gpId, expectedUserId);
+        } on Object {
+          // Keep the in-memory guard; never start a second checkout.
+        }
+      }
       return _purchasePendingState(planId);
     }
     final Future<SubscriptionState>? inFlight = _purchaseStarts[operationKey];
@@ -745,6 +762,29 @@ class GooglePlayPaywallRepository
     final String? userId = client?.auth.currentUser?.id;
     if (client == null || userId == null) {
       return _effectiveStateForCurrentUser;
+    }
+    final String? billingFingerprint = _billingAccountFingerprint(userId);
+    if (!_requireTestPurchase && billingFingerprint != null) {
+      final DateTime retryNow = DateTime.now().toUtc();
+      for (final String productId in _kProductIds.values.where(
+        (String id) => id.startsWith('chronospark_credits_'),
+      )) {
+        if (await _pendingOwnerFingerprint(productId) != billingFingerprint) {
+          continue;
+        }
+        final String operation = _purchaseOperationKey(productId, userId);
+        final DateTime? lastRetry = _creditRegistrationRetryAt[operation];
+        if (lastRetry != null &&
+            retryNow.difference(lastRetry) < const Duration(seconds: 30)) {
+          continue;
+        }
+        _creditRegistrationRetryAt[operation] = retryNow;
+        try {
+          await _retryPendingCreditRegistrationFromPlay(productId, userId);
+        } on Object {
+          // Preserve the durable owner guard and retry on the next refresh.
+        }
+      }
     }
     if (_authorityRequestUserId != userId) {
       _authorityRequestUserId = userId;

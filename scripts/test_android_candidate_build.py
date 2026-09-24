@@ -43,12 +43,16 @@ class InternalPolicyTests(unittest.TestCase):
             "deletionCapabilityGateway": True,
             "migrationVersion": "20260909065846",
         }
-        receipt = {"verified": True, "licenseTestGuard": "v1", "backendRepairGate": repair}
+        receipt = {"verified": True, "licenseTestGuard": "v1",
+                   "internalBillingCohortMatched": True, "backendRepairGate": repair}
         validate_billing_preflight(receipt)
         for invalid in ({}, {"verified": True, "licenseTestGuard": "v1"},
                         {**receipt, "verified": False}, {**receipt, "backendRepairGate": []}):
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 validate_billing_preflight(invalid)
+        for wrong in (None, False, "true", 0):
+            with self.subTest(cohort=wrong), self.assertRaises(ValueError):
+                validate_billing_preflight({**receipt, "internalBillingCohortMatched": wrong})
         for key in repair:
             for wrong in (None, False, "true", 0):
                 with self.subTest(key=key, wrong=wrong), self.assertRaises(ValueError):
@@ -185,6 +189,7 @@ class InternalPolicyTests(unittest.TestCase):
             observed = []
             billing_receipt = {
                 "verified": True, "licenseTestGuard": "v1",
+                "internalBillingCohortMatched": True,
                 "backendRepairGate": {
                     "schemaVersion": 1, "internalAiCohortMatched": True,
                     "obsoleteDebitDenied": True, "canonicalCreditAuthorityIntact": True,

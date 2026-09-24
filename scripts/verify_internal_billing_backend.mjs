@@ -25,6 +25,15 @@ export function googleCredentialFingerprint(account) {
   return createHash('sha256').update(JSON.stringify([account.client_email, key])).digest('hex');
 }
 
+export function internalBillingCohortFingerprint(raw) {
+  require(typeof raw === 'string' && !!raw, 'Missing internal billing cohort');
+  const digests = raw.split(',');
+  require(digests.length <= 100 && new Set(digests).size === digests.length &&
+    digests.every((digest) => /^[a-f0-9]{64}$/.test(digest)),
+  'Invalid internal billing cohort');
+  return createHash('sha256').update(digests.sort().join(',')).digest('hex');
+}
+
 export function verifyCatalog(products, databasePlans) {
   require(Array.isArray(products) && products.length === 2, 'Expected exactly two Play subscriptions');
   require(Array.isArray(databasePlans) && databasePlans.length === 2, 'Expected two backend subscription plans');
@@ -124,6 +133,9 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
   require(guard.status === 405 && guard.headers.get('x-chronospark-contract') === 'verify-receipt-v2' &&
     guard.headers.get('x-chronospark-public-credit-checkout') === 'disabled-v1',
   'Deployed receipt verifier does not keep public credit checkout closed');
+  const billingCohortFingerprint = internalBillingCohortFingerprint(setting('CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS'));
+  require(guard.headers.get('x-chronospark-internal-billing-cohort-sha256') === billingCohortFingerprint,
+    'Deployed receipt verifier billing cohort does not match the candidate');
 
   let backendRepairGate;
   try {
@@ -188,9 +200,12 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
   });
   await unauthenticated.body?.cancel();
   require(unauthenticated.status === 401, 'RTDN endpoint must reject unauthenticated delivery');
+  require(unauthenticated.headers.get('x-chronospark-internal-billing-cohort-sha256') === billingCohortFingerprint,
+    'Deployed RTDN billing cohort does not match the candidate');
   const events = await json(`${root}/rest/v1/google_play_rtdn_events?package_name=eq.${PACKAGE}&event_type=eq.test&order=received_at.desc&limit=1&select=package_name,event_type,state,failure_code,received_at,processed_at`, { headers });
   const testDelivery = verifyRtdnTestDelivery(events);
-  return { verified: true, project, packageName: PACKAGE, licenseTestGuard: 'v1', backendRepairGate,
+  return { verified: true, project, packageName: PACKAGE, licenseTestGuard: 'v1',
+    internalBillingCohortMatched: true, internalBillingCohortFingerprint: billingCohortFingerprint, backendRepairGate,
     catalog: PLANS.map(({ product, base, period, micros }) => ({ product, base, period, currency: 'USD', priceMicros: micros })),
     creditPacks: CREDIT_PACKS.map(({product, credits, micros}) => ({product, credits, currency: 'USD', priceMicros: micros})),
     serviceAccountIdentitySha256,

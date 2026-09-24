@@ -48,7 +48,9 @@ def require(condition, message):
 
 def validate_billing_preflight(receipt):
     require(type(receipt) is dict and receipt.get("verified") is True and
-            receipt.get("licenseTestGuard") == "v1", "Live billing preflight failed")
+            receipt.get("licenseTestGuard") == "v1" and
+            receipt.get("internalBillingCohortMatched") is True,
+            "Live billing preflight failed")
     repair = receipt.get("backendRepairGate")
     expected = {
         "schemaVersion": 1,

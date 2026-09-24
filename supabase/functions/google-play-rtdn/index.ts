@@ -41,6 +41,9 @@ const ANDROID_PACKAGE_NAME = Deno.env.get("ANDROID_PACKAGE_NAME") ??
 const internalBillingCohort = parseInternalAiCohort(
   Deno.env.get("CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"),
 );
+const internalBillingCohortFingerprint = internalBillingCohort.size > 0
+  ? await sha256Hex([...internalBillingCohort].sort().join(","))
+  : null;
 const RTDN_AUDIENCE = Deno.env.get("RTDN_AUDIENCE") ?? "";
 const RTDN_SERVICE_ACCOUNT_EMAIL = Deno.env.get("RTDN_SERVICE_ACCOUNT_EMAIL") ??
   "";
@@ -447,7 +450,15 @@ Deno.serve(async (req: Request) => {
       RTDN_SERVICE_ACCOUNT_EMAIL,
     )
   ) {
-    return new Response("Unauthorized", { status: 401 });
+    return new Response("Unauthorized", {
+      status: 401,
+      headers: internalBillingCohortFingerprint
+        ? {
+          "X-ChronoSpark-Internal-Billing-Cohort-SHA256":
+            internalBillingCohortFingerprint,
+        }
+        : {},
+    });
   }
   let messageId = "";
   let eventClaimed = false;
