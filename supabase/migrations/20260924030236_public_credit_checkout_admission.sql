@@ -1,12 +1,13 @@
 -- A public credit checkout is admitted by the authenticated server before
 -- Google Play opens. Play echoes the opaque ID in the signed purchase proof.
--- The admission is one-use and survives a rollout closure for RTDN recovery.
+-- The admission is one-use and survives a rollout closure or a delayed
+-- payment. Google may report a pending payment as purchased well after the
+-- checkout began; expiry based on purchase completion would strand a charge.
 create table public.public_credit_checkout_admissions (
   id uuid primary key default gen_random_uuid(),
   billing_principal_id uuid not null references public.billing_principals(billing_principal_id),
   product_id text not null check (product_id in ('chronospark_credits_100', 'chronospark_credits_300')),
   issued_at timestamptz not null default now(),
-  purchase_deadline timestamptz not null default (now() + interval '30 minutes'),
   consumed_token_hash text unique check (consumed_token_hash ~ '^[0-9a-f]{64}$'),
   consumed_at timestamptz,
   check ((consumed_token_hash is null) = (consumed_at is null))
@@ -88,8 +89,7 @@ begin
       where id = p_admission_id::uuid and billing_principal_id = v_principal
         and product_id = p_product_id for update;
     if not found or v_admission.consumed_token_hash is not null
-      or v_purchase_at < v_admission.issued_at - interval '1 minute'
-      or v_purchase_at > v_admission.purchase_deadline then
+      or v_purchase_at < v_admission.issued_at - interval '1 minute' then
       return jsonb_build_object('granted', false, 'reason', 'admission_invalid');
     end if;
     update public.public_credit_checkout_admissions

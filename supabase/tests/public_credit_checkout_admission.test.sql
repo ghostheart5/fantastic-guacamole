@@ -44,12 +44,20 @@ begin
   admission := public.create_public_credit_checkout_admission(a,'chronospark_credits_100');
   admission_id := admission->>'admissionId';
   update public.public_credit_checkout_admissions
-    set purchase_deadline=now()-interval '1 minute'
+    set issued_at=now()+interval '1 day'
     where id=admission_id::uuid;
   result := public.grant_verified_credit_topup_v2(
     a,repeat('c',64),'chronospark_credits_100','GPA.public-c',false,
     admission_id,purchased_at);
-  assert result->>'reason'='admission_invalid', 'expired admission accepted';
+  assert result->>'reason'='admission_invalid', 'pre-admission purchase accepted';
+  update public.public_credit_checkout_admissions
+    set issued_at=now()-interval '3 days'
+    where id=admission_id::uuid;
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('c',64),'chronospark_credits_100','GPA.public-c',false,
+    admission_id,purchased_at);
+  assert (result->>'granted')::boolean,
+    'delayed payment after checkout admission was not granted';
   result := public.grant_verified_credit_topup_v2(
     a,repeat('d',64),'chronospark_credits_100','GPA.public-d',false,
     null,purchased_at);
@@ -59,10 +67,10 @@ begin
     null,null);
   assert (result->>'granted')::boolean, 'license-test grant requires public admission';
   assert (select count(*) from public.credit_topup_purchases where
-    token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64)))=2,
+    token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64)))=3,
     'failed or duplicate admissions changed purchased-credit ledger';
 end;
 $$;
-select pass('public checkout admission binds user, product, time, and one receipt');
+select pass('public checkout admission binds user, product, initiation, and one receipt while honoring delayed payment');
 select * from finish();
 rollback;
