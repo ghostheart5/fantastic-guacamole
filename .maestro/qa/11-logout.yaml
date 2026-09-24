@@ -24,6 +24,7 @@ tags: [qa, auth]
     text: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
     enabled: true
 - tapOn: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
+- runFlow: ../subflows/skip-onboarding.yaml
 - extendedWaitUntil:
     visible: "(?:CONTINUE TO LOGIN|ENTER SYSTEM|TESTER ACCESS.*TEST LOGIN)"
     timeout: 20000
