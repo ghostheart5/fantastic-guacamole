@@ -10,14 +10,31 @@ project gates below; no production release has been created or submitted.
 
 ## Exact artifact boundary
 
-- The latest app-code checkpoint is `729b3a64393401b4a8ea1b669e024a15a7e90694`,
-  version `4.1.0+2026083084`. Main later advanced to
-  `dd9da0a3ace97f01a2e1ab0b6e2d91c422e0870d` for this documentation and
-  visual evidence only; that merge did not enable public features. Android 15 hosted
-  QA run [35943294605](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/35943294605)
+- The latest merged app-code checkpoint is
+  `baf802d08b4e6472820e1c229c554d90fdbc12ea`, version
+  `4.1.0+2026083084`. This document update will have its own later commit;
+  the checks below attest the app-code checkpoint, not that later documentation
+  commit. Reviewed PR 133 added bounded push-device registration and a client
+  check for declined registrations without enabling public features.
+  Exact-main [CI/CD run 36071219646](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/36071219646)
+  passed 3,396 Flutter tests and 15 QA configuration tests with zero failures
+  or skips, plus static policy, Linux integration and Windows golden checks.
+  [CodeQL run 36071219085](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/36071219085)
+  and [database gate 36071219667](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/36071219667)
+  passed. Exact-main [Maestro Runtime Gate 36071219710](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/36071219710)
+  passed on a clean Android 15 guest: five selected Planner, Creator, SI,
+  Timeline and Progression journeys, five JUnit cases, zero failures, errors or
+  skips, no fatal log markers, and the app alive throughout. Its installed QA
+  debug APK SHA-256 was
+  `17dbc48b5baea12b3930502745eee774bb45ffea127987269f47390e1a81576c`;
+  this is not Play-signed or enabled public-feature evidence. Earlier Android 15
+  hosted QA run
+  [35943294605](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/35943294605)
   passed 11/11 journeys on earlier QA source `ef85eeaf5e9ea64990afb3322ee3190cff6da426`;
   it used a debug QA APK, not a Play-signed public build. There is no signed
-  full-feature AAB from current main.
+  full-feature AAB from this app-code checkpoint. The small machine-readable
+  [exact-main receipts](evidence/axiomara_main_baf802_20260924/README.md)
+  are retained with their SHA-256 hashes for reviewer access.
 - The most recent signed contained candidate was version 2026083083 from
   `36ec3dda6120af0c39142c6106e1f73b6159e305`, candidate run
   [35932394334](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/35932394334),
@@ -41,6 +58,17 @@ project gates below; no production release has been created or submitted.
 | Store and policy parity | Play App content showed no outstanding declaration task for the current closed-test app; the saved Health declaration says no health features. EN/ES descriptions still restrict AI to eligible private testers. The public YouTube promo depicts credit-backed AI. | Qualified Health/Data safety classification for the enabled behavior; saved EN-US, ES-419, ES-US listing and video claims checked against the exact final build; owner-side YouTube monetization and final media parity readback. |
 | Android layout and journeys | Play Test and release shows an “Edge-to-edge may not display for all users” advisory for closed release 3081. The September 24 isolated Android 16 QA check below found no system-bar overlap on sampled screens, but it used a debug build with mock login and disabled paywall. | Inspect system-bar and cutout overlap on Android 15 and 16, gesture and three-button navigation, normal and 150% text scale, login, Planner, SI, paywall, and critical bottom controls on the exact signed candidate. Record screenshot/device identity and fix any reproduced overlap. |
 | Operations | The historical register in `EXTERNAL_GATES.md` contains open recovery, monitoring, billing lifecycle, and first-time UAT rows. | Current dated deployment parity, reconciliation/alerting, backup restore drill, support and rollback owners, signed test matrix, and dispositioned critical findings. |
+
+At 23:22 UTC on September 24, a read-only inspection of the linked Supabase
+project found PR 133 migration `20260924223558_bound_firebase_device_registration`
+already applied. All 55 recorded migration names matched the 55 tracked source
+names. The live RPC contains the new cap and cross-account token rules, grants
+execution only to `authenticated`, and its registration table had zero rows.
+The prior closed-test 3081 client ignores the RPC's zero result and may log a
+declined push registration as synced, although the path is nonfatal; the new
+source checks the result. This inspection did not invoke the live RPC and does
+not prove who applied the migration, exercised push delivery, or complete
+deployment and operations parity. Do not apply the migration again.
 
 ## Evidence rules for the next stage
 

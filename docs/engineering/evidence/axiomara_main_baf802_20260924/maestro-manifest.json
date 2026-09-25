@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "suite": "qa-smoke",
+  "buildProfile": "qa",
+  "git": {
+    "commit": "baf802d08b4e6472820e1c229c554d90fdbc12ea",
+    "branch": "",
+    "dirty": false,
+    "dirtyEntryCount": 0
+  },
+  "apk": {
+    "path": "/home/runner/work/fantastic-guacamole/fantastic-guacamole/build/app/outputs/flutter-apk/app-debug.apk",
+    "sha256": "17DBC48B5BAEA12B3930502745EEE774BB45FFEA127987269F47390E1A81576C",
+    "builtFromCheckout": true,
+    "externalHashVerified": false
+  },
+  "installedPackage": {
+    "name": "com.ghostheart5.chronospark",
+    "paths": [
+      "package:/data/app/~~LchN5Ddaemu8WRv264ZPXA==/com.ghostheart5.chronospark-sYx5mI-4OBqJDUGh0fgIAQ==/base.apk"
+    ],
+    "versionName": "4.1.0",
+    "versionCode": "versionCode=2026083084 minSdk=24 targetSdk=36"
+  },
+  "device": {
+    "serial": "emulator-5554",
+    "model": "sdk_gphone64_x86_64",
+    "androidVersion": "15",
+    "api": "35"
+  },
+  "flows": [
+    "04-smart-planner.yaml",
+    "05-creator.yaml",
+    "06-si-console.yaml",
+    "07-timeline.yaml",
+    "08-progression.yaml"
+  ],
+  "executionOrder": null,
+  "destructive": false,
+  "startedAt": "2026-09-24T23:27:45.8780675Z",
+  "finishedAt": "2026-09-24T23:45:26.7624782Z",
+  "durationSeconds": 1060.884,
+  "maestroExitCode": 0,
+  "maestro": {
+    "status": "passed",
+    "exitCode": 0,
+    "timedOut": false,
+    "executionTimeoutSeconds": 1800
+  },
+  "junit": {
+    "terminalParsed": true,
+    "status": "passed",
+    "testCases": 5,
+    "failures": 0.0,
+    "errors": 0.0,
+    "skipped": 0.0,
+    "expectedTestCases": 5,
+    "testCaseCountMatchesFlows": true,
+    "failureReason": null
+  },
+  "logcatCapture": {
+    "status": "passed",
+    "aliveThroughRun": true,
+    "exitCodeAfterTermination": 137,
+    "outputBytes": 7491406,
+    "stderrBytes": 0,
+    "clearLog": "/home/runner/work/fantastic-guacamole/fantastic-guacamole/artifacts/maestro-ci/20260924-232631-baf802d0-qa-smoke/adb-logcat-clear.log"
+  },
+  "fatalMarkerCount": 0,
+  "rawLogcatRetained": false,
+  "credentialsRecorded": false,
+  "artifacts": {
+    "junit": "/home/runner/work/fantastic-guacamole/fantastic-guacamole/artifacts/maestro-ci/20260924-232631-baf802d0-qa-smoke/maestro-results.xml",
+    "maestroConsole": "/home/runner/work/fantastic-guacamole/fantastic-guacamole/artifacts/maestro-ci/20260924-232631-baf802d0-qa-smoke/maestro-console.log",
+    "maestroDebug": "/home/runner/work/fantastic-guacamole/fantastic-guacamole/artifacts/maestro-ci/20260924-232631-baf802d0-qa-smoke/maestro-debug",
+    "maestroArtifacts": "/home/runner/work/fantastic-guacamole/fantastic-guacamole/artifacts/maestro-ci/20260924-232631-baf802d0-qa-smoke/maestro-artifacts",
+    "sanitizedLogcat": "/home/runner/work/fantastic-guacamole/fantastic-guacamole/artifacts/maestro-ci/20260924-232631-baf802d0-qa-smoke/adb-logcat-sanitized.log",
+    "logcatScan": "/home/runner/work/fantastic-guacamole/fantastic-guacamole/artifacts/maestro-ci/20260924-232631-baf802d0-qa-smoke/adb-logcat-scan.txt",
+    "buildLog": "/home/runner/work/fantastic-guacamole/fantastic-guacamole/artifacts/maestro-ci/20260924-232631-baf802d0-qa-smoke/flutter-build.log",
+    "installLog": "/home/runner/work/fantastic-guacamole/fantastic-guacamole/artifacts/maestro-ci/20260924-232631-baf802d0-qa-smoke/adb-install.log"
+  }
+}
