@@ -156,6 +156,8 @@ export async function verifyCreditTopup(input: {
   token: string;
   accessToken: string;
   requireTest: boolean;
+  // Server-owned admission QA must not fall back to the legacy test exemption.
+  requireAdmission?: boolean;
 }, fetcher: Fetcher = fetch): Promise<Record<string, unknown>> {
   if (!CREDIT_TOPUPS.has(input.productId)) {
     return { valid: false, error: "unsupported_product" };
@@ -216,11 +218,12 @@ export async function verifyCreditTopup(input: {
   // The internal license-test flow does not attach an admission profile.
   // An authenticated server-owned cohort gates requireTest at the HTTP edge;
   // other public-client tests are never exempt when Play omits their profile.
+  // Admission QA is explicit so a dropped profile cannot grant an exemption.
   // A profile on a test receipt also forces the public admission path.
-  const requiresAdmission = !isLicenseTest || !input.requireTest ||
+  const requiresAdmission = input.requireAdmission === true ||
+    !isLicenseTest || !input.requireTest ||
     purchase.obfuscatedExternalProfileId !== undefined;
-  if (
-    requiresAdmission &&
+  const missingAdmissionProof = requiresAdmission &&
     (typeof purchase.obfuscatedExternalProfileId !== "string" ||
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
         purchase.obfuscatedExternalProfileId,
@@ -228,8 +231,34 @@ export async function verifyCreditTopup(input: {
       typeof purchase.purchaseTimeMillis !== "string" ||
       !/^[0-9]{13}$/.test(purchase.purchaseTimeMillis) ||
       Number(purchase.purchaseTimeMillis) < 1600000000000 ||
-      Number(purchase.purchaseTimeMillis) > 4102444800000)
-  ) {
+      Number(purchase.purchaseTimeMillis) > 4102444800000);
+  let priorGrant: Record<string, unknown> | null = null;
+  if (missingAdmissionProof && input.requireAdmission === true) {
+    // The QA switch must not strand an already granted legacy test receipt.
+    // With exemption false and no admission, this RPC can only return an
+    // existing grant; a new token cannot grant credits through this call.
+    priorGrant = await serviceRpc(
+      input.config,
+      "grant_verified_credit_topup_v2",
+      {
+        p_user_id: input.userId,
+        p_token_hash: await sha256Hex(input.token),
+        p_product_id: input.productId,
+        p_order_id: verifiedOrderId,
+        p_admission_exempt: false,
+        p_admission_id: null,
+        p_purchase_time_ms: null,
+      },
+      fetcher,
+    );
+    if (priorGrant === null) {
+      return { valid: false, retryable: true, error: "grant_retryable" };
+    }
+    if (priorGrant.granted !== true || priorGrant.duplicate !== true) {
+      priorGrant = null;
+    }
+  }
+  if (missingAdmissionProof && priorGrant === null) {
     return await queueVerifiedUnfulfilledCreditTopup(
       input.config,
       input.userId,
@@ -239,7 +268,7 @@ export async function verifyCreditTopup(input: {
       fetcher,
     );
   }
-  const grant = await serviceRpc(
+  const grant = priorGrant ?? await serviceRpc(
     input.config,
     "grant_verified_credit_topup_v2",
     {
@@ -308,7 +337,7 @@ export async function verifyCreditTopup(input: {
     valid: true,
     consumed: true,
     testPurchase: purchase.purchaseType === 0,
-    publicAdmissionVerified: requiresAdmission,
+    publicAdmissionVerified: requiresAdmission && !missingAdmissionProof,
     productId: input.productId,
     creditsGranted: CREDIT_TOPUPS.get(input.productId),
     duplicate: grant.duplicate === true,

@@ -122,6 +122,9 @@ class PrepaidTestBillingClient implements BillingClient {
         product: product.id,
         offerToken: offerToken,
         accountId: purchaseParam.applicationUserName,
+        obfuscatedProfileId: purchaseParam is GooglePlayPurchaseParam
+            ? purchaseParam.obfuscatedProfileId
+            : null,
       ),
     );
     return result.responseCode == gp.BillingResponse.ok;

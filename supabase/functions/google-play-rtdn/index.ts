@@ -584,6 +584,7 @@ Deno.serve(async (req: Request) => {
           accessToken,
           // A provider-verified purchase remains redeemable after sales close.
           requireTest: internalLicenseTest || privateAdmissionQa,
+          requireAdmission: privateAdmissionQa,
         });
         if (result.valid !== true && result.resolutionQueued !== true) {
           throw new Error("credit_grant_retry");

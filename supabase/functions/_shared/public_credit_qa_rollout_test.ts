@@ -56,6 +56,7 @@ Deno.test("public launch preserves QA refund protection without restricting publ
       token: "rollout-token",
       accessToken: "test",
       requireTest,
+      requireAdmission: requireTest,
     }, async (url, init) => {
       const path = String(url);
       if (path.endsWith("/queue_unadmitted_credit_topup")) {
@@ -95,5 +96,83 @@ Deno.test("public launch preserves QA refund protection without restricting publ
         ? result.resolutionQueued === true && result.valid !== true
         : result.valid === true && result.consumed === true,
     );
+  }
+});
+
+Deno.test("admission QA rejects a missing Play profile but preserves prior legacy grants", async () => {
+  for (const prior of [false, true, "unavailable"] as const) {
+    const events: string[] = [];
+    const result = await verifyCreditTopup({
+      config: {
+        supabaseUrl: "https://backend.invalid",
+        secretKey: "test",
+        publishableKey: "test",
+      },
+      userId: "owner",
+      packageName: "com.ghostheart5.chronospark",
+      productId: "chronospark_credits_100",
+      token: "synthetic-missing-profile",
+      accessToken: "test",
+      requireTest: true,
+      requireAdmission: true,
+    }, async (url, init) => {
+      const path = String(url);
+      if (path.endsWith("/grant_verified_credit_topup_v2")) {
+        events.push("prior-grant-check");
+        const args = JSON.parse(String(init?.body));
+        if (
+          args.p_admission_exempt !== false || args.p_admission_id !== null ||
+          args.p_purchase_time_ms !== null
+        ) {
+          throw new Error("Missing profile must never permit a new grant");
+        }
+        return prior === "unavailable"
+          ? new Response(null, { status: 503 })
+          : Response.json(
+            prior
+              ? { granted: true, duplicate: true, credits: 100 }
+              : { granted: false, reason: "admission_missing" },
+          );
+      }
+      if (path.endsWith("/queue_unadmitted_credit_topup")) {
+        events.push("queue");
+        return Response.json({ resolutionQueued: true });
+      }
+      if (path.endsWith(":consume")) {
+        events.push("consume");
+        return new Response(null, { status: 204 });
+      }
+      events.push("verify");
+      return Response.json({
+        purchaseState: 0,
+        purchaseType: 0,
+        quantity: 1,
+        obfuscatedExternalAccountId: await sha256Hex("owner"),
+        purchaseTimeMillis: "1780000000000",
+        orderId: "GPA.synthetic",
+        consumptionState: 0,
+      });
+    });
+    const expected = prior === true
+      ? "verify,prior-grant-check,consume"
+      : prior === false
+      ? "verify,prior-grant-check,queue"
+      : "verify,prior-grant-check";
+    if (events.join(",") !== expected) {
+      throw new Error("Incorrect recovery path");
+    }
+    if (prior === true) {
+      if (
+        result.valid !== true || result.duplicate !== true ||
+        result.publicAdmissionVerified !== false
+      ) throw new Error("Legacy replay falsely claimed admission");
+    } else if (
+      result.valid === true ||
+      (prior === false
+        ? result.resolutionQueued !== true
+        : result.retryable !== true)
+    ) {
+      throw new Error("Missing admission did not fail closed");
+    }
   }
 });

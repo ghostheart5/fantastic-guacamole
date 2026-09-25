@@ -319,6 +319,7 @@ Deno.serve(async (req: Request) => {
         // An internal client may still demand license-test proof.
         requireTest: privateAdmissionQa ||
           creditTopupRequiresLicenseTest(body.requireTestPurchase),
+        requireAdmission: privateAdmissionQa,
       };
       if (
         body.operation !== undefined &&
