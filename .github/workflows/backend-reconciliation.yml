@@ -30,6 +30,41 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  public-credit-refunds:
+    # Repository variable remains absent/off until the reviewed worker,
+    # license-test lifecycle, monitoring and refund policy are approved.
+    # Keep draining old paid orders even when new public sales are paused.
+    if: >-
+      github.repository == 'ghostheart5/fantastic-guacamole' &&
+      github.ref == 'refs/heads/main' &&
+      vars.AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED == 'true' &&
+      (github.event_name == 'schedule' ||
+       (github.event_name == 'workflow_dispatch' && inputs.operation == 'reconcile'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    environment: production
+    steps:
+      - name: Checkout exact reconciliation source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Reconcile verified unfulfilled credit payments
+        env:
+          AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED: ${{ vars.AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED }}
+          CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          PUBLIC_CREDIT_REFUND_RECONCILE_SECRET: ${{ secrets.PUBLIC_CREDIT_REFUND_RECONCILE_SECRET }}
+        run: node scripts/reconcile_public_credit_refunds.mjs
+
+      - name: Check unresolved payment age even after worker failure
+        if: ${{ !cancelled() }}
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/check_public_credit_resolutions.mjs
+
   account-deletion:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.operation == 'reconcile')
     runs-on: ubuntu-24.04

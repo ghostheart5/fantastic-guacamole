@@ -540,6 +540,43 @@ void main() {
     },
   );
 
+  test('paid-order recovery stays scheduled after public sales are paused', () {
+    final YamlMap reconciliation = workflow('backend-reconciliation.yml');
+    final YamlMap refundJob =
+        (reconciliation['jobs'] as YamlMap)['public-credit-refunds'] as YamlMap;
+    final String condition = refundJob['if'] as String;
+    expect(condition, contains("github.ref == 'refs/heads/main'"));
+    expect(
+      condition,
+      contains("vars.AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED == 'true'"),
+    );
+    expect(
+      condition,
+      isNot(contains('CHRONOSPARK_PUBLIC_CREDIT_TOPUPS_ENABLED')),
+    );
+    expect(refundJob['environment'], 'production');
+    final YamlMap checkout = namedStep(
+      refundJob,
+      'Checkout exact reconciliation source',
+    );
+    expect((checkout['with'] as YamlMap)['ref'], r'${{ github.sha }}');
+    expect((checkout['with'] as YamlMap)['persist-credentials'], isFalse);
+    expect(
+      namedStep(
+        refundJob,
+        'Reconcile verified unfulfilled credit payments',
+      )['run'],
+      'node scripts/reconcile_public_credit_refunds.mjs',
+    );
+    expect(
+      namedStep(
+        refundJob,
+        'Check unresolved payment age even after worker failure',
+      )['if'],
+      r'${{ !cancelled() }}',
+    );
+  });
+
   test('production monitoring and upload identity match live contracts', () {
     const String uploadSha1 =
         '8A:24:D7:BA:AC:AB:52:F0:A3:77:7D:D0:47:C9:07:96:2E:82:FA:A5';

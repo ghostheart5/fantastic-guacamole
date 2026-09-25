@@ -14,12 +14,32 @@ const required = [
   "CHRONOSPARK_PUBLIC_AI_ENABLED",
   "CHRONOSPARK_PUBLIC_AI_PROVIDER_RETENTION_VERIFIED",
   "CHRONOSPARK_PUBLIC_AI_SAFETY_REVIEW_APPROVED",
+  "PUBLIC_CREDIT_AUTO_REFUND_ENABLED",
+  "CHRONOSPARK_PUBLIC_CREDIT_REFUND_READINESS_VERIFIED",
 ] as const;
 
 Deno.test("new public credit checkouts remain closed by default", () => {
   const policy = parsePublicCreditTopupPolicy(() => undefined);
   if (publicCreditSaleEnabled(policy)) {
     throw new Error("public credit checkout opened by default");
+  }
+});
+
+Deno.test("public checkout stays closed without refund enablement and readiness", () => {
+  for (
+    const gate of [
+      "PUBLIC_CREDIT_AUTO_REFUND_ENABLED",
+      "CHRONOSPARK_PUBLIC_CREDIT_REFUND_READINESS_VERIFIED",
+    ]
+  ) {
+    for (const value of [undefined, "", "false", "TRUE", " true "]) {
+      const policy = parsePublicCreditTopupPolicy((name) =>
+        name === gate ? value : "true"
+      );
+      if (publicCreditSaleEnabled(policy)) {
+        throw new Error("new paid checkout opened without its refund remedy");
+      }
+    }
   }
 });
 

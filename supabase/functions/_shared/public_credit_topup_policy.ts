@@ -8,6 +8,8 @@ export interface PublicCreditTopupPolicy {
   readonly enabled: boolean;
   readonly billingReviewApproved: boolean;
   readonly publicAiEnabled: boolean;
+  readonly refundsEnabled: boolean;
+  readonly refundReadinessVerified: boolean;
 }
 
 // Purchase verification must never take public-sale authority from the app's
@@ -23,6 +25,11 @@ export function parsePublicCreditTopupPolicy(
     publicAiEnabled: publicAiAudienceEnabled(
       parsePublicAiAudiencePolicy(read),
     ),
+    refundsEnabled: read("PUBLIC_CREDIT_AUTO_REFUND_ENABLED") === "true",
+    // Release attestation for source-matched worker, schedule, alerts and
+    // license-test readback; this flag is not a live worker-health probe.
+    refundReadinessVerified:
+      read("CHRONOSPARK_PUBLIC_CREDIT_REFUND_READINESS_VERIFIED") === "true",
   };
 }
 
@@ -30,7 +37,8 @@ export function publicCreditSaleEnabled(
   policy: PublicCreditTopupPolicy,
 ): boolean {
   return policy.enabled && policy.billingReviewApproved &&
-    policy.publicAiEnabled;
+    policy.publicAiEnabled && policy.refundsEnabled &&
+    policy.refundReadinessVerified;
 }
 
 // A separately configured private cohort can exercise the one-use public
