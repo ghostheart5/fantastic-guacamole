@@ -62,10 +62,12 @@ Deno.test("stale pending inventory recovers only from owner-verified cancellatio
   }
   const unavailable = await registerPendingCreditTopup(
     input,
-    async (url) =>
-      String(url).includes("androidpublisher.googleapis.com")
-        ? Response.json(proof)
-        : new Response(null, { status: 503 }),
+    (url) =>
+      Promise.resolve(
+        String(url).includes("androidpublisher.googleapis.com")
+          ? Response.json(proof)
+          : new Response(null, { status: 503 }),
+      ),
   );
   assert(unavailable.valid === false && unavailable.purchaseCanceled !== true);
 });
