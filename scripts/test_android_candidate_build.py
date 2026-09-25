@@ -46,6 +46,25 @@ class InternalPolicyTests(unittest.TestCase):
         receipt = {"verified": True, "licenseTestGuard": "v1",
                    "internalBillingCohortMatched": True, "backendRepairGate": repair}
         validate_billing_preflight(receipt)
+        with self.assertRaisesRegex(ValueError, "private admission QA"):
+            validate_billing_preflight(receipt, credit_admission_qa=True)
+        admission = {"migrationVersion": "20260924030236", "functionVersions": {
+            "verify-receipt": 42, "google-play-rtdn": 43}}
+        validate_billing_preflight({**receipt, "creditAdmissionQaEnabled": True,
+                                    "creditAdmissionQaMatched": True,
+                                    "creditAdmissionBackend": admission}, credit_admission_qa=True)
+        for bad in ({"creditAdmissionQaEnabled": False, "creditAdmissionQaMatched": True},
+                    {"creditAdmissionQaEnabled": True, "creditAdmissionQaMatched": False}):
+            with self.subTest(bad=bad), self.assertRaisesRegex(ValueError, "private admission QA"):
+                validate_billing_preflight({**receipt, "creditAdmissionBackend": admission,
+                                            **bad}, credit_admission_qa=True)
+        for bad in ({}, {"migrationVersion": "old", "functionVersions": admission["functionVersions"]},
+                    {"migrationVersion": "20260924030236", "functionVersions": {
+                        "verify-receipt": 0, "google-play-rtdn": 43}}):
+            with self.subTest(bad=bad), self.assertRaisesRegex(ValueError, "backend migration"):
+                validate_billing_preflight({**receipt, "creditAdmissionQaEnabled": True,
+                    "creditAdmissionQaMatched": True, "creditAdmissionBackend": bad},
+                    credit_admission_qa=True)
         for invalid in ({}, {"verified": True, "licenseTestGuard": "v1"},
                         {**receipt, "verified": False}, {**receipt, "backendRepairGate": []}):
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
@@ -81,6 +100,24 @@ class InternalPolicyTests(unittest.TestCase):
                                        billing_verified_cohort="a" * 64)
         with self.assertRaises(ValueError):
             merge_assistant_internal_cohort("a" * 64, "a" * 64)
+
+    def test_private_admission_qa_requires_billing_test_profile(self):
+        settings = {name: "synthetic-setting" for name in SETTINGS}
+        policy = json.dumps(policy_template())
+        with self.assertRaisesRegex(ValueError, "private billing-test profile"):
+            assemble_candidate_defines(settings, policy, "a" * 64,
+                                       credit_admission_qa=True)
+        defines = assemble_candidate_defines(settings, policy, "a" * 64,
+            billing_test=True, billing_verified_cohort="a" * 64,
+            credit_admission_qa=True)
+        self.assertEqual(defines["CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA"], "true")
+        receipt = validate_candidate_defines(defines, policy_hash(defines),
+            billing_test=True, billing_verified_cohort="a" * 64,
+            credit_admission_qa=True)
+        self.assertTrue(receipt["creditAdmissionQa"])
+        with self.assertRaises(ValueError):
+            validate_candidate_defines(defines, policy_hash(defines),
+                billing_test=True, billing_verified_cohort="a" * 64)
 
     def test_candidate_contains_enabled_local_policy_and_only_private_cohort_receipt(self):
         defines = assembled()

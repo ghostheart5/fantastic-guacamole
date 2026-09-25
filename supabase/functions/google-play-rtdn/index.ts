@@ -1,7 +1,12 @@
 /// <reference lib="deno.ns" />
 import { CREDIT_TOPUPS, verifyCreditTopup } from "../_shared/credit_topups.ts";
 import { parseInternalAiCohort } from "../_shared/internal_ai_cohort.ts";
-import { internalCreditRtdnTestAllowed } from "../_shared/public_credit_topup_policy.ts";
+import {
+  creditAdmissionAllowed,
+  internalCreditRtdnTestAllowed,
+  parsePublicCreditTopupPolicy,
+  publicCreditSaleEnabled,
+} from "../_shared/public_credit_topup_policy.ts";
 
 import { respondToGooglePlayRefundReview } from "../_shared/google_play_refund_review.ts";
 
@@ -41,6 +46,9 @@ const ANDROID_PACKAGE_NAME = Deno.env.get("ANDROID_PACKAGE_NAME") ??
 const internalBillingCohort = parseInternalAiCohort(
   Deno.env.get("CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"),
 );
+const publicCreditTopupPolicy = parsePublicCreditTopupPolicy(Deno.env.get);
+const publicCreditAdmissionQaEnabled =
+  Deno.env.get("CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA_ENABLED") === "true";
 const internalBillingCohortFingerprint = internalBillingCohort.size > 0
   ? await sha256Hex([...internalBillingCohort].sort().join(","))
   : null;
@@ -452,12 +460,18 @@ Deno.serve(async (req: Request) => {
   ) {
     return new Response("Unauthorized", {
       status: 401,
-      headers: internalBillingCohortFingerprint
-        ? {
-          "X-ChronoSpark-Internal-Billing-Cohort-SHA256":
-            internalBillingCohortFingerprint,
-        }
-        : {},
+      headers: {
+        ...(internalBillingCohortFingerprint
+          ? {
+            "X-ChronoSpark-Internal-Billing-Cohort-SHA256":
+              internalBillingCohortFingerprint,
+          }
+          : {}),
+        "X-ChronoSpark-Credit-Admission-QA":
+          publicCreditAdmissionQaEnabled && internalBillingCohort.size > 0
+            ? "cohort-v1"
+            : "disabled-v1",
+      },
     });
   }
   let messageId = "";
@@ -555,6 +569,15 @@ Deno.serve(async (req: Request) => {
           owner.userId,
           internalBillingCohort,
         );
+        const privateAdmissionQa =
+          !publicCreditSaleEnabled(publicCreditTopupPolicy) &&
+          publicCreditAdmissionQaEnabled &&
+          await creditAdmissionAllowed(
+            publicCreditTopupPolicy,
+            true,
+            owner.userId,
+            internalBillingCohort,
+          );
         const result = await verifyCreditTopup({
           config: {
             supabaseUrl: SUPABASE_URL,
@@ -567,7 +590,7 @@ Deno.serve(async (req: Request) => {
           token,
           accessToken,
           // A provider-verified purchase remains redeemable after sales close.
-          requireTest: internalLicenseTest,
+          requireTest: internalLicenseTest || privateAdmissionQa,
         });
         if (result.valid !== true && result.resolutionQueued !== true) {
           throw new Error("credit_grant_retry");

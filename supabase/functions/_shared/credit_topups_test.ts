@@ -338,6 +338,58 @@ Deno.test("public-client license-test credit checkout exercises the admission gr
     assert(events.join(",") === "verify,grant,consume");
   }
 });
+Deno.test("unexpected real charge in license QA is queued for full refund, never consumed", async () => {
+  for (const rightfulOwner of [true, false]) {
+    const events: string[] = [];
+    const result = await verifyCreditTopup({
+      config: {
+        supabaseUrl: "https://backend.invalid",
+        secretKey: "test-secret",
+        publishableKey: "test-public",
+      },
+      userId: "owner",
+      packageName: "com.ghostheart5.chronospark",
+      productId: "chronospark_credits_100",
+      token: "unexpected-real-charge",
+      accessToken: "test-access",
+      requireTest: true,
+    }, async (url, init) => {
+      const path = String(url);
+      if (path.endsWith("/queue_unadmitted_credit_topup")) {
+        events.push("queue");
+        const args = JSON.parse(String(init?.body));
+        assert(args.p_order_id === "GPA.qa-real");
+        assert(args.p_user_id === "owner");
+        return Response.json({ resolutionQueued: true });
+      }
+      if (
+        path.endsWith("/grant_verified_credit_topup_v2") ||
+        path.endsWith(":consume")
+      ) {
+        throw new Error("real QA charge was granted or consumed");
+      }
+      events.push("verify");
+      return Response.json({
+        purchaseState: 0,
+        quantity: 1,
+        obfuscatedExternalAccountId: await sha256Hex(
+          rightfulOwner ? "owner" : "other",
+        ),
+        obfuscatedExternalProfileId: "123e4567-e89b-12d3-a456-426614174000",
+        purchaseTimeMillis: "1780000000000",
+        orderId: "GPA.qa-real",
+        consumptionState: 0,
+      });
+    });
+    assert(events.join(",") === (rightfulOwner ? "verify,queue" : "verify"));
+    if (rightfulOwner) {
+      assert(result.error === "customer_resolution_required");
+      assert(result.resolutionQueued === true);
+    } else {
+      assert(result.resolutionQueued !== true);
+    }
+  }
+});
 Deno.test("public-client license-test receipt without a valid profile cannot bypass admission", async () => {
   for (const profileId of [undefined, "not-an-admission"]) {
     const events: string[] = [];

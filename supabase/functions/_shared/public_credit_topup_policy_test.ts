@@ -1,4 +1,5 @@
 import {
+  creditAdmissionAllowed,
   creditTopupRequiresLicenseTest,
   internalCreditRtdnTestAllowed,
   internalCreditTestRequestAllowed,
@@ -19,6 +20,24 @@ Deno.test("new public credit checkouts remain closed by default", () => {
   const policy = parsePublicCreditTopupPolicy(() => undefined);
   if (publicCreditSaleEnabled(policy)) {
     throw new Error("public credit checkout opened by default");
+  }
+});
+
+Deno.test("license QA admission is private and cannot open public sales", async () => {
+  const closed = parsePublicCreditTopupPolicy(() => undefined);
+  const user = "11111111-1111-4111-8111-111111111111";
+  const other = "22222222-2222-4222-8222-222222222222";
+  const cohort = parseInternalAiCohort(
+    "6c360d206728b8cc03034e9f3e803a817fcba5fcfa20c218c7a94744d1a76313",
+  );
+  if (
+    await creditAdmissionAllowed(closed, false, user, cohort) ||
+    await creditAdmissionAllowed(closed, true, other, cohort) ||
+    await creditAdmissionAllowed(closed, true, user, new Set()) ||
+    publicCreditSaleEnabled(closed)
+  ) throw new Error("license QA opened public or unauthorized checkout");
+  if (!await creditAdmissionAllowed(closed, true, user, cohort)) {
+    throw new Error("private license QA admission was denied");
   }
 });
 

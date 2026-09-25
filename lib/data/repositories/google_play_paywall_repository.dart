@@ -172,6 +172,7 @@ class GooglePlayPaywallRepository
     http.Client? httpClient,
     bool? paywallTestingModeOverride,
     bool requireTestPurchase = false,
+    bool requirePublicCreditAdmissionForLicenseTest = false,
     String? receiptVerifyEndpoint,
     SecureStore? secureStore,
     sb.SupabaseClient? supabaseClient,
@@ -188,6 +189,8 @@ class GooglePlayPaywallRepository
        // Named public parameter intentionally maps to a private field.
        // ignore: prefer_initializing_formals
        _requireTestPurchase = requireTestPurchase,
+       _requirePublicCreditAdmissionForLicenseTest =
+           requireTestPurchase && requirePublicCreditAdmissionForLicenseTest,
        // Named public parameter intentionally maps to a private field.
        // ignore: prefer_initializing_formals
        _secureStore = secureStore,
@@ -212,6 +215,9 @@ class GooglePlayPaywallRepository
   final http.Client _httpClient;
   final bool _paywallTestingMode;
   final bool _requireTestPurchase;
+  final bool _requirePublicCreditAdmissionForLicenseTest;
+  bool get _creditAdmissionRequired =>
+      !_requireTestPurchase || _requirePublicCreditAdmissionForLicenseTest;
   final SecureStore? _secureStore;
   final sb.SupabaseClient? _supabaseClient;
   final Duration _authorityRequestTimeout;
@@ -488,7 +494,7 @@ class GooglePlayPaywallRepository
     );
     if (pendingOwner != null) {
       if (pendingOwner == expectedFingerprint) {
-        if (planId.startsWith('credits_') && !_requireTestPurchase) {
+        if (planId.startsWith('credits_') && _creditAdmissionRequired) {
           // Google's pending inventory is the durable retry source. A failed
           // registration must not turn this owner guard into a no-op.
           try {
@@ -514,7 +520,7 @@ class GooglePlayPaywallRepository
       }
     }
     if (_approvalPending.contains(operationKey)) {
-      if (planId.startsWith('credits_') && !_requireTestPurchase) {
+      if (planId.startsWith('credits_') && _creditAdmissionRequired) {
         try {
           final SubscriptionState? recovered =
               await _retryPendingCreditRegistrationFromPlay(
@@ -569,7 +575,7 @@ class GooglePlayPaywallRepository
       throw StateError('The signed-in account changed during billing.');
     }
     final String? admissionId =
-        planId.startsWith('credits_') && !_requireTestPurchase
+        planId.startsWith('credits_') && _creditAdmissionRequired
         ? await _requirePublicCreditCheckoutAllowed(expectedUserId, productId)
         : null;
 
@@ -780,7 +786,7 @@ class GooglePlayPaywallRepository
       return _effectiveStateForCurrentUser;
     }
     final String? billingFingerprint = _billingAccountFingerprint(userId);
-    if (!_requireTestPurchase && billingFingerprint != null) {
+    if (_creditAdmissionRequired && billingFingerprint != null) {
       final DateTime retryNow = DateTime.now().toUtc();
       for (final String productId in _kProductIds.values.where(
         (String id) => id.startsWith('chronospark_credits_'),
@@ -1389,7 +1395,7 @@ class GooglePlayPaywallRepository
         _removePendingPurchase(operationKey, pending);
       } else if (purchase.status == PurchaseStatus.pending) {
         if (productId.startsWith('chronospark_credits_') &&
-            !_requireTestPurchase) {
+            _creditAdmissionRequired) {
           final bool registered = await _registerPendingCreditTopupWithServer(
             purchase,
             expectedUserId: currentUserId,

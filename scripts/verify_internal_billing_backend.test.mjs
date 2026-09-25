@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { googleCredentialFingerprint, internalBillingCohortFingerprint, verifyCatalog, verifyCreditPackCatalog, verifyInternalBillingBackend, verifyRtdnTestDelivery } from './verify_internal_billing_backend.mjs';
+import { googleCredentialFingerprint, internalBillingCohortFingerprint, verifyCatalog, verifyCreditAdmissionBackend, verifyCreditPackCatalog, verifyInternalBillingBackend, verifyRtdnTestDelivery } from './verify_internal_billing_backend.mjs';
 
 const billingDigest = 'a'.repeat(64);
 
@@ -127,6 +127,55 @@ test('internal candidate preflight rejects a verifier with public checkout open'
     } });
   }), /does not keep public credit checkout closed/);
   assert.equal(calls, 1);
+});
+
+test('license-QA candidate needs a matching deployed admission policy before credentials', async () => {
+  for (const marker of [undefined, 'disabled-v1']) {
+    let calls = 0;
+    await assert.rejects(verifyInternalBillingBackend({
+      SUPABASE_PROJECT_REF: 'a'.repeat(20),
+      CHRONOSPARK_SUPABASE_URL: `https://${'a'.repeat(20)}.supabase.co`,
+      CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT: `https://${'a'.repeat(20)}.supabase.co/functions/v1/verify-receipt`,
+      SUPABASE_SECRET_KEY: 'synthetic',
+      CANDIDATE_CREDIT_ADMISSION_QA: 'true',
+    }, async () => {
+      calls++;
+      return new Response('', { status: 405, headers: {
+        'x-chronospark-contract': 'verify-receipt-v2',
+        'x-chronospark-public-credit-checkout': 'disabled-v1',
+        ...(marker ? { 'x-chronospark-credit-admission-qa': marker } : {}),
+      } });
+    }), /license-QA admission policy mismatch/);
+    assert.equal(calls, 1);
+  }
+});
+
+test('private credit admission backend requires its migration and active JWT-matched functions', async () => {
+  const env = { SUPABASE_PROJECT_REF: 'a'.repeat(20), SUPABASE_ACCESS_TOKEN: 'synthetic' };
+  const good = {
+    '/database/migrations': [{ version: '20260924030236' }],
+    '/functions': [
+      { slug: 'verify-receipt', status: 'ACTIVE', verify_jwt: true, version: 42 },
+      { slug: 'google-play-rtdn', status: 'ACTIVE', verify_jwt: false, version: 43 },
+    ],
+  };
+  const request = (state) => async (url, init) => {
+    assert.equal(init.headers.Authorization, 'Bearer synthetic');
+    assert.equal(init.redirect, 'error');
+    return Response.json(state[new URL(url).pathname.replace(`/v1/projects/${env.SUPABASE_PROJECT_REF}`, '')] ?? []);
+  };
+  assert.deepEqual(await verifyCreditAdmissionBackend(env, request(good)), {
+    migrationVersion: '20260924030236',
+    functionVersions: { 'verify-receipt': 42, 'google-play-rtdn': 43 },
+  });
+  for (const state of [
+    { ...good, '/database/migrations': [] },
+    { ...good, '/database/migrations': [good['/database/migrations'][0], good['/database/migrations'][0]] },
+    { ...good, '/functions': [{ ...good['/functions'][0], verify_jwt: false }, good['/functions'][1]] },
+    { ...good, '/functions': [good['/functions'][0], { ...good['/functions'][1], version: 0 }] },
+  ]) {
+    await assert.rejects(verifyCreditAdmissionBackend(env, request(state)));
+  }
 });
 
 test('billing preflight cannot succeed without the deployed repair gate even with a current receipt marker', async () => {

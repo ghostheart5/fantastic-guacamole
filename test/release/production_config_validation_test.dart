@@ -82,6 +82,28 @@ void main() {
         ),
         isEmpty,
       );
+      expect(
+        validateProductionConfiguration({
+          ...values,
+          'CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA': 'true',
+        }, target: ProductionTarget.android),
+        isEmpty,
+      );
+      expect(
+        validateProductionConfiguration({
+          ...values,
+          'CHRONOSPARK_INTERNAL_BILLING_TEST': 'false',
+          'CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA': 'true',
+        }, target: ProductionTarget.android),
+        isNotEmpty,
+      );
+      expect(
+        validateProductionConfiguration({
+          ...values,
+          'CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA': 'unexpected',
+        }, target: ProductionTarget.android),
+        isNotEmpty,
+      );
       for (final key in [
         'CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS',
         'CHRONOSPARK_APP_FLAVOR',

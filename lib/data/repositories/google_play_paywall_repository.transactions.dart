@@ -6,7 +6,7 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
     String? expectedUserId,
   ) async {
     final String? fingerprint = _billingAccountFingerprint(expectedUserId);
-    if (_requireTestPurchase ||
+    if (!_creditAdmissionRequired ||
         !_hasReceiptVerification ||
         fingerprint == null ||
         !_isCurrentBillingAccount(expectedUserId)) {
@@ -197,6 +197,7 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
               'productId': purchase.productID,
               'purchaseToken': purchase.verificationData.serverVerificationData,
               'purchaseType': 'inapp',
+              if (_requireTestPurchase) 'requireTestPurchase': true,
             }),
           )
           .timeout(_authorityRequestTimeout);

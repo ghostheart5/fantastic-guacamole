@@ -213,19 +213,94 @@ void main() {
     );
   }
 
-  for (final (allowed, status) in <(bool?, int)>[
-    (false, 200),
-    (null, 503),
-    (null, 200),
-    (true, 200),
-  ]) {
+  for (final licenseQa in <bool>[false, true]) {
+    for (final (allowed, status) in <(bool?, int)>[
+      (false, 200),
+      (null, 503),
+      (null, 200),
+      (true, 200),
+    ]) {
+      test(
+        '${licenseQa ? 'license QA' : 'public'} credit checkout uses fresh server admission ($allowed, $status)',
+        () async {
+          final client = await _authorityClient((request) async {
+            fail('Credit checkout must not substitute subscription authority.');
+          });
+          final billing = _FakeBillingClient(
+            productResponse: ProductDetailsResponse(
+              productDetails: [
+                ProductDetails(
+                  id: 'chronospark_credits_100',
+                  title: '100 credits',
+                  description: 'One-time pack',
+                  price: r'$2.99',
+                  rawPrice: 2.99,
+                  currencyCode: 'USD',
+                ),
+              ],
+              notFoundIDs: const [],
+            ),
+            onBuyNonConsumable: (param) async {
+              expect(param, isA<GooglePlayPurchaseParam>());
+              expect(
+                (param as GooglePlayPurchaseParam).obfuscatedProfileId,
+                '123e4567-e89b-12d3-a456-426614174000',
+              );
+              return false;
+            },
+          );
+          var checks = 0;
+          final repository = GooglePlayPaywallRepository(
+            billingClient: billing,
+            paywallTestingModeOverride: false,
+            requireTestPurchase: licenseQa,
+            requirePublicCreditAdmissionForLicenseTest: licenseQa,
+            supabaseClient: client,
+            receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+            httpClient: MockClient((request) async {
+              checks++;
+              expect(request.method, 'POST');
+              expect(request.headers['authorization'], 'Bearer access-token');
+              expect(jsonDecode(request.body), {
+                'operation': 'credit_sale_eligibility',
+                'productId': 'chronospark_credits_100',
+              });
+              final responseBody = <String, Object?>{'valid': true};
+              if (allowed != null) responseBody['checkoutAllowed'] = allowed;
+              if (allowed == true) {
+                responseBody['admissionId'] =
+                    '123e4567-e89b-12d3-a456-426614174000';
+              }
+              return http.Response(jsonEncode(responseBody), status);
+            }),
+          );
+          await expectLater(
+            repository.startSubscription('credits_100'),
+            throwsStateError,
+          );
+          expect(checks, 1);
+          expect(billing.queryProductCalls, 1);
+          expect(billing.buyCalls, allowed == true ? 1 : 0);
+          repository.dispose();
+          await client.dispose();
+        },
+      );
+    }
+  }
+
+  for (final licenseQa in <bool>[false, true]) {
     test(
-      'public credit checkout uses fresh server admission ($allowed, $status)',
+      '${licenseQa ? 'license QA' : 'public'} pending credit token is registered before pending outcome',
       () async {
+        final controller = StreamController<List<PurchaseDetails>>.broadcast();
         final client = await _authorityClient((request) async {
-          fail('Credit checkout must not substitute subscription authority.');
+          fail(
+            'Pending credit pack must not substitute subscription authority.',
+          );
         });
+        final operations = <String>[];
         final billing = _FakeBillingClient(
+          purchaseStreamController: controller,
           productResponse: ProductDetailsResponse(
             productDetails: [
               ProductDetails(
@@ -240,133 +315,67 @@ void main() {
             notFoundIDs: const [],
           ),
           onBuyNonConsumable: (param) async {
-            expect(param, isA<GooglePlayPurchaseParam>());
-            expect(
-              (param as GooglePlayPurchaseParam).obfuscatedProfileId,
-              '123e4567-e89b-12d3-a456-426614174000',
-            );
-            return false;
+            controller.add([
+              PurchaseDetails(
+                purchaseID: 'pending-public-credit',
+                productID: param.productDetails.id,
+                verificationData: PurchaseVerificationData(
+                  localVerificationData: '',
+                  serverVerificationData: 'pending-public-token',
+                  source: 'google_play',
+                ),
+                transactionDate: '1',
+                status: PurchaseStatus.pending,
+              ),
+            ]);
+            return true;
           },
         );
-        var checks = 0;
         final repository = GooglePlayPaywallRepository(
           billingClient: billing,
           paywallTestingModeOverride: false,
-          requireTestPurchase: false,
+          requireTestPurchase: licenseQa,
+          requirePublicCreditAdmissionForLicenseTest: licenseQa,
           supabaseClient: client,
+          secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
           receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
           httpClient: MockClient((request) async {
-            checks++;
-            expect(request.method, 'POST');
-            expect(request.headers['authorization'], 'Bearer access-token');
-            expect(jsonDecode(request.body), {
-              'operation': 'credit_sale_eligibility',
-              'productId': 'chronospark_credits_100',
-            });
-            final responseBody = <String, Object?>{'valid': true};
-            if (allowed != null) responseBody['checkoutAllowed'] = allowed;
-            if (allowed == true) {
-              responseBody['admissionId'] =
-                  '123e4567-e89b-12d3-a456-426614174000';
+            final body = jsonDecode(request.body) as Map;
+            final operation = body['operation'] as String;
+            operations.add(operation);
+            if (operation == 'credit_sale_eligibility') {
+              return http.Response(
+                jsonEncode({
+                  'valid': true,
+                  'checkoutAllowed': true,
+                  'admissionId': '123e4567-e89b-12d3-a456-426614174000',
+                }),
+                200,
+              );
             }
-            return http.Response(jsonEncode(responseBody), status);
+            expect(operation, 'credit_register_pending');
+            expect(body['purchaseToken'], 'pending-public-token');
+            expect(body['purchaseType'], 'inapp');
+            expect(body['requireTestPurchase'], licenseQa ? true : isNull);
+            return http.Response(
+              jsonEncode({'valid': true, 'pendingRegistered': true}),
+              200,
+            );
           }),
         );
-        await expectLater(
-          repository.startSubscription('credits_100'),
-          throwsStateError,
-        );
-        expect(checks, 1);
-        expect(billing.queryProductCalls, 1);
-        expect(billing.buyCalls, allowed == true ? 1 : 0);
+        final result = await repository.startSubscription('credits_100');
+        expect(result.status, 'purchase_pending');
+        expect(operations, [
+          'credit_sale_eligibility',
+          'credit_register_pending',
+        ]);
+        expect(billing.completePurchaseCalls, 0);
         repository.dispose();
+        await controller.close();
         await client.dispose();
       },
     );
   }
-
-  test(
-    'public pending credit token is registered before pending outcome',
-    () async {
-      final controller = StreamController<List<PurchaseDetails>>.broadcast();
-      final client = await _authorityClient((request) async {
-        fail('Pending credit pack must not substitute subscription authority.');
-      });
-      final operations = <String>[];
-      final billing = _FakeBillingClient(
-        purchaseStreamController: controller,
-        productResponse: ProductDetailsResponse(
-          productDetails: [
-            ProductDetails(
-              id: 'chronospark_credits_100',
-              title: '100 credits',
-              description: 'One-time pack',
-              price: r'$2.99',
-              rawPrice: 2.99,
-              currencyCode: 'USD',
-            ),
-          ],
-          notFoundIDs: const [],
-        ),
-        onBuyNonConsumable: (param) async {
-          controller.add([
-            PurchaseDetails(
-              purchaseID: 'pending-public-credit',
-              productID: param.productDetails.id,
-              verificationData: PurchaseVerificationData(
-                localVerificationData: '',
-                serverVerificationData: 'pending-public-token',
-                source: 'google_play',
-              ),
-              transactionDate: '1',
-              status: PurchaseStatus.pending,
-            ),
-          ]);
-          return true;
-        },
-      );
-      final repository = GooglePlayPaywallRepository(
-        billingClient: billing,
-        paywallTestingModeOverride: false,
-        requireTestPurchase: false,
-        supabaseClient: client,
-        secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
-        receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
-        httpClient: MockClient((request) async {
-          final body = jsonDecode(request.body) as Map;
-          final operation = body['operation'] as String;
-          operations.add(operation);
-          if (operation == 'credit_sale_eligibility') {
-            return http.Response(
-              jsonEncode({
-                'valid': true,
-                'checkoutAllowed': true,
-                'admissionId': '123e4567-e89b-12d3-a456-426614174000',
-              }),
-              200,
-            );
-          }
-          expect(operation, 'credit_register_pending');
-          expect(body['purchaseToken'], 'pending-public-token');
-          expect(body['purchaseType'], 'inapp');
-          return http.Response(
-            jsonEncode({'valid': true, 'pendingRegistered': true}),
-            200,
-          );
-        }),
-      );
-      final result = await repository.startSubscription('credits_100');
-      expect(result.status, 'purchase_pending');
-      expect(operations, [
-        'credit_sale_eligibility',
-        'credit_register_pending',
-      ]);
-      expect(billing.completePurchaseCalls, 0);
-      repository.dispose();
-      await controller.close();
-      await client.dispose();
-    },
-  );
 
   test(
     'failed pending credit registration replays from Play without a second checkout',

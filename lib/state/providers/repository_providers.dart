@@ -179,6 +179,9 @@ final appPaywallRepositoryProvider = Provider<IPaywallRepository>((Ref ref) {
       !forceLocalTestingPaywall) {
     final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
       requireTestPurchase: ref.watch(internalBillingTestEnabledProvider),
+      requirePublicCreditAdmissionForLicenseTest: ref.watch(
+        publicCreditAdmissionQaEnabledProvider,
+      ),
       secureStore: ref.watch(accountSecureStoreProvider),
       supabaseClient: ref.watch(supabaseClientProvider),
     );

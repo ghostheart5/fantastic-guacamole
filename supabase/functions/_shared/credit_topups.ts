@@ -10,6 +10,39 @@ export const CREDIT_TOPUPS = new Map([
 ]);
 type Fetcher = typeof fetch;
 
+async function queueVerifiedUnfulfilledCreditTopup(
+  config: BillingBackendConfig,
+  userId: string,
+  productId: string,
+  token: string,
+  orderId: string,
+  fetcher: Fetcher,
+): Promise<Record<string, unknown>> {
+  const queued = await serviceRpc(
+    config,
+    "queue_unadmitted_credit_topup",
+    {
+      p_user_id: userId,
+      p_token_hash: await sha256Hex(token),
+      p_product_id: productId,
+      p_order_id: orderId,
+    },
+    fetcher,
+  );
+  if (queued?.resolutionQueued === true) {
+    return {
+      valid: false,
+      error: "customer_resolution_required",
+      resolutionQueued: true,
+    };
+  }
+  return {
+    valid: false,
+    retryable: queued === null,
+    error: queued?.reason ?? "customer_resolution_retryable",
+  };
+}
+
 // A pending token is authority only after the backend reads PENDING from
 // Google. This records a time-limited checkout binding without granting,
 // consuming or acknowledging the purchase.
@@ -148,7 +181,30 @@ export async function verifyCreditTopup(input: {
     input.userId,
     input.requireTest,
   );
+  if (
+    error === "test_purchase_required" &&
+    (purchase.productId === undefined ||
+      purchase.productId === input.productId) &&
+    purchase.obfuscatedExternalAccountId === await sha256Hex(input.userId) &&
+    typeof purchase.orderId === "string" && purchase.orderId.trim() &&
+    purchase.orderId.length <= 1024 &&
+    purchase.consumptionState === 0
+  ) {
+    // A private license-QA checkout that unexpectedly completed as a real
+    // charge is a paid customer exception, not an invalid token to discard.
+    // Never grant or consume it; use the owner's full-refund resolution path.
+    return await queueVerifiedUnfulfilledCreditTopup(
+      input.config,
+      input.userId,
+      input.productId,
+      input.token,
+      purchase.orderId,
+      fetcher,
+    );
+  }
   if (error) return { valid: false, error };
+  // validateTopupProof has checked this field before reaching this branch.
+  const verifiedOrderId = purchase.orderId as string;
   const isLicenseTest = purchase.purchaseType === 0;
   // The internal license-test flow does not attach an admission profile.
   // An authenticated server-owned cohort gates requireTest at the HTTP edge;
@@ -167,29 +223,14 @@ export async function verifyCreditTopup(input: {
       Number(purchase.purchaseTimeMillis) < 1600000000000 ||
       Number(purchase.purchaseTimeMillis) > 4102444800000)
   ) {
-    const queued = await serviceRpc(
+    return await queueVerifiedUnfulfilledCreditTopup(
       input.config,
-      "queue_unadmitted_credit_topup",
-      {
-        p_user_id: input.userId,
-        p_token_hash: await sha256Hex(input.token),
-        p_product_id: input.productId,
-        p_order_id: purchase.orderId,
-      },
+      input.userId,
+      input.productId,
+      input.token,
+      verifiedOrderId,
       fetcher,
     );
-    if (queued?.resolutionQueued === true) {
-      return {
-        valid: false,
-        error: "customer_resolution_required",
-        resolutionQueued: true,
-      };
-    }
-    return {
-      valid: false,
-      retryable: queued === null,
-      error: queued?.reason ?? "customer_resolution_retryable",
-    };
   }
   const grant = await serviceRpc(
     input.config,
@@ -198,7 +239,7 @@ export async function verifyCreditTopup(input: {
       p_user_id: input.userId,
       p_token_hash: await sha256Hex(input.token),
       p_product_id: input.productId,
-      p_order_id: purchase.orderId,
+      p_order_id: verifiedOrderId,
       p_admission_exempt: !requiresAdmission,
       p_admission_id: !requiresAdmission
         ? null

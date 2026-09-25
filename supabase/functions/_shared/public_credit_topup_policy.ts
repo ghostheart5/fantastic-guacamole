@@ -33,6 +33,20 @@ export function publicCreditSaleEnabled(
     policy.publicAiEnabled;
 }
 
+// A separately configured private cohort can exercise the one-use public
+// admission in Play license QA while the global public-sale gate remains off.
+// A request-body flag is never authority for this exception.
+export async function creditAdmissionAllowed(
+  policy: PublicCreditTopupPolicy,
+  licenseQaEnabled: boolean,
+  userId: string,
+  billingCohort: ReadonlySet<string>,
+): Promise<boolean> {
+  return publicCreditSaleEnabled(policy) ||
+    (licenseQaEnabled &&
+      await internalAiAccountAllowed(userId, billingCohort));
+}
+
 // Rollout closure stops new admissions. An already admitted purchase remains
 // redeemable through its Play-echoed admission and one-use database grant.
 // License-test clients continue to demand Google's test purchase marker.
