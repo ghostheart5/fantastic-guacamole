@@ -2,10 +2,8 @@
 import { CREDIT_TOPUPS, verifyCreditTopup } from "../_shared/credit_topups.ts";
 import { parseInternalAiCohort } from "../_shared/internal_ai_cohort.ts";
 import {
-  creditAdmissionAllowed,
   internalCreditRtdnTestAllowed,
-  parsePublicCreditTopupPolicy,
-  publicCreditSaleEnabled,
+  privateCreditAdmissionQaRequired,
 } from "../_shared/public_credit_topup_policy.ts";
 
 import { respondToGooglePlayRefundReview } from "../_shared/google_play_refund_review.ts";
@@ -46,7 +44,6 @@ const ANDROID_PACKAGE_NAME = Deno.env.get("ANDROID_PACKAGE_NAME") ??
 const internalBillingCohort = parseInternalAiCohort(
   Deno.env.get("CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"),
 );
-const publicCreditTopupPolicy = parsePublicCreditTopupPolicy(Deno.env.get);
 const publicCreditAdmissionQaEnabled =
   Deno.env.get("CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA_ENABLED") === "true";
 const internalBillingCohortFingerprint = internalBillingCohort.size > 0
@@ -569,15 +566,11 @@ Deno.serve(async (req: Request) => {
           owner.userId,
           internalBillingCohort,
         );
-        const privateAdmissionQa =
-          !publicCreditSaleEnabled(publicCreditTopupPolicy) &&
-          publicCreditAdmissionQaEnabled &&
-          await creditAdmissionAllowed(
-            publicCreditTopupPolicy,
-            true,
-            owner.userId,
-            internalBillingCohort,
-          );
+        const privateAdmissionQa = await privateCreditAdmissionQaRequired(
+          publicCreditAdmissionQaEnabled,
+          owner.userId,
+          internalBillingCohort,
+        );
         const result = await verifyCreditTopup({
           config: {
             supabaseUrl: SUPABASE_URL,

@@ -24,6 +24,7 @@ import {
   creditTopupRequiresLicenseTest,
   internalCreditTestRequestAllowed,
   parsePublicCreditTopupPolicy,
+  privateCreditAdmissionQaRequired,
   publicCreditSaleEnabled,
 } from "../_shared/public_credit_topup_policy.ts";
 import {
@@ -302,15 +303,11 @@ Deno.serve(async (req: Request) => {
     }
     const accessToken = await getGoogleAccessToken(serviceAccount);
     if (body.purchaseType === "inapp") {
-      const privateAdmissionQa =
-        !publicCreditSaleEnabled(publicCreditTopupPolicy) &&
-        publicCreditAdmissionQaEnabled &&
-        await creditAdmissionAllowed(
-          publicCreditTopupPolicy,
-          true,
-          userId,
-          internalBillingCohort,
-        );
+      const privateAdmissionQa = await privateCreditAdmissionQaRequired(
+        publicCreditAdmissionQaEnabled,
+        userId,
+        internalBillingCohort,
+      );
       const topupInput = {
         config,
         userId,

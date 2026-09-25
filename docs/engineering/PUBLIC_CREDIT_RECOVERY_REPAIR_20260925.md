@@ -38,3 +38,11 @@ Source review covered the combined admission and private-QA changes in PR 129/13
 - Focused Flutter analyzer reported no issues; Deno lint/format checks, both secret guards, release/version guards and `git diff --check` passed.
 
 Remaining evidence: exact repaired-source hosted CI, independent review disposition, authorized deployment/configuration readback, operator alert delivery, and Play-signed license-test refund results. This local patch is not production release approval.
+
+## Exact-head automated review correction
+
+The automated review of `29fb6e77` found P1 `discussion_r4104817888`: opening public sales disabled private-QA enforcement in RTDN when the QA flag remained enabled. Because RTDN has no client test-demand field, it could grant and consume an unexpected standard paid receipt from that cohort. Receipt verification had the same global-sale dependency.
+
+Both entrypoints now use the same server-owned QA/cohort predicate, independent of the public-sale gate. Public customers outside the QA cohort remain eligible for normal purchases; the private QA cohort continues to demand Google test proof while QA is enabled. New orchestration coverage exercises closed/open public sales, a standard QA receipt queued without grant/consume, a genuine license test granted through admission, a non-cohort public customer, and explicitly disabled QA. The dedicated 27-test set, both entrypoint type checks and changed-source lint passed. Its initial fixture incorrectly used a raw-user hash instead of the established cohort namespace digest; correcting that fixture produced the passing run. This correction changes no database schema.
+
+Turning off the QA flag or changing its cohort is a separate operational transition: first settle outstanding QA purchases and retain cohort enforcement for pending orders. Opening public sales alone no longer changes QA receipt handling. The original delayed-payment P1 still requires its separate disposition and runtime evidence.

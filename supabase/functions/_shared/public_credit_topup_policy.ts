@@ -55,6 +55,17 @@ export async function creditAdmissionAllowed(
       await internalAiAccountAllowed(userId, billingCohort));
 }
 
+// Public launch cannot remove test-only protection from the private QA cohort.
+// Do not use creditAdmissionAllowed here: public sales admit non-cohort users.
+export async function privateCreditAdmissionQaRequired(
+  licenseQaEnabled: boolean,
+  userId: string,
+  billingCohort: ReadonlySet<string>,
+): Promise<boolean> {
+  return licenseQaEnabled &&
+    await internalAiAccountAllowed(userId, billingCohort);
+}
+
 // Rollout closure stops new admissions. An already admitted purchase remains
 // redeemable through its Play-echoed admission and one-use database grant.
 // License-test clients continue to demand Google's test purchase marker.
