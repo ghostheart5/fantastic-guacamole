@@ -100,7 +100,7 @@ returns jsonb language sql stable security invoker set search_path = '' as $$
     (select token_hash, order_id, product_id, refund_attempted_at
      from public.public_credit_checkout_resolutions
      where state = 'awaiting_resolution' and refund_attempted_at is null
-     order by created_at, token_hash
+     order by last_verified_at, token_hash
      limit ((least(greatest(coalesce(p_limit, 0), 0), 5) + 1) / 2))
     union all
     (select token_hash, order_id, product_id, refund_attempted_at
@@ -115,9 +115,9 @@ revoke all on function public.list_public_credit_refund_candidates(integer)
 grant execute on function public.list_public_credit_refund_candidates(integer)
   to service_role;
 
--- Rotate attempted refunds through each bounded scan, even when a Google read
--- times out or the order still needs manual review. This has no financial
--- effect and cannot mark a new, unattempted order as checked.
+-- Rotate both new and attempted orders through their separate bounded slots,
+-- even when a Google read times out or the order still needs manual review.
+-- This timestamp has no financial effect and does not claim a refund attempt.
 create function public.note_public_credit_refund_readback(
   p_token_hash text, p_order_id text, p_product_id text
 ) returns jsonb language sql volatile security invoker set search_path = '' as $$
@@ -126,7 +126,6 @@ create function public.note_public_credit_refund_readback(
       set last_verified_at = clock_timestamp()
       where token_hash = p_token_hash and order_id = p_order_id
         and product_id = p_product_id and state = 'awaiting_resolution'
-        and refund_attempted_at is not null
       returning 1
   )
   select jsonb_build_object('touched', exists(select 1 from touched));

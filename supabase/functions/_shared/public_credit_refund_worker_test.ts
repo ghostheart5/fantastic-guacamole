@@ -39,6 +39,9 @@ Deno.test("verified unfulfilled order is claimed before one Google refund POST",
     if (path.endsWith("/list_public_credit_refund_candidates")) {
       return Promise.resolve(Response.json({ candidates: [candidate] }));
     }
+    if (path.endsWith("/note_public_credit_refund_readback")) {
+      return Promise.resolve(Response.json({ touched: true }));
+    }
     if (path.endsWith("/claim_public_credit_refund_attempt")) {
       return Promise.resolve(Response.json({ claimed: true }));
     }
@@ -163,6 +166,6 @@ Deno.test("one failed order read does not hide another queued refund", async () 
   const result = await reconcilePublicCreditRefunds(input, fetcher);
   if (
     result?.scanned !== 2 || result.retryLater !== 1 ||
-    result.refunded !== 1 || calls.length !== 5
+    result.refunded !== 1 || calls.length !== 6
   ) throw new Error("one provider outage stopped the entire refund batch");
 });

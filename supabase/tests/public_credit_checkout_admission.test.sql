@@ -10,6 +10,7 @@ declare
   a constant uuid := '91919191-9191-4191-8191-919191919191';
   b constant uuid := '92929292-9292-4292-8292-929292929292';
   admission jsonb; admission_id text; result jsonb;
+  first_unattempted jsonb; candidate jsonb;
   purchased_at bigint := floor(extract(epoch from now()) * 1000)::bigint;
 begin
   assert not has_function_privilege('anon',
@@ -218,9 +219,16 @@ begin
   assert (result->>'claimed')::boolean=false,
     'wrong Google order claimed a refund attempt';
   result := public.note_public_credit_refund_readback(
-    repeat('2',64),'GPA.missing','chronospark_credits_100');
+    repeat('2',64),'GPA.wrong','chronospark_credits_100');
   assert (result->>'touched')::boolean=false,
-    'unattempted refund was rotated as a provider readback';
+    'wrong order rotated an unattempted refund readback';
+  result := public.note_public_credit_refund_readback(
+    repeat('2',64),'GPA.missing','chronospark_credits_100');
+  assert (result->>'touched')::boolean=true and
+    (select refund_attempted_at is null from
+      public.public_credit_checkout_resolutions
+      where token_hash=repeat('2',64)),
+    'readback rotation claimed an unattempted refund';
   result := public.claim_public_credit_refund_attempt(
     repeat('2',64),'GPA.missing','chronospark_credits_100');
   assert (result->>'claimed')::boolean,
@@ -303,6 +311,33 @@ begin
     where c->>'tokenHash'=repeat('6',64)
       and (c->>'refundAttempted')::boolean=true),
     'older attempted refunds monopolized provider readback slots';
+  -- Orders that stay unattempted (for example, already pending a provider
+  -- refund) must also rotate instead of hiding newer failed payments.
+  insert into public.public_credit_checkout_resolutions
+    (token_hash, billing_principal_id, product_id, order_id, reason,
+     created_at, last_verified_at)
+    select repeat(md5(n::text),2), public.ensure_billing_principal(a),
+      'chronospark_credits_100', 'GPA.unattempted-' || n::text,
+      'admission_missing', now() - interval '3 hours',
+      now() - interval '3 hours'
+    from generate_series(10,14) n;
+  result := public.list_public_credit_refund_candidates(5);
+  select coalesce(jsonb_agg(c->>'tokenHash'), '[]'::jsonb)
+    into first_unattempted
+    from jsonb_array_elements(result->'candidates') c
+    where (c->>'refundAttempted')::boolean=false;
+  for candidate in select value from
+    jsonb_array_elements(result->'candidates') as c(value)
+    where (value->>'refundAttempted')::boolean=false loop
+    perform public.note_public_credit_refund_readback(
+      candidate->>'tokenHash', candidate->>'orderId',
+      candidate->>'productId');
+  end loop;
+  result := public.list_public_credit_refund_candidates(5);
+  assert exists (select 1 from jsonb_array_elements(result->'candidates') c
+    where (c->>'refundAttempted')::boolean=false
+      and not (first_unattempted ? (c->>'tokenHash'))),
+    'old unattempted refunds monopolized new paid-order slots';
 end;
 $$;
 select pass('public checkout admission reuses and purges unused rows without losing delayed payment');
