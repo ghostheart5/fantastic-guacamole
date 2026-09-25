@@ -10,7 +10,7 @@ declare
   a constant uuid := '91919191-9191-4191-8191-919191919191';
   b constant uuid := '92929292-9292-4292-8292-929292929292';
   admission jsonb; admission_id text; result jsonb;
-  first_unattempted jsonb; candidate jsonb;
+  first_unattempted jsonb; scan_candidate jsonb;
   purchased_at bigint := floor(extract(epoch from now()) * 1000)::bigint;
 begin
   assert not has_function_privilege('anon',
@@ -326,12 +326,12 @@ begin
     into first_unattempted
     from jsonb_array_elements(result->'candidates') c
     where (c->>'refundAttempted')::boolean=false;
-  for candidate in select value from
+  for scan_candidate in select value from
     jsonb_array_elements(result->'candidates') as c(value)
     where (value->>'refundAttempted')::boolean=false loop
     perform public.note_public_credit_refund_readback(
-      candidate->>'tokenHash', candidate->>'orderId',
-      candidate->>'productId');
+      scan_candidate->>'tokenHash', scan_candidate->>'orderId',
+      scan_candidate->>'productId');
   end loop;
   result := public.list_public_credit_refund_candidates(5);
   assert exists (select 1 from jsonb_array_elements(result->'candidates') c
