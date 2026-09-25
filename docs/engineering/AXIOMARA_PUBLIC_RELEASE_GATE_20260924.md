@@ -32,7 +32,9 @@ project gates below; no production release has been created or submitted.
   [35943294605](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/35943294605)
   passed 11/11 journeys on earlier QA source `ef85eeaf5e9ea64990afb3322ee3190cff6da426`;
   it used a debug QA APK, not a Play-signed public build. There is no signed
-  full-feature AAB from this app-code checkpoint.
+  full-feature AAB from this app-code checkpoint. The small machine-readable
+  [exact-main receipts](evidence/axiomara_main_baf802_20260924/README.md)
+  are retained with their SHA-256 hashes for reviewer access.
 - The most recent signed contained candidate was version 2026083083 from
   `36ec3dda6120af0c39142c6106e1f73b6159e305`, candidate run
   [35932394334](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/35932394334),
