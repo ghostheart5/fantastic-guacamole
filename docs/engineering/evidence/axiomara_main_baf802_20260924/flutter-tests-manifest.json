@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "command": {
+    "executable": "flutter",
+    "arguments": [
+      "test",
+      "test",
+      "--no-pub",
+      "--coverage",
+      "--concurrency=1",
+      "--file-reporter",
+      "json:/home/runner/work/fantastic-guacamole/fantastic-guacamole/artifacts/flutter-test-evidence/flutter-tests.jsonl"
+    ],
+    "launcher": "setsid",
+    "isolatedProcessGroup": true
+  },
+  "reportPath": "/home/runner/work/fantastic-guacamole/fantastic-guacamole/artifacts/flutter-test-evidence/flutter-tests.jsonl",
+  "startedAt": "2026-09-24T23:09:54.790580Z",
+  "finishedAt": "2026-09-24T23:27:19.755524Z",
+  "durationMilliseconds": 1044852,
+  "timeoutSeconds": 3600,
+  "timedOut": false,
+  "launchFailed": false,
+  "exitCode": 0,
+  "totals": {
+    "total": 3396,
+    "passed": 3396,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "allowedSkips": 0,
+  "completedTests": 3396,
+  "terminalCompletion": true,
+  "terminalSuccess": true,
+  "reportParseErrors": [],
+  "finalSuccess": true
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "suite": "qa-smoke",
+  "buildProfile": "qa",
+  "gitCommit": "baf802d08b4e6472820e1c229c554d90fdbc12ea",
+  "gitBranch": "",
+  "gitDirty": false,
+  "gitDirtyEntryCount": 0,
+  "deviceSerial": "emulator-5554",
+  "deviceModel": "sdk_gphone64_x86_64",
+  "androidVersion": "15",
+  "androidApi": "35",
+  "flows": [
+    "04-smart-planner.yaml",
+    "05-creator.yaml",
+    "06-si-console.yaml",
+    "07-timeline.yaml",
+    "08-progression.yaml"
+  ],
+  "executionOrder": null,
+  "destructive": false,
+  "credentialsRequired": [],
+  "credentialValuesRecorded": false,
+  "adbPath": "/usr/local/lib/android/sdk/platform-tools/adb",
+  "generatedAt": "2026-09-24T23:26:38.6029530Z"
+}

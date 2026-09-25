@@ -1,5 +1,13 @@
 # ChronoSpark External Gates
 
+## Current Axiomara public-release checkpoint — 2026-09-24
+
+The [current public-release gate](docs/engineering/AXIOMARA_PUBLIC_RELEASE_GATE_20260924.md)
+records the exact closed-test build, current merged source, disabled public
+features, draft payment repair, independent review requirements, and remaining
+signed-build and Play validation. Its status is **NOT READY** for a full-feature
+production submission. The September 12 candidate section below is historical.
+
 ## Current candidate evidence - 2026-09-12
 
 The [3032 release validation report](docs/engineering/FINAL_3032_RELEASE_VALIDATION_20260911.md)

@@ -12,6 +12,7 @@ import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -29,6 +30,59 @@ void main() {
     await _pumpScreen(tester, container);
     expect(find.text('AI conversation · uses credits'), findsOneWidget);
     expect(find.text('Advanced analysis'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('SI title gets the full row at 200 percent text', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final port = _RecordingPort(snapshot: snapshot, now: now);
+    final container = _container(port, snapshot);
+    addTearDown(() => _dispose(tester, container));
+
+    await _pumpScreen(tester, container, textScaler: 2);
+    final title = find.text('INTELLIGENCE');
+    final summary = find.byIcon(Icons.volume_up_rounded);
+    expect(title, findsOneWidget);
+    expect(summary, findsOneWidget);
+    expect(
+      tester.getTopLeft(title).dy,
+      greaterThan(tester.getBottomLeft(summary).dy),
+    );
+    final paragraph = tester.renderObject<RenderParagraph>(title);
+    final wordBoxes = paragraph.getBoxesForSelection(
+      const TextSelection(baseOffset: 0, extentOffset: 12),
+    );
+    expect(wordBoxes, hasLength(1), reason: 'INTELLIGENCE must stay intact.');
+    expect(find.bySemanticsLabel('DEEP INTELLIGENCE'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Spanish SI title keeps its words intact at 200 percent text', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final port = _RecordingPort(snapshot: snapshot, now: now);
+    final container = _container(port, snapshot);
+    addTearDown(() => _dispose(tester, container));
+
+    await _pumpScreen(
+      tester,
+      container,
+      locale: const Locale('es'),
+      textScaler: 2,
+    );
+    final word = find.text('INTELIGENCIA');
+    expect(word, findsOneWidget);
+    final paragraph = tester.renderObject<RenderParagraph>(word);
+    expect(
+      paragraph.getBoxesForSelection(
+        const TextSelection(baseOffset: 0, extentOffset: 12),
+      ),
+      hasLength(1),
+    );
+    expect(find.bySemanticsLabel('INTELIGENCIA PROFUNDA'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

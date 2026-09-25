@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="ChronoSpark qa-smoke baf802d0" device="test" tests="5" failures="0" time="1050.183" timestamp="2026-09-24T23:27:54">
+    <testcase id="04-smart-planner" name="04-smart-planner" classname="04-smart-planner" file=".maestro/flows/04-smart-planner.yaml" time="229.908" timestamp="2026-09-24T23:27:54" status="SUCCESS">
+      <properties>
+        <property name="tags" value="core"/>
+      </properties>
+    </testcase>
+    <testcase id="05-creator" name="05-creator" classname="05-creator" file=".maestro/flows/05-creator.yaml" time="515.985" timestamp="2026-09-24T23:31:44" status="SUCCESS">
+      <properties>
+        <property name="tags" value="core"/>
+      </properties>
+    </testcase>
+    <testcase id="06-si-console" name="06-si-console" classname="06-si-console" file=".maestro/flows/06-si-console.yaml" time="157.84" timestamp="2026-09-24T23:40:20" status="SUCCESS">
+      <properties>
+        <property name="tags" value="core"/>
+      </properties>
+    </testcase>
+    <testcase id="07-timeline" name="07-timeline" classname="07-timeline" file=".maestro/flows/07-timeline.yaml" time="76.641" timestamp="2026-09-24T23:42:58" status="SUCCESS">
+      <properties>
+        <property name="tags" value="core"/>
+      </properties>
+    </testcase>
+    <testcase id="08-progression" name="08-progression" classname="08-progression" file=".maestro/flows/08-progression.yaml" time="69.72" timestamp="2026-09-24T23:44:15" status="SUCCESS">
+      <properties>
+        <property name="tags" value="core"/>
+      </properties>
+    </testcase>
+  </testsuite>
+</testsuites>

@@ -1,0 +1,83 @@
+{
+  "date": "2026-09-24",
+  "source_commit": "729b3a64393401b4a8ea1b669e024a15a7e90694",
+  "docs_branch_commit": "b4721e508fa5d062a70c19bcc03a6f015f909dd8",
+  "avd": "axiomara_edge_qa_36",
+  "serial": "emulator-5580",
+  "android_release": "16",
+  "api": 36,
+  "package": "com.ghostheart5.chronospark",
+  "version_code": 2026083084,
+  "version_name": "4.1.0",
+  "installer": null,
+  "first_install_time": "2026-09-24 08:44:04",
+  "last_update_time": "2026-09-24 08:44:04",
+  "signer": "Android Debug",
+  "signer_sha256": "1fd0ccee20e2015826a664e9411ad730420c71fa5cd777d409e2a2b21475b1ec",
+  "apk_sha256": "66fa45284d595af83e28ae0f38cef3cbf9ad7e2321310dda0279a83d151aff18",
+  "apk_kind": "debug QA build with mock login; not Play-signed",
+  "controls": "Only emulator-5580 was modified; Moto and Play Console untouched",
+  "observations": [
+    "Gesture navigation: at 100% Nexus top and bottom system-bar areas were clear.",
+    "Gesture navigation: at 150% Nexus, Planner top and bottom, SI, and Settings controls remained above the navigation bar.",
+    "Three-button navigation: at 150% Nexus bottom navigation remained above Android buttons.",
+    "Planner guidance action and SI query composer were visible; no paid AI or purchase action was invoked."
+  ],
+  "limitations": [
+    "Sampled screens only; no complete cutout matrix, Android 15 visual pass, or Play-signed public candidate.",
+    "QA mock login and disabled paywall do not prove public billing or AI behavior.",
+    "Maestro exact-text assertion for Planner heading failed because the heading is merged into a larger semantics label; screenshot visibly shows the heading."
+  ],
+  "captures": [
+    {
+      "file": "axiomara-login-100.png",
+      "bytes": 1119125,
+      "sha256": "0e383313d760cc6abae69bf5e6e24841485e2f536d794fdd852ec18e007c85d5"
+    },
+    {
+      "file": "axiomara-nexus-100.png",
+      "bytes": 1270252,
+      "sha256": "36162eab8a75c43bcb31bd3c776d8fd367cd618f5a04394e6650c8e44ca8a2cc"
+    },
+    {
+      "file": "axiomara-nexus-150.png",
+      "bytes": 1138847,
+      "sha256": "0b9bf1ac3856d33ef139ecd3b2a52c98c1e11a656fbb33556cdc0fdf8c1b85ce"
+    },
+    {
+      "file": "axiomara-nexus-threebutton-150.png",
+      "bytes": 1137497,
+      "sha256": "3b7129fd58d5af0534ab71118d0c1930ff6156ed00637ad2a71433617a48129b"
+    },
+    {
+      "file": "axiomara-planner-150.png",
+      "bytes": 789077,
+      "sha256": "22667e9deb2b025dbf3b5178632c8cd2373bd43f069d5e4fe4b36cb1cf7b80c7"
+    },
+    {
+      "file": "axiomara-planner-bottom-150.png",
+      "bytes": 573632,
+      "sha256": "5f0af16c1ae8f0feed110e9016890d52a40783ab943de616e17379d539e88275"
+    },
+    {
+      "file": "axiomara-settings-150.png",
+      "bytes": 717501,
+      "sha256": "9b2f96f88cdf3d93fd16f4c94c98083e511b965d567ad805e43f45e792185e36"
+    },
+    {
+      "file": "axiomara-settings-threebutton-150.png",
+      "bytes": 312196,
+      "sha256": "ccbfde833c5e000bb83894f8df3e88901502e4da2405ea90e254a8b65e835ab8"
+    },
+    {
+      "file": "axiomara-si-150.png",
+      "bytes": 1326287,
+      "sha256": "6a3328aa4832ef7927ec5a875af2cbf73b8b14f6574deb2f0274f374da3b9996"
+    },
+    {
+      "file": "axiomara-startup-100.png",
+      "bytes": 199419,
+      "sha256": "d88b6b0353ee0d3b31a4234aab84303f070e7f604e1d9006d8395b70c3abbeb5"
+    }
+  ]
+}
