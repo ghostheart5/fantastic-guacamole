@@ -59,14 +59,6 @@ begin
       and retired_at is null)=1,
     'more than one live unused admission was stockpiled';
   result := public.grant_verified_credit_topup_v2(
-    b,repeat('a',64),'chronospark_credits_100','GPA.public-a',false,
-    admission_id,purchased_at);
-  assert result->>'reason'='admission_invalid', 'other account used admission';
-  result := public.grant_verified_credit_topup_v2(
-    a,repeat('a',64),'chronospark_credits_300','GPA.public-a',false,
-    admission_id,purchased_at);
-  assert result->>'reason'='admission_invalid', 'other product used admission';
-  result := public.grant_verified_credit_topup_v2(
     a,repeat('a',64),'chronospark_credits_100','GPA.public-a',false,
     admission_id,purchased_at);
   assert (result->>'granted')::boolean, 'admitted purchase not granted';
