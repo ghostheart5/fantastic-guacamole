@@ -9,7 +9,7 @@ import { reconcilePublicCreditRefunds } from "../_shared/public_credit_refund_wo
 function readServiceAccount(): GoogleServiceAccount | null {
   try {
     const value = JSON.parse(
-      Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON") ?? "null",
+      Deno.env.get("GOOGLE_REFUND_SERVICE_ACCOUNT_JSON") ?? "null",
     );
     return value && typeof value === "object"
       ? value as GoogleServiceAccount
