@@ -578,10 +578,39 @@ void main() {
       expect(drill['if'], contains("inputs.operation == 'test-credit-alert'"));
       for (final String job in ['public-credit-refunds', 'account-deletion']) {
         final String mutationCondition = (jobs[job] as YamlMap)['if'] as String;
-        expect(mutationCondition, contains("inputs.operation == 'reconcile'"));
         expect(mutationCondition, isNot(contains('check-credit-resolutions')));
         expect(mutationCondition, isNot(contains('test-credit-alert')));
       }
+    },
+  );
+
+  test(
+    'manual refunds and account deletion are separate protected operations',
+    () {
+      final YamlMap reconciliation = workflow('backend-reconciliation.yml');
+      final YamlMap dispatch =
+          (reconciliation['on'] as YamlMap)['workflow_dispatch'] as YamlMap;
+      final YamlMap operation =
+          (dispatch['inputs'] as YamlMap)['operation'] as YamlMap;
+      expect(operation['options'], contains('reconcile-credit-refunds'));
+      final YamlMap refund = job(reconciliation, 'public-credit-refunds');
+      final YamlMap deletion = job(reconciliation, 'account-deletion');
+      expect(
+        refund['if'],
+        contains("inputs.operation == 'reconcile-credit-refunds'"),
+      );
+      expect(refund['if'], isNot(contains("inputs.operation == 'reconcile'")));
+      expect(deletion['if'], contains("inputs.operation == 'reconcile'"));
+      expect(deletion['if'], isNot(contains('reconcile-credit-refunds')));
+      expect(refund['environment'], 'production');
+      expect(deletion['environment'], 'production');
+      expect(refund['if'], contains("github.ref == 'refs/heads/main'"));
+      expect(
+        refund['if'],
+        contains("vars.AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED == 'true'"),
+      );
+      expect(refund['if'], contains("github.event_name == 'schedule'"));
+      expect(deletion['if'], contains("github.event_name == 'schedule'"));
     },
   );
 

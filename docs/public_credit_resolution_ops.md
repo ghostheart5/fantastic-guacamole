@@ -23,6 +23,23 @@ The database gate also runs `scripts/integration/public_credit_refund_database_t
 
 ## Operator response
 
+### Isolated manual refund operation
+
+After separate approval and enablement, select `reconcile-credit-refunds` in
+`Backend Reconciliation` to invoke only the refund worker and its health check.
+The legacy `reconcile` operation runs account-deletion reconciliation only;
+it no longer starts a manual refund run. Scheduled reconciliation is unchanged.
+The refund operation still requires reviewed source on `main`, the protected
+`production` environment, `AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED=true`, and the
+server's independent refund enablement. Adding this choice does not enable any
+of those controls or bypass environment branch protection.
+
+This operation processes the worker's bounded eligible queue, not a nominated
+test order. It is not a license-test-only mode. Before any approved live test,
+verify the eligible queue and use an appropriately isolated test setup; do not
+enable it merely to obtain a green workflow run. A skipped job is not execution
+or refund evidence.
+
 1. Confirm the exact deployed migration, verifier and RTDN versions, purchase product, and public-sales flag. If the checker cannot read the queue, keep or turn public sales off through the separately reviewed rollout control and investigate the read failure. Do not infer an empty queue.
 2. For a queued case, use a restricted operator surface to inspect the exact token/order/account binding and Google Play order state. Keep raw identifiers out of general logs. Confirm no wallet grant or consumption occurred. A summary count cannot decide a customer's remedy.
 3. Follow the owner-selected full-refund policy. The draft `public-credit-refund-reconcile` Edge Function is **default disabled** and requires its own protected invocation secret and a dedicated `GOOGLE_REFUND_SERVICE_ACCOUNT_JSON` credential, separate from the purchase verifier's service account. Grant the refund credential only the Play order permissions needed for this function. When enabled after review, it reads a bounded service-only queue, checks Google's exact order ID, purchase-token hash, one-time product and quantity, and claims one refund attempt under the token lock before calling `orders.refund` with `revoke=true`. Only a later Google `REFUNDED` readback or trusted void closes the queue. `PENDING_REFUND`, an ambiguous API timeout, a partial refund, a mismatched order, or a prior attempt still showing `PROCESSED` needs manual review; never blindly repeat a refund call. A worker crash after the one-time claim and before the POST also needs manual review.

@@ -6,12 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: Existing reconciliation or the explicitly reviewed repair rollout
+        description: Select account deletion (reconcile), refund-only reconciliation, monitoring, or reviewed repairs
         type: choice
         required: true
         default: reconcile
         options:
           - reconcile
+          - reconcile-credit-refunds
           - apply-reviewed-repairs
           - check-credit-resolutions
           - test-credit-alert
@@ -83,7 +84,7 @@ jobs:
       github.ref == 'refs/heads/main' &&
       vars.AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED == 'true' &&
       (github.event_name == 'schedule' ||
-       (github.event_name == 'workflow_dispatch' && inputs.operation == 'reconcile'))
+       (github.event_name == 'workflow_dispatch' && inputs.operation == 'reconcile-credit-refunds'))
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     environment: production
