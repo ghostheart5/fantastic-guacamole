@@ -187,6 +187,12 @@ begin
     when 'chronospark_credits_300' then 300 end;
   perform pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('credit-topup:' || p_token_hash, 0));
+  -- A terminal canceled pending token can never complete this admission.
+  -- Retire it now, but retain the row until bounded cleanup has passed.
+  update public.public_credit_checkout_admissions
+    set retired_at = coalesce(retired_at, now())
+    where pending_token_hash = p_token_hash and product_id = p_product_id
+      and consumed_token_hash is null;
   update public.public_credit_checkout_resolutions
     set state = 'refunded', last_verified_at = now()
     where token_hash = p_token_hash and state <> 'refunded';
@@ -509,8 +515,9 @@ grant execute on function public.grant_verified_credit_topup_v2(uuid,text,text,t
   to service_role;
 
 -- Retire unused admissions when their checkout window closes. Keep rows
--- linked to verified paid-order resolutions and all pending/consumed rows;
--- purging only unbound rows cannot cancel an in-flight pending payment.
+-- linked to verified paid-order resolutions and all genuinely pending or
+-- consumed rows. A canceled pending token can be purged only after a matching
+-- revoked purchase tombstone proves it cannot complete.
 create function public.purge_expired_public_credit_checkout_admissions()
 returns integer language plpgsql security invoker set search_path = '' as $$
 declare v_count integer;
@@ -523,7 +530,10 @@ begin
   with expired as (
     select a.id from public.public_credit_checkout_admissions a
     where a.retired_at < now() - interval '24 hours'
-      and a.pending_token_hash is null and a.consumed_token_hash is null
+      and a.consumed_token_hash is null
+      and (a.pending_token_hash is null or exists (
+        select 1 from public.credit_topup_purchases p
+        where p.token_hash = a.pending_token_hash and p.state = 'revoked'))
       and not exists (select 1 from public.public_credit_checkout_resolutions r
         where r.admission_id = a.id)
     order by a.retired_at limit 1000

@@ -338,6 +338,36 @@ begin
     where (c->>'refundAttempted')::boolean=false
       and not (first_unattempted ? (c->>'tokenHash'))),
     'old unattempted refunds monopolized new paid-order slots';
+  admission := public.create_public_credit_checkout_admission(
+    b,'chronospark_credits_100');
+  admission_id := admission->>'admissionId';
+  result := public.register_verified_pending_credit_topup(
+    b,repeat('9',64),'chronospark_credits_100',admission_id);
+  assert (result->>'registered')::boolean,
+    'canceled-pending cleanup fixture could not bind Play token';
+  update public.public_credit_checkout_admissions
+    set issued_at=now()-interval '3 days',
+      pending_verified_at=now()-interval '3 days'+interval '5 minutes'
+    where id=admission_id::uuid;
+  perform public.purge_expired_public_credit_checkout_admissions();
+  assert exists (select 1 from public.public_credit_checkout_admissions
+    where id=admission_id::uuid and retired_at is null),
+    'genuinely pending purchase was retired or purged';
+  result := public.revoke_verified_credit_topup(
+    repeat('9',64),'chronospark_credits_100','GPA.pending-canceled');
+  assert (result->>'handled')::boolean and
+    exists (select 1 from public.public_credit_checkout_admissions
+      where id=admission_id::uuid and retired_at is not null) and
+    exists (select 1 from public.credit_topup_purchases
+      where token_hash=repeat('9',64) and state='revoked'),
+    'verified canceled pending token did not retire its admission';
+  update public.public_credit_checkout_admissions
+    set retired_at=now()-interval '25 hours'
+    where id=admission_id::uuid;
+  perform public.purge_expired_public_credit_checkout_admissions();
+  assert not exists (select 1 from public.public_credit_checkout_admissions
+    where id=admission_id::uuid),
+    'canceled pending admission leaked after bounded cleanup';
 end;
 $$;
 select pass('public checkout admission reuses and purges unused rows without losing delayed payment');
