@@ -694,7 +694,8 @@ class GooglePlayPaywallRepository
       final List<PurchaseDetails> pastPurchases = await _billingClient
           .restorePurchases(
             applicationUserName: _billingAccountFingerprint(expectedUserId),
-          );
+          )
+          .timeout(_authorityRequestTimeout);
       if (pastPurchases.isNotEmpty) {
         await _enqueuePurchaseUpdate(pastPurchases);
       } else {

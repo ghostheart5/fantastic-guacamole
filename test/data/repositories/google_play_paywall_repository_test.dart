@@ -22,6 +22,71 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
+  for (final action in ['refresh', 'retry', 'restore']) {
+    test(
+      'stalled Play inventory bounds $action and preserves pending ownership',
+      () async {
+        final client = await _authorityClient(
+          (_) async => http.Response('[]', 200),
+        );
+        final store = SecureStore(backend: InMemorySecureStoreBackend());
+        const key = 'paywall_pending_purchase_owner_v1.chronospark_credits_100';
+        final owner = sha256.convert(utf8.encode('user-1')).toString();
+        await store.writeString(key, owner);
+        final inventory = Completer<void>();
+        final controller = StreamController<List<PurchaseDetails>>.broadcast();
+        final billing = _FakeBillingClient(
+          productResponse: ProductDetailsResponse(
+            productDetails: [],
+            notFoundIDs: [],
+          ),
+          purchaseStreamController: controller,
+          onRestorePurchases: () => inventory.future,
+        );
+        final repository = GooglePlayPaywallRepository(
+          billingClient: billing,
+          paywallTestingModeOverride: false,
+          requireTestPurchase: true,
+          requirePublicCreditAdmissionForLicenseTest: true,
+          supabaseClient: client,
+          secureStore: store,
+          receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+          authorityRequestTimeout: const Duration(milliseconds: 20),
+        );
+        try {
+          if (action == 'refresh') {
+            final state = await repository.refreshSubscriptionState().timeout(
+              const Duration(seconds: 1),
+            );
+            expect(state.isActive, isFalse);
+            expect(state.source, 'supabase_authority');
+          } else if (action == 'retry') {
+            final state = await repository
+                .startSubscription('credits_100')
+                .timeout(const Duration(seconds: 1));
+            expect(state.status, 'purchase_pending');
+          } else {
+            await expectLater(
+              repository.restorePurchases().timeout(const Duration(seconds: 1)),
+              throwsA(isA<TimeoutException>()),
+            );
+          }
+          expect(await store.readString(key), owner);
+          expect(billing.buyCalls, 0);
+          // A late empty result from the abandoned read must not clear the guard.
+          inventory.complete();
+          await Future<void>.delayed(const Duration(milliseconds: 30));
+          expect(await store.readString(key), owner);
+        } finally {
+          if (!inventory.isCompleted) inventory.complete();
+          await repository.disposeAsync();
+          await controller.close();
+          await client.dispose();
+        }
+      },
+    );
+  }
+
   for (final pendingInPlay in [false, true]) {
     test(
       'restore clears only absent pack guards with active premium ($pendingInPlay)',

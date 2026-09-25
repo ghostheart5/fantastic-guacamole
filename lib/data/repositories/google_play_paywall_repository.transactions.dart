@@ -14,9 +14,11 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
     }
     // Play's pending purchase inventory survives an app restart; no raw token
     // is written to local storage. A missing or failed inventory read leaves
-    // the owner guard in place, so another checkout cannot be started.
+    // the owner guard in place, so another checkout cannot be started. Bound
+    // the read itself so a late result cannot clear a guard after timeout.
     final List<PurchaseDetails> purchases = await _billingClient
-        .restorePurchases(applicationUserName: fingerprint);
+        .restorePurchases(applicationUserName: fingerprint)
+        .timeout(_authorityRequestTimeout);
     if (!_isCurrentBillingAccount(expectedUserId)) return null;
     final String operationKey = _purchaseOperationKey(
       productId,
