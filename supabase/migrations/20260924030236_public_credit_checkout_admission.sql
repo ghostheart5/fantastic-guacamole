@@ -46,7 +46,8 @@ create table public.public_credit_checkout_resolutions (
   admission_id uuid references public.public_credit_checkout_admissions(id),
   reason text not null check (reason in (
     'admission_expired_unbound', 'admission_missing',
-    'admission_already_consumed', 'admission_pending_other_token')),
+    'admission_already_consumed', 'admission_pending_other_token',
+    'admission_wrong_owner_or_product')),
   state text not null default 'awaiting_resolution'
     check (state in ('awaiting_resolution', 'refunded', 'fulfilled')),
   -- Set before the first external refund POST. A lost response is uncertain:
@@ -191,7 +192,8 @@ begin
   -- Retire it now, but retain the row until bounded cleanup has passed.
   update public.public_credit_checkout_admissions
     set retired_at = coalesce(retired_at, now())
-    where pending_token_hash = p_token_hash and product_id = p_product_id
+    where pending_token_hash = p_token_hash
+      and (p_product_id is null or product_id = p_product_id)
       and consumed_token_hash is null;
   update public.public_credit_checkout_resolutions
     set state = 'refunded', last_verified_at = now()
@@ -433,16 +435,18 @@ begin
       where id = p_admission_id::uuid and billing_principal_id = v_principal
         and product_id = p_product_id for update;
     if not found then
-      if exists (select 1 from public.public_credit_checkout_admissions
-        where id = p_admission_id::uuid) then
-        return jsonb_build_object('granted', false, 'reason', 'admission_invalid');
-      end if;
-      -- A verified paid order may arrive after an unused admission was
-      -- purged. Preserve the customer claim rather than silently lose it.
+      -- A verified paid order may reference an admission belonging to another
+      -- account or product, or one that has been purged. Never grant from that
+      -- admission or link it to this customer, but retain the exact paid order
+      -- for the refund remedy. The verifier has already checked Google's
+      -- obfuscated account ID against p_user_id before calling this RPC.
       insert into public.public_credit_checkout_resolutions
         (token_hash, billing_principal_id, product_id, order_id, reason)
         values (p_token_hash, v_principal, p_product_id, p_order_id,
-          'admission_missing');
+          case when exists (select 1
+            from public.public_credit_checkout_admissions
+            where id = p_admission_id::uuid)
+          then 'admission_wrong_owner_or_product' else 'admission_missing' end);
       return jsonb_build_object('granted', false,
         'reason', 'customer_resolution_required', 'resolutionQueued', true);
     end if;

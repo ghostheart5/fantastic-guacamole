@@ -338,6 +338,45 @@ begin
     where (c->>'refundAttempted')::boolean=false
       and not (first_unattempted ? (c->>'tokenHash'))),
     'old unattempted refunds monopolized new paid-order slots';
+  -- The Google verifier has already bound each PURCHASED receipt to its
+  -- account. A wrong-owner or wrong-SKU admission must not grant or alter the
+  -- referenced admission, but the paid receipt still needs a refund record.
+  admission_id := (select id::text
+    from public.public_credit_checkout_admissions
+    where consumed_token_hash=repeat('a',64));
+  result := public.grant_verified_credit_topup_v2(
+    b,repeat(md5('wrong-owner-admission'),2),
+    'chronospark_credits_100','GPA.wrong-owner',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean and
+    exists (select 1 from public.public_credit_checkout_resolutions
+      where token_hash=repeat(md5('wrong-owner-admission'),2)
+        and billing_principal_id=public.ensure_billing_principal(b)
+        and order_id='GPA.wrong-owner'
+        and admission_id is null
+        and reason='admission_wrong_owner_or_product'),
+    'verified paid receipt with another account admission was lost or granted';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat(md5('wrong-product-admission'),2),
+    'chronospark_credits_300','GPA.wrong-product',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean and
+    exists (select 1 from public.public_credit_checkout_resolutions
+      where token_hash=repeat(md5('wrong-product-admission'),2)
+        and billing_principal_id=public.ensure_billing_principal(a)
+        and product_id='chronospark_credits_300'
+        and order_id='GPA.wrong-product'
+        and admission_id is null
+        and reason='admission_wrong_owner_or_product'),
+    'verified paid receipt with another SKU admission was lost or granted';
+  assert (select consumed_token_hash from public.public_credit_checkout_admissions
+    where id=admission_id::uuid)=repeat('a',64) and
+    not exists (select 1 from public.credit_topup_purchases
+      where token_hash in (repeat(md5('wrong-owner-admission'),2),
+        repeat(md5('wrong-product-admission'),2))),
+    'mismatched admission changed the owner reservation or credit ledger';
   admission := public.create_public_credit_checkout_admission(
     b,'chronospark_credits_100');
   admission_id := admission->>'admissionId';
@@ -353,6 +392,26 @@ begin
   assert exists (select 1 from public.public_credit_checkout_admissions
     where id=admission_id::uuid and retired_at is null),
     'genuinely pending purchase was retired or purged';
+  -- Google void notifications can be trusted but carry no SKU. The unique
+  -- verified pending token still identifies exactly one reservation.
+  admission := public.create_public_credit_checkout_admission(
+    a,'chronospark_credits_300');
+  result := public.register_verified_pending_credit_topup(
+    a,repeat(md5('sku-less-void'),2),'chronospark_credits_300',
+    admission->>'admissionId');
+  assert (result->>'registered')::boolean,
+    'SKU-less void fixture could not bind its verified pending token';
+  result := public.revoke_verified_credit_topup(
+    repeat(md5('sku-less-void'),2),null,'GPA.sku-less-void');
+  assert (result->>'handled')::boolean and
+    exists (select 1 from public.public_credit_checkout_admissions
+      where id=(admission->>'admissionId')::uuid and retired_at is not null) and
+    exists (select 1 from public.public_credit_checkout_admissions
+      where id=admission_id::uuid and retired_at is null) and
+    exists (select 1 from public.credit_topup_purchases
+      where token_hash=repeat(md5('sku-less-void'),2)
+        and state='revoked' and product_id is null),
+    'trusted SKU-less void did not retire only its own pending admission';
   result := public.revoke_verified_credit_topup(
     repeat('9',64),'chronospark_credits_100','GPA.pending-canceled');
   assert (result->>'handled')::boolean and
