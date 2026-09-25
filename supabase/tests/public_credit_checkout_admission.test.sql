@@ -33,6 +33,12 @@ begin
   assert has_function_privilege('service_role',
     'public.public_credit_checkout_resolution_health()', 'execute'),
     'service role cannot monitor paid-order resolution health';
+  assert not has_function_privilege('authenticated',
+    'public.list_public_credit_refund_candidates(integer)', 'execute'),
+    'app clients can list refund order identities';
+  assert not has_function_privilege('authenticated',
+    'public.claim_public_credit_refund_attempt(text,text,text)', 'execute'),
+    'app clients can claim a Google refund attempt';
   result := public.create_public_credit_checkout_admission(a,null);
   assert result->>'reason'='invalid_product',
     'null product reached admission lock or insert';
@@ -185,6 +191,27 @@ begin
     a,repeat('2',64),'chronospark_credits_100','GPA.missing');
   assert (result->>'duplicate')::boolean,
     'unadmitted paid-order retry created another resolution';
+  result := public.list_public_credit_refund_candidates(5);
+  assert exists (select 1 from jsonb_array_elements(result->'candidates') as candidate
+    where candidate->>'tokenHash'=repeat('2',64)
+      and candidate->>'orderId'='GPA.missing'
+      and candidate->>'productId'='chronospark_credits_100'
+      and (candidate->>'refundAttempted')::boolean=false),
+    'service-only refund worker cannot find the exact queued order';
+  result := public.claim_public_credit_refund_attempt(
+    repeat('2',64),'GPA.wrong','chronospark_credits_100');
+  assert (result->>'claimed')::boolean=false,
+    'wrong Google order claimed a refund attempt';
+  result := public.claim_public_credit_refund_attempt(
+    repeat('2',64),'GPA.missing','chronospark_credits_100');
+  assert (result->>'claimed')::boolean,
+    'verified queued order could not claim one refund attempt';
+  result := public.claim_public_credit_refund_attempt(
+    repeat('2',64),'GPA.missing','chronospark_credits_100');
+  assert (result->>'claimed')::boolean=false and
+    (select count(*) from public.credit_topup_purchases
+      where token_hash=repeat('2',64))=0,
+    'refund attempt repeated or changed the wallet ledger';
   result := public.queue_unadmitted_credit_topup(
     b,repeat('2',64),'chronospark_credits_100','GPA.missing');
   assert result->>'reason'='resolution_proof_mismatch',
@@ -225,6 +252,24 @@ begin
     state='granted' and
     token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64),repeat('f',64),repeat('1',64),repeat('2',64),repeat('3',64)))=3,
     'failed or duplicate admissions changed purchased-credit ledger';
+  -- Several old ambiguous refund attempts must not hide a new paid order
+  -- from the worker's bounded batch.
+  insert into public.public_credit_checkout_resolutions
+    (token_hash, billing_principal_id, product_id, order_id, reason,
+     refund_attempted_at, created_at)
+    select repeat(n::text,64), public.ensure_billing_principal(a),
+      'chronospark_credits_100', 'GPA.old-' || n::text,
+      'admission_missing', now() - interval '1 hour',
+      now() - interval '2 hours'
+    from generate_series(4,8) n;
+  result := public.list_public_credit_refund_candidates(5);
+  assert exists (select 1 from jsonb_array_elements(result->'candidates') c
+    where c->>'tokenHash'=repeat('b',64)
+      and (c->>'refundAttempted')::boolean=false),
+    'older attempted refunds starved a new paid order';
+  assert exists (select 1 from jsonb_array_elements(result->'candidates') c
+    where (c->>'refundAttempted')::boolean=true),
+    'new paid orders starved provider refund readback';
 end;
 $$;
 select pass('public checkout admission reuses and purges unused rows without losing delayed payment');

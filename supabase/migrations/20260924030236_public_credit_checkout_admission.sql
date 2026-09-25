@@ -48,6 +48,9 @@ create table public.public_credit_checkout_resolutions (
     'admission_expired_unbound', 'admission_missing', 'admission_already_consumed')),
   state text not null default 'awaiting_resolution'
     check (state in ('awaiting_resolution', 'refunded', 'fulfilled')),
+  -- Set before the first external refund POST. A lost response is uncertain:
+  -- an automatic worker must read Google again and never repeat the POST.
+  refund_attempted_at timestamptz,
   created_at timestamptz not null default now(),
   last_verified_at timestamptz not null default now()
 );
@@ -79,6 +82,72 @@ $$;
 revoke all on function public.public_credit_checkout_resolution_health()
   from public, anon, authenticated;
 grant execute on function public.public_credit_checkout_resolution_health()
+  to service_role;
+
+-- A protected reconciliation worker needs exact order identity, while the
+-- public aggregate health check above must remain identifier-free.
+create function public.list_public_credit_refund_candidates(p_limit integer)
+returns jsonb language sql stable security invoker set search_path = '' as $$
+  select jsonb_build_object('candidates', coalesce(jsonb_agg(jsonb_build_object(
+    'tokenHash', q.token_hash, 'orderId', q.order_id,
+    'productId', q.product_id,
+    'refundAttempted', q.refund_attempted_at is not null
+  )), '[]'::jsonb))
+  from (
+    -- Reserve bounded capacity for both new claims and readback of previously
+    -- attempted refunds. Old unresolved attempts must not starve new orders.
+    (select token_hash, order_id, product_id, refund_attempted_at
+     from public.public_credit_checkout_resolutions
+     where state = 'awaiting_resolution' and refund_attempted_at is null
+     order by created_at, token_hash
+     limit ((least(greatest(coalesce(p_limit, 0), 0), 5) + 1) / 2))
+    union all
+    (select token_hash, order_id, product_id, refund_attempted_at
+     from public.public_credit_checkout_resolutions
+     where state = 'awaiting_resolution' and refund_attempted_at is not null
+     order by created_at, token_hash
+     limit (least(greatest(coalesce(p_limit, 0), 0), 5) / 2))
+  ) q;
+$$;
+revoke all on function public.list_public_credit_refund_candidates(integer)
+  from public, anon, authenticated;
+grant execute on function public.list_public_credit_refund_candidates(integer)
+  to service_role;
+
+-- Claim exactly one external refund attempt under the same token lock used by
+-- grants and voids. A claimed-but-unsent order requires operator review rather
+-- than an unsafe automatic retry after a process crash or network timeout.
+create function public.claim_public_credit_refund_attempt(
+  p_token_hash text, p_order_id text, p_product_id text
+) returns jsonb language plpgsql security invoker set search_path = '' as $$
+declare v_resolution public.public_credit_checkout_resolutions;
+begin
+  if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' or
+    nullif(btrim(p_order_id), '') is null or length(p_order_id) > 1024 or
+    p_product_id not in ('chronospark_credits_100', 'chronospark_credits_300') then
+    return jsonb_build_object('claimed', false, 'reason', 'invalid_identity');
+  end if;
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('credit-topup:' || p_token_hash, 0));
+  select * into v_resolution from public.public_credit_checkout_resolutions
+    where token_hash = p_token_hash for update;
+  if not found or v_resolution.order_id <> p_order_id or
+    v_resolution.product_id <> p_product_id or
+    v_resolution.state <> 'awaiting_resolution' or
+    v_resolution.refund_attempted_at is not null or
+    exists (select 1 from public.credit_topup_purchases
+      where token_hash = p_token_hash) then
+    return jsonb_build_object('claimed', false, 'reason', 'not_refundable');
+  end if;
+  update public.public_credit_checkout_resolutions
+    set refund_attempted_at = now(), last_verified_at = now()
+    where token_hash = p_token_hash;
+  return jsonb_build_object('claimed', true);
+end;
+$$;
+revoke all on function public.claim_public_credit_refund_attempt(text,text,text)
+  from public, anon, authenticated;
+grant execute on function public.claim_public_credit_refund_attempt(text,text,text)
   to service_role;
 
 -- A trusted Play void/refund is authoritative for the resolution queue too.
