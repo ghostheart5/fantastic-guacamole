@@ -436,6 +436,43 @@ begin
   assert not exists (select 1 from public.public_credit_checkout_admissions
     where id=admission_id::uuid),
     'canceled pending admission leaked after bounded cleanup';
+  -- Closing a package must stop new checkouts, while an earlier Play-paid
+  -- checkout still settles from the verified fixed SKU amount. A second paid
+  -- receipt using the consumed admission still reaches the refund queue.
+  admission := public.create_public_credit_checkout_admission(
+    b,'chronospark_credits_100');
+  assert (admission->>'allowed')::boolean,
+    'deactivation fixture could not create an admission while sale was open';
+  admission_id := admission->>'admissionId';
+  update public.monetization_credit_packages set is_active=false
+    where product_id='chronospark_credits_100';
+  result := public.create_public_credit_checkout_admission(
+    a,'chronospark_credits_100');
+  assert (result->>'allowed')::boolean=false and
+    result->>'reason'='product_inactive',
+    'inactive package still authorized a new checkout';
+  purchased_at := floor(extract(epoch from now()) * 1000)::bigint;
+  result := public.grant_verified_credit_topup_v2(
+    b,repeat(md5('sale-closed-after-admission'),2),
+    'chronospark_credits_100','GPA.sale-closed',false,
+    admission_id,purchased_at);
+  assert (result->>'granted')::boolean and
+    (result->>'credits')::integer=100 and
+    exists (select 1 from public.credit_topup_purchases
+      where token_hash=repeat(md5('sale-closed-after-admission'),2)
+        and state='granted' and credits=100),
+    'package deactivation stranded an earlier verified paid order';
+  result := public.grant_verified_credit_topup_v2(
+    b,repeat(md5('sale-closed-second-order'),2),
+    'chronospark_credits_100','GPA.sale-closed-second',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean and
+    exists (select 1 from public.public_credit_checkout_resolutions
+      where token_hash=repeat(md5('sale-closed-second-order'),2)
+        and order_id='GPA.sale-closed-second'
+        and reason='admission_already_consumed'),
+    'inactive package blocked refund resolution for another paid receipt';
 end;
 $$;
 select pass('public checkout admission reuses and purges unused rows without losing delayed payment');

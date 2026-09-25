@@ -251,6 +251,15 @@ begin
   perform pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended(
       'credit-admission:' || v_principal::text || ':' || p_product_id, 0));
+  -- Catalog activation controls new sales only. Once Google has accepted a
+  -- checkout, its verified receipt must remain recoverable after a pause.
+  if not exists (select 1 from public.monetization_credit_packages
+    where product_id = p_product_id and is_active
+      and credits = case p_product_id
+        when 'chronospark_credits_100' then 100
+        when 'chronospark_credits_300' then 300 end) then
+    return jsonb_build_object('allowed', false, 'reason', 'product_inactive');
+  end if;
   -- Repeated eligibility checks return the same live admission. Remove an
   -- expired unused one before issuing its replacement; a bound pending token
   -- is never removed here.
@@ -389,9 +398,12 @@ begin
     or p_admission_exempt is null then
     raise exception 'invalid top-up proof';
   end if;
-  select credits into v_credits from public.monetization_credit_packages
-    where product_id = p_product_id and is_active;
-  if v_credits not in (100, 300) or v_credits is null then
+  -- The verified Play SKU fixes the promised credit amount. Do not consult
+  -- the mutable sale-active bit when settling an already paid order.
+  v_credits := case p_product_id
+    when 'chronospark_credits_100' then 100
+    when 'chronospark_credits_300' then 300 end;
+  if v_credits is null then
     raise exception 'unsupported top-up';
   end if;
   perform pg_catalog.pg_advisory_xact_lock(
