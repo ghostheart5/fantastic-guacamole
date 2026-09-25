@@ -542,6 +542,15 @@ Deno.serve(async (req: Request) => {
         throw new Error("credit_provider_retry");
       }
       const purchase = await response.json() as Record<string, unknown>;
+      const creditEventProof = {
+        purchase_token_hash: await sha256Hex(token),
+        payload: {
+          source: "google_play_rtdn",
+          productId: sku,
+          notificationType: Number(event.notificationType),
+          providerPurchaseState: purchase.purchaseState,
+        },
+      };
       if (purchase.purchaseState === 1) {
         const revoked = await serviceRpc("revoke_verified_credit_topup", {
           p_token_hash: await sha256Hex(token),
@@ -591,10 +600,11 @@ Deno.serve(async (req: Request) => {
         }
         if (result.resolutionQueued === true) {
           await updateEvent(messageId, {
+            ...creditEventProof,
             state: "processed",
             failure_code: "customer_resolution_required",
             payload: {
-              source: "google_play_rtdn",
+              ...creditEventProof.payload,
               creditResolution: "awaiting_resolution",
             },
           });
@@ -603,7 +613,11 @@ Deno.serve(async (req: Request) => {
       } else if (purchase.purchaseState !== 2) {
         throw new Error("credit_state_invalid");
       }
-      await updateEvent(messageId, { state: "processed", failure_code: null });
+      await updateEvent(messageId, {
+        ...creditEventProof,
+        state: "processed",
+        failure_code: null,
+      });
       return new Response(null, { status: 204 });
     }
 
