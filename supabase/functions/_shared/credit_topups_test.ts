@@ -55,6 +55,38 @@ Deno.test("Google-verified pending credit token binds admission without grant or
   assert(events.join(",") === "verify-pending,register");
 });
 
+Deno.test("license QA may bind a pending token without a purchase type, but not grant it", async () => {
+  const input = {
+    config: {
+      supabaseUrl: "https://backend.invalid",
+      secretKey: "test-secret",
+      publishableKey: "test-public",
+    },
+    userId: "owner",
+    packageName: "com.ghostheart5.chronospark",
+    productId: "chronospark_credits_100",
+    token: "pending-test-token",
+    accessToken: "test-access",
+    requireTest: true,
+  };
+  let registrations = 0;
+  const transport: typeof fetch = async (url) => {
+    if (String(url).endsWith("/register_verified_pending_credit_topup")) {
+      registrations++;
+      return Response.json({ registered: true, duplicate: false });
+    }
+    return Response.json({
+      purchaseState: 2,
+      quantity: 1,
+      productId: input.productId,
+      obfuscatedExternalAccountId: await sha256Hex(input.userId),
+      obfuscatedExternalProfileId: "123e4567-e89b-12d3-a456-426614174000",
+    });
+  };
+  const result = await registerPendingCreditTopup(input, transport);
+  assert(result.pendingRegistered === true && registrations === 1);
+});
+
 Deno.test("unverified or mismatched pending credit tokens never reach admission RPC", async () => {
   const base = {
     purchaseState: 2,

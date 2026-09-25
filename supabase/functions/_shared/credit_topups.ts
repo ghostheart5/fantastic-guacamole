@@ -86,7 +86,11 @@ export async function registerPendingCreditTopup(input: {
       purchase.productId !== input.productId) ||
     purchase.obfuscatedExternalAccountId !== await sha256Hex(input.userId) ||
     typeof purchase.obfuscatedExternalProfileId !== "string" ||
-    (input.requireTest && purchase.purchaseType !== 0) ||
+    // The legacy Play pending response can omit purchaseType. A pending
+    // registration never grants or consumes; require test proof again after
+    // PURCHASED, and queue a real completed charge for full refund.
+    (input.requireTest && purchase.purchaseType !== 0 &&
+      purchase.purchaseType !== undefined) ||
     (!input.requireTest && purchase.purchaseType !== undefined &&
       purchase.purchaseType !== 0)
   ) {
