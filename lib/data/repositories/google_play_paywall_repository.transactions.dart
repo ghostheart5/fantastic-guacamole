@@ -1,5 +1,7 @@
 part of 'google_play_paywall_repository.dart';
 
+enum _PendingCreditRegistration { registered, canceled, unverified }
+
 extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
   Future<SubscriptionState?> _retryPendingCreditRegistrationFromPlay(
     String productId,
@@ -27,10 +29,21 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
     for (final PurchaseDetails purchase in purchases) {
       if (purchase.productID != productId) continue;
       if (purchase.status == PurchaseStatus.pending) {
-        await _registerPendingCreditTopupWithServer(
+        final registration = await _registerPendingCreditTopupWithServer(
           purchase,
           expectedUserId: expectedUserId,
         );
+        if (!_isCurrentBillingAccount(expectedUserId)) return null;
+        if (registration == _PendingCreditRegistration.canceled) {
+          await _clearPendingOwner(productId, expectedUserId);
+          _approvalPending.remove(operationKey);
+          final canceled = _transactionOutcomeState(
+            status: 'purchase_canceled',
+            attemptedPlanId: _planIdForProduct(productId),
+          );
+          _completePendingPurchase(null, canceled);
+          return canceled;
+        }
         return _purchasePendingState(_planIdForProduct(productId));
       }
       if (purchase.status == PurchaseStatus.purchased ||
@@ -173,18 +186,18 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
     }
   }
 
-  Future<bool> _registerPendingCreditTopupWithServer(
+  Future<_PendingCreditRegistration> _registerPendingCreditTopupWithServer(
     PurchaseDetails purchase, {
     required String? expectedUserId,
   }) async {
     if (!_hasReceiptVerification ||
         expectedUserId == null ||
         !_isCurrentBillingAccount(expectedUserId)) {
-      return false;
+      return _PendingCreditRegistration.unverified;
     }
     final token = _supabaseClient?.auth.currentSession?.accessToken;
     if (token == null) {
-      return false;
+      return _PendingCreditRegistration.unverified;
     }
     try {
       final response = await _httpClient
@@ -205,14 +218,30 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
           .timeout(_authorityRequestTimeout);
       if (response.statusCode != 200 ||
           !_isCurrentBillingAccount(expectedUserId)) {
-        return false;
+        return _PendingCreditRegistration.unverified;
       }
       final data = jsonDecode(response.body);
-      return data is Map &&
+      if (data is Map &&
           data['valid'] == true &&
-          data['pendingRegistered'] == true;
+          data['purchaseCanceled'] == true &&
+          data['productId'] == purchase.productID &&
+          data['tokenHash'] ==
+              sha256
+                  .convert(
+                    utf8.encode(
+                      purchase.verificationData.serverVerificationData,
+                    ),
+                  )
+                  .toString()) {
+        return _PendingCreditRegistration.canceled;
+      }
+      return data is Map &&
+              data['valid'] == true &&
+              data['pendingRegistered'] == true
+          ? _PendingCreditRegistration.registered
+          : _PendingCreditRegistration.unverified;
     } on Object {
-      return false;
+      return _PendingCreditRegistration.unverified;
     }
   }
 

@@ -1397,11 +1397,24 @@ class GooglePlayPaywallRepository
       } else if (purchase.status == PurchaseStatus.pending) {
         if (productId.startsWith('chronospark_credits_') &&
             _creditAdmissionRequired) {
-          final bool registered = await _registerPendingCreditTopupWithServer(
+          final registration = await _registerPendingCreditTopupWithServer(
             purchase,
             expectedUserId: currentUserId,
           );
-          if (!registered) {
+          if (!_isCurrentBillingAccount(currentUserId)) continue;
+          if (registration == _PendingCreditRegistration.canceled) {
+            await _clearPendingOwner(productId, currentUserId);
+            final canceled = _transactionOutcomeState(
+              status: 'purchase_canceled',
+              attemptedPlanId: _planIdForProduct(productId),
+            );
+            _completePendingPurchase(pending, canceled);
+            _completePendingRestore(restore, canceled);
+            _approvalPending.remove(operationKey);
+            _removePendingPurchase(operationKey, pending);
+            continue;
+          }
+          if (registration != _PendingCreditRegistration.registered) {
             Logger.warn(
               'Pending Google Play credit token was not registered; '
               'server verification must retry before completion.',

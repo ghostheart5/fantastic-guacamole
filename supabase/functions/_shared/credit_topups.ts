@@ -77,7 +77,7 @@ export async function registerPendingCreditTopup(input: {
     };
   }
   const purchase = await response.json() as Record<string, unknown>;
-  if (purchase.purchaseState !== 2) {
+  if (purchase.purchaseState !== 2 && purchase.purchaseState !== 1) {
     return { valid: false, error: "purchase_not_pending" };
   }
   if (
@@ -95,6 +95,34 @@ export async function registerPendingCreditTopup(input: {
       purchase.purchaseType !== 0)
   ) {
     return { valid: false, error: "pending_proof_mismatch" };
+  }
+  if (purchase.purchaseState === 1) {
+    // A local Play inventory can lag a canceled pending payment. Reconcile
+    // only after Google's account and product proof above has matched.
+    const tokenHash = await sha256Hex(input.token);
+    const canceled = await serviceRpc(
+      input.config,
+      "revoke_verified_credit_topup",
+      {
+        p_token_hash: tokenHash,
+        p_product_id: input.productId,
+        p_order_id: purchase.orderId ?? null,
+      },
+      fetcher,
+    );
+    if (canceled?.handled !== true) {
+      return {
+        valid: false,
+        retryable: true,
+        error: "cancellation_reconcile_retryable",
+      };
+    }
+    return {
+      valid: true,
+      purchaseCanceled: true,
+      productId: input.productId,
+      tokenHash,
+    };
   }
   const registered = await serviceRpc(
     input.config,

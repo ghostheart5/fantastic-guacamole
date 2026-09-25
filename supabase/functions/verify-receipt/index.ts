@@ -333,6 +333,18 @@ Deno.serve(async (req: Request) => {
       const result = body.operation === "credit_register_pending"
         ? await registerPendingCreditTopup(topupInput)
         : await verifyCreditTopup(topupInput);
+      if (privateAdmissionQa && body.operation === "credit_register_pending") {
+        // Private QA diagnostics deliberately exclude account, order and token.
+        console.info(JSON.stringify({
+          event: "credit_pending_reconciliation",
+          productId,
+          outcome: result.purchaseCanceled === true
+            ? "canceled"
+            : result.pendingRegistered === true
+            ? "pending"
+            : result.error ?? "unverified",
+        }));
+      }
       return jsonResponse(
         req,
         result as unknown as VerifyResponse,
