@@ -61,7 +61,8 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
           attemptedPlanId: null,
         );
         _completePendingPurchase(null, outcome);
-        if (creditOutcome == 'credits_added') {
+        if (creditOutcome == 'credits_added' ||
+            creditOutcome == 'purchase_canceled') {
           _approvalPending.remove(operationKey);
           await _clearPendingOwner(productId, expectedUserId);
         }
@@ -168,6 +169,24 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
         return 'verification_failed';
       }
       final data = jsonDecode(response.body);
+      if (_creditAdmissionRequired &&
+          data is Map &&
+          data['valid'] == false &&
+          data['error'] == 'purchase_not_completed') {
+        // Play can retain PURCHASED inventory after a refund. Read the
+        // existing cancellation authority and require its exact token proof;
+        // the generic verification error alone cannot release ownership.
+        final registration = await _registerPendingCreditTopupWithServer(
+          purchase,
+          expectedUserId: expectedUserId,
+          recoverCompletedPurchase: false,
+        );
+        if (registration == _PendingCreditRegistration.canceled &&
+            _isCurrentBillingAccount(expectedUserId)) {
+          return 'purchase_canceled';
+        }
+        return 'verification_failed';
+      }
       final expectedCredits = purchase.productID == 'chronospark_credits_100'
           ? 100
           : 300;
@@ -192,6 +211,7 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
   Future<_PendingCreditRegistration> _registerPendingCreditTopupWithServer(
     PurchaseDetails purchase, {
     required String? expectedUserId,
+    bool recoverCompletedPurchase = true,
   }) async {
     if (!_hasReceiptVerification ||
         expectedUserId == null ||
@@ -225,6 +245,9 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
       }
       final data = jsonDecode(response.body);
       if (data is Map && data['error'] == 'purchase_not_pending') {
+        if (!recoverCompletedPurchase) {
+          return _PendingCreditRegistration.unverified;
+        }
         // A device inventory can lag a completed payment as well as a
         // cancellation. Only the normal server fulfillment proof can release
         // this guard; never infer delivery from the registration error alone.

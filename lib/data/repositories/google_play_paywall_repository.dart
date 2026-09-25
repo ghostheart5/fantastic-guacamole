@@ -1245,7 +1245,8 @@ class GooglePlayPaywallRepository
             );
             _completePendingPurchase(pending, outcome);
             _completePendingRestore(restore, outcome);
-            if (creditOutcome == 'credits_added') {
+            if (creditOutcome == 'credits_added' ||
+                creditOutcome == 'purchase_canceled') {
               _approvalPending.remove(operationKey);
               await _clearPendingOwner(productId, expectedUserId);
             }
