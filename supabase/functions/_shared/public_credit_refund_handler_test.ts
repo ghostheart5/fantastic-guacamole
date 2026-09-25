@@ -1,4 +1,56 @@
-import { createRefundReconcileHandler } from "./public_credit_refund_handler.ts";
+import {
+  createRefundReconcileHandler,
+  refundBackendServiceKey,
+} from "./public_credit_refund_handler.ts";
+
+Deno.test("refund worker uses the hosted service role key when no override exists", async () => {
+  const hosted: Record<string, string> = {
+    SUPABASE_SERVICE_ROLE_KEY: "hosted-service-key",
+  };
+  let reconciled = false;
+  const handler = createRefundReconcileHandler({
+    ...exactConfig,
+    secretKey: refundBackendServiceKey((name) => hosted[name]),
+  }, {
+    getAccessToken: () => Promise.resolve("test-token"),
+    reconcile: (input) => {
+      if (input.config.secretKey !== hosted.SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error(
+          "hosted credential was not passed to the database client",
+        );
+      }
+      reconciled = true;
+      return Promise.resolve({
+        scanned: 0,
+        refunded: 0,
+        requested: 0,
+        pending: 0,
+        manualReview: 0,
+        retryLater: 0,
+      });
+    },
+  });
+  const response = await handler(req("POST", exactConfig.secret));
+  await response.body?.cancel();
+  if (response.status !== 200 || !reconciled) {
+    throw new Error("hosted configuration remained unconfigured");
+  }
+});
+
+Deno.test("refund credential override is preserved and missing keys fail closed", () => {
+  const keys: Record<string, string> = {
+    SUPABASE_SECRET_KEY: "explicit-service-key",
+    SUPABASE_SERVICE_ROLE_KEY: "hosted-service-key",
+  };
+  if (
+    refundBackendServiceKey((name) => keys[name]) !== keys.SUPABASE_SECRET_KEY
+  ) {
+    throw new Error("explicit credential was overridden");
+  }
+  if (refundBackendServiceKey(() => undefined) !== "") {
+    throw new Error("missing credential did not fail closed");
+  }
+});
 
 const exactConfig = {
   secret: "test-refund-key",

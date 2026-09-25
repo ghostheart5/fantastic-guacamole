@@ -5,6 +5,13 @@ import { type CreditRefundReconcileCounts } from "./public_credit_refund_worker.
 const PROJECT_URL = "https://qpwhuckyirnqtmvhpede.supabase.co";
 const PACKAGE_NAME = "com.ghostheart5.chronospark";
 
+export function refundBackendServiceKey(
+  readEnv: (name: string) => string | undefined,
+): string {
+  return readEnv("SUPABASE_SECRET_KEY") ??
+    readEnv("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+}
+
 export interface RefundHandlerConfig {
   secret: string;
   enabled: boolean;
