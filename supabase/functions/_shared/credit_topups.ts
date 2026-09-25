@@ -187,6 +187,9 @@ export async function verifyCreditTopup(input: {
   );
   if (
     error === "test_purchase_required" &&
+    // Only the standard paid flow omits purchaseType. Promo/rewarded orders
+    // are not paid credit-pack failures and must never enter refund handling.
+    purchase.purchaseType === undefined &&
     (purchase.productId === undefined ||
       purchase.productId === input.productId) &&
     purchase.obfuscatedExternalAccountId === await sha256Hex(input.userId) &&

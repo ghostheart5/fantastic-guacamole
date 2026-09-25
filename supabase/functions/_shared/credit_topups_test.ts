@@ -422,6 +422,37 @@ Deno.test("unexpected real charge in license QA is queued for full refund, never
     }
   }
 });
+Deno.test("promo and rewarded QA receipts never enter the paid-order refund queue", async () => {
+  for (const purchaseType of [1, 2]) {
+    let calls = 0;
+    const result = await verifyCreditTopup({
+      config: {
+        supabaseUrl: "https://backend.invalid",
+        secretKey: "test-secret",
+        publishableKey: "test-public",
+      },
+      userId: "owner",
+      packageName: "com.ghostheart5.chronospark",
+      productId: "chronospark_credits_100",
+      token: "nonpaid-qa-token",
+      accessToken: "test-access",
+      requireTest: true,
+    }, async () => {
+      calls++;
+      if (calls > 1) throw new Error("nonpaid purchase reached a mutation");
+      return Response.json({
+        purchaseState: 0,
+        quantity: 1,
+        purchaseType,
+        obfuscatedExternalAccountId: await sha256Hex("owner"),
+        orderId: "GPA.nonpaid",
+        consumptionState: 0,
+      });
+    });
+    assert(calls === 1 && result.error === "test_purchase_required");
+    assert(result.resolutionQueued !== true);
+  }
+});
 Deno.test("public-client license-test receipt without a valid profile cannot bypass admission", async () => {
   for (const profileId of [undefined, "not-an-admission"]) {
     const events: string[] = [];
