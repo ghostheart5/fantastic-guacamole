@@ -13,6 +13,8 @@ on:
         options:
           - reconcile
           - apply-reviewed-repairs
+          - check-credit-resolutions
+          - test-credit-alert
       source_sha:
         description: Repair mode only; exact full reviewed commit SHA
         type: string
@@ -30,6 +32,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  public-credit-monitor:
+    # Monitoring must not depend on sales or automatic refund enablement.
+    if: >-
+      github.repository == 'ghostheart5/fantastic-guacamole' &&
+      ((github.event_name == 'schedule' && github.ref == 'refs/heads/main' &&
+        vars.AXIOMARA_PUBLIC_CREDIT_MONITOR_ENABLED == 'true') ||
+       (github.event_name == 'workflow_dispatch' && inputs.operation == 'check-credit-resolutions' &&
+        (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/public-credit-license-qa-3092')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    environment: production
+    steps:
+      - name: Checkout exact monitor source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check paid-order resolution health without executing refunds
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/public_credit_monitor_job.mjs check
+
+  credit-alert-drill:
+    name: Axiomara billing ALERT DRILL (intentional failure)
+    if: >-
+      github.repository == 'ghostheart5/fantastic-guacamole' &&
+      github.event_name == 'workflow_dispatch' && inputs.operation == 'test-credit-alert' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/public-credit-license-qa-3092')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    # No production environment or secrets: the fixture cannot touch paid orders.
+    steps:
+      - name: Checkout exact alert drill source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Exercise the failure notification with synthetic overdue counts
+        run: node scripts/public_credit_monitor_job.mjs alert-drill
+
   public-credit-refunds:
     # Repository variable remains absent/off until the reviewed worker,
     # license-test lifecycle, monitoring and refund policy are approved.

@@ -8,6 +8,19 @@ Run `node scripts/check_public_credit_resolutions.mjs` from an approved server o
 
 Status `clear` means no queued paid orders need resolution. `watch` means one or more verified orders are queued but none is over one hour old. `action_required` means at least one has waited over one hour; `critical` means at least one has waited over one day. The command exits nonzero for the latter two so a protected scheduled job can alert. **No schedule or alert recipient is activated by this draft.** A failed query is unknown state, never equivalent to `clear`.
 
+## Independent monitoring and notification drill
+
+`Backend Reconciliation` now has two narrowly scoped manual operations:
+
+- `check-credit-resolutions` runs the read-only health RPC, even while automatic refunds and public checkout remain disabled. Its job summary reports only aggregate counts. A failed query reports `unknown` and fails the job; it cannot report an empty queue.
+- `test-credit-alert` uses synthetic overdue counts through the same classifier and intentionally fails the named **Axiomara billing ALERT DRILL** job. It has no production environment, database credentials, provider credentials or refund call. Confirm delivery of the notification for that exact run to the configured billing owner before recording the alert gate as passed. A local test or failed job alone is not email delivery proof.
+
+The separate scheduled monitor requires repository variable `AXIOMARA_PUBLIC_CREDIT_MONITOR_ENABLED=true` and reviewed code on `main`. It does not depend on the refund enablement variable. This change does not activate that schedule. Manual operations are limited to `main` and the existing private license-QA branch.
+
+GitHub Actions email notifications must be enabled for the workflow actor and routed to the approved billing address. Scheduled notifications follow the schedule's actor; verify that identity again when integrating or changing the cron schedule. See [GitHub workflow notifications](https://docs.github.com/en/actions/concepts/workflows-and-actions/notifications-for-workflow-runs). Receiving a manually triggered drill does not prove future scheduled delivery. Record the recipient and receipts in the restricted release packet, not this public repository.
+
+The database gate also runs `scripts/integration/public_credit_refund_database_test.ts` against its disposable loopback Supabase instance. Actual SQL claims and queue transitions are exercised across repeated worker calls after a simulated lost provider response. The test checks pending and partial refunds, full confirmation, the revoked tombstone and exactly one outbound refund request. Its provider is synthetic, its network access is restricted to loopback, and it is not live Google refund evidence.
+
 ## Operator response
 
 1. Confirm the exact deployed migration, verifier and RTDN versions, purchase product, and public-sales flag. If the checker cannot read the queue, keep or turn public sales off through the separately reviewed rollout control and investigate the read failure. Do not infer an empty queue.

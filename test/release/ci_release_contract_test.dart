@@ -540,6 +540,51 @@ void main() {
     },
   );
 
+  test(
+    'billing monitor and drill cannot activate refunds or account deletion',
+    () {
+      final YamlMap reconciliation = workflow('backend-reconciliation.yml');
+      final YamlMap jobs = reconciliation['jobs'] as YamlMap;
+      final YamlMap monitor = jobs['public-credit-monitor'] as YamlMap;
+      final String condition = monitor['if'] as String;
+      expect(
+        condition,
+        contains("inputs.operation == 'check-credit-resolutions'"),
+      );
+      expect(condition, contains('AXIOMARA_PUBLIC_CREDIT_MONITOR_ENABLED'));
+      expect(
+        condition,
+        isNot(contains('AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED')),
+      );
+      expect(
+        condition,
+        isNot(contains('CHRONOSPARK_PUBLIC_CREDIT_TOPUPS_ENABLED')),
+      );
+      expect(monitor['environment'], 'production');
+      final YamlMap read = namedStep(
+        monitor,
+        'Check paid-order resolution health without executing refunds',
+      );
+      expect(read['run'], 'node scripts/public_credit_monitor_job.mjs check');
+      expect(
+        (read['env'] as YamlMap).containsKey(
+          'PUBLIC_CREDIT_REFUND_RECONCILE_SECRET',
+        ),
+        isFalse,
+      );
+      final YamlMap drill = jobs['credit-alert-drill'] as YamlMap;
+      expect(drill.containsKey('environment'), isFalse);
+      expect(drill.toString(), isNot(contains('secrets.')));
+      expect(drill['if'], contains("inputs.operation == 'test-credit-alert'"));
+      for (final String job in ['public-credit-refunds', 'account-deletion']) {
+        final String mutationCondition = (jobs[job] as YamlMap)['if'] as String;
+        expect(mutationCondition, contains("inputs.operation == 'reconcile'"));
+        expect(mutationCondition, isNot(contains('check-credit-resolutions')));
+        expect(mutationCondition, isNot(contains('test-credit-alert')));
+      }
+    },
+  );
+
   test('paid-order recovery stays scheduled after public sales are paused', () {
     final YamlMap reconciliation = workflow('backend-reconciliation.yml');
     final YamlMap refundJob =
