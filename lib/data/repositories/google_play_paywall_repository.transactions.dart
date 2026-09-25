@@ -1,6 +1,6 @@
 part of 'google_play_paywall_repository.dart';
 
-enum _PendingCreditRegistration { registered, canceled, unverified }
+enum _PendingCreditRegistration { registered, canceled, completed, unverified }
 
 extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
   Future<SubscriptionState?> _retryPendingCreditRegistrationFromPlay(
@@ -34,11 +34,14 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
           expectedUserId: expectedUserId,
         );
         if (!_isCurrentBillingAccount(expectedUserId)) return null;
-        if (registration == _PendingCreditRegistration.canceled) {
+        if (registration == _PendingCreditRegistration.canceled ||
+            registration == _PendingCreditRegistration.completed) {
           await _clearPendingOwner(productId, expectedUserId);
           _approvalPending.remove(operationKey);
           final canceled = _transactionOutcomeState(
-            status: 'purchase_canceled',
+            status: registration == _PendingCreditRegistration.completed
+                ? 'credits_added'
+                : 'purchase_canceled',
             attemptedPlanId: _planIdForProduct(productId),
           );
           _completePendingPurchase(null, canceled);
@@ -221,6 +224,18 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
         return _PendingCreditRegistration.unverified;
       }
       final data = jsonDecode(response.body);
+      if (data is Map && data['error'] == 'purchase_not_pending') {
+        // A device inventory can lag a completed payment as well as a
+        // cancellation. Only the normal server fulfillment proof can release
+        // this guard; never infer delivery from the registration error alone.
+        final outcome = await _verifiedCreditTopupFromServer(
+          purchase,
+          expectedUserId: expectedUserId,
+        );
+        return outcome == 'credits_added'
+            ? _PendingCreditRegistration.completed
+            : _PendingCreditRegistration.unverified;
+      }
       if (data is Map &&
           data['valid'] == true &&
           data['purchaseCanceled'] == true &&

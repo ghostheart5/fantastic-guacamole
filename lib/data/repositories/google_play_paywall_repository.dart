@@ -1402,10 +1402,13 @@ class GooglePlayPaywallRepository
             expectedUserId: currentUserId,
           );
           if (!_isCurrentBillingAccount(currentUserId)) continue;
-          if (registration == _PendingCreditRegistration.canceled) {
+          if (registration == _PendingCreditRegistration.canceled ||
+              registration == _PendingCreditRegistration.completed) {
             await _clearPendingOwner(productId, currentUserId);
             final canceled = _transactionOutcomeState(
-              status: 'purchase_canceled',
+              status: registration == _PendingCreditRegistration.completed
+                  ? 'credits_added'
+                  : 'purchase_canceled',
               attemptedPlanId: _planIdForProduct(productId),
             );
             _completePendingPurchase(pending, canceled);
