@@ -359,12 +359,12 @@ begin
     admission_id,purchased_at);
   assert result->>'reason'='customer_resolution_required' and
     (result->>'resolutionQueued')::boolean and
-    exists (select 1 from public.public_credit_checkout_resolutions
-      where token_hash=repeat(md5('wrong-owner-admission'),2)
-        and billing_principal_id=public.ensure_billing_principal(b)
-        and order_id='GPA.wrong-owner'
-        and admission_id is null
-        and reason='admission_wrong_owner_or_product'),
+    exists (select 1 from public.public_credit_checkout_resolutions r
+      where r.token_hash=repeat(md5('wrong-owner-admission'),2)
+        and r.billing_principal_id=public.ensure_billing_principal(b)
+        and r.order_id='GPA.wrong-owner'
+        and r.admission_id is null
+        and r.reason='admission_wrong_owner_or_product'),
     'verified paid receipt with another account admission was lost or granted';
   result := public.grant_verified_credit_topup_v2(
     a,repeat(md5('wrong-product-admission'),2),
@@ -372,13 +372,13 @@ begin
     admission_id,purchased_at);
   assert result->>'reason'='customer_resolution_required' and
     (result->>'resolutionQueued')::boolean and
-    exists (select 1 from public.public_credit_checkout_resolutions
-      where token_hash=repeat(md5('wrong-product-admission'),2)
-        and billing_principal_id=public.ensure_billing_principal(a)
-        and product_id='chronospark_credits_300'
-        and order_id='GPA.wrong-product'
-        and admission_id is null
-        and reason='admission_wrong_owner_or_product'),
+    exists (select 1 from public.public_credit_checkout_resolutions r
+      where r.token_hash=repeat(md5('wrong-product-admission'),2)
+        and r.billing_principal_id=public.ensure_billing_principal(a)
+        and r.product_id='chronospark_credits_300'
+        and r.order_id='GPA.wrong-product'
+        and r.admission_id is null
+        and r.reason='admission_wrong_owner_or_product'),
     'verified paid receipt with another SKU admission was lost or granted';
   assert (select consumed_token_hash from public.public_credit_checkout_admissions
     where id=admission_id::uuid)=repeat('a',64) and
