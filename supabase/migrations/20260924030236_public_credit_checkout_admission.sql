@@ -47,7 +47,7 @@ create table public.public_credit_checkout_resolutions (
   reason text not null check (reason in (
     'admission_expired_unbound', 'admission_missing',
     'admission_already_consumed', 'admission_pending_other_token',
-    'admission_wrong_owner_or_product')),
+    'admission_wrong_owner_or_product', 'purchase_predates_admission')),
   state text not null default 'awaiting_resolution'
     check (state in ('awaiting_resolution', 'refunded', 'fulfilled')),
   -- Set before the first external refund POST. A lost response is uncertain:
@@ -463,7 +463,15 @@ begin
         'reason', 'customer_resolution_required', 'resolutionQueued', true);
     end if;
     if v_purchase_at < v_admission.issued_at - interval '1 minute' then
-      return jsonb_build_object('granted', false, 'reason', 'admission_invalid');
+      -- A verified order cannot be entitled by a reservation created after
+      -- its purchase, but refusing credits must not discard the paid order.
+      insert into public.public_credit_checkout_resolutions
+        (token_hash, billing_principal_id, product_id, order_id, admission_id,
+         reason)
+        values (p_token_hash, v_principal, p_product_id, p_order_id,
+          v_admission.id, 'purchase_predates_admission');
+      return jsonb_build_object('granted', false,
+        'reason', 'customer_resolution_required', 'resolutionQueued', true);
     end if;
     if v_admission.pending_token_hash is not null and
       v_admission.pending_token_hash <> p_token_hash then

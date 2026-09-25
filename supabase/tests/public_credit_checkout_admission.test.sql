@@ -80,9 +80,26 @@ begin
     set issued_at=now()+interval '1 day'
     where id=admission_id::uuid;
   result := public.grant_verified_credit_topup_v2(
-    a,repeat('c',64),'chronospark_credits_100','GPA.public-c',false,
+    a,repeat(md5('predates-admission'),2),'chronospark_credits_100',
+    'GPA.predates-admission',false,
     admission_id,purchased_at);
-  assert result->>'reason'='admission_invalid', 'pre-admission purchase accepted';
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean and
+    exists (select 1 from public.public_credit_checkout_resolutions
+      where token_hash=repeat(md5('predates-admission'),2)
+        and order_id='GPA.predates-admission'
+        and reason='purchase_predates_admission'
+        and state='awaiting_resolution') and
+    not exists (select 1 from public.credit_topup_purchases
+      where token_hash=repeat(md5('predates-admission'),2)),
+    'verified pre-admission payment received credits or lost its refund path';
+  result := public.revoke_verified_credit_topup(
+    repeat(md5('predates-admission'),2),
+    'chronospark_credits_100','GPA.predates-admission');
+  assert (result->>'handled')::boolean and
+    (select state from public.public_credit_checkout_resolutions
+      where token_hash=repeat(md5('predates-admission'),2))='refunded',
+    'trusted void did not close pre-admission resolution';
   update public.public_credit_checkout_admissions
     set issued_at=now()-interval '3 days'
     where id=admission_id::uuid;
@@ -125,7 +142,7 @@ begin
     'voided unfulfilled payment remained actionable in the resolution queue';
   result := public.public_credit_checkout_resolution_health();
   assert (result->>'awaiting')::integer=0 and
-    (result->>'refunded')::integer=1 and
+    (result->>'refunded')::integer=2 and
     result->>'oldestAwaitingAt' is null,
     'refunded order remained in the monitoring queue';
   result := public.revoke_verified_credit_topup(
