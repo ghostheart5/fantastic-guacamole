@@ -1,7 +1,7 @@
 import { createRefundReconcileHandler } from "./public_credit_refund_handler.ts";
 
 const exactConfig = {
-  secret: "dedicated-test-secret",
+  secret: "test-refund-key",
   enabled: true,
   supabaseUrl: "https://qpwhuckyirnqtmvhpede.supabase.co",
   secretKey: "test-service-key",
