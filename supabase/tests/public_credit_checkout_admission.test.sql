@@ -39,6 +39,9 @@ begin
   assert not has_function_privilege('authenticated',
     'public.claim_public_credit_refund_attempt(text,text,text)', 'execute'),
     'app clients can claim a Google refund attempt';
+  assert not has_function_privilege('authenticated',
+    'public.note_public_credit_refund_readback(text,text,text)', 'execute'),
+    'app clients can rotate refund readback';
   result := public.create_public_credit_checkout_admission(a,null);
   assert result->>'reason'='invalid_product',
     'null product reached admission lock or insert';
@@ -157,8 +160,20 @@ begin
   result := public.grant_verified_credit_topup_v2(
     a,repeat('1',64),'chronospark_credits_100','GPA.public-g',false,
     admission_id,purchased_at);
-  assert result->>'reason'='admission_invalid',
-    'pending binding was used by a different token';
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean and
+    (select count(*) from public.public_credit_checkout_resolutions
+      where token_hash=repeat('1',64) and order_id='GPA.public-g'
+        and reason='admission_pending_other_token'
+        and state='awaiting_resolution')=1,
+    'second verified paid token was lost behind another pending binding';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('1',64),'chronospark_credits_100','GPA.public-g',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (select count(*) from public.public_credit_checkout_resolutions
+      where token_hash=repeat('1',64))=1,
+    'second paid token retry duplicated or granted its resolution';
   result := public.grant_verified_credit_topup_v2(
     a,repeat('f',64),'chronospark_credits_100','GPA.public-f',false,
     admission_id,purchased_at);
@@ -202,10 +217,18 @@ begin
     repeat('2',64),'GPA.wrong','chronospark_credits_100');
   assert (result->>'claimed')::boolean=false,
     'wrong Google order claimed a refund attempt';
+  result := public.note_public_credit_refund_readback(
+    repeat('2',64),'GPA.missing','chronospark_credits_100');
+  assert (result->>'touched')::boolean=false,
+    'unattempted refund was rotated as a provider readback';
   result := public.claim_public_credit_refund_attempt(
     repeat('2',64),'GPA.missing','chronospark_credits_100');
   assert (result->>'claimed')::boolean,
     'verified queued order could not claim one refund attempt';
+  result := public.note_public_credit_refund_readback(
+    repeat('2',64),'GPA.wrong','chronospark_credits_100');
+  assert (result->>'touched')::boolean=false,
+    'wrong order rotated refund readback';
   result := public.claim_public_credit_refund_attempt(
     repeat('2',64),'GPA.missing','chronospark_credits_100');
   assert (result->>'claimed')::boolean=false and
@@ -256,11 +279,11 @@ begin
   -- from the worker's bounded batch.
   insert into public.public_credit_checkout_resolutions
     (token_hash, billing_principal_id, product_id, order_id, reason,
-     refund_attempted_at, created_at)
+     refund_attempted_at, created_at, last_verified_at)
     select repeat(n::text,64), public.ensure_billing_principal(a),
       'chronospark_credits_100', 'GPA.old-' || n::text,
       'admission_missing', now() - interval '1 hour',
-      now() - interval '2 hours'
+      now() - interval '2 hours', now() - interval '2 hours'
     from generate_series(4,8) n;
   result := public.list_public_credit_refund_candidates(5);
   assert exists (select 1 from jsonb_array_elements(result->'candidates') c
@@ -268,8 +291,18 @@ begin
       and (c->>'refundAttempted')::boolean=false),
     'older attempted refunds starved a new paid order';
   assert exists (select 1 from jsonb_array_elements(result->'candidates') c
-    where (c->>'refundAttempted')::boolean=true),
+    where c->>'tokenHash'=repeat('4',64)
+      and (c->>'refundAttempted')::boolean=true),
     'new paid orders starved provider refund readback';
+  perform public.note_public_credit_refund_readback(
+    repeat('4',64),'GPA.old-4','chronospark_credits_100');
+  perform public.note_public_credit_refund_readback(
+    repeat('5',64),'GPA.old-5','chronospark_credits_100');
+  result := public.list_public_credit_refund_candidates(5);
+  assert exists (select 1 from jsonb_array_elements(result->'candidates') c
+    where c->>'tokenHash'=repeat('6',64)
+      and (c->>'refundAttempted')::boolean=true),
+    'older attempted refunds monopolized provider readback slots';
 end;
 $$;
 select pass('public checkout admission reuses and purges unused rows without losing delayed payment');

@@ -76,6 +76,9 @@ Deno.test("only a provider-confirmed full refund closes the resolution", async (
         candidates: [{ ...candidate, refundAttempted: true }],
       }));
     }
+    if (path.endsWith("/note_public_credit_refund_readback")) {
+      return Promise.resolve(Response.json({ touched: true }));
+    }
     if (path.endsWith(encodeURIComponent(candidate.orderId))) {
       return Promise.resolve(Response.json(order("REFUNDED")));
     }
@@ -86,7 +89,7 @@ Deno.test("only a provider-confirmed full refund closes the resolution", async (
   };
   const result = await reconcilePublicCreditRefunds(input, fetcher);
   if (
-    result?.refunded !== 1 || calls.length !== 3 ||
+    result?.refunded !== 1 || calls.length !== 4 ||
     calls.some((url) => url.includes(":refund"))
   ) throw new Error("confirmed refund was not reconciled safely");
 });
@@ -108,6 +111,9 @@ Deno.test("mismatched, partial, and uncertain orders never repeat refunds", asyn
         return Promise.resolve(Response.json({
           candidates: [{ ...candidate, refundAttempted: attempted }],
         }));
+      }
+      if (path.endsWith("/note_public_credit_refund_readback")) {
+        return Promise.resolve(Response.json({ touched: true }));
       }
       if (path.endsWith(encodeURIComponent(candidate.orderId))) {
         return Promise.resolve(Response.json(providerOrder));
@@ -137,6 +143,9 @@ Deno.test("one failed order read does not hide another queued refund", async () 
         candidates: [candidate, other],
       }));
     }
+    if (path.endsWith("/note_public_credit_refund_readback")) {
+      return Promise.resolve(Response.json({ touched: true }));
+    }
     if (path.endsWith(encodeURIComponent(candidate.orderId))) {
       return Promise.reject(new Error("provider read timed out"));
     }
@@ -154,6 +163,6 @@ Deno.test("one failed order read does not hide another queued refund", async () 
   const result = await reconcilePublicCreditRefunds(input, fetcher);
   if (
     result?.scanned !== 2 || result.retryLater !== 1 ||
-    result.refunded !== 1 || calls.length !== 4
+    result.refunded !== 1 || calls.length !== 5
   ) throw new Error("one provider outage stopped the entire refund batch");
 });

@@ -64,6 +64,22 @@ export async function reconcilePublicCreditRefunds(input: {
       continue;
     }
     try {
+      if (queued.refundAttempted) {
+        const rotated = await serviceRpc(
+          input.config,
+          "note_public_credit_refund_readback",
+          {
+            p_token_hash: queued.tokenHash,
+            p_product_id: queued.productId,
+            p_order_id: queued.orderId,
+          },
+          fetcher,
+        );
+        if (rotated?.touched !== true) {
+          counts.retryLater++;
+          continue;
+        }
+      }
       const order = await readGoogleCreditOrder(
         input.packageName,
         queued.orderId,

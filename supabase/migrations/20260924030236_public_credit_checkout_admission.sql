@@ -45,7 +45,8 @@ create table public.public_credit_checkout_resolutions (
   order_id text not null,
   admission_id uuid references public.public_credit_checkout_admissions(id),
   reason text not null check (reason in (
-    'admission_expired_unbound', 'admission_missing', 'admission_already_consumed')),
+    'admission_expired_unbound', 'admission_missing',
+    'admission_already_consumed', 'admission_pending_other_token')),
   state text not null default 'awaiting_resolution'
     check (state in ('awaiting_resolution', 'refunded', 'fulfilled')),
   -- Set before the first external refund POST. A lost response is uncertain:
@@ -105,13 +106,34 @@ returns jsonb language sql stable security invoker set search_path = '' as $$
     (select token_hash, order_id, product_id, refund_attempted_at
      from public.public_credit_checkout_resolutions
      where state = 'awaiting_resolution' and refund_attempted_at is not null
-     order by created_at, token_hash
+     order by last_verified_at, token_hash
      limit (least(greatest(coalesce(p_limit, 0), 0), 5) / 2))
   ) q;
 $$;
 revoke all on function public.list_public_credit_refund_candidates(integer)
   from public, anon, authenticated;
 grant execute on function public.list_public_credit_refund_candidates(integer)
+  to service_role;
+
+-- Rotate attempted refunds through each bounded scan, even when a Google read
+-- times out or the order still needs manual review. This has no financial
+-- effect and cannot mark a new, unattempted order as checked.
+create function public.note_public_credit_refund_readback(
+  p_token_hash text, p_order_id text, p_product_id text
+) returns jsonb language sql volatile security invoker set search_path = '' as $$
+  with touched as (
+    update public.public_credit_checkout_resolutions
+      set last_verified_at = clock_timestamp()
+      where token_hash = p_token_hash and order_id = p_order_id
+        and product_id = p_product_id and state = 'awaiting_resolution'
+        and refund_attempted_at is not null
+      returning 1
+  )
+  select jsonb_build_object('touched', exists(select 1 from touched));
+$$;
+revoke all on function public.note_public_credit_refund_readback(text,text,text)
+  from public, anon, authenticated;
+grant execute on function public.note_public_credit_refund_readback(text,text,text)
   to service_role;
 
 -- Claim exactly one external refund attempt under the same token lock used by
@@ -436,7 +458,16 @@ begin
     end if;
     if v_admission.pending_token_hash is not null and
       v_admission.pending_token_hash <> p_token_hash then
-      return jsonb_build_object('granted', false, 'reason', 'admission_invalid');
+      -- Two real Play checkouts can share an admission before one binds its
+      -- pending token. Never overwrite that binding or grant the other token;
+      -- preserve its verified paid order for the refund remedy instead.
+      insert into public.public_credit_checkout_resolutions
+        (token_hash, billing_principal_id, product_id, order_id, admission_id,
+         reason)
+        values (p_token_hash, v_principal, p_product_id, p_order_id,
+          v_admission.id, 'admission_pending_other_token');
+      return jsonb_build_object('granted', false,
+        'reason', 'customer_resolution_required', 'resolutionQueued', true);
     end if;
     if v_purchase_at > v_admission.issued_at + interval '30 minutes' and
       (v_admission.pending_token_hash is distinct from p_token_hash or
