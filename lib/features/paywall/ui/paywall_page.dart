@@ -60,6 +60,10 @@ String resolvePaywallPurchaseResultMessage(
           : 'Credit purchase confirmed. Check your available balance.';
     case 'purchase_pending':
       return copy.purchasePending;
+    case 'checkout_unresolved':
+      return localizations.isSpanish
+          ? 'Google Play aún no ha confirmado esta compra. Complétala o cancélala en Google Play. Si la pantalla de pago ya se cerró, usa Restaurar compras antes de volver a intentarlo.'
+          : 'Google Play has not confirmed this checkout yet. Finish or cancel it in Google Play. If the payment screen has already closed, use Restore Purchases before trying again.';
     case 'purchase_canceled':
     case 'purchase_cancelled':
       return copy.purchaseCanceled;

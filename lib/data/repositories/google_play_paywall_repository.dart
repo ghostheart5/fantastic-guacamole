@@ -97,6 +97,7 @@ class _PendingPurchase {
   final String productId;
   final String? userId;
   final Completer<SubscriptionState> completer;
+  bool checkoutTimedOut = false;
 }
 
 class _PendingRestore {
@@ -177,6 +178,7 @@ class GooglePlayPaywallRepository
     SecureStore? secureStore,
     sb.SupabaseClient? supabaseClient,
     Duration authorityRequestTimeout = _kAuthorityRequestTimeout,
+    Duration checkoutResponseTimeout = const Duration(seconds: 120),
   }) : _billingClient =
            billingClient ??
            (requireTestPurchase
@@ -200,6 +202,9 @@ class GooglePlayPaywallRepository
        // Named public parameter intentionally maps to a private field.
        // ignore: prefer_initializing_formals
        _authorityRequestTimeout = authorityRequestTimeout,
+       // Keep the injectable deadline public without exposing a mutable field.
+       // ignore: prefer_initializing_formals
+       _checkoutResponseTimeout = checkoutResponseTimeout,
        _receiptVerifyEndpoint =
            receiptVerifyEndpoint ?? Env.receiptVerifyEndpoint {
     _initialization = _loadPersistedState();
@@ -221,6 +226,7 @@ class GooglePlayPaywallRepository
   final SecureStore? _secureStore;
   final sb.SupabaseClient? _supabaseClient;
   final Duration _authorityRequestTimeout;
+  final Duration _checkoutResponseTimeout;
   final String _receiptVerifyEndpoint;
   late final StreamSubscription<List<PurchaseDetails>> _purchaseSub;
   final _purchaseOutcomes = StreamController<PurchaseOutcome>.broadcast();
@@ -488,6 +494,15 @@ class GooglePlayPaywallRepository
     }
 
     final String operationKey = _purchaseOperationKey(gpId, expectedUserId);
+    final checkout = _pendingPurchases[operationKey];
+    if (checkout != null && checkout.checkoutTimedOut) {
+      // A timeout is not evidence that Play closed checkout. Keep its owner
+      // and callback correlation until Play or an explicit restore resolves it.
+      return _transactionOutcomeState(
+        status: 'checkout_unresolved',
+        attemptedPlanId: planId,
+      );
+    }
     final String? pendingOwner = await _pendingOwnerFingerprint(gpId);
     final String? expectedFingerprint = _billingAccountFingerprint(
       expectedUserId,
@@ -614,10 +629,18 @@ class GooglePlayPaywallRepository
     }
 
     return pending.completer.future.timeout(
-      const Duration(seconds: 120),
+      _checkoutResponseTimeout,
       onTimeout: () {
-        _removePendingPurchase(operationKey, pending);
-        throw TimeoutException('Purchase timed out.');
+        pending.checkoutTimedOut = true;
+        if (!_isCurrentBillingAccount(expectedUserId)) {
+          throw StateError('The signed-in account changed during billing.');
+        }
+        // Keep the unfinished completer: Android can later cancel with an
+        // empty product ID, which must still resolve this exact checkout.
+        return _transactionOutcomeState(
+          status: 'checkout_unresolved',
+          attemptedPlanId: planId,
+        );
       },
     );
   }
@@ -707,15 +730,21 @@ class GooglePlayPaywallRepository
       if (_isCurrentBillingAccount(expectedUserId)) {
         // Google's successful inventory includes pending INAPP purchases.
         // A consumed pack is absent even while a subscription remains active.
-        // Clear only this account's absent pack guard, never a live purchase.
+        // Clear this account's absent pack guard or timed-out checkout only
+        // after a successful inventory read, never while its caller is waiting.
         for (final entry in _kProductIds.entries) {
-          if (!entry.key.startsWith('credits_')) continue;
           final operation = _purchaseOperationKey(entry.value, expectedUserId);
+          final checkout = _pendingPurchases[operation];
+          final timedOutCheckout = checkout?.checkoutTimedOut ?? false;
+          if (!entry.key.startsWith('credits_') && !timedOutCheckout) continue;
           if (!pastPurchases.any((p) => p.productID == entry.value) &&
               !pending.observedProductIds.contains(entry.value) &&
               !_purchaseStarts.containsKey(operation)) {
             await _clearPendingOwner(entry.value, expectedUserId);
             _approvalPending.remove(operation);
+            if (timedOutCheckout) {
+              _removePendingPurchase(operation, checkout);
+            }
           }
         }
       }

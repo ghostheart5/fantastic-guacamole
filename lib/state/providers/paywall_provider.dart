@@ -276,7 +276,8 @@ class PaywallActions {
 }
 
 bool requiresPaywallAuthorityRefresh(SubscriptionState result) {
-  if (result.status == 'credits_added') {
+  if (result.status == 'credits_added' ||
+      result.status == 'checkout_unresolved') {
     return false;
   }
   if (result.isActive) {
