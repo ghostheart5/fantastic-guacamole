@@ -88,9 +88,10 @@ jobs:
           flutter pub get
           git diff --exit-code -- pubspec.lock
           local_status="$(supabase status --output json)"
-          export LOCAL_SUPABASE_URL="$(jq -er '.API_URL' <<< "$local_status")"
-          export LOCAL_SUPABASE_ANON_KEY="$(jq -er '.ANON_KEY' <<< "$local_status")"
-          export LOCAL_SUPABASE_SERVICE_KEY="$(jq -er '.SERVICE_ROLE_KEY' <<< "$local_status")"
+          LOCAL_SUPABASE_URL="$(jq -er '.API_URL' <<< "$local_status")"
+          LOCAL_SUPABASE_ANON_KEY="$(jq -er '.ANON_KEY' <<< "$local_status")"
+          LOCAL_SUPABASE_SERVICE_KEY="$(jq -er '.SERVICE_ROLE_KEY' <<< "$local_status")"
+          export LOCAL_SUPABASE_URL LOCAL_SUPABASE_ANON_KEY LOCAL_SUPABASE_SERVICE_KEY
           export AXIOMARA_DISPOSABLE_DB_GATE=true
           cloud_client_status=0
           flutter test test/support/cloud_backup_live.dart --reporter json > artifacts/database-evidence/cloud-client.jsonl || cloud_client_status=$?

@@ -119,7 +119,10 @@ export async function authenticatedDeletionUser(
       apikey: config.publishableKey,
     },
   });
-  if (!response.ok) return null;
+  if (!response.ok) {
+    await response.body?.cancel();
+    return null;
+  }
   const user = await response.json();
   if (typeof user?.id !== "string") return null;
   const claims = readValidatedSessionClaims(authorization, user.id);
@@ -259,7 +262,10 @@ async function patchRequest(
       body: JSON.stringify({ ...values, updated_at: new Date().toISOString() }),
     },
   );
-  if (!response.ok) return false;
+  if (!response.ok) {
+    await response.body?.cancel();
+    return false;
+  }
   const rows = await response.json();
   return Array.isArray(rows) && rows.length === 1;
 }
@@ -286,6 +292,7 @@ async function deleteAuthUser(
     `${config.supabaseUrl}/auth/v1/admin/users/${encodeURIComponent(userId)}`,
     { method: "DELETE", headers: jsonHeaders(config.serviceRoleKey) },
   );
+  await response.body?.cancel();
   return response.ok || response.status === 404;
 }
 
@@ -463,7 +470,10 @@ export async function listReconcileCandidates(
       "&select=request_id",
     { headers: jsonHeaders(config.serviceRoleKey) },
   );
-  if (!response.ok) return null;
+  if (!response.ok) {
+    await response.body?.cancel();
+    return null;
+  }
   const rows = await response.json();
   if (!Array.isArray(rows)) return null;
   const requestIds = rows.map((row: unknown) =>

@@ -111,18 +111,20 @@ Deno.test("refreshing an old session does not count as recent authentication", a
 Deno.test("untrusted fresh claims are rejected when Auth rejects the token", async () => {
   const bearer = authorizationFor();
   for (const status of [401, 403, 500]) {
+    const response = Response.json({
+      id: userId,
+      last_sign_in_at: now.toISOString(),
+    }, { status });
     const user = await authenticatedDeletionUser(
       bearer,
       config,
-      () =>
-        Promise.resolve(
-          Response.json({ id: userId, last_sign_in_at: now.toISOString() }, {
-            status,
-          }),
-        ),
+      () => Promise.resolve(response),
     );
     if (user !== null) {
       throw new Error("rejected/forged bearer must never yield trusted claims");
+    }
+    if (!response.bodyUsed) {
+      throw new Error("Rejected Auth response must release its body");
     }
   }
 });
