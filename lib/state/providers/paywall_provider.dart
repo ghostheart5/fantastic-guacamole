@@ -269,7 +269,23 @@ class PaywallActions {
         ? repository as ISubscriptionAuthorityRefresher
         : null;
     if (authorityRefresher != null) {
-      return authorityRefresher.refreshSubscriptionState(force: true);
+      final authority = await authorityRefresher.refreshSubscriptionState(
+        force: true,
+      );
+      // Keep refreshed access authoritative while retaining the receipt
+      // rejection for the operation's message. Cached access cannot survive
+      // revocation, and an existing entitlement does not verify this receipt.
+      if (fallback.status == 'verification_failed') {
+        return SubscriptionState(
+          isActive: authority.isActive,
+          status: fallback.status,
+          source: authority.source,
+          planId: authority.planId,
+          renewalDate: authority.renewalDate,
+          isTesting: authority.isTesting,
+        );
+      }
+      return authority;
     }
     return fallback;
   }

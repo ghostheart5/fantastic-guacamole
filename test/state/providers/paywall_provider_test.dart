@@ -12,6 +12,98 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('rejected receipt cannot retain access revoked by authority', () async {
+    final repository = _CreditOutcomeRepository(
+      SubscriptionState(
+        isActive: true,
+        status: 'verification_failed',
+        source: 'google_play',
+        planId: 'monthly',
+        renewalDate: DateTime.utc(2027),
+        isTesting: true,
+      ),
+      authority: const SubscriptionState(
+        isActive: false,
+        status: 'revoked',
+        source: 'supabase_authority',
+      ),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        internalBillingTestEnabledProvider.overrideWithValue(true),
+        appPaywallRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    final actions = container.read(paywallActionsProvider);
+    for (final result in [
+      await actions.restorePurchases(),
+      await actions.startSubscription('monthly'),
+    ]) {
+      expect(result.status, 'verification_failed');
+      expect(result.isActive, isFalse);
+      expect(result.source, 'supabase_authority');
+      expect(result.planId, isNull);
+      expect(result.renewalDate, isNull);
+      expect(result.isTesting, isFalse);
+    }
+    expect(repository.refreshCalls, 2);
+  });
+
+  test('receipt rejection survives a free authority refresh', () async {
+    final repository = _CreditOutcomeRepository(
+      const SubscriptionState(
+        isActive: false,
+        status: 'verification_failed',
+        source: 'google_play',
+      ),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        internalBillingTestEnabledProvider.overrideWithValue(true),
+        appPaywallRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    final actions = container.read(paywallActionsProvider);
+    final restored = await actions.restorePurchases();
+    expect(restored.status, 'verification_failed');
+    expect(restored.isActive, isFalse);
+    expect(repository.refreshCalls, 1);
+    final purchased = await actions.startSubscription('monthly');
+    expect(purchased.status, 'verification_failed');
+    expect(purchased.isActive, isFalse);
+    expect(repository.refreshCalls, 2);
+  });
+
+  test('existing access cannot turn a rejected restore into success', () async {
+    final repository = _CreditOutcomeRepository(
+      const SubscriptionState(
+        isActive: true,
+        status: 'verification_failed',
+        source: 'google_play',
+      ),
+      authority: const SubscriptionState(
+        isActive: true,
+        status: 'active',
+        source: 'supabase_authority',
+      ),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        internalBillingTestEnabledProvider.overrideWithValue(true),
+        appPaywallRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    final restored = await container
+        .read(paywallActionsProvider)
+        .restorePurchases();
+    expect(restored.status, 'verification_failed');
+    expect(restored.isActive, isTrue);
+    expect(repository.refreshCalls, 1);
+  });
+
   test(
     'unresolved checkout survives authority refresh for either plan type',
     () async {
@@ -455,8 +547,11 @@ class _FakePaywallRepository
 }
 
 class _CreditOutcomeRepository extends _FakePaywallRepository {
-  _CreditOutcomeRepository(this.outcome);
+  _CreditOutcomeRepository(this.outcome, {SubscriptionState? authority})
+    : super(subscription: authority);
   final SubscriptionState outcome;
+  @override
+  Future<SubscriptionState> restorePurchases() async => outcome;
   @override
   Future<List<PaywallPlan>> getAvailablePlans() async => [
     ...await super.getAvailablePlans(),
