@@ -13,6 +13,37 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    'unresolved checkout survives authority refresh for either plan type',
+    () async {
+      for (final plan in ['credits_100', 'monthly']) {
+        for (final active in [false, true]) {
+          final repository = _CreditOutcomeRepository(
+            SubscriptionState(
+              isActive: active,
+              status: 'checkout_unresolved',
+              source: 'google_play',
+              planId: plan,
+            ),
+          );
+          final container = ProviderContainer(
+            overrides: [
+              internalBillingTestEnabledProvider.overrideWithValue(true),
+              appPaywallRepositoryProvider.overrideWithValue(repository),
+            ],
+          );
+          addTearDown(container.dispose);
+          final result = await container
+              .read(paywallActionsProvider)
+              .startSubscription(plan);
+          expect(result.status, 'checkout_unresolved');
+          expect(result.isActive, active);
+          expect(repository.refreshCalls, 0);
+        }
+      }
+    },
+  );
+
+  test(
     'enabled internal credit policy retains approved plan allowances',
     () async {
       final container = ProviderContainer(

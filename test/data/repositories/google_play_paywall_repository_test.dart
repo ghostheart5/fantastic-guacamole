@@ -22,6 +22,226 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
+  Future<_CheckoutTimeoutFixture> timeoutFixture({
+    String plan = 'credits_100',
+  }) async {
+    final fixture = await _CheckoutTimeoutFixture.create(plan);
+    addTearDown(fixture.close);
+    return fixture;
+  }
+
+  Future<SubscriptionState> expireCheckout(
+    _CheckoutTimeoutFixture fixture,
+  ) async {
+    final result = fixture.repository.startSubscription(fixture.plan);
+    await pumpEventQueue(times: 10);
+    expect(fixture.billing.buyCalls, 1);
+
+    final state = await result;
+    expect(state.status, 'checkout_unresolved');
+    expect(state.isActive, isFalse);
+    expect(await fixture.owner(), fixture.userOneFingerprint);
+    return state;
+  }
+
+  for (final plan in ['credits_100', 'monthly']) {
+    for (final status in [PurchaseStatus.canceled, PurchaseStatus.error]) {
+      test(
+        'late empty-product $status resolves timed-out $plan checkout',
+        () async {
+          final fixture = await timeoutFixture(plan: plan);
+          await expireCheckout(fixture);
+          final retryWhileOpen = await fixture.repository.startSubscription(
+            plan,
+          );
+          expect(retryWhileOpen.status, 'checkout_unresolved');
+          expect(fixture.billing.buyCalls, 1);
+          expect(fixture.billing.restoreCalls, 0);
+
+          await Logger.withMutedErrors(() async {
+            fixture.emit(status);
+            await pumpEventQueue(times: 10);
+          });
+          expect(fixture.outcomes, [
+            status == PurchaseStatus.canceled
+                ? 'purchase_canceled'
+                : 'purchase_failed',
+          ]);
+          expect(await fixture.owner(), isNull);
+          expect(fixture.verificationCalls, 0);
+          expect(fixture.billing.completePurchaseCalls, 0);
+
+          final retry = fixture.repository.startSubscription(plan);
+          await pumpEventQueue(times: 10);
+          expect(fixture.billing.buyCalls, 2);
+          fixture.emit(PurchaseStatus.canceled);
+          await pumpEventQueue(times: 10);
+          expect((await retry).status, 'purchase_canceled');
+          await fixture.close();
+        },
+      );
+    }
+
+    test('explicit empty restore releases timed-out $plan checkout', () async {
+      final fixture = await timeoutFixture(plan: plan);
+      await expireCheckout(fixture);
+      final restore = fixture.repository.restorePurchases();
+      await pumpEventQueue(times: 10);
+      await pumpEventQueue(times: 10);
+      expect((await restore).status, 'nothing_to_restore');
+      expect(await fixture.owner(), isNull);
+      final retry = fixture.repository.startSubscription(plan);
+      await pumpEventQueue(times: 10);
+      expect(fixture.billing.buyCalls, 2);
+      fixture.emit(PurchaseStatus.canceled);
+      await pumpEventQueue(times: 10);
+      expect((await retry).status, 'purchase_canceled');
+      await fixture.close();
+    });
+  }
+
+  test('failed restore keeps timed-out checkout and owner guarded', () async {
+    final fixture = await timeoutFixture();
+    await expireCheckout(fixture);
+    fixture.restoreFails = true;
+    await expectLater(fixture.repository.restorePurchases(), throwsStateError);
+    expect(await fixture.owner(), fixture.userOneFingerprint);
+    expect(
+      (await fixture.repository.startSubscription(fixture.plan)).status,
+      'checkout_unresolved',
+    );
+    expect(fixture.billing.buyCalls, 1);
+    fixture.emit(PurchaseStatus.canceled);
+    await pumpEventQueue(times: 10);
+    expect(fixture.outcomes, ['purchase_canceled']);
+    await fixture.close();
+  });
+
+  test(
+    'late timeout cancellation cannot clear another account owner',
+    () async {
+      final fixture = await timeoutFixture();
+      await expireCheckout(fixture);
+      await fixture.signIn('user-2');
+      fixture.emit(PurchaseStatus.canceled);
+      await pumpEventQueue(times: 10);
+      expect(fixture.outcomes, isEmpty);
+      expect(await fixture.owner(), fixture.userOneFingerprint);
+      await expectLater(
+        fixture.repository.startSubscription(fixture.plan),
+        throwsStateError,
+      );
+      expect(fixture.billing.buyCalls, 1);
+      await fixture.signIn('user-1');
+      fixture.emit(PurchaseStatus.canceled);
+      await pumpEventQueue(times: 10);
+      expect(fixture.outcomes, ['purchase_canceled']);
+      expect(await fixture.owner(), isNull);
+      await fixture.close();
+    },
+  );
+
+  test('ambiguous late cancellation preserves both timed-out owners', () async {
+    final fixture = await timeoutFixture();
+    await expireCheckout(fixture);
+    final second = fixture.repository.startSubscription('monthly');
+    await pumpEventQueue(times: 10);
+
+    expect((await second).status, 'checkout_unresolved');
+    fixture.emit(PurchaseStatus.canceled);
+    await pumpEventQueue(times: 10);
+    expect(fixture.outcomes, isEmpty);
+    for (final product in [
+      'chronospark_credits_100',
+      'chronospark_premium_monthly',
+    ]) {
+      expect(await fixture.owner(product), fixture.userOneFingerprint);
+    }
+    expect(fixture.verificationCalls, 0);
+    fixture.emit(PurchaseStatus.canceled, product: fixture.product);
+    await pumpEventQueue(times: 10);
+    fixture.emit(
+      PurchaseStatus.canceled,
+      product: 'chronospark_premium_monthly',
+    );
+    await pumpEventQueue(times: 10);
+    expect(fixture.outcomes, ['purchase_canceled', 'purchase_canceled']);
+    await fixture.close();
+  });
+
+  test('late verified credit completion resolves timeout only once', () async {
+    final fixture = await timeoutFixture();
+    await expireCheckout(fixture);
+    fixture.allowCreditVerification = true;
+    fixture.emit(PurchaseStatus.purchased, product: fixture.product);
+    await pumpEventQueue(times: 10);
+    expect(fixture.outcomes, ['credits_added']);
+    expect(fixture.verificationCalls, 1);
+    expect(await fixture.owner(), isNull);
+    fixture.emit(PurchaseStatus.purchased, product: fixture.product);
+    await pumpEventQueue(times: 10);
+    expect(fixture.outcomes, ['credits_added']);
+    expect(fixture.verificationCalls, 1);
+    expect(fixture.billing.buyCalls, 1);
+    expect(fixture.billing.completePurchaseCalls, 0);
+    await fixture.close();
+  });
+
+  test('restore retains a live pending order after checkout timeout', () async {
+    final fixture = await timeoutFixture();
+    await expireCheckout(fixture);
+    fixture.inventory.add(
+      fixture.purchase(PurchaseStatus.pending, product: fixture.product),
+    );
+    final restored = await fixture.repository.restorePurchases();
+    expect(restored.status, 'purchase_pending');
+    expect(await fixture.owner(), fixture.userOneFingerprint);
+    expect(
+      (await fixture.repository.startSubscription(fixture.plan)).status,
+      'purchase_pending',
+    );
+    expect(fixture.billing.buyCalls, 1);
+    expect(fixture.verificationCalls, 0);
+    expect(fixture.billing.completePurchaseCalls, 0);
+    await fixture.close();
+  });
+
+  test('empty-product success cannot fulfill a timed-out checkout', () async {
+    final fixture = await timeoutFixture();
+    await expireCheckout(fixture);
+    fixture.emit(PurchaseStatus.purchased);
+    await pumpEventQueue(times: 10);
+    expect(fixture.outcomes, isEmpty);
+    expect(fixture.verificationCalls, 0);
+    expect(await fixture.owner(), fixture.userOneFingerprint);
+    fixture.emit(PurchaseStatus.canceled);
+    await pumpEventQueue(times: 10);
+    expect(fixture.outcomes, ['purchase_canceled']);
+    await fixture.close();
+  });
+
+  test(
+    'account change before checkout deadline keeps owner and rejects result',
+    () async {
+      final fixture = await _CheckoutTimeoutFixture.create(
+        'credits_100',
+        checkoutResponseTimeout: const Duration(milliseconds: 100),
+      );
+      addTearDown(fixture.close);
+      final result = fixture.repository.startSubscription(fixture.plan);
+      final rejected = expectLater(result, throwsStateError);
+      await pumpEventQueue(times: 10);
+      await fixture.signIn('user-2');
+      await rejected;
+      expect(await fixture.owner(), fixture.userOneFingerprint);
+      expect(fixture.outcomes, isEmpty);
+      fixture.emit(PurchaseStatus.canceled);
+      await pumpEventQueue(times: 10);
+      expect(await fixture.owner(), fixture.userOneFingerprint);
+      await fixture.close();
+    },
+  );
+
   for (final action in ['retry', 'restore']) {
     for (final nativeStatus in [
       PurchaseStatus.pending,
@@ -4809,6 +5029,151 @@ class _FakeBillingClient implements BillingClient {
       await onRestorePurchases!();
     }
     return restoredPurchases;
+  }
+}
+
+class _CheckoutTimeoutFixture {
+  _CheckoutTimeoutFixture(this.plan, this.client);
+
+  final String plan;
+  final sb.SupabaseClient client;
+  final store = SecureStore(backend: InMemorySecureStoreBackend());
+  final controller = StreamController<List<PurchaseDetails>>.broadcast();
+  final outcomes = <String>[];
+  final inventory = <PurchaseDetails>[];
+  late final _FakeBillingClient billing;
+  late final GooglePlayPaywallRepository repository;
+  late final StreamSubscription<dynamic> subscription;
+  bool restoreFails = false;
+  bool allowCreditVerification = false;
+  int verificationCalls = 0;
+  Future<void>? _closing;
+
+  String get product => plan == 'monthly'
+      ? 'chronospark_premium_monthly'
+      : 'chronospark_credits_100';
+  String get userOneFingerprint =>
+      sha256.convert(utf8.encode('user-1')).toString();
+
+  static Future<_CheckoutTimeoutFixture> create(
+    String plan, {
+    Duration checkoutResponseTimeout = const Duration(milliseconds: 10),
+  }) async {
+    final client = await _authorityClient(
+      (_) async => http.Response('[]', 200),
+    );
+    final fixture = _CheckoutTimeoutFixture(plan, client);
+    client.auth.stopAutoRefresh();
+    final prefs = await SharedPreferences.getInstance();
+    fixture.billing = _FakeBillingClient(
+      purchaseStreamController: fixture.controller,
+      restoredPurchases: fixture.inventory,
+      productResponse: ProductDetailsResponse(
+        productDetails: [
+          for (final id in [
+            'chronospark_credits_100',
+            'chronospark_premium_monthly',
+          ])
+            ProductDetails(
+              id: id,
+              title: id,
+              description: 'Test product',
+              price: 'USD 2.99',
+              rawPrice: 2.99,
+              currencyCode: 'USD',
+            ),
+        ],
+        notFoundIDs: [],
+      ),
+      onRestorePurchases: () async {
+        if (fixture.restoreFails) throw StateError('Inventory unavailable');
+      },
+    );
+    fixture.repository = GooglePlayPaywallRepository(
+      billingClient: fixture.billing,
+      checkoutResponseTimeout: checkoutResponseTimeout,
+      paywallTestingModeOverride: false,
+      sharedPreferencesLoader: () async => prefs,
+      receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+      supabaseClient: client,
+      secureStore: fixture.store,
+      httpClient: MockClient((request) async {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        if (body['operation'] == 'credit_sale_eligibility') {
+          return http.Response(
+            jsonEncode({
+              'valid': true,
+              'checkoutAllowed': true,
+              'admissionId': 'test-admission',
+            }),
+            200,
+          );
+        }
+        if (body['operation'] == 'credit_register_pending') {
+          return http.Response(
+            jsonEncode({'valid': true, 'pendingRegistered': true}),
+            200,
+          );
+        }
+        expect(fixture.allowCreditVerification, isTrue);
+        fixture.verificationCalls++;
+        return http.Response(
+          jsonEncode({
+            'valid': true,
+            'consumed': true,
+            'productId': body['productId'],
+            'creditsGranted': 100,
+          }),
+          200,
+        );
+      }),
+    );
+    fixture.subscription = fixture.repository.purchaseOutcomes.listen(
+      (event) => fixture.outcomes.add(event.state.status),
+    );
+    return fixture;
+  }
+
+  Future<String?> owner([String? id]) =>
+      store.readString('paywall_pending_purchase_owner_v1.${id ?? product}');
+
+  Future<void> signIn(String user) async {
+    await client.auth.signInWithPassword(
+      email: '$user@example.com',
+      password: 'password',
+    );
+  }
+
+  void emit(PurchaseStatus status, {String product = ''}) {
+    controller.add([purchase(status, product: product)]);
+  }
+
+  PurchaseDetails purchase(PurchaseStatus status, {String product = ''}) =>
+      PurchaseDetails(
+          productID: product,
+          verificationData: PurchaseVerificationData(
+            localVerificationData: '',
+            serverVerificationData: 'timeout-test-token',
+            source: 'google_play',
+          ),
+          transactionDate: null,
+          status: status,
+        )
+        ..error = status == PurchaseStatus.error
+            ? IAPError(
+                source: 'google_play',
+                code: 'billing-error',
+                message: 'Declined',
+              )
+            : null;
+
+  Future<void> close() => _closing ??= _close();
+
+  Future<void> _close() async {
+    await subscription.cancel();
+    await repository.disposeAsync();
+    await controller.close();
+    await client.dispose();
   }
 }
 

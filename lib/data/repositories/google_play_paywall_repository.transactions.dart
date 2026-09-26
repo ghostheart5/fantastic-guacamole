@@ -1,5 +1,30 @@
 part of 'google_play_paywall_repository.dart';
 
+class _PendingPurchase {
+  _PendingPurchase({
+    required this.productId,
+    required this.userId,
+    required this.completer,
+  }) {
+    completer.future.ignore();
+  }
+
+  final String productId;
+  final String? userId;
+  final Completer<SubscriptionState> completer;
+  bool checkoutTimedOut = false;
+}
+
+class _PendingRestore {
+  _PendingRestore({required this.userId}) {
+    completer.future.ignore();
+  }
+
+  final String? userId;
+  final Set<String> observedProductIds = <String>{};
+  final Completer<SubscriptionState> completer = Completer<SubscriptionState>();
+}
+
 enum _PendingCreditRegistration {
   registered,
   canceled,
