@@ -272,10 +272,19 @@ class PaywallActions {
       final authority = await authorityRefresher.refreshSubscriptionState(
         force: true,
       );
-      // Refresh access independently, but retain the receipt rejection for the
-      // operation's message. A free account does not mean Play inventory was
-      // empty, and an existing entitlement does not verify this receipt.
-      if (fallback.status == 'verification_failed') return fallback;
+      // Keep refreshed access authoritative while retaining the receipt
+      // rejection for the operation's message. Cached access cannot survive
+      // revocation, and an existing entitlement does not verify this receipt.
+      if (fallback.status == 'verification_failed') {
+        return SubscriptionState(
+          isActive: authority.isActive,
+          status: fallback.status,
+          source: authority.source,
+          planId: authority.planId,
+          renewalDate: authority.renewalDate,
+          isTesting: authority.isTesting,
+        );
+      }
       return authority;
     }
     return fallback;

@@ -12,6 +12,44 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('rejected receipt cannot retain access revoked by authority', () async {
+    final repository = _CreditOutcomeRepository(
+      SubscriptionState(
+        isActive: true,
+        status: 'verification_failed',
+        source: 'google_play',
+        planId: 'monthly',
+        renewalDate: DateTime.utc(2027),
+        isTesting: true,
+      ),
+      authority: const SubscriptionState(
+        isActive: false,
+        status: 'revoked',
+        source: 'supabase_authority',
+      ),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        internalBillingTestEnabledProvider.overrideWithValue(true),
+        appPaywallRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    final actions = container.read(paywallActionsProvider);
+    for (final result in [
+      await actions.restorePurchases(),
+      await actions.startSubscription('monthly'),
+    ]) {
+      expect(result.status, 'verification_failed');
+      expect(result.isActive, isFalse);
+      expect(result.source, 'supabase_authority');
+      expect(result.planId, isNull);
+      expect(result.renewalDate, isNull);
+      expect(result.isTesting, isFalse);
+    }
+    expect(repository.refreshCalls, 2);
+  });
+
   test('receipt rejection survives a free authority refresh', () async {
     final repository = _CreditOutcomeRepository(
       const SubscriptionState(
