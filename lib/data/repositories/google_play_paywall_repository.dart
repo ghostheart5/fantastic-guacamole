@@ -1403,6 +1403,18 @@ class GooglePlayPaywallRepository
             expectedUserId: currentUserId,
           );
           if (!_isCurrentBillingAccount(currentUserId)) continue;
+          if (registration == _PendingCreditRegistration.resolutionRequired) {
+            await _rememberPendingOwner(productId, currentUserId);
+            _approvalPending.add(operationKey);
+            final outcome = _transactionOutcomeState(
+              status: 'customer_resolution_required',
+              attemptedPlanId: _planIdForProduct(productId),
+            );
+            _completePendingPurchase(pending, outcome);
+            _completePendingRestore(restore, outcome);
+            _removePendingPurchase(operationKey, pending);
+            continue;
+          }
           if (registration == _PendingCreditRegistration.canceled ||
               registration == _PendingCreditRegistration.completed) {
             await _clearPendingOwner(productId, currentUserId);

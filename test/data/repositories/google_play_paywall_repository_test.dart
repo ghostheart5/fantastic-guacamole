@@ -233,6 +233,92 @@ void main() {
     }
   }
 
+  for (final action in ['retry', 'restore']) {
+    for (final validProof in [true, false]) {
+      test(
+        'server queued resolution for stale pending $action requires exact proof ($validProof)',
+        () async {
+          final client = await _authorityClient(
+            (_) async => http.Response(
+              '[]',
+              200,
+              headers: {'content-type': 'application/json'},
+            ),
+          );
+          final store = SecureStore(backend: InMemorySecureStoreBackend());
+          const product = 'chronospark_credits_100';
+          const key = 'paywall_pending_purchase_owner_v1.$product';
+          final owner = sha256.convert(utf8.encode('user-1')).toString();
+          await store.writeString(key, owner);
+          final controller =
+              StreamController<List<PurchaseDetails>>.broadcast();
+          final purchase = PurchaseDetails(
+            productID: product,
+            verificationData: PurchaseVerificationData(
+              localVerificationData: '',
+              serverVerificationData: 'completed-token',
+              source: 'google_play',
+            ),
+            transactionDate: '1',
+            status: PurchaseStatus.pending,
+          );
+          final billing = _FakeBillingClient(
+            productResponse: ProductDetailsResponse(
+              productDetails: [],
+              notFoundIDs: [],
+            ),
+            purchaseStreamController: controller,
+            restoredPurchases: [purchase],
+          );
+          final repository = GooglePlayPaywallRepository(
+            billingClient: billing,
+            paywallTestingModeOverride: false,
+            requireTestPurchase: true,
+            requirePublicCreditAdmissionForLicenseTest: true,
+            supabaseClient: client,
+            secureStore: store,
+            receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+            httpClient: MockClient((request) async {
+              final body = jsonDecode(request.body) as Map<String, dynamic>;
+              expect(body['purchaseToken'], 'completed-token');
+              if (body['operation'] == 'credit_register_pending') {
+                return http.Response(
+                  jsonEncode({'valid': false, 'error': 'purchase_not_pending'}),
+                  200,
+                );
+              }
+              expect(body['operation'], isNull);
+              return http.Response(
+                jsonEncode({
+                  'valid': false,
+                  'error': 'customer_resolution_required',
+                  'resolutionQueued': validProof,
+                }),
+                200,
+              );
+            }),
+          );
+          try {
+            final result = action == 'retry'
+                ? await repository.startSubscription('credits_100')
+                : await repository.restorePurchases();
+            expect(
+              result.status,
+              validProof ? 'customer_resolution_required' : 'purchase_pending',
+            );
+            expect(await store.readString(key), owner);
+            expect(billing.buyCalls, 0);
+            expect(billing.completePurchaseCalls, 0);
+          } finally {
+            await repository.disposeAsync();
+            await controller.close();
+            await client.dispose();
+          }
+        },
+      );
+    }
+  }
+
   for (final action in ['refresh', 'retry', 'restore']) {
     test(
       'stalled Play inventory bounds $action and preserves pending ownership',

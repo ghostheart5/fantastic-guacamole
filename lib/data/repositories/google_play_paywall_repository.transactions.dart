@@ -1,6 +1,12 @@
 part of 'google_play_paywall_repository.dart';
 
-enum _PendingCreditRegistration { registered, canceled, completed, unverified }
+enum _PendingCreditRegistration {
+  registered,
+  canceled,
+  completed,
+  resolutionRequired,
+  unverified,
+}
 
 extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
   Future<SubscriptionState?> _retryPendingCreditRegistrationFromPlay(
@@ -34,6 +40,14 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
           expectedUserId: expectedUserId,
         );
         if (!_isCurrentBillingAccount(expectedUserId)) return null;
+        if (registration == _PendingCreditRegistration.resolutionRequired) {
+          final outcome = _transactionOutcomeState(
+            status: 'customer_resolution_required',
+            attemptedPlanId: _planIdForProduct(productId),
+          );
+          _completePendingPurchase(null, outcome);
+          return outcome;
+        }
         if (registration == _PendingCreditRegistration.canceled ||
             registration == _PendingCreditRegistration.completed) {
           await _clearPendingOwner(productId, expectedUserId);
@@ -255,9 +269,13 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
           purchase,
           expectedUserId: expectedUserId,
         );
-        return outcome == 'credits_added'
-            ? _PendingCreditRegistration.completed
-            : _PendingCreditRegistration.unverified;
+        return switch (outcome) {
+          'credits_added' => _PendingCreditRegistration.completed,
+          'purchase_canceled' => _PendingCreditRegistration.canceled,
+          'customer_resolution_required' =>
+            _PendingCreditRegistration.resolutionRequired,
+          _ => _PendingCreditRegistration.unverified,
+        };
       }
       if (data is Map &&
           data['valid'] == true &&
