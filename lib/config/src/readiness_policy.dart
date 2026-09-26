@@ -41,6 +41,12 @@ abstract final class _ReadinessPolicy {
 
     final List<String> issues = <String>[];
     final bool billingTest = InternalBillingTestConfig.compiled.requested;
+    if (InternalBillingTestConfig.compiled.publicCreditAdmissionQa &&
+        !billingTest) {
+      issues.add(
+        'Public credit admission QA requires the internal license-test profile.',
+      );
+    }
     if (billingTest &&
         (!InternalBillingTestConfig.compiled.hasValidCohort ||
             !Env.cloudServicesEnabled ||

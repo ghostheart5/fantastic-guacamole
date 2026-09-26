@@ -284,6 +284,7 @@ bool requiresPaywallAuthorityRefresh(SubscriptionState result) {
   }
   return !const <String>{
     'purchase_pending',
+    'customer_resolution_required',
     'purchase_canceled',
     'purchase_cancelled',
     'nothing_to_restore',

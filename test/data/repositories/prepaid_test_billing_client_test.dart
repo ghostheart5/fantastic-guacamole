@@ -88,6 +88,42 @@ void main() {
     },
   );
 
+  test(
+    'credit checkout preserves admission through the native adapter',
+    () async {
+      final product = GooglePlayProductDetails.fromProductDetails(
+        const gp.ProductDetailsWrapper(
+          description: 'Synthetic credit pack',
+          name: '100 credits',
+          productId: 'chronospark_credits_100',
+          productType: gp.ProductType.inapp,
+          title: '100 credits',
+          oneTimePurchaseOfferDetails: gp.OneTimePurchaseOfferDetailsWrapper(
+            formattedPrice: r'$2.99',
+            priceAmountMicros: 2990000,
+            priceCurrencyCode: 'USD',
+          ),
+        ),
+      ).single;
+      const admission = '123e4567-e89b-12d3-a456-426614174000';
+      expect(
+        await adapter.buyNonConsumable(
+          purchaseParam: GooglePlayPurchaseParam(
+            productDetails: product,
+            applicationUserName: 'synthetic-account-fingerprint',
+            obfuscatedProfileId: admission,
+          ),
+        ),
+        isTrue,
+      );
+      expect(native.launchedProduct, product.id);
+      expect(native.launchedOffer, isNull);
+      expect(native.launchedAccount, 'synthetic-account-fingerprint');
+      expect(native.launchedProfile, admission);
+      expect(native.acknowledgements, 0);
+    },
+  );
+
   test('completed purchase acknowledgement failures are surfaced', () async {
     final purchase = PurchaseDetails(
       productID: 'chronospark_premium_monthly',
@@ -183,6 +219,7 @@ class _NativeClient extends gp.BillingClient {
   String? launchedProduct;
   String? launchedOffer;
   String? launchedAccount;
+  String? launchedProfile;
   final productQueries = <List<gp.ProductWrapper>>[];
   @override
   Future<gp.ProductDetailsResponseWrapper> queryProductDetails({
@@ -210,6 +247,7 @@ class _NativeClient extends gp.BillingClient {
     launchedProduct = product;
     launchedOffer = offerToken;
     launchedAccount = accountId;
+    launchedProfile = obfuscatedProfileId;
     return const gp.BillingResultWrapper(responseCode: gp.BillingResponse.ok);
   }
 

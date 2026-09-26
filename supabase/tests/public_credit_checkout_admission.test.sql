@@ -1,0 +1,480 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+select plan(1);
+insert into auth.users(id,email) values
+ ('91919191-9191-4191-8191-919191919191','public-credit-a@example.invalid'),
+ ('92929292-9292-4292-8292-929292929292','public-credit-b@example.invalid');
+set local role service_role;
+do $$
+declare
+  a constant uuid := '91919191-9191-4191-8191-919191919191';
+  b constant uuid := '92929292-9292-4292-8292-929292929292';
+  admission jsonb; admission_id text; result jsonb;
+  first_unattempted jsonb; scan_candidate jsonb;
+  purchased_at bigint := floor(extract(epoch from now()) * 1000)::bigint;
+begin
+  assert not has_function_privilege('anon',
+    'public.create_public_credit_checkout_admission(uuid,text)', 'execute'),
+    'anonymous cannot issue public checkout admissions';
+  assert not has_function_privilege('authenticated',
+    'public.grant_verified_credit_topup_v2(uuid,text,text,text,boolean,text,bigint)', 'execute'),
+    'app clients cannot grant credits';
+  assert not has_function_privilege('authenticated',
+    'public.register_verified_pending_credit_topup(uuid,text,text,text)', 'execute'),
+    'app clients cannot bind pending Google tokens';
+  assert not has_function_privilege('authenticated',
+    'public.queue_unadmitted_credit_topup(uuid,text,text,text)', 'execute'),
+    'app clients cannot invent paid-order resolutions';
+  assert not has_table_privilege('authenticated',
+    'public.public_credit_checkout_resolutions', 'select'),
+    'app clients cannot inspect paid-order resolution records';
+  assert not has_function_privilege('authenticated',
+    'public.public_credit_checkout_resolution_health()', 'execute'),
+    'app clients cannot inspect paid-order resolution counts';
+  assert has_function_privilege('service_role',
+    'public.public_credit_checkout_resolution_health()', 'execute'),
+    'service role cannot monitor paid-order resolution health';
+  assert not has_function_privilege('authenticated',
+    'public.list_public_credit_refund_candidates(integer)', 'execute'),
+    'app clients can list refund order identities';
+  assert not has_function_privilege('authenticated',
+    'public.claim_public_credit_refund_attempt(text,text,text)', 'execute'),
+    'app clients can claim a Google refund attempt';
+  assert not has_function_privilege('authenticated',
+    'public.note_public_credit_refund_readback(text,text,text)', 'execute'),
+    'app clients can rotate refund readback';
+  result := public.create_public_credit_checkout_admission(a,null);
+  assert result->>'reason'='invalid_product',
+    'null product reached admission lock or insert';
+  admission := public.create_public_credit_checkout_admission(a,'chronospark_credits_100');
+  assert (admission->>'allowed')::boolean, 'server could not create admission';
+  admission_id := admission->>'admissionId';
+  result := public.create_public_credit_checkout_admission(a,'chronospark_credits_100');
+  assert result->>'admissionId'=admission_id,
+    'repeated eligibility created another unused admission';
+  assert (select count(*) from public.public_credit_checkout_admissions
+    where billing_principal_id=public.ensure_billing_principal(a)
+      and product_id='chronospark_credits_100'
+      and pending_token_hash is null and consumed_token_hash is null
+      and retired_at is null)=1,
+    'more than one live unused admission was stockpiled';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('a',64),'chronospark_credits_100','GPA.public-a',false,
+    admission_id,purchased_at);
+  assert (result->>'granted')::boolean, 'admitted purchase not granted';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('a',64),'chronospark_credits_100','GPA.public-a',false,
+    admission_id,purchased_at);
+  assert (result->>'duplicate')::boolean, 'paid retry not idempotent';
+  admission := public.create_public_credit_checkout_admission(a,'chronospark_credits_100');
+  admission_id := admission->>'admissionId';
+  update public.public_credit_checkout_admissions
+    set issued_at=now()+interval '1 day'
+    where id=admission_id::uuid;
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat(md5('predates-admission'),2),'chronospark_credits_100',
+    'GPA.predates-admission',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean and
+    exists (select 1 from public.public_credit_checkout_resolutions
+      where token_hash=repeat(md5('predates-admission'),2)
+        and order_id='GPA.predates-admission'
+        and reason='purchase_predates_admission'
+        and state='awaiting_resolution') and
+    not exists (select 1 from public.credit_topup_purchases
+      where token_hash=repeat(md5('predates-admission'),2)),
+    'verified pre-admission payment received credits or lost its refund path';
+  result := public.revoke_verified_credit_topup(
+    repeat(md5('predates-admission'),2),
+    'chronospark_credits_100','GPA.predates-admission');
+  assert (result->>'handled')::boolean and
+    (select state from public.public_credit_checkout_resolutions
+      where token_hash=repeat(md5('predates-admission'),2))='refunded',
+    'trusted void did not close pre-admission resolution';
+  update public.public_credit_checkout_admissions
+    set issued_at=now()-interval '3 days'
+    where id=admission_id::uuid;
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('c',64),'chronospark_credits_100','GPA.public-c',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean,
+    'stockpiled unused admission authorized a new purchase or lost its order';
+  assert (select count(*) from public.public_credit_checkout_resolutions
+    where token_hash=repeat('c',64) and order_id='GPA.public-c'
+      and state='awaiting_resolution')=1,
+    'unfulfilled verified paid order was not durably queued';
+  update public.public_credit_checkout_resolutions
+    set created_at=now()-interval '25 hours'
+    where token_hash=repeat('c',64);
+  result := public.public_credit_checkout_resolution_health();
+  assert (result->>'awaiting')::integer=1 and
+    (result->>'awaitingOverOneHour')::integer=1 and
+    (result->>'awaitingOverOneDay')::integer=1 and
+    result->>'oldestAwaitingAt' is not null,
+    'service health missed an overdue paid-order exception';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('c',64),'chronospark_credits_100','GPA.public-c',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (select count(*) from public.public_credit_checkout_resolutions
+      where token_hash=repeat('c',64))=1,
+    'retry did not retain exactly one resolution record';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('c',64),'chronospark_credits_100','GPA.other',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='resolution_proof_mismatch',
+    'resolution token was reused with a different order';
+  result := public.revoke_verified_credit_topup(
+    repeat('c',64),'chronospark_credits_100','GPA.public-c');
+  assert (result->>'handled')::boolean and
+    (select state from public.public_credit_checkout_resolutions
+      where token_hash=repeat('c',64))='refunded',
+    'voided unfulfilled payment remained actionable in the resolution queue';
+  result := public.public_credit_checkout_resolution_health();
+  assert (result->>'awaiting')::integer=0 and
+    (result->>'refunded')::integer=2 and
+    result->>'oldestAwaitingAt' is null,
+    'refunded order remained in the monitoring queue';
+  result := public.revoke_verified_credit_topup(
+    repeat('c',64),'chronospark_credits_100','GPA.public-c');
+  assert (result->>'duplicate')::boolean and
+    (select state from public.public_credit_checkout_resolutions
+      where token_hash=repeat('c',64))='refunded',
+    'duplicate void reopened a refunded resolution';
+  admission := public.create_public_credit_checkout_admission(a,'chronospark_credits_100');
+  assert admission->>'admissionId'<>admission_id,
+    'expired unused admission was returned for a new checkout';
+  admission_id := admission->>'admissionId';
+  result := public.register_verified_pending_credit_topup(
+    b,repeat('f',64),'chronospark_credits_100',admission_id);
+  assert result->>'reason'='admission_invalid',
+    'other account registered a pending token';
+  result := public.register_verified_pending_credit_topup(
+    a,repeat('f',64),'chronospark_credits_300',admission_id);
+  assert result->>'reason'='admission_invalid',
+    'other product registered a pending token';
+  result := public.register_verified_pending_credit_topup(
+    a,repeat('f',64),'chronospark_credits_100',admission_id);
+  assert (result->>'registered')::boolean,
+    'verified pending token was not bound';
+  result := public.register_verified_pending_credit_topup(
+    a,repeat('f',64),'chronospark_credits_100',admission_id);
+  assert (result->>'duplicate')::boolean,
+    'verified pending token retry was not idempotent';
+  update public.public_credit_checkout_admissions
+    set issued_at=now()-interval '3 days',
+        pending_verified_at=now()-interval '3 days'+interval '5 minutes'
+    where id=admission_id::uuid;
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('1',64),'chronospark_credits_100','GPA.public-g',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean and
+    (select count(*) from public.public_credit_checkout_resolutions
+      where token_hash=repeat('1',64) and order_id='GPA.public-g'
+        and reason='admission_pending_other_token'
+        and state='awaiting_resolution')=1,
+    'second verified paid token was lost behind another pending binding';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('1',64),'chronospark_credits_100','GPA.public-g',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (select count(*) from public.public_credit_checkout_resolutions
+      where token_hash=repeat('1',64))=1,
+    'second paid token retry duplicated or granted its resolution';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('f',64),'chronospark_credits_100','GPA.public-f',false,
+    admission_id,purchased_at);
+  assert (result->>'granted')::boolean,
+    'payment completed after a timely verified pending binding was not granted';
+  admission := public.create_public_credit_checkout_admission(b,'chronospark_credits_300');
+  admission_id := admission->>'admissionId';
+  update public.public_credit_checkout_admissions
+    set issued_at=now()-interval '3 days',
+        retired_at=now()-interval '2 days'
+    where id=admission_id::uuid;
+  perform public.purge_expired_public_credit_checkout_admissions();
+  assert not exists (select 1 from public.public_credit_checkout_admissions
+    where id=admission_id::uuid), 'expired unbound admission was not purged';
+  result := public.grant_verified_credit_topup_v2(
+    b,repeat('3',64),'chronospark_credits_300','GPA.purged',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean,
+    'paid order arriving after admission purge was lost';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('d',64),'chronospark_credits_100','GPA.public-d',false,
+    null,purchased_at);
+  assert result->>'reason'='admission_missing', 'unadmitted sale accepted';
+  result := public.queue_unadmitted_credit_topup(
+    a,repeat('2',64),'chronospark_credits_100','GPA.missing');
+  assert (result->>'resolutionQueued')::boolean,
+    'verified paid order without admission was silently lost';
+  result := public.queue_unadmitted_credit_topup(
+    a,repeat('2',64),'chronospark_credits_100','GPA.missing');
+  assert (result->>'duplicate')::boolean,
+    'unadmitted paid-order retry created another resolution';
+  result := public.list_public_credit_refund_candidates(5);
+  assert exists (select 1 from jsonb_array_elements(result->'candidates') as candidate
+    where candidate->>'tokenHash'=repeat('2',64)
+      and candidate->>'orderId'='GPA.missing'
+      and candidate->>'productId'='chronospark_credits_100'
+      and (candidate->>'refundAttempted')::boolean=false),
+    'service-only refund worker cannot find the exact queued order';
+  result := public.claim_public_credit_refund_attempt(
+    repeat('2',64),'GPA.wrong','chronospark_credits_100');
+  assert (result->>'claimed')::boolean=false,
+    'wrong Google order claimed a refund attempt';
+  result := public.note_public_credit_refund_readback(
+    repeat('2',64),'GPA.wrong','chronospark_credits_100');
+  assert (result->>'touched')::boolean=false,
+    'wrong order rotated an unattempted refund readback';
+  result := public.note_public_credit_refund_readback(
+    repeat('2',64),'GPA.missing','chronospark_credits_100');
+  assert (result->>'touched')::boolean=true and
+    (select refund_attempted_at is null from
+      public.public_credit_checkout_resolutions
+      where token_hash=repeat('2',64)),
+    'readback rotation claimed an unattempted refund';
+  result := public.claim_public_credit_refund_attempt(
+    repeat('2',64),'GPA.missing','chronospark_credits_100');
+  assert (result->>'claimed')::boolean,
+    'verified queued order could not claim one refund attempt';
+  result := public.note_public_credit_refund_readback(
+    repeat('2',64),'GPA.wrong','chronospark_credits_100');
+  assert (result->>'touched')::boolean=false,
+    'wrong order rotated refund readback';
+  result := public.claim_public_credit_refund_attempt(
+    repeat('2',64),'GPA.missing','chronospark_credits_100');
+  assert (result->>'claimed')::boolean=false and
+    (select count(*) from public.credit_topup_purchases
+      where token_hash=repeat('2',64))=0,
+    'refund attempt repeated or changed the wallet ledger';
+  result := public.queue_unadmitted_credit_topup(
+    b,repeat('2',64),'chronospark_credits_100','GPA.missing');
+  assert result->>'reason'='resolution_proof_mismatch',
+    'other account reused an unfulfilled paid token';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('2',64),'chronospark_credits_100','GPA.missing',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required',
+    'later admission granted a queued unfulfilled order';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('e',64),'chronospark_credits_100','GPA.test-e',true,
+    null,null);
+  assert (result->>'granted')::boolean, 'license-test grant requires public admission';
+  -- Two devices may have received the same live admission before either
+  -- purchase completed. The second verified paid order cannot grant credits
+  -- from it, but must remain in the customer-resolution queue.
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('b',64),'chronospark_credits_100','GPA.public-b',false,
+    (select id::text from public.public_credit_checkout_admissions
+      where consumed_token_hash=repeat('a',64)),purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean,
+    'second paid order sharing an admission was discarded or granted';
+  assert (select count(*) from public.public_credit_checkout_resolutions
+    where token_hash=repeat('b',64) and order_id='GPA.public-b'
+      and reason='admission_already_consumed'
+      and state='awaiting_resolution')=1,
+    'second paid order was not durably queued';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat('b',64),'chronospark_credits_100','GPA.public-b',false,
+    (select id::text from public.public_credit_checkout_admissions
+      where consumed_token_hash=repeat('a',64)),purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (select count(*) from public.public_credit_checkout_resolutions
+      where token_hash=repeat('b',64))=1,
+    'second paid order retry was not idempotent';
+  assert (select count(*) from public.credit_topup_purchases where
+    state='granted' and
+    token_hash in (repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),repeat('e',64),repeat('f',64),repeat('1',64),repeat('2',64),repeat('3',64)))=3,
+    'failed or duplicate admissions changed purchased-credit ledger';
+  -- Several old ambiguous refund attempts must not hide a new paid order
+  -- from the worker's bounded batch.
+  insert into public.public_credit_checkout_resolutions
+    (token_hash, billing_principal_id, product_id, order_id, reason,
+     refund_attempted_at, created_at, last_verified_at)
+    select repeat(n::text,64), public.ensure_billing_principal(a),
+      'chronospark_credits_100', 'GPA.old-' || n::text,
+      'admission_missing', now() - interval '1 hour',
+      now() - interval '2 hours', now() - interval '2 hours'
+    from generate_series(4,8) n;
+  result := public.list_public_credit_refund_candidates(5);
+  assert exists (select 1 from jsonb_array_elements(result->'candidates') c
+    where c->>'tokenHash'=repeat('b',64)
+      and (c->>'refundAttempted')::boolean=false),
+    'older attempted refunds starved a new paid order';
+  assert exists (select 1 from jsonb_array_elements(result->'candidates') c
+    where c->>'tokenHash'=repeat('4',64)
+      and (c->>'refundAttempted')::boolean=true),
+    'new paid orders starved provider refund readback';
+  perform public.note_public_credit_refund_readback(
+    repeat('4',64),'GPA.old-4','chronospark_credits_100');
+  perform public.note_public_credit_refund_readback(
+    repeat('5',64),'GPA.old-5','chronospark_credits_100');
+  result := public.list_public_credit_refund_candidates(5);
+  assert exists (select 1 from jsonb_array_elements(result->'candidates') c
+    where c->>'tokenHash'=repeat('6',64)
+      and (c->>'refundAttempted')::boolean=true),
+    'older attempted refunds monopolized provider readback slots';
+  -- Orders that stay unattempted (for example, already pending a provider
+  -- refund) must also rotate instead of hiding newer failed payments.
+  insert into public.public_credit_checkout_resolutions
+    (token_hash, billing_principal_id, product_id, order_id, reason,
+     created_at, last_verified_at)
+    select repeat(md5(n::text),2), public.ensure_billing_principal(a),
+      'chronospark_credits_100', 'GPA.unattempted-' || n::text,
+      'admission_missing', now() - interval '3 hours',
+      now() - interval '3 hours'
+    from generate_series(10,14) n;
+  result := public.list_public_credit_refund_candidates(5);
+  select coalesce(jsonb_agg(c->>'tokenHash'), '[]'::jsonb)
+    into first_unattempted
+    from jsonb_array_elements(result->'candidates') c
+    where (c->>'refundAttempted')::boolean=false;
+  for scan_candidate in select value from
+    jsonb_array_elements(result->'candidates') as c(value)
+    where (value->>'refundAttempted')::boolean=false loop
+    perform public.note_public_credit_refund_readback(
+      scan_candidate->>'tokenHash', scan_candidate->>'orderId',
+      scan_candidate->>'productId');
+  end loop;
+  result := public.list_public_credit_refund_candidates(5);
+  assert exists (select 1 from jsonb_array_elements(result->'candidates') c
+    where (c->>'refundAttempted')::boolean=false
+      and not (first_unattempted ? (c->>'tokenHash'))),
+    'old unattempted refunds monopolized new paid-order slots';
+  -- The Google verifier has already bound each PURCHASED receipt to its
+  -- account. A wrong-owner or wrong-SKU admission must not grant or alter the
+  -- referenced admission, but the paid receipt still needs a refund record.
+  admission_id := (select id::text
+    from public.public_credit_checkout_admissions
+    where consumed_token_hash=repeat('a',64));
+  result := public.grant_verified_credit_topup_v2(
+    b,repeat(md5('wrong-owner-admission'),2),
+    'chronospark_credits_100','GPA.wrong-owner',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean and
+    exists (select 1 from public.public_credit_checkout_resolutions r
+      where r.token_hash=repeat(md5('wrong-owner-admission'),2)
+        and r.billing_principal_id=public.ensure_billing_principal(b)
+        and r.order_id='GPA.wrong-owner'
+        and r.admission_id is null
+        and r.reason='admission_wrong_owner_or_product'),
+    'verified paid receipt with another account admission was lost or granted';
+  result := public.grant_verified_credit_topup_v2(
+    a,repeat(md5('wrong-product-admission'),2),
+    'chronospark_credits_300','GPA.wrong-product',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean and
+    exists (select 1 from public.public_credit_checkout_resolutions r
+      where r.token_hash=repeat(md5('wrong-product-admission'),2)
+        and r.billing_principal_id=public.ensure_billing_principal(a)
+        and r.product_id='chronospark_credits_300'
+        and r.order_id='GPA.wrong-product'
+        and r.admission_id is null
+        and r.reason='admission_wrong_owner_or_product'),
+    'verified paid receipt with another SKU admission was lost or granted';
+  assert (select consumed_token_hash from public.public_credit_checkout_admissions
+    where id=admission_id::uuid)=repeat('a',64) and
+    not exists (select 1 from public.credit_topup_purchases
+      where token_hash in (repeat(md5('wrong-owner-admission'),2),
+        repeat(md5('wrong-product-admission'),2))),
+    'mismatched admission changed the owner reservation or credit ledger';
+  admission := public.create_public_credit_checkout_admission(
+    b,'chronospark_credits_100');
+  admission_id := admission->>'admissionId';
+  result := public.register_verified_pending_credit_topup(
+    b,repeat('9',64),'chronospark_credits_100',admission_id);
+  assert (result->>'registered')::boolean,
+    'canceled-pending cleanup fixture could not bind Play token';
+  update public.public_credit_checkout_admissions
+    set issued_at=now()-interval '3 days',
+      pending_verified_at=now()-interval '3 days'+interval '5 minutes'
+    where id=admission_id::uuid;
+  perform public.purge_expired_public_credit_checkout_admissions();
+  assert exists (select 1 from public.public_credit_checkout_admissions
+    where id=admission_id::uuid and retired_at is null),
+    'genuinely pending purchase was retired or purged';
+  -- Google void notifications can be trusted but carry no SKU. The unique
+  -- verified pending token still identifies exactly one reservation.
+  admission := public.create_public_credit_checkout_admission(
+    a,'chronospark_credits_300');
+  result := public.register_verified_pending_credit_topup(
+    a,repeat(md5('sku-less-void'),2),'chronospark_credits_300',
+    admission->>'admissionId');
+  assert (result->>'registered')::boolean,
+    'SKU-less void fixture could not bind its verified pending token';
+  result := public.revoke_verified_credit_topup(
+    repeat(md5('sku-less-void'),2),null,'GPA.sku-less-void');
+  assert (result->>'handled')::boolean and
+    exists (select 1 from public.public_credit_checkout_admissions
+      where id=(admission->>'admissionId')::uuid and retired_at is not null) and
+    exists (select 1 from public.public_credit_checkout_admissions
+      where id=admission_id::uuid and retired_at is null) and
+    exists (select 1 from public.credit_topup_purchases
+      where token_hash=repeat(md5('sku-less-void'),2)
+        and state='revoked' and product_id is null),
+    'trusted SKU-less void did not retire only its own pending admission';
+  result := public.revoke_verified_credit_topup(
+    repeat('9',64),'chronospark_credits_100','GPA.pending-canceled');
+  assert (result->>'handled')::boolean and
+    exists (select 1 from public.public_credit_checkout_admissions
+      where id=admission_id::uuid and retired_at is not null) and
+    exists (select 1 from public.credit_topup_purchases
+      where token_hash=repeat('9',64) and state='revoked'),
+    'verified canceled pending token did not retire its admission';
+  update public.public_credit_checkout_admissions
+    set retired_at=now()-interval '25 hours'
+    where id=admission_id::uuid;
+  perform public.purge_expired_public_credit_checkout_admissions();
+  assert not exists (select 1 from public.public_credit_checkout_admissions
+    where id=admission_id::uuid),
+    'canceled pending admission leaked after bounded cleanup';
+  -- Closing a package must stop new checkouts, while an earlier Play-paid
+  -- checkout still settles from the verified fixed SKU amount. A second paid
+  -- receipt using the consumed admission still reaches the refund queue.
+  admission := public.create_public_credit_checkout_admission(
+    b,'chronospark_credits_100');
+  assert (admission->>'allowed')::boolean,
+    'deactivation fixture could not create an admission while sale was open';
+  admission_id := admission->>'admissionId';
+  update public.monetization_credit_packages set is_active=false
+    where product_id='chronospark_credits_100';
+  result := public.create_public_credit_checkout_admission(
+    a,'chronospark_credits_100');
+  assert (result->>'allowed')::boolean=false and
+    result->>'reason'='product_inactive',
+    'inactive package still authorized a new checkout';
+  purchased_at := floor(extract(epoch from now()) * 1000)::bigint;
+  result := public.grant_verified_credit_topup_v2(
+    b,repeat(md5('sale-closed-after-admission'),2),
+    'chronospark_credits_100','GPA.sale-closed',false,
+    admission_id,purchased_at);
+  assert (result->>'granted')::boolean and
+    (result->>'credits')::integer=100 and
+    exists (select 1 from public.credit_topup_purchases
+      where token_hash=repeat(md5('sale-closed-after-admission'),2)
+        and state='granted' and credits=100),
+    'package deactivation stranded an earlier verified paid order';
+  result := public.grant_verified_credit_topup_v2(
+    b,repeat(md5('sale-closed-second-order'),2),
+    'chronospark_credits_100','GPA.sale-closed-second',false,
+    admission_id,purchased_at);
+  assert result->>'reason'='customer_resolution_required' and
+    (result->>'resolutionQueued')::boolean and
+    exists (select 1 from public.public_credit_checkout_resolutions
+      where token_hash=repeat(md5('sale-closed-second-order'),2)
+        and order_id='GPA.sale-closed-second'
+        and reason='admission_already_consumed'),
+    'inactive package blocked refund resolution for another paid receipt';
+end;
+$$;
+select pass('public checkout admission reuses and purges unused rows without losing delayed payment');
+select * from finish();
+rollback;

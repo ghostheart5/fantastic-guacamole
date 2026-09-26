@@ -81,6 +81,19 @@ jobs:
         timeout-minutes: 10
         run: supabase db lint --local --schema public --fail-on error
 
+      - name: Exercise durable refund uncertainty against disposable database
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          local_status="$(supabase status --output json)"
+          LOCAL_SUPABASE_URL="$(jq -er '.API_URL' <<< "$local_status")"
+          LOCAL_SUPABASE_SERVICE_KEY="$(jq -er '.SERVICE_ROLE_KEY' <<< "$local_status")"
+          export LOCAL_SUPABASE_URL LOCAL_SUPABASE_SERVICE_KEY
+          export AXIOMARA_DISPOSABLE_DB_GATE=true
+          deno test --allow-env=LOCAL_SUPABASE_URL,LOCAL_SUPABASE_SERVICE_KEY,AXIOMARA_DISPOSABLE_DB_GATE \
+            --allow-net=127.0.0.1 --junit-path=artifacts/database-evidence/refund-integration.junit.xml \
+            scripts/integration/public_credit_refund_database_test.ts
+
       - name: Stop disposable Supabase backend
         if: always()
         timeout-minutes: 10

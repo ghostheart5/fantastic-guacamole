@@ -9,6 +9,7 @@ final class InternalBillingTestConfig {
   const InternalBillingTestConfig({
     required this.requested,
     required this.accountDigests,
+    this.publicCreditAdmissionQa = false,
   });
 
   static const compiled = InternalBillingTestConfig(
@@ -16,10 +17,17 @@ final class InternalBillingTestConfig {
     accountDigests: String.fromEnvironment(
       'CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS',
     ),
+    publicCreditAdmissionQa: bool.fromEnvironment(
+      'CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA',
+    ),
   );
 
   final bool requested;
   final String accountDigests;
+
+  /// Routes license-test credit packs through the one-use public admission.
+  /// It has no effect without the authenticated internal billing cohort.
+  final bool publicCreditAdmissionQa;
 
   bool get hasValidCohort {
     final List<String> values = accountDigests.split(',');
