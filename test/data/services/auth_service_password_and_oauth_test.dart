@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/services/auth_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -164,6 +165,44 @@ void main() {
         ),
       );
     });
+
+    test(
+      'Google OAuth requests account choice and preserves its redirect',
+      () async {
+        const channel = MethodChannel('plugins.flutter.io/url_launcher');
+        Uri? launchedUrl;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, (call) async {
+              if (call.method == 'launch') {
+                final arguments = call.arguments as Map<dynamic, dynamic>;
+                launchedUrl = Uri.parse(arguments['url'] as String);
+                return true;
+              }
+              return true;
+            });
+        addTearDown(() {
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(channel, null);
+        });
+        final service = _service(
+          MockClient((request) async {
+            fail('Opening account choice must not authenticate over HTTP.');
+          }),
+        );
+
+        final credential = await service.signInWithGoogle();
+
+        expect(launchedUrl, isNotNull);
+        expect(launchedUrl!.queryParameters['provider'], 'google');
+        expect(launchedUrl!.queryParameters['prompt'], 'select_account');
+        expect(
+          launchedUrl!.queryParameters['redirect_to'],
+          'chronospark://auth/callback',
+        );
+        expect(credential.user, isNull);
+        expect(service.currentUser, isNull);
+      },
+    );
 
     test('OAuth plugin failures are mapped to safe provider errors', () async {
       final AuthService service = _service(
