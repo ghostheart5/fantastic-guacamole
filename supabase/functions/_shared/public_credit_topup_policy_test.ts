@@ -18,6 +18,37 @@ const required = [
   "CHRONOSPARK_PUBLIC_CREDIT_REFUND_READINESS_VERIFIED",
 ] as const;
 
+const approved = (name: string): string | undefined =>
+  (required as readonly string[]).includes(name) ? "true" : undefined;
+
+Deno.test("license-scoped refund worker cannot authorize public sales", () => {
+  for (
+    const flags of [
+      { PUBLIC_CREDIT_REFUND_TEST_ONLY: "true" },
+      { PUBLIC_CREDIT_REFUND_TEST_ONLY: "TRUE" },
+      { PUBLIC_CREDIT_REFUND_TEST_TOKEN_HASH: "a".repeat(64) },
+      {
+        PUBLIC_CREDIT_REFUND_TEST_ONLY: "false",
+        PUBLIC_CREDIT_REFUND_TEST_TOKEN_HASH: "",
+      },
+    ]
+  ) {
+    const overrides: Record<string, string | undefined> = flags;
+    const policy = parsePublicCreditTopupPolicy((name) =>
+      overrides[name] ?? approved(name)
+    );
+    if (publicCreditSaleEnabled(policy)) {
+      throw new Error("scoped worker opened public sales");
+    }
+  }
+  const normal = parsePublicCreditTopupPolicy((name) =>
+    name === "PUBLIC_CREDIT_REFUND_TEST_ONLY" ? "false" : approved(name)
+  );
+  if (!publicCreditSaleEnabled(normal)) {
+    throw new Error("normal reviewed worker was denied");
+  }
+});
+
 Deno.test("new public credit checkouts remain closed by default", () => {
   const policy = parsePublicCreditTopupPolicy(() => undefined);
   if (publicCreditSaleEnabled(policy)) {
@@ -34,7 +65,7 @@ Deno.test("public checkout stays closed without refund enablement and readiness"
   ) {
     for (const value of [undefined, "", "false", "TRUE", " true "]) {
       const policy = parsePublicCreditTopupPolicy((name) =>
-        name === gate ? value : "true"
+        name === gate ? value : approved(name)
       );
       if (publicCreditSaleEnabled(policy)) {
         throw new Error("new paid checkout opened without its refund remedy");
@@ -64,14 +95,16 @@ Deno.test("license QA admission is private and cannot open public sales", async 
 Deno.test("every public sale approval must be an exact server affirmative", () => {
   for (const absent of required) {
     const policy = parsePublicCreditTopupPolicy((name) =>
-      name === absent ? undefined : "true"
+      name === absent ? undefined : approved(name)
     );
     if (publicCreditSaleEnabled(policy)) {
       throw new Error(`opened without ${absent}`);
     }
   }
   const malformed = parsePublicCreditTopupPolicy((name) =>
-    name === "CHRONOSPARK_PUBLIC_BILLING_REVIEW_APPROVED" ? "TRUE" : "true"
+    name === "CHRONOSPARK_PUBLIC_BILLING_REVIEW_APPROVED"
+      ? "TRUE"
+      : approved(name)
   );
   if (publicCreditSaleEnabled(malformed)) {
     throw new Error("malformed approval unlocked public sales");
@@ -79,7 +112,7 @@ Deno.test("every public sale approval must be an exact server affirmative", () =
 });
 
 Deno.test("closing new sales cannot invalidate an already-paid receipt", () => {
-  const active = parsePublicCreditTopupPolicy(() => "true");
+  const active = parsePublicCreditTopupPolicy(approved);
   const closed = parsePublicCreditTopupPolicy(() => undefined);
   if (!publicCreditSaleEnabled(active) || publicCreditSaleEnabled(closed)) {
     throw new Error("rollout transition did not close new checkouts");
@@ -93,7 +126,7 @@ Deno.test("closing new sales cannot invalidate an already-paid receipt", () => {
 });
 
 Deno.test("reviewed public rollout still honors an internal client's test demand", () => {
-  const policy = parsePublicCreditTopupPolicy(() => "true");
+  const policy = parsePublicCreditTopupPolicy(approved);
   if (!publicCreditSaleEnabled(policy)) {
     throw new Error("approved public checkout remained closed");
   }

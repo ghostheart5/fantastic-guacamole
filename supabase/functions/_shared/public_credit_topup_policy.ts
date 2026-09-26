@@ -18,6 +18,7 @@ export interface PublicCreditTopupPolicy {
 export function parsePublicCreditTopupPolicy(
   read: (name: string) => string | undefined,
 ): PublicCreditTopupPolicy {
+  const refundTestOnly = read("PUBLIC_CREDIT_REFUND_TEST_ONLY");
   return {
     enabled: read("CHRONOSPARK_PUBLIC_CREDIT_TOPUPS_ENABLED") === "true",
     billingReviewApproved:
@@ -25,7 +26,10 @@ export function parsePublicCreditTopupPolicy(
     publicAiEnabled: publicAiAudienceEnabled(
       parsePublicAiAudiencePolicy(read),
     ),
-    refundsEnabled: read("PUBLIC_CREDIT_AUTO_REFUND_ENABLED") === "true",
+    // A worker restricted to one license purchase cannot protect public sales.
+    refundsEnabled: read("PUBLIC_CREDIT_AUTO_REFUND_ENABLED") === "true" &&
+      (refundTestOnly === undefined || refundTestOnly === "false") &&
+      read("PUBLIC_CREDIT_REFUND_TEST_TOKEN_HASH") === undefined,
     // Release attestation for source-matched worker, schedule, alerts and
     // license-test readback; this flag is not a live worker-health probe.
     refundReadinessVerified:

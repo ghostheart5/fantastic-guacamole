@@ -31,6 +31,139 @@ function order(state: string, purchaseToken = token) {
   };
 }
 
+Deno.test("scoped refund selects one provider-confirmed license purchase only", async () => {
+  const other = {
+    ...candidate,
+    tokenHash: "b".repeat(64),
+    orderId: "GPA.other",
+  };
+  const calls: string[] = [];
+  let proofRead = false;
+  let claimed = false;
+  const fetcher = (url: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(url);
+    calls.push(path);
+    if (path.endsWith("/list_public_credit_refund_candidates")) {
+      return Promise.resolve(Response.json({ candidates: [other, candidate] }));
+    }
+    if (path.endsWith(`/orders/${candidate.orderId}`)) {
+      return Promise.resolve(Response.json(order("PROCESSED")));
+    }
+    if (path.endsWith(`/products/${candidate.productId}/tokens/${token}`)) {
+      if (init?.redirect !== "error") throw new Error("redirect not rejected");
+      proofRead = true;
+      return Promise.resolve(Response.json({
+        purchaseType: 0,
+        orderId: candidate.orderId,
+        purchaseState: 0,
+        consumptionState: 0,
+      }));
+    }
+    if (!proofRead) throw new Error("mutation before test proof");
+    if (path.endsWith("/note_public_credit_refund_readback")) {
+      return Promise.resolve(Response.json({ touched: true }));
+    }
+    if (path.endsWith("/claim_public_credit_refund_attempt")) {
+      claimed = true;
+      return Promise.resolve(Response.json({ claimed: true }));
+    }
+    if (path.endsWith(`${candidate.orderId}:refund?revoke=true`) && claimed) {
+      return Promise.resolve(new Response(null, { status: 200 }));
+    }
+    throw new Error("unexpected scoped request");
+  };
+  const result = await reconcilePublicCreditRefunds({
+    ...input,
+    testTokenHash: candidate.tokenHash,
+  }, fetcher);
+  if (
+    result?.scanned !== 1 || result.requested !== 1 || calls.length !== 6 ||
+    calls.some((url) => url.includes("GPA.other"))
+  ) {
+    throw new Error("scope was broadened or test refund was not requested");
+  }
+});
+
+Deno.test("scoped refund fails closed for absent duplicated and malformed targets", async () => {
+  let calls = 0;
+  const malformed = await reconcilePublicCreditRefunds({
+    ...input,
+    testTokenHash: "",
+  }, () => {
+    calls++;
+    throw new Error("invalid target reached transport");
+  });
+  if (malformed !== null || calls !== 0) {
+    throw new Error("invalid scope accepted");
+  }
+  for (
+    const candidates of [[], [{ ...candidate, tokenHash: "b".repeat(64) }], [
+      candidate,
+      candidate,
+    ]]
+  ) {
+    calls = 0;
+    const result = await reconcilePublicCreditRefunds({
+      ...input,
+      testTokenHash: candidate.tokenHash,
+    }, (url) => {
+      calls++;
+      if (!String(url).endsWith("/list_public_credit_refund_candidates")) {
+        throw new Error("missing or ambiguous target reached mutation");
+      }
+      return Promise.resolve(Response.json({ candidates }));
+    });
+    if (result !== null || calls !== 1) {
+      throw new Error("false successful test run");
+    }
+  }
+});
+
+Deno.test("scoped refund rejects non-test consumed pending and mismatched proof before mutation", async () => {
+  const proof = {
+    purchaseType: 0,
+    orderId: candidate.orderId,
+    purchaseState: 0,
+    consumptionState: 0,
+  };
+  for (
+    const patch of [
+      { purchaseType: undefined },
+      { purchaseType: 1 },
+      { purchaseType: 2 },
+      { purchaseType: "0" },
+      { orderId: "GPA.other" },
+      { consumptionState: 1 },
+      { purchaseState: 2 },
+      { productId: "chronospark_credits_300" },
+      { purchaseToken: "other-token" },
+      { quantity: 2 },
+    ]
+  ) {
+    const mutations: string[] = [];
+    const result = await reconcilePublicCreditRefunds({
+      ...input,
+      testTokenHash: candidate.tokenHash,
+    }, (url) => {
+      const path = String(url);
+      if (path.endsWith("/list_public_credit_refund_candidates")) {
+        return Promise.resolve(Response.json({ candidates: [candidate] }));
+      }
+      if (path.endsWith(`/orders/${candidate.orderId}`)) {
+        return Promise.resolve(Response.json(order("PROCESSED")));
+      }
+      if (path.includes("/purchases/products/")) {
+        return Promise.resolve(Response.json({ ...proof, ...patch }));
+      }
+      mutations.push(path);
+      throw new Error("unproven test order reached mutation");
+    });
+    if (result?.manualReview !== 1 || mutations.length !== 0) {
+      throw new Error("unsafe license-test proof accepted");
+    }
+  }
+});
+
 Deno.test("verified unfulfilled order is claimed before one Google refund POST", async () => {
   const calls: string[] = [];
   const fetcher = (url: RequestInfo | URL, init?: RequestInit) => {

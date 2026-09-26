@@ -55,6 +55,48 @@ export async function classifyQueuedCreditOrder(
   }
 }
 
+// Orders alone do not identify license-test purchases. Read Google's product
+// purchase resource for the same exact token before a scoped test can mutate
+// any financial state. Never infer test status from a price or order prefix.
+export async function verifyGoogleLicenseTestCreditOrder(
+  packageName: string,
+  queued: QueuedCreditOrder,
+  order: Record<string, unknown>,
+  accessToken: string,
+  fetcher: typeof fetch = fetch,
+): Promise<boolean> {
+  const token = order.purchaseToken;
+  if (
+    !packageName || !accessToken || typeof token !== "string" || !token ||
+    token.length > 16384 || order.orderId !== queued.orderId ||
+    await sha256Hex(token) !== queued.tokenHash
+  ) return false;
+  const url =
+    `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${
+      encodeURIComponent(packageName)
+    }/purchases/products/${encodeURIComponent(queued.productId)}/tokens/${
+      encodeURIComponent(token)
+    }`;
+  const response = await fetcher(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    redirect: "error",
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) {
+    await response.body?.cancel();
+    return false;
+  }
+  const purchase = await response.json();
+  return !!purchase && typeof purchase === "object" &&
+    !Array.isArray(purchase) && purchase.purchaseType === 0 &&
+    purchase.orderId === queued.orderId && purchase.consumptionState === 0 &&
+    (purchase.purchaseState === 0 || purchase.purchaseState === 1) &&
+    (purchase.quantity ?? 1) === 1 &&
+    (purchase.productId === undefined ||
+      purchase.productId === queued.productId) &&
+    (purchase.purchaseToken === undefined || purchase.purchaseToken === token);
+}
+
 export async function readGoogleCreditOrder(
   packageName: string,
   orderId: string,

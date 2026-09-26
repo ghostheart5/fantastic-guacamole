@@ -40,6 +40,27 @@ verify the eligible queue and use an appropriately isolated test setup; do not
 enable it merely to obtain a green workflow run. A skipped job is not execution
 or refund evidence.
 
+For a separately approved controlled license test, the server can restrict the
+same worker using `PUBLIC_CREDIT_REFUND_TEST_ONLY=true` and
+`PUBLIC_CREDIT_REFUND_TEST_TOKEN_HASH` containing the exact 64-character lowercase
+SHA-256 token hash. The normal enablement and invocation secret still apply.
+Set and verify both restrictions **while the worker is disabled**, before any
+approved enablement. The request body cannot choose or broaden this scope.
+A missing or malformed hash, a hash supplied without test-only mode, or an
+absent/duplicated target in the bounded queue fails closed. No other queued
+order is rotated, claimed or refunded. The worker reads the selected Google
+order and then its product-purchase resource; `purchaseType: 0`, exact order
+identity, unconsumed state and consistent product/token/quantity are required
+before mutation. See [Google's ProductPurchase contract](https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.products).
+
+This restriction is not a second enablement mechanism. Disable the worker
+before clearing either test restriction, and verify its disabled readback.
+Public checkout refuses a test-scoped worker even if its other release
+approval flags are affirmative. Existing admitted receipts remain redeemable.
+Never remove the scope from an enabled worker to obtain a passing test.
+If the target is already settled or outside the five-item batch, no scoped
+execution is proven. Verify the actual order and queue before trying again.
+
 1. Confirm the exact deployed migration, verifier and RTDN versions, purchase product, and public-sales flag. If the checker cannot read the queue, keep or turn public sales off through the separately reviewed rollout control and investigate the read failure. Do not infer an empty queue.
 2. For a queued case, use a restricted operator surface to inspect the exact token/order/account binding and Google Play order state. Keep raw identifiers out of general logs. Confirm no wallet grant or consumption occurred. A summary count cannot decide a customer's remedy.
 3. Follow the owner-selected full-refund policy. The draft `public-credit-refund-reconcile` Edge Function is **default disabled** and requires its own protected invocation secret and a dedicated `GOOGLE_REFUND_SERVICE_ACCOUNT_JSON` credential, separate from the purchase verifier's service account. Grant the refund credential only the Play order permissions needed for this function. When enabled after review, it reads a bounded service-only queue, checks Google's exact order ID, purchase-token hash, one-time product and quantity, and claims one refund attempt under the token lock before calling `orders.refund` with `revoke=true`. Only a later Google `REFUNDED` readback or trusted void closes the queue. `PENDING_REFUND`, an ambiguous API timeout, a partial refund, a mismatched order, or a prior attempt still showing `PROCESSED` needs manual review; never blindly repeat a refund call. A worker crash after the one-time claim and before the POST also needs manual review.

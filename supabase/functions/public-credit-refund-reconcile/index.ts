@@ -28,6 +28,8 @@ Deno.serve(createRefundReconcileHandler({
   supabaseUrl: Deno.env.get("SUPABASE_URL") ?? "",
   secretKey: refundBackendServiceKey((name) => Deno.env.get(name)),
   serviceAccount: readServiceAccount(),
+  testOnly: Deno.env.get("PUBLIC_CREDIT_REFUND_TEST_ONLY") === "true",
+  testTokenHash: Deno.env.get("PUBLIC_CREDIT_REFUND_TEST_TOKEN_HASH"),
 }, {
   getAccessToken: getGoogleAccessToken,
   reconcile: reconcilePublicCreditRefunds,

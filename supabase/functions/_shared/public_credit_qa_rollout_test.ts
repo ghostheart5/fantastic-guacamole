@@ -32,8 +32,10 @@ Deno.test("public launch preserves QA refund protection without restricting publ
     const assert = (value: unknown) => {
       if (!value) throw new Error("QA rollout outcome violated");
     };
-    const policy = parsePublicCreditTopupPolicy(() =>
-      scenario.public ? "true" : undefined
+    const policy = parsePublicCreditTopupPolicy((name) =>
+      scenario.public && !name.startsWith("PUBLIC_CREDIT_REFUND_TEST_")
+        ? "true"
+        : undefined
     );
     assert(
       await creditAdmissionAllowed(policy, scenario.qa, scenario.user, cohort),
