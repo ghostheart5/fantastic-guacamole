@@ -8,6 +8,8 @@ export interface PublicCreditTopupPolicy {
   readonly enabled: boolean;
   readonly billingReviewApproved: boolean;
   readonly publicAiEnabled: boolean;
+  readonly refundsEnabled: boolean;
+  readonly refundReadinessVerified: boolean;
 }
 
 // Purchase verification must never take public-sale authority from the app's
@@ -16,6 +18,7 @@ export interface PublicCreditTopupPolicy {
 export function parsePublicCreditTopupPolicy(
   read: (name: string) => string | undefined,
 ): PublicCreditTopupPolicy {
+  const refundTestOnly = read("PUBLIC_CREDIT_REFUND_TEST_ONLY");
   return {
     enabled: read("CHRONOSPARK_PUBLIC_CREDIT_TOPUPS_ENABLED") === "true",
     billingReviewApproved:
@@ -23,6 +26,14 @@ export function parsePublicCreditTopupPolicy(
     publicAiEnabled: publicAiAudienceEnabled(
       parsePublicAiAudiencePolicy(read),
     ),
+    // A worker restricted to one license purchase cannot protect public sales.
+    refundsEnabled: read("PUBLIC_CREDIT_AUTO_REFUND_ENABLED") === "true" &&
+      (refundTestOnly === undefined || refundTestOnly === "false") &&
+      read("PUBLIC_CREDIT_REFUND_TEST_TOKEN_HASH") === undefined,
+    // Release attestation for source-matched worker, schedule, alerts and
+    // license-test readback; this flag is not a live worker-health probe.
+    refundReadinessVerified:
+      read("CHRONOSPARK_PUBLIC_CREDIT_REFUND_READINESS_VERIFIED") === "true",
   };
 }
 
@@ -30,7 +41,33 @@ export function publicCreditSaleEnabled(
   policy: PublicCreditTopupPolicy,
 ): boolean {
   return policy.enabled && policy.billingReviewApproved &&
-    policy.publicAiEnabled;
+    policy.publicAiEnabled && policy.refundsEnabled &&
+    policy.refundReadinessVerified;
+}
+
+// A separately configured private cohort can exercise the one-use public
+// admission in Play license QA while the global public-sale gate remains off.
+// A request-body flag is never authority for this exception.
+export async function creditAdmissionAllowed(
+  policy: PublicCreditTopupPolicy,
+  licenseQaEnabled: boolean,
+  userId: string,
+  billingCohort: ReadonlySet<string>,
+): Promise<boolean> {
+  return publicCreditSaleEnabled(policy) ||
+    (licenseQaEnabled &&
+      await internalAiAccountAllowed(userId, billingCohort));
+}
+
+// Public launch cannot remove test-only protection from the private QA cohort.
+// Do not use creditAdmissionAllowed here: public sales admit non-cohort users.
+export async function privateCreditAdmissionQaRequired(
+  licenseQaEnabled: boolean,
+  userId: string,
+  billingCohort: ReadonlySet<string>,
+): Promise<boolean> {
+  return licenseQaEnabled &&
+    await internalAiAccountAllowed(userId, billingCohort);
 }
 
 // Rollout closure stops new admissions. An already admitted purchase remains

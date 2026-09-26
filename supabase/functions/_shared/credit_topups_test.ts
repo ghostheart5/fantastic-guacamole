@@ -8,6 +8,69 @@ import { sha256Hex } from "./billing_backend.ts";
 const assert = (value: unknown) => {
   if (!value) throw new Error("assertion failed");
 };
+
+Deno.test("stale pending inventory recovers only from owner-verified cancellation", async () => {
+  const input = {
+    config: {
+      supabaseUrl: "https://backend.invalid",
+      secretKey: "test-secret",
+      publishableKey: "test-public",
+    },
+    userId: "owner",
+    packageName: "com.ghostheart5.chronospark",
+    productId: "chronospark_credits_100",
+    token: "canceled-token",
+    accessToken: "test-access",
+    requireTest: true,
+  };
+  const proof = {
+    purchaseState: 1,
+    quantity: 1,
+    purchaseType: 0,
+    productId: input.productId,
+    obfuscatedExternalAccountId: await sha256Hex(input.userId),
+    obfuscatedExternalProfileId: "123e4567-e89b-12d3-a456-426614174000",
+  };
+  for (const invalid of [false, true]) {
+    const calls: string[] = [];
+    const result = await registerPendingCreditTopup(
+      input,
+      async (url, init) => {
+        if (String(url).includes("androidpublisher.googleapis.com")) {
+          calls.push("provider");
+          return Response.json({
+            ...proof,
+            ...(invalid ? { obfuscatedExternalAccountId: "other-owner" } : {}),
+          });
+        }
+        assert(String(url).endsWith("/revoke_verified_credit_topup"));
+        calls.push("revoke");
+        const body = JSON.parse(String(init?.body));
+        assert(body.p_token_hash === await sha256Hex(input.token));
+        assert(body.p_product_id === input.productId);
+        return Response.json({ handled: true });
+      },
+    );
+    assert(result.valid === !invalid);
+    assert((result.purchaseCanceled === true) === !invalid);
+    assert(calls.join(",") === (invalid ? "provider" : "provider,revoke"));
+    if (!invalid) {
+      assert(result.productId === input.productId);
+      assert(result.tokenHash === await sha256Hex(input.token));
+      assert(result.pendingRegistered !== true);
+    }
+  }
+  const unavailable = await registerPendingCreditTopup(
+    input,
+    (url) =>
+      Promise.resolve(
+        String(url).includes("androidpublisher.googleapis.com")
+          ? Response.json(proof)
+          : new Response(null, { status: 503 }),
+      ),
+  );
+  assert(unavailable.valid === false && unavailable.purchaseCanceled !== true);
+});
 Deno.test("only approved credit pack amounts exist", () => {
   assert(CREDIT_TOPUPS.size === 2);
   assert(CREDIT_TOPUPS.get("chronospark_credits_100") === 100);
@@ -53,6 +116,38 @@ Deno.test("Google-verified pending credit token binds admission without grant or
   const result = await registerPendingCreditTopup(input, transport);
   assert(result.valid === true && result.pendingRegistered === true);
   assert(events.join(",") === "verify-pending,register");
+});
+
+Deno.test("license QA may bind a pending token without a purchase type, but not grant it", async () => {
+  const input = {
+    config: {
+      supabaseUrl: "https://backend.invalid",
+      secretKey: "test-secret",
+      publishableKey: "test-public",
+    },
+    userId: "owner",
+    packageName: "com.ghostheart5.chronospark",
+    productId: "chronospark_credits_100",
+    token: "pending-test-token",
+    accessToken: "test-access",
+    requireTest: true,
+  };
+  let registrations = 0;
+  const transport: typeof fetch = async (url) => {
+    if (String(url).endsWith("/register_verified_pending_credit_topup")) {
+      registrations++;
+      return Response.json({ registered: true, duplicate: false });
+    }
+    return Response.json({
+      purchaseState: 2,
+      quantity: 1,
+      productId: input.productId,
+      obfuscatedExternalAccountId: await sha256Hex(input.userId),
+      obfuscatedExternalProfileId: "123e4567-e89b-12d3-a456-426614174000",
+    });
+  };
+  const result = await registerPendingCreditTopup(input, transport);
+  assert(result.pendingRegistered === true && registrations === 1);
 });
 
 Deno.test("unverified or mismatched pending credit tokens never reach admission RPC", async () => {
@@ -336,6 +431,89 @@ Deno.test("public-client license-test credit checkout exercises the admission gr
     assert(result.valid === true && result.testPurchase === true);
     assert(result.publicAdmissionVerified === true);
     assert(events.join(",") === "verify,grant,consume");
+  }
+});
+Deno.test("unexpected real charge in license QA is queued for full refund, never consumed", async () => {
+  for (const rightfulOwner of [true, false]) {
+    const events: string[] = [];
+    const result = await verifyCreditTopup({
+      config: {
+        supabaseUrl: "https://backend.invalid",
+        secretKey: "test-secret",
+        publishableKey: "test-public",
+      },
+      userId: "owner",
+      packageName: "com.ghostheart5.chronospark",
+      productId: "chronospark_credits_100",
+      token: "unexpected-real-charge",
+      accessToken: "test-access",
+      requireTest: true,
+    }, async (url, init) => {
+      const path = String(url);
+      if (path.endsWith("/queue_unadmitted_credit_topup")) {
+        events.push("queue");
+        const args = JSON.parse(String(init?.body));
+        assert(args.p_order_id === "GPA.qa-real");
+        assert(args.p_user_id === "owner");
+        return Response.json({ resolutionQueued: true });
+      }
+      if (
+        path.endsWith("/grant_verified_credit_topup_v2") ||
+        path.endsWith(":consume")
+      ) {
+        throw new Error("real QA charge was granted or consumed");
+      }
+      events.push("verify");
+      return Response.json({
+        purchaseState: 0,
+        quantity: 1,
+        obfuscatedExternalAccountId: await sha256Hex(
+          rightfulOwner ? "owner" : "other",
+        ),
+        obfuscatedExternalProfileId: "123e4567-e89b-12d3-a456-426614174000",
+        purchaseTimeMillis: "1780000000000",
+        orderId: "GPA.qa-real",
+        consumptionState: 0,
+      });
+    });
+    assert(events.join(",") === (rightfulOwner ? "verify,queue" : "verify"));
+    if (rightfulOwner) {
+      assert(result.error === "customer_resolution_required");
+      assert(result.resolutionQueued === true);
+    } else {
+      assert(result.resolutionQueued !== true);
+    }
+  }
+});
+Deno.test("promo and rewarded QA receipts never enter the paid-order refund queue", async () => {
+  for (const purchaseType of [1, 2]) {
+    let calls = 0;
+    const result = await verifyCreditTopup({
+      config: {
+        supabaseUrl: "https://backend.invalid",
+        secretKey: "test-secret",
+        publishableKey: "test-public",
+      },
+      userId: "owner",
+      packageName: "com.ghostheart5.chronospark",
+      productId: "chronospark_credits_100",
+      token: "nonpaid-qa-token",
+      accessToken: "test-access",
+      requireTest: true,
+    }, async () => {
+      calls++;
+      if (calls > 1) throw new Error("nonpaid purchase reached a mutation");
+      return Response.json({
+        purchaseState: 0,
+        quantity: 1,
+        purchaseType,
+        obfuscatedExternalAccountId: await sha256Hex("owner"),
+        orderId: "GPA.nonpaid",
+        consumptionState: 0,
+      });
+    });
+    assert(calls === 1 && result.error === "test_purchase_required");
+    assert(result.resolutionQueued !== true);
   }
 });
 Deno.test("public-client license-test receipt without a valid profile cannot bypass admission", async () => {

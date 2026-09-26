@@ -4,6 +4,7 @@ import {
   type QueuedCreditOrder,
   readGoogleCreditOrder,
   requestGoogleFullCreditRefund,
+  verifyGoogleLicenseTestCreditOrder,
 } from "./public_credit_refunds.ts";
 
 export interface CreditRefundReconcileCounts {
@@ -40,7 +41,12 @@ export async function reconcilePublicCreditRefunds(input: {
   config: BillingBackendConfig;
   packageName: string;
   accessToken: string;
+  testTokenHash?: string;
 }, fetcher: typeof fetch = fetch): Promise<CreditRefundReconcileCounts | null> {
+  if (
+    input.testTokenHash !== undefined &&
+    !/^[0-9a-f]{64}$/.test(input.testTokenHash)
+  ) return null;
   const listed = await serviceRpc(
     input.config,
     "list_public_credit_refund_candidates",
@@ -48,6 +54,13 @@ export async function reconcilePublicCreditRefunds(input: {
     fetcher,
   );
   if (!listed || !Array.isArray(listed.candidates)) return null;
+  const candidates = input.testTokenHash === undefined
+    ? listed.candidates
+    : listed.candidates.filter((raw) =>
+      parseCandidate(raw)?.tokenHash === input.testTokenHash
+    );
+  // An absent or duplicated test target is not successful worker execution.
+  if (input.testTokenHash !== undefined && candidates.length !== 1) return null;
   const counts: CreditRefundReconcileCounts = {
     scanned: 0,
     refunded: 0,
@@ -56,7 +69,7 @@ export async function reconcilePublicCreditRefunds(input: {
     manualReview: 0,
     retryLater: 0,
   };
-  for (const raw of listed.candidates) {
+  for (const raw of candidates) {
     const queued = parseCandidate(raw);
     counts.scanned++;
     if (!queued) {
@@ -64,6 +77,36 @@ export async function reconcilePublicCreditRefunds(input: {
       continue;
     }
     try {
+      // For a scoped run, prove test status before even rotating its queue
+      // timestamp. Normal reconciliation retains its fairness rotation.
+      const testOrder = input.testTokenHash === undefined
+        ? undefined
+        : await readGoogleCreditOrder(
+          input.packageName,
+          queued.orderId,
+          input.accessToken,
+          fetcher,
+        );
+      if (input.testTokenHash !== undefined) {
+        if (!testOrder) {
+          counts.retryLater++;
+          continue;
+        }
+        if (
+          await classifyQueuedCreditOrder(testOrder, queued) ===
+            "manual_review" ||
+          !await verifyGoogleLicenseTestCreditOrder(
+            input.packageName,
+            queued,
+            testOrder,
+            input.accessToken,
+            fetcher,
+          )
+        ) {
+          counts.manualReview++;
+          continue;
+        }
+      }
       const rotated = await serviceRpc(
         input.config,
         "note_public_credit_refund_readback",
@@ -78,7 +121,7 @@ export async function reconcilePublicCreditRefunds(input: {
         counts.retryLater++;
         continue;
       }
-      const order = await readGoogleCreditOrder(
+      const order = testOrder ?? await readGoogleCreditOrder(
         input.packageName,
         queued.orderId,
         input.accessToken,

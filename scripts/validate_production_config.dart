@@ -28,6 +28,18 @@ List<String> validateProductionConfiguration(
   }
   final String billingCohort =
       values['CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS'] ?? '';
+  final String admissionQa =
+      values['CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA'] ?? 'false';
+  if (admissionQa != 'true' && admissionQa != 'false') {
+    failures.add(
+      'CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA must be true or false.',
+    );
+  }
+  if (admissionQa == 'true' && billingFlag != 'true') {
+    failures.add(
+      'Public credit admission QA requires the internal license-test profile.',
+    );
+  }
   if (billingFlag == 'true') {
     for (final name in <String>[
       'CHRONOSPARK_ENABLE_MOCK_LOGIN',

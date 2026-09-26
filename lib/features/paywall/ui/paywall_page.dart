@@ -53,9 +53,11 @@ String resolvePaywallPurchaseResultMessage(
           ? 'Acceso de revisión gratuito. Sin pago ni renovación automática.'
           : 'Complimentary review access. No payment or automatic renewal.';
     case 'credits_added':
+      // The server also returns this status for an already fulfilled receipt.
+      // Verification does not prove that this interaction added new credits.
       return localizations.isSpanish
-          ? 'Créditos añadidos a tu cuenta.'
-          : 'Purchased credits added to your account.';
+          ? 'Compra de créditos confirmada. Consulta tu saldo disponible.'
+          : 'Credit purchase confirmed. Check your available balance.';
     case 'purchase_pending':
       return copy.purchasePending;
     case 'purchase_canceled':
@@ -97,9 +99,13 @@ String resolvePaywallRestoreResultMessage(
         localizations: localizations,
       );
     case 'credits_added':
-      return localizations.isSpanish
-          ? 'Créditos añadidos a tu cuenta.'
-          : 'Purchased credits added to your account.';
+    case 'purchase_canceled':
+    case 'purchase_cancelled':
+      return resolvePaywallPurchaseResultMessage(
+        subscription,
+        testingMode: testingMode,
+        localizations: localizations,
+      );
     case 'purchase_pending':
       return copy.restorePending;
     case 'verification_failed':

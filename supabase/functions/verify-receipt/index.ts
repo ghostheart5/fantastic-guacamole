@@ -20,9 +20,11 @@ import {
 import { parseInternalAiCohort } from "../_shared/internal_ai_cohort.ts";
 import { googleSubscriptionState } from "../_shared/google_play_rtdn.ts";
 import {
+  creditAdmissionAllowed,
   creditTopupRequiresLicenseTest,
   internalCreditTestRequestAllowed,
   parsePublicCreditTopupPolicy,
+  privateCreditAdmissionQaRequired,
   publicCreditSaleEnabled,
 } from "../_shared/public_credit_topup_policy.ts";
 import {
@@ -65,6 +67,8 @@ const MAX_PURCHASE_TOKEN_LENGTH = 4096;
 const LEGACY_ACCOUNT_BINDING_CUTOFF =
   Deno.env.get("GOOGLE_PLAY_LEGACY_ACCOUNT_BINDING_CUTOFF")?.trim() ?? "";
 const publicCreditTopupPolicy = parsePublicCreditTopupPolicy(Deno.env.get);
+const publicCreditAdmissionQaEnabled =
+  Deno.env.get("CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA_ENABLED") === "true";
 const internalBillingCohort = parseInternalAiCohort(
   Deno.env.get("CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"),
 );
@@ -122,6 +126,10 @@ function cors(req: Request): Record<string, string> {
     "X-ChronoSpark-Public-Credit-Checkout":
       publicCreditSaleEnabled(publicCreditTopupPolicy)
         ? "enabled-v1"
+        : "disabled-v1",
+    "X-ChronoSpark-Credit-Admission-QA":
+      publicCreditAdmissionQaEnabled && internalBillingCohort.size > 0
+        ? "cohort-v1"
         : "disabled-v1",
     ...(internalBillingCohortFingerprint
       ? {
@@ -224,7 +232,14 @@ Deno.serve(async (req: Request) => {
           error: "service_account_not_configured",
         }, 503);
       }
-      if (!publicCreditSaleEnabled(publicCreditTopupPolicy)) {
+      if (
+        !await creditAdmissionAllowed(
+          publicCreditTopupPolicy,
+          publicCreditAdmissionQaEnabled,
+          userId,
+          internalBillingCohort,
+        )
+      ) {
         return jsonResponse(req, { valid: true, checkoutAllowed: false });
       }
       const admission = await serviceRpc(
@@ -288,6 +303,11 @@ Deno.serve(async (req: Request) => {
     }
     const accessToken = await getGoogleAccessToken(serviceAccount);
     if (body.purchaseType === "inapp") {
+      const privateAdmissionQa = await privateCreditAdmissionQaRequired(
+        publicCreditAdmissionQaEnabled,
+        userId,
+        internalBillingCohort,
+      );
       const topupInput = {
         config,
         userId,
@@ -297,7 +317,9 @@ Deno.serve(async (req: Request) => {
         accessToken,
         // Closing new sales must not strand an already completed purchase.
         // An internal client may still demand license-test proof.
-        requireTest: creditTopupRequiresLicenseTest(body.requireTestPurchase),
+        requireTest: privateAdmissionQa ||
+          creditTopupRequiresLicenseTest(body.requireTestPurchase),
+        requireAdmission: privateAdmissionQa,
       };
       if (
         body.operation !== undefined &&
@@ -311,6 +333,18 @@ Deno.serve(async (req: Request) => {
       const result = body.operation === "credit_register_pending"
         ? await registerPendingCreditTopup(topupInput)
         : await verifyCreditTopup(topupInput);
+      if (privateAdmissionQa && body.operation === "credit_register_pending") {
+        // Private QA diagnostics deliberately exclude account, order and token.
+        console.info(JSON.stringify({
+          event: "credit_pending_reconciliation",
+          productId,
+          outcome: result.purchaseCanceled === true
+            ? "canceled"
+            : result.pendingRegistered === true
+            ? "pending"
+            : result.error ?? "unverified",
+        }));
+      }
       return jsonResponse(
         req,
         result as unknown as VerifyResponse,

@@ -20,6 +20,11 @@ on:
         required: true
         default: false
         type: boolean
+      credit_admission_qa:
+        description: Exercise public credit admission only for the private Google Play license-test cohort
+        required: true
+        default: false
+        type: boolean
       preflight_only:
         description: Only verify live billing configuration; do not build or sign an AAB
         required: true
@@ -40,6 +45,7 @@ env:
   CANDIDATE_CI_RUN: ${{ inputs.ci_run }}
   CANDIDATE_POLICY_SHA256: ${{ inputs.policy_sha256 }}
   CANDIDATE_BILLING_TEST: ${{ inputs.billing_test && 'true' || 'false' }}
+  CANDIDATE_CREDIT_ADMISSION_QA: ${{ inputs.credit_admission_qa && 'true' || 'false' }}
 
 jobs:
   source-gate:
@@ -55,6 +61,9 @@ jobs:
           [[ "$CANDIDATE_SHA" =~ ^[a-f0-9]{40}$ ]]
           [[ "$CANDIDATE_CI_RUN" =~ ^[1-9][0-9]*$ ]]
           [[ "$CANDIDATE_POLICY_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          if [[ "$CANDIDATE_CREDIT_ADMISSION_QA" == true ]]; then
+            test "$CANDIDATE_BILLING_TEST" = true
+          fi
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_CI_RUN" > "$RUNNER_TEMP/candidate-ci.json"
           jq -e --arg sha "$CANDIDATE_SHA" --arg repo "$GITHUB_REPOSITORY" '
             .head_sha == $sha and .repository.full_name == $repo and
@@ -63,7 +72,7 @@ jobs:
             .conclusion == "success"' "$RUNNER_TEMP/candidate-ci.json"
 
   billing-preflight-only:
-    if: inputs.preflight_only && inputs.billing_test && github.repository == 'ghostheart5/fantastic-guacamole'
+    if: inputs.preflight_only && github.repository == 'ghostheart5/fantastic-guacamole'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment: production
@@ -72,6 +81,7 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$CANDIDATE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$CANDIDATE_BILLING_TEST" = true
 
       - name: Checkout reviewed app preflight
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5

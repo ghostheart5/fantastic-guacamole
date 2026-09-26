@@ -1,4 +1,56 @@
-import { createRefundReconcileHandler } from "./public_credit_refund_handler.ts";
+import {
+  createRefundReconcileHandler,
+  refundBackendServiceKey,
+} from "./public_credit_refund_handler.ts";
+
+Deno.test("refund worker uses the hosted service role key when no override exists", async () => {
+  const hosted: Record<string, string> = {
+    SUPABASE_SERVICE_ROLE_KEY: "hosted-service-key",
+  };
+  let reconciled = false;
+  const handler = createRefundReconcileHandler({
+    ...exactConfig,
+    secretKey: refundBackendServiceKey((name) => hosted[name]),
+  }, {
+    getAccessToken: () => Promise.resolve("test-token"),
+    reconcile: (input) => {
+      if (input.config.secretKey !== hosted.SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error(
+          "hosted credential was not passed to the database client",
+        );
+      }
+      reconciled = true;
+      return Promise.resolve({
+        scanned: 0,
+        refunded: 0,
+        requested: 0,
+        pending: 0,
+        manualReview: 0,
+        retryLater: 0,
+      });
+    },
+  });
+  const response = await handler(req("POST", exactConfig.secret));
+  await response.body?.cancel();
+  if (response.status !== 200 || !reconciled) {
+    throw new Error("hosted configuration remained unconfigured");
+  }
+});
+
+Deno.test("refund credential override is preserved and missing keys fail closed", () => {
+  const keys: Record<string, string> = {
+    SUPABASE_SECRET_KEY: "explicit-service-key",
+    SUPABASE_SERVICE_ROLE_KEY: "hosted-service-key",
+  };
+  if (
+    refundBackendServiceKey((name) => keys[name]) !== keys.SUPABASE_SECRET_KEY
+  ) {
+    throw new Error("explicit credential was overridden");
+  }
+  if (refundBackendServiceKey(() => undefined) !== "") {
+    throw new Error("missing credential did not fail closed");
+  }
+});
 
 const exactConfig = {
   secret: "test-refund-key",
@@ -16,6 +68,63 @@ const req = (method: string, supplied?: string) =>
     method,
     headers: supplied ? { "x-axiomara-refund-reconcile-secret": supplied } : {},
   });
+
+Deno.test("license-test refund scope requires an explicit valid server target", async () => {
+  const hash = "a".repeat(64);
+  let calls = 0;
+  const dependencies = {
+    getAccessToken: () => {
+      calls++;
+      return Promise.resolve("test-token");
+    },
+    reconcile: (input: { testTokenHash?: string }) => {
+      calls++;
+      if (input.testTokenHash !== hash) throw new Error("test scope was lost");
+      return Promise.resolve({
+        scanned: 1,
+        refunded: 0,
+        requested: 1,
+        pending: 0,
+        manualReview: 0,
+        retryLater: 0,
+      });
+    },
+  };
+  for (
+    const scope of [
+      { testOnly: true },
+      { testOnly: true, testTokenHash: "" },
+      { testOnly: true, testTokenHash: "bad" },
+      { testOnly: true, testTokenHash: "A".repeat(64) },
+      { testOnly: false, testTokenHash: hash },
+    ]
+  ) {
+    const response = await createRefundReconcileHandler(
+      { ...exactConfig, ...scope },
+      dependencies,
+    )(req("POST", exactConfig.secret));
+    await response.body?.cancel();
+    if (response.status !== 503 || calls !== 0) {
+      throw new Error("invalid scope reached the provider");
+    }
+  }
+  for (const enabled of [false, true]) {
+    const response = await createRefundReconcileHandler({
+      ...exactConfig,
+      enabled,
+      testOnly: true,
+      testTokenHash: hash,
+    }, dependencies)(req("POST", exactConfig.secret));
+    await response.body?.cancel();
+    if (
+      response.status !== (enabled ? 200 : 503) || calls !== (enabled ? 2 : 0)
+    ) {
+      throw new Error(
+        "test scope bypassed disablement or lost the exact target",
+      );
+    }
+  }
+});
 
 Deno.test("refund endpoint fails closed before any provider call", async () => {
   let providerCalls = 0;

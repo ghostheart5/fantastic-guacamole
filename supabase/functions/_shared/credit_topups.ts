@@ -10,6 +10,39 @@ export const CREDIT_TOPUPS = new Map([
 ]);
 type Fetcher = typeof fetch;
 
+async function queueVerifiedUnfulfilledCreditTopup(
+  config: BillingBackendConfig,
+  userId: string,
+  productId: string,
+  token: string,
+  orderId: string,
+  fetcher: Fetcher,
+): Promise<Record<string, unknown>> {
+  const queued = await serviceRpc(
+    config,
+    "queue_unadmitted_credit_topup",
+    {
+      p_user_id: userId,
+      p_token_hash: await sha256Hex(token),
+      p_product_id: productId,
+      p_order_id: orderId,
+    },
+    fetcher,
+  );
+  if (queued?.resolutionQueued === true) {
+    return {
+      valid: false,
+      error: "customer_resolution_required",
+      resolutionQueued: true,
+    };
+  }
+  return {
+    valid: false,
+    retryable: queued === null,
+    error: queued?.reason ?? "customer_resolution_retryable",
+  };
+}
+
 // A pending token is authority only after the backend reads PENDING from
 // Google. This records a time-limited checkout binding without granting,
 // consuming or acknowledging the purchase.
@@ -44,7 +77,7 @@ export async function registerPendingCreditTopup(input: {
     };
   }
   const purchase = await response.json() as Record<string, unknown>;
-  if (purchase.purchaseState !== 2) {
+  if (purchase.purchaseState !== 2 && purchase.purchaseState !== 1) {
     return { valid: false, error: "purchase_not_pending" };
   }
   if (
@@ -53,11 +86,43 @@ export async function registerPendingCreditTopup(input: {
       purchase.productId !== input.productId) ||
     purchase.obfuscatedExternalAccountId !== await sha256Hex(input.userId) ||
     typeof purchase.obfuscatedExternalProfileId !== "string" ||
-    (input.requireTest && purchase.purchaseType !== 0) ||
+    // The legacy Play pending response can omit purchaseType. A pending
+    // registration never grants or consumes; require test proof again after
+    // PURCHASED, and queue a real completed charge for full refund.
+    (input.requireTest && purchase.purchaseType !== 0 &&
+      purchase.purchaseType !== undefined) ||
     (!input.requireTest && purchase.purchaseType !== undefined &&
       purchase.purchaseType !== 0)
   ) {
     return { valid: false, error: "pending_proof_mismatch" };
+  }
+  if (purchase.purchaseState === 1) {
+    // A local Play inventory can lag a canceled pending payment. Reconcile
+    // only after Google's account and product proof above has matched.
+    const tokenHash = await sha256Hex(input.token);
+    const canceled = await serviceRpc(
+      input.config,
+      "revoke_verified_credit_topup",
+      {
+        p_token_hash: tokenHash,
+        p_product_id: input.productId,
+        p_order_id: purchase.orderId ?? null,
+      },
+      fetcher,
+    );
+    if (canceled?.handled !== true) {
+      return {
+        valid: false,
+        retryable: true,
+        error: "cancellation_reconcile_retryable",
+      };
+    }
+    return {
+      valid: true,
+      purchaseCanceled: true,
+      productId: input.productId,
+      tokenHash,
+    };
   }
   const registered = await serviceRpc(
     input.config,
@@ -119,6 +184,8 @@ export async function verifyCreditTopup(input: {
   token: string;
   accessToken: string;
   requireTest: boolean;
+  // Server-owned admission QA must not fall back to the legacy test exemption.
+  requireAdmission?: boolean;
 }, fetcher: Fetcher = fetch): Promise<Record<string, unknown>> {
   if (!CREDIT_TOPUPS.has(input.productId)) {
     return { valid: false, error: "unsupported_product" };
@@ -148,16 +215,43 @@ export async function verifyCreditTopup(input: {
     input.userId,
     input.requireTest,
   );
+  if (
+    error === "test_purchase_required" &&
+    // Only the standard paid flow omits purchaseType. Promo/rewarded orders
+    // are not paid credit-pack failures and must never enter refund handling.
+    purchase.purchaseType === undefined &&
+    (purchase.productId === undefined ||
+      purchase.productId === input.productId) &&
+    purchase.obfuscatedExternalAccountId === await sha256Hex(input.userId) &&
+    typeof purchase.orderId === "string" && purchase.orderId.trim() &&
+    purchase.orderId.length <= 1024 &&
+    purchase.consumptionState === 0
+  ) {
+    // A private license-QA checkout that unexpectedly completed as a real
+    // charge is a paid customer exception, not an invalid token to discard.
+    // Never grant or consume it; use the owner's full-refund resolution path.
+    return await queueVerifiedUnfulfilledCreditTopup(
+      input.config,
+      input.userId,
+      input.productId,
+      input.token,
+      purchase.orderId,
+      fetcher,
+    );
+  }
   if (error) return { valid: false, error };
+  // validateTopupProof has checked this field before reaching this branch.
+  const verifiedOrderId = purchase.orderId as string;
   const isLicenseTest = purchase.purchaseType === 0;
   // The internal license-test flow does not attach an admission profile.
   // An authenticated server-owned cohort gates requireTest at the HTTP edge;
   // other public-client tests are never exempt when Play omits their profile.
+  // Admission QA is explicit so a dropped profile cannot grant an exemption.
   // A profile on a test receipt also forces the public admission path.
-  const requiresAdmission = !isLicenseTest || !input.requireTest ||
+  const requiresAdmission = input.requireAdmission === true ||
+    !isLicenseTest || !input.requireTest ||
     purchase.obfuscatedExternalProfileId !== undefined;
-  if (
-    requiresAdmission &&
+  const missingAdmissionProof = requiresAdmission &&
     (typeof purchase.obfuscatedExternalProfileId !== "string" ||
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
         purchase.obfuscatedExternalProfileId,
@@ -165,40 +259,51 @@ export async function verifyCreditTopup(input: {
       typeof purchase.purchaseTimeMillis !== "string" ||
       !/^[0-9]{13}$/.test(purchase.purchaseTimeMillis) ||
       Number(purchase.purchaseTimeMillis) < 1600000000000 ||
-      Number(purchase.purchaseTimeMillis) > 4102444800000)
-  ) {
-    const queued = await serviceRpc(
+      Number(purchase.purchaseTimeMillis) > 4102444800000);
+  let priorGrant: Record<string, unknown> | null = null;
+  if (missingAdmissionProof && input.requireAdmission === true) {
+    // The QA switch must not strand an already granted legacy test receipt.
+    // With exemption false and no admission, this RPC can only return an
+    // existing grant; a new token cannot grant credits through this call.
+    priorGrant = await serviceRpc(
       input.config,
-      "queue_unadmitted_credit_topup",
+      "grant_verified_credit_topup_v2",
       {
         p_user_id: input.userId,
         p_token_hash: await sha256Hex(input.token),
         p_product_id: input.productId,
-        p_order_id: purchase.orderId,
+        p_order_id: verifiedOrderId,
+        p_admission_exempt: false,
+        p_admission_id: null,
+        p_purchase_time_ms: null,
       },
       fetcher,
     );
-    if (queued?.resolutionQueued === true) {
-      return {
-        valid: false,
-        error: "customer_resolution_required",
-        resolutionQueued: true,
-      };
+    if (priorGrant === null) {
+      return { valid: false, retryable: true, error: "grant_retryable" };
     }
-    return {
-      valid: false,
-      retryable: queued === null,
-      error: queued?.reason ?? "customer_resolution_retryable",
-    };
+    if (priorGrant.granted !== true || priorGrant.duplicate !== true) {
+      priorGrant = null;
+    }
   }
-  const grant = await serviceRpc(
+  if (missingAdmissionProof && priorGrant === null) {
+    return await queueVerifiedUnfulfilledCreditTopup(
+      input.config,
+      input.userId,
+      input.productId,
+      input.token,
+      verifiedOrderId,
+      fetcher,
+    );
+  }
+  const grant = priorGrant ?? await serviceRpc(
     input.config,
     "grant_verified_credit_topup_v2",
     {
       p_user_id: input.userId,
       p_token_hash: await sha256Hex(input.token),
       p_product_id: input.productId,
-      p_order_id: purchase.orderId,
+      p_order_id: verifiedOrderId,
       p_admission_exempt: !requiresAdmission,
       p_admission_id: !requiresAdmission
         ? null
@@ -260,7 +365,7 @@ export async function verifyCreditTopup(input: {
     valid: true,
     consumed: true,
     testPurchase: purchase.purchaseType === 0,
-    publicAdmissionVerified: requiresAdmission,
+    publicAdmissionVerified: requiresAdmission && !missingAdmissionProof,
     productId: input.productId,
     creditsGranted: CREDIT_TOPUPS.get(input.productId),
     duplicate: grant.duplicate === true,

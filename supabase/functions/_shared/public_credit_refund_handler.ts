@@ -5,12 +5,21 @@ import { type CreditRefundReconcileCounts } from "./public_credit_refund_worker.
 const PROJECT_URL = "https://qpwhuckyirnqtmvhpede.supabase.co";
 const PACKAGE_NAME = "com.ghostheart5.chronospark";
 
+export function refundBackendServiceKey(
+  readEnv: (name: string) => string | undefined,
+): string {
+  return readEnv("SUPABASE_SECRET_KEY") ??
+    readEnv("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+}
+
 export interface RefundHandlerConfig {
   secret: string;
   enabled: boolean;
   supabaseUrl: string;
   secretKey: string;
   serviceAccount: GoogleServiceAccount | null;
+  testOnly?: boolean;
+  testTokenHash?: string;
 }
 
 interface RefundHandlerDependencies {
@@ -19,6 +28,7 @@ interface RefundHandlerDependencies {
     config: BillingBackendConfig;
     packageName: string;
     accessToken: string;
+    testTokenHash?: string;
   }) => Promise<CreditRefundReconcileCounts | null>;
 }
 
@@ -63,6 +73,12 @@ export function createRefundReconcileHandler(
       !config.serviceAccount?.client_email ||
       !config.serviceAccount.private_key
     ) return response({ error: "not_configured" }, 503);
+    // Test isolation is server-owned. A missing/malformed target must never
+    // silently turn an intended license-test run into queue-wide refunds.
+    if (
+      (config.testOnly && !/^[0-9a-f]{64}$/.test(config.testTokenHash ?? "")) ||
+      (!config.testOnly && config.testTokenHash !== undefined)
+    ) return response({ error: "invalid_refund_test_scope" }, 503);
     try {
       const result = await dependencies.reconcile({
         config: {
@@ -71,6 +87,7 @@ export function createRefundReconcileHandler(
           secretKey: config.secretKey,
         },
         packageName: PACKAGE_NAME,
+        ...(config.testOnly ? { testTokenHash: config.testTokenHash } : {}),
         accessToken: await dependencies.getAccessToken(
           config.serviceAccount,
         ),

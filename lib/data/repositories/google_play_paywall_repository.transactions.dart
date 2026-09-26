@@ -1,12 +1,14 @@
 part of 'google_play_paywall_repository.dart';
 
+enum _PendingCreditRegistration { registered, canceled, completed, unverified }
+
 extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
   Future<SubscriptionState?> _retryPendingCreditRegistrationFromPlay(
     String productId,
     String? expectedUserId,
   ) async {
     final String? fingerprint = _billingAccountFingerprint(expectedUserId);
-    if (_requireTestPurchase ||
+    if (!_creditAdmissionRequired ||
         !_hasReceiptVerification ||
         fingerprint == null ||
         !_isCurrentBillingAccount(expectedUserId)) {
@@ -14,9 +16,11 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
     }
     // Play's pending purchase inventory survives an app restart; no raw token
     // is written to local storage. A missing or failed inventory read leaves
-    // the owner guard in place, so another checkout cannot be started.
+    // the owner guard in place, so another checkout cannot be started. Bound
+    // the read itself so a late result cannot clear a guard after timeout.
     final List<PurchaseDetails> purchases = await _billingClient
-        .restorePurchases(applicationUserName: fingerprint);
+        .restorePurchases(applicationUserName: fingerprint)
+        .timeout(_authorityRequestTimeout);
     if (!_isCurrentBillingAccount(expectedUserId)) return null;
     final String operationKey = _purchaseOperationKey(
       productId,
@@ -25,10 +29,24 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
     for (final PurchaseDetails purchase in purchases) {
       if (purchase.productID != productId) continue;
       if (purchase.status == PurchaseStatus.pending) {
-        await _registerPendingCreditTopupWithServer(
+        final registration = await _registerPendingCreditTopupWithServer(
           purchase,
           expectedUserId: expectedUserId,
         );
+        if (!_isCurrentBillingAccount(expectedUserId)) return null;
+        if (registration == _PendingCreditRegistration.canceled ||
+            registration == _PendingCreditRegistration.completed) {
+          await _clearPendingOwner(productId, expectedUserId);
+          _approvalPending.remove(operationKey);
+          final canceled = _transactionOutcomeState(
+            status: registration == _PendingCreditRegistration.completed
+                ? 'credits_added'
+                : 'purchase_canceled',
+            attemptedPlanId: _planIdForProduct(productId),
+          );
+          _completePendingPurchase(null, canceled);
+          return canceled;
+        }
         return _purchasePendingState(_planIdForProduct(productId));
       }
       if (purchase.status == PurchaseStatus.purchased ||
@@ -43,7 +61,8 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
           attemptedPlanId: null,
         );
         _completePendingPurchase(null, outcome);
-        if (creditOutcome == 'credits_added') {
+        if (creditOutcome == 'credits_added' ||
+            creditOutcome == 'purchase_canceled') {
           _approvalPending.remove(operationKey);
           await _clearPendingOwner(productId, expectedUserId);
         }
@@ -150,6 +169,24 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
         return 'verification_failed';
       }
       final data = jsonDecode(response.body);
+      if (_creditAdmissionRequired &&
+          data is Map &&
+          data['valid'] == false &&
+          data['error'] == 'purchase_not_completed') {
+        // Play can retain PURCHASED inventory after a refund. Read the
+        // existing cancellation authority and require its exact token proof;
+        // the generic verification error alone cannot release ownership.
+        final registration = await _registerPendingCreditTopupWithServer(
+          purchase,
+          expectedUserId: expectedUserId,
+          recoverCompletedPurchase: false,
+        );
+        if (registration == _PendingCreditRegistration.canceled &&
+            _isCurrentBillingAccount(expectedUserId)) {
+          return 'purchase_canceled';
+        }
+        return 'verification_failed';
+      }
       final expectedCredits = purchase.productID == 'chronospark_credits_100'
           ? 100
           : 300;
@@ -171,18 +208,19 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
     }
   }
 
-  Future<bool> _registerPendingCreditTopupWithServer(
+  Future<_PendingCreditRegistration> _registerPendingCreditTopupWithServer(
     PurchaseDetails purchase, {
     required String? expectedUserId,
+    bool recoverCompletedPurchase = true,
   }) async {
     if (!_hasReceiptVerification ||
         expectedUserId == null ||
         !_isCurrentBillingAccount(expectedUserId)) {
-      return false;
+      return _PendingCreditRegistration.unverified;
     }
     final token = _supabaseClient?.auth.currentSession?.accessToken;
     if (token == null) {
-      return false;
+      return _PendingCreditRegistration.unverified;
     }
     try {
       final response = await _httpClient
@@ -197,19 +235,51 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
               'productId': purchase.productID,
               'purchaseToken': purchase.verificationData.serverVerificationData,
               'purchaseType': 'inapp',
+              if (_requireTestPurchase) 'requireTestPurchase': true,
             }),
           )
           .timeout(_authorityRequestTimeout);
       if (response.statusCode != 200 ||
           !_isCurrentBillingAccount(expectedUserId)) {
-        return false;
+        return _PendingCreditRegistration.unverified;
       }
       final data = jsonDecode(response.body);
-      return data is Map &&
+      if (data is Map && data['error'] == 'purchase_not_pending') {
+        if (!recoverCompletedPurchase) {
+          return _PendingCreditRegistration.unverified;
+        }
+        // A device inventory can lag a completed payment as well as a
+        // cancellation. Only the normal server fulfillment proof can release
+        // this guard; never infer delivery from the registration error alone.
+        final outcome = await _verifiedCreditTopupFromServer(
+          purchase,
+          expectedUserId: expectedUserId,
+        );
+        return outcome == 'credits_added'
+            ? _PendingCreditRegistration.completed
+            : _PendingCreditRegistration.unverified;
+      }
+      if (data is Map &&
           data['valid'] == true &&
-          data['pendingRegistered'] == true;
+          data['purchaseCanceled'] == true &&
+          data['productId'] == purchase.productID &&
+          data['tokenHash'] ==
+              sha256
+                  .convert(
+                    utf8.encode(
+                      purchase.verificationData.serverVerificationData,
+                    ),
+                  )
+                  .toString()) {
+        return _PendingCreditRegistration.canceled;
+      }
+      return data is Map &&
+              data['valid'] == true &&
+              data['pendingRegistered'] == true
+          ? _PendingCreditRegistration.registered
+          : _PendingCreditRegistration.unverified;
     } on Object {
-      return false;
+      return _PendingCreditRegistration.unverified;
     }
   }
 

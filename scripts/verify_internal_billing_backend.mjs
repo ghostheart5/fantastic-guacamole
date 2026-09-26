@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { BackendRepairPreflightError, verifyBackendRepairGate } from './verify_backend_repair_gate.mjs';
 
 const PACKAGE = 'com.ghostheart5.chronospark';
+const CREDIT_ADMISSION_MIGRATION = '20260924030236';
 const PLANS = [
   { id: 'premium_monthly', product: 'chronospark_premium_monthly', base: 'monthly', period: 'P1M', micros: 7990000, credits: 300 },
   { id: 'premium_yearly', product: 'chronospark_premium_annual', base: 'annual', period: 'P1Y', micros: 69990000, credits: 300 },
@@ -102,6 +103,37 @@ export function verifyCreditPackCatalog(products, rows) {
   }
 }
 
+export async function verifyCreditAdmissionBackend(env, request) {
+  const project = env.SUPABASE_PROJECT_REF;
+  const managementToken = env.SUPABASE_ACCESS_TOKEN?.trim();
+  require(!!managementToken, 'Missing SUPABASE_ACCESS_TOKEN for private credit admission QA');
+  const root = `https://api.supabase.com/v1/projects/${project}`;
+  async function inventory(path) {
+    const response = await request(`${root}${path}`, {
+      headers: { Authorization: `Bearer ${managementToken}` },
+      redirect: 'error', signal: AbortSignal.timeout(20000),
+    });
+    require(response.ok, `Private credit admission backend inventory failed (${response.status})`);
+    return await response.json();
+  }
+  const migrations = await inventory('/database/migrations');
+  require(Array.isArray(migrations) &&
+    migrations.filter((item) => item?.version === CREDIT_ADMISSION_MIGRATION).length === 1,
+  'Private credit admission migration is not deployed exactly once');
+  const functions = await inventory('/functions');
+  require(Array.isArray(functions), 'Private credit admission function inventory is invalid');
+  const versions = {};
+  for (const [slug, jwt] of [['verify-receipt', true], ['google-play-rtdn', false]]) {
+    const matches = functions.filter((item) => item?.slug === slug);
+    require(matches.length === 1 && matches[0].status === 'ACTIVE' &&
+      matches[0].verify_jwt === jwt && Number.isSafeInteger(matches[0].version) &&
+      matches[0].version > 0,
+    `Private credit admission ${slug} function is not active with the expected JWT policy`);
+    versions[slug] = matches[0].version;
+  }
+  return { migrationVersion: CREDIT_ADMISSION_MIGRATION, functionVersions: versions };
+}
+
 export async function verifyInternalBillingBackend(env = process.env, request = fetch) {
   function setting(name) {
     const value = env[name]?.trim();
@@ -133,6 +165,11 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
   require(guard.status === 405 && guard.headers.get('x-chronospark-contract') === 'verify-receipt-v2' &&
     guard.headers.get('x-chronospark-public-credit-checkout') === 'disabled-v1',
   'Deployed receipt verifier does not keep public credit checkout closed');
+  const creditAdmissionQa = env.CANDIDATE_CREDIT_ADMISSION_QA === 'true';
+  const expectedQaHeader = creditAdmissionQa ? 'cohort-v1' : 'disabled-v1';
+  const verifierQaHeader = guard.headers.get('x-chronospark-credit-admission-qa');
+  require(creditAdmissionQa ? verifierQaHeader === expectedQaHeader : verifierQaHeader !== 'cohort-v1',
+    'Deployed receipt verifier license-QA admission policy mismatch');
   const billingCohortFingerprint = internalBillingCohortFingerprint(setting('CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS'));
   require(guard.headers.get('x-chronospark-internal-billing-cohort-sha256') === billingCohortFingerprint,
     'Deployed receipt verifier billing cohort does not match the candidate');
@@ -143,6 +180,9 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
   } catch (error) {
     throw new PreflightError(error instanceof BackendRepairPreflightError ? error.message : 'Backend repair preflight failed');
   }
+  const creditAdmissionBackend = creditAdmissionQa
+    ? await verifyCreditAdmissionBackend(env, request)
+    : null;
 
   const databasePlans = await json(`${root}/rest/v1/monetization_subscription_plans?plan_type=eq.subscription&select=id,product_id,currency_code,price_micros,credits_per_period,is_active`, { headers });
   const account = JSON.parse(setting('GOOGLE_SERVICE_ACCOUNT_JSON'));
@@ -202,10 +242,15 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
   require(unauthenticated.status === 401, 'RTDN endpoint must reject unauthenticated delivery');
   require(unauthenticated.headers.get('x-chronospark-internal-billing-cohort-sha256') === billingCohortFingerprint,
     'Deployed RTDN billing cohort does not match the candidate');
+  const rtdnQaHeader = unauthenticated.headers.get('x-chronospark-credit-admission-qa');
+  require(creditAdmissionQa ? rtdnQaHeader === expectedQaHeader : rtdnQaHeader !== 'cohort-v1',
+    'Deployed RTDN license-QA admission policy mismatch');
   const events = await json(`${root}/rest/v1/google_play_rtdn_events?package_name=eq.${PACKAGE}&event_type=eq.test&order=received_at.desc&limit=1&select=package_name,event_type,state,failure_code,received_at,processed_at`, { headers });
   const testDelivery = verifyRtdnTestDelivery(events);
   return { verified: true, project, packageName: PACKAGE, licenseTestGuard: 'v1',
+    creditAdmissionQaEnabled: creditAdmissionQa, creditAdmissionQaMatched: true,
     internalBillingCohortMatched: true, internalBillingCohortFingerprint: billingCohortFingerprint, backendRepairGate,
+    creditAdmissionBackend,
     catalog: PLANS.map(({ product, base, period, micros }) => ({ product, base, period, currency: 'USD', priceMicros: micros })),
     creditPacks: CREDIT_PACKS.map(({product, credits, micros}) => ({product, credits, currency: 'USD', priceMicros: micros})),
     serviceAccountIdentitySha256,

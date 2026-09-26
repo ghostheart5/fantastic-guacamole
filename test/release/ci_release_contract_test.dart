@@ -540,6 +540,168 @@ void main() {
     },
   );
 
+  test(
+    'billing monitor and drill cannot activate refunds or account deletion',
+    () {
+      final YamlMap reconciliation = workflow('backend-reconciliation.yml');
+      final YamlMap jobs = reconciliation['jobs'] as YamlMap;
+      final YamlMap monitor = jobs['public-credit-monitor'] as YamlMap;
+      final String condition = monitor['if'] as String;
+      expect(
+        condition,
+        contains("inputs.operation == 'check-credit-resolutions'"),
+      );
+      expect(condition, contains('AXIOMARA_PUBLIC_CREDIT_MONITOR_ENABLED'));
+      expect(
+        condition,
+        isNot(contains('AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED')),
+      );
+      expect(
+        condition,
+        isNot(contains('CHRONOSPARK_PUBLIC_CREDIT_TOPUPS_ENABLED')),
+      );
+      expect(monitor['environment'], 'production');
+      final YamlMap read = namedStep(
+        monitor,
+        'Check paid-order resolution health without executing refunds',
+      );
+      expect(read['run'], 'node scripts/public_credit_monitor_job.mjs check');
+      expect(
+        (read['env'] as YamlMap).containsKey(
+          'PUBLIC_CREDIT_REFUND_RECONCILE_SECRET',
+        ),
+        isFalse,
+      );
+      final YamlMap drill = jobs['credit-alert-drill'] as YamlMap;
+      expect(drill.containsKey('environment'), isFalse);
+      expect(drill.toString(), isNot(contains('secrets.')));
+      expect(drill['if'], contains("inputs.operation == 'test-credit-alert'"));
+      for (final String job in ['public-credit-refunds', 'account-deletion']) {
+        final String mutationCondition = (jobs[job] as YamlMap)['if'] as String;
+        expect(mutationCondition, isNot(contains('check-credit-resolutions')));
+        expect(mutationCondition, isNot(contains('test-credit-alert')));
+      }
+    },
+  );
+
+  test(
+    'manual refunds and account deletion are separate protected operations',
+    () {
+      final YamlMap reconciliation = workflow('backend-reconciliation.yml');
+      final YamlMap dispatch =
+          (reconciliation['on'] as YamlMap)['workflow_dispatch'] as YamlMap;
+      final YamlMap operation =
+          (dispatch['inputs'] as YamlMap)['operation'] as YamlMap;
+      expect(operation['options'], contains('reconcile-credit-refunds'));
+      final YamlMap refund = job(reconciliation, 'public-credit-refunds');
+      final YamlMap deletion = job(reconciliation, 'account-deletion');
+      expect(
+        refund['if'],
+        contains("inputs.operation == 'reconcile-credit-refunds'"),
+      );
+      expect(refund['if'], isNot(contains("inputs.operation == 'reconcile'")));
+      expect(deletion['if'], contains("inputs.operation == 'reconcile'"));
+      expect(deletion['if'], isNot(contains('reconcile-credit-refunds')));
+      expect(refund['environment'], 'production');
+      expect(deletion['environment'], 'production');
+      expect(refund['if'], contains("github.ref == 'refs/heads/main'"));
+      expect(
+        refund['if'],
+        contains("vars.AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED == 'true'"),
+      );
+      expect(refund['if'], contains("github.event_name == 'schedule'"));
+      expect(deletion['if'], contains("github.event_name == 'schedule'"));
+    },
+  );
+
+  test('paid-order recovery stays scheduled after public sales are paused', () {
+    final YamlMap reconciliation = workflow('backend-reconciliation.yml');
+    final YamlMap refundJob =
+        (reconciliation['jobs'] as YamlMap)['public-credit-refunds'] as YamlMap;
+    final String condition = refundJob['if'] as String;
+    expect(condition, contains("github.ref == 'refs/heads/main'"));
+    expect(
+      condition,
+      contains("vars.AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED == 'true'"),
+    );
+    expect(
+      condition,
+      isNot(contains('CHRONOSPARK_PUBLIC_CREDIT_TOPUPS_ENABLED')),
+    );
+    expect(refundJob['environment'], 'production');
+    final YamlMap checkout = namedStep(
+      refundJob,
+      'Checkout exact reconciliation source',
+    );
+    expect((checkout['with'] as YamlMap)['ref'], r'${{ github.sha }}');
+    expect((checkout['with'] as YamlMap)['persist-credentials'], isFalse);
+    expect(
+      namedStep(
+        refundJob,
+        'Reconcile verified unfulfilled credit payments',
+      )['run'],
+      'node scripts/reconcile_public_credit_refunds.mjs',
+    );
+    expect(
+      namedStep(
+        refundJob,
+        'Check unresolved payment age even after worker failure',
+      )['if'],
+      r'${{ !cancelled() }}',
+    );
+  });
+
+  test(
+    'license refund gate is manual, protected and excludes other mutations',
+    () {
+      final workflowValue = workflow('backend-reconciliation.yml');
+      final license = job(workflowValue, 'credit-refund-license-test');
+      expect(license['environment'], 'production');
+      expect(
+        license['if'],
+        contains("inputs.operation == 'test-credit-refund'"),
+      );
+      expect(
+        license['if'],
+        contains("github.event_name == 'workflow_dispatch'"),
+      );
+      expect(
+        license['if'],
+        contains("refs/heads/fix/app-only-readiness-priority2-20260902"),
+      );
+      expect(license['if'], isNot(contains("github.event_name == 'schedule'")));
+      final guard = namedStep(
+        license,
+        'Require successful exact-source CI before checkout or refund credentials',
+      );
+      final invoke = namedStep(
+        license,
+        'Invoke only the server-restricted license-test refund',
+      );
+      expect(
+        steps(license).indexOf(guard),
+        lessThan(steps(license).indexOf(invoke)),
+      );
+      expect(guard.toString(), isNot(contains('secrets.')));
+      expect(guard['run'], contains('.conclusion == "success"'));
+      expect(invoke['run'], contains('run_credit_refund_license_gate.mjs'));
+      expect(
+        license.toString(),
+        isNot(contains('ACCOUNT_DELETE_RECONCILE_SECRET')),
+      );
+      for (final name in [
+        'account-deletion',
+        'public-credit-refunds',
+        'reviewed-repairs',
+      ]) {
+        expect(
+          job(workflowValue, name)['if'],
+          isNot(contains('test-credit-refund')),
+        );
+      }
+    },
+  );
+
   test('production monitoring and upload identity match live contracts', () {
     const String uploadSha1 =
         '8A:24:D7:BA:AC:AB:52:F0:A3:77:7D:D0:47:C9:07:96:2E:82:FA:A5';

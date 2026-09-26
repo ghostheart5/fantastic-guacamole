@@ -302,7 +302,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(
-        find.text('Purchased credits added to your account.'),
+        find.text('Credit purchase confirmed. Check your available balance.'),
         findsOneWidget,
       );
       expect(
@@ -553,6 +553,26 @@ void main() {
   );
 
   test('pending and canceled purchase copy preserves current access', () {
+    for (final locale in [const Locale('en'), const Locale('es')]) {
+      final localization = ChronoSparkLocalizations(locale);
+      for (final status in ['purchase_canceled', 'purchase_cancelled']) {
+        final canceled = SubscriptionState(
+          isActive: false,
+          status: status,
+          source: 'google_play',
+        );
+        expect(
+          resolvePaywallRestoreResultMessage(
+            canceled,
+            testingMode: false,
+            localizations: localization,
+          ),
+          locale.languageCode == 'es'
+              ? 'Compra cancelada. Tu acceso actual no ha cambiado.'
+              : 'Purchase canceled. Your current access was not changed.',
+        );
+      }
+    }
     expect(
       resolvePaywallPurchaseResultMessage(
         const SubscriptionState(
