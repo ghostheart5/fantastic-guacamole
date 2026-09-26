@@ -1175,6 +1175,7 @@ for (
     "json",
     "empty",
     "truncated",
+    "spanish-claim",
   ] as const
 ) {
   Deno.test(`AI handler refunds once after provider ${failure} and refuses duplicate debit`, async () => {
@@ -1212,6 +1213,10 @@ for (
         if (body.p_succeeded !== false || state !== "reserved") {
           throw new Error("failure settled as success or out of sequence");
         }
+        if (
+          failure === "spanish-claim" &&
+          body.p_failure_code !== "unsafe_provider_output"
+        ) throw new Error("Spanish claim refund lost its safety reason");
         state = "refunded";
         balance += charged;
         refunds++;
@@ -1248,6 +1253,13 @@ for (
             }),
           );
         }
+        if (failure === "spanish-claim") {
+          return Promise.resolve(json({
+            stop_reason: "end_turn",
+            content: [{ text: "Este plan curará tu depresión." }],
+            usage: { input_tokens: 10, output_tokens: 5 },
+          }));
+        }
         return Promise.resolve(
           new Response("do-not-expose-provider-body", { status: failure }),
         );
@@ -1280,6 +1292,11 @@ for (
           `provider failure not safely reported: ${response.status} ${body}`,
         );
       }
+      if (
+        failure === "spanish-claim" &&
+        (JSON.parse(body).error !== "unsafe_upstream_response" ||
+          body.includes("curará"))
+      ) throw new Error("unsafe Spanish claim was not withheld before refund");
       const duplicate = await handler(request({ quote }));
       await duplicate.body?.cancel();
       if (

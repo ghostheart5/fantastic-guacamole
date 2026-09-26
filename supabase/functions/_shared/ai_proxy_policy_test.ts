@@ -349,6 +349,49 @@ Deno.test("rejects oversized and deeply nested context", () => {
   }
 });
 
+for (
+  const claim of [
+    "Te garantizo que este plan funcionará.",
+    "Este plan garantiza resultados.",
+    "El éxito está garantizado.",
+    "Este plan curará tu depresión.",
+    "Esta rutina te va a curar.",
+    "Te diagnostico ansiedad.",
+    "Mi diagnóstico es depresión.",
+    "Te prescribo este medicamento.",
+    "He prescrito este medicamento.",
+    "Este es mi asesoramiento legal.",
+    "Esta es mi asesoría legal.",
+    "Sigue mis consejos legales.",
+    "ESTE PLAN TE CURARÁ.",
+    "Mi diagno\u0301stico es ansiedad.",
+    "Esta es mi asesori\u0301a legal.",
+  ]
+) {
+  Deno.test(`blocks Spanish unsupported claim: ${claim}`, () => {
+    if (!containsBlockedAssistantClaim(claim)) {
+      throw new Error(`unsupported Spanish claim accepted: ${claim}`);
+    }
+  });
+}
+
+for (
+  const text of [
+    "Procura comenzar con una tarea corta.",
+    "Organiza una cita con tu médico.",
+    "Consulta con un profesional de salud.",
+    "Busca orientación de un abogado.",
+    "Si ha completado la tarea, revisa el siguiente paso.",
+    "Tu información permanece segura.",
+  ]
+) {
+  Deno.test(`allows ordinary Spanish guidance: ${text}`, () => {
+    if (containsBlockedAssistantClaim(text)) {
+      throw new Error(`ordinary Spanish guidance rejected: ${text}`);
+    }
+  });
+}
+
 Deno.test("blocks unsupported and prompt-disclosure claims", () => {
   for (
     const text of [

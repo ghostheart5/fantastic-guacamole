@@ -100,6 +100,22 @@ export function buildServerSystemPrompt(
 export function containsBlockedAssistantClaim(value: string): boolean {
   const collapsed = value.replaceAll(/\s+/g, " ");
   const normalized = collapsed.toLowerCase();
+  // Match the client's SiPolicy for Spanish unsupported claims. Accent folding
+  // handles both composed and decomposed input, including accented word endings.
+  // Leave the existing mutation-claim matching below unchanged.
+  const spanish = normalized.normalize("NFD").replaceAll(
+    /[\u0300-\u036f]/g,
+    "",
+  );
+  if (
+    [
+      /\bgarantiz(?:o|a|as|an|amos|ar|ara|aras|aran|are|aremos|ad[oa]s?)\b/,
+      /\bcur(?:o|a|as|an|amos|ar|ara|aras|aran|are|aremos|ad[oa]s?)\b/,
+      /\bdiagnostic(?:o|a|as|an|amos|ar|ara|are|ad[oa]s?)\b/,
+      /\bprescrib(?:o|e|es|en|imos|ir|ira|ire)\b|\bprescrit[oa]s?\b/,
+      /\b(?:asesoramiento|asesoria|consejos?)\s+legal(?:es)?\b/,
+    ].some((pattern) => pattern.test(spanish))
+  ) return true;
   const blocked = [
     /\bguarantee(?:d|s|ing)?\b/,
     /\bcure(?:d|s|ing)?\b/,
