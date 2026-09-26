@@ -1,6 +1,6 @@
 """Public build inputs and evidence binding; no network or activation actions.
 
-Structured evidence is an operator assertion, not automated professional review.
+Structured evidence records release-owner/team validation, not professional certification.
 The independent, non-overridable source gates are also enforced by Dart before
 signing. Final artifact acceptance and production activation remain later gates.
 """
@@ -49,11 +49,11 @@ PUBLIC_SETTINGS = (
 SOURCE_CAPABILITIES = (
     'cloudSyncEnabled', 'cloudRestoreEnabled', 'subscriptionsEnabled',
     'externalAiEnabled', 'creditSpendingEnabled',
-    'externalAiProviderRetentionVerified', 'externalAiPrivacyReviewApproved',
-    'externalAiSafetyReviewApproved',
+    'externalAiProviderRetentionVerified', 'externalAiPrivacyValidationPassed',
+    'externalAiSafetyValidationPassed',
 )
 EVIDENCE_GATES = (
-    'privacyLegal', 'mentalHealthSafety', 'providerRetention',
+    'privacyDisclosureValidation', 'aiSafetyValidation', 'providerRetention',
     'backendParity', 'cloudIsolationRestoreDeletion', 'billingRecovery',
 )
 
@@ -112,7 +112,7 @@ def validate_public_evidence(receipt, directory, source_sha, defines, now=None):
     now = now or datetime.now(timezone.utc)
     expected_keys = {'schemaVersion', 'sourceSha', 'definesSha256', 'gates'}
     require(type(receipt) is dict and set(receipt) == expected_keys and
-            type(receipt['schemaVersion']) is int and receipt['schemaVersion'] == 1 and
+            type(receipt['schemaVersion']) is int and receipt['schemaVersion'] == 2 and
             receipt['sourceSha'] == source_sha and
             re.fullmatch(r'[a-f0-9]{40}', source_sha or ''), 'Public evidence source mismatch')
     fingerprint = hashlib.sha256(canonical(defines).encode()).hexdigest()

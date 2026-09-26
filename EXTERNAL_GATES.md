@@ -1,5 +1,20 @@
 # ChronoSpark External Gates
 
+## Requirement correction — 2026-09-26
+
+The owner authorized reassessment of unsupported release requirements. The
+privacy/legal and mental-health professional sign-offs previously listed here
+are not blanket Google Play requirements for this planning product. They are
+replaced by documented privacy/disclosure and AI-safety validation by the
+release owner and technical team. Qualified outside advice is optional for the
+current scope, or required only when an identified law, product claim or
+applicable policy specifically calls for it. Do not mark old professional
+approvals as received. See [the requirement disposition](docs/engineering/RELEASE_REQUIREMENTS_20260926.md)
+for official sources, product scope, concrete tests and remaining blockers.
+This correction supersedes professional-signature requirements in older
+checkpoints and review packets. Runtime safety, consent, data and payment
+controls remain required; public capabilities remain closed pending evidence.
+
 ## Current Axiomara public-release checkpoint — 2026-09-24
 
 The [current public-release gate](docs/engineering/AXIOMARA_PUBLIC_RELEASE_GATE_20260924.md)
@@ -89,8 +104,8 @@ earlier checkpoints and cannot override newer evidence.
 | Telemetry retention | Privacy owner | Firebase Analytics/Crashlytics retention | Exported retention and consent behavior | Matches policy and minimization | Privacy breach | BLOCKED_EXTERNAL |
 | Anthropic DPA/retention | Legal/privacy owner | Provider contract and console | Applicable DPA (including incorporation into accepted Commercial Terms), actual API organization retention settings and any negotiated/ZDR exception | Matches disclosure | Undisclosed data retention | CONFIGURATION_VERIFIED 2026-09-11:30-day default retention, no ZDR, feedback off, global inference in the recorded organization; final public disclosure reconciliation remains open |
 | Planner explanation deployment and scrub | Backend + privacy owner | Fresh Supabase project and authorized production project | Migration replay, database lint, deployed function/config readback, one quoted cancellation, one explicitly authorized real-provider test, one refunded failure, and observed content scrub | No model call before all gates; zero charge on cancel/failure; raw replay content removed within the disclosed target; local fixtures are not live-provider proof | Data retention, double charge, or source/deployment drift | BLOCKED_EXTERNAL |
-| Privacy/legal review | Qualified reviewer | Final app, policies, data map | Signed dated review | No unresolved launch blocker | Regulatory and trust risk | BLOCKED_EXTERNAL |
-| Mental-health-safety review | Qualified reviewer | Final distress/crisis experience and evals | Signed dated review | Safe bounded behavior | Harmful response | BLOCKED_EXTERNAL |
+| Privacy and disclosure validation | Release owner + technical team; specialist advice if applicable | Final app, policies, data map and actual provider handling | Dated source/configuration evidence for consent, payloads, retention/deletion and accurate disclosures; owner acceptance | No unresolved privacy/disclosure blocker | Undisclosed collection or incorrect declarations | PENDING_VALIDATION; outside professional signature not universally required |
+| AI safety validation | Release owner + technical team; specialist advice if applicable | Actual assistant, distress routes, report controls and EN/ES evaluations | Dated reproducible outcomes and finding dispositions for the final scope; owner acceptance | Bounded behavior and working reporting | Harmful output or broken escalation/reporting | PENDING_VALIDATION; outside professional signature not universally required |
 | Billing database replay | Billing/backend owner | Disposable Supabase/PostgreSQL environment | Exact migration replay, database lint, and both billing pgTAP files | Schema, functions, RLS, grants, ordering, lineage, wallets, and cleanup pass from a fresh database | Source SQL may not execute as reviewed | BLOCKED_EXTERNAL |
 | Billing recheck worker | Billing/backend owner | Approved token-reacquisition worker plus scheduled queue processing | Claimed/retried/reconciled queue evidence without raw-token persistence | Expired local rows are rechecked against Google Play and cannot be completed by arbitrary service calls | Stale access or unresolvable queue backlog | BLOCKED_EXTERNAL |
 | Billing sandbox lifecycle | Billing owner | Play sandbox/test accounts | Purchase, pending, acknowledgement, renewal, lapsed re-subscription, replacement, cancellation, grace, hold, pause, expiry, revoke, refund, restore, detached-account recreation, account-change, and process-death evidence | Authority and allowance grants are correct for every state | Revenue/access failure | BLOCKED_EXTERNAL |
@@ -103,7 +118,7 @@ Anthropic DPA wording above was reconciled on September 11 with its
 [official DPA guidance](https://support.claude.com/en/articles/7996862-how-do-i-view-and-sign-your-data-processing-addendum-dpa).
 The existing provider organization and its Default workspace were then verified
 in the authenticated Edge session; see the [four-gate checkpoint](docs/engineering/FINAL_FOUR_GATES_20260911.md).
-This does not waive the separate qualified safety review.
+This does not complete the separate AI-safety validation described above.
 
 ### App Check scope - 2026-09-04
 

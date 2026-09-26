@@ -26,11 +26,11 @@ class PublicProfileTests(unittest.TestCase):
         self.root = Path(self.folder.name)
         (self.root/'review.txt').write_text('Synthetic reviewer fixture; never production approval.')
         self.evidence = {
-            'schemaVersion': 1, 'sourceSha': self.source_sha,
+            'schemaVersion': 2, 'sourceSha': self.source_sha,
             'definesSha256': hashlib.sha256(canonical(self.defines).encode()).hexdigest(),
             'gates': {name: {
                 'status': 'approved', 'scope': 'source-and-configuration',
-                'reviewer': 'Synthetic test reviewer',
+                'reviewer': 'Release owner - synthetic test fixture',
                 'reviewedAt': (self.now-timedelta(hours=1)).isoformat(),
                 'validUntil': (self.now+timedelta(days=1)).isoformat(),
                 'file': 'review.txt',
@@ -74,7 +74,7 @@ class PublicProfileTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.validate(defines={**self.defines,'CHRONOSPARK_SUPABASE_URL':'https://another.invalid'})
 
-    def test_each_missing_or_unsigned_review_blocks_build(self):
+    def test_each_missing_or_unaccepted_validation_blocks_build(self):
         for name in EVIDENCE_GATES:
             bad = copy.deepcopy(self.evidence)
             del bad['gates'][name]
@@ -101,7 +101,7 @@ class PublicProfileTests(unittest.TestCase):
     def test_packet_paths_and_modified_review_bytes_fail_closed(self):
         for path in ['../review.txt', '/review.txt', 'C:/review.txt', '..\\review.txt', 'review.txt:stream']:
             bad = copy.deepcopy(self.evidence)
-            bad['gates']['privacyLegal']['file'] = path
+            bad['gates']['privacyDisclosureValidation']['file'] = path
             with self.subTest(path=path), self.assertRaises(ValueError):
                 self.validate(bad)
         (self.root/'review.txt').write_text('Changed after review')
@@ -116,6 +116,15 @@ class PublicProfileTests(unittest.TestCase):
         for name in SOURCE_CAPABILITIES:
             with self.subTest(name=name), self.assertRaises(ValueError):
                 validate_source_gates(source.replace(f'{name} = true;', f'{name} = false;'))
+
+    def test_owner_validation_accepted_without_professional_certificate(self):
+        self.assertEqual(len(self.validate()['gates']), 6)
+        legacy = copy.deepcopy(self.evidence)
+        legacy['schemaVersion'] = 1
+        legacy['gates']['privacyLegal'] = legacy['gates'].pop('privacyDisclosureValidation')
+        legacy['gates']['mentalHealthSafety'] = legacy['gates'].pop('aiSafetyValidation')
+        with self.assertRaises(ValueError):
+            self.validate(legacy)
 
     def test_real_pending_source_blocks_before_defines_or_evidence_access(self):
         repo = Path(__file__).resolve().parent.parent

@@ -13,15 +13,17 @@ abstract final class LaunchContainment {
   // global inference, no ZDR, feedback off; disclosures reconciled in
   // docs/engineering/FINAL_FOUR_GATES_20260911.md. Reassess on provider changes.
   static const bool externalAiProviderRetentionVerified = true;
-  static const bool externalAiPrivacyReviewApproved = false;
-  static const bool externalAiSafetyReviewApproved = false;
+  // Product validation by the release owner/team; not mandatory professional
+  // certification. Evidence must cover the actual source/configuration scope.
+  static const bool externalAiPrivacyValidationPassed = false;
+  static const bool externalAiSafetyValidationPassed = false;
   static const bool paidCreditPlansEnabled =
       subscriptionsEnabled &&
       externalAiEnabled &&
       creditSpendingEnabled &&
       externalAiProviderRetentionVerified &&
-      externalAiPrivacyReviewApproved &&
-      externalAiSafetyReviewApproved;
+      externalAiPrivacyValidationPassed &&
+      externalAiSafetyValidationPassed;
   static const bool analyticsEnabled = false;
   static const bool crashReportingEnabled = false;
   static const bool inferredIdentityEnabled = false;
@@ -31,13 +33,15 @@ abstract final class LaunchContainment {
     required bool externalAiEnabled,
     required bool creditSpendingEnabled,
     required bool providerRetentionVerified,
-    required bool safetyReviewApproved,
+    required bool privacyValidationPassed,
+    required bool safetyValidationPassed,
   }) {
     return subscriptionsEnabled &&
         externalAiEnabled &&
         creditSpendingEnabled &&
         providerRetentionVerified &&
-        safetyReviewApproved;
+        privacyValidationPassed &&
+        safetyValidationPassed;
   }
 }
 

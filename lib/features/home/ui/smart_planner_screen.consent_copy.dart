@@ -156,8 +156,8 @@ extension _PlannerExplanationQuoteConsent on _SmartPlannerScreenState {
               Text(
                 journeyText(
                   context,
-                  'Axiomara keeps response content only for the short replay window, then retains billing metadata. This quote is available only after the first-party service reports the provider-retention and qualified safety-review gates approved. Independent release evidence is still required before this feature can be enabled.',
-                  'Axiomara conserva la respuesta solo durante el breve periodo para repetirla y luego mantiene los datos de facturación. Esta cotización aparece solo cuando el servicio propio confirma la retención del proveedor y la revisión de seguridad aprobada. Antes de habilitar la función aún se necesita evidencia independiente del lanzamiento.',
+                  'Axiomara keeps response content only for the short replay window, then retains billing metadata.',
+                  'Axiomara conserva la respuesta solo durante el breve periodo para repetirla y luego mantiene los datos de facturación.',
                 ),
               ),
             ],

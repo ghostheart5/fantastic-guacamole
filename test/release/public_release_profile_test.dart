@@ -27,14 +27,11 @@ void main() {
       final issues = PublicReleaseProfile.validate(publicValues());
       expect(
         issues,
-        contains('Independent privacy/legal review is missing in source.'),
-      );
-      expect(
-        issues,
         contains(
-          'Independent mental-health safety review is missing in source.',
+          'Privacy and data-disclosure validation is missing in source.',
         ),
       );
+      expect(issues, contains('AI safety validation is missing in source.'));
       expect(issues, contains('Public cloud sync is not approved in source.'));
     },
   );
@@ -106,12 +103,7 @@ void main() {
         issues,
         contains('The public release profile supports Android only.'),
       );
-      expect(
-        issues,
-        contains(
-          'Independent mental-health safety review is missing in source.',
-        ),
-      );
+      expect(issues, contains('AI safety validation is missing in source.'));
     },
   );
 

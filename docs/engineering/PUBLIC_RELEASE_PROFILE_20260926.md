@@ -1,24 +1,24 @@
 # Public release profile preparation
 
-Status: **not ready for public build or rollout**. This change prepares an explicit public Android configuration and validation path. It does not approve the missing reviews, enable any contained capability, deploy a backend, or publish an app. The existing private CI candidate builder remains private.
+Status: **not ready for public build or rollout**. This change prepares an explicit public Android configuration and validation path. It does not invent validation results, enable any contained capability, deploy a backend, or publish an app. The existing private CI candidate builder remains private. The [requirement disposition](RELEASE_REQUIREMENTS_20260926.md) removes the earlier blanket requirement to obtain outside legal/clinical signatures for this planning product.
 
 ## Source and effective behavior
 
 The public profile requests the production cloud backend, sync/restore, paid AI and billing, frozen general assistant availability, and ordinary consent/account controls. It rejects internal billing tests, public admission QA, private cohorts, mock login/mode, free access, paywall bypass and mutable remote feature flags. Analytics, crash reporting, inferred identity, and the separately contained planner-explanation experiment remain excluded.
 
-Native public billing has a separate manifest overlay. Selecting it requires a release cloud build and explicitly closed private QA flags. This is separate from the existing internalBilling overlay. Source containment is still false for cloud, public AI and paid capabilities. A new privacy/legal approval constant is false and joins the existing safety and provider gates; no define can turn those approvals on.
+Native public billing has a separate manifest overlay. Selecting it requires a release cloud build and explicitly closed private QA flags. This is separate from the existing internalBilling overlay. Source containment is still false for cloud, public AI and paid capabilities. Privacy/data-disclosure and AI-safety validation constants remain false alongside the provider gate; no define can manufacture their evidence.
 
 The production configuration validator rejects public intent until all source gates are approved and all flags/endpoints/policy match. The runtime readiness gate also reports missing source approvals. The guarded PowerShell builder checks source approvals before it resolves or reads signing files, then requires external evidence before copying signing material. Existing contained build behavior is preserved when `-PublicRelease` is absent.
 
 ## Evidence needed before building
 
-An operator must inspect actual independent privacy/legal and mental-health-safety reviews, current provider handling, deployed backend parity, cloud isolation/restore/deletion, and billing recovery evidence. Record the source SHA and SHA-256 of the exact canonical effective defines plus each evidence document's bytes. The schema is illustrated by `tool/public_release_evidence.template.json`; it is deliberately pending and unusable as approval.
+An operator must inspect privacy/data-disclosure and AI-safety validation, current provider handling, deployed backend parity, cloud isolation/restore/deletion, and billing recovery evidence. The release owner and technical team can perform these assessments; outside professional signatures are not a blanket prerequisite. Record the source SHA and SHA-256 of the exact canonical effective defines plus each evidence document's bytes. Schema version 2 is illustrated by `tool/public_release_evidence.template.json`; it is deliberately pending and unusable as acceptance. Old version-1 professional-review receipts do not silently satisfy the new technical validation records.
 
 Each record has status `approved`, scope `source-and-configuration`, the reviewer/operator identity, timezone-qualified review/expiry dates, and a relative file path plus SHA-256. Backend and provider observations must be no older than seven days at build time. This seven-day limit is an internal freshness control, not a provider or legal rule. Future, expired, missing, altered, duplicate-key, cross-source and cross-configuration evidence is rejected. Reviewer documents stay outside the checkout and the output artifact; only their hashes and dates enter the build receipt.
 
-Hash/shape validation proves binding and integrity, **not** the author's qualifications or the truth of a professional opinion. An operator must inspect the signed documents. Updating the non-overridable source gates requires the separately reviewed checkpoint supported by those documents. Preliminary reviewer feedback does not meet this gate. Final AAB acceptance follows the pre-build review and must identify the built artifact hash.
+Hash/shape validation proves binding and integrity, **not** that tests were performed or results are correct. The operator must inspect actual evidence and unresolved findings. Updating the non-overridable source gates requires a reviewed checkpoint supported by that evidence. Specialist advice remains an option when the owner wants it or a concrete policy/legal issue warrants it; no blanket legal or clinical certificate is demanded. Final AAB acceptance follows pre-build validation and must identify the built artifact hash.
 
-After the required reviews and source checkpoint, use the existing external signing paths with:
+After the required validation and source checkpoint, use the existing external signing paths with:
 
 ```powershell
 ./scripts/build_android_aab_prod_guarded.ps1 -PublicRelease `
@@ -37,10 +37,10 @@ Regression coverage exercises public/private separation, every required flag, st
 
 ## Release sequence after preparation
 
-1. Obtain and review the signed source/configuration assessments; close findings and freeze the public source and backend profile.
+1. Complete and accept the source/configuration validation; close findings and freeze the public source and backend profile. Do not block solely because no outside lawyer or clinician has signed a packet.
 2. Build the next unused signed version with the recovery repair; verify build receipt, signature and native packaging.
 3. Execute final EN/ES critical flows, API 35/36, accessibility, account isolation, sync/restore/deletion, AI quote/consent/reporting and no-charge Play billing/refund tests in the authorized test environment. Never relabel synthetic or debug evidence as public paid-service acceptance.
-4. Reconcile Play declarations, app-access instructions and locale listings/media against those exact flows. Managed publishing was observed off on September 26 UTC; treat any review submission as potentially publishing once approved unless a separately authorized publishing hold is verified.
+4. Reconcile Play declarations, app-access instructions and locale listings/media against those exact flows. Managed publishing was subsequently enabled and verified on September 26 UTC; refresh its state before any separately authorized submission.
 5. Obtain final artifact dispositions and the owner's explicit submission/activation approval. Execute the approved staged plan with read-only monitoring and operator coverage. Stop new sales first on billing incidents while preserving already owed fulfillment/refunds and support evidence.
 
-Public sales, scheduled refunds and rollout remain off. Reviewers are arranged by the owner; no review invitation or signed disposition is created by this change.
+Public sales, scheduled refunds and rollout remain off. No validation pass, professional signature, review invitation or public activation is created by this correction.

@@ -12,7 +12,8 @@ void main() {
     expect(LaunchContainment.externalAiEnabled, isFalse);
     expect(LaunchContainment.creditSpendingEnabled, isFalse);
     expect(LaunchContainment.externalAiProviderRetentionVerified, isTrue);
-    expect(LaunchContainment.externalAiSafetyReviewApproved, isFalse);
+    expect(LaunchContainment.externalAiPrivacyValidationPassed, isFalse);
+    expect(LaunchContainment.externalAiSafetyValidationPassed, isFalse);
     expect(LaunchContainment.paidCreditPlansEnabled, isFalse);
     expect(LaunchContainment.analyticsEnabled, isFalse);
     expect(LaunchContainment.crashReportingEnabled, isFalse);
@@ -35,6 +36,7 @@ void main() {
       bool externalAi = true,
       bool creditSpending = true,
       bool providerRetention = true,
+      bool privacyValidation = true,
       bool safetyApproval = true,
     }) {
       return LaunchContainment.resolvePaidCreditPlansEnabled(
@@ -42,7 +44,8 @@ void main() {
         externalAiEnabled: externalAi,
         creditSpendingEnabled: creditSpending,
         providerRetentionVerified: providerRetention,
-        safetyReviewApproved: safetyApproval,
+        privacyValidationPassed: privacyValidation,
+        safetyValidationPassed: safetyApproval,
       );
     }
 
@@ -51,6 +54,7 @@ void main() {
     expect(resolve(externalAi: false), isFalse);
     expect(resolve(creditSpending: false), isFalse);
     expect(resolve(providerRetention: false), isFalse);
+    expect(resolve(privacyValidation: false), isFalse);
     expect(resolve(safetyApproval: false), isFalse);
   });
 

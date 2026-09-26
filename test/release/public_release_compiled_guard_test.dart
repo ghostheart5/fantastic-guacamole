@@ -17,14 +17,11 @@ void main() {
     if (PublicReleaseProfile.requested) {
       expect(
         issues,
-        contains('Independent privacy/legal review is missing in source.'),
-      );
-      expect(
-        issues,
         contains(
-          'Independent mental-health safety review is missing in source.',
+          'Privacy and data-disclosure validation is missing in source.',
         ),
       );
+      expect(issues, contains('AI safety validation is missing in source.'));
     }
   });
 }

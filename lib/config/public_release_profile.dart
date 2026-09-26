@@ -56,10 +56,10 @@ abstract final class PublicReleaseProfile {
       'Public credit spending is not approved in source.',
     if (!LaunchContainment.externalAiProviderRetentionVerified)
       'Provider retention review is missing in source.',
-    if (!LaunchContainment.externalAiPrivacyReviewApproved)
-      'Independent privacy/legal review is missing in source.',
-    if (!LaunchContainment.externalAiSafetyReviewApproved)
-      'Independent mental-health safety review is missing in source.',
+    if (!LaunchContainment.externalAiPrivacyValidationPassed)
+      'Privacy and data-disclosure validation is missing in source.',
+    if (!LaunchContainment.externalAiSafetyValidationPassed)
+      'AI safety validation is missing in source.',
   ];
 
   static List<String> validate(Map<String, String> values) {

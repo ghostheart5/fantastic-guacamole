@@ -172,7 +172,7 @@ void main() {
       'externalAiEnabled &&',
       'creditSpendingEnabled &&',
       'externalAiProviderRetentionVerified &&',
-      'externalAiSafetyReviewApproved;',
+      'externalAiSafetyValidationPassed;',
     ]) {
       expect(containment, contains(requiredGate));
     }

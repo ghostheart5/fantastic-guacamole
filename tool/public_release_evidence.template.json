@@ -1,9 +1,9 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "sourceSha": "",
   "definesSha256": "",
   "gates": {
-    "privacyLegal": {
+    "privacyDisclosureValidation": {
       "status": "pending",
       "scope": "source-and-configuration",
       "reviewer": "",
@@ -12,7 +12,7 @@
       "file": "",
       "sha256": ""
     },
-    "mentalHealthSafety": {
+    "aiSafetyValidation": {
       "status": "pending",
       "scope": "source-and-configuration",
       "reviewer": "",
