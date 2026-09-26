@@ -82,6 +82,22 @@ Deno.test("two-account cloud isolation and durable deletion reject lingering cre
         payload: { synthetic: user.id },
       });
       check(inserted.ok, "Owner snapshot insert failed");
+      const ownSnapshot = await request(
+        `${table}?user_id=eq.${user.id}`,
+        user.access,
+      );
+      check(
+        ownSnapshot.ok && ownSnapshot.data.length === 1,
+        "Owner cannot read its seeded snapshot",
+      );
+      const ownProfile = await request(
+        `/rest/v1/profiles?id=eq.${user.id}`,
+        user.access,
+      );
+      check(
+        ownProfile.ok && ownProfile.data.length === 1,
+        "Owner profile was not created or readable",
+      );
       const uploaded = await request(
         `/storage/v1/object/chronospark-sync/${user.id}/backup/tasks_backup.json`,
         user.access,
@@ -164,25 +180,30 @@ Deno.test("two-account cloud isolation and durable deletion reject lingering cre
       { refresh_token: a.refresh },
     );
     check(!refresh.ok, "Deleted account refresh token still works");
+    // Use granted owner access rather than assuming service_role privileges.
+    // The owner JWT still carries auth.uid(), so it exposes a retained row through
+    // the same SELECT policies used successfully before deletion.
     const remaining = await request(
       `${table}?user_id=eq.${a.id}`,
-      service,
-      "GET",
-      undefined,
-      true,
+      a.access,
     );
     check(
-      remaining.ok && remaining.data.length === 0,
+      remaining.ok,
+      `Deleted snapshot verification failed: HTTP ${remaining.status}`,
+    );
+    check(
+      remaining.data.length === 0,
       "Account-linked snapshot survived deletion",
     );
     const profile = await request(
       `/rest/v1/profiles?id=eq.${a.id}`,
-      service,
-      "GET",
-      undefined,
-      true,
+      a.access,
     );
-    check(profile.ok && profile.data.length === 0, "Profile survived deletion");
+    check(
+      profile.ok,
+      `Deleted profile verification failed: HTTP ${profile.status}`,
+    );
+    check(profile.data.length === 0, "Profile survived deletion");
     const storage = await request(
       "/storage/v1/object/list/chronospark-sync",
       service,
