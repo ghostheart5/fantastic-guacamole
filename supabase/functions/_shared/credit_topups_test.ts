@@ -36,7 +36,10 @@ Deno.test("stale pending inventory recovers only from owner-verified cancellatio
     const result = await registerPendingCreditTopup(
       input,
       async (url, init) => {
-        if (String(url).includes("androidpublisher.googleapis.com")) {
+        if (
+          new URL(String(url)).origin ===
+            "https://androidpublisher.googleapis.com"
+        ) {
           calls.push("provider");
           return Response.json({
             ...proof,
@@ -64,7 +67,8 @@ Deno.test("stale pending inventory recovers only from owner-verified cancellatio
     input,
     (url) =>
       Promise.resolve(
-        String(url).includes("androidpublisher.googleapis.com")
+        new URL(String(url)).origin ===
+            "https://androidpublisher.googleapis.com"
           ? Response.json(proof)
           : new Response(null, { status: 503 }),
       ),
