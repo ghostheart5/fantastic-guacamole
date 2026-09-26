@@ -436,6 +436,9 @@ void main() {
       final int configIndex = buildSteps.indexOf(
         namedStep(build, 'Validate production configuration'),
       );
+      final int publicProfileIndex = buildSteps.indexOf(
+        namedStep(build, 'Prepare and bind public configuration'),
+      );
       final int backendIndex = buildSteps.indexOf(
         namedStep(build, 'Verify live backend, RTDN, and Play configuration'),
       );
@@ -455,6 +458,28 @@ void main() {
         namedStep(build, 'Upload AAB artifact'),
       );
       expect(configIndex, lessThan(decodeIndex));
+      expect(publicProfileIndex, greaterThan(0));
+      expect(publicProfileIndex, lessThan(configIndex));
+      expect(publicProfileIndex, lessThan(decodeIndex));
+      expect(
+        namedStep(build, 'Prepare and bind public configuration')['run'],
+        contains('scripts/public_release_profile.py'),
+      );
+      expect(
+        namedStep(build, 'Validate production configuration')['run'],
+        contains(r'--defines="$RUNNER_TEMP/public-release-defines.json"'),
+      );
+      expect(
+        namedStep(build, 'Build signed AAB')['run'],
+        contains(
+          r'--dart-define-from-file="$RUNNER_TEMP/public-release-defines.json"',
+        ),
+      );
+      expect(
+        namedStep(build, 'Build signed AAB')['run'],
+        isNot(contains('--dart-define=')),
+        reason: 'Inline overrides must not drift from validated public inputs.',
+      );
       expect(configIndex, lessThan(buildIndex));
       expect(backendIndex, lessThan(decodeIndex));
       expect(backendIndex, lessThan(buildIndex));
