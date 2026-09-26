@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:fantastic_guacamole/config/backend_mode.dart';
 import 'package:fantastic_guacamole/config/firebase_identity.dart';
 import 'package:fantastic_guacamole/config/internal_billing_test.dart';
+import 'package:fantastic_guacamole/config/public_release_profile.dart';
 
 enum ProductionTarget { all, android, ios }
 
@@ -20,7 +21,11 @@ List<String> validateProductionConfiguration(
   String? googleServicesJson,
   ProductionTarget target = ProductionTarget.all,
 }) {
-  final List<String> failures = <String>[];
+  final List<String> failures = PublicReleaseProfile.validate(values);
+  if (values[PublicReleaseProfile.define] == 'true' &&
+      target != ProductionTarget.android) {
+    failures.add('The public release profile supports Android only.');
+  }
   final String billingFlag =
       values['CHRONOSPARK_INTERNAL_BILLING_TEST'] ?? 'false';
   if (billingFlag != 'true' && billingFlag != 'false') {

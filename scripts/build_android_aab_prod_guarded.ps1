@@ -2,7 +2,10 @@ param(
     [string]$BuildName,
     [int]$BuildNumber,
     [string]$SigningPropertiesPath,
-    [string]$SigningKeystorePath
+    [string]$SigningKeystorePath,
+    [switch]$PublicRelease,
+    [string]$PublicEvidencePath,
+    [string]$PythonExecutable = 'python'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -64,6 +67,15 @@ function Load-DotEnvFile {
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $repoRoot
+
+if ($PublicRelease) {
+    # Reject missing source approvals before resolving or reading signing files.
+    & $PythonExecutable (Join-Path $PSScriptRoot 'public_release_profile.py') --root $repoRoot --check-source
+    if ($LASTEXITCODE -ne 0) { throw 'Public source approvals are incomplete. No signing files were read.' }
+    if ([string]::IsNullOrWhiteSpace($PublicEvidencePath)) {
+        throw 'Public release requires the reviewed external evidence packet.'
+    }
+}
 
 . (Join-Path $PSScriptRoot 'external_signing_paths.ps1')
 $signingPaths = Get-ExternalSigningPaths -PropertiesPath $SigningPropertiesPath -KeystorePath $SigningKeystorePath
@@ -218,17 +230,30 @@ $flutterArgs = @(
 )
 
 $flutterExitCode = 1
+$publicReviewReceipt = $null
 try {
     [System.IO.File]::WriteAllText($dartDefineFile, ($dartDefines | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
     $powerShellCommand = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
     & $powerShellCommand -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'release_guard.ps1')
     if ($LASTEXITCODE -ne 0) { throw 'Release source guard failed. No bundle was produced.' }
+    if ($PublicRelease) {
+        $publicReviewOutput = & $PythonExecutable (Join-Path $PSScriptRoot 'public_release_profile.py') --root $repoRoot --defines $dartDefineFile --evidence $PublicEvidencePath
+        if ($LASTEXITCODE -ne 0) { throw 'Public review/configuration evidence failed. No signing inputs were copied.' }
+        $publicReviewReceipt = $publicReviewOutput | ConvertFrom-Json
+    }
     & dart run scripts/validate_production_config.dart --platform=android "--defines=$dartDefineFile" --google-services=android/app/google-services.json
     if ($LASTEXITCODE -ne 0) { throw 'Production configuration guard failed. No bundle was produced.' }
+    $validatedDefinesHash = (Get-FileHash -LiteralPath $dartDefineFile -Algorithm SHA256).Hash
     Copy-Item -LiteralPath $resolvedSigningPropertiesPath -Destination $temporarySigningPropertiesPath -ErrorAction Stop
     Copy-Item -LiteralPath $resolvedSigningKeystorePath -Destination $temporarySigningKeystorePath -ErrorAction Stop
+    if ((Get-FileHash -LiteralPath $dartDefineFile -Algorithm SHA256).Hash -ne $validatedDefinesHash) {
+        throw 'Validated build configuration changed before compilation.'
+    }
     & flutter @flutterArgs
     $flutterExitCode = $LASTEXITCODE
+    if ((Get-FileHash -LiteralPath $dartDefineFile -Algorithm SHA256).Hash -ne $validatedDefinesHash) {
+        throw 'Validated build configuration changed during compilation.'
+    }
 }
 finally {
     if (Test-Path -LiteralPath $dartDefineFile) {
@@ -261,6 +286,19 @@ $versionedAab = Join-Path $repoRoot ("build/app/outputs/bundle/release/app-relea
 Copy-Item -Path $outputAab -Destination $versionedAab -Force
 
 $aabInfo = Get-Item -Path $versionedAab
+if ($PublicRelease) {
+    $publicBuildReceipt = [ordered]@{
+        sourceSha = $sourceCommit
+        versionName = $BuildName
+        versionCode = $BuildNumber
+        aabSha256 = (Get-FileHash -LiteralPath $versionedAab -Algorithm SHA256).Hash.ToLowerInvariant()
+        validatedDefinesFileSha256 = $validatedDefinesHash.ToLowerInvariant()
+        reviewedSourceAndConfiguration = $publicReviewReceipt
+        boundary = 'Build only. Signed artifact verification, device acceptance and public rollout approval remain separate.'
+    }
+    $receiptPath = Join-Path $aabInfo.DirectoryName 'public-release-build-evidence.json'
+    [System.IO.File]::WriteAllText($receiptPath, ($publicBuildReceipt | ConvertTo-Json -Depth 12), [System.Text.UTF8Encoding]::new($false))
+}
 Write-Host ''
 Write-Host 'Production AAB build complete.' -ForegroundColor Green
 Write-Host "Source commit: $sourceCommit"

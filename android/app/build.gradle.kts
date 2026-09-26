@@ -28,7 +28,8 @@ encodedDartDefines
         val key = decoded.substring(0, separator)
         val value = decoded.substring(separator + 1)
         val previous = dartDefines.put(key, value)
-        if (key in setOf("CHRONOSPARK_BACKEND_MODE", "CHRONOSPARK_INTERNAL_BILLING_TEST") &&
+        if (key in setOf("CHRONOSPARK_BACKEND_MODE", "CHRONOSPARK_INTERNAL_BILLING_TEST",
+                "CHRONOSPARK_PUBLIC_RELEASE", "CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA") &&
             previous != null && previous != value) {
             error("Conflicting values supplied for Dart define $key.")
         }
@@ -53,6 +54,16 @@ require(internalBillingValue == "true" || internalBillingValue == "false") {
 val isInternalBillingTest = internalBillingValue == "true"
 require(!isInternalBillingTest || (!isLocalBackend && isReleaseBuild)) {
     "Internal billing requires a cloud release build."
+}
+val publicReleaseValue = dartDefines["CHRONOSPARK_PUBLIC_RELEASE"] ?: "false"
+require(publicReleaseValue == "true" || publicReleaseValue == "false") {
+    "CHRONOSPARK_PUBLIC_RELEASE must be true or false."
+}
+val isPublicRelease = publicReleaseValue == "true"
+require(!isPublicRelease || (!isLocalBackend && isReleaseBuild && !isInternalBillingTest &&
+    dartDefines["CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA"] == "false" &&
+    dartDefines["CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"] == "")) {
+    "Public billing requires a cloud release without internal billing, admission QA or private cohorts."
 }
 
 if (isLocalBackend) {
@@ -118,6 +129,8 @@ android {
         // Internet access for Flutter tooling; production/profile are offline.
         sourceSets.getByName("release").manifest.srcFile("src/local/AndroidManifest.xml")
         sourceSets.getByName("profile").manifest.srcFile("src/local/AndroidManifest.xml")
+    } else if (isPublicRelease) {
+        sourceSets.getByName("release").manifest.srcFile("src/publicRelease/AndroidManifest.xml")
     } else if (isInternalBillingTest) {
         // Only the compiled billing-test profile restores the permission that
         // main deliberately removes from ordinary contained builds.

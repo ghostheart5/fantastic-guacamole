@@ -40,6 +40,24 @@ abstract final class _ReadinessPolicy {
     }
 
     final List<String> issues = <String>[];
+    if (PublicReleaseProfile.compiledValue != 'true' &&
+        PublicReleaseProfile.compiledValue != 'false') {
+      issues.add('Public release profile is malformed.');
+    }
+    if (PublicReleaseProfile.requested) {
+      issues.addAll(PublicReleaseProfile.sourceReadinessIssues());
+      if (InternalBillingTestConfig.compiled.requested ||
+          InternalBillingTestConfig.compiled.publicCreditAdmissionQa ||
+          !Env.enableCloudSync ||
+          !Env.enableCloudRestore ||
+          Env.enableRuntimeFeatureFlags ||
+          isWeb ||
+          (targetPlatform ?? defaultTargetPlatform) != TargetPlatform.android) {
+        issues.add(
+          'Public release requires Android cloud capabilities without internal QA or runtime flag overrides.',
+        );
+      }
+    }
     final bool billingTest = InternalBillingTestConfig.compiled.requested;
     if (InternalBillingTestConfig.compiled.publicCreditAdmissionQa &&
         !billingTest) {

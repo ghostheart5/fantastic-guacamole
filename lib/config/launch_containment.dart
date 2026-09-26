@@ -13,12 +13,14 @@ abstract final class LaunchContainment {
   // global inference, no ZDR, feedback off; disclosures reconciled in
   // docs/engineering/FINAL_FOUR_GATES_20260911.md. Reassess on provider changes.
   static const bool externalAiProviderRetentionVerified = true;
+  static const bool externalAiPrivacyReviewApproved = false;
   static const bool externalAiSafetyReviewApproved = false;
   static const bool paidCreditPlansEnabled =
       subscriptionsEnabled &&
       externalAiEnabled &&
       creditSpendingEnabled &&
       externalAiProviderRetentionVerified &&
+      externalAiPrivacyReviewApproved &&
       externalAiSafetyReviewApproved;
   static const bool analyticsEnabled = false;
   static const bool crashReportingEnabled = false;
