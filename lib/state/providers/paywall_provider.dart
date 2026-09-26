@@ -269,7 +269,14 @@ class PaywallActions {
         ? repository as ISubscriptionAuthorityRefresher
         : null;
     if (authorityRefresher != null) {
-      return authorityRefresher.refreshSubscriptionState(force: true);
+      final authority = await authorityRefresher.refreshSubscriptionState(
+        force: true,
+      );
+      // Refresh access independently, but retain the receipt rejection for the
+      // operation's message. A free account does not mean Play inventory was
+      // empty, and an existing entitlement does not verify this receipt.
+      if (fallback.status == 'verification_failed') return fallback;
+      return authority;
     }
     return fallback;
   }
