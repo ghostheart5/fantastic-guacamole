@@ -13,6 +13,18 @@ class SiPolicy {
     RegExp(r'\blegal advice\b', caseSensitive: false),
   ];
 
+  // Spanish equivalents of the unsupported English claims above. Keep these
+  // aligned with containsBlockedAssistantClaim in the server policy.
+  static final List<RegExp> _spanishUnsafeClaimPatterns = <RegExp>[
+    RegExp(
+      r'\bgarantiz(?:o|a|as|an|amos|ar|ara|aras|aran|are|aremos|ad[oa]s?)\b',
+    ),
+    RegExp(r'\bcur(?:o|a|as|an|amos|ar|ara|aras|aran|are|aremos|ad[oa]s?)\b'),
+    RegExp(r'\bdiagnostic(?:o|a|as|an|amos|ar|ara|are|ad[oa]s?)\b'),
+    RegExp(r'\bprescrib(?:o|e|es|en|imos|ir|ira|ire)\b|\bprescrit[oa]s?\b'),
+    RegExp(r'\b(?:asesoramiento|asesoria|consejos?)\s+legal(?:es)?\b'),
+  ];
+
   static bool shouldSuggestBreak(SiStateEntity state) {
     return state.fatigue > 0.7 || state.energy < 0.3;
   }
@@ -47,7 +59,23 @@ class SiPolicy {
   /// [SiDecisionEntity]. Model output previously bypassed this list entirely —
   /// `sanitize` only ever saw decisions, never generated prose.
   static bool containsUnsupportedClaim(String text) {
-    return _unsafeClaimPatterns.any((RegExp pattern) => pattern.hasMatch(text));
+    if (_unsafeClaimPatterns.any((RegExp pattern) => pattern.hasMatch(text))) {
+      return true;
+    }
+    // Fold Spanish accents, including decomposed input, before word-boundary
+    // matching. Otherwise a final accented vowel can evade an ASCII boundary.
+    final String spanish = text
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ü', 'u')
+        .replaceAll(RegExp(r'[\u0300-\u036f]'), '');
+    return _spanishUnsafeClaimPatterns.any(
+      (RegExp pattern) => pattern.hasMatch(spanish),
+    );
   }
 
   /// Rationale used when a decision is withheld for containing an unsupported
