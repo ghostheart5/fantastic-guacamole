@@ -10,6 +10,7 @@ import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
@@ -100,6 +101,18 @@ void main() {
           restoreEnabled: true,
         );
         final SyncService sync = syncWith(keys);
+        try {
+          await client.storage
+              .from('chronospark-sync')
+              .download('$createdId/backup/full_backup.json');
+          fail('A new synthetic account unexpectedly had a legacy backup.');
+        } on sb.StorageException catch (error) {
+          // Only the controlled empty fixture's error fields; no credentials.
+          debugPrint(
+            'Empty fixture storage response: ${error.statusCode} / '
+            '${error.error} / ${error.message}',
+          );
+        }
         await tasks.saveTask(
           TaskEntity(
             id: 'synthetic-task',
