@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 2,
+  "sourceSha": "",
+  "definesSha256": "",
+  "gates": {
+    "privacyDisclosureValidation": {
+      "status": "pending",
+      "scope": "source-and-configuration",
+      "reviewer": "",
+      "reviewedAt": "",
+      "validUntil": "",
+      "file": "",
+      "sha256": ""
+    },
+    "aiSafetyValidation": {
+      "status": "pending",
+      "scope": "source-and-configuration",
+      "reviewer": "",
+      "reviewedAt": "",
+      "validUntil": "",
+      "file": "",
+      "sha256": ""
+    },
+    "providerRetention": {
+      "status": "pending",
+      "scope": "source-and-configuration",
+      "reviewer": "",
+      "reviewedAt": "",
+      "validUntil": "",
+      "file": "",
+      "sha256": ""
+    },
+    "backendParity": {
+      "status": "pending",
+      "scope": "source-and-configuration",
+      "reviewer": "",
+      "reviewedAt": "",
+      "validUntil": "",
+      "file": "",
+      "sha256": ""
+    },
+    "cloudIsolationRestoreDeletion": {
+      "status": "pending",
+      "scope": "source-and-configuration",
+      "reviewer": "",
+      "reviewedAt": "",
+      "validUntil": "",
+      "file": "",
+      "sha256": ""
+    },
+    "billingRecovery": {
+      "status": "pending",
+      "scope": "source-and-configuration",
+      "reviewer": "",
+      "reviewedAt": "",
+      "validUntil": "",
+      "file": "",
+      "sha256": ""
+    }
+  }
+}
