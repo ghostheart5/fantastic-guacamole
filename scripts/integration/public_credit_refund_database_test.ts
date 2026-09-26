@@ -44,7 +44,7 @@ for (const scoped of [false, true]) {
     const user = await userResponse.json();
     const token = `synthetic-refund-${crypto.randomUUID()}`;
     const tokenHash = await sha256Hex(token);
-    const orderId = "GPA.synthetic-database-integration";
+    const orderId = `GPA.synthetic-database-${crypto.randomUUID()}`;
     const productId = "chronospark_credits_100";
     const queued = await rpc("queue_unadmitted_credit_topup", {
       p_user_id: user.id,

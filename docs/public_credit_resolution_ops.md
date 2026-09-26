@@ -61,6 +61,19 @@ Never remove the scope from an enabled worker to obtain a passing test.
 If the target is already settled or outside the five-item batch, no scoped
 execution is proven. Verify the actual order and queue before trying again.
 
+The separately approved manual `test-credit-refund` operation uses the existing
+protected backend tooling branch (`fix/app-only-readiness-priority2-20260902`)
+and the `production` environment. It requires the reviewed full source SHA,
+successful manual CI for that SHA, the deployed worker bundle SHA-256, and
+the SHA-256 digest of the server's selected token hash. No raw purchase token
+or order ID is accepted as a workflow input. The caller verifies those server
+restrictions, public-sale closure and the worker bundle before one fixed POST;
+the scheduled refund repository variable must remain absent/off. It never
+sets secrets, enables refunds, deploys functions, runs account deletion or
+retries an ambiguous POST. Empty scans fail the test gate. A requested refund
+is distinct from confirmed provider refund and queue settlement. This source
+preparation does not authorize enabling or invoking the live worker.
+
 1. Confirm the exact deployed migration, verifier and RTDN versions, purchase product, and public-sales flag. If the checker cannot read the queue, keep or turn public sales off through the separately reviewed rollout control and investigate the read failure. Do not infer an empty queue.
 2. For a queued case, use a restricted operator surface to inspect the exact token/order/account binding and Google Play order state. Keep raw identifiers out of general logs. Confirm no wallet grant or consumption occurred. A summary count cannot decide a customer's remedy.
 3. Follow the owner-selected full-refund policy. The draft `public-credit-refund-reconcile` Edge Function is **default disabled** and requires its own protected invocation secret and a dedicated `GOOGLE_REFUND_SERVICE_ACCOUNT_JSON` credential, separate from the purchase verifier's service account. Grant the refund credential only the Play order permissions needed for this function. When enabled after review, it reads a bounded service-only queue, checks Google's exact order ID, purchase-token hash, one-time product and quantity, and claims one refund attempt under the token lock before calling `orders.refund` with `revoke=true`. Only a later Google `REFUNDED` readback or trusted void closes the queue. `PENDING_REFUND`, an ambiguous API timeout, a partial refund, a mismatched order, or a prior attempt still showing `PROCESSED` needs manual review; never blindly repeat a refund call. A worker crash after the one-time claim and before the POST also needs manual review.

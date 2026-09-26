@@ -16,12 +16,21 @@ on:
           - apply-reviewed-repairs
           - check-credit-resolutions
           - test-credit-alert
+          - test-credit-refund
       source_sha:
         description: Repair mode only; exact full reviewed commit SHA
         type: string
         required: false
       ci_run:
         description: Repair mode only; successful manual CI run for that exact commit
+        type: string
+        required: false
+      test_scope_digest:
+        description: License refund only; SHA256 of the server-restricted token hash (no raw purchase token)
+        type: string
+        required: false
+      worker_sha256:
+        description: License refund only; verified deployed worker bundle SHA256
         type: string
         required: false
 
@@ -33,6 +42,65 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  credit-refund-license-test:
+    if: >-
+      github.repository == 'ghostheart5/fantastic-guacamole' &&
+      github.event_name == 'workflow_dispatch' && inputs.operation == 'test-credit-refund' &&
+      github.ref == 'refs/heads/fix/app-only-readiness-priority2-20260902'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    environment: production
+    permissions:
+      contents: read
+      actions: read
+    env:
+      LICENSE_REFUND_OPERATION: ${{ inputs.operation }}
+      LICENSE_REFUND_SOURCE_SHA: ${{ inputs.source_sha }}
+      LICENSE_REFUND_CI_RUN: ${{ inputs.ci_run }}
+      LICENSE_REFUND_SCOPE_DIGEST: ${{ inputs.test_scope_digest }}
+      LICENSE_REFUND_WORKER_SHA256: ${{ inputs.worker_sha256 }}
+    steps:
+      - name: Require successful exact-source CI before checkout or refund credentials
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$LICENSE_REFUND_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$LICENSE_REFUND_CI_RUN" =~ ^[1-9][0-9]*$ ]]
+          [[ "$LICENSE_REFUND_SCOPE_DIGEST" =~ ^[a-f0-9]{64}$ ]]
+          [[ "$LICENSE_REFUND_WORKER_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$LICENSE_REFUND_CI_RUN" > "$RUNNER_TEMP/license-refund-ci.json"
+          jq -e --arg sha "$LICENSE_REFUND_SOURCE_SHA" --arg repo "$GITHUB_REPOSITORY" '
+            .head_sha == $sha and .repository.full_name == $repo and
+            .path == ".github/workflows/ci.yml" and .event == "workflow_dispatch" and
+            .status == "completed" and .conclusion == "success"' "$RUNNER_TEMP/license-refund-ci.json"
+      - name: Checkout exact reviewed license-test source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Invoke only the server-restricted license-test refund
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          PUBLIC_CREDIT_REFUND_RECONCILE_SECRET: ${{ secrets.PUBLIC_CREDIT_REFUND_RECONCILE_SECRET }}
+          AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED: ${{ vars.AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$LICENSE_REFUND_SOURCE_SHA"
+          LICENSE_REFUND_CHECKOUT_SHA="$(git rev-parse HEAD)"
+          export LICENSE_REFUND_CHECKOUT_SHA
+          node scripts/run_credit_refund_license_gate.mjs "$RUNNER_TEMP/license-refund-ci.json" > "$RUNNER_TEMP/license-refund-result.json"
+          cat "$RUNNER_TEMP/license-refund-result.json" >> "$GITHUB_STEP_SUMMARY"
+      - name: Save aggregate license-test result
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: license-refund-${{ inputs.source_sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/license-refund-result.json
+          if-no-files-found: warn
+          retention-days: 7
+
   public-credit-monitor:
     # Monitoring must not depend on sales or automatic refund enablement.
     if: >-

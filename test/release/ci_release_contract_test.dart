@@ -651,6 +651,57 @@ void main() {
     );
   });
 
+  test(
+    'license refund gate is manual, protected and excludes other mutations',
+    () {
+      final workflowValue = workflow('backend-reconciliation.yml');
+      final license = job(workflowValue, 'credit-refund-license-test');
+      expect(license['environment'], 'production');
+      expect(
+        license['if'],
+        contains("inputs.operation == 'test-credit-refund'"),
+      );
+      expect(
+        license['if'],
+        contains("github.event_name == 'workflow_dispatch'"),
+      );
+      expect(
+        license['if'],
+        contains("refs/heads/fix/app-only-readiness-priority2-20260902"),
+      );
+      expect(license['if'], isNot(contains("github.event_name == 'schedule'")));
+      final guard = namedStep(
+        license,
+        'Require successful exact-source CI before checkout or refund credentials',
+      );
+      final invoke = namedStep(
+        license,
+        'Invoke only the server-restricted license-test refund',
+      );
+      expect(
+        steps(license).indexOf(guard),
+        lessThan(steps(license).indexOf(invoke)),
+      );
+      expect(guard.toString(), isNot(contains('secrets.')));
+      expect(guard['run'], contains('.conclusion == "success"'));
+      expect(invoke['run'], contains('run_credit_refund_license_gate.mjs'));
+      expect(
+        license.toString(),
+        isNot(contains('ACCOUNT_DELETE_RECONCILE_SECRET')),
+      );
+      for (final name in [
+        'account-deletion',
+        'public-credit-refunds',
+        'reviewed-repairs',
+      ]) {
+        expect(
+          job(workflowValue, name)['if'],
+          isNot(contains('test-credit-refund')),
+        );
+      }
+    },
+  );
+
   test('production monitoring and upload identity match live contracts', () {
     const String uploadSha1 =
         '8A:24:D7:BA:AC:AB:52:F0:A3:77:7D:D0:47:C9:07:96:2E:82:FA:A5';
