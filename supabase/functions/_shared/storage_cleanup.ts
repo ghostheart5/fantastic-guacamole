@@ -55,7 +55,10 @@ export async function deleteUserStorageObjects(
         headers: serviceHeaders,
         body: JSON.stringify({ prefix: folder, limit: pageSize, offset }),
       });
-      if (!response.ok) return false;
+      if (!response.ok) {
+        await response.body?.cancel();
+        return false;
+      }
 
       let entries: unknown;
       try {
@@ -91,6 +94,7 @@ export async function deleteUserStorageObjects(
       headers: serviceHeaders,
       body: JSON.stringify({ prefixes }),
     });
+    await response.body?.cancel();
     if (!response.ok) return false;
   }
   return true;
