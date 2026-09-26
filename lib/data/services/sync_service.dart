@@ -289,7 +289,7 @@ class SupabaseStorageCloudBackupGateway
       Logger.warn('Supabase cloud backup payload is not a JSON object.');
       return const CloudBackupReadResult.malformed();
     } on sb.StorageException catch (error) {
-      if ((error.statusCode ?? '').contains('404')) {
+      if (_isMissingObject(error)) {
         return const CloudBackupReadResult.notFound();
       }
       Logger.errorCategory(
@@ -306,6 +306,23 @@ class SupabaseStorageCloudBackupGateway
         'Supabase cloud backup download failed',
       );
       return const CloudBackupReadResult.unavailable();
+    }
+  }
+
+  static bool _isMissingObject(sb.StorageException error) {
+    if (error.statusCode == '404') return true;
+    // Binary downloads in storage_client preserve the raw error response in
+    // message. Legacy Storage reports a missing object as HTTP 400 with a
+    // structured 404 body. Do not classify other bad requests or outages as
+    // empty backups: sync would otherwise attempt to initialize cloud state.
+    if (error.statusCode != '400' || error.message.length > 4096) return false;
+    try {
+      final Object? body = jsonDecode(error.message);
+      return body is Map<String, dynamic> &&
+          body['statusCode']?.toString() == '404' &&
+          body['error'] == 'not_found';
+    } on FormatException {
+      return false;
     }
   }
 

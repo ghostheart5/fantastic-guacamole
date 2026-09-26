@@ -73,6 +73,33 @@ jobs:
         timeout-minutes: 15
         run: supabase start
 
+      - name: Set up Flutter for real cloud-client integration
+        timeout-minutes: 10
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: stable
+          flutter-version: '3.44.6'
+
+      - name: Validate real cloud isolation restore and deletion
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+          flutter pub get
+          git diff --exit-code -- pubspec.lock
+          local_status="$(supabase status --output json)"
+          LOCAL_SUPABASE_URL="$(jq -er '.API_URL' <<< "$local_status")"
+          LOCAL_SUPABASE_ANON_KEY="$(jq -er '.ANON_KEY' <<< "$local_status")"
+          LOCAL_SUPABASE_SERVICE_KEY="$(jq -er '.SERVICE_ROLE_KEY' <<< "$local_status")"
+          export LOCAL_SUPABASE_URL LOCAL_SUPABASE_ANON_KEY LOCAL_SUPABASE_SERVICE_KEY
+          export AXIOMARA_DISPOSABLE_DB_GATE=true
+          cloud_client_status=0
+          flutter test test/support/cloud_backup_live.dart --reporter json > artifacts/database-evidence/cloud-client.jsonl || cloud_client_status=$?
+          deno test --trace-leaks --allow-env=LOCAL_SUPABASE_URL,LOCAL_SUPABASE_ANON_KEY,LOCAL_SUPABASE_SERVICE_KEY,AXIOMARA_DISPOSABLE_DB_GATE \
+            --allow-net=127.0.0.1:54321 --junit-path=artifacts/database-evidence/cloud-deletion.junit.xml \
+            scripts/integration/cloud_account_isolation_test.ts
+          exit "$cloud_client_status"
+
       - name: Run database contracts
         timeout-minutes: 20
         run: supabase test db
