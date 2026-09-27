@@ -100,7 +100,7 @@ export function buildServerSystemPrompt(
 export function containsBlockedAssistantClaim(value: string): boolean {
   const collapsed = value.replaceAll(/\s+/g, " ");
   const normalized = collapsed.toLowerCase().replaceAll(
-    /\b(?:i|we)\s+(?:cannot|can['’]t|do not|don['’]t)\s+(?:diagnose|prescribe|guarantee|cure|(?:provide|give)\s+legal advice)(?:\s*(?:,|or|and)\s*(?:diagnose|prescribe|guarantee|cure|(?:provide|give)\s+legal advice))*\b/g,
+    /\b(?:i|we)\s+(?:cannot|can['’]t|do not|don['’]t)\s+(?:diagnose|prescribe|guarantee(?:\s+(?:a|any)\s+cure)?|cure|(?:provide|give)\s+(?:(?:a\s+)?(?:medical\s+)?diagnosis|(?:a\s+)?prescription|legal advice))(?:\s*(?:,|or|and)\s*(?:diagnose|prescribe|guarantee(?:\s+(?:a|any)\s+cure)?|cure|(?:provide|give)\s+(?:(?:a\s+)?(?:medical\s+)?diagnosis|(?:a\s+)?prescription|legal advice)))*\b/g,
     "[explicit refusal]",
   );
   // Match the client's SiPolicy for Spanish unsupported claims. Accent folding
@@ -110,7 +110,7 @@ export function containsBlockedAssistantClaim(value: string): boolean {
     /[\u0300-\u036f]/g,
     "",
   ).replaceAll(
-    /\bno\s+(?:puedo|podemos)\s+(?:diagnosticar|prescribir|garantizar|curar|(?:dar|ofrecer)\s+(?:asesoramiento|asesoria|consejos?)\s+legal(?:es)?)(?:\s*(?:,|ni|o)\s*(?:diagnosticar|prescribir|garantizar|curar|(?:dar|ofrecer)\s+(?:asesoramiento|asesoria|consejos?)\s+legal(?:es)?))*\b/g,
+    /\bno\s+(?:puedo|podemos)\s+(?:diagnosticar|prescribir|garantizar(?:\s+(?:una|ninguna)\s+cura)?|curar|(?:dar|ofrecer|hacer|proporcionar)\s+(?:(?:un\s+)?diagnostico|(?:una\s+)?prescripcion|(?:asesoramiento|asesoria|consejos?)\s+legal(?:es)?))(?:\s*(?:,|ni|o)\s*(?:diagnosticar|prescribir|garantizar(?:\s+(?:una|ninguna)\s+cura)?|curar|(?:dar|ofrecer|hacer|proporcionar)\s+(?:(?:un\s+)?diagnostico|(?:una\s+)?prescripcion|(?:asesoramiento|asesoria|consejos?)\s+legal(?:es)?)))*\b/g,
     "[explicit refusal]",
   );
   if (

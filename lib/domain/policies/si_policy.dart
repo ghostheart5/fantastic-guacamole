@@ -63,7 +63,7 @@ class SiPolicy {
     // in the same answer must still pass the original safety checks.
     final String claims = text.replaceAll(
       RegExp(
-        r"\b(?:i|we)\s+(?:cannot|can['’]t|do not|don['’]t)\s+(?:diagnose|prescribe|guarantee|cure|(?:provide|give)\s+legal advice)(?:\s*(?:,|or|and)\s*(?:diagnose|prescribe|guarantee|cure|(?:provide|give)\s+legal advice))*\b",
+        r"\b(?:i|we)\s+(?:cannot|can['’]t|do not|don['’]t)\s+(?:diagnose|prescribe|guarantee(?:\s+(?:a|any)\s+cure)?|cure|(?:provide|give)\s+(?:(?:a\s+)?(?:medical\s+)?diagnosis|(?:a\s+)?prescription|legal advice))(?:\s*(?:,|or|and)\s*(?:diagnose|prescribe|guarantee(?:\s+(?:a|any)\s+cure)?|cure|(?:provide|give)\s+(?:(?:a\s+)?(?:medical\s+)?diagnosis|(?:a\s+)?prescription|legal advice)))*\b",
         caseSensitive: false,
       ),
       '[explicit refusal]',
@@ -86,7 +86,7 @@ class SiPolicy {
         .replaceAll(RegExp(r'[\u0300-\u036f]'), '')
         .replaceAll(
           RegExp(
-            r'\bno\s+(?:puedo|podemos)\s+(?:diagnosticar|prescribir|garantizar|curar|(?:dar|ofrecer)\s+(?:asesoramiento|asesoria|consejos?)\s+legal(?:es)?)(?:\s*(?:,|ni|o)\s*(?:diagnosticar|prescribir|garantizar|curar|(?:dar|ofrecer)\s+(?:asesoramiento|asesoria|consejos?)\s+legal(?:es)?))*\b',
+            r'\bno\s+(?:puedo|podemos)\s+(?:diagnosticar|prescribir|garantizar(?:\s+(?:una|ninguna)\s+cura)?|curar|(?:dar|ofrecer|hacer|proporcionar)\s+(?:(?:un\s+)?diagnostico|(?:una\s+)?prescripcion|(?:asesoramiento|asesoria|consejos?)\s+legal(?:es)?))(?:\s*(?:,|ni|o)\s*(?:diagnosticar|prescribir|garantizar(?:\s+(?:una|ninguna)\s+cura)?|curar|(?:dar|ofrecer|hacer|proporcionar)\s+(?:(?:un\s+)?diagnostico|(?:una\s+)?prescripcion|(?:asesoramiento|asesoria|consejos?)\s+legal(?:es)?)))*\b',
           ),
           '[explicit refusal]',
         );
