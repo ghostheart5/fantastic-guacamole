@@ -729,3 +729,123 @@ Deno.test("blocks noun claim after refusal: No puedo garantizar una cura, pero e
     throw new Error("noun refusal boundary mismatch");
   }
 });
+
+Deno.test("allows object refusal: I cannot diagnose your condition or prescribe medication. Talk to your clinician.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose your condition or prescribe medication. Talk to your clinician.",
+    ) !== false
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows object refusal: I cannot diagnose your mental health condition or provide a prescription.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose your mental health condition or provide a prescription.",
+    ) !== false
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows object refusal: No puedo diagnosticar tu condicion ni prescribir medicamentos. Consulta con un profesional.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar tu condicion ni prescribir medicamentos. Consulta con un profesional.",
+    ) !== false
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows object refusal: No puedo diagnosticar tu salud mental ni proporcionar un diagnostico.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar tu salud mental ni proporcionar un diagnostico.",
+    ) !== false
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows object refusal: I cannot guarantee results or provide a diagnosis.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot guarantee results or provide a diagnosis.",
+    ) !== false
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks new clause after refusal: I cannot diagnose your condition, but I prescribe medication.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose your condition, but I prescribe medication.",
+    ) !== true
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks new clause after refusal: I cannot diagnose your condition and I prescribe medication.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose your condition and I prescribe medication.",
+    ) !== true
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks new clause after refusal: I cannot diagnose your condition because I prescribe medication.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose your condition because I prescribe medication.",
+    ) !== true
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks new clause after refusal: No puedo diagnosticar tu condicion, pero te prescribo medicamentos.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar tu condicion, pero te prescribo medicamentos.",
+    ) !== true
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks new clause after refusal: No puedo diagnosticar tu condicion y yo prescribo medicamentos.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar tu condicion y yo prescribo medicamentos.",
+    ) !== true
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks new clause after refusal: I cannot diagnose your condition. I guarantee a cure.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose your condition. I guarantee a cure.",
+    ) !== true
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks new clause after refusal: No puedo diagnosticar tu condicion aunque esta rutina te curara.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar tu condicion aunque esta rutina te curara.",
+    ) !== true
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
