@@ -3054,6 +3054,175 @@ void main() {
     repository.dispose();
   });
 
+  for (final scenario
+      in <
+        ({
+          String name,
+          int httpStatus,
+          Map<String, Object> body,
+          bool authorityFails,
+          String expected,
+        })
+      >[
+        (
+          name: 'confirmed inactive receipt',
+          httpStatus: 200,
+          body: {
+            'valid': false,
+            'productId': 'chronospark_premium_monthly',
+            'error': 'purchase_not_active',
+          },
+          authorityFails: false,
+          expected: 'nothing_to_restore',
+        ),
+        (
+          name: 'inactive receipt with another current active authority',
+          httpStatus: 200,
+          body: {
+            'valid': false,
+            'productId': 'chronospark_premium_monthly',
+            'error': 'purchase_not_active',
+          },
+          authorityFails: false,
+          expected: 'restored_active',
+        ),
+        (
+          name: 'inactive receipt with unavailable authority',
+          httpStatus: 200,
+          body: {
+            'valid': false,
+            'productId': 'chronospark_premium_monthly',
+            'error': 'purchase_not_active',
+          },
+          authorityFails: true,
+          expected: 'restore_error',
+        ),
+        (
+          name: 'mismatched inactive product',
+          httpStatus: 200,
+          body: {
+            'valid': false,
+            'productId': 'chronospark_premium_annual',
+            'error': 'purchase_not_active',
+          },
+          authorityFails: false,
+          expected: 'verification_failed',
+        ),
+        (
+          name: 'unclassified invalid receipt',
+          httpStatus: 200,
+          body: {'valid': false, 'productId': 'chronospark_premium_monthly'},
+          authorityFails: false,
+          expected: 'verification_failed',
+        ),
+        (
+          name: 'ownership rejection',
+          httpStatus: 403,
+          body: {
+            'valid': false,
+            'productId': 'chronospark_premium_monthly',
+            'error': 'purchase_not_active',
+          },
+          authorityFails: false,
+          expected: 'verification_failed',
+        ),
+        (
+          name: 'retryable receipt failure',
+          httpStatus: 503,
+          body: {
+            'valid': false,
+            'productId': 'chronospark_premium_monthly',
+            'error': 'purchase_not_active',
+          },
+          authorityFails: false,
+          expected: 'verification_failed',
+        ),
+      ]) {
+    test(
+      'restore ${scenario.name} preserves fail-closed verification',
+      () async {
+        int authorityRequests = 0;
+        final client = await _authorityClient((request) async {
+          authorityRequests += 1;
+          if (scenario.authorityFails) {
+            return http.Response('unavailable', 503);
+          }
+          if (scenario.expected == 'restored_active') {
+            return http.Response(
+              jsonEncode([
+                {
+                  'user_id': 'user-1',
+                  'plan_id': 'premium_yearly',
+                  'product_id': 'chronospark_premium_annual',
+                  'status': 'active',
+                  'is_active': true,
+                  'expires_at': DateTime.now()
+                      .toUtc()
+                      .add(const Duration(days: 30))
+                      .toIso8601String(),
+                  'updated_at': DateTime.now().toUtc().toIso8601String(),
+                },
+              ]),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        });
+        final purchase = PurchaseDetails(
+          purchaseID: 'terminal-restore',
+          productID: 'chronospark_premium_monthly',
+          verificationData: PurchaseVerificationData(
+            localVerificationData: 'local-test',
+            serverVerificationData: 'server-test',
+            source: 'google_play',
+          ),
+          transactionDate: '1',
+          status: PurchaseStatus.restored,
+        )..pendingCompletePurchase = true;
+        final billing = _FakeBillingClient(
+          productResponse: ProductDetailsResponse(
+            productDetails: const [],
+            notFoundIDs: const [],
+          ),
+          restoredPurchases: [purchase],
+        );
+        final repository = GooglePlayPaywallRepository(
+          billingClient: billing,
+          paywallTestingModeOverride: false,
+          sharedPreferencesLoader: SharedPreferences.getInstance,
+          receiptVerifyEndpoint: 'https://api.chronospark.app/verify',
+          supabaseClient: client,
+          httpClient: MockClient(
+            (request) async =>
+                http.Response(jsonEncode(scenario.body), scenario.httpStatus),
+          ),
+        );
+        final state = await Logger.withMutedErrors(repository.restorePurchases);
+        expect(state.status, scenario.expected);
+        expect(state.isActive, scenario.expected == 'restored_active');
+        if (scenario.expected == 'restored_active') {
+          expect(state.planId, 'annual');
+        }
+        if (scenario.expected == 'nothing_to_restore' ||
+            scenario.expected == 'restored_active') {
+          expect(authorityRequests, 1);
+        } else if (scenario.authorityFails) {
+          expect(authorityRequests, greaterThan(0));
+        } else {
+          expect(authorityRequests, 0);
+        }
+        expect(billing.completePurchaseCalls, 0);
+        repository.dispose();
+        await client.dispose();
+      },
+    );
+  }
+
   test(
     'restore with no Play purchase refreshes authority and returns inactive',
     () async {

@@ -541,7 +541,7 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
     }
   }
 
-  Future<_VerifiedSubscription?> _verifiedSubscriptionFromServer(
+  Future<_SubscriptionReceipt?> _verifiedSubscriptionFromServer(
     PurchaseDetails purchase, {
     required String? expectedUserId,
   }) async {
@@ -597,6 +597,13 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
       final Map<String, dynamic> body = decoded.map(
         (dynamic key, dynamic value) => MapEntry(key.toString(), value),
       );
+      if (body['productId'] != purchase.productID) {
+        Logger.error('Receipt verification returned a mismatched product.');
+        return null;
+      }
+      if (body['valid'] == false && body['error'] == 'purchase_not_active') {
+        return const _InactiveSubscriptionReceipt();
+      }
       if (body['valid'] != true) {
         return null;
       }
@@ -604,10 +611,6 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
         Logger.error(
           'This build requires a verified Google Play test purchase.',
         );
-        return null;
-      }
-      if (body['productId'] != purchase.productID) {
-        Logger.error('Receipt verification returned a mismatched product.');
         return null;
       }
       final Object? rawStatus = body['status'];
