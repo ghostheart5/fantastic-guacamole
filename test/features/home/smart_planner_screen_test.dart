@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
@@ -34,6 +35,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
+  testWidgets('rolled-back planner retains the local route', (tester) async {
+    final container = _container(
+      conversationAvailable: true,
+      conversationReleased: false,
+    );
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    expect(find.byType(AssistantConversationScreen), findsNothing);
+    expect(find.byType(SmartPlannerScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'private AI route receives staged question without running local guidance',
     (tester) async {
@@ -54,6 +66,7 @@ void main() {
             ),
           );
       await _pumpPlanner(tester, container);
+      await tester.pumpAndSettle();
       expect(find.text('AI conversation · uses credits'), findsOneWidget);
       expect(
         tester
@@ -1553,6 +1566,7 @@ ProviderContainer _container({
   PlannerExplanationPort? explanationPort,
   bool plannerAvailable = true,
   bool conversationAvailable = false,
+  bool conversationReleased = true,
   bool firstUseContextOfferSeen = true,
   SharedPrefsStore? sharedPrefsStore,
   PersonContextRepository? personContextRepository,
@@ -1570,6 +1584,30 @@ ProviderContainer _container({
       assistantConversationAvailableProvider.overrideWithValue(
         conversationAvailable,
       ),
+      if (conversationAvailable)
+        for (final capability in [
+          AssistantReleaseCapability.smartPlannerV2,
+          AssistantReleaseCapability.siConsoleV2,
+          AssistantReleaseCapability.safetyCritic,
+        ])
+          assistantReleaseDecisionProvider(capability).overrideWith(
+            (ref) async => const AssistantReleaseController().decide(
+              config: AssistantReleaseConfig(
+                stage: conversationReleased
+                    ? AssistantReleaseStage.general
+                    : AssistantReleaseStage.off,
+                canaryBasisPoints: 0,
+                shadowEvaluationEnabled: false,
+                internalAccountDigests: const {},
+                rollbackCapabilities: const {},
+              ),
+              request: AssistantReleaseRequest(
+                accountScopeId: 'v2.synthetic-route-review',
+                capability: capability,
+                betaOptIn: false,
+              ),
+            ),
+          ),
       if (conversationAvailable)
         siV2EvidenceSnapshotProvider.overrideWith(
           (ref) async => SIV2EvidenceSnapshot(

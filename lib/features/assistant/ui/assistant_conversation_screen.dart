@@ -76,6 +76,9 @@ class _AssistantConversationScreenState
           .takeFor(accountScopeId: scope, now: DateTime.now().toUtc());
       if (request == null) return;
       setState(() {
+        // Refresh form initial values when the staged request arrives after
+        // async route selection, including its optional energy value.
+        _generation++;
         _input.text = request.prompt ?? '';
         _energy = request.energy;
       });

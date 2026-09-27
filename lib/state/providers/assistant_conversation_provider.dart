@@ -28,6 +28,32 @@ final assistantConversationAvailableProvider = Provider<bool>(
       ref.watch(creditSpendingAvailableProvider),
 );
 
+// Route selection also respects the surface cohort and safety rollback. Loading
+// or failed release decisions retain the on-device UI until approval resolves.
+final assistantConversationSurfaceAvailableProvider =
+    Provider.family<bool, ConversationSurface>((ref, surface) {
+      if (!ref.watch(assistantConversationAvailableProvider)) return false;
+      final capability = surface == ConversationSurface.planner
+          ? AssistantReleaseCapability.smartPlannerV2
+          : AssistantReleaseCapability.siConsoleV2;
+      return ref
+                  .watch(assistantReleaseDecisionProvider(capability))
+                  .asData
+                  ?.value
+                  .enabled ==
+              true &&
+          ref
+                  .watch(
+                    assistantReleaseDecisionProvider(
+                      AssistantReleaseCapability.safetyCritic,
+                    ),
+                  )
+                  .asData
+                  ?.value
+                  .enabled ==
+              true;
+    });
+
 final conversationTransportProvider = Provider<ConversationTransport>(
   (ref) => ref.watch(internalCreditTestTransportProvider),
 );
