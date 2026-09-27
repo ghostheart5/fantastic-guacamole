@@ -4,6 +4,140 @@ import 'package:fantastic_guacamole/domain/policies/si_policy.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    "allows explicit refusal: I cannot diagnose or prescribe. Please consult a qualified clinician.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I cannot diagnose or prescribe. Please consult a qualified clinician.",
+        ),
+        isFalse,
+      );
+    },
+  );
+  test(
+    "allows explicit refusal: I can\u2019t guarantee results. You can compare the options.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I can\u2019t guarantee results. You can compare the options.",
+        ),
+        isFalse,
+      );
+    },
+  );
+  test(
+    "allows explicit refusal: We do not provide legal advice. Please consult a lawyer.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "We do not provide legal advice. Please consult a lawyer.",
+        ),
+        isFalse,
+      );
+    },
+  );
+  test(
+    "allows explicit refusal: No puedo diagnosticar ni prescribir. Consulta con un profesional de salud.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "No puedo diagnosticar ni prescribir. Consulta con un profesional de salud.",
+        ),
+        isFalse,
+      );
+    },
+  );
+  test("allows explicit refusal: NO PODEMOS GARANTIZAR resultados.", () {
+    expect(
+      SiPolicy.containsUnsupportedClaim("NO PODEMOS GARANTIZAR resultados."),
+      isFalse,
+    );
+  });
+  test(
+    "allows explicit refusal: No puedo ofrecer asesor\u00eda legal. Consulta a un abogado.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "No puedo ofrecer asesor\u00eda legal. Consulta a un abogado.",
+        ),
+        isFalse,
+      );
+    },
+  );
+  test(
+    "blocks claim despite refusal: I cannot diagnose, but I prescribe this medication.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I cannot diagnose, but I prescribe this medication.",
+        ),
+        isTrue,
+      );
+    },
+  );
+  test(
+    "blocks claim despite refusal: I cannot guarantee results. I guarantee a cure.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I cannot guarantee results. I guarantee a cure.",
+        ),
+        isTrue,
+      );
+    },
+  );
+  test(
+    "blocks claim despite refusal: No puedo diagnosticar, pero te prescribo este medicamento.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "No puedo diagnosticar, pero te prescribo este medicamento.",
+        ),
+        isTrue,
+      );
+    },
+  );
+  test(
+    "blocks claim despite refusal: No puedo garantizar resultados. Esta rutina te curar\u00e1.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "No puedo garantizar resultados. Esta rutina te curar\u00e1.",
+        ),
+        isTrue,
+      );
+    },
+  );
+  test(
+    "blocks claim despite refusal: No puedo diagnosticar. Mi diagn\u00f3stico es depresi\u00f3n.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "No puedo diagnosticar. Mi diagn\u00f3stico es depresi\u00f3n.",
+        ),
+        isTrue,
+      );
+    },
+  );
+  test("blocks claim despite refusal: I can diagnose your illness.", () {
+    expect(
+      SiPolicy.containsUnsupportedClaim("I can diagnose your illness."),
+      isTrue,
+    );
+  });
+  test(
+    "blocks claim despite refusal: No puedo diagnosticar? Te diagnostico ansiedad.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "No puedo diagnosticar? Te diagnostico ansiedad.",
+        ),
+        isTrue,
+      );
+    },
+  );
+
   group('SiPolicy', () {
     test('shouldSuggestBreak triggers on high fatigue or low energy', () {
       final highFatigue = SiStateEntity(

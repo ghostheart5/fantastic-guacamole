@@ -478,3 +478,137 @@ Deno.test("does not treat an affirming feasibility idiom as a contradiction", ()
     throw new Error("affirming feasibility idiom was rejected");
   }
 });
+
+Deno.test("allows refusal: I cannot diagnose or prescribe. Please consult a qualified clinician.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose or prescribe. Please consult a qualified clinician.",
+    ) !== false
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows refusal: I can\u2019t guarantee results. You can compare the options.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I can\u2019t guarantee results. You can compare the options.",
+    ) !== false
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows refusal: We do not provide legal advice. Please consult a lawyer.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "We do not provide legal advice. Please consult a lawyer.",
+    ) !== false
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows refusal: No puedo diagnosticar ni prescribir. Consulta con un profesional de salud.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar ni prescribir. Consulta con un profesional de salud.",
+    ) !== false
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows refusal: NO PODEMOS GARANTIZAR resultados.", () => {
+  if (
+    containsBlockedAssistantClaim("NO PODEMOS GARANTIZAR resultados.") !== false
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows refusal: No puedo ofrecer asesor\u00eda legal. Consulta a un abogado.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo ofrecer asesor\u00eda legal. Consulta a un abogado.",
+    ) !== false
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: I cannot diagnose, but I prescribe this medication.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose, but I prescribe this medication.",
+    ) !== true
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: I cannot guarantee results. I guarantee a cure.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot guarantee results. I guarantee a cure.",
+    ) !== true
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: No puedo diagnosticar, pero te prescribo este medicamento.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar, pero te prescribo este medicamento.",
+    ) !== true
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: No puedo garantizar resultados. Esta rutina te curar\u00e1.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo garantizar resultados. Esta rutina te curar\u00e1.",
+    ) !== true
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: I cannot diagnose or prescribe; I have scheduled your appointment.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose or prescribe; I have scheduled your appointment.",
+    ) !== true
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: No puedo diagnosticar. Mi diagn\u00f3stico es depresi\u00f3n.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar. Mi diagn\u00f3stico es depresi\u00f3n.",
+    ) !== true
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: I can diagnose your illness.", () => {
+  if (containsBlockedAssistantClaim("I can diagnose your illness.") !== true) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: No puedo diagnosticar? Te diagnostico ansiedad.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar? Te diagnostico ansiedad.",
+    ) !== true
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
