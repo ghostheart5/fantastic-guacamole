@@ -13,6 +13,70 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   for (final spanish in [false, true]) {
     testWidgets(
+      'restore exposes cleanup and reminder warnings ${spanish ? 'es' : 'en'}',
+      (tester) async {
+        final container = ProviderContainer(
+          overrides: [
+            accountStorageScopeProvider.overrideWithValue(
+              AccountStorageScope.authenticated('warning-owner'),
+            ),
+            restoreFromCloudProvider.overrideWith((ref) async {
+              await Future<void>.value();
+              ref.read(cloudRestoreWarningsProvider.notifier)
+                ..add(CloudRestoreWarning.legacyCleanupPending)
+                ..add(CloudRestoreWarning.remindersPending);
+              return true;
+            }),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              locale: Locale(spanish ? 'es' : 'en'),
+              supportedLocales: ChronoSparkLocalizations.supportedLocales,
+              localizationsDelegates: const [
+                ChronoSparkLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: const Scaffold(body: CloudBackupActions(enabled: true)),
+            ),
+          ),
+        );
+        await tester.tap(
+          find.text(
+            spanish ? 'Restaurar copia en la nube' : 'Restore cloud backup',
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.text(spanish ? 'Restaurar copia' : 'Restore backup'),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining(spanish ? 'limpieza segura' : 'secure cleanup'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining(
+            spanish ? 'permiso de notificaciones' : 'notification permission',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.text(
+            spanish ? 'Copia en la nube restaurada.' : 'Cloud backup restored.',
+          ),
+          findsNothing,
+        );
+      },
+    );
+  }
+  for (final spanish in [false, true]) {
+    testWidgets(
       'cloud controls require opt-in, confirmation and completion ${spanish ? 'es' : 'en'}',
       (tester) async {
         var uploads = 0;

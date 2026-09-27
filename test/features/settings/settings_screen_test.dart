@@ -19,6 +19,7 @@ import 'package:fantastic_guacamole/state/providers/person_context_provider.dart
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
+import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
 import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:flutter/material.dart';
@@ -202,6 +203,39 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
   }
+
+  testWidgets('mounted reminder controls reload restored settings', (
+    tester,
+  ) async {
+    final container = createContainer();
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.scrollUntilVisible(
+      find.text('Planning & guidance'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await invokeNavTile(tester, 'Planning & guidance');
+    final actions =
+        container.read(settingsUiActionsProvider) as _FakeSettingsUiActions;
+    final before = actions.advancedLoads;
+    expect(before, greaterThan(0));
+    expect(find.text('Reminder Time'), findsNothing);
+    actions.reflectionPrefs = const ReflectionReminderPrefs(
+      enabled: true,
+      time: TimeOfDay(hour: 9, minute: 30),
+    );
+    container.read(restoredSettingsRevisionProvider.notifier).bump();
+    await tester.pump();
+    expect(find.text('Reminder Time'), findsOneWidget);
+    expect(actions.advancedLoads, before + 1);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final locale in const [Locale('en'), Locale('es')]) {
     testWidgets('cloud recovery scope is readable in ${locale.languageCode}', (
@@ -1116,13 +1150,21 @@ void main() {
 
 class _FakeSettingsUiActions extends SettingsUiActions {
   _FakeSettingsUiActions(super.ref);
+  ReflectionReminderPrefs reflectionPrefs = const ReflectionReminderPrefs(
+    enabled: false,
+    time: TimeOfDay(hour: 20, minute: 0),
+  );
+  int advancedLoads = 0;
+
+  @override
+  ReminderOrchestratorPrefs loadAdvancedReminderPrefs() {
+    advancedLoads++;
+    return super.loadAdvancedReminderPrefs();
+  }
 
   @override
   ReflectionReminderPrefs loadReflectionReminderPrefs() {
-    return const ReflectionReminderPrefs(
-      enabled: false,
-      time: TimeOfDay(hour: 20, minute: 0),
-    );
+    return reflectionPrefs;
   }
 
   @override

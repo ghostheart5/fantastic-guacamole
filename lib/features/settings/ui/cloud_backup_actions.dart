@@ -98,6 +98,17 @@ class CloudBackupActionsState extends ConsumerState<CloudBackupActions> {
                 'The cloud operation could not finish. Check your connection and recovery key, then review your local data before trying again.',
                 'La operación en la nube no pudo finalizar. Revisa la conexión y la clave de recuperación, y luego tus datos locales antes de volver a intentarlo.',
               );
+        if (success && restore) {
+          final warnings = ref.read(cloudRestoreWarningsProvider);
+          if (warnings.contains(CloudRestoreWarning.legacyCleanupPending)) {
+            _message =
+                '${_message!} ${journeyText(context, 'An older cloud copy still needs secure cleanup. Do not treat this restore as fully finished.', 'Una copia anterior en la nube aún necesita una limpieza segura. La restauración no ha finalizado por completo.')}';
+          }
+          if (warnings.contains(CloudRestoreWarning.remindersPending)) {
+            _message =
+                '${_message!} ${journeyText(context, 'Device reminders could not all be updated. Review reminder settings and notification permission on this device.', 'No se pudieron actualizar todos los recordatorios. Revisa sus ajustes y el permiso de notificaciones en este dispositivo.')}';
+          }
+        }
       });
     } on Object {
       if (!mounted ||

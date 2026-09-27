@@ -141,6 +141,7 @@ void invalidateAccountOwnedProviders(Ref ref) {
   ref.invalidate(aiCreditWalletProvider);
 
   ref.invalidate(syncErrorMessageProvider);
+  ref.invalidate(cloudRestoreWarningsProvider);
   ref.invalidate(offlineSyncQueueProvider);
   ref.invalidate(syncServiceProvider);
   ref.invalidate(syncToCloudProvider);

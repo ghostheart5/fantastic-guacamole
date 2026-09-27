@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
 
@@ -193,6 +194,132 @@ class ReminderOrchestratorService {
     await _preferences.save(_dailyPlanningEnabledKey, enabled.toString());
     await _preferences.save(_dailyPlanningTimeKey, '$hour:$minute');
     await ensureDailyPlanningReminder();
+  }
+
+  /// Reconcile only this account's OS reminders after preferences are replaced.
+  /// Keep local goal/habit content; neither is part of the cloud backup.
+  Future<bool> reconcileAfterRestore({
+    required List<GoalEntity> goals,
+    required List<HabitEntity> habits,
+    required bool permissionGranted,
+    required bool Function() shouldContinue,
+  }) {
+    return KeyedMutationCoordinator.shared.runExclusive<bool>(
+      AccountDataRegistry.notificationMutationKeyForScope(
+        _accountScope ?? 'legacy',
+      ),
+      () async {
+        if (!shouldContinue()) return false;
+        final goalIds = {
+          ..._trackedGoalReminderIds(),
+          ...goals.map((g) => g.id),
+        };
+        final ids = {
+          ...goalIds.map(_goalReminderId),
+          _habitReminderId,
+          _dailyPlanningReminderId,
+        };
+        bool complete = true;
+        // Cancel stale times and disabled reminders even without OS permission.
+        for (final id in ids) {
+          if (!shouldContinue()) return false;
+          final cancelled = await _scheduler.cancel(
+            id,
+            accountScope: _accountScope,
+          );
+          complete = cancelled && complete;
+        }
+        if (!shouldContinue()) return false;
+        final prefs = loadPrefs();
+        final scheduledGoals = <String>{};
+        if (prefs.goalRemindersEnabled) {
+          for (final goal in goals) {
+            if (!shouldContinue()) return false;
+            if (goal.isCompleted || goal.targetDate == null) continue;
+            final at = _resolveGoalReminderAt(goal.targetDate!);
+            if (at == null) continue;
+            if (!permissionGranted) {
+              complete = false;
+              continue;
+            }
+            final scheduled = await _scheduler.schedule(
+              NotificationEntity(
+                id: _goalReminderId(goal.id),
+                title: 'Goal Reminder',
+                message: 'Target date is near for "${goal.title}".',
+                scheduledAt: at,
+              ),
+              accountScope: _accountScope,
+            );
+            complete = scheduled && complete;
+            if (!shouldContinue()) {
+              for (final id in ids) {
+                await _scheduler.cancel(id, accountScope: _accountScope);
+              }
+              return false;
+            }
+            if (scheduled) scheduledGoals.add(goal.id);
+          }
+        }
+        HabitEntity? activeHabit;
+        for (final habit in habits) {
+          if (habit.active) {
+            activeHabit = habit;
+            break;
+          }
+        }
+        Future<void> daily(
+          String id,
+          String title,
+          String body,
+          int hour,
+          int minute,
+        ) async {
+          if (!shouldContinue()) return;
+          if (!permissionGranted) {
+            complete = false;
+            return;
+          }
+          final scheduled = await _scheduler.scheduleDailyAt(
+            id: id,
+            title: title,
+            body: body,
+            hour: hour,
+            minute: minute,
+            accountScope: _accountScope,
+          );
+          complete = scheduled && complete;
+        }
+
+        if (prefs.habitRemindersEnabled && activeHabit != null) {
+          await daily(
+            _habitReminderId,
+            'Habit Reminder',
+            'Stay consistent: ${activeHabit.title}',
+            20,
+            0,
+          );
+        }
+        if (prefs.dailyPlanningEnabled) {
+          await daily(
+            _dailyPlanningReminderId,
+            'Daily Planning Reminder',
+            'Open Planner and set your top 3 execution targets.',
+            prefs.dailyPlanningHour,
+            prefs.dailyPlanningMinute,
+          );
+        }
+        if (!shouldContinue()) {
+          for (final id in ids) {
+            await _scheduler.cancel(id, accountScope: _accountScope);
+          }
+          return false;
+        }
+        // Retain cancellation candidates if an OS cancellation failed.
+        await _saveTrackedGoalReminderIds(complete ? scheduledGoals : goalIds);
+        return complete;
+      },
+    );
   }
 
   bool _isEnabled(String key, {required bool defaultValue}) {

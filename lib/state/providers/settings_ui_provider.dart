@@ -165,6 +165,17 @@ final settingsUiActionsProvider = Provider<SettingsUiActions>((Ref ref) {
   return SettingsUiActions(ref);
 });
 
+final restoredSettingsRevisionProvider =
+    NotifierProvider<RestoredSettingsRevision, int>(
+      RestoredSettingsRevision.new,
+    );
+
+class RestoredSettingsRevision extends Notifier<int> {
+  @override
+  int build() => 0;
+  void bump() => state++;
+}
+
 final telemetryConsentProvider =
     FutureProvider.family<TelemetryConsent, String>(
       (Ref ref, String accountId) => TelemetryConsentStore().load(accountId),
