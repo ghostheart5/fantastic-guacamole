@@ -1,3 +1,6 @@
+import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
+import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'dart:async';
@@ -21,6 +24,20 @@ void main() {
   final DateTime now = DateTime.utc(2026, 8, 20, 12);
   final SIV2EvidenceSnapshot snapshot = _snapshot(now);
 
+  testWidgets('rolled-back SI retains the local route', (tester) async {
+    final port = _RecordingPort(snapshot: snapshot, now: now);
+    final container = _container(
+      port,
+      snapshot,
+      conversationAvailable: true,
+      conversationReleased: false,
+    );
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+    expect(find.byType(AssistantConversationScreen), findsNothing);
+    expect(find.byType(SIConsoleScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('private SI route displays the conversation entry', (
     tester,
   ) async {
@@ -759,6 +776,7 @@ ProviderContainer _container(
   SIV2EvidenceSnapshot snapshot, {
   bool available = true,
   bool conversationAvailable = false,
+  bool conversationReleased = true,
   VoiceController? voiceController,
 }) {
   return ProviderContainer(
@@ -766,6 +784,30 @@ ProviderContainer _container(
       assistantConversationAvailableProvider.overrideWithValue(
         conversationAvailable,
       ),
+      if (conversationAvailable)
+        for (final capability in [
+          AssistantReleaseCapability.smartPlannerV2,
+          AssistantReleaseCapability.siConsoleV2,
+          AssistantReleaseCapability.safetyCritic,
+        ])
+          assistantReleaseDecisionProvider(capability).overrideWith(
+            (ref) async => const AssistantReleaseController().decide(
+              config: AssistantReleaseConfig(
+                stage: conversationReleased
+                    ? AssistantReleaseStage.general
+                    : AssistantReleaseStage.off,
+                canaryBasisPoints: 0,
+                shadowEvaluationEnabled: false,
+                internalAccountDigests: const {},
+                rollbackCapabilities: const {},
+              ),
+              request: AssistantReleaseRequest(
+                accountScopeId: 'v2.synthetic-route-review',
+                capability: capability,
+                betaOptIn: false,
+              ),
+            ),
+          ),
       if (voiceController != null)
         voiceInputEnabledProvider.overrideWithValue(true),
       if (voiceController != null)

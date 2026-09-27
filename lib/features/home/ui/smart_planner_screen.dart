@@ -110,13 +110,23 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         : null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _consumeFirstValueRequest();
+      unawaited(_consumeFirstValueRequest());
     });
   }
 
-  void _consumeFirstValueRequest() {
+  Future<void> _consumeFirstValueRequest() async {
     if (!_useLocalTools && ref.read(assistantConversationAvailableProvider)) {
-      return; // The conversation screen reviews this request before sending.
+      // Keep the first-use question queued while the async release decision
+      // selects the conversation route. An excluded account consumes it locally.
+      try {
+        final available = await ref.read(
+          smartPlannerAvailabilityProvider.future,
+        );
+        if (!mounted) return;
+        if (!_useLocalTools && available) return;
+      } catch (_) {
+        if (!mounted) return;
+      }
     }
     final String accountScopeId =
         ref.read(accountStorageScopeProvider).v2Namespace ?? '';
@@ -1224,7 +1234,12 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_useLocalTools && ref.watch(assistantConversationAvailableProvider)) {
+    if (!_useLocalTools &&
+        ref.watch(
+          assistantConversationSurfaceAvailableProvider(
+            ConversationSurface.planner,
+          ),
+        )) {
       return AssistantConversationScreen(
         surface: ConversationSurface.planner,
         onLocalTools: () => setState(() => _useLocalTools = true),

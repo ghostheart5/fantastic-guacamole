@@ -748,7 +748,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (!_useLocalTools && ref.watch(assistantConversationAvailableProvider)) {
+    if (!_useLocalTools &&
+        ref.watch(
+          assistantConversationSurfaceAvailableProvider(ConversationSurface.si),
+        )) {
       return AssistantConversationScreen(
         surface: ConversationSurface.si,
         onLocalTools: () => setState(() => _useLocalTools = true),

@@ -18,11 +18,41 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 
-// Uses the existing private, authenticated AI cohort. Public launch remains
-// contained until the new conversational experience is reviewed on-device.
+// Availability follows the reviewed public capabilities or existing private
+// cohort through the shared providers. Consent and account generation are
+// checked again before quoting and after paid execution.
 final assistantConversationAvailableProvider = Provider<bool>(
-  (ref) => ref.watch(internalCreditTestEnabledProvider),
+  (ref) =>
+      ref.watch(accountStorageScopeProvider).isWritable &&
+      ref.watch(aiProxyAvailableProvider) &&
+      ref.watch(creditSpendingAvailableProvider),
 );
+
+// Route selection also respects the surface cohort and safety rollback. Loading
+// or failed release decisions retain the on-device UI until approval resolves.
+final assistantConversationSurfaceAvailableProvider =
+    Provider.family<bool, ConversationSurface>((ref, surface) {
+      if (!ref.watch(assistantConversationAvailableProvider)) return false;
+      final capability = surface == ConversationSurface.planner
+          ? AssistantReleaseCapability.smartPlannerV2
+          : AssistantReleaseCapability.siConsoleV2;
+      return ref
+                  .watch(assistantReleaseDecisionProvider(capability))
+                  .asData
+                  ?.value
+                  .enabled ==
+              true &&
+          ref
+                  .watch(
+                    assistantReleaseDecisionProvider(
+                      AssistantReleaseCapability.safetyCritic,
+                    ),
+                  )
+                  .asData
+                  ?.value
+                  .enabled ==
+              true;
+    });
 
 final conversationTransportProvider = Provider<ConversationTransport>(
   (ref) => ref.watch(internalCreditTestTransportProvider),

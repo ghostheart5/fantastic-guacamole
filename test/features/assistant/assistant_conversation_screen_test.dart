@@ -1670,6 +1670,92 @@ void main() {
   });
 
   testWidgets(
+    'account change withholds a paid reply from the previous account',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var currentScope = scope;
+      final pending = Completer<({int status, Map<String, dynamic> data})>();
+      String? executedRequestId;
+      final container = setup((body) async {
+        if (body['quoteOnly'] != true) {
+          executedRequestId = body['requestId'] as String;
+          return pending.future;
+        }
+        return (
+          status: 200,
+          data: <String, dynamic>{
+            'requestId': body['requestId'],
+            'quote': <String, dynamic>{
+              'credits': 4,
+              'digest': 'fixture',
+              'proof': 'fixture',
+              'policy': 'fixture',
+              'expiresAt': DateTime.now()
+                  .add(const Duration(minutes: 5))
+                  .millisecondsSinceEpoch,
+            },
+          },
+        );
+      }, readScope: () => currentScope);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Private account A question.',
+      );
+      await tester.tap(find.byTooltip('Send to AI'));
+      await waitFor(tester, find.text('Get credit price'));
+      await tester.tap(find.text('Get credit price'));
+      await waitFor(tester, find.text('Use 4 credits'));
+      await tester.tap(find.text('Use 4 credits'));
+      await tester.pump();
+      expect(executedRequestId, isNotNull);
+      currentScope = AccountStorageScope.authenticated(
+        'different-paid-account',
+      );
+      container.invalidate(accountStorageScopeProvider);
+      await tester.pumpAndSettle();
+      pending.complete((
+        status: 200,
+        data: <String, dynamic>{
+          'requestId': executedRequestId,
+          'message': 'Private late response for account A.',
+          'creditsCharged': 4,
+          'remainingCredits': 20,
+          'model': 'transport-fixture',
+        },
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('Private account A question.'), findsNothing);
+      expect(find.text('Private late response for account A.'), findsNothing);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('conversation-input')))
+            .controller!
+            .text,
+        isEmpty,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'account change dismisses private request review and clears input',
     (tester) async {
       var currentScope = scope;
