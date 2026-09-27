@@ -478,3 +478,374 @@ Deno.test("does not treat an affirming feasibility idiom as a contradiction", ()
     throw new Error("affirming feasibility idiom was rejected");
   }
 });
+
+Deno.test("allows refusal: I cannot diagnose or prescribe. Please consult a qualified clinician.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose or prescribe. Please consult a qualified clinician.",
+    ) !== false
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows refusal: I can\u2019t guarantee results. You can compare the options.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I can\u2019t guarantee results. You can compare the options.",
+    ) !== false
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows refusal: We do not provide legal advice. Please consult a lawyer.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "We do not provide legal advice. Please consult a lawyer.",
+    ) !== false
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows refusal: No puedo diagnosticar ni prescribir. Consulta con un profesional de salud.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar ni prescribir. Consulta con un profesional de salud.",
+    ) !== false
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows refusal: NO PODEMOS GARANTIZAR resultados.", () => {
+  if (
+    containsBlockedAssistantClaim("NO PODEMOS GARANTIZAR resultados.") !== false
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows refusal: No puedo ofrecer asesor\u00eda legal. Consulta a un abogado.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo ofrecer asesor\u00eda legal. Consulta a un abogado.",
+    ) !== false
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: I cannot diagnose, but I prescribe this medication.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose, but I prescribe this medication.",
+    ) !== true
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: I cannot guarantee results. I guarantee a cure.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot guarantee results. I guarantee a cure.",
+    ) !== true
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: No puedo diagnosticar, pero te prescribo este medicamento.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar, pero te prescribo este medicamento.",
+    ) !== true
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: No puedo garantizar resultados. Esta rutina te curar\u00e1.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo garantizar resultados. Esta rutina te curar\u00e1.",
+    ) !== true
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: I cannot diagnose or prescribe; I have scheduled your appointment.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose or prescribe; I have scheduled your appointment.",
+    ) !== true
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: No puedo diagnosticar. Mi diagn\u00f3stico es depresi\u00f3n.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar. Mi diagn\u00f3stico es depresi\u00f3n.",
+    ) !== true
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: I can diagnose your illness.", () => {
+  if (containsBlockedAssistantClaim("I can diagnose your illness.") !== true) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks claim despite refusal: No puedo diagnosticar? Te diagnostico ansiedad.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar? Te diagnostico ansiedad.",
+    ) !== true
+  ) {
+    throw new Error("refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows noun refusal: I cannot guarantee a cure. Consult a clinician.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot guarantee a cure. Consult a clinician.",
+    ) !== false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows noun refusal: I cannot provide a diagnosis. Consult a clinician.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot provide a diagnosis. Consult a clinician.",
+    ) !== false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows noun refusal: I cannot give a medical diagnosis or prescribe medication.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot give a medical diagnosis or prescribe medication.",
+    ) !== false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows noun refusal: I cannot provide a prescription.", () => {
+  if (
+    containsBlockedAssistantClaim("I cannot provide a prescription.") !== false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows noun refusal: No puedo garantizar una cura. Consulta con un profesional.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo garantizar una cura. Consulta con un profesional.",
+    ) !== false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows noun refusal: No puedo proporcionar un diagn\u00f3stico.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo proporcionar un diagn\u00f3stico.",
+    ) !== false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows noun refusal: No puedo ofrecer una prescripci\u00f3n.", () => {
+  if (
+    containsBlockedAssistantClaim("No puedo ofrecer una prescripci\u00f3n.") !==
+      false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows noun refusal: No puedo garantizar una cura ni proporcionar un diagn\u00f3stico.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo garantizar una cura ni proporcionar un diagn\u00f3stico.",
+    ) !== false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks noun claim after refusal: I cannot guarantee a cure. This will cure your illness.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot guarantee a cure. This will cure your illness.",
+    ) !== true
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks noun claim after refusal: I cannot provide a diagnosis, but my diagnosis is depression.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot provide a diagnosis, but my diagnosis is depression.",
+    ) !== true
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks noun claim after refusal: No puedo proporcionar un diagn\u00f3stico. Mi diagn\u00f3stico es depresi\u00f3n.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo proporcionar un diagn\u00f3stico. Mi diagn\u00f3stico es depresi\u00f3n.",
+    ) !== true
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks noun claim after refusal: No puedo garantizar una cura, pero esta rutina te curar\u00e1.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo garantizar una cura, pero esta rutina te curar\u00e1.",
+    ) !== true
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows object refusal: I cannot diagnose your condition or prescribe medication. Talk to your clinician.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose your condition or prescribe medication. Talk to your clinician.",
+    ) !== false
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows object refusal: I cannot diagnose your mental health condition or provide a prescription.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose your mental health condition or provide a prescription.",
+    ) !== false
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows object refusal: No puedo diagnosticar tu condicion ni prescribir medicamentos. Consulta con un profesional.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar tu condicion ni prescribir medicamentos. Consulta con un profesional.",
+    ) !== false
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows object refusal: No puedo diagnosticar tu salud mental ni proporcionar un diagnostico.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar tu salud mental ni proporcionar un diagnostico.",
+    ) !== false
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows object refusal: I cannot guarantee results or provide a diagnosis.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot guarantee results or provide a diagnosis.",
+    ) !== false
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks new clause after refusal: I cannot diagnose your condition, but I prescribe medication.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose your condition, but I prescribe medication.",
+    ) !== true
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks new clause after refusal: I cannot diagnose your condition and I prescribe medication.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose your condition and I prescribe medication.",
+    ) !== true
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks new clause after refusal: I cannot diagnose your condition because I prescribe medication.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose your condition because I prescribe medication.",
+    ) !== true
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks new clause after refusal: No puedo diagnosticar tu condicion, pero te prescribo medicamentos.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar tu condicion, pero te prescribo medicamentos.",
+    ) !== true
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks new clause after refusal: No puedo diagnosticar tu condicion y yo prescribo medicamentos.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar tu condicion y yo prescribo medicamentos.",
+    ) !== true
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks new clause after refusal: I cannot diagnose your condition. I guarantee a cure.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot diagnose your condition. I guarantee a cure.",
+    ) !== true
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks new clause after refusal: No puedo diagnosticar tu condicion aunque esta rutina te curara.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo diagnosticar tu condicion aunque esta rutina te curara.",
+    ) !== true
+  ) {
+    throw new Error("object refusal boundary mismatch");
+  }
+});

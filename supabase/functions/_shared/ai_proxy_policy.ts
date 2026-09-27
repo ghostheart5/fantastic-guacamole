@@ -99,13 +99,18 @@ export function buildServerSystemPrompt(
 
 export function containsBlockedAssistantClaim(value: string): boolean {
   const collapsed = value.replaceAll(/\s+/g, " ");
-  const normalized = collapsed.toLowerCase();
-  // Match the client's SiPolicy for Spanish unsupported claims. Accent folding
-  // handles both composed and decomposed input, including accented word endings.
-  // Leave the existing mutation-claim matching below unchanged.
+  // Bound object words inside explicit negation, stopping at a new clause,
+  // subject, or unsupported claim. An affirmative claim remains scan-visible.
+  const normalized = collapsed.toLowerCase().replaceAll(
+    /\b(?:i|we)\s+(?:cannot|can['’]t|do not|don['’]t)\s+(?:diagnose|prescribe|guarantee(?:\s+(?:a|any)\s+cure)?|cure|(?:provide|give)\s+(?:(?:a\s+)?(?:medical\s+)?diagnosis|(?:a\s+)?prescription|legal advice))(?:\s+(?!(?:but|however|yet|although|because|and|or|i|we|axiomara|diagnos[a-z]*|prescrib[a-z]*|guarantee[a-z]*|cure[a-z]*|legal)\b)[a-z]+){0,6}(?:\s*(?:,|or|and)\s*(?:diagnose|prescribe|guarantee(?:\s+(?:a|any)\s+cure)?|cure|(?:provide|give)\s+(?:(?:a\s+)?(?:medical\s+)?diagnosis|(?:a\s+)?prescription|legal advice))(?:\s+(?!(?:but|however|yet|although|because|and|or|i|we|axiomara|diagnos[a-z]*|prescrib[a-z]*|guarantee[a-z]*|cure[a-z]*|legal)\b)[a-z]+){0,6})*\b/g,
+    "[explicit refusal]",
+  );
   const spanish = normalized.normalize("NFD").replaceAll(
     /[\u0300-\u036f]/g,
     "",
+  ).replaceAll(
+    /\bno\s+(?:puedo|podemos)\s+(?:diagnosticar|prescribir|garantizar(?:\s+(?:una|ninguna)\s+cura)?|curar|(?:dar|ofrecer|hacer|proporcionar)\s+(?:(?:un\s+)?diagnostico|(?:una\s+)?prescripcion|(?:asesoramiento|asesoria|consejos?)\s+legal(?:es)?))(?:\s+(?!(?:pero|aunque|porque|sin|embargo|ni|o|y|yo|nosotros|nosotras|axiomara|diagnostic[a-z]*|prescri[a-z]*|garanti[a-z]*|cur[a-z]*|asesor[a-z]*|consejo[a-z]*)\b)[a-z]+){0,6}(?:\s*(?:,|ni|o)\s*(?:diagnosticar|prescribir|garantizar(?:\s+(?:una|ninguna)\s+cura)?|curar|(?:dar|ofrecer|hacer|proporcionar)\s+(?:(?:un\s+)?diagnostico|(?:una\s+)?prescripcion|(?:asesoramiento|asesoria|consejos?)\s+legal(?:es)?))(?:\s+(?!(?:pero|aunque|porque|sin|embargo|ni|o|y|yo|nosotros|nosotras|axiomara|diagnostic[a-z]*|prescri[a-z]*|garanti[a-z]*|cur[a-z]*|asesor[a-z]*|consejo[a-z]*)\b)[a-z]+){0,6})*\b/g,
+    "[explicit refusal]",
   );
   if (
     [

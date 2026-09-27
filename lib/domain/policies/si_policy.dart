@@ -59,12 +59,23 @@ class SiPolicy {
   /// [SiDecisionEntity]. Model output previously bypassed this list entirely —
   /// `sanitize` only ever saw decisions, never generated prose.
   static bool containsUnsupportedClaim(String text) {
-    if (_unsafeClaimPatterns.any((RegExp pattern) => pattern.hasMatch(text))) {
+    // Remove only explicit first-person refusal verb phrases. Claims elsewhere
+    // in the same answer must still pass the original safety checks.
+    final String claims = text.replaceAll(
+      RegExp(
+        r"\b(?:i|we)\s+(?:cannot|can['’]t|do not|don['’]t)\s+(?:diagnose|prescribe|guarantee(?:\s+(?:a|any)\s+cure)?|cure|(?:provide|give)\s+(?:(?:a\s+)?(?:medical\s+)?diagnosis|(?:a\s+)?prescription|legal advice))(?:\s+(?!(?:but|however|yet|although|because|and|or|i|we|axiomara|diagnos[a-z]*|prescrib[a-z]*|guarantee[a-z]*|cure[a-z]*|legal)\b)[a-z]+){0,6}(?:\s*(?:,|or|and)\s*(?:diagnose|prescribe|guarantee(?:\s+(?:a|any)\s+cure)?|cure|(?:provide|give)\s+(?:(?:a\s+)?(?:medical\s+)?diagnosis|(?:a\s+)?prescription|legal advice))(?:\s+(?!(?:but|however|yet|although|because|and|or|i|we|axiomara|diagnos[a-z]*|prescrib[a-z]*|guarantee[a-z]*|cure[a-z]*|legal)\b)[a-z]+){0,6})*\b",
+        caseSensitive: false,
+      ),
+      '[explicit refusal]',
+    );
+    if (_unsafeClaimPatterns.any(
+      (RegExp pattern) => pattern.hasMatch(claims),
+    )) {
       return true;
     }
     // Fold Spanish accents, including decomposed input, before word-boundary
     // matching. Otherwise a final accented vowel can evade an ASCII boundary.
-    final String spanish = text
+    final String spanish = claims
         .toLowerCase()
         .replaceAll('á', 'a')
         .replaceAll('é', 'e')
@@ -72,7 +83,13 @@ class SiPolicy {
         .replaceAll('ó', 'o')
         .replaceAll('ú', 'u')
         .replaceAll('ü', 'u')
-        .replaceAll(RegExp(r'[\u0300-\u036f]'), '');
+        .replaceAll(RegExp(r'[\u0300-\u036f]'), '')
+        .replaceAll(
+          RegExp(
+            r"\bno\s+(?:puedo|podemos)\s+(?:diagnosticar|prescribir|garantizar(?:\s+(?:una|ninguna)\s+cura)?|curar|(?:dar|ofrecer|hacer|proporcionar)\s+(?:(?:un\s+)?diagnostico|(?:una\s+)?prescripcion|(?:asesoramiento|asesoria|consejos?)\s+legal(?:es)?))(?:\s+(?!(?:pero|aunque|porque|sin|embargo|ni|o|y|yo|nosotros|nosotras|axiomara|diagnostic[a-z]*|prescri[a-z]*|garanti[a-z]*|cur[a-z]*|asesor[a-z]*|consejo[a-z]*)\b)[a-z]+){0,6}(?:\s*(?:,|ni|o)\s*(?:diagnosticar|prescribir|garantizar(?:\s+(?:una|ninguna)\s+cura)?|curar|(?:dar|ofrecer|hacer|proporcionar)\s+(?:(?:un\s+)?diagnostico|(?:una\s+)?prescripcion|(?:asesoramiento|asesoria|consejos?)\s+legal(?:es)?))(?:\s+(?!(?:pero|aunque|porque|sin|embargo|ni|o|y|yo|nosotros|nosotras|axiomara|diagnostic[a-z]*|prescri[a-z]*|garanti[a-z]*|cur[a-z]*|asesor[a-z]*|consejo[a-z]*)\b)[a-z]+){0,6})*\b",
+          ),
+          '[explicit refusal]',
+        );
     return _spanishUnsafeClaimPatterns.any(
       (RegExp pattern) => pattern.hasMatch(spanish),
     );
