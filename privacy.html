@@ -16,7 +16,7 @@
   <main id="main">
     <p class="eyebrow">Axiomara: Decision OS</p>
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated: September 18, 2026</p>
+    <p class="updated">Last updated: September 26, 2026</p>
     <p class="summary">This policy explains how Axiomara handles data in the Android app and its account, billing, notification, and optional AI services.</p>
 
     <h2>Audience</h2>
@@ -42,6 +42,11 @@
     <h2>Storage and service providers</h2>
     <p>Core planning content is stored on your device. Axiomara uses Supabase for authentication and approved account-scoped backend operations. Billing verification and AI-credit operations may store account-linked purchase and usage records. Firebase Cloud Messaging may process a device token for notifications. The app marketplace processes distribution and billing.</p>
     <p>Firebase Analytics and Crashlytics are disabled in the current release configuration. Axiomara does not display ads, require users to watch ads, or sell personal information for advertising.</p>
+
+    <h2>Optional encrypted cloud backup</h2>
+    <p>Cloud backup and recovery are optional when available in your app version. Cloud Backup is off by default for each account. If you turn it on, Axiomara sends an account-scoped backup of supported tasks, goals, habits, notes, occurrence history, decision outcomes, profile information, and account preferences to Supabase. The backup payload is encrypted on your device before upload. Supabase also receives account-linked backup metadata needed to store and synchronize it.</p>
+    <p>The backup encryption key is kept in the app's local secure storage. You can export a recovery key and keep it separately, then import it on another device before restoring. Axiomara does not upload that recovery key with your cloud backup. If you lose both the local key and your recovery copy, the encrypted backup cannot be restored.</p>
+    <p>You can turn Cloud Backup off in Settings to stop future automatic transfers. Turning it off does not delete a backup already stored in the cloud. Account deletion removes the account's active cloud backup and associated Storage objects; service backups and records required for security, billing disputes, or legal obligations follow the retention rules below.</p>
 
     <h2>Optional external AI</h2>
     <p>When an external AI action is available, Axiomara shows the provider, the categories of information to be sent, and the expected credit cost before confirmation. If you confirm, the request passes through Axiomara's service to Anthropic. You can decline and continue using non-generative planning features.</p>
