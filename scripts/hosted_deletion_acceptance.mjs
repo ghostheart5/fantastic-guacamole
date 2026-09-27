@@ -100,7 +100,8 @@ export async function run(env, cleanupOnly = false) {
     // Android uses no browser Origin. Deployments may intentionally disable web CORS.
     require(cors.ok && [null, 'https://chronospark.app'].includes(cors.allowOrigin),
       'Unexpected browser origin policy');
-    checks.browserOriginPolicy = cors.allowOrigin === null ? 'disabled' : 'chronospark.app';
+    checks.probedBrowserOrigin = { origin: 'https://chronospark.app',
+      allowed: cors.allowOrigin === 'https://chronospark.app' };
     const foreignCors = await request('/functions/v1/account-delete', 'invalid-test-token', 'OPTIONS', undefined,
       false, 'https://example.invalid');
     require(foreignCors.ok && foreignCors.allowOrigin === null, 'Foreign CORS origin was admitted');
