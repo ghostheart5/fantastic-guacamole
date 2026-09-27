@@ -5,6 +5,139 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    "allows object refusal: I cannot diagnose your condition or prescribe medication. Talk to your clinician.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I cannot diagnose your condition or prescribe medication. Talk to your clinician.",
+        ),
+        isFalse,
+      );
+    },
+  );
+  test(
+    "allows object refusal: I cannot diagnose your mental health condition or provide a prescription.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I cannot diagnose your mental health condition or provide a prescription.",
+        ),
+        isFalse,
+      );
+    },
+  );
+  test(
+    "allows object refusal: No puedo diagnosticar tu condicion ni prescribir medicamentos. Consulta con un profesional.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "No puedo diagnosticar tu condicion ni prescribir medicamentos. Consulta con un profesional.",
+        ),
+        isFalse,
+      );
+    },
+  );
+  test(
+    "allows object refusal: No puedo diagnosticar tu salud mental ni proporcionar un diagnostico.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "No puedo diagnosticar tu salud mental ni proporcionar un diagnostico.",
+        ),
+        isFalse,
+      );
+    },
+  );
+  test(
+    "allows object refusal: I cannot guarantee results or provide a diagnosis.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I cannot guarantee results or provide a diagnosis.",
+        ),
+        isFalse,
+      );
+    },
+  );
+  test(
+    "blocks new clause after refusal: I cannot diagnose your condition, but I prescribe medication.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I cannot diagnose your condition, but I prescribe medication.",
+        ),
+        isTrue,
+      );
+    },
+  );
+  test(
+    "blocks new clause after refusal: I cannot diagnose your condition and I prescribe medication.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I cannot diagnose your condition and I prescribe medication.",
+        ),
+        isTrue,
+      );
+    },
+  );
+  test(
+    "blocks new clause after refusal: I cannot diagnose your condition because I prescribe medication.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I cannot diagnose your condition because I prescribe medication.",
+        ),
+        isTrue,
+      );
+    },
+  );
+  test(
+    "blocks new clause after refusal: No puedo diagnosticar tu condicion, pero te prescribo medicamentos.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "No puedo diagnosticar tu condicion, pero te prescribo medicamentos.",
+        ),
+        isTrue,
+      );
+    },
+  );
+  test(
+    "blocks new clause after refusal: No puedo diagnosticar tu condicion y yo prescribo medicamentos.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "No puedo diagnosticar tu condicion y yo prescribo medicamentos.",
+        ),
+        isTrue,
+      );
+    },
+  );
+  test(
+    "blocks new clause after refusal: I cannot diagnose your condition. I guarantee a cure.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I cannot diagnose your condition. I guarantee a cure.",
+        ),
+        isTrue,
+      );
+    },
+  );
+  test(
+    "blocks new clause after refusal: No puedo diagnosticar tu condicion aunque esta rutina te curara.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "No puedo diagnosticar tu condicion aunque esta rutina te curara.",
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test(
     "allows noun refusal: I cannot guarantee a cure. Consult a clinician.",
     () {
       expect(
