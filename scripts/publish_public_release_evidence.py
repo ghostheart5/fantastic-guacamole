@@ -8,7 +8,7 @@ import tempfile
 
 from public_release_profile import (
     PUBLIC_POLICY, PUBLIC_SETTINGS, assemble_public_defines, canonical,
-    require, strict_json, validate_public_evidence, validate_source_gates,
+    require, resolve_public_settings, strict_json, validate_public_evidence, validate_source_gates,
 )
 
 
@@ -50,7 +50,8 @@ if __name__ == '__main__':
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
     sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-    defines = assemble_public_defines({key: os.environ.get(key) for key in PUBLIC_SETTINGS}, PUBLIC_POLICY)
+    settings = resolve_public_settings({key: os.environ.get(key) for key in PUBLIC_SETTINGS})
+    defines = assemble_public_defines(settings, PUBLIC_POLICY)
     verdict = publish(os.environ['PUBLIC_EVIDENCE_PACKET'], args.output, sha,
                       defines, Path('lib/config/launch_containment.dart').read_text(encoding='utf-8'))
     print(canonical(verdict))
