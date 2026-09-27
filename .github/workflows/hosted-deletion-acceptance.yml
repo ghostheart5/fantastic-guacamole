@@ -1,0 +1,63 @@
+name: Hosted Deletion Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Reviewed immutable backend source; must be protected main ancestry
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    if: github.actor == 'ghostheart5' && github.ref == 'refs/heads/main'
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout protected acceptance tooling
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify reviewed backend identity before service settings
+        id: reviewed-backend
+        env:
+          ACCEPTANCE_SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          [[ "$ACCEPTANCE_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]] || exit 1
+          git merge-base --is-ancestor "$ACCEPTANCE_SOURCE_SHA" origin/main
+          git diff --exit-code "$ACCEPTANCE_SOURCE_SHA" -- supabase/functions supabase/migrations
+      - name: Check ownership and cleanup guards
+        run: node --test scripts/hosted_deletion_acceptance.test.mjs
+      - name: Exercise deployed deletion route with owned synthetic accounts
+        env:
+          ACCEPTANCE_SOURCE_SHA: ${{ inputs.source_sha }}
+          ACCEPTANCE_RECEIPT: ${{ runner.temp }}/hosted-deletion-receipt.json
+          CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          CHRONOSPARK_SUPABASE_ANON_KEY: ${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/hosted_deletion_acceptance.mjs
+      - name: Recheck owned synthetic account cleanup
+        if: always() && steps.reviewed-backend.outcome == 'success'
+        env:
+          ACCEPTANCE_SOURCE_SHA: ${{ inputs.source_sha }}
+          CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          CHRONOSPARK_SUPABASE_ANON_KEY: ${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          if test -f "$RUNNER_TEMP/axiomara-http-delete-$GITHUB_RUN_ID.json"; then
+            node scripts/hosted_deletion_acceptance.mjs --cleanup-only
+          fi
+      - name: Upload credential-free acceptance receipt
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: axiomara-hosted-deletion-${{ inputs.source_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/hosted-deletion-receipt.json
+          if-no-files-found: error
+          retention-days: 90
