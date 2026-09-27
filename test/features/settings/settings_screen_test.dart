@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/config/env.dart';
+import 'package:flutter/rendering.dart';
 import 'package:fantastic_guacamole/data/services/mock_auth_service.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
@@ -199,6 +201,77 @@ void main() {
     tester.widget<GestureDetector>(tile).onTap!();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+  }
+
+  for (final locale in const [Locale('en'), Locale('es')]) {
+    testWidgets('cloud recovery scope is readable in ${locale.languageCode}', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(360, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final container = createContainer();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: locale,
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(1.5)),
+              child: SettingsScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      final section = find.text(
+        locale.languageCode == 'es' ? 'Datos y cuenta' : 'Data & account',
+      );
+      await tester.scrollUntilVisible(
+        section,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pump();
+      await tester.tap(section.hitTestable());
+      await tester.pump(const Duration(milliseconds: 300));
+      final warning = find.textContaining(
+        locale.languageCode == 'es'
+            ? 'Otros datos de planificación'
+            : 'Other planning data',
+      );
+      if (Env.enableCloudSync) {
+        expect(warning, findsOneWidget);
+        await tester.scrollUntilVisible(
+          warning,
+          250,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pump();
+        final text = tester.widget<Text>(warning);
+        expect(text.maxLines, isNull);
+        final paragraph = tester.renderObject<RenderParagraph>(warning);
+        expect(paragraph.didExceedMaxLines, isFalse);
+        expect(
+          text.data,
+          contains(
+            locale.languageCode == 'es'
+                ? 'Podrías perderlos'
+                : 'You may lose it',
+          ),
+        );
+      } else {
+        expect(warning, findsNothing);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
   }
 
   for (final locale in const [Locale('en'), Locale('es')]) {

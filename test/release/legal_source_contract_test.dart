@@ -86,6 +86,44 @@ void main() {
     expect(termsRoute, isNot(contains('url=../terms.html')));
   });
 
+  test(
+    'cloud disclosure matches the contained upload and warns of local loss',
+    () {
+      final document = html_parser.parse(read('web/privacy/index.html'));
+      final heading = document
+          .querySelectorAll('h2')
+          .firstWhere(
+            (element) => element.text == 'Optional encrypted cloud backup',
+          );
+      final upload = heading.nextElementSibling!.text;
+      final limits = heading.nextElementSibling!.nextElementSibling!.text;
+      expect(
+        upload,
+        contains('tasks, profile information, and account preferences'),
+      );
+      for (final domain in [
+        'goals',
+        'habits',
+        'notes',
+        'occurrence history',
+        'decision outcomes',
+      ]) {
+        expect(
+          upload,
+          isNot(contains(domain)),
+          reason: '$domain is not in the contained upload',
+        );
+        expect(
+          limits,
+          contains(domain),
+          reason: '$domain needs an explicit recovery limit',
+        );
+      }
+      expect(limits, contains('cannot be restored from this cloud backup'));
+      expect(limits, contains('lost after uninstalling'));
+    },
+  );
+
   test('privacy policy discloses OAuth account details', () {
     final String privacy = read('web/privacy/index.html');
 
