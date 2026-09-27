@@ -4,6 +4,16 @@ permissions:
   contents: read
 
 on:
+  workflow_dispatch:
+    inputs:
+      evidence_run_id:
+        description: Successful run containing the reviewed public evidence packet
+        required: true
+        type: string
+      evidence_artifact:
+        description: Exact artifact name containing public-release-evidence.json and its six hashed records
+        required: true
+        type: string
   push:
     tags:
       - 'v*.*.*'
@@ -31,6 +41,7 @@ jobs:
     environment: production
     permissions:
       contents: read
+      actions: read
 
     steps:
       - name: Checkout release source
@@ -51,6 +62,70 @@ jobs:
             echo "::error::Tracked release checkout is dirty before validation."
             exit 1
           fi
+
+      - name: Verify public evidence artifact reference
+        env:
+          EVIDENCE_RUN_ID: ${{ inputs.evidence_run_id || vars.PUBLIC_RELEASE_EVIDENCE_RUN_ID }}
+          EVIDENCE_ARTIFACT: ${{ inputs.evidence_artifact || vars.PUBLIC_RELEASE_EVIDENCE_ARTIFACT }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import re
+          if not re.fullmatch(r'[1-9][0-9]*', os.environ['EVIDENCE_RUN_ID']):
+              raise SystemExit('Explicit public evidence run ID is required.')
+          if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,254}', os.environ['EVIDENCE_ARTIFACT']):
+              raise SystemExit('Explicit public evidence artifact name is required.')
+          PY
+          CONCLUSION="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$EVIDENCE_RUN_ID" --jq '.conclusion')"
+          [ "$CONCLUSION" = success ] || { echo 'Public evidence run must have succeeded.'; exit 1; }
+
+      - name: Download reviewed public evidence
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.evidence_run_id || vars.PUBLIC_RELEASE_EVIDENCE_RUN_ID }}
+          name: ${{ inputs.evidence_artifact || vars.PUBLIC_RELEASE_EVIDENCE_ARTIFACT }}
+          path: ${{ runner.temp }}/public-release-evidence
+
+      - name: Prepare and bind public configuration
+        env:
+          CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          CHRONOSPARK_SUPABASE_ANON_KEY: ${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
+          CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT: ${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}
+          CHRONOSPARK_AI_PROXY_ENDPOINT: ${{ secrets.CHRONOSPARK_AI_PROXY_ENDPOINT }}
+          CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT: ${{ secrets.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT }}
+          CHRONOSPARK_ANDROID_SHA256_CERT: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          names = (
+              'CHRONOSPARK_SUPABASE_URL', 'CHRONOSPARK_SUPABASE_ANON_KEY',
+              'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT', 'CHRONOSPARK_AI_PROXY_ENDPOINT',
+              'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT', 'CHRONOSPARK_ANDROID_SHA256_CERT',
+          )
+          path = Path(os.environ['RUNNER_TEMP']) / 'public-release-defines.json'
+          path.write_text(json.dumps({name: os.environ[name] for name in names}), encoding='utf-8')
+          PY
+          mkdir -p "$RUNNER_TEMP/public-release-receipts"
+          python3 scripts/public_release_profile.py \
+            --defines "$RUNNER_TEMP/public-release-defines.json" \
+            --evidence "$RUNNER_TEMP/public-release-evidence/public-release-evidence.json" \
+            > "$RUNNER_TEMP/public-release-receipts/public-profile.json"
+
+      - name: Upload public configuration receipt
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: chronospark-public-profile-${{ github.sha }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 90
+          path: ${{ runner.temp }}/public-release-receipts/
 
       - name: Set up pinned Supabase CLI
         uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
@@ -196,6 +271,7 @@ jobs:
         run: >-
           dart run scripts/validate_production_config.dart
           --platform=android
+          --defines="$RUNNER_TEMP/public-release-defines.json"
           --google-services=android/app/google-services.json
 
       - name: Decode keystore
@@ -260,32 +336,9 @@ jobs:
         run: touch .env
 
       - name: Build signed AAB
-        env:
-          SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
-          RECEIPT_ENDPOINT: ${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}
-          AI_ENDPOINT: ${{ secrets.CHRONOSPARK_AI_PROXY_ENDPOINT }}
-          DELETE_ENDPOINT: ${{ secrets.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT }}
-          ANDROID_SHA256: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
         run: >-
           flutter build appbundle --release
-          --dart-define=CHRONOSPARK_APP_FLAVOR=prod
-          --dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true
-          --dart-define=CHRONOSPARK_VERBOSE_LOGS=false
-          --dart-define=CHRONOSPARK_ENABLE_MOCK_LOGIN=false
-          --dart-define=CHRONOSPARK_ENABLE_MOCK_MODE=false
-          --dart-define=CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS=false
-          --dart-define=CHRONOSPARK_PAYWALL_DISABLED=false
-          --dart-define=CHRONOSPARK_ENABLE_RUNTIME_FEATURE_FLAGS=false
-          --dart-define=CHRONOSPARK_ENABLE_CLOUD_SYNC=false
-          --dart-define=CHRONOSPARK_ENABLE_ANALYTICS=false
-          --dart-define=CHRONOSPARK_ENABLE_CRASH_REPORTING=false
-          --dart-define="CHRONOSPARK_SUPABASE_URL=$SUPABASE_URL"
-          --dart-define="CHRONOSPARK_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY"
-          --dart-define="CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=$RECEIPT_ENDPOINT"
-          --dart-define="CHRONOSPARK_AI_PROXY_ENDPOINT=$AI_ENDPOINT"
-          --dart-define="CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT=$DELETE_ENDPOINT"
-          --dart-define="CHRONOSPARK_ANDROID_SHA256_CERT=$ANDROID_SHA256"
+          --dart-define-from-file="$RUNNER_TEMP/public-release-defines.json"
 
       - name: Verify effective release manifest link policy
         run: |
@@ -353,7 +406,7 @@ jobs:
 
       - name: Remove runner-only sensitive material
         if: always()
-        run: rm -f android/app/key.jks android/key.properties android/app/google-services.json .env
+        run: rm -f android/app/key.jks android/key.properties android/app/google-services.json .env "$RUNNER_TEMP/public-release-defines.json"
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
