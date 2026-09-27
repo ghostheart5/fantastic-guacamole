@@ -18,7 +18,8 @@ export function validateContext(env) {
     env.SUPABASE_PROJECT_REF === PROJECT && env.SUPABASE_SECRET_KEY &&
     env.CHRONOSPARK_SUPABASE_ANON_KEY && env.RUNNER_TEMP,
   'Exact production project and existing configured keys are required');
-  require(/^[a-f0-9]{40}$/.test(env.ACCEPTANCE_SOURCE_SHA ?? ''),
+  require(/^[a-f0-9]{40}$/.test(env.ACCEPTANCE_SOURCE_SHA ?? '') &&
+    /^[a-f0-9]{40}$/.test(env.GITHUB_SHA ?? ''),
     'Immutable reviewed backend source is required');
   return BASE;
 }
@@ -53,8 +54,6 @@ export async function run(env, cleanupOnly = false) {
   const service = env.SUPABASE_SECRET_KEY;
   const anon = env.CHRONOSPARK_SUPABASE_ANON_KEY;
   const sessions = [];
-  const mask = value => console.log(`::add-mask::${value}`);
-  mask(service); mask(anon);
   if (!cleanupOnly) writeFileSync(manifestPath, JSON.stringify(manifest), { mode: 0o600 });
   async function request(path, token, method = 'GET', body, admin = false, origin) {
     const response = await fetch(BASE + path, {
@@ -106,7 +105,6 @@ export async function run(env, cleanupOnly = false) {
     for (const label of ['a', 'b']) {
       const email = `axiomara-http-${manifest.runId}-${manifest.nonce}-${label}@example.invalid`;
       const password = randomBytes(36).toString('base64url') + '!aA9';
-      mask(password);
       const created = await request('/auth/v1/admin/users', service, 'POST', {
         email, password, email_confirm: true,
         app_metadata: { axiomara_http_test_run: manifest.runId, axiomara_http_test_nonce: manifest.nonce },
@@ -119,7 +117,6 @@ export async function run(env, cleanupOnly = false) {
       require(ownsAccount(created.data, account, manifest), 'Created account marker differs');
       const login = await request('/auth/v1/token?grant_type=password', anon, 'POST', { email, password });
       require(login.ok && login.data?.access_token && login.data?.refresh_token, 'Synthetic sign-in failed');
-      mask(login.data.access_token); mask(login.data.refresh_token);
       const session = { ...account, access: login.data.access_token, refresh: login.data.refresh_token };
       sessions.push(session);
       const snapshot = await request('/rest/v1/cloud_backup_snapshots', session.access, 'POST', {
@@ -143,7 +140,6 @@ export async function run(env, cleanupOnly = false) {
     let deletion = await request('/functions/v1/account-delete', a.access, 'POST', { action: 'delete' });
     require(deletion.status === 200 || deletion.status === 202, 'Hosted deletion request failed');
     const capability = { requestId: deletion.data?.requestId, receipt: deletion.data?.receipt };
-    mask(capability.receipt ?? 'unused-receipt');
     for (let i = 0; deletion.data?.completed !== true && i < 15; i += 1) {
       require(capability.requestId && capability.receipt, 'Deletion status capability missing');
       await new Promise(resolve => setTimeout(resolve, 5000));
@@ -172,7 +168,9 @@ export async function run(env, cleanupOnly = false) {
     const other = await request(`/rest/v1/cloud_backup_snapshots?user_id=eq.${b.id}`, b.access);
     const otherObject = await request(`/storage/v1/object/authenticated/chronospark-sync/${b.id}/backup/tasks_backup.json`,
       b.access);
-    require(other.ok && other.data?.length === 1 && otherObject.ok, 'Other account data changed');
+    require(other.ok && other.data?.length === 1 &&
+      other.data[0].payload?.syntheticDeletionFixture === manifest.nonce && otherObject.ok &&
+      otherObject.data?.syntheticDeletionFixture === manifest.nonce, 'Other account data changed');
     checks.otherAccountPreserved = true;
     return { passed: true, observedAt: new Date().toISOString(), project: PROJECT,
       sourceSha: env.ACCEPTANCE_SOURCE_SHA, toolingSha: env.GITHUB_SHA, runId: env.GITHUB_RUN_ID,

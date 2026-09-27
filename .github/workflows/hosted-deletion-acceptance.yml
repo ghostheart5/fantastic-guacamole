@@ -30,7 +30,7 @@ jobs:
         run: |
           [[ "$ACCEPTANCE_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]] || exit 1
           git merge-base --is-ancestor "$ACCEPTANCE_SOURCE_SHA" origin/main
-          git diff --exit-code "$ACCEPTANCE_SOURCE_SHA" -- supabase/functions supabase/migrations
+          git diff --exit-code "$ACCEPTANCE_SOURCE_SHA" -- supabase/functions supabase/migrations supabase/config.toml
       - name: Check ownership and cleanup guards
         run: node --test scripts/hosted_deletion_acceptance.test.mjs
       - name: Exercise deployed deletion route with owned synthetic accounts
