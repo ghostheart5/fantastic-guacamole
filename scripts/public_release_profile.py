@@ -168,6 +168,16 @@ def strict_json(text):
         raise ValueError('Invalid public JSON configuration') from None
 
 
+def resolve_public_settings(settings):
+    require(type(settings) is dict, 'Public settings must be an object')
+    base = settings.get('CHRONOSPARK_SUPABASE_URL', '')
+    require(type(base) is str and bool(base.strip()), 'Public Supabase URL is missing')
+    base = base.rstrip('/')
+    return {**settings,
+            'CHRONOSPARK_AI_REPORT_ENDPOINT': base+'/functions/v1/ai-report',
+            'CHRONOSPARK_PLANNER_EXPLANATION_ENDPOINT': base+'/functions/v1/planner-explanation'}
+
+
 def prepare(root, defines_path, evidence_path):
     root = root.resolve()
     # This check deliberately comes before configuration, review-file reads or
@@ -177,10 +187,7 @@ def prepare(root, defines_path, evidence_path):
     require(not subprocess.check_output(['git','status','--porcelain','--untracked-files=all'],
                                        cwd=root, text=True).strip(), 'Public build source must be clean')
     require(not defines_path.resolve().is_relative_to(root), 'Public defines must be outside source checkout')
-    settings = strict_json(defines_path.read_text(encoding='utf-8-sig'))
-    base = settings.get('CHRONOSPARK_SUPABASE_URL', '').rstrip('/')
-    settings.update({'CHRONOSPARK_AI_REPORT_ENDPOINT': base+'/functions/v1/ai-report',
-                     'CHRONOSPARK_PLANNER_EXPLANATION_ENDPOINT': base+'/functions/v1/planner-explanation'})
+    settings = resolve_public_settings(strict_json(defines_path.read_text(encoding='utf-8-sig')))
     policy = strict_json((root/PUBLIC_POLICY_PATH).read_text(encoding='utf-8'))
     defines = assemble_public_defines(settings, policy)
     validate_public_defines(defines, hashlib.sha256(canonical(policy).encode()).hexdigest())
