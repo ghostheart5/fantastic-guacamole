@@ -612,3 +612,120 @@ Deno.test("blocks claim despite refusal: No puedo diagnosticar? Te diagnostico a
     throw new Error("refusal boundary mismatch");
   }
 });
+
+Deno.test("allows noun refusal: I cannot guarantee a cure. Consult a clinician.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot guarantee a cure. Consult a clinician.",
+    ) !== false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows noun refusal: I cannot provide a diagnosis. Consult a clinician.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot provide a diagnosis. Consult a clinician.",
+    ) !== false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows noun refusal: I cannot give a medical diagnosis or prescribe medication.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot give a medical diagnosis or prescribe medication.",
+    ) !== false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows noun refusal: I cannot provide a prescription.", () => {
+  if (
+    containsBlockedAssistantClaim("I cannot provide a prescription.") !== false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows noun refusal: No puedo garantizar una cura. Consulta con un profesional.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo garantizar una cura. Consulta con un profesional.",
+    ) !== false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows noun refusal: No puedo proporcionar un diagn\u00f3stico.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo proporcionar un diagn\u00f3stico.",
+    ) !== false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows noun refusal: No puedo ofrecer una prescripci\u00f3n.", () => {
+  if (
+    containsBlockedAssistantClaim("No puedo ofrecer una prescripci\u00f3n.") !==
+      false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("allows noun refusal: No puedo garantizar una cura ni proporcionar un diagn\u00f3stico.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo garantizar una cura ni proporcionar un diagn\u00f3stico.",
+    ) !== false
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks noun claim after refusal: I cannot guarantee a cure. This will cure your illness.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot guarantee a cure. This will cure your illness.",
+    ) !== true
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks noun claim after refusal: I cannot provide a diagnosis, but my diagnosis is depression.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "I cannot provide a diagnosis, but my diagnosis is depression.",
+    ) !== true
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks noun claim after refusal: No puedo proporcionar un diagn\u00f3stico. Mi diagn\u00f3stico es depresi\u00f3n.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo proporcionar un diagn\u00f3stico. Mi diagn\u00f3stico es depresi\u00f3n.",
+    ) !== true
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});
+
+Deno.test("blocks noun claim after refusal: No puedo garantizar una cura, pero esta rutina te curar\u00e1.", () => {
+  if (
+    containsBlockedAssistantClaim(
+      "No puedo garantizar una cura, pero esta rutina te curar\u00e1.",
+    ) !== true
+  ) {
+    throw new Error("noun refusal boundary mismatch");
+  }
+});

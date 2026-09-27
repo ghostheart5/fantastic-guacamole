@@ -5,6 +5,128 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    "allows noun refusal: I cannot guarantee a cure. Consult a clinician.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I cannot guarantee a cure. Consult a clinician.",
+        ),
+        isFalse,
+      );
+    },
+  );
+  test(
+    "allows noun refusal: I cannot provide a diagnosis. Consult a clinician.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I cannot provide a diagnosis. Consult a clinician.",
+        ),
+        isFalse,
+      );
+    },
+  );
+  test(
+    "allows noun refusal: I cannot give a medical diagnosis or prescribe medication.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I cannot give a medical diagnosis or prescribe medication.",
+        ),
+        isFalse,
+      );
+    },
+  );
+  test("allows noun refusal: I cannot provide a prescription.", () {
+    expect(
+      SiPolicy.containsUnsupportedClaim("I cannot provide a prescription."),
+      isFalse,
+    );
+  });
+  test(
+    "allows noun refusal: No puedo garantizar una cura. Consulta con un profesional.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "No puedo garantizar una cura. Consulta con un profesional.",
+        ),
+        isFalse,
+      );
+    },
+  );
+  test("allows noun refusal: No puedo proporcionar un diagn\u00f3stico.", () {
+    expect(
+      SiPolicy.containsUnsupportedClaim(
+        "No puedo proporcionar un diagn\u00f3stico.",
+      ),
+      isFalse,
+    );
+  });
+  test("allows noun refusal: No puedo ofrecer una prescripci\u00f3n.", () {
+    expect(
+      SiPolicy.containsUnsupportedClaim(
+        "No puedo ofrecer una prescripci\u00f3n.",
+      ),
+      isFalse,
+    );
+  });
+  test(
+    "allows noun refusal: No puedo garantizar una cura ni proporcionar un diagn\u00f3stico.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "No puedo garantizar una cura ni proporcionar un diagn\u00f3stico.",
+        ),
+        isFalse,
+      );
+    },
+  );
+  test(
+    "blocks noun claim after refusal: I cannot guarantee a cure. This will cure your illness.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I cannot guarantee a cure. This will cure your illness.",
+        ),
+        isTrue,
+      );
+    },
+  );
+  test(
+    "blocks noun claim after refusal: I cannot provide a diagnosis, but my diagnosis is depression.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "I cannot provide a diagnosis, but my diagnosis is depression.",
+        ),
+        isTrue,
+      );
+    },
+  );
+  test(
+    "blocks noun claim after refusal: No puedo proporcionar un diagn\u00f3stico. Mi diagn\u00f3stico es depresi\u00f3n.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "No puedo proporcionar un diagn\u00f3stico. Mi diagn\u00f3stico es depresi\u00f3n.",
+        ),
+        isTrue,
+      );
+    },
+  );
+  test(
+    "blocks noun claim after refusal: No puedo garantizar una cura, pero esta rutina te curar\u00e1.",
+    () {
+      expect(
+        SiPolicy.containsUnsupportedClaim(
+          "No puedo garantizar una cura, pero esta rutina te curar\u00e1.",
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test(
     "allows explicit refusal: I cannot diagnose or prescribe. Please consult a qualified clinician.",
     () {
       expect(
