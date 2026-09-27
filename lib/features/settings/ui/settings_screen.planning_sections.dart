@@ -69,6 +69,7 @@ class _ReflectionReminderSectionState
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(restoredSettingsRevisionProvider, (_, _) => _load());
     return _Section(
       label: journeyText(context, 'DAILY REFLECTION', 'REFLEXIÓN DIARIA'),
       accentColor: AppColors.neonViolet,
@@ -229,6 +230,7 @@ class _ReminderAutomationSectionState
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(restoredSettingsRevisionProvider, (_, _) => _load());
     return _Section(
       label: journeyText(
         context,
