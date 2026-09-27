@@ -526,8 +526,8 @@ class SyncService {
     SecureStore? secureStore,
     this.expectedAccountId,
     this.currentAccountId,
-    this.syncEnabled = LaunchContainment.cloudSyncEnabled,
-    this.restoreEnabled = LaunchContainment.cloudRestoreEnabled,
+    this.syncEnabled = LaunchContainment.publicCloudSyncEnabled,
+    this.restoreEnabled = LaunchContainment.publicCloudRestoreEnabled,
   }) : _cipher = secureStore == null
            ? null
            : BackupCipher(secureStore, accountId: expectedAccountId);

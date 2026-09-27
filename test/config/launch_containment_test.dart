@@ -5,30 +5,34 @@ import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('unsafe launch capabilities fail closed without an override path', () {
-    expect(LaunchContainment.cloudSyncEnabled, isFalse);
-    expect(LaunchContainment.cloudRestoreEnabled, isFalse);
-    expect(LaunchContainment.subscriptionsEnabled, isFalse);
-    expect(LaunchContainment.externalAiEnabled, isFalse);
-    expect(LaunchContainment.creditSpendingEnabled, isFalse);
-    expect(LaunchContainment.externalAiProviderRetentionVerified, isTrue);
-    expect(LaunchContainment.externalAiPrivacyValidationPassed, isFalse);
-    expect(LaunchContainment.externalAiSafetyValidationPassed, isFalse);
-    expect(LaunchContainment.paidCreditPlansEnabled, isFalse);
-    expect(LaunchContainment.analyticsEnabled, isFalse);
-    expect(LaunchContainment.crashReportingEnabled, isFalse);
-    expect(LaunchContainment.inferredIdentityEnabled, isFalse);
+  test(
+    'reviewed source requires explicit public intent and keeps telemetry off',
+    () {
+      expect(LaunchContainment.cloudSyncEnabled, isTrue);
+      expect(LaunchContainment.cloudRestoreEnabled, isTrue);
+      expect(LaunchContainment.subscriptionsEnabled, isTrue);
+      expect(LaunchContainment.externalAiEnabled, isTrue);
+      expect(LaunchContainment.creditSpendingEnabled, isTrue);
+      expect(LaunchContainment.externalAiProviderRetentionVerified, isTrue);
+      expect(LaunchContainment.externalAiPrivacyValidationPassed, isTrue);
+      expect(LaunchContainment.externalAiSafetyValidationPassed, isTrue);
+      expect(LaunchContainment.paidCreditPlansEnabled, isTrue);
+      expect(LaunchContainment.analyticsEnabled, isFalse);
+      expect(LaunchContainment.crashReportingEnabled, isFalse);
+      expect(LaunchContainment.inferredIdentityEnabled, isFalse);
 
-    expect(Env.enableCloudSync, isFalse);
-    expect(Env.enableCloudRestore, isFalse);
-    expect(Env.subscriptionsEnabled, isFalse);
-    expect(Env.externalAiEnabled, isFalse);
-    expect(Env.creditSpendingEnabled, isFalse);
-    expect(Env.paidCreditPlansEnabled, isFalse);
-    expect(Env.enableAnalytics, isFalse);
-    expect(Env.enableCrashReporting, isFalse);
-    expect(Env.isAiProxyConfigured, isFalse);
-  });
+      expect(LaunchContainment.publicBuildRequested, isFalse);
+      expect(Env.enableCloudSync, isFalse);
+      expect(Env.enableCloudRestore, isFalse);
+      expect(Env.subscriptionsEnabled, isFalse);
+      expect(Env.externalAiEnabled, isFalse);
+      expect(Env.creditSpendingEnabled, isFalse);
+      expect(Env.paidCreditPlansEnabled, isFalse);
+      expect(Env.enableAnalytics, isFalse);
+      expect(Env.enableCrashReporting, isFalse);
+      expect(Env.isAiProxyConfigured, isFalse);
+    },
+  );
 
   test('paid credit plans require every monetization trust gate', () {
     bool resolve({

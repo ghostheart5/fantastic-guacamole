@@ -7,7 +7,7 @@ import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 class CreditService {
   CreditService({
     required this._prefs,
-    this.spendingEnabled = LaunchContainment.creditSpendingEnabled,
+    this.spendingEnabled = LaunchContainment.publicCreditSpendingEnabled,
   });
 
   static const String _walletKey = 'ai_credit_wallet';

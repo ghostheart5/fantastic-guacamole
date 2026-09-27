@@ -54,18 +54,18 @@ abstract final class Env {
       _FeatureFlags.remoteConfigDefaultsJson;
   static bool get enableCloudSync =>
       cloudServicesEnabled &&
-      LaunchContainment.cloudSyncEnabled &&
+      LaunchContainment.publicCloudSyncEnabled &&
       _FeatureFlags.enableCloudSync;
   static bool get enableCloudRestore =>
-      cloudServicesEnabled && LaunchContainment.cloudRestoreEnabled;
+      cloudServicesEnabled && LaunchContainment.publicCloudRestoreEnabled;
   static bool get subscriptionsEnabled =>
-      cloudServicesEnabled && LaunchContainment.subscriptionsEnabled;
+      cloudServicesEnabled && LaunchContainment.publicSubscriptionsEnabled;
   static bool get externalAiEnabled =>
-      cloudServicesEnabled && LaunchContainment.externalAiEnabled;
+      cloudServicesEnabled && LaunchContainment.publicExternalAiEnabled;
   static bool get creditSpendingEnabled =>
-      cloudServicesEnabled && LaunchContainment.creditSpendingEnabled;
+      cloudServicesEnabled && LaunchContainment.publicCreditSpendingEnabled;
   static bool get paidCreditPlansEnabled =>
-      cloudServicesEnabled && LaunchContainment.paidCreditPlansEnabled;
+      cloudServicesEnabled && LaunchContainment.publicPaidCreditPlansEnabled;
   static bool get isMockMode =>
       cloudServicesEnabled && _FeatureFlags.isMockMode;
   static bool get isPaywallDisabled =>
@@ -92,7 +92,7 @@ abstract final class Env {
       cloudServicesEnabled && _ServiceEndpoints.isSupabaseConfigured;
   static bool get isAiProxyConfigured =>
       cloudServicesEnabled &&
-      LaunchContainment.externalAiEnabled &&
+      LaunchContainment.publicExternalAiEnabled &&
       _ServiceEndpoints.isAiProxyConfigured;
 
   static bool get enforceProductionReadiness =>

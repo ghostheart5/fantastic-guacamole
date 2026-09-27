@@ -74,9 +74,9 @@ void main() {
       expect(intelligence.flags.testerFullAccess, isFalse);
       expect(intelligence.flags.mockMode, isFalse);
       expect(intelligence.flags.mockLoginEnabled, isFalse);
-      expect(LaunchContainment.externalAiEnabled, isFalse);
-      expect(LaunchContainment.subscriptionsEnabled, isFalse);
-      expect(LaunchContainment.cloudSyncEnabled, isFalse);
+      expect(LaunchContainment.publicExternalAiEnabled, isFalse);
+      expect(LaunchContainment.publicSubscriptionsEnabled, isFalse);
+      expect(LaunchContainment.publicCloudSyncEnabled, isFalse);
       expect(
         await container.read(smartPlannerAvailabilityProvider.future),
         isTrue,

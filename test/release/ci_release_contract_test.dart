@@ -412,6 +412,15 @@ void main() {
         'runtime-gate',
       });
       expect(publish['needs'], 'build-aab');
+      expect(
+        publish['if'],
+        "github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')",
+      );
+      final ancestry = namedStep(
+        build,
+        'Require protected main ancestry before service settings',
+      );
+      expect(ancestry['run'], contains('git merge-base --is-ancestor'));
       expect(environmentName(build), 'production');
       expect(environmentName(publish), 'production');
 
@@ -492,7 +501,7 @@ void main() {
       );
       expect(
         namedStep(build, 'Validate release version and tag')['run'],
-        './scripts/version_consistency_guard.ps1 -RequireTag',
+        contains('./scripts/version_consistency_guard.ps1 -RequireTag'),
       );
 
       for (final String stepName in <String>[

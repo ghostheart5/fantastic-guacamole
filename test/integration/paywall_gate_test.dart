@@ -26,7 +26,7 @@ void main() {
       final AiCreditWallet exposedWallet = await container.read(
         aiCreditWalletProvider.future,
       );
-      expect(LaunchContainment.paidCreditPlansEnabled, isFalse);
+      expect(LaunchContainment.publicPaidCreditPlansEnabled, isFalse);
       expect(exposedWallet.balance, 0);
       expect(exposedWallet.tier, 'unavailable');
 

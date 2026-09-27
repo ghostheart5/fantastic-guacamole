@@ -1,27 +1,27 @@
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/config/backend_mode.dart';
+import 'package:fantastic_guacamole/config/launch_containment.dart';
+import 'package:fantastic_guacamole/data/services/ai/agents/chat_agent.dart';
 import 'package:fantastic_guacamole/config/public_release_profile.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('compiled public intent cannot enable unapproved capabilities', () {
-    expect(Env.externalAiEnabled, isFalse);
-    expect(Env.creditSpendingEnabled, isFalse);
-    expect(Env.paidCreditPlansEnabled, isFalse);
-    expect(Env.enableCloudSync, isFalse);
-    expect(Env.enableCloudRestore, isFalse);
-    final issues = Env.productionReadinessIssues(
-      force: true,
-      targetPlatform: TargetPlatform.android,
+  test('compiled public cloud intent selects reviewed capabilities only', () {
+    final enabled =
+        PublicReleaseProfile.requested &&
+        BackendConfiguration.cloudServicesEnabled;
+    expect(Env.externalAiEnabled, enabled);
+    expect(Env.creditSpendingEnabled, enabled);
+    expect(Env.paidCreditPlansEnabled, enabled);
+    expect(Env.subscriptionsEnabled, enabled);
+    expect(Env.enableCloudRestore, enabled);
+    expect(
+      Env.enableCloudSync,
+      enabled && const bool.fromEnvironment('CHRONOSPARK_ENABLE_CLOUD_SYNC'),
     );
-    if (PublicReleaseProfile.requested) {
-      expect(
-        issues,
-        contains(
-          'Privacy and data-disclosure validation is missing in source.',
-        ),
-      );
-      expect(issues, contains('AI safety validation is missing in source.'));
-    }
+    expect(const ChatAgent().externalAiEnabled, enabled);
+    expect(Env.enableAnalytics, isFalse);
+    expect(Env.enableCrashReporting, isFalse);
+    expect(LaunchContainment.inferredIdentityEnabled, isFalse);
   });
 }

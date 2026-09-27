@@ -469,10 +469,15 @@ class _NeonNavTile extends StatelessWidget {
 }
 
 class _NeonStatusTile extends StatelessWidget {
-  const _NeonStatusTile({required this.title, required this.subtitle});
+  const _NeonStatusTile({
+    required this.title,
+    required this.subtitle,
+    this.subtitleMaxLines = 2,
+  });
 
   final String title;
   final String subtitle;
+  final int? subtitleMaxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -491,9 +496,11 @@ class _NeonStatusTile extends StatelessWidget {
                 ),
                 Text(
                   subtitle,
-                  maxLines: 2,
+                  maxLines: subtitleMaxLines,
                   softWrap: true,
-                  overflow: TextOverflow.ellipsis,
+                  overflow: subtitleMaxLines == null
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white38,
                     fontSize: 11,

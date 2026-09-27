@@ -19,22 +19,12 @@ void main() {
         'https://project-ref.supabase.co/functions/v1/planner-explanation',
   };
 
-  test(
-    'private default remains separate and public intent cannot approve source',
-    () {
-      expect(PublicReleaseProfile.requested, isFalse);
-      expect(PublicReleaseProfile.validate(<String, String>{}), isEmpty);
-      final issues = PublicReleaseProfile.validate(publicValues());
-      expect(
-        issues,
-        contains(
-          'Privacy and data-disclosure validation is missing in source.',
-        ),
-      );
-      expect(issues, contains('AI safety validation is missing in source.'));
-      expect(issues, contains('Public cloud sync is not approved in source.'));
-    },
-  );
+  test('private default remains separate from the reviewed public source', () {
+    expect(PublicReleaseProfile.requested, isFalse);
+    expect(PublicReleaseProfile.validate(<String, String>{}), isEmpty);
+    expect(PublicReleaseProfile.sourceReadinessIssues(), isEmpty);
+    expect(PublicReleaseProfile.validate(publicValues()), isEmpty);
+  });
 
   test('public config guard rejects every internal bypass and wrong flag', () {
     for (final flag in PublicReleaseProfile.requiredFlags.entries) {
@@ -103,7 +93,7 @@ void main() {
         issues,
         contains('The public release profile supports Android only.'),
       );
-      expect(issues, contains('AI safety validation is missing in source.'));
+      expect(PublicReleaseProfile.sourceReadinessIssues(), isEmpty);
     },
   );
 

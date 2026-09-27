@@ -42,9 +42,9 @@ void main() {
       ),
       isTrue,
     );
-    expect(LaunchContainment.externalAiEnabled, isFalse);
-    expect(LaunchContainment.creditSpendingEnabled, isFalse);
-    expect(LaunchContainment.paidCreditPlansEnabled, isFalse);
+    expect(LaunchContainment.publicExternalAiEnabled, isFalse);
+    expect(LaunchContainment.publicCreditSpendingEnabled, isFalse);
+    expect(LaunchContainment.publicPaidCreditPlansEnabled, isFalse);
   });
   for (final invalid in [
     '',
