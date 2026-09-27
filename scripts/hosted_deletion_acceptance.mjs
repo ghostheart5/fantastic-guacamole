@@ -135,8 +135,10 @@ export async function run(env, cleanupOnly = false) {
     for (const u of sessions) {
       const profile = await request(`/rest/v1/profiles?id=eq.${u.id}`, u.access);
       const snapshot = await request(`/rest/v1/cloud_backup_snapshots?user_id=eq.${u.id}`, u.access);
-      require(profile.ok && profile.data?.length === 1 && snapshot.ok && snapshot.data?.length === 1,
-        'Seeded owner readback failed');
+      require(profile.ok && profile.data?.length === 1,
+        `Owner profile readback failed status ${profile.status} rows ${Array.isArray(profile.data) ? profile.data.length : 'nonarray'}`);
+      require(snapshot.ok && snapshot.data?.length === 1,
+        `Owner snapshot readback failed status ${snapshot.status} rows ${Array.isArray(snapshot.data) ? snapshot.data.length : 'nonarray'}`);
     }
     const foreign = await request(`/rest/v1/cloud_backup_snapshots?user_id=eq.${a.id}`, b.access);
     require(foreign.ok && foreign.data?.length === 0, 'Cross-account snapshot isolation failed');
