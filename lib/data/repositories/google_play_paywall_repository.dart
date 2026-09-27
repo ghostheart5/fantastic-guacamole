@@ -73,26 +73,6 @@ DateTime _testingRenewalDateFor(String? planId) {
   );
 }
 
-sealed class _SubscriptionReceipt {
-  const _SubscriptionReceipt();
-}
-
-final class _InactiveSubscriptionReceipt extends _SubscriptionReceipt {
-  const _InactiveSubscriptionReceipt();
-}
-
-final class _VerifiedSubscription extends _SubscriptionReceipt {
-  const _VerifiedSubscription({
-    required this.expiry,
-    required this.status,
-    required this.providerAcknowledged,
-  });
-
-  final DateTime expiry;
-  final String status;
-  final bool providerAcknowledged;
-}
-
 abstract class BillingClient {
   Stream<List<PurchaseDetails>> get purchaseStream;
   Future<ProductDetailsResponse> queryProductDetails(Set<String> ids);
