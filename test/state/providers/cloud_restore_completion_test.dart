@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
+import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
@@ -9,12 +10,14 @@ import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   ProviderContainer containerFor(
     CloudRestoreOutcome outcome,
     Future<bool> Function() reconcile, {
     bool Function()? current,
+    Completer<SharedPrefsStorage>? loading,
   }) {
     final container = ProviderContainer(
       overrides: [
@@ -26,13 +29,41 @@ void main() {
         cloudRestoreCapabilityProvider.overrideWithValue(true),
         cloudSyncPreferenceProvider.overrideWith(_OptedIn.new),
         supabaseClientProvider.overrideWithValue(_Client()),
-        syncServiceProvider.overrideWithValue(_RestoreService(outcome)),
+        if (loading != null)
+          cloudBackupPreferencesProvider.overrideWith((ref) => loading.future),
+        syncServiceProvider.overrideWith(
+          (ref) =>
+              loading == null ||
+                  ref.watch(cloudBackupPreferencesProvider).hasValue
+              ? _RestoreService(outcome)
+              : null,
+        ),
         restoredReminderReconciliationProvider.overrideWithValue(reconcile),
       ],
     );
     addTearDown(container.dispose);
     return container;
   }
+
+  test('first restore waits for local preferences before restoring', () async {
+    SharedPreferences.setMockInitialValues({});
+    final ready = Completer<SharedPrefsStorage>();
+    var reconciled = false;
+    final container = containerFor(CloudRestoreOutcome.restored, () async {
+      reconciled = true;
+      return true;
+    }, loading: ready);
+    var completed = false;
+    final pending = container.read(restoreFromCloudProvider.future);
+    unawaited(pending.then((_) => completed = true));
+    await Future<void>.delayed(Duration.zero);
+    expect(completed, isFalse);
+    expect(reconciled, isFalse);
+    ready.complete(SharedPrefsStorage(await SharedPreferences.getInstance()));
+    expect(await pending, isTrue);
+    expect(reconciled, isTrue);
+    expect(container.read(syncErrorMessageProvider), isNull);
+  });
 
   test('restore waits for reminder reconciliation before completing', () async {
     final entered = Completer<void>();

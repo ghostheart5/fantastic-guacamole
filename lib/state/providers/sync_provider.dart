@@ -99,14 +99,17 @@ final restoredReminderReconciliationProvider =
       },
     );
 
-final _sharedPrefsProvider = FutureProvider<SharedPrefsStorage>((ref) async {
+/// Local backup dependencies must finish loading before a transfer begins.
+final cloudBackupPreferencesProvider = FutureProvider<SharedPrefsStorage>((
+  ref,
+) async {
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   return SharedPrefsStorage(prefs);
 });
 
 final _backupServiceProvider = Provider<BackupService?>((ref) {
   final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
-    _sharedPrefsProvider,
+    cloudBackupPreferencesProvider,
   );
   final scope = ref.watch(accountStorageScopeProvider);
   final legacyOwnership = ref.watch(accountLegacyOwnershipProvider);
@@ -169,7 +172,7 @@ OfflineSyncQueueService? _boundQueue(Ref ref) {
 
 final syncServiceProvider = Provider<SyncService?>((ref) {
   final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
-    _sharedPrefsProvider,
+    cloudBackupPreferencesProvider,
   );
   final BackupService? backup = ref.watch(_backupServiceProvider);
   final supabaseClient = ref.watch(supabaseClientProvider);
@@ -203,6 +206,16 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
     },
   );
 });
+
+Future<SyncService?> _readySyncService(Ref ref) async {
+  final service = ref.read(syncServiceProvider);
+  if (service != null) return service;
+  // The synchronous service is initially null while its preferences load.
+  // Wait for that dependency, without crossing an account transition.
+  final owner = AccountOperation.capture(ref);
+  await owner.wait(ref.read(cloudBackupPreferencesProvider.future));
+  return ref.read(syncServiceProvider);
+}
 
 final syncToCloudProvider = FutureProvider<bool>((ref) async {
   // Yield once before publishing synchronization status. Riverpod forbids one
@@ -239,7 +252,7 @@ final syncToCloudProvider = FutureProvider<bool>((ref) async {
     );
 
     final CloudSyncOutcome outcome =
-        await ref.read(syncServiceProvider)?.syncDeltaOutcome() ??
+        await (await _readySyncService(ref))?.syncDeltaOutcome() ??
         CloudSyncOutcome.unavailable;
     final bool success = outcome == CloudSyncOutcome.synced;
     if (!success) {
@@ -333,7 +346,7 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
       return false;
     }
     final CloudRestoreOutcome outcome =
-        await ref.read(syncServiceProvider)?.restoreFromCloud() ??
+        await (await _readySyncService(ref))?.restoreFromCloud() ??
         CloudRestoreOutcome.unavailable;
     if (!owner.isCurrent) return false;
     final bool restored =
@@ -436,7 +449,7 @@ Future<bool> _executeQueuedSyncAction(
   if (authenticatedUserId != null && item.accountId != authenticatedUserId) {
     return false;
   }
-  final SyncService? syncService = ref.read(syncServiceProvider);
+  final SyncService? syncService = await _readySyncService(ref);
   if (syncService == null) {
     return false;
   }
