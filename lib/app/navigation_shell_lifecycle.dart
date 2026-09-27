@@ -112,9 +112,24 @@ extension _NavigationShellLifecycle on _NavigationShellState {
     if (!mounted || !Env.enableCloudSync) {
       return;
     }
-    ref.invalidate(replayOfflineQueueProvider);
-    ref.invalidate(syncToCloudProvider);
-    ref.invalidate(offlineQueueCountProvider);
+    final scope = ref.read(accountStorageScopeProvider);
+    _runBackgroundTask('opted-in cloud backup', () async {
+      if (!(await ref.read(cloudSyncPreferenceProvider.future)) ||
+          !mounted ||
+          ref.read(accountStorageScopeProvider).v2Namespace !=
+              scope.v2Namespace) {
+        return;
+      }
+      final completed = await ref.refresh(syncToCloudProvider.future);
+      if (!completed) {
+        Logger.warn('Opted-in cloud backup did not complete.');
+      }
+      if (mounted &&
+          ref.read(accountStorageScopeProvider).v2Namespace ==
+              scope.v2Namespace) {
+        ref.invalidate(offlineQueueCountProvider);
+      }
+    });
   }
 
   void _scheduleNetworkRecoveryRetry() {

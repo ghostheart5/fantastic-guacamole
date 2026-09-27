@@ -44,7 +44,7 @@ class AppAccessState {
     if (hasPremiumAccess) {
       return 'Premium active';
     }
-    return 'Premium locked';
+    return 'No active subscription';
   }
 
   String get subscriptionStatusDetail {
@@ -66,7 +66,7 @@ class AppAccessState {
     if (hasPremiumAccess) {
       return 'Premium features are currently unlocked for this account.';
     }
-    return 'Premium access is not yet provisioned in this build.';
+    return 'You have no active subscription. Review available plans and Google Play pricing before purchasing.';
   }
 }
 

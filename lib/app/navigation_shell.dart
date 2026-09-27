@@ -32,6 +32,7 @@ import 'package:fantastic_guacamole/domain/operating_system/operating_system_con
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/app_recovery_provider.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/services/app_recovery_service.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
 import 'package:fantastic_guacamole/state/services/preference_service.dart';
@@ -98,8 +99,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         if (!mounted || !Env.enableCloudSync) {
           return;
         }
-        ref.invalidate(replayOfflineQueueProvider);
-        ref.invalidate(syncToCloudProvider);
+        _triggerCloudSyncReplay();
       };
     if (!_isFlutterTestBinding) {
       _systemScheduler.resume();

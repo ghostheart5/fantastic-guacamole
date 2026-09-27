@@ -327,6 +327,11 @@ class _CloudDataControlSection extends ConsumerWidget {
                   ),
           ),
           if (available)
+            CloudBackupActions(
+              key: ValueKey(ref.watch(accountStorageScopeProvider).v2Namespace),
+              enabled: enabled,
+            ),
+          if (available)
             _NeonNavTile(
               title: journeyText(
                 context,
