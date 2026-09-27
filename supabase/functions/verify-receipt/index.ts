@@ -38,6 +38,7 @@ import {
   existingPurchaseProofPolicy,
   isGooglePlayTestPurchase,
   readPurchaseLineage,
+  reconciledInactiveSubscriptionResponse,
   verifyExistingPurchaseRecoveryBinding,
   verifyExternalAccountBinding,
   verifySubscriptionLineItem,
@@ -93,6 +94,7 @@ interface VerifyResponse {
   duplicate?: boolean;
   valid: boolean;
   testPurchase?: boolean;
+  subscriptionReconciled?: boolean;
   acknowledged?: boolean;
   retryable?: boolean;
   expiryTimeMs?: number;
@@ -589,12 +591,13 @@ Deno.serve(async (req: Request) => {
     }
     const applied = authority.value;
     const reconciliationOutcome = classifyVerificationReconciliation(applied);
-    if (reconciliationOutcome === "terminal") {
-      return jsonResponse(req, {
-        valid: false,
-        productId,
-        error: "purchase_not_active",
-      }, 200);
+    const inactiveResponse = reconciledInactiveSubscriptionResponse(
+      applied,
+      productId,
+      testPurchase,
+    );
+    if (inactiveResponse) {
+      return jsonResponse(req, inactiveResponse, 200);
     }
     if (!applied || reconciliationOutcome !== "accepted") {
       return jsonResponse(req, {

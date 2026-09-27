@@ -621,16 +621,18 @@ extension _GooglePlayPaywallTransactionSupport on GooglePlayPaywallRepository {
         Logger.error('Receipt verification returned a mismatched product.');
         return null;
       }
-      if (body['valid'] == false && body['error'] == 'purchase_not_active') {
-        return const _InactiveSubscriptionReceipt();
-      }
-      if (body['valid'] != true) {
-        return null;
-      }
       if (_requireTestPurchase && body['testPurchase'] != true) {
         Logger.error(
           'This build requires a verified Google Play test purchase.',
         );
+        return null;
+      }
+      if (body['valid'] == false &&
+          body['error'] == 'purchase_not_active' &&
+          body['subscriptionReconciled'] == true) {
+        return const _InactiveSubscriptionReceipt();
+      }
+      if (body['valid'] != true) {
         return null;
       }
       final Object? rawStatus = body['status'];
