@@ -5,10 +5,7 @@ import 'package:fantastic_guacamole/config/launch_containment.dart';
 /// Public build intent does not grant approval or override source containment.
 abstract final class PublicReleaseProfile {
   static const String define = 'CHRONOSPARK_PUBLIC_RELEASE';
-  static const String compiledValue = String.fromEnvironment(
-    define,
-    defaultValue: 'false',
-  );
+  static const String compiledValue = LaunchContainment.publicBuildValue;
   static const bool requested = compiledValue == 'true';
 
   static const Map<String, String> requiredFlags = <String, String>{

@@ -179,7 +179,7 @@ void main() {
     expect(
       env,
       contains(
-        'cloudServicesEnabled && LaunchContainment.paidCreditPlansEnabled',
+        'cloudServicesEnabled && LaunchContainment.publicPaidCreditPlansEnabled',
       ),
     );
     final String billingAvailability = File(

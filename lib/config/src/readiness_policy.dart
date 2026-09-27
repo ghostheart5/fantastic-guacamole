@@ -115,7 +115,7 @@ abstract final class _ReadinessPolicy {
     )) {
       issues.add('Supabase publishable key is missing or malformed.');
     }
-    if (LaunchContainment.subscriptionsEnabled || billingTest) {
+    if (LaunchContainment.publicSubscriptionsEnabled || billingTest) {
       _validateHttpsEndpoint(
         _ServiceEndpoints.receiptVerifyEndpoint,
         label: 'Receipt verification endpoint',
@@ -129,7 +129,7 @@ abstract final class _ReadinessPolicy {
         );
       }
     }
-    if (LaunchContainment.externalAiEnabled) {
+    if (LaunchContainment.publicExternalAiEnabled) {
       _validateHttpsEndpoint(
         _ServiceEndpoints.aiProxyEndpoint,
         label: 'AI proxy endpoint',

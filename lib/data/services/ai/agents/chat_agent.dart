@@ -87,7 +87,7 @@ Map<String, dynamic> buildAiProxyRequestBody({
 class ChatAgent extends AiAgent {
   const ChatAgent({
     this.service,
-    this.externalAiEnabled = LaunchContainment.externalAiEnabled,
+    this.externalAiEnabled = LaunchContainment.publicExternalAiEnabled,
   });
 
   final SIAIService? service;

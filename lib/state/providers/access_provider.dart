@@ -24,7 +24,7 @@ class AppAccessState {
 
   bool get paywallEnabled =>
       !isLocalMode &&
-      (LaunchContainment.subscriptionsEnabled || internalBillingTest) &&
+      (LaunchContainment.publicSubscriptionsEnabled || internalBillingTest) &&
       !paywallDisabled &&
       !hasTesterFullAccess;
 
@@ -35,7 +35,7 @@ class AppAccessState {
           ? 'Test subscription active'
           : 'Billing test ready';
     }
-    if (!LaunchContainment.subscriptionsEnabled) {
+    if (!LaunchContainment.publicSubscriptionsEnabled) {
       return 'Plans unavailable';
     }
     if (paywallDisabled || hasTesterFullAccess) {
@@ -57,7 +57,7 @@ class AppAccessState {
     if (isLocalMode) {
       return 'Your profile and plans are stored on this device. No subscription is required.';
     }
-    if (!LaunchContainment.subscriptionsEnabled) {
+    if (!LaunchContainment.publicSubscriptionsEnabled) {
       return 'Subscriptions are disabled while launch-readiness work is completed.';
     }
     if (paywallDisabled || hasTesterFullAccess) {

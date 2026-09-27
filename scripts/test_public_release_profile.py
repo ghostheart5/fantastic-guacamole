@@ -127,7 +127,13 @@ class PublicProfileTests(unittest.TestCase):
             self.validate(legacy)
 
     def test_real_pending_source_blocks_before_defines_or_evidence_access(self):
-        repo = Path(__file__).resolve().parent.parent
+        # A closed source capability must reject even before Git/config access.
+        actual = Path(__file__).resolve().parent.parent
+        repo = self.root/'closed-source'
+        (repo/'lib/config').mkdir(parents=True)
+        source = (actual/'lib/config/launch_containment.dart').read_text(encoding='utf-8')
+        source = source.replace('cloudSyncEnabled = true;', 'cloudSyncEnabled = false;')
+        (repo/'lib/config/launch_containment.dart').write_text(source, encoding='utf-8')
         with self.assertRaisesRegex(ValueError, 'Public source gate is not approved'):
             prepare(repo, self.root/'does-not-exist.json', self.root/'no-review.json')
         self.assertFalse((self.root/'does-not-exist.json').exists())
