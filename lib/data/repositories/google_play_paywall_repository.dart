@@ -73,18 +73,6 @@ DateTime _testingRenewalDateFor(String? planId) {
   );
 }
 
-class _VerifiedSubscription {
-  const _VerifiedSubscription({
-    required this.expiry,
-    required this.status,
-    required this.providerAcknowledged,
-  });
-
-  final DateTime expiry;
-  final String status;
-  final bool providerAcknowledged;
-}
-
 abstract class BillingClient {
   Stream<List<PurchaseDetails>> get purchaseStream;
   Future<ProductDetailsResponse> queryProductDetails(Set<String> ids);
@@ -1258,14 +1246,34 @@ class GooglePlayPaywallRepository
           _removePendingPurchase(operationKey, pending);
           continue;
         }
-        final _VerifiedSubscription? verification =
+        final _SubscriptionReceipt? verification =
             await _verifiedSubscriptionFromServer(
               purchase,
               expectedUserId: expectedUserId,
             );
         final String? planId = _planIdForProduct(productId);
         final bool accountIsCurrent = _isCurrentBillingAccount(expectedUserId);
-        if (verification != null && planId != null && accountIsCurrent) {
+        if (verification is _InactiveSubscriptionReceipt &&
+            restore != null &&
+            _supabaseClient != null &&
+            planId != null &&
+            accountIsCurrent) {
+          // A reconciled terminal receipt grants no access and needs no local
+          // acknowledgement. Let explicit restore finish its forced authority
+          // refresh rather than treating an expired inventory item as an outage.
+          _completePendingPurchase(
+            pending,
+            _transactionOutcomeState(
+              status: 'verification_failed',
+              attemptedPlanId: planId,
+            ),
+          );
+          _removePendingPurchase(operationKey, pending);
+          continue;
+        }
+        if (verification is _VerifiedSubscription &&
+            planId != null &&
+            accountIsCurrent) {
           bool acknowledged =
               verification.providerAcknowledged ||
               !purchase.pendingCompletePurchase;
