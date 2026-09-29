@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Axiomara assistant orchestration
 enum AxiomaraMemoryKind {
   working,
   preference,
