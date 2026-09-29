@@ -10,6 +10,8 @@ final class GovernedMemoryReadAdapter {
   AxiomaraMemoryContext contextFromEligibleMemories({
     required String accountScopeId,
     required Iterable<MemoryEntity> memories,
+    required MemorySurface requestingSurface,
+    required DateTime now,
     int limit = 12,
   }) {
     if (accountScopeId.trim().isEmpty || limit < 0) {
@@ -19,7 +21,13 @@ final class GovernedMemoryReadAdapter {
     }
 
     final List<AxiomaraMemoryRecord> records = memories
-        .where((MemoryEntity memory) => memory.accountScopeId == accountScopeId)
+        .where(
+          (MemoryEntity memory) => memory.canBeRetrieved(
+            requestingAccountScopeId: accountScopeId,
+            requestingSurface: requestingSurface,
+            now: now,
+          ),
+        )
         .take(limit)
         .map(
           (MemoryEntity memory) => AxiomaraMemoryRecord(
