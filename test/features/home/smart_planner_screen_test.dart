@@ -111,6 +111,42 @@ void main() {
       'What are my tasks?',
     );
   });
+  testWidgets('new AI handoff clears an older local plan', (tester) async {
+    final releaseGate = Completer<AssistantReleaseDecision>();
+    final container = _container(
+      conversationAvailable: true,
+      allowedAi: true,
+      plannerReleaseGate: releaseGate,
+    );
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    expect(find.byType(AssistantConversationScreen), findsNothing);
+    await _requestGuidance(tester);
+    expect(find.byKey(const Key('planner-use-this-plan')), findsOneWidget);
+
+    releaseGate.complete(_testEnabledReleaseDecision());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(AssistantConversationScreen), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'What are my tasks?',
+    );
+    await tester.tap(find.byTooltip('On-device tools'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(AssistantConversationScreen), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('planner-context-field')))
+          .controller!
+          .text,
+      'What are my tasks?',
+    );
+    expect(find.byKey(const Key('planner-response-panel')), findsNothing);
+    expect(find.byKey(const Key('planner-use-this-plan')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'planner shows partial dictation before completion and keeps Send disabled',
     (tester) async {
@@ -1586,6 +1622,25 @@ void main() {
   });
 }
 
+AssistantReleaseDecision _testEnabledReleaseDecision({
+  bool released = true,
+  AssistantReleaseCapability capability =
+      AssistantReleaseCapability.smartPlannerV2,
+}) => const AssistantReleaseController().decide(
+  config: AssistantReleaseConfig(
+    stage: released ? AssistantReleaseStage.general : AssistantReleaseStage.off,
+    canaryBasisPoints: 0,
+    shadowEvaluationEnabled: false,
+    internalAccountDigests: const {},
+    rollbackCapabilities: const {},
+  ),
+  request: AssistantReleaseRequest(
+    accountScopeId: 'v2.synthetic-route-review',
+    capability: capability,
+    betaOptIn: false,
+  ),
+);
+
 ProviderContainer _container({
   VoiceService? voiceService,
   VoiceController? voiceController,
@@ -1597,6 +1652,7 @@ ProviderContainer _container({
   bool plannerAvailable = true,
   bool conversationAvailable = false,
   bool conversationReleased = true,
+  Completer<AssistantReleaseDecision>? plannerReleaseGate,
   bool allowedAi = false,
   bool firstUseContextOfferSeen = true,
   SharedPrefsStore? sharedPrefsStore,
@@ -1624,22 +1680,14 @@ ProviderContainer _container({
           AssistantReleaseCapability.safetyCritic,
         ])
           assistantReleaseDecisionProvider(capability).overrideWith(
-            (ref) async => const AssistantReleaseController().decide(
-              config: AssistantReleaseConfig(
-                stage: conversationReleased
-                    ? AssistantReleaseStage.general
-                    : AssistantReleaseStage.off,
-                canaryBasisPoints: 0,
-                shadowEvaluationEnabled: false,
-                internalAccountDigests: const {},
-                rollbackCapabilities: const {},
-              ),
-              request: AssistantReleaseRequest(
-                accountScopeId: 'v2.synthetic-route-review',
-                capability: capability,
-                betaOptIn: false,
-              ),
-            ),
+            (ref) async =>
+                capability == AssistantReleaseCapability.smartPlannerV2 &&
+                    plannerReleaseGate != null
+                ? plannerReleaseGate.future
+                : _testEnabledReleaseDecision(
+                    released: conversationReleased,
+                    capability: capability,
+                  ),
           ),
       if (conversationAvailable)
         siV2EvidenceSnapshotProvider.overrideWith(
