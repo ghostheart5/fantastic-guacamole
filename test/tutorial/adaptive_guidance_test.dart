@@ -64,6 +64,7 @@ void main() {
         GuidanceLessonId.createFirstItem,
         GuidanceLessonId.scheduleFirstItem,
       },
+      expectedFirstRunCreatorTaskIds: const <String>{'task-a'},
     );
     expect(
       scheduled
@@ -104,6 +105,34 @@ void main() {
     );
   });
 
+  test(
+    'existing task milestones without a Creator receipt restart the trace',
+    () {
+      final DateTime observedAt = DateTime.utc(2026, 8, 18);
+      final AdaptiveGuidanceState state = AdaptiveGuidanceState(
+        milestones: <GuidanceMilestone, DateTime>{
+          GuidanceMilestone.firstItem: observedAt,
+          GuidanceMilestone.firstSchedule: observedAt,
+        },
+        counts: const <GuidanceMilestone, int>{},
+        skippedLessons: const <GuidanceLessonId>{},
+        completedLessons: const <GuidanceLessonId>{
+          GuidanceLessonId.createFirstItem,
+          GuidanceLessonId.scheduleFirstItem,
+        },
+      );
+      expect(
+        state
+            .nextIntervention(
+              currentRoute: RoutePaths.nexus,
+              decision: _decision,
+            )
+            ?.id,
+        GuidanceLessonId.createFirstItem,
+      );
+    },
+  );
+
   test('explicit replay remains available before core completion', () {
     const AdaptiveGuidanceState state = AdaptiveGuidanceState(
       milestones: <GuidanceMilestone, DateTime>{},
@@ -111,6 +140,7 @@ void main() {
       skippedLessons: <GuidanceLessonId>{},
       completedLessons: <GuidanceLessonId>{},
       replayLessons: <GuidanceLessonId>{GuidanceLessonId.reviewTimeline},
+      expectedFirstRunCreatorTaskIds: <String>{'task-a'},
     );
 
     expect(

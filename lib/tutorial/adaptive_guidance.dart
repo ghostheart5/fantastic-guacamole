@@ -138,7 +138,20 @@ abstract final class GuidanceInterventionEngine {
     }
 
     for (final GuidanceLessonId id in _replayableCoreLessons) {
-      if (state.replayLessons.contains(id)) return _coreLesson(id);
+      if (!state.replayLessons.contains(id)) continue;
+      if (state.laterLessons.contains(id) ||
+          state.skippedLessons.contains(id)) {
+        return null;
+      }
+      if (id == GuidanceLessonId.reviewTimeline &&
+          state.expectedFirstRunCreatorTaskIds.isEmpty) {
+        if (state.laterLessons.contains(GuidanceLessonId.createFirstItem) ||
+            state.skippedLessons.contains(GuidanceLessonId.createFirstItem)) {
+          return null;
+        }
+        return _coreLesson(GuidanceLessonId.createFirstItem);
+      }
+      return _coreLesson(id);
     }
 
     if (!state.coreComplete) {
@@ -159,6 +172,16 @@ abstract final class GuidanceInterventionEngine {
         if (state.laterLessons.contains(lesson) ||
             state.skippedLessons.contains(lesson)) {
           return null;
+        }
+        if (lesson == GuidanceLessonId.reviewTimeline &&
+            state.expectedFirstRunCreatorTaskIds.isEmpty) {
+          // The Timeline spotlight requires an exact Creator receipt. Older
+          // accounts can have both task milestones without that receipt.
+          if (state.laterLessons.contains(GuidanceLessonId.createFirstItem) ||
+              state.skippedLessons.contains(GuidanceLessonId.createFirstItem)) {
+            return null;
+          }
+          return _coreLesson(GuidanceLessonId.createFirstItem);
         }
         return _coreLesson(lesson);
       }
