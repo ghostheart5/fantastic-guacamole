@@ -131,7 +131,9 @@ final conversationServiceProvider = Provider<ConversationService>((ref) {
             .where((turn) => turn['role'] == 'user')
             .map((turn) => turn['content']),
       ].join(' ');
-      if (EmotionalSafetyPolicy.assess(text).route !=
+      if (EmotionalSafetyPolicy.assess(
+            '$text ${packet.attachedNoteSafetyText}',
+          ).route !=
           EmotionalSafetyRoute.routine) {
         throw const ConversationFailure('supportive_route_required');
       }

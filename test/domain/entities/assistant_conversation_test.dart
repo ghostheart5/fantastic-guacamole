@@ -84,6 +84,26 @@ void main() {
     },
   );
 
+  test('only the explicitly attached note enters the note safety input', () {
+    final request = packet(
+      context: {
+        'tasks': [
+          {'title': 'A historical crisis reference'},
+        ],
+        'explicitlyAttachedNote': {
+          'title': 'Current note',
+          'body': 'I need help right now.',
+        },
+      },
+    );
+    expect(
+      request.attachedNoteSafetyText,
+      'Current note I need help right now.',
+    );
+    expect(request.attachedNoteSafetyText, isNot(contains('historical')));
+    expect(packet().attachedNoteSafetyText, isEmpty);
+  });
+
   for (final status in [402, 403, 409, 429, 500, 502]) {
     test(
       'HTTP $status is a failure, never a fabricated local answer',

@@ -141,7 +141,29 @@ abstract final class GuidanceInterventionEngine {
       if (state.replayLessons.contains(id)) return _coreLesson(id);
     }
 
-    if (!state.coreComplete) return null;
+    if (!state.coreComplete) {
+      for (final (GuidanceMilestone milestone, GuidanceLessonId lesson)
+          in <(GuidanceMilestone, GuidanceLessonId)>[
+            (GuidanceMilestone.firstItem, GuidanceLessonId.createFirstItem),
+            (
+              GuidanceMilestone.firstSchedule,
+              GuidanceLessonId.scheduleFirstItem,
+            ),
+            (
+              GuidanceMilestone.firstTimelineReview,
+              GuidanceLessonId.reviewTimeline,
+            ),
+          ]) {
+        if (state.has(milestone)) continue;
+        // A deferred or muted lesson must not be replaced by a later step.
+        if (state.laterLessons.contains(lesson) ||
+            state.skippedLessons.contains(lesson)) {
+          return null;
+        }
+        return _coreLesson(lesson);
+      }
+      return null;
+    }
 
     if (state.hasDeferralFriction) {
       final GuidanceLesson? recovery = unresolved(
@@ -208,7 +230,7 @@ abstract final class GuidanceInterventionEngine {
         id: GuidanceLessonId.createFirstItem,
         title: 'Capture the first real commitment',
         body:
-            'Create one task with a concrete outcome. Guidance advances only after the item is saved.',
+            'Start with one thing you need to do. Creator saves it; next you can give it a time and see it on Timeline. The guide advances after the task is saved.',
         route: RoutePaths.creator,
         actionLabel: 'Open Creator',
       ),
@@ -216,7 +238,7 @@ abstract final class GuidanceInterventionEngine {
         id: GuidanceLessonId.scheduleFirstItem,
         title: 'Give the commitment a real time',
         body:
-            'Add a date and time. This connects Creator, Smart Planner, and Timeline with evidence the app can use.',
+            'Give your task a date and time so it appears in your plan. You can change the time later.',
         route: RoutePaths.creator,
         actionLabel: 'Schedule in Creator',
       ),
@@ -224,7 +246,7 @@ abstract final class GuidanceInterventionEngine {
         id: GuidanceLessonId.reviewTimeline,
         title: 'Verify where the work landed',
         body:
-            'Inspect the saved result on Timeline. Visiting the screen is recorded; tapping this prompt is not completion.',
+            'Find the task you just saved and see where it sits in your day. The guide advances after you review that task on Timeline.',
         route: RoutePaths.timeline,
         actionLabel: 'Open Timeline',
       ),
@@ -542,7 +564,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     );
   }
 
-  Future<void> restartLessons() => _restartLessons(replayCore: false);
+  Future<void> restartLessons() => _restartLessons(replayCore: true);
 
   Future<void> _restartLessons({required bool replayCore}) async {
     final String? account = _activeScope;

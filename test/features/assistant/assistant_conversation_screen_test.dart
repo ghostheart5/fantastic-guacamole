@@ -67,6 +67,7 @@ ProviderContainer setup(
   VoiceController? voiceController,
   Duration? requestTimeout,
   Duration? paidWaitTimeout,
+  NoteEntity? selectedNote,
 }) => ProviderContainer(
   overrides: [
     accountStorageScopeProvider.overrideWith(
@@ -88,13 +89,15 @@ ProviderContainer setup(
     if (humanContext != null)
       consentedHumanContextProvider.overrideWithValue(humanContext),
     selectedPlanningNoteProvider.overrideWith(
-      (ref) async => NoteEntity(
-        id: 'list-note',
-        title: 'Dinner shopping',
-        body: 'Check the pantry before buying rice.',
-        createdAt: DateTime(2026, 9, 16),
-        taskId: 'grocery',
-      ),
+      (ref) async =>
+          selectedNote ??
+          NoteEntity(
+            id: 'list-note',
+            title: 'Dinner shopping',
+            body: 'Check the pantry before buying rice.',
+            createdAt: DateTime(2026, 9, 16),
+            taskId: 'grocery',
+          ),
     ),
     if (voiceController != null)
       voiceInputEnabledProvider.overrideWithValue(true),
@@ -1086,6 +1089,45 @@ void main() {
       );
     },
   );
+
+  test('an attached crisis note blocks a quote before transport', () async {
+    var transportCalls = 0;
+    final container = setup(
+      (_) async {
+        transportCalls++;
+        throw StateError('An attached crisis note must not reach transport');
+      },
+      selectedNote: NoteEntity(
+        id: 'list-note',
+        title: 'Please help',
+        body: 'I want to kill myself tonight.',
+        createdAt: DateTime(2026, 9, 16),
+        taskId: 'grocery',
+      ),
+    );
+    addTearDown(container.dispose);
+    final packet = await container
+        .read(conversationPacketFactoryProvider)
+        .build(
+          surface: ConversationSurface.planner,
+          prompt: 'Can you summarize my note?',
+          selectedTaskId: 'grocery',
+          history: [],
+          languageCode: 'en',
+        );
+    expect(packet.attachedNoteSafetyText, contains('kill myself'));
+    await expectLater(
+      container.read(conversationServiceProvider).quote(packet),
+      throwsA(
+        isA<ConversationFailure>().having(
+          (failure) => failure.code,
+          'code',
+          'supportive_route_required',
+        ),
+      ),
+    );
+    expect(transportCalls, 0);
+  });
 
   test(
     'Advanced mode, entity filter and scenario reach the model packet',

@@ -102,11 +102,11 @@ class ChronoSparkLocalizations {
     if (!isSpanish) return fallback;
     return switch (id) {
       'createFirstItem' =>
-        'Crea una tarea con un resultado concreto. La guía avanza solo después de guardarla.',
+        'Empieza con una cosa que necesitas hacer. Creador la guarda; después puedes darle una hora y verla en Línea de Tiempo. La guía avanza cuando guardas la tarea.',
       'scheduleFirstItem' =>
-        'Añade una fecha y una hora para conectar Creador, Planificador Inteligente y Línea de Tiempo con evidencia real.',
+        'Asigna una fecha y una hora a tu tarea para que aparezca en tu plan. Puedes cambiar la hora después.',
       'reviewTimeline' =>
-        'Revisa el resultado guardado en Línea de Tiempo. Abrir el aviso no cuenta como completarlo.',
+        'Encuentra la tarea que acabas de guardar y mira dónde aparece en tu día. La guía avanza cuando revisas esa tarea en Línea de Tiempo.',
       'nexus' =>
         'Revisa la razón y la incertidumbre mostradas junto al bloque antes de actuar.',
       'smartPlanner' =>

@@ -12,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  test('incomplete core milestones suppress automatic interventions', () {
+  test('core guidance follows saved milestones and then yields to Nexus', () {
     final DateTime observedAt = DateTime.utc(2026, 8, 18);
     const AdaptiveGuidanceState beforeFirstValue = AdaptiveGuidanceState(
       milestones: <GuidanceMilestone, DateTime>{},
@@ -32,21 +32,48 @@ void main() {
     );
 
     expect(
-      beforeFirstValue.nextIntervention(
-        currentRoute: RoutePaths.nexus,
-        decision: _decision,
-        now: observedAt,
-      ),
-      isNull,
+      beforeFirstValue
+          .nextIntervention(
+            currentRoute: RoutePaths.nexus,
+            decision: _decision,
+            now: observedAt,
+          )
+          ?.id,
+      GuidanceLessonId.createFirstItem,
     );
     expect(incomplete.coreComplete, isFalse);
     expect(
-      incomplete.nextIntervention(
-        currentRoute: RoutePaths.nexus,
-        decision: _decision,
-        now: observedAt.add(const Duration(days: 2)),
-      ),
-      isNull,
+      incomplete
+          .nextIntervention(
+            currentRoute: RoutePaths.nexus,
+            decision: _decision,
+            now: observedAt.add(const Duration(days: 2)),
+          )
+          ?.id,
+      GuidanceLessonId.scheduleFirstItem,
+    );
+
+    final AdaptiveGuidanceState scheduled = AdaptiveGuidanceState(
+      milestones: <GuidanceMilestone, DateTime>{
+        GuidanceMilestone.firstItem: observedAt,
+        GuidanceMilestone.firstSchedule: observedAt,
+      },
+      counts: const <GuidanceMilestone, int>{},
+      skippedLessons: const <GuidanceLessonId>{},
+      completedLessons: const <GuidanceLessonId>{
+        GuidanceLessonId.createFirstItem,
+        GuidanceLessonId.scheduleFirstItem,
+      },
+    );
+    expect(
+      scheduled
+          .nextIntervention(
+            currentRoute: RoutePaths.nexus,
+            decision: _decision,
+            now: observedAt,
+          )
+          ?.id,
+      GuidanceLessonId.reviewTimeline,
     );
 
     final AdaptiveGuidanceState complete = AdaptiveGuidanceState(
@@ -260,6 +287,7 @@ void main() {
       expect(afterRestart.laterLessons, isEmpty);
       expect(afterRestart.skippedLessons, contains(GuidanceLessonId.siConsole));
       expect(afterRestart.has(GuidanceMilestone.firstItem), isTrue);
+      expect(afterRestart.replayLessons, _replayableCoreLessonMatcher);
     },
   );
 
