@@ -591,6 +591,138 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('local question offers free tools and preserves the draft', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var transportCalls = 0;
+    String? handoffDraft;
+    final container = setup((_) async {
+      transportCalls++;
+      throw StateError('A local handoff must not call the AI service');
+    });
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: ThemeData.dark(),
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+            onLocalToolsWithDraft: (draft) => handoffDraft = draft,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'What are my tasks?',
+    );
+    await tester.tap(find.byTooltip('Send to AI'));
+    await waitFor(tester, find.text('Use free tools'));
+    expect(transportCalls, 0);
+    expect(find.text('Get credit price'), findsNothing);
+
+    await tester.tap(find.text('Use free tools'));
+    await tester.pumpAndSettle();
+    expect(handoffDraft, 'What are my tasks?');
+    expect(transportCalls, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Spanish local question offers free tools without a quote', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    String? handoffDraft;
+    var transportCalls = 0;
+    final container = setup((_) async {
+      transportCalls++;
+      throw StateError('Spanish local handoff must not call the AI service');
+    });
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          locale: const Locale('es'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            ChronoSparkLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          theme: ThemeData.dark(),
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+            onLocalToolsWithDraft: (draft) => handoffDraft = draft,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      '¿Cuáles son mis tareas?',
+    );
+    await tester.tap(find.byTooltip('Enviar a IA'));
+    await waitFor(tester, find.text('Usar herramientas gratis'));
+    expect(transportCalls, 0);
+    await tester.tap(find.text('Usar herramientas gratis'));
+    await tester.pumpAndSettle();
+    expect(handoffDraft, '¿Cuáles son mis tareas?');
+    expect(transportCalls, 0);
+  });
+
+  testWidgets('local suggestion can still enter the existing paid quote flow', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var transportCalls = 0;
+    final container = setup((_) async {
+      transportCalls++;
+      throw StateError('The user did not request a quote');
+    });
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: ThemeData.dark(),
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'What are my tasks?',
+    );
+    await tester.tap(find.byTooltip('Send to AI'));
+    await waitFor(tester, find.text('Review AI price'));
+    await tester.tap(find.text('Review AI price'));
+    await waitFor(tester, find.text('Get credit price'));
+    expect(transportCalls, 0);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final failure in <String, String>{
     'daily_budget_exceeded': 'rolling daily AI safety limit',
     'timing_context_missing': 'one scheduled task and its local date',
@@ -1808,6 +1940,54 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('account change cancels a free-route handoff', (tester) async {
+    var currentScope = scope;
+    var transportCalls = 0;
+    String? handoffDraft;
+    final container = setup((_) async {
+      transportCalls++;
+      throw StateError('No AI request was approved');
+    }, readScope: () => currentScope);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+            onLocalToolsWithDraft: (draft) => handoffDraft = draft,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'What are my tasks?',
+    );
+    await tester.tap(find.byTooltip('Send to AI'));
+    await waitFor(tester, find.text('Use free tools'));
+
+    currentScope = AccountStorageScope.authenticated('different-local-account');
+    container.invalidate(accountStorageScopeProvider);
+    await tester.pumpAndSettle();
+    expect(find.text('Use free tools'), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('conversation-input')))
+          .controller!
+          .text,
+      isEmpty,
+    );
+    expect(handoffDraft, isNull);
+    expect(transportCalls, 0);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('removing the conversation closes its private review dialog', (
     tester,

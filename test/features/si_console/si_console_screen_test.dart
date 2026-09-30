@@ -5,6 +5,9 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'dart:async';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
+import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
@@ -48,6 +51,43 @@ void main() {
     expect(find.text('AI conversation · uses credits'), findsOneWidget);
     expect(find.text('Advanced analysis'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('switching from AI preserves a question in local SI', (
+    tester,
+  ) async {
+    final port = _RecordingPort(snapshot: snapshot, now: now);
+    final container = _container(
+      port,
+      snapshot,
+      conversationAvailable: true,
+      allowedAi: true,
+    );
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'What are my tasks?',
+    );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('conversation-input')))
+          .controller!
+          .text,
+      'What are my tasks?',
+    );
+    await tester.tap(find.byTooltip('On-device tools'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(AssistantConversationScreen), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('si-query-input')))
+          .controller!
+          .text,
+      'What are my tasks?',
+    );
+    expect(port.calls, 0);
   });
 
   testWidgets('SI title gets the full row at 200 percent text', (tester) async {
@@ -777,10 +817,17 @@ ProviderContainer _container(
   bool available = true,
   bool conversationAvailable = false,
   bool conversationReleased = true,
+  bool allowedAi = false,
   VoiceController? voiceController,
 }) {
   return ProviderContainer(
     overrides: [
+      if (allowedAi) ...[
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('synthetic-route-review'),
+        ),
+        personalizationProfileProvider.overrideWith(_AllowedConsent.new),
+      ],
       assistantConversationAvailableProvider.overrideWithValue(
         conversationAvailable,
       ),
@@ -824,6 +871,12 @@ ProviderContainer _container(
       voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
     ],
   );
+}
+
+class _AllowedConsent extends PersonalizationProfileController {
+  @override
+  PersonalizationProfile build() =>
+      const PersonalizationProfile(externalAiAllowed: true);
 }
 
 final _siContextRevisionTestProvider =

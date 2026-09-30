@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
+import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'dart:async';
 
@@ -81,6 +82,35 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('switching from AI preserves a question in local Planner', (
+    tester,
+  ) async {
+    final container = _container(conversationAvailable: true, allowedAi: true);
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'What are my tasks?',
+    );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('conversation-input')))
+          .controller!
+          .text,
+      'What are my tasks?',
+    );
+    await tester.tap(find.byTooltip('On-device tools'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(AssistantConversationScreen), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('planner-context-field')))
+          .controller!
+          .text,
+      'What are my tasks?',
+    );
+  });
   testWidgets(
     'planner shows partial dictation before completion and keeps Send disabled',
     (tester) async {
@@ -1567,6 +1597,7 @@ ProviderContainer _container({
   bool plannerAvailable = true,
   bool conversationAvailable = false,
   bool conversationReleased = true,
+  bool allowedAi = false,
   bool firstUseContextOfferSeen = true,
   SharedPrefsStore? sharedPrefsStore,
   PersonContextRepository? personContextRepository,
@@ -1581,6 +1612,8 @@ ProviderContainer _container({
   }
   return ProviderContainer(
     overrides: [
+      if (allowedAi)
+        personalizationProfileProvider.overrideWith(_AllowedConsent.new),
       assistantConversationAvailableProvider.overrideWithValue(
         conversationAvailable,
       ),
@@ -1668,6 +1701,12 @@ ProviderContainer _container({
         ),
     ],
   );
+}
+
+class _AllowedConsent extends PersonalizationProfileController {
+  @override
+  PersonalizationProfile build() =>
+      const PersonalizationProfile(externalAiAllowed: true);
 }
 
 class _MemoryPrefs implements SharedPrefsStore {

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_response_body.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
@@ -10,6 +11,7 @@ import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/ai_content_report_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
@@ -24,14 +26,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The conversational route is explicitly model-backed. Local tools remain an
 /// intentional user choice, never an invisible fallback for a failed request.
+enum _LocalRouteChoice { freeTools, aiPrice }
+
 class AssistantConversationScreen extends ConsumerStatefulWidget {
   const AssistantConversationScreen({
     super.key,
     required this.surface,
     required this.onLocalTools,
+    this.onLocalToolsWithDraft,
   });
   final ConversationSurface surface;
   final VoidCallback onLocalTools;
+  final ValueChanged<String>? onLocalToolsWithDraft;
   @override
   ConsumerState<AssistantConversationScreen> createState() =>
       _AssistantConversationScreenState();
@@ -53,6 +59,7 @@ class _AssistantConversationScreenState
   int _operation = 0;
   Timer? _paidWaitTimer;
   BuildContext? _dialogContext;
+  Route<dynamic>? _dialogRoute;
   String _dictationDraftBase = '';
   double? _energy;
   String? _attachedTaskId;
@@ -98,10 +105,7 @@ class _AssistantConversationScreenState
         // The provider may have been disposed with an account or app boundary.
       }
     });
-    final dialog = _dialogContext;
-    final route = dialog != null && dialog.mounted
-        ? ModalRoute.of(dialog)
-        : null;
+    final route = _dialogRoute;
     // Authentication or eligibility can remove this screen while its dialog is
     // on the root navigator. Remove that exact route after the tree is stable.
     if (route != null) {
@@ -129,6 +133,7 @@ class _AssistantConversationScreenState
             context: context,
             builder: (ctx) {
               _dialogContext = ctx;
+              _dialogRoute = ModalRoute.of(ctx);
               return AlertDialog(
                 title: Text(title),
                 content: SizedBox(
@@ -151,6 +156,46 @@ class _AssistantConversationScreenState
           false;
     } finally {
       _dialogContext = null;
+      _dialogRoute = null;
+    }
+  }
+
+  Future<_LocalRouteChoice?> _chooseFreeRoute() async {
+    try {
+      return await showDialog<_LocalRouteChoice>(
+        context: context,
+        builder: (ctx) {
+          _dialogContext = ctx;
+          _dialogRoute = ModalRoute.of(ctx);
+          return AlertDialog(
+            title: Text(copy('Free on-device option', 'Opción local gratis')),
+            content: Text(
+              copy(
+                'This looks like a question the on-device tools can handle. You can carry your draft there for free, or continue to review the AI credit price. Nothing has been sent or charged.',
+                'Parece una pregunta que las herramientas locales pueden atender. Puedes llevar allí tu borrador gratis o continuar para revisar el precio en créditos de IA. No se ha enviado ni cobrado nada.',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(copy('Cancel', 'Cancelar')),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, _LocalRouteChoice.aiPrice),
+                child: Text(copy('Review AI price', 'Revisar precio de IA')),
+              ),
+              FilledButton(
+                onPressed: () =>
+                    Navigator.pop(ctx, _LocalRouteChoice.freeTools),
+                child: Text(copy('Use free tools', 'Usar herramientas gratis')),
+              ),
+            ],
+          );
+        },
+      );
+    } finally {
+      _dialogContext = null;
+      _dialogRoute = null;
     }
   }
 
@@ -185,6 +230,48 @@ class _AssistantConversationScreenState
     bool current() =>
         mounted && generation == _generation && operation == _operation;
     try {
+      if (!retry) {
+        final scope = ref.read(accountStorageScopeProvider).v2Namespace;
+        final authGeneration = ref.read(authSessionBoundaryProvider).generation;
+        if (scope == null) {
+          throw const ConversationFailure('authentication_required');
+        }
+        final decision = await ref
+            .read(axiomaraRouterProvider)
+            .route(
+              accountScopeId: scope,
+              input: prompt,
+              externalAiAllowed: ref
+                  .read(personalizationProfileProvider)
+                  .externalAiAllowed,
+            );
+        if (!current() ||
+            ref.read(accountStorageScopeProvider).v2Namespace != scope ||
+            ref.read(authSessionBoundaryProvider).generation !=
+                authGeneration) {
+          return;
+        }
+        if (decision.route == AxiomaraRoute.local ||
+            decision.route == AxiomaraRoute.si) {
+          final choice = await _chooseFreeRoute();
+          if (!current() ||
+              ref.read(accountStorageScopeProvider).v2Namespace != scope ||
+              ref.read(authSessionBoundaryProvider).generation !=
+                  authGeneration) {
+            return;
+          }
+          if (choice == null) return;
+          if (choice == _LocalRouteChoice.freeTools) {
+            final handoff = widget.onLocalToolsWithDraft;
+            if (handoff == null) {
+              widget.onLocalTools();
+            } else {
+              handoff(prompt);
+            }
+            return;
+          }
+        }
+      }
       final service = ref.read(conversationServiceProvider);
       var quote = retry ? _pending : null;
       if (quote == null) {
@@ -635,7 +722,7 @@ class _AssistantConversationScreenState
     ref.listen(accountStorageScopeProvider, (previous, next) {
       if (previous?.v2Namespace != next.v2Namespace) {
         final dialog = _dialogContext;
-        if (dialog != null && dialog.mounted) Navigator.pop(dialog, false);
+        if (dialog != null && dialog.mounted) Navigator.pop(dialog);
         unawaited(ref.read(voiceControllerProvider.notifier).stopListening());
         setState(() {
           _generation++;
@@ -711,7 +798,16 @@ class _AssistantConversationScreenState
         actions: [
           IconButton(
             tooltip: copy('On-device tools', 'Herramientas locales'),
-            onPressed: _busy ? null : widget.onLocalTools,
+            onPressed: _busy
+                ? null
+                : () {
+                    final handoff = widget.onLocalToolsWithDraft;
+                    if (handoff == null) {
+                      widget.onLocalTools();
+                    } else {
+                      handoff(_input.text.trim());
+                    }
+                  },
             icon: const Icon(Icons.offline_bolt_outlined),
           ),
         ],

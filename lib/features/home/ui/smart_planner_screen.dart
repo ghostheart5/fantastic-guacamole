@@ -1243,6 +1243,10 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       return AssistantConversationScreen(
         surface: ConversationSurface.planner,
         onLocalTools: () => setState(() => _useLocalTools = true),
+        onLocalToolsWithDraft: (String draft) => setState(() {
+          if (draft.isNotEmpty) _notesController.text = draft;
+          _useLocalTools = true;
+        }),
       );
     }
     final PlannerRoutineCopy routine = ChronoSparkLocalizations.of(
