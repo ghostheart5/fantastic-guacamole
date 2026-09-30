@@ -1,0 +1,127 @@
+import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
+import 'package:fantastic_guacamole/engine/assistant/axiomara_deterministic_router.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  const router = AxiomaraDeterministicRouter();
+
+  test('simple retrieval stays local and free', () async {
+    final result = await router.route(
+      accountScopeId: 'account-a',
+      input: 'Show my tasks',
+      externalAiAllowed: true,
+    );
+    expect(result.route, AxiomaraRoute.local);
+    expect(result.requiresCredits, isFalse);
+  });
+
+  test('Spanish retrieval stays local and free', () async {
+    for (final input in <String>[
+      'Muéstrame mis tareas',
+      '¿Qué vence hoy?',
+      'Enséñame mis metas',
+    ]) {
+      final result = await router.route(
+        accountScopeId: 'account-a',
+        input: input,
+        externalAiAllowed: true,
+      );
+      expect(result.route, AxiomaraRoute.local, reason: input);
+      expect(result.requiresCredits, isFalse, reason: input);
+      expect(result.externalAiSelected, isFalse, reason: input);
+    }
+  });
+
+  test('English and Spanish question-form retrieval stays local', () async {
+    for (final input in <String>[
+      'What are my tasks?',
+      'What goals do I have?',
+      '¿Cuáles son mis tareas?',
+      '¿Qué metas tengo?',
+    ]) {
+      final result = await router.route(
+        accountScopeId: 'account-a',
+        input: input,
+        externalAiAllowed: true,
+      );
+      expect(result.route, AxiomaraRoute.local, reason: input);
+      expect(result.requiresCredits, isFalse, reason: input);
+    }
+  });
+
+  test('priority decisions stay in SI', () async {
+    final result = await router.route(
+      accountScopeId: 'account-a',
+      input: 'What should I do next?',
+      externalAiAllowed: true,
+    );
+    expect(result.route, AxiomaraRoute.si);
+    expect(result.externalAiSelected, isFalse);
+  });
+
+  test('safety routing takes precedence over local and paid routes', () async {
+    for (final input in <String>[
+      'Show me my tasks because I want to kill myself',
+      'Muéstrame mis tareas porque quiero morir',
+      'Help me think through this panic attack',
+    ]) {
+      final result = await router.route(
+        accountScopeId: 'account-a',
+        input: input,
+        externalAiAllowed: true,
+      );
+      expect(result.route, AxiomaraRoute.safety, reason: input);
+      expect(result.requiresCredits, isFalse, reason: input);
+      expect(result.externalAiSelected, isFalse, reason: input);
+    }
+  });
+
+  test('Spanish priority decisions stay in SI', () async {
+    final result = await router.route(
+      accountScopeId: 'account-a',
+      input: '¿Qué debo hacer ahora?',
+      externalAiAllowed: true,
+    );
+    expect(result.route, AxiomaraRoute.si);
+    expect(result.requiresCredits, isFalse);
+    expect(result.externalAiSelected, isFalse);
+  });
+
+  test('grounded reflective reasoning selects hybrid', () async {
+    final result = await router.route(
+      accountScopeId: 'account-a',
+      input: 'Help me figure out why I keep falling behind based on my tasks',
+      externalAiAllowed: true,
+    );
+    expect(result.route, AxiomaraRoute.hybrid);
+    expect(result.requiresCredits, isTrue);
+  });
+
+  test('specific intents take precedence over a retrieval verb', () async {
+    final priority = await router.route(
+      accountScopeId: 'account-a',
+      input: 'Show me which task has highest priority',
+      externalAiAllowed: true,
+    );
+    expect(priority.route, AxiomaraRoute.si);
+    expect(priority.requiresCredits, isFalse);
+
+    final explanation = await router.route(
+      accountScopeId: 'account-a',
+      input: 'Show me why I am falling behind based on my tasks',
+      externalAiAllowed: true,
+    );
+    expect(explanation.route, AxiomaraRoute.hybrid);
+    expect(explanation.requiresCredits, isTrue);
+  });
+
+  test('external AI opt-out always prevents Claude routes', () async {
+    final result = await router.route(
+      accountScopeId: 'account-a',
+      input: 'Help me think through a complicated situation',
+      externalAiAllowed: false,
+    );
+    expect(result.route, AxiomaraRoute.si);
+    expect(result.externalAiSelected, isFalse);
+  });
+}
