@@ -20,10 +20,29 @@ void main() {
     expect(context.validate, throwsA(isA<AxiomaraMemoryContractException>()));
   });
 
-  test('local and SI routes cannot consume Claude credits', () {
+  test('memory rejects non-finite confidence', () {
+    final context = AxiomaraMemoryContext(
+      accountScopeId: 'account-a',
+      records: <AxiomaraMemoryRecord>[
+        AxiomaraMemoryRecord(
+          id: 'memory-1',
+          accountScopeId: 'account-a',
+          kind: AxiomaraMemoryKind.preference,
+          provenance: AxiomaraMemoryProvenance.unknown,
+          text: 'Prefers morning planning.',
+          recordedAt: DateTime.utc(2026, 9, 29),
+          confidence: double.nan,
+        ),
+      ],
+    );
+    expect(context.validate, throwsA(isA<AxiomaraMemoryContractException>()));
+  });
+
+  test('local, SI, and safety routes cannot consume Claude credits', () {
     for (final route in <AxiomaraRoute>[
       AxiomaraRoute.local,
       AxiomaraRoute.si,
+      AxiomaraRoute.safety,
     ]) {
       final receipt = AxiomaraRouteReceipt(
         decision: AxiomaraRouteDecision(

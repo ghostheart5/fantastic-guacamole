@@ -48,7 +48,7 @@ final class AxiomaraMemoryRecord {
       );
     }
     final double? value = confidence;
-    if (value != null && (value < 0 || value > 1)) {
+    if (value != null && (!value.isFinite || value < 0 || value > 1)) {
       throw const AxiomaraMemoryContractException(
         'Memory confidence must be between 0 and 1.',
       );
