@@ -611,6 +611,8 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
       await prefs.remove('$prefix.complete.${id.name}');
       await prefs.remove('$prefix.later.${id.name}');
       if (replayCore && _replayableCoreLessons.contains(id)) {
+        // An explicit restart is a new choice to revisit core guidance.
+        await prefs.remove('$prefix.skip.${id.name}');
         await prefs.setBool('$prefix.replay.${id.name}', true);
       } else {
         await prefs.remove('$prefix.replay.${id.name}');
@@ -621,7 +623,9 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
       AdaptiveGuidanceState(
         milestones: current.milestones,
         counts: current.counts,
-        skippedLessons: current.skippedLessons,
+        skippedLessons: replayCore
+            ? current.skippedLessons.difference(_replayableCoreLessons)
+            : current.skippedLessons,
         completedLessons: _lessonsCompletedBy(current.milestones.keys),
         laterLessons: const <GuidanceLessonId>{},
         replayLessons: replayCore

@@ -284,7 +284,7 @@ void main() {
   });
 
   test(
-    'Later is resumable while Skip remains permanent across restart',
+    'Restart reopens skipped core lessons but keeps advanced skips',
     () async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final ProviderContainer first = _guidanceContainer(
@@ -297,6 +297,7 @@ void main() {
 
       await notifier.record(GuidanceMilestone.firstItem);
       await notifier.later(GuidanceLessonId.nexus);
+      await notifier.skip(GuidanceLessonId.createFirstItem);
       await notifier.skip(GuidanceLessonId.siConsole);
       first.dispose();
 
@@ -308,6 +309,10 @@ void main() {
         adaptiveGuidanceProvider.future,
       );
       expect(persisted.laterLessons, contains(GuidanceLessonId.nexus));
+      expect(
+        persisted.skippedLessons,
+        contains(GuidanceLessonId.createFirstItem),
+      );
       expect(persisted.skippedLessons, contains(GuidanceLessonId.siConsole));
 
       await restarted.read(adaptiveGuidanceProvider.notifier).restartLessons();
@@ -315,6 +320,10 @@ void main() {
           .read(adaptiveGuidanceProvider)
           .requireValue;
       expect(afterRestart.laterLessons, isEmpty);
+      expect(
+        afterRestart.skippedLessons,
+        isNot(contains(GuidanceLessonId.createFirstItem)),
+      );
       expect(afterRestart.skippedLessons, contains(GuidanceLessonId.siConsole));
       expect(afterRestart.has(GuidanceMilestone.firstItem), isTrue);
       expect(afterRestart.replayLessons, _replayableCoreLessonMatcher);
