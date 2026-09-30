@@ -35,8 +35,10 @@ void main() {
   test('English and Spanish question-form retrieval stays local', () async {
     for (final input in <String>[
       'What are my tasks?',
+      'What tasks are due today?',
       'What goals do I have?',
       '¿Cuáles son mis tareas?',
+      '¿Qué tareas vencen hoy?',
       '¿Qué metas tengo?',
     ]) {
       final result = await router.route(
