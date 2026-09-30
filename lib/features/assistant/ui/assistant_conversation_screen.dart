@@ -292,6 +292,18 @@ class _AssistantConversationScreenState
               attachedTaskOnly: _attachedTaskOnly,
             );
         if (!current()) return;
+        final attachedNoteSafety = EmotionalSafetyPolicy.assess(
+          packet.attachedNoteSafetyText,
+        );
+        if (attachedNoteSafety.route != EmotionalSafetyRoute.routine) {
+          if (!mounted) return;
+          if (attachedNoteSafety.requiresSupportivePause) {
+            await showSupportiveDistressDialog(context);
+          } else {
+            await showCrisisDialog(context);
+          }
+          return;
+        }
         final proceed = await _confirm(
           title: copy(
             'Review what AI will receive',
