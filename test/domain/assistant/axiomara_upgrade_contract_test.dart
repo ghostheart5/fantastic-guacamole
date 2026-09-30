@@ -21,7 +21,10 @@ void main() {
   });
 
   test('local and SI routes cannot consume Claude credits', () {
-    for (final route in <AxiomaraRoute>[AxiomaraRoute.local, AxiomaraRoute.si]) {
+    for (final route in <AxiomaraRoute>[
+      AxiomaraRoute.local,
+      AxiomaraRoute.si,
+    ]) {
       final receipt = AxiomaraRouteReceipt(
         decision: AxiomaraRouteDecision(
           route: route,
@@ -38,19 +41,22 @@ void main() {
     }
   });
 
-  test('Claude and hybrid routes explicitly require external AI and credits', () {
-    for (final route in <AxiomaraRoute>[
-      AxiomaraRoute.claude,
-      AxiomaraRoute.hybrid,
-    ]) {
-      final decision = AxiomaraRouteDecision(
-        route: route,
-        reason: 'complex reasoning requested',
-        externalAiUsed: true,
-        requiresCredits: true,
-        readOnly: true,
-      );
-      expect(decision.validate, returnsNormally);
-    }
-  });
+  test(
+    'Claude and hybrid routes explicitly require external AI and credits',
+    () {
+      for (final route in <AxiomaraRoute>[
+        AxiomaraRoute.claude,
+        AxiomaraRoute.hybrid,
+      ]) {
+        final decision = AxiomaraRouteDecision(
+          route: route,
+          reason: 'complex reasoning requested',
+          externalAiUsed: true,
+          requiresCredits: true,
+          readOnly: true,
+        );
+        expect(decision.validate, returnsNormally);
+      }
+    },
+  );
 }

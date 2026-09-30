@@ -95,9 +95,7 @@ abstract interface class AxiomaraMemoryPort {
     required String accountScopeId,
     required String memoryId,
   });
-  Future<List<AxiomaraMemoryRecord>> export({
-    required String accountScopeId,
-  });
+  Future<List<AxiomaraMemoryRecord>> export({required String accountScopeId});
   Future<void> clear({required String accountScopeId});
 }
 

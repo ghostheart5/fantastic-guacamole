@@ -59,7 +59,8 @@ final class GovernedMemoryReadAdapter {
       MemoryCategory.goal ||
       MemoryCategory.task ||
       MemoryCategory.lifeArea => AxiomaraMemoryKind.project,
-      MemoryCategory.habit || MemoryCategory.signal => AxiomaraMemoryKind.pattern,
+      MemoryCategory.habit ||
+      MemoryCategory.signal => AxiomaraMemoryKind.pattern,
       MemoryCategory.importantDate ||
       MemoryCategory.achievement => AxiomaraMemoryKind.event,
       _ => AxiomaraMemoryKind.userFact,
