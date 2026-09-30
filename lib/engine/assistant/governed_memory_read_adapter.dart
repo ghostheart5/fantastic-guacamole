@@ -69,14 +69,16 @@ final class GovernedMemoryReadAdapter {
 
   AxiomaraMemoryProvenance _provenance(MemoryEntity memory) {
     final String value = memory.provenance.trim().toLowerCase();
-    if (value.contains('infer')) return AxiomaraMemoryProvenance.inferred;
-    if (value.contains('observ')) return AxiomaraMemoryProvenance.observed;
-    if (value.contains('system')) {
-      return AxiomaraMemoryProvenance.systemGenerated;
-    }
-    if (value.contains('user') || value.contains('manual')) {
-      return AxiomaraMemoryProvenance.userProvided;
-    }
-    return AxiomaraMemoryProvenance.unknown;
+    return switch (value) {
+      'user-entered in smart planner memory consent dialog.' ||
+      'user-entered in smart planner dialog.' ||
+      'user-entered preference dialog.' ||
+      'user confirmation.' ||
+      'user confirmed' => AxiomaraMemoryProvenance.userProvided,
+      'observed' => AxiomaraMemoryProvenance.observed,
+      'inferred' => AxiomaraMemoryProvenance.inferred,
+      'system-generated' => AxiomaraMemoryProvenance.systemGenerated,
+      _ => AxiomaraMemoryProvenance.unknown,
+    };
   }
 }

@@ -48,7 +48,7 @@ void main() {
         decision: AxiomaraRouteDecision(
           route: route,
           reason: 'deterministic evidence path',
-          externalAiUsed: false,
+          externalAiSelected: false,
           requiresCredits: false,
           readOnly: true,
         ),
@@ -70,7 +70,7 @@ void main() {
         final decision = AxiomaraRouteDecision(
           route: route,
           reason: 'complex reasoning requested',
-          externalAiUsed: true,
+          externalAiSelected: true,
           requiresCredits: true,
           readOnly: true,
         );
@@ -78,4 +78,31 @@ void main() {
       }
     },
   );
+
+  test('selected paid route does not claim provider use before execution', () {
+    const decision = AxiomaraRouteDecision(
+      route: AxiomaraRoute.claude,
+      reason: 'general reasoning',
+      externalAiSelected: true,
+      requiresCredits: true,
+      readOnly: true,
+    );
+    const pending = AxiomaraRouteReceipt(
+      decision: decision,
+      memoryContextCount: 0,
+      latencyMs: 0,
+    );
+    expect(pending.validate, returnsNormally);
+    expect(pending.externalAiUsed, isFalse);
+    expect(pending.creditsUsed, 0);
+
+    const completed = AxiomaraRouteReceipt(
+      decision: decision,
+      memoryContextCount: 0,
+      latencyMs: 50,
+      externalAiUsed: true,
+      creditsUsed: 12,
+    );
+    expect(completed.validate, returnsNormally);
+  });
 }

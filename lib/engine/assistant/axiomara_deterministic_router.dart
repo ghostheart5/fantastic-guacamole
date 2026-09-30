@@ -26,41 +26,49 @@ final class AxiomaraDeterministicRouter implements AxiomaraRouterPort {
       decision = const AxiomaraRouteDecision(
         route: AxiomaraRoute.safety,
         reason: 'emotional_safety_route_required',
-        externalAiUsed: false,
+        externalAiSelected: false,
         requiresCredits: false,
+        readOnly: true,
+      );
+    } else if (_isEvidenceDecision(text)) {
+      decision = const AxiomaraRouteDecision(
+        route: AxiomaraRoute.si,
+        reason: 'evidence_based_decision',
+        externalAiSelected: false,
+        requiresCredits: false,
+        readOnly: true,
+      );
+    } else if (_needsGroundedExplanation(text)) {
+      decision = AxiomaraRouteDecision(
+        route: externalAiAllowed ? AxiomaraRoute.hybrid : AxiomaraRoute.si,
+        reason: externalAiAllowed
+            ? 'grounded_complex_reasoning'
+            : 'external_ai_not_allowed',
+        externalAiSelected: externalAiAllowed,
+        requiresCredits: externalAiAllowed,
         readOnly: true,
       );
     } else if (_isLocalRetrieval(text)) {
       decision = const AxiomaraRouteDecision(
         route: AxiomaraRoute.local,
         reason: 'deterministic_retrieval_or_navigation',
-        externalAiUsed: false,
+        externalAiSelected: false,
         requiresCredits: false,
         readOnly: true,
       );
-    } else if (_isEvidenceDecision(text) || !externalAiAllowed) {
-      decision = AxiomaraRouteDecision(
-        route: AxiomaraRoute.si,
-        reason: externalAiAllowed
-            ? 'evidence_based_decision'
-            : 'external_ai_not_allowed',
-        externalAiUsed: false,
-        requiresCredits: false,
-        readOnly: true,
-      );
-    } else if (_needsGroundedExplanation(text)) {
+    } else if (!externalAiAllowed) {
       decision = const AxiomaraRouteDecision(
-        route: AxiomaraRoute.hybrid,
-        reason: 'grounded_complex_reasoning',
-        externalAiUsed: true,
-        requiresCredits: true,
+        route: AxiomaraRoute.si,
+        reason: 'external_ai_not_allowed',
+        externalAiSelected: false,
+        requiresCredits: false,
         readOnly: true,
       );
     } else {
       decision = const AxiomaraRouteDecision(
         route: AxiomaraRoute.claude,
         reason: 'general_complex_language_reasoning',
-        externalAiUsed: true,
+        externalAiSelected: true,
         requiresCredits: true,
         readOnly: true,
       );
@@ -90,6 +98,16 @@ final class AxiomaraDeterministicRouter implements AxiomaraRouterPort {
       text.startsWith('what is due') ||
       text.startsWith("what's due") ||
       text.startsWith('what is scheduled') ||
+      RegExp(
+        r'^what are my (?:tasks|goals|habits|notes|events|appointments)\b',
+      ).hasMatch(text) ||
+      RegExp(
+        r'^what (?:tasks|goals|habits|notes) do i have\b',
+      ).hasMatch(text) ||
+      RegExp(
+        r'^cuales son mis (?:tareas|metas|habitos|notas|eventos|citas)\b',
+      ).hasMatch(text) ||
+      RegExp(r'^que (?:tareas|metas|habitos|notas) tengo\b').hasMatch(text) ||
       text.startsWith('que vence') ||
       text.startsWith('que hay programado');
 

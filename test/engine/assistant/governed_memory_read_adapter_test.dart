@@ -35,6 +35,19 @@ void main() {
     expect(context.records.single.provenance, AxiomaraMemoryProvenance.unknown);
   });
 
+  test('negated user marker is not proof of user entry', () {
+    final context = adapter.contextFromEligibleMemories(
+      accountScopeId: 'account-a',
+      memories: <MemoryEntity>[
+        eligibleMemory(provenance: 'non-user legacy import'),
+      ],
+      requestingSurface: MemorySurface.smartPlanner,
+      now: now,
+    );
+
+    expect(context.records.single.provenance, AxiomaraMemoryProvenance.unknown);
+  });
+
   test('explicit user provenance remains user provided', () {
     final context = adapter.contextFromEligibleMemories(
       accountScopeId: 'account-a',

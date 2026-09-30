@@ -5,14 +5,16 @@ final class AxiomaraRouteDecision {
   const AxiomaraRouteDecision({
     required this.route,
     required this.reason,
-    required this.externalAiUsed,
+    required this.externalAiSelected,
     required this.requiresCredits,
     required this.readOnly,
   });
 
   final AxiomaraRoute route;
   final String reason;
-  final bool externalAiUsed;
+
+  /// Route intent only. Actual provider use belongs in the execution receipt.
+  final bool externalAiSelected;
   final bool requiresCredits;
   final bool readOnly;
 
@@ -24,7 +26,8 @@ final class AxiomaraRouteDecision {
     }
     final bool externalRoute =
         route == AxiomaraRoute.claude || route == AxiomaraRoute.hybrid;
-    if (externalAiUsed != externalRoute || requiresCredits != externalRoute) {
+    if (externalAiSelected != externalRoute ||
+        requiresCredits != externalRoute) {
       throw const AxiomaraRouterContractException(
         'External AI and credit flags must match the selected route.',
       );
@@ -37,12 +40,16 @@ final class AxiomaraRouteReceipt {
     required this.decision,
     required this.memoryContextCount,
     required this.latencyMs,
+    this.externalAiUsed = false,
     this.creditsUsed = 0,
   });
 
   final AxiomaraRouteDecision decision;
   final int memoryContextCount;
   final int latencyMs;
+
+  /// True only after an actual model-backed response is confirmed.
+  final bool externalAiUsed;
   final int creditsUsed;
 
   void validate() {
@@ -52,9 +59,10 @@ final class AxiomaraRouteReceipt {
         'Route receipt counters cannot be negative.',
       );
     }
-    if (!decision.externalAiUsed && creditsUsed != 0) {
+    if ((externalAiUsed && !decision.externalAiSelected) ||
+        (creditsUsed != 0 && !externalAiUsed)) {
       throw const AxiomaraRouterContractException(
-        'Local and SI routes cannot report external AI credit usage.',
+        'Actual external AI use and credits require a selected, completed model route.',
       );
     }
   }

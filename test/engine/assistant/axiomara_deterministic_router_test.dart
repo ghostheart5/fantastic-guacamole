@@ -28,7 +28,24 @@ void main() {
       );
       expect(result.route, AxiomaraRoute.local, reason: input);
       expect(result.requiresCredits, isFalse, reason: input);
-      expect(result.externalAiUsed, isFalse, reason: input);
+      expect(result.externalAiSelected, isFalse, reason: input);
+    }
+  });
+
+  test('English and Spanish question-form retrieval stays local', () async {
+    for (final input in <String>[
+      'What are my tasks?',
+      'What goals do I have?',
+      '¿Cuáles son mis tareas?',
+      '¿Qué metas tengo?',
+    ]) {
+      final result = await router.route(
+        accountScopeId: 'account-a',
+        input: input,
+        externalAiAllowed: true,
+      );
+      expect(result.route, AxiomaraRoute.local, reason: input);
+      expect(result.requiresCredits, isFalse, reason: input);
     }
   });
 
@@ -39,7 +56,7 @@ void main() {
       externalAiAllowed: true,
     );
     expect(result.route, AxiomaraRoute.si);
-    expect(result.externalAiUsed, isFalse);
+    expect(result.externalAiSelected, isFalse);
   });
 
   test('safety routing takes precedence over local and paid routes', () async {
@@ -55,7 +72,7 @@ void main() {
       );
       expect(result.route, AxiomaraRoute.safety, reason: input);
       expect(result.requiresCredits, isFalse, reason: input);
-      expect(result.externalAiUsed, isFalse, reason: input);
+      expect(result.externalAiSelected, isFalse, reason: input);
     }
   });
 
@@ -67,7 +84,7 @@ void main() {
     );
     expect(result.route, AxiomaraRoute.si);
     expect(result.requiresCredits, isFalse);
-    expect(result.externalAiUsed, isFalse);
+    expect(result.externalAiSelected, isFalse);
   });
 
   test('grounded reflective reasoning selects hybrid', () async {
@@ -80,6 +97,24 @@ void main() {
     expect(result.requiresCredits, isTrue);
   });
 
+  test('specific intents take precedence over a retrieval verb', () async {
+    final priority = await router.route(
+      accountScopeId: 'account-a',
+      input: 'Show me which task has highest priority',
+      externalAiAllowed: true,
+    );
+    expect(priority.route, AxiomaraRoute.si);
+    expect(priority.requiresCredits, isFalse);
+
+    final explanation = await router.route(
+      accountScopeId: 'account-a',
+      input: 'Show me why I am falling behind based on my tasks',
+      externalAiAllowed: true,
+    );
+    expect(explanation.route, AxiomaraRoute.hybrid);
+    expect(explanation.requiresCredits, isTrue);
+  });
+
   test('external AI opt-out always prevents Claude routes', () async {
     final result = await router.route(
       accountScopeId: 'account-a',
@@ -87,6 +122,6 @@ void main() {
       externalAiAllowed: false,
     );
     expect(result.route, AxiomaraRoute.si);
-    expect(result.externalAiUsed, isFalse);
+    expect(result.externalAiSelected, isFalse);
   });
 }
