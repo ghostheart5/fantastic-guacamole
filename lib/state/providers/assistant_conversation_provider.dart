@@ -1,7 +1,9 @@
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/engine/si/api.dart';
+import 'package:fantastic_guacamole/engine/assistant/axiomara_deterministic_router.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
@@ -26,6 +28,12 @@ final assistantConversationAvailableProvider = Provider<bool>(
       ref.watch(accountStorageScopeProvider).isWritable &&
       ref.watch(aiProxyAvailableProvider) &&
       ref.watch(creditSpendingAvailableProvider),
+);
+
+/// Advisory, on-device classification only. The paid conversation boundary
+/// still requires its existing disclosure, quote and explicit confirmation.
+final axiomaraRouterProvider = Provider<AxiomaraRouterPort>(
+  (ref) => const AxiomaraDeterministicRouter(),
 );
 
 // Route selection also respects the surface cohort and safety rollback. Loading

@@ -755,6 +755,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       return AssistantConversationScreen(
         surface: ConversationSurface.si,
         onLocalTools: () => setState(() => _useLocalTools = true),
+        onLocalToolsWithDraft: (String draft) => setState(() {
+          if (draft.isNotEmpty) _input.text = draft;
+          _useLocalTools = true;
+        }),
       );
     }
     final SIRoutineCopy routine = ChronoSparkLocalizations.of(

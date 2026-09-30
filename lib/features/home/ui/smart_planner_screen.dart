@@ -1243,6 +1243,17 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       return AssistantConversationScreen(
         surface: ConversationSurface.planner,
         onLocalTools: () => setState(() => _useLocalTools = true),
+        onLocalToolsWithDraft: (String draft) {
+          if (draft.isNotEmpty) {
+            // Controller assignments do not call the field's onChanged handler.
+            // An old plan must not remain actionable for this new request.
+            _clearChangedCheckIn();
+          }
+          setState(() {
+            if (draft.isNotEmpty) _notesController.text = draft;
+            _useLocalTools = true;
+          });
+        },
       );
     }
     final PlannerRoutineCopy routine = ChronoSparkLocalizations.of(
