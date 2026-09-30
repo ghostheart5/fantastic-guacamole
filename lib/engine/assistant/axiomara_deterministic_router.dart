@@ -101,6 +101,7 @@ final class AxiomaraDeterministicRouter implements AxiomaraRouterPort {
       RegExp(
         r'^what are my (?:tasks|goals|habits|notes|events|appointments)\b',
       ).hasMatch(text) ||
+      RegExp(r'^what tasks are due\b').hasMatch(text) ||
       RegExp(
         r'^what (?:tasks|goals|habits|notes) do i have\b',
       ).hasMatch(text) ||
@@ -108,6 +109,7 @@ final class AxiomaraDeterministicRouter implements AxiomaraRouterPort {
         r'^cuales son mis (?:tareas|metas|habitos|notas|eventos|citas)\b',
       ).hasMatch(text) ||
       RegExp(r'^que (?:tareas|metas|habitos|notas) tengo\b').hasMatch(text) ||
+      RegExp(r'^que tareas vencen\b').hasMatch(text) ||
       text.startsWith('que vence') ||
       text.startsWith('que hay programado');
 
