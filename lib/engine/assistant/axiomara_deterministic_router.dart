@@ -17,7 +17,7 @@ final class AxiomaraDeterministicRouter implements AxiomaraRouterPort {
       );
     }
 
-    final String text = input.trim().toLowerCase();
+    final String text = _normalizedInput(input);
     final AxiomaraRouteDecision decision;
 
     if (_isLocalRetrieval(text)) {
@@ -60,11 +60,28 @@ final class AxiomaraDeterministicRouter implements AxiomaraRouterPort {
     return decision;
   }
 
+  String _normalizedInput(String input) => input
+      .trim()
+      .toLowerCase()
+      .replaceAll('á', 'a')
+      .replaceAll('é', 'e')
+      .replaceAll('í', 'i')
+      .replaceAll('ó', 'o')
+      .replaceAll('ú', 'u')
+      .replaceAll('ü', 'u')
+      .replaceAll('ñ', 'n')
+      .replaceFirst(RegExp(r'^[¿¡\s]+'), '');
+
   bool _isLocalRetrieval(String text) =>
       RegExp(r'^(show|list|open|view)\b').hasMatch(text) ||
+      RegExp(
+        r'^(muestra|muestrame|ensena|ensename|lista|listar|abre|abrir|ver|consulta)\b',
+      ).hasMatch(text) ||
       text.startsWith('what is due') ||
       text.startsWith("what's due") ||
-      text.startsWith('what is scheduled');
+      text.startsWith('what is scheduled') ||
+      text.startsWith('que vence') ||
+      text.startsWith('que hay programado');
 
   bool _isEvidenceDecision(String text) =>
       text.contains('highest priority') ||
@@ -72,7 +89,14 @@ final class AxiomaraDeterministicRouter implements AxiomaraRouterPort {
       text.contains('what needs attention') ||
       text.contains('which task') ||
       text.contains('deadline') ||
-      text.contains('overdue');
+      text.contains('overdue') ||
+      text.contains('mayor prioridad') ||
+      text.contains('que debo hacer') ||
+      text.contains('que deberia hacer') ||
+      text.contains('que necesita atencion') ||
+      text.contains('cual tarea') ||
+      text.contains('fecha limite') ||
+      text.contains('vencid');
 
   bool _needsGroundedExplanation(String text) =>
       text.contains('why do i') ||
@@ -80,5 +104,10 @@ final class AxiomaraDeterministicRouter implements AxiomaraRouterPort {
       text.contains('help me understand') ||
       text.contains('figure out why') ||
       text.contains('based on my tasks') ||
-      text.contains('based on my goals');
+      text.contains('based on my goals') ||
+      text.contains('por que me') ||
+      text.contains('por que estoy') ||
+      text.contains('ayudame a entender') ||
+      text.contains('basado en mis tareas') ||
+      text.contains('basado en mis metas');
 }

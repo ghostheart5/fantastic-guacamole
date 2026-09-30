@@ -10,6 +10,7 @@ enum AxiomaraMemoryKind {
 }
 
 enum AxiomaraMemoryProvenance {
+  unknown,
   userProvided,
   observed,
   inferred,

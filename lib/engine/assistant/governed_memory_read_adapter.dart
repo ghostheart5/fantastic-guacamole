@@ -68,12 +68,15 @@ final class GovernedMemoryReadAdapter {
   };
 
   AxiomaraMemoryProvenance _provenance(MemoryEntity memory) {
-    final String value = memory.provenance.toLowerCase();
+    final String value = memory.provenance.trim().toLowerCase();
     if (value.contains('infer')) return AxiomaraMemoryProvenance.inferred;
     if (value.contains('observ')) return AxiomaraMemoryProvenance.observed;
     if (value.contains('system')) {
       return AxiomaraMemoryProvenance.systemGenerated;
     }
-    return AxiomaraMemoryProvenance.userProvided;
+    if (value.contains('user') || value.contains('manual')) {
+      return AxiomaraMemoryProvenance.userProvided;
+    }
+    return AxiomaraMemoryProvenance.unknown;
   }
 }
