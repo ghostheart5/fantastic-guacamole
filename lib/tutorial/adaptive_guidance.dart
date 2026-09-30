@@ -473,10 +473,11 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     final account = _activeScope;
     if (account == null || shouldContinue?.call() == false) return;
     final AdaptiveGuidanceState current = await _current();
+    final GuidanceLessonId? lesson = _lessonCompletedBy(milestone);
     if (!ref.mounted ||
         _activeScope != account ||
         shouldContinue?.call() == false ||
-        current.has(milestone)) {
+        (current.has(milestone) && !current.replayLessons.contains(lesson))) {
       return;
     }
     await record(milestone, shouldContinue: shouldContinue);
@@ -526,6 +527,16 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     final AdaptiveGuidanceState current = await _current();
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setBool('${_prefix(account)}.later.${lesson.name}', true);
+    // "Finish later" pauses the whole core replay, rather than jumping to the
+    // next replay step or reopening the current step on the following frame.
+    final Set<GuidanceLessonId> replay = current.replayLessons.contains(lesson)
+        ? const <GuidanceLessonId>{}
+        : current.replayLessons;
+    if (replay.isEmpty) {
+      for (final GuidanceLessonId id in current.replayLessons) {
+        await prefs.remove('${_prefix(account)}.replay.${id.name}');
+      }
+    }
     state = AsyncData(
       AdaptiveGuidanceState(
         milestones: current.milestones,
@@ -533,7 +544,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
         skippedLessons: current.skippedLessons,
         completedLessons: current.completedLessons,
         laterLessons: <GuidanceLessonId>{...current.laterLessons, lesson},
-        replayLessons: current.replayLessons,
+        replayLessons: replay,
         expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
       ),
     );

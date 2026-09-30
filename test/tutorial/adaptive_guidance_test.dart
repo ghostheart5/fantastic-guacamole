@@ -336,6 +336,80 @@ void main() {
   );
 
   test(
+    'Restarted core replay advances on new evidence and can pause',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final ProviderContainer container = _guidanceContainer(
+        'guidance-replay-step',
+      );
+      addTearDown(container.dispose);
+      await container.read(adaptiveGuidanceProvider.future);
+      final AdaptiveGuidanceNotifier notifier = container.read(
+        adaptiveGuidanceProvider.notifier,
+      );
+      await notifier.record(GuidanceMilestone.firstItem);
+      await notifier.record(GuidanceMilestone.firstSchedule);
+      await notifier.record(GuidanceMilestone.firstTimelineReview);
+
+      await notifier.restartLessons();
+      expect(
+        container
+            .read(adaptiveGuidanceProvider)
+            .requireValue
+            .nextIntervention(
+              currentRoute: RoutePaths.nexus,
+              decision: _decision,
+            )
+            ?.id,
+        GuidanceLessonId.createFirstItem,
+      );
+
+      await notifier.recordIfMissing(GuidanceMilestone.firstItem);
+      final AdaptiveGuidanceState afterCreator = container
+          .read(adaptiveGuidanceProvider)
+          .requireValue;
+      expect(afterCreator.has(GuidanceMilestone.firstItem), isTrue);
+      expect(
+        afterCreator.replayLessons,
+        isNot(contains(GuidanceLessonId.createFirstItem)),
+      );
+      expect(
+        afterCreator
+            .nextIntervention(
+              currentRoute: RoutePaths.nexus,
+              decision: _decision,
+            )
+            ?.id,
+        GuidanceLessonId.scheduleFirstItem,
+      );
+
+      await notifier.later(GuidanceLessonId.scheduleFirstItem);
+      final AdaptiveGuidanceState paused = container
+          .read(adaptiveGuidanceProvider)
+          .requireValue;
+      expect(paused.replayLessons, isEmpty);
+      expect(paused.has(GuidanceMilestone.firstSchedule), isTrue);
+      expect(paused.has(GuidanceMilestone.firstTimelineReview), isTrue);
+      expect(
+        paused.nextIntervention(
+          currentRoute: RoutePaths.nexus,
+          decision: _decision,
+        ),
+        isNull,
+      );
+
+      final ProviderContainer reopened = _guidanceContainer(
+        'guidance-replay-step',
+      );
+      addTearDown(reopened.dispose);
+      expect(
+        (await reopened.read(adaptiveGuidanceProvider.future)).replayLessons,
+        isEmpty,
+      );
+    },
+  );
+
+  test(
     'Creator receipt task IDs persist until Timeline review succeeds',
     () async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
