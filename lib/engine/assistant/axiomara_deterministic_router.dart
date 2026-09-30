@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
+import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 
 /// Conservative first-pass router. It never sends data to an external model;
 /// it only classifies the route that a later orchestration boundary may use.
@@ -20,7 +21,16 @@ final class AxiomaraDeterministicRouter implements AxiomaraRouterPort {
     final String text = _normalizedInput(input);
     final AxiomaraRouteDecision decision;
 
-    if (_isLocalRetrieval(text)) {
+    if (EmotionalSafetyPolicy.assess(input).route !=
+        EmotionalSafetyRoute.routine) {
+      decision = const AxiomaraRouteDecision(
+        route: AxiomaraRoute.safety,
+        reason: 'emotional_safety_route_required',
+        externalAiUsed: false,
+        requiresCredits: false,
+        readOnly: true,
+      );
+    } else if (_isLocalRetrieval(text)) {
       decision = const AxiomaraRouteDecision(
         route: AxiomaraRoute.local,
         reason: 'deterministic_retrieval_or_navigation',

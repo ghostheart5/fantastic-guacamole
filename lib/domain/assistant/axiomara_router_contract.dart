@@ -1,5 +1,5 @@
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Axiomara assistant orchestration
-enum AxiomaraRoute { local, si, claude, hybrid }
+enum AxiomaraRoute { local, si, safety, claude, hybrid }
 
 final class AxiomaraRouteDecision {
   const AxiomaraRouteDecision({

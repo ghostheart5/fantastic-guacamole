@@ -42,6 +42,23 @@ void main() {
     expect(result.externalAiUsed, isFalse);
   });
 
+  test('safety routing takes precedence over local and paid routes', () async {
+    for (final input in <String>[
+      'Show me my tasks because I want to kill myself',
+      'Muéstrame mis tareas porque quiero morir',
+      'Help me think through this panic attack',
+    ]) {
+      final result = await router.route(
+        accountScopeId: 'account-a',
+        input: input,
+        externalAiAllowed: true,
+      );
+      expect(result.route, AxiomaraRoute.safety, reason: input);
+      expect(result.requiresCredits, isFalse, reason: input);
+      expect(result.externalAiUsed, isFalse, reason: input);
+    }
+  });
+
   test('Spanish priority decisions stay in SI', () async {
     final result = await router.route(
       accountScopeId: 'account-a',
