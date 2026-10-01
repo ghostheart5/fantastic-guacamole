@@ -100,6 +100,7 @@ void main() {
     PersonContextRepository? personContextRepository,
     List<DecisionOutcomeEntity>? decisionOutcomes,
     bool? learningPaused,
+    DateTime? learningNow,
     bool billingAccess = false,
     AiCreditWallet? wallet,
   }) {
@@ -150,6 +151,8 @@ void main() {
           decisionOutcomesProvider.overrideWith(
             (Ref ref) async => decisionOutcomes,
           ),
+        if (learningNow != null)
+          learningLedgerClockProvider.overrideWithValue(() => learningNow),
         if (learningPaused != null)
           learningPausedProvider.overrideWith(
             (Ref ref) async => learningPaused,
@@ -1034,6 +1037,7 @@ void main() {
           ),
       ],
       learningPaused: false,
+      learningNow: now,
     );
 
     await tester.pumpWidget(
