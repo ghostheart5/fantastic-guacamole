@@ -28,6 +28,11 @@ void main() {
             builder: (BuildContext context, GoRouterState state) =>
                 const SizedBox.expand(),
           ),
+          GoRoute(
+            path: RoutePaths.paywall,
+            builder: (BuildContext context, GoRouterState state) =>
+                const SizedBox.expand(),
+          ),
         ],
       );
       addTearDown(router.dispose);
@@ -69,7 +74,9 @@ void main() {
                   listenable: router.routerDelegate,
                   builder: (BuildContext context, Widget? child) {
                     final String location =
-                        router.routerDelegate.currentConfiguration.uri.path;
+                        router.routerDelegate.currentConfiguration.isEmpty
+                        ? ''
+                        : router.routerDelegate.state.uri.path;
                     return AdaptiveGuideOverlay(
                       key: ValueKey<String>(location),
                       router: router,
@@ -90,7 +97,7 @@ void main() {
       await tester.pump();
       expect(find.text('Capture the first real commitment'), findsOneWidget);
 
-      final Future<void> pushed = router.push<void>(RoutePaths.login);
+      final Future<void> pushed = router.push<void>(RoutePaths.paywall);
       await tester.pump();
       expect(find.text('Capture the first real commitment'), findsNothing);
 

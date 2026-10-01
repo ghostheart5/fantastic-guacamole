@@ -348,7 +348,9 @@ class _AppRootState extends ConsumerState<AppRoot> {
               listenable: router.routerDelegate,
               builder: (BuildContext context, Widget? child) {
                 final String location =
-                    router.routerDelegate.currentConfiguration.uri.path;
+                    router.routerDelegate.currentConfiguration.isEmpty
+                    ? ''
+                    : router.routerDelegate.state.uri.path;
                 return AdaptiveGuideOverlay(
                   key: ValueKey<String>(location),
                   router: router,
