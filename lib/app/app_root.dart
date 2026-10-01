@@ -344,7 +344,11 @@ class _AppRootState extends ConsumerState<AppRoot> {
             Positioned.fill(
               child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
             ),
-            const AdaptiveGuideOverlay(),
+            ListenableBuilder(
+              listenable: router.routeInformationProvider,
+              builder: (BuildContext context, Widget? child) =>
+                  AdaptiveGuideOverlay(router: router),
+            ),
             Positioned(
               top: 0,
               left: 0,
