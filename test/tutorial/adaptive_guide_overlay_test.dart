@@ -91,10 +91,18 @@ void main() {
       await tester.pump();
       await tester.pump();
 
+      final ProviderContainer container = ProviderScope.containerOf(
+        tester.element(find.byType(MaterialApp)),
+      );
+      await container.read(authUserProvider.future);
+      await container.read(adaptiveGuidanceProvider.future);
+
       expect(find.text('Capture the first real commitment'), findsNothing);
 
       router.go(RoutePaths.nexus);
       await tester.pump();
+      await tester.pump();
+      expect(router.routerDelegate.state.uri.path, RoutePaths.nexus);
       expect(find.text('Capture the first real commitment'), findsOneWidget);
 
       final Future<void> pushed = router.push<void>(RoutePaths.paywall);
@@ -103,6 +111,7 @@ void main() {
 
       router.pop();
       await pushed;
+      await tester.pump();
       await tester.pump();
       expect(find.text('Capture the first real commitment'), findsOneWidget);
       expect(tester.takeException(), isNull);
