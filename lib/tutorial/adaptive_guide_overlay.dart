@@ -54,7 +54,7 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     final auth = ref.watch(authUserProvider).asData?.value;
     final AuthSessionBoundary boundary = ref.watch(authSessionBoundaryProvider);
     final String location =
-        widget.router.routeInformationProvider.value.uri.path;
+        widget.router.routerDelegate.currentConfiguration.uri.path;
 
     // Account-scoped intelligence fails closed until authentication and its
     // storage boundary agree. Do not subscribe to those providers from the

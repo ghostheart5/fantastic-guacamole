@@ -12,70 +12,95 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
-  testWidgets('guide appears from the app builder after an explicit restart', (
-    WidgetTester tester,
-  ) async {
-    final GoRouter router = GoRouter(
-      initialLocation: RoutePaths.nexus,
-      routes: <RouteBase>[
-        GoRoute(
-          path: RoutePaths.nexus,
-          builder: (BuildContext context, GoRouterState state) =>
-              const SizedBox.expand(),
-        ),
-      ],
-    );
-    addTearDown(router.dispose);
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          onboardingCompleteProvider.overrideWith(_OnboardingComplete.new),
-          authUserProvider.overrideWith(
-            (Ref ref) => Stream<User?>.value(
-              const User(
-                id: 'account-a',
-                email: 'account-a@example.test',
-                emailVerified: true,
-              ),
-            ),
+  testWidgets(
+    'guide follows route entry and back navigation from app builder',
+    (WidgetTester tester) async {
+      final GoRouter router = GoRouter(
+        initialLocation: RoutePaths.login,
+        routes: <RouteBase>[
+          GoRoute(
+            path: RoutePaths.login,
+            builder: (BuildContext context, GoRouterState state) =>
+                const SizedBox.expand(),
           ),
-          authSessionBoundaryProvider.overrideWith(
-            () => _FixedBoundary(
-              const AuthSessionBoundary(
-                generation: 1,
-                userId: 'account-a',
-                isTransitioning: false,
-                isStorageReady: true,
-              ),
-            ),
-          ),
-          adaptiveGuidanceProvider.overrideWith(_FixedGuidance.new),
-          dailyDecisionIntelligenceProvider.overrideWith(
-            (Ref ref) => _decision,
+          GoRoute(
+            path: RoutePaths.nexus,
+            builder: (BuildContext context, GoRouterState state) =>
+                const SizedBox.expand(),
           ),
         ],
-        child: MaterialApp.router(
-          routerConfig: router,
-          builder: (BuildContext context, Widget? child) => Stack(
-            children: <Widget>[
-              ?child,
-              ListenableBuilder(
-                listenable: router.routeInformationProvider,
-                builder: (BuildContext context, Widget? child) =>
-                    AdaptiveGuideOverlay(router: router),
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            onboardingCompleteProvider.overrideWith(_OnboardingComplete.new),
+            authUserProvider.overrideWith(
+              (Ref ref) => Stream<User?>.value(
+                const User(
+                  id: 'account-a',
+                  email: 'account-a@example.test',
+                  emailVerified: true,
+                ),
               ),
-            ],
+            ),
+            authSessionBoundaryProvider.overrideWith(
+              () => _FixedBoundary(
+                const AuthSessionBoundary(
+                  generation: 1,
+                  userId: 'account-a',
+                  isTransitioning: false,
+                  isStorageReady: true,
+                ),
+              ),
+            ),
+            adaptiveGuidanceProvider.overrideWith(_FixedGuidance.new),
+            dailyDecisionIntelligenceProvider.overrideWith(
+              (Ref ref) => _decision,
+            ),
+          ],
+          child: MaterialApp.router(
+            routerConfig: router,
+            builder: (BuildContext context, Widget? child) => Stack(
+              children: <Widget>[
+                ?child,
+                ListenableBuilder(
+                  listenable: router.routerDelegate,
+                  builder: (BuildContext context, Widget? child) {
+                    final String location =
+                        router.routerDelegate.currentConfiguration.uri.path;
+                    return AdaptiveGuideOverlay(
+                      key: ValueKey<String>(location),
+                      router: router,
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+      );
+      await tester.pump();
+      await tester.pump();
 
-    expect(find.text('Capture the first real commitment'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text('Capture the first real commitment'), findsNothing);
+
+      router.go(RoutePaths.nexus);
+      await tester.pump();
+      expect(find.text('Capture the first real commitment'), findsOneWidget);
+
+      final Future<void> pushed = router.push<void>(RoutePaths.login);
+      await tester.pump();
+      expect(find.text('Capture the first real commitment'), findsNothing);
+
+      router.pop();
+      await pushed;
+      await tester.pump();
+      expect(find.text('Capture the first real commitment'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('signed-out guide does not subscribe to account intelligence', (
     WidgetTester tester,
