@@ -19,7 +19,9 @@ import 'package:go_router/go_router.dart';
 /// Event-driven guidance rendered as an interactive spotlight over the real
 /// controls. Core lessons only advance after real input or persistence.
 class AdaptiveGuideOverlay extends ConsumerStatefulWidget {
-  const AdaptiveGuideOverlay({super.key});
+  const AdaptiveGuideOverlay({required this.router, super.key});
+
+  final GoRouter router;
 
   @override
   ConsumerState<AdaptiveGuideOverlay> createState() =>
@@ -51,9 +53,10 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     final bool interactionPaused = ref.watch(tutorialInteractionPausedProvider);
     final auth = ref.watch(authUserProvider).asData?.value;
     final AuthSessionBoundary boundary = ref.watch(authSessionBoundaryProvider);
-    final GoRouter? router = GoRouter.maybeOf(context);
     final String location =
-        router?.routeInformationProvider.value.uri.path ?? '';
+        widget.router.routerDelegate.currentConfiguration.isEmpty
+        ? ''
+        : widget.router.routerDelegate.state.uri.path;
 
     // Account-scoped intelligence fails closed until authentication and its
     // storage boundary agree. Do not subscribe to those providers from the
@@ -121,7 +124,7 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       title: l10n.guideTitle(lesson.id.name, lesson.title),
       body: l10n.guideBody(lesson.id.name, lesson.body),
       primaryLabel: l10n.guideAction(lesson.id.name, lesson.actionLabel),
-      onPrimary: () => context.go(lesson.route),
+      onPrimary: () => widget.router.go(lesson.route),
       secondaryLabel: _copy(l10n, 'Later', 'Más tarde'),
       onSecondary: () => unawaited(
         ref.read(adaptiveGuidanceProvider.notifier).later(lesson.id),
@@ -204,7 +207,7 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       ref.read(creatorDraftPreviewProvider.notifier).clear();
       setState(() => _creatorStep = CreatorTutorialStep.title);
       if (hasSchedule && context.mounted) {
-        context.go(RoutePaths.timeline);
+        widget.router.go(RoutePaths.timeline);
       }
     } finally {
       if (mounted) setState(() => _completingCreator = false);
@@ -313,7 +316,7 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         if (alreadyHere) {
           setState(() => _suppressedLesson = lesson.id);
         } else {
-          context.go(lesson.route);
+          widget.router.go(lesson.route);
         }
       },
       secondaryLabel: l10n.text(ChronoSparkString.notNow),
