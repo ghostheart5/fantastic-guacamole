@@ -84,6 +84,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   List<TimelineEventEntity>? _cachedCombined;
   int? _cachedCombinedKey;
   DateTime? _cachedCombinedDay;
+  String? _tutorialFocusTaskId;
 
   @override
   void initState() {
@@ -215,6 +216,17 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         break;
       }
     }
+    _focusTutorialTaskIfHidden(
+      combined: combined,
+      expectedTaskIds: expectedTutorialTaskIds,
+      visibleDayIndex: tutorialEventId == null
+          ? null
+          : days.indexWhere(
+              (String day) => grouped[day]!.any(
+                (TimelineEventEntity event) => event.id == tutorialEventId,
+              ),
+            ),
+    );
     final String? publishedTutorialTaskId = ref.watch(
       timelineTutorialEvidenceProvider,
     );
@@ -401,6 +413,46 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         ),
       ),
     );
+  }
+
+  /// First-run review blocks every control except the highlighted task. If
+  /// that task is outside the current window (e.g. scheduled 10 days out) or
+  /// in a day group that may not be built yet, show it at the top instead of
+  /// leaving the person behind a scrim with nothing to find.
+  void _focusTutorialTaskIfHidden({
+    required List<TimelineEventEntity> combined,
+    required Set<String> expectedTaskIds,
+    required int? visibleDayIndex,
+  }) {
+    if (expectedTaskIds.isEmpty ||
+        (visibleDayIndex != null && visibleDayIndex == 0)) {
+      return;
+    }
+    TimelineEventEntity? expected;
+    for (final TimelineEventEntity event in combined) {
+      if (event.phase == 'task' &&
+          event.relatedId != null &&
+          expectedTaskIds.contains(event.relatedId)) {
+        expected = event;
+        break;
+      }
+    }
+    // Apply once per task so this never fights the person's own choices.
+    if (expected == null || _tutorialFocusTaskId == expected.relatedId) {
+      return;
+    }
+    _tutorialFocusTaskId = expected.relatedId;
+    final String title = expected.title;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _window = _TimelineWindow.all;
+        _filter = _TimelineFilter.all;
+        _query = title;
+        _searchController.text = title;
+        _refineExpanded = true;
+      });
+    });
   }
 
   void _retryTaskSource() {

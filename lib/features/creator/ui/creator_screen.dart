@@ -35,10 +35,10 @@ class CreatorScreen extends ConsumerWidget {
         .watch(adaptiveGuidanceProvider)
         .asData
         ?.value;
-    final bool guidedFirstTask =
-        guidanceState != null &&
-        (!guidanceState.has(GuidanceMilestone.firstItem) ||
-            !guidanceState.has(GuidanceMilestone.firstSchedule));
+    // Follow the overlay's active lesson rather than raw milestones: replays
+    // and returning accounts already have milestones but still need the
+    // guided form and its spotlight targets.
+    final bool guidedFirstTask = guidanceState?.guidesCreatorTask ?? false;
     final CreatorFormKind initialType = guidedFirstTask || plannerDraft != null
         ? CreatorFormKind.task
         : navigationType;
