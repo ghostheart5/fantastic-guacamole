@@ -20,17 +20,14 @@ void main() {
     expect(client, isNot(contains("'system': system")));
   });
 
-  test(
-    'provider output is safety-gated before bounded recovery storage',
-    () {
-      expect(proxy, contains('containsBlockedAssistantClaim(message)'));
-      expect(proxy, contains('failureCode: "unsafe_provider_output"'));
-      expect(proxy, contains('p_response_ttl: "15 minutes"'));
-      expect(proxy, contains('Date.parse(row.response_expires_at) > Date.now()'));
-      expect(proxy, contains('principal?.current_user_id !== userId'));
-      expect(proxy, contains('payload.requestId !== requestId'));
-      expect(migration, contains("request_key like 'ai-%'"));
-      expect(migration, contains("response_payload = '{}'::jsonb"));
-    },
-  );
+  test('provider output is safety-gated before bounded recovery storage', () {
+    expect(proxy, contains('containsBlockedAssistantClaim(message)'));
+    expect(proxy, contains('failureCode: "unsafe_provider_output"'));
+    expect(proxy, contains('p_response_ttl: "15 minutes"'));
+    expect(proxy, contains('Date.parse(row.response_expires_at) > Date.now()'));
+    expect(proxy, contains('principal?.current_user_id !== userId'));
+    expect(proxy, contains('payload.requestId !== requestId'));
+    expect(migration, contains("request_key like 'ai-%'"));
+    expect(migration, contains("response_payload = '{}'::jsonb"));
+  });
 }
