@@ -35,7 +35,9 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   CreatorTutorialStep _creatorStep = CreatorTutorialStep.title;
   GuidanceLessonId? _suppressedLesson;
   bool _completingCreator = false;
-  bool _timelineTaskAcknowledged = false;
+  String? _acknowledgedTimelineTaskId;
+  bool _completingTimeline = false;
+  bool _timelineCompletionFailed = false;
 
   bool _routeAllowsGuidance(String location) {
     return location.isNotEmpty &&
@@ -274,6 +276,42 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     final bool hasExpectedReceipt =
         guidance.expectedFirstRunCreatorTaskIds.isNotEmpty;
+    String? completedTaskId;
+    bool allExpectedTasksUnavailable = hasExpectedReceipt;
+    for (final id in guidance.expectedFirstRunCreatorTaskIds) {
+      final taskState = ref.watch(firstRunTutorialTaskProvider(id));
+      final task = taskState.asData?.value;
+      if (task?.isCompleted ?? false) completedTaskId ??= id;
+      if (taskState.asData == null ||
+          (task?.isActionableAt(DateTime.now()) ?? false)) {
+        allExpectedTasksUnavailable = false;
+      }
+    }
+    if (completedTaskId != null) {
+      final String id = completedTaskId;
+      return InteractiveTutorialOverlay(
+        targetKey: _untargetedLessonKey,
+        title: _copy(l10n, 'Your task is complete', 'Tu tarea está completada'),
+        body: _timelineCompletionFailed
+            ? _copy(
+                l10n,
+                'Could not finish the guide. Try again.',
+                'No se pudo finalizar la guía. Inténtalo de nuevo.',
+              )
+            : _copy(
+                l10n,
+                'Your saved task is already complete. Finish the guide to return to Axiomara.',
+                'Tu tarea guardada ya está completada. Finaliza la guía para volver a Axiomara.',
+              ),
+        primaryLabel: _copy(l10n, 'Finish guide', 'Finalizar guía'),
+        primaryEnabled: !_completingTimeline,
+        onPrimary: () => unawaited(_finishCompletedTimelineTask(id)),
+        secondaryLabel: _pauseLabel(l10n),
+        onSecondary: () =>
+            _pauseGuide(context, GuidanceLessonId.reviewTimeline),
+        allowTargetInteraction: false,
+      );
+    }
     final bool hasMatchingEvidence =
         hasExpectedReceipt &&
         timelineEvidenceTaskId != null &&
@@ -282,7 +320,9 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     final bool completionTargetAvailable =
         FirstRunTutorialTargets.timelineCompletion.currentContext != null;
     final bool showingCompletionStep =
-        _timelineTaskAcknowledged && completionTargetAvailable;
+        hasMatchingEvidence &&
+        _acknowledgedTimelineTaskId == timelineEvidenceTaskId &&
+        completionTargetAvailable;
     return InteractiveTutorialOverlay(
       targetKey: showingCompletionStep
           ? FirstRunTutorialTargets.timelineCompletion
@@ -305,7 +345,13 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
               'Tu tarea guardada ya está en Línea de Tiempo',
             )
           : _copy(l10n, 'Finding your task', 'Buscando tu tarea'),
-      body: showingCompletionStep
+      body: allExpectedTasksUnavailable
+          ? _copy(
+              l10n,
+              'This task is no longer available to complete here. Pause the guide to review your tasks, or restart the guide from Settings.',
+              'Esta tarea ya no está disponible para completarla aquí. Pausa la guía para revisar tus tareas o reiníciala desde Ajustes.',
+            )
+          : showingCompletionStep
           ? _copy(
               l10n,
               'Tap Complete on the highlighted task. This saves the first outcome Axiomara can learn from.',
@@ -329,7 +375,10 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
               'Completar la tarea resaltada',
             )
           : _copy(l10n, 'I found my task', 'Encontré mi tarea'),
-      primaryEnabled: !showingCompletionStep && hasMatchingEvidence,
+      primaryEnabled:
+          !showingCompletionStep &&
+          hasMatchingEvidence &&
+          !allExpectedTasksUnavailable,
       onPrimary: () => unawaited(_acknowledgeTimelineTask()),
       secondaryLabel: _pauseLabel(l10n),
       onSecondary: () => _pauseGuide(context, GuidanceLessonId.reviewTimeline),
@@ -337,7 +386,6 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   }
 
   Future<void> _acknowledgeTimelineTask() async {
-    if (_timelineTaskAcknowledged) return;
     final AdaptiveGuidanceState? guidance = ref
         .read(adaptiveGuidanceProvider)
         .asData
@@ -349,7 +397,52 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         FirstRunTutorialTargets.timelineEvidence.currentContext == null) {
       return;
     }
-    setState(() => _timelineTaskAcknowledged = true);
+    setState(() => _acknowledgedTimelineTaskId = evidenceTaskId);
+  }
+
+  Future<void> _finishCompletedTimelineTask(String taskId) async {
+    if (_completingTimeline) return;
+    final boundary = ref.read(authSessionBoundaryProvider);
+    bool isCurrent() =>
+        mounted &&
+        ref.read(authSessionBoundaryProvider).generation ==
+            boundary.generation &&
+        ref.read(authSessionBoundaryProvider).userId == boundary.userId &&
+        ref.read(authSessionBoundaryProvider).isStorageReady &&
+        !ref.read(authSessionBoundaryProvider).isTransitioning &&
+        ref.read(authSessionBoundaryProvider).blockingIssue == null &&
+        ref.read(adaptiveGuidanceProvider).asData?.value.activeCoreLesson ==
+            GuidanceLessonId.reviewTimeline &&
+        (ref
+                .read(adaptiveGuidanceProvider)
+                .asData
+                ?.value
+                .matchesExpectedFirstRunCreatorTask(taskId) ??
+            false);
+    setState(() {
+      _completingTimeline = true;
+      _timelineCompletionFailed = false;
+    });
+    try {
+      final task = await ref
+          .read(domainTaskRepositoryProvider)
+          .getTaskById(taskId);
+      if (!isCurrent()) return;
+      if (task?.isCompleted != true) {
+        ref.invalidate(firstRunTutorialTaskProvider(taskId));
+        return;
+      }
+      await ref
+          .read(adaptiveGuidanceProvider.notifier)
+          .record(
+            GuidanceMilestone.firstTimelineReview,
+            shouldContinue: isCurrent,
+          );
+    } catch (_) {
+      if (mounted) setState(() => _timelineCompletionFailed = true);
+    } finally {
+      if (mounted) setState(() => _completingTimeline = false);
+    }
   }
 
   Widget _advancedLesson(

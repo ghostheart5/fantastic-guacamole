@@ -2,7 +2,7 @@ Axiomara: Decision OS
 
 Privacy Policy
 
-Last updated: September 27, 2026
+Last updated: October 2, 2026
 
 This policy explains how Axiomara handles data in the Android app and its account, billing, notification, and optional AI services.
 
@@ -54,7 +54,9 @@ When an external AI action is available, Axiomara shows the provider, the catego
 
 Enabled AI conversation tools may submit your question, up to six recent conversation messages, and the limited tasks, goals, milestones, timeline records, note, energy input, emotional state, filter, date range, mode, or scenario selected for that request. A separately confirmed explanation may submit the visible plan clauses and evidence selected for explanation. These requests do not upload your complete planning library or silently change saved records.
 
-Axiomara retains billing and usage records needed to quote, reserve, settle, retry, and reconcile credits. The visible conversation remains available while its screen remains open; Axiomara does not provide a saved transcript archive. Anthropic's commercial service uses a default 30-day retention period and may retain information longer for policy enforcement, security, or legal obligations. See Anthropic's retention information.
+Axiomara retains billing and usage records needed to quote, reserve, settle, retry, and reconcile credits. To recover a paid answer after an interrupted request, Axiomara may briefly store the generated reply with account-linked request records on its server. The reply may contain details from context you supplied. Cached replies have a 15-minute recovery window. Recovery processing after an interrupted request may restart that window. The retry service checks expiry before returning a cached reply. Expired cached replies are not served and are removed by periodic cleanup; physical removal can occur after the retry window ends. Reply recovery may be unavailable for requests that could not be cached. Billing and usage metadata follows the retention rules below.
+
+The visible conversation remains available while its screen remains open; Axiomara does not provide a saved transcript archive. Temporary reply recovery is separate from a saved conversation archive. Anthropic's commercial service uses a default 30-day retention period and may retain information longer for policy enforcement, security, or legal obligations. See Anthropic's retention information.
 
 Response reports
 

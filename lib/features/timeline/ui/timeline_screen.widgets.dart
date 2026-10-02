@@ -412,7 +412,9 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
                 key: widget.tutorialTarget
                     ? FirstRunTutorialTargets.timelineCompletion
                     : null,
-                onPressed: _busy ? null : () => _run(_complete),
+                onPressed: _busy
+                    ? null
+                    : () => _run(_complete, completesTask: true),
                 icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
                 label: Text(journeyText(context, 'Complete', 'Completar')),
               ),
@@ -491,17 +493,47 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
     );
   }
 
-  Future<void> _run(Future<void> Function() action) async {
+  Future<void> _run(
+    Future<void> Function() action, {
+    bool completesTask = false,
+  }) async {
     if (_busy) return;
+    final boundary = ref.read(authSessionBoundaryProvider);
+    final String? taskId = widget.event.relatedId;
+    bool isCurrent() =>
+        mounted &&
+        ref.read(authSessionBoundaryProvider).generation ==
+            boundary.generation &&
+        ref.read(authSessionBoundaryProvider).userId == boundary.userId &&
+        ref.read(authSessionBoundaryProvider).isStorageReady &&
+        !ref.read(authSessionBoundaryProvider).isTransitioning &&
+        ref.read(authSessionBoundaryProvider).blockingIssue == null &&
+        taskId != null &&
+        (ref
+                .read(adaptiveGuidanceProvider)
+                .asData
+                ?.value
+                .matchesExpectedFirstRunCreatorTask(taskId) ??
+            false);
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
       await action();
-      await ref
-          .read(adaptiveGuidanceProvider.notifier)
-          .record(GuidanceMilestone.firstTimelineReview);
+      if (completesTask && isCurrent()) {
+        final task = await ref
+            .read(domainTaskRepositoryProvider)
+            .getTaskById(taskId!);
+        if (isCurrent() && task?.isCompleted == true) {
+          await ref
+              .read(adaptiveGuidanceProvider.notifier)
+              .record(
+                GuidanceMilestone.firstTimelineReview,
+                shouldContinue: isCurrent,
+              );
+        }
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {

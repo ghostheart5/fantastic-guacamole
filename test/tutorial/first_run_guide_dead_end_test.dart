@@ -7,11 +7,16 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
+import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
+import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -24,6 +29,7 @@ import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guide_overlay.dart';
 import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -217,6 +223,224 @@ void main() {
     }
     expect(find.text('Capture the first real commitment'), findsOneWidget);
   });
+
+  for (final language in <String>['en', 'es']) {
+    testWidgets(
+      '$language Timeline guide finishes after the expected task completes',
+      (tester) async {
+        _tallView(tester);
+        final repo = _Tasks.withScheduledTask();
+        final container = _container(repo, overlay: true, timeline: true);
+        addTearDown(container.dispose);
+        await _prepareTimelineGuide(container);
+        await _pumpTimelineWithGuide(tester, container, Locale(language));
+        await tester.tap(
+          find.text(language == 'en' ? 'I found my task' : 'Encontré mi tarea'),
+        );
+        for (int i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(
+          find.text(
+            language == 'en' ? 'Complete your task' : 'Completa tu tarea',
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(
+          find.byKey(FirstRunTutorialTargets.timelineCompletion),
+        );
+        for (int i = 0; i < 5; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        final finish = find.text(
+          language == 'en' ? 'Finish guide' : 'Finalizar guía',
+        );
+        if (finish.evaluate().isNotEmpty) {
+          await tester.tap(finish);
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(repo.tasks['restored']!.isCompleted, isTrue);
+        expect(
+          container.read(adaptiveGuidanceProvider).requireValue.coreComplete,
+          isTrue,
+        );
+        expect(
+          find.text(
+            language == 'en' ? 'Complete your task' : 'Completa tu tarea',
+          ),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      '$language already completed expected task can finish without a target',
+      (tester) async {
+        _tallView(tester);
+        final repo = _Tasks.withScheduledTask();
+        repo.tasks['restored'] = repo.tasks['restored']!.complete();
+        final container = _container(repo, overlay: true, timeline: true);
+        addTearDown(container.dispose);
+        await _prepareTimelineGuide(container);
+        await _pumpTimelineWithGuide(tester, container, Locale(language));
+        expect(
+          find.byKey(FirstRunTutorialTargets.timelineCompletion),
+          findsNothing,
+        );
+        expect(
+          container.read(adaptiveGuidanceProvider).requireValue.coreComplete,
+          isFalse,
+        );
+        await tester.tap(
+          find.text(language == 'en' ? 'Finish guide' : 'Finalizar guía'),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(
+          container.read(adaptiveGuidanceProvider).requireValue.coreComplete,
+          isTrue,
+        );
+        expect(repo.saveCalls, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    for (final action in <String>['skip', 'postpone']) {
+      testWidgets(
+        '$language $action does not finish the task completion lesson',
+        (tester) async {
+          _tallView(tester);
+          final repo = _Tasks.withScheduledTask();
+          repo.tasks['restored'] = repo.tasks['restored']!.copyWith(
+            scheduledFor: DateTime.now().add(const Duration(hours: 1)),
+          );
+          final container = _container(repo, overlay: true, timeline: true);
+          addTearDown(container.dispose);
+          await _prepareTimelineGuide(container);
+          await _pumpTimelineWithGuide(tester, container, Locale(language));
+          final label = action == 'skip'
+              ? (language == 'en' ? 'Skip' : 'Omitir')
+              : (language == 'en'
+                    ? 'Postpone to Tomorrow'
+                    : 'Aplazar hasta mañana');
+          final actionButton = find.widgetWithText(OutlinedButton, label);
+          await tester.ensureVisible(actionButton);
+          await tester.tap(actionButton);
+          for (int i = 0; i < 5; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          expect(
+            container.read(adaptiveGuidanceProvider).requireValue.coreComplete,
+            isFalse,
+          );
+          expect(
+            container
+                .read(adaptiveGuidanceProvider)
+                .requireValue
+                .expectedFirstRunCreatorTaskIds,
+            contains('restored'),
+          );
+          expect(repo.tasks['restored']!.isCompleted, isFalse);
+          await tester.tap(
+            find.text(language == 'en' ? 'Pause guide' : 'Pausar guía'),
+          );
+          await tester.pump(const Duration(milliseconds: 100));
+          expect(
+            container
+                .read(adaptiveGuidanceProvider)
+                .requireValue
+                .activeCoreLesson,
+            isNull,
+          );
+          await container
+              .read(adaptiveGuidanceProvider.notifier)
+              .restartLessons();
+          await tester.pump(const Duration(milliseconds: 100));
+          expect(
+            container
+                .read(adaptiveGuidanceProvider)
+                .requireValue
+                .activeCoreLesson,
+            GuidanceLessonId.createFirstItem,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets(
+    'an unrelated completed task and a missing target do not finish the guide',
+    (tester) async {
+      _tallView(tester);
+      final repo = _Tasks.withScheduledTask();
+      repo.tasks['restored'] = repo.tasks['restored']!.complete();
+      final container = _container(repo, overlay: true, timeline: true);
+      addTearDown(container.dispose);
+      await _prepareTimelineGuide(container, taskId: 'different-task');
+      await _pumpTimelineWithGuide(tester, container, const Locale('en'));
+      expect(find.text('Finish guide'), findsNothing);
+      expect(_primary(tester, 'I found my task').onPressed, isNull);
+      expect(find.textContaining('no longer available'), findsOneWidget);
+      expect(
+        container.read(adaptiveGuidanceProvider).requireValue.coreComplete,
+        isFalse,
+      );
+      await tester.tap(find.text('Pause guide'));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        container.read(adaptiveGuidanceProvider).requireValue.activeCoreLesson,
+        isNull,
+      );
+    },
+  );
+}
+
+Future<void> _prepareTimelineGuide(
+  ProviderContainer container, {
+  String taskId = 'restored',
+}) async {
+  await container.read(adaptiveGuidanceProvider.future);
+  final notifier = container.read(adaptiveGuidanceProvider.notifier);
+  await notifier.record(GuidanceMilestone.firstItem);
+  await notifier.record(GuidanceMilestone.firstSchedule);
+  final now = DateTime.now();
+  await notifier.recordCreatorHandshakeReceipt(
+    CreatorHandshakeReceipt(
+      proposalId: 'guide-proposal',
+      accountScopeId: AccountStorageScope.authenticated(
+        'account-a',
+      ).v2Namespace!,
+      confirmationTokenId: 'guide-confirmation',
+      appliedOperationIds: const <String>['guide-operation'],
+      taskIds: <String>[taskId],
+      appliedAt: now,
+      undoExpiresAt: now.add(const Duration(minutes: 10)),
+      resultingDomainRevision: 'guide-revision',
+    ),
+  );
+}
+
+Future<void> _pumpTimelineWithGuide(
+  WidgetTester tester,
+  ProviderContainer container,
+  Locale locale,
+) async {
+  final router = GoRouter(
+    initialLocation: RoutePaths.timeline,
+    routes: <RouteBase>[
+      GoRoute(
+        path: RoutePaths.timeline,
+        builder: (_, _) => const TimelineScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.creator,
+        builder: (_, _) => const CreatorScreen(),
+      ),
+    ],
+  );
+  addTearDown(router.dispose);
+  await _pumpRouterWithGuide(tester, container, router, locale: locale);
 }
 
 void _tallView(WidgetTester tester) {
@@ -254,12 +478,21 @@ Future<void> _pumpCreatorWithGuide(
 Future<void> _pumpRouterWithGuide(
   WidgetTester tester,
   ProviderContainer container,
-  GoRouter router,
-) async {
+  GoRouter router, {
+  Locale locale = const Locale('en'),
+}) async {
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp.router(
+        locale: locale,
+        supportedLocales: ChronoSparkLocalizations.supportedLocales,
+        localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+          ChronoSparkLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         routerConfig: router,
         builder: (BuildContext context, Widget? child) => Stack(
           children: <Widget>[
@@ -288,7 +521,11 @@ Future<void> _pumpRouterWithGuide(
   }
 }
 
-ProviderContainer _container(_Tasks repo, {bool overlay = false}) {
+ProviderContainer _container(
+  _Tasks repo, {
+  bool overlay = false,
+  bool timeline = false,
+}) {
   return ProviderContainer(
     overrides: [
       sensitivePrefsStoreProvider.overrideWithValue(_Prefs()),
@@ -302,6 +539,11 @@ ProviderContainer _container(_Tasks repo, {bool overlay = false}) {
       secureStoreProvider.overrideWithValue(
         SecureStore(backend: InMemorySecureStoreBackend()),
       ),
+      if (timeline) ...[
+        timelineProvider.overrideWith(_EmptyTimeline.new),
+        timelinePersistenceCorruptedProvider.overrideWith((ref) => false),
+        taskActionsProvider.overrideWith((ref) => _GuideTaskActions(ref, repo)),
+      ],
       if (overlay) ...[
         onboardingCompleteProvider.overrideWith(_OnboardingDone.new),
         authUserProvider.overrideWith(
@@ -318,6 +560,53 @@ ProviderContainer _container(_Tasks repo, {bool overlay = false}) {
       ],
     ],
   );
+}
+
+class _EmptyTimeline extends TimelineNotifier {
+  @override
+  List<TimelineEventEntity> build() => const <TimelineEventEntity>[];
+}
+
+class _GuideTaskActions extends TaskActions {
+  // The superclass field is library-private.
+  // ignore: use_super_parameters
+  _GuideTaskActions(Ref ref, this.repo) : _ref = ref, super(ref);
+  final Ref _ref;
+  final _Tasks repo;
+
+  @override
+  Future<void> completeTask(String id, {bool notify = true}) async {
+    await repo.saveTask(repo.tasks[id]!.complete());
+    _ref.invalidate(allTasksProvider);
+  }
+
+  @override
+  Future<void> skipTask(String id, {bool notify = true}) async {
+    await repo.saveTask(repo.tasks[id]!.copyWith(isSkipped: true));
+    _ref.invalidate(allTasksProvider);
+  }
+
+  @override
+  Future<void> updateTaskDetails({
+    required String id,
+    required String title,
+    String? description,
+    int? priority,
+    Duration? estimatedDuration,
+    DateTime? scheduledFor,
+    DateTime? dueDate,
+    String? goalId,
+    bool clearDescription = false,
+    bool clearEstimatedDuration = false,
+    bool clearScheduledFor = false,
+    bool clearDueDate = false,
+    bool clearGoalId = false,
+  }) async {
+    await repo.saveTask(
+      repo.tasks[id]!.copyWith(scheduledFor: scheduledFor, dueDate: dueDate),
+    );
+    _ref.invalidate(allTasksProvider);
+  }
 }
 
 class _OnboardingDone extends OnboardingCompleteNotifier {

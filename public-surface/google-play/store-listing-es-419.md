@@ -1,14 +1,18 @@
 # Ficha de Google Play: Español (Latinoamérica)
 
-Revisada el 17 de septiembre de 2026 para la versión firmada 4.1.0+2026083063 de pruebas cerradas. Este archivo registra el borrador de la ficha; el envío y la publicación en Play Console requieren una verificación separada.
+Preparada el 2 de octubre de 2026 para la versión candidata 4.2.3+2026083102 con perfil público. Este es un borrador local basado en las capacidades del código actual, pendiente del paquete firmado final y de sus verificaciones de aceptación. No acredita envío, aprobación ni publicación en Play Console. El borrador anterior de la versión 3063 se conserva en el historial de Git.
 
 ## Nombre de la app
 
 Axiomara: Decision OS
 
+Caracteres: 21 / 30
+
 ## Descripción breve
 
 Convierte metas, tiempo, energía y contexto en decisiones claras y revisables.
+
+Caracteres: 78 / 80
 
 ## Descripción completa
 
@@ -48,6 +52,10 @@ Sin banners. Sin videos con recompensa. Sin interrupciones para obtener acceso. 
 
 IA Y FUNCIONES DE PAGO OPCIONALES
 
-La planificación básica permanece disponible sin anuncios. Cuando las pruebas privadas elegibles habilitan IA externa, Axiomara identifica el servicio, el contexto que podría enviarse y el costo en créditos antes de una acción de pago. La suscripción y los créditos de IA aparecen por separado.
+La planificación permanece libre de anuncios. Para una acción opcional de IA externa, Axiomara identifica el proveedor, el contexto seleccionado que podría enviarse y el costo previsto en créditos antes de que confirmes. Puedes rechazarla y continuar con la planificación sin IA generativa. La suscripción y los créditos de IA aparecen por separado.
 
-Axiomara ayuda a planificar y tomar decisiones. No reemplaza apoyo profesional, médico, legal, financiero ni servicios de emergencia.
+COPIA DE SEGURIDAD OPCIONAL EN LA NUBE
+
+La copia de seguridad en la nube está desactivada de forma predeterminada. Si la activas, Axiomara cifra una copia de las tareas, la información del perfil y las preferencias de la cuenta antes de enviarla. Guarda tu clave de recuperación por separado para restaurar la copia en otro dispositivo. Otros registros de planificación, como metas, ritmos diarios, notas e historial, no están incluidos en esta copia en la nube.
+
+Axiomara está dirigida a personas de 18 años en adelante. Ayuda a planificar y tomar decisiones y no reemplaza apoyo profesional, médico, legal, financiero ni servicios de emergencia.

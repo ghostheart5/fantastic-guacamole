@@ -117,6 +117,321 @@ Deno.test("duplicate denied AI request preserves its original budget reason", as
   }
 });
 
+for (
+  const mode of ["atomic", "missing-rpc", "lost-reply", "server-error"] as const
+) {
+  Deno.test(`paid reply recovery uses bounded atomic settlement: ${mode}`, async () => {
+    if (!handler) throw new Error("handler was not registered");
+    const originalFetch = globalThis.fetch;
+    const userId = "11111111-1111-4111-8111-111111111111";
+    const principalId = "22222222-2222-4222-8222-222222222222";
+    const requestId = `synthetic-bounded-recovery-${mode}`;
+    let completed = false;
+    let debits = 0;
+    let providerCalls = 0;
+    let ttlCalls = 0;
+    let legacyCalls = 0;
+    let storedPayload: Record<string, unknown> = {};
+    let expiresAt: string | null = null;
+    globalThis.fetch = ((url, init) => {
+      const path = String(url);
+      if (path.endsWith("/auth/v1/user")) {
+        return Promise.resolve(Response.json({ id: userId }));
+      }
+      if (path.endsWith("/consume_backend_rate_limit")) {
+        return Promise.resolve(Response.json({ allowed: true }));
+      }
+      if (path.endsWith("/reserve_ai_usage")) {
+        const body = JSON.parse(String(init?.body));
+        if (body.p_user_id !== userId || body.p_request_key !== requestId) {
+          throw new Error("reservation lost exact authenticated request scope");
+        }
+        if (!completed) debits++;
+        return Promise.resolve(Response.json({
+          allowed: true,
+          duplicate: completed,
+          state: completed ? "completed" : "reserved",
+          balance: 84,
+          responsePayload: {
+            message: "Unbounded legacy payload must be ignored",
+          },
+        }));
+      }
+      if (path.endsWith("/settle_ai_usage_v2")) {
+        ttlCalls++;
+        const body = JSON.parse(String(init?.body));
+        if (
+          body.p_response_ttl !== "15 minutes" ||
+          "p_contract_version" in body || body.p_succeeded !== true ||
+          body.p_response_payload?.message !== "Review the visible plan." ||
+          body.p_response_payload?.requestId !== requestId
+        ) throw new Error("reply did not use the exact atomic TTL overload");
+        if (mode === "missing-rpc") {
+          return Promise.resolve(
+            Response.json({ code: "PGRST202" }, { status: 404 }),
+          );
+        }
+        if (mode === "server-error" && ttlCalls === 1) {
+          return Promise.resolve(
+            Response.json({ code: "synthetic" }, { status: 500 }),
+          );
+        }
+        completed = true;
+        storedPayload = body.p_response_payload;
+        expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
+        if (mode === "lost-reply" && ttlCalls === 1) {
+          return Promise.reject(
+            new DOMException("synthetic lost settlement reply", "TimeoutError"),
+          );
+        }
+        return Promise.resolve(Response.json({ state: "completed" }));
+      }
+      if (path.endsWith("/settle_ai_usage")) {
+        legacyCalls++;
+        const body = JSON.parse(String(init?.body));
+        if (
+          mode !== "missing-rpc" || body.p_succeeded !== true ||
+          JSON.stringify(body.p_response_payload) !== "{}" ||
+          "p_response_ttl" in body
+        ) {
+          throw new Error(
+            "legacy fallback received answer content or ambiguous settlement",
+          );
+        }
+        completed = true;
+        return Promise.resolve(Response.json({ state: "completed" }));
+      }
+      if (path.includes("/rest/v1/ai_usage_requests?")) {
+        return Promise.resolve(Response.json([{
+          user_id: userId,
+          request_key: requestId,
+          state: "completed",
+          billing_principal_id: principalId,
+          response_payload: storedPayload,
+          response_expires_at: expiresAt,
+          billing_principals: {
+            billing_principal_id: principalId,
+            current_user_id: userId,
+            retired_at: null,
+          },
+        }]));
+      }
+      if (path === "https://api.anthropic.com/v1/messages") {
+        providerCalls++;
+        return Promise.resolve(Response.json({
+          id: "synthetic-bounded-provider",
+          model: "claude-sonnet-4-6",
+          stop_reason: "end_turn",
+          content: [{ type: "text", text: "Review the visible plan." }],
+          usage: { input_tokens: 10, output_tokens: 5 },
+        }));
+      }
+      throw new Error(`unexpected transport target: ${path}`);
+    }) as typeof fetch;
+    try {
+      const input = {
+        requestId,
+        prompt: "Review my visible plan.",
+        personality: "planner",
+        context: {},
+        allowExternalAi: true,
+      };
+      const request = (extra: Record<string, unknown>) =>
+        new Request("https://local.example/ai-proxy", {
+          method: "POST",
+          headers: { authorization: "Bearer synthetic-session" },
+          body: JSON.stringify({ ...input, ...extra }),
+        });
+      const { quote } = await (await handler(request({ quoteOnly: true })))
+        .json();
+      const first = await handler(request({ quote }));
+      const firstBody = await first.json();
+      const retry = await handler(request({ quote }));
+      const retryBody = await retry.json();
+      const expectedTtlCalls = mode === "lost-reply" || mode === "server-error"
+        ? 2
+        : 1;
+      if (
+        first.status !== 200 ||
+        firstBody.message !== "Review the visible plan." ||
+        debits !== 1 || providerCalls !== 1 || ttlCalls !== expectedTtlCalls ||
+        legacyCalls !== (mode === "missing-rpc" ? 1 : 0)
+      ) throw new Error("fresh paid reply or exactly-once accounting changed");
+      if (mode === "missing-rpc") {
+        if (
+          retry.status !== 409 || retryBody.error !== "request_completed" ||
+          "message" in retryBody
+        ) {
+          throw new Error(
+            "missing TTL deployment replayed an unbounded response",
+          );
+        }
+      } else if (
+        retry.status !== 200 ||
+        JSON.stringify(retryBody) !== JSON.stringify(firstBody)
+      ) {
+        throw new Error(
+          "unexpired paid reply was not recovered without another provider call",
+        );
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+}
+
+for (
+  const condition of [
+    "future",
+    "null",
+    "past",
+    "malformed",
+    "wrong-user",
+    "wrong-request",
+    "wrong-principal-user",
+    "wrong-principal-id",
+    "retired-principal",
+    "missing-principal",
+    "wrong-state",
+    "wrong-payload-request",
+    "read-error",
+    "multiple-rows",
+    "conflict",
+  ] as const
+) {
+  Deno.test(`completed paid reply retry validates expiry and exact account scope: ${condition}`, async () => {
+    if (!handler) throw new Error("handler was not registered");
+    const originalFetch = globalThis.fetch;
+    const userId = "11111111-1111-4111-8111-111111111111";
+    const principalId = "22222222-2222-4222-8222-222222222222";
+    // Keep the current reservation contract's long IDs and +/= characters.
+    const requestId = `synthetic+=${"x".repeat(140)}`;
+    let providerCalls = 0;
+    let settlementCalls = 0;
+    let replayReads = 0;
+    const row = {
+      user_id: condition === "wrong-user" ? "other-user" : userId,
+      request_key: condition === "wrong-request" ? "other-request" : requestId,
+      state: condition === "wrong-state" ? "refunded" : "completed",
+      billing_principal_id: principalId,
+      response_payload: {
+        requestId: condition === "wrong-payload-request"
+          ? "other-request"
+          : requestId,
+        message: "Recovered synthetic reply.",
+      },
+      response_expires_at: condition === "null"
+        ? null
+        : condition === "past"
+        ? new Date(Date.now() - 1_000).toISOString()
+        : condition === "malformed"
+        ? "not-a-date"
+        : new Date(Date.now() + 60_000).toISOString(),
+      billing_principals: condition === "missing-principal" ? null : {
+        billing_principal_id: condition === "wrong-principal-id"
+          ? "other-principal"
+          : principalId,
+        current_user_id: condition === "wrong-principal-user"
+          ? "other-user"
+          : userId,
+        retired_at: condition === "retired-principal"
+          ? new Date().toISOString()
+          : null,
+      },
+    };
+    globalThis.fetch = ((url) => {
+      const path = String(url);
+      if (path.endsWith("/auth/v1/user")) {
+        return Promise.resolve(Response.json({ id: userId }));
+      }
+      if (path.endsWith("/consume_backend_rate_limit")) {
+        return Promise.resolve(Response.json({ allowed: true }));
+      }
+      if (path.endsWith("/reserve_ai_usage")) {
+        return Promise.resolve(Response.json({
+          allowed: true,
+          duplicate: true,
+          state: "completed",
+          balance: 84,
+          conflict: condition === "conflict",
+          responsePayload: {
+            message: "Unbounded legacy payload must be ignored",
+          },
+        }));
+      }
+      if (path.includes("/rest/v1/ai_usage_requests?")) {
+        replayReads++;
+        const query = new URL(path).searchParams;
+        if (
+          query.get("user_id") !== `eq.${userId}` ||
+          query.get("request_key") !== `eq.${requestId}` ||
+          query.get("state") !== "eq.completed" || query.get("limit") !== "2" ||
+          !query.get("select")?.includes(
+            "billing_principals!ai_usage_requests_principal_fkey(",
+          )
+        ) {
+          throw new Error(
+            "replay lookup was not bounded to the authenticated request and principal relation",
+          );
+        }
+        if (condition === "read-error") {
+          return Promise.resolve(Response.json({}, { status: 500 }));
+        }
+        return Promise.resolve(
+          Response.json(condition === "multiple-rows" ? [row, row] : [row]),
+        );
+      }
+      if (path.includes("/settle_ai_usage")) settlementCalls++;
+      if (path === "https://api.anthropic.com/v1/messages") providerCalls++;
+      throw new Error(`unexpected transport target: ${path}`);
+    }) as typeof fetch;
+    try {
+      const input = {
+        requestId,
+        prompt: "Review my visible plan.",
+        personality: "planner",
+        context: {},
+        allowExternalAi: true,
+      };
+      const request = (extra: Record<string, unknown>) =>
+        new Request("https://local.example/ai-proxy", {
+          method: "POST",
+          headers: { authorization: "Bearer synthetic-session" },
+          body: JSON.stringify({ ...input, ...extra }),
+        });
+      const { quote } = await (await handler(request({ quoteOnly: true })))
+        .json();
+      const response = await handler(request({ quote }));
+      const body = await response.json();
+      if (
+        providerCalls !== 0 || settlementCalls !== 0 ||
+        replayReads !== (condition === "conflict" ? 0 : 1)
+      ) {
+        throw new Error(
+          "completed retry repeated paid work or used unscoped recovery",
+        );
+      }
+      if (condition === "future") {
+        if (
+          response.status !== 200 ||
+          body.message !== row.response_payload.message
+        ) {
+          throw new Error("valid bounded reply was not recovered");
+        }
+      } else if (
+        response.status !== 409 || body.error !== "request_completed" ||
+        "message" in body
+      ) {
+        throw new Error(
+          "invalid expiry or account scope exposed cached content",
+        );
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+}
+
 Deno.test("contradictory Planner verdict is repaired before one settled response", async () => {
   if (!handler) throw new Error("handler was not registered");
   const originalFetch = globalThis.fetch;
@@ -142,7 +457,9 @@ Deno.test("contradictory Planner verdict is repaired before one settled response
     if (path.endsWith("/reserve_ai_repair_budget")) {
       return Promise.resolve(Response.json({ allowed: true }));
     }
-    if (path.endsWith("/settle_ai_usage")) {
+    if (
+      path.endsWith("/settle_ai_usage") || path.endsWith("/settle_ai_usage_v2")
+    ) {
       const body = JSON.parse(String(init?.body));
       if (
         body.p_succeeded !== true || body.p_input_tokens !== 30 ||
@@ -227,7 +544,9 @@ Deno.test("served SI timing uses one quoted provider call and deterministic wind
       repairCalls++;
       throw new Error("timing answer must not enter paid repair");
     }
-    if (path.endsWith("/settle_ai_usage")) {
+    if (
+      path.endsWith("/settle_ai_usage") || path.endsWith("/settle_ai_usage_v2")
+    ) {
       const payload = JSON.parse(String(init?.body));
       if (
         payload.p_succeeded !== true || payload.p_input_tokens !== 24 ||
@@ -368,7 +687,9 @@ Deno.test("blocked repair output refunds with both provider calls accounted", as
     if (path.endsWith("/reserve_ai_repair_budget")) {
       return Promise.resolve(Response.json({ allowed: true }));
     }
-    if (path.endsWith("/settle_ai_usage")) {
+    if (
+      path.endsWith("/settle_ai_usage") || path.endsWith("/settle_ai_usage_v2")
+    ) {
       const body = JSON.parse(String(init?.body));
       if (
         body.p_succeeded !== false || body.p_input_tokens !== 30 ||
@@ -449,7 +770,9 @@ Deno.test("unknown repair usage preserves the expanded provider reservation", as
     if (path.endsWith("/reserve_ai_repair_budget")) {
       return Promise.resolve(Response.json({ allowed: true }));
     }
-    if (path.endsWith("/settle_ai_usage")) {
+    if (
+      path.endsWith("/settle_ai_usage") || path.endsWith("/settle_ai_usage_v2")
+    ) {
       const body = JSON.parse(String(init?.body));
       if (
         body.p_succeeded !== false || body.p_input_tokens !== null ||
@@ -562,7 +885,10 @@ for (
           ? Promise.resolve(new Response(null, { status: 503 }))
           : Promise.reject(new TypeError("synthetic lost repair response"));
       }
-      if (path.endsWith("/settle_ai_usage")) {
+      if (
+        path.endsWith("/settle_ai_usage") ||
+        path.endsWith("/settle_ai_usage_v2")
+      ) {
         const body = JSON.parse(String(init?.body));
         if (
           body.p_succeeded !== false || body.p_input_tokens !== 10 ||
@@ -642,7 +968,9 @@ Deno.test("expired repair flow settles only first provider usage", async () => {
       flowExpired = true;
       return Promise.resolve(Response.json({ allowed: true }));
     }
-    if (path.endsWith("/settle_ai_usage")) {
+    if (
+      path.endsWith("/settle_ai_usage") || path.endsWith("/settle_ai_usage_v2")
+    ) {
       const body = JSON.parse(String(init?.body));
       if (
         body.p_succeeded !== false || body.p_input_tokens !== 10 ||
@@ -719,7 +1047,9 @@ Deno.test("failure settlement outage preserves deterministic client error", asyn
         Response.json({ allowed: true, duplicate: false, balance: 84 }),
       );
     }
-    if (path.endsWith("/settle_ai_usage")) {
+    if (
+      path.endsWith("/settle_ai_usage") || path.endsWith("/settle_ai_usage_v2")
+    ) {
       settlementCalls++;
       return Promise.resolve(new Response(null, { status: 503 }));
     }
@@ -779,7 +1109,10 @@ for (const settlementFailure of ["timeout", "network"] as const) {
           Response.json({ allowed: true, duplicate: false, balance: 84 }),
         );
       }
-      if (path.endsWith("/settle_ai_usage")) {
+      if (
+        path.endsWith("/settle_ai_usage") ||
+        path.endsWith("/settle_ai_usage_v2")
+      ) {
         const body = JSON.parse(String(init?.body));
         if (body.p_succeeded !== true) {
           throw new Error("uncertain success was incorrectly refunded");
@@ -861,7 +1194,9 @@ Deno.test("a lost reconciliation response is retried to an authoritative settlem
         Response.json({ allowed: true, duplicate: false, balance: 83 }),
       );
     }
-    if (path.endsWith("/settle_ai_usage")) {
+    if (
+      path.endsWith("/settle_ai_usage") || path.endsWith("/settle_ai_usage_v2")
+    ) {
       const body = JSON.parse(String(init?.body));
       settlementCalls++;
       if (body.p_succeeded !== true) {
@@ -942,7 +1277,9 @@ Deno.test("an ambiguous settlement survives a later deterministic reconciliation
         Response.json({ allowed: true, duplicate: false, balance: 82 }),
       );
     }
-    if (path.endsWith("/settle_ai_usage")) {
+    if (
+      path.endsWith("/settle_ai_usage") || path.endsWith("/settle_ai_usage_v2")
+    ) {
       const body = JSON.parse(String(init?.body));
       settlementCalls++;
       if (body.p_succeeded !== true) {
@@ -1028,7 +1365,9 @@ Deno.test("an exhausted ambiguous settlement still delivers the paid reply", asy
         Response.json({ allowed: true, duplicate: false, balance: 82 }),
       );
     }
-    if (path.endsWith("/settle_ai_usage")) {
+    if (
+      path.endsWith("/settle_ai_usage") || path.endsWith("/settle_ai_usage_v2")
+    ) {
       const body = JSON.parse(String(init?.body));
       settlementCalls++;
       if (body.p_succeeded !== true) refunds++;
@@ -1102,7 +1441,10 @@ for (const deterministicStatus of [400, 401, 404] as const) {
           Response.json({ allowed: true, duplicate: false, balance: 81 }),
         );
       }
-      if (path.endsWith("/settle_ai_usage")) {
+      if (
+        path.endsWith("/settle_ai_usage") ||
+        path.endsWith("/settle_ai_usage_v2")
+      ) {
         const body = JSON.parse(String(init?.body));
         if (body.p_succeeded === true) {
           successSettlements++;
@@ -1208,7 +1550,10 @@ for (
         state = "reserved";
         return Promise.resolve(json({ allowed: true, balance }));
       }
-      if (path.endsWith("/settle_ai_usage")) {
+      if (
+        path.endsWith("/settle_ai_usage") ||
+        path.endsWith("/settle_ai_usage_v2")
+      ) {
         const body = JSON.parse(String(init?.body));
         if (body.p_succeeded !== false || state !== "reserved") {
           throw new Error("failure settled as success or out of sequence");

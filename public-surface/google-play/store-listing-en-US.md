@@ -1,6 +1,6 @@
 # Default store listing: English (United States)
 
-Revised September 17, 2026 for the signed 4.1.0+2026083063 closed-testing candidate. This file records the listing draft; Play Console submission and publication require separate readback.
+Prepared October 2, 2026 for the intended public-profile candidate 4.2.3+2026083102. This is a local listing draft based on the current source capability scope, pending the final signed artifact and its acceptance checks. It does not establish Play Console submission, approval, or publication. The earlier build-3063 draft remains in Git history.
 
 ## App name
 
@@ -52,6 +52,10 @@ No banners. No rewarded videos. No interruption-for-access model. Ad-free use do
 
 OPTIONAL AI AND PAID FEATURES
 
-Core planning remains available without ads. Where eligible private testing enables external AI, Axiomara identifies what service is used, what context may be sent, and the credit cost before a paid action. Subscription access and spendable AI credits are shown separately.
+Planning remains ad-free. For an optional external AI action, Axiomara identifies the provider, the selected context that may be sent, and the expected credit cost before you confirm. You can decline and continue with non-generative planning. Subscription access and spendable AI credits are shown separately.
 
-Axiomara supports planning and decision-making. It does not replace professional, medical, legal, financial, or emergency support.
+OPTIONAL CLOUD BACKUP
+
+Cloud Backup is off by default. If you turn it on, Axiomara encrypts a backup of tasks, profile information, and account preferences before upload. Keep your recovery key separately if you want to restore on another device. Other planning records, including goals, daily rhythms, notes, and history, are not included in this cloud backup.
+
+Axiomara is for adults ages 18 and over. It supports planning and decision-making and does not replace professional, medical, legal, financial, or emergency support.
