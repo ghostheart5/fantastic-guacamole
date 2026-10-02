@@ -17,7 +17,8 @@ from android_candidate_build import (elf_alignment, manifest_identity, signing_e
                                      assemble_candidate_defines, validate_candidate_defines,
                                      validate_internal_policy, validate_ci_evidence,
                                      merge_assistant_internal_cohort,
-                                     validate_billing_preflight, MINIMUM_VERSION_CODE, build)
+                                     validate_billing_preflight, validate_source_containment,
+                                     MINIMUM_VERSION_CODE, build)
 
 
 def policy_template():
@@ -34,6 +35,27 @@ def policy_hash(defines):
 
 
 class InternalPolicyTests(unittest.TestCase):
+    def test_reviewed_public_source_stays_private_in_candidate(self):
+        source = (Path(__file__).resolve().parent.parent /
+                  "lib/config/launch_containment.dart").read_text(encoding="utf-8")
+        validate_source_containment(source)
+        defines = assembled()
+        self.assertEqual(defines["CHRONOSPARK_PUBLIC_RELEASE"], "false")
+        validate_candidate_defines(defines, policy_hash(defines))
+        for value in ("true", True, ""):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                validate_candidate_defines({**defines, "CHRONOSPARK_PUBLIC_RELEASE": value},
+                                           policy_hash(defines))
+        del defines["CHRONOSPARK_PUBLIC_RELEASE"]
+        with self.assertRaises(ValueError):
+            validate_candidate_defines(defines, policy_hash(assembled()))
+        for before, after in (("publicBuildValue == 'true'", "true"),
+                              ("publicCloudBuildRequested && externalAiEnabled", "externalAiEnabled"),
+                              ("analyticsEnabled = false", "analyticsEnabled = true")):
+            self.assertIn(before, source)
+            with self.subTest(before=before), self.assertRaises(ValueError):
+                validate_source_containment(source.replace(before, after))
+
     def test_old_partial_or_failed_backend_preflight_is_rejected(self):
         repair = {
             "schemaVersion": 1,

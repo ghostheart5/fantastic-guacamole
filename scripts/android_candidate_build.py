@@ -26,6 +26,7 @@ SETTINGS = (
     "CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT", "CHRONOSPARK_ANDROID_SHA256_CERT",
 )
 FLAGS = {
+    "CHRONOSPARK_PUBLIC_RELEASE": "false",
     "CHRONOSPARK_APP_FLAVOR": "prod",
     "CHRONOSPARK_BACKEND_MODE": "cloud",
     "CHRONOSPARK_ENFORCE_PROD_READINESS": "true",
@@ -45,6 +46,20 @@ FLAGS = {
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def validate_source_containment(containment):
+    # Reviewed public source gates every public capability on explicit build
+    # intent. Pin that implementation rather than accepting arbitrary true
+    # switches. FLAGS and final-define validation force public intent off.
+    reviewed_public_gate = "f02e6ee3299867604227e6fca7df198b04a3712658840505bb0bf4f8931cdd5f"
+    if hashlib.sha256(containment.encode("utf-8")).hexdigest() == reviewed_public_gate:
+        return
+    # Preserve support for the original contained source profile.
+    for feature in ("externalAiEnabled", "subscriptionsEnabled", "creditSpendingEnabled",
+                    "cloudSyncEnabled", "cloudRestoreEnabled", "analyticsEnabled", "crashReportingEnabled"):
+        require(re.search(rf"static const bool {feature}\s*=\s*false;", containment),
+                f"Containment changed: {feature}")
 
 
 def validate_billing_preflight(receipt, credit_admission_qa=False):
@@ -347,11 +362,8 @@ def build(root, bundletool):
                         (root / "pubspec.yaml").read_text())
     require(version is not None, "Invalid committed version")
     require(int(version[2]) >= MINIMUM_VERSION_CODE, "Replacement version code must exceed the installed candidate")
-    containment = (root / "lib/config/launch_containment.dart").read_text()
-    for feature in ("externalAiEnabled", "subscriptionsEnabled", "creditSpendingEnabled",
-                    "cloudSyncEnabled", "cloudRestoreEnabled", "analyticsEnabled", "crashReportingEnabled"):
-        require(re.search(rf"static const bool {feature}\s*=\s*false;", containment),
-                f"Containment changed: {feature}")
+    validate_source_containment(
+        (root / "lib/config/launch_containment.dart").read_text(encoding="utf-8"))
     command(["flutter", "pub", "get"], root)
     command(["git", "diff", "--exit-code"], root)
     command(["pwsh", "-NoProfile", "-File", "scripts/release_guard.ps1"], root)

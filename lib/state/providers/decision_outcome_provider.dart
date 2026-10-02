@@ -54,13 +54,22 @@ final learningPausedProvider = FutureProvider<bool>((Ref ref) async {
   return repository == null ? true : repository.isLearningPaused();
 });
 
+/// Reference clock for learning decay; overridden in tests so recency-weighted
+/// confidence does not drift with the wall clock.
+final learningLedgerClockProvider = Provider<DateTime Function()>(
+  (Ref ref) => DateTime.now,
+);
+
 final learningLedgerSummaryProvider = Provider<LearningLedgerSummary>((
   Ref ref,
 ) {
   final List<DecisionOutcomeEntity> outcomes =
       ref.watch(decisionOutcomesProvider).asData?.value ??
       const <DecisionOutcomeEntity>[];
-  return LearningLedgerSummary.fromOutcomes(outcomes);
+  return LearningLedgerSummary.fromOutcomes(
+    outcomes,
+    now: ref.watch(learningLedgerClockProvider)(),
+  );
 });
 
 final latestDecisionLearningChangeProvider =
