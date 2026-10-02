@@ -229,6 +229,10 @@ void main() {
       find.byKey(FirstRunTutorialTargets.timelineEvidence),
       findsOneWidget,
     );
+    expect(
+      find.byKey(FirstRunTutorialTargets.timelineCompletion),
+      findsOneWidget,
+    );
     expect(container.read(timelineTutorialEvidenceProvider), later.id);
   });
 

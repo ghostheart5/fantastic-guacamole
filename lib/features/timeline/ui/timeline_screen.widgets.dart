@@ -323,7 +323,10 @@ class _TimelineEventTile extends StatelessWidget {
                         ),
                       ),
                     ],
-                    _TimelineEventActions(event: event),
+                    _TimelineEventActions(
+                      event: event,
+                      tutorialTarget: tutorialTarget,
+                    ),
                   ],
                 ),
               ),
@@ -336,9 +339,13 @@ class _TimelineEventTile extends StatelessWidget {
 }
 
 class _TimelineEventActions extends ConsumerStatefulWidget {
-  const _TimelineEventActions({required this.event});
+  const _TimelineEventActions({
+    required this.event,
+    this.tutorialTarget = false,
+  });
 
   final TimelineEventEntity event;
+  final bool tutorialTarget;
 
   @override
   ConsumerState<_TimelineEventActions> createState() =>
@@ -402,6 +409,9 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
           children: [
             if (_canComplete)
               OutlinedButton.icon(
+                key: widget.tutorialTarget
+                    ? FirstRunTutorialTargets.timelineCompletion
+                    : null,
                 onPressed: _busy ? null : () => _run(_complete),
                 icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
                 label: Text(journeyText(context, 'Complete', 'Completar')),

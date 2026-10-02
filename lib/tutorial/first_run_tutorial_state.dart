@@ -110,4 +110,7 @@ abstract final class FirstRunTutorialTargets {
   static final GlobalKey timelineEvidence = GlobalKey(
     debugLabel: 'timeline-tutorial-evidence',
   );
+  static final GlobalKey timelineCompletion = GlobalKey(
+    debugLabel: 'timeline-tutorial-completion',
+  );
 }

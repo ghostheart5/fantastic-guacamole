@@ -169,6 +169,46 @@ async function settleReservation(
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("AI settlement returned an invalid response");
   }
+  // The legacy settlement RPC stores the response payload, which makes an
+  // immediate idempotent retry recoverable even when the v2 retention wrapper
+  // is temporarily unavailable. The wrapper below adds the bounded expiry on
+  // deployments that have the response-retention migration.
+  if (
+    succeeded &&
+    details.responsePayload &&
+    Object.keys(details.responsePayload).length > 0 &&
+    config.supabaseUrl &&
+    config.secretKey
+  ) {
+    try {
+      const retention = await fetch(
+        `${config.supabaseUrl}/rest/v1/rpc/settle_ai_usage_v2`,
+        {
+          method: "POST",
+          headers: {
+            apikey: config.secretKey,
+            Authorization: `Bearer ${config.secretKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            p_user_id: userId,
+            p_request_key: requestId,
+            p_succeeded: true,
+            p_input_tokens: details.inputTokens ?? null,
+            p_output_tokens: details.outputTokens ?? null,
+            p_provider_request_id: details.providerRequestId ?? null,
+            p_response_payload: details.responsePayload,
+            p_response_ttl: "15 minutes",
+          }),
+          signal: AbortSignal.timeout(2_000),
+        },
+      );
+      await retention.body?.cancel();
+    } catch (_) {
+      // Retention is an availability improvement, never a reason to hide a
+      // successfully settled paid reply. The legacy payload remains usable.
+    }
+  }
   return value as Record<string, unknown>;
 }
 
@@ -747,9 +787,10 @@ Deno.serve(async (req: Request) => {
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
         providerRequestId: finalProviderRequestId,
-        // The billing ledger keeps usage metadata only. Conversation content is
-        // returned to the caller but is never persisted for idempotent replay.
-        responsePayload: {},
+        // Keep the bounded response in the idempotency row so a lost client
+        // response can be recovered without charging the request again. The
+        // v2 settlement wrapper applies the 15-minute expiry when available.
+        responsePayload: responsePayload as Record<string, unknown>,
       });
     } catch (error) {
       if (

@@ -35,7 +35,7 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   CreatorTutorialStep _creatorStep = CreatorTutorialStep.title;
   GuidanceLessonId? _suppressedLesson;
   bool _completingCreator = false;
-  bool _completingTimeline = false;
+  bool _timelineTaskAcknowledged = false;
 
   bool _routeAllowsGuidance(String location) {
     return location.isNotEmpty &&
@@ -279,21 +279,39 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         timelineEvidenceTaskId != null &&
         guidance.matchesExpectedFirstRunCreatorTask(timelineEvidenceTaskId) &&
         FirstRunTutorialTargets.timelineEvidence.currentContext != null;
+    final bool completionTargetAvailable =
+        FirstRunTutorialTargets.timelineCompletion.currentContext != null;
+    final bool showingCompletionStep =
+        _timelineTaskAcknowledged && completionTargetAvailable;
     return InteractiveTutorialOverlay(
-      targetKey: FirstRunTutorialTargets.timelineEvidence,
+      targetKey: showingCompletionStep
+          ? FirstRunTutorialTargets.timelineCompletion
+          : FirstRunTutorialTargets.timelineEvidence,
       stepLabel: _copy(
         l10n,
-        'Guided setup · last step',
-        'Configuración guiada · último paso',
+        showingCompletionStep
+            ? 'Guided setup · complete your task'
+            : 'Guided setup · find your task',
+        showingCompletionStep
+            ? 'Configuración guiada · completa tu tarea'
+            : 'Configuración guiada · encuentra tu tarea',
       ),
-      title: hasMatchingEvidence
+      title: showingCompletionStep
+          ? _copy(l10n, 'Complete your task', 'Completa tu tarea')
+          : hasMatchingEvidence
           ? _copy(
               l10n,
               'Your saved task is now on Timeline',
               'Tu tarea guardada ya está en Línea de Tiempo',
             )
           : _copy(l10n, 'Finding your task', 'Buscando tu tarea'),
-      body: hasMatchingEvidence
+      body: showingCompletionStep
+          ? _copy(
+              l10n,
+              'Tap Complete on the highlighted task. This saves the first outcome Axiomara can learn from.',
+              'Toca Completar en la tarea resaltada. Así guardas el primer resultado del que Axiomara puede aprender.',
+            )
+          : hasMatchingEvidence
           ? _copy(
               l10n,
               'This is the task you just saved, placed at its scheduled time. When it is due, complete it here.',
@@ -304,41 +322,34 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
               'Your new task will be highlighted here as soon as Timeline loads it.',
               'Tu nueva tarea se resaltará aquí en cuanto la Línea de Tiempo la cargue.',
             ),
-      primaryLabel: _completingTimeline
-          ? _copy(l10n, 'Finishing', 'Finalizando')
+      primaryLabel: showingCompletionStep
+          ? _copy(
+              l10n,
+              'Complete the highlighted task',
+              'Completar la tarea resaltada',
+            )
           : _copy(l10n, 'I found my task', 'Encontré mi tarea'),
-      primaryEnabled: hasMatchingEvidence && !_completingTimeline,
-      onPrimary: () => unawaited(_completeTimelineLesson()),
+      primaryEnabled: !showingCompletionStep && hasMatchingEvidence,
+      onPrimary: () => unawaited(_acknowledgeTimelineTask()),
       secondaryLabel: _pauseLabel(l10n),
       onSecondary: () => _pauseGuide(context, GuidanceLessonId.reviewTimeline),
     );
   }
 
-  Future<void> _completeTimelineLesson() async {
-    if (_completingTimeline) return;
+  Future<void> _acknowledgeTimelineTask() async {
+    if (_timelineTaskAcknowledged) return;
     final AdaptiveGuidanceState? guidance = ref
         .read(adaptiveGuidanceProvider)
         .asData
         ?.value;
     final String? evidenceTaskId = ref.read(timelineTutorialEvidenceProvider);
     if (guidance == null ||
-        guidance.expectedFirstRunCreatorTaskIds.isEmpty ||
         evidenceTaskId == null ||
         !guidance.matchesExpectedFirstRunCreatorTask(evidenceTaskId) ||
         FirstRunTutorialTargets.timelineEvidence.currentContext == null) {
       return;
     }
-    setState(() {
-      _completingTimeline = true;
-      _suppressedLesson = GuidanceLessonId.reviewTimeline;
-    });
-    try {
-      await ref
-          .read(adaptiveGuidanceProvider.notifier)
-          .record(GuidanceMilestone.firstTimelineReview);
-    } finally {
-      if (mounted) setState(() => _completingTimeline = false);
-    }
+    setState(() => _timelineTaskAcknowledged = true);
   }
 
   Widget _advancedLesson(
