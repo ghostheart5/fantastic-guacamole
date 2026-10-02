@@ -189,6 +189,53 @@ void main() {
     expect(container.read(timelineTutorialEvidenceProvider), _managedTask.id);
   });
 
+  testWidgets('tutorial task outside the week window is brought into view', (
+    WidgetTester tester,
+  ) async {
+    final Task later = Task(
+      id: 'first-task-later',
+      title: 'Dentist in ten days',
+      priority: 3,
+      difficulty: 2,
+      energyRequired: 2,
+      scheduledFor: _timelineNow.add(const Duration(days: 10)),
+    );
+    final ProviderContainer container = _buildContainer(
+      task: later,
+      expectedTutorialTaskIds: <String>{later.id},
+    );
+    addTearDown(container.dispose);
+
+    tester.view.physicalSize = const Size(1200, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: ThemeData(splashFactory: NoSplash.splashFactory),
+          home: const TimelineScreen(),
+        ),
+      ),
+    );
+    for (int i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    // The default Week window hides a task 10 days out; the first-run review
+    // must not leave the person behind a scrim with nothing to find.
+    expect(
+      find.byKey(FirstRunTutorialTargets.timelineEvidence),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(FirstRunTutorialTargets.timelineCompletion),
+      findsOneWidget,
+    );
+    expect(container.read(timelineTutorialEvidenceProvider), later.id);
+  });
+
   testWidgets('unrelated task cannot become first-run Timeline evidence', (
     WidgetTester tester,
   ) async {

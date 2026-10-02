@@ -35,7 +35,9 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   CreatorTutorialStep _creatorStep = CreatorTutorialStep.title;
   GuidanceLessonId? _suppressedLesson;
   bool _completingCreator = false;
+  String? _acknowledgedTimelineTaskId;
   bool _completingTimeline = false;
+  bool _timelineCompletionFailed = false;
 
   bool _routeAllowsGuidance(String location) {
     return location.isNotEmpty &&
@@ -92,6 +94,13 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       return const SizedBox.shrink();
     }
 
+    // Onboarding's "Show one helpful choice" opens Smart Planner. A full-screen
+    // first-run prompt there would hide the choice the person just asked for;
+    // core guidance resumes on the next screen they open.
+    if (_isCoreLesson(lesson.id) && location == RoutePaths.smartPlanner) {
+      return const SizedBox.shrink();
+    }
+
     if (lesson.id == GuidanceLessonId.createFirstItem ||
         lesson.id == GuidanceLessonId.scheduleFirstItem) {
       if (location != RoutePaths.creator) {
@@ -125,12 +134,43 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       body: l10n.guideBody(lesson.id.name, lesson.body),
       primaryLabel: l10n.guideAction(lesson.id.name, lesson.actionLabel),
       onPrimary: () => widget.router.go(lesson.route),
-      secondaryLabel: _copy(l10n, 'Later', 'Más tarde'),
-      onSecondary: () => unawaited(
-        ref.read(adaptiveGuidanceProvider.notifier).later(lesson.id),
-      ),
+      secondaryLabel: _pauseLabel(l10n),
+      onSecondary: () => _pauseGuide(context, lesson.id),
       allowTargetInteraction: false,
     );
+  }
+
+  bool _isCoreLesson(GuidanceLessonId id) =>
+      id == GuidanceLessonId.createFirstItem ||
+      id == GuidanceLessonId.scheduleFirstItem ||
+      id == GuidanceLessonId.reviewTimeline;
+
+  String _pauseLabel(ChronoSparkLocalizations l10n) =>
+      _copy(l10n, 'Pause guide', 'Pausar guía');
+
+  /// Pausing persists until the person finishes the step on their own or
+  /// restarts the guide, so say where to resume instead of implying "later".
+  void _pauseGuide(BuildContext context, GuidanceLessonId lesson) {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final ScaffoldMessengerState? messenger = ScaffoldMessenger.maybeOf(
+      context,
+    );
+    unawaited(ref.read(adaptiveGuidanceProvider.notifier).later(lesson));
+    messenger
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          key: const Key('guide-paused-snackbar'),
+          content: Text(
+            _copy(
+              l10n,
+              'Guide paused. Resume it anytime in Settings › Restart Adaptive Guide.',
+              'Guía en pausa. Reanúdala cuando quieras en Ajustes › Reiniciar la Guía Adaptativa.',
+            ),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 
   Widget _creatorLesson(
@@ -177,11 +217,27 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
           _creatorStep = CreatorTutorialStep.values[_creatorStep.index + 1];
         });
       },
-      secondaryLabel: _copy(l10n, 'Finish later', 'Terminar más tarde'),
-      onSecondary: () => unawaited(
-        ref.read(adaptiveGuidanceProvider.notifier).later(lesson.id),
-      ),
+      secondaryLabel: _pauseLabel(l10n),
+      onSecondary: () => _pauseGuide(context, lesson.id),
+      backLabel: _copy(l10n, 'Back', 'Atrás'),
+      onBack: activeStep == CreatorTutorialStep.title || _completingCreator
+          ? null
+          : () => _creatorBack(activeStep),
     );
+  }
+
+  void _creatorBack(CreatorTutorialStep activeStep) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (activeStep == CreatorTutorialStep.confirm) {
+      // Leaving review keeps the form (same revision) so the draft can be
+      // edited, matching the review card's own "Edit draft" action.
+      ref.read(creatorHandshakeProvider.notifier).cancelPreview();
+      setState(() => _creatorStep = CreatorTutorialStep.save);
+      return;
+    }
+    setState(() {
+      _creatorStep = CreatorTutorialStep.values[activeStep.index - 1];
+    });
   }
 
   Future<void> _confirmCreatorAndOpenTimeline(BuildContext context) async {
@@ -195,14 +251,12 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         false;
     setState(() => _completingCreator = true);
     try {
+      // confirm() records the Creator receipt for Timeline review itself, so
+      // tapping the highlighted Creator button behaves the same as this one.
       final CreatorHandshakeState result = await ref
           .read(creatorHandshakeProvider.notifier)
           .confirm();
       if (result.receipt == null || !mounted) return;
-      await ref
-          .read(adaptiveGuidanceProvider.notifier)
-          .recordCreatorHandshakeReceipt(result.receipt!);
-      if (!mounted) return;
       ref.read(creatorTutorialDraftProvider.notifier).reset();
       ref.read(creatorDraftPreviewProvider.notifier).clear();
       setState(() => _creatorStep = CreatorTutorialStep.title);
@@ -222,76 +276,170 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     final bool hasExpectedReceipt =
         guidance.expectedFirstRunCreatorTaskIds.isNotEmpty;
+    String? completedTaskId;
+    bool allExpectedTasksUnavailable = hasExpectedReceipt;
+    for (final id in guidance.expectedFirstRunCreatorTaskIds) {
+      final taskState = ref.watch(firstRunTutorialTaskProvider(id));
+      final task = taskState.asData?.value;
+      if (task?.isCompleted ?? false) completedTaskId ??= id;
+      if (taskState.asData == null ||
+          (task?.isActionableAt(DateTime.now()) ?? false)) {
+        allExpectedTasksUnavailable = false;
+      }
+    }
+    if (completedTaskId != null) {
+      final String id = completedTaskId;
+      return InteractiveTutorialOverlay(
+        targetKey: _untargetedLessonKey,
+        title: _copy(l10n, 'Your task is complete', 'Tu tarea está completada'),
+        body: _timelineCompletionFailed
+            ? _copy(
+                l10n,
+                'Could not finish the guide. Try again.',
+                'No se pudo finalizar la guía. Inténtalo de nuevo.',
+              )
+            : _copy(
+                l10n,
+                'Your saved task is already complete. Finish the guide to return to Axiomara.',
+                'Tu tarea guardada ya está completada. Finaliza la guía para volver a Axiomara.',
+              ),
+        primaryLabel: _copy(l10n, 'Finish guide', 'Finalizar guía'),
+        primaryEnabled: !_completingTimeline,
+        onPrimary: () => unawaited(_finishCompletedTimelineTask(id)),
+        secondaryLabel: _pauseLabel(l10n),
+        onSecondary: () =>
+            _pauseGuide(context, GuidanceLessonId.reviewTimeline),
+        allowTargetInteraction: false,
+      );
+    }
     final bool hasMatchingEvidence =
         hasExpectedReceipt &&
         timelineEvidenceTaskId != null &&
         guidance.matchesExpectedFirstRunCreatorTask(timelineEvidenceTaskId) &&
         FirstRunTutorialTargets.timelineEvidence.currentContext != null;
+    final bool completionTargetAvailable =
+        FirstRunTutorialTargets.timelineCompletion.currentContext != null;
+    final bool showingCompletionStep =
+        hasMatchingEvidence &&
+        _acknowledgedTimelineTaskId == timelineEvidenceTaskId &&
+        completionTargetAvailable;
     return InteractiveTutorialOverlay(
-      targetKey: FirstRunTutorialTargets.timelineEvidence,
+      targetKey: showingCompletionStep
+          ? FirstRunTutorialTargets.timelineCompletion
+          : FirstRunTutorialTargets.timelineEvidence,
       stepLabel: _copy(
         l10n,
-        'Optional Creator/Timeline lesson',
-        'Lección opcional de Creador/Línea de Tiempo',
+        showingCompletionStep
+            ? 'Guided setup · complete your task'
+            : 'Guided setup · find your task',
+        showingCompletionStep
+            ? 'Configuración guiada · completa tu tarea'
+            : 'Configuración guiada · encuentra tu tarea',
       ),
-      title: hasMatchingEvidence
+      title: showingCompletionStep
+          ? _copy(l10n, 'Complete your task', 'Completa tu tarea')
+          : hasMatchingEvidence
           ? _copy(
               l10n,
               'Your saved task is now on Timeline',
               'Tu tarea guardada ya está en Línea de Tiempo',
             )
-          : _copy(
-              l10n,
-              'Waiting for saved-task evidence',
-              'Esperando evidencia de la tarea guardada',
-            ),
-      body: hasMatchingEvidence
+          : _copy(l10n, 'Finding your task', 'Buscando tu tarea'),
+      body: allExpectedTasksUnavailable
           ? _copy(
               l10n,
-              'Review the highlighted task that matches your Creator receipt.',
-              'Revisa la tarea resaltada que coincide con tu recibo de Creador.',
+              'This task is no longer available to complete here. Pause the guide to review your tasks, or restart the guide from Settings.',
+              'Esta tarea ya no está disponible para completarla aquí. Pausa la guía para revisar tus tareas o reiníciala desde Ajustes.',
+            )
+          : showingCompletionStep
+          ? _copy(
+              l10n,
+              'Tap Complete on the highlighted task. This saves the first outcome Axiomara can learn from.',
+              'Toca Completar en la tarea resaltada. Así guardas el primer resultado del que Axiomara puede aprender.',
+            )
+          : hasMatchingEvidence
+          ? _copy(
+              l10n,
+              'This is the task you just saved, placed at its scheduled time. When it is due, complete it here.',
+              'Esta es la tarea que acabas de guardar, en su hora programada. Cuando llegue el momento, complétala aquí.',
             )
           : _copy(
               l10n,
-              'Axiomara will not mark this lesson complete until the exact task from your Creator receipt appears here.',
-              'Axiomara no completará esta lección hasta que aparezca aquí la tarea exacta de tu recibo de Creador.',
+              'Your new task will be highlighted here as soon as Timeline loads it.',
+              'Tu nueva tarea se resaltará aquí en cuanto la Línea de Tiempo la cargue.',
             ),
-      primaryLabel: _completingTimeline
-          ? _copy(l10n, 'Finishing', 'Finalizando')
+      primaryLabel: showingCompletionStep
+          ? _copy(
+              l10n,
+              'Complete the highlighted task',
+              'Completar la tarea resaltada',
+            )
           : _copy(l10n, 'I found my task', 'Encontré mi tarea'),
-      primaryEnabled: hasMatchingEvidence && !_completingTimeline,
-      onPrimary: () => unawaited(_completeTimelineLesson()),
-      secondaryLabel: _copy(l10n, 'Finish later', 'Terminar más tarde'),
-      onSecondary: () => unawaited(
-        ref
-            .read(adaptiveGuidanceProvider.notifier)
-            .later(GuidanceLessonId.reviewTimeline),
-      ),
+      primaryEnabled:
+          !showingCompletionStep &&
+          hasMatchingEvidence &&
+          !allExpectedTasksUnavailable,
+      onPrimary: () => unawaited(_acknowledgeTimelineTask()),
+      secondaryLabel: _pauseLabel(l10n),
+      onSecondary: () => _pauseGuide(context, GuidanceLessonId.reviewTimeline),
     );
   }
 
-  Future<void> _completeTimelineLesson() async {
-    if (_completingTimeline) return;
+  Future<void> _acknowledgeTimelineTask() async {
     final AdaptiveGuidanceState? guidance = ref
         .read(adaptiveGuidanceProvider)
         .asData
         ?.value;
     final String? evidenceTaskId = ref.read(timelineTutorialEvidenceProvider);
     if (guidance == null ||
-        guidance.expectedFirstRunCreatorTaskIds.isEmpty ||
         evidenceTaskId == null ||
         !guidance.matchesExpectedFirstRunCreatorTask(evidenceTaskId) ||
         FirstRunTutorialTargets.timelineEvidence.currentContext == null) {
       return;
     }
+    setState(() => _acknowledgedTimelineTaskId = evidenceTaskId);
+  }
+
+  Future<void> _finishCompletedTimelineTask(String taskId) async {
+    if (_completingTimeline) return;
+    final boundary = ref.read(authSessionBoundaryProvider);
+    bool isCurrent() =>
+        mounted &&
+        ref.read(authSessionBoundaryProvider).generation ==
+            boundary.generation &&
+        ref.read(authSessionBoundaryProvider).userId == boundary.userId &&
+        ref.read(authSessionBoundaryProvider).isStorageReady &&
+        !ref.read(authSessionBoundaryProvider).isTransitioning &&
+        ref.read(authSessionBoundaryProvider).blockingIssue == null &&
+        ref.read(adaptiveGuidanceProvider).asData?.value.activeCoreLesson ==
+            GuidanceLessonId.reviewTimeline &&
+        (ref
+                .read(adaptiveGuidanceProvider)
+                .asData
+                ?.value
+                .matchesExpectedFirstRunCreatorTask(taskId) ??
+            false);
     setState(() {
       _completingTimeline = true;
-      _suppressedLesson = GuidanceLessonId.reviewTimeline;
+      _timelineCompletionFailed = false;
     });
     try {
+      final task = await ref
+          .read(domainTaskRepositoryProvider)
+          .getTaskById(taskId);
+      if (!isCurrent()) return;
+      if (task?.isCompleted != true) {
+        ref.invalidate(firstRunTutorialTaskProvider(taskId));
+        return;
+      }
       await ref
           .read(adaptiveGuidanceProvider.notifier)
-          .record(GuidanceMilestone.firstTimelineReview);
+          .record(
+            GuidanceMilestone.firstTimelineReview,
+            shouldContinue: isCurrent,
+          );
+    } catch (_) {
+      if (mounted) setState(() => _timelineCompletionFailed = true);
     } finally {
       if (mounted) setState(() => _completingTimeline = false);
     }

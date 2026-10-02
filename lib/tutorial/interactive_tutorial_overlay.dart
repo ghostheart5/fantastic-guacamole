@@ -22,6 +22,8 @@ class InteractiveTutorialOverlay extends StatefulWidget {
     this.stepLabel,
     this.onSecondary,
     this.secondaryLabel,
+    this.onBack,
+    this.backLabel,
     this.allowTargetInteraction = true,
     super.key,
   });
@@ -35,6 +37,10 @@ class InteractiveTutorialOverlay extends StatefulWidget {
   final String? stepLabel;
   final VoidCallback? onSecondary;
   final String? secondaryLabel;
+
+  /// Returns to the previous guided step. Hidden when null.
+  final VoidCallback? onBack;
+  final String? backLabel;
   final bool allowTargetInteraction;
 
   @override
@@ -50,6 +56,9 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
   );
   final FocusNode _secondaryFocusNode = FocusNode(
     debugLabel: 'Tutorial secondary action',
+  );
+  final FocusNode _backFocusNode = FocusNode(
+    debugLabel: 'Tutorial back action',
   );
   late final FocusScopeNode _calloutFocusScope;
   Rect? _targetRect;
@@ -129,6 +138,7 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
     }
     _primaryFocusNode.dispose();
     _secondaryFocusNode.dispose();
+    _backFocusNode.dispose();
     _calloutFocusScope.dispose();
     _pointerController.dispose();
     super.dispose();
@@ -545,25 +555,73 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
             ),
           );
 
-    if (secondary == null) {
-      return SizedBox(width: double.infinity, child: primary);
-    }
+    final Widget? back = widget.onBack == null
+        ? null
+        : ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: TextButton.icon(
+              key: const Key('tutorial_back_action'),
+              focusNode: _backFocusNode,
+              onPressed: widget.onBack,
+              icon: const Icon(Icons.arrow_back_rounded, size: 18),
+              label: Text(
+                widget.backLabel ?? 'Back',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+
     final double textScale = MediaQuery.textScalerOf(context).scale(1);
+    if (back == null) {
+      if (secondary == null) {
+        return SizedBox(width: double.infinity, child: primary);
+      }
+      return LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          if (constraints.maxWidth >= 300 && textScale <= 1.5) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                Expanded(child: primary),
+                const SizedBox(width: 8),
+                Flexible(child: secondary),
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[primary, const SizedBox(height: 8), secondary],
+          );
+        },
+      );
+    }
+    // Three actions do not fit beside each other in a 390px callout; keep the
+    // primary action full width and pair Back with the secondary action.
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        if (constraints.maxWidth >= 300 && textScale <= 1.5) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              Expanded(child: primary),
-              const SizedBox(width: 8),
-              Flexible(child: secondary),
-            ],
-          );
-        }
+        final bool stack = constraints.maxWidth < 300 || textScale > 1.5;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[primary, const SizedBox(height: 8), secondary],
+          children: <Widget>[
+            primary,
+            const SizedBox(height: 8),
+            if (stack) ...<Widget>[
+              back,
+              if (secondary != null) ...<Widget>[
+                const SizedBox(height: 8),
+                secondary,
+              ],
+            ] else
+              Row(
+                children: <Widget>[
+                  Expanded(child: back),
+                  if (secondary != null) ...<Widget>[
+                    const SizedBox(width: 8),
+                    Expanded(child: secondary),
+                  ],
+                ],
+              ),
+          ],
         );
       },
     );

@@ -137,6 +137,8 @@ async function settleReservation(
     responsePayload?: Record<string, unknown>;
   } = {},
 ): Promise<Record<string, unknown> | null> {
+  const retainReply = succeeded && details.responsePayload &&
+    Object.keys(details.responsePayload).length > 0;
   const body = {
     p_user_id: userId,
     p_request_key: requestId,
@@ -146,10 +148,13 @@ async function settleReservation(
     p_provider_request_id: details.providerRequestId ?? null,
     p_failure_code: details.failureCode ?? null,
     p_response_payload: details.responsePayload ?? {},
+    ...(retainReply ? { p_response_ttl: "15 minutes" } : {}),
   };
   if (!config.supabaseUrl || !config.secretKey) return null;
   const response = await fetch(
-    `${config.supabaseUrl}/rest/v1/rpc/settle_ai_usage`,
+    `${config.supabaseUrl}/rest/v1/rpc/${
+      retainReply ? "settle_ai_usage_v2" : "settle_ai_usage"
+    }`,
     {
       method: "POST",
       headers: {
@@ -162,7 +167,20 @@ async function settleReservation(
     },
   );
   if (!response.ok) {
-    await response.body?.cancel();
+    // Only an authoritative missing-RPC response permits the metadata-only
+    // compatibility path. A timeout or server error may have committed the
+    // atomic reply+expiry transaction and must use normal reconciliation.
+    if (retainReply && response.status === 404) {
+      const error = await response.json().catch(() => null);
+      if (error?.code === "PGRST202") {
+        return await settleReservation(userId, requestId, succeeded, {
+          ...details,
+          responsePayload: {},
+        });
+      }
+    } else {
+      await response.body?.cancel();
+    }
     throw new SettlementHttpError(response.status);
   }
   const value = await response.json();
@@ -170,6 +188,55 @@ async function settleReservation(
     throw new Error("AI settlement returned an invalid response");
   }
   return value as Record<string, unknown>;
+}
+
+async function loadUnexpiredReply(
+  userId: string,
+  requestId: string,
+): Promise<ProxyResponse | null> {
+  if (!config.supabaseUrl || !config.secretKey) return null;
+  const url = new URL(`${config.supabaseUrl}/rest/v1/ai_usage_requests`);
+  url.searchParams.set("user_id", `eq.${userId}`);
+  url.searchParams.set("request_key", `eq.${requestId}`);
+  url.searchParams.set("state", "eq.completed");
+  url.searchParams.set(
+    "select",
+    "user_id,request_key,state,billing_principal_id,response_payload,response_expires_at," +
+      "billing_principals!ai_usage_requests_principal_fkey(billing_principal_id,current_user_id,retired_at)",
+  );
+  url.searchParams.set("limit", "2");
+  try {
+    const response = await fetch(url, {
+      headers: {
+        apikey: config.secretKey,
+        Authorization: `Bearer ${config.secretKey}`,
+      },
+      signal: AbortSignal.timeout(SETTLEMENT_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      await response.body?.cancel();
+      return null;
+    }
+    const rows = await response.json();
+    if (!Array.isArray(rows) || rows.length !== 1) return null;
+    const row = rows[0];
+    const principal = row?.billing_principals;
+    const payload = row?.response_payload;
+    if (
+      row?.user_id !== userId || row?.request_key !== requestId ||
+      row?.state !== "completed" ||
+      typeof row?.billing_principal_id !== "string" ||
+      principal?.billing_principal_id !== row.billing_principal_id ||
+      principal?.current_user_id !== userId || principal?.retired_at !== null ||
+      typeof row?.response_expires_at !== "string" ||
+      !(Date.parse(row.response_expires_at) > Date.now()) ||
+      !payload || typeof payload !== "object" || Array.isArray(payload) ||
+      payload.requestId !== requestId || typeof payload.message !== "string"
+    ) return null;
+    return payload as ProxyResponse;
+  } catch (_) {
+    return null;
+  }
 }
 
 class SettlementHttpError extends Error {
@@ -436,15 +503,12 @@ Deno.serve(async (req: Request) => {
       }, 503);
     }
     if (reserved.duplicate === true) {
-      const cached = reserved.responsePayload;
-      const cachedResponse = cached && typeof cached === "object" &&
-          !Array.isArray(cached)
-        ? cached as Record<string, unknown>
-        : null;
-      if (
-        reserved.state === "completed" && cachedResponse &&
-        typeof cachedResponse.message === "string"
-      ) return jsonResponse(req, cachedResponse as ProxyResponse);
+      // The reservation's compatibility payload has no expiry/principal
+      // receipt. Re-read the exact active account's bounded cache before use.
+      if (reserved.state === "completed" && reserved.conflict !== true) {
+        const cachedResponse = await loadUnexpiredReply(userId, requestId);
+        if (cachedResponse) return jsonResponse(req, cachedResponse);
+      }
       const state = String(reserved.state ?? "unknown");
       const error = state === "denied" &&
           typeof reserved.reason === "string" && reserved.reason.length > 0
@@ -747,9 +811,9 @@ Deno.serve(async (req: Request) => {
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
         providerRequestId: finalProviderRequestId,
-        // The billing ledger keeps usage metadata only. Conversation content is
-        // returned to the caller but is never persisted for idempotent replay.
-        responsePayload: {},
+        // The TTL overload stores reply and expiry atomically. Never send this
+        // content to the legacy settlement endpoint without bounded retention.
+        responsePayload: responsePayload as Record<string, unknown>,
       });
     } catch (error) {
       if (

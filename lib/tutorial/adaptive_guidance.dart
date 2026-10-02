@@ -105,6 +105,29 @@ class AdaptiveGuidanceState {
   bool get hasDeferralFriction =>
       count(GuidanceMilestone.firstTaskDeferral) >= 2;
 
+  /// Whether first-run (or replayed) core guidance decides the next lesson.
+  bool get coreGuidanceOwnsState =>
+      replayLessons.any(_replayableCoreLessons.contains) || !coreComplete;
+
+  /// The core lesson currently shown, or null when core guidance is complete,
+  /// paused, or muted. Creator and the overlay must agree on this value.
+  GuidanceLessonId? get activeCoreLesson =>
+      GuidanceInterventionEngine.activeCoreLesson(this);
+
+  /// Creator runs its guided first-task form exactly when a core Creator lesson
+  /// is active, so every spotlight target the overlay expects is mounted.
+  bool get guidesCreatorTask => switch (activeCoreLesson) {
+    GuidanceLessonId.createFirstItem ||
+    GuidanceLessonId.scheduleFirstItem => true,
+    _ => false,
+  };
+
+  /// A Creator receipt is only useful while the Timeline review step is
+  /// still ahead.
+  bool get awaitsTimelineReview =>
+      !has(GuidanceMilestone.firstTimelineReview) ||
+      replayLessons.contains(GuidanceLessonId.reviewTimeline);
+
   GuidanceLesson? nextIntervention({
     required String currentRoute,
     required DailyDecisionIntelligence decision,
@@ -137,55 +160,9 @@ abstract final class GuidanceInterventionEngine {
       return lesson;
     }
 
-    for (final GuidanceLessonId id in _replayableCoreLessons) {
-      if (!state.replayLessons.contains(id)) continue;
-      if (state.laterLessons.contains(id) ||
-          state.skippedLessons.contains(id)) {
-        return null;
-      }
-      if (id == GuidanceLessonId.reviewTimeline &&
-          state.expectedFirstRunCreatorTaskIds.isEmpty) {
-        if (state.laterLessons.contains(GuidanceLessonId.createFirstItem) ||
-            state.skippedLessons.contains(GuidanceLessonId.createFirstItem)) {
-          return null;
-        }
-        return _coreLesson(GuidanceLessonId.createFirstItem);
-      }
-      return _coreLesson(id);
-    }
-
-    if (!state.coreComplete) {
-      for (final (GuidanceMilestone milestone, GuidanceLessonId lesson)
-          in <(GuidanceMilestone, GuidanceLessonId)>[
-            (GuidanceMilestone.firstItem, GuidanceLessonId.createFirstItem),
-            (
-              GuidanceMilestone.firstSchedule,
-              GuidanceLessonId.scheduleFirstItem,
-            ),
-            (
-              GuidanceMilestone.firstTimelineReview,
-              GuidanceLessonId.reviewTimeline,
-            ),
-          ]) {
-        if (state.has(milestone)) continue;
-        // A deferred or muted lesson must not be replaced by a later step.
-        if (state.laterLessons.contains(lesson) ||
-            state.skippedLessons.contains(lesson)) {
-          return null;
-        }
-        if (lesson == GuidanceLessonId.reviewTimeline &&
-            state.expectedFirstRunCreatorTaskIds.isEmpty) {
-          // The Timeline spotlight requires an exact Creator receipt. Older
-          // accounts can have both task milestones without that receipt.
-          if (state.laterLessons.contains(GuidanceLessonId.createFirstItem) ||
-              state.skippedLessons.contains(GuidanceLessonId.createFirstItem)) {
-            return null;
-          }
-          return _coreLesson(GuidanceLessonId.createFirstItem);
-        }
-        return _coreLesson(lesson);
-      }
-      return null;
+    if (state.coreGuidanceOwnsState) {
+      final GuidanceLessonId? core = activeCoreLesson(state);
+      return core == null ? null : _coreLesson(core);
     }
 
     if (state.hasDeferralFriction) {
@@ -243,6 +220,44 @@ abstract final class GuidanceInterventionEngine {
       return unresolved(
         _advancedLesson(GuidanceLessonId.trajectoryEngine, decision),
       );
+    }
+    return null;
+  }
+
+  static GuidanceLessonId? activeCoreLesson(AdaptiveGuidanceState state) {
+    bool muted(GuidanceLessonId id) =>
+        state.laterLessons.contains(id) || state.skippedLessons.contains(id);
+
+    GuidanceLessonId? withReceipt(GuidanceLessonId id) {
+      if (id == GuidanceLessonId.reviewTimeline &&
+          state.expectedFirstRunCreatorTaskIds.isEmpty) {
+        // The Timeline spotlight requires an exact Creator receipt. Older
+        // accounts can have both task milestones without that receipt.
+        return muted(GuidanceLessonId.createFirstItem)
+            ? null
+            : GuidanceLessonId.createFirstItem;
+      }
+      return id;
+    }
+
+    for (final GuidanceLessonId id in _replayableCoreLessons) {
+      if (!state.replayLessons.contains(id)) continue;
+      return muted(id) ? null : withReceipt(id);
+    }
+
+    if (state.coreComplete) return null;
+    for (final (GuidanceMilestone milestone, GuidanceLessonId lesson)
+        in <(GuidanceMilestone, GuidanceLessonId)>[
+          (GuidanceMilestone.firstItem, GuidanceLessonId.createFirstItem),
+          (GuidanceMilestone.firstSchedule, GuidanceLessonId.scheduleFirstItem),
+          (
+            GuidanceMilestone.firstTimelineReview,
+            GuidanceLessonId.reviewTimeline,
+          ),
+        ]) {
+      if (state.has(milestone)) continue;
+      // A deferred or muted lesson must not be replaced by a later step.
+      return muted(lesson) ? null : withReceipt(lesson);
     }
     return null;
   }
@@ -518,7 +533,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     if (taskIds.isEmpty || receipt.appliedOperationIds.isEmpty) return;
 
     final AdaptiveGuidanceState current = await _current();
-    if (_activeScope != account) return;
+    if (_activeScope != account || !current.awaitsTimelineReview) return;
     final Set<String> expectedTaskIds = <String>{
       ...current.expectedFirstRunCreatorTaskIds,
       ...taskIds,

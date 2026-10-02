@@ -734,7 +734,7 @@ void main() {
     'request_denied': 'denied before processing',
     'provider_cost_budget_exceeded': 'service spending limit',
     'rate_limit_exceeded': 'Too many AI requests',
-    'request_completed': 'server already completed',
+    'request_completed': 'already finished, but its reply is unavailable',
     'request_refunded': 'credits were refunded',
     'unsafe_upstream_response': 'credits were refunded',
     'inconsistent_upstream_response': 'credits were refunded',
@@ -798,7 +798,10 @@ void main() {
         expect(find.byKey(const Key('conversation-error')), findsOneWidget);
         expect(find.textContaining(failure.value), findsOneWidget);
         if (failure.key == 'request_completed') {
-          expect(find.textContaining('did not charge again'), findsOneWidget);
+          expect(
+            find.textContaining('did not charge you again'),
+            findsOneWidget,
+          );
         } else {
           expect(
             find.textContaining('No credits were charged'),

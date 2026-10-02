@@ -1,3 +1,6 @@
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -46,6 +49,22 @@ final timelineTutorialEvidenceProvider =
     NotifierProvider<TimelineTutorialEvidenceNotifier, String?>(
       TimelineTutorialEvidenceNotifier.new,
     );
+
+/// The active-task list excludes completed and skipped tasks. Resolve the exact
+/// Creator receipt from storage so the guide can distinguish those outcomes
+/// from a target that simply has not mounted yet.
+final firstRunTutorialTaskProvider = FutureProvider.autoDispose
+    .family<TaskEntity?, String>((Ref ref, String taskId) async {
+      final boundary = ref.watch(authSessionBoundaryProvider);
+      if (boundary.userId == null ||
+          boundary.isTransitioning ||
+          !boundary.isStorageReady ||
+          boundary.blockingIssue != null) {
+        return null;
+      }
+      ref.watch(allTasksProvider);
+      return ref.watch(domainTaskRepositoryProvider).getTaskById(taskId);
+    });
 
 class TutorialInteractionPausedNotifier extends Notifier<bool> {
   @override
@@ -109,5 +128,8 @@ abstract final class FirstRunTutorialTargets {
   );
   static final GlobalKey timelineEvidence = GlobalKey(
     debugLabel: 'timeline-tutorial-evidence',
+  );
+  static final GlobalKey timelineCompletion = GlobalKey(
+    debugLabel: 'timeline-tutorial-completion',
   );
 }
