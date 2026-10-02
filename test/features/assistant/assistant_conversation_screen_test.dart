@@ -734,7 +734,7 @@ void main() {
     'request_denied': 'denied before processing',
     'provider_cost_budget_exceeded': 'service spending limit',
     'rate_limit_exceeded': 'Too many AI requests',
-    'request_completed': 'already finished and was charged once',
+    'request_completed': 'already finished, but its reply is unavailable',
     'request_refunded': 'credits were refunded',
     'unsafe_upstream_response': 'credits were refunded',
     'inconsistent_upstream_response': 'credits were refunded',

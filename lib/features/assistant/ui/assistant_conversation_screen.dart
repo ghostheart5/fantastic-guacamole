@@ -490,8 +490,8 @@ class _AssistantConversationScreenState
       'No tienes suficientes créditos de IA. No se generó una respuesta del modelo. No se cobraron créditos. Añade créditos o espera tu asignación; después inicia una solicitud nueva y revisa una nueva cotización.',
     ),
     'request_completed' => copy(
-      'This request already finished and was charged once, but its reply was lost before it reached this device. Axiomara does not keep reply text, so it cannot be shown again. Retrying did not charge you again. To ask again, start a new request and review a new quote.',
-      'Esta solicitud ya terminó y se cobró una vez, pero la respuesta se perdió antes de llegar a este dispositivo. Axiomara no guarda el texto de las respuestas, así que no se puede mostrar otra vez. El reintento no te cobró de nuevo. Para preguntar otra vez, inicia una solicitud nueva y revisa una cotización nueva.',
+      'This request already finished, but its reply is unavailable. Retrying did not charge you again. To ask again, start a new request and review a new quote.',
+      'Esta solicitud ya terminó, pero la respuesta no está disponible. El reintento no te cobró de nuevo. Para preguntar otra vez, inicia una solicitud nueva y revisa una cotización nueva.',
     ),
     'quote_expired' || 'credit_quote_required' => copy(
       'The price expired. Start a new request to review a new quote.',
