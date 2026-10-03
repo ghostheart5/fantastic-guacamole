@@ -1,0 +1,275 @@
+{
+  "sourceSha": "401913600150334749118e6907b0be2c5f062839",
+  "sourceTree": "f8e9fa7c6e4a332e1874e8a227046f7df9f327db",
+  "normalization": "CRLF checkout to LF only",
+  "files": [
+    {
+      "path": "supabase/functions/_shared/ai_audience_policy.ts",
+      "gitBlobSha256": "305b4c86b88cd42e529903481b294836c87eb81b15f0b094d48ef7896c1e13f6"
+    },
+    {
+      "path": "supabase/functions/_shared/ai_billing.ts",
+      "gitBlobSha256": "1e417855513d4ddb6ef847406af5e6b184a28ba14545518155c5a29a899cf83f"
+    },
+    {
+      "path": "supabase/functions/_shared/ai_credit_quote.ts",
+      "gitBlobSha256": "a9f4209efe54c2dfc47c58b19cdf91a567d152fd04940dfb25e29f7b5d82085d"
+    },
+    {
+      "path": "supabase/functions/_shared/ai_proxy_policy.ts",
+      "gitBlobSha256": "9ad6fb9c0bdea2c7225e78fb5f650c0b4664c55957d02ead559331b14864b483"
+    },
+    {
+      "path": "supabase/functions/_shared/billing_backend.ts",
+      "gitBlobSha256": "7f9e7fd7574cc637d6ccfc31a9c0b85115a98d6ea1d516d098fc04d963dcf1f3"
+    },
+    {
+      "path": "supabase/functions/_shared/internal_ai_cohort.ts",
+      "gitBlobSha256": "c83b7ef47ef0fb97f95ade45bb1f202db6779694c12732859f5e363b15ec697a"
+    },
+    {
+      "path": "supabase/functions/_shared/si_timing_extraction.ts",
+      "gitBlobSha256": "b9c11fa31884a6d10634285beb8c9542710bae0e469523b8cd778ec23f9b9f2a"
+    },
+    {
+      "path": "supabase/functions/_shared/si_timing_plan.ts",
+      "gitBlobSha256": "7f4bfd0eadf04f67e24dbb193e3305fe988994aa7a39c54f23e338a1ad2b2456"
+    },
+    {
+      "path": "supabase/functions/_shared/si_timing_reply.ts",
+      "gitBlobSha256": "e8e3b1b97ec34cd846689912f2964d39b15c5acd3c93ca904f98825fc1e4b878"
+    },
+    {
+      "path": "supabase/functions/ai-proxy/index.ts",
+      "gitBlobSha256": "c1d329f4365909c38e6fee7f4e52e186e017ae89a7cbda73c3b7d8a8b7c57e0e"
+    },
+    {
+      "path": "supabase/migrations/202607050001_purchase_bindings.sql",
+      "gitBlobSha256": "9bec1e493bbc2a4ee1c3cfad793aea8b022cd3280104a38b1d2814218264bbd9"
+    },
+    {
+      "path": "supabase/migrations/202607110001_profiles.sql",
+      "gitBlobSha256": "32391003ab403fce0aea17acc03c7bbc2e501ccea1e53fe1ef772606ea150910"
+    },
+    {
+      "path": "supabase/migrations/202607110002_data_policies.sql",
+      "gitBlobSha256": "2b1215029d5aa1418d0f7f3480de8fb9a114ec6898a32a6a1f27b22cc3e91610"
+    },
+    {
+      "path": "supabase/migrations/20260711160649_new-migration.sql",
+      "gitBlobSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "supabase/migrations/20260712143000_resilient_handle_new_user.sql",
+      "gitBlobSha256": "09740691190204a5aefe598022d101674258915dad23c90b3a916500a36c9dc2"
+    },
+    {
+      "path": "supabase/migrations/20260714000001_quickstart_todos.sql",
+      "gitBlobSha256": "846a7dd77ffd6e8baae41bb2296647d6db5668710da075c5740571317290f378"
+    },
+    {
+      "path": "supabase/migrations/20260716193000_monetization_system.sql",
+      "gitBlobSha256": "4964d92f3eebc76df41e4ad13473ed498aacbce13a1cbb179ed20d633bc3ddc0"
+    },
+    {
+      "path": "supabase/migrations/20260717170000_secure_user_daily_metrics.sql",
+      "gitBlobSha256": "31916e78c75d878ffcaca67dfd9e3cef00b6e1feee6643d5bcc00a3764446470"
+    },
+    {
+      "path": "supabase/migrations/20260719000001_fix_user_daily_metrics_rls.sql",
+      "gitBlobSha256": "169a0952d84da48e044810c0960705cb814926d0de963a1e4247258a536d60ba"
+    },
+    {
+      "path": "supabase/migrations/20260802120000_harden_security_definer_functions.sql",
+      "gitBlobSha256": "b7ece67f2a03aaf2112e0ece77f3c9e649762b1a4ebebecddd30343285ec6b11"
+    },
+    {
+      "path": "supabase/migrations/20260804120000_harden_monetization_credit_rpc.sql",
+      "gitBlobSha256": "d7de8cb57ba77cda06ad863eb78770a26cf9fa9d9562fc6c760495304b2e1c25"
+    },
+    {
+      "path": "supabase/migrations/20260804130000_create_core_sync_tables_with_rls.sql",
+      "gitBlobSha256": "969ec193591776395970f7031082aefcec3b68d9ddc6ab204eac31be964bef85"
+    },
+    {
+      "path": "supabase/migrations/20260804140000_harden_metrics_and_profile_provisioning.sql",
+      "gitBlobSha256": "f4b6c6e6421c748f10dd265add7bcc9cddc761e5c5c91c430e6d17f07938ad18"
+    },
+    {
+      "path": "supabase/migrations/20260804150000_harden_ai_proxy_rate_limit.sql",
+      "gitBlobSha256": "d901a3a7c2dacfd3c442d8f4b91a8d4188fa16f6b06983b0034162bdeb3c1671"
+    },
+    {
+      "path": "supabase/migrations/20260804160000_harden_apply_verified_purchase_rpc_grants.sql",
+      "gitBlobSha256": "a647f287c3e321b461d80b901e17b1731a00c3b561895f47e89e6256b97815a8"
+    },
+    {
+      "path": "supabase/migrations/20260806000001_fix_user_daily_metrics_rls.sql",
+      "gitBlobSha256": "e3c8c9d60321c24ca8e62f778aea819337c8200c764215278d28a25fd1e4ae16"
+    },
+    {
+      "path": "supabase/migrations/20260809120000_add_monetization_verify_rate_limit.sql",
+      "gitBlobSha256": "3bf74229f5d399aad78fd636871767d422989273b37c2a3b31518d6fae078c8f"
+    },
+    {
+      "path": "supabase/migrations/20260809170000_harden_function_privileges_and_data_api_defaults.sql",
+      "gitBlobSha256": "c93e97c05a494754bd0483f382404584d64d3157ecfa433930c70ce3f926cb8a"
+    },
+    {
+      "path": "supabase/migrations/20260809171000_enforce_account_deletion_cascades.sql",
+      "gitBlobSha256": "820390c551be34837949f81dd75324e130cc6259d66686598a748b1e0bb415ca"
+    },
+    {
+      "path": "supabase/migrations/20260809221655_recover_hosted_public_tables.sql",
+      "gitBlobSha256": "53f24a3255839a467e3bdac876784dd28c462c89f619a61f04576416978843ab"
+    },
+    {
+      "path": "supabase/migrations/20260809221704_enforce_recovered_account_deletion_cascades.sql",
+      "gitBlobSha256": "bff2978d1fe43264785fcb5100762f557b563db0e98dd12e112f41646f692934"
+    },
+    {
+      "path": "supabase/migrations/20260811155019_production_backend_hardening.sql",
+      "gitBlobSha256": "e1d3ea878b74984760aac4d33e1b5397d200f5ab713d68f9c818c958910747b4"
+    },
+    {
+      "path": "supabase/migrations/20260815234321_add_task_occurrences_sync_table.sql",
+      "gitBlobSha256": "823c18b15d634629b67e091646c2299bf67bb854298cc82cabd38e89885d12b8"
+    },
+    {
+      "path": "supabase/migrations/20260816040848_edge_function_advanced_hardening.sql",
+      "gitBlobSha256": "9affb0d0385de8a75fab5e906969d9bcd35f7d259d9edcb5726ea8f401f7c935"
+    },
+    {
+      "path": "supabase/migrations/20260816150629_create_firebase_device_registrations.sql",
+      "gitBlobSha256": "dda54cf4ef372e8a1e2f9391972135bafb7090c1e90563a009b1be4760dbd257"
+    },
+    {
+      "path": "supabase/migrations/20260816210200_optimize_owner_policies_and_remove_duplicates.sql",
+      "gitBlobSha256": "6a9947212e5092f81c157b8fc8f7bae61e81c38bf0e538b97a5f7747c0b6c4ad"
+    },
+    {
+      "path": "supabase/migrations/20260816210206_fix_monetization_credit_rpc_ambiguity.sql",
+      "gitBlobSha256": "299a47954e1f4af0aeee624e82c89b41d5d8abf9bf0d0485497175061836eeed"
+    },
+    {
+      "path": "supabase/migrations/20260817103615_harden_data_boundaries.sql",
+      "gitBlobSha256": "13fd7004178bae347cfd2de1b76c4f858581c4cf605128d5d91f412a44c186d2"
+    },
+    {
+      "path": "supabase/migrations/20260817120000_user_push_tokens.sql",
+      "gitBlobSha256": "89b3146c5ce82c07256234324481b004dd66f68bda7a11677d0bd12570cdb6e2"
+    },
+    {
+      "path": "supabase/migrations/20260817214812_ai_content_reports.sql",
+      "gitBlobSha256": "914dd389d54aa618ae611a4b62392e90d8a6bb5c2cababf8721b032411cced6b"
+    },
+    {
+      "path": "supabase/migrations/20260819200000_task_occurrence_series_identity.sql",
+      "gitBlobSha256": "99dbc1cb548d9e40e04736cf0aa064ff2602e513170e5af6a5521d4aee1c31f0"
+    },
+    {
+      "path": "supabase/migrations/20260823165525_add_ai_usage_authority_v2.sql",
+      "gitBlobSha256": "15d2d6f91d99f9638160bba19b4d242eae0dbef0ab5a42a2c1428f1713c6e8bd"
+    },
+    {
+      "path": "supabase/migrations/20260827093746_production_billing_authority.sql",
+      "gitBlobSha256": "b8542c295c82ca716632abe13b00607ab728c9bcf98501b00924da58c2ebc172"
+    },
+    {
+      "path": "supabase/migrations/20260827093750_recoverable_account_deletion.sql",
+      "gitBlobSha256": "e81b684271994d8d91362a7f50fbe8f33e0126ae357383a4cdf6931dc4b712e5"
+    },
+    {
+      "path": "supabase/migrations/20260829173732_harden_subscription_revocation_ordering.sql",
+      "gitBlobSha256": "bc3213f8174c920addd0c9b7d0e9e49af89b49a99995085996c36d154516350e"
+    },
+    {
+      "path": "supabase/migrations/20260829183241_harden_rtdn_lifecycle_reconciliation.sql",
+      "gitBlobSha256": "54de18b947b26fcbe7a8f5bc2cac061fef77d5f957431731973e6bbc09c47337"
+    },
+    {
+      "path": "supabase/migrations/20260830042841_cloud_backup_compare_and_swap.sql",
+      "gitBlobSha256": "8189d7a1af5ec45c8301557517fb4e35ba7b9065859ee36f5688695925513922"
+    },
+    {
+      "path": "supabase/migrations/20260830050000_phase2_data_security_hardening.sql",
+      "gitBlobSha256": "24d9a2f6928978a2caf1473a3be2b03bb6ae92ef957ca651f1b49f6e0a88bab4"
+    },
+    {
+      "path": "supabase/migrations/20260830141458_planner_explanation_replay_ttl.sql",
+      "gitBlobSha256": "1ff44f90a51421169f40b3275f3abc13430d7f05b8521bd7c792875e7dccbc3d"
+    },
+    {
+      "path": "supabase/migrations/20260830152232_harden_phase8_billing_authority.sql",
+      "gitBlobSha256": "fbc6d3ee61fe6924f01f15bb418279b62981efe9f67b354334db31716e8838ca"
+    },
+    {
+      "path": "supabase/migrations/20260831000625_restore_phase8_database_contracts.sql",
+      "gitBlobSha256": "868709755732b1968be6ccb9026ac226f7f32694c51966dadfaad6ad16d68a9d"
+    },
+    {
+      "path": "supabase/migrations/20260902112551_production_advisor_cleanup.sql",
+      "gitBlobSha256": "2de6c20f6e601d49b7c5be8739ae702cddba060a2630e1a671873f1aece11d36"
+    },
+    {
+      "path": "supabase/migrations/20260904015011_consolidate_firebase_registration_and_metric_ownership.sql",
+      "gitBlobSha256": "74f37079061370f050e93bad02c12e57114522210af387fb0e057cebe0e21696"
+    },
+    {
+      "path": "supabase/migrations/20260904022000_remove_ai_proxy_conversation_retention.sql",
+      "gitBlobSha256": "92ec4cb20637fe2dd9cdcaa15997311d94cfcd4c53c5cd7c4bf7e780e47da8d4"
+    },
+    {
+      "path": "supabase/migrations/20260905041637_consolidate_subscription_expiry_schedule.sql",
+      "gitBlobSha256": "6d8a132c1286eff71f7e73933f9d15e5b8d5352572bdeac02212aaa774befd23"
+    },
+    {
+      "path": "supabase/migrations/20260907032502_align_internal_billing_catalog.sql",
+      "gitBlobSha256": "51b00b37de6b9ee9943c0f51a46ebcb1fd234fb63703331a465c65e601f60197"
+    },
+    {
+      "path": "supabase/migrations/20260908042735_internal_prepaid_credit_grant.sql",
+      "gitBlobSha256": "2818dfd2159889e11115e5bd184ae3447cfbf556b19c3c54abb0e82a7db6ea88"
+    },
+    {
+      "path": "supabase/migrations/20260908205414_monthly_allowances_and_credit_topups.sql",
+      "gitBlobSha256": "1a791c25cd5c569050975a5403e1cb854baba5626e9b22633ed6d237ad19211d"
+    },
+    {
+      "path": "supabase/migrations/20260908223215_returning_test_subscription_allowance.sql",
+      "gitBlobSha256": "5661a5896f63dc009e2ac1426d8698b90670732945f5851cf606b8e7d74f24ab"
+    },
+    {
+      "path": "supabase/migrations/20260909065846_revoke_obsolete_client_credit_debit.sql",
+      "gitBlobSha256": "2f6809204df8578ee4251e74b01193e2c6954f12f21d7478aa4b1addd206422e"
+    },
+    {
+      "path": "supabase/migrations/20260911123820_bounded_review_access.sql",
+      "gitBlobSha256": "6d367f0614cc1bfef39eaf9fec28bd92ec322b3e1a7842a75283cefe7ddea718"
+    },
+    {
+      "path": "supabase/migrations/20260911125016_reviewer_authority_projection.sql",
+      "gitBlobSha256": "3267c6cec760b7340cb1dbdd5313960fab04bbec61be0ed20edacaa98c96a665"
+    },
+    {
+      "path": "supabase/migrations/20260920023350_preserve_ai_denial_reason.sql",
+      "gitBlobSha256": "9c057c3d8b3e0a4bbdbcf7a52d784a3e22cd68f6cfb62c9902279a5f35810111"
+    },
+    {
+      "path": "supabase/migrations/20260922091000_reserve_ai_repair_budget.sql",
+      "gitBlobSha256": "2ab63f3bff700a0a25eac9668b8d8d76b90f052cfca742a8fa380d706586732b"
+    },
+    {
+      "path": "supabase/migrations/20260924030236_public_credit_checkout_admission.sql",
+      "gitBlobSha256": "af0a698b0809a63a53f3c96117e8fdf38ec3946806c8b9fbaec9381cf983ef7d"
+    },
+    {
+      "path": "supabase/migrations/20260924223558_bound_firebase_device_registration.sql",
+      "gitBlobSha256": "b948b65576fc6d027e38eeb0c7267374b0b7ab370d240aacafeb2862940413a4"
+    },
+    {
+      "path": "supabase/migrations/20260927075018_reconcile_profile_provisioning.sql",
+      "gitBlobSha256": "6993ff61f31c9309bd3873ecb63d8568f994c37ce01bfcb51d08a436a8b412e6"
+    }
+  ]
+}
