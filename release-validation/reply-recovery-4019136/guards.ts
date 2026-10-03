@@ -184,3 +184,69 @@ export function verifiedScrubbedTombstones(
     withPrincipal.length > 0 &&
     withPrincipal.every((u) => u.contentScrubVerified === true);
 }
+
+// JSON objects are unordered (including jsonb readback); arrays and values are not.
+export function strictJsonEqual(left: unknown, right: unknown): boolean {
+  if (left === right && (left === null || typeof left !== "object")) {
+    return left === null || typeof left === "string" ||
+      typeof left === "boolean" ||
+      (typeof left === "number" && Number.isFinite(left));
+  }
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left) && Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => strictJsonEqual(value, right[index]));
+  }
+  if (
+    left === null || right === null || typeof left !== "object" ||
+    typeof right !== "object"
+  ) return false;
+  const plain = (value: object) =>
+    Object.getPrototypeOf(value) === Object.prototype ||
+    Object.getPrototypeOf(value) === null;
+  if (!plain(left) || !plain(right)) return false;
+  const a = left as Record<string, unknown>;
+  const b = right as Record<string, unknown>;
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length &&
+    keys.every((key) =>
+      Object.hasOwn(b, key) && strictJsonEqual(a[key], b[key])
+    );
+}
+export function replayComparison(
+  status: number,
+  actual: unknown,
+  expected: unknown,
+) {
+  const knownFields = [
+    "message",
+    "model",
+    "inputTokens",
+    "outputTokens",
+    "requestId",
+    "creditsCharged",
+    "remainingCredits",
+  ];
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === "object" && !Array.isArray(value);
+  const actualKeys = isRecord(actual) ? Object.keys(actual) : [];
+  const expectedKeys = isRecord(expected) ? Object.keys(expected) : [];
+  return {
+    httpStatus: status,
+    structuralJsonEqual: strictJsonEqual(actual, expected),
+    // Diagnostic only: never used as the acceptance condition.
+    serializationEqual: JSON.stringify(actual) === JSON.stringify(expected),
+    missingExpectedKeyCount:
+      expectedKeys.filter((key) => !actualKeys.includes(key)).length,
+    unexpectedKeyCount:
+      actualKeys.filter((key) => !expectedKeys.includes(key)).length,
+    differingKnownFields: knownFields.filter((key) => {
+      const a = isRecord(actual) ? actual : {};
+      const b = isRecord(expected) ? expected : {};
+      const hasActual = Object.hasOwn(a, key);
+      const hasExpected = Object.hasOwn(b, key);
+      return hasActual !== hasExpected ||
+        (hasActual && hasExpected && !strictJsonEqual(a[key], b[key]));
+    }),
+  };
+}

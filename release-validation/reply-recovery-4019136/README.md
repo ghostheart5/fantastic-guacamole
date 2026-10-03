@@ -52,7 +52,7 @@ NEW_OUTPUT must not already exist. The database must initially contain no Auth u
 
 Output is started.json and, on completed execution, result.json. Missing result.json means incomplete execution. PASS requires all behavioral assertions and verified cleanup; no failure is converted to a pass. Errors are categorized without raw responses, keys, passwords or synthetic account identifiers.
 
-## Hosted packet, pending approval
+## Hosted execution boundary
 
 The prepared packet adds only one workflow and six support files on a temporary test-only branch. The workflow runs on a same-repository pull request to main from codex/axiomara-reply-recovery-evidence-4019136. It has contents:read only, no repository secrets, no environment, no deployment, no scheduled trigger and no manual-dispatch trigger.
 
@@ -62,6 +62,12 @@ Opening the temporary PR can also trigger existing repository PR checks. This do
 
 ## Current evidence boundary
 
-Preparation type checks, 61 guard tests, 51 existing handler tests and the 67-file source-binding check passed locally. The real database probe and proposed hosted workflow have not been executed. A successful local preparation receipt is not a database PASS.
+Preparation type checks, 75 guard tests, 51 previously executed source-handler tests and the 67-file source-binding check passed locally. The additional 14 guard tests cover strict JSON equality and value-free replay diagnostics.
+
+The first hosted run (37139136266, overlay 83bfc7cdf0caa34274c9ce109a1077d0581d87cf) executed the real disposable database. Fresh-state/source binding, ordinary TTL settlement and lost-settlement-response reconciliation passed; each synthetic request debited six credits exactly once. It then failed the concurrent replay assertion. Both synthetic accounts were deleted and content scrubbing was verified.
+
+That assertion incorrectly required serialized object-key order to match. PostgreSQL documents that [jsonb does not preserve object-key order](https://www.postgresql.org/docs/17/datatype-json.html). The repaired comparator ignores only object-key order while preserving exact keys, values, primitive types and array order. HTTP 200 remains mandatory. Bounded diagnostics record status and equality/key-count results without reply text, request IDs or arbitrary error content.
+
+The failed artifact did not retain the replay statuses/bodies, so key ordering remains the leading hypothesis rather than the confirmed sole runtime cause. This local repair has not yet been rerun against the real database. Concurrent replay, post-replay accounting, later scope/expiry cases and the explicit purge assertion remain unproven by that failed run.
 
 The [Supabase local-development guide](https://supabase.com/docs/guides/local-development/cli/getting-started) describes the Docker-backed stack. Only the proposed workflow's newly created per-run project is eligible for its stop --no-backup cleanup; never use that command against an existing personal database.

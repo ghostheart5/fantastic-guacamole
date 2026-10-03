@@ -4,6 +4,7 @@ import {
   deleteOwnedUser,
   hash,
   ProbeError,
+  replayComparison,
   route,
   safeFailure,
   SOURCE,
@@ -157,6 +158,7 @@ async function run() {
     discardedCommittedResponses: 0,
     suppressedHandlerLogs: 0,
   };
+  let replayDiagnostics: ReturnType<typeof replayComparison>[] = [];
   const users: Obj[] = [];
   const ownedRequests = new Set<string>();
   const originalFetch = globalThis.fetch;
@@ -572,9 +574,12 @@ async function run() {
     );
     const baselineAttempts = counters.syntheticProviderAttempts;
     const retries = await Promise.all([invoke(a), invoke(a)]);
+    replayDiagnostics = retries.map((r) =>
+      replayComparison(r.status, r.data, a.answer)
+    );
     check(
-      retries.every((r) =>
-        r.status === 200 && JSON.stringify(r.data) === JSON.stringify(a.answer)
+      replayDiagnostics.every((r) =>
+        r.httpStatus === 200 && r.structuralJsonEqual
       ),
       "concurrent_replay_failed",
     );
@@ -750,6 +755,7 @@ async function run() {
     sourceFilesVerified: source.manifest.files.length,
     checks,
     counters,
+    replayDiagnostics,
     failure: mainFailure,
     cleanup: {
       ownedUsersCreated: users.length,

@@ -68,7 +68,7 @@ jobs:
           assert {row[1] for row in rows} == expected
           PY
           cd test-overlay/release-validation/reply-recovery-4019136
-          echo "16da0d358f62c8b85e2d9bd69f0b7680f594887a2cd52aaca8365987dbb7695a  SHA256SUMS" | sha256sum --check --status
+          echo "2e401a31ec1eacfdcc54ca930fab4cf00060b51c8cb78327cc0bb1c024cbbd98  SHA256SUMS" | sha256sum --check --status
           sha256sum --check --status SHA256SUMS
 
       - name: Set up pinned local-backend CLI

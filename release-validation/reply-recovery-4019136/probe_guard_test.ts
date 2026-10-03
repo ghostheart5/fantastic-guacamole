@@ -5,9 +5,11 @@ import {
   hash,
   ProbeError,
   PROVIDER,
+  replayComparison,
   route,
   safeFailure,
   SOURCE,
+  strictJsonEqual,
   TREE,
   validateAccounting,
   validateAttestation,
@@ -410,3 +412,151 @@ for (
       ),
   );
 }
+
+const syntheticReply = {
+  message: "SYNTHETIC_PRIVATE_MESSAGE",
+  model: "synthetic-model",
+  inputTokens: 10,
+  outputTokens: 5,
+  requestId: "SYNTHETIC_PRIVATE_REQUEST_ID",
+  creditsCharged: 6,
+  remainingCredits: 14,
+};
+Deno.test("replay accepts JSON objects reordered by storage serialization", () => {
+  const reordered = Object.fromEntries(
+    Object.entries(syntheticReply).reverse(),
+  );
+  check(
+    JSON.stringify(reordered) !== JSON.stringify(syntheticReply),
+    "fixture_not_reordered",
+  );
+  check(
+    strictJsonEqual(reordered, syntheticReply),
+    "equivalent_reply_rejected",
+  );
+  const result = replayComparison(200, reordered, syntheticReply);
+  check(
+    result.httpStatus === 200 && result.structuralJsonEqual &&
+      !result.serializationEqual &&
+      result.differingKnownFields.length === 0,
+    "reorder_diagnostic_incorrect",
+  );
+});
+Deno.test("replay accepts reordered nested object keys but preserves arrays", () => {
+  const expected = {
+    outer: { alpha: 1, beta: { x: true, y: null } },
+    values: [{ a: "x", b: 2 }, 3],
+  };
+  const actual = {
+    values: [{ b: 2, a: "x" }, 3],
+    outer: { beta: { y: null, x: true }, alpha: 1 },
+  };
+  check(strictJsonEqual(actual, expected), "nested_reorder_rejected");
+});
+Deno.test("replay rejects changed answer text", () =>
+  check(
+    !strictJsonEqual(
+      { ...syntheticReply, message: "different" },
+      syntheticReply,
+    ),
+    "changed_answer_accepted",
+  ));
+Deno.test("replay rejects an extra object key", () =>
+  check(
+    !strictJsonEqual({ ...syntheticReply, extra: true }, syntheticReply),
+    "extra_key_accepted",
+  ));
+Deno.test("replay rejects a missing object key", () => {
+  const { creditsCharged: _credit, ...missing } = syntheticReply;
+  check(!strictJsonEqual(missing, syntheticReply), "missing_key_accepted");
+});
+Deno.test("replay rejects changed value types", () =>
+  check(
+    !strictJsonEqual(
+      { ...syntheticReply, creditsCharged: "6" },
+      syntheticReply,
+    ),
+    "changed_type_accepted",
+  ));
+Deno.test("replay rejects reordered array values", () =>
+  check(
+    !strictJsonEqual({ a: [1, 2] }, { a: [2, 1] }),
+    "array_reorder_accepted",
+  ));
+Deno.test("replay rejects array versus object shape", () =>
+  check(
+    !strictJsonEqual(["a"], { "0": "a" }),
+    "array_object_coerced",
+  ));
+Deno.test("replay rejects changed nested values", () =>
+  check(
+    !strictJsonEqual({ a: { b: [1, { c: 2 }] } }, { a: { b: [1, { c: 3 }] } }),
+    "nested_change_accepted",
+  ));
+Deno.test("replay distinguishes null and empty object", () =>
+  check(
+    !strictJsonEqual(null, {}),
+    "null_object_coerced",
+  ));
+Deno.test("replay diagnostics preserve failed HTTP status", () => {
+  const result = replayComparison(409, syntheticReply, syntheticReply);
+  check(
+    result.httpStatus === 409 && result.structuralJsonEqual,
+    "status_hidden",
+  );
+});
+Deno.test("replay diagnostics omit response values and unexpected key names", () => {
+  const actual = {
+    ...syntheticReply,
+    message: "ANOTHER_PRIVATE_MESSAGE",
+    SECRET_EXTRA_KEY: "SECRET_EXTRA_VALUE",
+  };
+  const result = replayComparison(200, actual, syntheticReply);
+  check(
+    !result.structuralJsonEqual && result.unexpectedKeyCount === 1 &&
+      result.differingKnownFields.includes("message"),
+    "mismatch_not_reported",
+  );
+  const serialized = JSON.stringify(result);
+  for (
+    const forbidden of [
+      "SYNTHETIC_PRIVATE_MESSAGE",
+      "SYNTHETIC_PRIVATE_REQUEST_ID",
+      "ANOTHER_PRIVATE_MESSAGE",
+      "SECRET_EXTRA_KEY",
+      "SECRET_EXTRA_VALUE",
+    ]
+  ) {
+    check(!serialized.includes(forbidden), "diagnostic_content_leak");
+  }
+});
+
+Deno.test("replay diagnostics treat fields absent from both minimal objects as equal", () => {
+  for (
+    const [actual, expected] of [[{}, {}], [{ message: "same", model: "m" }, {
+      model: "m",
+      message: "same",
+    }]]
+  ) {
+    const result = replayComparison(200, actual, expected);
+    check(
+      result.structuralJsonEqual && result.differingKnownFields.length === 0,
+      "both_absent_field_misreported",
+    );
+  }
+});
+Deno.test("replay diagnostics identify one-sided missing known field", () => {
+  for (
+    const [actual, expected] of [[{ model: "m" }, {
+      message: "same",
+      model: "m",
+    }], [{ message: "same", model: "m" }, { model: "m" }]]
+  ) {
+    const result = replayComparison(200, actual, expected);
+    check(
+      !result.structuralJsonEqual &&
+        result.differingKnownFields.join(",") === "message",
+      "one_sided_missing_field_not_reported",
+    );
+  }
+});
