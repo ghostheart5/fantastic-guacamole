@@ -907,6 +907,16 @@ String _learningGeneratedText(String value, {required bool isSpanish}) {
   };
 }
 
+String _learningOptionLabel(String value, {required bool isSpanish}) {
+  if (!isSpanish) return value;
+  return switch (value) {
+    'minimum' => 'mínima',
+    'bestFit' => 'más adecuada',
+    'stretch' => 'de mayor esfuerzo',
+    _ => value,
+  };
+}
+
 String _learningPatternDetail(
   LearnedPreferencePattern pattern, {
   required bool isSpanish,
@@ -920,13 +930,20 @@ String _learningPatternDetail(
     'low' => 'confianza baja',
     final String value => 'confianza $value',
   };
-  final RegExpMatch? helped = RegExp(
-    r'^(\d+)% of recent weighted outcomes helped\.$',
-  ).firstMatch(pattern.explanation);
-  final String explanation = helped == null
-      ? pattern.explanation
-      : '${helped.group(1)}% de los resultados recientes ponderados ayudaron.';
-  return '$confidence · $explanation';
+  if (!pattern.canInfluenceRecommendations) {
+    final String outcomes = pattern.observationCount == 1
+        ? '1 resultado revisable'
+        : '${pattern.observationCount} resultados revisables';
+    return '$confidence · Aún está aprendiendo: $outcomes. Todavía no se aplica ninguna preferencia.';
+  }
+  final int helpfulPercent = pattern.decayedWeight == 0
+      ? 0
+      : ((pattern.helpfulWeight / pattern.decayedWeight).clamp(0.0, 1.0) * 100)
+            .round();
+  final String option = pattern.preferredOption == null
+      ? ''
+      : ' La opción repetida con mayor respaldo es «${_learningOptionLabel(pattern.preferredOption!, isSpanish: true)}».';
+  return '$confidence · $helpfulPercent% de los resultados recientes ponderados ayudaron.$option';
 }
 
 String _learningObservationDetail(
@@ -940,7 +957,7 @@ String _learningObservationDetail(
               : (isSpanish ? 'orientación de tareas' : 'task guidance'))
         : _learningGeneratedText(outcome.situation!, isSpanish: isSpanish),
     if (outcome.optionChosen != null)
-      '${isSpanish ? 'opción' : 'option'} ${_learningGeneratedText(outcome.optionChosen!, isSpanish: isSpanish)}',
+      '${isSpanish ? 'opción' : 'option'} ${_learningOptionLabel(outcome.optionChosen!, isSpanish: isSpanish)}',
     if (outcome.optionSizeMinutes != null)
       '${outcome.optionSizeMinutes} ${isSpanish ? 'minutos' : 'minutes'}',
     if (outcome.deferralReason != null)
