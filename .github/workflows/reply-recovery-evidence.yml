@@ -1,0 +1,194 @@
+name: Reply recovery evidence for fixed 3102 source
+
+on:
+  pull_request:
+    branches: ["main"]
+    types: [opened, reopened, synchronize]
+    paths:
+      - ".github/workflows/reply-recovery-evidence.yml"
+      - "release-validation/reply-recovery-4019136/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reply-recovery-evidence-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  disposable-reply-recovery:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'codex/axiomara-reply-recovery-evidence-4019136'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      RELEASE_SHA: 401913600150334749118e6907b0be2c5f062839
+      RELEASE_TREE: f8e9fa7c6e4a332e1874e8a227046f7df9f327db
+      OVERLAY_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+    steps:
+      - name: Checkout reviewed test overlay
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: test-overlay
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout immutable release source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: 401913600150334749118e6907b0be2c5f062839
+          path: release-source
+          persist-credentials: false
+
+      - name: Verify source and additive-only overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "DENO_DIR=$RUNNER_TEMP/reply-probe-deno" >> "$GITHUB_ENV"
+          test "$(git -C release-source rev-parse HEAD)" = "$RELEASE_SHA"
+          test "$(git -C release-source rev-parse 'HEAD^{tree}')" = "$RELEASE_TREE"
+          test "$(git -C test-overlay rev-parse HEAD)" = "$OVERLAY_SHA"
+          test "$PR_BASE_SHA" = "$RELEASE_SHA"
+          python3 - <<'PY'
+          import os, subprocess
+          expected = {
+            ".github/workflows/reply-recovery-evidence.yml",
+            "release-validation/reply-recovery-4019136/guards.ts",
+            "release-validation/reply-recovery-4019136/reply_recovery_probe.ts",
+            "release-validation/reply-recovery-4019136/probe_guard_test.ts",
+            "release-validation/reply-recovery-4019136/source-bindings.json",
+            "release-validation/reply-recovery-4019136/SHA256SUMS",
+            "release-validation/reply-recovery-4019136/README.md",
+          }
+          changes = subprocess.check_output(["git", "-C", "test-overlay", "diff", "--name-status", os.environ["RELEASE_SHA"], "HEAD"], text=True)
+          rows = [line.split("\t") for line in changes.splitlines()]
+          assert len(rows) == len(expected)
+          assert all(len(row) == 2 and row[0] == "A" for row in rows)
+          assert {row[1] for row in rows} == expected
+          PY
+          cd test-overlay/release-validation/reply-recovery-4019136
+          echo "16da0d358f62c8b85e2d9bd69f0b7680f594887a2cd52aaca8365987dbb7695a  SHA256SUMS" | sha256sum --check --status
+          sha256sum --check --status SHA256SUMS
+
+      - name: Set up pinned local-backend CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
+        with:
+          version: 2.116.0
+
+      - name: Set up tested Deno version
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+
+      - name: Validate probe without backend access
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/reply-evidence"
+          cd test-overlay/release-validation/reply-recovery-4019136
+          deno fmt --no-config --check guards.ts reply_recovery_probe.ts probe_guard_test.ts
+          deno check --no-config --no-lock --no-remote --no-npm reply_recovery_probe.ts probe_guard_test.ts
+          deno test --no-config --no-lock --no-remote --no-npm --deny-net --deny-env --deny-run --deny-write --no-prompt \
+            --junit-path="$RUNNER_TEMP/reply-evidence/guards.junit.xml" probe_guard_test.ts
+          deno run --no-config --no-lock --no-remote --no-npm --deny-net --deny-env --deny-run --deny-write --no-prompt \
+            --allow-read="$GITHUB_WORKSPACE/release-source,$PWD" reply_recovery_probe.ts --verify-source \
+            --source-root "$GITHUB_WORKSPACE/release-source" > "$RUNNER_TEMP/reply-evidence/source-binding.json"
+
+      - name: Prepare a distinct disposable backend copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          db_root="$RUNNER_TEMP/reply-db"
+          test ! -e "$db_root"
+          mkdir "$db_root"
+          git -C release-source archive HEAD supabase | tar -x -C "$db_root"
+          python3 - <<'PY'
+          import os, pathlib
+          p = pathlib.Path(os.environ["RUNNER_TEMP"]) / "reply-db/supabase/config.toml"
+          original = p.read_text()
+          assert "project_id" not in original
+          project = "reply-recovery-" + os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"]
+          p.write_text('project_id = "' + project + '"\n\n' + original)
+          PY
+          cd "$db_root"
+          supabase --version
+          supabase start --help > /dev/null
+          supabase status --help > /dev/null
+          supabase stop --help > /dev/null
+          # CLI output can contain local keys; keep it ephemeral and exclude it from artifacts.
+          supabase start > "$RUNNER_TEMP/reply-db-start-private.log" 2>&1
+
+      - name: Exercise real local Auth and PostgREST with synthetic provider
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/reply-db"
+          local_status="$(supabase status --output json 2>/dev/null)"
+          LOCAL_SUPABASE_URL="$(jq -er '.API_URL' <<< "$local_status")"
+          LOCAL_SUPABASE_ANON_KEY="$(jq -er '.ANON_KEY' <<< "$local_status")"
+          LOCAL_SUPABASE_SERVICE_KEY="$(jq -er '.SERVICE_ROLE_KEY' <<< "$local_status")"
+          echo "::add-mask::$LOCAL_SUPABASE_ANON_KEY"
+          echo "::add-mask::$LOCAL_SUPABASE_SERVICE_KEY"
+          unset local_status
+          test "$LOCAL_SUPABASE_URL" = "http://127.0.0.1:54321"
+          export LOCAL_SUPABASE_URL LOCAL_SUPABASE_ANON_KEY LOCAL_SUPABASE_SERVICE_KEY
+          export AXIOMARA_DISPOSABLE_DB_GATE=true
+          python3 - <<'PY'
+          import datetime, json, os, pathlib
+          out = pathlib.Path(os.environ["RUNNER_TEMP"]) / "reply-evidence"
+          att = {
+            "schemaVersion": 1, "sourceSha": os.environ["RELEASE_SHA"], "sourceTree": os.environ["RELEASE_TREE"],
+            "apiUrl": "http://127.0.0.1:54321", "disposable": True, "exclusive": True,
+            "noHostedProxy": True, "freshMigrationReplay": True,
+            "localProjectId": "reply-recovery-" + os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"],
+            "createdAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+          }
+          (out / "disposable-attestation.json").write_text(json.dumps(att, indent=2) + "\n")
+          (out / "run-binding.json").write_text(json.dumps({
+            "sourceSha": os.environ["RELEASE_SHA"], "sourceTree": os.environ["RELEASE_TREE"],
+            "overlaySha": os.environ["OVERLAY_SHA"], "eventSha": os.environ["GITHUB_SHA"],
+            "runId": os.environ["GITHUB_RUN_ID"], "runAttempt": os.environ["GITHUB_RUN_ATTEMPT"],
+            "providerMode": "in-memory-synthetic-only", "productionSecretsUsed": False,
+          }, indent=2) + "\n")
+          PY
+          cd "$GITHUB_WORKSPACE/test-overlay/release-validation/reply-recovery-4019136"
+          deno run --no-config --no-lock --no-remote --no-npm --no-prompt --deny-run --deny-ffi \
+            --allow-env=AXIOMARA_DISPOSABLE_DB_GATE,LOCAL_SUPABASE_URL,LOCAL_SUPABASE_ANON_KEY,LOCAL_SUPABASE_SERVICE_KEY \
+            --allow-net=127.0.0.1:54321 --deny-net=api.anthropic.com:443 \
+            --allow-read="$GITHUB_WORKSPACE/release-source,$PWD,$RUNNER_TEMP/reply-evidence/disposable-attestation.json" \
+            --allow-write="$RUNNER_TEMP/reply-evidence/execution" \
+            reply_recovery_probe.ts --execute --source-root "$GITHUB_WORKSPACE/release-source" \
+            --attestation "$RUNNER_TEMP/reply-evidence/disposable-attestation.json" \
+            --output "$RUNNER_TEMP/reply-evidence/execution"
+
+      - name: Verify immutable release source after probe
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C release-source rev-parse HEAD)" = "$RELEASE_SHA"
+          test -z "$(git -C release-source status --porcelain)"
+          git -C release-source diff --exit-code
+
+      - name: Stop only this run's disposable backend
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          db_root="$RUNNER_TEMP/reply-db"
+          if test -f "$db_root/supabase/config.toml"; then
+            cd "$db_root"
+            expected="reply-recovery-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+            grep -Fx "project_id = \"$expected\"" supabase/config.toml > /dev/null
+            supabase stop --no-backup > "$RUNNER_TEMP/reply-db-stop-private.log" 2>&1
+          fi
+
+      - name: Upload bounded probe evidence only
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: reply-recovery-4019136-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/reply-evidence/
+          if-no-files-found: error
+          retention-days: 30
