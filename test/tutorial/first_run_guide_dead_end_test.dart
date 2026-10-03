@@ -310,11 +310,17 @@ void main() {
         '$language $action does not finish the task completion lesson',
         (tester) async {
           _tallView(tester);
+          final timelineNow = DateTime(2026, 10, 2, 12);
           final repo = _Tasks.withScheduledTask();
           repo.tasks['restored'] = repo.tasks['restored']!.copyWith(
-            scheduledFor: DateTime.now().add(const Duration(hours: 1)),
+            scheduledFor: timelineNow.add(const Duration(hours: 1)),
           );
-          final container = _container(repo, overlay: true, timeline: true);
+          final container = _container(
+            repo,
+            overlay: true,
+            timeline: true,
+            timelineClock: () => timelineNow,
+          );
           addTearDown(container.dispose);
           await _prepareTimelineGuide(container);
           await _pumpTimelineWithGuide(tester, container, Locale(language));
@@ -324,6 +330,7 @@ void main() {
                     ? 'Postpone to Tomorrow'
                     : 'Aplazar hasta mañana');
           final actionButton = find.widgetWithText(OutlinedButton, label);
+          expect(actionButton, findsOneWidget);
           await tester.ensureVisible(actionButton);
           await tester.tap(actionButton);
           for (int i = 0; i < 5; i++) {
@@ -525,6 +532,7 @@ ProviderContainer _container(
   _Tasks repo, {
   bool overlay = false,
   bool timeline = false,
+  DateTime Function()? timelineClock,
 }) {
   return ProviderContainer(
     overrides: [
@@ -540,6 +548,8 @@ ProviderContainer _container(
         SecureStore(backend: InMemorySecureStoreBackend()),
       ),
       if (timeline) ...[
+        if (timelineClock != null)
+          timelineClockProvider.overrideWithValue(timelineClock),
         timelineProvider.overrideWith(_EmptyTimeline.new),
         timelinePersistenceCorruptedProvider.overrideWith((ref) => false),
         taskActionsProvider.overrideWith((ref) => _GuideTaskActions(ref, repo)),
