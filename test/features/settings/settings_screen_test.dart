@@ -1015,6 +1015,198 @@ void main() {
     expect(find.textContaining('Permanently clear'), findsNothing);
   });
 
+  for (final scenario in const [
+    (
+      name: 'one outcome',
+      count: 1,
+      ageDays: 0,
+      helpfulCount: 1,
+      option: null,
+      english:
+          'low confidence · Still learning: 1 reviewable outcome. No preference is applied yet.',
+      spanish:
+          'confianza baja · Aún está aprendiendo: 1 resultado revisable. Todavía no se aplica ninguna preferencia.',
+    ),
+    (
+      name: 'two outcomes',
+      count: 2,
+      ageDays: 0,
+      helpfulCount: 2,
+      option: null,
+      english:
+          'low confidence · Still learning: 2 reviewable outcomes. No preference is applied yet.',
+      spanish:
+          'confianza baja · Aún está aprendiendo: 2 resultados revisables. Todavía no se aplica ninguna preferencia.',
+    ),
+    (
+      name: 'aged outcomes below the evidence threshold',
+      count: 3,
+      ageDays: 60,
+      helpfulCount: 3,
+      option: 'minimum',
+      english:
+          'low confidence · Still learning: 3 reviewable outcomes. No preference is applied yet.',
+      spanish:
+          'confianza baja · Aún está aprendiendo: 3 resultados revisables. Todavía no se aplica ninguna preferencia.',
+    ),
+    (
+      name: 'eligible outcomes without an option',
+      count: 3,
+      ageDays: 0,
+      helpfulCount: 2,
+      option: null,
+      english:
+          'developing confidence · 67% of recent weighted outcomes helped.',
+      spanish:
+          'confianza en desarrollo · 67% de los resultados recientes ponderados ayudaron.',
+    ),
+    (
+      name: 'minimum option',
+      count: 3,
+      ageDays: 0,
+      helpfulCount: 2,
+      option: 'minimum',
+      english:
+          'developing confidence · 67% of recent weighted outcomes helped. The strongest repeated option is minimum.',
+      spanish:
+          'confianza en desarrollo · 67% de los resultados recientes ponderados ayudaron. La opción repetida con mayor respaldo es «mínima».',
+    ),
+    (
+      name: 'best-fit option',
+      count: 3,
+      ageDays: 0,
+      helpfulCount: 2,
+      option: 'bestFit',
+      english:
+          'developing confidence · 67% of recent weighted outcomes helped. The strongest repeated option is bestFit.',
+      spanish:
+          'confianza en desarrollo · 67% de los resultados recientes ponderados ayudaron. La opción repetida con mayor respaldo es «más adecuada».',
+    ),
+    (
+      name: 'established stretch option',
+      count: 6,
+      ageDays: 0,
+      helpfulCount: 5,
+      option: 'stretch',
+      english:
+          'established confidence · 83% of recent weighted outcomes helped. The strongest repeated option is stretch.',
+      spanish:
+          'confianza consolidada · 83% de los resultados recientes ponderados ayudaron. La opción repetida con mayor respaldo es «de mayor esfuerzo».',
+    ),
+    (
+      name: 'unknown option preserved verbatim',
+      count: 3,
+      ageDays: 0,
+      helpfulCount: 2,
+      option: 'task execution',
+      english:
+          'developing confidence · 67% of recent weighted outcomes helped. The strongest repeated option is task execution.',
+      spanish:
+          'confianza en desarrollo · 67% de los resultados recientes ponderados ayudaron. La opción repetida con mayor respaldo es «task execution».',
+    ),
+  ]) {
+    for (final locale in const [Locale('en'), Locale('es', 'US')]) {
+      testWidgets(
+        'learning pattern copy in ${locale.toLanguageTag()}: ${scenario.name}',
+        (WidgetTester tester) async {
+          useTallSurface(tester);
+          final DateTime now = DateTime.utc(2026, 10, 3, 12);
+          final outcomes = <DecisionOutcomeEntity>[
+            for (int index = 0; index < scenario.count; index += 1)
+              DecisionOutcomeEntity(
+                decisionId: 'localized-decision-$index',
+                kind: index < scenario.helpfulCount
+                    ? DecisionOutcomeKind.accepted
+                    : DecisionOutcomeKind.rejected,
+                surface: 'smart_planner',
+                situation: 'bounded planning choice',
+                recordedAt: now.subtract(Duration(days: scenario.ageDays)),
+                modelVersion: 'predictive-planning-v2',
+                recommendationConfidence: .64,
+                optionChosen: scenario.option,
+                recommendationHelped: index < scenario.helpfulCount,
+              ),
+          ];
+          final savedOutcomes = outcomes
+              .map((outcome) => outcome.toJson())
+              .toList();
+          final ProviderContainer container = createContainer(
+            decisionOutcomes: outcomes,
+            learningPaused: false,
+            learningNow: now,
+          );
+          final bool isSpanish = locale.languageCode == 'es';
+
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp(
+                locale: locale,
+                supportedLocales: ChronoSparkLocalizations.supportedLocales,
+                localizationsDelegates: const [
+                  ChronoSparkLocalizations.delegate,
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                ],
+                home: const SettingsScreen(),
+              ),
+            ),
+          );
+          await tester.pump(const Duration(milliseconds: 200));
+          await invokeNavTile(
+            tester,
+            isSpanish ? 'Planificación y orientación' : 'Planning & guidance',
+          );
+          final String expected = isSpanish
+              ? scenario.spanish
+              : scenario.english;
+          await tester.scrollUntilVisible(
+            find.text(
+              isSpanish
+                  ? 'QUÉ CAMBIÓ CON TUS COMENTARIOS'
+                  : 'WHAT CHANGED FROM YOUR FEEDBACK',
+            ),
+            500,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await tester.pump();
+
+          expect(find.text(expected), findsOneWidget);
+          if (isSpanish) {
+            expect(find.textContaining('Still learning:'), findsNothing);
+            expect(
+              find.textContaining('weighted outcomes helped.'),
+              findsNothing,
+            );
+            expect(
+              find.textContaining('The strongest repeated option'),
+              findsNothing,
+            );
+          }
+          if (scenario.option == 'task execution') {
+            expect(
+              find.textContaining(
+                isSpanish ? 'opción task execution' : 'option task execution',
+              ),
+              findsNWidgets(scenario.count),
+            );
+          }
+          expect(
+            container
+                .read(decisionOutcomesProvider)
+                .requireValue
+                .map((outcome) => outcome.toJson())
+                .toList(),
+            savedOutcomes,
+          );
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+      );
+    }
+  }
+
   testWidgets('shows a reviewable user-controlled learning ledger', (
     WidgetTester tester,
   ) async {
