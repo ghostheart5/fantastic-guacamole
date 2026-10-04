@@ -346,6 +346,7 @@ jobs:
       - name: Build signed AAB
         run: >-
           flutter build appbundle --release
+          --verbose
           --dart-define-from-file="$RUNNER_TEMP/public-release-defines.json"
 
       - name: Verify effective release manifest link policy
