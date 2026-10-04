@@ -1,7 +1,17 @@
 allprojects {
     repositories {
+        maven {
+            url = uri(rootProject.file("local-maven"))
+        }
         google()
         mavenCentral()
+    }
+
+    configurations.configureEach {
+        resolutionStrategy.dependencySubstitution {
+            substitute(module("androidx.datastore:datastore-core-android"))
+                .using(module("com.ghostheart5.rebuilt:datastore-core-android-symbolized:1.1.7-gh1"))
+        }
     }
 }
 
