@@ -1,0 +1,13 @@
+# Symbolized AndroidX DataStore native component
+
+This local replacement keeps the AndroidX DataStore 1.1.7 Kotlin/Java classes and Maven dependencies, but rebuilds its `libdatastore_shared_counter.so` native component with debug information. The original published AAR ships that library stripped, so Android Gradle Plugin cannot produce matching native symbol files from it.
+
+The app build substitutes only `androidx.datastore:datastore-core-android` with the transparent local coordinate `com.ghostheart5.rebuilt:datastore-core-android-symbolized:1.1.7-gh1`. The replacement AAR is under `android/local-maven`. The shipped app libraries are still stripped by AGP; the unstripped inputs let AGP generate separate symbol payloads for the exact newly built libraries. Never copy these replacement symbols onto an older AAB: their build IDs belong to the rebuilt libraries only.
+
+The native sources are Apache-2.0 AndroidX DataStore sources from commit `794e3806700833665f48f56f7dd3581642a6057f`, the last native C++ source change before the published 1.1.7 release. The code has four JNI entry points and retains AndroidX's 16 KB maximum-page-size linker option. Build tooling is pinned to Android NDK `28.2.13676358`, CMake `3.22.1`, and Android API 21 minimum. The resulting AAR's Java/Kotlin classes, manifest, resource table, and transitive dependencies are copied from the SHA-256-pinned official 1.1.7 AAR; only its four ABI native-library members are replaced.
+
+Regenerate with `build.ps1` from the repository root. It downloads the official AAR and POM over HTTPS, verifies the AAR digest before use, compiles all four AAR ABIs, and writes the Maven artifact. It requires the pinned NDK/CMake, Ninja, Python 3, and an Android SDK root. `aar-pack.py` performs deterministic ZIP packaging.
+
+Validation already performed on this local repair: Gradle resolves the replacement coordinate; the Android debug APK builds; all 51 storage, account-scoped preference, and startup-recovery tests pass; and a local-backend debug APK launches on a disposable Android 36 x86_64 emulator. For arm64-v8a, armeabi-v7a, and x86_64, the installed stripped APK library, AGP's unstripped input, and extracted `.sym` each share the same new GNU build ID and the symbol outputs contain DWARF debug information. This is local diagnostic evidence only; a newly signed release build must still be separately built and fully inspected before any Play action.
+
+This repair deliberately replaces the native component rather than inventing symbols for the old upstream binaries. Rebuilt symbols cannot truthfully be attached to the old signed 3103 AAB because their build IDs differ. The replacement is not yet committed or published.
