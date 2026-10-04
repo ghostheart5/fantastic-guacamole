@@ -900,6 +900,13 @@ void main() {
       final String firebase = read('lib/firebase_options.dart');
       expect(gradle, contains('maxOf(flutter.compileSdkVersion, 36)'));
       expect(gradle, contains('maxOf(flutter.targetSdkVersion, 36)'));
+      expect(
+        RegExp(
+          r'buildTypes\s*\{.*?release\s*\{.*?ndk\s*\{.*?debugSymbolLevel\s*=\s*"FULL"',
+          dotAll: true,
+        ).hasMatch(gradle),
+        isTrue,
+      );
       expect(guard, contains('\$requiredTargetApi = 36'));
       expect(guard, contains("'android.permission.ACCESS_COARSE_LOCATION'"));
       expect(guard, contains("'android.permission.ACCESS_FINE_LOCATION'"));

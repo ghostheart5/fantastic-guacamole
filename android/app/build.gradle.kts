@@ -169,6 +169,12 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
 
+            // Include native symbols in the AAB so Play can symbolicate
+            // native crashes from the exact libraries shipped in this build.
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
