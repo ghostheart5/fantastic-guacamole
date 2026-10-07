@@ -87,7 +87,7 @@ jobs:
               'index.html': ('AXIOMARA', 'The Human Decision OS', 'Nine connected systems', 'Smart Planner', 'SI Console', 'NO ADS', 'does not provide an application download'),
               'privacy/index.html': ('Axiomara Privacy Policy', 'does not display ads', 'Anthropic', 'account-deletion page'),
               'terms/index.html': ('Axiomara Terms of Service', 'Marketplace purchases', 'does not provide unlimited AI usage'),
-              'support/index.html': ('Axiomara Support', 'Email Axiomara support', 'does not provide an APK or public download'),
+              'support/index.html': ('Axiomara Support', 'Email Axiomara support', 'Install and update Axiomara', 'This site does not distribute APK files.', 'Deleting the app or your Axiomara account does not cancel store billing.'),
               'delete-account/index.html': ('Delete an Axiomara Account', 'Request deletion without the app', 'Request account deletion'),
               '404.html': ('Page unavailable', 'Axiomara'),
               'robots.txt': ('Sitemap: https://ghostheart5.github.io/fantastic-guacamole/sitemap.xml',),
@@ -131,6 +131,13 @@ jobs:
               if not path.is_file() or path.suffix.lower() not in {'.html', '.css', '.js', '.txt', '.xml'}:
                   continue
               text = path.read_text(encoding='utf-8')
+              if path.relative_to(root).as_posix() == 'support/index.html':
+                  # The public-user install link contains the permanent package ID;
+                  # permit only this exact anchor, not retired display branding.
+                  install_link = '<a href="https://play.google.com/store/apps/details?id=com.ghostheart5.chronospark">Google Play</a>'
+                  if text.count(install_link) != 1:
+                      raise SystemExit('Support requires one exact public app install link')
+                  text = text.replace(install_link, '')
               lowered = text.lower()
               leaked = [value for value in forbidden_identity if value in lowered]
               if leaked:
