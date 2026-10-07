@@ -186,7 +186,10 @@ void main() {
     expect(productSite, contains('Smart Planner'));
     expect(productSite, contains('SI Console'));
     expect(productSite, contains('Nexus'));
-    expect(productSite, contains('invited closed testing'));
+    expect(productSite, contains('publicly available'));
+    expect(productSite, isNot(contains('Closed testing')));
+    expect(productSite, isNot(contains('tester support')));
+    expect(productSite, contains('Install and update Axiomara'));
     expect(productSite, contains('does not provide an application download'));
   });
 }
