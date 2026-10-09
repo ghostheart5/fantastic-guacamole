@@ -141,12 +141,20 @@ void main() {
       'web/delete-account/index.html',
     ]) {
       final String source = read(path);
+      const String installLink =
+          '<a href="https://play.google.com/store/apps/details?id=com.ghostheart5.chronospark">Google Play</a>';
+      if (path == 'web/support/index.html') {
+        expect(installLink.allMatches(source), hasLength(1), reason: path);
+      }
+      final String brandingSource = path == 'web/support/index.html'
+          ? source.replaceAll(installLink, '')
+          : source;
       expect(source, contains('Axiomara'), reason: path);
       expect(source.toLowerCase(), contains('marketplace'), reason: path);
-      expect(source, isNot(contains('ChronoSpark')), reason: path);
-      expect(source, isNot(contains('chronospark')), reason: path);
-      expect(source, isNot(contains('Google Play')), reason: path);
-      expect(source, isNot(contains('play.google.com')), reason: path);
+      expect(brandingSource, isNot(contains('ChronoSpark')), reason: path);
+      expect(brandingSource, isNot(contains('chronospark')), reason: path);
+      expect(brandingSource, isNot(contains('Google Play')), reason: path);
+      expect(brandingSource, isNot(contains('play.google.com')), reason: path);
       expect(
         source,
         isNot(contains('contained public configuration')),
@@ -170,7 +178,7 @@ void main() {
     }
     expect(
       read('web/support/index.html'),
-      contains('does not provide an APK or public download'),
+      contains('This site does not distribute APK files.'),
     );
     final String productSite = read('site/index.html');
     expect(productSite, contains('The Human Decision OS'));
@@ -178,7 +186,10 @@ void main() {
     expect(productSite, contains('Smart Planner'));
     expect(productSite, contains('SI Console'));
     expect(productSite, contains('Nexus'));
-    expect(productSite, contains('invited closed testing'));
+    expect(productSite, contains('publicly available'));
+    expect(productSite, isNot(contains('Closed testing')));
+    expect(productSite, isNot(contains('tester support')));
+    expect(productSite, contains('Install and update Axiomara'));
     expect(productSite, contains('does not provide an application download'));
   });
 }
