@@ -9,7 +9,7 @@
 
 Axiomara is a connected planning and decision-support system for real life. It brings tasks, goals, Daily Rhythms, notes, schedules, operating-state signals, strategic questions, possible trajectories, and visible progress into one user-controlled loop.
 
-The Android app is publicly available on **[Google Play](https://play.google.com/store/apps/details?id=com.ghostheart5.chronospark)**. The public listing was checked on October 5, 2026; availability and the build delivered can vary by account, region, and device. Download buckets do not establish active users or revenue. Its product site and required account information are available at **[ghostheart5.github.io/fantastic-guacamole](https://ghostheart5.github.io/fantastic-guacamole/)**.
+The Android app is publicly available on **[Google Play](https://play.google.com/store/apps/details?id=com.ghostheart5.chronospark)**. The public listing was checked on October 8, 2026; availability and the build delivered can vary by account, region, and device. Download buckets do not establish active users or revenue. Its product site and required account information are available at **[ghostheart5.github.io/fantastic-guacamole](https://ghostheart5.github.io/fantastic-guacamole/)**.
 
 ## Start with one useful action
 
