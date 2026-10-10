@@ -21,7 +21,8 @@
   "cover": "Native HTML/CSS artwork; crisp typography; planning-step diagram, not a simulated app screen.",
   "exports": [
     {
-      "filename": "feature-graphic-1024x500.png",
+      "filename": "../../assets/feature-graphic-one-realistic-step-1024x500.png",
+      "deliveryFilename": "feature-graphic-1024x500.png",
       "dimensions": [
         1024,
         500
