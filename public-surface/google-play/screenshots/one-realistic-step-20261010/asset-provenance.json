@@ -1,0 +1,100 @@
+{
+  "state": "prepared, not uploaded or published",
+  "source": "Retained original Moto captures; publication register records build 2026083103, Oct 6 2026. Exact source-file hashes verified. No app UI content changed.",
+  "screenshots": [
+    {
+      "order": "01",
+      "source": "01-sample-task-draft-en.png",
+      "headline": "Capture one small task."
+    },
+    {
+      "order": "02",
+      "source": "02-review-before-save-en.png",
+      "headline": "Review it. You decide."
+    },
+    {
+      "order": "03",
+      "source": "04-scheduled-sample-en.png",
+      "headline": "Give it a place in your day."
+    }
+  ],
+  "cover": "Native HTML/CSS artwork; crisp typography; planning-step diagram, not a simulated app screen.",
+  "exports": [
+    {
+      "filename": "feature-graphic-1024x500.png",
+      "dimensions": [
+        1024,
+        500
+      ],
+      "mode": "RGB",
+      "sha256": "1258655437f07d078e68604328ae4a1701da82637cfc26a17f88db95b24dd208",
+      "bytes": 45508
+    },
+    {
+      "filename": "01-capture-one-task.png",
+      "dimensions": [
+        1080,
+        1920
+      ],
+      "mode": "RGB",
+      "sha256": "df1994eba642095db47fd7037aa716aed9ba2557e0ae9e18df4068606f72772d",
+      "bytes": 111191
+    },
+    {
+      "filename": "02-review-before-save.png",
+      "dimensions": [
+        1080,
+        1920
+      ],
+      "mode": "RGB",
+      "sha256": "24fd57d8b55c3c55ae40ea6f94171e88a3d5d99d1b715553be42fe8cbaf1f368",
+      "bytes": 127789
+    },
+    {
+      "filename": "03-fit-into-your-day.png",
+      "dimensions": [
+        1080,
+        1920
+      ],
+      "mode": "RGB",
+      "sha256": "dcdb19a2ff2ebb14364fcd99a4b9b080dfd3662f7424663dd768f97accac4b64",
+      "bytes": 144258
+    }
+  ],
+  "trailer": {
+    "file": "axiomara-real-use-trailer.mp4",
+    "durationSeconds": 28,
+    "outputDimensions": [
+      1920,
+      1080
+    ],
+    "sourceCaptureDimensions": [
+      720,
+      1640
+    ],
+    "package": "com.ghostheart5.chronospark",
+    "versionName": "4.2.3",
+    "versionCode": 2026083103,
+    "installer": "com.android.vending",
+    "device": "Moto G Stylus 5G (2022), serial ZY22G665VG",
+    "profile": "ChronoSpark-Review, user 11",
+    "content": "Fictional five-minute bookkeeping task created and scheduled for Oct 10, 2026 at 5 PM; task retained in review profile; guide paused for recording; owner user 0 restored afterward.",
+    "audio": "Local Microsoft synthesized narration, normalized; AAC 48 kHz; audible signal verified",
+    "editing": "Actual footage trimmed, sped up and zoomed; no generated app UI",
+    "sha256": "af3d37966027363c373e3c378037a09cb98c40a1000cadfd2565aa2c84cb278f"
+  },
+  "validation": {
+    "homepageBaselineMatchesGitHubMain": true,
+    "existingPublicSurfaceTests": "5 passed",
+    "robots": "index,follow,max-image-preview:large",
+    "directInstallLinks": 2,
+    "mobileInstallButton": "At 390px viewport, primary button left=14 right=338.6; fits viewport. Existing decorative overflow remains outside the body.",
+    "publication": "No commit, push, merge, deploy, Play upload, YouTube upload or outreach executed."
+  },
+  "sourceChanges": [
+    "site/index.html",
+    "site/assets/axiomara-feature.png",
+    "public-surface/google-play/assets/feature-graphic-one-realistic-step-1024x500.png",
+    "public-surface/google-play/screenshots/one-realistic-step-20261010/"
+  ]
+}
