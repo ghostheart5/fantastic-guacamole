@@ -252,7 +252,14 @@ void main() {
 
     expect(requiredSite, isNot(contains('optional AI assistance')));
     expect(requiredSite, isNot(contains('ChronoSpark')));
-    expect(requiredSite, isNot(contains('Google Play')));
+    for (final String placement in <String>['hero', 'footer']) {
+      final String installLink =
+          'https://play.google.com/store/apps/details?id=com.ghostheart5.chronospark'
+          '&amp;referrer=utm_source%3Daxiomara_website%26utm_medium%3Dorganic'
+          '%26utm_campaign%3Done_realistic_step%26utm_content%3D$placement';
+      expect(requiredSite.split(installLink), hasLength(2), reason: placement);
+    }
+    expect(requiredSite.split('Get Axiomara on Google Play'), hasLength(3));
     expect(
       requiredSite,
       isNot(contains('Android, iOS, Windows, macOS, Linux, Web')),
