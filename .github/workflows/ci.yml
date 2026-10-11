@@ -85,6 +85,9 @@ jobs:
       - name: Validate GitHub workflow controls
         run: dart run tool/validate_github_workflows.dart
 
+      - name: Test hosted Android guest readiness
+        run: python3 -B -m unittest discover -s scripts -p test_hosted_guest_readiness.py -v
+
       - name: Test internal billing build controls
         run: |
           python3 -B -m unittest discover -s scripts -p test_android_candidate_build.py
