@@ -272,12 +272,13 @@ jobs:
                      'pageSizeBytes': page_size, 'androidApi': shell('getprop', 'ro.build.version.sdk'),
                      'hostCpuCount': os.cpu_count(), 'guestCpuPresent': shell('cat', '/sys/devices/system/cpu/present')}
           try:
-              home = shell('cmd', 'package', 'resolve-activity', '--brief',
-                           '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME').splitlines()[-1]
-              assert re.fullmatch(r'[\w.]+/[\w.$]+', home), 'Guest HOME activity is unresolved'
-              home_package = home.split('/')[0]
-              receipt['homeActivity'] = home
+              receipt['resolvedHomeBeforeSettling'] = shell('cmd', 'package', 'resolve-activity', '--brief',
+                  '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME')
+              def canonical(component):
+                  package, activity = component.split('/')
+                  return package + '/' + (package + activity if activity.startswith('.') else activity)
               stable_home_samples = 0
+              previous_home = None
               # Boot completion precedes first-boot package and launcher work.
               # Require actual HOME focus during the bounded settling window,
               # not just boot/property readiness. Never dismiss or retry ANRs.
@@ -292,12 +293,25 @@ jobs:
                   (root / 'prepared-window.txt').write_text(window)
                   (root / 'prepared-activities.txt').write_text(activities)
                   (root / 'prepared-lastanr.txt').write_text(last_anr)
+                  (root / f'sample-{index}-window.txt').write_text(window)
+                  (root / f'sample-{index}-activities.txt').write_text(activities)
+                  (root / f'sample-{index}-lastanr.txt').write_text(last_anr)
                   assert '<no anr has occurred since boot>' in last_anr.lower(), 'Fresh guest reported an ANR before app tests'
                   assert not re.search(r'Application (?:Error|Not Responding)|isn.t responding', window, re.I)
-                  focused = any(home_package + '/' in line for line in window.splitlines() if 'mCurrentFocus=' in line)
-                  resumed = any(home_package + '/' in line for line in activities.splitlines() if 'ResumedActivity:' in line)
-                  stable_home_samples = stable_home_samples + 1 if focused and resumed else 0
+                  # The early resolver can name Setup while HOME has moved to the
+                  # launcher. Read the current visible user-0 HOME task each sample.
+                  homes = set(re.findall(r'^\s*\* Task\{[^\n]*\btype=home\b[^\n]*\bI=([\w.]+/[\w.$]+)[^\n]*\bU=0\b[^\n]*\bvisible=true\b', activities, re.M))
+                  home = next(iter(homes)) if len(homes) == 1 else None
+                  current_focus = {canonical(c) for c in re.findall(r'^\s*mCurrentFocus=Window\{[^\n}]*\bu0\s+([\w.]+/[\w.$]+)', activities, re.M)}
+                  current_resumed = {canonical(c) for c in re.findall(r'^\s*(?:topResumedActivity=|ResumedActivity:)\s*ActivityRecord\{[^\n}]*\bu0\s+([\w.]+/[\w.$]+)', activities, re.M)}
+                  focused = home is not None and current_focus == {canonical(home)}
+                  resumed = home is not None and current_resumed == {canonical(home)}
+                  setup_activity = home is not None and home.startswith('com.google.android.googlesdksetup/')
+                  stable_home_samples = (stable_home_samples + 1 if home == previous_home else 1) if focused and resumed and not setup_activity else 0
+                  previous_home = home
+                  receipt['homeActivity'] = home
                   receipt['samples'].append({'index': index, 'monotonic': time.monotonic(),
+                      'homeActivity': home, 'setupActivity': setup_activity, 'focusedActivities': sorted(current_focus), 'resumedActivities': sorted(current_resumed),
                       'homeFocused': focused, 'homeResumed': resumed, 'stableHomeSamples': stable_home_samples,
                       'guestMemory': shell('cat', '/proc/meminfo'),
                       'hostMemory': Path('/proc/meminfo').read_text(),
