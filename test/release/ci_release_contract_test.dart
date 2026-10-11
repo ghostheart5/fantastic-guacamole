@@ -1001,6 +1001,7 @@ void main() {
       (emulatorStep['with'] as YamlMap)['disable-linux-hw-accel'],
       isFalse,
     );
+    expect((emulatorStep['with'] as YamlMap)['cores'], 4);
     expect(
       (emulatorStep['with'] as YamlMap)['target'],
       r"${{ inputs.guest_pages == '16k' && 'google_apis_ps16k' || 'google_apis' }}",
@@ -1016,6 +1017,17 @@ void main() {
     expect(preparation, contains('run-suite.sh'));
     expect(preparation, contains("shell('getconf', 'PAGE_SIZE')"));
     expect(preparation, contains('pageSizeBytes'));
+    expect(preparation, contains('hostCpuCount'));
+    expect(preparation, contains('guestCpuPresent'));
+    expect(preparation, contains('stable_home_samples >= 3'));
+    expect(
+      preparation,
+      contains('Fresh guest reported an ANR before app tests'),
+    );
+    expect(
+      preparation,
+      contains("grep -Fqi '<no anr has occurred since boot>'"),
+    );
     expect(preparation, contains('run_maestro_android_evidence.ps1'));
     expect(preparation, contains(r'-ExpectedAndroidApi "$QA_GUEST_API"'));
     expect(preparation, contains('-DeviceSerial emulator-5554'));

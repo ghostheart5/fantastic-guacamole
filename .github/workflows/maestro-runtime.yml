@@ -269,25 +269,54 @@ jobs:
           expected_page_size = 16384 if os.environ['QA_GUEST_PAGES'] == '16k' else 4096
           assert page_size == expected_page_size, f'Unexpected guest page size: {page_size}'
           receipt = {'passed': False, 'samples': [], 'applicationTestsExecuted': 0,
-                     'pageSizeBytes': page_size, 'androidApi': shell('getprop', 'ro.build.version.sdk')}
+                     'pageSizeBytes': page_size, 'androidApi': shell('getprop', 'ro.build.version.sdk'),
+                     'hostCpuCount': os.cpu_count(), 'guestCpuPresent': shell('cat', '/sys/devices/system/cpu/present')}
           try:
+              receipt['resolvedHomeBeforeSettling'] = shell('cmd', 'package', 'resolve-activity', '--brief',
+                  '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME')
+              def canonical(component):
+                  package, activity = component.split('/')
+                  return package + '/' + (package + activity if activity.startswith('.') else activity)
+              stable_home_samples = 0
+              previous_home = None
               # Boot completion precedes first-boot package and launcher work.
-              # Observe one bounded settling window; never dismiss or retry ANRs.
+              # Require actual HOME focus during the bounded settling window,
+              # not just boot/property readiness. Never dismiss or retry ANRs.
               for index in range(7):
                   if index:
                       time.sleep(10)
                   assert shell('getprop', 'sys.boot_completed') == '1'
                   assert shell('pm', 'path', 'android').startswith('package:')
+                  window = shell('dumpsys', 'window', 'windows')
+                  activities = shell('dumpsys', 'activity', 'activities')
+                  last_anr = shell('dumpsys', 'activity', 'lastanr')
+                  (root / 'prepared-window.txt').write_text(window)
+                  (root / 'prepared-activities.txt').write_text(activities)
+                  (root / 'prepared-lastanr.txt').write_text(last_anr)
+                  (root / f'sample-{index}-window.txt').write_text(window)
+                  (root / f'sample-{index}-activities.txt').write_text(activities)
+                  (root / f'sample-{index}-lastanr.txt').write_text(last_anr)
+                  assert '<no anr has occurred since boot>' in last_anr.lower(), 'Fresh guest reported an ANR before app tests'
+                  assert not re.search(r'Application (?:Error|Not Responding)|isn.t responding', window, re.I)
+                  # The early resolver can name Setup while HOME has moved to the
+                  # launcher. Read the current visible user-0 HOME task each sample.
+                  homes = set(re.findall(r'^\s*\* Task\{[^\n]*\btype=home\b[^\n]*\bI=([\w.]+/[\w.$]+)[^\n]*\bU=0\b[^\n]*\bvisible=true\b', activities, re.M))
+                  home = next(iter(homes)) if len(homes) == 1 else None
+                  current_focus = {canonical(c) for c in re.findall(r'^\s*mCurrentFocus=Window\{[^\n}]*\bu0\s+([\w.]+/[\w.$]+)', activities, re.M)}
+                  current_resumed = {canonical(c) for c in re.findall(r'^\s*(?:topResumedActivity=|ResumedActivity:)\s*ActivityRecord\{[^\n}]*\bu0\s+([\w.]+/[\w.$]+)', activities, re.M)}
+                  focused = home is not None and current_focus == {canonical(home)}
+                  resumed = home is not None and current_resumed == {canonical(home)}
+                  setup_activity = home is not None and home.startswith('com.google.android.googlesdksetup/')
+                  stable_home_samples = (stable_home_samples + 1 if home == previous_home else 1) if focused and resumed and not setup_activity else 0
+                  previous_home = home
+                  receipt['homeActivity'] = home
                   receipt['samples'].append({'index': index, 'monotonic': time.monotonic(),
+                      'homeActivity': home, 'setupActivity': setup_activity, 'focusedActivities': sorted(current_focus), 'resumedActivities': sorted(current_resumed),
+                      'homeFocused': focused, 'homeResumed': resumed, 'stableHomeSamples': stable_home_samples,
                       'guestMemory': shell('cat', '/proc/meminfo'),
                       'hostMemory': Path('/proc/meminfo').read_text(),
                       'hostLoad': Path('/proc/loadavg').read_text().strip()})
-              window = shell('dumpsys', 'window', 'windows')
-              last_anr = shell('dumpsys', 'activity', 'lastanr')
-              (root / 'prepared-window.txt').write_text(window)
-              (root / 'prepared-lastanr.txt').write_text(last_anr)
-              assert '<no anr has occurred since boot>' in last_anr.lower(), 'Fresh guest reported an ANR before app tests'
-              assert not re.search(r'Application (?:Error|Not Responding)|isn.t responding', window, re.I)
+              assert stable_home_samples >= 3, 'Fresh guest HOME never reached stable focused/resumed readiness'
               receipt['passed'] = True
           finally:
               (root / 'guest-readiness.json').write_text(json.dumps(receipt, indent=2) + '\n')
@@ -337,7 +366,10 @@ jobs:
           target: ${{ inputs.guest_pages == '16k' && 'google_apis_ps16k' || 'google_apis' }}
           arch: x86_64
           profile: pixel_6
-          cores: 2
+          # Public ubuntu-24.04 runners provide four vCPUs. Use them during
+          # first-boot launcher initialization instead of constraining the guest
+          # to two. Preserve the image, memory, hardware acceleration and guards.
+          cores: 4
           ram-size: 4096M
           heap-size: 512M
           emulator-port: 5554

@@ -1,0 +1,6 @@
+{
+  "provenance": "Minimal structural excerpts from run 38148294357 attempt 1, API 35; transient identifiers removed. No app/customer content.",
+  "resolvedHomeBeforeSettling": "com.google.android.googlesdksetup/.DefaultActivity",
+  "windowWindows": "WINDOW MANAGER WINDOWS (dumpsys window windows)\n  Window #0 Window{abc u0 com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity}:\n    mOwnerUid=10176 package=com.google.android.apps.nexuslauncher\n    isOnScreen=true\n",
+  "activities": "ACTIVITY MANAGER ACTIVITIES (dumpsys activity activities)\nDisplay #0 (activities from top to bottom):\n  * Task{abc #1 type=home U=0 visible=true visibleRequested=true mode=fullscreen}\n    * Task{def #7 type=home I=com.google.android.apps.nexuslauncher/.NexusLauncherActivity U=0 rootTaskId=1 visible=true visibleRequested=true mode=fullscreen}\n      topResumedActivity=ActivityRecord{abc u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t7}\n  ResumedActivity: ActivityRecord{abc u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t7}\n  mCurrentFocus=Window{abc u0 com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity}\n"
+}
