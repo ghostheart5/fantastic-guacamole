@@ -53,10 +53,10 @@ appId: com.ghostheart5.chronospark
     timeout: 10000
 - scrollUntilVisible:
     element:
-      text: "^CONFIRM SELECTED$"
+      text: "^CREATE TASK$"
     direction: DOWN
     timeout: 10000
-- tapOn: "^CONFIRM SELECTED$"
+- tapOn: "^CREATE TASK$"
 - extendedWaitUntil:
     visible: "(?s).*Confirmed and saved exactly once.*"
     timeout: 10000

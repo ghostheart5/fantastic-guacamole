@@ -17,7 +17,7 @@ Wrong explicit packages and missing, wrong or duplicate flow app IDs fail closed
 
 Authentication recognizes local profile creation/reopening, completes setup
 without creating a task, and waits for guide dismissal before feature navigation.
-Creator automation uses the current `CONFIRM SELECTED` action, observes the
+Creator automation retains the entity-specific single-operation action, observes the
 saved receipt and explicitly opens Timeline before persisted task readback.
 
 Local validation: 30 focused Flutter environment/profile/backend tests, 101
