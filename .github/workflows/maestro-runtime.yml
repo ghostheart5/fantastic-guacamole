@@ -183,6 +183,9 @@ jobs:
       - name: Ensure dependency lockfile is reproducible
         run: git diff --exit-code -- pubspec.lock
 
+      - name: Validate isolated QA flow preparation
+        run: python3 -m unittest discover -s scripts -p test_prepare_isolated_maestro_flows.py -v
+
       - name: Complete initial QA compilation before emulator startup
         timeout-minutes: 22
         run: |

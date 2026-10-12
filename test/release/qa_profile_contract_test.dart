@@ -10,10 +10,22 @@ void main() {
             as Map<String, dynamic>;
 
     expect(defines['CHRONOSPARK_APP_FLAVOR'], 'qa');
-    expect(defines['CHRONOSPARK_ENABLE_MOCK_LOGIN'], isTrue);
-    expect(defines['CHRONOSPARK_ENABLE_MOCK_MODE'], isTrue);
-    expect(defines['CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS'], isTrue);
-    expect(defines['CHRONOSPARK_PAYWALL_DISABLED'], isTrue);
+    expect(defines['CHRONOSPARK_BACKEND_MODE'], 'local');
+    expect(defines['CHRONOSPARK_ENABLE_MOCK_LOGIN'], isFalse);
+    expect(defines['CHRONOSPARK_ENABLE_MOCK_MODE'], isFalse);
+    expect(defines['CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS'], isFalse);
+    expect(defines['CHRONOSPARK_PAYWALL_DISABLED'], isFalse);
+    final Map<String, dynamic> localPolicy =
+        jsonDecode(
+              File(
+                'tool/local_public_policy_test_defines.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+    expect(
+      defines['CHRONOSPARK_REMOTE_CONFIG_JSON'],
+      localPolicy['CHRONOSPARK_REMOTE_CONFIG_JSON'],
+    );
     expect(defines['CHRONOSPARK_ENABLE_CLOUD_SYNC'], isFalse);
     expect(defines['CHRONOSPARK_ENABLE_ANALYTICS'], isFalse);
     expect(defines['CHRONOSPARK_ENABLE_CRASH_REPORTING'], isFalse);

@@ -67,10 +67,19 @@ tags:
 - runFlow: ../subflows/reveal-creator-confirmation.yaml
 - scrollUntilVisible:
     element:
-      text: "^CREATE TASK$"
+      text: "^CONFIRM SELECTED$"
     direction: DOWN
     timeout: 10000
-- tapOn: "^CREATE TASK$"
+- tapOn: "^CONFIRM SELECTED$"
+- extendedWaitUntil:
+    visible: "(?s).*Confirmed and saved exactly once.*"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Open Timeline"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Open Timeline"
 
 # The confirmed creation routes to Timeline and the task must actually be there.
 # The selected clock time can already be past; both copy branches represent an
@@ -110,10 +119,10 @@ tags:
 - runFlow: ../subflows/reveal-creator-confirmation.yaml
 - scrollUntilVisible:
     element:
-      text: "^CREATE DAILY RHYTHM$"
+      text: "^CONFIRM SELECTED$"
     direction: DOWN
     timeout: 10000
-- tapOn: "^CREATE DAILY RHYTHM$"
+- tapOn: "^CONFIRM SELECTED$"
 - extendedWaitUntil:
     visible: "(?s).*Confirmed and saved exactly once.*"
     timeout: 10000
@@ -204,10 +213,10 @@ tags:
 - runFlow: ../subflows/reveal-creator-confirmation.yaml
 - scrollUntilVisible:
     element:
-      text: "^CREATE GOAL$"
+      text: "^CONFIRM SELECTED$"
     direction: DOWN
     timeout: 10000
-- tapOn: "^CREATE GOAL$"
+- tapOn: "^CONFIRM SELECTED$"
 - extendedWaitUntil:
     visible: "(?s).*Confirmed and saved exactly once.*"
     timeout: 10000

@@ -574,6 +574,17 @@ $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $runRoot = Join-Path $ArtifactsRoot "$timestamp-$shortCommit-$Suite"
 $runRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $runRoot))
 New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
+if ($BuildProfile -eq 'qa') {
+    if ($PSBoundParameters.ContainsKey('PackageName') -and $PackageName -ne 'com.ghostheart5.chronospark.qa') {
+        throw 'Isolated QA must target com.ghostheart5.chronospark.qa.'
+    }
+    $PackageName = 'com.ghostheart5.chronospark.qa'
+    $prepareArguments = @('scripts/prepare_isolated_maestro_flows.py', '--output', (Join-Path $runRoot 'isolated-flows'))
+    foreach ($sourceFlow in $resolvedFlows) { $prepareArguments += @('--flow', $sourceFlow) }
+    $preparedJson = & python3 @prepareArguments
+    if ($LASTEXITCODE -ne 0) { throw 'Isolated QA flow preparation failed.' }
+    $resolvedFlows = @($preparedJson | ConvertFrom-Json)
+}
 $sequenceConfiguration = $null
 if ($Suite -eq 'qa-journeys') {
     $sequenceConfiguration = New-MaestroSequenceConfig -Flows $resolvedFlows `
