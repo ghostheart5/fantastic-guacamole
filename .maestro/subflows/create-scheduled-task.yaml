@@ -57,9 +57,10 @@ appId: com.ghostheart5.chronospark
     direction: DOWN
     timeout: 10000
 - tapOn: "^CREATE TASK$"
-- extendedWaitUntil:
-    visible: "(?s).*Confirmed and saved exactly once.*"
-    timeout: 10000
+- runFlow:
+    file: verify-creator-saved-receipt.yaml
+    env:
+      SAVED_ITEM: 'Task: ${TASK_TITLE}'
 - scrollUntilVisible:
     element:
       text: "Open Timeline"

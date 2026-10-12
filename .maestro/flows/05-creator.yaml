@@ -71,22 +71,10 @@ tags:
     direction: DOWN
     timeout: 10000
 - tapOn: "^CREATE TASK$"
-- extendedWaitUntil:
-    visible: "(?s).*(?:Verify where the work landed|Confirmed and saved exactly once).*"
-    timeout: 10000
-# A modal guide correctly hides the covered receipt from accessibility.
-# Pause it before requiring the receipt and the saved-result navigation.
 - runFlow:
-    when:
-      visible: "Verify where the work landed"
-    commands:
-      - tapOn: "Pause guide"
-      - extendedWaitUntil:
-          notVisible: "Verify where the work landed"
-          timeout: 10000
-- extendedWaitUntil:
-    visible: "(?s).*Confirmed and saved exactly once.*"
-    timeout: 10000
+    file: ../subflows/verify-creator-saved-receipt.yaml
+    env:
+      SAVED_ITEM: 'Task: Maestro smoke task'
 - scrollUntilVisible:
     element:
       text: "Open Timeline"
@@ -136,9 +124,10 @@ tags:
     direction: DOWN
     timeout: 10000
 - tapOn: "^CREATE DAILY RHYTHM$"
-- extendedWaitUntil:
-    visible: "(?s).*Confirmed and saved exactly once.*"
-    timeout: 10000
+- runFlow:
+    file: ../subflows/verify-creator-saved-receipt.yaml
+    env:
+      SAVED_ITEM: 'Daily Rhythm: Maestro review rhythm'
 - scrollUntilVisible:
     element:
       text: "Manage Daily Rhythms"
@@ -230,9 +219,10 @@ tags:
     direction: DOWN
     timeout: 10000
 - tapOn: "^CREATE GOAL$"
-- extendedWaitUntil:
-    visible: "(?s).*Confirmed and saved exactly once.*"
-    timeout: 10000
+- runFlow:
+    file: ../subflows/verify-creator-saved-receipt.yaml
+    env:
+      SAVED_ITEM: 'Goal: Maestro preserved goal'
 - stopApp
 - launchApp
 - runFlow: ../subflows/sign-in.yaml

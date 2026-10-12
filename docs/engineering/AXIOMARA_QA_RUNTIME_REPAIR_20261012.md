@@ -35,9 +35,17 @@ for the post-save guide or receipt, pauses a covering modal, then requires the
 unchanged receipt before saved-result navigation. The mandatory saved-task title, scheduled-state explanation and
 SCHEDULED readback remain unchanged; a fresh hosted run must pass them.
 
+Run 38285741979 confirms the modal is dismissed and its duplicate accessibility
+action is removed. Creator then failed a stale snackbar assertion: pausing the
+guide replaces the temporary saved toast. The screenshot and hierarchy contain
+the persistent CREATION SAVED receipt, confirmation message, one saved change
+and exact task title. A shared receipt subflow now requires all four persistent
+fields for task, rhythm and goal creation; transient toast timing is no longer
+the save oracle. Persisted Timeline task readback remains mandatory.
+
 Local validation: 30 focused Flutter environment/profile/backend tests, 101
 workflow contract tests and 5 Python flow-preparation tests passed. Maestro
-validation checked 30 files; the GitHub workflow validator checked 15 workflows.
+validation checked 31 files; the GitHub workflow validator checked 15 workflows.
 Actual APK compilation and hosted UI execution must establish their own results.
 
 This repair does not establish production subscription or external-AI acceptance.
