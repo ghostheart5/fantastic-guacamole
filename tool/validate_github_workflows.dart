@@ -37,7 +37,12 @@ _requiredPrimaryCiGatesByJob = <String, List<({String label, String command})>>{
     (
       label: 'full Flutter coverage test',
       command:
-          'dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/flutter-tests.jsonl --manifest artifacts/flutter-test-evidence/flutter-tests-manifest.json --timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1',
+          'dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/flutter-tests.jsonl --manifest artifacts/flutter-test-evidence/flutter-tests-manifest.json --timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1 --exclude-tags=local-public-policy',
+    ),
+    (
+      label: 'isolated local public-policy planner',
+      command:
+          'dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/local-policy-tests.jsonl --manifest artifacts/flutter-test-evidence/local-policy-tests-manifest.json --timeout-seconds 600 -- test/release/local_public_policy_planner_test.dart --no-pub --dart-define-from-file=tool/local_public_policy_test_defines.json',
     ),
     (
       label: 'QA compile-time configuration',

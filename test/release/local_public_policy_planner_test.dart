@@ -29,9 +29,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
-  final Object candidateConfigurationOnly = Env.isLocalMode
-      ? false
-      : 'Run with the isolated local candidate dart-define file.';
 
   test(
     'compiled policy admits real on-device first-choice request',
@@ -92,7 +89,7 @@ void main() {
         isFalse,
       );
     },
-    skip: candidateConfigurationOnly,
+    tags: 'local-public-policy',
   );
 
   test(
@@ -117,7 +114,7 @@ void main() {
         throwsA(isA<AssistantReleaseBlockedException>()),
       );
     },
-    skip: candidateConfigurationOnly,
+    tags: 'local-public-policy',
   );
 }
 
