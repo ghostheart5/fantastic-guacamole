@@ -247,62 +247,71 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
                   (measured.bottom + 8).clamp(8, visibleHeight - 8),
                 );
 
-          return Stack(
-            children: <Widget>[
-              if (target == null)
-                Positioned.fill(child: _blocker())
-              else ...<Widget>[
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  right: 0,
-                  height: target.top,
-                  child: _blocker(),
-                ),
-                Positioned(
-                  left: 0,
-                  top: target.top,
-                  width: target.left,
-                  height: target.height,
-                  child: _blocker(),
-                ),
-                Positioned(
-                  left: target.right,
-                  top: target.top,
-                  right: 0,
-                  height: target.height,
-                  child: _blocker(),
-                ),
-                Positioned(
-                  left: 0,
-                  top: target.bottom,
-                  right: 0,
-                  bottom: 0,
-                  child: _blocker(),
-                ),
-                Positioned.fromRect(
-                  rect: target,
-                  child: IgnorePointer(
-                    ignoring: widget.allowTargetInteraction,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.neonCyan, width: 2),
-                        boxShadow: <BoxShadow>[
-                          BoxShadow(
-                            color: AppColors.neonCyan.withValues(alpha: .45),
-                            blurRadius: 18,
-                            spreadRadius: 2,
+          // Modal guides absorb taps on the screen below. Keep that covered
+          // screen out of accessibility navigation too; interactive spotlights
+          // must retain the real target's accessible actions.
+          return BlockSemantics(
+            blocking: !widget.allowTargetInteraction,
+            child: Stack(
+              children: <Widget>[
+                if (target == null)
+                  Positioned.fill(child: _blocker())
+                else ...<Widget>[
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    right: 0,
+                    height: target.top,
+                    child: _blocker(),
+                  ),
+                  Positioned(
+                    left: 0,
+                    top: target.top,
+                    width: target.left,
+                    height: target.height,
+                    child: _blocker(),
+                  ),
+                  Positioned(
+                    left: target.right,
+                    top: target.top,
+                    right: 0,
+                    height: target.height,
+                    child: _blocker(),
+                  ),
+                  Positioned(
+                    left: 0,
+                    top: target.bottom,
+                    right: 0,
+                    bottom: 0,
+                    child: _blocker(),
+                  ),
+                  Positioned.fromRect(
+                    rect: target,
+                    child: IgnorePointer(
+                      ignoring: widget.allowTargetInteraction,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.neonCyan,
+                            width: 2,
                           ),
-                        ],
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: AppColors.neonCyan.withValues(alpha: .45),
+                              blurRadius: 18,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                _pointer(target, size.width, visibleHeight),
+                  _pointer(target, size.width, visibleHeight),
+                ],
+                _callout(target, size.width, visibleHeight, safePadding),
               ],
-              _callout(target, size.width, visibleHeight, safePadding),
-            ],
+            ),
           );
         },
       ),

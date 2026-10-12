@@ -6,12 +6,103 @@ import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guide_overlay.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  testWidgets('accessible review guide action opens the real Timeline route', (
+    WidgetTester tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final router = GoRouter(
+      initialLocation: RoutePaths.creator,
+      routes: [
+        GoRoute(
+          path: RoutePaths.creator,
+          builder: (context, state) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () => fail('Covered screen action was activated'),
+                child: const Text('Open Timeline'),
+              ),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: RoutePaths.timeline,
+          builder: (context, state) =>
+              const Scaffold(body: Text('Timeline route opened')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          onboardingCompleteProvider.overrideWith(_OnboardingComplete.new),
+          authUserProvider.overrideWith(
+            (ref) => Stream<User?>.value(
+              const User(
+                id: 'account-a',
+                email: 'account-a@example.test',
+                emailVerified: true,
+              ),
+            ),
+          ),
+          authSessionBoundaryProvider.overrideWith(
+            () => _FixedBoundary(
+              const AuthSessionBoundary(
+                generation: 1,
+                userId: 'account-a',
+                isTransitioning: false,
+                isStorageReady: true,
+              ),
+            ),
+          ),
+          adaptiveGuidanceProvider.overrideWith(_TimelineReviewGuidance.new),
+          dailyDecisionIntelligenceProvider.overrideWith((ref) => _decision),
+          firstRunTutorialTaskProvider.overrideWith(
+            (ref, taskId) async => null,
+          ),
+        ],
+        child: MaterialApp.router(
+          routerConfig: router,
+          builder: (context, child) => Stack(
+            children: [
+              ?child,
+              ListenableBuilder(
+                listenable: router.routerDelegate,
+                builder: (context, child) =>
+                    AdaptiveGuideOverlay(router: router),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Verify where the work landed'), findsOneWidget);
+    final action = tester.getSemantics(
+      find.widgetWithText(FilledButton, 'Open Timeline'),
+    );
+    tester.binding.renderViews.single.owner!.semanticsOwner!.performAction(
+      action.id,
+      SemanticsAction.tap,
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(router.routerDelegate.state.uri.path, RoutePaths.timeline);
+    expect(find.text('Timeline route opened'), findsOneWidget);
+    expect(find.text('Verify where the work landed'), findsNothing);
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
+  });
+
   testWidgets(
     'guide follows route entry and back navigation from app builder',
     (WidgetTester tester) async {
@@ -226,6 +317,18 @@ class _FixedGuidance extends AdaptiveGuidanceNotifier {
     completedLessons: <GuidanceLessonId>{},
     laterLessons: <GuidanceLessonId>{},
     replayLessons: <GuidanceLessonId>{GuidanceLessonId.createFirstItem},
+  );
+}
+
+class _TimelineReviewGuidance extends AdaptiveGuidanceNotifier {
+  @override
+  Future<AdaptiveGuidanceState> build() async => const AdaptiveGuidanceState(
+    milestones: {},
+    counts: {},
+    skippedLessons: {},
+    completedLessons: {},
+    replayLessons: {GuidanceLessonId.reviewTimeline},
+    expectedFirstRunCreatorTaskIds: {'saved-task'},
   );
 }
 
