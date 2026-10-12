@@ -28,8 +28,11 @@ saved-result action to accessibility. Maestro selected the covered action.
 Modal tutorials now block underlying screen semantics while interactive
 spotlights preserve the real target's actions. A regression reproduced the
 two-action collision before the fix and verifies accessible guide activation,
-mode transitions and restoration after dismissal. All 19 tutorial/guide tests
-pass locally. The mandatory saved-task title, scheduled-state explanation and
+mode transitions and restoration after dismissal. An actual GoRouter/guide
+regression also activates the accessible guide action and verifies Timeline
+navigation. All 20 tutorial/guide tests pass locally. Creator automation waits
+for the post-save guide or receipt, pauses a covering modal, then requires the
+unchanged receipt before saved-result navigation. The mandatory saved-task title, scheduled-state explanation and
 SCHEDULED readback remain unchanged; a fresh hosted run must pass them.
 
 Local validation: 30 focused Flutter environment/profile/backend tests, 101
