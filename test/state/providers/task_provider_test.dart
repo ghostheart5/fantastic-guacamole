@@ -277,6 +277,58 @@ void main() {
   );
 
   test(
+    'completion waits for uncached reward context before durable mutation',
+    () async {
+      final repository = _SlowContextTaskRepository();
+      final TaskEntity seed = TaskEntity(
+        id: 'task-stale',
+        title: 'Recover score context',
+        createdAt: DateTime.utc(2026, 7, 6),
+        difficulty: 3,
+        priority: 4,
+        energyRequired: 3,
+      );
+      await repository.saveTask(seed);
+
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('account-1'),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenNotOwned,
+          ),
+          secureStoreProvider.overrideWithValue(
+            SecureStore(backend: InMemorySecureStoreBackend()),
+          ),
+          tasksProvider.overrideWith((Ref ref) async => const <Task>[]),
+          domainTaskRepositoryProvider.overrideWithValue(repository),
+          completeTaskUseCaseProvider.overrideWithValue(
+            CompleteTask(repository),
+          ),
+          optimizationConfigProvider.overrideWith(
+            (Ref ref) async => OptimizationConfig.neutral(),
+          ),
+          learningProvider.overrideWith(_FixedLearningController.new),
+          profileProvider.overrideWith(_TestProfileController.new),
+          siStateProvider.overrideWith(_FixedSiStateController.new),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(taskActionsProvider)
+          .completeTask('task-stale', notify: false);
+
+      final TaskEntity? stored = await repository.getTaskById('task-stale');
+      expect(stored?.isCompleted, isTrue);
+      final score = container.read(completionScoreProvider);
+      expect(score, isNotNull);
+      expect(score!.xp, greaterThan(0));
+    },
+  );
+
+  test(
     'idempotent durable completion suppresses provider side effects',
     () async {
       final _MemoryTaskRepository repository = _MemoryTaskRepository();
@@ -509,4 +561,15 @@ class _FailingTaskRepository implements ITaskRepository {
 
   @override
   Future<void> saveTask(TaskEntity task) async {}
+}
+
+class _SlowContextTaskRepository extends _MemoryTaskRepository {
+  int lookups = 0;
+  @override
+  Future<TaskEntity?> getTaskById(String id) async {
+    if (++lookups == 1) {
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    }
+    return super.getTaskById(id);
+  }
 }

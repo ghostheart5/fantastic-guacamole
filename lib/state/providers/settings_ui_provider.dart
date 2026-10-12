@@ -1,4 +1,7 @@
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_operation.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
@@ -82,15 +85,51 @@ class SettingsUiActions {
   }
 
   Future<void> setGoalRemindersEnabled(bool enabled) async {
-    await _ref
-        .read(reminderOrchestratorServiceProvider)
-        .setGoalRemindersEnabled(enabled);
+    final owner = AccountOperation.capture(_ref);
+    owner.check();
+    final reminders = _ref.read(reminderOrchestratorServiceProvider);
+    await owner.wait(reminders.setGoalRemindersEnabled(enabled));
+    if (enabled) await _reconcileReminders(owner);
   }
 
   Future<void> setHabitRemindersEnabled(bool enabled) async {
-    await _ref
-        .read(reminderOrchestratorServiceProvider)
-        .setHabitRemindersEnabled(enabled);
+    final owner = AccountOperation.capture(_ref);
+    owner.check();
+    final reminders = _ref.read(reminderOrchestratorServiceProvider);
+    await owner.wait(reminders.setHabitRemindersEnabled(enabled));
+    if (enabled) await _reconcileReminders(owner);
+  }
+
+  Future<void> refreshNotificationPermissionAndReminders() async {
+    final owner = AccountOperation.capture(_ref);
+    if (!owner.isCurrent) return;
+    await _reconcileReminders(owner);
+  }
+
+  Future<void> _reconcileReminders(AccountOperation owner) async {
+    owner.check();
+    final scheduler = _ref.read(notificationSchedulerProvider);
+    final granted = await owner.wait(scheduler.init(requestPermissions: false));
+    final goals = _ref.read(getGoalsUseCaseProvider).call();
+    owner.check();
+    final habits = await owner.wait(_ref.read(getHabitsUseCaseProvider).call());
+    await owner.wait(
+      _ref
+          .read(reminderOrchestratorServiceProvider)
+          .reconcileAfterRestore(
+            goals: goals,
+            habits: habits,
+            permissionGranted: granted,
+            shouldContinue: () => owner.isCurrent,
+          ),
+    );
+    await owner.wait(
+      _reminderService.reconcileAfterRestore(
+        permissionGranted: granted,
+        shouldContinue: () => owner.isCurrent,
+      ),
+    );
+    _ref.invalidate(automationNotificationsProvider);
   }
 
   Future<void> setDailyPlanningReminder({
@@ -124,17 +163,8 @@ class SettingsUiActions {
     return _ref.read(appLocationServiceProvider).openLocationSettings();
   }
 
-  Future<bool> openSystemAppSettings() async {
-    final external = _ref.read(externalUrlServiceProvider);
-    const List<String> candidates = <String>['app-settings:', 'App-Prefs:root'];
-
-    for (final String uri in candidates) {
-      final bool opened = await external.open(Uri.parse(uri));
-      if (opened) {
-        return true;
-      }
-    }
-    return false;
+  Future<bool> openSystemAppSettings() {
+    return _ref.read(appLocationServiceProvider).openAppSettings();
   }
 
   Future<TelemetryConsent> saveTelemetryConsent({

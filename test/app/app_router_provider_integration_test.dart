@@ -798,8 +798,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      _expectUri(harness, RoutePaths.timeline);
-      expect(harness.container.read(appFlowProvider), AppView.timeline);
+      _expectUri(harness, RoutePaths.smartPlanner);
+      expect(harness.container.read(appFlowProvider), AppView.smartPlanner);
       expect(
         tester.state<State<NavigationShell>>(find.byType(NavigationShell)),
         same(shellState),

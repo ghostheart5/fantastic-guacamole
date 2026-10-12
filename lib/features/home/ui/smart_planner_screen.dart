@@ -100,6 +100,17 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   @override
   void initState() {
     super.initState();
+    // Onboarding promises a first choice without requiring cloud consent or
+    // a purchase. Consume that request through the existing local planner.
+    _useLocalTools = ref.read(smartPlannerFirstValueProvider) != null;
+    ref.listenManual(smartPlannerFirstValueProvider, (previous, next) {
+      if (next == null) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _useLocalTools = true);
+        unawaited(_consumeFirstValueRequest());
+      });
+    });
     final voiceService = ref.read(voiceServiceProvider);
     _stopVoice = voiceService.stop;
     final ConsentedHumanContext humanContext = ref.read(
@@ -135,6 +146,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         .takeFor(accountScopeId: accountScopeId, now: DateTime.now().toUtc());
     if (request == null) return;
 
+    _clearChangedCheckIn();
     setState(() {
       final String? prompt = request.prompt;
       if (prompt != null) _notesController.text = prompt;

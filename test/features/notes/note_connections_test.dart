@@ -9,6 +9,8 @@ import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 import 'package:fantastic_guacamole/features/notes/ui/note_detail_screen.dart';
+import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
+import 'package:go_router/go_router.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
@@ -61,6 +63,161 @@ void main() {
   });
   tearDown(() => container.dispose());
 
+  for (final textScale in [1.0, 2.0, 3.0]) {
+    testWidgets(
+      'task links distinguish active and completed recurring occurrences at ${textScale}x text',
+      (tester) async {
+        final tasks = container.read(domainTaskRepositoryProvider);
+        await tasks.deleteTask('task');
+        await tasks.saveTask(
+          TaskEntity(
+            id: 'active-daily',
+            title: 'Fold one shirt',
+            createdAt: now,
+            scheduledFor: now.add(const Duration(days: 1)),
+          ),
+        );
+        await tasks.saveTask(
+          TaskEntity(
+            id: 'completed-daily',
+            title: 'Fold one shirt',
+            createdAt: now,
+            scheduledFor: now,
+            isCompleted: true,
+            completedAt: now,
+          ),
+        );
+        await tester.binding.setSurfaceSize(const Size(600, 1000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  disableAnimations: true,
+                  textScaler: TextScaler.linear(textScale),
+                ),
+                child: child!,
+              ),
+              home: const NoteDetailScreen(noteId: 'note'),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Edit and link'));
+        await tester.pumpAndSettle();
+        final taskPicker = find
+            .byWidgetPredicate((w) => w is DropdownButtonFormField<String>)
+            .at(1);
+        await tester.ensureVisible(taskPicker);
+        await tester.tap(taskPicker);
+        await tester.pumpAndSettle();
+        expect(find.text('Fold one shirt'), findsNWidgets(2));
+        expect(find.textContaining('Active ·'), findsOneWidget);
+        expect(find.textContaining('Completed ·'), findsOneWidget);
+        await tester.ensureVisible(find.textContaining('Completed ·'));
+        await tester.tap(find.textContaining('Completed ·'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Save'));
+        await tester.pumpAndSettle();
+        expect(repository.items.single.taskId, 'completed-daily');
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final action in ['confirm', 'cancel', 'account-change']) {
+    testWidgets('note planner handoff across Library stack: $action', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(600, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final plannerPath = routePathForAppView(AppView.smartPlanner);
+      final router = GoRouter(
+        initialLocation: '/creator',
+        routes: [
+          GoRoute(
+            path: '/creator',
+            builder: (context, state) => Scaffold(
+              body: TextButton(
+                child: const Text('Open Library'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => Scaffold(
+                      body: Column(
+                        children: [
+                          const Text('Library route'),
+                          TextButton(
+                            child: const Text('Open saved note'),
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    const NoteDetailScreen(noteId: 'note'),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          GoRoute(
+            path: plannerPath,
+            builder: (_, state) =>
+                const Scaffold(body: Text('Planner destination')),
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            routerConfig: router,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: true),
+              child: child!,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open Library'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open saved note'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Use in planning'));
+      await tester.pumpAndSettle();
+      if (action == 'account-change') {
+        scope = AccountStorageScope.authenticated('owner-b');
+        container.invalidate(accountStorageScopeProvider);
+        await tester.pump();
+      }
+      await tester.tap(
+        find.text(action == 'cancel' ? 'Cancel' : 'Use this note'),
+      );
+      await tester.pumpAndSettle();
+      if (action == 'confirm') {
+        expect(router.routeInformationProvider.value.uri.path, plannerPath);
+        expect(find.text('Planner destination'), findsOneWidget);
+        expect(find.text('Library route'), findsNothing);
+        expect(find.byType(NoteDetailScreen), findsNothing);
+        expect(container.read(planningNoteSelectionProvider), 'note');
+      } else {
+        expect(router.routeInformationProvider.value.uri.path, '/creator');
+        expect(container.read(planningNoteSelectionProvider), isNull);
+        expect(find.text('Planner destination'), findsNothing);
+      }
+      expect(tester.takeException(), isNull);
+      container.read(planningNoteSelectionProvider.notifier).clear();
+      await tester.pumpWidget(const SizedBox.shrink());
+      router.dispose();
+    });
+  }
+
   test(
     'note links survive edit and require an existing matching commitment',
     () async {
@@ -83,6 +240,24 @@ void main() {
           .updateNote(current.copyWith(clearGoalId: true, clearTaskId: true));
       expect(repository.items.single.goalId, isNull);
       expect(repository.items.single.taskId, isNull);
+    },
+  );
+
+  test(
+    'archive stays available for immediate restore with the same identity',
+    () async {
+      final original = (await container.read(notesProvider.future)).single;
+      await container.read(notesProvider.notifier).archiveNote(original.id);
+      final archived = (await container.read(notesProvider.future)).single;
+      expect(archived.id, original.id);
+      expect(archived.isArchived, isTrue);
+      expect(archived.body, original.body);
+      await container.read(notesProvider.notifier).restoreNote(original.id);
+      final restored = (await container.read(notesProvider.future)).single;
+      expect(restored.id, original.id);
+      expect(restored.isArchived, isFalse);
+      expect(restored.body, original.body);
+      expect(repository.items, hasLength(1));
     },
   );
 

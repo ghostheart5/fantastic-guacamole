@@ -15,6 +15,8 @@ class HabitEntity {
     this.description,
     this.cadence = HabitCadence.daily,
     this.targetCount = 1,
+    this.frequencyRevision = 0,
+    this.frequencyStartedAt,
     this.stepTaskIds = const <String>[],
     this.status = HabitStatus.active,
   }) : updatedAt = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -27,6 +29,8 @@ class HabitEntity {
   final String? description;
   final HabitCadence cadence;
   final int targetCount;
+  final int frequencyRevision;
+  final DateTime? frequencyStartedAt;
   final List<String> stepTaskIds;
   final HabitStatus status;
 
@@ -38,6 +42,8 @@ class HabitEntity {
     String? description,
     HabitCadence? cadence,
     int? targetCount,
+    int? frequencyRevision,
+    DateTime? frequencyStartedAt,
     List<String>? stepTaskIds,
     DateTime? updatedAt,
     String? userId,
@@ -52,6 +58,8 @@ class HabitEntity {
       description: description ?? this.description,
       cadence: cadence ?? this.cadence,
       targetCount: targetCount ?? this.targetCount,
+      frequencyRevision: frequencyRevision ?? this.frequencyRevision,
+      frequencyStartedAt: frequencyStartedAt ?? this.frequencyStartedAt,
       stepTaskIds: stepTaskIds ?? this.stepTaskIds,
       status: status ?? this.status,
     );
@@ -67,6 +75,8 @@ class HabitEntity {
       'description': description,
       'cadence': cadence.name,
       'targetCount': targetCount,
+      'frequencyRevision': frequencyRevision,
+      'frequencyStartedAt': frequencyStartedAt?.toIso8601String(),
       'stepTaskIds': stepTaskIds,
       'status': status.name,
       'active': active,
@@ -74,6 +84,27 @@ class HabitEntity {
   }
 
   factory HabitEntity.fromJson(Map<String, dynamic> json) {
+    final Object? rawRevision = json['frequencyRevision'];
+    if (rawRevision != null && (rawRevision is! int || rawRevision < 0)) {
+      throw const FormatException(
+        'Daily Rhythm frequency revision is invalid.',
+      );
+    }
+    final int revision = rawRevision as int? ?? 0;
+    final DateTime? frequencyStart = DateTime.tryParse(
+      json['frequencyStartedAt']?.toString() ?? '',
+    );
+    final DateTime? created = DateTime.tryParse(
+      json['createdAt']?.toString() ?? '',
+    );
+    if (revision > 0 &&
+        (frequencyStart == null ||
+            created == null ||
+            frequencyStart.isBefore(created))) {
+      throw const FormatException(
+        'Revised Daily Rhythm requires a valid frequency start.',
+      );
+    }
     return HabitEntity(
       id: json['id']?.toString() ?? '',
       title:
@@ -93,6 +124,8 @@ class HabitEntity {
         orElse: () => HabitCadence.daily,
       ),
       targetCount: ((json['targetCount'] as num?)?.toInt() ?? 1).clamp(1, 365),
+      frequencyRevision: revision,
+      frequencyStartedAt: frequencyStart,
       stepTaskIds: (json['stepTaskIds'] as List<dynamic>? ?? const <dynamic>[])
           .map((dynamic value) => value.toString())
           .toList(growable: false),

@@ -182,8 +182,11 @@ void main() {
         final _Harness harness = _Harness();
         addTearDown(harness.dispose);
         harness.tasksFuture = Future<List<Task>>.value(const <Task>[]);
-        harness.durableMutation = (_) async =>
-            CompletionMutationOutcome.applied;
+        var completions = 0;
+        harness.durableMutation = (_) async {
+          completions++;
+          return CompletionMutationOutcome.applied;
+        };
         harness.accountA.lookup = Completer<TaskEntity?>();
         await harness.container.read(tasksProvider.future);
         final Future<void> action = harness.actions.completeTask('shared-id');
@@ -192,8 +195,8 @@ void main() {
 
         if (switchAccount) {
           harness.signIn('account-b');
-          await action;
           harness.accountA.lookup!.completeError(failure);
+          await action;
           await Future<void>.delayed(Duration.zero);
         } else {
           final Future<void> expectation = expectLater(
@@ -203,6 +206,7 @@ void main() {
           harness.accountA.lookup!.completeError(failure);
           await expectation;
         }
+        expect(completions, 0);
         expect(harness.events, isEmpty);
       },
     );

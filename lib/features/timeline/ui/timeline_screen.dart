@@ -206,6 +206,21 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       grouped.putIfAbsent(key, () => <TimelineEventEntity>[]).add(event);
     }
     final List<String> days = grouped.keys.toList(growable: false);
+    // Keep each event lazy even when a single day contains a long history.
+    final rows =
+        <({String day, TimelineEventEntity? event, bool first, bool last})>[];
+    for (final day in days) {
+      final events = grouped[day]!;
+      rows.add((day: day, event: null, first: false, last: false));
+      for (var index = 0; index < events.length; index++) {
+        rows.add((
+          day: day,
+          event: events[index],
+          first: day == days.first && index == 0,
+          last: index == events.length - 1,
+        ));
+      }
+    }
     String? tutorialEventId;
     String? tutorialTaskId;
     for (final TimelineEventEntity event in filtered) {
@@ -220,12 +235,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     _focusTutorialTaskIfHidden(
       combined: combined,
       expectedTaskIds: expectedTutorialTaskIds,
-      visibleDayIndex: tutorialEventId == null
+      visibleEventIndex: tutorialEventId == null
           ? null
-          : days.indexWhere(
-              (String day) => grouped[day]!.any(
-                (TimelineEventEntity event) => event.id == tutorialEventId,
-              ),
+          : filtered.indexWhere(
+              (TimelineEventEntity event) => event.id == tutorialEventId,
             ),
     );
     final String? publishedTutorialTaskId = ref.watch(
@@ -385,28 +398,29 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate((ctx, i) {
-                      final String day = days[i];
-                      final List<TimelineEventEntity> dayEvents = grouped[day]!;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _TimelineDayHeader(
-                            label: day,
-                            eventCount: dayEvents.length,
+                      final row = rows[i];
+                      final event = row.event;
+                      if (event == null) {
+                        return Semantics(
+                          container: true,
+                          header: true,
+                          child: _TimelineDayHeader(
+                            label: row.day,
+                            eventCount: grouped[row.day]!.length,
                           ),
-                          ...List<Widget>.generate(
-                            dayEvents.length,
-                            (int eventIndex) => _TimelineEventTile(
-                              event: dayEvents[eventIndex],
-                              tutorialTarget:
-                                  dayEvents[eventIndex].id == tutorialEventId,
-                              emphasized: i == 0 && eventIndex == 0,
-                              isLast: eventIndex == dayEvents.length - 1,
-                            ),
-                          ),
-                        ],
+                        );
+                      }
+                      return Semantics(
+                        key: ValueKey('timeline-event-semantics-${event.id}'),
+                        container: true,
+                        child: _TimelineEventTile(
+                          event: event,
+                          tutorialTarget: event.id == tutorialEventId,
+                          emphasized: row.first,
+                          isLast: row.last,
+                        ),
                       );
-                    }, childCount: days.length),
+                    }, childCount: rows.length),
                   ),
                 ),
             ],
@@ -423,10 +437,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   void _focusTutorialTaskIfHidden({
     required List<TimelineEventEntity> combined,
     required Set<String> expectedTaskIds,
-    required int? visibleDayIndex,
+    required int? visibleEventIndex,
   }) {
     if (expectedTaskIds.isEmpty ||
-        (visibleDayIndex != null && visibleDayIndex == 0)) {
+        (visibleEventIndex != null && visibleEventIndex == 0)) {
       return;
     }
     TimelineEventEntity? expected;

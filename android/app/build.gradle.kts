@@ -47,6 +47,13 @@ val isReleaseBuild = gradle.startParameter.taskNames.any {
     it.contains("Release", ignoreCase = true)
 }
 
+if (dartDefines["CHRONOSPARK_APP_FLAVOR"] == "qa") {
+    require(isLocalBackend && !isReleaseBuild &&
+        gradle.startParameter.taskNames.none { it.contains("Profile", ignoreCase = true) }) {
+        "Isolated QA requires debug and a local backend."
+    }
+}
+
 val internalBillingValue = dartDefines["CHRONOSPARK_INTERNAL_BILLING_TEST"] ?: "false"
 require(internalBillingValue == "true" || internalBillingValue == "false") {
     "CHRONOSPARK_INTERNAL_BILLING_TEST must be true or false."
@@ -145,6 +152,7 @@ android {
 
     defaultConfig {
         applicationId = releaseApplicationId
+        testInstrumentationRunner = "pl.leancode.patrol.PatrolJUnitRunner"
         manifestPlaceholders["chronosparkBackendMode"] = backendMode
         manifestPlaceholders["chronosparkAutoRegisterPlugins"] = (!isLocalBackend).toString()
         minSdk = flutter.minSdkVersion
@@ -165,6 +173,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            if (dartDefines["CHRONOSPARK_APP_FLAVOR"] == "qa") {
+                applicationIdSuffix = ".qa"
+                versionNameSuffix = "-qa"
+            }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -197,7 +211,16 @@ android {
     }
 }
 
+androidComponents {
+    beforeVariants(selector().all()) { variant ->
+        if (dartDefines["CHRONOSPARK_APP_FLAVOR"] == "qa" && variant.buildType != "debug") {
+            variant.enable = false
+        }
+    }
+}
+
 dependencies {
+
     implementation("androidx.core:core-splashscreen:1.0.1")
     // Billing Library version is intentionally NOT pinned here.
     // in_app_purchase_android manages its own billing dependency; an explicit
