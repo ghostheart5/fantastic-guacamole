@@ -20,6 +20,18 @@ without creating a task, and waits for guide dismissal before feature navigation
 Creator automation retains the entity-specific single-operation action, observes the
 saved receipt and explicitly opens Timeline before persisted task readback.
 
+Hosted run 38280668484 compiled the isolated APK and passed Planner, SI Console,
+Timeline and Progression. Creator saved its task but failed Timeline readback:
+the modal tutorial exposed both its own Open Timeline action and the covered
+saved-result action to accessibility. Maestro selected the covered action.
+
+Modal tutorials now block underlying screen semantics while interactive
+spotlights preserve the real target's actions. A regression reproduced the
+two-action collision before the fix and verifies accessible guide activation,
+mode transitions and restoration after dismissal. All 19 tutorial/guide tests
+pass locally. The mandatory saved-task title, scheduled-state explanation and
+SCHEDULED readback remain unchanged; a fresh hosted run must pass them.
+
 Local validation: 30 focused Flutter environment/profile/backend tests, 101
 workflow contract tests and 5 Python flow-preparation tests passed. Maestro
 validation checked 30 files; the GitHub workflow validator checked 15 workflows.
