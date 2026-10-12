@@ -18,7 +18,14 @@ void main() {
       'dart run tool/run_flutter_tests.dart --report '
       'artifacts/flutter-test-evidence/flutter-tests.jsonl --manifest '
       'artifacts/flutter-test-evidence/flutter-tests-manifest.json '
-      '--timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1';
+      '--timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1 '
+      '--exclude-tags=local-public-policy';
+  const String localPolicyCommand =
+      'dart run tool/run_flutter_tests.dart --report '
+      'artifacts/flutter-test-evidence/local-policy-tests.jsonl --manifest '
+      'artifacts/flutter-test-evidence/local-policy-tests-manifest.json '
+      '--timeout-seconds 600 -- test/release/local_public_policy_planner_test.dart '
+      '--no-pub --dart-define-from-file=tool/local_public_policy_test_defines.json';
 
   String read(String path) =>
       File.fromUri(root.uri.resolve(path)).readAsStringSync();
@@ -100,7 +107,10 @@ void main() {
         './scripts/version_consistency_guard_contract.ps1',
       ]),
     );
-    expect(commands(flutterJob), contains(boundedCoverageCommand));
+    expect(
+      commands(flutterJob),
+      containsAll(<String>[boundedCoverageCommand, localPolicyCommand]),
+    );
     expect(flutterJob['timeout-minutes'], 90);
     expect(
       commands(integrationJob),

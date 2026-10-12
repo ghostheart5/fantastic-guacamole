@@ -1,5 +1,20 @@
 part of 'si_console_screen.dart';
 
+bool _allowSpeechPlayback(BuildContext context, WidgetRef ref) {
+  if (ref.read(voicePlaybackEnabledProvider)) return true;
+  final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        isSpanish
+            ? 'La lectura en voz alta no está disponible en modo local. Lee el texto de la respuesta.'
+            : 'Speech playback is unavailable in local mode. Read the response text instead.',
+      ),
+    ),
+  );
+  return false;
+}
+
 final Expando<String> _siDictationDraftBase = Expando<String>(
   'siDictationDraftBase',
 );
@@ -457,14 +472,17 @@ class _BubbleTile extends ConsumerWidget {
                             ? 'Leer respuesta en voz alta'
                             : 'Read response aloud',
                         child: TextButton.icon(
-                          onPressed: () => unawaited(
-                            ref
-                                .read(voiceServiceProvider)
-                                .speakLocalized(
-                                  msg.text,
-                                  languageCode: isSpanish ? 'es' : 'en',
-                                ),
-                          ),
+                          onPressed: () {
+                            if (!_allowSpeechPlayback(context, ref)) return;
+                            unawaited(
+                              ref
+                                  .read(voiceServiceProvider)
+                                  .speakLocalized(
+                                    msg.text,
+                                    languageCode: isSpanish ? 'es' : 'en',
+                                  ),
+                            );
+                          },
                           icon: const Icon(Icons.volume_up_rounded, size: 16),
                           label: Text(isSpanish ? 'ESCUCHAR' : 'SPEAK'),
                         ),

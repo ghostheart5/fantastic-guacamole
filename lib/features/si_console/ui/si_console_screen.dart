@@ -807,6 +807,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 },
                 onSpeakSummary: _messages.any((_Msg msg) => !msg.isUser)
                     ? () {
+                        if (!_allowSpeechPlayback(context, ref)) return;
                         final List<_Msg> recentAssistant = _messages
                             .where((msg) => !msg.isUser)
                             .toList(growable: false);

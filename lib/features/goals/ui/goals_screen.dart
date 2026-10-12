@@ -469,50 +469,54 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
   bool _expanded = false;
 
   Future<void> _editGoal() async {
-    final title = TextEditingController(text: widget.goal.title);
-    final description = TextEditingController(
-      text: widget.goal.description ?? '',
-    );
+    String nextTitle = '';
+    String nextDescription = '';
     final bool? save = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(journeyText(context, 'Edit goal', 'Editar meta')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            TextField(
-              key: const Key('edit-goal-title'),
-              controller: title,
-              decoration: InputDecoration(
-                labelText: journeyText(context, 'Title', 'Título'),
+      builder: (dialogContext) => TextControllerScope(
+        initialTexts: <String>[
+          widget.goal.title,
+          widget.goal.description ?? '',
+        ],
+        builder: (dialogContext, controllers) => AlertDialog(
+          title: Text(journeyText(context, 'Edit goal', 'Editar meta')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              TextField(
+                key: const Key('edit-goal-title'),
+                controller: controllers[0],
+                decoration: InputDecoration(
+                  labelText: journeyText(context, 'Title', 'Título'),
+                ),
               ),
+              TextField(
+                key: const Key('edit-goal-description'),
+                controller: controllers[1],
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: journeyText(context, 'Description', 'Descripción'),
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(journeyText(context, 'Cancel', 'Cancelar')),
             ),
-            TextField(
-              key: const Key('edit-goal-description'),
-              controller: description,
-              maxLines: 3,
-              decoration: InputDecoration(
-                labelText: journeyText(context, 'Description', 'Descripción'),
-              ),
+            FilledButton(
+              onPressed: () {
+                nextTitle = controllers[0].text.trim();
+                nextDescription = controllers[1].text.trim();
+                Navigator.pop(dialogContext, true);
+              },
+              child: Text(journeyText(context, 'Save', 'Guardar')),
             ),
           ],
         ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(journeyText(context, 'Cancel', 'Cancelar')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(journeyText(context, 'Save', 'Guardar')),
-          ),
-        ],
       ),
     );
-    final String nextTitle = title.text.trim();
-    final String nextDescription = description.text.trim();
-    title.dispose();
-    description.dispose();
     if (save != true || nextTitle.isEmpty || !mounted) return;
     await ref
         .read(goalsProvider.notifier)

@@ -48,7 +48,7 @@ extension _NavigationShellNotificationRouting on _NavigationShellState {
       return;
     }
     if (logicalPayload.startsWith('daily_planning_reminder')) {
-      _goToView(AppView.timeline);
+      _goToView(AppView.smartPlanner);
       return;
     }
     if (logicalPayload.startsWith('habit_reminder')) {

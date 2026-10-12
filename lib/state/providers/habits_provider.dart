@@ -195,6 +195,24 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
         .call(current: current, id: id, title: title),
   );
 
+  Future<void> updateFrequency(
+    String id,
+    HabitCadence cadence,
+    int targetCount,
+  ) => _mutate((current) {
+    final habit = current.where((value) => value.id == id).firstOrNull;
+    if (habit == null) throw StateError('Daily Rhythm not found.');
+    return ref
+        .read(updateHabitUseCaseProvider)
+        .call(
+          current: current,
+          id: id,
+          title: habit.title,
+          cadence: cadence,
+          targetCount: targetCount,
+        );
+  });
+
   Future<void> removeHabit(String id) => _mutate(
     (current) =>
         ref.read(deleteHabitUseCaseProvider).call(current: current, id: id),

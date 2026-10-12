@@ -11,6 +11,52 @@ import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 
 void main() {
+  for (final save in [false, true]) {
+    testWidgets('focused goal edit closes safely; save=$save', (tester) async {
+      final notifier = _EditedGoals();
+      final container = ProviderContainer(
+        overrides: [
+          goalsProvider.overrideWith(() => notifier),
+          goalsReadProvider.overrideWithValue(const AsyncData(<GoalEntity>[])),
+          goalProgressProvider(
+            'release',
+          ).overrideWith((ref) async => const GoalProgressView.empty()),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpWidget(
+        _testApp(container, false, disableAnimations: false),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.byTooltip('Manage goal'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.text('Edit goal'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.enterText(
+        find.byKey(const Key('edit-goal-description')),
+        'QA revised description',
+      );
+      tester.view.viewInsets = const FakeViewPadding(bottom: 120);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text(save ? 'Save' : 'Cancel'));
+      await tester.pump();
+      tester.view.viewInsets = const FakeViewPadding();
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(tester.takeException(), isNull);
+      expect(notifier.updates, save ? 1 : 0);
+      expect(container.read(goalsProvider).single.id, 'release');
+      expect(
+        container.read(goalsProvider).single.description,
+        save ? 'QA revised description' : null,
+      );
+      expect(find.byKey(const Key('edit-goal-description')), findsNothing);
+    });
+  }
   testWidgets(
     'durable save warning closes the form instead of inviting a duplicate retry',
     (tester) async {
@@ -278,23 +324,28 @@ void main() {
   });
 }
 
-Widget _testApp(ProviderContainer container, bool es) =>
-    UncontrolledProviderScope(
-      container: container,
-      child: MaterialApp(
-        locale: Locale(es ? 'es' : 'en'),
-        supportedLocales: const [Locale('en'), Locale('es')],
-        localizationsDelegates: const [
-          ChronoSparkLocalizations.delegate,
-          ...GlobalMaterialLocalizations.delegates,
-        ],
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(disableAnimations: true),
-          child: child!,
-        ),
-        home: const GoalsScreen(),
-      ),
-    );
+Widget _testApp(
+  ProviderContainer container,
+  bool es, {
+  bool disableAnimations = true,
+}) => UncontrolledProviderScope(
+  container: container,
+  child: MaterialApp(
+    locale: Locale(es ? 'es' : 'en'),
+    supportedLocales: const [Locale('en'), Locale('es')],
+    localizationsDelegates: const [
+      ChronoSparkLocalizations.delegate,
+      ...GlobalMaterialLocalizations.delegates,
+    ],
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(disableAnimations: disableAnimations),
+      child: child!,
+    ),
+    home: const GoalsScreen(),
+  ),
+);
 
 class _GoalsNotifier extends GoalsNotifier {
   @override
@@ -320,5 +371,15 @@ class _SavedWithWarning extends _GoalsNotifier {
     saves += 1;
     await saveGate?.future;
     return const GoalMutationResult(warnings: <String>['reminders']);
+  }
+}
+
+class _EditedGoals extends _GoalsNotifier {
+  int updates = 0;
+  @override
+  Future<GoalMutationResult> update(GoalEntity updated) async {
+    updates++;
+    state = [updated];
+    return const GoalMutationResult();
   }
 }

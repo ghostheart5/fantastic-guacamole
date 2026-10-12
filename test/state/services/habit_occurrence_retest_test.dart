@@ -1,0 +1,337 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/repositories/habit_occurrence_repository.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_decision_outcome_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
+import 'package:fantastic_guacamole/state/services/habit_occurrence_coordinator.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  for (final cadence in HabitCadence.values) {
+    test('date bounds respect $cadence periods', () async {
+      final scope = AccountStorageScope.authenticated('period-owner');
+      final occurrences = HabitOccurrenceRepository(_MemoryPrefs(), scope);
+      final created = DateTime(2026, 10, 11, 18);
+      final coordinator = HabitOccurrenceCoordinator(
+        scope: scope,
+        habitRepository: _HabitRepository([
+          HabitEntity(
+            id: 'period',
+            title: 'Synthetic rhythm',
+            createdAt: created,
+            cadence: cadence,
+          ),
+        ]),
+        occurrenceRepository: occurrences,
+        outcomeRepository: _OutcomeRepository(),
+        clock: () => DateTime(2026, 10, 11, 20),
+      );
+      await expectLater(
+        coordinator.completeAt('period', DateTime(2026, 9, 1)),
+        throwsArgumentError,
+      );
+      await expectLater(
+        coordinator.completeAt('period', DateTime(2026, 11, 1)),
+        throwsArgumentError,
+      );
+      final sameSlot = switch (cadence) {
+        HabitCadence.daily => DateTime(2026, 10, 11),
+        HabitCadence.weekly => DateTime(2026, 10, 5),
+        HabitCadence.monthly => DateTime(2026, 10, 1),
+      };
+      expect(
+        (await coordinator.completeAt('period', sameSlot)).mutation,
+        HabitOccurrenceMutation.applied,
+      );
+      expect(await occurrences.load(), hasLength(1));
+    });
+  }
+
+  test('retest rejects outcome before rhythm creation', () async {
+    final scope = AccountStorageScope.authenticated('retest-owner');
+    final occurrences = HabitOccurrenceRepository(_MemoryPrefs(), scope);
+    final coordinator = HabitOccurrenceCoordinator(
+      scope: scope,
+      habitRepository: _HabitRepository([
+        HabitEntity(
+          id: 'fresh-rhythm',
+          title: 'Synthetic daily rhythm',
+          createdAt: DateTime.utc(2026, 10, 11, 18),
+          cadence: HabitCadence.daily,
+        ),
+      ]),
+      occurrenceRepository: occurrences,
+      outcomeRepository: _OutcomeRepository(),
+      clock: () => DateTime.utc(2026, 10, 11, 20),
+    );
+    await expectLater(
+      coordinator.completeAt('fresh-rhythm', DateTime.utc(2026, 10, 10)),
+      throwsA(anything),
+    );
+    expect(await occurrences.load(), isEmpty);
+  });
+
+  test(
+    'records one idempotent occurrence and outcome per cadence slot',
+    () async {
+      final _HabitRepository habits = _HabitRepository(<HabitEntity>[
+        HabitEntity(
+          id: 'habit-1',
+          title: 'Evening reset',
+          createdAt: DateTime.utc(2026, 8, 1),
+          cadence: HabitCadence.daily,
+        ),
+      ]);
+      final _MemoryPrefs prefs = _MemoryPrefs();
+      final _OutcomeRepository outcomes = _OutcomeRepository();
+      final HabitOccurrenceCoordinator coordinator = HabitOccurrenceCoordinator(
+        scope: AccountStorageScope.authenticated('account-a'),
+        habitRepository: habits,
+        occurrenceRepository: HabitOccurrenceRepository(
+          prefs,
+          AccountStorageScope.authenticated('account-a'),
+        ),
+        outcomeRepository: outcomes,
+        clock: () => DateTime.utc(2026, 8, 30, 20),
+      );
+
+      final HabitOccurrenceResult first = await coordinator.complete('habit-1');
+      final HabitOccurrenceResult replay = await coordinator.complete(
+        'habit-1',
+      );
+      final HabitOccurrenceResult conflict = await coordinator.skip('habit-1');
+
+      expect(first.mutation, HabitOccurrenceMutation.applied);
+      expect(replay.mutation, HabitOccurrenceMutation.idempotent);
+      expect(conflict.mutation, HabitOccurrenceMutation.conflict);
+      expect(outcomes.values, hasLength(1));
+      expect(outcomes.values.single.kind, DecisionOutcomeKind.completed);
+      expect(habits.values.single.active, isTrue);
+    },
+  );
+
+  test('fails closed without an authenticated account scope', () async {
+    final HabitOccurrenceCoordinator coordinator = HabitOccurrenceCoordinator(
+      scope: const AccountStorageScope.signedOut(),
+      habitRepository: _HabitRepository(const <HabitEntity>[]),
+      occurrenceRepository: HabitOccurrenceRepository(
+        _MemoryPrefs(),
+        const AccountStorageScope.signedOut(),
+      ),
+      outcomeRepository: _OutcomeRepository(),
+    );
+
+    await expectLater(
+      () => coordinator.complete('habit-1'),
+      throwsA(isA<StateError>()),
+    );
+  });
+
+  test(
+    'learning pause keeps the occurrence but omits learning outcome',
+    () async {
+      final _OutcomeRepository outcomes = _OutcomeRepository();
+      final HabitOccurrenceCoordinator coordinator = HabitOccurrenceCoordinator(
+        scope: AccountStorageScope.authenticated('account-a'),
+        habitRepository: _HabitRepository(<HabitEntity>[
+          HabitEntity(
+            id: 'habit-1',
+            title: 'Evening reset',
+            createdAt: DateTime.utc(2026, 8, 1),
+            cadence: HabitCadence.daily,
+          ),
+        ]),
+        occurrenceRepository: HabitOccurrenceRepository(
+          _MemoryPrefs(),
+          AccountStorageScope.authenticated('account-a'),
+        ),
+        outcomeRepository: outcomes,
+        learningPaused: () async => true,
+        clock: () => DateTime.utc(2026, 8, 30, 20),
+      );
+
+      final HabitOccurrenceResult result = await coordinator.complete(
+        'habit-1',
+      );
+      expect(result.mutation, HabitOccurrenceMutation.applied);
+      expect(outcomes.values, isEmpty);
+    },
+  );
+
+  test(
+    'idempotent retry restores a learning outcome after its write fails',
+    () async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'account-a',
+      );
+      final HabitOccurrenceRepository occurrences = HabitOccurrenceRepository(
+        _MemoryPrefs(),
+        scope,
+      );
+      final _FailOnceOutcomeRepository outcomes = _FailOnceOutcomeRepository();
+      final HabitOccurrenceCoordinator coordinator = HabitOccurrenceCoordinator(
+        scope: scope,
+        habitRepository: _HabitRepository(<HabitEntity>[
+          HabitEntity(
+            id: 'habit-1',
+            title: 'Evening reset',
+            createdAt: DateTime.utc(2026, 8, 1),
+            cadence: HabitCadence.daily,
+          ),
+        ]),
+        occurrenceRepository: occurrences,
+        outcomeRepository: outcomes,
+        clock: () => DateTime.utc(2026, 8, 30, 20),
+      );
+
+      final HabitOccurrenceResult initiallyRecorded = await coordinator
+          .complete('habit-1');
+      expect(initiallyRecorded.mutation, HabitOccurrenceMutation.applied);
+      expect(initiallyRecorded.learningPending, isTrue);
+      expect(await occurrences.load(), hasLength(1));
+      expect(outcomes.values, isEmpty);
+
+      final HabitOccurrenceResult recovered = await coordinator.complete(
+        'habit-1',
+      );
+      final HabitOccurrenceResult replay = await coordinator.complete(
+        'habit-1',
+      );
+
+      expect(recovered.mutation, HabitOccurrenceMutation.idempotent);
+      expect(replay.mutation, HabitOccurrenceMutation.idempotent);
+      expect(outcomes.values, hasLength(1));
+      expect(outcomes.recordCalls, 2);
+    },
+  );
+
+  test(
+    'current rhythm outcome can be corrected with a history receipt',
+    () async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'account-a',
+      );
+      final occurrences = HabitOccurrenceRepository(_MemoryPrefs(), scope);
+      final outcomes = _OutcomeRepository();
+      final coordinator = HabitOccurrenceCoordinator(
+        scope: scope,
+        habitRepository: _HabitRepository(<HabitEntity>[
+          HabitEntity(
+            id: 'habit-1',
+            title: 'Evening reset',
+            createdAt: DateTime.utc(2026, 8, 1),
+            cadence: HabitCadence.daily,
+          ),
+        ]),
+        occurrenceRepository: occurrences,
+        outcomeRepository: outcomes,
+        clock: () => DateTime.utc(2026, 8, 30, 20),
+      );
+      await coordinator.complete('habit-1');
+      final corrected = await coordinator.correct(
+        'habit-1',
+        HabitOccurrenceOutcome.skipped,
+      );
+      expect(corrected.occurrence.outcome, HabitOccurrenceOutcome.skipped);
+      expect(await occurrences.load(), hasLength(1));
+      expect(
+        outcomes.values.map((value) => value.kind),
+        containsAll(<DecisionOutcomeKind>[
+          DecisionOutcomeKind.completed,
+          DecisionOutcomeKind.corrected,
+        ]),
+      );
+    },
+  );
+
+  test(
+    'an earlier cadence period can be recorded without altering today',
+    () async {
+      final scope = AccountStorageScope.authenticated('account-a');
+      final occurrences = HabitOccurrenceRepository(_MemoryPrefs(), scope);
+      final coordinator = HabitOccurrenceCoordinator(
+        scope: scope,
+        habitRepository: _HabitRepository(<HabitEntity>[
+          HabitEntity(
+            id: 'habit-1',
+            title: 'Reset',
+            createdAt: DateTime.utc(2026, 8, 1),
+            cadence: HabitCadence.daily,
+          ),
+        ]),
+        occurrenceRepository: occurrences,
+        outcomeRepository: _OutcomeRepository(),
+        learningPaused: () async => true,
+        clock: () => DateTime.utc(2026, 8, 30, 20),
+      );
+      await coordinator.completeAt('habit-1', DateTime.utc(2026, 8, 29, 12));
+      await coordinator.skip('habit-1');
+      final stored = await occurrences.load();
+      expect(stored, hasLength(2));
+      expect(stored.map((value) => value.occurrenceKey).toSet(), hasLength(2));
+    },
+  );
+}
+
+class _HabitRepository implements IHabitRepository {
+  _HabitRepository(this.values);
+
+  List<HabitEntity> values;
+
+  @override
+  Future<List<HabitEntity>> getHabits() async => List<HabitEntity>.of(values);
+
+  @override
+  Future<void> saveHabits(List<HabitEntity> habits) async {
+    values = List<HabitEntity>.of(habits);
+  }
+}
+
+class _OutcomeRepository implements IDecisionOutcomeRepository {
+  final List<DecisionOutcomeEntity> values = <DecisionOutcomeEntity>[];
+
+  @override
+  Future<List<DecisionOutcomeEntity>> load() async => values;
+
+  @override
+  Future<void> record(DecisionOutcomeEntity outcome) async {
+    if (!values.any((DecisionOutcomeEntity value) => value.id == outcome.id)) {
+      values.add(outcome);
+    }
+  }
+}
+
+class _FailOnceOutcomeRepository extends _OutcomeRepository {
+  int recordCalls = 0;
+
+  @override
+  Future<void> record(DecisionOutcomeEntity outcome) async {
+    recordCalls += 1;
+    if (recordCalls == 1) {
+      throw StateError('injected learning outcome write failure');
+    }
+    await super.record(outcome);
+  }
+}
+
+class _MemoryPrefs implements SharedPrefsStore {
+  final Map<String, String> values = <String, String>{};
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  String? load(String key) => values[key];
+
+  @override
+  Future<void> save(String key, String value) async => values[key] = value;
+
+  @override
+  Future<void> delete(String key) async => values.remove(key);
+
+  @override
+  Future<void> clear() async => values.clear();
+}

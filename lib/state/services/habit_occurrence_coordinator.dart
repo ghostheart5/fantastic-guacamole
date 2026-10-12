@@ -77,7 +77,7 @@ class HabitOccurrenceCoordinator {
       final habit = habits.where((value) => value.id == habitId).firstOrNull;
       if (habit == null) throw StateError('Daily Rhythm not found.');
       final DateTime now = _clock();
-      final String key = occurrenceKeyFor(habit.cadence, now);
+      final String key = RhythmPlanningContext.occurrenceKey(habit, now);
       final current = await occurrenceRepository.load();
       final index = current.indexWhere(
         (value) => value.habitId == habitId && value.occurrenceKey == key,
@@ -159,8 +159,26 @@ class HabitOccurrenceCoordinator {
         throw StateError('Paused Daily Rhythms cannot record outcomes.');
       }
 
-      final DateTime now = recordedFor ?? _clock();
-      final String occurrenceKey = occurrenceKeyFor(habit.cadence, now);
+      final DateTime currentTime = _clock();
+      final DateTime now = recordedFor ?? currentTime;
+      final String periodKey = occurrenceKeyFor(habit.cadence, now);
+      final String occurrenceKey = RhythmPlanningContext.occurrenceKey(
+        habit,
+        now,
+      );
+      final String firstPeriod = occurrenceKeyFor(
+        habit.cadence,
+        habit.frequencyStartedAt ?? habit.createdAt,
+      );
+      final String currentPeriod = occurrenceKeyFor(habit.cadence, currentTime);
+      if (periodKey.compareTo(firstPeriod) < 0 ||
+          periodKey.compareTo(currentPeriod) > 0) {
+        throw ArgumentError.value(
+          recordedFor,
+          'recordedFor',
+          'Choose a period between rhythm creation and the current period.',
+        );
+      }
       final String resolvedOperationId = operationId?.trim().isNotEmpty == true
           ? operationId!.trim()
           : 'habit:$normalizedId:$occurrenceKey:${outcome.name}';

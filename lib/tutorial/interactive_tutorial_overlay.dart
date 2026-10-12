@@ -67,6 +67,7 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
   bool _reduceMotion = false;
   bool _focusScheduled = false;
   bool _movedFocus = false;
+  bool _targetRevealed = false;
 
   @override
   void initState() {
@@ -116,6 +117,9 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
         : TraversalEdgeBehavior.closedLoop;
     if (oldWidget.targetKey != widget.targetKey) {
       _targetRect = null;
+      _targetRevealed = false;
+      _revealTarget();
+    } else if (!_targetRevealed) {
       _revealTarget();
     } else {
       _scheduleMeasurement();
@@ -170,6 +174,8 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
         _scheduleMeasurement();
         return;
       }
+      if (_targetRevealed) return;
+      _targetRevealed = true;
       await Scrollable.ensureVisible(
         targetContext,
         duration: _reduceMotion
@@ -186,6 +192,11 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
   void _scheduleMeasurement() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // Async screens can mount their target after the guide first appears.
+      // Reveal it once it exists, rather than merely drawing an offscreen hole.
+      if (!_targetRevealed && widget.targetKey.currentContext != null) {
+        _revealTarget();
+      }
       final RenderObject? targetObject = widget.targetKey.currentContext
           ?.findRenderObject();
       final RenderObject? overlayObject = _overlayKey.currentContext

@@ -5,6 +5,65 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('reveals a scroll target that mounts after the guide', (
+    WidgetTester tester,
+  ) async {
+    final targetKey = GlobalKey();
+    final loaded = ValueNotifier<bool>(false);
+    final scroll = ScrollController();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ValueListenableBuilder<bool>(
+            valueListenable: loaded,
+            builder: (context, ready, child) => Stack(
+              children: [
+                SingleChildScrollView(
+                  controller: scroll,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 900),
+                      if (ready)
+                        SizedBox(
+                          key: targetKey,
+                          height: 100,
+                          child: const Text('Saved task'),
+                        ),
+                      const SizedBox(height: 500),
+                    ],
+                  ),
+                ),
+                InteractiveTutorialOverlay(
+                  targetKey: targetKey,
+                  title: 'Find the saved task',
+                  body: 'Verify the task before continuing.',
+                  primaryLabel: 'Found it',
+                  onPrimary: () {},
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(scroll.offset, 0);
+    loaded.value = true;
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(scroll.offset, greaterThan(0));
+    expect(
+      tester.getRect(find.byKey(targetKey)).bottom,
+      lessThanOrEqualTo(600),
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    loaded.dispose();
+    scroll.dispose();
+  });
+
   testWidgets('defers spotlight geometry for a transient zero-sized viewport', (
     WidgetTester tester,
   ) async {

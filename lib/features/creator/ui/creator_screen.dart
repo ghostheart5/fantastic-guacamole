@@ -572,6 +572,14 @@ class _CreatorHandshakePreviewCard extends StatelessWidget {
         fields.addAll(<({String label, String value})>[
           (label: 'Priority', value: '${task.priority} / 5'),
           (
+            label: 'Repeat',
+            value: switch (task.recurrenceRule.name) {
+              'daily' => journeyText(context, 'Daily', 'Diariamente'),
+              'weekly' => journeyText(context, 'Weekly', 'Semanalmente'),
+              _ => journeyText(context, 'Does not repeat', 'No se repite'),
+            },
+          ),
+          (
             label: 'Active goal',
             value: task.goalId == null
                 ? copy.noLinkedGoal

@@ -25,6 +25,15 @@ abstract final class RhythmPlanningContext {
         : '${slot.year}-$month-${slot.day.toString().padLeft(2, '0')}';
   }
 
+  static String occurrenceKey(HabitEntity habit, DateTime timestamp) {
+    final key = periodKey(habit.cadence, timestamp);
+    // Preserve legacy outcomes unchanged. Edited definitions have distinct slots
+    // so a daily result cannot attest an entire week or a larger target.
+    return habit.frequencyRevision == 0
+        ? key
+        : 'r${habit.frequencyRevision}:${habit.cadence.name}:$key';
+  }
+
   static List<RhythmPlanningEntry> build(
     List<HabitEntity> habits,
     List<HabitOccurrenceEntity> outcomes,
@@ -33,7 +42,7 @@ abstract final class RhythmPlanningContext {
     for (final habit in habits)
       RhythmPlanningEntry(
         habit,
-        periodKey(habit.cadence, now),
+        occurrenceKey(habit, now),
         _status(habit, outcomes, now),
       ),
   ];
@@ -44,7 +53,7 @@ abstract final class RhythmPlanningContext {
     DateTime now,
   ) {
     if (!habit.active) return RhythmPeriodStatus.paused;
-    final key = periodKey(habit.cadence, now);
+    final key = occurrenceKey(habit, now);
     for (final outcome in outcomes) {
       if (outcome.habitId == habit.id && outcome.occurrenceKey == key) {
         return outcome.outcome == HabitOccurrenceOutcome.completed
