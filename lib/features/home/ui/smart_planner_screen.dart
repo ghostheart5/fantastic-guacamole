@@ -102,12 +102,19 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     super.initState();
     // Onboarding promises a first choice without requiring cloud consent or
     // a purchase. Consume that request through the existing local planner.
-    _useLocalTools = ref.read(smartPlannerFirstValueProvider) != null;
+    _useLocalTools =
+        ref
+            .read(smartPlannerFirstValueProvider)
+            ?.isValidFor(
+              accountScopeId:
+                  ref.read(accountStorageScopeProvider).v2Namespace ?? '',
+              now: DateTime.now().toUtc(),
+            ) ??
+        false;
     ref.listenManual(smartPlannerFirstValueProvider, (previous, next) {
       if (next == null) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        setState(() => _useLocalTools = true);
         unawaited(_consumeFirstValueRequest());
       });
     });
@@ -126,19 +133,6 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   }
 
   Future<void> _consumeFirstValueRequest() async {
-    if (!_useLocalTools && ref.read(assistantConversationAvailableProvider)) {
-      // Keep the first-use question queued while the async release decision
-      // selects the conversation route. An excluded account consumes it locally.
-      try {
-        final available = await ref.read(
-          smartPlannerAvailabilityProvider.future,
-        );
-        if (!mounted) return;
-        if (!_useLocalTools && available) return;
-      } catch (_) {
-        if (!mounted) return;
-      }
-    }
     final String accountScopeId =
         ref.read(accountStorageScopeProvider).v2Namespace ?? '';
     final SmartPlannerFirstValueRequest? request = ref
@@ -148,6 +142,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
 
     _clearChangedCheckIn();
     setState(() {
+      _useLocalTools = true;
       final String? prompt = request.prompt;
       if (prompt != null) _notesController.text = prompt;
       final double? energy = request.energy;

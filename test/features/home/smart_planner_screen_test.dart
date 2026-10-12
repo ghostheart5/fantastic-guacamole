@@ -36,6 +36,51 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
+  for (final invalid in ['wrong account', 'expired', 'future']) {
+    for (final mounted in [false, true]) {
+      testWidgets(
+        '$invalid first choice retains conversation when mounted=$mounted',
+        (tester) async {
+          final scope = AccountStorageScope.authenticated(
+            'first-value-validation',
+          );
+          final container = _container(
+            accountScope: scope,
+            conversationAvailable: true,
+          );
+          addTearDown(container.dispose);
+          if (mounted) await _pumpPlanner(tester, container);
+          final now = DateTime.now().toUtc();
+          container
+              .read(smartPlannerFirstValueProvider.notifier)
+              .stage(
+                SmartPlannerFirstValueRequest(
+                  accountScopeId: invalid == 'wrong account'
+                      ? 'another-account'
+                      : scope.v2Namespace!,
+                  prompt: 'Invalid first choice',
+                  createdAt: invalid == 'expired'
+                      ? now.subtract(const Duration(minutes: 11))
+                      : invalid == 'future'
+                      ? now.add(const Duration(minutes: 1))
+                      : now,
+                ),
+              );
+          if (!mounted) await _pumpPlanner(tester, container);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.byType(AssistantConversationScreen), findsOneWidget);
+          expect(find.byKey(const Key('planner-context-field')), findsNothing);
+          final planner =
+              container.read(smartPlannerQueryControllerProvider)
+                  as _PlannerV2TestController;
+          expect(planner.guidanceRequestCount, 0);
+          expect(container.read(smartPlannerFirstValueProvider), isNull);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
   testWidgets('rolled-back planner retains the local route', (tester) async {
     final container = _container(
       conversationAvailable: true,
@@ -1056,7 +1101,10 @@ void main() {
     tester,
   ) async {
     final scope = AccountStorageScope.authenticated('late-first-value');
-    final container = _container(accountScope: scope);
+    final container = _container(
+      accountScope: scope,
+      conversationAvailable: true,
+    );
     addTearDown(container.dispose);
     await _pumpPlanner(tester, container);
     final planner =

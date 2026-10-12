@@ -163,8 +163,18 @@ class SettingsUiActions {
     return _ref.read(appLocationServiceProvider).openLocationSettings();
   }
 
-  Future<bool> openSystemAppSettings() {
-    return _ref.read(appLocationServiceProvider).openAppSettings();
+  Future<bool> openSystemAppSettings() async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return _ref.read(appLocationServiceProvider).openAppSettings();
+    }
+    final external = _ref.read(externalUrlServiceProvider);
+    for (final String uri in const <String>[
+      'app-settings:',
+      'App-Prefs:root',
+    ]) {
+      if (await external.open(Uri.parse(uri))) return true;
+    }
+    return false;
   }
 
   Future<TelemetryConsent> saveTelemetryConsent({
