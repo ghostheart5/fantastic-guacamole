@@ -1,8 +1,167 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { googleCredentialFingerprint, internalBillingCohortFingerprint, verifyCatalog, verifyCreditAdmissionBackend, verifyCreditPackCatalog, verifyInternalBillingBackend, verifyRtdnTestDelivery } from './verify_internal_billing_backend.mjs';
+import { createHash, generateKeyPairSync } from 'node:crypto';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { CREDIT_AUTHORITY_FUNCTIONS } from './verify_backend_repair_gate.mjs';
+import { googleCredentialFingerprint, internalBillingCohortFingerprint, loadBackendTestProfile, validateBackendTestProfile, verifyCatalog, verifyCreditAdmissionBackend, verifyCreditPackCatalog, verifyInternalBillingBackend, verifyRtdnTestDelivery } from './verify_internal_billing_backend.mjs';
 
 const billingDigest = 'a'.repeat(64);
+
+const publicTestProfile = () => ({ schemaVersion: 1, backendProfile: 'public_license_test',
+  reviewedBillingCohortSha256: internalBillingCohortFingerprint(billingDigest) });
+
+test('versioned backend profile is strict, canonical and absent defaults to contained', () => {
+  const folder = mkdtempSync(join(tmpdir(), 'billing-profile-'));
+  const path = join(folder, 'profile.json');
+  try {
+    assert.equal(loadBackendTestProfile(path).backendProfile, 'contained');
+    writeFileSync(path, JSON.stringify(publicTestProfile()) + '\n');
+    assert.deepEqual(loadBackendTestProfile(path), publicTestProfile());
+    for (const bad of [
+      { ...publicTestProfile(), schemaVersion: 2 },
+      { ...publicTestProfile(), backendProfile: 'auto' },
+      { ...publicTestProfile(), extra: true },
+      { ...publicTestProfile(), reviewedBillingCohortSha256: '' },
+      { ...publicTestProfile(), reviewedBillingCohortSha256: 'A'.repeat(64) },
+      { ...publicTestProfile(), backendProfile: 'contained' },
+    ]) assert.throws(() => validateBackendTestProfile(bad));
+    for (const text of ['{', JSON.stringify(publicTestProfile(), null, 2),
+      '{"schemaVersion":0,' + JSON.stringify(publicTestProfile()).slice(1)]) {
+      writeFileSync(path, text);
+      assert.throws(() => loadBackendTestProfile(path));
+    }
+  } finally { rmSync(folder, { recursive: true }); }
+});
+
+test('public compatibility cannot be inferred from headers or entered without both license-test flags', async () => {
+  for (const env of [{}, { CANDIDATE_BILLING_TEST: 'true' },
+    { CANDIDATE_CREDIT_ADMISSION_QA: 'true' },
+    { CANDIDATE_BILLING_TEST: true, CANDIDATE_CREDIT_ADMISSION_QA: 'true' }]) {
+    let calls = 0;
+    await assert.rejects(verifyInternalBillingBackend(env, async () => { calls++; }, publicTestProfile()),
+      /requires billing and private credit admission QA/);
+    assert.equal(calls, 0);
+  }
+});
+
+function publicFixture() {
+  const project = 'a'.repeat(20), root = `https://${project}.supabase.co`;
+  const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey
+    .export({ type: 'pkcs8', format: 'pem' });
+  const account = { client_email: 'synthetic@example.invalid', private_key: privateKey,
+    token_uri: 'https://oauth2.googleapis.com/token' };
+  const cohort = internalBillingCohortFingerprint(billingDigest);
+  const env = { SUPABASE_PROJECT_REF: project, CHRONOSPARK_SUPABASE_URL: root,
+    CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT: `${root}/functions/v1/verify-receipt`,
+    SUPABASE_SECRET_KEY: 'synthetic-service', SUPABASE_ACCESS_TOKEN: 'synthetic-management',
+    CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS: billingDigest, GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify(account),
+    CANDIDATE_BILLING_TEST: 'true', CANDIDATE_CREDIT_ADMISSION_QA: 'true' };
+  const state = { receiptStatus: 405, contract: 'verify-receipt-v2', checkout: 'enabled-v1',
+    qa: 'cohort-v1', cohort, google: googleCredentialFingerprint(account), rtdnFresh: true };
+  const calls = [];
+  const { products, rows } = catalog();
+  const packs = [{ id: 'credits_100', credits: 100, units: '2', micros: 2990000 },
+    { id: 'credits_300', credits: 300, units: '7', micros: 7990000 }];
+  const functions = [['ai-proxy', true], ['planner-explanation', true], ['account-delete', false],
+    ['verify-receipt', true], ['google-play-rtdn', false]]
+    .map(([slug, verify_jwt]) => ({ slug, verify_jwt, status: 'ACTIVE', version: 1 }));
+  const headers = () => ({ 'x-chronospark-contract': state.contract,
+    'x-chronospark-public-credit-checkout': state.checkout,
+    'x-chronospark-credit-admission-qa': state.qa,
+    'x-chronospark-internal-billing-cohort-sha256': state.cohort,
+    'x-chronospark-google-credential-sha256': state.google });
+  const request = async (url, init) => {
+    calls.push({ url, method: init.method ?? 'GET' });
+    assert.equal(init.redirect, 'error');
+    const path = new URL(url).pathname;
+    if (path.endsWith('/verify-receipt')) {
+      assert.equal(init.method, undefined);
+      return new Response('', { status: state.receiptStatus, headers: headers() });
+    }
+    if (url.startsWith('https://api.supabase.com/')) {
+      if (path.endsWith('/functions')) return Response.json(functions);
+      if (path.endsWith('/database/migrations')) return Response.json([
+        { version: '20260909065846' }, { version: '20260924030236' }]);
+      assert.ok(path.endsWith('/database/query/read-only'));
+      assert.equal(init.method, 'POST');
+      return Response.json(CREDIT_AUTHORITY_FUNCTIONS.flatMap((signature, i) =>
+        ['anon', 'authenticated', 'service_role'].map((role_name) =>
+          ({ signature, role_name, present: true, can_execute: i !== 0 && role_name === 'service_role' }))));
+    }
+    if (path.endsWith('/ai-proxy') || path.endsWith('/planner-explanation')) {
+      assert.equal(init.method, undefined, 'Preflight must never submit paid inference.');
+      return new Response('', { status: 405, headers: {
+        'x-chronospark-contract': path.endsWith('/ai-proxy') ? 'ai-proxy-v2' : 'planner-explanation-v1',
+        'x-chronospark-internal-ai-guard': 'v1', 'x-chronospark-internal-ai-cohort-sha256': cohort } });
+    }
+    if (path.endsWith('/account-delete')) {
+      assert.equal(init.method, 'POST');
+      assert.equal(new Headers(init.headers).has('authorization'), false);
+      const body = JSON.parse(init.body);
+      const malformed = body.requestId === 'invalid';
+      return Response.json({ error: body.action === 'delete' ? 'unauthorized' :
+        malformed ? 'invalid_status_capability' : 'deletion_request_not_found' },
+      { status: body.action === 'delete' ? 401 : malformed ? 400 : 404,
+        headers: { 'x-chronospark-contract': 'account-delete-v2' } });
+    }
+    if (url === account.token_uri) return Response.json({ access_token: 'synthetic-google-token' });
+    if (url.startsWith('https://androidpublisher.googleapis.com/')) {
+      assert.equal(init.method, undefined, 'No Play writes or purchases in preflight.');
+      if (path.includes('/subscriptions/')) return Response.json(products.find((p) => path.endsWith('/' + p.productId)));
+      const pack = packs.find((p) => path.endsWith('/chronospark_' + p.id));
+      assert.ok(pack);
+      return Response.json({ packageName: 'com.ghostheart5.chronospark', productId: 'chronospark_' + pack.id,
+        purchaseOptions: [{ state: 'ACTIVE', buyOption: { legacyCompatible: true, multiQuantityEnabled: false },
+          regionalPricingAndAvailabilityConfigs: [{ regionCode: 'US', availability: 'AVAILABLE',
+            price: { currencyCode: 'USD', units: pack.units, nanos: 990000000 } }] }] });
+    }
+    if (path.endsWith('/monetization_subscription_plans')) return Response.json(rows);
+    if (path.endsWith('/monetization_credit_packages')) return Response.json(packs.map((p) =>
+      ({ id: p.id, product_id: 'chronospark_' + p.id, credits: p.credits, bonus_credits: 0,
+        currency_code: 'USD', price_micros: p.micros, is_active: true })));
+    if (path.endsWith('/google-play-rtdn')) {
+      assert.equal(init.method, 'POST');
+      assert.equal(init.body, '{}');
+      assert.equal(new Headers(init.headers).has('authorization'), false);
+      return new Response('', { status: 401, headers: headers() });
+    }
+    if (path.endsWith('/google_play_rtdn_events')) {
+      const at = new Date(Date.now() - (state.rtdnFresh ? 1000 : 2 * 86400000)).toISOString();
+      return Response.json([{ package_name: 'com.ghostheart5.chronospark', event_type: 'test',
+        state: 'processed', failure_code: null, received_at: at, processed_at: at }]);
+    }
+    throw new Error('Unexpected fixture request');
+  };
+  return { env, state, request, calls };
+}
+
+test('explicit public license profile completes every existing read-only backend, catalog and RTDN guard', async () => {
+  const f = publicFixture();
+  const result = await verifyInternalBillingBackend(f.env, f.request, publicTestProfile());
+  assert.equal(result.verified, true);
+  assert.equal(result.creditAdmissionQaEnabled, true);
+  assert.equal(result.publicCreditCheckout, 'enabled-v1');
+  assert.deepEqual(result.backendTestProfile, { ...publicTestProfile(),
+    profileSha256: createHash('sha256').update(JSON.stringify(publicTestProfile())).digest('hex') });
+  assert.equal(result.internalBillingCohortFingerprint, publicTestProfile().reviewedBillingCohortSha256);
+  assert.equal(result.backendRepairGate.canonicalCreditAuthorityIntact, true);
+  assert.equal(result.deployedGoogleCredentialMatched, true);
+  assert.equal(result.rtdn.unauthenticatedDeliveryRejected, true);
+  assert.ok(f.calls.length > 15);
+});
+
+test('public profile rejects response, reviewed cohort, credential and RTDN drift', async () => {
+  for (const change of [{ receiptStatus: 401 }, { contract: 'old' }, { checkout: 'disabled-v1' },
+    { qa: 'disabled-v1' }, { cohort: '0'.repeat(64) }, { google: '0'.repeat(64) }, { rtdnFresh: false }]) {
+    const f = publicFixture(); Object.assign(f.state, change);
+    await assert.rejects(verifyInternalBillingBackend(f.env, f.request, publicTestProfile()));
+  }
+  const f = publicFixture();
+  await assert.rejects(verifyInternalBillingBackend(f.env, f.request,
+    { ...publicTestProfile(), reviewedBillingCohortSha256: '0'.repeat(64) }), /Reviewed billing cohort fingerprint/);
+});
 
 test('billing cohort fingerprint is order-independent and rejects unsafe inputs', () => {
   assert.equal(internalBillingCohortFingerprint(`${billingDigest},${'b'.repeat(64)}`),
