@@ -158,34 +158,55 @@ void main() {
       await prefs.save('daily_planning_reminder_time', '7:30');
       await prefs.save('habit_reminders_enabled', 'true');
       await prefs.save('goal_reminders_enabled', 'true');
-      await prefs.save('scheduled_goal_reminder_ids',
-          '["legacy-tracked", "completed-0"]');
+      await prefs.save(
+        'scheduled_goal_reminder_ids',
+        '["legacy-tracked", "completed-0"]',
+      );
       final created = DateTime.utc(2026, 10, 14);
-      final goals = List<GoalEntity>.generate(695, (index) => GoalEntity(
-        id: 'completed-$index', title: 'Completed goal $index',
-        createdAt: created, completedAt: created.add(const Duration(minutes: 1)),
-      ));
+      final goals = List<GoalEntity>.generate(
+        695,
+        (index) => GoalEntity(
+          id: 'completed-$index',
+          title: 'Completed goal $index',
+          createdAt: created,
+          completedAt: created.add(const Duration(minutes: 1)),
+        ),
+      );
       final originalGoals = goals.map((goal) => goal.toJson()).toList();
-      final scheduler = _RecordingScheduler()..blockFirstGoalCancellation = true;
+      final scheduler = _RecordingScheduler()
+        ..blockFirstGoalCancellation = true;
       final service = ReminderOrchestratorService(
         preferences: prefs,
         notifications: NotificationsService(_RecordingNotificationRepository()),
-        scheduler: scheduler, accountScope: account,
+        scheduler: scheduler,
+        accountScope: account,
         loadHabitOccurrences: () async => [],
       );
       final pending = service.reconcileAfterRestore(
         goals: goals,
-        habits: [HabitEntity(id: 'owned-habit', title: 'Owned rhythm',
-            createdAt: created)],
-        permissionGranted: false, shouldContinue: () => true,
+        habits: [
+          HabitEntity(
+            id: 'owned-habit',
+            title: 'Owned rhythm',
+            createdAt: created,
+          ),
+        ],
+        permissionGranted: false,
+        shouldContinue: () => true,
       );
       try {
-        await scheduler.firstGoalCancellationEntered.future
-            .timeout(const Duration(seconds: 5));
-        expect(scheduler.cancelled.take(2).toList(),
-            ['daily_planning_reminder', 'habit_reminder_daily']);
-        expect(scheduler.cancelled.where((id) => id.startsWith('goal_reminder_')),
-            hasLength(1), reason: 'The first goal cancellation remains blocked.');
+        await scheduler.firstGoalCancellationEntered.future.timeout(
+          const Duration(seconds: 5),
+        );
+        expect(scheduler.cancelled.take(2).toList(), [
+          'daily_planning_reminder',
+          'habit_reminder_daily',
+        ]);
+        expect(
+          scheduler.cancelled.where((id) => id.startsWith('goal_reminder_')),
+          hasLength(1),
+          reason: 'The first goal cancellation remains blocked.',
+        );
         expect(scheduler.dailySchedules, isEmpty);
         expect(scheduler.schedules, isEmpty);
         expect(scheduler.cadenceSchedules, 0);
@@ -195,13 +216,20 @@ void main() {
         }
         expect(await pending.timeout(const Duration(seconds: 5)), isFalse);
       }
-      expect(scheduler.cancelled, unorderedEquals([
-        'daily_planning_reminder', 'habit_reminder_daily',
-        'goal_reminder_legacy-tracked',
-        ...goals.map((goal) => 'goal_reminder_${goal.id}'),
-      ]));
+      expect(
+        scheduler.cancelled,
+        unorderedEquals([
+          'daily_planning_reminder',
+          'habit_reminder_daily',
+          'goal_reminder_legacy-tracked',
+          ...goals.map((goal) => 'goal_reminder_${goal.id}'),
+        ]),
+      );
       expect(scheduler.cancelled.toSet().length, 698);
-      expect(scheduler.operations.every((op) => op == 'cancel:$account'), isTrue);
+      expect(
+        scheduler.operations.every((op) => op == 'cancel:$account'),
+        isTrue,
+      );
       expect(scheduler.permissionRequests, 0);
       expect(scheduler.cancelAllCalls, 0);
       expect(prefs.load('daily_planning_reminder_enabled'), 'true');
@@ -581,7 +609,8 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
   Future<bool> cancel(String id, {String? accountScope}) async {
     operations.add('cancel:$accountScope');
     cancelled.add(id);
-    if (blockFirstGoalCancellation && id.startsWith('goal_reminder_') &&
+    if (blockFirstGoalCancellation &&
+        id.startsWith('goal_reminder_') &&
         !firstGoalCancellationEntered.isCompleted) {
       firstGoalCancellationEntered.complete();
       await releaseGoalCancellation.future;
