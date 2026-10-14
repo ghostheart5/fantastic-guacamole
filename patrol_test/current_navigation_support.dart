@@ -29,11 +29,16 @@ Future<void> settleCurrentUserNavigation(
       await $(const Key('local-profile-continue')).tap();
       readyFrames = 0;
     } else if (find
-        .text('CONTINUE TO LOGIN')
-        .hitTestable()
-        .evaluate()
-        .isNotEmpty) {
-      await $('CONTINUE TO LOGIN').tap();
+            .text('CONTINUE TO LOGIN')
+            .hitTestable()
+            .evaluate()
+            .isNotEmpty ||
+        find.text('CONTINUE TO SETUP').hitTestable().evaluate().isNotEmpty) {
+      final welcomeAction =
+          find.text('CONTINUE TO LOGIN').hitTestable().evaluate().isNotEmpty
+          ? 'CONTINUE TO LOGIN'
+          : 'CONTINUE TO SETUP';
+      await $(welcomeAction).tap();
       readyFrames = 0;
     } else if (find
             .text('FIRST SETUP 3 OF 3')
