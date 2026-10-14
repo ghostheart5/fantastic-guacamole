@@ -294,6 +294,105 @@ class InternalPolicyTests(unittest.TestCase):
             self.assertFalse((Path(folder) / "chronospark-candidate-defines.json").exists())
 
 
+class ReleaseRegenerationTests(unittest.TestCase):
+    """Exercise build orchestration with synthetic keys and no Flutter process."""
+
+    def run_release_fixture(self, drift=None):
+        import android_candidate_build as candidate
+        source_sha, tooling_sha = "a" * 40, "b" * 40
+        ci = {"id": 42, "head_sha": source_sha,
+              "repository": {"full_name": "ghostheart5/fantastic-guacamole"},
+              "path": ".github/workflows/ci.yml", "event": "workflow_dispatch",
+              "status": "completed", "conclusion": "success"}
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / "app"
+            (root / "android/app").mkdir(parents=True)
+            (root / "tool").mkdir()
+            (root / "lib/config").mkdir(parents=True)
+            (root / "android/app/google-services.json").write_text("{}")
+            (root / "pubspec.yaml").write_text(f"version: 4.1.0+{MINIMUM_VERSION_CODE}\n")
+            lock = root / "pubspec.lock"
+            lock.write_text("frozen dependency fixture")
+            (root / candidate.POLICY_PATH).write_text(json.dumps(policy_template()))
+            features = ("externalAiEnabled", "subscriptionsEnabled", "creditSpendingEnabled",
+                        "cloudSyncEnabled", "cloudRestoreEnabled", "analyticsEnabled", "crashReportingEnabled")
+            (root / "lib/config/launch_containment.dart").write_text(
+                "\n".join(f"static const bool {feature} = false;" for feature in features))
+            registrant = root / "android/app/GeneratedPluginRegistrant.java"
+            env = {"GITHUB_ACTIONS": "true", "GITHUB_SHA": tooling_sha, "CANDIDATE_SHA": source_sha,
+                   "CANDIDATE_CI_RUN": "42", "GITHUB_REPOSITORY": "ghostheart5/fantastic-guacamole",
+                   "CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS": "a" * 64,
+                   "CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST": "b" * 64, "RUNNER_TEMP": folder,
+                   "CANDIDATE_POLICY_SHA256": policy_hash(assemble_candidate_defines(
+                       {name: "synthetic-setting" for name in SETTINGS}, json.dumps(policy_template()),
+                       merge_assistant_internal_cohort("a" * 64, "b" * 64))),
+                   "ANDROID_GOOGLE_SERVICES_JSON_BASE64": "e30=",
+                   **{name: "synthetic-setting" for name in SETTINGS},
+                   "ANDROID_KEYSTORE_BASE64": "c3ludGhldGljLW5vdC1hLWtleQ==",
+                   **{name: "synthetic-signing-value" for name in
+                      ("ANDROID_STORE_PASSWORD", "ANDROID_KEY_PASSWORD", "ANDROID_KEY_ALIAS")}}
+            observed = []
+            built = False
+
+            def fake_command(args, cwd, capture=False, env=None):
+                nonlocal built
+                observed.append(args)
+                if args[:2] == ["gh", "api"]:
+                    return json.dumps(ci)
+                if args == ["git", "rev-parse", "HEAD"]:
+                    return source_sha if cwd == root.resolve() else tooling_sha
+                if args == ["flutter", "pub", "get"]:
+                    registrant.write_text("pl.leancode.patrol.PatrolPlugin")
+                if args[0] == "keytool":
+                    return "PrivateKeyEntry\nSHA1: " + UPLOAD_SHA1
+                if args[:3] == ["flutter", "build", "appbundle"]:
+                    self.assertIn("--release", args)
+                    self.assertNotIn("--no-pub", args)
+                    self.assertIn("PatrolPlugin", registrant.read_text())
+                    defines = Path(next(arg.split("=", 1)[1] for arg in args
+                                       if arg.startswith("--dart-define-from-file=")))
+                    validate_candidate_defines(strict_json(defines.read_text()),
+                                               os.environ["CANDIDATE_POLICY_SHA256"])
+                    self.assertTrue((root / "android/app/upload-keystore.jks").exists())
+                    self.assertIn("GRADLE_USER_HOME", env)
+                    # Model Flutter's normal release regeneration, not product writes.
+                    registrant.write_text("runtime plugins only")
+                    built = True
+                    if drift == "lock":
+                        lock.write_text("unexpected dependency change")
+                if built and args == ["git", "diff", "--exit-code"] and drift == "lock":
+                    raise subprocess.CalledProcessError(1, args)
+                if built and args == ["git", "status", "--porcelain", "--untracked-files=all"]:
+                    return "?? unexpected-source-file" if drift == "source" else ""
+                return ""
+
+            with patch.dict(os.environ, env, clear=True), patch.object(candidate, "command", side_effect=fake_command):
+                if drift == "lock":
+                    with self.assertRaises(subprocess.CalledProcessError):
+                        build(root, Path(folder) / "bundletool.jar")
+                else:
+                    with self.assertRaisesRegex(ValueError, "Source changed during build" if drift else "AAB missing"):
+                        build(root, Path(folder) / "bundletool.jar")
+            self.assertTrue(built)
+            self.assertNotIn("PatrolPlugin", registrant.read_text())
+            self.assertLess(observed.index(["flutter", "pub", "get"]),
+                            next(i for i, args in enumerate(observed) if args[:3] == ["flutter", "build", "appbundle"]))
+            self.assertEqual(observed.count(["git", "diff", "--exit-code"]), 2)
+            self.assertFalse((root / "android/app/upload-keystore.jks").exists())
+            self.assertFalse((root / "android/key.properties").exists())
+            self.assertFalse((Path(folder) / "chronospark-candidate-defines.json").exists())
+            self.assertFalse((root / "build/candidate-evidence").exists())
+
+    def test_release_regenerates_dev_registrant_before_artifact_verification(self):
+        self.run_release_fixture()
+
+    def test_release_dependency_drift_still_rejects_artifact(self):
+        self.run_release_fixture("lock")
+
+    def test_release_source_drift_still_rejects_artifact(self):
+        self.run_release_fixture("source")
+
+
 def elf(load_alignment=16384, offset=0, address=0):
     data = bytearray(120)
     data[:6] = b"\x7fELF\x02\x01"

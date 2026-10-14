@@ -411,7 +411,10 @@ def build(root, bundletool):
         require(fingerprint and fingerprint[1].replace(":", "").upper() == UPLOAD_SHA1,
                 "Existing upload identity pin mismatch")
         with signing_environment(tooling, Path(os.environ["RUNNER_TEMP"])) as env:
-            command(["flutter", "build", "appbundle", "--release", "--no-pub",
+            # pub get above generates a development plugin registrant. Allow the
+            # release command to regenerate it without dev-only native plugins.
+            # The source/lockfile checks below still reject dependency drift.
+            command(["flutter", "build", "appbundle", "--release",
                      "--dart-define-from-file=" + str(defines)], root, env=env)
     finally:
         for path in (key, props, defines):
