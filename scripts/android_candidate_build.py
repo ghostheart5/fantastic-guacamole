@@ -263,6 +263,11 @@ def signing_environment(tooling, runner_temp):
         shutil.copyfile(tooling / "candidate-signing.init.gradle",
                         home / "init.d/candidate-signing.init.gradle")
         (home / "gradle.properties").write_text(
+            # Hosted FULL-symbol AAB finalization exhausted the app's 1536m
+            # local-build heap. Override only this disposable Gradle home.
+            "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m "
+            "-XX:ReservedCodeCacheSize=256m -XX:-HeapDumpOnOutOfMemoryError\n"
+            "org.gradle.workers.max=1\norg.gradle.parallel=false\n"
             "org.gradle.daemon=false\norg.gradle.configuration-cache=false\n",
             encoding="ascii")
         env = os.environ.copy()
