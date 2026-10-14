@@ -71,7 +71,7 @@ class NotificationsPage extends ConsumerWidget {
                           leading: const Icon(Icons.repeat),
                           title: Text(reminder.title),
                           subtitle: Text(
-                            '${reminder.message}\n${reminder is AutomationNotification && !reminder.registeredTimeKnown ? (es ? "Hora configurada; hora registrada no disponible" : "Configured time; registered time unavailable") : (es ? "Pr\u00f3xima hora diaria" : "Next daily time")}: ${localizations.formatMediumDate(reminder.scheduledAt)} ${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(reminder.scheduledAt))}\n${es ? "La entrega es aproximada. Administra este recordatorio recurrente en Ajustes." : "Delivery is approximate. Manage this repeating reminder in Settings."}',
+                            '${reminder.message}\n${reminder is AutomationNotification && !reminder.registeredTimeKnown ? (es ? "Hora configurada; hora registrada no disponible" : "Configured time; registered time unavailable") : (es ? "Pr\u00f3xima hora programada" : "Next scheduled time")}: ${localizations.formatMediumDate(reminder.scheduledAt)} ${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(reminder.scheduledAt))}\n${es ? "La entrega es aproximada. Administra este recordatorio recurrente en Ajustes." : "Delivery is approximate. Manage this repeating reminder in Settings."}',
                           ),
                         ),
                       ),

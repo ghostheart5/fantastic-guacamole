@@ -696,39 +696,82 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('delete requires explicit confirmation and reports success', (
-    WidgetTester tester,
-  ) async {
-    late _RecordingTaskActions actions;
-    final ProviderContainer container = _buildContainer(
-      onActionsBuilt: (_RecordingTaskActions value) => actions = value,
+  for (final locale in [const Locale('en'), const Locale('es')]) {
+    testWidgets(
+      'removal requires explicit confirmation and reports retained record ${locale.languageCode}',
+      (WidgetTester tester) async {
+        final es = locale.languageCode == 'es';
+        late _RecordingTaskActions actions;
+        final ProviderContainer container = _buildContainer(
+          onActionsBuilt: (_RecordingTaskActions value) => actions = value,
+        );
+        addTearDown(container.dispose);
+        await _pumpTimelineShell(tester, container, locale: locale);
+        await tester.pump(const Duration(milliseconds: 100));
+
+        await tester.tap(
+          find.widgetWithText(OutlinedButton, es ? 'Eliminar' : 'Delete'),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(
+          find.text(
+            es
+                ? '¿Quitar la tarea de la planificación?'
+                : 'Remove task from active planning?',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining(
+            es
+                ? 'Su registro cancelado permanecerá en la Biblioteca.'
+                : 'A canceled record remains in Library.',
+          ),
+          findsOneWidget,
+        );
+        expect(find.textContaining('permanently deleted'), findsNothing);
+        expect(
+          find.textContaining('se eliminará permanentemente'),
+          findsNothing,
+        );
+        expect(find.textContaining(_managedTask.title), findsWidgets);
+        expect(actions.deleteCalls, 0);
+
+        await tester.tap(
+          find.widgetWithText(TextButton, es ? 'Cancelar' : 'Cancel'),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(actions.deleteCalls, 0);
+
+        await tester.tap(
+          find.widgetWithText(OutlinedButton, es ? 'Eliminar' : 'Delete'),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.tap(
+          find.widgetWithText(
+            FilledButton,
+            es ? 'Quitar tarea' : 'Remove task',
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(actions.deleteCalls, 1);
+        expect(actions.deletedId, 'task-managed');
+        expect(
+          find.text(
+            es
+                ? 'Tarea cancelada. Su registro permanece en la Biblioteca.'
+                : 'Task canceled. Its record remains in Library.',
+          ),
+          findsOneWidget,
+        );
+      },
     );
-    addTearDown(container.dispose);
-    await _pumpTimeline(tester, container);
-
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Delete'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Delete task?'), findsOneWidget);
-    expect(find.textContaining('This cannot be undone.'), findsOneWidget);
-    expect(actions.deleteCalls, 0);
-
-    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(actions.deleteCalls, 0);
-
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Delete'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete task'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(actions.deleteCalls, 1);
-    expect(actions.deletedId, 'task-managed');
-    expect(find.text('Task deleted.'), findsOneWidget);
-  });
+  }
 
   testWidgets('Move Tomorrow updates the projected goal itself', (
     tester,

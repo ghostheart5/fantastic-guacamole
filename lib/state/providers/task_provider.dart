@@ -405,7 +405,7 @@ class TaskActions {
       }
       return _taskFromEntity(entity);
     } catch (_) {
-      // Completion may already have returned after an account transition while
+      // An action may already have returned after an account transition while
       // its parallel context lookup is still waiting for storage to close.
       if (!operation.isCurrent(_ref)) return null;
       rethrow;
@@ -432,15 +432,10 @@ class TaskActions {
   Future<void> skipTask(String id, {bool notify = true}) async {
     final _TaskAccountOperation operation = _TaskAccountOperation.capture(_ref);
     if (!operation.isCurrent(_ref)) return;
-    final List<Task> tasks = await _ref.read(tasksProvider.future);
+    // Explicit lifecycle actions use canonical storage, independent of the
+    // advisory SI ranking that can omit harder work during high fatigue.
+    final Task? selectedTask = await _taskFromRepository(id, operation);
     if (!operation.isCurrent(_ref)) return;
-    Task? selectedTask;
-    for (final Task task in tasks) {
-      if (task.id == id) {
-        selectedTask = task;
-        break;
-      }
-    }
     if (selectedTask == null) {
       throw StateError('Task not found');
     }
@@ -470,7 +465,7 @@ class TaskActions {
             .read(decisionOutcomeActionsProvider)
             .recordDirect(
               decisionId:
-                  'task:${selectedTask!.id}:${now.microsecondsSinceEpoch}',
+                  'task:${selectedTask.id}:${now.microsecondsSinceEpoch}',
               kind: DecisionOutcomeKind.skipped,
               surface: 'task_lifecycle',
               modelVersion: 'task-outcome-v1',
@@ -486,7 +481,7 @@ class TaskActions {
         operation,
         () => _recordTaskOutcomeLearning(
           operation: operation,
-          task: selectedTask!,
+          task: selectedTask,
           durationSeconds: 0,
           completed: false,
           timestamp: now,

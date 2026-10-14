@@ -5,6 +5,8 @@ import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
+import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
@@ -31,7 +33,9 @@ class ReminderOrchestratorService {
     required this._notifications,
     required this._scheduler,
     required this._accountScope,
-  });
+    this._loadHabitOccurrences,
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
 
   static const String _goalReminderEnabledKey = 'goal_reminders_enabled';
   static const String _habitReminderEnabledKey = 'habit_reminders_enabled';
@@ -48,6 +52,8 @@ class ReminderOrchestratorService {
   final NotificationsService _notifications;
   final NotificationSchedulerPort _scheduler;
   final String? _accountScope;
+  final Future<List<HabitOccurrenceEntity>> Function()? _loadHabitOccurrences;
+  final DateTime Function() _now;
 
   ReminderOrchestratorPrefs loadPrefs() {
     final (int hour, int minute) = _dailyPlanningTime();
@@ -124,31 +130,97 @@ class ReminderOrchestratorService {
     await _saveTrackedGoalReminderIds(scheduledIds);
   }
 
-  Future<void> syncHabitReminders(List<HabitEntity> habits) async {
-    if (!_isEnabled(_habitReminderEnabledKey, defaultValue: true)) {
-      await _notifications.cancel(_habitReminderId);
-      return;
-    }
-
-    HabitEntity? activeHabit;
-    for (final HabitEntity habit in habits) {
-      if (habit.active) {
-        activeHabit = habit;
-        break;
+  Future<void> syncHabitReminders(
+    List<HabitEntity> habits, {
+    bool Function()? shouldContinue,
+  }) => KeyedMutationCoordinator.shared.runExclusive<void>(
+    AccountDataRegistry.notificationMutationKeyForScope(
+      _accountScope ?? 'legacy',
+    ),
+    () async {
+      if (shouldContinue?.call() == false) return;
+      if (!_isEnabled(_habitReminderEnabledKey, defaultValue: true) ||
+          !habits.any((habit) => habit.active)) {
+        // The notification repository carries this account's cancellation
+        // scope even when scheduling initialization was skipped.
+        await _notifications.cancel(_habitReminderId);
+        return;
       }
-    }
+      // Retain the logical ID so prior daily registrations are replaced safely.
+      if (!await _scheduler.cancel(
+        _habitReminderId,
+        accountScope: _accountScope,
+      )) {
+        throw StateError('Previous rhythm reminder could not be cancelled.');
+      }
+      if (shouldContinue?.call() == false) return;
+      final scheduled = await _scheduleHabit(
+        habits,
+        shouldContinue: shouldContinue,
+      );
+      if (shouldContinue?.call() == false) {
+        await _scheduler.cancel(_habitReminderId, accountScope: _accountScope);
+        return;
+      }
+      if (!scheduled) throw StateError('Rhythm reminder could not update.');
+    },
+  );
 
-    if (activeHabit == null) {
-      await _notifications.cancel(_habitReminderId);
-      return;
+  Future<bool> _scheduleHabit(
+    List<HabitEntity> habits, {
+    bool Function()? shouldContinue,
+  }) async {
+    final habit = habits.where((value) => value.active).firstOrNull;
+    if (habit == null) return true;
+    final load = _loadHabitOccurrences;
+    if (load == null) {
+      throw StateError('Rhythm reminder outcome storage is unavailable.');
     }
-
-    await _scheduler.scheduleDailyAt(
+    final outcomes = await load();
+    if (shouldContinue?.call() == false) return false;
+    final now = _now().toLocal();
+    final key = RhythmPlanningContext.occurrenceKey(habit, now);
+    final terminal = outcomes.any(
+      (value) => value.habitId == habit.id && value.occurrenceKey == key,
+    );
+    var boundary = switch (habit.cadence) {
+      HabitCadence.daily => DateTime(now.year, now.month, now.day, 20),
+      HabitCadence.weekly => DateTime(
+        now.year,
+        now.month,
+        now.day - (now.weekday - DateTime.monday),
+        20,
+      ),
+      HabitCadence.monthly => DateTime(now.year, now.month, 1, 20),
+    };
+    if (terminal || !boundary.isAfter(now)) {
+      boundary = switch (habit.cadence) {
+        HabitCadence.daily => DateTime(
+          boundary.year,
+          boundary.month,
+          boundary.day + 1,
+          20,
+        ),
+        HabitCadence.weekly => DateTime(
+          boundary.year,
+          boundary.month,
+          boundary.day + 7,
+          20,
+        ),
+        HabitCadence.monthly => DateTime(
+          boundary.year,
+          boundary.month + 1,
+          1,
+          20,
+        ),
+      };
+    }
+    return _scheduler.scheduleCadenceAt(
       id: _habitReminderId,
       title: 'Habit Reminder',
-      body: 'Stay consistent: ${activeHabit.title}',
-      hour: 20,
-      minute: 0,
+      body: 'Stay consistent: ${habit.title}',
+      cadence: habit.cadence,
+      firstAt: boundary,
       accountScope: _accountScope,
     );
   }
@@ -261,13 +333,6 @@ class ReminderOrchestratorService {
             if (scheduled) scheduledGoals.add(goal.id);
           }
         }
-        HabitEntity? activeHabit;
-        for (final habit in habits) {
-          if (habit.active) {
-            activeHabit = habit;
-            break;
-          }
-        }
         Future<void> daily(
           String id,
           String title,
@@ -291,14 +356,23 @@ class ReminderOrchestratorService {
           complete = scheduled && complete;
         }
 
-        if (prefs.habitRemindersEnabled && activeHabit != null) {
-          await daily(
-            _habitReminderId,
-            'Habit Reminder',
-            'Stay consistent: ${activeHabit.title}',
-            20,
-            0,
-          );
+        if (prefs.habitRemindersEnabled &&
+            habits.any((habit) => habit.active)) {
+          if (!permissionGranted || !complete) {
+            complete = false;
+          } else {
+            try {
+              final scheduled = await _scheduleHabit(
+                habits,
+                shouldContinue: shouldContinue,
+              );
+              complete = scheduled && complete;
+            } on Object {
+              // Stale alarms were cancelled. Failed outcome reads must never
+              // become a daily fallback for a completed cadence period.
+              complete = false;
+            }
+          }
         }
         if (prefs.dailyPlanningEnabled) {
           await daily(

@@ -61,6 +61,8 @@ void main() {
     double textScale = 1,
     List<DecisionOutcomeKind>? recordedDecisionOutcomes,
     TimeBlock? recommendationBlock,
+    DateTime Function()? planningClock,
+    bool withoutRecommendationBlock = false,
   }) async {
     tester.view.physicalSize = Size(width, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -69,7 +71,12 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       retry: (int retryCount, Object error) => null,
       overrides: [
-        if (recommendationBlock != null) ...[
+        if (planningClock != null)
+          adaptivePlanClockProvider.overrideWithValue(planningClock),
+        if (withoutRecommendationBlock) ...[
+          nexusTimeBlocksProvider.overrideWithValue(const AsyncData([])),
+          nextNexusTimeBlockProvider.overrideWithValue(null),
+        ] else if (recommendationBlock != null) ...[
           nexusTimeBlocksProvider.overrideWithValue(
             AsyncData([recommendationBlock]),
           ),
@@ -224,6 +231,142 @@ void main() {
             )
             .first,
       );
+
+  for (final locale in [const Locale('en'), const Locale('es')]) {
+    for (final scenario in [
+      'future',
+      'current',
+      'past',
+      'unscheduled',
+      'missing',
+      'terminal',
+      'mismatch',
+      'no-block',
+      'other-block',
+      'title-mismatch',
+    ]) {
+      testWidgets(
+        'upcoming occurrence $scenario is canonical and localized ${locale.languageCode}',
+        (tester) async {
+          final now = DateTime(2026, 10, 13, 19);
+          final scheduled = switch (scenario) {
+            'current' => now,
+            'past' => now.subtract(const Duration(minutes: 1)),
+            'unscheduled' => null,
+            _ => DateTime(2026, 10, 14, 20),
+          };
+          final task = Task(
+            id: scenario == 'mismatch' ? 'different-canonical-task' : 'task-1',
+            title: scenario == 'title-mismatch'
+                ? 'Different saved task title'
+                : 'Finish quarterly review',
+            priority: 3,
+            difficulty: 3,
+            energyRequired: 3,
+            scheduledFor: scheduled,
+            isCompleted: scenario == 'terminal',
+          );
+          await pumpNexusScreen(
+            tester,
+            width: 420,
+            locale: locale,
+            planningClock: () => now,
+            tasks: scenario == 'missing' ? [] : [task],
+            withoutRecommendationBlock: scenario == 'no-block',
+            decisionModel: scenario == 'no-block' || scenario == 'other-block'
+                ? _prefixedTaskDecisionModel()
+                : null,
+            recommendationBlock: TimeBlock(
+              id: 'future-slot',
+              taskId: scenario == 'mismatch' || scenario == 'other-block'
+                  ? 'other-task'
+                  : 'task-1',
+              title: 'Finish quarterly review',
+              // This generated slot intentionally differs from saved occurrence.
+              start: DateTime(2026, 10, 15, 16),
+              end: DateTime(2026, 10, 15, 16, 30),
+            ),
+          );
+          final line = find.byKey(const Key('nexus-upcoming-occurrence'));
+          final hasFutureLine = [
+            'future',
+            'no-block',
+            'other-block',
+          ].contains(scenario);
+          expect(line, hasFutureLine ? findsOneWidget : findsNothing);
+          if (hasFutureLine) {
+            expect(
+              tester.widget<Text>(line).data,
+              locale.languageCode == 'es'
+                  ? 'Próxima ocurrencia · Mañana · 20:00'
+                  : 'Upcoming occurrence · Tomorrow · 8:00 PM',
+            );
+          }
+          expect(
+            tester
+                .widget<Text>(find.byKey(const Key('nexus-recommended-action')))
+                .data,
+            scenario == 'no-block' || scenario == 'other-block'
+                ? locale.languageCode == 'es'
+                      ? 'Trabaja en: Finish quarterly review'
+                      : 'Work on: Finish quarterly review'
+                : 'Finish quarterly review',
+          );
+          expect(
+            find.widgetWithText(
+              OutlinedButton,
+              locale.languageCode == 'es' ? 'Completar' : 'Complete',
+            ),
+            ['mismatch', 'no-block', 'other-block'].contains(scenario)
+                ? findsNothing
+                : findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+      );
+    }
+  }
+  testWidgets(
+    'upcoming occurrence line reevaluates saved clock boundary on current task refresh',
+    (tester) async {
+      var now = DateTime(2026, 10, 14, 19, 59, 59);
+      final scheduled = DateTime(2026, 10, 14, 20);
+      final task = Task(
+        id: 'task-1',
+        title: 'Finish quarterly review',
+        priority: 3,
+        difficulty: 3,
+        energyRequired: 3,
+        scheduledFor: scheduled,
+      );
+      final container = await pumpNexusScreen(
+        tester,
+        width: 420,
+        planningClock: () => now,
+        tasks: [task],
+        recommendationBlock: TimeBlock(
+          id: 'future-slot',
+          taskId: task.id,
+          title: task.title,
+          start: scheduled,
+          end: scheduled.add(const Duration(minutes: 30)),
+        ),
+      );
+      expect(
+        find.byKey(const Key('nexus-upcoming-occurrence')),
+        findsOneWidget,
+      );
+      now = scheduled;
+      container.invalidate(adaptivePlanClockProvider);
+      container.invalidate(tasksProvider);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byKey(const Key('nexus-upcoming-occurrence')), findsNothing);
+      expect(find.widgetWithText(OutlinedButton, 'Complete'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('Creator recommendation opens a task form instead of Planner', (
     tester,
@@ -1085,6 +1228,38 @@ final OperatingDecisionReceipt _operatingDecision = OperatingDecisionReceipt(
   sourceRevisions: const <String, String>{'tasks': 'golden-1'},
   modelVersion: 'golden-v1',
 );
+
+NexusDecisionModel _prefixedTaskDecisionModel() {
+  final original = _operatingDecision;
+  final receipt = OperatingDecisionReceipt(
+    subjectId: original.subjectId,
+    recommendedAction: 'Work on: ${original.recommendedAction}',
+    rationale: original.rationale,
+    whyItMatters: original.whyItMatters,
+    consequenceOfDelay: original.consequenceOfDelay,
+    generatedAt: original.generatedAt,
+    expiresAt: original.expiresAt,
+    confidence: original.confidence,
+    evidence: original.evidence,
+    actionIntent: original.actionIntent,
+    sourceRevisions: original.sourceRevisions,
+    modelVersion: original.modelVersion,
+  );
+  return NexusDecisionModel(
+    status: NexusDecisionStatus.ready,
+    hasAvailableNetworkInterface: true,
+    pendingSyncCount: 0,
+    topRisk: '',
+    recentProgress: '',
+    statusDetail: 'Ready',
+    intelligence: DecisionIntelligence(
+      snapshot: _operatingSnapshot,
+      delta: _readyNexusDecisionModel.intelligence!.delta,
+      decision: receipt,
+      acknowledgedSnapshotId: null,
+    ),
+  );
+}
 
 final NexusDecisionModel _readyNexusDecisionModel = NexusDecisionModel(
   status: NexusDecisionStatus.ready,

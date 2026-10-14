@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:patrol/patrol.dart';
+import 'current_navigation_support.dart';
 
 void main() {
   patrolTest(
@@ -37,30 +38,14 @@ void main() {
         ),
       );
       await $.pump(const Duration(seconds: 1));
-      final startupEnd = DateTime.now().add(const Duration(seconds: 40));
-      var continuedWelcome = false;
-      while (!$(const Key('local-profile-continue')).exists &&
-          !$(find.byTooltip('Open navigation map')).exists &&
-          DateTime.now().isBefore(startupEnd)) {
-        if (!continuedWelcome && $('CONTINUE TO LOGIN').exists) {
-          await $('CONTINUE TO LOGIN').scrollTo();
-          await $('CONTINUE TO LOGIN').tap();
-          continuedWelcome = true;
-        }
-        await $.pump(const Duration(milliseconds: 200));
-      }
-      debugPrint(
-        'AXIOMARA_STARTUP_TEXTS ${$.tester.widgetList<Text>(find.byType(Text)).map((w) => w.data).toList()}',
+      await settleCurrentUserNavigation(
+        $,
+        destinationReady: () => find
+            .byTooltip('Open navigation map')
+            .hitTestable()
+            .evaluate()
+            .isNotEmpty,
       );
-      if ($(const Key('local-profile-continue')).exists) {
-        await $(const Key('local-profile-continue')).tap();
-      }
-      if (!$(find.byTooltip('Open navigation map')).exists) {
-        await $(const Key('first-value-skip')).waitUntilVisible();
-        await $(const Key('first-value-skip')).tap();
-      }
-      await $.pump(const Duration(seconds: 1));
-      if ($('Pause guide').exists) await $('Pause guide').tap();
       final context = $.tester.element(find.byType(StartupBootstrapGate).first);
       final container = ProviderScope.containerOf(context, listen: false);
       final folder = await getApplicationDocumentsDirectory();
@@ -136,6 +121,11 @@ void main() {
             'AXIOMARA_GOALS_ROUTE_TEXTS ${$.tester.widgetList<Text>(find.byType(Text)).map((w) => w.data).toList()}',
           );
           await $('GOAL').tap();
+          await settleCurrentUserNavigation(
+            $,
+            destinationReady: () =>
+                find.byTooltip('Add goal').hitTestable().evaluate().isNotEmpty,
+          );
           await $(find.byTooltip('Add goal')).waitUntilVisible();
         }
       }

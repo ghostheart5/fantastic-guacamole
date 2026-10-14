@@ -1,0 +1,9 @@
+# This is a separate, vendored dependency package. Its published source uses
+# ordinary Dart inference and dynamic platform-channel payloads. Keep its analysis
+# boundary separate from Axiomara's application-only custom lint/strictness policy.
+# Default Dart diagnostics remain enabled; no source files are excluded.
+analyzer:
+  language:
+    strict-casts: false
+    strict-inference: false
+    strict-raw-types: false

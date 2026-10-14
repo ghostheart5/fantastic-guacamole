@@ -37,103 +37,105 @@ class NotificationPermissionPrompt extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        if (!denied)
-          TemporalGlassSurface(
-            accent: AppColors.neonCyan,
-            opacity: 0.9,
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const SizedBox.square(
-                      dimension: 48,
-                      child: Icon(
-                        Icons.notifications_active_outlined,
-                        color: AppColors.neonCyan,
-                        size: 30,
-                      ),
+        // An off platform status also includes a fresh installation that has
+        // never requested permission. Keep the consent-first request action
+        // available; Android decides whether it can show its native prompt.
+        TemporalGlassSurface(
+          accent: AppColors.neonCyan,
+          opacity: 0.9,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const SizedBox.square(
+                    dimension: 48,
+                    child: Icon(
+                      Icons.notifications_active_outlined,
+                      color: AppColors.neonCyan,
+                      size: 30,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            isSpanish
-                                ? 'PERMISO · NOTIFICACIONES'
-                                : 'PERMISSION · NOTIFICATIONS',
-                            style: const TextStyle(
-                              color: AppColors.neonCyan,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            title ??
-                                (isSpanish
-                                    ? 'Notificaciones'
-                                    : 'Notifications'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  isSpanish
-                      ? 'Activa las notificaciones para recibir los recordatorios de ejecución y reflexión que programes.'
-                      : 'Enable notifications to receive scheduled execution and reflection reminders.',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    height: 1.45,
-                    letterSpacing: 0,
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          isSpanish
+                              ? 'PERMISO · NOTIFICACIONES'
+                              : 'PERMISSION · NOTIFICATIONS',
+                          style: const TextStyle(
+                            color: AppColors.neonCyan,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          title ??
+                              (isSpanish ? 'Notificaciones' : 'Notifications'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                isSpanish
+                    ? 'Activa las notificaciones para recibir los recordatorios de ejecución y reflexión que programes.'
+                    : 'Enable notifications to receive scheduled execution and reflection reminders.',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  height: 1.45,
+                  letterSpacing: 0,
                 ),
-                const SizedBox(height: 12),
-                TemporalStatusRow(
-                  icon: Icons.tune_rounded,
-                  text: isSpanish
-                      ? 'Opcionales y controladas desde Ajustes.'
-                      : 'Optional and controlled from Settings.',
-                ),
-                const SizedBox(height: 14),
-                TemporalActionButton(
-                  label: isSpanish
-                      ? 'Activar notificaciones'
-                      : 'Enable Notifications',
-                  icon: Icons.notifications_active_outlined,
-                  onPressed: () async {
-                    await showPermissionRationaleSheet<void>(
-                      context: context,
-                      explainer: explainer,
-                      onPrimary: () async {
-                        await onRequestPermission();
-                      },
-                    );
-                  },
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 12),
+              TemporalStatusRow(
+                icon: Icons.tune_rounded,
+                text: isSpanish
+                    ? 'Opcionales y controladas desde Ajustes.'
+                    : 'Optional and controlled from Settings.',
+              ),
+              const SizedBox(height: 14),
+              TemporalActionButton(
+                label: isSpanish
+                    ? 'Activar notificaciones'
+                    : 'Enable Notifications',
+                icon: Icons.notifications_active_outlined,
+                onPressed: () async {
+                  await showPermissionRationaleSheet<void>(
+                    context: context,
+                    explainer: explainer,
+                    onPrimary: () async {
+                      await onRequestPermission();
+                    },
+                  );
+                },
+              ),
+            ],
           ),
+        ),
         if (denied) ...<Widget>[
           PermissionDeniedRecovery(
-            title: isSpanish ? 'Permiso denegado' : 'Permission Denied',
+            title: isSpanish
+                ? 'Notificaciones desactivadas'
+                : 'Notifications off',
             message: isSpanish
-                ? 'Las notificaciones están desactivadas en el sistema. Abre los ajustes para volver a activar los avisos.'
-                : 'Notifications are disabled at system level. Open settings to re-enable alerts.',
+                ? 'Activa las notificaciones arriba. Si Android ya no muestra una solicitud de permiso, puedes activarlas en los ajustes del dispositivo.'
+                : 'Enable notifications above. If Android no longer shows a permission prompt, you can enable them in device settings.',
             onOpenSystemSettings: onOpenSystemSettings,
           ),
         ],

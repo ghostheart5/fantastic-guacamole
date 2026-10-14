@@ -48,6 +48,7 @@ void main() {
           ),
           scheduler: scheduler,
           accountScope: 'restore-scope',
+          loadHabitOccurrences: () async => [],
         );
         expect(
           await reflection.reconcileAfterRestore(
@@ -103,6 +104,7 @@ void main() {
           ),
           scheduler: scheduler,
           accountScope: 'restore-scope',
+          loadHabitOccurrences: () async => [],
         );
         expect(
           await reflection.reconcileAfterRestore(
@@ -136,7 +138,8 @@ void main() {
         expect(scheduler.permissionRequests, 0);
         expect(prefs.load('reflection_reminder_enabled'), 'true');
         expect(scheduler.schedules.length, granted ? 1 : 0);
-        expect(scheduler.dailySchedules.length, granted ? 3 : 0);
+        expect(scheduler.dailySchedules.length, granted ? 2 : 0);
+        expect(scheduler.cadenceSchedules, granted ? 1 : 0);
         if (granted) {
           final reflectionAt = scheduler.dailySchedules.first;
           expect((reflectionAt.hour, reflectionAt.minute), (18, 45));
@@ -442,6 +445,7 @@ final class _MemoryPreferences implements SharedPrefsStore {
 
 final class _RecordingScheduler implements NotificationSchedulerPort {
   bool scheduleSucceeds = true;
+  int cadenceSchedules = 0;
   final List<NotificationEntity> schedules = [];
   bool blockFirstSchedule = false;
   final entered = Completer<void>();
@@ -490,6 +494,20 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
       entered.complete();
       await release.future;
     }
+    return scheduleSucceeds;
+  }
+
+  @override
+  Future<bool> scheduleCadenceAt({
+    required String id,
+    required String title,
+    required String body,
+    required HabitCadence cadence,
+    required DateTime firstAt,
+    String? accountScope,
+  }) async {
+    operations.add('cadence:$accountScope');
+    cadenceSchedules++;
     return scheduleSucceeds;
   }
 
