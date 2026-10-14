@@ -287,9 +287,10 @@ class ReminderOrchestratorService {
           ...goals.map((g) => g.id),
         };
         final ids = {
-          ...goalIds.map(_goalReminderId),
-          _habitReminderId,
+          // Fixed daily alarms must not wait behind large historical goal sets.
           _dailyPlanningReminderId,
+          _habitReminderId,
+          ...goalIds.map(_goalReminderId),
         };
         bool complete = true;
         // Cancel stale times and disabled reminders even without OS permission.
