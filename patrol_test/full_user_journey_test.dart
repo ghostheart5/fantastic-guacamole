@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:fantastic_guacamole/app/startup/app_bootstrap.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:flutter/foundation.dart';
@@ -8,6 +9,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,7 +25,15 @@ void main() {
     ($) async {
       final package = await PackageInfo.fromPlatform();
       expect(package.packageName, 'com.ghostheart5.chronospark.qa');
+      expect(package.version, '4.2.4-qa');
+      expect(package.buildNumber, '2026101201');
       expect(Platform.isAndroid && kDebugMode && Env.isLocalMode, isTrue);
+      final device = await DeviceInfoPlugin().androidInfo;
+      expect(
+        device.isPhysicalDevice,
+        isFalse,
+        reason: 'This actor is bound to the separate full Android emulator.',
+      );
       expect(
         Env.isMockMode ||
             Env.isMockLoginEnabled ||
@@ -50,11 +61,23 @@ void main() {
       final container = ProviderScope.containerOf(context, listen: false);
       final folder = await getApplicationDocumentsDirectory();
       final receipts = File('${folder.path}/level20-ui-receipts.jsonl');
+      final baselineFile = File(
+        '${folder.path}/level20-preservation-baseline.json',
+      );
       void record(Map<String, Object?> event) {
         final line = jsonEncode({
           ...event,
           'operator': 'codex_ai',
-          'lane': 'real_widgets_on_physical_android_local_backend',
+          'lane': 'real_widgets_on_android_emulator_local_backend',
+          'device': {
+            'is_physical_device': device.isPhysicalDevice,
+            'model': device.model,
+            'fingerprint': device.fingerprint,
+            'sdk_int': device.version.sdkInt,
+          },
+          'package': package.packageName,
+          'version': package.version,
+          'build_number': package.buildNumber,
           'timestamp_utc': DateTime.now().toUtc().toIso8601String(),
         });
         receipts.writeAsStringSync(
@@ -79,7 +102,7 @@ void main() {
             'action': 'visible_profile_capture',
             'level': level,
             'file': path,
-            'capture_type': 'actual Flutter render on bound physical device',
+            'capture_type': 'actual Flutter render on bound Android emulator',
           });
         } finally {
           image.dispose();
@@ -160,6 +183,151 @@ void main() {
         reason: 'Existing XP must match only the recorded ordinary UI actions.',
       );
       expect(initial.level, ProgressionPolicy.levelFromXp(initial.xp));
+
+      // Repositories are read-only oracles. Retain the original baseline on
+      // resume so restarting the actor cannot conceal prior collateral edits.
+      Future<Map<String, Object?>> canonicalSnapshot() async {
+        final habitOccurrences = container.read(
+          habitOccurrenceRepositoryProvider,
+        );
+        expect(habitOccurrences, isNotNull);
+        return {
+          'tasks': (await container.read(taskRepositoryProvider).getAllTasks())
+              .map((item) => item.toJson())
+              .toList(),
+          'habits': (await container.read(habitRepositoryProvider).getHabits())
+              .map((item) => item.toJson())
+              .toList(),
+          'notes': (await container.read(noteRepositoryProvider).getNotes())
+              .map((item) => item.toJson())
+              .toList(),
+          'goals': container
+              .read(goalRepositoryProvider)
+              .getGoals()
+              .map((item) => item.toJson())
+              .toList(),
+          'task_occurrences':
+              (await container
+                      .read(taskOccurrenceRepositoryProvider)
+                      .listOccurrences())
+                  .map(
+                    (item) => <String, dynamic>{
+                      'id': item.id,
+                      'canonical_json': item.toJson(),
+                    },
+                  )
+                  .toList(),
+          'habit_occurrences': (await habitOccurrences!.load())
+              .map(
+                (item) => <String, dynamic>{
+                  'id': item.id,
+                  'canonical_json': item.toJson(),
+                },
+              )
+              .toList(),
+        };
+      }
+
+      if (previous.isEmpty) {
+        expect(
+          initial.xp,
+          0,
+          reason: 'Fresh acceptance must start at zero XP.',
+        );
+        expect(
+          baselineFile.existsSync(),
+          isFalse,
+          reason:
+              'An orphan baseline requires external inspection, not overwrite.',
+        );
+        await baselineFile.writeAsString(
+          jsonEncode(await canonicalSnapshot()),
+          flush: true,
+        );
+      } else {
+        expect(
+          baselineFile.existsSync(),
+          isTrue,
+          reason: 'Resume requires the original preservation baseline.',
+        );
+      }
+      final baseline =
+          jsonDecode(await baselineFile.readAsString()) as Map<String, dynamic>;
+      expect(
+        baseline.keys,
+        unorderedEquals(const <String>[
+          'tasks',
+          'habits',
+          'notes',
+          'goals',
+          'task_occurrences',
+          'habit_occurrences',
+        ]),
+      );
+      Future<void> verifyPreservation(int completed) async {
+        final current = await canonicalSnapshot();
+        for (final entry in baseline.entries) {
+          final expectedRows = entry.value as List<dynamic>;
+          final actualRows = current[entry.key]! as List<dynamic>;
+          final byId = <String, dynamic>{
+            for (final dynamic row in actualRows)
+              (row as Map<String, dynamic>)['id'] as String: row,
+          };
+          expect(
+            byId.length,
+            actualRows.length,
+            reason: '${entry.key} must have unique canonical record IDs.',
+          );
+          for (final dynamic row in expectedRows) {
+            expect(
+              byId[(row as Map<String, dynamic>)['id']],
+              equals(row),
+              reason: 'Preexisting ${entry.key} must remain exactly unchanged.',
+            );
+          }
+          if (entry.key != 'goals') {
+            expect(
+              actualRows.length,
+              expectedRows.length,
+              reason: 'Goal UI actions must not add unrelated ${entry.key}.',
+            );
+          } else {
+            expect(
+              actualRows.length,
+              expectedRows.length + completed,
+              reason:
+                  'Every UI-completed QA goal must remain in canonical history.',
+            );
+            for (var sequence = 1; sequence <= completed; sequence++) {
+              final title =
+                  'QA Level20 goal ${sequence.toString().padLeft(4, '0')}';
+              final goals = actualRows
+                  .where(
+                    (dynamic row) =>
+                        (row as Map<String, dynamic>)['title'] == title,
+                  )
+                  .toList();
+              expect(goals, hasLength(1));
+              expect(
+                (goals.single as Map<String, dynamic>)['completedAt'],
+                isNotNull,
+              );
+            }
+          }
+        }
+        record({
+          'action': 'canonical_preservation_passed',
+          'completed_sequence': completed,
+          'baseline_file': baselineFile.path,
+          'counts': {
+            for (final entry in current.entries)
+              entry.key: (entry.value! as List<dynamic>).length,
+          },
+        });
+      }
+
+      // A pending creation is verified after its ordinary UI completion below.
+      if (!pendingCreation) await verifyPreservation(completedSequence);
       record({
         'action': previous.isEmpty ? 'baseline' : 'resume_checkpoint',
         'xp': initial.xp,
@@ -246,6 +414,7 @@ void main() {
           'level': profile.level,
         });
         if (profile.level != lastLevel) {
+          await verifyPreservation(sequence);
           await navigate('Human Profile');
           expect(
             find.textContaining('AXIOMARA LEVEL ${profile.level}'),
@@ -264,6 +433,7 @@ void main() {
       final finalProfile = container.read(profileProvider);
       expect(finalProfile.xp, 36140);
       expect(finalProfile.level, 20);
+      await verifyPreservation(695);
       await navigate('Human Profile');
       await captureLevel(20);
       record({
