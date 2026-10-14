@@ -504,7 +504,7 @@ class CandidateVerifierTests(unittest.TestCase):
 
 class DiagnosticFilterTests(unittest.TestCase):
     def test_secret_messages_and_frames_never_reach_output(self):
-        secret = "deliberate-secret-value"
+        secret = "deliberateSecretValue"
         d = FailureDiagnostics({"ANDROID_KEY_PASSWORD": secret})
         payload = ("Caused by: java.security.UnrecoverableKeyException: " + secret + "\n"
                    "raw bearer " + secret + "\n"
