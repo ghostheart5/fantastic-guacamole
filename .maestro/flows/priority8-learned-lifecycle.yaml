@@ -80,6 +80,23 @@ tags:
     direction: DOWN
     timeout: 10000
 - tapOn: "^CREATE TASK$"
+# The first save may retain Creator's receipt under the guide overlay.
+# Verify one saved change, then use the visible Timeline handoff.
+- runFlow:
+    file: ../subflows/verify-creator-saved-receipt.yaml
+    env:
+      SAVED_ITEM: "Task: Priority 8 journey seed"
+- scrollUntilVisible:
+    element:
+      text: "Open Timeline"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
+- tapOn: "Open Timeline"
+- extendedWaitUntil:
+    visible: "TRUTH LEDGER"
+    timeout: 10000
 - extendedWaitUntil:
     visible: "(?s).*Priority 8 journey seed.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*"
     timeout: 15000
