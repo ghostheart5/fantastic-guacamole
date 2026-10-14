@@ -418,6 +418,35 @@ def manifest(package=PACKAGE, code="2026083003", target="36", debug="false", tes
 
 
 class CandidateVerifierTests(unittest.TestCase):
+    def test_hosted_signing_heap_is_scoped_and_preserves_app_build_settings(self):
+        tooling = Path(__file__).resolve().parent
+        original_home = os.environ.get("GRADLE_USER_HOME")
+        with tempfile.TemporaryDirectory() as folder:
+            project = Path(folder) / "app/android"
+            project.mkdir(parents=True)
+            source = project / "gradle.properties"
+            local_config = b"org.gradle.jvmargs=-Xmx1536m\norg.gradle.workers.max=1\n"
+            source.write_bytes(local_config)
+            with self.assertRaisesRegex(RuntimeError, "controlled finalization failure"):
+                with signing_environment(tooling, folder) as env:
+                    home = Path(env["GRADLE_USER_HOME"])
+                    self.assertNotEqual(home, project)
+                    properties = dict(line.split("=", 1) for line in
+                        (home / "gradle.properties").read_text().splitlines())
+                    self.assertEqual(properties["org.gradle.jvmargs"],
+                        "-Xmx4g -XX:MaxMetaspaceSize=512m -XX:ReservedCodeCacheSize=256m "
+                        "-XX:-HeapDumpOnOutOfMemoryError")
+                    self.assertEqual(properties["org.gradle.workers.max"], "1")
+                    self.assertEqual(properties["org.gradle.parallel"], "false")
+                    self.assertEqual(properties["org.gradle.daemon"], "false")
+                    self.assertEqual(properties["org.gradle.configuration-cache"], "false")
+                    self.assertEqual(source.read_bytes(), local_config)
+                    self.assertEqual(os.environ.get("GRADLE_USER_HOME"), original_home)
+                    raise RuntimeError("controlled finalization failure")
+            self.assertFalse(home.exists())
+            self.assertEqual(source.read_bytes(), local_config)
+        self.assertEqual(os.environ.get("GRADLE_USER_HOME"), original_home)
+
     def test_signing_bootstrap_contains_only_fixed_nonsecret_values(self):
         self.assertEqual(SIGNING_BOOTSTRAP.splitlines()[1:], [
             "storePassword=environment-injected", "keyPassword=environment-injected",
