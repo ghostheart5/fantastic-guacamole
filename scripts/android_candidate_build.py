@@ -13,6 +13,10 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
+if __package__:
+    from .candidate_build_diagnostics import run_flutter_release
+else:
+    from candidate_build_diagnostics import run_flutter_release
 
 # Dispatch must identify a newly reviewed immutable source and its green CI.
 # Never silently fall back to the previous candidate.
@@ -230,6 +234,11 @@ def validate_ci_evidence(evidence, source_sha, ci_run, repository):
 
 
 def command(args, root, capture=False, env=None):
+    if args[:3] == ["flutter", "build", "appbundle"]:
+        require(not capture, "Raw Flutter release output capture is not permitted")
+        require(run_flutter_release(args, root, env) == 0,
+                "Flutter release command failed; bounded diagnostics emitted")
+        return ""
     result = subprocess.run(args, cwd=root, text=True, capture_output=capture, env=env)
     require(result.returncode == 0, f"{args[0]} command failed (output not retained)")
     return result.stdout.strip() if capture else ""
