@@ -306,10 +306,13 @@ jobs:
               assert f'lib/{expected_abi}/libflutter.so' in entries
               abis = sorted({name.split('/')[1] for name in entries if name.startswith('lib/') and name.endswith('.so')})
           signing = subprocess.check_output([str(tools / 'apksigner'), 'verify', '--verbose', '--print-certs', str(apk)], text=True)
-          certs = re.findall(r'^Signer #\d+ certificate SHA-256 digest: ([a-fA-F0-9]{64})$', signing, re.M)
-          assert len(certs) == 1 and 'CN=Android Debug' in signing
           with apk.open('rb') as stream:
               digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+          # Credential-free evidence must survive a failed identity guard.
+          print(json.dumps({'apkSha256': digest, 'apkBytes': apk.stat().st_size,
+                            'badging': badging, 'signature': signing}), flush=True)
+          certs = re.findall(r'^Signer #\d+ certificate SHA-256 digest: ([a-fA-F0-9]{64})$', signing, re.M)
+          assert len(certs) == 1 and 'CN=Android Debug' in signing
           receipt = json.loads((output / 'provenance.json').read_text())
           assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip() == receipt['sourceSha']
           assert not subprocess.check_output(['git', 'status', '--porcelain'], text=True).strip()
