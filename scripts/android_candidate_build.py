@@ -13,6 +13,10 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
+if __package__:
+    from .candidate_build_diagnostics import run_flutter_release
+else:
+    from candidate_build_diagnostics import run_flutter_release
 
 # Dispatch must identify a newly reviewed immutable source and its green CI.
 # Never silently fall back to the previous candidate.
@@ -230,6 +234,11 @@ def validate_ci_evidence(evidence, source_sha, ci_run, repository):
 
 
 def command(args, root, capture=False, env=None):
+    if args[:3] == ["flutter", "build", "appbundle"]:
+        require(not capture, "Raw Flutter release output capture is not permitted")
+        require(run_flutter_release(args, root, env) == 0,
+                "Flutter release command failed; bounded diagnostics emitted")
+        return ""
     result = subprocess.run(args, cwd=root, text=True, capture_output=capture, env=env)
     require(result.returncode == 0, f"{args[0]} command failed (output not retained)")
     return result.stdout.strip() if capture else ""
@@ -254,6 +263,11 @@ def signing_environment(tooling, runner_temp):
         shutil.copyfile(tooling / "candidate-signing.init.gradle",
                         home / "init.d/candidate-signing.init.gradle")
         (home / "gradle.properties").write_text(
+            # Hosted FULL-symbol AAB finalization exhausted the app's 1536m
+            # local-build heap. Override only this disposable Gradle home.
+            "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m "
+            "-XX:ReservedCodeCacheSize=256m -XX:-HeapDumpOnOutOfMemoryError\n"
+            "org.gradle.workers.max=1\norg.gradle.parallel=false\n"
             "org.gradle.daemon=false\norg.gradle.configuration-cache=false\n",
             encoding="ascii")
         env = os.environ.copy()
@@ -411,7 +425,10 @@ def build(root, bundletool):
         require(fingerprint and fingerprint[1].replace(":", "").upper() == UPLOAD_SHA1,
                 "Existing upload identity pin mismatch")
         with signing_environment(tooling, Path(os.environ["RUNNER_TEMP"])) as env:
-            command(["flutter", "build", "appbundle", "--release", "--no-pub",
+            # pub get above generates a development plugin registrant. Allow the
+            # release command to regenerate it without dev-only native plugins.
+            # The source/lockfile checks below still reject dependency drift.
+            command(["flutter", "build", "appbundle", "--release",
                      "--dart-define-from-file=" + str(defines)], root, env=env)
     finally:
         for path in (key, props, defines):
