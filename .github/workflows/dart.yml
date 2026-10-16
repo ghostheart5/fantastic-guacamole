@@ -1,160 +1,158 @@
-# EVIDENCE ONLY. Proposed replacement of the existing registered dart.yml on a
-# separate workflow branch. Not installed, committed, pushed, or dispatched.
-# Freeze the reviewed application commit below before any authorized use.
-name: Extended Dart Validation
+# REVIEW ARTIFACT ONLY. Publish four allowlisted payload files and dispatch once
+# only after new owner approval. Candidate is published5bc + reviewed c3e9 overlay.
+name: Bounded local Back candidate validation
 
 on:
   workflow_dispatch:
     inputs:
-      focused_welcome_review:
-        description: 'Run only focused repair validation; not canonical CI'
-        type: boolean
-        required: false
-        default: false
       source_sha:
-        description: 'Focused mode only: exact independently reviewed application SHA'
+        description: 'Exact reviewed published app source; overlay applied separately'
         type: string
-        required: false
+        required: true
+        default: '5bcdef1b47ca265a2e3069d7702603db26afa85f'
+      workflow_sha:
+        description: 'Exact owner-approved newly published workflow/payload commit'
+        type: string
+        required: true
 
 permissions:
   contents: read
 
-jobs:
-  canonical-ci:
-    if: ${{ !inputs.focused_welcome_review }}
-    uses: ./.github/workflows/ci.yml
-    permissions:
-      contents: read
+concurrency:
+  group: axiomara-back-candidate-${{ github.ref }}
+  cancel-in-progress: false
 
-  focused-welcome:
-    if: ${{ inputs.focused_welcome_review }}
-    name: Focused Axiomara repair checks (not canonical CI)
+jobs:
+  candidate:
+    name: One bounded fixture-only job
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
     env:
       SOURCE_SHA: ${{ inputs.source_sha }}
       EXPECTED_SOURCE_SHA: 5bcdef1b47ca265a2e3069d7702603db26afa85f
-      SOURCE_BRANCH: fix/axiomara-local-welcome-cta-20261016
-      BASE_SHA: 03d67c52ebc8e57c1c11f25aa7e38f4014edd7a2
-      REVIEWED_PATCH_SHA256: 84216aea8c505d75c2c2ad1444ddd0db1532df1169fc91e9c0885577cfeeec4c
+      WORKFLOW_SHA_INPUT: ${{ inputs.workflow_sha }}
       WORKFLOW_SHA: ${{ github.workflow_sha }}
-      WORKFLOW_REF: ${{ github.ref }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
       EVENT_NAME: ${{ github.event_name }}
       REPOSITORY_NAME: ${{ github.repository }}
       REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
       ACTOR: ${{ github.actor }}
+      TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+      RUN_ATTEMPT: ${{ github.run_attempt }}
+      MANIFEST_SHA256: 7792940f0fdcde63ed8fe5102515f19c9a5d1bad8b6feeb131497408158a162e
+      HELPER_SHA256: f2507f5854e953eb199b9c51f2d0874664029ec587c7fac5431d3c212a33e0c2
+      PATCH_SHA256: c3e954c28bf45534b7f755cdb153049c14a8d4c3613b3badbd13e9f1e04716fe
       CI: 'true'
       FLUTTER_SUPPRESS_ANALYTICS: 'true'
       DART_SUPPRESS_ANALYTICS: 'true'
       GIT_TERMINAL_PROMPT: '0'
+      PYTHONOPTIMIZE: '0'
     steps:
-      - name: Validate manual scope before checkout
-        shell: bash
+      - name: Validate exact manual public scope and fresh resource floor before checkout
+        id: scope
+        timeout-minutes: 5
         run: |
           set -euo pipefail
           test "$EVENT_NAME" = workflow_dispatch
           test "$REPOSITORY_NAME" = ghostheart5/fantastic-guacamole
           test "$REPOSITORY_PRIVATE" = false
           test "$ACTOR" = ghostheart5
-          test "$WORKFLOW_REF" = refs/heads/test/axiomara-focused-welcome-ci-20261016
+          test "$TRIGGERING_ACTOR" = ghostheart5
+          test "$GITHUB_REF" = refs/heads/test/axiomara-back-candidate-ci-20261016
+          test "$WORKFLOW_REF" = ghostheart5/fantastic-guacamole/.github/workflows/dart.yml@refs/heads/test/axiomara-back-candidate-ci-20261016
+          test "$RUN_ATTEMPT" = 1
           test "$RUNNER_ENVIRONMENT" = github-hosted
           test "$RUNNER_OS" = Linux
           test "$RUNNER_ARCH" = X64
           [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$EXPECTED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$WORKFLOW_SHA_INPUT" =~ ^[0-9a-f]{40}$ ]]
           test "$SOURCE_SHA" = "$EXPECTED_SOURCE_SHA"
-          [[ "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$WORKFLOW_SHA_INPUT" = "$WORKFLOW_SHA"
+          test "$WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$SOURCE_SHA" != "$WORKFLOW_SHA"
-          test "$SOURCE_BRANCH" = fix/axiomara-local-welcome-cta-20261016
-
-      - name: Checkout the exact separately reviewed application source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          ref: ${{ inputs.source_sha }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Bind clean source, branch, patch and resource identity
-        id: source_gate
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
-          test -z "$(git status --porcelain)"
-          git fetch --no-tags origin "refs/heads/${SOURCE_BRANCH}:refs/remotes/origin/focused-source"
-          test "$(git rev-parse refs/remotes/origin/focused-source)" = "$SOURCE_SHA"
-          git merge-base --is-ancestor "$BASE_SHA" "$SOURCE_SHA"
           python3 - <<'PY'
-          import hashlib, json, os, shutil, subprocess
+          import json, shutil
           from pathlib import Path
-          allowed = {
-              '.maestro/flows/03-onboarding-tutorial.yaml',
-              '.maestro/flows/11-logout.yaml',
-              '.maestro/flows/priority8-learned-lifecycle-readback.yaml',
-              '.maestro/qa/11-logout.yaml',
-              'integration_test/auth_flow_integration_test.dart',
-              'lib/features/onboarding/ui/onboarding_screen.dart',
-              'lib/state/controllers/profile_controller.dart',
-              'lib/tutorial/adaptive_guide_overlay.dart',
-              'lib/ui/system/temporal_glass.dart',
-              'patrol_test/current_navigation_support.dart',
-              'patrol_test/tutorial_planner_journey_test.dart',
-              'test/app/onboarding_return_to_router_test.dart',
-              'test/onboarding/onboarding_screen_test.dart',
-              'test/onboarding/onboarding_welcome_destination_test.dart',
-              'test/ui/system/temporal_screen_header_semantics_test.dart',
-              'test/state/controllers/profile_local_name_seed_test.dart',
-          }
-          changed = set(subprocess.check_output([
-              'git', 'diff', '--name-only', os.environ['BASE_SHA'], 'HEAD'
-          ], text=True).splitlines())
-          assert changed == allowed
-          patch = subprocess.check_output([
-              'git', 'diff', '--no-ext-diff', '--no-color', '--full-index', '--binary',
-              '--diff-algorithm=myers', '--no-renames', '--src-prefix=a/', '--dst-prefix=b/',
-              '--unified=3', os.environ['BASE_SHA'], 'HEAD'
-          ])
-          assert hashlib.sha256(patch).hexdigest() == os.environ['REVIEWED_PATCH_SHA256']
-          lock = hashlib.sha256(Path('pubspec.lock').read_bytes()).hexdigest()
-          assert lock == '3fbb2ac529f4ff619a9ddadf9112bfc928ba17578cac797036798d6466992953'
-          assert hashlib.sha256(Path('tool/qa_defines.json').read_bytes()).hexdigest() == '66a668ee353d982f969891834991013cb6c69b79ec1477b996c2eacfee596bd4'
-          available = int(next(line.split()[1] for line in Path('/proc/meminfo').read_text().splitlines() if line.startswith('MemAvailable:'))) * 1024
+          available = int(next(x.split()[1] for x in Path('/proc/meminfo').read_text().splitlines() if x.startswith('MemAvailable:'))) * 1024
+          free = shutil.disk_usage('.').free
           assert available >= 6 * 1024**3
-          assert shutil.disk_usage('.').free >= 8 * 1024**3
-          print(json.dumps({
-              'scope': 'focused welcome/guide checks only', 'isCanonicalCi': False,
-              'sourceSha': os.environ['SOURCE_SHA'],
-              'sourceTree': subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}'], text=True).strip(),
-              'workflowSha': os.environ['WORKFLOW_SHA'],
-              'reviewedPatchSha256': os.environ['REVIEWED_PATCH_SHA256'],
-              'lockfileSha256': lock, 'artifactsUploaded': False,
-          }))
+          assert free >= 8 * 1024**3
+          print(json.dumps({'availableRamBytes': available, 'freeDiskBytes': free, 'proposedCostScope': 'public standard Ubuntu only; no paid runner/service'}))
           PY
 
-      - name: Set up pinned Flutter without saving caches
+      - name: Checkout exact published app source into source
+        id: source_checkout
+        timeout-minutes: 5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ inputs.source_sha }}
+          path: source
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact workflow commit and its frozen parent into workflow-payload
+        id: payload_checkout
+        timeout-minutes: 5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ inputs.workflow_sha }}
+          path: workflow-payload
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Verify immutable payload then apply and bind the exact unstaged overlay
+        id: overlay
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          payload="$GITHUB_WORKSPACE/workflow-payload/ci/local-back-candidate"
+          printf '%s  %s\n' "$HELPER_SHA256" "$payload/verify_candidate.py" | sha256sum --check --strict
+          printf '%s  %s\n' "$MANIFEST_SHA256" "$payload/candidate-manifest.json" | sha256sum --check --strict
+          printf '%s  %s\n' "$PATCH_SHA256" "$payload/FULL_CANDIDATE_FINAL.patch" | sha256sum --check --strict
+          python3 "$payload/verify_candidate.py" apply \
+            --source "$GITHUB_WORKSPACE/source" \
+            --payload "$GITHUB_WORKSPACE/workflow-payload" \
+            --evidence "$RUNNER_TEMP/back-candidate" --workflow-sha "$WORKFLOW_SHA"
+
+      - name: Set up existing pinned Flutter with caches disabled
+        id: flutter
+        timeout-minutes: 5
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           channel: stable
           flutter-version: '3.44.6'
           cache: false
 
-      - name: Use the existing credential-free example asset and locked dependencies
-        shell: bash
+      - name: Use only the credential-free example and locked dependencies
+        id: deps
+        timeout-minutes: 5
+        working-directory: source
         run: |
           set -euo pipefail
           git check-ignore -q .env
           test ! -e .env
           cp .env.example .env
-          flutter pub get --enforce-lockfile
+          timeout --signal=TERM --kill-after=10s 240s flutter pub get --enforce-lockfile
           git diff --exit-code -- pubspec.lock
-          flutter --version --machine
+          timeout --signal=TERM --kill-after=10s 240s flutter --version --machine > "$RUNNER_TEMP/back-candidate/flutter-version.json"
+          cat "$RUNNER_TEMP/back-candidate/flutter-version.json"
+          python3 - "$RUNNER_TEMP/back-candidate/flutter-version.json" <<'PY'
+          import json, sys
+          version = json.load(open(sys.argv[1], encoding='utf-8'))
+          assert version['frameworkVersion'] == '3.44.6'
+          assert version['dartSdkVersion'].split()[0] == '3.12.2'
+          PY
 
-      - name: Check formatting of all twelve changed Dart files
+      - name: Check formatting of all sixteen affected Dart files
         id: format
         continue-on-error: true
-        shell: bash
+        timeout-minutes: 5
+        working-directory: source
         run: |
-          dart format --output=none --set-exit-if-changed \
+          timeout --signal=TERM --kill-after=10s 240s dart format --output=none --set-exit-if-changed \
             lib/features/onboarding/ui/onboarding_screen.dart \
             lib/state/controllers/profile_controller.dart \
             lib/tutorial/adaptive_guide_overlay.dart \
@@ -166,28 +164,36 @@ jobs:
             test/app/onboarding_return_to_router_test.dart \
             patrol_test/current_navigation_support.dart \
             patrol_test/tutorial_planner_journey_test.dart \
-            integration_test/auth_flow_integration_test.dart
+            integration_test/auth_flow_integration_test.dart \
+            lib/features/auth/screens/auth_gate.dart \
+            lib/features/auth/ui/local_profile_screen.dart \
+            test/features/auth/local_profile_first_run_back_test.dart \
+            test/acceptance/local_profile_back_router_local_probe.dart
 
-      - name: Analyze with the existing fatal-info policy
+      - name: Full analysis with fatal-info policy
         id: analysis
         continue-on-error: true
-        run: flutter analyze --no-pub --fatal-infos
+        timeout-minutes: 5
+        working-directory: source
+        run: timeout --signal=TERM --kill-after=10s 240s flutter analyze --no-pub --fatal-infos
 
-      - name: Validate maintained Maestro contracts without a device
+      - name: Retain maintained static Maestro validation without a device
         id: maestro
         continue-on-error: true
-        run: dart run tool/validate_maestro_flows.dart
+        timeout-minutes: 5
+        working-directory: source
+        run: timeout --signal=TERM --kill-after=10s 240s dart run tool/validate_maestro_flows.dart
 
-      - name: Run eleven focused widget files in default cloud mode
+      - name: Existing eleven regression files plus five screen cases in cloud mode
         id: cloud
         continue-on-error: true
         timeout-minutes: 5
-        shell: bash
+        working-directory: source
         run: |
           dart run tool/run_flutter_tests.dart \
-            --report "$RUNNER_TEMP/focused-welcome/cloud.jsonl" \
-            --manifest "$RUNNER_TEMP/focused-welcome/cloud-manifest.json" \
-            --timeout-seconds 240 -- \
+            --report "$RUNNER_TEMP/back-candidate/cloud.jsonl" \
+            --manifest "$RUNNER_TEMP/back-candidate/cloud-manifest.json" \
+            --timeout-seconds 240 --allowed-skips 0 -- \
             test/onboarding/onboarding_welcome_destination_test.dart \
             test/onboarding/onboarding_screen_test.dart \
             test/app/onboarding_return_to_router_test.dart \
@@ -198,18 +204,20 @@ jobs:
             test/state/controllers/profile_persistence_race_test.dart \
             test/data/services/local_profile_auth_service_test.dart \
             test/features/onboarding/onboarding_first_value_accessibility_test.dart \
-            test/features/onboarding/onboarding_keyboard_test.dart --no-pub
+            test/features/onboarding/onboarding_keyboard_test.dart \
+            test/features/auth/local_profile_first_run_back_test.dart \
+            --no-pub --concurrency=1 --reporter expanded
 
-      - name: Run the same eleven widget files in the exact local QA mode
+      - name: Same regressions and five screen cases plus two explicit local router oracles
         id: local
         continue-on-error: true
         timeout-minutes: 5
-        shell: bash
+        working-directory: source
         run: |
           dart run tool/run_flutter_tests.dart \
-            --report "$RUNNER_TEMP/focused-welcome/local-qa.jsonl" \
-            --manifest "$RUNNER_TEMP/focused-welcome/local-qa-manifest.json" \
-            --timeout-seconds 240 -- \
+            --report "$RUNNER_TEMP/back-candidate/local-qa.jsonl" \
+            --manifest "$RUNNER_TEMP/back-candidate/local-qa-manifest.json" \
+            --timeout-seconds 240 --allowed-skips 0 -- \
             test/onboarding/onboarding_welcome_destination_test.dart \
             test/onboarding/onboarding_screen_test.dart \
             test/app/onboarding_return_to_router_test.dart \
@@ -220,34 +228,26 @@ jobs:
             test/state/controllers/profile_persistence_race_test.dart \
             test/data/services/local_profile_auth_service_test.dart \
             test/features/onboarding/onboarding_first_value_accessibility_test.dart \
-            test/features/onboarding/onboarding_keyboard_test.dart --no-pub \
+            test/features/onboarding/onboarding_keyboard_test.dart \
+            test/features/auth/local_profile_first_run_back_test.dart \
+            test/acceptance/local_profile_back_router_local_probe.dart \
+            --no-pub --concurrency=1 --reporter expanded \
             --dart-define-from-file=tool/qa_defines.json
 
-      - name: Preserve credential-free evidence in logs and recheck source
+      - name: Log both raw reports and manifests then enforce outcomes counts terminals and exact overlay
+        if: ${{ always() && steps.overlay.outcome == 'success' }}
+        timeout-minutes: 5
         env:
           FORMAT_OUTCOME: ${{ steps.format.outcome }}
           ANALYSIS_OUTCOME: ${{ steps.analysis.outcome }}
           MAESTRO_OUTCOME: ${{ steps.maestro.outcome }}
           CLOUD_OUTCOME: ${{ steps.cloud.outcome }}
           LOCAL_OUTCOME: ${{ steps.local.outcome }}
-        if: ${{ always() && steps.source_gate.outcome == 'success' }}
-        shell: bash
+          DEPS_OUTCOME: ${{ steps.deps.outcome }}
+          FLUTTER_OUTCOME: ${{ steps.flutter.outcome }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
-          git diff --exit-code -- pubspec.lock
-          test -z "$(git status --porcelain --untracked-files=no)"
-          for name in cloud.jsonl cloud-manifest.json local-qa.jsonl local-qa-manifest.json; do
-            file="$RUNNER_TEMP/focused-welcome/$name"
-            if [ -f "$file" ]; then cat "$file"; fi
-          done
-          test -s "$RUNNER_TEMP/focused-welcome/cloud-manifest.json"
-          test -s "$RUNNER_TEMP/focused-welcome/local-qa-manifest.json"
-          echo 'Focused checks only; not canonical CI, APK verification, native, account, backend, store, or release acceptance.'
-          # Independent checks collect evidence within one authorized job;
-          # no failed check is waived by continue-on-error above.
-          test "$FORMAT_OUTCOME" = success
-          test "$ANALYSIS_OUTCOME" = success
-          test "$MAESTRO_OUTCOME" = success
-          test "$CLOUD_OUTCOME" = success
-          test "$LOCAL_OUTCOME" = success
+          python3 "$GITHUB_WORKSPACE/workflow-payload/ci/local-back-candidate/verify_candidate.py" final \
+            --source "$GITHUB_WORKSPACE/source" \
+            --payload "$GITHUB_WORKSPACE/workflow-payload" \
+            --evidence "$RUNNER_TEMP/back-candidate" --workflow-sha "$WORKFLOW_SHA"
