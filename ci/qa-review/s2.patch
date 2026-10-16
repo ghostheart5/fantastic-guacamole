@@ -1,0 +1,1307 @@
+diff --git a/lib/app/navigation_shell_ui.dart b/lib/app/navigation_shell_ui.dart
+index 1648242e6636a2ac5abdfe6f252b4a42ce906d1c..fa915103e9d5936e72c6996eed235650c0b1bd3c 100644
+--- a/lib/app/navigation_shell_ui.dart
++++ b/lib/app/navigation_shell_ui.dart
+@@ -275,40 +275,65 @@ extension _NavigationShellUi on _NavigationShellState {
+     required bool extended,
+   }) {
+     final double width = extended ? 224 : 72;
+-    return Padding(
+-      padding: const EdgeInsets.all(8),
+-      child: SizedBox(
+-        width: width,
+-        height: double.infinity,
+-        child: TemporalGlassSurface(
++    // Reserve system insets before constraining the rail's usable width.
++    return SafeArea(
++      child: Padding(
++        padding: const EdgeInsets.all(8),
++        child: SizedBox(
+           width: width,
+-          padding: const EdgeInsets.all(8),
+-          opacity: 0.94,
+-          blur: 18,
+-          child: SafeArea(
+-            child: Column(
+-              children: <Widget>[
+-                const SizedBox(height: 4),
+-                for (
+-                  int index = 0;
+-                  index < _primaryDestinations.length;
+-                  index++
+-                ) ...<Widget>[
+-                  _buildRailDestination(
+-                    index: index,
+-                    currentIndex: currentIndex,
+-                    extended: extended,
++          height: double.infinity,
++          child: TemporalGlassSurface(
++            width: width,
++            padding: const EdgeInsets.all(8),
++            opacity: 0.94,
++            blur: 18,
++            child: LayoutBuilder(
++              builder: (BuildContext context, BoxConstraints constraints) {
++                return SingleChildScrollView(
++                  primary: false,
++                  child: ConstrainedBox(
++                    constraints: BoxConstraints(
++                      minHeight: constraints.maxHeight,
++                    ),
++                    child: Column(
++                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
++                      children: <Widget>[
++                        Column(
++                          mainAxisSize: MainAxisSize.min,
++                          children: <Widget>[
++                            const SizedBox(height: 4),
++                            for (
++                              int index = 0;
++                              index < _primaryDestinations.length;
++                              index++
++                            ) ...<Widget>[
++                              _buildRailDestination(
++                                index: index,
++                                currentIndex: currentIndex,
++                                extended: extended,
++                              ),
++                              if (index < _primaryDestinations.length - 1)
++                                const SizedBox(height: 8),
++                            ],
++                          ],
++                        ),
++                        Column(
++                          mainAxisSize: MainAxisSize.min,
++                          children: <Widget>[
++                            Divider(
++                              height: 17,
++                              color: AppColors.panelBorder.withValues(
++                                alpha: 0.52,
++                              ),
++                            ),
++                            _buildRailMapAction(extended: extended),
++                          ],
++                        ),
++                      ],
++                    ),
+                   ),
+-                  if (index < _primaryDestinations.length - 1)
+-                    const SizedBox(height: 8),
+-                ],
+-                const Spacer(),
+-                Divider(
+-                  height: 17,
+-                  color: AppColors.panelBorder.withValues(alpha: 0.52),
+-                ),
+-                _buildRailMapAction(extended: extended),
+-              ],
++                );
++              },
+             ),
+           ),
+         ),
+diff --git a/lib/features/tasks/widgets/task_edit_dialog.dart b/lib/features/tasks/widgets/task_edit_dialog.dart
+index 7042da7a58b0cc18089eb618f1d42bc72299f0d7..f6c29b2ed31ff4c9573df5cac53c667a4427db28 100644
+--- a/lib/features/tasks/widgets/task_edit_dialog.dart
++++ b/lib/features/tasks/widgets/task_edit_dialog.dart
+@@ -45,252 +45,251 @@ Future<TaskEditDraft?> showTaskEditDialog({
+     context: context,
+     builder: (BuildContext dialogContext) => StatefulBuilder(
+       builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
++        // Keep the title and form reachable when the keyboard reduces height.
++        scrollable: true,
++        insetPadding: MediaQuery.viewInsetsOf(context).bottom > 0
++            ? const EdgeInsets.symmetric(horizontal: 40, vertical: 12)
++            : null,
+         title: Text(journeyText(context, 'Edit task', 'Editar tarea')),
+-        content: SingleChildScrollView(
+-          child: Form(
+-            key: formKey,
+-            child: Column(
+-              mainAxisSize: MainAxisSize.min,
+-              children: <Widget>[
+-                TextFormField(
+-                  key: const Key('timeline-task-title-field'),
+-                  initialValue: draftTitle,
+-                  autofocus: true,
+-                  textInputAction: TextInputAction.next,
+-                  decoration: InputDecoration(
+-                    labelText: journeyText(
+-                      context,
+-                      'Task title',
+-                      'Título de la tarea',
+-                    ),
+-                  ),
+-                  validator: (String? value) =>
+-                      value == null || value.trim().isEmpty
+-                      ? journeyText(
+-                          context,
+-                          'Enter a task title.',
+-                          'Escribe un título para la tarea.',
+-                        )
+-                      : null,
+-                  onChanged: (String value) => draftTitle = value,
+-                ),
+-                const SizedBox(height: 12),
+-                TextFormField(
+-                  key: const Key('timeline-task-description-field'),
+-                  initialValue: descriptionText,
+-                  minLines: 2,
+-                  maxLines: 4,
+-                  maxLength: 1000,
+-                  decoration: InputDecoration(
+-                    labelText: journeyText(
+-                      context,
+-                      'Description',
+-                      'Descripción',
+-                    ),
++        content: Form(
++          key: formKey,
++          child: Column(
++            mainAxisSize: MainAxisSize.min,
++            children: <Widget>[
++              TextFormField(
++                key: const Key('timeline-task-title-field'),
++                initialValue: draftTitle,
++                autofocus: true,
++                textInputAction: TextInputAction.next,
++                decoration: InputDecoration(
++                  labelText: journeyText(
++                    context,
++                    'Task title',
++                    'Título de la tarea',
+                   ),
+-                  onChanged: (String value) => descriptionText = value,
+                 ),
+-                const SizedBox(height: 12),
+-                DropdownButtonFormField<int>(
+-                  key: const Key('timeline-task-priority-field'),
+-                  initialValue: priority,
+-                  decoration: InputDecoration(
+-                    labelText: journeyText(context, 'Priority', 'Prioridad'),
+-                  ),
+-                  items: <int>[1, 2, 3, 4, 5]
+-                      .map(
+-                        (value) => DropdownMenuItem<int>(
+-                          value: value,
+-                          child: Text(
+-                            '$value · ${value == 1
+-                                ? journeyText(context, 'lowest', 'mínima')
+-                                : value == 5
+-                                ? journeyText(context, 'highest', 'máxima')
+-                                : journeyText(context, 'normal', 'normal')}',
+-                          ),
+-                        ),
++                validator: (String? value) =>
++                    value == null || value.trim().isEmpty
++                    ? journeyText(
++                        context,
++                        'Enter a task title.',
++                        'Escribe un título para la tarea.',
+                       )
+-                      .toList(growable: false),
+-                  onChanged: (int? value) {
+-                    if (value != null) setDialogState(() => priority = value);
+-                  },
++                    : null,
++                onChanged: (String value) => draftTitle = value,
++              ),
++              const SizedBox(height: 12),
++              TextFormField(
++                key: const Key('timeline-task-description-field'),
++                initialValue: descriptionText,
++                minLines: 2,
++                maxLines: 4,
++                maxLength: 1000,
++                decoration: InputDecoration(
++                  labelText: journeyText(context, 'Description', 'Descripción'),
+                 ),
+-                const SizedBox(height: 12),
+-                DropdownRouteKeyboardGuard(
+-                  child: DropdownButtonFormField<String?>(
+-                    key: const Key('timeline-task-goal-field'),
+-                    isExpanded: true,
+-                    initialValue: selectedGoalId,
+-                    decoration: InputDecoration(
+-                      labelText: journeyText(context, 'Goal', 'Meta'),
+-                    ),
+-                    items: <DropdownMenuItem<String?>>[
+-                      DropdownMenuItem<String?>(
++                onChanged: (String value) => descriptionText = value,
++              ),
++              const SizedBox(height: 12),
++              DropdownButtonFormField<int>(
++                key: const Key('timeline-task-priority-field'),
++                initialValue: priority,
++                decoration: InputDecoration(
++                  labelText: journeyText(context, 'Priority', 'Prioridad'),
++                ),
++                items: <int>[1, 2, 3, 4, 5]
++                    .map(
++                      (value) => DropdownMenuItem<int>(
++                        value: value,
+                         child: Text(
+-                          journeyText(
+-                            context,
+-                            'No linked goal',
+-                            'Sin meta vinculada',
+-                          ),
+-                        ),
+-                      ),
+-                      ...goals.map(
+-                        (GoalEntity goal) => DropdownMenuItem<String?>(
+-                          value: goal.id,
+-                          child: Text(
+-                            goal.title,
+-                            maxLines: 1,
+-                            overflow: TextOverflow.ellipsis,
+-                          ),
++                          '$value · ${value == 1
++                              ? journeyText(context, 'lowest', 'mínima')
++                              : value == 5
++                              ? journeyText(context, 'highest', 'máxima')
++                              : journeyText(context, 'normal', 'normal')}',
+                         ),
+                       ),
+-                    ],
+-                    onChanged: (String? value) =>
+-                        setDialogState(() => selectedGoalId = value),
+-                  ),
+-                ),
+-                const SizedBox(height: 12),
+-                TextFormField(
+-                  key: const Key('timeline-task-duration-field'),
+-                  initialValue: durationText,
+-                  keyboardType: TextInputType.number,
++                    )
++                    .toList(growable: false),
++                onChanged: (int? value) {
++                  if (value != null) setDialogState(() => priority = value);
++                },
++              ),
++              const SizedBox(height: 12),
++              DropdownRouteKeyboardGuard(
++                child: DropdownButtonFormField<String?>(
++                  key: const Key('timeline-task-goal-field'),
++                  isExpanded: true,
++                  initialValue: selectedGoalId,
+                   decoration: InputDecoration(
+-                    labelText: journeyText(
+-                      context,
+-                      'Estimated minutes',
+-                      'Minutos estimados',
+-                    ),
+-                    hintText: journeyText(context, 'Optional', 'Opcional'),
++                    labelText: journeyText(context, 'Goal', 'Meta'),
+                   ),
+-                  validator: (String? value) {
+-                    final String normalized = value?.trim() ?? '';
+-                    if (normalized.isEmpty) return null;
+-                    final int? minutes = int.tryParse(normalized);
+-                    return minutes == null || minutes < 1 || minutes > 1440
+-                        ? journeyText(
+-                            context,
+-                            'Use 1 to 1440 minutes.',
+-                            'Usa de 1 a 1440 minutos.',
+-                          )
+-                        : null;
+-                  },
+-                  onChanged: (String value) => durationText = value,
+-                ),
+-                const SizedBox(height: 12),
+-                Row(
+-                  children: <Widget>[
+-                    Expanded(
++                  items: <DropdownMenuItem<String?>>[
++                    DropdownMenuItem<String?>(
+                       child: Text(
+-                        dueDate == null
+-                            ? journeyText(
+-                                context,
+-                                'No deadline',
+-                                'Sin fecha límite',
+-                              )
+-                            : journeyText(
+-                                context,
+-                                'Deadline ${dueDate!.month}/${dueDate!.day}/${dueDate!.year}',
+-                                'Fecha límite ${MaterialLocalizations.of(context).formatCompactDate(dueDate!)}',
+-                              ),
++                        journeyText(
++                          context,
++                          'No linked goal',
++                          'Sin meta vinculada',
++                        ),
+                       ),
+                     ),
+-                    if (dueDate != null)
+-                      IconButton(
+-                        tooltip: journeyText(
+-                          context,
+-                          'Clear deadline',
+-                          'Quitar fecha límite',
++                    ...goals.map(
++                      (GoalEntity goal) => DropdownMenuItem<String?>(
++                        value: goal.id,
++                        child: Text(
++                          goal.title,
++                          maxLines: 1,
++                          overflow: TextOverflow.ellipsis,
+                         ),
+-                        onPressed: () => setDialogState(() => dueDate = null),
+-                        icon: const Icon(Icons.close_rounded),
+                       ),
++                    ),
++                  ],
++                  onChanged: (String? value) =>
++                      setDialogState(() => selectedGoalId = value),
++                ),
++              ),
++              const SizedBox(height: 12),
++              TextFormField(
++                key: const Key('timeline-task-duration-field'),
++                initialValue: durationText,
++                keyboardType: TextInputType.number,
++                decoration: InputDecoration(
++                  labelText: journeyText(
++                    context,
++                    'Estimated minutes',
++                    'Minutos estimados',
++                  ),
++                  hintText: journeyText(context, 'Optional', 'Opcional'),
++                ),
++                validator: (String? value) {
++                  final String normalized = value?.trim() ?? '';
++                  if (normalized.isEmpty) return null;
++                  final int? minutes = int.tryParse(normalized);
++                  return minutes == null || minutes < 1 || minutes > 1440
++                      ? journeyText(
++                          context,
++                          'Use 1 to 1440 minutes.',
++                          'Usa de 1 a 1440 minutos.',
++                        )
++                      : null;
++                },
++                onChanged: (String value) => durationText = value,
++              ),
++              const SizedBox(height: 12),
++              Row(
++                children: <Widget>[
++                  Expanded(
++                    child: Text(
++                      dueDate == null
++                          ? journeyText(
++                              context,
++                              'No deadline',
++                              'Sin fecha límite',
++                            )
++                          : journeyText(
++                              context,
++                              'Deadline ${dueDate!.month}/${dueDate!.day}/${dueDate!.year}',
++                              'Fecha límite ${MaterialLocalizations.of(context).formatCompactDate(dueDate!)}',
++                            ),
++                    ),
++                  ),
++                  if (dueDate != null)
+                     IconButton(
+-                      key: const Key('timeline-task-deadline-field'),
+                       tooltip: journeyText(
+                         context,
+-                        'Choose deadline',
+-                        'Elegir fecha límite',
++                        'Clear deadline',
++                        'Quitar fecha límite',
+                       ),
+-                      onPressed: () async {
+-                        final DateTime now = DateTime.now();
+-                        final DateTime? selected = await showDatePicker(
+-                          context: dialogContext,
+-                          initialDate: dueDate ?? now,
+-                          firstDate: DateTime(now.year - 1),
+-                          lastDate: DateTime(now.year + 10),
+-                        );
+-                        if (selected != null) {
+-                          setDialogState(() => dueDate = selected);
+-                        }
+-                      },
+-                      icon: const Icon(Icons.event_rounded),
++                      onPressed: () => setDialogState(() => dueDate = null),
++                      icon: const Icon(Icons.close_rounded),
+                     ),
+-                  ],
+-                ),
+-                Row(
+-                  children: <Widget>[
+-                    Expanded(
+-                      child: Text(
+-                        scheduledFor == null
+-                            ? journeyText(
+-                                context,
+-                                'No scheduled time',
+-                                'Sin horario programado',
+-                              )
+-                            : '${journeyText(context, 'Scheduled', 'Programada')}: ${MaterialLocalizations.of(context).formatMediumDate(scheduledFor!)} · ${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(scheduledFor!))}',
+-                      ),
++                  IconButton(
++                    key: const Key('timeline-task-deadline-field'),
++                    tooltip: journeyText(
++                      context,
++                      'Choose deadline',
++                      'Elegir fecha límite',
+                     ),
+-                    if (scheduledFor != null)
+-                      IconButton(
+-                        tooltip: journeyText(
+-                          context,
+-                          'Clear scheduled time',
+-                          'Quitar horario',
+-                        ),
+-                        onPressed: () =>
+-                            setDialogState(() => scheduledFor = null),
+-                        icon: const Icon(Icons.close_rounded),
+-                      ),
++                    onPressed: () async {
++                      final DateTime now = DateTime.now();
++                      final DateTime? selected = await showDatePicker(
++                        context: dialogContext,
++                        initialDate: dueDate ?? now,
++                        firstDate: DateTime(now.year - 1),
++                        lastDate: DateTime(now.year + 10),
++                      );
++                      if (selected != null) {
++                        setDialogState(() => dueDate = selected);
++                      }
++                    },
++                    icon: const Icon(Icons.event_rounded),
++                  ),
++                ],
++              ),
++              Row(
++                children: <Widget>[
++                  Expanded(
++                    child: Text(
++                      scheduledFor == null
++                          ? journeyText(
++                              context,
++                              'No scheduled time',
++                              'Sin horario programado',
++                            )
++                          : '${journeyText(context, 'Scheduled', 'Programada')}: ${MaterialLocalizations.of(context).formatMediumDate(scheduledFor!)} · ${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(scheduledFor!))}',
++                    ),
++                  ),
++                  if (scheduledFor != null)
+                     IconButton(
+-                      key: const Key('timeline-task-schedule-field'),
+                       tooltip: journeyText(
+                         context,
+-                        'Choose scheduled time',
+-                        'Elegir horario',
++                        'Clear scheduled time',
++                        'Quitar horario',
+                       ),
+-                      onPressed: () async {
+-                        final DateTime now = DateTime.now();
+-                        final DateTime? day = await showDatePicker(
+-                          context: dialogContext,
+-                          initialDate: scheduledFor ?? now,
+-                          firstDate: DateTime(now.year - 1),
+-                          lastDate: DateTime(now.year + 10),
+-                        );
+-                        if (day == null || !dialogContext.mounted) return;
+-                        final TimeOfDay? time = await showTimePicker(
+-                          context: dialogContext,
+-                          initialTime: TimeOfDay.fromDateTime(
+-                            scheduledFor ?? now,
++                      onPressed: () =>
++                          setDialogState(() => scheduledFor = null),
++                      icon: const Icon(Icons.close_rounded),
++                    ),
++                  IconButton(
++                    key: const Key('timeline-task-schedule-field'),
++                    tooltip: journeyText(
++                      context,
++                      'Choose scheduled time',
++                      'Elegir horario',
++                    ),
++                    onPressed: () async {
++                      final DateTime now = DateTime.now();
++                      final DateTime? day = await showDatePicker(
++                        context: dialogContext,
++                        initialDate: scheduledFor ?? now,
++                        firstDate: DateTime(now.year - 1),
++                        lastDate: DateTime(now.year + 10),
++                      );
++                      if (day == null || !dialogContext.mounted) return;
++                      final TimeOfDay? time = await showTimePicker(
++                        context: dialogContext,
++                        initialTime: TimeOfDay.fromDateTime(
++                          scheduledFor ?? now,
++                        ),
++                      );
++                      if (time != null) {
++                        setDialogState(
++                          () => scheduledFor = DateTime(
++                            day.year,
++                            day.month,
++                            day.day,
++                            time.hour,
++                            time.minute,
+                           ),
+                         );
+-                        if (time != null) {
+-                          setDialogState(
+-                            () => scheduledFor = DateTime(
+-                              day.year,
+-                              day.month,
+-                              day.day,
+-                              time.hour,
+-                              time.minute,
+-                            ),
+-                          );
+-                        }
+-                      },
+-                      icon: const Icon(Icons.schedule_rounded),
+-                    ),
+-                  ],
+-                ),
+-              ],
+-            ),
++                      }
++                    },
++                    icon: const Icon(Icons.schedule_rounded),
++                  ),
++                ],
++              ),
++            ],
+           ),
+         ),
+         actions: <Widget>[
+--- /dev/null
++++ b/test/app/navigation_shell_landscape_layout_test.dart
+@@ -0,0 +1,394 @@
++import 'dart:ui' as ui;
++
++import 'package:fantastic_guacamole/app/navigation_shell.dart';
++import 'package:fantastic_guacamole/app/router/route_paths.dart';
++import 'package:fantastic_guacamole/core/network/network_status_service.dart';
++import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
++import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
++import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
++import 'package:fantastic_guacamole/data/storage/hive_service.dart';
++import 'package:fantastic_guacamole/data/storage/secure_store.dart';
++import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
++import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
++import 'package:fantastic_guacamole/state/app_state.dart';
++import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
++import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
++import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
++import 'package:fantastic_guacamole/theme/app_theme.dart';
++import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++import 'package:flutter_test/flutter_test.dart';
++import 'package:go_router/go_router.dart';
++import 'package:hive/hive.dart';
++import 'package:shared_preferences/shared_preferences.dart';
++
++const String _fixturePath = '/landscape-rail-fixture';
++const Map<String, String> _destinations = <String, String>{
++  'Nexus Core': RoutePaths.nexus,
++  'Future Branches': RoutePaths.trajectoryEngine,
++  'Truth Ledger': RoutePaths.timeline,
++  'Human Profile': RoutePaths.profile,
++};
++const String _mapLabel = 'Open navigation map';
++
++void main() {
++  setUp(() async {
++    SharedPreferences.setMockInitialValues(<String, Object>{});
++    await SharedPrefsService.init();
++  });
++
++  // Native evidence is 2460x1080 at DPR2.5, hence 984x432 logical.
++  // Insets below are representative regression inputs, not measured native values.
++  for (final ({String name, Size size, EdgeInsets padding}) fixture
++      in <({String name, Size size, EdgeInsets padding})>[
++        (
++          name: 'compact landscape left cutout',
++          size: const Size(984, 432),
++          padding: const EdgeInsets.fromLTRB(46, 0, 0, 24),
++        ),
++        (
++          name: 'compact landscape right system bar',
++          size: const Size(984, 432),
++          padding: const EdgeInsets.fromLTRB(0, 0, 48, 24),
++        ),
++        (
++          name: 'extended landscape with system insets',
++          size: const Size(1200, 432),
++          padding: const EdgeInsets.fromLTRB(46, 0, 48, 24),
++        ),
++      ]) {
++    testWidgets(
++      '${fixture.name}: five safe targets retain navigation actions',
++      (WidgetTester tester) async {
++        final SemanticsHandle semantics = tester.ensureSemantics();
++        _RailHarness? harness;
++        try {
++          harness = await _pumpRail(
++            tester,
++            size: fixture.size,
++            padding: fixture.padding,
++          );
++          final Rect safeBounds = Rect.fromLTRB(
++            fixture.padding.left,
++            fixture.padding.top,
++            fixture.size.width - fixture.padding.right,
++            fixture.size.height - fixture.padding.bottom,
++          );
++          for (final String label in <String>[
++            ..._destinations.keys,
++            _mapLabel,
++          ]) {
++            _expectUsableControl(tester, label, safeBounds);
++          }
++          final Finder scroll = _railScroll();
++          final Rect viewport = tester.getRect(scroll);
++          final Rect mapRect = tester.getRect(_inkWell(_mapLabel));
++          expect(mapRect.bottom, closeTo(viewport.bottom, 0.01));
++          expect(
++            find.byKey(const ValueKey<String>('phone-bottom-navigation')),
++            findsNothing,
++          );
++          expect(tester.takeException(), isNull);
++
++          for (final MapEntry<String, String> destination
++              in _destinations.entries) {
++            await tester.tap(_inkWell(destination.key));
++            await tester.pump();
++            await tester.pump();
++            expect(
++              harness.router.routeInformationProvider.value.uri.path,
++              destination.value,
++            );
++            expect(
++              find.byKey(ValueKey<String>(destination.value)),
++              findsOneWidget,
++            );
++            harness.router.go(_fixturePath);
++            await tester.pump();
++            await tester.pump();
++            _expectUsableControl(tester, destination.key, safeBounds);
++          }
++          await tester.tap(_inkWell(_mapLabel));
++          await tester.pump();
++          await tester.pump(const Duration(milliseconds: 350));
++          expect(find.text('System Map'), findsOneWidget);
++          await tester.tap(find.byTooltip('Close navigation map'));
++          await tester.pump();
++          await tester.pump(const Duration(milliseconds: 350));
++          expect(find.text('System Map'), findsNothing);
++          expect(
++            harness.router.routeInformationProvider.value.uri.path,
++            _fixturePath,
++          );
++          expect(tester.takeException(), isNull);
++        } finally {
++          try {
++            if (harness != null) {
++              await harness.unmount(tester);
++            }
++          } finally {
++            semantics.dispose();
++          }
++        }
++      },
++    );
++  }
++
++  testWidgets('compact rail scrolls full targets above a landscape keyboard', (
++    WidgetTester tester,
++  ) async {
++    final SemanticsHandle semantics = tester.ensureSemantics();
++    _RailHarness? harness;
++    try {
++      // Representative inset: actual LV04 IME height was not captured as MediaQuery.
++      const double keyboardInset = 200;
++      const Size size = Size(984, 432);
++      const EdgeInsets padding = EdgeInsets.only(left: 46);
++      harness = await _pumpRail(
++        tester,
++        size: size,
++        padding: padding,
++        keyboardInset: keyboardInset,
++      );
++      final Rect safeBounds = Rect.fromLTRB(
++        46,
++        0,
++        size.width,
++        size.height - keyboardInset,
++      );
++      final Finder scroll = _railScroll();
++      final Finder scrollable = find.descendant(
++        of: scroll,
++        matching: find.byType(Scrollable),
++      );
++      final ScrollableState state = tester.state<ScrollableState>(scrollable);
++      expect(state.position.maxScrollExtent, greaterThan(0));
++      for (final String label in <String>[..._destinations.keys, _mapLabel]) {
++        await tester.ensureVisible(_inkWell(label));
++        await tester.pump();
++        _expectUsableControl(tester, label, safeBounds);
++      }
++      expect(state.position.pixels, greaterThan(0));
++      await tester.ensureVisible(_inkWell('Nexus Core'));
++      await tester.pump();
++      _expectUsableControl(tester, 'Nexus Core', safeBounds);
++      expect(tester.takeException(), isNull);
++    } finally {
++      try {
++        if (harness != null) {
++          await harness.unmount(tester);
++        }
++      } finally {
++        semantics.dispose();
++      }
++    }
++  });
++}
++
++Finder _inkWell(String label) =>
++    find.descendant(of: find.byTooltip(label), matching: find.byType(InkWell));
++
++Finder _railScroll() => find.ancestor(
++  of: find.byTooltip(_mapLabel),
++  matching: find.byType(SingleChildScrollView),
++);
++
++void _expectContained(Rect inner, Rect outer) {
++  expect(inner.left, greaterThanOrEqualTo(outer.left - 0.01));
++  expect(inner.top, greaterThanOrEqualTo(outer.top - 0.01));
++  expect(inner.right, lessThanOrEqualTo(outer.right + 0.01));
++  expect(inner.bottom, lessThanOrEqualTo(outer.bottom + 0.01));
++}
++
++void _expectUsableControl(WidgetTester tester, String label, Rect safeBounds) {
++  final Finder control = _inkWell(label);
++  expect(control, findsOneWidget);
++  expect(control.hitTestable(), findsOneWidget);
++  final Rect hitbox = tester.getRect(control);
++  expect(hitbox.width, greaterThanOrEqualTo(48));
++  expect(hitbox.height, closeTo(56, 0.01));
++  _expectContained(hitbox, safeBounds);
++  final Rect viewport = tester.getRect(_railScroll());
++  _expectContained(hitbox, viewport);
++  final Finder icon = find.descendant(of: control, matching: find.byType(Icon));
++  expect(icon, findsOneWidget);
++  _expectContained(tester.getRect(icon), hitbox);
++  _expectContained(tester.getRect(icon), viewport);
++  final data = tester.getSemantics(find.byTooltip(label)).getSemanticsData();
++  expect(data.flagsCollection.isButton, isTrue);
++  expect(data.hasAction(ui.SemanticsAction.tap), isTrue);
++  if (label != _mapLabel) {
++    expect(
++      data.flagsCollection.isSelected,
++      label == 'Truth Ledger' ? ui.Tristate.isTrue : ui.Tristate.isFalse,
++    );
++  }
++}
++
++Future<_RailHarness> _pumpRail(
++  WidgetTester tester, {
++  required Size size,
++  required EdgeInsets padding,
++  double keyboardInset = 0,
++}) async {
++  tester.view
++    ..physicalSize = size * 2.5
++    ..devicePixelRatio = 2.5;
++  addTearDown(() {
++    tester.view
++      ..resetPhysicalSize()
++      ..resetDevicePixelRatio();
++  });
++  final ProviderContainer container = ProviderContainer(
++    overrides: [
++      // Layout fixture: no backend/auth timer or periodic authority refresh.
++      authServiceProvider.overrideWithValue(const UnavailableAuthService()),
++      entitlementAuthorityRecheckIntervalProvider.overrideWithValue(
++        Duration.zero,
++      ),
++      networkInterfaceAvailabilityProvider.overrideWithValue(
++        // The offline banner must not consume the fixture insets before the rail.
++        NetworkInterfaceAvailability.unknown,
++      ),
++      hiveStoreProvider.overrideWithValue(_MemoryHiveStore()),
++      secureStoreProvider.overrideWithValue(
++        SecureStore(backend: InMemorySecureStoreBackend()),
++      ),
++      sensitivePrefsStoreProvider.overrideWithValue(
++        const SharedPrefsStoreAdapter(),
++      ),
++      accountStorageScopeProvider.overrideWithValue(
++        AccountStorageScope.authenticated('landscape-rail-test-account'),
++      ),
++      accountLegacyOwnershipProvider.overrideWithValue(
++        LegacyScopeOwnership.provenNotOwned,
++      ),
++      unreadNotificationsProvider.overrideWithValue(0),
++      goalsProvider.overrideWith(_StaticGoals.new),
++    ],
++  );
++  final GoRouter router = GoRouter(
++    initialLocation: _fixturePath,
++    routes: <RouteBase>[
++      GoRoute(
++        path: _fixturePath,
++        builder: (context, state) =>
++            const NavigationShell(initialView: AppView.timeline),
++      ),
++      for (final String path in _destinations.values)
++        GoRoute(
++          path: path,
++          builder: (context, state) =>
++              Scaffold(body: SizedBox.expand(key: ValueKey<String>(path))),
++        ),
++    ],
++  );
++  final _RailHarness harness = _RailHarness(container, router);
++  addTearDown(() async {
++    await harness.unmount(tester);
++  });
++  await tester.pumpWidget(
++    UncontrolledProviderScope(
++      container: container,
++      child: MaterialApp.router(
++        theme: appTheme,
++        routerConfig: router,
++        builder: (context, child) => MediaQuery(
++          data: MediaQuery.of(context).copyWith(
++            padding: padding,
++            viewPadding: padding,
++            viewInsets: EdgeInsets.only(bottom: keyboardInset),
++          ),
++          child: child!,
++        ),
++      ),
++    ),
++  );
++  await tester.pump();
++  await tester.pump();
++  return harness;
++}
++
++class _RailHarness {
++  _RailHarness(this.container, this.router);
++  final ProviderContainer container;
++  final GoRouter router;
++  bool _disposed = false;
++
++  Future<void> unmount(WidgetTester tester) async {
++    if (_disposed) {
++      return;
++    }
++    _disposed = true;
++    await tester.pumpWidget(const SizedBox.shrink());
++    router.dispose();
++    container.dispose();
++    // Drain existing bounded background read deadlines after shell disposal.
++    await tester.pump(const Duration(seconds: 15));
++  }
++}
++
++class _StaticGoals extends GoalsNotifier {
++  @override
++  List<GoalEntity> build() => const <GoalEntity>[];
++}
++
++class _MemoryHiveStore implements HiveStore {
++  final Map<String, Box<dynamic>> _boxes = <String, Box<dynamic>>{};
++  @override
++  Future<void> init() async {}
++  @override
++  bool isBoxOpen(String key) => _boxes.containsKey(key);
++  @override
++  Future<Box<T>> openBox<T>(String key) async =>
++      _boxes.putIfAbsent(key, _MemoryBox<T>.new) as Box<T>;
++  @override
++  Box<T> box<T>(String key) => _boxes[key]! as Box<T>;
++  @override
++  Future<void> clearBox(String key) async {
++    await _boxes[key]?.clear();
++  }
++
++  @override
++  Future<void> closeBox(String key) async {
++    _boxes.remove(key);
++  }
++}
++
++class _MemoryBox<T> implements Box<T> {
++  final Map<dynamic, T> _values = <dynamic, T>{};
++  @override
++  T? get(dynamic key, {T? defaultValue}) => _values[key] ?? defaultValue;
++  @override
++  bool containsKey(dynamic key) => _values.containsKey(key);
++  @override
++  Iterable<dynamic> get keys => _values.keys;
++  @override
++  bool get isNotEmpty => _values.isNotEmpty;
++  @override
++  Map<dynamic, T> toMap() => Map<dynamic, T>.of(_values);
++  @override
++  Future<void> put(dynamic key, T value) async {
++    _values[key] = value;
++  }
++
++  @override
++  Future<void> putAll(Map<dynamic, T> values) async {
++    _values.addAll(values);
++  }
++
++  @override
++  Future<void> delete(dynamic key) async {
++    _values.remove(key);
++  }
++
++  @override
++  Future<int> clear() async {
++    final int count = _values.length;
++    _values.clear();
++    return count;
++  }
++
++  @override
++  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
++}
+--- /dev/null
++++ b/test/features/tasks/task_edit_dialog_keyboard_layout_test.dart
+@@ -0,0 +1,330 @@
++import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
++import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
++import 'package:fantastic_guacamole/features/tasks/widgets/task_edit_dialog.dart';
++import 'package:fantastic_guacamole/theme/app_theme.dart';
++import 'package:flutter/material.dart';
++import 'package:flutter/rendering.dart';
++import 'package:flutter/services.dart';
++import 'package:flutter_test/flutter_test.dart';
++
++const _titleKey = Key('timeline-task-title-field');
++const _priorityKey = Key('timeline-task-priority-field');
++const _goalKey = Key('timeline-task-goal-field');
++const _durationKey = Key('timeline-task-duration-field');
++const _deadlineKey = Key('timeline-task-deadline-field');
++const _scheduleKey = Key('timeline-task-schedule-field');
++const _devicePixelRatio = 2.5;
++const _logicalHeight = 432.0;
++const _statusBarHeight = 24.0;
++// A representative landscape IME, not a measured native keyboard height.
++const _keyboardHeight = 220.0;
++
++void main() {
++  setUpAll(() async {
++    TestWidgetsFlutterBinding.ensureInitialized();
++    final fonts = FontLoader('Inter');
++    for (final asset in <String>[
++      'assets/fonts/Inter-Regular.ttf',
++      'assets/fonts/Inter-Medium.ttf',
++      'assets/fonts/Inter-Bold.ttf',
++    ]) {
++      fonts.addFont(rootBundle.load(asset));
++    }
++    await fonts.load();
++  });
++
++  testWidgets(
++    'landscape keyboard leaves fields reachable and Save returns the edited draft',
++    (tester) async {
++      final task = _task();
++      final original = task.toJson();
++      final results = <TaskEditDraft?>[];
++      // Full Moto display: 2460x1080 physical pixels at DPR 2.5.
++      await _pumpHarness(tester, task, results, logicalWidth: 984);
++      await _openEditor(tester);
++      _showKeyboardInset(tester);
++      await tester.pumpAndSettle();
++
++      final title = find.byKey(_titleKey);
++      await _reachControl(tester, title);
++      expect(_editable(tester, _titleKey).focusNode.hasFocus, isTrue);
++      await tester.enterText(title, '  Changed landscape task  ');
++      await tester.pumpAndSettle();
++      await _reachControl(tester, title);
++      expect(
++        _editable(tester, _titleKey).controller.text,
++        '  Changed landscape task  ',
++      );
++
++      final priority = find.byKey(_priorityKey);
++      await _reachControl(tester, priority);
++      expect(tester.state<FormFieldState<int>>(priority).value, 3);
++      await tester.tap(priority);
++      await tester.pumpAndSettle();
++      final highest = find.text('5 \u00b7 highest').last;
++      await tester.ensureVisible(highest);
++      await tester.pumpAndSettle();
++      await tester.tap(highest);
++      await tester.pumpAndSettle();
++      expect(tester.state<FormFieldState<int>>(priority).value, 5);
++
++      await _reachControl(tester, find.byKey(_goalKey));
++      expect(
++        tester.state<FormFieldState<String?>>(find.byKey(_goalKey)).value,
++        task.goalId,
++      );
++      final duration = find.byKey(_durationKey);
++      await _reachControl(tester, duration);
++      await tester.enterText(duration, '45');
++      await tester.pumpAndSettle();
++      await _reachControl(tester, duration);
++      expect(_editable(tester, _durationKey).controller.text, '45');
++      expect(tester.testTextInput.isVisible, isTrue);
++      await _reachControl(tester, find.byKey(_deadlineKey));
++      await _reachControl(tester, find.byKey(_scheduleKey));
++      _expectActionsReachable(tester);
++      _expectKeyboardInset(tester);
++      expect(tester.takeException(), isNull);
++
++      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
++      await tester.pumpAndSettle();
++      expect(find.byType(AlertDialog), findsNothing);
++      expect(results, hasLength(1));
++      final draft = results.single!;
++      expect(draft.title, 'Changed landscape task');
++      expect(draft.description, task.description);
++      expect(draft.priority, 5);
++      expect(draft.estimatedDuration, const Duration(minutes: 45));
++      expect(draft.scheduledFor, task.scheduledFor);
++      expect(draft.dueDate, task.dueDate);
++      expect(draft.goalId, task.goalId);
++      // This helper returns a draft; no persistence adapter is involved.
++      expect(task.toJson(), original);
++      expect(tester.takeException(), isNull);
++    },
++  );
++
++  testWidgets(
++    'landscape keyboard preserves validation and Cancel discards edits on reopen',
++    (tester) async {
++      final task = _task();
++      final original = task.toJson();
++      final results = <TaskEditDraft?>[];
++      // Also cover the 2340px app window after the native side navigation area.
++      await _pumpHarness(tester, task, results, logicalWidth: 936);
++      await _openEditor(tester);
++      _showKeyboardInset(tester);
++      await tester.pumpAndSettle();
++
++      final title = find.byKey(_titleKey);
++      await _reachControl(tester, title);
++      await tester.enterText(title, '   ');
++      await tester.pumpAndSettle();
++      _expectActionsReachable(tester);
++      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
++      await tester.pumpAndSettle();
++      expect(find.text('Enter a task title.'), findsOneWidget);
++      expect(find.byType(AlertDialog), findsOneWidget);
++      expect(results, isEmpty);
++      await _reachControl(tester, title);
++      await tester.enterText(title, 'UNSAVED LANDSCAPE DRAFT');
++      await tester.pumpAndSettle();
++
++      final duration = find.byKey(_durationKey);
++      await _reachControl(tester, duration);
++      await tester.enterText(duration, '0');
++      await tester.pumpAndSettle();
++      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
++      await tester.pumpAndSettle();
++      expect(find.text('Use 1 to 1440 minutes.'), findsOneWidget);
++      expect(find.byType(AlertDialog), findsOneWidget);
++      expect(results, isEmpty);
++      await _reachControl(tester, duration);
++      await tester.enterText(duration, '60');
++      await tester.pumpAndSettle();
++      await _reachControl(tester, find.byKey(_scheduleKey));
++      _expectActionsReachable(tester);
++      _expectKeyboardInset(tester);
++      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
++      await tester.pumpAndSettle();
++      expect(results, hasLength(1));
++      expect(results.single, isNull);
++      expect(task.toJson(), original);
++
++      await _openEditor(tester);
++      _expectKeyboardInset(tester);
++      await _reachControl(tester, title);
++      expect(_editable(tester, _titleKey).controller.text, task.title);
++      expect(find.text('UNSAVED LANDSCAPE DRAFT'), findsNothing);
++      await _reachControl(tester, find.byKey(_priorityKey));
++      expect(
++        tester.state<FormFieldState<int>>(find.byKey(_priorityKey)).value,
++        3,
++      );
++      await _reachControl(tester, duration);
++      expect(_editable(tester, _durationKey).controller.text, '30');
++      await _reachControl(tester, find.byKey(_scheduleKey));
++      _expectActionsReachable(tester);
++      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
++      await tester.pumpAndSettle();
++      expect(results, hasLength(2));
++      expect(results.every((result) => result == null), isTrue);
++      expect(task.toJson(), original);
++      expect(tester.takeException(), isNull);
++    },
++  );
++}
++
++TaskEntity _task() => TaskEntity(
++  id: 'landscape-draft-fixture',
++  title: 'Original landscape task',
++  description: 'Synthetic context',
++  createdAt: DateTime(2026, 10, 16),
++  priority: 3,
++  estimatedDuration: const Duration(minutes: 30),
++  scheduledFor: DateTime(2026, 10, 16, 21, 36),
++  dueDate: DateTime(2026, 10, 17),
++  goalId: 'landscape-goal-fixture',
++);
++
++Future<void> _pumpHarness(
++  WidgetTester tester,
++  TaskEntity task,
++  List<TaskEditDraft?> results, {
++  required double logicalWidth,
++}) async {
++  tester.view.physicalSize = Size(
++    logicalWidth * _devicePixelRatio,
++    _logicalHeight * _devicePixelRatio,
++  );
++  tester.view.devicePixelRatio = _devicePixelRatio;
++  // Exercise the route's real SafeArea, including the top system obstruction.
++  tester.view.padding = const FakeViewPadding(
++    top: _statusBarHeight * _devicePixelRatio,
++  );
++  tester.view.viewPadding = const FakeViewPadding(
++    top: _statusBarHeight * _devicePixelRatio,
++  );
++  tester.view.viewInsets = const FakeViewPadding();
++  addTearDown(tester.view.reset);
++  await tester.pumpWidget(
++    MaterialApp(
++      theme: appTheme,
++      home: Builder(
++        builder: (context) => Scaffold(
++          body: Center(
++            child: TextButton(
++              onPressed: () async {
++                results.add(
++                  await showTaskEditDialog(
++                    context: context,
++                    editable: task,
++                    goals: <GoalEntity>[
++                      GoalEntity(
++                        id: task.goalId!,
++                        title: 'Linked goal',
++                        createdAt: task.createdAt,
++                      ),
++                    ],
++                  ),
++                );
++              },
++              child: const Text('Open task editor'),
++            ),
++          ),
++        ),
++      ),
++    ),
++  );
++}
++
++Future<void> _openEditor(WidgetTester tester) async {
++  await tester.tap(find.text('Open task editor'));
++  await tester.pumpAndSettle();
++  expect(find.byType(AlertDialog), findsOneWidget);
++}
++
++void _showKeyboardInset(WidgetTester tester) {
++  // Change metrics after autofocus, rather than starting with a smaller screen.
++  tester.view.viewInsets = const FakeViewPadding(
++    bottom: _keyboardHeight * _devicePixelRatio,
++  );
++}
++
++void _expectKeyboardInset(WidgetTester tester) {
++  expect(
++    tester.view.viewInsets.bottom / tester.view.devicePixelRatio,
++    _keyboardHeight,
++  );
++}
++
++EditableText _editable(WidgetTester tester, Key fieldKey) =>
++    tester.widget<EditableText>(
++      find.descendant(
++        of: find.byKey(fieldKey),
++        matching: find.byType(EditableText),
++      ),
++    );
++
++Future<void> _reachControl(WidgetTester tester, Finder control) async {
++  await tester.ensureVisible(control);
++  await tester.pumpAndSettle();
++  _expectKeyboardInset(tester);
++  final box = tester.renderObject<RenderBox>(control);
++  final viewport = RenderAbstractViewport.of(box);
++  final viewportBox = viewport as RenderBox;
++  expect(
++    viewportBox.size.height,
++    greaterThan(0),
++    reason: 'A form built inside a zero-height viewport is still unusable.',
++  );
++  final children = <RenderObject>[];
++  viewport.visitChildren(children.add);
++  expect(children, hasLength(1));
++  final clip = viewport.describeApproximatePaintClip(children.single);
++  expect(
++    clip,
++    isNotNull,
++    reason: 'The overflowing form must retain its actual viewport clip.',
++  );
++  expect(box.size.width, greaterThan(0));
++  expect(box.size.height, greaterThan(0));
++  final bounds = MatrixUtils.transformRect(
++    box.getTransformTo(viewport),
++    Offset.zero & box.size,
++  );
++  _expectContained(bounds, clip!);
++  _expectAboveKeyboard(tester, control);
++  expect(control.hitTestable(), findsOneWidget);
++  expect(tester.takeException(), isNull);
++}
++
++void _expectActionsReachable(WidgetTester tester) {
++  for (final action in <Finder>[
++    find.widgetWithText(TextButton, 'Cancel'),
++    find.widgetWithText(FilledButton, 'Save'),
++  ]) {
++    _expectAboveKeyboard(tester, action);
++    expect(action.hitTestable(), findsOneWidget);
++  }
++}
++
++void _expectAboveKeyboard(WidgetTester tester, Finder control) {
++  final logicalSize = tester.view.physicalSize / tester.view.devicePixelRatio;
++  _expectContained(
++    tester.getRect(control),
++    Rect.fromLTWH(
++      0,
++      _statusBarHeight,
++      logicalSize.width,
++      logicalSize.height - _keyboardHeight - _statusBarHeight,
++    ),
++  );
++}
++
++void _expectContained(Rect control, Rect visible) {
++  expect(control.left, greaterThanOrEqualTo(visible.left - 0.01));
++  expect(control.top, greaterThanOrEqualTo(visible.top - 0.01));
++  expect(control.right, lessThanOrEqualTo(visible.right + 0.01));
++  expect(control.bottom, lessThanOrEqualTo(visible.bottom + 0.01));
++}

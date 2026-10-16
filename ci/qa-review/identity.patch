@@ -1,0 +1,44 @@
+diff --git a/android/app/build.gradle.kts b/android/app/build.gradle.kts
+--- a/android/app/build.gradle.kts
++++ b/android/app/build.gradle.kts
+@@ -154,6 +154,8 @@
+         applicationId = releaseApplicationId
+         testInstrumentationRunner = "pl.leancode.patrol.PatrolJUnitRunner"
+         manifestPlaceholders["chronosparkBackendMode"] = backendMode
++        manifestPlaceholders["chronosparkAppLabel"] = "Axiomara"
++        manifestPlaceholders["chronosparkAuthScheme"] = "chronospark"
+         manifestPlaceholders["chronosparkAutoRegisterPlugins"] = (!isLocalBackend).toString()
+         minSdk = flutter.minSdkVersion
+         targetSdk = maxOf(flutter.targetSdkVersion, 36)
+@@ -175,7 +177,9 @@
+     buildTypes {
+         debug {
+             if (dartDefines["CHRONOSPARK_APP_FLAVOR"] == "qa") {
+-                applicationIdSuffix = ".qa"
++                applicationIdSuffix = ".qa.review20261016"
++                manifestPlaceholders["chronosparkAppLabel"] = "Axiomara QA Review 1016"
++                manifestPlaceholders["chronosparkAuthScheme"] = "chronospark-qa-review20261016"
+                 versionNameSuffix = "-qa"
+             }
+         }
+diff --git a/android/app/src/main/AndroidManifest.xml b/android/app/src/main/AndroidManifest.xml
+--- a/android/app/src/main/AndroidManifest.xml
++++ b/android/app/src/main/AndroidManifest.xml
+@@ -21,7 +21,7 @@
+     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+ 
+     <application
+-        android:label="Axiomara"
++        android:label="${chronosparkAppLabel}"
+         android:name="${applicationName}"
+         android:icon="@mipmap/ic_launcher"
+         android:allowBackup="false"
+@@ -71,7 +71,7 @@
+                 <category android:name="android.intent.category.BROWSABLE" />
+ 
+                 <data
+-                    android:scheme="chronospark"
++                    android:scheme="${chronosparkAuthScheme}"
+                     android:host="auth-callback" />
+             </intent-filter>
+         </activity>
