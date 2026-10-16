@@ -26,7 +26,7 @@ tags: [qa, auth]
 - tapOn: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
 - runFlow: ../subflows/skip-onboarding.yaml
 - extendedWaitUntil:
-    visible: "(?:CONTINUE TO LOGIN|ENTER SYSTEM|TESTER ACCESS.*TEST LOGIN)"
+    visible: "(?:CONTINUE TO (?:LOGIN|PROFILE)|ENTER SYSTEM|TESTER ACCESS.*TEST LOGIN)"
     timeout: 20000
 # The original session-teardown assertion is retained.
 - assertNotVisible: "Open navigation map"

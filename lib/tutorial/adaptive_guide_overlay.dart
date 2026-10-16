@@ -164,8 +164,8 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
           content: Text(
             _copy(
               l10n,
-              'Guide paused. Resume it anytime in Settings › Restart Adaptive Guide.',
-              'Guía en pausa. Reanúdala cuando quieras en Ajustes › Reiniciar la Guía Adaptativa.',
+              'This step is paused. Guidance can resume automatically when you complete it. Restart anytime in Settings › Restart Adaptive Guide.',
+              'Este paso está en pausa. La guía puede reanudarse automáticamente al completarlo. Reiníciala cuando quieras en Ajustes › Reiniciar la Guía Adaptativa.',
             ),
           ),
           behavior: SnackBarBehavior.floating,

@@ -250,6 +250,8 @@ void main() {
       String welcomeAction() =>
           container.read(intelligenceStateProvider).auth.isAuthenticated
           ? 'CONTINUE TO SETUP'
+          : Env.isLocalMode
+          ? 'CONTINUE TO PROFILE'
           : 'CONTINUE TO LOGIN';
       late String observedWelcomeAction;
       Future<void> restartSetup() async {
@@ -319,7 +321,10 @@ void main() {
             'existing authenticated profile advances directly to step 3',
           );
         } else {
-          expect(observedWelcomeAction, 'CONTINUE TO LOGIN');
+          expect(
+            observedWelcomeAction,
+            Env.isLocalMode ? 'CONTINUE TO PROFILE' : 'CONTINUE TO LOGIN',
+          );
         }
         return path;
       }

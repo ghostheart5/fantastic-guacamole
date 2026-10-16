@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
@@ -8,6 +9,9 @@ Future<void> settleCurrentUserNavigation(
   PatrolIntegrationTester $, {
   required bool Function() destinationReady,
 }) async {
+  final String unsignedWelcomeAction = Env.isLocalMode
+      ? 'CONTINUE TO PROFILE'
+      : 'CONTINUE TO LOGIN';
   final deadline = DateTime.now().add(const Duration(seconds: 60));
   var guides = 0;
   var readyFrames = 0;
@@ -29,14 +33,14 @@ Future<void> settleCurrentUserNavigation(
       await $(const Key('local-profile-continue')).tap();
       readyFrames = 0;
     } else if (find
-            .text('CONTINUE TO LOGIN')
+            .text(unsignedWelcomeAction)
             .hitTestable()
             .evaluate()
             .isNotEmpty ||
         find.text('CONTINUE TO SETUP').hitTestable().evaluate().isNotEmpty) {
       final welcomeAction =
-          find.text('CONTINUE TO LOGIN').hitTestable().evaluate().isNotEmpty
-          ? 'CONTINUE TO LOGIN'
+          find.text(unsignedWelcomeAction).hitTestable().evaluate().isNotEmpty
+          ? unsignedWelcomeAction
           : 'CONTINUE TO SETUP';
       await $(welcomeAction).tap();
       readyFrames = 0;

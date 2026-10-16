@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
@@ -9,11 +10,13 @@ import 'package:fantastic_guacamole/data/storage/account_scoped_hive_storage.dar
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 import 'package:fantastic_guacamole/state/models/streak.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/streak_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -244,7 +247,7 @@ class ProfileController extends Notifier<ProfileState> {
       }
       if (!ref.mounted || generation != _initializationGeneration) return;
       state = raw == null
-          ? ProfileState()
+          ? _initialLocalProfileState(scope)
           : ProfileState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     } catch (error, stackTrace) {
       if (!ref.mounted || generation != _initializationGeneration) return;
@@ -256,6 +259,25 @@ class ProfileController extends Notifier<ProfileState> {
         stackTrace,
       );
     }
+  }
+
+  ProfileState _initialLocalProfileState(AccountStorageScope loadedScope) {
+    if (!Env.isLocalMode) return ProfileState();
+    final AsyncValue<User?> auth = ref.read(authUserProvider);
+    if (auth.isLoading || auth.hasError) return ProfileState();
+    final User? user = auth.asData?.value;
+    final AccountStorageScope currentScope = ref.read(
+      accountStorageScopeProvider,
+    );
+    if (user == null ||
+        !user.isLocalProfile ||
+        !currentScope.isWritable ||
+        currentScope.v2Namespace != loadedScope.v2Namespace ||
+        user.id != loadedScope.rawUserId) {
+      return ProfileState();
+    }
+    final String name = user.displayName?.trim() ?? '';
+    return name.isEmpty ? ProfileState() : ProfileState(name: name);
   }
 
   Future<bool> _ensureInitialized() async {

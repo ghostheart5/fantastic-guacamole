@@ -93,6 +93,7 @@ class TemporalScreenHeader extends StatelessWidget {
           Semantics(
             label: backTooltip,
             button: true,
+            onTap: onBack,
             excludeSemantics: true,
             child: IconButton(
               tooltip: backTooltip,

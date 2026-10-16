@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/config/product_identity.dart';
 import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_content_contract.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
@@ -216,6 +217,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         .isAuthenticated;
     final String welcomeAction = isAuthenticated
         ? (l10n.isSpanish ? 'CONTINUAR CONFIGURACIÓN' : 'CONTINUE TO SETUP')
+        : Env.isLocalMode
+        ? (l10n.isSpanish ? 'CONTINUAR AL PERFIL' : 'CONTINUE TO PROFILE')
         : (l10n.isSpanish ? 'CONTINUAR AL ACCESO' : 'CONTINUE TO LOGIN');
     final List<_Slide> slides = <_Slide>[
       _Slide(
