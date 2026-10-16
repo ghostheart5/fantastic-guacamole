@@ -5,6 +5,153 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'modal guide isolates actions and restores underlying semantics',
+    (WidgetTester tester) async {
+      final semantics = tester.ensureSemantics();
+      final targetKey = GlobalKey();
+      var guideActivations = 0;
+
+      Future<void> render({
+        required bool interactive,
+        bool showGuide = true,
+      }) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Stack(
+                children: [
+                  Center(
+                    child: ElevatedButton(
+                      key: targetKey,
+                      onPressed: () {},
+                      child: const Text('Open Timeline'),
+                    ),
+                  ),
+                  if (showGuide)
+                    InteractiveTutorialOverlay(
+                      targetKey: targetKey,
+                      allowTargetInteraction: interactive,
+                      title: 'Verify where the work landed',
+                      body: 'Review the saved task in Timeline.',
+                      primaryLabel: 'Open Timeline',
+                      onPrimary: () => guideActivations++,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump();
+      }
+
+      List<SemanticsNode> timelineActions() {
+        final matches = <SemanticsNode>[];
+        void visit(SemanticsNode node) {
+          final data = node.getSemanticsData();
+          if (data.label == 'Open Timeline' &&
+              data.hasAction(SemanticsAction.tap)) {
+            matches.add(node);
+          }
+          node.visitChildren((child) {
+            visit(child);
+            return true;
+          });
+        }
+
+        visit(
+          tester
+              .binding
+              .renderViews
+              .single
+              .owner!
+              .semanticsOwner!
+              .rootSemanticsNode!,
+        );
+        return matches;
+      }
+
+      await render(interactive: false);
+      expect(timelineActions(), hasLength(1));
+      tester.binding.renderViews.single.owner!.semanticsOwner!.performAction(
+        timelineActions().single.id,
+        SemanticsAction.tap,
+      );
+      await tester.pump();
+      expect(guideActivations, 1);
+
+      await render(interactive: true);
+      expect(timelineActions(), hasLength(2));
+      await render(interactive: false);
+      expect(timelineActions(), hasLength(1));
+      await render(interactive: false, showGuide: false);
+      expect(timelineActions(), hasLength(1));
+      expect(find.text('Verify where the work landed'), findsNothing);
+      semantics.dispose();
+    },
+  );
+
+  testWidgets('reveals a scroll target that mounts after the guide', (
+    WidgetTester tester,
+  ) async {
+    final targetKey = GlobalKey();
+    final loaded = ValueNotifier<bool>(false);
+    final scroll = ScrollController();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ValueListenableBuilder<bool>(
+            valueListenable: loaded,
+            builder: (context, ready, child) => Stack(
+              children: [
+                SingleChildScrollView(
+                  controller: scroll,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 900),
+                      if (ready)
+                        SizedBox(
+                          key: targetKey,
+                          height: 100,
+                          child: const Text('Saved task'),
+                        ),
+                      const SizedBox(height: 500),
+                    ],
+                  ),
+                ),
+                InteractiveTutorialOverlay(
+                  targetKey: targetKey,
+                  title: 'Find the saved task',
+                  body: 'Verify the task before continuing.',
+                  primaryLabel: 'Found it',
+                  onPrimary: () {},
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(scroll.offset, 0);
+    loaded.value = true;
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(scroll.offset, greaterThan(0));
+    expect(
+      tester.getRect(find.byKey(targetKey)).bottom,
+      lessThanOrEqualTo(600),
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    loaded.dispose();
+    scroll.dispose();
+  });
+
   testWidgets('defers spotlight geometry for a transient zero-sized viewport', (
     WidgetTester tester,
   ) async {

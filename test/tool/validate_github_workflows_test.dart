@@ -11,7 +11,9 @@ const Map<String, String> _requiredGates = <String, String>{
   'GitHub workflow lint': r'$ACTIONLINT -no-color',
   'PowerShell parse gate': './scripts/powershell_parse_gate.ps1',
   'full Flutter coverage test':
-      'dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/flutter-tests.jsonl --manifest artifacts/flutter-test-evidence/flutter-tests-manifest.json --timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1',
+      'dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/flutter-tests.jsonl --manifest artifacts/flutter-test-evidence/flutter-tests-manifest.json --timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1 --exclude-tags=local-public-policy',
+  'isolated local public-policy planner':
+      'dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/local-policy-tests.jsonl --manifest artifacts/flutter-test-evidence/local-policy-tests-manifest.json --timeout-seconds 600 -- test/release/local_public_policy_planner_test.dart --no-pub --dart-define-from-file=tool/local_public_policy_test_defines.json',
   'QA compile-time configuration':
       'dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/qa-config-tests.jsonl --manifest artifacts/flutter-test-evidence/qa-config-tests-manifest.json --timeout-seconds 600 -- test/config/env_mode_resolution_test.dart --no-pub --dart-define-from-file=tool/qa_defines.json',
   'Linux integration': 'bash ./scripts/run_linux_integration_tests.sh',
@@ -22,6 +24,7 @@ const Map<String, String> _requiredGates = <String, String>{
 };
 
 const Map<String, String> _requiredGateJobs = <String, String>{
+  'isolated local public-policy planner': 'flutter-tests',
   'architecture boundary': 'static-policy',
   'Maestro flow contract': 'static-policy',
   'golden comparison contract': 'static-policy',

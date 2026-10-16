@@ -71,6 +71,16 @@ tags:
     direction: DOWN
     timeout: 10000
 - tapOn: "^CREATE TASK$"
+- runFlow:
+    file: ../subflows/verify-creator-saved-receipt.yaml
+    env:
+      SAVED_ITEM: 'Task: Maestro smoke task'
+- scrollUntilVisible:
+    element:
+      text: "Open Timeline"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Open Timeline"
 
 # The confirmed creation routes to Timeline and the task must actually be there.
 # The selected clock time can already be past; both copy branches represent an
@@ -114,9 +124,10 @@ tags:
     direction: DOWN
     timeout: 10000
 - tapOn: "^CREATE DAILY RHYTHM$"
-- extendedWaitUntil:
-    visible: "(?s).*Confirmed and saved exactly once.*"
-    timeout: 10000
+- runFlow:
+    file: ../subflows/verify-creator-saved-receipt.yaml
+    env:
+      SAVED_ITEM: 'Daily Rhythm: Maestro review rhythm'
 - scrollUntilVisible:
     element:
       text: "Manage Daily Rhythms"
@@ -208,9 +219,10 @@ tags:
     direction: DOWN
     timeout: 10000
 - tapOn: "^CREATE GOAL$"
-- extendedWaitUntil:
-    visible: "(?s).*Confirmed and saved exactly once.*"
-    timeout: 10000
+- runFlow:
+    file: ../subflows/verify-creator-saved-receipt.yaml
+    env:
+      SAVED_ITEM: 'Goal: Maestro preserved goal'
 - stopApp
 - launchApp
 - runFlow: ../subflows/sign-in.yaml

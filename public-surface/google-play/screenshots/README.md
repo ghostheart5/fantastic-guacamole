@@ -1,6 +1,6 @@
 # Phone screenshot capture gate
 
-Prepared October 2, 2026 for intended public-profile candidate `4.2.3+2026083102`. No final-candidate captures or acceptance are supplied by this checklist. Older screenshot sets remain historical until their exact source and scope are reconciled.
+Updated October 6, 2026 for replacement of the existing public listing gallery. No new captures or acceptance are supplied by this checklist. Verify the currently installed Play-delivered version before capture; do not assume a version from a filename. Older screenshot sets remain historical.
 
 Do not upload the existing files under `assets/screenshots/`. They show retired terminology and unsupported or invented claims, including Smart Coach, fixed personal scores, old Creator object types, and forecasting/premium surfaces.
 
@@ -19,14 +19,14 @@ Capture screenshots only from Play-generated APKs produced from the exact signed
 
 ## Proposed truthful sequence
 
-1. Nexus with an honest insufficient-evidence or current-context state
-2. Reality Builder / Constructor de Realidad with a task draft before confirmation
-3. Reality Builder / Constructor de Realidad confirmation preview showing nothing saved yet
-4. Truth Ledger / Registro de Verdad with scheduled time distinguished from a due date
-5. Now Engine / Motor del Ahora guidance with evidence and assumptions visible
-6. Deep Intelligence / Inteligencia Profunda with an actual read-only evidence response
-7. Future Branches / Ramas Futuras with scenario assumptions visible
-8. Settings with the actual optional Cloud Backup coverage and recovery limits visible; never expose a recovery key
+1. **Choose one realistic next step**: a configured planning surface with a synthetic everyday task, such as five minutes of bookkeeping before school pickup. Show actual available time and context. Do not use the unconfigured-availability warning as the opening image or hide it by editing pixels.
+2. **Review before you save**: Creator confirmation showing the same sample task and that nothing has been saved yet. Make the user's choice visible.
+3. **Fit it into your day**: the actual saved/scheduled task in the timeline. Distinguish scheduled time from due date. These first three form one coherent journey.
+4. **See why it fits**: a genuine recommendation detail with supporting evidence, assumptions and uncertainty readable.
+5. **Review what happened**: actual sample completion/outcome for the same task. Avoid aggregate percentages or artificial scores; if illustrative aggregate data is shown, visibly label it sample data and preserve provenance.
+6. Optional Settings image with cloud-backup scope visible; never expose a recovery key.
+
+Use the same fictional demo identity throughout. Reject stale “ChronoSpark User” profile labels. Do not alter the permanent package name or forge UI labels. Omit a surface if the current public build cannot display it truthfully. Captions must describe the visible action, not claim guaranteed success, prediction accuracy or medical benefit.
 
 Only capture AI, billing, or cloud states that the selected artifact actually supports and the acceptance record has verified. A screenshot is not purchase, deletion, recovery, or provider-handling evidence. Never simulate paid responses, balances, saved records, or successful service states.
 

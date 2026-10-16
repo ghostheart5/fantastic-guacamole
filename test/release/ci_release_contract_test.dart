@@ -18,7 +18,14 @@ void main() {
       'dart run tool/run_flutter_tests.dart --report '
       'artifacts/flutter-test-evidence/flutter-tests.jsonl --manifest '
       'artifacts/flutter-test-evidence/flutter-tests-manifest.json '
-      '--timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1';
+      '--timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1 '
+      '--exclude-tags=local-public-policy';
+  const String localPolicyCommand =
+      'dart run tool/run_flutter_tests.dart --report '
+      'artifacts/flutter-test-evidence/local-policy-tests.jsonl --manifest '
+      'artifacts/flutter-test-evidence/local-policy-tests-manifest.json '
+      '--timeout-seconds 600 -- test/release/local_public_policy_planner_test.dart '
+      '--no-pub --dart-define-from-file=tool/local_public_policy_test_defines.json';
 
   String read(String path) =>
       File.fromUri(root.uri.resolve(path)).readAsStringSync();
@@ -100,7 +107,10 @@ void main() {
         './scripts/version_consistency_guard_contract.ps1',
       ]),
     );
-    expect(commands(flutterJob), contains(boundedCoverageCommand));
+    expect(
+      commands(flutterJob),
+      containsAll(<String>[boundedCoverageCommand, localPolicyCommand]),
+    );
     expect(flutterJob['timeout-minutes'], 90);
     expect(
       commands(integrationJob),
@@ -900,6 +910,13 @@ void main() {
       final String firebase = read('lib/firebase_options.dart');
       expect(gradle, contains('maxOf(flutter.compileSdkVersion, 36)'));
       expect(gradle, contains('maxOf(flutter.targetSdkVersion, 36)'));
+      expect(
+        RegExp(
+          r'buildTypes\s*\{.*?release\s*\{.*?ndk\s*\{.*?debugSymbolLevel\s*=\s*"FULL"',
+          dotAll: true,
+        ).hasMatch(gradle),
+        isTrue,
+      );
       expect(guard, contains('\$requiredTargetApi = 36'));
       expect(guard, contains("'android.permission.ACCESS_COARSE_LOCATION'"));
       expect(guard, contains("'android.permission.ACCESS_FINE_LOCATION'"));
@@ -994,6 +1011,7 @@ void main() {
       (emulatorStep['with'] as YamlMap)['disable-linux-hw-accel'],
       isFalse,
     );
+    expect((emulatorStep['with'] as YamlMap)['cores'], 4);
     expect(
       (emulatorStep['with'] as YamlMap)['target'],
       r"${{ inputs.guest_pages == '16k' && 'google_apis_ps16k' || 'google_apis' }}",
@@ -1009,6 +1027,17 @@ void main() {
     expect(preparation, contains('run-suite.sh'));
     expect(preparation, contains("shell('getconf', 'PAGE_SIZE')"));
     expect(preparation, contains('pageSizeBytes'));
+    expect(preparation, contains('hostCpuCount'));
+    expect(preparation, contains('guestCpuPresent'));
+    expect(preparation, contains('stable_home_samples >= 3'));
+    expect(
+      preparation,
+      contains('Fresh guest reported an ANR before app tests'),
+    );
+    expect(
+      preparation,
+      contains("grep -Fqi '<no anr has occurred since boot>'"),
+    );
     expect(preparation, contains('run_maestro_android_evidence.ps1'));
     expect(preparation, contains(r'-ExpectedAndroidApi "$QA_GUEST_API"'));
     expect(preparation, contains('-DeviceSerial emulator-5554'));

@@ -74,6 +74,7 @@ class _DynamicFormState extends State<DynamicForm> {
   DateTime? _targetDate;
   String? _goalId;
   Duration _estimatedDuration = const Duration(minutes: 30);
+  RecurrenceRule _taskRecurrence = RecurrenceRule.none;
   HabitCadence _habitCadence = HabitCadence.daily;
   int _habitTargetCount = 1;
   bool _submitting = false;
@@ -226,6 +227,7 @@ class _DynamicFormState extends State<DynamicForm> {
   }
 
   RecurrenceRule get _recurrenceForCadence {
+    if (_type == CreatorFormKind.task) return _taskRecurrence;
     if (_type != CreatorFormKind.habit) return RecurrenceRule.none;
     return switch (_habitCadence) {
       HabitCadence.daily => RecurrenceRule.daily,
@@ -235,6 +237,7 @@ class _DynamicFormState extends State<DynamicForm> {
   }
 
   void _resetFields() {
+    _taskRecurrence = RecurrenceRule.none;
     _priority = 3;
     _scheduledFor = null;
     _dueDate = null;
@@ -308,6 +311,41 @@ class _DynamicFormState extends State<DynamicForm> {
   }
 
   List<Widget> _buildTaskFields() => <Widget>[
+    const SizedBox(height: 18),
+    _FieldLabel(
+      text: ChronoSparkLocalizations.of(context).isSpanish
+          ? 'Frecuencia'
+          : 'Repeat',
+    ),
+    DropdownButton<RecurrenceRule>(
+      key: const Key('creator-task-repeat'),
+      value: _taskRecurrence,
+      isExpanded: true,
+      items: [
+        for (final rule in RecurrenceRule.values)
+          DropdownMenuItem(
+            value: rule,
+            child: Text(
+              ChronoSparkLocalizations.of(context).isSpanish
+                  ? switch (rule) {
+                      RecurrenceRule.none => 'No se repite',
+                      RecurrenceRule.daily => 'Diariamente',
+                      RecurrenceRule.weekly => 'Semanalmente',
+                    }
+                  : switch (rule) {
+                      RecurrenceRule.none => 'Does not repeat',
+                      RecurrenceRule.daily => 'Daily',
+                      RecurrenceRule.weekly => 'Weekly',
+                    },
+            ),
+          ),
+      ],
+      onChanged: _submitting
+          ? null
+          : (value) {
+              if (value != null) setState(() => _taskRecurrence = value);
+            },
+    ),
     const SizedBox(height: 18),
     _FieldLabel(text: _copy.activeGoal),
     const SizedBox(height: 8),

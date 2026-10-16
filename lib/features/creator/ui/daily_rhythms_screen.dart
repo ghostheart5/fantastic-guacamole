@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
@@ -195,13 +196,108 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     });
   }
 
+  Future<void> _editFrequency(String owner, HabitEntity habit) async {
+    var cadence = habit.cadence;
+    var target = habit.targetCount;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, update) => AlertDialog(
+          title: Text(_t('Edit frequency', 'Editar frecuencia')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _t(
+                  'Earlier outcomes stay in history. The new frequency controls current and future periods.',
+                  'Los resultados anteriores se conservan. La nueva frecuencia controla los periodos actuales y futuros.',
+                ),
+              ),
+              DropdownButton<HabitCadence>(
+                value: cadence,
+                isExpanded: true,
+                items: [
+                  for (final value in HabitCadence.values)
+                    DropdownMenuItem(
+                      value: value,
+                      child: Text(switch (value) {
+                        HabitCadence.daily => _t('Daily', 'Diario'),
+                        HabitCadence.weekly => _t('Weekly', 'Semanal'),
+                        HabitCadence.monthly => _t('Monthly', 'Mensual'),
+                      }),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) update(() => cadence = value);
+                },
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    tooltip: _t('Decrease target', 'Reducir objetivo'),
+                    onPressed: target > 1 ? () => update(() => target--) : null,
+                    icon: const Icon(Icons.remove),
+                  ),
+                  Text('$target'),
+                  IconButton(
+                    tooltip: _t('Increase target', 'Aumentar objetivo'),
+                    onPressed: target < 365
+                        ? () => update(() => target++)
+                        : null,
+                    icon: const Icon(Icons.add),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(_t('Cancel', 'Cancelar')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(_t('Save', 'Guardar')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (saved != true || !_sameAccount(owner)) return;
+    await _run(owner, habit, (notifier) async {
+      await notifier.updateFrequency(habit.id, cadence, target);
+      return _t('Frequency saved.', 'Frecuencia guardada.');
+    });
+  }
+
   Future<void> _backfill(String owner, HabitEntity habit) async {
     final now = DateTime.now();
+    final created = (habit.frequencyStartedAt ?? habit.createdAt).toLocal();
+    final first = DateTime(created.year, created.month, created.day);
+    final last = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(const Duration(days: 1));
+    if (first.isAfter(last)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _t(
+              'No earlier day is available. This rhythm was created today.',
+              'No hay un día anterior disponible. Este ritmo se creó hoy.',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
     final DateTime? day = await showDatePicker(
       context: context,
-      initialDate: now.subtract(const Duration(days: 1)),
-      firstDate: habit.createdAt.toLocal(),
-      lastDate: now.subtract(const Duration(days: 1)),
+      initialDate: last,
+      firstDate: first,
+      lastDate: last,
     );
     if (day == null || !mounted) return;
     final bool? completed = await showDialog<bool>(
@@ -369,8 +465,8 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
       HabitCadence.weekly => es ? 'semana' : 'week',
       HabitCadence.monthly => es ? 'mes' : 'month',
     };
-    final String key = HabitOccurrenceCoordinator.occurrenceKeyFor(
-      habit.cadence,
+    final String key = RhythmPlanningContext.occurrenceKey(
+      habit,
       DateTime.now(),
     );
     HabitOccurrenceEntity? current;
@@ -496,6 +592,10 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
                         ? _t('Pause', 'Pausar')
                         : _t('Resume', 'Reanudar'),
                   ),
+                ),
+                TextButton(
+                  onPressed: busy ? null : () => _editFrequency(owner, habit),
+                  child: Text(_t('Edit frequency', 'Editar frecuencia')),
                 ),
                 TextButton(
                   onPressed: busy ? null : () => _rename(owner, habit),

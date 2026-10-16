@@ -8,6 +8,22 @@ appId: com.ghostheart5.chronospark
 
 - runFlow:
     when:
+      visible: "(?:Create profile|Open profile)"
+    commands:
+      - tapOn: "(?:Create profile|Open profile)"
+      - extendedWaitUntil:
+          visible: "(?:SKIP FOR NOW|Pause guide|NEXUS.*)"
+          timeout: 20000
+
+# Creating the local profile reveals the authenticated final setup step.
+- runFlow:
+    when:
+      visible: "SKIP FOR NOW"
+    commands:
+      - tapOn: "SKIP FOR NOW"
+
+- runFlow:
+    when:
       visible: "TESTER ACCESS.*TEST LOGIN"
     commands:
       - tapOn: "TESTER ACCESS.*TEST LOGIN"
@@ -26,5 +42,17 @@ appId: com.ghostheart5.chronospark
       - tapOn: "ENTER SYSTEM"
 
 - extendedWaitUntil:
+    visible: "(?:Pause guide|NEXUS.*)"
+    timeout: 20000
+- tapOn:
+    text: "Pause guide"
+    optional: true
+
+- extendedWaitUntil:
     visible: "NEXUS.*"
     timeout: 20000
+
+- tapOn:
+    text: "Pause guide"
+    optional: true
+- assertNotVisible: "Pause guide"

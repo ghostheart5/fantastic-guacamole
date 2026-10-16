@@ -57,6 +57,16 @@ appId: com.ghostheart5.chronospark
     direction: DOWN
     timeout: 10000
 - tapOn: "^CREATE TASK$"
+- runFlow:
+    file: verify-creator-saved-receipt.yaml
+    env:
+      SAVED_ITEM: 'Task: ${TASK_TITLE}'
+- scrollUntilVisible:
+    element:
+      text: "Open Timeline"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Open Timeline"
 - extendedWaitUntil:
     visible: "(?s).*${TASK_TITLE}.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*"
     timeout: 20000

@@ -86,7 +86,12 @@ class UpdateHabit {
     required List<HabitEntity> current,
     required String id,
     required String title,
+    HabitCadence? cadence,
+    int? targetCount,
   }) async {
+    if (targetCount != null && (targetCount < 1 || targetCount > 365)) {
+      throw ArgumentError.value(targetCount, 'targetCount', 'Use 1 to 365.');
+    }
     final String trimmed = title.trim();
     if (trimmed.isEmpty || !current.any((HabitEntity item) => item.id == id)) {
       return current;
@@ -94,7 +99,24 @@ class UpdateHabit {
     final List<HabitEntity> next = current
         .map(
           (HabitEntity item) => item.id == id
-              ? item.copyWith(title: trimmed, updatedAt: DateTime.now())
+              ? item.copyWith(
+                  title: trimmed,
+                  cadence: cadence,
+                  targetCount: targetCount,
+                  frequencyRevision:
+                      (cadence != null && cadence != item.cadence) ||
+                          (targetCount != null &&
+                              targetCount != item.targetCount)
+                      ? item.frequencyRevision + 1
+                      : item.frequencyRevision,
+                  frequencyStartedAt:
+                      (cadence != null && cadence != item.cadence) ||
+                          (targetCount != null &&
+                              targetCount != item.targetCount)
+                      ? DateTime.now()
+                      : item.frequencyStartedAt,
+                  updatedAt: DateTime.now(),
+                )
               : item,
         )
         .toList(growable: false);

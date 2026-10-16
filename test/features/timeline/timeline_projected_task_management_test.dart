@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsAction;
 
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
@@ -17,6 +18,56 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('long single-day history is lazy and events stay separate', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final events = List.generate(
+      1400,
+      (index) => TimelineEventEntity(
+        id: 'history-$index',
+        type: TimelineEventType.reflection,
+        title: 'History item $index',
+        detail: 'Individual detail $index',
+        timestamp: _timelineNow.subtract(Duration(minutes: index + 1)),
+      ),
+    );
+    final container = _buildContainer(baseEvents: events);
+    addTearDown(container.dispose);
+    await _pumpTimeline(tester, container);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('History item 1399'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('timeline-event-semantics-history-0')),
+      findsOneWidget,
+    );
+    final history = tester.getSemantics(
+      find.byKey(const ValueKey('timeline-event-semantics-history-0')),
+    );
+    expect(history.label, contains('History item 0'));
+    expect(history.label, contains('Individual detail 0'));
+    expect(history.label, contains('11:59 AM'));
+    expect(history.label, isNot(contains('History item 1')));
+    final task = tester.getSemantics(
+      find.byKey(
+        const ValueKey(
+          'timeline-event-semantics-timeline-projected-task-task-managed',
+        ),
+      ),
+    );
+    expect(task.label, isNot(contains('History item 0')));
+    expect(find.bySemanticsLabel('Complete'), findsOneWidget);
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel('Complete'))
+          .getSemanticsData()
+          .hasAction(SemanticsAction.tap),
+      isTrue,
+    );
+    semantics.dispose();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'Spanish Timeline localizes current controls and date but preserves saved content',
     (tester) async {
@@ -234,6 +285,53 @@ void main() {
       findsOneWidget,
     );
     expect(container.read(timelineTutorialEvidenceProvider), later.id);
+  });
+
+  testWidgets('tutorial focuses its task behind another task on the same day', (
+    WidgetTester tester,
+  ) async {
+    final first = Task(
+      id: 'tutorial-first',
+      title: 'Tutorial commitment',
+      priority: 2,
+      difficulty: 2,
+      energyRequired: 2,
+      scheduledFor: DateTime(
+        _timelineNow.year,
+        _timelineNow.month,
+        _timelineNow.day,
+        10,
+      ),
+    );
+    final other = Task(
+      id: 'other-later-today',
+      title: 'Other later commitment',
+      priority: 3,
+      difficulty: 2,
+      energyRequired: 2,
+      scheduledFor: DateTime(
+        _timelineNow.year,
+        _timelineNow.month,
+        _timelineNow.day,
+        23,
+      ),
+    );
+    final container = _buildContainer(
+      tasksLoader: (ref) async => [first, other],
+      expectedTutorialTaskIds: {first.id},
+    );
+    addTearDown(container.dispose);
+    await _pumpTimelineShell(tester, container);
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(container.read(timelineTutorialEvidenceProvider), first.id);
+    expect(
+      find.byKey(FirstRunTutorialTargets.timelineEvidence),
+      findsOneWidget,
+    );
+    expect(find.text('Other later commitment'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('unrelated task cannot become first-run Timeline evidence', (

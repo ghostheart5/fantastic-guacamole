@@ -10,8 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   Future<void> pumpNotifications(
     WidgetTester tester,
-    List<NotificationEntity> items,
-  ) async {
+    List<NotificationEntity> items, {
+    List<NotificationEntity> repeating = const [],
+  }) async {
     tester.platformDispatcher.views.first
       ..physicalSize = const Size(1200, 2400)
       ..devicePixelRatio = 1.0;
@@ -24,6 +25,7 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       overrides: [
         notificationProvider.overrideWith(() => _StaticNotifications(items)),
+        automationNotificationsProvider.overrideWith((ref) async => repeating),
       ],
     );
     addTearDown(container.dispose);
@@ -36,6 +38,59 @@ void main() {
     );
     await tester.pump();
   }
+
+  testWidgets(
+    'native daily registrations appear without one-shot rescheduling',
+    (tester) async {
+      await pumpNotifications(
+        tester,
+        const [],
+        repeating: [
+          NotificationEntity(
+            id: 'daily_planning_reminder',
+            title: 'Daily Planning Reminder',
+            message: 'Plan your day',
+            scheduledAt: DateTime.now().add(const Duration(hours: 1)),
+          ),
+        ],
+      );
+      await tester.pump();
+      expect(find.text('Daily Planning Reminder'), findsOneWidget);
+      expect(find.textContaining('1 SCHEDULED'), findsOneWidget);
+      expect(find.text('NO ALERTS'), findsNothing);
+      expect(
+        find.textContaining('Manage this repeating reminder in Settings'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'legacy registration does not claim its configured time is registered',
+    (tester) async {
+      await pumpNotifications(
+        tester,
+        const [],
+        repeating: [
+          AutomationNotification(
+            id: 'daily_planning_reminder',
+            title: 'Legacy daily reminder',
+            message: 'Plan',
+            scheduledAt: DateTime(2026, 10, 12, 7, 30),
+            registeredTimeKnown: false,
+          ),
+        ],
+      );
+      await tester.pump();
+      expect(
+        find.textContaining('Configured time; registered time unavailable'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Next daily time'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('shows a reassuring empty state when there is nothing pending', (
     WidgetTester tester,

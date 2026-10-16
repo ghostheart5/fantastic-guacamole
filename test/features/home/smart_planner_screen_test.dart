@@ -36,6 +36,51 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
+  for (final invalid in ['wrong account', 'expired', 'future']) {
+    for (final mounted in [false, true]) {
+      testWidgets(
+        '$invalid first choice retains conversation when mounted=$mounted',
+        (tester) async {
+          final scope = AccountStorageScope.authenticated(
+            'first-value-validation',
+          );
+          final container = _container(
+            accountScope: scope,
+            conversationAvailable: true,
+          );
+          addTearDown(container.dispose);
+          if (mounted) await _pumpPlanner(tester, container);
+          final now = DateTime.now().toUtc();
+          container
+              .read(smartPlannerFirstValueProvider.notifier)
+              .stage(
+                SmartPlannerFirstValueRequest(
+                  accountScopeId: invalid == 'wrong account'
+                      ? 'another-account'
+                      : scope.v2Namespace!,
+                  prompt: 'Invalid first choice',
+                  createdAt: invalid == 'expired'
+                      ? now.subtract(const Duration(minutes: 11))
+                      : invalid == 'future'
+                      ? now.add(const Duration(minutes: 1))
+                      : now,
+                ),
+              );
+          if (!mounted) await _pumpPlanner(tester, container);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.byType(AssistantConversationScreen), findsOneWidget);
+          expect(find.byKey(const Key('planner-context-field')), findsNothing);
+          final planner =
+              container.read(smartPlannerQueryControllerProvider)
+                  as _PlannerV2TestController;
+          expect(planner.guidanceRequestCount, 0);
+          expect(container.read(smartPlannerFirstValueProvider), isNull);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
   testWidgets('rolled-back planner retains the local route', (tester) async {
     final container = _container(
       conversationAvailable: true,
@@ -48,7 +93,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
   testWidgets(
-    'private AI route receives staged question without running local guidance',
+    'onboarding first choice uses local planner without requiring paid AI',
     (tester) async {
       final account = AccountStorageScope.authenticated('planner-test-account');
       final container = _container(
@@ -67,18 +112,21 @@ void main() {
             ),
           );
       await _pumpPlanner(tester, container);
-      await tester.pumpAndSettle();
-      expect(find.text('AI conversation · uses credits'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(AssistantConversationScreen), findsNothing);
       expect(
         tester
-            .widget<TextField>(find.byKey(const Key('conversation-input')))
+            .widget<TextField>(find.byKey(const Key('planner-context-field')))
             .controller!
             .text,
         'What time should I go to the store?',
       );
-      await tester.tap(find.text('Energy for this request'));
-      await tester.pumpAndSettle();
-      expect(find.text('35%'), findsWidgets);
+      expect(container.read(smartPlannerFirstValueProvider), isNull);
+      final planner =
+          container.read(smartPlannerQueryControllerProvider)
+              as _PlannerV2TestController;
+      expect(planner.guidanceRequestCount, 1);
+      expect(planner.lastEnergy, 0.35);
       expect(tester.takeException(), isNull);
     },
   );
@@ -1047,6 +1095,83 @@ void main() {
     expect(container.read(memoriesProvider), isEmpty);
     await _scrollTo(tester, find.text('YOUR PLAN'));
     expect(find.text('Local planning from your context'), findsOneWidget);
+  });
+
+  testWidgets('mounted planner consumes a newly staged first choice once', (
+    tester,
+  ) async {
+    final scope = AccountStorageScope.authenticated('late-first-value');
+    final container = _container(
+      accountScope: scope,
+      conversationAvailable: true,
+    );
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    final planner =
+        container.read(smartPlannerQueryControllerProvider)
+            as _PlannerV2TestController;
+    final before = planner.guidanceRequestCount;
+    container
+        .read(smartPlannerFirstValueProvider.notifier)
+        .stage(
+          SmartPlannerFirstValueRequest(
+            accountScopeId: scope.v2Namespace!,
+            prompt: 'I have five minutes and want to fold one shirt.',
+            energy: 0.35,
+            createdAt: DateTime.now().toUtc(),
+          ),
+        );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(planner.guidanceRequestCount, before + 1);
+    expect(
+      planner.lastNotes,
+      'I have five minutes and want to fold one shirt.',
+    );
+    expect(planner.lastEnergy, 0.35);
+    expect(container.read(smartPlannerFirstValueProvider), isNull);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(planner.guidanceRequestCount, before + 1);
+  });
+
+  testWidgets('new first choice supersedes pending mounted guidance', (
+    tester,
+  ) async {
+    final scope = AccountStorageScope.authenticated('pending-first-value');
+    final container = _container(
+      accountScope: scope,
+      plannerBuilder: (ref) => _DelayedPlannerController(ref, echoNotes: true),
+    );
+    addTearDown(container.dispose);
+    void stage(String prompt) => container
+        .read(smartPlannerFirstValueProvider.notifier)
+        .stage(
+          SmartPlannerFirstValueRequest(
+            accountScopeId: scope.v2Namespace!,
+            prompt: prompt,
+            energy: 0.35,
+            createdAt: DateTime.now().toUtc(),
+          ),
+        );
+    stage('Old pending choice');
+    await _pumpPlanner(tester, container);
+    final planner =
+        container.read(smartPlannerQueryControllerProvider)
+            as _DelayedPlannerController;
+    expect(planner.guidanceRequestCount, 1);
+    stage('New first choice');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(planner.guidanceRequestCount, 2);
+    expect(planner.lastNotes, 'New first choice');
+    planner.complete();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await _scrollTo(tester, find.text('YOUR PLAN'));
+    expect(find.textContaining('Reply to New first choice'), findsWidgets);
+    expect(find.textContaining('Reply to Old pending choice'), findsNothing);
+    expect(container.read(smartPlannerFirstValueProvider), isNull);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('rebuild does not duplicate staged first-value guidance', (
@@ -2036,7 +2161,8 @@ class _LocalResponsePlannerController extends SmartPlannerQueryController {
 }
 
 class _DelayedPlannerController extends _PlannerV2TestController {
-  _DelayedPlannerController(super.ref);
+  _DelayedPlannerController(super.ref, {this.echoNotes = false});
+  final bool echoNotes;
 
   final Completer<void> _release = Completer<void>();
 
@@ -2055,7 +2181,16 @@ class _DelayedPlannerController extends _PlannerV2TestController {
     lastEnergy = energy;
     lastNotes = notes;
     await _release.future;
-    return _testPlannerResult(_testRef, notes);
+    if (!echoNotes) return _testPlannerResult(_testRef, notes);
+    final response = _testResponse().copyWith(whatIHeard: 'Reply to $notes');
+    return SmartPlannerResult(
+      prompt: notes,
+      message: response.toAccessibleText(),
+      savedNotes: null,
+      evidence: response.verifiedEvidence,
+      plannerResponse: response,
+      operatingReceipt: _testRef.read(smartPlannerOperatingReceiptProvider),
+    );
   }
 
   void complete() => _release.complete();

@@ -27,6 +27,15 @@ void main() {
       expect(find.byType(TextField), findsNothing);
       expect(find.text('REVIEW CHANGES'), findsNothing);
       final notes = container.read(notesProvider.notifier) as _Notes;
+      notes.archiveSaved();
+      await tester.pump();
+      expect(
+        find.text(
+          'This note is archived and remains stored. Return to the Library to restore it.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Use in planning'), findsNothing);
       notes.clearAccount();
       await tester.pump();
       expect(find.text('Demo reflection'), findsNothing);
@@ -50,4 +59,7 @@ class _Notes extends NotesNotifier {
     ),
   ];
   void clearAccount() => state = const AsyncData([]);
+  void archiveSaved() => state = AsyncData([
+    for (final note in state.requireValue) note.copyWith(isArchived: true),
+  ]);
 }

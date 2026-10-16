@@ -1,61 +1,38 @@
-# Default store listing: English (United States)
+# Axiomara store listing: en-US
 
-Prepared October 2, 2026 for the intended public-profile candidate 4.2.3+2026083102. This is a local listing draft based on the current source capability scope, pending the final signed artifact and its acceptance checks. It does not establish Play Console submission, approval, or publication. The earlier build-3063 draft remains in Git history.
+Prepared October 6, 2026 for the existing public listing. Local copy only; not saved, submitted or published in Play Console. Package com.ghostheart5.chronospark is unchanged.
 
 ## App name
 
 Axiomara: Decision OS
 
-Character count: 21 / 30
-
 ## Short description
 
-Turn goals, time, energy, and context into clear, inspectable decisions.
-
-Character count: 72 / 80
+Plan your next step around your goals, available time, and energy
 
 ## Full description
 
-Axiomara turns goals, commitments, time, energy, notes, and user-approved context into decisions you can inspect before you act.
+When your list is long and your time is short, Axiomara helps you choose one realistic next step around your goals, available time, and energy.
 
-NEXUS: YOUR LIVE DECISION PACKET
+START WITH ONE USEFUL ACTION
+Capture a task, review the proposed change, and confirm what you want to save. Fit it into your schedule and mark it complete when you finish. You stay in control of what to accept, change, delay, or reject.
 
-Nexus brings together what matters now: the recommended move, why it fits, the signals behind it, uncertainty, and the control you keep. Nothing changes silently.
+PLAN AROUND REAL LIFE
+Keep tasks, goals, notes, and daily rhythms in one place. Consider your available time, priorities, schedule pressure, and the context you choose to share. Ask for a smaller step or explore another approach when your day changes.
 
-BUILD REALITY
+UNDERSTAND THE RECOMMENDATION
+Nexus shows the recommended move, supporting signals, and uncertainty. Creator / Reality Builder lets you review changes before confirming them. Future Branches helps you compare possible tradeoffs; scenarios are possibilities, not promises.
 
-Use Reality Builder to capture goals, tasks, notes, and daily rhythms. Connect today's work to outcomes that matter instead of maintaining disconnected lists.
+REVIEW WHAT HAPPENED
+Truth Ledger records chosen actions and outcomes for review or correction. Capability Matrix shows progress tied to action. Optional energy and clarity check-ins let you express your current context.
 
-RESOLVE THE NOW
-
-Now Engine considers available time, priority, schedule pressure, and the context you choose to share. Ask what to do next, request a smaller step, or explore another approach.
-
-INTERROGATE THE REASONING
-
-Deep Intelligence lets you question the recommendation and inspect its limits. The app separates observed facts, assumptions, and possible outcomes so guidance stays understandable.
-
-COMPARE FUTURE BRANCHES
-
-Future Branches helps you examine tradeoffs before committing. Scenarios are possibilities, not promises. You decide what to accept, change, delay, or reject.
-
-CLOSE THE TRUTH LOOP
-
-Truth Ledger records chosen actions and outcomes. Axiomara learns from what actually happened, and you can review or correct that learning. Capability Matrix shows progress earned through action.
-
-DESIGNED FOR REAL LIFE
-
-Energy and clarity check-ins are optional and temporary. Momentum reflects current trajectory evidence. Voice input and spoken responses remain under your control.
-
-NO ADS. EVER.
-
-No banners. No rewarded videos. No interruption-for-access model. Ad-free use does not depend on a subscription.
+PLAN WITHOUT ADS
+Axiomara has no banners or rewarded videos. Ad-free planning does not require a subscription.
 
 OPTIONAL AI AND PAID FEATURES
-
-Planning remains ad-free. For an optional external AI action, Axiomara identifies the provider, the selected context that may be sent, and the expected credit cost before you confirm. You can decline and continue with non-generative planning. Subscription access and spendable AI credits are shown separately.
+External AI actions are optional. Before you confirm one, Axiomara identifies the provider, the selected context that may be sent, and the expected credit cost. You can decline and continue with non-generative planning. Subscription access and spendable AI credits are shown separately. Available paid features and prices appear before purchase.
 
 OPTIONAL CLOUD BACKUP
+Cloud Backup is off by default. When enabled, it encrypts tasks, profile information, and account preferences before upload. Keep your recovery key separately to restore on another device. Goals, daily rhythms, notes, and history are not included in this backup.
 
-Cloud Backup is off by default. If you turn it on, Axiomara encrypts a backup of tasks, profile information, and account preferences before upload. Keep your recovery key separately if you want to restore on another device. Other planning records, including goals, daily rhythms, notes, and history, are not included in this cloud backup.
-
-Axiomara is for adults ages 18 and over. It supports planning and decision-making and does not replace professional, medical, legal, financial, or emergency support.
+Axiomara is for adults 18 and over. It supports planning and decisions; it does not replace professional, medical, legal, financial, or emergency support.

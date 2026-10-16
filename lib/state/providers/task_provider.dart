@@ -299,9 +299,10 @@ class TaskActions {
     final _TaskAccountOperation operation = _TaskAccountOperation.capture(_ref);
     if (!operation.isCurrent(_ref)) return;
     Task? selectedTask = _taskFromCachedTasks(id);
-    final Future<Task?> selectedTaskFuture = selectedTask != null
-        ? Future<Task?>.value(selectedTask)
-        : _taskFromRepository(id, operation);
+    // Capture reward context before completion marks the repository record done.
+    // A concurrent read could otherwise see only the completed record and lose XP.
+    selectedTask ??= await _taskFromRepository(id, operation);
+    if (!operation.isCurrent(_ref)) return;
 
     final CompletionSideEffectDecision completionDecision = await _ref
         .read(completeTaskUseCaseProvider)
@@ -310,9 +311,6 @@ class TaskActions {
     if (completionDecision.shouldRunGuidance) {
       unawaited(_recordGuidance(operation, GuidanceMilestone.firstCompletion));
     }
-    selectedTask ??= await selectedTaskFuture;
-    if (!operation.isCurrent(_ref)) return;
-
     if (selectedTask != null && completionDecision.shouldRunReward) {
       final Task completedTask = selectedTask;
       final DateTime now = DateTime.now();

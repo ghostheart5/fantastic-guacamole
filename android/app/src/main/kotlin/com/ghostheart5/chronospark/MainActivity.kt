@@ -43,6 +43,17 @@ class MainActivity : FlutterActivity() {
             "cloud" -> super.configureFlutterEngine(flutterEngine)
             else -> error("ChronoSpark backend mode is missing or invalid.")
         }
+        // Local mode uses an explicit plugin allowlist. Only the isolated debug
+        // test package may attach Patrol; ordinary local/production builds do not.
+        if ((applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0 && applicationContext.packageName == "com.ghostheart5.chronospark.qa") {
+            try {
+                val plugin = Class.forName("pl.leancode.patrol.PatrolPlugin")
+                    .getDeclaredConstructor().newInstance()
+                flutterEngine.plugins.add(plugin as io.flutter.embedding.engine.plugins.FlutterPlugin)
+            } catch (_: ClassNotFoundException) {
+                // Standalone debug QA is also supported without instrumentation.
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, locationChannelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {

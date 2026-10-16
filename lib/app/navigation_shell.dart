@@ -260,6 +260,14 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         _runBackgroundTask('lifecycle recovery save', _saveCurrentState);
         break;
       case AppLifecycleState.resumed:
+        if (!_isFlutterTestBinding) {
+          _runBackgroundTask(
+            'notification permission and reminder recovery',
+            () => ref
+                .read(settingsUiActionsProvider)
+                .refreshNotificationPermissionAndReminders(),
+          );
+        }
         _startEntitlementAuthorityRechecks();
         if (!_isFlutterTestBinding) {
           _initializeRuntimeServices();

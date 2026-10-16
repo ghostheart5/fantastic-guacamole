@@ -85,6 +85,9 @@ jobs:
       - name: Validate GitHub workflow controls
         run: dart run tool/validate_github_workflows.dart
 
+      - name: Test hosted Android guest readiness
+        run: python3 -B -m unittest discover -s scripts -p test_hosted_guest_readiness.py -v
+
       - name: Test internal billing build controls
         run: |
           python3 -B -m unittest discover -s scripts -p test_android_candidate_build.py
@@ -188,7 +191,10 @@ jobs:
         run: git diff --exit-code -- pubspec.lock
 
       - name: Run bounded tests with coverage evidence
-        run: dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/flutter-tests.jsonl --manifest artifacts/flutter-test-evidence/flutter-tests-manifest.json --timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1
+        run: dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/flutter-tests.jsonl --manifest artifacts/flutter-test-evidence/flutter-tests-manifest.json --timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1 --exclude-tags=local-public-policy
+
+      - name: Run isolated local public-policy planner contract
+        run: dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/local-policy-tests.jsonl --manifest artifacts/flutter-test-evidence/local-policy-tests-manifest.json --timeout-seconds 600 -- test/release/local_public_policy_planner_test.dart --no-pub --dart-define-from-file=tool/local_public_policy_test_defines.json
 
       - name: Run QA compile-time configuration contract
         run: dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/qa-config-tests.jsonl --manifest artifacts/flutter-test-evidence/qa-config-tests-manifest.json --timeout-seconds 600 -- test/config/env_mode_resolution_test.dart --no-pub --dart-define-from-file=tool/qa_defines.json

@@ -138,10 +138,13 @@ class NotesNotifier extends AsyncNotifier<List<NoteEntity>> {
             owner.v2Namespace) {
       return;
     }
-    state = AsyncData(
-      _current.where((NoteEntity note) => note.id != id).toList(),
-    );
     if (archived != null) {
+      // Library includes archived records so restoration is available now,
+      // without requiring a restart to reload the durable collection.
+      state = AsyncData([
+        for (final note in _current)
+          if (note.id == id) archived else note,
+      ]);
       await _project(archived, NoteTimelineMutation.archived);
     }
   }

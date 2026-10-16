@@ -39,6 +39,38 @@ class NotificationScheduler implements NotificationSchedulerPort {
     tappedPayloadListenable.value = null;
   }
 
+  /// Read actual registered reminders for this account, without rescheduling.
+  Future<List<({String id, String title, String body, int? hour, int? minute})>>
+  pendingForAccount(String accountScope) async {
+    if (!await init(requestPermissions: false)) return const [];
+    final pending = await _plugin.pendingNotificationRequests();
+    final result =
+        <({String id, String title, String body, int? hour, int? minute})>[];
+    for (final request in pending) {
+      final payload = request.payload ?? '';
+      final scoped = parseAccountPayload(payload);
+      if (scoped == null || scoped.accountScope != accountScope) continue;
+      final metadata = jsonDecode(payload) as Map;
+      final hour = metadata['dailyHour'];
+      final minute = metadata['dailyMinute'];
+      final hasTime =
+          hour is int &&
+          minute is int &&
+          hour >= 0 &&
+          hour <= 23 &&
+          minute >= 0 &&
+          minute <= 59;
+      result.add((
+        id: scoped.notificationId,
+        title: request.title ?? '',
+        body: request.body ?? '',
+        hour: hasTime ? hour : null,
+        minute: hasTime ? minute : null,
+      ));
+    }
+    return result;
+  }
+
   /// Payload the app was launched with, if it was launched by a notification
   /// tap. Returns null once consumed so a later read cannot re-route.
   Future<String?> consumeLaunchPayload() async {
@@ -295,7 +327,14 @@ class NotificationScheduler implements NotificationSchedulerPort {
       notificationDetails: _notifDetails,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
-      payload: accountScope == null ? id : accountPayload(accountScope, id),
+      payload: accountScope == null
+          ? id
+          : accountPayload(
+              accountScope,
+              id,
+              dailyHour: hour,
+              dailyMinute: minute,
+            ),
     );
     return true;
   }
@@ -328,11 +367,18 @@ class NotificationScheduler implements NotificationSchedulerPort {
     return accountScope == null ? id : '$accountScope:$id';
   }
 
-  static String accountPayload(String accountScope, String notificationId) {
+  static String accountPayload(
+    String accountScope,
+    String notificationId, {
+    int? dailyHour,
+    int? dailyMinute,
+  }) {
     return jsonEncode(<String, Object>{
       'v': 1,
       'accountScope': accountScope,
       'notificationId': notificationId,
+      if (dailyHour != null && dailyMinute != null) 'dailyHour': dailyHour,
+      if (dailyHour != null && dailyMinute != null) 'dailyMinute': dailyMinute,
     });
   }
 

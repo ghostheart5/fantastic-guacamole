@@ -27,6 +27,61 @@ void main() {
   final DateTime now = DateTime.utc(2026, 8, 20, 12);
   final SIV2EvidenceSnapshot snapshot = _snapshot(now);
 
+  for (final locale in const [Locale('en'), Locale('es')]) {
+    testWidgets('local playback gives feedback (${locale.languageCode})', (
+      tester,
+    ) async {
+      final port = _RecordingPort(snapshot: snapshot, now: now);
+      final voice = _NoopVoiceService();
+      final container = _container(
+        port,
+        snapshot,
+        playbackEnabled: false,
+        playbackService: voice,
+      );
+      addTearDown(() => _dispose(tester, container));
+      await _pumpScreen(tester, container, locale: locale);
+      await tester.enterText(
+        find.byKey(const Key('si-query-input')),
+        'What should I do next?',
+      );
+      await tester.tap(find.byIcon(Icons.send_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      final summary = find
+          .byType(IconButton)
+          .evaluate()
+          .where((element) {
+            final button = element.widget as IconButton;
+            return button.icon is Icon &&
+                (button.icon as Icon).icon == Icons.volume_up_rounded;
+          })
+          .single
+          .widget;
+      await tester.tap(find.byWidget(summary));
+      await tester.pump();
+      final message = locale.languageCode == 'es'
+          ? 'La lectura en voz alta no está disponible en modo local. Lee el texto de la respuesta.'
+          : 'Speech playback is unavailable in local mode. Read the response text instead.';
+      expect(find.text(message), findsOneWidget);
+      expect(voice.playbackCalls, 0);
+      ScaffoldMessenger.of(
+        tester.element(find.byType(SIConsoleScreen)),
+      ).hideCurrentSnackBar();
+      await tester.pump(const Duration(seconds: 1));
+      final speak = find.text(
+        locale.languageCode == 'es' ? 'ESCUCHAR' : 'SPEAK',
+      );
+      await tester.ensureVisible(speak.first);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(speak.first);
+      await tester.pump();
+      expect(find.text(message), findsOneWidget);
+      expect(voice.playbackCalls, 0);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('rolled-back SI retains the local route', (tester) async {
     final port = _RecordingPort(snapshot: snapshot, now: now);
     final container = _container(
@@ -818,6 +873,8 @@ ProviderContainer _container(
   bool conversationAvailable = false,
   bool conversationReleased = true,
   bool allowedAi = false,
+  bool playbackEnabled = true,
+  VoiceService? playbackService,
   VoiceController? voiceController,
 }) {
   return ProviderContainer(
@@ -868,7 +925,10 @@ ProviderContainer _container(
       voiceInputConsentStoreProvider.overrideWithValue(
         VoiceInputConsentStore(const AccountStorageScope.unsafe()),
       ),
-      voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+      voicePlaybackEnabledProvider.overrideWithValue(playbackEnabled),
+      voiceServiceProvider.overrideWithValue(
+        playbackService ?? _NoopVoiceService(),
+      ),
     ],
   );
 }
@@ -1010,8 +1070,28 @@ final class _SlowPort implements SIV2QueryPort {
 }
 
 final class _NoopVoiceService extends VoiceService {
+  int playbackCalls = 0;
+
   @override
-  Future<void> speak(String text) async {}
+  Future<void> speak(String text) async {
+    playbackCalls++;
+  }
+
+  @override
+  Future<void> speakLocalized(
+    String text, {
+    required String languageCode,
+  }) async {
+    playbackCalls++;
+  }
+
+  @override
+  Future<void> speakSummary({
+    required String title,
+    required List<String> points,
+  }) async {
+    playbackCalls++;
+  }
 
   @override
   Future<void> stop() async {}
