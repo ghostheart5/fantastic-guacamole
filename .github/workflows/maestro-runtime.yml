@@ -311,7 +311,8 @@ jobs:
           # Credential-free evidence must survive a failed identity guard.
           print(json.dumps({'apkSha256': digest, 'apkBytes': apk.stat().st_size,
                             'badging': badging, 'signature': signing}), flush=True)
-          certs = re.findall(r'^Signer #\d+ certificate SHA-256 digest: ([a-fA-F0-9]{64})$', signing, re.M)
+          assert re.search(r'^Number of signers: 1$', signing, re.M), 'Expected one verified APK signer'
+          certs = re.findall(r'^(?:Signer #1|V2 Signer:) certificate SHA-256 digest: ([a-fA-F0-9]{64})$', signing, re.M)
           assert len(certs) == 1 and 'CN=Android Debug' in signing
           receipt = json.loads((output / 'provenance.json').read_text())
           assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip() == receipt['sourceSha']
