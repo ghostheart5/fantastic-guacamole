@@ -1,0 +1,886 @@
+diff --git a/lib/features/auth/screens/auth_gate.dart b/lib/features/auth/screens/auth_gate.dart
+index 9b1f63c92f85fb85a74aec839f1917d211089084..6ce5675b76bbb0abc243573f5191884b7b3d8580 100644
+--- a/lib/features/auth/screens/auth_gate.dart
++++ b/lib/features/auth/screens/auth_gate.dart
+@@ -162,6 +162,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
+     );
+     final bool mockSignInActive = ref.watch(mockSignInProvider);
+     final String qaAccountId = ref.watch(qaMockAccountIdProvider);
++    final bool localEntryCanReturnToWelcome =
++        Env.isLocalMode &&
++        ref.watch(onboardingWelcomeCompleteProvider) &&
++        !ref.watch(onboardingCompleteProvider);
+ 
+     if (mockSignInActive && !Env.isLocalMode) {
+       return _scopeIsReadyFor(accountScope, qaAccountId)
+@@ -273,7 +277,12 @@ class _AuthGateState extends ConsumerState<AuthGate> {
+ 
+                 if (authService is LocalProfileAuthService) {
+                   if (user == null) {
+-                    return LocalProfileScreen(service: authService);
++                    return LocalProfileScreen(
++                      service: authService,
++                      onReturnToWelcome: localEntryCanReturnToWelcome
++                          ? () => _returnLocalEntryToWelcome(onboardingLocation)
++                          : null,
++                    );
+                   }
+                   return user.isLocalProfile &&
+                           _scopeIsReadyFor(accountScope, user.id)
+@@ -336,6 +345,19 @@ class _AuthGateState extends ConsumerState<AuthGate> {
+     );
+   }
+ 
++  Future<void> _returnLocalEntryToWelcome(String onboardingLocation) async {
++    final GoRouter? router = GoRouter.maybeOf(context);
++    if (router == null) {
++      throw StateError('Welcome routing is unavailable.');
++    }
++    await ref.read(onboardingPreferencesRepositoryProvider).resetWelcome();
++    if (!mounted) {
++      return;
++    }
++    ref.read(onboardingWelcomeCompleteProvider.notifier).set(false);
++    router.go(onboardingLocation);
++  }
++
+   Future<void> _initializeAuth() async {
+     if (widget.authService != null) {
+       _authService = widget.authService;
+diff --git a/lib/features/auth/ui/local_profile_screen.dart b/lib/features/auth/ui/local_profile_screen.dart
+index 8bfd85885ed8a695bdfd192695eb01af8834fb6b..0ca48e9a591060f692a120654e510b1ef79dbd8b 100644
+--- a/lib/features/auth/ui/local_profile_screen.dart
++++ b/lib/features/auth/ui/local_profile_screen.dart
+@@ -1,10 +1,17 @@
++import 'dart:async';
++
+ import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
+ import 'package:flutter/material.dart';
+ 
+ /// Entry for production device profiles, including interrupted deletion retry.
+ class LocalProfileScreen extends StatefulWidget {
+-  const LocalProfileScreen({required this.service, super.key});
++  const LocalProfileScreen({
++    required this.service,
++    this.onReturnToWelcome,
++    super.key,
++  });
+   final LocalProfileAuthService service;
++  final Future<void> Function()? onReturnToWelcome;
+ 
+   @override
+   State<LocalProfileScreen> createState() => _LocalProfileScreenState();
+@@ -13,6 +20,7 @@ class LocalProfileScreen extends StatefulWidget {
+ class _LocalProfileScreenState extends State<LocalProfileScreen> {
+   final TextEditingController _name = TextEditingController();
+   bool _busy = false;
++  bool _returningToWelcome = false;
+   String? _error;
+ 
+   @override
+@@ -22,7 +30,9 @@ class _LocalProfileScreenState extends State<LocalProfileScreen> {
+   }
+ 
+   Future<void> _continue() async {
+-    if (_busy) return;
++    if (_busy || _returningToWelcome) {
++      return;
++    }
+     setState(() {
+       _busy = true;
+       _error = null;
+@@ -49,13 +59,45 @@ class _LocalProfileScreenState extends State<LocalProfileScreen> {
+     }
+   }
+ 
++  Future<void> _returnToWelcome() async {
++    final Future<void> Function()? action = widget.onReturnToWelcome;
++    if (action == null ||
++        _busy ||
++        _returningToWelcome ||
++        widget.service.hasStoredProfile ||
++        widget.service.hasPendingDeletion) {
++      return;
++    }
++    setState(() {
++      _returningToWelcome = true;
++      _error = null;
++    });
++    try {
++      await action();
++    } on Object {
++      if (mounted) {
++        setState(() {
++          _error = Localizations.localeOf(context).languageCode == 'es'
++              ? 'No se pudo volver a la bienvenida. Reintenta; tu perfil local no ha cambiado.'
++              : 'Welcome could not be reopened. Retry; your local profile has not been changed.';
++        });
++      }
++    } finally {
++      if (mounted) {
++        setState(() => _returningToWelcome = false);
++      }
++    }
++  }
++
+   @override
+   Widget build(BuildContext context) {
+     final bool deleting = widget.service.hasPendingDeletion;
+     final bool existing = widget.service.hasStoredProfile;
++    final bool canReturnToWelcome =
++        widget.onReturnToWelcome != null && !existing && !deleting;
+     final bool spanish = Localizations.localeOf(context).languageCode == 'es';
+     String copy(String en, String es) => spanish ? es : en;
+-    return Scaffold(
++    final Widget content = Scaffold(
+       body: SafeArea(
+         child: Center(
+           child: SingleChildScrollView(
+@@ -102,7 +144,7 @@ class _LocalProfileScreenState extends State<LocalProfileScreen> {
+                     const SizedBox(height: 20),
+                     TextField(
+                       controller: _name,
+-                      enabled: !_busy,
++                      enabled: !_busy && !_returningToWelcome,
+                       maxLength: 80,
+                       textCapitalization: TextCapitalization.words,
+                       decoration: InputDecoration(
+@@ -125,7 +167,7 @@ class _LocalProfileScreenState extends State<LocalProfileScreen> {
+                   const SizedBox(height: 24),
+                   FilledButton(
+                     key: const Key('local-profile-continue'),
+-                    onPressed: _busy ? null : _continue,
++                    onPressed: _busy || _returningToWelcome ? null : _continue,
+                     child: Text(
+                       _busy
+                           ? copy('Please wait', 'Espera')
+@@ -143,5 +185,14 @@ class _LocalProfileScreenState extends State<LocalProfileScreen> {
+         ),
+       ),
+     );
++    return PopScope<Object?>(
++      canPop: !canReturnToWelcome,
++      onPopInvokedWithResult: (bool didPop, Object? _) {
++        if (!didPop && canReturnToWelcome) {
++          unawaited(_returnToWelcome());
++        }
++      },
++      child: content,
++    );
+   }
+ }
+diff --git a/test/app/onboarding_return_to_router_test.dart b/test/app/onboarding_return_to_router_test.dart
+index e5cf5dbeb624163981febdc6205878f773695a87..b772a33dbe94de181d39dcd98f4e69b6aa333064 100644
+--- a/test/app/onboarding_return_to_router_test.dart
++++ b/test/app/onboarding_return_to_router_test.dart
+@@ -4,11 +4,15 @@ import 'package:fantastic_guacamole/app/router/route_guards.dart' as guards;
+ import 'package:fantastic_guacamole/app/router/route_paths.dart';
+ import 'package:fantastic_guacamole/config/env.dart';
+ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
++import 'package:fantastic_guacamole/data/services/local_profile_auth_service.dart';
++import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+ import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+ import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
+ import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
+ import 'package:fantastic_guacamole/state/app_state.dart';
++import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
++import 'package:fantastic_guacamole/state/providers/local_profile_auth_provider.dart';
+ import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
+ import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
+ import 'package:flutter/material.dart';
+@@ -158,8 +162,31 @@ Future<_RouterHarness> _pumpRouter(
+   addTearDown(tester.view.resetPhysicalSize);
+   addTearDown(tester.view.resetDevicePixelRatio);
+ 
++  // Router-policy cases control authentication through the guard below.
++  // Keep local auth initialization deterministic without platform storage.
++  final LocalProfileAuthService? localAuthService;
++  if (Env.isLocalMode) {
++    localAuthService = LocalProfileAuthService(
++      store: SecureStore(backend: InMemorySecureStoreBackend()),
++      onProfileDeleted: (_) async {
++        throw StateError('Router fixture must not delete profiles.');
++      },
++      onBeforeClosed: (_) async {
++        throw StateError('Router fixture must not close profiles.');
++      },
++    );
++    addTearDown(localAuthService.dispose);
++    await localAuthService.initialize();
++  } else {
++    localAuthService = null;
++  }
++
+   final ProviderContainer container = ProviderContainer(
+     overrides: [
++      if (localAuthService != null) ...[
++        authServiceProvider.overrideWithValue(localAuthService),
++        localProfileAuthServiceProvider.overrideWithValue(localAuthService),
++      ],
+       guards.authenticatedGuardProvider.overrideWith(
+         (Ref ref) => ref.watch(_authenticatedProvider),
+       ),
+@@ -170,7 +197,7 @@ Future<_RouterHarness> _pumpRouter(
+         (Ref ref) => ref.watch(onboardingCompleteProvider),
+       ),
+       intelligenceStateProvider.overrideWith((Ref ref) {
+-        if (enableMockLogin) {
++        if (enableMockLogin && !Env.isLocalMode) {
+           return IntelligenceState(
+             environment: const EnvironmentState(
+               appName: 'ChronoSpark',
+@@ -210,6 +237,7 @@ Future<_RouterHarness> _pumpRouter(
+ 
+   addTearDown(() async {
+     await tester.pumpWidget(const SizedBox.shrink());
++    await tester.pump();
+     container.dispose();
+   });
+   await tester.pumpWidget(
+diff --git a/test/state/controllers/profile_local_name_seed_test.dart b/test/state/controllers/profile_local_name_seed_test.dart
+index 675d2419781ad10f503a623d32a51a220c7a9cba..345bd103abb1c656352c0a6aca11da19eee95b4f 100644
+--- a/test/state/controllers/profile_local_name_seed_test.dart
++++ b/test/state/controllers/profile_local_name_seed_test.dart
+@@ -4,7 +4,6 @@ import 'dart:io';
+ 
+ import 'package:fantastic_guacamole/config/env.dart';
+ import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+-import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+ import 'package:fantastic_guacamole/data/models/auth_models.dart';
+ import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
+ import 'package:fantastic_guacamole/data/storage/hive_service.dart';
+@@ -205,12 +204,12 @@ void main() {
+     );
+     await fixture.waitFor(ProfileReadStatus.ready);
+     expect(fixture.state.name, 'Saved A');
+-    final a = jsonDecode(
+-      (await fixture.backend.read(key: _profileKey(_localA.id)))!,
+-    );
+-    final b = jsonDecode(
+-      (await fixture.backend.read(key: _profileKey(_localB.id)))!,
+-    );
++    final a =
++        jsonDecode((await fixture.backend.read(key: _profileKey(_localA.id)))!)
++            as Map<String, dynamic>;
++    final b =
++        jsonDecode((await fixture.backend.read(key: _profileKey(_localB.id)))!)
++            as Map<String, dynamic>;
+     expect(a['name'], 'Saved A');
+     expect(b['name'], 'Saved B');
+   });
+diff --git a/test/ui/system/temporal_screen_header_semantics_test.dart b/test/ui/system/temporal_screen_header_semantics_test.dart
+index 0ae0f06608ea6cbfa5823b770e1892e36820a53c..6eb703f22ee890cc425ba497cc98a19c4b8d588c 100644
+--- a/test/ui/system/temporal_screen_header_semantics_test.dart
++++ b/test/ui/system/temporal_screen_header_semantics_test.dart
+@@ -8,22 +8,25 @@ void main() {
+     WidgetTester tester,
+   ) async {
+     final SemanticsHandle semantics = tester.ensureSemantics();
+-    addTearDown(semantics.dispose);
+-    int backCalls = 0;
+-    await tester.pumpWidget(_headerHost(onBack: () => backCalls++));
++    try {
++      int backCalls = 0;
++      await tester.pumpWidget(_headerHost(onBack: () => backCalls++));
+ 
+-    final Finder back = find.bySemanticsLabel('Back to Nexus');
+-    expect(back, findsOneWidget);
+-    final SemanticsNode node = tester.getSemantics(back);
+-    expect(node.getSemanticsData().flagsCollection.isButton, isTrue);
+-    tester.binding.renderViews.single.owner!.semanticsOwner!.performAction(
+-      node.id,
+-      SemanticsAction.tap,
+-    );
+-    await tester.pump();
++      final Finder back = find.bySemanticsLabel('Back to Nexus');
++      expect(back, findsOneWidget);
++      final SemanticsNode node = tester.getSemantics(back);
++      expect(node.getSemanticsData().flagsCollection.isButton, isTrue);
++      tester.binding.renderViews.single.owner!.semanticsOwner!.performAction(
++        node.id,
++        SemanticsAction.tap,
++      );
++      await tester.pump();
+ 
+-    expect(backCalls, 1);
+-    expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
++      expect(backCalls, 1);
++      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
++    } finally {
++      semantics.dispose();
++    }
+   });
+ 
+   testWidgets('Back pointer tap still invokes the callback exactly once', (
+@@ -42,13 +45,16 @@ void main() {
+     WidgetTester tester,
+   ) async {
+     final SemanticsHandle semantics = tester.ensureSemantics();
+-    addTearDown(semantics.dispose);
+-    await tester.pumpWidget(_headerHost());
++    try {
++      await tester.pumpWidget(_headerHost());
+ 
+-    expect(find.text('Timeline'), findsOneWidget);
+-    expect(find.bySemanticsLabel('Back to Nexus'), findsNothing);
+-    expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
+-    expect(find.byType(IconButton), findsNothing);
++      expect(find.text('Timeline'), findsOneWidget);
++      expect(find.bySemanticsLabel('Back to Nexus'), findsNothing);
++      expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
++      expect(find.byType(IconButton), findsNothing);
++    } finally {
++      semantics.dispose();
++    }
+   });
+ }
+ 
+--- /dev/null
++++ b/test/features/auth/local_profile_first_run_back_test.dart
+@@ -0,0 +1,194 @@
++import 'dart:async';
++
++import 'package:fantastic_guacamole/data/services/local_profile_auth_service.dart';
++import 'package:fantastic_guacamole/data/storage/secure_store.dart';
++import 'package:fantastic_guacamole/features/auth/ui/local_profile_screen.dart';
++import 'package:flutter/material.dart';
++import 'package:flutter_test/flutter_test.dart';
++
++void main() {
++  testWidgets('fresh entry Back is single-flight and cannot create a profile', (
++    WidgetTester tester,
++  ) async {
++    final InMemorySecureStoreBackend backend = InMemorySecureStoreBackend();
++    final LocalProfileAuthService service = _service(backend);
++    final Completer<void> returning = Completer<void>();
++    int returns = 0;
++    await _pumpEntry(tester, service, () async {
++      returns += 1;
++      await returning.future;
++    });
++    addTearDown(() {
++      if (!returning.isCompleted) {
++        returning.complete();
++      }
++    });
++
++    expect(_backScope(tester).canPop, isFalse);
++    await tester.binding.handlePopRoute();
++    await tester.pump();
++    expect(returns, 1);
++    expect(
++      tester
++          .widget<FilledButton>(find.byKey(const Key('local-profile-continue')))
++          .onPressed,
++      isNull,
++    );
++    expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);
++    await tester.binding.handlePopRoute();
++    await tester.pump();
++    expect(returns, 1);
++    expect(await backend.readAll(), isEmpty);
++    expect(service.hasStoredProfile, isFalse);
++    returning.complete();
++    await tester.pumpAndSettle();
++    expect(service.currentUser, isNull);
++  });
++
++  for (final bool deleting in <bool>[false, true]) {
++    testWidgets(
++      '${deleting ? 'pending deletion' : 'closed profile'} never uses first-run Back',
++      (WidgetTester tester) async {
++        final InMemorySecureStoreBackend backend = InMemorySecureStoreBackend();
++        final LocalProfileAuthService service = _service(
++          backend,
++          failDeletion: deleting,
++        );
++        await service.createProfile(displayName: 'Existing local identity');
++        if (deleting) {
++          await expectLater(
++            service.deleteCurrentAccount(password: ''),
++            throwsStateError,
++          );
++        } else {
++          await service.signOut();
++        }
++        final Map<String, String> before = await backend.readAll();
++        int returns = 0;
++        await _pumpEntry(tester, service, () async {
++          returns += 1;
++        });
++        expect(_backScope(tester).canPop, isTrue);
++        expect(
++          find.text(deleting ? 'Retry deletion' : 'Open profile'),
++          findsOneWidget,
++        );
++        await tester.binding.handlePopRoute();
++        await tester.pump();
++        expect(returns, 0);
++        expect(await backend.readAll(), before);
++        expect(service.hasStoredProfile, isTrue);
++        expect(service.hasPendingDeletion, deleting);
++        expect(service.currentUser, isNull);
++      },
++    );
++  }
++
++  testWidgets('Back cannot interrupt creation or reset Welcome while busy', (
++    WidgetTester tester,
++  ) async {
++    final _GatedProfileWriteBackend backend = _GatedProfileWriteBackend();
++    final LocalProfileAuthService service = _service(backend);
++    int returns = 0;
++    await _pumpEntry(tester, service, () async {
++      returns += 1;
++    });
++    addTearDown(backend.finishWrite);
++    await tester.tap(find.byKey(const Key('local-profile-continue')));
++    await tester.pump();
++    expect(find.text('Please wait'), findsOneWidget);
++    expect(_backScope(tester).canPop, isFalse);
++    await tester.binding.handlePopRoute();
++    await tester.pump();
++    expect(returns, 0);
++    expect(service.hasStoredProfile, isFalse);
++    backend.finishWrite();
++    await tester.pumpAndSettle();
++    expect(service.currentUser?.isLocalProfile, isTrue);
++    expect(returns, 0);
++  });
++
++  testWidgets('a failed welcome return leaves fresh profile data untouched', (
++    WidgetTester tester,
++  ) async {
++    final InMemorySecureStoreBackend backend = InMemorySecureStoreBackend();
++    final LocalProfileAuthService service = _service(backend);
++    await _pumpEntry(tester, service, () async {
++      throw StateError('fixture preference write failed');
++    });
++    await tester.binding.handlePopRoute();
++    await tester.pumpAndSettle();
++    expect(
++      find.text(
++        'Welcome could not be reopened. Retry; your local profile has not been changed.',
++      ),
++      findsOneWidget,
++    );
++    expect(find.text('Create a local profile'), findsOneWidget);
++    expect(_backScope(tester).canPop, isFalse);
++    expect(service.currentUser, isNull);
++    expect(await backend.readAll(), isEmpty);
++    expect(
++      tester
++          .widget<FilledButton>(find.byKey(const Key('local-profile-continue')))
++          .onPressed,
++      isNotNull,
++    );
++  });
++}
++
++LocalProfileAuthService _service(
++  SecureStoreBackend backend, {
++  bool failDeletion = false,
++}) => LocalProfileAuthService(
++  store: SecureStore(backend: backend),
++  onBeforeClosed: (_) async {},
++  onProfileDeleted: (_) async {
++    if (failDeletion) {
++      throw StateError('fixture interrupted deletion');
++    }
++  },
++);
++
++Future<void> _pumpEntry(
++  WidgetTester tester,
++  LocalProfileAuthService service,
++  Future<void> Function() onReturnToWelcome,
++) async {
++  await service.initialize();
++  addTearDown(() async {
++    await tester.pumpWidget(const SizedBox.shrink());
++    await tester.pump();
++    await service.dispose();
++  });
++  await tester.pumpWidget(
++    MaterialApp(
++      home: LocalProfileScreen(
++        service: service,
++        onReturnToWelcome: onReturnToWelcome,
++      ),
++    ),
++  );
++  await tester.pumpAndSettle();
++}
++
++PopScope<Object?> _backScope(WidgetTester tester) =>
++    tester.widget<PopScope<Object?>>(find.byType(PopScope<Object?>));
++
++class _GatedProfileWriteBackend extends InMemorySecureStoreBackend {
++  final Completer<void> _write = Completer<void>();
++
++  void finishWrite() {
++    if (!_write.isCompleted) {
++      _write.complete();
++    }
++  }
++
++  @override
++  Future<void> write({required String key, required String value}) async {
++    if (key == LocalProfileAuthService.profileKey) {
++      await _write.future;
++    }
++    await super.write(key: key, value: value);
++  }
++}
+--- /dev/null
++++ b/test/acceptance/local_profile_back_router_local_probe.dart
+@@ -0,0 +1,348 @@
++import 'package:fantastic_guacamole/app/router/app_router.dart';
++import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
++import 'package:fantastic_guacamole/app/router/route_guards.dart' as guards;
++import 'package:fantastic_guacamole/app/router/route_paths.dart';
++import 'package:fantastic_guacamole/config/env.dart';
++import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
++import 'package:fantastic_guacamole/data/repositories/shared_preferences_onboarding_repository.dart';
++import 'package:fantastic_guacamole/data/services/local_profile_auth_service.dart';
++import 'package:fantastic_guacamole/data/storage/secure_store.dart';
++import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
++import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
++import 'package:fantastic_guacamole/domain/interfaces/i_onboarding_preferences_repository.dart';
++import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
++import 'package:fantastic_guacamole/features/auth/ui/local_profile_screen.dart';
++import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
++import 'package:fantastic_guacamole/state/app_state.dart';
++import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
++import 'package:fantastic_guacamole/state/providers/local_profile_auth_provider.dart';
++import 'package:fantastic_guacamole/state/providers/onboarding_preferences_provider.dart';
++import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
++import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++import 'package:flutter_test/flutter_test.dart';
++import 'package:go_router/go_router.dart';
++import 'package:shared_preferences/shared_preferences.dart';
++
++void main() {
++  setUpAll(() {
++    expect(
++      Env.isLocalMode,
++      isTrue,
++      reason:
++          'Select this local-only file with '
++          '--dart-define-from-file=tool/qa_defines.json; never skip it in cloud mode.',
++    );
++  });
++
++  setUp(() {
++    SharedPreferences.setMockInitialValues(<String, Object>{
++      onboardingWelcomeCompleteStorageKey: false,
++      onboardingCompleteStorageKey: false,
++      onboardingContentVersionStorageKey: 1,
++    });
++  });
++
++  testWidgets('real local AuthGate Back preserves protected returnTo intent', (
++    WidgetTester tester,
++  ) async {
++    final _RecordingOnboardingRepository repository =
++        _RecordingOnboardingRepository();
++    final _RouterHarness harness = await _pumpRouter(tester, repository);
++    const String destination =
++        '/timeline?day=2026-08-29&filter=planned#block-7';
++    harness.router.go(destination);
++    await _pumpRouteTransition(tester);
++    _expectReturnTo(harness, RoutePaths.onboarding, destination);
++    expect(find.byType(OnboardingScreen), findsOneWidget);
++
++    await tester.tap(find.text('CONTINUE TO PROFILE'));
++    await _pumpRouteTransition(tester);
++    _expectReturnTo(harness, RoutePaths.login, destination);
++    _expectRealFreshEntry(tester, harness);
++    await _expectWelcomeState(harness, isComplete: true);
++    await _expectNoProfileMutations(harness);
++
++    await tester.binding.handlePopRoute();
++    await _pumpRouteTransition(tester);
++
++    _expectReturnTo(harness, RoutePaths.onboarding, destination);
++    expect(find.byType(OnboardingScreen), findsOneWidget);
++    expect(find.byType(AuthGate), findsNothing);
++    expect(find.byType(LocalProfileScreen), findsNothing);
++    expect(find.text('CONTINUE TO PROFILE'), findsOneWidget);
++    await _expectWelcomeState(harness, isComplete: false);
++    expect(repository.markWelcomeCalls, 1);
++    expect(repository.resetWelcomeCalls, 1);
++    await _expectNoProfileMutations(harness);
++  });
++
++  testWidgets('real AuthGate failed welcome reset stays fresh and can retry', (
++    WidgetTester tester,
++  ) async {
++    final _RecordingOnboardingRepository repository =
++        _RecordingOnboardingRepository(throwOnReset: true);
++    final _RouterHarness harness = await _pumpRouter(tester, repository);
++    await _pumpRouteTransition(tester);
++    await tester.tap(find.text('CONTINUE TO PROFILE'));
++    await _pumpRouteTransition(tester);
++    expect(
++      harness.router.routeInformationProvider.value.uri.path,
++      RoutePaths.login,
++    );
++    _expectRealFreshEntry(tester, harness);
++    await _expectWelcomeState(harness, isComplete: true);
++
++    await tester.binding.handlePopRoute();
++    await _pumpRouteTransition(tester);
++
++    expect(repository.resetWelcomeCalls, 1);
++    expect(
++      harness.router.routeInformationProvider.value.uri.path,
++      RoutePaths.login,
++    );
++    _expectRealFreshEntry(tester, harness);
++    expect(find.byType(OnboardingScreen), findsNothing);
++    expect(
++      find.text(
++        'Welcome could not be reopened. Retry; your local profile has not been changed.',
++      ),
++      findsOneWidget,
++    );
++    await _expectWelcomeState(harness, isComplete: true);
++    await _expectNoProfileMutations(harness);
++    expect(
++      tester
++          .widget<FilledButton>(find.byKey(const Key('local-profile-continue')))
++          .onPressed,
++      isNotNull,
++    );
++    expect(tester.widget<TextField>(find.byType(TextField)).enabled, isTrue);
++    expect(tester.takeException(), isNull);
++
++    // Retry through the same real AuthGate callback after the dependency recovers.
++    repository.throwOnReset = false;
++    await tester.binding.handlePopRoute();
++    await _pumpRouteTransition(tester);
++    expect(repository.resetWelcomeCalls, 2);
++    expect(
++      harness.router.routeInformationProvider.value.uri.path,
++      RoutePaths.onboarding,
++    );
++    expect(find.byType(OnboardingScreen), findsOneWidget);
++    expect(find.text('CONTINUE TO PROFILE'), findsOneWidget);
++    await _expectWelcomeState(harness, isComplete: false);
++    await _expectNoProfileMutations(harness);
++  });
++}
++
++Future<_RouterHarness> _pumpRouter(
++  WidgetTester tester,
++  _RecordingOnboardingRepository repository,
++) async {
++  tester.view.physicalSize = const Size(1440, 2560);
++  tester.view.devicePixelRatio = 1;
++  addTearDown(tester.view.resetPhysicalSize);
++  addTearDown(tester.view.resetDevicePixelRatio);
++  final _RecordingSecureBackend backend = _RecordingSecureBackend();
++  final LocalProfileAuthService service = LocalProfileAuthService(
++    store: SecureStore(backend: backend),
++    onProfileDeleted: (_) async {
++      throw StateError('Router Back fixture must not delete a profile.');
++    },
++    onBeforeClosed: (_) async {
++      throw StateError('Router Back fixture must not close a profile.');
++    },
++  );
++  addTearDown(service.dispose);
++  await service.initialize();
++  final ProviderContainer container = ProviderContainer(
++    overrides: [
++      authServiceProvider.overrideWithValue(service),
++      localProfileAuthServiceProvider.overrideWithValue(service),
++      onboardingPreferencesRepositoryProvider.overrideWithValue(repository),
++      guards.authenticatedGuardProvider.overrideWithValue(false),
++      guards.onboardingWelcomeCompleteGuardProvider.overrideWith(
++        (Ref ref) => ref.watch(onboardingWelcomeCompleteProvider),
++      ),
++      guards.onboardingCompleteGuardProvider.overrideWith(
++        (Ref ref) => ref.watch(onboardingCompleteProvider),
++      ),
++      intelligenceStateProvider.overrideWithValue(
++        const IntelligenceService().fromRuntime(
++          hasMockSignIn: false,
++          hasAuthenticatedUser: false,
++        ),
++      ),
++      accountStorageScopeProvider.overrideWithValue(
++        const AccountStorageScope.signedOut(),
++      ),
++      profileProvider.overrideWith(_EmptyProfile.new),
++      notificationProvider.overrideWith(_EmptyNotifications.new),
++      goalsProvider.overrideWith(_EmptyGoals.new),
++    ],
++  );
++  addTearDown(() async {
++    await tester.pumpWidget(const SizedBox.shrink());
++    await tester.pump();
++    container.dispose();
++  });
++  final GoRouter router = container.read(appRouterProvider);
++  await tester.pumpWidget(
++    UncontrolledProviderScope(
++      container: container,
++      child: MaterialApp.router(routerConfig: router),
++    ),
++  );
++  return _RouterHarness(
++    container: container,
++    router: router,
++    service: service,
++    backend: backend,
++  );
++}
++
++Future<void> _pumpRouteTransition(WidgetTester tester) async {
++  await tester.pump();
++  await tester.pump(const Duration(milliseconds: 400));
++  await tester.pump();
++}
++
++void _expectRealFreshEntry(WidgetTester tester, _RouterHarness harness) {
++  expect(find.byType(AuthGate), findsOneWidget);
++  expect(find.byType(LocalProfileScreen), findsOneWidget);
++  expect(find.text('Create a local profile'), findsOneWidget);
++  expect(find.textContaining('TESTER ACCESS'), findsNothing);
++  expect(find.text('Open profile'), findsNothing);
++  expect(find.byType(PopScope<Object?>), findsOneWidget);
++  expect(
++    tester.widget<PopScope<Object?>>(find.byType(PopScope<Object?>)).canPop,
++    isFalse,
++  );
++  expect(harness.service.currentUser, isNull);
++  expect(harness.service.hasStoredProfile, isFalse);
++  expect(harness.service.hasPendingDeletion, isFalse);
++}
++
++void _expectReturnTo(_RouterHarness harness, String path, String destination) {
++  final Uri location = harness.router.routeInformationProvider.value.uri;
++  expect(location.path, path);
++  final String? returnTo =
++      location.queryParameters[RouteAccessPolicy.returnToQueryParameter];
++  expect(returnTo, destination);
++  final Uri intent = Uri.parse(returnTo!);
++  expect(intent.path, RoutePaths.timeline);
++  expect(intent.queryParameters, <String, String>{
++    'day': '2026-08-29',
++    'filter': 'planned',
++  });
++  expect(intent.fragment, 'block-7');
++}
++
++Future<void> _expectWelcomeState(
++  _RouterHarness harness, {
++  required bool isComplete,
++}) async {
++  final SharedPreferences prefs = await SharedPreferences.getInstance();
++  expect(harness.container.read(onboardingWelcomeCompleteProvider), isComplete);
++  expect(prefs.getBool(onboardingWelcomeCompleteStorageKey), isComplete);
++  expect(harness.container.read(onboardingCompleteProvider), isFalse);
++  expect(prefs.getBool(onboardingCompleteStorageKey), isFalse);
++  expect(prefs.getInt(onboardingContentVersionStorageKey), 1);
++}
++
++Future<void> _expectNoProfileMutations(_RouterHarness harness) async {
++  expect(harness.backend.writes, 0);
++  expect(harness.backend.deletes, 0);
++  expect(harness.backend.clearCalls, 0);
++  expect(await harness.backend.readAll(), isEmpty);
++  expect(harness.service.currentUser, isNull);
++  expect(harness.service.hasStoredProfile, isFalse);
++}
++
++class _RecordingOnboardingRepository
++    implements IOnboardingPreferencesRepository {
++  _RecordingOnboardingRepository({this.throwOnReset = false});
++  final SharedPreferencesOnboardingRepository _delegate =
++      SharedPreferencesOnboardingRepository();
++  bool throwOnReset;
++  int markWelcomeCalls = 0;
++  int resetWelcomeCalls = 0;
++
++  @override
++  Future<void> markWelcomeComplete() {
++    markWelcomeCalls += 1;
++    return _delegate.markWelcomeComplete();
++  }
++
++  @override
++  Future<void> resetWelcome() async {
++    resetWelcomeCalls += 1;
++    if (throwOnReset) {
++      throw StateError('Injected onboarding repository reset failed.');
++    }
++    await _delegate.resetWelcome();
++  }
++
++  @override
++  Future<void> markOnboardingComplete({required int contentVersion}) async {
++    throw StateError('Back fixture must not complete setup.');
++  }
++
++  @override
++  Future<void> resetFirstSetup() async {
++    throw StateError('Back fixture must not reset first setup.');
++  }
++}
++
++class _RecordingSecureBackend extends InMemorySecureStoreBackend {
++  int writes = 0;
++  int deletes = 0;
++  int clearCalls = 0;
++
++  @override
++  Future<void> write({required String key, required String value}) async {
++    writes += 1;
++    await super.write(key: key, value: value);
++  }
++
++  @override
++  Future<void> delete({required String key}) async {
++    deletes += 1;
++    await super.delete(key: key);
++  }
++
++  @override
++  Future<void> deleteAll() async {
++    clearCalls += 1;
++    await super.deleteAll();
++  }
++}
++
++class _RouterHarness {
++  const _RouterHarness({
++    required this.container,
++    required this.router,
++    required this.service,
++    required this.backend,
++  });
++  final ProviderContainer container;
++  final GoRouter router;
++  final LocalProfileAuthService service;
++  final _RecordingSecureBackend backend;
++}
++
++class _EmptyProfile extends ProfileController {
++  @override
++  ProfileState build() => ProfileState();
++}
++
++class _EmptyNotifications extends NotificationNotifier {
++  @override
++  List<NotificationEntity> build() => const <NotificationEntity>[];
++}
++
++class _EmptyGoals extends GoalsNotifier {
++  @override
++  List<GoalEntity> build() => const <GoalEntity>[];
++}

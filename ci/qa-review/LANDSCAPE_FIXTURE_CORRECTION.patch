@@ -1,0 +1,119 @@
+--- a/test/app/navigation_shell_landscape_layout_test.dart
++++ b/test/app/navigation_shell_landscape_layout_test.dart
+@@ -1,3 +1,4 @@
++import 'dart:async';
+ import 'dart:ui' as ui;
+ 
+ import 'package:fantastic_guacamole/app/navigation_shell.dart';
+@@ -92,9 +93,18 @@
+ 
+           for (final MapEntry<String, String> destination
+               in _destinations.entries) {
++            final ModalRoute<dynamic> fixtureRoute = ModalRoute.of(
++              tester.element(find.byType(NavigationShell)),
++            )!;
++            expect(fixtureRoute.isCurrent, isTrue);
+             await tester.tap(_inkWell(destination.key));
+-            await tester.pump();
+-            await tester.pump();
++            await _waitForRouteReplacement(
++              tester,
++              harness,
++              fixtureRoute,
++              find.byKey(ValueKey<String>(destination.value)),
++              destination.value,
++            );
+             expect(
+               harness.router.routeInformationProvider.value.uri.path,
+               destination.value,
+@@ -103,9 +113,18 @@
+               find.byKey(ValueKey<String>(destination.value)),
+               findsOneWidget,
+             );
++            final ModalRoute<dynamic> destinationRoute = ModalRoute.of(
++              tester.element(find.byKey(ValueKey<String>(destination.value))),
++            )!;
++            expect(destinationRoute.isCurrent, isTrue);
+             harness.router.go(_fixturePath);
+-            await tester.pump();
+-            await tester.pump();
++            await _waitForRouteReplacement(
++              tester,
++              harness,
++              destinationRoute,
++              find.byType(NavigationShell),
++              _fixturePath,
++            );
+             _expectUsableControl(tester, destination.key, safeBounds);
+           }
+           await tester.tap(_inkWell(_mapLabel));
+@@ -185,6 +204,69 @@
+   });
+ }
+ 
++Future<void> _waitForRouteReplacement(
++  WidgetTester tester,
++  _RailHarness harness,
++  ModalRoute<dynamic> outgoing,
++  Finder incoming,
++  String expectedPath,
++) async {
++  bool outgoingRetired = false;
++  unawaited(
++    outgoing.completed.then<void>((_) {
++      outgoingRetired = true;
++    }),
++  );
++  bool ready() {
++    if (!outgoingRetired ||
++        harness.router.routeInformationProvider.value.uri.path !=
++            expectedPath) {
++      return false;
++    }
++    final List<Element> matches = incoming.evaluate().toList();
++    if (matches.length != 1) {
++      return false;
++    }
++    final ModalRoute<dynamic>? route = ModalRoute.of(matches.single);
++    return route != null &&
++        !identical(route, outgoing) &&
++        route.isCurrent &&
++        route.isActive &&
++        (route.animation == null ||
++            route.animation!.status == AnimationStatus.completed);
++  }
++
++  // The timeline background repeats indefinitely, so wait for these exact
++  // route transitions rather than for every animation in the app to settle.
++  for (int frame = 0; frame < 40; frame++) {
++    await tester.pump(const Duration(milliseconds: 50));
++    if (ready()) {
++      await tester.pump();
++      if (ready()) {
++        return;
++      }
++    }
++  }
++  fail(
++    'Route replacement did not complete within 2 seconds.\n'
++    'Expected: $expectedPath; actual: '
++    '${harness.router.routeInformationProvider.value.uri}\n'
++    'Outgoing retired: $outgoingRetired; ${_describeRoute(outgoing)}\n'
++    'Incoming matches: ${incoming.evaluate().length}\n'
++    'Incoming routes: ${incoming.evaluate().take(6).map((element) => _describeRoute(ModalRoute.of(element))).toList()}\n'
++    'Global rail matches: '
++    '${_inkWell('Nexus Core').evaluate().length}; including offstage shells: '
++    '${find.byType(NavigationShell, skipOffstage: false).evaluate().length}\n'
++    'Rail routes: ${find.byType(NavigationShell, skipOffstage: false).evaluate().take(6).map((element) => _describeRoute(ModalRoute.of(element))).toList()}',
++  );
++}
++
++String _describeRoute(ModalRoute<dynamic>? route) => route == null
++    ? '<no route>'
++    : 'id=${identityHashCode(route)} current=${route.isCurrent} '
++          'active=${route.isActive} animation='
++          '${route.navigator == null ? 'retired' : route.animation?.status}';
++
+ Finder _inkWell(String label) =>
+     find.descendant(of: find.byTooltip(label), matching: find.byType(InkWell));
+ 
