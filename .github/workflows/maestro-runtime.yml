@@ -727,7 +727,7 @@ jobs:
           EXPECTED_API: ${{ inputs.guest_api || '35' }}
         run: |
           python3 - <<'PY'
-          import hashlib, json, os, re
+          import hashlib, importlib.util, json, os, re
           from pathlib import Path
           receipt_path = Path('test-results/native-16k-ci/manifest.json')
           if not receipt_path.is_file():
@@ -740,6 +740,10 @@ jobs:
           assert receipt['sourceSha'] == os.environ['EXPECTED_COMMIT']
           assert receipt['workflowToolingSha'] == os.environ['EXPECTED_TOOLING']
           assert receipt['toolScriptSha256'].lower() == hashlib.sha256(script.read_bytes()).hexdigest()
+          spec = importlib.util.spec_from_file_location('native_smoke', script)
+          native_smoke = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(native_smoke)
+          assert receipt['package'] == native_smoke.PACKAGE == 'com.ghostheart5.chronospark.qa'
           assert receipt['apkSha256'].lower() == compilation['precompiledApkSha256'].lower()
           pubspec_version = re.search(r'(?m)^version:\s*\d+\.\d+\.\d+\+(\d+)\s*$',
                                        Path('pubspec.yaml').read_text())
@@ -754,10 +758,8 @@ jobs:
           for launch in receipt['launches']:
               image = Path(f"test-results/native-16k-ci/launch-{launch['number']}.png")
               assert hashlib.sha256(image.read_bytes()).hexdigest() == launch['screenshotSha256']
-              activities = ('com.ghostheart5.chronospark/.MainActivity',
-                            'com.ghostheart5.chronospark/com.ghostheart5.chronospark.MainActivity')
-              assert any(activity in launch['focus'] for activity in activities)
-              assert any(activity in launch['resumedActivity'] for activity in activities)
+              assert native_smoke.is_chronospark_activity(launch['focus'])
+              assert native_smoke.is_chronospark_activity(launch['resumedActivity'])
               assert launch['uiReadyMarker'] in {'CONTINUE TO LOGIN', 'START LOGIN',
                                                  'SKIP FOR NOW', 'TESTER ACCESS',
                                                  'ENTER SYSTEM', 'NEXUS'}
