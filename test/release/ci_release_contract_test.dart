@@ -1030,14 +1030,9 @@ void main() {
     expect(preparation, contains('hostCpuCount'));
     expect(preparation, contains('guestCpuPresent'));
     expect(preparation, contains('stable_home_samples >= 3'));
-    expect(
-      preparation,
-      contains('Fresh guest reported an ANR before app tests'),
-    );
-    expect(
-      preparation,
-      contains("grep -Fqi '<no anr has occurred since boot>'"),
-    );
+    expect(preparation, contains('Fresh guest reported an ANR in the app'));
+    expect(preparation, contains('com.ghostheart5.chronospark.qa'));
+    expect(preparation, contains('Unable to determine final guest ANR state'));
     expect(preparation, contains('run_maestro_android_evidence.ps1'));
     expect(preparation, contains(r'-ExpectedAndroidApi "$QA_GUEST_API"'));
     expect(preparation, contains('-DeviceSerial emulator-5554'));
