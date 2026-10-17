@@ -979,11 +979,38 @@ void main() {
       <Object?>['main'],
     );
     final YamlMap emulatorStep = steps(maestro).singleWhere(
-      (YamlMap step) =>
-          step['uses']?.toString().toLowerCase().startsWith(
-            'reactivecircus/android-emulator-runner@',
-          ) ==
-          true,
+      (YamlMap step) => step['uses'] == './test-results/hosted-emulator-runner',
+    );
+    final runnerCheckout = namedStep(
+      maestro,
+      'Checkout pinned emulator runner for passive startup',
+    );
+    final runnerCheckoutWith = runnerCheckout['with'] as YamlMap;
+    expect(
+      runnerCheckoutWith['repository'],
+      'ReactiveCircus/android-emulator-runner',
+    );
+    expect(
+      runnerCheckoutWith['ref'],
+      'a421e43855164a8197daf9d8d40fe71c6996bb0d',
+    );
+    expect(runnerCheckoutWith['path'], 'test-results/hosted-emulator-runner');
+    expect(runnerCheckoutWith['persist-credentials'], isFalse);
+    final runnerPatch = namedStep(
+      maestro,
+      'Verify exact runner and remove only unsolicited startup input',
+    );
+    expect(
+      runnerPatch['run'],
+      'python3 scripts/prepare_hosted_emulator_runner.py',
+    );
+    expect(
+      steps(maestro).indexOf(runnerCheckout),
+      lessThan(steps(maestro).indexOf(runnerPatch)),
+    );
+    expect(
+      steps(maestro).indexOf(runnerPatch),
+      lessThan(steps(maestro).indexOf(emulatorStep)),
     );
     final String runtimeScript = (emulatorStep['with'] as YamlMap)['script']
         .toString();

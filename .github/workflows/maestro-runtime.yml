@@ -676,6 +676,7 @@ jobs:
             exit "$result"
           }
           trap capture_system EXIT
+          test -s test-results/maestro-prewarm/runner-input-order.json
           test -s test-results/maestro-prewarm/guest-image.json
           python3 test-results/maestro-prewarm/prepare_guest.py
           if [ "$QA_SUITE" = qa-16k-native ]; then
@@ -696,6 +697,17 @@ jobs:
           fi
           SH
 
+      - name: Checkout pinned emulator runner for passive startup
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: ReactiveCircus/android-emulator-runner
+          ref: a421e43855164a8197daf9d8d40fe71c6996bb0d
+          path: test-results/hosted-emulator-runner
+          persist-credentials: false
+
+      - name: Verify exact runner and remove only unsolicited startup input
+        run: python3 scripts/prepare_hosted_emulator_runner.py
+
       - name: Build, install, and execute exact-source QA suite
         timeout-minutes: 70
         env:
@@ -703,7 +715,9 @@ jobs:
           # two-core hosted emulator. Keep a bounded budget with enough room for
           # all five smoke flows or all eleven journey flows plus evidence flush.
           QA_TIMEOUT_SECONDS: ${{ inputs.suite == 'qa-journeys' && '3600' || '1800' }}
-        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        # The verified local copy differs by one startup MENU injection only.
+        # Preserve SDK/AVD setup and let the existing passive HOME guard decide.
+        uses: ./test-results/hosted-emulator-runner
         with:
           api-level: ${{ inputs.guest_api || '35' }}
           target: ${{ steps.guest_image.outputs.target }}

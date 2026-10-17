@@ -82,6 +82,26 @@ void main() {
     );
 
     final mutations = <String, List<String>>{
+      'passive runner pin is mutable': [
+        'ref: a421e43855164a8197daf9d8d40fe71c6996bb0d',
+        'ref: main',
+      ],
+      'passive runner path changes': [
+        'path: test-results/hosted-emulator-runner',
+        'path: another-runner',
+      ],
+      'passive runner patch omitted': [
+        'run: python3 scripts/prepare_hosted_emulator_runner.py',
+        'run: echo skipped-patch',
+      ],
+      'passive runner patch failure ignored': [
+        'run: python3 scripts/prepare_hosted_emulator_runner.py',
+        'continue-on-error: true\n        run: python3 scripts/prepare_hosted_emulator_runner.py',
+      ],
+      'unpatched external runner is invoked': [
+        'uses: ./test-results/hosted-emulator-runner',
+        'uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d',
+      ],
       'emulator calls a different script': [
         'bash test-results/maestro-prewarm/run-suite.sh',
         'echo skipped',

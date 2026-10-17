@@ -984,13 +984,42 @@ void _validateMaestroRuntimeDocument(YamlMap document, List<String> failures) {
       ? stepsValue.whereType<YamlMap>().toList()
       : <YamlMap>[];
   final YamlMap? emulatorStep = steps.cast<YamlMap?>().firstWhere(
-    (YamlMap? step) =>
-        step?['uses']?.toString().toLowerCase().startsWith(
-          'reactivecircus/android-emulator-runner@',
-        ) ==
-        true,
+    (YamlMap? step) => step?['uses'] == './test-results/hosted-emulator-runner',
     orElse: () => null,
   );
+  final runnerCheckout = steps.cast<YamlMap?>().firstWhere(
+    (step) =>
+        step?['name'] == 'Checkout pinned emulator runner for passive startup',
+    orElse: () => null,
+  );
+  final runnerPatch = steps.cast<YamlMap?>().firstWhere(
+    (step) =>
+        step?['name'] ==
+        'Verify exact runner and remove only unsolicited startup input',
+    orElse: () => null,
+  );
+  final runnerCheckoutWith = runnerCheckout?['with'];
+  if (runnerCheckoutWith is! YamlMap ||
+      runnerCheckoutWith['repository'] !=
+          'ReactiveCircus/android-emulator-runner' ||
+      runnerCheckoutWith['ref'] != 'a421e43855164a8197daf9d8d40fe71c6996bb0d' ||
+      runnerCheckoutWith['path'] != 'test-results/hosted-emulator-runner' ||
+      runnerCheckoutWith['persist-credentials'] != false ||
+      runnerPatch?['run'] !=
+          'python3 scripts/prepare_hosted_emulator_runner.py' ||
+      runnerPatch?['if'] != null ||
+      runnerPatch?['continue-on-error'] == true ||
+      runnerCheckout?['if'] != null ||
+      runnerCheckout?['continue-on-error'] == true ||
+      runnerCheckout == null ||
+      runnerPatch == null ||
+      emulatorStep == null ||
+      steps.indexOf(runnerCheckout) >= steps.indexOf(runnerPatch) ||
+      steps.indexOf(runnerPatch) >= steps.indexOf(emulatorStep)) {
+    failures.add(
+      'Passive emulator startup requires the pinned clean runner and exact verified patch before execution.',
+    );
+  }
   final Object? emulatorWith = emulatorStep?['with'];
   final String emulatorScript = emulatorWith is YamlMap
       ? emulatorWith['script']?.toString() ?? ''
