@@ -87,7 +87,7 @@ void main() {
             accountStorageScopeProvider.overrideWithValue(
               AccountStorageScope.authenticated('cloud-action-owner'),
             ),
-            syncToCloudProvider.overrideWith((ref) async {
+            backupPlanningToCloudProvider.overrideWith((ref) async {
               uploads++;
               return upload.future;
             }),
@@ -128,7 +128,7 @@ void main() {
         }
 
         final backup = find.text(
-          spanish ? 'Guardar copia ahora' : 'Back up now',
+          spanish ? 'Guardar todos los datos' : 'Back up all planning data',
         );
         final restore = find.text(
           spanish ? 'Restaurar copia en la nube' : 'Restore cloud backup',
@@ -140,6 +140,26 @@ void main() {
         expect(restores, 0);
         await mount(true);
         await tester.tap(backup);
+        await tester.pumpAndSettle();
+        expect(uploads, 0);
+        expect(
+          find.textContaining(
+            spanish
+                ? 'Reemplaza la copia anterior'
+                : 'replaces your previous cloud snapshot',
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.text(spanish ? 'Cancelar' : 'Cancel'));
+        await tester.pumpAndSettle();
+        expect(uploads, 0);
+        await tester.tap(backup);
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.text(
+            spanish ? 'Guardar copia de planificación' : 'Save planning backup',
+          ),
+        );
         await tester.pump();
         expect(uploads, 1);
         expect(find.byType(LinearProgressIndicator), findsOneWidget);
@@ -150,8 +170,8 @@ void main() {
         expect(
           find.text(
             spanish
-                ? 'Copia cifrada guardada en la nube.'
-                : 'Encrypted cloud backup saved.',
+                ? 'Copia cifrada de planificación guardada y verificada.'
+                : 'Encrypted planning backup saved and verified.',
           ),
           findsOneWidget,
         );
@@ -160,7 +180,9 @@ void main() {
         expect(restores, 0);
         expect(
           find.textContaining(
-            spanish ? 'reemplaza las tareas' : 'replaces tasks',
+            spanish
+                ? 'reemplaza en este dispositivo'
+                : 'replaces the planning data',
           ),
           findsOneWidget,
         );

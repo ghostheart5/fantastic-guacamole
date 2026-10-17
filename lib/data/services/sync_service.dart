@@ -544,6 +544,72 @@ class SyncService {
     return syncDelta();
   }
 
+  /// Explicit replacement of the account's encrypted device snapshot, after
+  /// the UI has confirmed its expanded scope and the overwrite consequence.
+  Future<CloudSyncOutcome> backupPlanningToCloud({
+    bool Function()? shouldContinue,
+  }) async {
+    bool permitted() => syncEnabled && (shouldContinue?.call() ?? true);
+    if (!permitted()) return CloudSyncOutcome.disabled;
+    if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+    final cipher = _cipher;
+    if (cipher == null) return CloudSyncOutcome.unavailable;
+    final snapshot = await backup.createPlanningCloudBackup();
+    if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+    if (!permitted()) return CloudSyncOutcome.disabled;
+    final read = await gateway.downloadBackup();
+    if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+    if (!permitted()) return CloudSyncOutcome.disabled;
+    if (read.status != CloudBackupReadStatus.notFound &&
+        read.status != CloudBackupReadStatus.found) {
+      return _syncFailureFor(read.status);
+    }
+    final revision = read.status == CloudBackupReadStatus.notFound
+        ? 0
+        : read.revision;
+    if (revision == null || revision < 0) return CloudSyncOutcome.malformed;
+    if (read.status == CloudBackupReadStatus.found) {
+      // Do not replace an unreadable or foreign-account backup, even after the
+      // user confirmed replacing the snapshot for their current account.
+      try {
+        final previous = await cipher.decryptPayload(read.payload!);
+        backup.validateFullBackup(previous);
+      } on BackupRecoveryKeyRequiredException {
+        return CloudSyncOutcome.recoveryKeyRequired;
+      } on Object {
+        return CloudSyncOutcome.malformed;
+      }
+    }
+    final encrypted = await cipher.encryptPayload(snapshot.payload);
+    if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+    if (!permitted()) return CloudSyncOutcome.disabled;
+    if (!backup.isLocalGenerationCurrent(snapshot.localGeneration)) {
+      return CloudSyncOutcome.conflict;
+    }
+    final written = await gateway.compareAndSwapBackup(
+      encrypted,
+      expectedRevision: revision,
+    );
+    if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+    if (!permitted()) return CloudSyncOutcome.disabled;
+    final outcome = _syncOutcomeForWrite(written);
+    if (outcome != CloudSyncOutcome.synced) return outcome;
+    final verified = await gateway.downloadBackup();
+    if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+    if (!permitted()) return CloudSyncOutcome.disabled;
+    if (!await _isVerifiedLegacyMigration(
+      verified,
+      expectedRevision: written.revision,
+      expectedPlaintext: snapshot.payload,
+    )) {
+      return CloudSyncOutcome.uploadFailed;
+    }
+    if (!permitted()) return CloudSyncOutcome.disabled;
+    return backup.isLocalGenerationCurrent(snapshot.localGeneration)
+        ? CloudSyncOutcome.synced
+        : CloudSyncOutcome.conflict;
+  }
+
   Future<CloudRestoreOutcome> restoreFromCloud() async {
     if (!restoreEnabled) return CloudRestoreOutcome.disabled;
     if (!_accountStillCurrent) return CloudRestoreOutcome.accountChanged;
@@ -687,6 +753,9 @@ class SyncService {
       return CloudSyncOutcome.malformed;
     }
 
+    // Legacy replay must never replace a full planning snapshot with a partial
+    // task merge. A new full snapshot requires a fresh explicit confirmation.
+    if (cloudBackup['version'] == '6.0.0') return CloudSyncOutcome.conflict;
     final Map<String, dynamic> merged = _mergeBackups(localBackup, cloudBackup);
     final Map<String, dynamic> protectedMerged = _cipher == null
         ? merged

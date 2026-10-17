@@ -87,7 +87,7 @@ void main() {
   });
 
   test(
-    'cloud disclosure matches the contained upload and warns of local loss',
+    'cloud disclosure separates confirmed full snapshots from legacy backups',
     () {
       final document = html_parser.parse(read('web/privacy/index.html'));
       final heading = document
@@ -103,7 +103,7 @@ void main() {
       );
       for (final domain in [
         'goals',
-        'habits',
+        'Daily Rhythms',
         'notes',
         'occurrence history',
         'decision outcomes',
@@ -116,11 +116,17 @@ void main() {
         expect(
           limits,
           contains(domain),
-          reason: '$domain needs an explicit recovery limit',
+          reason: '$domain must be disclosed for confirmed full backups',
         );
       }
       expect(limits, contains('cannot be restored from this cloud backup'));
       expect(limits, contains('lost after uninstalling'));
+      expect(limits, contains('and confirm'));
+      expect(limits, contains('replaces the previous cloud snapshot'));
+      expect(
+        limits,
+        contains('Private memories and Person Context are excluded'),
+      );
     },
   );
 

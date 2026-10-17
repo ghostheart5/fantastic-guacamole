@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +23,7 @@ class CloudBackupActionsState extends ConsumerState<CloudBackupActions> {
       return;
     }
     final scope = ref.read(accountStorageScopeProvider);
+    final generation = ref.read(authSessionBoundaryProvider).generation;
     if (!scope.isWritable) {
       return;
     }
@@ -30,22 +32,31 @@ class CloudBackupActionsState extends ConsumerState<CloudBackupActions> {
       _message = null;
     });
     try {
-      if (restore) {
+      {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
+            scrollable: true,
             title: Text(
               journeyText(
                 context,
-                'Restore cloud backup?',
-                '¿Restaurar la copia en la nube?',
+                restore
+                    ? 'Restore cloud backup?'
+                    : 'Back up all planning data?',
+                restore
+                    ? '¿Restaurar la copia en la nube?'
+                    : '¿Guardar todos los datos de planificación?',
               ),
             ),
             content: Text(
               journeyText(
                 context,
-                'This replaces tasks, profile and settings on this device with your verified cloud backup. Other local planning data is not restored. Continue only if you want to replace these device values.',
-                'Esto reemplaza las tareas, el perfil y los ajustes de este dispositivo por tu copia verificada en la nube. Los demás datos locales de planificación no se restauran. Continúa solo si deseas reemplazar estos valores.',
+                restore
+                    ? 'This replaces the planning data included in your verified cloud backup on this device. Full backups include tasks, goals, Daily Rhythms, notes, outcome and Timeline history, profile and settings. Older backups may only include tasks, profile and settings. Review your local data before continuing.'
+                    : 'Send an encrypted snapshot of tasks, goals, Daily Rhythms, notes, outcome and Timeline history, profile and settings to your account. This replaces your previous cloud snapshot with this device’s data. Restore the latest backup first if you are using a replacement device. Private memories and Person Context stay on this device.',
+                restore
+                    ? 'Esto reemplaza en este dispositivo los datos incluidos en tu copia verificada. Las copias completas incluyen tareas, metas, ritmos diarios, notas, historial de resultados y cronología, perfil y ajustes. Las copias anteriores pueden incluir solo tareas, perfil y ajustes. Revisa los datos locales antes de continuar.'
+                    : 'Envía a tu cuenta una copia cifrada de tareas, metas, ritmos diarios, notas, historial de resultados y cronología, perfil y ajustes. Reemplaza la copia anterior con los datos de este dispositivo. Restaura primero la copia más reciente si usas otro dispositivo. Las memorias privadas y el Contexto Personal permanecen aquí.',
               ),
             ),
             actions: [
@@ -56,7 +67,13 @@ class CloudBackupActionsState extends ConsumerState<CloudBackupActions> {
               FilledButton(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
                 child: Text(
-                  journeyText(context, 'Restore backup', 'Restaurar copia'),
+                  journeyText(
+                    context,
+                    restore ? 'Restore backup' : 'Save planning backup',
+                    restore
+                        ? 'Restaurar copia'
+                        : 'Guardar copia de planificación',
+                  ),
                 ),
               ),
             ],
@@ -67,6 +84,7 @@ class CloudBackupActionsState extends ConsumerState<CloudBackupActions> {
         }
       }
       if (!widget.enabled ||
+          ref.read(authSessionBoundaryProvider).generation != generation ||
           ref.read(accountStorageScopeProvider).v2Namespace !=
               scope.v2Namespace) {
         return;
@@ -74,8 +92,9 @@ class CloudBackupActionsState extends ConsumerState<CloudBackupActions> {
       setState(() => _transferStarted = true);
       final success = restore
           ? await ref.refresh(restoreFromCloudProvider.future)
-          : await ref.refresh(syncToCloudProvider.future);
+          : await ref.refresh(backupPlanningToCloudProvider.future);
       if (!mounted ||
+          ref.read(authSessionBoundaryProvider).generation != generation ||
           ref.read(accountStorageScopeProvider).v2Namespace !=
               scope.v2Namespace) {
         return;
@@ -90,8 +109,8 @@ class CloudBackupActionsState extends ConsumerState<CloudBackupActions> {
                     )
                   : journeyText(
                       context,
-                      'Encrypted cloud backup saved.',
-                      'Copia cifrada guardada en la nube.',
+                      'Encrypted planning backup saved and verified.',
+                      'Copia cifrada de planificación guardada y verificada.',
                     )
             : journeyText(
                 context,
@@ -112,6 +131,7 @@ class CloudBackupActionsState extends ConsumerState<CloudBackupActions> {
       });
     } on Object {
       if (!mounted ||
+          ref.read(authSessionBoundaryProvider).generation != generation ||
           ref.read(accountStorageScopeProvider).v2Namespace !=
               scope.v2Namespace) {
         return;
@@ -146,7 +166,11 @@ class CloudBackupActionsState extends ConsumerState<CloudBackupActions> {
                 : null,
             icon: const Icon(Icons.cloud_upload_outlined),
             label: Text(
-              journeyText(context, 'Back up now', 'Guardar copia ahora'),
+              journeyText(
+                context,
+                'Back up all planning data',
+                'Guardar todos los datos',
+              ),
             ),
           ),
           OutlinedButton.icon(

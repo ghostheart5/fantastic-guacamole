@@ -218,6 +218,7 @@ class TimelineEventEntity {
     'timestamp': timestamp.toIso8601String(),
     'status': status.name,
     'dueAt': dueAt?.toIso8601String(),
+    'dateOnly': dateOnly,
     'phase': phase,
     'relatedId': relatedId,
     'sourceFeature': sourceFeature,
@@ -242,6 +243,7 @@ class TimelineEventEntity {
         dueAt: j['dueAt'] == null
             ? null
             : DateTime.tryParse(j['dueAt'].toString()),
+        dateOnly: j['dateOnly'] as bool? ?? false,
         phase: j['phase']?.toString(),
         relatedId: j['relatedId']?.toString(),
         sourceFeature: j['sourceFeature']?.toString(),

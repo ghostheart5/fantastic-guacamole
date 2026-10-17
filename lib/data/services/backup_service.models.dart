@@ -78,6 +78,7 @@ class _ValidatedFullBackup {
     required this.decisionOutcomes,
     required this.profile,
     required this.settings,
+    this.timelineEvents,
   });
 
   final String version;
@@ -92,6 +93,7 @@ class _ValidatedFullBackup {
   final List<DecisionOutcomeEntity> decisionOutcomes;
   final Map<String, dynamic>? profile;
   final Map<String, dynamic> settings;
+  final List<TimelineEventEntity>? timelineEvents;
 }
 
 class _RestoreSnapshot {
@@ -108,6 +110,7 @@ class _RestoreSnapshot {
     required this.legacyProfilePresent,
     required this.legacyProfile,
     required this.settings,
+    this.timelineEvents,
   });
 
   final List<TaskEntity> tasks;
@@ -122,6 +125,7 @@ class _RestoreSnapshot {
   final bool legacyProfilePresent;
   final String? legacyProfile;
   final Map<String, Object> settings;
+  final List<TimelineEventEntity>? timelineEvents;
 }
 
 class _LegacyRestoreSnapshot {

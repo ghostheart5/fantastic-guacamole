@@ -49,6 +49,25 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets(
+    'a rhythm created today explains why earlier recording is unavailable',
+    (tester) async {
+      notifier.createdAt = DateTime.now();
+      await open(tester);
+      await tester.ensureVisible(find.text('Record earlier'));
+      await tester.tap(find.text('Record earlier'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'No earlier day is available. This rhythm was created today.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(DatePickerDialog), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('shows saved cadence and target; completion becomes read-only', (
     tester,
   ) async {
@@ -269,6 +288,7 @@ HabitOccurrenceEntity _outcome(HabitOccurrenceOutcome outcome) =>
     );
 
 class _Rhythms extends HabitsNotifier {
+  DateTime createdAt = DateTime(2026, 9, 1);
   bool failReminders = false;
   int reminderRetries = 0;
   @override
@@ -288,7 +308,7 @@ class _Rhythms extends HabitsNotifier {
     HabitEntity(
       id: 'review',
       title: 'Evidence review',
-      createdAt: DateTime(2026, 9, 1),
+      createdAt: createdAt,
       cadence: HabitCadence.weekly,
       targetCount: 2,
     ),

@@ -21,13 +21,16 @@ import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_occurrence_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_decision_outcome_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
 
 part 'backup_service.models.dart';
+part 'backup_service.planning_cloud.dart';
 
 class BackupService {
   BackupService({
@@ -41,6 +44,7 @@ class BackupService {
     this.taskOccurrenceRepository,
     this.habitOccurrenceRepository,
     this.decisionOutcomeRepository,
+    this.timelineRepository,
     this.secureProfileStore,
     KeyedMutationCoordinator? mutationCoordinator,
   }) : _mutationCoordinator =
@@ -48,6 +52,7 @@ class BackupService {
 
   static const String _profileStateKey = 'profile_state';
   static const String _backupVersion = '5.0.0';
+  static const String _planningCloudVersion = '6.0.0';
   static const Set<String> _legacyBackupVersions = <String>{'3.0.0', '4.0.0'};
   static const int _maxTaskRecords = 10000;
   static const int _maxDomainRecords = 10000;
@@ -64,6 +69,7 @@ class BackupService {
   final TaskOccurrenceRepository? taskOccurrenceRepository;
   final HabitOccurrenceRepository? habitOccurrenceRepository;
   final IDecisionOutcomeRepository? decisionOutcomeRepository;
+  final ITimelineRepository? timelineRepository;
   final HiveStorage<String> profileStorage;
   final SharedPrefsStorage prefs;
   final SecureStore? secureProfileStore;
@@ -257,7 +263,8 @@ class BackupService {
     int? expectedLocalGeneration,
   }) async {
     final _ValidatedFullBackup validated = _validateFullBackup(backup);
-    if (validated.version != _backupVersion) {
+    if (validated.version != _backupVersion &&
+        validated.version != _planningCloudVersion) {
       _requireRestoreLease(canContinue);
       return runAccountStorageMutation(() {
         if (expectedLocalGeneration != null &&
@@ -271,6 +278,9 @@ class BackupService {
       }, coordinator: _mutationCoordinator);
     }
     _requireCompleteLocalContinuity();
+    if (validated.timelineEvents != null && timelineRepository == null) {
+      throw StateError('Timeline recovery is unavailable in this build.');
+    }
     _requireRestoreLease(canContinue);
     return runAccountStorageMutation(() {
       if (expectedLocalGeneration != null &&
@@ -319,7 +329,9 @@ class BackupService {
     bool Function()? canContinue,
   }) async {
     _requireRestoreLease(canContinue);
-    final _RestoreSnapshot snapshot = await _captureRestoreSnapshot();
+    final _RestoreSnapshot snapshot = await _captureRestoreSnapshot(
+      includeTimeline: validated.timelineEvents != null,
+    );
 
     try {
       _requireRestoreLease(canContinue);
@@ -341,6 +353,10 @@ class BackupService {
       _requireRestoreLease(canContinue);
       await _replaceDecisionOutcomes(validated.decisionOutcomes);
       _requireRestoreLease(canContinue);
+      if (validated.timelineEvents != null) {
+        await timelineRepository!.saveEvents(validated.timelineEvents!);
+        _requireRestoreLease(canContinue);
+      }
       if (validated.profile == null) {
         await _deleteProfile();
       } else {
@@ -486,7 +502,9 @@ class BackupService {
     await profileStorage.delete(_profileStateKey);
   }
 
-  Future<_RestoreSnapshot> _captureRestoreSnapshot() async {
+  Future<_RestoreSnapshot> _captureRestoreSnapshot({
+    bool includeTimeline = false,
+  }) async {
     await profileStorage.open();
     final String? legacyProfile = profileStorage.get(_profileStateKey);
     final String? secureProfile = await secureProfileStore?.readString(
@@ -500,6 +518,7 @@ class BackupService {
       taskOccurrences: await taskOccurrenceRepository!.listOccurrences(),
       habitOccurrences: await habitOccurrenceRepository!.load(),
       decisionOutcomes: await decisionOutcomeRepository!.load(),
+      timelineEvents: includeTimeline ? _readTimelineForBackup() : null,
       secureProfilePresent: secureProfile != null,
       secureProfile: secureProfile,
       legacyProfilePresent: legacyProfile != null,
@@ -577,6 +596,8 @@ class BackupService {
             snapshot.habitOccurrences,
           ),
           () => _replaceDecisionOutcomes(snapshot.decisionOutcomes),
+          if (snapshot.timelineEvents != null)
+            () => timelineRepository!.saveEvents(snapshot.timelineEvents!),
           () => _restoreProfileSnapshot(snapshot),
           () => _restoreSettingSnapshot(snapshot),
         ]) {
@@ -827,7 +848,9 @@ class BackupService {
     final String version = backup['version'] is String
         ? (backup['version'] as String).trim()
         : '';
-    if (version != _backupVersion && !_legacyBackupVersions.contains(version)) {
+    if (version != _backupVersion &&
+        version != _planningCloudVersion &&
+        !_legacyBackupVersions.contains(version)) {
       throw const FormatException('Unsupported full-backup version.');
     }
     final String timestamp = backup['timestamp'] is String
@@ -838,7 +861,9 @@ class BackupService {
       throw const FormatException('Full backup timestamp is invalid.');
     }
     _validateManifest(backup['manifest'], version: version);
-    final bool isCurrent = version == _backupVersion;
+    final bool isCurrent =
+        version == _backupVersion || version == _planningCloudVersion;
+    final bool includesTimeline = version == _planningCloudVersion;
     final List<String> requiredKeys = <String>[
       'tasks',
       'profile',
@@ -852,6 +877,7 @@ class BackupService {
         'habitOccurrences',
         'decisionOutcomes',
         'recordCounts',
+        if (includesTimeline) 'timelineEvents',
       ],
     ];
     for (final String requiredKey in requiredKeys) {
@@ -880,6 +906,9 @@ class BackupService {
     final List<DecisionOutcomeEntity> decisionOutcomes = isCurrent
         ? _decisionOutcomesFromRaw(backup['decisionOutcomes'])
         : const <DecisionOutcomeEntity>[];
+    final List<TimelineEventEntity>? timelineEvents = includesTimeline
+        ? _timelineEntitiesFromRaw(backup['timelineEvents'])
+        : null;
     final Object? rawProfile = backup['profile'];
     final Map<String, dynamic>? profile = rawProfile == null
         ? null
@@ -899,6 +928,7 @@ class BackupService {
       taskOccurrenceCount: taskOccurrences.length,
       habitOccurrenceCount: habitOccurrences.length,
       decisionOutcomeCount: decisionOutcomes.length,
+      timelineCount: timelineEvents?.length,
       profile: profile,
       settings: settings,
     );
@@ -921,6 +951,7 @@ class BackupService {
       taskOccurrences: taskOccurrences,
       habitOccurrences: habitOccurrences,
       decisionOutcomes: decisionOutcomes,
+      timelineEvents: timelineEvents,
       profile: profile,
       settings: settings,
     );
@@ -934,6 +965,7 @@ class BackupService {
     required int taskOccurrenceCount,
     required int habitOccurrenceCount,
     required int decisionOutcomeCount,
+    int? timelineCount,
     required Map<String, dynamic>? profile,
     required Map<String, dynamic> settings,
   }) {
@@ -945,6 +977,7 @@ class BackupService {
       'task_occurrences': taskOccurrenceCount,
       'habit_occurrences': habitOccurrenceCount,
       'decision_outcomes': decisionOutcomeCount,
+      'timeline': ?timelineCount,
       'profile': profile == null ? 0 : 1,
       'settings': settings.length,
     };
@@ -1050,7 +1083,9 @@ class BackupService {
       rawManifest,
       field: 'manifest',
     );
-    final bool isCurrent = version == _backupVersion;
+    final bool isCurrent =
+        version == _backupVersion || version == _planningCloudVersion;
+    final bool isPlanningCloud = version == _planningCloudVersion;
     if ((!isCurrent &&
             manifest['manifestVersion'] != 1 &&
             manifest['manifestVersion'] != 2) ||
@@ -1058,8 +1093,11 @@ class BackupService {
       throw const FormatException('Unsupported backup manifest version.');
     }
     if (isCurrent &&
-        (manifest['backupKind'] != 'portableLocal' ||
-            manifest['cloudRestoreIncluded'] != false)) {
+        (manifest['backupKind'] !=
+                (isPlanningCloud
+                    ? 'encryptedPlanningSnapshot'
+                    : 'portableLocal') ||
+            manifest['cloudRestoreIncluded'] != isPlanningCloud)) {
       throw const FormatException(
         'Backup manifest does not describe a contained portable local backup.',
       );
@@ -1077,7 +1115,9 @@ class BackupService {
       }
       return;
     }
-    final Map<String, dynamic> expected = accountDataBackupManifest();
+    final Map<String, dynamic> expected = isPlanningCloud
+        ? planningCloudBackupManifest()
+        : accountDataBackupManifest();
     for (final String key in <String>[
       'includedDomains',
       'cloudReplicatedDomains',
@@ -1117,8 +1157,10 @@ class BackupService {
       actualStatuses[id] = status;
     }
     final Map<String, String> expectedStatuses = <String, String>{
-      for (final AccountDataDomain domain in accountDataDomains)
-        domain.id: domain.backupStatus.name,
+      for (final domain
+          in (expected['domains'] as List<dynamic>)
+              .cast<Map<String, dynamic>>())
+        domain['id'] as String: domain['backupStatus'] as String,
     };
     if (!_sameSet(actualStatuses.keys.toSet(), expectedStatuses.keys.toSet())) {
       throw const FormatException(
