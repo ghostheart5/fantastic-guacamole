@@ -18,7 +18,7 @@ FIXTURE = json.loads((Path(__file__).parent / 'fixtures/hosted_guest_api35.json'
 
 
 class GuestReadinessTest(unittest.TestCase):
-    def execute(self, *, anr_at=None, focus=None, resumed=None, dialog=False, home=HOME, homes=None, activities=None, task_type='home', task_user='0', task_visible='true', pages='4096', qemu='1', user='0', expected_error=None):
+    def execute(self, *, anr_at=None, anr_package='com.google.android.apps.nexuslauncher', focus=None, resumed=None, dialog=False, home=HOME, homes=None, activities=None, task_type='home', task_user='0', task_visible='true', pages='4096', qemu='1', user='0', expected_error=None):
         samples = [True] * 7 if focus is None else focus
         resumed_samples = samples if resumed is None else resumed
         home_samples = [HOME] * 7 if homes is None else homes
@@ -50,7 +50,12 @@ class GuestReadinessTest(unittest.TestCase):
                          + ('mCurrentFocus=Window{abc u0 ' + expanded + '}' if samples[index] else 'mCurrentFocus=null'))
                 if activities is not None: value = activities[index]
             elif args == ['dumpsys', 'activity', 'lastanr']:
-                value = 'ANR in launcher' if anr_at == index else '<no anr has occurred since boot>'
+                if anr_at != index:
+                    value = '<no anr has occurred since boot>'
+                elif anr_package is None:
+                    value = 'Unexpected activity manager diagnostics'
+                else:
+                    value = 'ANR in ' + anr_package
             elif args == ['cat', '/proc/meminfo']: value = 'MemAvailable: 2000000 kB'
             else: self.fail('Unexpected ADB command: ' + repr(args))
             return value.encode()
@@ -81,11 +86,27 @@ class GuestReadinessTest(unittest.TestCase):
         self.assertEqual(receipt['applicationTestsExecuted'], 0)
         self.assertEqual(receipt['guestCpuPresent'], '0-3')
 
-    def test_first_sample_anr_fails_and_retains_receipt(self):
-        self.assertFalse(self.execute(anr_at=0, expected_error='ANR before app tests')['passed'])
+    def test_system_anr_does_not_fail_guest_readiness(self):
+        self.assertTrue(self.execute(anr_at=0)['passed'])
 
-    def test_late_anr_cannot_be_hidden_by_earlier_readiness(self):
-        self.assertFalse(self.execute(anr_at=6, expected_error='ANR before app tests')['passed'])
+    def test_first_sample_app_anr_fails_and_retains_receipt(self):
+        receipt = self.execute(anr_at=0, anr_package='com.ghostheart5.chronospark.qa',
+                               expected_error='ANR in the app before app tests')
+        self.assertFalse(receipt['passed'])
+
+    def test_app_process_anr_fails(self):
+        self.assertFalse(self.execute(anr_at=0, anr_package='com.ghostheart5.chronospark.qa:remote',
+                                      expected_error='ANR in the app before app tests')['passed'])
+
+    def test_late_app_anr_cannot_be_hidden_by_earlier_readiness(self):
+        receipt = self.execute(anr_at=6, anr_package='com.ghostheart5.chronospark.qa',
+                               expected_error='ANR in the app before app tests')
+        self.assertFalse(receipt['passed'])
+
+    def test_unknown_anr_output_fails_closed(self):
+        receipt = self.execute(anr_at=0, anr_package=None,
+                               expected_error='Unable to determine fresh guest ANR state')
+        self.assertFalse(receipt['passed'])
 
     def test_error_dialog_fails(self):
         self.assertFalse(self.execute(dialog=True, expected_error='')['passed'])

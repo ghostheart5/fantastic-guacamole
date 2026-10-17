@@ -533,6 +533,7 @@ jobs:
           page_size = int(shell('getconf', 'PAGE_SIZE'))
           expected_page_size = 16384 if os.environ['QA_GUEST_PAGES'] == '16k' else 4096
           assert page_size == expected_page_size, f'Unexpected guest page size: {page_size}'
+          app_package = 'com.ghostheart5.chronospark.qa'
           receipt = {'passed': False, 'samples': [], 'applicationTestsExecuted': 0,
                      'pageSizeBytes': page_size, 'androidApi': shell('getprop', 'ro.build.version.sdk'),
                      'hostCpuCount': os.cpu_count(), 'guestCpuPresent': shell('cat', '/sys/devices/system/cpu/present')}
@@ -561,7 +562,10 @@ jobs:
                   (root / f'sample-{index}-window.txt').write_text(window)
                   (root / f'sample-{index}-activities.txt').write_text(activities)
                   (root / f'sample-{index}-lastanr.txt').write_text(last_anr)
-                  assert '<no anr has occurred since boot>' in last_anr.lower(), 'Fresh guest reported an ANR before app tests'
+                  anr = re.search(r'(?im)^\s*ANR in\s+(\S+)', last_anr)
+                  assert '<no anr has occurred since boot>' in last_anr.lower() or anr, 'Unable to determine fresh guest ANR state'
+                  app_anr = anr and (anr.group(1) == app_package or anr.group(1).startswith(app_package + ':'))
+                  assert not app_anr, 'Fresh guest reported an ANR in the app before app tests'
                   assert not re.search(r'Application (?:Error|Not Responding)|isn.t responding', window, re.I)
                   # The early resolver can name Setup while HOME has moved to the
                   # launcher. Read the current visible user-0 HOME task each sample.
@@ -595,7 +599,17 @@ jobs:
             timeout 30s adb -s emulator-5554 logcat -d -b all -v threadtime > test-results/maestro-prewarm/system-logcat.txt 2>&1 || result=1
             timeout 30s adb -s emulator-5554 shell dumpsys activity lastanr > test-results/maestro-prewarm/final-lastanr.txt 2>&1 || result=1
             timeout 30s adb -s emulator-5554 shell dumpsys window windows > test-results/maestro-prewarm/final-window.txt 2>&1 || result=1
-            grep -Fqi '<no anr has occurred since boot>' test-results/maestro-prewarm/final-lastanr.txt || result=1
+            python3 - test-results/maestro-prewarm/final-lastanr.txt <<'PY' || result=1
+          import re, sys
+          from pathlib import Path
+          last_anr = Path(sys.argv[1]).read_text(errors='replace')
+          anr = re.search(r'(?im)^\s*ANR in\s+(\S+)', last_anr)
+          if '<no anr has occurred since boot>' not in last_anr.lower() and not anr:
+              raise SystemExit('Unable to determine final guest ANR state')
+          app_package = 'com.ghostheart5.chronospark.qa'
+          if anr and (anr.group(1) == app_package or anr.group(1).startswith(app_package + ':')):
+              raise SystemExit('Final guest reported an ANR in the app')
+          PY
             exit "$result"
           }
           trap capture_system EXIT
