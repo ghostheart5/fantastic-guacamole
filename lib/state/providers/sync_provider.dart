@@ -10,6 +10,8 @@ import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
+import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
@@ -123,6 +125,12 @@ final _backupServiceProvider = Provider<BackupService?>((ref) {
           );
       return BackupService(
         taskRepository: ref.watch(domainTaskRepositoryProvider),
+        goalRepository: ref.watch(domainGoalRepositoryProvider),
+        habitRepository: ref.watch(domainHabitRepositoryProvider),
+        noteRepository: ref.watch(domainNoteRepositoryProvider),
+        taskOccurrenceRepository: ref.watch(taskOccurrenceRepositoryProvider),
+        habitOccurrenceRepository: ref.watch(habitOccurrenceRepositoryProvider),
+        decisionOutcomeRepository: ref.watch(decisionOutcomeRepositoryProvider),
         profileStorage: AccountScopedHiveStorage(
           baseBox: HiveBoxes.profile,
           scope: scope,

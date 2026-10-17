@@ -104,6 +104,8 @@ bugreport-*
 ~$*.docx
 
 # Temp/generated artifacts
+# Patrol regenerates this runner for the selected device suite.
+/patrol_test/test_bundle.dart
 .tmp_*.ps1
 debug_log.txt
 lib_files.txt

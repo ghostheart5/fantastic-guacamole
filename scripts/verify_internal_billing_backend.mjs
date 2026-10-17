@@ -1,5 +1,6 @@
 // Read-only preflight for a license-test candidate; no purchase or release API.
 import { createHash, createSign } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { BackendRepairPreflightError, verifyBackendRepairGate } from './verify_backend_repair_gate.mjs';
 
@@ -16,6 +17,36 @@ const CREDIT_PACKS = [
 class PreflightError extends Error {}
 function require(condition, message) {
   if (!condition) throw new PreflightError(message);
+}
+
+export function validateBackendTestProfile(profile) {
+  const value = profile ?? { schemaVersion: 1, backendProfile: 'contained', reviewedBillingCohortSha256: '' };
+  require(typeof value === 'object' && !Array.isArray(value) &&
+    Object.keys(value).sort().join(',') === 'backendProfile,reviewedBillingCohortSha256,schemaVersion' &&
+    value.schemaVersion === 1 && ['contained', 'public_license_test'].includes(value.backendProfile),
+  'Unknown backend test profile or schema');
+  require(typeof value.reviewedBillingCohortSha256 === 'string' &&
+    (value.backendProfile === 'contained' ? value.reviewedBillingCohortSha256 === '' :
+      /^[a-f0-9]{64}$/.test(value.reviewedBillingCohortSha256)),
+  'Backend test profile requires the reviewed billing cohort fingerprint');
+  return { schemaVersion: 1, backendProfile: value.backendProfile,
+    reviewedBillingCohortSha256: value.reviewedBillingCohortSha256 };
+}
+
+export function loadBackendTestProfile(path = new URL('../tool/internal_billing_backend_test_profile.json', import.meta.url)) {
+  let text;
+  try { text = readFileSync(path, 'utf8').trim(); }
+  catch (error) {
+    if (error?.code === 'ENOENT') return validateBackendTestProfile(null);
+    throw new PreflightError('Backend test profile could not be read');
+  }
+  let parsed;
+  try { parsed = JSON.parse(text); }
+  catch { throw new PreflightError('Malformed backend test profile'); }
+  const profile = validateBackendTestProfile(parsed);
+  // Canonical encoding rejects duplicate keys and unreviewed extra content.
+  require(text === JSON.stringify(profile), 'Backend test profile must use canonical encoding');
+  return profile;
 }
 
 export function googleCredentialFingerprint(account) {
@@ -134,7 +165,12 @@ export async function verifyCreditAdmissionBackend(env, request) {
   return { migrationVersion: CREDIT_ADMISSION_MIGRATION, functionVersions: versions };
 }
 
-export async function verifyInternalBillingBackend(env = process.env, request = fetch) {
+export async function verifyInternalBillingBackend(env = process.env, request = fetch, testProfile = null) {
+  const backendTestProfile = validateBackendTestProfile(testProfile);
+  const publicLicenseTest = backendTestProfile.backendProfile === 'public_license_test';
+  require(!publicLicenseTest || (env.CANDIDATE_BILLING_TEST === 'true' &&
+    env.CANDIDATE_CREDIT_ADMISSION_QA === 'true'),
+  'Public backend license testing requires billing and private credit admission QA');
   function setting(name) {
     const value = env[name]?.trim();
     require(!!value, `Missing ${name}`);
@@ -163,14 +199,17 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
   const guard = await response(endpoint, { headers });
   await guard.body?.cancel();
   require(guard.status === 405 && guard.headers.get('x-chronospark-contract') === 'verify-receipt-v2' &&
-    guard.headers.get('x-chronospark-public-credit-checkout') === 'disabled-v1',
-  'Deployed receipt verifier does not keep public credit checkout closed');
+    guard.headers.get('x-chronospark-public-credit-checkout') === (publicLicenseTest ? 'enabled-v1' : 'disabled-v1'),
+  publicLicenseTest ? 'Deployed receipt verifier does not match the reviewed public license-test profile' :
+    'Deployed receipt verifier does not keep public credit checkout closed');
   const creditAdmissionQa = env.CANDIDATE_CREDIT_ADMISSION_QA === 'true';
   const expectedQaHeader = creditAdmissionQa ? 'cohort-v1' : 'disabled-v1';
   const verifierQaHeader = guard.headers.get('x-chronospark-credit-admission-qa');
   require(creditAdmissionQa ? verifierQaHeader === expectedQaHeader : verifierQaHeader !== 'cohort-v1',
     'Deployed receipt verifier license-QA admission policy mismatch');
   const billingCohortFingerprint = internalBillingCohortFingerprint(setting('CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS'));
+  require(!publicLicenseTest || billingCohortFingerprint === backendTestProfile.reviewedBillingCohortSha256,
+    'Reviewed billing cohort fingerprint does not match the candidate configuration');
   require(guard.headers.get('x-chronospark-internal-billing-cohort-sha256') === billingCohortFingerprint,
     'Deployed receipt verifier billing cohort does not match the candidate');
 
@@ -248,6 +287,9 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
   const events = await json(`${root}/rest/v1/google_play_rtdn_events?package_name=eq.${PACKAGE}&event_type=eq.test&order=received_at.desc&limit=1&select=package_name,event_type,state,failure_code,received_at,processed_at`, { headers });
   const testDelivery = verifyRtdnTestDelivery(events);
   return { verified: true, project, packageName: PACKAGE, licenseTestGuard: 'v1',
+    backendTestProfile: { ...backendTestProfile,
+      profileSha256: createHash('sha256').update(JSON.stringify(backendTestProfile)).digest('hex') },
+    publicCreditCheckout: publicLicenseTest ? 'enabled-v1' : 'disabled-v1',
     creditAdmissionQaEnabled: creditAdmissionQa, creditAdmissionQaMatched: true,
     internalBillingCohortMatched: true, internalBillingCohortFingerprint: billingCohortFingerprint, backendRepairGate,
     creditAdmissionBackend,
@@ -262,7 +304,7 @@ export async function verifyInternalBillingBackend(env = process.env, request = 
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    console.log(JSON.stringify(await verifyInternalBillingBackend()));
+    console.log(JSON.stringify(await verifyInternalBillingBackend(process.env, fetch, loadBackendTestProfile())));
   } catch (error) {
     // Never serialize HTTP request objects or credential-bearing provider errors.
     console.error(error instanceof PreflightError ? error.message : 'Billing preflight failed: invalid response, credentials or network error');

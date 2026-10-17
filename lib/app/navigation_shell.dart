@@ -26,6 +26,7 @@ import 'package:fantastic_guacamole/state/providers/energy_provider.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
@@ -55,6 +56,25 @@ part 'navigation_shell_ui.dart';
 
 @visibleForTesting
 const Duration networkReconnectRetryDebounce = Duration(milliseconds: 750);
+
+typedef _ReminderRecoveryOwner = ({String namespace, int generation});
+
+// A shell can mount after Android's initial resumed event, or before account
+// storage is ready. Reconcile when that exact account generation becomes usable.
+final _reminderRecoveryOwnerProvider = Provider<_ReminderRecoveryOwner?>((ref) {
+  final scope = ref.watch(accountStorageScopeProvider);
+  final boundary = ref.watch(authSessionBoundaryProvider);
+  final namespace = scope.v2Namespace;
+  if (!scope.isWritable ||
+      namespace == null ||
+      boundary.isTransitioning ||
+      !boundary.isStorageReady ||
+      (boundary.blockingIssue?.trim().isNotEmpty ?? false) ||
+      boundary.userId != scope.rawUserId) {
+    return null;
+  }
+  return (namespace: namespace, generation: boundary.generation);
+});
 
 class NavigationShell extends ConsumerStatefulWidget {
   const NavigationShell({
@@ -89,6 +109,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   Timer? _networkRetryDebounceTimer;
   final Set<int> _initializedTabIndexes = <int>{};
   bool _savingCurrentState = false;
+  late final ProviderSubscription<_ReminderRecoveryOwner?>
+  _reminderRecoverySubscription;
+  _ReminderRecoveryOwner? _pendingReminderRecovery;
+  bool _reminderRecoveryScheduled = false;
+  bool _reminderRecoveryRunning = false;
 
   @override
   void initState() {
@@ -104,6 +129,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     if (!_isFlutterTestBinding) {
       _systemScheduler.resume();
     }
+    _reminderRecoverySubscription = ref.listenManual(
+      _reminderRecoveryOwnerProvider,
+      (_, next) => _queueReminderRecovery(next),
+      fireImmediately: true,
+    );
     _energySubscription = ref.listenManual<double>(energyProvider, (_, _) {
       ref.invalidate(aiDecisionProvider);
       ref.invalidate(aiResponseProvider);
@@ -200,6 +230,8 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     _decisionSubscription?.close();
     _viewSubscription.close();
     _networkAvailabilitySubscription.close();
+    _reminderRecoverySubscription.close();
+    _pendingReminderRecovery = null;
     super.dispose();
   }
 
@@ -260,14 +292,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         _runBackgroundTask('lifecycle recovery save', _saveCurrentState);
         break;
       case AppLifecycleState.resumed:
-        if (!_isFlutterTestBinding) {
-          _runBackgroundTask(
-            'notification permission and reminder recovery',
-            () => ref
-                .read(settingsUiActionsProvider)
-                .refreshNotificationPermissionAndReminders(),
-          );
-        }
+        _queueReminderRecovery(ref.read(_reminderRecoveryOwnerProvider));
         _startEntitlementAuthorityRechecks();
         if (!_isFlutterTestBinding) {
           _initializeRuntimeServices();

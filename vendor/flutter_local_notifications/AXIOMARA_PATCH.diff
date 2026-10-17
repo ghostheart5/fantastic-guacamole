@@ -1,0 +1,38 @@
+--- upstream/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java
++++ patched/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java
+@@ -1369,21 +1369,30 @@
+ 
+   private static String getNextFireDateMatchingDateTimeComponents(
+       NotificationDetails notificationDetails) {
++    return getNextFireDateMatchingDateTimeComponents(
++        notificationDetails, ZonedDateTime.now(ZoneId.of(notificationDetails.timeZoneName)));
++  }
++
++  // Keep the requested first date as a lower bound. Repeats still advance from
++  // the real current time after delivery, rather than restarting in a period
++  // the caller deliberately skipped (for example, an already completed habit).
++  static String getNextFireDateMatchingDateTimeComponents(
++      NotificationDetails notificationDetails, ZonedDateTime now) {
+     ZoneId zoneId = ZoneId.of(notificationDetails.timeZoneName);
+     ZonedDateTime scheduledDateTime =
+         ZonedDateTime.of(LocalDateTime.parse(notificationDetails.scheduledDateTime), zoneId);
+-    ZonedDateTime now = ZonedDateTime.now(zoneId);
++    ZonedDateTime lowerBound = now.isAfter(scheduledDateTime) ? now : scheduledDateTime;
+     ZonedDateTime nextFireDate =
+         ZonedDateTime.of(
+-            now.getYear(),
+-            now.getMonthValue(),
+-            now.getDayOfMonth(),
++            lowerBound.getYear(),
++            lowerBound.getMonthValue(),
++            lowerBound.getDayOfMonth(),
+             scheduledDateTime.getHour(),
+             scheduledDateTime.getMinute(),
+             scheduledDateTime.getSecond(),
+             scheduledDateTime.getNano(),
+             zoneId);
+-    while (nextFireDate.isBefore(now)) {
++    while (nextFireDate.isBefore(lowerBound)) {
+       // adjust to be a date in the future that matches the time
+       nextFireDate = nextFireDate.plusDays(1);
+     }

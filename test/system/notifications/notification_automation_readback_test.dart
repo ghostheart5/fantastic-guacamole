@@ -59,6 +59,9 @@ void main() {
       expect(rows.single.id, 'daily_planning_reminder');
       expect(rows.single.hour, 7);
       expect(rows.single.minute, 30);
+      expect(rows.single.cadenceMetadataMalformed, isFalse);
+      expect(rows.single.cadence, isNull);
+      expect(rows.single.firstScheduledLocal, isNull);
       allowed = false;
       expect(
         await NotificationScheduler().pendingForAccount('owner-a'),
