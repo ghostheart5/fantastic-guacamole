@@ -784,6 +784,26 @@ void _validateAndroidRelease(List<String> failures) {
   if (document == null) {
     return;
   }
+  _validateAndroidReleaseDocument(document, failures);
+}
+
+/// Validates the Android caller contract, including nested job permissions.
+List<String> validateAndroidReleaseSource(String source) {
+  final List<String> failures = <String>[];
+  try {
+    final Object? document = loadYaml(source);
+    if (document is! YamlMap) {
+      failures.add('Android release must contain a YAML mapping.');
+      return failures;
+    }
+    _validateAndroidReleaseDocument(document, failures);
+  } on YamlException catch (error) {
+    failures.add('Android release is invalid YAML: ${error.message}');
+  }
+  return failures;
+}
+
+void _validateAndroidReleaseDocument(YamlMap document, List<String> failures) {
   final Object? jobsValue = document['jobs'];
   final Object? build = jobsValue is YamlMap ? jobsValue['build-aab'] : null;
   final Object? databaseGate = jobsValue is YamlMap
@@ -809,6 +829,18 @@ void _validateAndroidRelease(List<String> failures) {
       runtimeGate['uses'] != './.github/workflows/maestro-runtime.yml') {
     failures.add(
       'Android release must call the reusable exact-build Maestro runtime gate.',
+    );
+  }
+  final Object? runtimePermissions = runtimeGate is YamlMap
+      ? runtimeGate['permissions']
+      : null;
+  if (runtimePermissions is! YamlMap ||
+      runtimePermissions.length != 2 ||
+      runtimePermissions['contents'] != 'read' ||
+      runtimePermissions['actions'] != 'read') {
+    failures.add(
+      'Android release runtime gate must explicitly allow only contents: read '
+      'and actions: read for the nested QA workflow.',
     );
   }
   final Object? needs = build['needs'];
