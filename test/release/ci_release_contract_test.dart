@@ -979,11 +979,38 @@ void main() {
       <Object?>['main'],
     );
     final YamlMap emulatorStep = steps(maestro).singleWhere(
-      (YamlMap step) =>
-          step['uses']?.toString().toLowerCase().startsWith(
-            'reactivecircus/android-emulator-runner@',
-          ) ==
-          true,
+      (YamlMap step) => step['uses'] == './test-results/hosted-emulator-runner',
+    );
+    final runnerCheckout = namedStep(
+      maestro,
+      'Checkout pinned emulator runner for passive startup',
+    );
+    final runnerCheckoutWith = runnerCheckout['with'] as YamlMap;
+    expect(
+      runnerCheckoutWith['repository'],
+      'ReactiveCircus/android-emulator-runner',
+    );
+    expect(
+      runnerCheckoutWith['ref'],
+      'a421e43855164a8197daf9d8d40fe71c6996bb0d',
+    );
+    expect(runnerCheckoutWith['path'], 'test-results/hosted-emulator-runner');
+    expect(runnerCheckoutWith['persist-credentials'], isFalse);
+    final runnerPatch = namedStep(
+      maestro,
+      'Verify exact runner and remove only unsolicited startup input',
+    );
+    expect(
+      runnerPatch['run'],
+      'python3 scripts/prepare_hosted_emulator_runner.py',
+    );
+    expect(
+      steps(maestro).indexOf(runnerCheckout),
+      lessThan(steps(maestro).indexOf(runnerPatch)),
+    );
+    expect(
+      steps(maestro).indexOf(runnerPatch),
+      lessThan(steps(maestro).indexOf(emulatorStep)),
     );
     final String runtimeScript = (emulatorStep['with'] as YamlMap)['script']
         .toString();
@@ -1014,7 +1041,7 @@ void main() {
     expect((emulatorStep['with'] as YamlMap)['cores'], 4);
     expect(
       (emulatorStep['with'] as YamlMap)['target'],
-      r"${{ inputs.guest_pages == '16k' && 'google_apis_ps16k' || 'google_apis' }}",
+      r'${{ steps.guest_image.outputs.target }}',
     );
     expect(
       runtimeScript.trim(),
@@ -1024,6 +1051,23 @@ void main() {
       maestro,
       'Prepare bounded fresh-guest readiness and system diagnostics',
     )['run'].toString();
+    expect(
+      namedStep(
+        maestro,
+        'Prepare bounded fresh-guest readiness and system diagnostics',
+      )['id'],
+      'guest_image',
+    );
+    expect(preparation, contains('image-selection.json'));
+    expect(
+      (emulatorStep['with'] as YamlMap)['pre-emulator-launch-script'],
+      contains('record_guest_image.py'),
+    );
+    expect(preparation, contains('actualAvdImageMatched'));
+    expect(
+      preparation,
+      contains('test -s test-results/maestro-prewarm/guest-image.json'),
+    );
     expect(preparation, contains('run-suite.sh'));
     expect(preparation, contains("shell('getconf', 'PAGE_SIZE')"));
     expect(preparation, contains('pageSizeBytes'));
