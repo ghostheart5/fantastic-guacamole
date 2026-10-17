@@ -1014,7 +1014,7 @@ void main() {
     expect((emulatorStep['with'] as YamlMap)['cores'], 4);
     expect(
       (emulatorStep['with'] as YamlMap)['target'],
-      r"${{ inputs.guest_pages == '16k' && 'google_apis_ps16k' || 'google_apis' }}",
+      r'${{ steps.guest_image.outputs.target }}',
     );
     expect(
       runtimeScript.trim(),
@@ -1024,6 +1024,23 @@ void main() {
       maestro,
       'Prepare bounded fresh-guest readiness and system diagnostics',
     )['run'].toString();
+    expect(
+      namedStep(
+        maestro,
+        'Prepare bounded fresh-guest readiness and system diagnostics',
+      )['id'],
+      'guest_image',
+    );
+    expect(preparation, contains('image-selection.json'));
+    expect(
+      (emulatorStep['with'] as YamlMap)['pre-emulator-launch-script'],
+      contains('record_guest_image.py'),
+    );
+    expect(preparation, contains('actualAvdImageMatched'));
+    expect(
+      preparation,
+      contains('test -s test-results/maestro-prewarm/guest-image.json'),
+    );
     expect(preparation, contains('run-suite.sh'));
     expect(preparation, contains("shell('getconf', 'PAGE_SIZE')"));
     expect(preparation, contains('pageSizeBytes'));

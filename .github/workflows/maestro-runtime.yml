@@ -518,8 +518,57 @@ jobs:
           test -r /dev/kvm && test -w /dev/kvm
 
       - name: Prepare bounded fresh-guest readiness and system diagnostics
+        id: guest_image
         run: |
           set -euo pipefail
+          python3 - <<'GUEST_IMAGE_SELECTION'
+          import json, os, re
+          from pathlib import Path
+          suite = os.environ['QA_SUITE']
+          api = os.environ['QA_GUEST_API']
+          pages = os.environ['QA_GUEST_PAGES']
+          assert api in ('35', '36') and pages in ('4k', '16k')
+          assert suite in ('qa-smoke', 'qa-journeys', 'qa-16k-native')
+          assert all(os.environ[key] in ('true', 'false') for key in ('QA_MONKEY', 'QA_MONKEY_ONLY'))
+          assert re.fullmatch(r'[a-f0-9]{40}', os.environ['QA_SOURCE_SHA'])
+          # The five app-owned API35 smoke flows use a normal AOSP image.
+          # Google services/Play integration are not exercised by those flows.
+          # Keep Google images for 16KB, other APIs, journeys and Monkey.
+          app_smoke = (suite == 'qa-smoke' and api == '35' and
+                       os.environ['QA_MONKEY'] == os.environ['QA_MONKEY_ONLY'] == 'false')
+          target = 'google_apis_ps16k' if pages == '16k' else ('default' if app_smoke else 'google_apis')
+          receipt = {'sourceSha': os.environ['QA_SOURCE_SHA'], 'runId': os.environ['GITHUB_RUN_ID'],
+                     'runAttempt': os.environ['GITHUB_RUN_ATTEMPT'], 'suite': suite,
+                     'api': api, 'pages': pages, 'target': target,
+                     'googleServicesIntegrationCovered': False}
+          Path('test-results/maestro-prewarm/image-selection.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          with Path(os.environ['GITHUB_OUTPUT']).open('a') as output:
+              output.write('target=' + target + '\n')
+          GUEST_IMAGE_SELECTION
+          cat > test-results/maestro-prewarm/record_guest_image.py <<'GUEST_IMAGE_RECORD'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path('test-results/maestro-prewarm')
+          selected = json.loads((root / 'image-selection.json').read_text())
+          assert selected['sourceSha'] == os.environ['QA_SOURCE_SHA']
+          assert selected['runId'] == os.environ['GITHUB_RUN_ID']
+          assert selected['runAttempt'] == os.environ['GITHUB_RUN_ATTEMPT']
+          sdk = Path(os.environ['ANDROID_HOME']).resolve()
+          config = Path(os.environ['ANDROID_AVD_HOME']) / 'test.avd/config.ini'
+          pairs = [line.split('=', 1) for line in config.read_text().splitlines()
+                   if line.strip() and not line.lstrip().startswith('#') and '=' in line]
+          assert len([p for p in pairs if p[0].strip() == 'image.sysdir.1']) == 1
+          values = {key.strip(): value.strip() for key, value in pairs}
+          image = (sdk / values['image.sysdir.1']).resolve()
+          expected = (sdk / 'system-images' / ('android-' + selected['api']) / selected['target'] / 'x86_64').resolve()
+          assert image.is_relative_to(sdk) and image == expected
+          properties = (image / 'source.properties').read_bytes()
+          assert properties and b'Pkg.Revision' in properties
+          receipt = {**selected, 'avdConfigSha256': hashlib.sha256(config.read_bytes()).hexdigest(),
+                     'sdkImagePath': str(image), 'sourcePropertiesSha256': hashlib.sha256(properties).hexdigest(),
+                     'sourceProperties': properties.decode('utf-8'), 'actualAvdImageMatched': True}
+          (root / 'guest-image.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          GUEST_IMAGE_RECORD
           cat > test-results/maestro-prewarm/prepare_guest.py <<'PY'
           import json, os, re, subprocess, sys, time
           from pathlib import Path
@@ -627,6 +676,7 @@ jobs:
             exit "$result"
           }
           trap capture_system EXIT
+          test -s test-results/maestro-prewarm/guest-image.json
           python3 test-results/maestro-prewarm/prepare_guest.py
           if [ "$QA_SUITE" = qa-16k-native ]; then
             python3 test-results/native-tooling/scripts/run_16k_adb_smoke.py
@@ -656,12 +706,12 @@ jobs:
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
           api-level: ${{ inputs.guest_api || '35' }}
-          target: ${{ inputs.guest_pages == '16k' && 'google_apis_ps16k' || 'google_apis' }}
+          target: ${{ steps.guest_image.outputs.target }}
           arch: x86_64
           profile: pixel_6
           # Public ubuntu-24.04 runners provide four vCPUs. Use them during
           # first-boot launcher initialization instead of constraining the guest
-          # to two. Preserve the image, memory, hardware acceleration and guards.
+          # to two. Preserve memory, hardware acceleration and all error guards.
           cores: 4
           ram-size: 4096M
           heap-size: 512M
@@ -669,7 +719,7 @@ jobs:
           # Never silently fall back to software emulation: it caused system
           # ANRs and killed the Maestro driver before any flow could execute.
           disable-linux-hw-accel: false
-          pre-emulator-launch-script: '"$ANDROID_HOME/emulator/emulator" -accel-check'
+          pre-emulator-launch-script: '"$ANDROID_HOME/emulator/emulator" -accel-check && python3 test-results/maestro-prewarm/record_guest_image.py'
           disable-animations: true
           disable-spellchecker: true
           script: |
