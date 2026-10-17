@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/data/services/mock_auth_service.dart';
+import 'package:fantastic_guacamole/l10n/nexus_copy.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
@@ -233,6 +234,75 @@ void main() {
       );
 
   for (final locale in [const Locale('en'), const Locale('es')]) {
+    testWidgets(
+      'home first action and optional tools remain usable at 200% ${locale.languageCode}',
+      (tester) async {
+        final container = await pumpNexusScreen(
+          tester,
+          width: 320,
+          locale: locale,
+          textScale: 2,
+        );
+        final copy = NexusCopy(locale.languageCode == 'es');
+        final taskIds = (await container.read(
+          tasksProvider.future,
+        )).map((task) => task.id).toList();
+        final primary = find.byKey(const Key('nexus-add-task'));
+        expect(
+          find.widgetWithText(FilledButton, copy.buildReality),
+          findsOneWidget,
+        );
+        for (final label in [
+          copy.resolveNow,
+          copy.interrogate,
+          copy.compareFutures,
+          copy.reviewTruth,
+        ]) {
+          expect(find.widgetWithText(ActionChip, label), findsNothing);
+        }
+        await tester.ensureVisible(primary);
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(primary.hitTestable(), findsOneWidget);
+        await tester.tap(primary);
+        await tester.pump();
+        expect(container.read(appFlowProvider), AppView.creator);
+        expect(
+          container.read(creatorNavigationIntentProvider),
+          CreatorFormKind.task,
+        );
+        expect(
+          (await container.read(
+            tasksProvider.future,
+          )).map((task) => task.id).toList(),
+          taskIds,
+        );
+
+        final tools = find.text(copy.morePlanningTools);
+        await tester.ensureVisible(tools);
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.tap(tools);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        for (final destination in <String, AppView>{
+          copy.resolveNow: AppView.smartPlanner,
+          copy.interrogate: AppView.console,
+          copy.compareFutures: AppView.trajectoryEngine,
+          copy.reviewTruth: AppView.timeline,
+        }.entries) {
+          final control = find.widgetWithText(ActionChip, destination.key);
+          expect(control, findsOneWidget);
+          await tester.ensureVisible(control);
+          await tester.pump(const Duration(milliseconds: 100));
+          expect(control.hitTestable(), findsOneWidget);
+          await tester.tap(control);
+          await tester.pump();
+          expect(container.read(appFlowProvider), destination.value);
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+
     for (final scenario in [
       'future',
       'current',
@@ -684,9 +754,7 @@ void main() {
           observedVitals: observed,
         );
         expect(
-          find.text(
-            'Tu criterio amplificado: una decisión clara y futuros que puedes comparar.',
-          ),
+          find.text('Elige un próximo paso realista que se ajuste a tu día.'),
           findsOneWidget,
         );
         expect(

@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/core/utils/validators.dart';
 import 'package:fantastic_guacamole/domain/models/deep_link_mode.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
 import 'package:fantastic_guacamole/l10n/journey_copy.dart';
+import 'package:fantastic_guacamole/l10n/auth_status_copy.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -33,55 +34,123 @@ bool _isNewUserDatabaseSaveFailure(String message) {
           normalized.contains('new user'));
 }
 
-String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
+String friendlyAuthErrorMessage(
+  String code, {
+  String? rawMessage,
+  bool isSpanish = false,
+}) {
+  String copy(String en, String es) => isSpanish ? es : en;
   final String backendMessage = rawMessage?.trim() ?? '';
   if (_isNewUserDatabaseSaveFailure(backendMessage)) {
-    return 'Sign-up is temporarily unavailable. Please retry in a moment.';
+    return copy(
+      'Sign-up is temporarily unavailable. Please retry in a moment.',
+      'El registro no está disponible temporalmente. Inténtalo de nuevo en un momento.',
+    );
   }
   switch (code) {
     case 'invalid-email':
-      return 'Invalid email format.';
+      return copy(
+        'Invalid email format.',
+        'El formato del correo no es válido.',
+      );
     case 'user-not-found':
     case 'wrong-password':
-      return 'Credentials are incorrect.';
+      return copy(
+        'Credentials are incorrect.',
+        'Los datos de acceso no son correctos.',
+      );
     case 'email-already-in-use':
-      return 'Unable to create an account with these details.';
+      return copy(
+        'Unable to create an account with these details.',
+        'No se puede crear una cuenta con estos datos.',
+      );
     case 'weak-password':
-      return 'Password is too weak.';
+      return copy(
+        'Password is too weak.',
+        'La contraseña no es lo suficientemente segura.',
+      );
     case 'too-many-requests':
-      return 'Rate limit engaged. Wait, then retry.';
+      return copy(
+        'Rate limit engaged. Wait, then retry.',
+        'Has realizado demasiados intentos. Espera y vuelve a intentarlo.',
+      );
     case 'push-token-isolation-failed':
-      return 'Sign-out was paused to protect notification privacy. Reconnect and retry.';
+      return copy(
+        'Sign-out was paused to protect notification privacy. Reconnect and retry.',
+        'Se pausó el cierre de sesión para proteger la privacidad de las notificaciones. Vuelve a conectarte e inténtalo de nuevo.',
+      );
     case 'network-request-failed':
-      return 'Network link offline. Reconnect and retry.';
+      return copy(
+        'Network link offline. Reconnect and retry.',
+        'No hay conexión. Vuelve a conectarte e inténtalo de nuevo.',
+      );
     case 'user-disabled':
-      return 'Account access disabled. Contact support.';
+      return copy(
+        'Account access disabled. Contact support.',
+        'El acceso a la cuenta está desactivado. Contacta con soporte.',
+      );
     case 'user-token-expired':
     case 'invalid-user-token':
-      return 'Sign-in expired. Local work is safe and cloud sync is paused. Sign in again to resume.';
+      return copy(
+        'Sign-in expired. Local work is safe and cloud sync is paused. Sign in again to resume.',
+        'La sesión caducó. Tu trabajo local está a salvo y la sincronización está pausada. Inicia sesión de nuevo para continuar.',
+      );
     case 'requires-recent-login':
-      return 'Re-authenticate to continue securely.';
+      return copy(
+        'Re-authenticate to continue securely.',
+        'Vuelve a iniciar sesión para continuar de forma segura.',
+      );
     case 'google-sign-in-cancelled':
     case 'popup-closed-by-user':
-      return 'Google sign-in canceled.';
+      return copy(
+        'Google sign-in canceled.',
+        'Se canceló el inicio de sesión con Google.',
+      );
     case 'github-sign-in-cancelled':
-      return 'GitHub sign-in canceled.';
+      return copy(
+        'GitHub sign-in canceled.',
+        'Se canceló el inicio de sesión con GitHub.',
+      );
     case 'no-current-user':
-      return 'You were signed out. Local work remains on this device; sign in again to resume account features.';
+      return copy(
+        'You were signed out. Local work remains on this device; sign in again to resume account features.',
+        'La sesión se cerró. Tu trabajo local sigue en este dispositivo; inicia sesión de nuevo para usar las funciones de la cuenta.',
+      );
     case 'auth-unavailable':
-      return 'Sign-in services are temporarily unavailable. Your local work is safe; retry when connected.';
+      return copy(
+        'Sign-in services are temporarily unavailable. Your local work is safe; retry when connected.',
+        'El inicio de sesión no está disponible temporalmente. Tu trabajo local está a salvo; inténtalo de nuevo cuando tengas conexión.',
+      );
     case 'operation-failed':
-      return 'The account operation could not be completed. Retry or contact support if it continues.';
+      return copy(
+        'The account operation could not be completed. Retry or contact support if it continues.',
+        'No se pudo completar la operación de la cuenta. Inténtalo de nuevo o contacta con soporte si el problema continúa.',
+      );
     case 'operation-not-supported':
-      return 'This account operation is unavailable right now. Contact support for help.';
+      return copy(
+        'This account operation is unavailable right now. Contact support for help.',
+        'Esta operación de la cuenta no está disponible ahora. Contacta con soporte para obtener ayuda.',
+      );
     case 'missing-password':
-      return 'Enter your password to continue.';
+      return copy(
+        'Enter your password to continue.',
+        'Introduce tu contraseña para continuar.',
+      );
     case 'missing-email':
-      return 'Your account email could not be confirmed. Sign in again.';
+      return copy(
+        'Your account email could not be confirmed. Sign in again.',
+        'No se pudo confirmar el correo de tu cuenta. Inicia sesión de nuevo.',
+      );
     case 'recovery-\u0073ession-required':
-      return 'This reset link is no longer available. Request a new password reset email.';
+      return copy(
+        'This reset link is no longer available. Request a new password reset email.',
+        'Este enlace de recuperación ya no está disponible. Solicita otro correo para restablecer la contraseña.',
+      );
     default:
-      return 'Authentication failed. Retry.';
+      return copy(
+        'Authentication failed. Retry.',
+        'No se pudo iniciar sesión. Inténtalo de nuevo.',
+      );
   }
 }
 
@@ -152,7 +221,15 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   @override
   Widget build(BuildContext context) {
     final bool allowMockAccess = widget.enableMockLogin && !Env.isLocalMode;
-    final String? startupMessage = _effectiveStartupError;
+    final String? startupError = _effectiveStartupError;
+    final String? startupMessage = startupError == null
+        ? null
+        : authStatusText(
+            context,
+            startupError,
+            fallback:
+                'El servicio de acceso no está disponible. Tu trabajo local está a salvo; inténtalo de nuevo cuando tengas conexión.',
+          );
     final String onboardingLocation =
         widget.onboardingLocation ?? ref.read(routeSurfaceProvider).onboarding;
     final AuthServiceContract fallbackAuthService =
@@ -944,9 +1021,23 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
       if (_isSessionExpiredCode(e.code)) {
         await widget.authService.signOut();
       }
-      _showMessage(friendlyAuthErrorMessage(e.code, rawMessage: e.message));
+      if (!mounted) return;
+      _showMessage(
+        friendlyAuthErrorMessage(
+          e.code,
+          rawMessage: e.message,
+          isSpanish: Localizations.localeOf(context).languageCode == 'es',
+        ),
+      );
     } on Exception {
-      _showMessage('Auth action failed. Retry.');
+      if (!mounted) return;
+      _showMessage(
+        journeyText(
+          context,
+          'Auth action failed. Retry.',
+          'No se pudo completar la operación de acceso. Inténtalo de nuevo.',
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _submitting = false);
@@ -967,7 +1058,7 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
     }
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(SnackBar(content: Text(authStatusText(context, message))));
   }
 }
 
@@ -1195,7 +1286,7 @@ class _AuthStatusMessage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              title,
+              authStatusText(context, title),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 color: Colors.white,
@@ -1208,12 +1299,20 @@ class _AuthStatusMessage extends StatelessWidget {
               onPressed: retryEnabled ? onRetry : null,
               icon: const Icon(Icons.refresh_rounded),
               label: Text(
-                retryEnabled ? 'Retry sign-in services' : 'Stopping safely',
+                authStatusText(
+                  context,
+                  retryEnabled ? 'Retry sign-in services' : 'Stopping safely',
+                ),
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              message,
+              authStatusText(
+                context,
+                message,
+                fallback:
+                    'El servicio de acceso no está disponible. Inténtalo de nuevo cuando tengas conexión.',
+              ),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white70, height: 1.45),
             ),

@@ -190,34 +190,54 @@ class _DecisionLoopStrip extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const Key('nexus-add-task'),
+              onPressed: onBuild,
+              icon: const Icon(Icons.add_task_rounded),
+              label: Text(copy.buildReality),
+            ),
+          ),
+          ExpansionTile(
+            key: const Key('nexus-planning-tools'),
+            tilePadding: EdgeInsets.zero,
+            iconColor: AppColors.neonCyan,
+            collapsedIconColor: AppColors.neonCyan,
+            title: Text(
+              copy.morePlanningTools,
+              style: const TextStyle(color: Colors.white70),
+            ),
+            childrenPadding: const EdgeInsets.only(bottom: 8),
             children: <Widget>[
-              _LoopAction(
-                icon: Icons.add_task_rounded,
-                label: copy.buildReality,
-                onTap: onBuild,
-              ),
-              _LoopAction(
-                icon: Icons.bolt_rounded,
-                label: copy.resolveNow,
-                onTap: onResolve,
-              ),
-              _LoopAction(
-                icon: Icons.psychology_alt_outlined,
-                label: copy.interrogate,
-                onTap: onInterrogate,
-              ),
-              _LoopAction(
-                icon: Icons.alt_route_rounded,
-                label: copy.compareFutures,
-                onTap: onCompare,
-              ),
-              _LoopAction(
-                icon: Icons.fact_check_outlined,
-                label: copy.reviewTruth,
-                onTap: onReview,
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    _LoopAction(
+                      icon: Icons.bolt_rounded,
+                      label: copy.resolveNow,
+                      onTap: onResolve,
+                    ),
+                    _LoopAction(
+                      icon: Icons.psychology_alt_outlined,
+                      label: copy.interrogate,
+                      onTap: onInterrogate,
+                    ),
+                    _LoopAction(
+                      icon: Icons.alt_route_rounded,
+                      label: copy.compareFutures,
+                      onTap: onCompare,
+                    ),
+                    _LoopAction(
+                      icon: Icons.fact_check_outlined,
+                      label: copy.reviewTruth,
+                      onTap: onReview,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
