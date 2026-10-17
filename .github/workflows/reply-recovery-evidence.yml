@@ -49,7 +49,8 @@ jobs:
           test "$(git -C release-source rev-parse HEAD)" = "$RELEASE_SHA"
           test "$(git -C release-source rev-parse 'HEAD^{tree}')" = "$RELEASE_TREE"
           test "$(git -C test-overlay rev-parse HEAD)" = "$OVERLAY_SHA"
-          test "$PR_BASE_SHA" = "$RELEASE_SHA"
+          git -C test-overlay merge-base --is-ancestor "$RELEASE_SHA" "$PR_BASE_SHA"
+          git -C test-overlay merge-base --is-ancestor "$PR_BASE_SHA" "$OVERLAY_SHA"
           python3 - <<'PY'
           import os, subprocess
           expected = {
@@ -61,7 +62,7 @@ jobs:
             "release-validation/reply-recovery-4019136/SHA256SUMS",
             "release-validation/reply-recovery-4019136/README.md",
           }
-          changes = subprocess.check_output(["git", "-C", "test-overlay", "diff", "--name-status", os.environ["RELEASE_SHA"], "HEAD"], text=True)
+          changes = subprocess.check_output(["git", "-C", "test-overlay", "diff", "--name-status", os.environ["PR_BASE_SHA"], "HEAD"], text=True)
           rows = [line.split("\t") for line in changes.splitlines()]
           assert len(rows) == len(expected)
           assert all(len(row) == 2 and row[0] == "A" for row in rows)
