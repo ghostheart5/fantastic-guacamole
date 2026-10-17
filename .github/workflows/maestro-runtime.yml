@@ -419,7 +419,9 @@ jobs:
 
       - name: Test source-bound Monkey seed preparation
         if: inputs.run_monkey
-        run: python3 -m unittest discover -s test-results/monkey-tooling/scripts -p test_prepare_monkey_seed_flows.py -v
+        run: |
+          python3 -m unittest discover -s test-results/monkey-tooling/scripts -p test_prepare_monkey_seed_flows.py -v
+          python3 -m unittest discover -s test-results/monkey-tooling/scripts -p test_prepare_qa_monkey_config.py -v
 
       - name: Checkout exact native smoke tooling separately from application source
         if: inputs.suite == 'qa-16k-native'
@@ -628,7 +630,10 @@ jobs:
             done
           fi
           if [ "$QA_MONKEY" = true ]; then
-            pwsh -NoProfile -File ./test-results/monkey-tooling/scripts/run_android_monkey_matrix.ps1 -RepositoryRoot "$GITHUB_WORKSPACE" -Config "$GITHUB_WORKSPACE/test-orchestrator.json" -DeviceSerial emulator-5554 -ExpectedAndroidApi "$QA_GUEST_API" -AllowConnectedDevice -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot test-results/monkey-ci
+            seed_mode=()
+            if [ "$QA_MONKEY_ONLY" = true ]; then seed_mode=(--seed-only); fi
+            python3 test-results/monkey-tooling/scripts/prepare_qa_monkey_config.py --root "$GITHUB_WORKSPACE" --source "$QA_SOURCE_SHA" --target "$GITHUB_WORKSPACE/test-results/monkey-qa-config" --apk "$GITHUB_WORKSPACE/build/app/outputs/flutter-apk/app-debug.apk" --sdk "$ANDROID_HOME" "${seed_mode[@]}"
+            pwsh -NoProfile -File ./test-results/monkey-tooling/scripts/run_android_monkey_matrix.ps1 -RepositoryRoot "$GITHUB_WORKSPACE" -Config "$GITHUB_WORKSPACE/test-results/monkey-qa-config/config.json" -DeviceSerial emulator-5554 -ExpectedAndroidApi "$QA_GUEST_API" -AllowConnectedDevice -ApkPath build/app/outputs/flutter-apk/app-debug.apk -ExpectedApkSha256 "$(sha256sum build/app/outputs/flutter-apk/app-debug.apk | cut -d ' ' -f1)" -ArtifactsRoot test-results/monkey-ci
           fi
           SH
 
@@ -790,6 +795,16 @@ jobs:
                   assert seed['fatalMarkerCount'] == 0 and seed['logcatCapture']['aliveThroughRun']
                   names.update(seed['flows'])
               assert names == {'priority8-learned-lifecycle.yaml', 'priority8-learned-lifecycle-readback.yaml'}
+          config_helper = Path('test-results/monkey-tooling/scripts/prepare_qa_monkey_config.py')
+          import subprocess
+          config_command = ['python3', str(config_helper), '--verify', '--root', '.', '--source', os.environ['EXPECTED_COMMIT'], '--target', 'test-results/monkey-qa-config', '--apk', 'build/app/outputs/flutter-apk/app-debug.apk']
+          if os.environ['QA_MONKEY_ONLY'] == 'true':
+              config_command.append('--seed-only')
+          subprocess.run(config_command, check=True)
+          assert m['package'] == 'com.ghostheart5.chronospark.qa'
+          config_receipt = json.loads(Path('test-results/monkey-qa-config/provenance.json').read_text())
+          assert config_receipt['apkSha256'].lower() == m['apk']['sha256'].lower()
+          assert config_receipt['sourceSha'] == os.environ['EXPECTED_COMMIT']
           assert m['device']['serial'] == 'emulator-5554'
           assert m['status'] == 'passed' and m['requestedVariantCount'] == m['completedVariantCount'] == 5
           assert len(m['results']) == 5
@@ -816,3 +831,4 @@ jobs:
             test-results/monkey-ci/**
             test-results/monkey-seed-ci/**
             test-results/monkey-recovery-flows/**
+            test-results/monkey-qa-config/**
