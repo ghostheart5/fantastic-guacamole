@@ -63,6 +63,51 @@ void main() {
     ).readAsStringSync();
   });
 
+  group('Android release runtime caller permissions', () {
+    late String source;
+    const caller =
+        '  runtime-gate:\n'
+        '    uses: ./.github/workflows/maestro-runtime.yml\n'
+        '    permissions:\n'
+        '      contents: read\n'
+        '      actions: read\n';
+    const permissionFailure =
+        'Android release runtime gate must explicitly allow only contents: read '
+        'and actions: read for the nested QA workflow.';
+    setUp(() {
+      source = File('.github/workflows/android-release.yml').readAsStringSync();
+      expect(source, contains(caller));
+    });
+
+    test('accepts the explicitly scoped read permissions', () {
+      expect(workflow_validator.validateAndroidReleaseSource(source), isEmpty);
+    });
+
+    final mutations = <String, String>{
+      'rejects the actual missing actions permission startup failure': caller
+          .replaceFirst('      actions: read\n', ''),
+      'rejects missing checkout permission': caller.replaceFirst(
+        '      contents: read\n',
+        '',
+      ),
+      'rejects actions write access': caller.replaceFirst(
+        '      actions: read\n',
+        '      actions: write\n',
+      ),
+      'rejects unrelated additional access': '$caller      id-token: write\n',
+    };
+    for (final mutation in mutations.entries) {
+      test(mutation.key, () {
+        final fixture = source.replaceFirst(caller, mutation.value);
+        expect(fixture, isNot(source));
+        expect(
+          workflow_validator.validateAndroidReleaseSource(fixture),
+          contains(permissionFailure),
+        );
+      });
+    }
+  });
+
   group('Maestro prepared-script contract', () {
     late String source;
     setUp(

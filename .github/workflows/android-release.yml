@@ -33,6 +33,7 @@ jobs:
     uses: ./.github/workflows/maestro-runtime.yml
     permissions:
       contents: read
+      actions: read
 
   build-aab:
     needs: [quality-gate, database-gate, runtime-gate]
