@@ -278,8 +278,8 @@ class _ReminderAutomationSectionState
             ),
             subtitle: journeyText(
               context,
-              'Schedules daily cadence for the first active habit.',
-              'Programa una cadencia diaria para el primer ritmo activo.',
+              'Follows the first active habit at 8 PM: daily, Mondays, or the first of each month. Completed or skipped periods wait until the next period.',
+              'Sigue el primer ritmo activo a las 20:00: cada día, los lunes o el primer día del mes. Los períodos completados u omitidos esperan hasta el siguiente período.',
             ),
           ),
           _NeonToggleTile(

@@ -315,15 +315,23 @@ class NexusCopy {
           context,
         ).formatTimeOfDay(TimeOfDay.fromDateTime(value.toLocal()))
       : DateTimeFormats.timelineTime(value);
-  String dateTime(BuildContext context, DateTime value) {
-    if (!isSpanish) return DateTimeFormats.relativeLocalDateTime(value);
+  String upcomingOccurrence(
+    BuildContext context,
+    DateTime value, {
+    DateTime? now,
+  }) =>
+      '${isSpanish ? 'Próxima ocurrencia' : 'Upcoming occurrence'} · ${dateTime(context, value, now: now)}';
+  String dateTime(BuildContext context, DateTime value, {DateTime? now}) {
+    if (!isSpanish) {
+      return DateTimeFormats.relativeLocalDateTime(value, now: now);
+    }
     final local = value.toLocal();
-    final now = DateTime.now();
-    final difference = DateTime.utc(
-      local.year,
-      local.month,
-      local.day,
-    ).difference(DateTime.utc(now.year, now.month, now.day)).inDays;
+    final reference = (now ?? DateTime.now()).toLocal();
+    final difference = DateTime.utc(local.year, local.month, local.day)
+        .difference(
+          DateTime.utc(reference.year, reference.month, reference.day),
+        )
+        .inDays;
     final day = switch (difference) {
       0 => 'Hoy',
       1 => 'Mañana',

@@ -571,7 +571,7 @@ class _SmartPlannerSuggestion extends StatelessWidget {
   }
 }
 
-class _PlannerSuggestionContent extends StatelessWidget {
+class _PlannerSuggestionContent extends ConsumerWidget {
   const _PlannerSuggestionContent({
     required this.decisionModel,
     required this.decision,
@@ -591,7 +591,7 @@ class _PlannerSuggestionContent extends StatelessWidget {
   final VoidCallback? onIgnoreContext;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     final copy = NexusCopy.of(context);
     final String title = _firstNonEmpty(<String?>[
@@ -613,6 +613,30 @@ class _PlannerSuggestionContent extends StatelessWidget {
         block != null &&
         (decision == null || decision!.subjectId == block!.taskId) &&
         (title == block!.title || title == 'Work on: ${block!.title}');
+    final now = ref.watch(adaptivePlanClockProvider)();
+    final tasks = ref.watch(tasksProvider);
+    // The displayed decision can reference a future task outside today's
+    // planner blocks. Its saved occurrence date is presentation evidence;
+    // completion still uses the unchanged block/decision agreement above.
+    final matchingTasks =
+        decision?.subjectId != null && !tasks.isLoading && !tasks.hasError
+        ? tasks.asData?.value
+                  .where((task) => task.id == decision!.subjectId)
+                  .toList() ??
+              const <TaskEntity>[]
+        : const <TaskEntity>[];
+    final selectedTask = matchingTasks.length == 1
+        ? matchingTasks.single
+        : null;
+    final matchesVisibleTask =
+        selectedTask != null &&
+        (title == selectedTask.title ||
+            title == 'Work on: ${selectedTask.title}');
+    final scheduledOccurrence =
+        matchesVisibleTask && selectedTask.isActionableAt(now)
+        ? selectedTask.scheduledFor
+        : null;
+    final hasUpcomingOccurrence = scheduledOccurrence?.isAfter(now) ?? false;
     // Translate the system prefix only after identity agreement; never parse
     // or translate a user-authored task title to authorize completion.
     final displayTitle = showsTask && title == 'Work on: ${block!.title}'
@@ -663,6 +687,18 @@ class _PlannerSuggestionContent extends StatelessWidget {
             fontWeight: FontWeight.w800,
           ),
         ),
+        if (hasUpcomingOccurrence) ...<Widget>[
+          const SizedBox(height: 8),
+          Text(
+            copy.upcomingOccurrence(context, scheduledOccurrence!, now: now),
+            key: const Key('nexus-upcoming-occurrence'),
+            style: const TextStyle(
+              color: AppColors.memoryAmber,
+              fontSize: AppSizes.fontBody,
+              height: 1.35,
+            ),
+          ),
+        ],
         const SizedBox(height: 8),
         Text(
           displayRationale,

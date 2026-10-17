@@ -47,9 +47,41 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
   }
 
   Future<void> _syncReminders(List<HabitEntity> habits) {
+    final owner = AccountOperation.capture(ref);
     return ref
         .read(reminderOrchestratorServiceProvider)
-        .syncHabitReminders(habits);
+        .syncHabitReminders(habits, shouldContinue: () => owner.isCurrent);
+  }
+
+  Future<void> _afterOutcome(AccountOperation owner) async {
+    if (!owner.isCurrent) return;
+    ref.invalidate(habitOccurrencesProvider);
+    ref.invalidate(decisionOutcomesProvider);
+    // The durable outcome must update the OS alarm even if learning retention
+    // later needs retry. Read current definitions under the shared writer lock.
+    try {
+      await runAccountStorageMutation(() async {
+        owner.check();
+        final habits = await owner.wait(
+          ref.read(domainHabitRepositoryProvider).getHabits(),
+        );
+        await owner.wait(_syncReminders(habits));
+      });
+    } on StaleAccountOperation {
+      return;
+    } on Object catch (error, stack) {
+      if (!owner.isCurrent) return;
+      Logger.errorCategory(
+        'RhythmReminderSync',
+        'Rhythm outcome saved; reminder update needs retry.',
+        error,
+        stack,
+      );
+      throw RhythmReminderSyncException();
+    }
+    if (owner.isCurrent) {
+      await ref.read(decisionOutcomeActionsProvider).reconcileRetention();
+    }
   }
 
   Future<void> _mutate(
@@ -123,6 +155,7 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
   });
 
   Future<HabitOccurrenceResult> completeHabit(String id) async {
+    final owner = AccountOperation.capture(ref);
     final HabitOccurrenceCoordinator? coordinator = ref.read(
       habitOccurrenceCoordinatorProvider,
     );
@@ -130,9 +163,7 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
       throw StateError('Daily Rhythm outcomes require a verified account.');
     }
     final HabitOccurrenceResult result = await coordinator.complete(id);
-    ref.invalidate(habitOccurrencesProvider);
-    ref.invalidate(decisionOutcomesProvider);
-    await ref.read(decisionOutcomeActionsProvider).reconcileRetention();
+    await _afterOutcome(owner);
     if (result.mutation == HabitOccurrenceMutation.applied) {
       AppAnalytics.track(
         'habit_completed',
@@ -143,6 +174,7 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
   }
 
   Future<HabitOccurrenceResult> skipHabit(String id) async {
+    final owner = AccountOperation.capture(ref);
     final HabitOccurrenceCoordinator? coordinator = ref.read(
       habitOccurrenceCoordinatorProvider,
     );
@@ -150,9 +182,7 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
       throw StateError('Daily Rhythm outcomes require a verified account.');
     }
     final HabitOccurrenceResult result = await coordinator.skip(id);
-    ref.invalidate(habitOccurrencesProvider);
-    ref.invalidate(decisionOutcomesProvider);
-    await ref.read(decisionOutcomeActionsProvider).reconcileRetention();
+    await _afterOutcome(owner);
     return result;
   }
 
@@ -160,14 +190,13 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
     String id,
     HabitOccurrenceOutcome outcome,
   ) async {
+    final owner = AccountOperation.capture(ref);
     final coordinator = ref.read(habitOccurrenceCoordinatorProvider);
     if (coordinator == null) {
       throw StateError('Daily Rhythm outcomes require a verified account.');
     }
     final result = await coordinator.correct(id, outcome);
-    ref.invalidate(habitOccurrencesProvider);
-    ref.invalidate(decisionOutcomesProvider);
-    await ref.read(decisionOutcomeActionsProvider).reconcileRetention();
+    await _afterOutcome(owner);
     return result;
   }
 
@@ -176,6 +205,7 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
     DateTime period, {
     required bool completed,
   }) async {
+    final owner = AccountOperation.capture(ref);
     final coordinator = ref.read(habitOccurrenceCoordinatorProvider);
     if (coordinator == null) {
       throw StateError('Daily Rhythm outcomes require a verified account.');
@@ -183,9 +213,7 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
     final result = completed
         ? await coordinator.completeAt(id, period)
         : await coordinator.skipAt(id, period);
-    ref.invalidate(habitOccurrencesProvider);
-    ref.invalidate(decisionOutcomesProvider);
-    await ref.read(decisionOutcomeActionsProvider).reconcileRetention();
+    await _afterOutcome(owner);
     return result;
   }
 

@@ -48,6 +48,7 @@ void main() {
           ),
           scheduler: scheduler,
           accountScope: 'restore-scope',
+          loadHabitOccurrences: () async => [],
         );
         expect(
           await reflection.reconcileAfterRestore(
@@ -103,6 +104,7 @@ void main() {
           ),
           scheduler: scheduler,
           accountScope: 'restore-scope',
+          loadHabitOccurrences: () async => [],
         );
         expect(
           await reflection.reconcileAfterRestore(
@@ -136,7 +138,8 @@ void main() {
         expect(scheduler.permissionRequests, 0);
         expect(prefs.load('reflection_reminder_enabled'), 'true');
         expect(scheduler.schedules.length, granted ? 1 : 0);
-        expect(scheduler.dailySchedules.length, granted ? 3 : 0);
+        expect(scheduler.dailySchedules.length, granted ? 2 : 0);
+        expect(scheduler.cadenceSchedules, granted ? 1 : 0);
         if (granted) {
           final reflectionAt = scheduler.dailySchedules.first;
           expect((reflectionAt.hour, reflectionAt.minute), (18, 45));
@@ -146,6 +149,96 @@ void main() {
       },
     );
   }
+  test(
+    'restore cancels fixed reminders before a blocked 695-goal history sweep',
+    () async {
+      const account = 'large-goal-restore-scope';
+      final prefs = _MemoryPreferences();
+      await prefs.save('daily_planning_reminder_enabled', 'true');
+      await prefs.save('daily_planning_reminder_time', '7:30');
+      await prefs.save('habit_reminders_enabled', 'true');
+      await prefs.save('goal_reminders_enabled', 'true');
+      await prefs.save(
+        'scheduled_goal_reminder_ids',
+        '["legacy-tracked", "completed-0"]',
+      );
+      final created = DateTime.utc(2026, 10, 14);
+      final goals = List<GoalEntity>.generate(
+        695,
+        (index) => GoalEntity(
+          id: 'completed-$index',
+          title: 'Completed goal $index',
+          createdAt: created,
+          completedAt: created.add(const Duration(minutes: 1)),
+        ),
+      );
+      final originalGoals = goals.map((goal) => goal.toJson()).toList();
+      final scheduler = _RecordingScheduler()
+        ..blockFirstGoalCancellation = true;
+      final service = ReminderOrchestratorService(
+        preferences: prefs,
+        notifications: NotificationsService(_RecordingNotificationRepository()),
+        scheduler: scheduler,
+        accountScope: account,
+        loadHabitOccurrences: () async => [],
+      );
+      final pending = service.reconcileAfterRestore(
+        goals: goals,
+        habits: [
+          HabitEntity(
+            id: 'owned-habit',
+            title: 'Owned rhythm',
+            createdAt: created,
+          ),
+        ],
+        permissionGranted: false,
+        shouldContinue: () => true,
+      );
+      try {
+        await scheduler.firstGoalCancellationEntered.future.timeout(
+          const Duration(seconds: 5),
+        );
+        expect(scheduler.cancelled.take(2).toList(), [
+          'daily_planning_reminder',
+          'habit_reminder_daily',
+        ]);
+        expect(
+          scheduler.cancelled.where((id) => id.startsWith('goal_reminder_')),
+          hasLength(1),
+          reason: 'The first goal cancellation remains blocked.',
+        );
+        expect(scheduler.dailySchedules, isEmpty);
+        expect(scheduler.schedules, isEmpty);
+        expect(scheduler.cadenceSchedules, 0);
+      } finally {
+        if (!scheduler.releaseGoalCancellation.isCompleted) {
+          scheduler.releaseGoalCancellation.complete();
+        }
+        expect(await pending.timeout(const Duration(seconds: 5)), isFalse);
+      }
+      expect(
+        scheduler.cancelled,
+        unorderedEquals([
+          'daily_planning_reminder',
+          'habit_reminder_daily',
+          'goal_reminder_legacy-tracked',
+          ...goals.map((goal) => 'goal_reminder_${goal.id}'),
+        ]),
+      );
+      expect(scheduler.cancelled.toSet().length, 698);
+      expect(
+        scheduler.operations.every((op) => op == 'cancel:$account'),
+        isTrue,
+      );
+      expect(scheduler.permissionRequests, 0);
+      expect(scheduler.cancelAllCalls, 0);
+      expect(prefs.load('daily_planning_reminder_enabled'), 'true');
+      expect(prefs.load('daily_planning_reminder_time'), '7:30');
+      expect(prefs.load('habit_reminders_enabled'), 'true');
+      expect(prefs.load('goal_reminders_enabled'), 'true');
+      expect(goals.map((goal) => goal.toJson()).toList(), originalGoals);
+    },
+  );
   test(
     'restore reports a rejected OS schedule and stale account cleanup',
     () async {
@@ -442,6 +535,11 @@ final class _MemoryPreferences implements SharedPrefsStore {
 
 final class _RecordingScheduler implements NotificationSchedulerPort {
   bool scheduleSucceeds = true;
+  bool blockFirstGoalCancellation = false;
+  final firstGoalCancellationEntered = Completer<void>();
+  final releaseGoalCancellation = Completer<void>();
+  int cancelAllCalls = 0;
+  int cadenceSchedules = 0;
   final List<NotificationEntity> schedules = [];
   bool blockFirstSchedule = false;
   final entered = Completer<void>();
@@ -494,14 +592,37 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
   }
 
   @override
+  Future<bool> scheduleCadenceAt({
+    required String id,
+    required String title,
+    required String body,
+    required HabitCadence cadence,
+    required DateTime firstAt,
+    String? accountScope,
+  }) async {
+    operations.add('cadence:$accountScope');
+    cadenceSchedules++;
+    return scheduleSucceeds;
+  }
+
+  @override
   Future<bool> cancel(String id, {String? accountScope}) async {
     operations.add('cancel:$accountScope');
     cancelled.add(id);
+    if (blockFirstGoalCancellation &&
+        id.startsWith('goal_reminder_') &&
+        !firstGoalCancellationEntered.isCompleted) {
+      firstGoalCancellationEntered.complete();
+      await releaseGoalCancellation.future;
+    }
     return true;
   }
 
   @override
-  Future<bool> cancelAll() async => true;
+  Future<bool> cancelAll() async {
+    cancelAllCalls++;
+    return true;
+  }
 
   @override
   void clearTappedPayload() {

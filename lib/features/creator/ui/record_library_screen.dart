@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/features/notes/ui/note_detail_screen.dart';
+import 'package:fantastic_guacamole/features/tasks/widgets/task_edit_dialog.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -24,6 +25,7 @@ class RecordLibraryScreen extends ConsumerStatefulWidget {
 class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
   final TextEditingController _search = TextEditingController();
   _LibraryKind _kind = _LibraryKind.tasks;
+  bool _taskBusy = false;
 
   @override
   void dispose() {
@@ -101,6 +103,14 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
 
   Widget _tasks(bool es) {
     final tasks = ref.watch(getTasksUseCaseProvider);
+    final boundary = ref.watch(authSessionBoundaryProvider);
+    final scope = ref.watch(accountStorageScopeProvider);
+    final enabled =
+        !_taskBusy &&
+        scope.isWritable &&
+        boundary.isStorageReady &&
+        !boundary.isTransitioning &&
+        boundary.blockingIssue == null;
     return FutureBuilder<List<TaskEntity>>(
       future: tasks.call(),
       builder: (context, snapshot) {
@@ -120,20 +130,71 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
                     ? (es ? 'Completada' : 'Completed')
                     : task.isCanceled
                     ? (es ? 'Cancelada' : 'Canceled')
+                    : task.isSkipped
+                    ? (es ? 'Omitida' : 'Skipped')
                     : (es ? 'Activa' : 'Active');
                 final timing = task.scheduledFor ?? task.dueDate;
-                return ListTile(
-                  key: ValueKey('library-task-${task.id}'),
-                  leading: Icon(
-                    task.isCompleted
-                        ? Icons.check_circle_outline
-                        : Icons.task_alt_rounded,
-                    color: AppColors.neonCyan,
-                  ),
-                  title: Text(task.title),
-                  subtitle: Text(
-                    '$status${timing == null ? '' : ' · ${MaterialLocalizations.of(context).formatMediumDate(timing.toLocal())}'}',
-                  ),
+                final actionable =
+                    !task.isCompleted && !task.isCanceled && !task.isSkipped;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ListTile(
+                      key: ValueKey('library-task-${task.id}'),
+                      leading: Icon(
+                        task.isCompleted
+                            ? Icons.check_circle_outline
+                            : Icons.task_alt_rounded,
+                        color: AppColors.neonCyan,
+                      ),
+                      title: Text(task.title),
+                      subtitle: Text(
+                        '$status${timing == null ? '' : ' · ${MaterialLocalizations.of(context).formatMediumDate(timing.toLocal())}'}',
+                      ),
+                      onTap: !enabled || !actionable
+                          ? null
+                          : () => _manageTask(
+                              task,
+                              'edit',
+                              es,
+                              boundary,
+                              scope.v2Namespace,
+                            ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final action in [
+                            if (actionable) 'edit',
+                            if (actionable) 'complete',
+                            if (actionable) 'skip',
+                            if (!task.isCanceled) 'delete',
+                          ])
+                            OutlinedButton(
+                              key: ValueKey('library-task-${task.id}-$action'),
+                              onPressed: !enabled
+                                  ? null
+                                  : () => _manageTask(
+                                      task,
+                                      action,
+                                      es,
+                                      boundary,
+                                      scope.v2Namespace,
+                                    ),
+                              child: Text(switch (action) {
+                                'edit' => es ? 'Editar' : 'Edit',
+                                'complete' => es ? 'Completar' : 'Complete',
+                                'skip' => es ? 'Omitir' : 'Skip',
+                                _ => es ? 'Eliminar' : 'Delete',
+                              }),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 );
               })
               .toList(growable: false),
@@ -141,6 +202,126 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
         );
       },
     );
+  }
+
+  Future<void> _manageTask(
+    TaskEntity task,
+    String action,
+    bool es,
+    AuthSessionBoundary boundary,
+    String? namespace,
+  ) async {
+    if (_taskBusy) return;
+    bool current() {
+      if (!mounted) return false;
+      final now = ref.read(authSessionBoundaryProvider);
+      final scope = ref.read(accountStorageScopeProvider);
+      return scope.isWritable &&
+          scope.v2Namespace == namespace &&
+          now.generation == boundary.generation &&
+          now.userId == boundary.userId &&
+          now.isStorageReady &&
+          !now.isTransitioning &&
+          now.blockingIssue == null;
+    }
+
+    if (!current()) return;
+    setState(() => _taskBusy = true);
+    try {
+      final existing = await ref
+          .read(domainTaskRepositoryProvider)
+          .getTaskById(task.id);
+      if (!mounted || !current()) return;
+      if (existing == null) throw StateError('Task not found');
+      final actions = ref.read(taskActionsProvider);
+      if (action == 'edit') {
+        final draft = await showTaskEditDialog(
+          context: context,
+          editable: existing,
+          goals: ref.read(goalsProvider),
+        );
+        if (draft == null || !current()) return;
+        await actions.updateTaskDetails(
+          id: existing.id,
+          title: draft.title,
+          description: draft.description,
+          clearDescription: draft.description == null,
+          priority: draft.priority,
+          estimatedDuration: draft.estimatedDuration,
+          clearEstimatedDuration: draft.estimatedDuration == null,
+          scheduledFor: draft.scheduledFor,
+          clearScheduledFor: draft.scheduledFor == null,
+          dueDate: draft.dueDate,
+          clearDueDate: draft.dueDate == null,
+          goalId: draft.goalId,
+          clearGoalId: draft.goalId == null,
+        );
+      } else if (action == 'delete') {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(
+              es
+                  ? '¿Quitar la tarea de la planificación?'
+                  : 'Remove task from active planning?',
+            ),
+            content: Text(
+              es
+                  ? '«${existing.title}» se cancelará. Su registro cancelado permanecerá en la Biblioteca.'
+                  : '"${existing.title}" will be canceled. A canceled record remains in Library.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(es ? 'Cancelar' : 'Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(es ? 'Quitar tarea' : 'Remove task'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true || !current()) return;
+        await actions.deleteTask(existing.id);
+      } else {
+        if (existing.isCompleted || existing.isSkipped || existing.isCanceled) {
+          return;
+        }
+        if (action == 'complete') {
+          await actions.completeTask(existing.id);
+        } else {
+          await actions.skipTask(existing.id);
+        }
+      }
+      if (!mounted || !current()) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(switch (action) {
+            'edit' => es ? 'Tarea actualizada.' : 'Task updated.',
+            'complete' => es ? 'Tarea completada.' : 'Task completed.',
+            'skip' => es ? 'Tarea omitida.' : 'Task skipped.',
+            _ =>
+              es
+                  ? 'Tarea cancelada. Su registro permanece en la Biblioteca.'
+                  : 'Task canceled. Its record remains in Library.',
+          }),
+        ),
+      );
+    } catch (_) {
+      if (!mounted || !current()) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            es
+                ? 'No se pudo cambiar la tarea. Inténtalo de nuevo.'
+                : 'Task could not be changed. Try again.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _taskBusy = false);
+    }
   }
 
   Widget _notes(bool es) {

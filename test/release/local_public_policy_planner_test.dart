@@ -1,3 +1,6 @@
+@Tags(['local-public-policy'])
+library;
+
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/config/env.dart';
