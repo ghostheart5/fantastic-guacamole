@@ -1,0 +1,8 @@
+{
+  "sourceRun": 39047303016,
+  "sourceAttempt": 1,
+  "sourceArtifact": 12106503435,
+  "boundary": "Minimal captured public-emulator diagnostics. No application/user data.",
+  "lastAnr": "ACTIVITY MANAGER LAST ANR (dumpsys activity lastanr)\n  ANR time: Oct 17, 2026 4:11:38 PM\n  Reason: Input dispatching timed out (Application does not have a focused window).\n",
+  "events": "10-17 16:11:38.289   584  2499 I am_anr  : [0,1240,com.google.android.apps.nexuslauncher,885767749,Input dispatching timed out (Application does not have a focused window).]\n"
+}

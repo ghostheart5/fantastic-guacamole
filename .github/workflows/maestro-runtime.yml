@@ -521,8 +521,10 @@ jobs:
         run: |
           set -euo pipefail
           cat > test-results/maestro-prewarm/prepare_guest.py <<'PY'
-          import json, os, re, subprocess, time
+          import json, os, re, subprocess, sys, time
           from pathlib import Path
+          sys.path.insert(0, str(Path.cwd() / 'scripts'))
+          from hosted_guest_anr import classify_anr
           assert os.environ.get('GITHUB_ACTIONS') == 'true' and os.name == 'posix'
           root = Path('test-results/maestro-prewarm')
           adb = ['adb', '-s', 'emulator-5554']
@@ -562,10 +564,15 @@ jobs:
                   (root / f'sample-{index}-window.txt').write_text(window)
                   (root / f'sample-{index}-activities.txt').write_text(activities)
                   (root / f'sample-{index}-lastanr.txt').write_text(last_anr)
-                  anr = re.search(r'(?im)^\s*ANR in\s+(\S+)', last_anr)
-                  assert '<no anr has occurred since boot>' in last_anr.lower() or anr, 'Unable to determine fresh guest ANR state'
-                  app_anr = anr and (anr.group(1) == app_package or anr.group(1).startswith(app_package + ':'))
-                  assert not app_anr, 'Fresh guest reported an ANR in the app before app tests'
+                  anr_events = shell('logcat', '-d', '-b', 'events', '-v', 'threadtime')
+                  (root / f'sample-{index}-anr-events.txt').write_text(anr_events)
+                  try:
+                      anr_state = classify_anr(last_anr, anr_events, app_package)
+                  except ValueError as error:
+                      receipt['anrFailure'] = str(error)
+                      raise AssertionError('Unable to determine fresh guest ANR state') from error
+                  receipt['lastAnrState'] = anr_state
+                  assert not anr_state['appAnrObserved'], 'Fresh guest reported an ANR in the app before app tests'
                   assert not re.search(r'Application (?:Error|Not Responding)|isn.t responding', window, re.I)
                   # The early resolver can name Setup while HOME has moved to the
                   # launcher. Read the current visible user-0 HOME task each sample.
@@ -581,6 +588,7 @@ jobs:
                   receipt['homeActivity'] = home
                   receipt['samples'].append({'index': index, 'monotonic': time.monotonic(),
                       'homeActivity': home, 'setupActivity': setup_activity, 'focusedActivities': sorted(current_focus), 'resumedActivities': sorted(current_resumed),
+                      'anrState': anr_state,
                       'homeFocused': focused, 'homeResumed': resumed, 'stableHomeSamples': stable_home_samples,
                       'guestMemory': shell('cat', '/proc/meminfo'),
                       'hostMemory': Path('/proc/meminfo').read_text(),
@@ -600,14 +608,20 @@ jobs:
             timeout 30s adb -s emulator-5554 shell dumpsys activity lastanr > test-results/maestro-prewarm/final-lastanr.txt 2>&1 || result=1
             timeout 30s adb -s emulator-5554 shell dumpsys window windows > test-results/maestro-prewarm/final-window.txt 2>&1 || result=1
             python3 - test-results/maestro-prewarm/final-lastanr.txt <<'PY' || result=1
-          import re, sys
+          import json, sys
           from pathlib import Path
+          sys.path.insert(0, str(Path.cwd() / 'scripts'))
+          from hosted_guest_anr import classify_anr
           last_anr = Path(sys.argv[1]).read_text(errors='replace')
-          anr = re.search(r'(?im)^\s*ANR in\s+(\S+)', last_anr)
-          if '<no anr has occurred since boot>' not in last_anr.lower() and not anr:
-              raise SystemExit('Unable to determine final guest ANR state')
           app_package = 'com.ghostheart5.chronospark.qa'
-          if anr and (anr.group(1) == app_package or anr.group(1).startswith(app_package + ':')):
+          root = Path('test-results/maestro-prewarm')
+          try:
+              state = classify_anr(last_anr, (root / 'system-logcat.txt').read_text(errors='replace'), app_package)
+          except ValueError as error:
+              (root / 'final-anr-state.json').write_text(json.dumps({'determined': False, 'diagnostic': str(error)}) + '\n')
+              raise SystemExit('Unable to determine final guest ANR state') from error
+          (root / 'final-anr-state.json').write_text(json.dumps(state, indent=2) + '\n')
+          if state['appAnrObserved']:
               raise SystemExit('Final guest reported an ANR in the app')
           PY
             exit "$result"
