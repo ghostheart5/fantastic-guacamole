@@ -16,7 +16,7 @@ The live inventory contains 117 remote branches including main: 64 other branch 
 
 ## Validation
 
-Pending final results. All required protected checks must succeed before merge. Host unit/widget tests and disposable backend tests are distinct from physical-device, production-backend and Play release acceptance.
+Local validation passed 171 Python tooling tests, 51 Node contracts, and 309 Edge Function tests; source analysis, formatting, workflow contracts and Maestro contracts passed. The first full Flutter sweep identified the backup coordinator size limit; manifest validation was extracted into a checked responsibility part without weakening the limit. Final Flutter/focused results and protected CI receipts are recorded in the associated PR and retained workflow artifacts. All required protected checks must succeed before merge. Host unit/widget tests and disposable backend tests are distinct from physical-device, production-backend and Play release acceptance.
 
 ## Complete remote branch disposition
 
