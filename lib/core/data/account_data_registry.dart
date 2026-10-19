@@ -195,6 +195,38 @@ Map<String, dynamic> accountDataBackupManifest() {
   };
 }
 
+/// An explicitly requested, encrypted device snapshot. This is separate from
+/// legacy task synchronization and from the portable local backup format.
+Map<String, dynamic> planningCloudBackupManifest() {
+  final local = accountDataBackupManifest();
+  final included = <String>{
+    ...(local['includedDomains'] as List<dynamic>).cast<String>(),
+    'timeline',
+  };
+  return <String, dynamic>{
+    ...local,
+    'backupKind': 'encryptedPlanningSnapshot',
+    'cloudRestoreIncluded': true,
+    'includedDomains': included.toList(growable: false),
+    'cloudReplicatedDomains': included.toList(growable: false),
+    'excludedDomains': accountDataDomains
+        .where((domain) => !included.contains(domain.id))
+        .map((domain) => domain.id)
+        .toList(growable: false),
+    'domains': accountDataDomains
+        .map(
+          (domain) => <String, dynamic>{
+            ...domain.toManifestJson(),
+            if (included.contains(domain.id)) ...<String, dynamic>{
+              'backupStatus': AccountDataBackupStatus.backedUp.name,
+              'cloudReplicated': true,
+            },
+          },
+        )
+        .toList(growable: false),
+  };
+}
+
 /// Canonical persistence inventory for account cleanup and account-scoped keys.
 ///
 /// Device-global preferences are listed separately so account departure cannot

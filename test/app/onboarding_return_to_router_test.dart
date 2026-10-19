@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart' as guards;
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
@@ -28,6 +29,9 @@ class _TestBoolNotifier extends Notifier<bool> {
 }
 
 void main() {
+  final String welcomeEntryLabel = Env.isLocalMode
+      ? 'CONTINUE TO PROFILE'
+      : 'CONTINUE TO LOGIN';
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
@@ -49,7 +53,7 @@ void main() {
       );
       expect(find.byType(OnboardingScreen), findsOneWidget);
 
-      await tester.tap(find.text('CONTINUE TO LOGIN'));
+      await tester.tap(find.text(welcomeEntryLabel));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
 
@@ -93,7 +97,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    await tester.tap(find.text('CONTINUE TO LOGIN'));
+    await tester.tap(find.text(welcomeEntryLabel));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -122,7 +126,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    await tester.tap(find.text('CONTINUE TO LOGIN'));
+    await tester.tap(find.text(welcomeEntryLabel));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
