@@ -334,6 +334,11 @@ Get-GitEvidenceText -RepositoryRoot ${psLiteral(temporaryDirectory.path)} -Argum
     expect(result.exitCode, 0, reason: result.stderr as String);
     final List<dynamic> flows = jsonDecode(result.stdout as String) as List;
     expect(flows, hasLength(11));
+    expect(flows, contains('.maestro/qa/priority8-account-isolation.yaml'));
+    expect(
+      flows,
+      isNot(contains('.maestro/flows/priority8-account-isolation.yaml')),
+    );
     expect(flows.sublist(flows.length - 2), <String>[
       '.maestro/flows/priority8-learned-lifecycle.yaml',
       '.maestro/flows/priority8-learned-lifecycle-readback.yaml',
