@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
@@ -8,6 +10,47 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  for (final complete in [true, false]) {
+    test(
+      'late initial setup read cannot undo explicit ${complete ? 'completion' : 'reset'}',
+      () async {
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+        final initialRead = Completer<bool>();
+        final scope = AccountStorageScope.authenticated('local-setup-profile');
+        final container = ProviderContainer(
+          overrides: [
+            accountStorageScopeProvider.overrideWithValue(scope),
+            accountOnboardingCompleteProvider.overrideWith(
+              () => _DelayedInitialSetup(initialRead.future),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        expect(
+          container.read(accountOnboardingCompleteProvider).isLoading,
+          true,
+        );
+        final notifier = container.read(
+          accountOnboardingCompleteProvider.notifier,
+        );
+        final operation = complete ? notifier.complete() : notifier.reset();
+        await Future<void>.delayed(Duration.zero);
+        initialRead.complete(!complete);
+        await operation;
+        await container.pump();
+        expect(
+          container.read(accountOnboardingCompleteProvider).asData?.value,
+          complete,
+        );
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          prefs.getBool('onboarding_profile_complete_v1.${scope.v2Namespace}'),
+          complete,
+        );
+      },
+    );
+  }
+
   test(
     'same-account refresh preserves completed onboarding without loading',
     () async {
@@ -201,4 +244,12 @@ class _OwnershipNotifier extends Notifier<LegacyScopeOwnership> {
   LegacyScopeOwnership build() => LegacyScopeOwnership.ambiguous;
 
   void set(LegacyScopeOwnership value) => state = value;
+}
+
+class _DelayedInitialSetup extends AccountOnboardingCompleteNotifier {
+  _DelayedInitialSetup(this.initialRead);
+  final Future<bool> initialRead;
+
+  @override
+  Future<bool> build() => initialRead;
 }

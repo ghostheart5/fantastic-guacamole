@@ -75,6 +75,10 @@ class AccountOnboardingCompleteNotifier extends AsyncNotifier<bool> {
     if (account == null) {
       throw StateError('Account storage is not ready for onboarding.');
     }
+    // A pending initial read must settle before the explicit completion write.
+    // Otherwise its stale false result can replace the successful state below.
+    await future;
+    if (_activeScope != account) return;
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     if (_activeScope != account) return;
     await prefs.setBool(_key(account), true);
@@ -84,6 +88,9 @@ class AccountOnboardingCompleteNotifier extends AsyncNotifier<bool> {
   Future<void> reset() async {
     final String? account = _activeScope;
     if (account == null) return;
+    // The same ordering keeps a late true read from undoing an explicit reset.
+    await future;
+    if (_activeScope != account) return;
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     if (_activeScope != account) return;
     await prefs.setBool(_key(account), false);
