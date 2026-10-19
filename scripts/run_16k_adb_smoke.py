@@ -20,6 +20,7 @@ ROOT = Path("test-results/native-16k-ci")
 APK = Path("build/app/outputs/flutter-apk/app-debug.apk")
 UI_MARKERS = (
     "CONTINUE TO LOGIN",
+    "CONTINUE TO PROFILE",
     "START LOGIN",
     "SKIP FOR NOW",
     "TESTER ACCESS",

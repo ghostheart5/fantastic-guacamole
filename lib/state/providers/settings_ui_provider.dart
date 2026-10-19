@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_operation.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
@@ -249,7 +250,9 @@ class CloudSyncPreferenceNotifier extends AsyncNotifier<bool> {
       throw StateError('Cloud sync preference requires an account scope.');
     }
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('$_cloudSyncPreferenceKey.$namespace', enabled);
+    await runAccountStorageMutation(() async {
+      await prefs.setBool('$_cloudSyncPreferenceKey.$namespace', enabled);
+    });
     state = AsyncData<bool>(enabled);
     if (!enabled) {
       final SharedPrefsStore store = ref.read(accountSharedPrefsStoreProvider);

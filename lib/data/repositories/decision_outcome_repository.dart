@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
+
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
@@ -56,20 +58,25 @@ class DecisionOutcomeRepository
     final List<DecisionOutcomeEntity> bounded = values.sublist(
       values.length - maxRecords,
     );
-    await _store.save(
-      _key,
-      jsonEncode(
-        bounded
-            .map((DecisionOutcomeEntity value) => value.toJson())
-            .toList(growable: false),
-      ),
-    );
-    return bounded;
+    return runAccountStorageMutation(() async {
+      // A concurrent record may have arrived while this read initialized.
+      // Re-read under the account boundary before persisting retention.
+      if (_store.load(_key) != raw) return load();
+      await _store.save(
+        _key,
+        jsonEncode(
+          bounded
+              .map((DecisionOutcomeEntity value) => value.toJson())
+              .toList(growable: false),
+        ),
+      );
+      return bounded;
+    });
   }
 
   @override
   Future<void> record(DecisionOutcomeEntity outcome) {
-    final Future<void> operation = _tail.then((_) async {
+    return _serializeWrite(() async {
       if (outcome.decisionId.trim().isEmpty || outcome.surface.trim().isEmpty) {
         throw ArgumentError('Decision outcome identity must not be empty.');
       }
@@ -100,13 +107,11 @@ class DecisionOutcomeRepository
         ),
       );
     });
-    _tail = operation.catchError((Object _) {});
-    return operation;
   }
 
   @override
   Future<void> replaceSnapshot(List<DecisionOutcomeEntity> outcomes) {
-    final Future<void> operation = _tail.then((_) async {
+    return _serializeWrite(() async {
       await _store.init();
       final List<DecisionOutcomeEntity> sorted = outcomes.toList()
         ..sort(
@@ -126,8 +131,6 @@ class DecisionOutcomeRepository
         ),
       );
     });
-    _tail = operation.catchError((Object _) {});
-    return operation;
   }
 
   Future<bool> isLearningPaused() async {
@@ -135,25 +138,35 @@ class DecisionOutcomeRepository
     return _store.load(_pausedKey) == 'true';
   }
 
-  Future<void> setLearningPaused(bool paused) async {
-    await _store.init();
-    if (paused) {
-      await _store.save(_pausedKey, 'true');
-    } else {
-      await _store.delete(_pausedKey);
-    }
-  }
+  Future<void> setLearningPaused(bool paused) =>
+      runAccountStorageMutation(() async {
+        await _store.init();
+        if (paused) {
+          await _store.save(_pausedKey, 'true');
+        } else {
+          await _store.delete(_pausedKey);
+        }
+      });
 
-  Future<void> remove(String outcomeId) async {
+  Future<void> remove(String outcomeId) => runAccountStorageMutation(() async {
     final List<DecisionOutcomeEntity> current = await load();
     await replaceSnapshot(
       current
           .where((DecisionOutcomeEntity value) => value.id != outcomeId)
           .toList(growable: false),
     );
-  }
+  });
 
   Future<void> clear() => replaceSnapshot(const <DecisionOutcomeEntity>[]);
 
-  Future<void> drain() => _tail.catchError((Object _) {});
+  Future<void> drain() =>
+      runAccountStorageMutation(() => _tail.catchError((Object _) {}));
+
+  Future<void> _serializeWrite(Future<void> Function() action) {
+    return runAccountStorageMutation(() {
+      final operation = _tail.then((_) => action());
+      _tail = operation.catchError((Object _) {});
+      return operation;
+    });
+  }
 }

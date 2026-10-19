@@ -13,6 +13,20 @@ from run_16k_adb_smoke import (
 
 
 class ForegroundAttributionTests(unittest.TestCase):
+    def test_local_profile_welcome_is_an_exact_app_owned_ready_marker(self):
+        ready = b'<hierarchy><node package="com.ghostheart5.chronospark.qa" content-desc="CONTINUE TO PROFILE"/></hierarchy>'
+        self.assertEqual(app_ui_marker(ready), ("CONTINUE TO PROFILE", 1))
+        foreign = ready.replace(b'com.ghostheart5.chronospark.qa', b'com.android.launcher')
+        self.assertEqual(app_ui_marker(foreign), ("", 0))
+        partial = ready.replace(b'CONTINUE TO PROFILE', b'CONTINUE TO PROFILESETTINGS')
+        self.assertEqual(app_ui_marker(partial), ("", 1))
+
+    def test_hosted_native_verifier_accepts_the_same_ready_markers(self):
+        from run_16k_adb_smoke import UI_MARKERS
+        workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/maestro-runtime.yml').read_text(encoding='utf-8')
+        for marker in UI_MARKERS:
+            self.assertIn(repr(marker), workflow)
+
     def test_captured_isolated_qa_package_supplies_its_own_ready_ui(self):
         # The October17 API35/16KiB install log names this suffixed package.
         ready = b'<hierarchy><node package="com.ghostheart5.chronospark.qa" content-desc="ENTER SYSTEM"/></hierarchy>'

@@ -21,6 +21,7 @@ import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
 import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
@@ -358,6 +359,67 @@ void main() {
       );
     },
   );
+
+  Future<void> mutatePlanningDomain(String domain) async {
+    switch (domain) {
+      case 'goals':
+        await container.read(domainGoalRepositoryProvider).deleteGoal('goal-a');
+      case 'task occurrences':
+        await container
+            .read(taskOccurrenceRepositoryProvider)
+            .replaceSnapshot([]);
+      case 'rhythm occurrences':
+        await container
+            .read(habitOccurrenceRepositoryProvider)!
+            .replaceSnapshot([]);
+      case 'decision outcomes':
+        await container.read(decisionOutcomeRepositoryProvider)!.clear();
+      case 'rhythms':
+        await container.read(domainHabitRepositoryProvider).saveHabits([]);
+      case 'notes':
+        await container.read(domainNoteRepositoryProvider).deleteNote('note-a');
+      case 'reminder settings':
+        await container
+            .read(accountSharedPrefsStoreProvider)
+            .save('goal_reminders_enabled', 'false');
+      case 'typed settings':
+        await container
+            .read(syncServiceProvider)!
+            .backup
+            .prefs
+            .setString('daily_planning_reminder_time', '19:30');
+    }
+  }
+
+  for (final domain in [
+    'goals',
+    'task occurrences',
+    'rhythm occurrences',
+    'decision outcomes',
+    'rhythms',
+    'notes',
+    'reminder settings',
+    'typed settings',
+  ]) {
+    for (final readNumber in [1, 2]) {
+      test(
+        'a $domain mutation during read $readNumber rejects stale backup success',
+        () async {
+          await _seed(container, 'a');
+          var reads = 0;
+          final gateway = _PlanningGateway()
+            ..beforeRead = () async {
+              if (++reads == readNumber) await mutatePlanningDomain(domain);
+            };
+          expect(
+            await planningService(gateway).backupPlanningToCloud(),
+            CloudSyncOutcome.conflict,
+          );
+          expect(gateway.writes, readNumber == 1 ? 0 : 1);
+        },
+      );
+    }
+  }
 
   test(
     'corrupt local history cannot replace a verified cloud snapshot',

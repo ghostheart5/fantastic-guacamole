@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
+
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/domain/entities/task_occurrence_entity.dart';
 
@@ -15,7 +17,9 @@ class TaskOccurrenceRepository {
 
   Future<void> cancelAndDrain() async {
     _cancelled = true;
-    await _writeQueue.catchError((Object _) {});
+    await runAccountStorageMutation(
+      () => _writeQueue.catchError((Object _) {}),
+    );
   }
 
   void dispose() => _cancelled = true;
@@ -144,9 +148,16 @@ class TaskOccurrenceRepository {
         ),
       );
     }
-    final Future<void> next = _writeQueue.then((_) => action());
-    _writeQueue = next.catchError((Object _) {});
-    return next;
+    return runAccountStorageMutation(() {
+      if (_cancelled) {
+        throw StateError(
+          'Task occurrence mutation canceled during account transition.',
+        );
+      }
+      final Future<void> next = _writeQueue.then((_) => action());
+      _writeQueue = next.catchError((Object _) {});
+      return next;
+    });
   }
 
   HiveStorage<String> _requireStorage() =>

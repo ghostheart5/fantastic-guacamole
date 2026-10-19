@@ -14,9 +14,13 @@ The live inventory contains 117 remote branches including main: 64 other branch 
 - `177d14c2`: encrypted full planning snapshots, Timeline date-only serialization, strict validation, account/CAS/local-edit guards, rollback and provider refresh, with matching English/Spanish scope disclosure and regressions.
 - Selected `5bcdef1b` hunks: local profile welcome destination copy, bilingual widget tests and compatible QA journey selectors. Current guide pause behavior, Back semantics and profile seeding are retained.
 
+## Integration review corrections
+
+Automated review of the initial candidate identified two additional integration defects. A reproduced goal deletion during cloud download still reported `synced` for the stale snapshot; all covered canonical goal, occurrence, outcome and backed-up preference writes now join the account mutation boundary before their private write queues. Retention writes and cancellation/drain paths preserve the same ordering. Sixteen regressions mutate each covered planning/settings domain before upload and during verified readback. The new local welcome label is also accepted by both native 16KB readiness verifiers, with app-ownership and word-boundary tests retained.
+
 ## Validation
 
-Local validation passed 171 Python tooling tests, 51 Node contracts, and 309 Edge Function tests; source analysis, formatting, workflow contracts and Maestro contracts passed. The first full Flutter sweep identified the backup coordinator size limit; manifest validation was extracted into a checked responsibility part without weakening the limit. Final Flutter/focused results and protected CI receipts are recorded in the associated PR and retained workflow artifacts. All required protected checks must succeed before merge. Host unit/widget tests and disposable backend tests are distinct from physical-device, production-backend and Play release acceptance.
+The initial candidate passed 171 Python tooling tests, 51 Node contracts, and 309 Edge Function tests; source analysis, formatting, workflow contracts and Maestro contracts passed. The first full Flutter sweep identified the backup coordinator size limit; manifest validation was extracted into a checked responsibility part without weakening the limit. Final revised-source Flutter/focused, native/runtime results and protected CI receipts are recorded in the associated PR and retained workflow artifacts. All required protected checks must succeed before merge. Host unit/widget tests and disposable backend tests are distinct from physical-device, production-backend and Play release acceptance.
 
 ## Complete remote branch disposition
 
