@@ -21,6 +21,22 @@ appId: com.ghostheart5.chronospark
       visible: "Go to Today"
     commands:
       - tapOn: "Go to Today"
+      - waitForAnimationToEnd:
+          timeout: 5000
+
+# At larger text or a retained scroll offset, the top action can be offscreen.
+# Use the existing lower exit only when the preferred top action is not visible.
+- runFlow:
+    when:
+      notVisible: "Go to Today"
+    commands:
+      - runFlow:
+          when:
+            visible: "SKIP FOR NOW"
+          commands:
+            - tapOn: "SKIP FOR NOW"
+            - waitForAnimationToEnd:
+                timeout: 5000
 
 - runFlow:
     when:

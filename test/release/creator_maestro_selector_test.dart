@@ -22,6 +22,61 @@ void main() {
   }
 
   test(
+    'shared setup exits prefer the top action and cover a lower-only viewport',
+    () {
+      for (final name in ['skip-onboarding', 'sign-in', 'sign-in-qa']) {
+        final flow = commands('.maestro/subflows/$name.yaml');
+        for (final visible in <Set<String>>[
+          {'Go to Today', 'SKIP FOR NOW'},
+          {'SKIP FOR NOW'},
+          {'Today'},
+        ]) {
+          final taps = <String>[];
+          bool matches(dynamic pattern) =>
+              pattern is String &&
+              visible.any((label) => RegExp(pattern).hasMatch(label));
+          void walk(dynamic value) {
+            if (value is! Iterable) return;
+            for (final command in value.whereType<Map<dynamic, dynamic>>()) {
+              final run = command['runFlow'];
+              if (run is Map) {
+                final condition = run['when'];
+                if (condition is Map &&
+                    ((condition.containsKey('visible') &&
+                            !matches(condition['visible'])) ||
+                        (condition.containsKey('notVisible') &&
+                            matches(condition['notVisible'])))) {
+                  continue;
+                }
+                walk(run['commands']);
+              }
+              final tap = command['tapOn'];
+              if (tap is String &&
+                  ['Go to Today', 'SKIP FOR NOW'].contains(tap)) {
+                taps.add(tap);
+              }
+            }
+          }
+
+          // Retain the same viewport after a tap: the fallback must not mask an
+          // unsuccessful top tap by invoking the other completion action too.
+          walk(flow);
+          final expected = visible.contains('Go to Today')
+              ? ['Go to Today']
+              : visible.contains('SKIP FOR NOW')
+              ? ['SKIP FOR NOW']
+              : <String>[];
+          expect(
+            taps,
+            expected,
+            reason: '$name must handle viewport $visible exactly once',
+          );
+        }
+      }
+    },
+  );
+
+  test(
     'manual creator smoke uses the actual save actions and retains durable readback',
     () {
       final flow = commands('.maestro/flows/05-creator.yaml');
