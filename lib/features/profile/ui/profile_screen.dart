@@ -62,7 +62,7 @@ class _ProfileBody extends ConsumerWidget {
   ) async {
     final String text = journeyText(
       context,
-      'I am using Axiomara to run my goals, progression, and execution system.\n'
+      'I am using Axiomara to plan my goals, track my habits, and understand my patterns.\n'
           'Join me: ${AppUrls.website}\n'
           'Current streak: ${state.profile.streak}d | Level ${state.profile.level}',
       'Uso Axiomara para organizar mis metas, progreso y sistema de ejecución.\n'

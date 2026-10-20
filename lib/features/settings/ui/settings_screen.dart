@@ -107,8 +107,8 @@ final class SettingsSafetyCopy {
       ? 'Tu cuenta de Axiomara en la nube y tu suscripción de Google Play seguirán activas.'
       : 'Your Axiomara cloud account and Google Play subscription remain active.';
   String get planningRecordsRemoved => isSpanish
-      ? 'Los registros de planificación y el historial de Línea de Tiempo se borrarán de este dispositivo.'
-      : 'Planning records and Timeline history are removed from this device.';
+      ? 'Los registros de planificación y el historial de la agenda se borrarán de este dispositivo.'
+      : 'Planning records and schedule history are removed from this device.';
   String get offlineActionsRemoved => isSpanish
       ? 'Las acciones sin conexión y los recordatorios programados se borrarán.'
       : 'Offline actions and scheduled reminders are removed.';
@@ -956,8 +956,8 @@ class SettingsScreen extends ConsumerWidget {
               content: Text(
                 journeyText(
                   context,
-                  'This permanently removes local tasks, goals, memories, timeline history, profile progress, recovery data, logs, SI state, and tester settings on this device.',
-                  'Esto elimina permanentemente las tareas, metas, recuerdos, historial de Línea de Tiempo, progreso del perfil, datos de recuperación, registros, estado SI y ajustes de prueba locales de este dispositivo.',
+                  'This permanently removes local tasks, goals, memories, schedule history, profile progress, recovery data, logs, SI state, and tester settings on this device.',
+                  'Esto elimina permanentemente las tareas, metas, recuerdos, historial de la agenda, progreso del perfil, datos de recuperación, registros, estado SI y ajustes de prueba locales de este dispositivo.',
                 ),
               ),
               actions: [

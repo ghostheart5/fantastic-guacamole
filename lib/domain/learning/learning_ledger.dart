@@ -168,8 +168,8 @@ PlannerV2Response applyPlannerLearnedPreference(
   return response.recommend(
     preferred,
     why: spanish
-        ? 'Tus elecciones registradas en el Planificador Inteligente han favorecido varias veces la opción $optionLabel. Puedes elegir otra opción o corregir este aprendizaje cuando quieras.'
-        : 'Your reviewable Smart Planner feedback repeatedly favored the $optionLabel option. You can choose another option or correct this learning at any time.',
+        ? 'Tus elecciones registradas en Elegir un paso han favorecido varias veces la opción $optionLabel. Puedes elegir otra opción o corregir este aprendizaje cuando quieras.'
+        : 'Your reviewable Choose a step feedback repeatedly favored the $optionLabel option. You can choose another option or correct this learning at any time.',
   );
 }
 

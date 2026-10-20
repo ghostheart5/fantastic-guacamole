@@ -227,6 +227,105 @@ void main() {
     }
   });
 
+  test('visible app copy and bundled pages retire the old product vocabulary', () {
+    final violations = <String>[];
+    final dartRoots = [
+      'lib/features',
+      'lib/l10n',
+      'lib/tutorial',
+      'lib/ui/widgets',
+    ];
+    for (final root in dartRoots) {
+      for (final file in Directory(
+        root,
+      ).listSync(recursive: true).whereType<File>()) {
+        if (!file.path.endsWith('.dart')) continue;
+        final path = file.path.replaceAll('\\', '/');
+        for (final line in file.readAsLinesSync()) {
+          if (line.trimLeft().startsWith(RegExp(r'(import|export|part|//)'))) {
+            continue;
+          }
+          for (final match in _quotedCopy.allMatches(line)) {
+            final copy = match.group(2)!;
+            // These are compatibility keys, not labels. Preserve stored data,
+            // old incoming navigation names, and exact memory provenance reads.
+            if (copy == 'nexus' ||
+                copy.startsWith('nexus-') ||
+                (path.endsWith('/si_console_screen.widgets.dart') &&
+                    copy == 'si-console-welcome') ||
+                copy.startsWith('assets/') ||
+                copy.startsWith('https://') ||
+                (path.endsWith('/nexus_copy.dart') &&
+                    copy == 'Reconcile unscheduled work in Smart Planner.') ||
+                (path.endsWith('/smart_planner_screen.dart') &&
+                    copy ==
+                        'User-entered in Smart Planner memory consent dialog.')) {
+              continue;
+            }
+            if (_retiredVisibleProductNames.hasMatch(copy)) {
+              violations.add('$path: $copy');
+            }
+          }
+        }
+      }
+    }
+    for (final root in ['assets/legal', 'web', 'site']) {
+      for (final file in Directory(
+        root,
+      ).listSync(recursive: true).whereType<File>()) {
+        if (!file.path.endsWith('.html') && !file.path.endsWith('.txt')) {
+          continue;
+        }
+        // Links retain the real legacy domains and package identifiers.
+        final text = file.readAsStringSync().replaceAll(
+          RegExp(r'https?://[^\s"<>]+'),
+          '',
+        );
+        if (_retiredVisibleProductNames.hasMatch(text)) {
+          violations.add(file.path);
+        }
+      }
+    }
+    expect(violations, isEmpty, reason: violations.join('\n'));
+  });
+
+  test('retired copy check distinguishes brands from stable identifiers', () {
+    for (final label in [
+      'Nexus',
+      'Decision OS',
+      'The Human Decision OS',
+      'Truth Ledger',
+      'Trajectory Engine',
+      'Smart Planner',
+      'SI Console',
+      'Planificador Inteligente',
+      'Consola SI',
+      'Constructor de Realidad',
+    ]) {
+      expect(
+        _retiredVisibleProductNames.hasMatch(label),
+        isTrue,
+        reason: label,
+      );
+    }
+    for (final identifier in [
+      'nexusTimeBlocksProvider',
+      'ChronoSparkLocalizations',
+      'TemporalGlassSurface',
+      'trajectoryEngine',
+      'SI Chat',
+      'predictions',
+      'future outcomes',
+      'goals, tasks, and habits',
+    ]) {
+      expect(
+        _retiredVisibleProductNames.hasMatch(identifier),
+        isFalse,
+        reason: identifier,
+      );
+    }
+  });
+
   test('legal citation exception cannot hide retired product wording', () {
     const String noticePath =
         'assets/legal/licenses/material-icons-sdk-notice.txt';
@@ -289,3 +388,10 @@ bool _isTextSurface(File file) {
   final String path = file.path.toLowerCase();
   return extensions.any(path.endsWith);
 }
+
+// Review rendered strings rather than banning route/type/storage identifiers.
+final RegExp _retiredVisibleProductNames = RegExp(
+  r'\b(?:nexus|chrono\s?spark|(?:human[ -])?decision[ -]os|truth[ -]ledger|trajectory[ -]engine|smart[ -]planner|si[ -]console|planificador inteligente|consola si|motor de trayectoria|constructor de realidad)\b',
+  caseSensitive: false,
+);
+final RegExp _quotedCopy = RegExp(r"""(['"])((?:\\.|(?!\1).)*)\1""");

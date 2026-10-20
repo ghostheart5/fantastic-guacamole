@@ -38,7 +38,7 @@ class PermissionExplainers {
     kind: PermissionKind.microphone,
     title: 'Enable Microphone Input',
     whyItMatters:
-        'Microphone access lets you dictate thoughts after choosing a microphone control in Smart Planner or the SI Console.',
+        'Microphone access lets you dictate thoughts after choosing a microphone control in Choose a step or the SI Chat.',
     whenUsed:
         'Used only for user-initiated speech input. Your device\'s speech provider may send audio to its servers to transcribe it, under its own privacy policy. Review the text before choosing to send it in Axiomara. Spoken playback does not require microphone access, and audio is never captured during normal planning or background use.',
     primaryActionLabel: 'Allow Microphone',
@@ -59,7 +59,7 @@ class PermissionExplainers {
     kind: PermissionKind.microphone,
     title: 'Activar entrada por micrófono',
     whyItMatters:
-        'El acceso al micrófono te permite dictar texto después de elegir un control de micrófono en Planificador Inteligente o Consola SI.',
+        'El acceso al micrófono te permite dictar texto después de elegir un control de micrófono en Elegir un paso o Chat SI.',
     whenUsed:
         'Se usa solo para entrada de voz iniciada por ti. El proveedor de voz de tu dispositivo puede enviar audio a sus servidores para transcribirlo, según su propia política de privacidad. Revisa el texto antes de elegir enviarlo en Axiomara. La reproducción hablada no requiere acceso al micrófono y nunca se captura audio durante la planificación normal ni en segundo plano.',
     primaryActionLabel: 'Permitir micrófono',

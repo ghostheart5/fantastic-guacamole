@@ -198,7 +198,7 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     return InteractiveTutorialOverlay(
       targetKey: copy.targetKey,
       stepLabel:
-          '${_copy(l10n, 'Creator', 'Creador')} ${activeStep.index + 1} ${_copy(l10n, 'of', 'de')} ${CreatorTutorialStep.values.length}',
+          '${_copy(l10n, 'Add something', 'Añadir algo')} ${activeStep.index + 1} ${_copy(l10n, 'of', 'de')} ${CreatorTutorialStep.values.length}',
       title: copy.title,
       body: copy.body,
       primaryLabel: copy.action,
@@ -341,8 +341,8 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
           : hasMatchingEvidence
           ? _copy(
               l10n,
-              'Your saved task is now on Timeline',
-              'Tu tarea guardada ya está en Línea de Tiempo',
+              'Your saved task is now on Schedule',
+              'Tu tarea guardada ya está en agenda',
             )
           : _copy(l10n, 'Finding your task', 'Buscando tu tarea'),
       body: allExpectedTasksUnavailable
@@ -365,8 +365,8 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
             )
           : _copy(
               l10n,
-              'Your new task will be highlighted here as soon as Timeline loads it.',
-              'Tu nueva tarea se resaltará aquí en cuanto la Línea de Tiempo la cargue.',
+              'Your new task will be highlighted here as soon as Schedule loads it.',
+              'Tu nueva tarea se resaltará aquí en cuanto la agenda la cargue.',
             ),
       primaryLabel: showingCompletionStep
           ? _copy(
@@ -505,8 +505,8 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         title: _copy(l10n, 'Put it on the calendar', 'Ponla en el calendario'),
         body: _copy(
           l10n,
-          'Choose a real date and time. Scheduling is required for this first task so it can appear on Timeline.',
-          'Elige una fecha y hora reales. La primera tarea necesita horario para aparecer en Línea de Tiempo.',
+          'Choose a real date and time. Scheduling is required for this first task so it can appear on Schedule.',
+          'Elige una fecha y hora reales. La primera tarea necesita horario para aparecer en agenda.',
         ),
         action: _copy(l10n, 'Schedule chosen', 'Horario elegido'),
       ),
@@ -529,15 +529,15 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         ),
         body: _copy(
           l10n,
-          'Confirm the reviewed task once. Axiomara will save it and open Timeline so you can verify where it landed.',
-          'Confirma la tarea revisada una vez. Axiomara la guardará y abrirá Línea de Tiempo para verificar dónde quedó.',
+          'Confirm the reviewed task once. Axiomara will save it and open Schedule so you can verify where it landed.',
+          'Confirma la tarea revisada una vez. Axiomara la guardará y abrirá agenda para verificar dónde quedó.',
         ),
         action: _completingCreator
             ? _copy(l10n, 'Saving', 'Guardando')
             : _copy(
                 l10n,
-                'Confirm and open Timeline',
-                'Confirmar y abrir Línea de Tiempo',
+                'Confirm and open Schedule',
+                'Confirmar y abrir agenda',
               ),
       ),
     };

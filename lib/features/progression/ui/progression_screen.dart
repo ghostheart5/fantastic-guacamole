@@ -98,7 +98,7 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
           ),
           subject: journeyText(
             context,
-            'My Axiomara progression update',
+            'My Axiomara progress update',
             'Mi actualización de progreso en Axiomara',
           ),
         ),
@@ -300,7 +300,7 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
                         trailing: PopupMenuButton<_ProgressionShareAction>(
                           tooltip: journeyText(
                             context,
-                            'Share progression',
+                            'Share progress',
                             'Compartir progreso',
                           ),
                           color: const Color(0xFF101827),
@@ -597,8 +597,8 @@ class _ObservedContinuitySummary extends ConsumerWidget {
           )
         : journeyText(
             context,
-            'Milestones completed: ${milestoneSummary.completed}/${milestoneSummary.total} · Timeline milestones: $timelineMilestones',
-            'Hitos completados: ${milestoneSummary.completed}/${milestoneSummary.total} · Hitos en la Línea de Tiempo: $timelineMilestones',
+            'Milestones completed: ${milestoneSummary.completed}/${milestoneSummary.total} · Schedule milestones: $timelineMilestones',
+            'Hitos completados: ${milestoneSummary.completed}/${milestoneSummary.total} · Hitos en la agenda: $timelineMilestones',
           );
 
     return Column(
@@ -999,8 +999,8 @@ class _AdvisorSummaryCard extends ConsumerWidget {
           loading: () => Text(
             journeyText(
               context,
-              'Building a progress view from your saved Timeline and completed actions...',
-              'Creando una vista del progreso a partir de tu Línea de Tiempo y acciones completadas...',
+              'Building a progress view from your saved schedule and completed actions...',
+              'Creando una vista del progreso a partir de tu agenda y acciones completadas...',
             ),
             style: const TextStyle(color: Color(0xFFC6D0E2), fontSize: 13),
           ),

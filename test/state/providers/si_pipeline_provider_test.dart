@@ -179,7 +179,7 @@ void main() {
     expect(nexus.aggregation, same(aggregation));
     expect(console.aggregation, same(aggregation));
     expect(console.engineSnapshot, contains('tasks 1'));
-    expect(console.engineSnapshot, contains('Timeline 1'));
+    expect(console.engineSnapshot, contains('Schedule 1'));
     expect(console.engineSnapshot, contains('memories 0'));
     expect(aggregation.activeHabitCount, 1);
     expect(aggregation.sourceHealth.availableFraction, .875);

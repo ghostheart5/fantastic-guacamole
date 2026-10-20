@@ -34,7 +34,7 @@ final nexusDecisionProvider = Provider<NexusDecisionModel>((Ref ref) {
   final int pendingSyncCount = pendingSyncAsync.asData?.value ?? 0;
   final List<String> failures = <String>[
     if (decisionAsync.hasError) 'Your planning summary is unavailable.',
-    if (progression.error != null) 'Progression signals are unavailable.',
+    if (progression.error != null) 'Activity information is unavailable.',
     if (pendingSyncAsync.hasError)
       'Queued synchronization status is unavailable.',
     if (syncError != null && syncError.trim().isNotEmpty)
@@ -85,7 +85,7 @@ final nexusDecisionProvider = Provider<NexusDecisionModel>((Ref ref) {
           : 'No network interface is available. Using local evidence without network-backed freshness.',
     NexusDecisionStatus.error =>
       failures.isEmpty
-          ? 'Nexus could not build a decision.'
+          ? 'The next-step suggestion could not be prepared.'
           : failures.join(' '),
   };
 

@@ -60,7 +60,7 @@ tags:
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
 - tapOn: "Send SI query"
 - extendedWaitUntil:
-    visible: "(?s).*SI STATUS.*Read-only Evidence Lens:.*"
+    visible: "(?s).*SI STATUS.*Read-only Chat:.*"
     timeout: 10000
 # Auto-scroll can leave this reply's mode tag above its body.
 - scrollUntilVisible:

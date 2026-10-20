@@ -66,11 +66,11 @@ class AssembleSiDecisionOutput {
         'At least two task skips were recorded in the last seven days; their reasons are unknown.',
       if (emotionalStrain) 'Emotional strain detected ($emotion).',
       if (timelineOverdueCount > 0)
-        'Timeline has $timelineOverdueCount overdue item${timelineOverdueCount == 1 ? '' : 's'}.',
+        'Schedule has $timelineOverdueCount overdue item${timelineOverdueCount == 1 ? '' : 's'}.',
       if (timelineRiskEventsCount > 0)
-        'Timeline risk signals active ($timelineRiskEventsCount).',
+        'Schedule risk signals active ($timelineRiskEventsCount).',
       if (timelineHealthScore < healthWarningThreshold)
-        'Timeline health is $timelineHealthScore% with elevated risk $timelineRiskScore%.',
+        'Schedule health is $timelineHealthScore% with elevated risk $timelineRiskScore%.',
     ];
 
     final String nextAction =
@@ -85,7 +85,7 @@ class AssembleSiDecisionOutput {
         'Split remaining tasks into tomorrow queue.',
       if (planPreviewIsEmpty) 'Generate a 3-block adaptive plan for today.',
       if (timelineOverdueCount > 0)
-        'Resolve one overdue timeline item before adding new commitments.',
+        'Resolve one overdue schedule item before adding new commitments.',
       if (timelineUpcomingCount >= 5)
         'Pre-plan upcoming deadlines now to prevent rollover pressure.',
       if (activeHabitCount > 0)
@@ -100,11 +100,11 @@ class AssembleSiDecisionOutput {
         'How can you convert this stable state into one decisive action?',
       if (hasMemories) 'What memory should inform this decision?',
       if (timelineOverdueCount > 0)
-        'Which overdue timeline item should be recovered first?',
+        'Which overdue schedule item should be recovered first?',
       if (timelineUpcomingCount > 0)
-        'What is the next timeline deadline this week?',
+        'What is the next schedule deadline this week?',
       if (timelineRecommendationCount > 0)
-        'What timeline recommendation should be applied now?',
+        'What schedule recommendation should be applied now?',
     ];
 
     final String progressionFeedback = streak >= 7
@@ -114,8 +114,8 @@ class AssembleSiDecisionOutput {
         : 'Rebuild momentum with one immediate win.';
 
     final String plannerMessage = warnings.isEmpty
-        ? 'Timeline is stable (health $timelineHealthScore%). Execute the ranked next action and use the result to update the plan. $memoryHint'
-        : 'Current evidence shows pressure (timeline risk $timelineRiskScore%). Reduce load or resolve the highest-ranked constraint before adding work.';
+        ? 'Schedule is stable (health $timelineHealthScore%). Execute the ranked next action and use the result to update the plan. $memoryHint'
+        : 'Current evidence shows pressure (schedule risk $timelineRiskScore%). Reduce load or resolve the highest-ranked constraint before adding work.';
 
     return SiDecisionDraft(
       nextAction: nextAction,

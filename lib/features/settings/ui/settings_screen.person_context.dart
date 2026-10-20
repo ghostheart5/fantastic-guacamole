@@ -34,9 +34,9 @@ final class PersonContextSafetyCopy {
       isSpanish ? 'Elegir un paso' : 'Choose a step',
     PersonContextSurface.siConsole =>
       isSpanish ? 'Hablarlo' : 'Talk it through',
-    PersonContextSurface.nexus => 'Nexus',
-    PersonContextSurface.trajectory => isSpanish ? 'Trayectoria' : 'Trajectory',
-    PersonContextSurface.creator => isSpanish ? 'Creador' : 'Creator',
+    PersonContextSurface.nexus => isSpanish ? 'Hoy' : 'Today',
+    PersonContextSurface.trajectory => isSpanish ? 'Perspectivas' : 'Insights',
+    PersonContextSurface.creator => isSpanish ? 'Añadir algo' : 'Add something',
     PersonContextSurface.settings => isSpanish ? 'Ajustes' : 'Settings',
   };
 
@@ -106,8 +106,8 @@ final class PersonContextSafetyCopy {
       ? '¿Eliminar este contexto personal?'
       : 'Delete this person context?';
   String deleteBody(String value) => isSpanish
-      ? '“$value” se eliminará permanentemente. Las tareas, objetivos y elementos de la Línea de Tiempo no cambiarán.'
-      : '“$value” will be permanently removed. Tasks, goals, and Timeline items are unchanged.';
+      ? '“$value” se eliminará permanentemente. Las tareas, objetivos y elementos de la agenda no cambiarán.'
+      : '“$value” will be permanently removed. Tasks, goals, and Schedule items are unchanged.';
   String get delete => isSpanish ? 'Eliminar' : 'Delete';
   String get withdrawTitle =>
       isSpanish ? '¿Retirar el consentimiento?' : 'Withdraw consent?';
@@ -187,15 +187,15 @@ final class PersonContextSafetyCopy {
       ? '¿Eliminar todo el contexto personal?'
       : 'Delete all person context?';
   String deleteAllBody(int count) => isSpanish
-      ? 'Esto elimina permanentemente $count ${count == 1 ? 'elemento de contexto creado por ti' : 'elementos de contexto creados por ti'}. Las tareas, objetivos y elementos de la Línea de Tiempo no cambiarán.'
-      : 'This permanently removes $count user-authored context item${count == 1 ? '' : 's'}. Tasks, goals, and Timeline items are unchanged.';
+      ? 'Esto elimina permanentemente $count ${count == 1 ? 'elemento de contexto creado por ti' : 'elementos de contexto creados por ti'}. Las tareas, objetivos y elementos de la agenda no cambiarán.'
+      : 'This permanently removes $count user-authored context item${count == 1 ? '' : 's'}. Tasks, goals, and Schedule items are unchanged.';
   String get deleteAll => isSpanish ? 'Eliminar todo' : 'Delete all';
   String get clearCorruptTitle => isSpanish
       ? '¿Borrar permanentemente el Contexto personal dañado?'
       : 'Permanently clear corrupt Person Context?';
   String get clearCorruptBody => isSpanish
-      ? 'Esto borra permanentemente solo los datos recuperables o dañados de Contexto personal guardados en este dispositivo. Las tareas, objetivos y elementos de la Línea de Tiempo no se verán afectados. No se puede deshacer.'
-      : 'This permanently clears only recoverable or corrupt Person Context payloads stored on this device. Tasks, goals, and Timeline items are unaffected. This cannot be undone.';
+      ? 'Esto borra permanentemente solo los datos recuperables o dañados de Contexto personal guardados en este dispositivo. Las tareas, objetivos y elementos de la agenda no se verán afectados. No se puede deshacer.'
+      : 'This permanently clears only recoverable or corrupt Person Context payloads stored on this device. Tasks, goals, and Schedule items are unaffected. This cannot be undone.';
   String get permanentlyClear =>
       isSpanish ? 'Borrar permanentemente' : 'Permanently clear';
   String get corruptCleared => isSpanish

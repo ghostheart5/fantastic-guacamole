@@ -126,6 +126,6 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
         ? null
         : 'observed-follow-through-v1',
     personalizationNote:
-        'Task ordering reflects the ${personalization.priorityStrategy.name} priority preference. Trajectory scenarios remain deterministic.',
+        'Task ordering reflects the ${personalization.priorityStrategy.name} priority preference. Forecast scenarios remain deterministic.',
   );
 });

@@ -160,7 +160,7 @@ void main() {
     final IntelligenceFusionState captureResult = capture.read(
       intelligenceFusionProvider,
     );
-    expect(captureResult.nextAction, contains('Creator'));
+    expect(captureResult.nextAction, 'Save one action in Add something.');
     expect(captureResult.primaryConstraint, contains('compressing'));
 
     final ProviderContainer deferral = _container(
@@ -177,7 +177,7 @@ void main() {
     final IntelligenceFusionState deferralResult = deferral.read(
       intelligenceFusionProvider,
     );
-    expect(deferralResult.nextAction, contains('Smart Planner'));
+    expect(deferralResult.nextAction, contains('Choose a step'));
     expect(deferralResult.primaryConstraint, contains('Repeated deferral'));
     expect(deferralResult.confidence, closeTo(.21, .001));
 

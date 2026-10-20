@@ -22,8 +22,8 @@ class _TrajectoryReport extends StatelessWidget {
     };
     final String headline = vitals.unavailableDetail != null
         ? isSpanish
-              ? 'Trayectoria ${vitals.momentumLabel.toLowerCase()}'
-              : 'Trajectory ${vitals.momentumLabel.toLowerCase()}'
+              ? 'Perspectivas: ${vitals.momentumLabel.toLowerCase()}'
+              : 'Insights: ${vitals.momentumLabel.toLowerCase()}'
         : summary.predictionEvidenceSufficient
         ? _localizedPredictionOutcome(
             summary.predictionOutcome!,
@@ -56,7 +56,7 @@ class _TrajectoryReport extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         _SectionHeading(
-          eyebrow: isSpanish ? 'MOTOR DE TRAYECTORIA' : 'TRAJECTORY ENGINE',
+          eyebrow: isSpanish ? 'PERSPECTIVAS' : 'INSIGHTS',
           title: isSpanish ? 'Informe actual' : 'Current report',
           icon: Icons.insights_rounded,
           accent: accent,
@@ -65,11 +65,11 @@ class _TrajectoryReport extends StatelessWidget {
         SmartPressable(
           onTap: onOpen,
           semanticLabel: isSpanish
-              ? 'Abrir el Motor de Trayectoria. $headline. $report '
+              ? 'Abrir Perspectivas. $headline. $report '
                     'Presión ${vitals.pressurePercent == null ? 'no disponible' : '${vitals.pressurePercent} por ciento'}. '
                     'Impulso ${vitals.momentumPercent == null ? 'no disponible' : '${vitals.momentumPercent} por ciento'}. '
                     'Compromisos activos ${vitals.activeCount?.toString() ?? 'no disponibles'}.'
-              : 'Open Trajectory Engine. $headline. $report '
+              : 'Open Insights. $headline. $report '
                     'Pressure ${vitals.pressurePercent == null ? 'unavailable' : '${vitals.pressurePercent} percent'}. '
                     'Momentum ${vitals.momentumPercent == null ? 'unavailable' : '${vitals.momentumPercent} percent'}. '
                     'Active commitments ${vitals.activeCount?.toString() ?? 'unavailable'}.',
@@ -223,7 +223,7 @@ class _TimelineSnapshot extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         _SectionHeading(
-          eyebrow: isSpanish ? 'CRONOLOGÍA' : 'TIMELINE',
+          eyebrow: NexusCopy(isSpanish).scheduleEyebrow,
           title: isSpanish ? 'Hoy de un vistazo' : 'Today at a glance',
           icon: Icons.timeline_rounded,
           accent: AppColors.neonCyan,
@@ -241,7 +241,7 @@ class _TimelineSnapshot extends StatelessWidget {
               const _PanelDivider(),
               SmartPressable(
                 onTap: onOpen,
-                semanticLabel: isSpanish ? 'Abrir Cronología' : 'Open Timeline',
+                semanticLabel: isSpanish ? 'Abrir agenda' : 'Open Schedule',
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(
                     minHeight: AppSizes.touchTarget,
@@ -256,8 +256,8 @@ class _TimelineSnapshot extends StatelessWidget {
                         Expanded(
                           child: Text(
                             isSpanish
-                                ? 'Abrir la Cronología completa'
-                                : 'Open full Timeline',
+                                ? 'Abrir la agenda completa'
+                                : 'Open full Schedule',
                             style: const TextStyle(
                               color: AppColors.neonCyan,
                               fontSize: AppSizes.fontBodyLg,
@@ -597,7 +597,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
           second.timestamp.compareTo(first.timestamp),
     );
   final TimelineEventEntity? latest = newest.isEmpty ? null : newest.first;
-  // Project current goal targets exactly as Timeline does. Stored goal events
+  // Project current goal targets exactly as Schedule does. Stored goal events
   // remain activity history; they may describe an older date or completed goal.
   final goalIds = goals.map((goal) => goal.id).toSet();
   final deadlineEvents = <TimelineEventEntity>[
@@ -673,8 +673,8 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
           label: isSpanish ? 'ÚLTIMO AÑADIDO' : 'LAST ADDED',
           title: isSpanish ? 'Sin actividad reciente' : 'No recent activity',
           detail: isSpanish
-              ? 'Tu última incorporación a la Cronología aparecerá aquí.'
-              : 'Your latest Timeline addition will appear here.',
+              ? 'Tu última incorporación a la agenda aparecerá aquí.'
+              : 'Your latest Schedule addition will appear here.',
           accent: AppColors.memoryAmber,
         )
       : _TimelineDisplayItem(
@@ -788,8 +788,8 @@ String _latestAdditionDetail(
   final String title = event.title.trim();
   return title.toLowerCase().endsWith('added')
       ? isSpanish
-            ? '$title en la Cronología.'
-            : '$title in Timeline.'
+            ? '$title en la agenda.'
+            : '$title in Schedule.'
       : event.detail.trim();
 }
 

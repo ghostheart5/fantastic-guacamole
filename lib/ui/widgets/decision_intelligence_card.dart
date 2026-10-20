@@ -207,14 +207,13 @@ String _confidenceBadge(OperatingConfidence confidence, bool isSpanish) {
 String _actionLabel(OperatingActionIntent intent, bool isSpanish) {
   if (!isSpanish) return intent.label;
   return switch (intent.type) {
-    OperatingActionType.openCreator => 'Abrir Creador',
-    OperatingActionType.openSmartPlanner =>
-      'Revisar en el Planificador Inteligente',
-    OperatingActionType.openSiConsole => 'Revisar evidencia en la Consola SI',
+    OperatingActionType.openCreator => 'Añadir algo',
+    OperatingActionType.openSmartPlanner => 'Revisar en Elegir un paso',
+    OperatingActionType.openSiConsole => 'Revisar evidencia en el Chat SI',
     OperatingActionType.openTrajectoryEngine =>
-      'Revisar riesgo en el Motor de Trayectoria',
-    OperatingActionType.openProgression => 'Revisar recuperación en Progreso',
-    OperatingActionType.openTimeline => 'Revisar en Línea de Tiempo',
+      'Revisar riesgo en Perspectivas',
+    OperatingActionType.openProgression => 'Revisar recuperación en Actividad',
+    OperatingActionType.openTimeline => 'Revisar en agenda',
     _ => intent.label,
   };
 }

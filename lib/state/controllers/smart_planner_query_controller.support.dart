@@ -1235,13 +1235,13 @@ final class _PlannerMemoryEvidence {
   String adaptationSummaryFor({String languageCode = 'en'}) => memories.isEmpty
       ? _plannerEvidenceText(
           languageCode,
-          'No governed Smart Planner preference was recalled.',
-          'No se recuperó ninguna preferencia guardada con consentimiento del Planificador Inteligente.',
+          'No governed Choose a step preference was recalled.',
+          'No se recuperó ninguna preferencia guardada con consentimiento de Elegir un paso.',
         )
       : _plannerEvidenceText(
           languageCode,
-          'Recalled ${memories.length} consented Smart Planner guidance preference(s) through the exact surface and purpose boundary.',
-          'Se recuperaron ${memories.length} preferencias autorizadas de orientación del Planificador Inteligente, respetando el ámbito y la finalidad exactos.',
+          'Recalled ${memories.length} consented Choose a step guidance preference(s) through the exact surface and purpose boundary.',
+          'Se recuperaron ${memories.length} preferencias autorizadas de orientación de Elegir un paso, respetando el ámbito y la finalidad exactos.',
         );
 
   Map<String, Object?> get requestContext => <String, Object?>{
@@ -1254,8 +1254,8 @@ final class _PlannerMemoryEvidence {
       return <String>[
         _plannerEvidenceText(
           languageCode,
-          'No authorized governed Smart Planner preference was recalled.',
-          'No se recuperó ninguna preferencia guardada autorizada del Planificador Inteligente.',
+          'No authorized governed Choose a step preference was recalled.',
+          'No se recuperó ninguna preferencia guardada autorizada de Elegir un paso.',
         ),
       ];
     }
@@ -1263,8 +1263,8 @@ final class _PlannerMemoryEvidence {
         .map(
           (MemoryEntity memory) => _plannerEvidenceText(
             languageCode,
-            'Governed Smart Planner preference recalled for ${memory.purpose.name}: "${SmartPlannerQueryController._condense(memory.text.replaceAll('"', "'"), maxLength: 120)}". It remained bounded to Smart Planner.',
-            'Preferencia guardada autorizada del Planificador Inteligente recuperada para ${_plannerEvidenceLabel(memory.purpose.name)}: "${SmartPlannerQueryController._condense(memory.text.replaceAll('"', "'"), maxLength: 120)}". Su uso siguió limitado al Planificador Inteligente.',
+            'Governed Choose a step preference recalled for ${memory.purpose.name}: "${SmartPlannerQueryController._condense(memory.text.replaceAll('"', "'"), maxLength: 120)}". It remained bounded to Choose a step.',
+            'Preferencia guardada autorizada de Elegir un paso recuperada para ${_plannerEvidenceLabel(memory.purpose.name)}: "${SmartPlannerQueryController._condense(memory.text.replaceAll('"', "'"), maxLength: 120)}". Su uso siguió limitado al Elegir un paso.',
           ),
         )
         .toList(growable: false);

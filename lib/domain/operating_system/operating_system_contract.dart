@@ -557,7 +557,7 @@ class OperatingDeltaEngine {
       'Overdue commitments',
       previous.overdueCount,
       current.overdueCount,
-      'Timeline due-state changed.',
+      'Schedule due-state changed.',
       true,
     );
     add(

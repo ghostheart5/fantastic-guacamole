@@ -282,7 +282,7 @@ class _CloudDataControlSection extends ConsumerWidget {
               ),
               subtitle: journeyText(
                 context,
-                'Choose Back up all planning data to save an encrypted snapshot of tasks, goals, Daily Rhythms, notes, outcome and Timeline history, profile and settings. Keep your recovery key separately. Older and automatic backups may only include tasks, profile and settings. Private memories and Person Context remain on this device.',
+                'Choose Back up all planning data to save an encrypted snapshot of tasks, goals, Daily Rhythms, notes, outcome and Schedule history, profile and settings. Keep your recovery key separately. Older and automatic backups may only include tasks, profile and settings. Private memories and Person Context remain on this device.',
                 'Elige Guardar todos los datos para crear una copia cifrada de tareas, metas, ritmos diarios, notas, historial de resultados y cronología, perfil y ajustes. Guarda la clave de recuperación por separado. Las copias anteriores y automáticas pueden incluir solo tareas, perfil y ajustes. Las memorias privadas y el Contexto Personal permanecen en este dispositivo.',
               ),
             ),
@@ -367,7 +367,7 @@ class _CloudDataControlSection extends ConsumerWidget {
             subtitle: journeyText(
               context,
               'Choose a step and Talk it through explain when a request uses this device or an external service you have allowed.',
-              'El Planificador Inteligente y la Consola SI explican cuándo una solicitud permanece local o usa un servicio externo autorizado.',
+              'El Elegir un paso y el Chat SI explican cuándo una solicitud permanece local o usa un servicio externo autorizado.',
             ),
           ),
         ],

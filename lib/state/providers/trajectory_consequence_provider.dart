@@ -207,11 +207,11 @@ TrajectoryIntervention? _customIntervention(
       title: 'My scenario: complete ${subject.title}',
       horizon: Duration(days: horizonDays),
       description:
-          'Model this commitment as completed, then compare capacity, risk, goal timing, and Progression consequences.',
+          'Model this commitment as completed, then compare capacity, risk, goal timing, and Activity consequences.',
       subjectId: subject.id,
       assumptions: <String>[
         'The commitment is completed without creating an unmodeled obligation.',
-        'Projected Progression effects remain informational until an outcome is recorded on Timeline.',
+        'Projected Activity effects remain informational until an outcome is recorded on Schedule.',
         ...personContextAssumptions,
       ],
     ),
@@ -417,7 +417,7 @@ List<TrajectoryIntervention> _interventions(
         TrajectoryIntervention(
           id: 'apply-smart-planner',
           type: TrajectoryInterventionType.applySmartPlanner,
-          title: 'Apply Smart Planner recommendation',
+          title: 'Apply Choose a step recommendation',
           horizon: horizon,
           description:
               'Protect ${selected.title} and use the feasible plan as the active schedule.',
@@ -438,7 +438,7 @@ List<TrajectoryIntervention> _interventions(
           title: 'Complete ${selected.title}',
           horizon: horizon,
           description:
-              'Model the selected Smart Planner task as completed in its feasible block.',
+              'Model the selected Choose a step task as completed in its feasible block.',
           subjectId: selected.id,
           assumptions: <String>[
             'The task is completed without creating an unmodeled commitment.',
@@ -453,7 +453,7 @@ List<TrajectoryIntervention> _interventions(
           title: 'Delay ${selected.title} by one day',
           horizon: horizon,
           description:
-              'Model one day of slippage and its Timeline and goal consequences.',
+              'Model one day of slippage and its Schedule and goal consequences.',
           subjectId: selected.id,
           delay: const Duration(days: 1),
           assumptions: <String>[
@@ -545,7 +545,7 @@ List<String> _personContextAssumptions(GovernedDecisionContext context) {
   }
   if (!context.hasAppliedBehavior) {
     return const <String>[
-      'Person context was available but contained no fresh consented Trajectory operational signals.',
+      'Person context was available but contained no fresh consented Insights operational signals.',
     ];
   }
   return <String>[

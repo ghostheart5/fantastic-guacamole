@@ -260,13 +260,13 @@ class _MemoryGovernanceSection extends ConsumerWidget {
               unreadable
                   ? journeyText(
                       context,
-                      'Stored durable memory is unreadable. This permanently removes the unreadable account-scoped payload. Tasks, goals, and Timeline data are unchanged.',
-                      'La memoria duradera guardada no puede leerse. Esto elimina permanentemente los datos ilegibles de esta cuenta. Las tareas, metas y datos de Línea de Tiempo no cambian.',
+                      'Stored durable memory is unreadable. This permanently removes the unreadable account-scoped payload. Tasks, goals, and Schedule data are unchanged.',
+                      'La memoria duradera guardada no puede leerse. Esto elimina permanentemente los datos ilegibles de esta cuenta. Las tareas, metas y datos de agenda no cambian.',
                     )
                   : journeyText(
                       context,
-                      'This permanently removes $count consented memory receipt${count == 1 ? '' : 's'}. Tasks, goals, and Timeline data are unchanged.',
-                      'Esto elimina permanentemente $count ${count == 1 ? 'registro de memoria autorizado' : 'registros de memoria autorizados'}. Las tareas, metas y datos de Línea de Tiempo no cambian.',
+                      'This permanently removes $count consented memory receipt${count == 1 ? '' : 's'}. Tasks, goals, and Schedule data are unchanged.',
+                      'Esto elimina permanentemente $count ${count == 1 ? 'registro de memoria autorizado' : 'registros de memoria autorizados'}. Las tareas, metas y datos de agenda no cambian.',
                     ),
             ),
             actions: <Widget>[
@@ -318,8 +318,8 @@ class _MemoryGovernanceSection extends ConsumerWidget {
             content: Text(
               journeyText(
                 context,
-                'This clears short-lived Choose a step and Talk it through context. It does not delete tasks, goals, Timeline data, or governed memory receipts.',
-                'Esto borra el contexto temporal del Planificador Inteligente y la Consola SI. No elimina tareas, metas, datos de Línea de Tiempo ni registros de memoria controlados.',
+                'This clears short-lived Choose a step and Talk it through context. It does not delete tasks, goals, Schedule data, or governed memory receipts.',
+                'Esto borra el contexto temporal de Elegir un paso y el Chat SI. No elimina tareas, metas, datos de agenda ni registros de memoria controlados.',
               ),
             ),
             actions: <Widget>[
@@ -406,7 +406,7 @@ class _MemoryGovernanceSection extends ConsumerWidget {
             title: journeyText(
               context,
               'Saved conversation preferences',
-              'Memoria duradera de la Consola SI',
+              'Memoria duradera del Chat SI',
             ),
             subtitle: journeyText(
               context,

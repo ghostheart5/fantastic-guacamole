@@ -50,7 +50,7 @@ class AppAccessState {
   String get subscriptionStatusDetail {
     if (internalBillingTest) {
       if (internalCreditTest) {
-        return 'Google Play license testing. Use a test payment method. Smart Planner and SI Console can use external AI after you review the app context and confirm the credit price. On-device tools remain available.';
+        return 'Google Play license testing. Use a test payment method. Choose a step and SI Chat can use external AI after you review the app context and confirm the credit price. On-device tools remain available.';
       }
       return 'Google Play license testing. Use a test payment method. AI and credit spending remain unavailable.';
     }

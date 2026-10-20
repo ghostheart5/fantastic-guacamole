@@ -34,6 +34,12 @@ class SIConsoleShortcutDefinition {
   final List<String> aliases;
   final String? surface;
 
+  // Old shortcut tokens remain accepted without being advertised as tool names.
+  Iterable<String> get advertisedAliases => aliases.where(
+    (alias) =>
+        !const {'/timeline', '/trajectory', '/progression'}.contains(alias),
+  );
+
   Iterable<String> get tokens sync* {
     yield shortcut;
     yield* aliases;
@@ -205,8 +211,9 @@ abstract final class SIConsoleShortcutRegistry {
         ),
         SIConsoleShortcutDefinition(
           id: 'timeline',
-          label: 'Timeline',
-          shortcut: '/timeline',
+          label: 'Schedule',
+          shortcut: '/schedule',
+          aliases: <String>['/timeline'],
           description: 'summarize recent milestones and events',
           route: SIShortcutRoute.timelineSnapshot,
           argumentPolicy: SIShortcutArgumentPolicy.forwardToIntelligence,
@@ -214,8 +221,9 @@ abstract final class SIConsoleShortcutRegistry {
         ),
         SIConsoleShortcutDefinition(
           id: 'trajectory',
-          label: 'Trajectory',
-          shortcut: '/trajectory',
+          label: 'Insights',
+          shortcut: '/insights',
+          aliases: <String>['/trajectory'],
           description: 'summarize momentum, pressure, and prediction',
           route: SIShortcutRoute.trajectorySnapshot,
           argumentPolicy: SIShortcutArgumentPolicy.forwardToIntelligence,
@@ -223,12 +231,12 @@ abstract final class SIConsoleShortcutRegistry {
         ),
         SIConsoleShortcutDefinition(
           id: 'progression',
-          label: 'Progression',
-          shortcut: '/progression',
+          label: 'Activity',
+          shortcut: '/activity',
           description: 'analyze level, XP, streak, and progress signals',
           route: SIShortcutRoute.intelligenceQuery,
           argumentPolicy: SIShortcutArgumentPolicy.forwardToIntelligence,
-          aliases: <String>['/xp'],
+          aliases: <String>['/xp', '/progression'],
           surface: 'progression',
         ),
         SIConsoleShortcutDefinition(
@@ -337,7 +345,7 @@ abstract final class SIConsoleShortcutRegistry {
     }
     final String lines = selected
         .map((SIConsoleShortcutDefinition item) {
-          final String aliases = item.aliases
+          final String aliases = item.advertisedAliases
               .where((String alias) => alias.startsWith('/'))
               .join(', ');
           final String aliasText = aliases.isEmpty

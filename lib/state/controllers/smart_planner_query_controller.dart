@@ -633,8 +633,8 @@ class SmartPlannerQueryController
           'Se usaron ${conversation.historyTurnsUsed} intervenciones anteriores para mantener el contexto de tu petición.',
         ),
       copy(
-        'Kept every option reversible and left saving to an explicit Creator confirmation.',
-        'Las opciones siguen siendo reversibles; guardar requiere una confirmación explícita en Creator.',
+        'Kept every option reversible and left saving to an explicit Add something confirmation.',
+        'Las opciones siguen siendo reversibles; guardar requiere una confirmación explícita en Añadir algo.',
       ),
     ];
 
@@ -702,11 +702,11 @@ class SmartPlannerQueryController
           ),
           if (!evidence.hasPositiveGrounding)
             copy(
-              'No saved task, goal, saved planning recommendation, or Creator draft was attached.',
-              'No se vinculó ninguna tarea, objetivo, recomendación ni borrador de Creator guardado.',
+              'No saved task, goal, saved planning recommendation, or Add something draft was attached.',
+              'No se vinculó ninguna tarea, objetivo, recomendación ni borrador de Añadir algo guardado.',
             ),
           copy(
-            'No Timeline, memory, SI-state, XP, task, goal, or habit record was changed.',
+            'No Schedule, memory, SI-state, XP, task, goal, or habit record was changed.',
             'No se modificaron registros de cronología, memoria, estado SI, XP, tareas, objetivos ni hábitos.',
           ),
         ],
@@ -855,7 +855,7 @@ class SmartPlannerQueryController
           languageCode: intent.languageCode,
         ),
         copy(
-          'No Timeline, memory, SI-state, XP, task, goal, or habit record was changed.',
+          'No Schedule, memory, SI-state, XP, task, goal, or habit record was changed.',
           'No se modificaron registros de cronología, memoria, estado SI, XP, tareas, objetivos ni hábitos.',
         ),
       ],

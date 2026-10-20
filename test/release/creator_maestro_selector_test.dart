@@ -288,7 +288,7 @@ void main() {
               ),
             );
           } else if (phase == '/status') {
-            expect(visible, contains('SI STATUS.*Read-only Evidence Lens:'));
+            expect(visible, contains('SI STATUS.*Read-only Chat:'));
           } else if (phase == '/not-real preserve this') {
             expect(
               visible,

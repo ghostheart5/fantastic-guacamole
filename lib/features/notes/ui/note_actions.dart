@@ -214,7 +214,7 @@ class _NoteActionsState extends ConsumerState<NoteActions> {
         ),
         content: Text(
           es
-              ? 'Compartir solo esta nota con el Elegir un paso local durante dos horas. Puedes quitarla en el planificador. Esta selección no la envía a IA externa ni se infiere tu emoción.'
+              ? 'Compartir solo esta nota con Elegir un paso local durante dos horas. Puedes quitarla en el planificador. Esta selección no la envía a IA externa ni se infiere tu emoción.'
               : 'Share only this note with the local Choose a step for two hours. You can remove it in the planner. This selection does not send it to external AI, and your emotion is not inferred.',
         ),
         actions: [

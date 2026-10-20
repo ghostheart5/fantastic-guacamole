@@ -91,17 +91,28 @@ void main() {
       for (final String historicalDefault in <String>[
         'Operative',
         'ChronoSpark User',
+        'Axiomara User',
       ]) {
         final ProfileState state = ProfileState.fromJson(<String, dynamic>{
           'name': historicalDefault,
+          'xp': 250,
+          'streak': 3,
         });
         expect(state.name, 'Axiomara User');
+        expect(state.xp, 250);
+        expect(state.streak, 3);
+        expect(ProfileState.fromJson(state.toJson()).name, 'Axiomara User');
       }
 
-      final ProfileState custom = ProfileState.fromJson(<String, dynamic>{
-        'name': 'Dominic',
-      });
-      expect(custom.name, 'Dominic');
+      for (final name in [
+        'Dominic',
+        'ChronoSpark User Research',
+        'Axiomara User Custom',
+      ]) {
+        final custom = ProfileState.fromJson(<String, dynamic>{'name': name});
+        expect(custom.name, name);
+        expect(ProfileState.fromJson(custom.toJson()).name, name);
+      }
     });
 
     test('legacyLevelFloor survives copyWith', () {

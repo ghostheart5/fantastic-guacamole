@@ -98,7 +98,7 @@ void main() {
     );
     expect(
       response.observedFacts.map((s) => s.text),
-      contains('1 active goal matched the current lens.'),
+      contains('1 active goal matched the selected information.'),
     );
   });
 

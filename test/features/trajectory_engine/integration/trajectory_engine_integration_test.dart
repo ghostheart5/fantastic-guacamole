@@ -70,6 +70,10 @@ void main() {
           ),
         ],
       );
+      expect(
+        comparison.outcomes.single.progression.summary,
+        'No Activity reward is projected from this intervention alone.',
+      );
       await tester.pumpWidget(
         _harness(
           locale: const Locale('es'),
@@ -95,6 +99,27 @@ void main() {
       expect(find.text(localized), findsOneWidget);
       expect(find.textContaining('Quitar this commitment'), findsNothing);
       expect(find.textContaining('Remove this commitment'), findsNothing);
+      // Render the real engine-produced no-reward result in the expanded panel;
+      // a matching dictionary key alone would not catch producer drift.
+      await tester.scrollUntilVisible(
+        find.text('Impacto completo y datos'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Impacto completo y datos'));
+      await tester.pump(const Duration(milliseconds: 300));
+      const noReward =
+          'Esta intervención por sí sola no proyecta una recompensa de progreso.';
+      await tester.scrollUntilVisible(
+        find.text(noReward),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text(noReward), findsOneWidget);
+      expect(
+        find.text(comparison.outcomes.single.progression.summary),
+        findsNothing,
+      );
     });
 
     testWidgets('localizes partial evidence details and evidence origins', (
@@ -215,11 +240,11 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       expect(find.text('WHY THIS CHANGES THE FUTURE'), findsOneWidget);
-      expect(find.text('TIMELINE IMPACT'), findsOneWidget);
-      expect(find.text('PROGRESSION IMPACT'), findsOneWidget);
+      expect(find.text('SCHEDULE IMPACT'), findsOneWidget);
+      expect(find.text('ACTIVITY IMPACT'), findsOneWidget);
       expect(
         find.text(
-          'SIMULATION ONLY — no task, Timeline block, goal, or Progression reward is changed here.',
+          'SIMULATION ONLY — no task, Schedule block, goal, or Activity reward is changed here.',
         ),
         findsOneWidget,
       );

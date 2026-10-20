@@ -367,7 +367,7 @@ class _PaywallCopy {
     )) {
       final usage = body.contains('AI and credit spending are unavailable')
           ? 'La IA y el gasto de créditos no están disponibles en esta versión.'
-          : 'El Planificador Inteligente y la Consola SI pueden usar IA externa después de que revises el contexto y confirmes el precio en créditos. Ajustes también ofrece pruebas de créditos con datos ficticios. Las herramientas locales siguen disponibles.';
+          : 'El Elegir un paso y el Chat SI pueden usar IA externa después de que revises el contexto y confirmes el precio en créditos. Ajustes también ofrece pruebas de créditos con datos ficticios. Las herramientas locales siguen disponibles.';
       return 'Prueba compras, renovaciones, cancelaciones y restauraciones. Selecciona un método de pago de prueba de Google Play; cancela si aparece un método de pago real. $usage';
     }
     return switch (body) {

@@ -536,6 +536,21 @@ void main() {
     });
   });
 
+  testWidgets('Home uses the current schedule eyebrow in both locales', (
+    tester,
+  ) async {
+    for (final spanish in [false, true]) {
+      await pumpNexusScreen(
+        tester,
+        width: 375,
+        locale: Locale(spanish ? 'es' : 'en'),
+      );
+      expect(find.text(NexusCopy(spanish).scheduleEyebrow), findsOneWidget);
+      expect(find.text('TIMELINE'), findsNothing);
+      expect(find.text('CRONOLOGÍA'), findsNothing);
+    }
+  });
+
   testWidgets('latest activity renders persisted UTC in the local clock', (
     WidgetTester tester,
   ) async {
@@ -896,7 +911,7 @@ void main() {
       await pumpNexusScreen(tester, width: Breakpoints.ultraCompact - 1);
 
       expect(
-        textWidgetContaining(tester, 'ChronoSpark User').style?.fontSize,
+        textWidgetContaining(tester, 'Axiomara User').style?.fontSize,
         AppSizes.fontMicro,
       );
     });
@@ -922,7 +937,7 @@ void main() {
       await pumpNexusScreen(tester, width: Breakpoints.ultraCompact);
 
       expect(
-        textWidgetContaining(tester, 'ChronoSpark User').style?.fontSize,
+        textWidgetContaining(tester, 'Axiomara User').style?.fontSize,
         AppSizes.fontXs,
       );
     });
@@ -935,7 +950,7 @@ void main() {
       // At the regular breakpoint, both labels intentionally converge on the
       // same font size; this matches the production widget logic.
       expect(
-        textWidgetContaining(tester, 'ChronoSpark User').style?.fontSize,
+        textWidgetContaining(tester, 'Axiomara User').style?.fontSize,
         AppSizes.fontSm,
       );
     });
@@ -1078,9 +1093,7 @@ void main() {
           tester,
           width: Breakpoints.compact,
         );
-        final report = find.bySemanticsLabel(
-          RegExp(r'^Open Trajectory Engine\.'),
-        );
+        final report = find.bySemanticsLabel(RegExp(r'^Open Insights\.'));
         await tester.scrollUntilVisible(report, 300);
         final label = tester.getSemantics(report).label;
         expect(label, contains('Pressure 10 percent.'));
@@ -1488,7 +1501,7 @@ class _PopulatedProfileController extends ProfileController {
     level: 10,
     streak: 21,
     longestStreak: 21,
-    name: 'ChronoSpark User',
+    name: 'Axiomara User',
   );
 }
 

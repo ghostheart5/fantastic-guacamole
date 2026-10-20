@@ -250,14 +250,14 @@ class FutureConsequenceEngine {
     };
     final String summary = switch (intervention.type) {
       TrajectoryInterventionType.applySmartPlanner =>
-        '${intervention.proposedBlocks.length} Smart Planner block(s) are projected; ${intervention.displacedSubjectIds.length} commitment(s) remain displaced.',
+        '${intervention.proposedBlocks.length} Choose a step block(s) are projected; ${intervention.displacedSubjectIds.length} commitment(s) remain displaced.',
       TrajectoryInterventionType.delayTask =>
         '${affectedBlocks.length} existing block(s) are affected; $deadlineCrossings deadline crossing(s) are projected.',
       TrajectoryInterventionType.completeTask =>
         '${affectedBlocks.length} linked block(s) can close after the simulated completion.',
       TrajectoryInterventionType.reduceScope =>
         '${affectedBlocks.length} linked block(s) can be removed from active load.',
-      _ => '${affectedBlocks.length} linked Timeline block(s) are affected.',
+      _ => '${affectedBlocks.length} linked Schedule block(s) are affected.',
     };
     return TimelineConsequence(
       affectedBlockIds: List<String>.unmodifiable(affectedBlocks),
@@ -462,7 +462,7 @@ class FutureConsequenceEngine {
       potentialXp: potentialXp,
       streakProtected: protectsStreak,
       summary: potentialXp == 0
-          ? 'No Progression reward is projected from this intervention alone.'
+          ? 'No Activity reward is projected from this intervention alone.'
           : 'Up to $potentialXp XP is informationally projected if the action is actually completed; current streak protection is ${protectsStreak ? 'supported' : 'not supported'}.',
     );
   }

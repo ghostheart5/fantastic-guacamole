@@ -70,8 +70,8 @@ void main() {
     ]);
     expect(draft.signalPrompts, <String>[
       'How can you convert this stable state into one decisive action?',
-      'What is the next timeline deadline this week?',
-      'What timeline recommendation should be applied now?',
+      'What is the next schedule deadline this week?',
+      'What schedule recommendation should be applied now?',
     ]);
     expect(
       draft.progressionFeedback,
@@ -79,7 +79,7 @@ void main() {
     );
     expect(
       draft.plannerMessage,
-      'Timeline is stable (health 92%). Execute the ranked next action and '
+      'Schedule is stable (health 92%). Execute the ranked next action and '
       'use the result to update the plan. No memory context.',
     );
   });
@@ -109,15 +109,15 @@ void main() {
       'Goal drift detected in recent trajectory.',
       'At least two task skips were recorded in the last seven days; their reasons are unknown.',
       'Emotional strain detected (anxious).',
-      'Timeline has 1 overdue item.',
-      'Timeline risk signals active (2).',
-      'Timeline health is 65% with elevated risk 71%.',
+      'Schedule has 1 overdue item.',
+      'Schedule risk signals active (2).',
+      'Schedule health is 65% with elevated risk 71%.',
     ]);
     expect(draft.nextAction, 'Review the launch checklist');
     expect(draft.suggestedPlanAdjustments, <String>[
       'Reduce today to one critical task block.',
       'Split remaining tasks into tomorrow queue.',
-      'Resolve one overdue timeline item before adding new commitments.',
+      'Resolve one overdue schedule item before adding new commitments.',
       'Pre-plan upcoming deadlines now to prevent rollover pressure.',
       '1 Daily Rhythm target has no recorded outcome for the current period. Check remaining repetitions and time before reserving a block.',
     ]);
@@ -126,8 +126,8 @@ void main() {
       'Which goal has drifted and why?',
       'What would reduce emotional load in the next hour?',
       'What memory should inform this decision?',
-      'Which overdue timeline item should be recovered first?',
-      'What is the next timeline deadline this week?',
+      'Which overdue schedule item should be recovered first?',
+      'What is the next schedule deadline this week?',
     ]);
     expect(
       draft.progressionFeedback,
@@ -135,7 +135,7 @@ void main() {
     );
     expect(
       draft.plannerMessage,
-      'Current evidence shows pressure (timeline risk 71%). Reduce load or '
+      'Current evidence shows pressure (schedule risk 71%). Reduce load or '
       'resolve the highest-ranked constraint before adding work.',
     );
   });
@@ -151,7 +151,7 @@ void main() {
     );
 
     expect(draft.nextAction, 'Ship the verified build');
-    expect(draft.warnings, contains('Timeline has 2 overdue items.'));
+    expect(draft.warnings, contains('Schedule has 2 overdue items.'));
     expect(
       draft.suggestedPlanAdjustments,
       contains(

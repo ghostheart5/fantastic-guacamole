@@ -56,8 +56,8 @@ class CreatorActions {
               kind: CreatorSavedKind.task,
               title: entity.title,
               createdAt: entity.createdAt,
-              whyItMatters: 'It gives Smart Planner a concrete action to rank.',
-              nextAction: 'Review its priority in Smart Planner.',
+              whyItMatters: 'It gives Choose a step a concrete action to rank.',
+              nextAction: 'Review its priority in Choose a step.',
             ),
           );
     } on Object catch (error, stackTrace) {
