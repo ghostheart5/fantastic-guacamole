@@ -15,4 +15,5 @@ tags:
 - assertVisible: "Completed"
 - assertVisible: "Notes"
 - tapOn: "Schedule"
-- assertVisible: '(?s).*Schedule.*See tasks with dates and past activity. Open a task to update it\..*'
+- assertVisible: 'Schedule'
+- assertVisible: 'See tasks with dates and past activity. Open a task to update it.'

@@ -10,4 +10,6 @@ tags:
     file: ../subflows/open-from-nexus.yaml
     env:
       TARGET: "Activity"
-- assertVisible: '(?s).*Your recorded progress.*Activity.*Review completed tasks and recorded milestones. You can start again at any time\..*'
+- assertVisible: 'Your recorded progress'
+- assertVisible: 'Activity'
+- assertVisible: 'Review completed tasks and recorded milestones. You can start again at any time.'

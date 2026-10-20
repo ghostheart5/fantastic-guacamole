@@ -100,6 +100,79 @@ void main() {
     expect(signIn, isNot(contains('NEXUS')));
   });
 
+  test(
+    'creator selectors accept the observed native date and expansion labels',
+    () {
+      final flow = commands('.maestro/flows/05-creator.yaml');
+      final taps = entries(flow)
+          .where((entry) => entry.key == 'tapOn')
+          .map((entry) => entry.value)
+          .whereType<String>()
+          .toList();
+      bool accepts(String selector, String text) =>
+          RegExp(selector).hasMatch(text);
+      final schedule = taps.singleWhere(
+        (value) => value.contains('Schedule date and time'),
+      );
+      expect(accepts(schedule, 'Schedule date and time'), isTrue);
+      expect(accepts(schedule, 'Schedule date and time...'), isTrue);
+      expect(accepts(schedule, 'Clear Schedule date and time'), isFalse);
+      final habitOptions = taps.singleWhere(
+        (value) => value.contains('Habit options'),
+      );
+      expect(accepts(habitOptions, 'Habit options, Collapsed'), isTrue);
+      expect(accepts(habitOptions, 'Habit options, Expanded'), isTrue);
+      expect(accepts(habitOptions, 'Habit options'), isTrue);
+      expect(accepts(habitOptions, 'Other Habit options'), isFalse);
+    },
+  );
+
+  test(
+    'screen assertions retain every observed header and habit-state node independently',
+    () {
+      final observed = <String, List<String>>{
+        '04-smart-planner': [
+          'Choose a step',
+          'Describe what you need to do. Get a manageable next step to review.',
+        ],
+        '05-creator': [
+          'Add something',
+          'Give it a name. Add details only if you need them.',
+          'Maestro review rhythm',
+          '1 time per day · Active',
+          'Completed this day',
+        ],
+        '07-timeline': [
+          'Schedule',
+          'See tasks with dates and past activity. Open a task to update it.',
+        ],
+        '08-progression': [
+          'Your recorded progress',
+          'Activity',
+          'Review completed tasks and recorded milestones. You can start again at any time.',
+        ],
+      };
+      for (final flow in observed.entries) {
+        final assertions = entries(commands('.maestro/flows/${flow.key}.yaml'))
+            .where((entry) => entry.key == 'assertVisible')
+            .map((entry) => entry.value)
+            .whereType<String>();
+        for (final label in flow.value) {
+          expect(
+            assertions.any(
+              (selector) => RegExp(
+                selector.replaceFirst('(?s)', ''),
+                dotAll: selector.startsWith('(?s)'),
+              ).hasMatch(label),
+            ),
+            isTrue,
+            reason: '${flow.key} must assert the actual native node $label',
+          );
+        }
+      }
+    },
+  );
+
   for (final String path in <String>[
     '.maestro/flows/05-creator.yaml',
     '.maestro/subflows/create-scheduled-task.yaml',

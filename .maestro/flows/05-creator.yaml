@@ -11,7 +11,8 @@ tags:
     file: ../subflows/open-from-nexus.yaml
     env:
       TARGET: "Add something"
-- assertVisible: '(?s).*Add something.*Give it a name. Add details only if you need them\..*'
+- assertVisible: 'Add something'
+- assertVisible: 'Give it a name. Add details only if you need them.'
 
 # Create and schedule exactly one task using the current optional controls.
 - scrollUntilVisible:
@@ -34,10 +35,10 @@ tags:
 - tapOn: '(?s)^Task options \(optional\).*'
 - scrollUntilVisible:
     element:
-      text: 'Schedule date and time\.\.\.'
+      text: '^Schedule date and time(?:\.\.\.)?$'
     direction: DOWN
     timeout: 10000
-- tapOn: 'Schedule date and time\.\.\.'
+- tapOn: '^Schedule date and time(?:\.\.\.)?$'
 - extendedWaitUntil:
     visible: "OK"
     timeout: 10000
@@ -106,8 +107,9 @@ tags:
     env:
       SAVED_ITEM: 'Habit: Maestro review rhythm'
 - tapOn: "Open habits"
-- assertVisible: '(?s)Maestro review rhythm\n1 time per day.*'
-- tapOn: "Habit options"
+- assertVisible: 'Maestro review rhythm'
+- assertVisible: '(?s)^1 time per day.*'
+- tapOn: '^Habit options(?:, (?:Collapsed|Expanded))?$'
 - scrollUntilVisible:
     element:
       text: "Pause"
@@ -130,8 +132,10 @@ tags:
     timeout: 10000
 - tapOn: "Mark target completed"
 - extendedWaitUntil:
-    visible: '(?s)Maestro review rhythm\n1 time per day.*\nCompleted this day\n.*'
+    visible: 'Completed this day'
     timeout: 10000
+- assertVisible: 'Maestro review rhythm'
+- assertVisible: '(?s)^1 time per day.*'
 - assertVisible:
     text: "Mark target completed"
     enabled: false
@@ -143,7 +147,9 @@ tags:
     centerElement: false
     timeout: 10000
 - tapOn: "Open habits"
-- assertVisible: '(?s)Maestro review rhythm\n1 time per day.*\nCompleted this day\n.*'
+- assertVisible: 'Maestro review rhythm'
+- assertVisible: '(?s)^1 time per day.*'
+- assertVisible: 'Completed this day'
 - scrollUntilVisible:
     element:
       text: "Skip this day"

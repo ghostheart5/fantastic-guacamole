@@ -13,7 +13,8 @@ tags:
     env:
       TARGET: "Choose a step"
 
-- assertVisible: "(?s).*Choose a step.*Describe what you need to do. Get a manageable next step to review\\..*"
+- assertVisible: 'Choose a step'
+- assertVisible: 'Describe what you need to do. Get a manageable next step to review.'
 
 # The canonical destination must not regress to a retired product label.
 - assertNotVisible: "SMART COACH"
