@@ -154,7 +154,7 @@ void main() {
       expect(review.status, ProgressionReviewStatus.empty);
       expect(review.canAct, isTrue);
       expect(review.text, contains('No saved planning history yet'));
-      expect(review.text, isNot(contains('Timeline integrity is stable')));
+      expect(review.text, isNot(contains('Schedule integrity is stable')));
     },
   );
 

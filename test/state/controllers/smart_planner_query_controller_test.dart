@@ -1636,13 +1636,13 @@ void main() {
     expect(
       unavailable.plannerResponse.verifiedEvidence,
       contains(
-        'Person context was unavailable for Smart Planner and was not used.',
+        'Person context was unavailable for Choose a step and was not used.',
       ),
     );
     expect(
       knownEmpty.plannerResponse.verifiedEvidence,
       contains(
-        'Person context checked for Smart Planner: no consented fresh signals were available.',
+        'Person context checked for Choose a step: no consented fresh signals were available.',
       ),
     );
   });

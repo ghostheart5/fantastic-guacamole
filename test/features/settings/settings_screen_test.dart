@@ -959,7 +959,7 @@ void main() {
       );
       expect(
         find.text(
-          'This permanently clears only recoverable or corrupt Person Context payloads stored on this device. Tasks, goals, and Timeline items are unaffected. This cannot be undone.',
+          'This permanently clears only recoverable or corrupt Person Context payloads stored on this device. Tasks, goals, and Schedule items are unaffected. This cannot be undone.',
         ),
         findsOneWidget,
       );

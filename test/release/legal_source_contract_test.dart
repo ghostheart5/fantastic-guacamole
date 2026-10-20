@@ -187,11 +187,11 @@ void main() {
       contains('This site does not distribute APK files.'),
     );
     final String productSite = read('site/index.html');
-    expect(productSite, contains('The Human Decision OS'));
-    expect(productSite, contains('Nine connected systems'));
-    expect(productSite, contains('Smart Planner'));
-    expect(productSite, contains('SI Console'));
-    expect(productSite, contains('Nexus'));
+    expect(productSite, contains('Reflection and planning'));
+    expect(productSite, contains('Tools for your day'));
+    expect(productSite, contains('Choose a step'));
+    expect(productSite, contains('SI Chat'));
+    expect(productSite, contains('Today'));
     expect(productSite, contains('publicly available'));
     expect(productSite, isNot(contains('Closed testing')));
     expect(productSite, isNot(contains('tester support')));

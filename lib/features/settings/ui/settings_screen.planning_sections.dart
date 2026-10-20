@@ -1051,7 +1051,11 @@ Future<void> _confirmClearLearningLedger(
               key: const Key('confirm-delete-learning-ledger'),
               onPressed: () => Navigator.of(dialogContext).pop(true),
               child: Text(
-                journeyText(context, 'Delete feedback history', 'Eliminar registro'),
+                journeyText(
+                  context,
+                  'Delete feedback history',
+                  'Eliminar registro',
+                ),
               ),
             ),
           ],

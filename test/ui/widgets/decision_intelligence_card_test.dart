@@ -40,7 +40,7 @@ void main() {
       actionIntent: const OperatingActionIntent(
         id: 'action-a',
         type: OperatingActionType.openTimeline,
-        label: 'Review on Timeline',
+        label: 'Review on Schedule',
         destination: '/timeline',
         targetEntityId: 'task-a',
       ),
@@ -82,7 +82,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Start task A'), findsOneWidget);
-    expect(find.text('Review on Timeline'), findsOneWidget);
+    expect(find.text('Review on Schedule'), findsOneWidget);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -110,7 +110,7 @@ void main() {
     expect(find.text('DÓNDE ESTÁS'), findsOneWidget);
     expect(find.text('QUÉ IMPORTA AHORA'), findsOneWidget);
     expect(find.text('POR QUÉ IMPORTA'), findsOneWidget);
-    expect(find.text('Revisar en Línea de Tiempo'), findsOneWidget);
+    expect(find.text('Revisar en agenda'), findsOneWidget);
     expect(find.text('Start task A'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

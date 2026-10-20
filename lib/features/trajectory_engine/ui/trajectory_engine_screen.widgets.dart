@@ -1166,8 +1166,7 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
         'Los XP proyectados son informativos y esta simulación nunca los concede.',
     'No Activity reward is projected from this intervention alone.':
         'Esta intervención por sí sola no proyecta una recompensa de progreso.',
-    'Keep the suggested plan':
-        'Proteger el camino de Elegir un paso',
+    'Keep the suggested plan': 'Proteger el camino de Elegir un paso',
     'Protect the highest-value feasible block.':
         'Proteger el bloque viable de mayor valor.',
     'The protected block is attempted.':

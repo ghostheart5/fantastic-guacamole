@@ -360,7 +360,7 @@ void main() {
 
     await _pumpTimelineShell(tester, container);
 
-    expect(find.text('Loading your Timeline'), findsOneWidget);
+    expect(find.text('Loading your schedule'), findsOneWidget);
     expect(find.text('No saved activity in this view'), findsNothing);
     tasks.complete(const <Task>[]);
   });
@@ -460,7 +460,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('timeline-persistence-retry')));
     await tester.pump();
-    expect(find.text('Repair saved Timeline activity?'), findsOneWidget);
+    expect(find.text('Repair saved schedule activity?'), findsOneWidget);
     await tester.tap(
       find.byKey(const Key('timeline-confirm-persistence-repair')),
     );
@@ -512,7 +512,7 @@ void main() {
     );
     expect(find.textContaining('conservará primero'), findsOneWidget);
     expect(find.text('Conservar y reparar'), findsOneWidget);
-    expect(find.text('Repair saved Timeline activity?'), findsNothing);
+    expect(find.text('Repair saved schedule activity?'), findsNothing);
   });
 
   testWidgets('resolved empty sources show a truthful saved-data empty state', (
@@ -527,7 +527,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('No saved activity in this view'), findsOneWidget);
-    expect(find.text('Loading your Timeline'), findsNothing);
+    expect(find.text('Loading your schedule'), findsNothing);
   });
 
   testWidgets(

@@ -208,8 +208,7 @@ String _actionLabel(OperatingActionIntent intent, bool isSpanish) {
   if (!isSpanish) return intent.label;
   return switch (intent.type) {
     OperatingActionType.openCreator => 'Abrir Creador',
-    OperatingActionType.openSmartPlanner =>
-      'Revisar en Elegir un paso',
+    OperatingActionType.openSmartPlanner => 'Revisar en Elegir un paso',
     OperatingActionType.openSiConsole => 'Revisar evidencia en el Chat SI',
     OperatingActionType.openTrajectoryEngine =>
       'Revisar riesgo en Perspectivas',
