@@ -160,7 +160,7 @@ void main() {
     final IntelligenceFusionState captureResult = capture.read(
       intelligenceFusionProvider,
     );
-    expect(captureResult.nextAction, contains('Creator'));
+    expect(captureResult.nextAction, 'Save one action in Add something.');
     expect(captureResult.primaryConstraint, contains('compressing'));
 
     final ProviderContainer deferral = _container(
