@@ -33,6 +33,7 @@ class _ContextStatusBanner extends StatelessWidget {
     required this.error,
     required this.snapshot,
     required this.onRetry,
+    this.compact = false,
   });
 
   final bool availabilityLoading;
@@ -42,6 +43,7 @@ class _ContextStatusBanner extends StatelessWidget {
   final Object? error;
   final SIV2EvidenceSnapshot? snapshot;
   final VoidCallback onRetry;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +99,7 @@ class _ContextStatusBanner extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      padding: EdgeInsets.fromLTRB(16, compact ? 4 : 10, 16, compact ? 4 : 10),
       decoration: BoxDecoration(
         color: AppColors.bgSecondary.withValues(alpha: 0.82),
         border: Border(
@@ -115,6 +117,8 @@ class _ContextStatusBanner extends StatelessWidget {
               child: ExcludeSemantics(
                 child: Text(
                   message,
+                  maxLines: compact ? 1 : null,
+                  overflow: compact ? TextOverflow.ellipsis : null,
                   style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 12,
@@ -153,10 +157,12 @@ class _Header extends StatelessWidget {
     required this.onBack,
     required this.onSpeakSummary,
     required this.onSpeakAccessibility,
+    this.compact = false,
   });
   final VoidCallback onBack;
   final VoidCallback? onSpeakSummary;
   final VoidCallback onSpeakAccessibility;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -194,6 +200,30 @@ class _Header extends StatelessWidget {
         icon: const Icon(Icons.accessibility_new_rounded),
       ),
     );
+    if (compact) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          children: <Widget>[
+            backButton,
+            Expanded(
+              child: Text(
+                copy.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            summaryButton,
+            accessibilityButton,
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
       child: Column(

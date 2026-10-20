@@ -10,18 +10,18 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Deep Intelligence"
+      TARGET: "Chat"
 
-- assertVisible: "DEEP INTELLIGENCE"
+- assertVisible: "(?s).*Talk it through.*"
 
 # The screen must expose its current source-aware contract, not only a title.
-- assertVisible: "Question, investigate and challenge reasoning with visible evidence"
-- assertVisible: "No planning evidence yet. SI will identify what it cannot determine. Person context: shared but no item was relevant to this lens."
+- assertVisible: "(?s).*Ask a question about your saved plans. Review the answer before deciding\\..*"
+- assertVisible: "No saved planning information yet. This tool will explain what it cannot answer. None of your shared details apply to this question."
 
 # A normal typed evidence question must return a structured, on-device SI
 # response. Use the persistent composer instead of relying on an off-screen
 # suggestion chip.
-- tapOn: "(?s)^SI query.*"
+- tapOn: "(?s)^Your question.*"
 - inputText: "What evidence is missing?"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
 - tapOn: "Send SI query"
@@ -33,7 +33,7 @@ tags:
 - assertNotVisible: "External AI"
 
 # A typed local status request must disclose the current evidence boundary.
-- tapOn: "(?s)^SI query.*"
+- tapOn: "(?s)^Your question.*"
 - inputText: "/status"
 - assertVisible: "(?s).*/status.*"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
@@ -45,7 +45,7 @@ tags:
 - assertNotVisible: "External AI"
 
 # Unsupported input must fail explicitly without discarding or sending text.
-- tapOn: "(?s)^SI query.*"
+- tapOn: "(?s)^Your question.*"
 - inputText: "/not-real preserve this"
 - assertVisible: "(?s).*/not-real preserve this.*"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
@@ -57,7 +57,7 @@ tags:
 - assertNotVisible: "External AI"
 
 # Crisis language must preempt ordinary SI output and stay local.
-- tapOn: "(?s)^SI query.*"
+- tapOn: "(?s)^Your question.*"
 - inputText: "I want to kill myself"
 - assertVisible: "(?s).*I want to kill myself.*"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml

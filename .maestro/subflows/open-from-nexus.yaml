@@ -1,9 +1,9 @@
 # Shared: open a surface from the shell navigation map.
 #
-# Pass TARGET using the canonical destination label, e.g. "Timeline".
+# Pass TARGET using the canonical destination label, e.g. "Choose a step".
 appId: com.ghostheart5.chronospark
 ---
-- tapOn: "Open navigation map"
+- tapOn: "Browse tools"
 - scrollUntilVisible:
     element:
       text: "${TARGET}\\n.*"

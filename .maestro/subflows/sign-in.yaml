@@ -1,4 +1,4 @@
-# Shared: authenticate and land on Nexus.
+# Shared: authenticate and land on Today.
 #
 # Used by every flow that tests something behind the login gate, so those flows
 # assert their own feature rather than re-asserting authentication.
@@ -12,15 +12,15 @@ appId: com.ghostheart5.chronospark
     commands:
       - tapOn: "(?:Create profile|Open profile)"
       - extendedWaitUntil:
-          visible: "(?:SKIP FOR NOW|Pause guide|NEXUS.*)"
+          visible: "(?:Go to Today|SKIP FOR NOW|Pause guide|Today)"
           timeout: 20000
 
 # Creating the local profile reveals the authenticated final setup step.
 - runFlow:
     when:
-      visible: "SKIP FOR NOW"
+      visible: "Go to Today"
     commands:
-      - tapOn: "SKIP FOR NOW"
+      - tapOn: "Go to Today"
 
 - runFlow:
     when:
@@ -42,17 +42,20 @@ appId: com.ghostheart5.chronospark
       - tapOn: "ENTER SYSTEM"
 
 - extendedWaitUntil:
-    visible: "(?:Pause guide|NEXUS.*)"
+    visible: "(?:Pause guide|Today)"
     timeout: 20000
 - tapOn:
     text: "Pause guide"
     optional: true
 
 - extendedWaitUntil:
-    visible: "NEXUS.*"
+    visible: "Today"
     timeout: 20000
 
 - tapOn:
     text: "Pause guide"
     optional: true
 - assertNotVisible: "Pause guide"
+
+# Authentication must reveal the usable Today action, not only a heading.
+- assertVisible: "Add a goal, task or habit"

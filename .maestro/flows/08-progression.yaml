@@ -1,4 +1,4 @@
-# P2 — Progression. Same as Timeline: only reachable from the Nexus buttons.
+# The Activity destination preserves the recorded progression review.
 appId: com.ghostheart5.chronospark
 tags:
   - core
@@ -6,10 +6,8 @@ tags:
 - launchApp:
     clearState: true
 - runFlow: ../subflows/sign-in.yaml
-
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Capability Matrix"
-
-- assertVisible: "CAPABILITY MATRIX"
+      TARGET: "Activity"
+- assertVisible: '(?s).*Your recorded progress.*Activity.*Review completed tasks and recorded milestones. You can start again at any time\..*'
