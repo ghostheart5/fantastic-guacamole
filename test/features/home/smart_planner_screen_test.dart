@@ -328,8 +328,8 @@ void main() {
       await _pumpPlanner(tester, container);
       container.read(emotionCheckInProvider.notifier).set(EmotionalState.calm);
       await tester.pump();
-      await _scrollTo(tester, find.text('GET GUIDANCE'));
-      await tester.tap(find.text('GET GUIDANCE'));
+      await _scrollTo(tester, find.text('Get a suggestion'));
+      await tester.tap(find.text('Get a suggestion'));
       await tester.pump();
       expect(planner.guidanceRequestCount, 1);
       container
@@ -359,7 +359,7 @@ void main() {
       );
       addTearDown(container.dispose);
       await _pumpPlanner(tester, container);
-      await _scrollTo(tester, find.text('GET GUIDANCE'));
+      await _scrollTo(tester, find.text('Get a suggestion'));
       final button = tester.widget<FilledButton>(
         find.descendant(
           of: find.byKey(const Key('planner-guidance-button')),
@@ -756,7 +756,7 @@ void main() {
         find.textContaining('Energy and planning context are optional'),
         findsOneWidget,
       );
-      final guidance = find.text('GET GUIDANCE');
+      final guidance = find.text('Get a suggestion');
       await _scrollTo(tester, guidance);
       await tester.tap(guidance);
       await tester.pump();
@@ -793,8 +793,8 @@ void main() {
       );
       await _scrollTo(tester, find.byKey(const Key('planner-context-field')));
       expect(find.byKey(const Key('planner-context-field')), findsOneWidget);
-      await _scrollTo(tester, find.text('GET GUIDANCE'));
-      expect(find.bySemanticsLabel('GET GUIDANCE'), findsOneWidget);
+      await _scrollTo(tester, find.text('Get a suggestion'));
+      expect(find.bySemanticsLabel('Get a suggestion'), findsOneWidget);
 
       await _requestGuidance(tester);
       await _scrollTo(
@@ -862,11 +862,11 @@ void main() {
     addTearDown(container.dispose);
     await _pumpPlanner(tester, container);
 
-    await _scrollTo(tester, find.text('GET GUIDANCE'));
-    expect(find.text('GET GUIDANCE'), findsOneWidget);
+    await _scrollTo(tester, find.text('Get a suggestion'));
+    expect(find.text('Get a suggestion'), findsOneWidget);
     expect(
       find.text(
-        'Your words and check-in stay ephemeral. A local decision receipt may record which guidance was shown or used. Nothing else is saved unless you explicitly remember a preference.',
+        'Your words and check-in are temporary. This device may keep a record of the guidance shown or used. Other details are saved only if you choose to remember a preference.',
       ),
       findsOneWidget,
     );
@@ -922,7 +922,7 @@ void main() {
 
       expect(find.byKey(const Key('first-use-context-offer')), findsOneWidget);
       expect(find.textContaining('decision support'), findsOneWidget);
-      expect(find.textContaining('Smart Planner only'), findsOneWidget);
+      expect(find.textContaining('Choose a step only'), findsOneWidget);
       expect(find.textContaining('expiry · 30 days'), findsOneWidget);
       expect((await repository.load()).signals, isEmpty);
 
@@ -1354,11 +1354,11 @@ void main() {
     await _scrollTo(tester, find.text('PLANNER UNAVAILABLE'));
     expect(
       find.text(
-        'Smart Planner is not enabled for this account. No guidance request will be sent.',
+        'Choose a step is not enabled for this account. No guidance request will be sent.',
       ),
       findsOneWidget,
     );
-    expect(find.text('GET GUIDANCE'), findsNothing);
+    expect(find.text('Get a suggestion'), findsNothing);
 
     await tester.tap(find.text('PLANNER UNAVAILABLE'));
     await tester.pump();
@@ -1484,7 +1484,7 @@ void main() {
       expect(find.text('Use this plan'), findsNothing);
       expect(
         find.text(
-          'Your Person Context changed, so the previous guidance was cleared. Tap GET GUIDANCE to review a current plan.',
+          'Your Person Context changed, so the previous guidance was cleared. Tap Get a suggestion to review a current plan.',
         ),
         findsOneWidget,
       );
@@ -1630,14 +1630,11 @@ void main() {
     await tester.tap(remember);
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(
-      find.text('¿Recordar una preferencia del Planificador Inteligente?'),
-      findsOneWidget,
-    );
+    expect(find.text('¿Recordar cómo prefieres planificar?'), findsOneWidget);
     expect(find.textContaining('Vista previa del recibo'), findsOneWidget);
     expect(find.textContaining('Límite de recuperación'), findsOneWidget);
     expect(find.text('Usar solo esta vez'), findsOneWidget);
-    expect(find.text('Remember a Smart Planner preference?'), findsNothing);
+    expect(find.text('Remember how you like to plan?'), findsNothing);
   });
 
   testWidgets(
@@ -1987,7 +1984,7 @@ Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
 }
 
 const String _plannerRetryMessageForTest =
-    'Guidance could not be generated. Your check-in is still here. Tap GET GUIDANCE to retry.';
+    'Guidance could not be generated. Your check-in is still here. Tap Get a suggestion to retry.';
 
 Future<void> _expectInlineFirstValueRetry(
   WidgetTester tester,
@@ -2006,8 +2003,8 @@ Future<void> _expectInlineFirstValueRetry(
     find.byKey(const Key('planner-context-field')),
   );
   expect(contextField.controller?.text, prompt);
-  await _scrollTo(tester, find.text('GET GUIDANCE'));
-  expect(find.text('GET GUIDANCE'), findsOneWidget);
+  await _scrollTo(tester, find.text('Get a suggestion'));
+  expect(find.text('Get a suggestion'), findsOneWidget);
   expect(tester.takeException(), isNull);
 }
 

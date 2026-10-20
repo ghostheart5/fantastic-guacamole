@@ -75,8 +75,8 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
       if (_sameAccount(owner)) {
         _message(
           _t(
-            'Could not save that change. Your rhythm is still available; try again.',
-            'No se pudo guardar el cambio. Tu ritmo sigue disponible; inténtalo de nuevo.',
+            'Could not save that change. Your habit is still available; try again.',
+            'No se pudo guardar el cambio. Tu hábito sigue disponible; inténtalo de nuevo.',
           ),
         );
       }
@@ -96,8 +96,8 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
       if (_sameAccount(owner)) {
         _message(
           _t(
-            'Reminders are still unavailable. Your saved rhythm has been preserved.',
-            'Los recordatorios siguen sin estar disponibles. Tu ritmo guardado se conservó.',
+            'Reminders are still unavailable. Your saved habit has been preserved.',
+            'Los recordatorios siguen sin estar disponibles. Tu hábito guardado se conservó.',
           ),
         );
       }
@@ -165,9 +165,7 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, update) => AlertDialog(
-          title: Text(
-            _t('Rename Daily Rhythm', 'Cambiar nombre del ritmo diario'),
-          ),
+          title: Text(_t('Rename habit', 'Cambiar nombre del hábito')),
           content: TextFormField(
             initialValue: habit.title,
             maxLength: 160,
@@ -192,7 +190,7 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     if (title == null || !_sameAccount(owner)) return;
     await _run(owner, habit, (notifier) async {
       await notifier.renameHabit(habit.id, title);
-      return _t('Daily Rhythm renamed.', 'Ritmo diario renombrado.');
+      return _t('Habit renamed.', 'Hábito renombrado.');
     });
   }
 
@@ -285,8 +283,8 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
         SnackBar(
           content: Text(
             _t(
-              'No earlier day is available. This rhythm was created today.',
-              'No hay un día anterior disponible. Este ritmo se creó hoy.',
+              'No earlier day is available. This habit was created today.',
+              'No hay un día anterior disponible. Este hábito se creó hoy.',
             ),
           ),
         ),
@@ -349,11 +347,11 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(_t('Remove Daily Rhythm?', '¿Eliminar el ritmo diario?')),
+        title: Text(_t('Remove habit?', '¿Eliminar el hábito?')),
         content: Text(
           _t(
-            'Remove "${habit.title}" from your rhythms? Previously recorded outcomes remain in your history.',
-            '¿Eliminar "${habit.title}" de tus ritmos? Los resultados anteriores permanecen en tu historial.',
+            'Remove "${habit.title}" from your habits? Previously recorded outcomes remain in your history.',
+            '¿Eliminar "${habit.title}" de tus hábitos? Los resultados anteriores permanecen en tu historial.',
           ),
         ),
         actions: [
@@ -371,7 +369,7 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     if (confirmed != true || !_sameAccount(owner)) return;
     await _run(owner, habit, (notifier) async {
       await notifier.removeHabit(habit.id);
-      return _t('Daily Rhythm removed.', 'Ritmo diario eliminado.');
+      return _t('Habit removed.', 'Hábito eliminado.');
     });
   }
 
@@ -390,20 +388,20 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
             padding: const EdgeInsets.all(20),
             children: [
               TemporalScreenHeader(
-                title: _t('Daily Rhythms', 'Ritmos diarios'),
+                title: _t('Habits', 'Hábitos'),
                 subtitle: _t(
-                  'Review your rhythms and record each period’s outcome.',
-                  'Revisa tus ritmos y registra el resultado de cada periodo.',
+                  'Choose a habit to mark what happened or change how often it repeats.',
+                  'Elige un hábito para registrar lo que pasó o cambiar su frecuencia.',
                 ),
-                eyebrow: _t('Consistent action', 'Acción constante'),
+                eyebrow: _t('One check-in at a time', 'Un registro cada vez'),
                 onBack: () => Navigator.of(context).pop(),
               ),
               const SizedBox(height: 20),
               if (!scope.isWritable || owner == null)
                 Text(
                   _t(
-                    'Sign in to view your Daily Rhythms.',
-                    'Inicia sesión para ver tus ritmos diarios.',
+                    'Sign in to view your habits.',
+                    'Inicia sesión para ver tus hábitos.',
                   ),
                 )
               else
@@ -412,16 +410,16 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
                       const Center(child: CircularProgressIndicator()),
                   error: (_, _) => _retry(
                     _t(
-                      'Could not load Daily Rhythms.',
-                      'No se pudieron cargar los ritmos diarios.',
+                      'Could not load habits.',
+                      'No se pudieron cargar los hábitos.',
                     ),
                     () => ref.invalidate(habitsProvider),
                   ),
                   data: (items) => items.isEmpty
                       ? Text(
                           _t(
-                            'No Daily Rhythms yet. Return to Creator and choose Daily Rhythm to add one.',
-                            'Aún no hay ritmos diarios. Vuelve a Creator y elige Ritmo diario para añadir uno.',
+                            'No habits yet. Go to Add something and choose Habit to save one.',
+                            'Aún no hay hábitos. Ve a Añadir algo y elige Hábito para guardar uno.',
                           ),
                         )
                       : Column(
@@ -566,44 +564,74 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
                     icon: const Icon(Icons.undo_rounded),
                     label: Text(_t('Correct outcome', 'Corregir resultado')),
                   ),
-                if (habit.active)
-                  TextButton.icon(
-                    onPressed: busy ? null : () => _backfill(owner, habit),
-                    icon: const Icon(Icons.history_rounded),
-                    label: Text(_t('Record earlier', 'Registrar anterior')),
+                SizedBox(
+                  width: double.infinity,
+                  child: ExpansionTile(
+                    key: ValueKey('habit-options-${habit.id}'),
+                    tilePadding: EdgeInsets.zero,
+                    title: Text(
+                      _t('Habit options', 'Opciones del h\u00e1bito'),
+                    ),
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (habit.active)
+                            TextButton.icon(
+                              onPressed: busy
+                                  ? null
+                                  : () => _backfill(owner, habit),
+                              icon: const Icon(Icons.history_rounded),
+                              label: Text(
+                                _t('Record earlier', 'Registrar anterior'),
+                              ),
+                            ),
+                          TextButton(
+                            onPressed: busy
+                                ? null
+                                : () => _run(owner, habit, (notifier) async {
+                                    await notifier.toggleHabit(habit.id);
+                                    return habit.active
+                                        ? _t(
+                                            'Habit paused.',
+                                            'Hábito en pausa.',
+                                          )
+                                        : _t(
+                                            'Habit resumed.',
+                                            'Hábito reanudado.',
+                                          );
+                                  }),
+                            child: Text(
+                              habit.active
+                                  ? _t('Pause', 'Pausar')
+                                  : _t('Resume', 'Reanudar'),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: busy
+                                ? null
+                                : () => _editFrequency(owner, habit),
+                            child: Text(
+                              _t('Edit frequency', 'Editar frecuencia'),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: busy
+                                ? null
+                                : () => _rename(owner, habit),
+                            child: Text(_t('Rename', 'Renombrar')),
+                          ),
+                          TextButton(
+                            onPressed: busy
+                                ? null
+                                : () => _remove(owner, habit),
+                            child: Text(_t('Remove', 'Eliminar')),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                TextButton(
-                  onPressed: busy
-                      ? null
-                      : () => _run(owner, habit, (notifier) async {
-                          await notifier.toggleHabit(habit.id);
-                          return habit.active
-                              ? _t(
-                                  'Daily Rhythm paused.',
-                                  'Ritmo diario en pausa.',
-                                )
-                              : _t(
-                                  'Daily Rhythm resumed.',
-                                  'Ritmo diario reanudado.',
-                                );
-                        }),
-                  child: Text(
-                    habit.active
-                        ? _t('Pause', 'Pausar')
-                        : _t('Resume', 'Reanudar'),
-                  ),
-                ),
-                TextButton(
-                  onPressed: busy ? null : () => _editFrequency(owner, habit),
-                  child: Text(_t('Edit frequency', 'Editar frecuencia')),
-                ),
-                TextButton(
-                  onPressed: busy ? null : () => _rename(owner, habit),
-                  child: Text(_t('Rename', 'Renombrar')),
-                ),
-                TextButton(
-                  onPressed: busy ? null : () => _remove(owner, habit),
-                  child: Text(_t('Remove', 'Eliminar')),
                 ),
               ],
             ),

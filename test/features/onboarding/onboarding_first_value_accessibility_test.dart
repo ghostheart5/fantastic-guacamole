@@ -1,3 +1,6 @@
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -22,6 +25,49 @@ void main() {
           textScale: 1,
         ),
       ];
+
+  testWidgets('Go to Today completes setup with the core guide paused', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      onboardingWelcomeCompleteStorageKey: true,
+    });
+    final container = ProviderContainer(
+      overrides: [
+        domainTaskRepositoryProvider.overrideWithValue(_SetupTasks()),
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('calm-skip-setup-user'),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.read(onboardingWelcomeCompleteProvider.notifier).set(true);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: OnboardingScreen()),
+      ),
+    );
+    await tester.pump();
+    final exit = find.byKey(const Key('first-value-skip-top'));
+    expect(exit.hitTestable(), findsOneWidget);
+    await tester.tap(exit);
+    for (var frame = 0; frame < 20; frame++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(container.read(onboardingCompleteProvider), isTrue);
+    final guidance = await container.read(adaptiveGuidanceProvider.future);
+    expect(guidance.activeCoreLesson, isNull);
+    expect(
+      guidance.laterLessons,
+      containsAll([
+        GuidanceLessonId.createFirstItem,
+        GuidanceLessonId.scheduleFirstItem,
+        GuidanceLessonId.reviewTimeline,
+      ]),
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   for (final surface in surfaces) {
     testWidgets('first-value setup remains reachable on ${surface.name}', (
@@ -66,6 +112,10 @@ void main() {
       semantics.dispose();
       expect(find.byKey(const Key('first-value-question')), findsOneWidget);
 
+      final Finder quickExit = find.byKey(const Key('first-value-skip-top'));
+      await tester.ensureVisible(quickExit);
+      expect(tester.getSize(quickExit).height, greaterThanOrEqualTo(48));
+
       final Finder primary = find.byKey(const Key('first-value-show-choice'));
       await tester.ensureVisible(primary);
       await tester.pump();
@@ -75,4 +125,15 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+}
+
+class _SetupTasks implements ITaskRepository {
+  @override
+  Future<List<TaskEntity>> getAllTasks() async => [];
+  @override
+  Future<TaskEntity?> getTaskById(String id) async => null;
+  @override
+  Future<void> saveTask(TaskEntity task) async {}
+  @override
+  Future<void> deleteTask(String id) async {}
 }

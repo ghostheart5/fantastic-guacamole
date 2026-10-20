@@ -103,7 +103,7 @@ void main() {
 
   test('product UI and tutorial contain none of the forbidden names', () {
     final RegExp forbidden = RegExp(
-      r'\b(?:personal[ _-]?alignment|planner[ _-]?analysis|insights?|journals?|focus|sessions?)\b',
+      r'\b(?:personal[ _-]?alignment|planner[ _-]?analysis|journals?|focus|sessions?)\b',
       caseSensitive: false,
     );
     final List<String> violations = <String>[];
@@ -125,12 +125,6 @@ void main() {
         );
         if (match != null) {
           final String normalizedPath = file.path.replaceAll('\\', '/');
-          final bool compatibilityRouteTerm =
-              normalizedPath.endsWith('lib/app/router/route_paths.dart') &&
-              <String>{'insights'}.contains(match.group(0)?.toLowerCase());
-          if (compatibilityRouteTerm) {
-            continue;
-          }
           violations.add('$normalizedPath: ${match.group(0)}');
         }
       }

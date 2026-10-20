@@ -57,13 +57,13 @@ class FirstUseContextOfferCard extends StatelessWidget {
               goal.isEmpty
                   ? journeyText(
                       context,
-                      'Would saving your exact current priority help later Smart Planner decisions?',
-                      '¿Guardar tu prioridad actual exacta ayudaría a las próximas decisiones del Planificador Inteligente?',
+                      'Would you like to save your current priority for future planning?',
+                      '¿Quieres guardar tu prioridad actual para futuras sugerencias?',
                     )
                   : journeyText(
                       context,
-                      'After this plan for “$goal”, would saving your exact current priority help later Smart Planner decisions?',
-                      'Después de este plan para “$goal”, ¿guardar tu prioridad actual exacta ayudaría a las próximas decisiones del Planificador Inteligente?',
+                      'Would you like to save your current priority for future plans about “$goal”?',
+                      '¿Quieres guardar tu prioridad actual para futuros planes sobre “$goal”?',
                     ),
               style: const TextStyle(
                 color: Colors.white,
@@ -85,8 +85,8 @@ class FirstUseContextOfferCard extends StatelessWidget {
             Text(
               journeyText(
                 context,
-                'Before saving: purpose · decision support  |  scope · Smart Planner only  |  expiry · 30 days  |  effect · may break a close ranking tie while this priority is active',
-                'Antes de guardar: propósito · apoyar decisiones  |  alcance · solo Planificador Inteligente  |  vencimiento · 30 días  |  efecto · puede desempatar opciones similares mientras esta prioridad esté activa',
+                'Before saving: purpose · decision support  |  scope · Choose a step only  |  expiry · 30 days  |  effect · may break a close ranking tie while this priority is active',
+                'Antes de guardar: propósito · apoyar decisiones  |  alcance · solo Elegir un paso  |  vencimiento · 30 días  |  efecto · puede desempatar opciones similares mientras esta prioridad esté activa',
               ),
               style: const TextStyle(
                 color: Color(0xFFB9C5DD),

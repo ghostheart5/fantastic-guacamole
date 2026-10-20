@@ -7,13 +7,13 @@ extension _NavigationShellUi on _NavigationShellState {
         return const SizedBox.shrink();
       }
       final AppView view = _viewForTabIndex(index);
+      final bool isActive = index == tabIndex;
       final Widget tab = switch (view) {
         AppView.trajectoryEngine => const TrajectoryEngineScreen(),
-        AppView.timeline => const TimelineScreen(),
-        AppView.profile => const ProfileScreen(),
+        AppView.timeline => _buildPlan(),
+        AppView.console => SIConsoleScreen(isActive: isActive),
         _ => const NexusScreen(),
       };
-      final bool isActive = index == tabIndex;
       return TickerMode(
         enabled: isActive,
         child: ExcludeFocus(excluding: !isActive, child: tab),
@@ -24,6 +24,19 @@ extension _NavigationShellUi on _NavigationShellState {
       index: tabIndex,
       children: <Widget>[tabAt(0), tabAt(1), tabAt(2), tabAt(3)],
     );
+  }
+
+  Widget _buildPlan() {
+    final lesson = ref
+        .watch(adaptiveGuidanceProvider)
+        .asData
+        ?.value
+        .activeCoreLesson;
+    if (lesson == GuidanceLessonId.reviewTimeline ||
+        lesson == GuidanceLessonId.scheduleFirstItem) {
+      return const TimelineScreen();
+    }
+    return const RecordLibraryScreen(asPlan: true);
   }
 
   Color _navigationAccent(int index) {
@@ -240,7 +253,7 @@ extension _NavigationShellUi on _NavigationShellState {
                       : MainAxisAlignment.center,
                   children: <Widget>[
                     const Icon(
-                      Icons.map_outlined,
+                      Icons.more_horiz_rounded,
                       size: 26,
                       color: Color(0xFFA8B5CA),
                     ),
@@ -352,7 +365,7 @@ extension _NavigationShellUi on _NavigationShellState {
         child: IconButton(
           tooltip: NavigationCopy.of(context).openMap,
           onPressed: _showNavigationMap,
-          icon: const Icon(Icons.map_outlined),
+          icon: const Icon(Icons.more_horiz_rounded),
           color: AppColors.neonCyan,
           style: IconButton.styleFrom(
             minimumSize: const Size.square(AppSizes.touchTarget),

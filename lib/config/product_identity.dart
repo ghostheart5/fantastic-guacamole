@@ -5,8 +5,8 @@
 abstract final class ProductIdentity {
   static const String name = 'Axiomara';
   static const String wordmark = 'AXIOMARA';
-  static const String category = 'Human Decision OS';
-  static const String signature = 'AXIOMARA // HUMAN DECISION OS';
+  static const String category = 'Reflection and planning';
+  static const String signature = 'AXIOMARA // SPACE TO THINK';
 
   /// Kept for support, migration and account continuity disclosures.
   static const String legacyName = 'ChronoSpark';

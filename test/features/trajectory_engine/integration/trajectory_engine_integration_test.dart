@@ -40,7 +40,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.textContaining('CAMINO MODELADO'), findsWidgets);
-      expect(find.text('FUTURE BRANCHES'), findsNothing);
+      expect(find.text('Compare options'), findsNothing);
       expect(find.textContaining('MODELED PATH'), findsNothing);
       expect(find.text('SUPUESTOS DE ESTE RESULTADO'), findsWidgets);
       expect(find.text('ASSUMPTIONS FOR THIS RESULT'), findsNothing);

@@ -1,6 +1,9 @@
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
+
 import 'dart:async';
+
 import 'package:fantastic_guacamole/features/settings/ui/cloud_backup_actions.dart';
+
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
@@ -321,12 +324,15 @@ class SettingsScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(20),
             children: [
               TemporalScreenHeader(
-                title: copy('SETTINGS', 'AJUSTES'),
+                title: copy('Settings', 'Ajustes'),
                 subtitle: copy(
-                  'Preferences, guidance, and account control.',
-                  'Preferencias, orientación y control de la cuenta.',
+                  'Change your preferences, review shared information, or manage your account.',
+                  'Cambia preferencias, revisa información compartida o gestiona tu cuenta.',
                 ),
-                eyebrow: copy('PREFERENCES & ACCOUNT', 'PREFERENCIAS Y CUENTA'),
+                eyebrow: copy(
+                  'Make the app work for you',
+                  'Adapta la app a ti',
+                ),
                 onBack: () {
                   if (Navigator.canPop(context)) {
                     context.pop();
@@ -381,7 +387,7 @@ class SettingsScreen extends ConsumerWidget {
                         },
                       ),
                       _NeonToggleTile(
-                        title: copy('Audio FX', 'Efectos de sonido'),
+                        title: copy('Sound effects', 'Efectos de sonido'),
                         value: soundEnabled,
                         onChanged: (v) =>
                             ref.read(soundEnabledProvider.notifier).set(v),

@@ -49,12 +49,12 @@ void main() {
       );
 
       expect(route.path, RoutePaths.trajectoryEngine);
-      expect(route.label, 'Future Branches');
+      expect(route.label, 'Insights');
       expect(route.icon, Icons.alt_route_rounded);
       expect(route.externalSlug, 'trajectory');
       expect(route.accessClass, RouteAccessClass.protectedApplication);
       expect(route.navigationGroup, AppNavigationGroup.primary);
-      expect(route.navigationOrder, 1);
+      expect(route.navigationOrder, 2);
     });
 
     test('Profile and Settings remain separate exact destinations', () {
@@ -66,14 +66,14 @@ void main() {
       );
 
       expect(profile.path, RoutePaths.profile);
-      expect(profile.label, 'Human Profile');
+      expect(profile.label, 'Profile');
       expect(profile.icon, Icons.person_outline_rounded);
       expect(profile.externalSlug, 'profile');
       expect(profile.accessClass, RouteAccessClass.protectedApplication);
-      expect(profile.navigationGroup, AppNavigationGroup.primary);
+      expect(profile.navigationGroup, AppNavigationGroup.secondary);
 
       expect(settings.path, RoutePaths.settings);
-      expect(settings.label, 'Control Center');
+      expect(settings.label, 'Settings');
       expect(settings.icon, Icons.settings_outlined);
       expect(settings.externalSlug, 'settings');
       expect(settings.accessClass, RouteAccessClass.protectedApplication);
@@ -94,17 +94,17 @@ void main() {
           ).toList(growable: false);
 
       expect(primary.map((AppRouteDefinition route) => route.label), <String>[
-        'Nexus Core',
-        'Future Branches',
-        'Truth Ledger',
-        'Human Profile',
+        'Today',
+        'My plan',
+        'Insights',
+        'Chat',
       ]);
       expect(secondary.map((AppRouteDefinition route) => route.label), <String>[
-        'Reality Builder',
-        'Now Engine',
-        'Deep Intelligence',
-        'Capability Matrix',
-        'Control Center',
+        'Add something',
+        'Choose a step',
+        'Profile',
+        'Activity',
+        'Settings',
       ]);
       for (final AppRouteDefinition route in <AppRouteDefinition>[
         ...primary,

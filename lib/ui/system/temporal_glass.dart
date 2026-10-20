@@ -111,7 +111,7 @@ class TemporalScreenHeader extends StatelessWidget {
             children: <Widget>[
               if (eyebrow case final String value) ...<Widget>[
                 Text(
-                  value.toUpperCase(),
+                  value,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: accent,
                     fontWeight: FontWeight.w700,

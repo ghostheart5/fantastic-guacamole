@@ -31,7 +31,10 @@ class NoteDetailScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(20),
             children: [
               TemporalScreenHeader(
-                title: es ? 'NOTA' : 'NOTE',
+                title: es ? 'Nota' : 'Note',
+                subtitle: es
+                    ? 'Lee tu nota. Abajo puedes editarla, archivarla o usarla al planificar.'
+                    : 'Read your note. Use the actions below to edit, archive, or use it in planning.',
                 eyebrow: es ? 'Contexto guardado' : 'Saved context',
                 onBack: () => Navigator.of(context).pop(),
               ),
@@ -41,8 +44,8 @@ class NoteDetailScreen extends ConsumerWidget {
                   accent: AppColors.recallRed,
                   child: Text(
                     es
-                        ? 'Parte de las notas guardadas no se pudo leer. Las notas legibles siguen disponibles y no se borró ningún dato. Puedes reintentar o eliminar una nota dañada desde la biblioteca.'
-                        : 'Part of the saved note collection could not be read. Readable notes remain available and no stored data was deleted. You can retry or remove a damaged note from the library.',
+                        ? 'Parte de las notas guardadas no se pudo leer. Las notas legibles siguen disponibles y no se borró ningún dato. Puedes reintentar o eliminar una nota dañada desde Guardado.'
+                        : 'Part of the saved note collection could not be read. Readable notes remain available and no stored data was deleted. You can retry or remove a damaged note from Saved.',
                     style: const TextStyle(color: Colors.white, height: 1.45),
                   ),
                 ),

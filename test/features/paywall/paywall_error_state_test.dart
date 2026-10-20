@@ -126,10 +126,7 @@ void main() {
       find.text("Couldn't load the latest plan details. Showing what we have."),
       findsNothing,
     );
-    expect(
-      find.textContaining('EXTERNAL-ASSISTANT CREDIT PLANS'),
-      findsOneWidget,
-    );
+    expect(find.text('External-assistant credit plans'), findsOneWidget);
   });
 
   testWidgets('Spanish fetch failure localizes the error and retry action', (

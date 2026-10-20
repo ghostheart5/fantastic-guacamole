@@ -52,7 +52,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('TRUTH LEDGER'), findsOneWidget);
+    expect(find.text('Schedule'), findsOneWidget);
     expect(find.text('Completed sprint review'), findsOneWidget);
   });
 
@@ -95,13 +95,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.bySemanticsLabel('Back to Nexus'), findsOneWidget);
+    expect(find.bySemanticsLabel('Back Home'), findsOneWidget);
     expect(find.text('Due-date only task'), findsOneWidget);
     expect(find.text('Complete'), findsOneWidget);
     expect(find.text('Skip'), findsOneWidget);
   });
 
-  testWidgets('NexusScreen renders with a supplied screen model', (
+  testWidgets('detailed Nexus review renders with a supplied screen model', (
     WidgetTester tester,
   ) async {
     final ProviderContainer container = ProviderContainer(
@@ -126,14 +126,14 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: NexusScreen()),
+        child: const MaterialApp(home: NexusScreen(showDetails: true)),
       ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.text('AXIOMARA'), findsOneWidget);
-    expect(find.text('AXIOMARA // HUMAN DECISION OS'), findsOneWidget);
+    expect(find.text('Space to think'), findsOneWidget);
   });
 }
 

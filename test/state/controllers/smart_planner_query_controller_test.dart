@@ -3162,7 +3162,7 @@ void main() {
     expect(
       localizations,
       contains(
-        'Your words and check-in stay ephemeral. A local decision receipt may record which guidance was shown or used. Nothing else is saved unless you explicitly remember a preference.',
+        'Your words and check-in are temporary. This device may keep a record of the guidance shown or used. Other details are saved only if you choose to remember a preference.',
       ),
     );
     expect(source, contains('routine.ephemeralNotice'));

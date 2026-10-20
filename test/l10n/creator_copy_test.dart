@@ -47,11 +47,11 @@ void main() {
     for (final entry in [
       ('task', 'la tarea'),
       ('goal', 'la meta'),
-      ('habit', 'el ritmo diario'),
+      ('habit', 'el hábito'),
       ('note', 'la nota'),
     ]) {
       final value =
-          'This confirmation was already applied. No duplicate ${en.kind(entry.$1).toLowerCase()} was created.';
+          'This confirmation was already applied. No duplicate ${entry.$1 == 'habit' ? 'daily rhythm' : entry.$1} was created.';
       expect(
         es.message(value),
         'Esta confirmación ya se aplicó. No se duplicó ${entry.$2}.',
@@ -65,5 +65,37 @@ void main() {
     expect(es.repetitions(1, 'weekly'), '1 vez por semana');
     expect(es.repetitions(2, 'monthly'), '2 veces por mes');
     expect(en.duration(const Duration(minutes: 90)), '1 hour 30 min');
+  });
+  test('plain failure messages keep the unsaved and unchanged boundaries', () {
+    for (final message in [
+      'No bound Creator operation is selected. Nothing was saved.',
+      'Confirmation binding did not match the displayed diff. Nothing was saved.',
+      'Creator data changed after this preview. Review the refreshed version before confirming. Nothing was saved.',
+      'Creator confirmation requires a verified account boundary. Nothing was saved.',
+    ]) {
+      expect(en.message(message), endsWith('Nothing was saved.'));
+      expect(en.message(message), isNot(contains('binding')));
+    }
+    expect(
+      en.message(
+        'Undo is bound to another account. The saved item was not changed.',
+      ),
+      contains('another account. The saved item was not changed.'),
+    );
+    expect(
+      en.message('The undo window expired. The saved item was not changed.'),
+      endsWith('The saved item was not changed.'),
+    );
+  });
+  test('unrecognized text stays verbatim in both languages', () {
+    for (final copy in [en, es]) {
+      const original = 'My plan: keep the name Creator and call Ana: tomorrow.';
+      expect(copy.message(original), original);
+      expect(copy.evidence(original), original);
+      expect(
+        copy.message('New diagnostic: actual detail.'),
+        'New diagnostic: actual detail.',
+      );
+    }
   });
 }

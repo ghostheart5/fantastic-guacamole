@@ -2,12 +2,16 @@ import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/engine/si/offline/identity_engine.dart';
 import 'package:fantastic_guacamole/features/profile/ui/profile_screen.dart';
+import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -26,6 +30,7 @@ void main() {
     GoRouter? router,
     TrajectorySummaryView? trajectory,
     Locale locale = const Locale('en'),
+    List<Task>? scheduleTasks,
   }) async {
     tester.platformDispatcher.views.first
       ..physicalSize = const Size(1200, 4000)
@@ -44,6 +49,10 @@ void main() {
           trajectorySummaryProvider.overrideWithValue(trajectory),
         // GoalsNotifier.build schedules a timer that outlives the test frame.
         goalsProvider.overrideWith(_StaticGoals.new),
+        if (scheduleTasks != null)
+          allTasksProvider.overrideWith((ref) async => scheduleTasks),
+        if (scheduleTasks != null)
+          timelineProvider.overrideWith(_EmptyTimeline.new),
         // ProfileController.updateName() persists via the real SecureStore by
         // default, which under an unmocked flutter_secure_storage platform
         // channel hangs forever rather than throwing (same landmine as
@@ -189,6 +198,71 @@ void main() {
     expect(find.byType(ProfileScreen), findsOneWidget);
   });
 
+  for (final es in [false, true]) {
+    testWidgets(
+      '${es ? 'Spanish' : 'English'} Open schedule shows dates and Back returns to Profile',
+      (tester) async {
+        final task = Task(
+          id: 'profile-schedule-task',
+          title: 'Review the recorded plan',
+          priority: 3,
+          difficulty: 2,
+          energyRequired: 2,
+          scheduledFor: DateTime.now(),
+        );
+        final router = GoRouter(
+          initialLocation: RoutePaths.profile,
+          routes: [
+            GoRoute(
+              path: RoutePaths.profile,
+              builder: (_, _) => const ProfileScreen(),
+            ),
+            GoRoute(
+              path: RoutePaths.timeline,
+              builder: (_, _) => const Scaffold(body: Text('My plan route')),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        final container = await pumpProfile(
+          tester,
+          ProfileState(xp: 174, level: 2, streak: 3, name: 'QA Profile'),
+          router: router,
+          locale: Locale(es ? 'es' : 'en'),
+          scheduleTasks: [task],
+        );
+        await tester.tap(find.text(es ? 'Abrir agenda' : 'Open schedule'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        expect(find.byType(TimelineScreen), findsOneWidget);
+        expect(find.text(es ? 'Agenda' : 'Schedule'), findsOneWidget);
+        expect(find.text('Review the recorded plan'), findsOneWidget);
+        expect(find.text('My plan route'), findsNothing);
+        expect(
+          router.routeInformationProvider.value.uri.path,
+          RoutePaths.profile,
+        );
+        await tester.tap(find.byTooltip(es ? 'Atrás' : 'Back'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        expect(find.byType(TimelineScreen), findsNothing);
+        expect(find.byType(ProfileScreen), findsOneWidget);
+        expect(find.text('QA PROFILE'), findsOneWidget);
+        expect(container.read(profileProvider).name, 'QA Profile');
+        expect(container.read(profileProvider).xp, 174);
+        expect(container.read(profileProvider).level, 2);
+        expect(container.read(profileProvider).streak, 3);
+        expect(
+          (await container.read(allTasksProvider.future)).single.toJson(),
+          task.toJson(),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('PROGRESSION updates the URL and opens its destination', (
     WidgetTester tester,
   ) async {
@@ -210,7 +284,7 @@ void main() {
     addTearDown(router.dispose);
 
     await pumpProfile(tester, ProfileState(), router: router);
-    await tester.tap(find.text('PROGRESSION'));
+    await tester.tap(find.text('Activity'));
     await tester.pumpAndSettle();
 
     expect(
@@ -358,6 +432,11 @@ class _StaticProfile extends ProfileController {
       state = state.copyWith(name: trimmed);
     }
   }
+}
+
+class _EmptyTimeline extends TimelineNotifier {
+  @override
+  List<TimelineEventEntity> build() => const [];
 }
 
 class _StaticGoals extends GoalsNotifier {

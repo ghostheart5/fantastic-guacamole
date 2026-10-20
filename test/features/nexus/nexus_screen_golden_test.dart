@@ -151,7 +151,7 @@ void main() {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          home: const NexusScreen(),
+          home: const NexusScreen(showDetails: true),
         ),
       ),
     );
@@ -208,7 +208,7 @@ void main() {
       tester,
       UncontrolledProviderScope(
         container: container,
-        child: const NexusScreen(),
+        child: const NexusScreen(showDetails: true),
       ),
       size: Size(width, 2400),
     );
@@ -249,7 +249,7 @@ void main() {
         )).map((task) => task.id).toList();
         final primary = find.byKey(const Key('nexus-add-task'));
         expect(
-          find.widgetWithText(FilledButton, copy.buildReality),
+          find.widgetWithText(OutlinedButton, copy.buildReality),
           findsOneWidget,
         );
         for (final label in [
@@ -289,7 +289,11 @@ void main() {
           copy.compareFutures: AppView.trajectoryEngine,
           copy.reviewTruth: AppView.timeline,
         }.entries) {
-          final control = find.widgetWithText(ActionChip, destination.key);
+          final control = destination.value == AppView.smartPlanner
+              ? find.byKey(const Key('nexus-choose-step'))
+              : destination.value == AppView.console
+              ? find.byKey(const Key('nexus-talk-it-through'))
+              : find.widgetWithText(ActionChip, destination.key);
           expect(control, findsOneWidget);
           await tester.ensureVisible(control);
           await tester.pump(const Duration(milliseconds: 100));
@@ -652,7 +656,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('REVIEW CHANGES'), findsNothing);
+    expect(find.text('Review before saving'), findsNothing);
     semantics.dispose();
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -754,13 +758,10 @@ void main() {
           observedVitals: observed,
         );
         expect(
-          find.text('Elige un próximo paso realista que se ajuste a tu día.'),
+          find.text('Tómate un momento. Elige qué te ayudaría ahora.'),
           findsOneWidget,
         );
-        expect(
-          find.text('AXIOMARA // SISTEMA OPERATIVO DE DECISIONES HUMANAS'),
-          findsOneWidget,
-        );
+        expect(find.text('Espacio para pensar'), findsOneWidget);
         expect(find.bySemanticsLabel('Abrir notificaciones'), findsOneWidget);
         expect(find.bySemanticsLabel('Cerrar sesión'), findsOneWidget);
         expect(find.text('ENERGÍA'), findsOneWidget);
@@ -779,9 +780,9 @@ void main() {
           ),
           findsWidgets,
         );
-        expect(find.text('PAQUETE DE DECISIÓN EN VIVO'), findsOneWidget);
+        expect(find.text('Próximo paso sugerido'), findsOneWidget);
         expect(find.text('Revisar antes de actuar'), findsOneWidget);
-        final priorities = find.text('PRIORIDADES ACTUALES');
+        final priorities = find.text('Tus elementos guardados');
         await tester.scrollUntilVisible(priorities, 250);
         expect(priorities, findsOneWidget);
         expect(find.bySemanticsLabel('Abrir META'), findsOneWidget);
@@ -790,7 +791,7 @@ void main() {
         // The task is user data and must not be translated with its surrounding UI.
         expect(find.text('Finish quarterly review'), findsWidgets);
         expect(find.text('CURRENT DECISION'), findsNothing);
-        expect(find.text('CURRENT PRIORITIES'), findsNothing);
+        expect(find.text('Your saved items'), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       } finally {
@@ -849,14 +850,14 @@ void main() {
             ),
           );
       await tester.pump();
-      expect(find.text('QUÉ CAMBIÓ CON EL APRENDIZAJE'), findsOneWidget);
+      expect(find.text('Qué cambió con tu opinión'), findsOneWidget);
       expect(
         find.text(
           'Se registró el resultado mostrado; los pesos de prioridad no cambiaron.',
         ),
         findsOneWidget,
       );
-      expect(find.text('Corregir este aprendizaje'), findsOneWidget);
+      expect(find.text('Corregir esta opinión'), findsOneWidget);
       expect(find.widgetWithText(OutlinedButton, 'Esto ayudó'), findsOneWidget);
       expect(
         find.widgetWithText(OutlinedButton, 'Esto no ayudó'),
@@ -895,7 +896,7 @@ void main() {
       await pumpNexusScreen(tester, width: Breakpoints.ultraCompact - 1);
 
       expect(
-        textWidgetContaining(tester, 'CAPABILITY 10').style?.fontSize,
+        textWidgetContaining(tester, 'ChronoSpark User').style?.fontSize,
         AppSizes.fontMicro,
       );
     });
@@ -921,7 +922,7 @@ void main() {
       await pumpNexusScreen(tester, width: Breakpoints.ultraCompact);
 
       expect(
-        textWidgetContaining(tester, 'CAPABILITY 10').style?.fontSize,
+        textWidgetContaining(tester, 'ChronoSpark User').style?.fontSize,
         AppSizes.fontXs,
       );
     });
@@ -934,7 +935,7 @@ void main() {
       // At the regular breakpoint, both labels intentionally converge on the
       // same font size; this matches the production widget logic.
       expect(
-        textWidgetContaining(tester, 'CAPABILITY 10').style?.fontSize,
+        textWidgetContaining(tester, 'ChronoSpark User').style?.fontSize,
         AppSizes.fontSm,
       );
     });

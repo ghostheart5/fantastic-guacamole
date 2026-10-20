@@ -54,13 +54,13 @@ void main() {
     (tester) async {
       notifier.createdAt = DateTime.now();
       await open(tester);
+      await tester.tap(find.text('Habit options'));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Record earlier'));
       await tester.tap(find.text('Record earlier'));
       await tester.pumpAndSettle();
       expect(
-        find.text(
-          'No earlier day is available. This rhythm was created today.',
-        ),
+        find.text('No earlier day is available. This habit was created today.'),
         findsOneWidget,
       );
       expect(find.byType(DatePickerDialog), findsNothing);
@@ -138,6 +138,10 @@ void main() {
     (tester) async {
       await open(tester);
       notifier.failReminders = true;
+      if (find.text('Pause').hitTestable().evaluate().isEmpty) {
+        await tester.tap(find.text('Habit options'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('Pause'));
       await tester.pumpAndSettle();
       expect(
@@ -159,6 +163,10 @@ void main() {
     tester,
   ) async {
     await open(tester);
+    if (find.text('Pause').hitTestable().evaluate().isEmpty) {
+      await tester.tap(find.text('Habit options'));
+      await tester.pumpAndSettle();
+    }
     await tester.tap(find.text('Pause'));
     await tester.pumpAndSettle();
     expect(find.text('2 times per week · Paused'), findsOneWidget);
@@ -187,6 +195,10 @@ void main() {
     tester,
   ) async {
     await open(tester);
+    if (find.text('Rename').hitTestable().evaluate().isEmpty) {
+      await tester.tap(find.text('Habit options'));
+      await tester.pumpAndSettle();
+    }
     await tester.tap(find.text('Rename'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), '   ');
@@ -213,18 +225,26 @@ void main() {
     'cancel removal keeps rhythm; explicit removal shows empty state',
     (tester) async {
       await open(tester);
+      if (find.text('Remove').hitTestable().evaluate().isEmpty) {
+        await tester.tap(find.text('Habit options'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('Remove'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
       expect(notifier.removals, 0);
       expect(find.text('Evidence review'), findsOneWidget);
+      if (find.text('Remove').hitTestable().evaluate().isEmpty) {
+        await tester.tap(find.text('Habit options'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('Remove'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
       await tester.pumpAndSettle();
       expect(notifier.removals, 1);
-      expect(find.textContaining('No Daily Rhythms yet.'), findsOneWidget);
+      expect(find.textContaining('No habits yet.'), findsOneWidget);
     },
   );
 
@@ -232,6 +252,10 @@ void main() {
     tester,
   ) async {
     await open(tester);
+    if (find.text('Rename').hitTestable().evaluate().isEmpty) {
+      await tester.tap(find.text('Habit options'));
+      await tester.pumpAndSettle();
+    }
     await tester.tap(find.text('Rename'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -251,7 +275,7 @@ void main() {
   ) async {
     scope = const AccountStorageScope.signedOut();
     await open(tester);
-    expect(find.text('Sign in to view your Daily Rhythms.'), findsOneWidget);
+    expect(find.text('Sign in to view your habits.'), findsOneWidget);
     expect(find.text('Evidence review'), findsNothing);
     expect(find.text('Mark target completed'), findsNothing);
   });

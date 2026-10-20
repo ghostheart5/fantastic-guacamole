@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_sto
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
+import 'package:fantastic_guacamole/features/profile/ui/profile_screen.dart';
 import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -98,6 +99,10 @@ void main() {
         'account-a',
       );
       expect(find.byType(NexusScreen), findsOneWidget);
+      container.read(appRouterProvider).go(RoutePaths.profile);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(ProfileScreen), findsOneWidget);
       expect(find.textContaining('PRIVATE ACCOUNT-A'), findsOneWidget);
       expect(
         container.read(personalizationProfileProvider).goalCategory,
@@ -116,6 +121,7 @@ void main() {
         );
         expect(find.text('Securing account data'), findsOneWidget);
         expect(find.byType(NexusScreen), findsNothing);
+        expect(find.byType(ProfileScreen), findsNothing);
         expect(
           find.textContaining('PRIVATE ${previous.toUpperCase()}'),
           findsNothing,
@@ -129,7 +135,7 @@ void main() {
         backend.releaseMarkerRead();
         await _pumpUntilAccountReady(tester, container, account);
         final router = container.read(appRouterProvider);
-        router.go(RoutePaths.nexus);
+        router.go(RoutePaths.profile);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 500));
         expect(container.read(accountStorageScopeProvider).rawUserId, account);

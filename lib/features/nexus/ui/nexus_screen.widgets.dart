@@ -172,27 +172,32 @@ class _DecisionLoopStrip extends StatelessWidget {
         children: <Widget>[
           Text(
             copy.decisionLoop,
-            style: const TextStyle(
-              color: AppColors.neonViolet,
-              fontSize: AppSizes.fontMicro,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-            ),
+            style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 6),
-          Text(
-            copy.decisionLoopSubtitle,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: AppSizes.fontBody,
-              height: 1.35,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          Text(copy.decisionLoopSubtitle),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
+              key: const Key('nexus-talk-it-through'),
+              onPressed: onInterrogate,
+              icon: const Icon(Icons.chat_bubble_outline_rounded),
+              label: Text(copy.interrogate),
+            ),
+          ),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const Key('nexus-choose-step'),
+              onPressed: onResolve,
+              icon: const Icon(Icons.bolt_rounded),
+              label: Text(copy.resolveNow),
+            ),
+          ),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
               key: const Key('nexus-add-task'),
               onPressed: onBuild,
               icon: const Icon(Icons.add_task_rounded),
@@ -202,12 +207,7 @@ class _DecisionLoopStrip extends StatelessWidget {
           ExpansionTile(
             key: const Key('nexus-planning-tools'),
             tilePadding: EdgeInsets.zero,
-            iconColor: AppColors.neonCyan,
-            collapsedIconColor: AppColors.neonCyan,
-            title: Text(
-              copy.morePlanningTools,
-              style: const TextStyle(color: Colors.white70),
-            ),
+            title: Text(copy.morePlanningTools),
             childrenPadding: const EdgeInsets.only(bottom: 8),
             children: <Widget>[
               Align(
@@ -217,22 +217,12 @@ class _DecisionLoopStrip extends StatelessWidget {
                   runSpacing: 8,
                   children: <Widget>[
                     _LoopAction(
-                      icon: Icons.bolt_rounded,
-                      label: copy.resolveNow,
-                      onTap: onResolve,
-                    ),
-                    _LoopAction(
-                      icon: Icons.psychology_alt_outlined,
-                      label: copy.interrogate,
-                      onTap: onInterrogate,
-                    ),
-                    _LoopAction(
                       icon: Icons.alt_route_rounded,
                       label: copy.compareFutures,
                       onTap: onCompare,
                     ),
                     _LoopAction(
-                      icon: Icons.fact_check_outlined,
+                      icon: Icons.event_note_outlined,
                       label: copy.reviewTruth,
                       onTap: onReview,
                     ),
@@ -241,66 +231,9 @@ class _DecisionLoopStrip extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
           Text(
-            copy.builtForReality,
-            style: const TextStyle(
-              color: AppColors.memoryAmber,
-              fontSize: AppSizes.fontMicro,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.1,
-            ),
-          ),
-          const SizedBox(height: 7),
-          ...copy.realLifeSituations.map(
-            (String situation) => Padding(
-              padding: const EdgeInsets.only(bottom: 5),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const Text(
-                    '›',
-                    style: TextStyle(
-                      color: AppColors.neonCyan,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(width: 7),
-                  Expanded(
-                    child: Text(
-                      situation,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: AppSizes.fontCaption,
-                        height: 1.35,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Icon(
-                Icons.verified_user_outlined,
-                size: 16,
-                color: AppColors.memoryAmber,
-              ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  copy.loopControlNote,
-                  style: const TextStyle(
-                    color: Colors.white60,
-                    fontSize: AppSizes.fontCaption,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-            ],
+            copy.loopControlNote,
+            style: const TextStyle(color: Colors.white70, height: 1.35),
           ),
         ],
       ),

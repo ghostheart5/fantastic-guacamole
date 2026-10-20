@@ -56,7 +56,7 @@ void main() {
       );
       await tester.pump();
       expect(find.text('Daily Planning Reminder'), findsOneWidget);
-      expect(find.textContaining('1 SCHEDULED'), findsOneWidget);
+      expect(find.textContaining('1 scheduled'), findsOneWidget);
       expect(find.text('NO ALERTS'), findsNothing);
       expect(
         find.textContaining('Manage this repeating reminder in Settings'),

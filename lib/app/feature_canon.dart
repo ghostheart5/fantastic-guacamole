@@ -59,10 +59,6 @@ abstract final class ChronoSparkFeatureCanon {
         'sion',
     'Fo'
         'cus',
-    'In'
-        'sight',
-    'In'
-        'sights',
     'Co'
         'ach',
     'Flowmap',

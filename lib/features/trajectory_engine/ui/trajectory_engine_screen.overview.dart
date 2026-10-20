@@ -272,7 +272,7 @@ class _FutureBranches extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            journeyText(context, 'FUTURE BRANCHES', 'RAMAS FUTURAS'),
+            journeyText(context, 'Estimated options', 'RAMAS FUTURAS'),
             style: const TextStyle(
               color: AppColors.neonViolet,
               fontSize: 11,

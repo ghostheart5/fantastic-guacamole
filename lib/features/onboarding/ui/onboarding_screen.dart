@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({
@@ -105,6 +106,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   Future<void> _complete({required bool showHelpfulChoice}) async {
     if (_submitting) return;
+    final generation = ref.read(authSessionBoundaryProvider).generation;
     final bool canStartPlanner =
         showHelpfulChoice && widget.completedLocation == null;
     setState(() => _submitting = true);
@@ -113,6 +115,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     final String? accountScopeId = accountScope.isWritable
         ? accountScope.v2Namespace
         : null;
+    bool canContinue() {
+      if (!mounted) return false;
+      final scope = ref.read(accountStorageScopeProvider);
+      final current =
+          scope.isWritable &&
+          scope.v2Namespace == accountScopeId &&
+          ref.read(authSessionBoundaryProvider).generation == generation;
+      if (!current) setState(() => _submitting = false);
+      return current;
+    }
+
     if (accountScopeId == null) {
       Logger.errorCategory(
         'onboarding',
@@ -139,12 +152,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         );
       }
 
+      if (!showHelpfulChoice) {
+        await ref.read(adaptiveGuidanceProvider.future);
+        if (!canContinue()) return;
+        await ref
+            .read(adaptiveGuidanceProvider.notifier)
+            .later(GuidanceLessonId.createFirstItem);
+        if (!canContinue()) return;
+      }
+
       await ref
           .read(onboardingPreferencesRepositoryProvider)
           .markOnboardingComplete(
             contentVersion: OnboardingContentContract.currentVersion,
           );
+      if (!canContinue()) return;
       await ref.read(accountOnboardingCompleteProvider.notifier).complete();
+      if (!canContinue()) return;
       AppAnalytics.track(
         'onboarding_completed',
         params: <String, Object?>{
@@ -154,8 +178,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           'protected_destination_preserved': widget.completedLocation != null,
         },
       );
-      if (!mounted) return;
-
       ref.read(onboardingCompleteProvider.notifier).set(true);
       final routes = ref.read(routeSurfaceProvider);
       if (firstValueRequest != null) {
@@ -163,6 +185,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             .read(smartPlannerFirstValueProvider.notifier)
             .stage(firstValueRequest);
       }
+      if (!mounted) return;
       final GoRouter? router = GoRouter.maybeOf(context);
       if (router != null) {
         context.go(
@@ -181,7 +204,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         'onboarding_complete_failed',
         params: <String, Object?>{'error': error.toString()},
       );
-      _surfaceCompletionError();
+      if (canContinue()) _surfaceCompletionError();
     }
   }
 
@@ -699,6 +722,19 @@ class _FirstValueSlide extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
+                      TextButton(
+                        key: const Key('first-value-skip-top'),
+                        onPressed: submitting ? null : onSkip,
+                        child: Text(
+                          preservesProtectedDestination
+                              ? _copy(
+                                  l10n,
+                                  'CONTINUE TO REQUESTED PAGE',
+                                  'CONTINUAR A LA PÁGINA PEDIDA',
+                                )
+                              : _copy(l10n, 'Go to Today', 'Ir a Hoy'),
+                        ),
+                      ),
                       Semantics(
                         label: _copy(
                           l10n,
@@ -757,7 +793,8 @@ class _FirstValueSlide extends StatelessWidget {
                           height: 1.55,
                         ),
                       ),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       TemporalGlassSurface(
                         padding: EdgeInsets.all(wide ? 24 : 18),
                         child: Column(
@@ -779,6 +816,9 @@ class _FirstValueSlide extends StatelessWidget {
                               const SizedBox(height: 10),
                               TextField(
                                 key: const Key('first-value-question'),
+                                scrollPadding: const EdgeInsets.only(
+                                  bottom: 120,
+                                ),
                                 controller: helpController,
                                 enabled: !submitting,
                                 minLines: 2,
@@ -866,7 +906,7 @@ class _FirstValueSlide extends StatelessWidget {
                                         l10n,
                                         preservesProtectedDestination
                                             ? 'Continuing preserves the page you requested. This setup step does not change or create anything.'
-                                            : 'Your words and this check-in are used once and are not saved. A local decision receipt may record that guidance was shown or used. Nothing is created until you confirm it in Creator.',
+                                            : 'Your words and this check-in are used once and are not saved. This device may record that a suggestion was shown or used. Nothing is created until you review and confirm it in Add something.',
                                         preservesProtectedDestination
                                             ? 'Continuar conserva la página que pediste. Este paso no cambia ni crea nada.'
                                             : 'Tus palabras y este registro se usan una vez y no se guardan. Un recibo local puede registrar que se mostró o usó la orientación. No se crea nada hasta que lo confirmes en Creador.',

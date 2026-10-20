@@ -519,7 +519,7 @@ void main() {
         ),
       );
 
-      expect(find.text('PLANES Y CRÉDITOS'), findsOneWidget);
+      expect(find.text('Planes y créditos de IA'), findsOneWidget);
       expect(
         find.text('Planes de créditos del asistente externo'),
         findsOneWidget,

@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/l10n/journey_copy.dart';
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -260,16 +261,16 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
                     Semantics(
                       label: journeyText(
                         context,
-                        'Back to Nexus',
-                        'Volver a Nexus',
+                        'Back Home',
+                        'Volver a Inicio',
                       ),
                       button: true,
                       onTap: () => goToAppView(context, ref, AppView.nexus),
                       child: IconButton(
                         tooltip: journeyText(
                           context,
-                          'Back to Nexus',
-                          'Volver a Nexus',
+                          'Back Home',
+                          'Volver a Inicio',
                         ),
                         onPressed: () =>
                             goToAppView(context, ref, AppView.nexus),
@@ -284,20 +285,16 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: TemporalScreenHeader(
-                        title: journeyText(
-                          context,
-                          'CAPABILITY MATRIX',
-                          'MATRIZ DE CAPACIDADES',
-                        ),
+                        title: journeyText(context, 'Activity', 'Actividad'),
                         subtitle: journeyText(
                           context,
-                          'See what your completed actions have actually proven.',
-                          'Descubre lo que tus acciones completadas han demostrado de verdad.',
+                          'Review completed tasks and recorded milestones. You can start again at any time.',
+                          'Revisa tareas completadas e hitos registrados. Puedes volver a empezar cuando quieras.',
                         ),
                         eyebrow: journeyText(
                           context,
-                          'Observed continuity',
-                          'Continuidad observada',
+                          'Your recorded progress',
+                          'Tu progreso registrado',
                         ),
                         accent: AppColors.memoryAmber,
                         trailing: PopupMenuButton<_ProgressionShareAction>(

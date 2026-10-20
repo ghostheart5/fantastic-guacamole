@@ -546,7 +546,7 @@ void main() {
       await tester.binding.handlePopRoute();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      expect(find.text('SETTINGS'), findsOneWidget);
+      expect(find.text('Settings'), findsOneWidget);
       expect(find.text('Test subscription active'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -566,8 +566,8 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('SETTINGS'), findsOneWidget);
-    expect(find.text('PREFERENCES & ACCOUNT'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Make the app work for you'), findsOneWidget);
     expect(find.text('PLAN & CREDITS'), findsNothing);
     expect(find.text('SUBSCRIPTION'), findsNothing);
     expect(find.text('20 credits available'), findsNothing);
@@ -604,7 +604,7 @@ void main() {
       await tester.tap(find.text('Appearance & permissions'));
       await tester.pump(const Duration(milliseconds: 300));
       final tile = find.ancestor(
-        of: find.text('Audio FX'),
+        of: find.text('Sound effects'),
         matching: find.byType(MergeSemantics),
       );
       expect(tile, findsOneWidget);
@@ -612,8 +612,8 @@ void main() {
       await Scrollable.ensureVisible(tester.element(control), alignment: 0.5);
       await tester.pump(const Duration(milliseconds: 300));
       final before = tester.widget<Switch>(control).value;
-      expect(find.bySemanticsLabel('Audio FX'), findsOneWidget);
-      await tester.tap(find.text('Audio FX'));
+      expect(find.bySemanticsLabel('Sound effects'), findsOneWidget);
+      await tester.tap(find.text('Sound effects'));
       await tester.pump(const Duration(milliseconds: 200));
       expect(tester.widget<Switch>(control).value, !before);
       await tester.tap(control);

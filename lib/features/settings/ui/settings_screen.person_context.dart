@@ -31,8 +31,9 @@ final class PersonContextSafetyCopy {
 
   String surfaceLabel(PersonContextSurface surface) => switch (surface) {
     PersonContextSurface.smartPlanner =>
-      isSpanish ? 'Planificador Inteligente' : 'Smart Planner',
-    PersonContextSurface.siConsole => isSpanish ? 'Consola SI' : 'SI Console',
+      isSpanish ? 'Elegir un paso' : 'Choose a step',
+    PersonContextSurface.siConsole =>
+      isSpanish ? 'Hablarlo' : 'Talk it through',
     PersonContextSurface.nexus => 'Nexus',
     PersonContextSurface.trajectory => isSpanish ? 'Trayectoria' : 'Trajectory',
     PersonContextSurface.creator => isSpanish ? 'Creador' : 'Creator',

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_response_body.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
@@ -34,10 +35,12 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
     required this.surface,
     required this.onLocalTools,
     this.onLocalToolsWithDraft,
+    this.isActive = true,
   });
   final ConversationSurface surface;
   final VoidCallback onLocalTools;
   final ValueChanged<String>? onLocalToolsWithDraft;
+  final bool isActive;
   @override
   ConsumerState<AssistantConversationScreen> createState() =>
       _AssistantConversationScreenState();
@@ -61,6 +64,7 @@ class _AssistantConversationScreenState
   BuildContext? _dialogContext;
   Route<dynamic>? _dialogRoute;
   String _dictationDraftBase = '';
+  int _voiceActivation = 0;
   double? _energy;
   String? _attachedTaskId;
   bool _attachedTaskOnly = true;
@@ -93,7 +97,22 @@ class _AssistantConversationScreenState
   }
 
   @override
+  void didUpdateWidget(covariant AssistantConversationScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive && !widget.isActive) {
+      _voiceActivation++;
+      final controller = _voiceControllerForDispose;
+      controller?.invalidatePendingCapture();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (controller != null) unawaited(controller.stopListening());
+      });
+    }
+  }
+
+  @override
   void dispose() {
+    _voiceActivation++;
+    _voiceControllerForDispose?.invalidatePendingCapture();
     _paidWaitTimer?.cancel();
     final VoiceController? voiceController = _voiceControllerForDispose;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -761,6 +780,7 @@ class _AssistantConversationScreenState
     _voiceControllerForDispose = ref.read(voiceControllerProvider.notifier);
     final bool listening = voice.isListening;
     ref.listen<VoiceState>(voiceControllerProvider, (previous, next) {
+      if (!widget.isActive) return;
       if (next.error != null &&
           next.error != previous?.error &&
           context.mounted) {
@@ -797,11 +817,15 @@ class _AssistantConversationScreenState
     final tasks = planner
         ? ref.watch(siV2EvidenceSnapshotProvider).asData?.value.tasks
         : null;
-    final enabled = consent && !_busy && _pending == null;
+    final enabled = widget.isActive && consent && !_busy && _pending == null;
     final scaffold = Scaffold(
       backgroundColor: const Color(0xFF07111C),
       appBar: AppBar(
-        title: Text(planner ? 'Smart Planner' : 'SI Console'),
+        title: Text(
+          planner
+              ? copy('Choose a step', 'Elegir un paso')
+              : copy('Talk it through', 'Hablarlo'),
+        ),
         leading: BackButton(
           onPressed: _busy
               ? null
@@ -842,8 +866,8 @@ class _AssistantConversationScreenState
                   const SizedBox(height: 8),
                   Text(
                     copy(
-                      'Ask a question, correct the answer, or add a constraint. Replies use the conversation and the app context you approve. Suggestions do not change saved records.',
-                      'Haz una pregunta, corrige la respuesta o añade una restricción. Las respuestas usan la conversación y el contexto que apruebes. Las sugerencias no modifican registros.',
+                      'Say what is on your mind or ask about a plan. Replies use this conversation and information you approve. You can correct an answer. Suggestions do not change saved items.',
+                      'Cuenta qué te preocupa o pregunta sobre un plan. Las respuestas usan esta conversación y la información que apruebes. Puedes corregirlas. Las sugerencias no cambian elementos guardados.',
                     ),
                   ),
                   if (!consent) ...[
@@ -870,7 +894,10 @@ class _AssistantConversationScreenState
                           : null,
                       isExpanded: true,
                       decoration: InputDecoration(
-                        labelText: copy('Attach a task', 'Adjuntar una tarea'),
+                        labelText: copy(
+                          'Use a saved task (optional)',
+                          'Usar una tarea guardada (opcional)',
+                        ),
                       ),
                       items: [
                         DropdownMenuItem(
@@ -904,7 +931,7 @@ class _AssistantConversationScreenState
                       key: const Key('conversation-task-only'),
                       contentPadding: EdgeInsets.zero,
                       title: Text(
-                        copy('Only attached task', 'Solo la tarea adjunta'),
+                        copy('Use only this task', 'Usar solo esta tarea'),
                       ),
                       subtitle: Text(
                         copy(
@@ -929,8 +956,8 @@ class _AssistantConversationScreenState
                       ),
                       title: Text(
                         copy(
-                          'Energy for this request',
-                          'Energía para esta solicitud',
+                          'How much energy do you have? (optional)',
+                          '¿Cuánta energía tienes? (opcional)',
                         ),
                       ),
                       children: [
@@ -979,7 +1006,10 @@ class _AssistantConversationScreenState
                         bottom: 8,
                       ),
                       title: Text(
-                        copy('Advanced analysis', 'Análisis avanzado'),
+                        copy(
+                          'Choose information to use (optional)',
+                          'Elegir información que usar (opcional)',
+                        ),
                       ),
                       children: [
                         DropdownButtonFormField<SIV2Intent>(
@@ -988,8 +1018,8 @@ class _AssistantConversationScreenState
                           initialValue: _intent,
                           decoration: InputDecoration(
                             labelText: copy(
-                              'Analysis mode',
-                              'Modo de análisis',
+                              'What kind of help?',
+                              '¿Qué tipo de ayuda?',
                             ),
                           ),
                           items: SIV2Intent.values
@@ -1244,6 +1274,7 @@ class _AssistantConversationScreenState
                               _dictationDraftBase = _input.text;
                               final int revision =
                                   voiceController.lifecycleRevision;
+                              final int activation = _voiceActivation;
                               await startVoiceInputWithConsent(
                                 context: context,
                                 onStart: () => voiceController.startListening(
@@ -1255,8 +1286,11 @@ class _AssistantConversationScreenState
                                   voiceInputConsentStoreProvider,
                                 ),
                                 isCurrentRequest: () =>
+                                    mounted &&
+                                    widget.isActive &&
+                                    activation == _voiceActivation &&
                                     voiceController.lifecycleRevision ==
-                                    revision,
+                                        revision,
                               );
                             },
                       icon: Icon(

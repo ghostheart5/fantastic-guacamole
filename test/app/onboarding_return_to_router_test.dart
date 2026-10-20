@@ -1,16 +1,24 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart' as guards;
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/repositories/shared_preferences_onboarding_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
+import 'package:fantastic_guacamole/state/providers/onboarding_preferences_provider.dart';
+import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +28,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 final _authenticatedProvider = NotifierProvider<_TestBoolNotifier, bool>(
   _TestBoolNotifier.new,
 );
+
+final _accountProvider = NotifierProvider<_TestAccountNotifier, String>(
+  _TestAccountNotifier.new,
+);
+
+class _TestAccountNotifier extends Notifier<String> {
+  @override
+  String build() => 'onboarding-return-to-test-user';
+  void set(String value) => state = value;
+}
 
 class _TestBoolNotifier extends Notifier<bool> {
   @override
@@ -70,7 +88,7 @@ void main() {
         path: RoutePaths.onboarding,
         returnTo: destination,
       );
-      await tester.tap(find.text('CONTINUE TO REQUESTED PAGE'));
+      await tester.tap(find.byKey(const Key('first-value-show-choice')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
 
@@ -81,6 +99,52 @@ void main() {
       expect(harness.container.read(appFlowProvider), AppView.timeline);
     },
   );
+
+  testWidgets('quick exit names and opens the protected Settings destination', (
+    tester,
+  ) async {
+    final harness = await _pumpRouter(tester);
+    const destination = '/settings?section=planning#learning';
+    harness.router.go(destination);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    _expectLocation(
+      harness,
+      path: RoutePaths.onboarding,
+      returnTo: destination,
+    );
+    await tester.tap(find.text(welcomeEntryLabel));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    _expectLocation(harness, path: RoutePaths.login, returnTo: destination);
+    harness.container.read(_authenticatedProvider.notifier).set(true);
+    harness.router.refresh();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    _expectLocation(
+      harness,
+      path: RoutePaths.onboarding,
+      returnTo: destination,
+    );
+    final quickExit = find.byKey(const Key('first-value-skip-top'));
+    expect(
+      find.descendant(
+        of: quickExit,
+        matching: find.text('CONTINUE TO REQUESTED PAGE'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Go to Today'), findsNothing);
+    await tester.tap(quickExit);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    final uri = harness.router.routeInformationProvider.value.uri;
+    expect(uri.path, RoutePaths.settings);
+    expect(uri.queryParameters['section'], 'planning');
+    expect(uri.fragment, 'learning');
+    expect(harness.container.read(smartPlannerFirstValueProvider), isNull);
+    expect(harness.container.read(onboardingCompleteProvider), isTrue);
+  });
 
   testWidgets('hostile returnTo is rejected and skip falls back to Nexus', (
     WidgetTester tester,
@@ -109,7 +173,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     _expectLocation(harness, path: RoutePaths.onboarding);
-    await tester.tap(find.text('SKIP FOR NOW'));
+    final quickExit = find.byKey(const Key('first-value-skip-top'));
+    expect(
+      find.descendant(of: quickExit, matching: find.text('Go to Today')),
+      findsOneWidget,
+    );
+    await tester.tap(quickExit);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
 
@@ -147,11 +216,110 @@ void main() {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool(onboardingWelcomeCompleteStorageKey), isFalse);
   });
+
+  for (final sameAccount in [false, true]) {
+    testWidgets(
+      'account ${sameAccount ? 'generation' : 'namespace'} change during guidance pause stops completion',
+      (tester) async {
+        final pause = _PausedGuidance();
+        final harness = await _pumpRouter(tester, guidance: pause);
+        await tester.tap(find.text(welcomeEntryLabel));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        harness.container.read(_authenticatedProvider.notifier).set(true);
+        harness.router.refresh();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.tap(find.byKey(const Key('first-value-skip-top')));
+        await tester.pump();
+        expect(pause.started, isTrue);
+        final boundary = harness.container.read(
+          authSessionBoundaryProvider.notifier,
+        );
+        final nextAccount = sameAccount
+            ? 'onboarding-return-to-test-user'
+            : 'replacement-account';
+        final generation = boundary.begin(
+          userId: nextAccount,
+          isTransitioning: true,
+        );
+        boundary.complete(generation);
+        harness.container.read(_accountProvider.notifier).set(nextAccount);
+        await tester.pump();
+        pause.finish.complete();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 600));
+        _expectLocation(harness, path: RoutePaths.onboarding);
+        expect(harness.container.read(onboardingCompleteProvider), isFalse);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool(onboardingCompleteStorageKey), isNot(true));
+        final namespace = AccountStorageScope.authenticated(
+          nextAccount,
+        ).v2Namespace;
+        expect(
+          prefs.getBool('onboarding_profile_complete_v1.$namespace'),
+          isNot(true),
+        );
+        expect(
+          tester
+              .widget<TextButton>(find.byKey(const Key('first-value-skip-top')))
+              .onPressed,
+          isNotNull,
+        );
+      },
+    );
+  }
+
+  testWidgets(
+    'account switch during global completion cannot complete the replacement account',
+    (tester) async {
+      final preferences = _PausedPreferences();
+      final harness = await _pumpRouter(tester, preferences: preferences);
+      await tester.tap(find.text(welcomeEntryLabel));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      harness.container.read(_authenticatedProvider.notifier).set(true);
+      harness.router.refresh();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.byKey(const Key('first-value-show-choice')));
+      await tester.pump();
+      expect(preferences.started, isTrue);
+      final boundary = harness.container.read(
+        authSessionBoundaryProvider.notifier,
+      );
+      final generation = boundary.begin(
+        userId: 'replacement-account',
+        isTransitioning: true,
+      );
+      boundary.complete(generation);
+      harness.container
+          .read(_accountProvider.notifier)
+          .set('replacement-account');
+      await tester.pump();
+      preferences.finish.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      _expectLocation(harness, path: RoutePaths.onboarding);
+      expect(harness.container.read(onboardingCompleteProvider), isFalse);
+      final prefs = await SharedPreferences.getInstance();
+      final namespace = AccountStorageScope.authenticated(
+        'replacement-account',
+      ).v2Namespace;
+      expect(
+        prefs.getBool('onboarding_profile_complete_v1.$namespace'),
+        isNot(true),
+      );
+      expect(harness.container.read(smartPlannerFirstValueProvider), isNull);
+    },
+  );
 }
 
 Future<_RouterHarness> _pumpRouter(
   WidgetTester tester, {
   bool enableMockLogin = false,
+  AdaptiveGuidanceNotifier? guidance,
+  _PausedPreferences? preferences,
 }) async {
   tester.view.physicalSize = const Size(1440, 2560);
   tester.view.devicePixelRatio = 1.0;
@@ -199,9 +367,14 @@ Future<_RouterHarness> _pumpRouter(
         );
       }),
       profileProvider.overrideWith(_TestProfileController.new),
-      accountStorageScopeProvider.overrideWithValue(
-        AccountStorageScope.authenticated('onboarding-return-to-test-user'),
+      accountStorageScopeProvider.overrideWith(
+        (ref) => AccountStorageScope.authenticated(ref.watch(_accountProvider)),
       ),
+      domainTaskRepositoryProvider.overrideWithValue(_EmptyTasks()),
+      if (guidance != null)
+        adaptiveGuidanceProvider.overrideWith(() => guidance),
+      if (preferences != null)
+        onboardingPreferencesRepositoryProvider.overrideWithValue(preferences),
       notificationProvider.overrideWith(_StaticNotifications.new),
       goalsProvider.overrideWith(_StaticGoals.new),
     ],
@@ -261,4 +434,44 @@ class _StaticGoals extends GoalsNotifier {
 class _StaticNotifications extends NotificationNotifier {
   @override
   List<NotificationEntity> build() => const <NotificationEntity>[];
+}
+
+class _EmptyTasks implements ITaskRepository {
+  @override
+  Future<List<TaskEntity>> getAllTasks() async => [];
+  @override
+  Future<TaskEntity?> getTaskById(String id) async => null;
+  @override
+  Future<void> saveTask(TaskEntity task) async =>
+      throw UnsupportedError('read-only fixture');
+  @override
+  Future<void> deleteTask(String id) async =>
+      throw UnsupportedError('read-only fixture');
+}
+
+class _PausedGuidance extends AdaptiveGuidanceNotifier {
+  final finish = Completer<void>();
+  bool started = false;
+  @override
+  Future<AdaptiveGuidanceState> build() async => const AdaptiveGuidanceState(
+    milestones: {},
+    counts: {},
+    skippedLessons: {},
+    completedLessons: {},
+  );
+  @override
+  Future<void> later(GuidanceLessonId lesson) async {
+    started = true;
+    await finish.future;
+  }
+}
+
+class _PausedPreferences extends SharedPreferencesOnboardingRepository {
+  final finish = Completer<void>();
+  bool started = false;
+  @override
+  Future<void> markOnboardingComplete({required int contentVersion}) async {
+    started = true;
+    await finish.future;
+  }
 }

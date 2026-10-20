@@ -86,9 +86,9 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
-    expect(find.text('Verify where the work landed'), findsOneWidget);
+    expect(find.text('Find your saved task'), findsOneWidget);
     final action = tester.getSemantics(
-      find.widgetWithText(FilledButton, 'Open Timeline'),
+      find.widgetWithText(FilledButton, 'Open schedule'),
     );
     tester.binding.renderViews.single.owner!.semanticsOwner!.performAction(
       action.id,
@@ -98,7 +98,7 @@ void main() {
     await tester.pump();
     expect(router.routerDelegate.state.uri.path, RoutePaths.timeline);
     expect(find.text('Timeline route opened'), findsOneWidget);
-    expect(find.text('Verify where the work landed'), findsNothing);
+    expect(find.text('Find your saved task'), findsNothing);
     expect(tester.takeException(), isNull);
     semantics.dispose();
   });
@@ -188,23 +188,23 @@ void main() {
       await container.read(authUserProvider.future);
       await container.read(adaptiveGuidanceProvider.future);
 
-      expect(find.text('Capture the first real commitment'), findsNothing);
+      expect(find.text('Add your first task'), findsNothing);
 
       router.go(RoutePaths.nexus);
       await tester.pump();
       await tester.pump();
       expect(router.routerDelegate.state.uri.path, RoutePaths.nexus);
-      expect(find.text('Capture the first real commitment'), findsOneWidget);
+      expect(find.text('Add your first task'), findsOneWidget);
 
       final Future<void> pushed = router.push<void>(RoutePaths.paywall);
       await tester.pump();
-      expect(find.text('Capture the first real commitment'), findsNothing);
+      expect(find.text('Add your first task'), findsNothing);
 
       router.pop();
       await pushed;
       await tester.pump();
       await tester.pump();
-      expect(find.text('Capture the first real commitment'), findsOneWidget);
+      expect(find.text('Add your first task'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

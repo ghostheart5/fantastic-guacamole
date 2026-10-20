@@ -12,6 +12,39 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test(
+    'pausing core guidance survives later milestones and storage reload',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final first = _guidanceContainer('calm-pause-user');
+      await first.read(adaptiveGuidanceProvider.future);
+      final notifier = first.read(adaptiveGuidanceProvider.notifier);
+      await notifier.later(GuidanceLessonId.createFirstItem);
+      await notifier.record(GuidanceMilestone.firstItem);
+      expect(
+        first.read(adaptiveGuidanceProvider).requireValue.activeCoreLesson,
+        isNull,
+      );
+      await notifier.record(GuidanceMilestone.firstSchedule);
+      expect(
+        first.read(adaptiveGuidanceProvider).requireValue.activeCoreLesson,
+        isNull,
+      );
+      first.dispose();
+      final restored = _guidanceContainer('calm-pause-user');
+      addTearDown(restored.dispose);
+      expect(
+        (await restored.read(adaptiveGuidanceProvider.future)).activeCoreLesson,
+        isNull,
+      );
+      await restored.read(adaptiveGuidanceProvider.notifier).restartLessons();
+      expect(
+        restored.read(adaptiveGuidanceProvider).requireValue.activeCoreLesson,
+        GuidanceLessonId.createFirstItem,
+      );
+    },
+  );
+
   test('core guidance follows saved milestones and then yields to Nexus', () {
     final DateTime observedAt = DateTime.utc(2026, 8, 18);
     const AdaptiveGuidanceState beforeFirstValue = AdaptiveGuidanceState(

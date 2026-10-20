@@ -68,8 +68,11 @@ void main() {
       spanish.plannerRoutine.guidanceUnavailable,
       isNot(english.plannerRoutine.guidanceUnavailable),
     );
-    expect(spanish.plannerRoutine.voiceSummaryTitle, contains('Planificador'));
-    expect(spanish.siRoutine.accessCheckFailed, contains('Consola SI'));
+    expect(
+      spanish.plannerRoutine.voiceSummaryTitle,
+      contains('Elegir un paso'),
+    );
+    expect(spanish.siRoutine.accessCheckFailed, contains('Hablarlo'));
     expect(
       spanish.siRoutine.responseValidationFailed,
       contains('No se cambió'),

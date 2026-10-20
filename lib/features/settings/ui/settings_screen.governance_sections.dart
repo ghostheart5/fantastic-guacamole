@@ -318,7 +318,7 @@ class _MemoryGovernanceSection extends ConsumerWidget {
             content: Text(
               journeyText(
                 context,
-                'This clears short-lived Smart Planner and SI Console context. It does not delete tasks, goals, Timeline data, or governed memory receipts.',
+                'This clears short-lived Choose a step and Talk it through context. It does not delete tasks, goals, Timeline data, or governed memory receipts.',
                 'Esto borra el contexto temporal del Planificador Inteligente y la Consola SI. No elimina tareas, metas, datos de Línea de Tiempo ni registros de memoria controlados.',
               ),
             ),
@@ -405,7 +405,7 @@ class _MemoryGovernanceSection extends ConsumerWidget {
           _NeonStatusTile(
             title: journeyText(
               context,
-              'SI Console durable memory',
+              'Saved conversation preferences',
               'Memoria duradera de la Consola SI',
             ),
             subtitle: journeyText(
@@ -675,8 +675,8 @@ String _assistantCapabilityLabel(
   required bool isSpanish,
 }) {
   return switch (capability) {
-    AssistantReleaseCapability.smartPlannerV2 => 'Smart Planner V2',
-    AssistantReleaseCapability.siConsoleV2 => 'SI Console V2',
+    AssistantReleaseCapability.smartPlannerV2 => 'Local planning',
+    AssistantReleaseCapability.siConsoleV2 => 'Local questions',
     AssistantReleaseCapability.governedMemory =>
       isSpanish ? 'Memoria controlada' : 'Governed memory',
     AssistantReleaseCapability.safetyCritic =>

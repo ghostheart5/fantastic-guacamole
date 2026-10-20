@@ -36,9 +36,8 @@ class ChronoSparkLocalizations {
   String text(ChronoSparkString key) =>
       (isSpanish ? _es : _en)[key] ?? _en[key] ?? key.name;
 
-  String moreInTimeline(int count) => isSpanish
-      ? '+$count más en la Línea de Tiempo'
-      : '+$count more in Timeline';
+  String moreInTimeline(int count) =>
+      isSpanish ? '+$count más en la agenda' : '+$count more in schedule';
 
   String completeTaskLabel(String title) =>
       isSpanish ? 'Completar $title' : 'Complete $title';
@@ -85,15 +84,15 @@ class ChronoSparkLocalizations {
   String guideTitle(String id, String fallback) {
     if (!isSpanish) return fallback;
     return switch (id) {
-      'createFirstItem' => 'Captura el primer compromiso real',
-      'scheduleFirstItem' => 'Asigna una hora real al compromiso',
-      'reviewTimeline' => 'Verifica dónde quedó el trabajo',
-      'nexus' => 'Revisa por qué este bloque sigue',
-      'smartPlanner' => 'Examina el plan activo',
-      'timelineExecution' => 'Crea un resultado del que el sistema aprenda',
-      'siConsole' => 'Cuestiona la evidencia débil o incompleta',
-      'trajectoryEngine' => 'Compara una alternativa real',
-      'progression' => 'Verifica qué se volvió confiable',
+      'createFirstItem' => 'Añade tu primera tarea',
+      'scheduleFirstItem' => 'Elige cuándo hacerla',
+      'reviewTimeline' => 'Encuentra tu tarea guardada',
+      'nexus' => 'Revisa el próximo paso sugerido',
+      'smartPlanner' => 'Pide ayuda con un plan',
+      'timelineExecution' => 'Registra lo que pasó',
+      'siConsole' => 'Pregunta qué falta',
+      'trajectoryEngine' => 'Compara otra opción',
+      'progression' => 'Revisa tu actividad',
       _ => fallback,
     };
   }
@@ -102,11 +101,11 @@ class ChronoSparkLocalizations {
     if (!isSpanish) return fallback;
     return switch (id) {
       'createFirstItem' =>
-        'Empieza con una cosa que necesitas hacer. Creador la guarda; después puedes darle una hora y verla en Línea de Tiempo. La guía avanza cuando guardas la tarea.',
+        'Escribe una cosa que necesites hacer. Revísala y confirma para guardarla. Después puedes elegir cuándo hacerla.',
       'scheduleFirstItem' =>
         'Asigna una fecha y una hora a tu tarea para que aparezca en tu plan. Puedes cambiar la hora después.',
       'reviewTimeline' =>
-        'Encuentra la tarea que acabas de guardar y mira dónde aparece en tu día. La guía avanza cuando revisas esa tarea en Línea de Tiempo.',
+        'Abre la tarea que acabas de guardar en tu agenda. Revisa su fecha y sus detalles.',
       'nexus' =>
         'Revisa la razón y la incertidumbre mostradas junto al bloque antes de actuar.',
       'smartPlanner' =>
@@ -126,14 +125,14 @@ class ChronoSparkLocalizations {
   String guideAction(String id, String fallback) {
     if (!isSpanish) return fallback;
     return switch (id) {
-      'createFirstItem' => 'Abrir Creador',
-      'scheduleFirstItem' => 'Programar en Creador',
-      'reviewTimeline' => 'Abrir Línea de Tiempo',
-      'nexus' => 'Revisar en Nexus',
-      'smartPlanner' => 'Preguntar al Planificador',
-      'timelineExecution' => 'Abrir trabajo ejecutable',
-      'siConsole' => 'Revisar evidencia',
-      'trajectoryEngine' => 'Comparar caminos',
+      'createFirstItem' => 'Añadir una tarea',
+      'scheduleFirstItem' => 'Elegir fecha y hora',
+      'reviewTimeline' => 'Abrir agenda',
+      'nexus' => 'Revisar en Inicio',
+      'smartPlanner' => 'Pedir un próximo paso',
+      'timelineExecution' => 'Abrir agenda',
+      'siConsole' => 'Revisar las fuentes',
+      'trajectoryEngine' => 'Comparar opciones',
       'progression' => 'Revisar resultados',
       _ => fallback,
     };
@@ -258,22 +257,22 @@ class ChronoSparkLocalizations {
   }
 
   static const Map<ChronoSparkString, String> _en = <ChronoSparkString, String>{
-    ChronoSparkString.nexus: 'Nexus Core',
-    ChronoSparkString.smartPlanner: 'Now Engine',
-    ChronoSparkString.creator: 'Reality Builder',
-    ChronoSparkString.siConsole: 'Deep Intelligence',
-    ChronoSparkString.timeline: 'Truth Ledger',
-    ChronoSparkString.trajectoryEngine: 'Future Branches',
-    ChronoSparkString.progression: 'Capability Matrix',
+    ChronoSparkString.nexus: 'Home',
+    ChronoSparkString.smartPlanner: 'Choose a step',
+    ChronoSparkString.creator: 'Add something',
+    ChronoSparkString.siConsole: 'Talk it through',
+    ChronoSparkString.timeline: 'Schedule',
+    ChronoSparkString.trajectoryEngine: 'Compare options',
+    ChronoSparkString.progression: 'Activity',
     ChronoSparkString.preparingSummary: 'Preparing your summary',
-    ChronoSparkString.retryNexus: 'Retry Nexus',
+    ChronoSparkString.retryNexus: 'Try again',
     ChronoSparkString.whatMattersNext: 'What matters next',
-    ChronoSparkString.topRisk: 'Top risk',
+    ChronoSparkString.topRisk: 'What may need attention',
     ChronoSparkString.whatChanged: 'What changed',
-    ChronoSparkString.openCreator: 'Open Creator',
-    ChronoSparkString.startInCreator: 'Start in Creator',
+    ChronoSparkString.openCreator: 'Add something',
+    ChronoSparkString.startInCreator: 'Add your first task',
     ChronoSparkString.todayTimeBlocks: "Today's time blocks",
-    ChronoSparkString.openTimeline: 'Open Timeline',
+    ChronoSparkString.openTimeline: 'Open schedule',
     ChronoSparkString.timeBlocksUnavailable:
         'Time blocks are unavailable right now.',
     ChronoSparkString.retry: 'Retry',
@@ -289,28 +288,28 @@ class ChronoSparkLocalizations {
     ChronoSparkString.whyThisIsNext: 'Why this is next',
     ChronoSparkString.reviewOrCorrectPlan: 'Review or correct plan',
     ChronoSparkString.welcome: 'Welcome',
-    ChronoSparkString.livingDecisionSystem: 'A human decision operating system',
+    ChronoSparkString.livingDecisionSystem: 'A little space to think',
     ChronoSparkString.onboardingWelcomeBody:
-        'Decide with evidence. Act with control. Learn from reality. Axiomara keeps every recommendation inspectable and correctable.',
+        'Put your thoughts into words, review your plans, or choose one small step. You decide what to save.',
     ChronoSparkString.next: 'Next',
-    ChronoSparkString.initialize: 'Initialize',
-    ChronoSparkString.initializeSystem: 'Initialize system',
+    ChronoSparkString.initialize: 'Get started',
+    ChronoSparkString.initializeSystem: 'Get started',
     ChronoSparkString.skip: 'Skip',
     ChronoSparkString.nameQuestion: 'What should I call you?',
     ChronoSparkString.name: 'Name',
     ChronoSparkString.nameHint: 'Enter your name…',
     ChronoSparkString.primaryGoal: 'Primary goal',
-    ChronoSparkString.goalExecution: 'Execution & Productivity',
-    ChronoSparkString.goalGrowth: 'Personal Growth',
-    ChronoSparkString.goalWellness: 'Mental Wellness',
+    ChronoSparkString.goalExecution: 'Getting things done',
+    ChronoSparkString.goalGrowth: 'Personal growth',
+    ChronoSparkString.goalWellness: 'Wellbeing',
     ChronoSparkString.goalExplore: 'Just exploring',
     ChronoSparkString.personalize: 'Personalize',
-    ChronoSparkString.lifeDirection: 'Your life direction',
-    ChronoSparkString.calibrateExperience: 'Help us calibrate your experience',
-    ChronoSparkString.contextualGuidance: 'Contextual guidance',
-    ChronoSparkString.openContextualGuidance: 'Open contextual guidance',
-    ChronoSparkString.collapseGuidance: 'Collapse guidance',
-    ChronoSparkString.useThisScreen: 'Use this screen',
+    ChronoSparkString.lifeDirection: 'What would help you?',
+    ChronoSparkString.calibrateExperience: 'Choose what you want help with.',
+    ChronoSparkString.contextualGuidance: 'Help with this page',
+    ChronoSparkString.openContextualGuidance: 'Open help for this page',
+    ChronoSparkString.collapseGuidance: 'Hide help',
+    ChronoSparkString.useThisScreen: 'Continue here',
     ChronoSparkString.notNow: 'Not now',
     ChronoSparkString.cancel: 'Cancel',
     ChronoSparkString.securingAccountData: 'Securing account data',
@@ -322,29 +321,29 @@ class ChronoSparkLocalizations {
     ChronoSparkString.accountRecoveryFailed:
         'That recovery action could not be completed. Please try again or sign out.',
     ChronoSparkString.onboardingPrivacy:
-        'Your display name stays on this device unless you choose cloud backup. Smart Planner and SI Console use saved planning context; external AI processing is opt-in and explained in Settings.',
+        'Your display name stays on this device unless you choose cloud backup. Planning and conversation tools use saved plans. External AI is optional; Settings explains what is shared.',
     ChronoSparkString.onboardingWideBody:
-        'Choose what Axiomara should call you. The rest of setup learns from the real task you create next.',
+        'Choose a name to use in the app. You can change it later.',
     ChronoSparkString.onboardingCompactBody:
-        'Choose what Axiomara should call you, then build your first real task.',
+        'What should we call you? You can change this later.',
     ChronoSparkString.onboardingFinishError:
         'Unable to finish onboarding. Please try again.',
     ChronoSparkString.onboardingContinueError:
         'Unable to continue. Please try again.',
-    ChronoSparkString.loginCreateAccountEyebrow: 'CREATE ACCOUNT',
-    ChronoSparkString.loginAccessSystemEyebrow: 'ACCESS SYSTEM',
-    ChronoSparkString.loginCreateWorkspace: 'Create your workspace',
+    ChronoSparkString.loginCreateAccountEyebrow: 'New here?',
+    ChronoSparkString.loginAccessSystemEyebrow: 'Your account',
+    ChronoSparkString.loginCreateWorkspace: 'Create your account',
     ChronoSparkString.loginWelcomeBack: 'Welcome back',
     ChronoSparkString.loginSecureAccessBody:
-        'Secure access to your connected planning workspace.',
+        'Sign in to open your saved plans.',
     ChronoSparkString.loginEmailAddress: 'Email address',
     ChronoSparkString.loginPassword: 'Password',
     ChronoSparkString.loginShowPassword: 'Show password',
     ChronoSparkString.loginHidePassword: 'Hide password',
     ChronoSparkString.loginForgotPassword: 'Forgot Password?',
-    ChronoSparkString.loginInitializeProfile: 'INITIALIZE PROFILE',
-    ChronoSparkString.loginEnterSystem: 'ENTER SYSTEM',
-    ChronoSparkString.loginContinueDivider: 'OR CONTINUE WITH',
+    ChronoSparkString.loginInitializeProfile: 'Create account',
+    ChronoSparkString.loginEnterSystem: 'Sign in',
+    ChronoSparkString.loginContinueDivider: 'Or continue with',
     ChronoSparkString.loginContinueGoogle: 'Continue with Google',
     ChronoSparkString.loginContinueGithub: 'Continue with GitHub',
     ChronoSparkString.loginSwitchToLogin: 'Switch to Login',
@@ -369,68 +368,67 @@ class ChronoSparkLocalizations {
         'This removes preserved planning records, Timeline history, offline actions, notification schedules, profile progress, and local intelligence from this device. It does not delete your cloud account. This cannot be undone.',
     ChronoSparkString.privacyPolicyTitle: 'Privacy Policy',
     ChronoSparkString.privacyPolicyBody:
-        'Axiomara publishes its authoritative privacy policy at the public HTTPS URL below. Use the hosted policy for current data handling, retention, and support terms.',
-    ChronoSparkString.openHostedPrivacyPolicy: 'Open Hosted Privacy Policy',
+        'Read how Axiomara uses, stores, and deletes information. Open the current privacy policy below.',
+    ChronoSparkString.openHostedPrivacyPolicy: 'Read privacy policy',
     ChronoSparkString.deleteAccountTitle: 'Delete Account',
     ChronoSparkString.deleteAccountBody:
-        'Axiomara publishes account deletion steps at the public HTTPS URL below. Use the hosted page to submit a deletion request and review deletion and retention details.',
-    ChronoSparkString.openHostedDeleteAccountPage:
-        'Open Hosted Delete Account Page',
+        'Open the account deletion instructions to send a request and review what is deleted or kept.',
+    ChronoSparkString.openHostedDeleteAccountPage: 'Open deletion instructions',
     ChronoSparkString.termsTitle: 'Terms of Service',
     ChronoSparkString.termsBody:
-        'Axiomara maintains its current Terms of Service on the public HTTPS page below so release builds and store listings reference the same source of truth.',
-    ChronoSparkString.openHostedTerms: 'Open Hosted Terms',
+        'Read the terms for using Axiomara. The link below opens the current version.',
+    ChronoSparkString.openHostedTerms: 'Read terms',
     ChronoSparkString.supportTitle: 'Support',
     ChronoSparkString.supportBody:
-        'Axiomara publishes release-facing support and account assistance at the public HTTPS URL below so store reviewers and users can reach the current support process from every build.',
-    ChronoSparkString.openHostedSupportPage: 'Open Hosted Support Page',
+        'Get help with the app or your account. Open the support page below.',
+    ChronoSparkString.openHostedSupportPage: 'Get help',
     ChronoSparkString.openWebsite: 'Open Website',
     ChronoSparkString.unableToOpenWebsite:
         'Unable to open the website from this device.',
     ChronoSparkString.couldNotLoadContent: 'Could not load content.',
-    ChronoSparkString.aboutTitle: 'ABOUT AXIOMARA',
+    ChronoSparkString.aboutTitle: 'About Axiomara',
     ChronoSparkString.aboutSubtitle:
-        'A human decision operating system for clarity, momentum, and accountable action.',
-    ChronoSparkString.aboutEyebrow: 'SYSTEM IDENTITY',
-    ChronoSparkString.aboutWhatItDoesTitle: 'What It Does',
+        'Space to think and find a manageable next step.',
+    ChronoSparkString.aboutEyebrow: 'About this app',
+    ChronoSparkString.aboutWhatItDoesTitle: 'What you can do',
     ChronoSparkString.aboutWhatItDoesBody:
-        'Axiomara resolves real goals, time, energy, commitments, and user-approved context into an inspectable next move. It shows the evidence, uncertainty, and control behind every recommendation.',
-    ChronoSparkString.aboutCoreSurfacesTitle: 'Core Surfaces',
+        'Write down a thought, save something you need to do, or ask for help with your plans. Suggestions are there to review. You choose what happens next.',
+    ChronoSparkString.aboutCoreSurfacesTitle: 'Find your way around',
     ChronoSparkString.aboutCoreSurfacesBody:
-        'Nexus Core forms the live decision packet. Reality Builder captures intent. Now Engine resolves constraints. Deep Intelligence interrogates evidence. Future Branches compares possible consequences. Truth Ledger records outcomes. Capability Matrix shows what action has actually proven.',
-    ChronoSparkString.aboutGuidingPrincipleTitle: 'Guiding Principle',
+        'Start at Home. Add something saves tasks, notes, goals, and habits. Choose a step helps with planning. Talk it through answers questions about your plans. Schedule shows dated tasks and history. Compare options shows estimates. Activity shows recorded progress.',
+    ChronoSparkString.aboutGuidingPrincipleTitle: 'You stay in control',
     ChronoSparkString.aboutGuidingPrincipleBody:
-        'Amplify human judgment without replacing it. Nothing changes silently, uncertainty stays visible, simulations are never promises, and every learned outcome can be reviewed or corrected.',
+        'Review suggestions before acting. Estimates can be wrong. You can review or correct recorded outcomes.',
     ChronoSparkString.aboutPrivacyAndSupportTitle: 'Privacy and Support',
     ChronoSparkString.aboutVoiceFeaturesTitle: 'Voice Features',
     ChronoSparkString.aboutVoiceFeaturesBody:
-        'Microphone access powers optional voice-to-text in Smart Planner and the SI Console. Audio is used only after you start a voice action and remains off during normal planning flows.',
+        'Use the microphone only when you want to speak instead of type. Voice input starts after you choose it and grant permission.',
     ChronoSparkString.routerErrorTitle: "We couldn't open that link",
     ChronoSparkString.routerErrorBody:
-        'The link does not match an available Axiomara screen. We recorded a safe diagnostic event without exposing technical details.',
-    ChronoSparkString.routerErrorReturnNexus: 'Return to Nexus',
+        'This link does not open an available page. Return Home or open Help to continue.',
+    ChronoSparkString.routerErrorReturnNexus: 'Return Home',
     ChronoSparkString.routerErrorReturnLogin: 'Return to Login',
     ChronoSparkString.routerErrorReturnOnboarding: 'Return to Setup',
     ChronoSparkString.routerErrorReturnSupport: 'Return to Support',
   };
 
   static const Map<ChronoSparkString, String> _es = <ChronoSparkString, String>{
-    ChronoSparkString.nexus: 'Núcleo Nexus',
-    ChronoSparkString.smartPlanner: 'Motor del Ahora',
-    ChronoSparkString.creator: 'Constructor de Realidad',
-    ChronoSparkString.siConsole: 'Inteligencia Profunda',
-    ChronoSparkString.timeline: 'Registro de Verdad',
-    ChronoSparkString.trajectoryEngine: 'Ramas Futuras',
-    ChronoSparkString.progression: 'Matriz de Capacidades',
+    ChronoSparkString.nexus: 'Inicio',
+    ChronoSparkString.smartPlanner: 'Elegir un paso',
+    ChronoSparkString.creator: 'Añadir algo',
+    ChronoSparkString.siConsole: 'Hablarlo',
+    ChronoSparkString.timeline: 'Agenda',
+    ChronoSparkString.trajectoryEngine: 'Comparar opciones',
+    ChronoSparkString.progression: 'Actividad',
     ChronoSparkString.preparingSummary: 'Preparando tu resumen',
-    ChronoSparkString.retryNexus: 'Reintentar Nexus',
+    ChronoSparkString.retryNexus: 'Reintentar',
     ChronoSparkString.whatMattersNext: 'Lo más importante ahora',
-    ChronoSparkString.topRisk: 'Riesgo principal',
+    ChronoSparkString.topRisk: 'Qué puede necesitar atención',
     ChronoSparkString.whatChanged: 'Qué cambió',
-    ChronoSparkString.openCreator: 'Abrir Creador',
-    ChronoSparkString.startInCreator: 'Comienza en Creador',
+    ChronoSparkString.openCreator: 'Añadir algo',
+    ChronoSparkString.startInCreator: 'Añade tu primera tarea',
     ChronoSparkString.todayTimeBlocks: 'Bloques de tiempo de hoy',
-    ChronoSparkString.openTimeline: 'Abrir Línea de Tiempo',
+    ChronoSparkString.openTimeline: 'Abrir agenda',
     ChronoSparkString.timeBlocksUnavailable:
         'Los bloques de tiempo no están disponibles ahora.',
     ChronoSparkString.retry: 'Reintentar',
@@ -446,29 +444,28 @@ class ChronoSparkLocalizations {
     ChronoSparkString.whyThisIsNext: 'Por qué sigue esto',
     ChronoSparkString.reviewOrCorrectPlan: 'Revisar o corregir el plan',
     ChronoSparkString.welcome: 'Bienvenido',
-    ChronoSparkString.livingDecisionSystem:
-        'Un sistema operativo de decisiones humanas',
+    ChronoSparkString.livingDecisionSystem: 'Un espacio para pensar',
     ChronoSparkString.onboardingWelcomeBody:
-        'Decide con evidencia. Actúa con control. Aprende de la realidad. Axiomara mantiene cada recomendación visible y corregible.',
+        'Expresa tus ideas, revisa tus planes o elige un pequeño paso. Tú decides qué guardar.',
     ChronoSparkString.next: 'Siguiente',
-    ChronoSparkString.initialize: 'Iniciar',
-    ChronoSparkString.initializeSystem: 'Iniciar sistema',
+    ChronoSparkString.initialize: 'Empezar',
+    ChronoSparkString.initializeSystem: 'Empezar',
     ChronoSparkString.skip: 'Omitir',
     ChronoSparkString.nameQuestion: '¿Cómo debo llamarte?',
     ChronoSparkString.name: 'Nombre',
     ChronoSparkString.nameHint: 'Escribe tu nombre…',
     ChronoSparkString.primaryGoal: 'Objetivo principal',
-    ChronoSparkString.goalExecution: 'Ejecución y productividad',
+    ChronoSparkString.goalExecution: 'Hacer cosas',
     ChronoSparkString.goalGrowth: 'Crecimiento personal',
-    ChronoSparkString.goalWellness: 'Bienestar mental',
+    ChronoSparkString.goalWellness: 'Bienestar',
     ChronoSparkString.goalExplore: 'Solo explorando',
     ChronoSparkString.personalize: 'Personaliza',
-    ChronoSparkString.lifeDirection: 'La dirección de tu vida',
-    ChronoSparkString.calibrateExperience: 'Ayúdanos a calibrar tu experiencia',
-    ChronoSparkString.contextualGuidance: 'Guía contextual',
-    ChronoSparkString.openContextualGuidance: 'Abrir guía contextual',
-    ChronoSparkString.collapseGuidance: 'Contraer guía',
-    ChronoSparkString.useThisScreen: 'Usar esta pantalla',
+    ChronoSparkString.lifeDirection: '¿Qué te ayudaría?',
+    ChronoSparkString.calibrateExperience: 'Elige en qué quieres ayuda.',
+    ChronoSparkString.contextualGuidance: 'Ayuda con esta página',
+    ChronoSparkString.openContextualGuidance: 'Abrir ayuda de esta página',
+    ChronoSparkString.collapseGuidance: 'Ocultar ayuda',
+    ChronoSparkString.useThisScreen: 'Continuar aquí',
     ChronoSparkString.notNow: 'Ahora no',
     ChronoSparkString.cancel: 'Cancelar',
     ChronoSparkString.securingAccountData: 'Protegiendo datos de la cuenta',
@@ -481,29 +478,29 @@ class ChronoSparkLocalizations {
     ChronoSparkString.accountRecoveryFailed:
         'No se pudo completar esa acción de recuperación. Inténtalo de nuevo o cierra sesión.',
     ChronoSparkString.onboardingPrivacy:
-        'Tu nombre visible permanece en este dispositivo salvo que actives la copia en la nube. Planificador Inteligente y Consola SI usan el contexto guardado; el procesamiento externo con IA es opcional y se explica en Ajustes.',
+        'Tu nombre se queda en este dispositivo salvo que elijas la copia en la nube. Las herramientas usan tus planes guardados. La IA externa es opcional; Ajustes explica qué se comparte.',
     ChronoSparkString.onboardingWideBody:
-        'Elige cómo debe llamarte Axiomara. El resto de la configuración aprenderá de la tarea real que crearás después.',
+        'Elige un nombre para la app. Puedes cambiarlo después.',
     ChronoSparkString.onboardingCompactBody:
-        'Elige cómo debe llamarte Axiomara y luego crea tu primera tarea real.',
+        '¿Cómo te llamamos? Puedes cambiarlo después.',
     ChronoSparkString.onboardingFinishError:
         'No se pudo terminar la introducción. Inténtalo de nuevo.',
     ChronoSparkString.onboardingContinueError:
         'No se pudo continuar. Inténtalo de nuevo.',
-    ChronoSparkString.loginCreateAccountEyebrow: 'CREAR CUENTA',
-    ChronoSparkString.loginAccessSystemEyebrow: 'ACCEDER AL SISTEMA',
-    ChronoSparkString.loginCreateWorkspace: 'Crea tu espacio de trabajo',
+    ChronoSparkString.loginCreateAccountEyebrow: '¿Primera vez?',
+    ChronoSparkString.loginAccessSystemEyebrow: 'Tu cuenta',
+    ChronoSparkString.loginCreateWorkspace: 'Crea tu cuenta',
     ChronoSparkString.loginWelcomeBack: 'Te damos la bienvenida',
     ChronoSparkString.loginSecureAccessBody:
-        'Acceso seguro a tu espacio de planificación conectado.',
+        'Inicia sesión para abrir tus planes guardados.',
     ChronoSparkString.loginEmailAddress: 'Correo electrónico',
     ChronoSparkString.loginPassword: 'Contraseña',
     ChronoSparkString.loginShowPassword: 'Mostrar contraseña',
     ChronoSparkString.loginHidePassword: 'Ocultar contraseña',
     ChronoSparkString.loginForgotPassword: '¿Olvidaste la contraseña?',
-    ChronoSparkString.loginInitializeProfile: 'INICIAR PERFIL',
-    ChronoSparkString.loginEnterSystem: 'ENTRAR AL SISTEMA',
-    ChronoSparkString.loginContinueDivider: 'O CONTINÚA CON',
+    ChronoSparkString.loginInitializeProfile: 'Crear cuenta',
+    ChronoSparkString.loginEnterSystem: 'Iniciar sesión',
+    ChronoSparkString.loginContinueDivider: 'O continúa con',
     ChronoSparkString.loginContinueGoogle: 'Continuar con Google',
     ChronoSparkString.loginContinueGithub: 'Continuar con GitHub',
     ChronoSparkString.loginSwitchToLogin: 'Volver al acceso',
@@ -528,47 +525,46 @@ class ChronoSparkLocalizations {
         'Esto elimina de este dispositivo los registros de planificación, historial de Línea de Tiempo, acciones sin conexión, recordatorios, progreso del perfil e inteligencia local conservados. No elimina tu cuenta en la nube. No se puede deshacer.',
     ChronoSparkString.privacyPolicyTitle: 'Política de privacidad',
     ChronoSparkString.privacyPolicyBody:
-        'Axiomara publica su política de privacidad autorizada en la URL HTTPS pública de abajo. Usa la política alojada para consultar el manejo de datos, la retención y los términos de soporte actuales.',
-    ChronoSparkString.openHostedPrivacyPolicy:
-        'Abrir política de privacidad alojada',
+        'Lee cómo Axiomara usa, guarda y elimina información. Abre la política de privacidad actual.',
+    ChronoSparkString.openHostedPrivacyPolicy: 'Leer política de privacidad',
     ChronoSparkString.deleteAccountTitle: 'Eliminar cuenta',
     ChronoSparkString.deleteAccountBody:
-        'Axiomara publica los pasos para eliminar una cuenta en la URL HTTPS pública de abajo. Usa la página alojada para enviar una solicitud y revisar los detalles de eliminación y retención.',
+        'Abre las instrucciones de eliminación de cuenta para enviar una solicitud y revisar qué se elimina o conserva.',
     ChronoSparkString.openHostedDeleteAccountPage:
-        'Abrir página alojada para eliminar cuenta',
+        'Abrir instrucciones de eliminación',
     ChronoSparkString.termsTitle: 'Términos de servicio',
     ChronoSparkString.termsBody:
-        'Axiomara mantiene sus Términos de servicio actuales en la página HTTPS pública de abajo para que las versiones de lanzamiento y las fichas de tienda apunten a la misma fuente de verdad.',
-    ChronoSparkString.openHostedTerms: 'Abrir términos alojados',
+        'Lee los términos de uso de Axiomara. El enlace abre la versión actual.',
+    ChronoSparkString.openHostedTerms: 'Leer términos',
     ChronoSparkString.supportTitle: 'Soporte',
     ChronoSparkString.supportBody:
-        'Axiomara publica soporte y ayuda de cuenta para lanzamientos en la URL HTTPS pública de abajo para que revisores de tienda y usuarios puedan llegar al proceso de soporte actual desde cada versión.',
-    ChronoSparkString.openHostedSupportPage: 'Abrir página de soporte alojada',
+        'Obtén ayuda con la app o tu cuenta. Abre la página de soporte.',
+    ChronoSparkString.openHostedSupportPage: 'Obtener ayuda',
     ChronoSparkString.openWebsite: 'Abrir sitio web',
     ChronoSparkString.unableToOpenWebsite:
         'No se pudo abrir el sitio web desde este dispositivo.',
     ChronoSparkString.couldNotLoadContent: 'No se pudo cargar el contenido.',
-    ChronoSparkString.aboutTitle: 'ACERCA DE AXIOMARA',
+    ChronoSparkString.aboutTitle: 'Acerca de Axiomara',
     ChronoSparkString.aboutSubtitle:
-        'Un sistema operativo de decisiones humanas para claridad, impulso y acción responsable.',
-    ChronoSparkString.aboutEyebrow: 'IDENTIDAD DEL SISTEMA',
-    ChronoSparkString.aboutWhatItDoesTitle: 'Qué hace',
+        'Espacio para pensar y encontrar un próximo paso manejable.',
+    ChronoSparkString.aboutEyebrow: 'Sobre esta app',
+    ChronoSparkString.aboutWhatItDoesTitle: 'Qué puedes hacer',
     ChronoSparkString.aboutWhatItDoesBody:
-        'Axiomara resuelve metas, tiempo, energía, compromisos y contexto autorizado por ti en un próximo movimiento que puedes inspeccionar. Muestra la evidencia, la incertidumbre y el control detrás de cada recomendación.',
-    ChronoSparkString.aboutCoreSurfacesTitle: 'Áreas principales',
+        'Escribe una idea, guarda algo que necesites hacer o pide ayuda con tus planes. Puedes revisar las sugerencias. Tú decides qué hacer después.',
+    ChronoSparkString.aboutCoreSurfacesTitle: 'Cómo moverte por la app',
     ChronoSparkString.aboutCoreSurfacesBody:
-        'Núcleo Nexus forma el paquete de decisión. Constructor de Realidad captura la intención. Motor del Ahora resuelve límites. Inteligencia Profunda interroga la evidencia. Ramas Futuras compara consecuencias posibles. Registro de Verdad conserva resultados. Matriz de Capacidades muestra lo que la acción ha demostrado.',
-    ChronoSparkString.aboutGuidingPrincipleTitle: 'Principio rector',
+        'Empieza en Inicio. Añadir algo guarda tareas, notas, metas y hábitos. Elegir un paso ayuda a planificar. Hablarlo responde preguntas sobre tus planes. Agenda muestra tareas con fecha e historial. Comparar opciones muestra estimaciones. Actividad muestra avances registrados.',
+    ChronoSparkString.aboutGuidingPrincipleTitle: 'Tú decides',
     ChronoSparkString.aboutGuidingPrincipleBody:
-        'Amplifica el criterio humano sin reemplazarlo. Nada cambia en silencio, la incertidumbre sigue visible, las simulaciones nunca son promesas y cada aprendizaje puede revisarse o corregirse.',
+        'Revisa las sugerencias antes de actuar. Las estimaciones pueden equivocarse. Puedes revisar o corregir los resultados registrados.',
     ChronoSparkString.aboutPrivacyAndSupportTitle: 'Privacidad y soporte',
     ChronoSparkString.aboutVoiceFeaturesTitle: 'Funciones de voz',
     ChronoSparkString.aboutVoiceFeaturesBody:
-        'El acceso al micrófono permite usar voz a texto de forma opcional en Planificador Inteligente y Consola SI. El audio se usa solo después de que inicias una acción de voz y permanece desactivado durante la planificación normal.',
+        'Usa el micrófono cuando quieras hablar en vez de escribir. La entrada de voz empieza cuando la eliges y das permiso.',
     ChronoSparkString.routerErrorTitle: 'No pudimos abrir ese enlace',
     ChronoSparkString.routerErrorBody:
-        'El enlace no coincide con una pantalla disponible de Axiomara. Registramos un diagnóstico seguro sin mostrar detalles técnicos.',
-    ChronoSparkString.routerErrorReturnNexus: 'Volver a Nexus',
+        'Este enlace no abre una página disponible. Vuelve a Inicio o abre Ayuda para continuar.',
+    ChronoSparkString.routerErrorReturnNexus: 'Volver a Inicio',
     ChronoSparkString.routerErrorReturnLogin: 'Volver al inicio de sesión',
     ChronoSparkString.routerErrorReturnOnboarding: 'Volver a configuración',
     ChronoSparkString.routerErrorReturnSupport: 'Volver a soporte',
@@ -582,31 +578,31 @@ final class PlannerRoutineCopy {
   final bool isSpanish;
 
   String get accessCheckFailed => isSpanish
-      ? 'No se pudo verificar el acceso al Planificador Inteligente. No se enviará ninguna solicitud de orientación.'
+      ? 'No se pudo verificar el acceso al Elegir un paso. No se enviará ninguna solicitud de orientación.'
       : 'Planner access could not be verified. No guidance request will be sent.';
   String get checkingAccess => isSpanish
-      ? 'Verificando el acceso al Planificador Inteligente...'
-      : 'Checking Smart Planner access...';
+      ? 'Verificando el acceso al Elegir un paso...'
+      : 'Checking Choose a step access...';
   String get accessUnavailable => isSpanish
-      ? 'El Planificador Inteligente no está habilitado para esta cuenta. No se enviará ninguna solicitud de orientación.'
-      : 'Smart Planner is not enabled for this account. No guidance request will be sent.';
+      ? 'El Elegir un paso no está habilitado para esta cuenta. No se enviará ninguna solicitud de orientación.'
+      : 'Choose a step is not enabled for this account. No guidance request will be sent.';
   String get onDeviceReady => isSpanish
-      ? 'El Planificador Inteligente en el dispositivo está listo.'
-      : 'On-device Smart Planner is ready.';
+      ? 'El Elegir un paso en el dispositivo está listo.'
+      : 'On-device Choose a step is ready.';
   String get retryAccessCheck =>
       isSpanish ? 'Reintentar verificación de acceso' : 'Retry access check';
   String get guidanceUnavailable => isSpanish
-      ? 'El Planificador Inteligente aún no está habilitado para esta cuenta. Tu registro no se guardó ni cambió.'
-      : 'Smart Planner is not enabled for this account yet. Your check-in was not saved or changed.';
+      ? 'El Elegir un paso aún no está habilitado para esta cuenta. Tu registro no se guardó ni cambió.'
+      : 'Choose a step is not enabled for this account yet. Your check-in was not saved or changed.';
   String get guidanceRetry => isSpanish
-      ? 'No se pudo generar la orientación. Tu registro sigue aquí. Pulsa OBTENER ORIENTACIÓN para reintentar.'
-      : 'Guidance could not be generated. Your check-in is still here. Tap GET GUIDANCE to retry.';
+      ? 'No se pudo generar la orientación. Tu registro sigue aquí. Pulsa Obtener una sugerencia para reintentar.'
+      : 'Guidance could not be generated. Your check-in is still here. Tap Get a suggestion to retry.';
   String get personContextChanged => isSpanish
-      ? 'Tu Contexto Personal cambió, por lo que se borró la orientación anterior. Pulsa OBTENER ORIENTACIÓN para revisar un plan actual.'
-      : 'Your Person Context changed, so the previous guidance was cleared. Tap GET GUIDANCE to review a current plan.';
+      ? 'Tu Contexto Personal cambió, por lo que se borró la orientación anterior. Pulsa Obtener una sugerencia para revisar un plan actual.'
+      : 'Your Person Context changed, so the previous guidance was cleared. Tap Get a suggestion to review a current plan.';
   String get guidanceTimeout => isSpanish
-      ? 'La solicitud de orientación agotó el tiempo. Pulsa OBTENER ORIENTACIÓN otra vez o acorta el texto para recibir una respuesta más rápida.'
-      : 'Guidance request timed out. Tap GET GUIDANCE again or shorten your input for a faster response.';
+      ? 'La solicitud de orientación agotó el tiempo. Pulsa Obtener una sugerencia otra vez o acorta el texto para recibir una respuesta más rápida.'
+      : 'Guidance request timed out. Tap Get a suggestion again or shorten your input for a faster response.';
   String get followUpTimeout => isSpanish
       ? 'El seguimiento agotó el tiempo. Tu mensaje sigue aquí; puedes editarlo o pulsar Reintentar seguimiento.'
       : 'Follow-up timed out. Your message is still here; edit it or tap Retry follow-up.';
@@ -667,12 +663,11 @@ final class PlannerRoutineCopy {
   String get minimumReachedStatus => isSpanish
       ? 'El plan ya está en su paso más pequeño. Puedes pedir otro enfoque.'
       : 'The plan is already at its smallest step. You can ask for a different approach.';
-  String get externalExplanationTitle => isSpanish
-      ? 'EXPLICACIÓN CON IA EXTERNA · OPCIONAL · SOLO LECTURA'
-      : 'EXTERNAL AI EXPLANATION · OPTIONAL · READ-ONLY';
+  String get externalExplanationTitle =>
+      isSpanish ? 'Explicación opcional con IA' : 'Optional AI explanation';
   String get externalExplanationBody => isSpanish
-      ? 'El Planificador V2 sigue siendo quien determina el plan. Esta explicación separada no puede cambiarlo ni guardarlo.'
-      : 'Planner V2 remains the decision authority. This separate explanation cannot change or save your plan.';
+      ? 'La IA puede explicar el plan. No puede cambiarlo ni guardarlo.'
+      : 'AI can explain the plan. It cannot change or save it.';
   String get explanationRequesting =>
       isSpanish ? 'SOLICITANDO...' : 'REQUESTING...';
   String get explanationRetry =>
@@ -731,8 +726,8 @@ final class PlannerRoutineCopy {
       ? 'Empieza con un paso de preparación de $minutes minutos. $detail'
       : 'Begin with a $minutes-minute setup step. $detail';
   String get smallerTradeoff => isSpanish
-      ? 'Esto reduce todavía más el costo de empezar y deja más trabajo para después.'
-      : 'This reduces activation cost further and leaves more work for later.';
+      ? 'Así es más fácil empezar. El resto puede esperar.'
+      : 'This makes it easier to start. The rest can wait.';
   String get smallerReason => isSpanish
       ? 'Pediste un comienzo más pequeño, así que se conserva solo un breve paso de preparación.'
       : 'You asked for a smaller start, so this keeps only a brief setup step.';
@@ -743,8 +738,8 @@ final class PlannerRoutineCopy {
       ? 'Se seleccionó un enfoque distinto. No se guardó nada.'
       : 'A different approach is selected. Nothing has been saved.';
   String get differentApproachReason => isSpanish
-      ? 'Pediste un enfoque distinto, así que se seleccionó otra opción limitada.'
-      : 'You asked for a different approach, so another bounded option is selected.';
+      ? 'Aquí tienes otra forma de empezar. No se guardó nada.'
+      : 'Here is another way to start. Nothing has been saved.';
   String get audioUnavailable => isSpanish
       ? 'El audio no está disponible. Revisa la configuración de texto a voz y el volumen multimedia.'
       : 'Audio is unavailable. Check text-to-speech settings and media volume.';
@@ -766,8 +761,8 @@ final class PlannerRoutineCopy {
       ? 'Leer en voz alta un resumen breve de planificación'
       : 'Read condensed planning summary aloud';
   String get voiceSummaryTitle => isSpanish
-      ? 'Resumen de voz del Planificador Inteligente'
-      : 'Smart Planner voice summary';
+      ? 'Resumen de voz del Elegir un paso'
+      : 'Choose a step voice summary';
   String get summaryButton => isSpanish ? 'RESUMEN' : 'SUMMARY';
   String energySummary(double? energy) => energy == null
       ? isSpanish
@@ -784,16 +779,17 @@ final class PlannerRoutineCopy {
       ? 'El estado emocional es $emotion'
       : 'Emotion state is $emotion';
   String get accessibilityLabel => isSpanish
-      ? 'Abrir la guía de accesibilidad del Planificador Inteligente y leerla en voz alta'
-      : 'Open Smart Planner accessibility guide and read it aloud';
+      ? 'Abrir la guía de accesibilidad del Elegir un paso y leerla en voz alta'
+      : 'Open Choose a step accessibility guide and read it aloud';
   String get accessibilityTitle =>
       isSpanish ? 'Guía de accesibilidad' : 'Accessibility Guide';
   String get accessibilityBody => isSpanish
-      ? 'A11Y significa accesibilidad. Usa estos controles para facilitar la lectura y la orientación por audio.'
-      : 'A11Y means accessibility. Use these controls for easier reading and audio guidance.';
-  String get accessibilityButton => isSpanish ? 'ACCESO' : 'ACCESS';
+      ? 'Elige cómo leer o escuchar las sugerencias.'
+      : 'Choose how to read or listen to suggestions.';
+  String get accessibilityButton =>
+      isSpanish ? 'Ayuda de lectura y voz' : 'Reading and voice help';
   String get accessibilitySurface =>
-      isSpanish ? 'Planificador Inteligente' : 'Smart Planner';
+      isSpanish ? 'Elegir un paso' : 'Choose a step';
   List<String> get accessibilityControls => isSpanish
       ? const <String>[
           'Ajusta el control de energía para definir la intensidad',
@@ -850,8 +846,8 @@ final class PlannerRoutineCopy {
       ? '¿Qué te gustaría planificar ahora?'
       : 'What would you like help planning right now?';
   String get ephemeralNotice => isSpanish
-      ? 'Tus palabras y tu registro son temporales. Un recibo local de decisión puede registrar qué orientación se mostró o usó. No se guarda nada más salvo que recuerdes una preferencia de forma explícita.'
-      : 'Your words and check-in stay ephemeral. A local decision receipt may record which guidance was shown or used. Nothing else is saved unless you explicitly remember a preference.';
+      ? 'Tus palabras y tu registro son temporales. Este dispositivo puede guardar qué orientación se mostró o usó. Solo se guardan otros detalles si eliges recordar una preferencia.'
+      : 'Your words and check-in are temporary. This device may keep a record of the guidance shown or used. Other details are saved only if you choose to remember a preference.';
   String get checkingButton =>
       isSpanish ? 'VERIFICANDO ACCESO...' : 'CHECKING ACCESS...';
   String get unavailableButton =>
@@ -859,19 +855,19 @@ final class PlannerRoutineCopy {
   String get thinkingButton => isSpanish ? 'PENSANDO...' : 'THINKING...';
   String guidanceButton({required bool refresh}) => isSpanish
       ? refresh
-            ? 'ACTUALIZAR ORIENTACIÓN'
-            : 'OBTENER ORIENTACIÓN'
+            ? 'Actualizar sugerencia'
+            : 'Obtener una sugerencia'
       : refresh
-      ? 'REFRESH GUIDANCE'
-      : 'GET GUIDANCE';
+      ? 'Update suggestion'
+      : 'Get a suggestion';
   String get guidanceReady => isSpanish
       ? 'Orientación de planificación lista'
       : 'Planning guidance ready';
   String get subtitle => isSpanish
-      ? 'Resuelve tiempo, energía y compromisos en un próximo movimiento real.'
-      : 'Resolve time, energy and commitments into one real next move.';
+      ? 'Describe qué necesitas hacer. Recibe un próximo paso manejable para revisar.'
+      : 'Describe what you need to do. Get a manageable next step to review.';
   String get eyebrow =>
-      isSpanish ? 'Motor de decisión inmediato' : 'Immediate decision engine';
+      isSpanish ? 'Ayuda con tu próximo paso' : 'Help with your next step';
 }
 
 @immutable
@@ -881,14 +877,14 @@ final class SIRoutineCopy {
   final bool isSpanish;
 
   String get accessCheckFailed => isSpanish
-      ? 'No se pudo verificar el acceso a la Consola SI. No se envió ninguna consulta.'
-      : 'SI Console access could not be verified. No query was sent.';
+      ? 'No se pudo verificar el acceso a la Hablarlo. No se envió ninguna consulta.'
+      : 'Talk it through access could not be verified. No query was sent.';
   String get checkingAccess => isSpanish
-      ? 'Verificando el acceso a la Consola SI...'
-      : 'Checking SI Console access...';
+      ? 'Verificando el acceso a la Hablarlo...'
+      : 'Checking Talk it through access...';
   String get accessUnavailable => isSpanish
-      ? 'La Consola SI no está habilitada para esta cuenta. No se envió ninguna consulta.'
-      : 'SI Console is not enabled for this account. No query was sent.';
+      ? 'La Hablarlo no está habilitada para esta cuenta. No se envió ninguna consulta.'
+      : 'Talk it through is not enabled for this account. No query was sent.';
   String get contextUnavailable => isSpanish
       ? 'El contexto estratégico no está disponible temporalmente. Tu trabajo guardado no cambió.'
       : 'Strategic context is temporarily unavailable. Saved work is unchanged.';
@@ -899,8 +895,8 @@ final class SIRoutineCopy {
       ? 'Estado de evidencia no disponible.'
       : 'Evidence state unavailable.';
   String noEvidence(String personBoundary) => isSpanish
-      ? 'Todavía no hay evidencia de planificación. SI identificará lo que no puede determinar. $personBoundary'
-      : 'No planning evidence yet. SI will identify what it cannot determine. $personBoundary';
+      ? 'Aún no hay información de planes guardada. La herramienta explicará qué no puede responder. $personBoundary'
+      : 'No saved planning information yet. This tool will explain what it cannot answer. $personBoundary';
   String evidenceReady({
     required int tasks,
     required int goals,
@@ -908,28 +904,29 @@ final class SIRoutineCopy {
     required int timeline,
     required String personBoundary,
   }) => isSpanish
-      ? 'Evidencia lista: $tasks tareas · $goals objetivos · $milestones hitos · $timeline en Línea de Tiempo. $personBoundary'
-      : 'Evidence ready: $tasks tasks · $goals goals · $milestones milestones · $timeline Timeline. $personBoundary';
+      ? 'Información guardada: $tasks tareas · $goals metas · $milestones hitos · $timeline entradas de agenda. $personBoundary'
+      : 'Saved information: $tasks tasks · $goals goals · $milestones milestones · $timeline schedule entries. $personBoundary';
   String get personContextUnavailable => isSpanish
-      ? 'Contexto personal: no disponible; SI no infirió nada personal.'
-      : 'Person context: unavailable; SI inferred nothing personal.';
+      ? 'Tus detalles compartidos no están disponibles. No se supusieron datos personales.'
+      : 'Your shared details are unavailable. No personal details were guessed.';
   String get personContextNotRelevant => isSpanish
-      ? 'Contexto personal: compartido, pero ningún elemento fue relevante para este enfoque.'
-      : 'Person context: shared but no item was relevant to this lens.';
+      ? 'Ninguno de tus detalles compartidos se aplica a esta pregunta.'
+      : 'None of your shared details apply to this question.';
   String personContextEvidence(int count) => isSpanish
       ? 'Contexto personal: $count ${count == 1 ? 'elemento declarado por el usuario disponible' : 'elementos declarados por el usuario disponibles'}. Cada respuesta cita solo el contexto pertinente a esa pregunta; no se verifica de forma independiente.'
       : 'Person context: $count user-reported ${count == 1 ? 'item available' : 'items available'}. Each answer cites only context relevant to that question; it is not independently verified.';
-  String get retryEvidence =>
-      isSpanish ? 'Reintentar carga de evidencia' : 'Retry evidence loading';
+  String get retryEvidence => isSpanish
+      ? 'Reintentar carga de información guardada'
+      : 'Try loading saved information again';
   String get unavailableSavedWork => isSpanish
       ? 'Esta cuenta no tiene acceso actualmente. Tu trabajo guardado no cambió.'
       : 'This account does not currently have access. Your saved work is unchanged.';
   String get welcomeNoEvidence => isSpanish
-      ? 'Todavía no hay evidencia de planificación disponible. SI indicará la evidencia faltante en vez de adivinar.'
-      : 'No planning evidence is available yet. SI will name missing evidence instead of guessing.';
+      ? 'Todavía no hay planes guardados para revisar. La herramienta explicará qué falta.'
+      : 'There are no saved plans to review yet. The tool will explain what is missing.';
   String get welcomeReady => isSpanish
-      ? 'Pregunta por tareas, objetivos, hitos o la Línea de Tiempo actuales. SI lee evidencia y no puede cambiar los datos guardados.'
-      : 'Ask about current tasks, goals, milestones, or Timeline. SI reads evidence and cannot change saved data.';
+      ? 'Pregunta sobre tareas, metas, hitos o tu agenda. Esta herramienta local puede leerlos, pero no cambiarlos.'
+      : 'Ask about saved tasks, goals, milestones, or your schedule. This local tool can read them, but cannot change them.';
   String get localProcessingBoundary => isSpanish
       ? 'Este modo usa reglas locales: no envía preguntas a una IA externa ni gasta créditos de IA. Las herramientas de voz requieren un consentimiento aparte.'
       : 'This mode uses local rules: it does not send questions to external AI or spend AI credits. Voice tools require separate consent.';
@@ -944,53 +941,57 @@ final class SIRoutineCopy {
       ? const <String>['What evidence is missing?', 'What can you determine?']
       : const <String>['What needs attention?', 'What should I do next?'];
   String get askFromEvidence => isSpanish
-      ? 'Pregunta desde la evidencia actual'
-      : 'Ask from current evidence';
-  String get backToNexus => isSpanish ? 'Volver a Nexus' : 'Back to Nexus';
-  String get title => isSpanish ? 'INTELIGENCIA PROFUNDA' : 'DEEP INTELLIGENCE';
+      ? 'Pregunta sobre tus planes guardados'
+      : 'Ask about your saved plans';
+  String get backToNexus => isSpanish ? 'Volver a Inicio' : 'Back Home';
+  String get title => isSpanish ? 'Hablarlo' : 'Talk it through';
   String get subtitle => isSpanish
-      ? 'Pregunta, investiga y desafía el razonamiento con evidencia visible'
-      : 'Question, investigate and challenge reasoning with visible evidence';
-  String get eyebrow =>
-      isSpanish ? 'Inteligencia interrogable' : 'Interrogable intelligence';
+      ? 'Pregunta sobre tus planes guardados. Revisa la respuesta antes de decidir.'
+      : 'Ask a question about your saved plans. Review the answer before deciding.';
+  String get eyebrow => isSpanish
+      ? 'Ayuda para entender tus planes'
+      : 'Help understanding your plans';
   String get readSummary => isSpanish ? 'Leer resumen' : 'Read summary';
   String get accessibilityGuide =>
       isSpanish ? 'Guía de accesibilidad' : 'Accessibility guide';
   String get advanced => isSpanish ? 'Avanzado' : 'Advanced';
   String get advancedSubtitle => isSpanish
-      ? 'Intención, fuentes, intervalo, filtros, supuestos y alias'
-      : 'Intent, sources, range, filters, assumptions, and aliases';
+      ? 'Elige qué información guardada usar'
+      : 'Choose which saved information to use';
   String get queryBuilder =>
-      isSpanish ? 'GENERADOR DE CONSULTAS SI V2' : 'SI V2 QUERY BUILDER';
-  String get entityFilter =>
-      isSpanish ? 'Filtro de entidad (opcional)' : 'Entity filter (optional)';
+      isSpanish ? 'Opciones de la pregunta' : 'Question options';
+  String get entityFilter => isSpanish
+      ? 'Buscar un título guardado (opcional)'
+      : 'Find a saved title (optional)';
   String get scenarioAssumption => isSpanish
-      ? 'Supuesto del escenario (opcional)'
-      : 'Scenario assumption (optional)';
+      ? '¿Qué podría cambiar? (opcional)'
+      : 'What might change? (optional)';
   String get choosePowerAlias =>
-      isSpanish ? 'Elegir un alias avanzado' : 'Choose a power alias';
-  String get powerAliases => isSpanish ? 'ALIAS AVANZADOS' : 'POWER ALIASES';
-  String get queryLabel => isSpanish ? 'Consulta SI' : 'SI query';
+      isSpanish ? 'Elegir un atajo' : 'Choose a shortcut';
+  String get powerAliases => isSpanish ? 'Atajos' : 'Shortcuts';
+  String get queryLabel => isSpanish ? 'Tu pregunta' : 'Your question';
   String get queryHint => isSpanish
-      ? 'Pregunta a SI V2 sobre la evidencia actual...'
-      : 'Ask SI V2 about current evidence...';
+      ? '¿Qué te gustaría entender sobre tus planes?'
+      : 'What would you like to understand about your plans?';
   String get yourQuery => isSpanish ? 'Tu consulta' : 'Your query';
-  String get siResponse => isSpanish ? 'Respuesta de SI' : 'SI response';
+  String get siResponse => isSpanish ? 'Respuesta' : 'Answer';
   String whyThisAppears(String rationale) => isSpanish
       ? 'Por qué aparece: $rationale'
       : 'Why this appears: $rationale';
   String get directAnswer => isSpanish ? 'RESPUESTA DIRECTA' : 'DIRECT ANSWER';
   String get recommendation => isSpanish ? 'RECOMENDACIÓN' : 'RECOMMENDATION';
   String get responseAdvancedSubtitle => isSpanish
-      ? 'Confianza, evidencia, cálculos y supuestos'
-      : 'Confidence, evidence, calculations, and assumptions';
+      ? 'Ve las fuentes, cálculos y dudas'
+      : 'See sources, calculations, and what is uncertain';
   String get observedFacts =>
       isSpanish ? 'HECHOS OBSERVADOS' : 'OBSERVED FACTS';
   String get userReportedContext =>
       isSpanish ? 'CONTEXTO DECLARADO POR EL USUARIO' : 'USER-REPORTED CONTEXT';
-  String get deterministicCalculations =>
-      isSpanish ? 'CÁLCULOS DETERMINISTAS' : 'DETERMINISTIC CALCULATIONS';
-  String get inferences => isSpanish ? 'INFERENCIAS' : 'INFERENCES';
+  String get deterministicCalculations => isSpanish
+      ? 'Calculado con tus registros'
+      : 'Calculated from your records';
+  String get inferences =>
+      isSpanish ? 'Posibles explicaciones' : 'Possible explanations';
   String get missingOrConflicting => isSpanish
       ? 'INFORMACIÓN FALTANTE O CONTRADICTORIA'
       : 'MISSING OR CONFLICTING INFORMATION';
@@ -998,9 +999,8 @@ final class SIRoutineCopy {
   String get scenarioAssumptions =>
       isSpanish ? 'SUPUESTOS DEL ESCENARIO' : 'SCENARIO ASSUMPTIONS';
   String get confidenceAnatomy =>
-      isSpanish ? 'ANATOMÍA DE LA CONFIANZA' : 'CONFIDENCE ANATOMY';
-  String get evidenceLinks =>
-      isSpanish ? 'ENLACES DE EVIDENCIA' : 'EVIDENCE LINKS';
+      isSpanish ? '¿Qué certeza tiene?' : 'How certain is this?';
+  String get evidenceLinks => isSpanish ? 'Fuentes usadas' : 'Sources used';
   String get noneIdentified =>
       isSpanish ? 'No se identificó ninguno.' : 'None identified.';
   String evidenceStrength(String value) => isSpanish
@@ -1026,31 +1026,31 @@ final class SIRoutineCopy {
           'Escribe una indicación en el campo y luego envíala.',
           'Usa Resumen para escuchar respuestas recientes del asistente.',
           'Usa Escuchar en las respuestas del asistente para leerlas en voz alta.',
-          'Usa Atrás para volver a Nexus.',
+          'Usa Atrás para volver a Inicio.',
         ]
       : const <String>[
           'Type a prompt in the input field, then send.',
           'Use Summary to hear recent assistant responses.',
           'Use Speak on assistant bubbles to read aloud.',
-          'Use Back to return to Nexus.',
+          'Use Back to return Home.',
         ];
   List<String> get accessibilitySteps => isSpanish
       ? const <String>[
           '1. Escribe una indicación y luego envíala.',
           '2. Resumen lee respuestas recientes del asistente.',
           '3. Escuchar lee una respuesta en voz alta.',
-          '4. Atrás vuelve a Nexus.',
+          '4. Atrás vuelve a Inicio.',
         ]
       : const <String>[
           '1. Type a prompt, then send.',
           '2. Summary reads recent assistant responses.',
           '3. Speak reads one response aloud.',
-          '4. Back returns to Nexus.',
+          '4. Back returns Home.',
         ];
-  String get accessibilitySurface => isSpanish ? 'Consola SI' : 'SI Console';
+  String get accessibilitySurface => isSpanish ? 'Hablarlo' : 'Talk it through';
   String get personContextChanged => isSpanish
-      ? 'Tu Contexto Personal cambió, por lo que se borraron las respuestas anteriores basadas en evidencia de SI. Pregunta otra vez para usar la evidencia actual.'
-      : 'Your Person Context changed, so previous SI evidence responses were cleared. Ask again to use the current evidence.';
+      ? 'Los detalles que compartiste cambiaron y se borraron las respuestas locales anteriores. Pregunta de nuevo para usar la información actualizada.'
+      : 'The details you shared changed, so previous local answers were cleared. Ask again to use the updated information.';
   String unknownShortcut(String token) => isSpanish
       ? 'Atajo desconocido "$token". No se envió ni descartó ninguna parte de la solicitud. Usa /help para ver los atajos disponibles.'
       : 'Unknown shortcut "$token". No part of the request was sent or discarded. Use /help to list the available shortcuts.';
@@ -1130,11 +1130,11 @@ final class SIRoutineCopy {
   }
 
   String get shortcutRules => isSpanish
-      ? 'Reglas:\n- Las tareas se crean solo en Creador. Usa Creador para crear tareas.\n- SI V2 tiene acceso de solo lectura a la evidencia y no puede modificar los datos del dominio.\n- El generador visible de consultas es el control principal; los atajos son alias.\n\nIndicaciones SI V2 de alta señal:\n- "¿Qué necesita atención?"\n- "¿Por qué está en riesgo este objetivo?"\n- "Compara mis dos objetivos más próximos."\n- "¿Qué pasa si aplazo esta tarea?"\n- "¿Qué compromisos entran en conflicto?"\n- "¿Qué cambiaría tu recomendación?"'
-      : 'Rules:\n- Task creation is Creator-only. Use Creator to create tasks.\n- SI V2 has read-only evidence capability and cannot mutate domain data.\n- The visible query builder is primary; shortcuts are aliases.\n\nHigh-signal SI V2 prompts:\n- "What needs attention?"\n- "Why is this goal at risk?"\n- "Compare my two nearest goals."\n- "What happens if I defer this task?"\n- "Which commitments conflict?"\n- "What would change your recommendation?"';
+      ? 'Cómo usar esta herramienta:\n- Usa Añadir algo para guardar una tarea.\n- Esta herramienta local puede leer tus planes, pero no cambiarlos.\n- Escribe una pregunta, usa las opciones de arriba o elige un atajo.\n\nPreguntas para probar:\n- "¿Qué necesita atención?"\n- "¿Por qué está en riesgo este objetivo?"\n- "Compara mis dos objetivos más próximos."\n- "¿Qué pasa si aplazo esta tarea?"\n- "¿Qué compromisos entran en conflicto?"\n- "¿Qué cambiaría tu recomendación?"'
+      : 'How to use this tool:\n- Use Add something to save a task.\n- This local tool can read your plans but cannot change them.\n- Type a question, use the options above, or choose a shortcut.\n\nQuestions to try:\n- "What needs attention?"\n- "Why is this goal at risk?"\n- "Compare my two nearest goals."\n- "What happens if I defer this task?"\n- "Which commitments conflict?"\n- "What would change your recommendation?"';
   String statusLoading() => isSpanish
-      ? 'ESTADO DE SI\n\nLas fuentes de datos locales todavía se están cargando. Reintenta /status en un momento.\nNo se cambió ningún dato del dominio.'
-      : 'SI STATUS\n\nLocal data sources are still loading. Retry /status in a second.\nNo domain data was changed.';
+      ? 'ESTADO DE SI\n\nLas fuentes de datos locales todavía se están cargando. Reintenta /status en un momento.\nNo se cambió información guardada.'
+      : 'SI STATUS\n\nLocal data sources are still loading. Retry /status in a second.\nNo saved information was changed.';
   String statusReady({
     required int tasks,
     required int goals,
@@ -1147,11 +1147,11 @@ final class SIRoutineCopy {
       ? 'ESTADO DE SI\n\nEnfoque de evidencia de solo lectura:\n- tareas: $tasks\n- objetivos: $goals\n- hitos: $milestones\n- Línea de Tiempo: $timeline\n- fuentes no disponibles: $unavailableSources\n- revisión: $revision\n\nAlias de evidencia disponibles: $aliases.'
       : 'SI STATUS\n\nRead-only Evidence Lens:\n- tasks: $tasks\n- goals: $goals\n- milestones: $milestones\n- Timeline: $timeline\n- unavailable sources: $unavailableSources\n- revision: $revision\n\nAvailable evidence aliases: $aliases.';
   String get responseValidationFailed => isSpanish
-      ? 'SI V2 no pudo validar una respuesta de evidencia de solo lectura. Reintenta, amplía el Enfoque de Evidencia o selecciona tareas, objetivos, hitos o Línea de Tiempo. No se cambió nada.'
-      : 'SI V2 could not validate a read-only evidence response. Retry, broaden the Evidence Lens, or select tasks, goals, milestones, or Timeline. Nothing was changed.';
+      ? 'No se pudo comprobar esta respuesta. Reintenta o incluye más tareas, metas, hitos o entradas de agenda. No se cambió nada.'
+      : 'We could not check this answer. Try again or include more saved tasks, goals, milestones, or schedule entries. Nothing was changed.';
   String get voiceSummaryTitle => isSpanish
-      ? 'Resumen de voz de la Consola SI'
-      : 'SI console voice summary';
+      ? 'Resumen de voz de la Hablarlo'
+      : 'Talk it through voice summary';
   String voiceInputLabel({required bool listening}) => isSpanish
       ? listening
             ? 'Detener entrada de voz'
@@ -1161,12 +1161,12 @@ final class SIRoutineCopy {
       : 'Start voice input';
   String sendLabel({required bool enabled, required bool busy}) => isSpanish
       ? !enabled
-            ? 'Consola SI no disponible'
+            ? 'Hablarlo no disponible'
             : busy
             ? 'SI está analizando'
             : 'Enviar consulta SI'
       : !enabled
-      ? 'SI Console unavailable'
+      ? 'Talk it through unavailable'
       : busy
       ? 'SI is analyzing'
       : 'Send SI query';

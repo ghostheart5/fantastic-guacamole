@@ -121,18 +121,15 @@ void main() {
       await pumpLoginScreen(tester, width: Breakpoints.compact - 1);
 
       expect(
-        textWidget(tester, 'HUMAN DECISION OS').style?.fontSize,
+        textWidget(tester, 'REFLECTION AND PLANNING').style?.fontSize,
         AppSizes.fontXs,
       );
       expect(
-        textWidget(tester, 'ACCESS SYSTEM').style?.fontSize,
+        textWidget(tester, 'Your account').style?.fontSize,
         AppSizes.fontXs,
       );
       expect(
-        textWidget(
-          tester,
-          'Secure access to your connected planning workspace.',
-        ).style?.fontSize,
+        textWidget(tester, 'Sign in to open your saved plans.').style?.fontSize,
         AppSizes.fontCaption,
       );
 
@@ -152,18 +149,15 @@ void main() {
       await pumpLoginScreen(tester, width: Breakpoints.compact);
 
       expect(
-        textWidget(tester, 'HUMAN DECISION OS').style?.fontSize,
+        textWidget(tester, 'REFLECTION AND PLANNING').style?.fontSize,
         AppSizes.fontSm,
       );
       expect(
-        textWidget(tester, 'ACCESS SYSTEM').style?.fontSize,
+        textWidget(tester, 'Your account').style?.fontSize,
         AppSizes.fontSm,
       );
       expect(
-        textWidget(
-          tester,
-          'Secure access to your connected planning workspace.',
-        ).style?.fontSize,
+        textWidget(tester, 'Sign in to open your saved plans.').style?.fontSize,
         AppSizes.fontBody,
       );
     });
@@ -184,7 +178,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byKey(const ValueKey('login-email-field')), findsOneWidget);
     expect(find.byKey(const ValueKey('login-password-field')), findsOneWidget);
-    expect(find.text('ENTER SYSTEM'), findsOneWidget);
+    expect(find.text('Sign in'), findsOneWidget);
     expect(find.text('Forgot Password?'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(find.text('Continue with GitHub'), findsOneWidget);
@@ -199,7 +193,7 @@ void main() {
       expect(rect.right, lessThanOrEqualTo(1280));
     }
 
-    final Finder primaryAction = find.text('ENTER SYSTEM');
+    final Finder primaryAction = find.text('Sign in');
     expect(primaryAction.hitTestable(), findsOneWidget);
     await tester.tap(primaryAction);
     await tester.pump();

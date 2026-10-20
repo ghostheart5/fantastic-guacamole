@@ -291,7 +291,13 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                   child: _TimelineHeader(
                     eventCount: windowEvents.length,
                     window: _window,
-                    onBack: () => goToAppView(context, ref, AppView.nexus),
+                    onBack: () {
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                        return;
+                      }
+                      goToAppView(context, ref, AppView.nexus);
+                    },
                   ),
                 ),
               ),

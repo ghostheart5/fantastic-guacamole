@@ -99,6 +99,14 @@ class VoiceController extends Notifier<VoiceState> {
   /// Riverpod can rebuild this same notifier for a different signed-in account.
   int get lifecycleRevision => _lifecycleRevision;
 
+  /// Fence pending consent, permission and native callbacks immediately when a
+  /// retained screen becomes inactive. This publishes no provider state, so a
+  /// widget may call it during its update and stop capture after that frame.
+  void invalidatePendingCapture() {
+    _generation++;
+    _lifecycleRevision++;
+  }
+
   bool _isCurrent(int generation) => !_disposed && generation == _generation;
 
   @override

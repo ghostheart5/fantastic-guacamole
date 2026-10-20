@@ -23,8 +23,8 @@ final class _SmartPlannerConsentCopy {
       ? 'Ejemplo: La preparación para la prueba cerrada es lo primero.'
       : 'Example: Closed-test readiness comes first.';
   String get priorityDisclosure => isSpanish
-      ? 'Propósito: apoyo para decisiones\nAlcance: solo Planificador Inteligente\nCaducidad: se elimina automáticamente después de 30 días\nEfecto: puede resolver un empate ajustado mientras esta prioridad esté activa; no se convierte en un dato de identidad.'
-      : 'Purpose: decision support\nSurface scope: Smart Planner only\nExpiry: automatically deleted after 30 days\nEffect: may break a close ranking tie while this priority is active; it does not become an identity fact.';
+      ? 'Propósito: apoyo para decisiones\nAlcance: solo Elegir un paso\nCaducidad: se elimina automáticamente después de 30 días\nEfecto: puede resolver un empate ajustado mientras esta prioridad esté activa; no se convierte en un dato de identidad.'
+      : 'Purpose: decision support\nSurface scope: Choose a step only\nExpiry: automatically deleted after 30 days\nEffect: may break a close ranking tie while this priority is active; it does not become an identity fact.';
   String get priorityConsent => isSpanish
       ? 'Doy mi consentimiento para guardar solo este texto exacto con el propósito, alcance y caducidad indicados arriba.'
       : 'I consent to saving only this exact text for the purpose, scope, and expiry above.';
@@ -33,11 +33,11 @@ final class _SmartPlannerConsentCopy {
   String get saveWithConsent =>
       isSpanish ? 'Guardar con consentimiento' : 'Save with consent';
   String get prioritySaved => isSpanish
-      ? 'Contexto opcional guardado con consentimiento · solo Planificador Inteligente · caduca en 30 días · revísalo o elimínalo en Ajustes de contexto.'
-      : 'Optional context saved with consent · Smart Planner only · expires in 30 days · review or delete in Context settings.';
+      ? 'Contexto opcional guardado con consentimiento · solo Elegir un paso · caduca en 30 días · revísalo o elimínalo en Ajustes de contexto.'
+      : 'Optional context saved with consent · Choose a step only · expires in 30 days · review or delete in Context settings.';
   String get preferenceTitle => isSpanish
-      ? '¿Recordar una preferencia del Planificador Inteligente?'
-      : 'Remember a Smart Planner preference?';
+      ? '¿Recordar cómo prefieres planificar?'
+      : 'Remember how you like to plan?';
   String get preferenceIntroduction => isSpanish
       ? 'Usar solo esta vez es la opción predeterminada. Escribe únicamente la preferencia exacta sobre el estilo de planificación que quieras guardar; no se copiarán tu registro, emoción ni respuesta.'
       : 'Use only this time is the default. Enter only the exact planning-style preference you want stored; your check-in, emotion, and response are not copied.';
@@ -55,19 +55,19 @@ final class _SmartPlannerConsentCopy {
   }
 
   String receiptPreview(int days) => isSpanish
-      ? 'Vista previa del recibo\nMotivo: guardar esta preferencia para tu revisión y uso futuro opcional\nLímite de recuperación: solo guía consentida del Planificador Inteligente\nOrigen: solo Planificador Inteligente\nCaducidad: $days días\nControles: ver, corregir, exportar y eliminar en Ajustes'
-      : 'Receipt preview\nWhy: save this preference for your review and future opt-in use\nRecall boundary: consented Smart Planner guidance only\nSource: Smart Planner only\nExpiry: $days days\nControls: view, correct, export, delete in Settings';
+      ? 'Vista previa del recibo\nMotivo: guardar esta preferencia para tu revisión y uso futuro opcional\nLímite de recuperación: solo guía de Elegir un paso que autorices\nOrigen: solo Elegir un paso\nCaducidad: $days días\nControles: ver, corregir, exportar y eliminar en Ajustes'
+      : 'Receipt preview\nWhy: save this preference for your review and future opt-in use\nRecall boundary: consented Choose a step guidance only\nSource: Choose a step only\nExpiry: $days days\nControls: view, correct, export, delete in Settings';
   String get preferenceConsent => isSpanish
       ? 'Doy mi consentimiento explícito para guardar esta preferencia exacta.'
       : 'I explicitly consent to storing this exact preference.';
   String get rememberPreference =>
       isSpanish ? 'Recordar preferencia' : 'Remember preference';
   String get usedOnce => isSpanish
-      ? 'Se usó solo para este registro. No se guardó memoria duradera.'
+      ? 'Se usó solo para este registro. No se guardó una preferencia para después.'
       : 'Used only for this check-in. No durable memory was saved.';
   String preferenceSaved(String expiry) => isSpanish
-      ? 'Preferencia guardada con consentimiento. Su uso queda limitado a la guía del Planificador Inteligente · caduca $expiry · adminístrala en Ajustes.'
-      : 'Preference saved with consent. Recall stays limited to Smart Planner guidance · expires $expiry · manage in Settings.';
+      ? 'Preferencia guardada con consentimiento. Su uso queda limitado a la guía de Elegir un paso · caduca $expiry · adminístrala en Ajustes.'
+      : 'Preference saved with consent. Recall stays limited to Choose a step guidance · expires $expiry · manage in Settings.';
   String get contextSaveFailed => isSpanish
       ? 'No se pudo guardar el contexto opcional. Tu texto no se añadió. Inténtalo de nuevo.'
       : 'Optional context could not be saved. Your text was not added. Retry.';

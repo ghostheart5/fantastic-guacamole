@@ -275,15 +275,53 @@ class _DynamicFormState extends State<DynamicForm> {
             maxLines: 1,
           ),
           const SizedBox(height: 10),
-          _buildTextField(
-            _descriptionController,
-            _type == CreatorFormKind.note
-                ? _copy.bodyHint
-                : _copy.descriptionHint,
-            maxLines: _type == CreatorFormKind.note ? 6 : 3,
-          ),
-          if (_type == CreatorFormKind.task) ..._buildTaskFields(),
-          if (_type == CreatorFormKind.goal) ..._buildGoalFields(),
+          if (_type == CreatorFormKind.note || widget.guidedFirstTask)
+            _buildTextField(
+              _descriptionController,
+              _type == CreatorFormKind.note
+                  ? _copy.bodyHint
+                  : _copy.descriptionHint,
+              maxLines: _type == CreatorFormKind.note ? 6 : 3,
+            ),
+          if (_type != CreatorFormKind.note && !widget.guidedFirstTask)
+            ExpansionTile(
+              key: const Key('creator-description-options'),
+              tilePadding: EdgeInsets.zero,
+              title: Text(
+                ChronoSparkLocalizations.of(context).isSpanish
+                    ? 'Añadir una descripción (opcional)'
+                    : 'Add a description (optional)',
+              ),
+              children: [
+                _buildTextField(
+                  _descriptionController,
+                  _copy.descriptionHint,
+                  maxLines: 3,
+                ),
+              ],
+            ),
+          if (_type == CreatorFormKind.task)
+            if (widget.guidedFirstTask)
+              ..._buildTaskFields()
+            else
+              ExpansionTile(
+                key: const Key('creator-task-options'),
+                tilePadding: EdgeInsets.zero,
+                title: Text(_copy.taskOptions),
+                subtitle: Text(_copy.taskOptionsHint),
+                children: _buildTaskFields(),
+              ),
+          if (_type == CreatorFormKind.goal)
+            ExpansionTile(
+              key: const Key('creator-goal-options'),
+              tilePadding: EdgeInsets.zero,
+              title: Text(
+                ChronoSparkLocalizations.of(context).isSpanish
+                    ? 'Añadir una fecha objetivo (opcional)'
+                    : 'Add a target date (optional)',
+              ),
+              children: _buildGoalFields(),
+            ),
           if (_type == CreatorFormKind.habit) ..._buildRhythmFields(),
           if (_errorMessage != null) ...<Widget>[
             const SizedBox(height: 12),
@@ -388,7 +426,7 @@ class _DynamicFormState extends State<DynamicForm> {
           ? FirstRunTutorialTargets.creatorSchedule
           : null,
       child: _DateField(
-        label: _copy.schedule,
+        label: widget.guidedFirstTask ? _copy.requiredSchedule : _copy.schedule,
         emptyLabel: _copy.pickSchedule,
         selected: _scheduledFor,
         includeTime: true,

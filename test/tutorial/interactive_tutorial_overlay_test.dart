@@ -32,7 +32,7 @@ void main() {
                     InteractiveTutorialOverlay(
                       targetKey: targetKey,
                       allowTargetInteraction: interactive,
-                      title: 'Verify where the work landed',
+                      title: 'Find your saved task',
                       body: 'Review the saved task in Timeline.',
                       primaryLabel: 'Open Timeline',
                       onPrimary: () => guideActivations++,
@@ -88,7 +88,7 @@ void main() {
       expect(timelineActions(), hasLength(1));
       await render(interactive: false, showGuide: false);
       expect(timelineActions(), hasLength(1));
-      expect(find.text('Verify where the work landed'), findsNothing);
+      expect(find.text('Find your saved task'), findsNothing);
       semantics.dispose();
     },
   );

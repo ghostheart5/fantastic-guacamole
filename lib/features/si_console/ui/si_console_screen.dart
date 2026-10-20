@@ -97,7 +97,8 @@ final class _SIConsoleSafetyCopy {
 // ---------------------------------------------------------------------------
 
 class SIConsoleScreen extends ConsumerStatefulWidget {
-  const SIConsoleScreen({super.key});
+  const SIConsoleScreen({super.key, this.isActive = true});
+  final bool isActive;
 
   @override
   ConsumerState<SIConsoleScreen> createState() => _SIConsoleScreenState();
@@ -213,6 +214,19 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         ..value = .5;
     } else if (!_typingAnim.isAnimating) {
       unawaited(_typingAnim.repeat());
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant SIConsoleScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive && !widget.isActive) {
+      final controller = ref.read(voiceControllerProvider.notifier);
+      controller.invalidatePendingCapture();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(controller.stopListening());
+        unawaited(_stopVoice());
+      });
     }
   }
 
@@ -753,6 +767,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           assistantConversationSurfaceAvailableProvider(ConversationSurface.si),
         )) {
       return AssistantConversationScreen(
+        isActive: widget.isActive,
         surface: ConversationSurface.si,
         onLocalTools: () => setState(() => _useLocalTools = true),
         onLocalToolsWithDraft: (String draft) => setState(() {
@@ -908,6 +923,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                             child: KeyedSubtree(
                               key: _composerKey,
                               child: _InputBar(
+                                isVoiceActive: () => mounted && widget.isActive,
                                 controller: _input,
                                 entityFilterController: _entityFilter,
                                 scenarioAssumptionController:

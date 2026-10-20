@@ -24,12 +24,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const String _fixturePath = '/landscape-rail-fixture';
 const Map<String, String> _destinations = <String, String>{
-  'Nexus Core': RoutePaths.nexus,
-  'Future Branches': RoutePaths.trajectoryEngine,
-  'Truth Ledger': RoutePaths.timeline,
-  'Human Profile': RoutePaths.profile,
+  'Today': RoutePaths.nexus,
+  'Insights': RoutePaths.trajectoryEngine,
+  'My plan': RoutePaths.timeline,
+  'Chat': RoutePaths.si,
 };
-const String _mapLabel = 'Open navigation map';
+const String _mapLabel = 'Browse tools';
 
 void main() {
   setUp(() async {
@@ -111,11 +111,11 @@ void main() {
           await tester.tap(_inkWell(_mapLabel));
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 350));
-          expect(find.text('System Map'), findsOneWidget);
-          await tester.tap(find.byTooltip('Close navigation map'));
+          expect(find.byTooltip('Close tools'), findsOneWidget);
+          await tester.tap(find.byTooltip('Close tools'));
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 350));
-          expect(find.text('System Map'), findsNothing);
+          expect(find.byTooltip('Close tools'), findsNothing);
           expect(
             harness.router.routeInformationProvider.value.uri.path,
             _fixturePath,
@@ -169,9 +169,9 @@ void main() {
         _expectUsableControl(tester, label, safeBounds);
       }
       expect(state.position.pixels, greaterThan(0));
-      await tester.ensureVisible(_inkWell('Nexus Core'));
+      await tester.ensureVisible(_inkWell('Today'));
       await tester.pump();
-      _expectUsableControl(tester, 'Nexus Core', safeBounds);
+      _expectUsableControl(tester, 'Today', safeBounds);
       expect(tester.takeException(), isNull);
     } finally {
       try {
@@ -220,7 +220,7 @@ void _expectUsableControl(WidgetTester tester, String label, Rect safeBounds) {
   if (label != _mapLabel) {
     expect(
       data.flagsCollection.isSelected,
-      label == 'Truth Ledger' ? ui.Tristate.isTrue : ui.Tristate.isFalse,
+      label == 'My plan' ? ui.Tristate.isTrue : ui.Tristate.isFalse,
     );
   }
 }
