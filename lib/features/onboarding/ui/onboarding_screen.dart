@@ -725,7 +725,15 @@ class _FirstValueSlide extends StatelessWidget {
                       TextButton(
                         key: const Key('first-value-skip-top'),
                         onPressed: submitting ? null : onSkip,
-                        child: Text(_copy(l10n, 'Go to Today', 'Ir a Hoy')),
+                        child: Text(
+                          preservesProtectedDestination
+                              ? _copy(
+                                  l10n,
+                                  'CONTINUE TO REQUESTED PAGE',
+                                  'CONTINUAR A LA PÁGINA PEDIDA',
+                                )
+                              : _copy(l10n, 'Go to Today', 'Ir a Hoy'),
+                        ),
                       ),
                       Semantics(
                         label: _copy(

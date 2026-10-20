@@ -88,7 +88,7 @@ void main() {
         path: RoutePaths.onboarding,
         returnTo: destination,
       );
-      await tester.tap(find.text('CONTINUE TO REQUESTED PAGE'));
+      await tester.tap(find.byKey(const Key('first-value-show-choice')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
 
@@ -99,6 +99,52 @@ void main() {
       expect(harness.container.read(appFlowProvider), AppView.timeline);
     },
   );
+
+  testWidgets('quick exit names and opens the protected Settings destination', (
+    tester,
+  ) async {
+    final harness = await _pumpRouter(tester);
+    const destination = '/settings?section=planning#learning';
+    harness.router.go(destination);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    _expectLocation(
+      harness,
+      path: RoutePaths.onboarding,
+      returnTo: destination,
+    );
+    await tester.tap(find.text(welcomeEntryLabel));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    _expectLocation(harness, path: RoutePaths.login, returnTo: destination);
+    harness.container.read(_authenticatedProvider.notifier).set(true);
+    harness.router.refresh();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    _expectLocation(
+      harness,
+      path: RoutePaths.onboarding,
+      returnTo: destination,
+    );
+    final quickExit = find.byKey(const Key('first-value-skip-top'));
+    expect(
+      find.descendant(
+        of: quickExit,
+        matching: find.text('CONTINUE TO REQUESTED PAGE'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Go to Today'), findsNothing);
+    await tester.tap(quickExit);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    final uri = harness.router.routeInformationProvider.value.uri;
+    expect(uri.path, RoutePaths.settings);
+    expect(uri.queryParameters['section'], 'planning');
+    expect(uri.fragment, 'learning');
+    expect(harness.container.read(smartPlannerFirstValueProvider), isNull);
+    expect(harness.container.read(onboardingCompleteProvider), isTrue);
+  });
 
   testWidgets('hostile returnTo is rejected and skip falls back to Nexus', (
     WidgetTester tester,
@@ -127,7 +173,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     _expectLocation(harness, path: RoutePaths.onboarding);
-    await tester.tap(find.text('SKIP FOR NOW'));
+    final quickExit = find.byKey(const Key('first-value-skip-top'));
+    expect(
+      find.descendant(of: quickExit, matching: find.text('Go to Today')),
+      findsOneWidget,
+    );
+    await tester.tap(quickExit);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
 
