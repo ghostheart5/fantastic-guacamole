@@ -3,7 +3,7 @@ appId: com.ghostheart5.chronospark
 ---
 - runFlow: skip-onboarding.yaml
 - extendedWaitUntil:
-    visible: "(?:Create profile|Open profile|TESTER ACCESS.*TEST LOGIN|NEXUS.*)"
+    visible: "(?:Create profile|Open profile|TESTER ACCESS.*TEST LOGIN|Today)"
     timeout: 30000
 - runFlow:
     when:
@@ -11,26 +11,46 @@ appId: com.ghostheart5.chronospark
     commands:
       - tapOn: "(?:Create profile|Open profile)"
       - extendedWaitUntil:
-          visible: "(?:SKIP FOR NOW|Pause guide|NEXUS.*)"
+          visible: "(?:Go to Today|SKIP FOR NOW|Pause guide|Today)"
           timeout: 20000
 - runFlow:
     when:
-      visible: "SKIP FOR NOW"
+      visible: "Go to Today"
     commands:
-      - tapOn: "SKIP FOR NOW"
+      - tapOn: "Go to Today"
+      - waitForAnimationToEnd:
+          timeout: 5000
+
+# At larger text or a retained scroll offset, the top action can be offscreen.
+# Use the existing lower exit only when the preferred top action is not visible.
+- runFlow:
+    when:
+      notVisible: "Go to Today"
+    commands:
+      - runFlow:
+          when:
+            visible: "SKIP FOR NOW"
+          commands:
+            - tapOn: "SKIP FOR NOW"
+            - waitForAnimationToEnd:
+                timeout: 5000
+
 - runFlow:
     when:
       visible: "TESTER ACCESS.*TEST LOGIN"
     commands:
       - tapOn: "TESTER ACCESS.*TEST LOGIN"
 - extendedWaitUntil:
-    visible: "(?:Pause guide|NEXUS.*)"
+    visible: "(?:Pause guide|Today)"
     timeout: 20000
 - tapOn:
     text: "Pause guide"
     optional: true
 - extendedWaitUntil:
-    visible: "NEXUS.*"
+    visible: "Today"
     timeout: 30000
 - assertNotVisible: "ENTER SYSTEM"
 - assertNotVisible: "Pause guide"
+
+# Authentication must reveal the usable Today action, not only a heading.
+- assertVisible: "Add a goal, task or habit"

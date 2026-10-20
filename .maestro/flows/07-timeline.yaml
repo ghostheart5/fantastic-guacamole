@@ -1,5 +1,4 @@
-# P1 — Timeline. Reachable only from the Nexus button group; it appears in no
-# other navigation surface, so this flow is the only guard on it.
+# My plan retains both the task library and the real dated schedule.
 appId: com.ghostheart5.chronospark
 tags:
   - core
@@ -7,10 +6,14 @@ tags:
 - launchApp:
     clearState: true
 - runFlow: ../subflows/sign-in.yaml
-
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Truth Ledger"
-
-- assertVisible: "TRUTH LEDGER"
+      TARGET: "My plan"
+- assertVisible: "My plan"
+- assertVisible: "Tasks"
+- assertVisible: "Completed"
+- assertVisible: "Notes"
+- tapOn: "Schedule"
+- assertVisible: 'Schedule'
+- assertVisible: 'See tasks with dates and past activity. Open a task to update it.'

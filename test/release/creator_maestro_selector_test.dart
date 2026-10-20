@@ -1,9 +1,354 @@
 import 'dart:io';
 
+import 'package:fantastic_guacamole/l10n/creator_copy.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yaml/yaml.dart';
 
 void main() {
+  List<dynamic> commands(String path) =>
+      loadYamlDocuments(File(path).readAsStringSync())[1].contents as YamlList;
+
+  Iterable<MapEntry<dynamic, dynamic>> entries(dynamic value) sync* {
+    if (value is Map) {
+      for (final entry in value.entries) {
+        yield entry;
+        yield* entries(entry.value);
+      }
+    } else if (value is Iterable) {
+      for (final child in value) {
+        yield* entries(child);
+      }
+    }
+  }
+
+  test(
+    'shared setup exits prefer the top action and cover a lower-only viewport',
+    () {
+      for (final name in ['skip-onboarding', 'sign-in', 'sign-in-qa']) {
+        final flow = commands('.maestro/subflows/$name.yaml');
+        for (final visible in <Set<String>>[
+          {'Go to Today', 'SKIP FOR NOW'},
+          {'SKIP FOR NOW'},
+          {'Today'},
+        ]) {
+          final taps = <String>[];
+          bool matches(dynamic pattern) =>
+              pattern is String &&
+              visible.any((label) => RegExp(pattern).hasMatch(label));
+          void walk(dynamic value) {
+            if (value is! Iterable) return;
+            for (final command in value.whereType<Map<dynamic, dynamic>>()) {
+              final run = command['runFlow'];
+              if (run is Map) {
+                final condition = run['when'];
+                if (condition is Map &&
+                    ((condition.containsKey('visible') &&
+                            !matches(condition['visible'])) ||
+                        (condition.containsKey('notVisible') &&
+                            matches(condition['notVisible'])))) {
+                  continue;
+                }
+                walk(run['commands']);
+              }
+              final tap = command['tapOn'];
+              if (tap is String &&
+                  ['Go to Today', 'SKIP FOR NOW'].contains(tap)) {
+                taps.add(tap);
+              }
+            }
+          }
+
+          // Retain the same viewport after a tap: the fallback must not mask an
+          // unsuccessful top tap by invoking the other completion action too.
+          walk(flow);
+          final expected = visible.contains('Go to Today')
+              ? ['Go to Today']
+              : visible.contains('SKIP FOR NOW')
+              ? ['SKIP FOR NOW']
+              : <String>[];
+          expect(
+            taps,
+            expected,
+            reason: '$name must handle viewport $visible exactly once',
+          );
+        }
+      }
+    },
+  );
+
+  test(
+    'manual creator smoke uses the actual save actions and retains durable readback',
+    () {
+      final flow = commands('.maestro/flows/05-creator.yaml');
+      final taps = entries(flow)
+          .where((entry) => entry.key == 'tapOn')
+          .map((entry) => entry.value)
+          .whereType<String>();
+      const copy = CreatorCopy(false);
+      for (final kind in ['task', 'habit', 'goal']) {
+        expect(taps, contains('^${copy.createAction(kind)}\$'));
+      }
+      final raw = File('.maestro/flows/05-creator.yaml').readAsStringSync();
+      // Keep the behaviors previously guarded by the longer two-step flow.
+      for (final proof in [
+        'SCHEDULED',
+        'Maestro smoke task',
+        'Pause',
+        'Resume',
+        'Mark target completed',
+        'Completed this day',
+        'Skip this day',
+        'stopApp',
+        'No linked goal',
+        'Maestro preserved goal',
+      ]) {
+        expect(
+          raw,
+          contains(proof),
+          reason: 'Preserve the $proof runtime guard.',
+        );
+      }
+      final receipt = File(
+        '.maestro/subflows/verify-creator-saved-receipt.yaml',
+      ).readAsStringSync();
+      expect(receipt, contains('1 change saved'));
+      expect(receipt, contains(r'${SAVED_ITEM}'));
+      expect(receipt, contains(copy.undo));
+    },
+  );
+
+  test('all five smoke flows retain resolvable source-bound dependencies', () {
+    final visited = <String>{};
+    void visit(String path) {
+      final file = File(path).absolute;
+      if (!visited.add(file.path)) return;
+      for (final entry in entries(commands(file.path))) {
+        if (entry.key != 'runFlow') continue;
+        final relative = entry.value is String
+            ? entry.value as String
+            : entry.value is Map
+            ? (entry.value as Map)['file'] as String?
+            : null;
+        if (relative == null) continue;
+        final dependency = File.fromUri(file.uri.resolve(relative));
+        expect(
+          dependency.existsSync(),
+          isTrue,
+          reason: 'Missing flow dependency $relative',
+        );
+        visit(dependency.path);
+      }
+    }
+
+    for (final name in [
+      '04-smart-planner',
+      '05-creator',
+      '06-si-console',
+      '07-timeline',
+      '08-progression',
+    ]) {
+      visit('.maestro/flows/$name.yaml');
+    }
+    final signIn = File('.maestro/subflows/sign-in.yaml').readAsStringSync();
+    expect(signIn, contains('visible: "Today"'));
+    expect(signIn, contains('assertVisible: "Add a goal, task or habit"'));
+    expect(signIn, isNot(contains('NEXUS')));
+  });
+
+  test(
+    'creator selectors accept the observed native date and expansion labels',
+    () {
+      final flow = commands('.maestro/flows/05-creator.yaml');
+      final taps = entries(flow)
+          .where((entry) => entry.key == 'tapOn')
+          .map((entry) => entry.value)
+          .whereType<String>()
+          .toList();
+      bool accepts(String selector, String text) =>
+          RegExp(selector).hasMatch(text);
+      final schedule = taps.singleWhere(
+        (value) => value.contains('Schedule date and time'),
+      );
+      expect(accepts(schedule, 'Schedule date and time'), isTrue);
+      expect(accepts(schedule, 'Schedule date and time...'), isTrue);
+      expect(accepts(schedule, 'Clear Schedule date and time'), isFalse);
+      final habitOptions = taps.singleWhere(
+        (value) => value.contains('Habit options'),
+      );
+      expect(accepts(habitOptions, 'Habit options, Collapsed'), isTrue);
+      expect(accepts(habitOptions, 'Habit options, Expanded'), isTrue);
+      expect(accepts(habitOptions, 'Habit options'), isTrue);
+      expect(accepts(habitOptions, 'Other Habit options'), isFalse);
+    },
+  );
+
+  test(
+    'screen assertions retain every observed header and habit-state node independently',
+    () {
+      final observed = <String, List<String>>{
+        '04-smart-planner': [
+          'Choose a step',
+          'Describe what you need to do. Get a manageable next step to review.',
+        ],
+        '05-creator': [
+          'Add something',
+          'Give it a name. Add details only if you need them.',
+          'Maestro review rhythm',
+          '1 time per day · Active',
+          'Completed this day',
+        ],
+        '07-timeline': [
+          'Schedule',
+          'See tasks with dates and past activity. Open a task to update it.',
+        ],
+        '08-progression': [
+          'Your recorded progress',
+          'Activity',
+          'Review completed tasks and recorded milestones. You can start again at any time.',
+        ],
+      };
+      for (final flow in observed.entries) {
+        final assertions = entries(commands('.maestro/flows/${flow.key}.yaml'))
+            .where((entry) => entry.key == 'assertVisible')
+            .map((entry) => entry.value)
+            .whereType<String>();
+        for (final label in flow.value) {
+          expect(
+            assertions.any(
+              (selector) => RegExp(
+                selector.replaceFirst('(?s)', ''),
+                dotAll: selector.startsWith('(?s)'),
+              ).hasMatch(label),
+            ),
+            isTrue,
+            reason: '${flow.key} must assert the actual native node $label',
+          );
+        }
+      }
+    },
+  );
+
+  test(
+    'Planner copy matches complete lines in the observed merged native node',
+    () {
+      final selectors =
+          entries(commands('.maestro/flows/04-smart-planner.yaml'))
+              .where((entry) => entry.key == 'assertVisible')
+              .map((entry) => entry.value)
+              .whereType<String>()
+              .where(
+                (value) =>
+                    value.contains('Choose a step') ||
+                    value.contains('Describe what'),
+              )
+              .toList();
+      expect(selectors, hasLength(2));
+      const title = 'Choose a step';
+      const help =
+          'Describe what you need to do. Get a manageable next step to review.';
+      const merged = 'Back\nHelp with your next step\n$title\n$help';
+      for (var index = 0; index < selectors.length; index++) {
+        final matcher = RegExp(
+          selectors[index].replaceFirst('(?s)', ''),
+          dotAll: true,
+        );
+        final line = [title, help][index];
+        expect(matcher.hasMatch(line), isTrue);
+        expect(matcher.hasMatch(merged), isTrue);
+        expect(matcher.hasMatch('Unrelated $line'), isFalse);
+        expect(matcher.hasMatch('$line extra unrelated copy'), isFalse);
+        expect(matcher.hasMatch('Back\nHelp with your next step'), isFalse);
+      }
+    },
+  );
+
+  test(
+    'SI reveals clipped response sections without dropping response contracts',
+    () {
+      final flow = commands('.maestro/flows/06-si-console.yaml');
+      final verified = <String>[];
+      var phase = '';
+      String? revealed;
+      var completionObserved = false;
+      for (final command in flow.whereType<Map<dynamic, dynamic>>()) {
+        final input = command['inputText'];
+        if (input is String) {
+          phase = input;
+          revealed = null;
+          completionObserved = false;
+        }
+        final wait = command['extendedWaitUntil'];
+        if (wait is Map) {
+          final visible = wait['visible'] as String;
+          if (phase == 'What evidence is missing?') {
+            expect(
+              visible,
+              contains(
+                'Read-only on-device response based on the selected records.',
+              ),
+            );
+          } else if (phase == '/status') {
+            expect(visible, contains('SI STATUS.*Read-only Evidence Lens:'));
+          } else if (phase == '/not-real preserve this') {
+            expect(
+              visible,
+              contains(
+                'Unknown shortcut.*No part of the request was sent or discarded.',
+              ),
+            );
+          } else if (phase == 'I want to kill myself') {
+            expect(visible, "Let's pause and focus on your safety");
+            verified.add('crisis');
+          }
+          completionObserved = true;
+        }
+        final scroll = command['scrollUntilVisible'];
+        if (scroll is Map) {
+          expect(
+            completionObserved,
+            isTrue,
+            reason: 'Wait for the current reply before revealing it.',
+          );
+          revealed = (scroll['element'] as Map)['text'] as String;
+          expect(scroll['visibilityPercentage'], 100);
+          expect(
+            scroll['direction'],
+            revealed.contains('Processing mode:') ? 'UP' : 'DOWN',
+          );
+        }
+        final assertion = command['assertVisible'];
+        if (assertion is String &&
+            (assertion.contains('Processing mode:') ||
+                ['DIRECT ANSWER', 'RECOMMENDATION'].contains(assertion))) {
+          // Replay the clipped viewport from the hosted failure: none of these
+          // required sections can be assumed visible after following the footer.
+          expect(
+            revealed,
+            assertion,
+            reason: 'Reveal the required $phase section before asserting it.',
+          );
+          verified.add('$phase|$assertion');
+          revealed = null;
+        }
+      }
+      expect(verified, [
+        'What evidence is missing?|(?s).*Processing mode: On device.*',
+        'What evidence is missing?|DIRECT ANSWER',
+        'What evidence is missing?|RECOMMENDATION',
+        '/status|(?s).*Processing mode: On device.*',
+        '/not-real preserve this|(?s).*Processing mode: On-device fallback.*',
+        'crisis',
+      ]);
+      expect(
+        entries(flow).where(
+          (entry) =>
+              entry.key == 'assertNotVisible' && entry.value == 'External AI',
+        ),
+        hasLength(4),
+      );
+    },
+  );
+
   for (final String path in <String>[
     '.maestro/flows/05-creator.yaml',
     '.maestro/subflows/create-scheduled-task.yaml',

@@ -1,4 +1,5 @@
-# P1 — Creator. The only way a user gets data into the app.
+# Manual Save authorizes one item through the existing guarded transaction.
+# Retain receipt, schedule, habit lifecycle and cold-process goal readback.
 appId: com.ghostheart5.chronospark
 tags:
   - core
@@ -6,26 +7,14 @@ tags:
 - launchApp:
     clearState: true
 - runFlow: ../subflows/sign-in.yaml
-
-# On a fresh account Nexus leads with the first-run call to action.
 - runFlow:
-    when:
-      visible: "Start here"
-    commands:
-      - tapOn: "Turn an intention into a path"
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Add something"
+- assertVisible: 'Add something'
+- assertVisible: 'Give it a name. Add details only if you need them.'
 
-- runFlow:
-    when:
-      notVisible: "REALITY BUILDER"
-    commands:
-      - runFlow:
-          file: ../subflows/open-from-nexus.yaml
-          env:
-            TARGET: "Reality Builder"
-
-- assertVisible: "REALITY BUILDER"
-
-# Android can merge the accessible label and visible hint in one node.
+# Create and schedule exactly one task using the current optional controls.
 - scrollUntilVisible:
     element:
       text: '^Title, required(?:\s+Title \*)?$'
@@ -35,18 +24,21 @@ tags:
     timeout: 10000
 - tapOn: '^Title, required(?:\s+Title \*)?$'
 - inputText: "Maestro smoke task"
-# Maestro's Android hideKeyboard sends Back even when an interrupted IME is gone.
 - tapOn:
     text: "(?:Done|Enter)"
     optional: true
-- waitForAnimationToEnd
-
 - scrollUntilVisible:
     element:
-      text: "Schedule date and time"
+      text: '(?s)^Task options \(optional\).*'
     direction: DOWN
     timeout: 10000
-- tapOn: "Schedule date and time"
+- tapOn: '(?s)^Task options \(optional\).*'
+- scrollUntilVisible:
+    element:
+      text: '^Schedule date and time(?:\.\.\.)?$'
+    direction: DOWN
+    timeout: 10000
+- tapOn: '^Schedule date and time(?:\.\.\.)?$'
 - extendedWaitUntil:
     visible: "OK"
     timeout: 10000
@@ -55,57 +47,44 @@ tags:
     visible: "OK"
     timeout: 10000
 - tapOn: "OK"
-
-- runFlow: ../subflows/reveal-creator-review.yaml
-- waitForAnimationToEnd:
-    timeout: 5000
-- tapOn:
-    text: "REVIEW CHANGES"
-    retryTapIfNoChange: true
-
-# Creator is a two-step, explicitly confirmed write boundary.
-- runFlow: ../subflows/reveal-creator-confirmation.yaml
 - scrollUntilVisible:
     element:
-      text: "^CREATE TASK$"
+      text: '^Save task$'
     direction: DOWN
+    visibilityPercentage: 100
+    centerElement: false
     timeout: 10000
-- tapOn: "^CREATE TASK$"
+- tapOn: '^Save task$'
 - runFlow:
     file: ../subflows/verify-creator-saved-receipt.yaml
     env:
       SAVED_ITEM: 'Task: Maestro smoke task'
 - scrollUntilVisible:
     element:
-      text: "Open Timeline"
+      text: "Open schedule"
     direction: DOWN
     timeout: 10000
-- tapOn: "Open Timeline"
-
-# The confirmed creation routes to Timeline and the task must actually be there.
-# The selected clock time can already be past; both copy branches represent an
-# open scheduled task. Keep the task title and SCHEDULED marker mandatory.
+- tapOn: "Open schedule"
 - extendedWaitUntil:
-    visible: "(?s).*Maestro smoke task.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*SCHEDULED.*"
+    visible: '(?s).*Maestro smoke task.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*SCHEDULED.*'
     timeout: 15000
+- back
 
-# A saved rhythm must remain reachable, and its period outcome must survive
-# closing the library. This runs only on the disposable hosted QA account.
-- runFlow:
-    file: ../subflows/open-from-nexus.yaml
-    env:
-      TARGET: "Reality Builder"
+# Open a fresh form, save a habit, and use the kind-correct readback action.
 - scrollUntilVisible:
     element:
-      text: "Task"
+      text: "New item"
     direction: DOWN
-    visibilityPercentage: 100
+    timeout: 10000
+- tapOn: "New item"
+- scrollUntilVisible:
+    element:
+      text: '^Task$'
+    direction: UP
     centerElement: false
     timeout: 10000
-- tapOn: "Task"
-- tapOn: "Daily Rhythm"
-# Android can merge the accessible label and visible hint in one node.
-# A saved-item receipt can keep the next form below the fold.
+- tapOn: '^Task$'
+- tapOn: '^Habit$'
 - scrollUntilVisible:
     element:
       text: '^Title, required(?:\s+Title \*)?$'
@@ -115,30 +94,22 @@ tags:
     timeout: 10000
 - tapOn: '^Title, required(?:\s+Title \*)?$'
 - inputText: "Maestro review rhythm"
-- runFlow: ../subflows/reveal-creator-review.yaml
-- tapOn: "REVIEW CHANGES"
-- runFlow: ../subflows/reveal-creator-confirmation.yaml
 - scrollUntilVisible:
     element:
-      text: "^CREATE DAILY RHYTHM$"
+      text: '^Save habit$'
     direction: DOWN
+    visibilityPercentage: 100
+    centerElement: false
     timeout: 10000
-- tapOn: "^CREATE DAILY RHYTHM$"
+- tapOn: '^Save habit$'
 - runFlow:
     file: ../subflows/verify-creator-saved-receipt.yaml
     env:
-      SAVED_ITEM: 'Daily Rhythm: Maestro review rhythm'
-- scrollUntilVisible:
-    element:
-      text: "Manage Daily Rhythms"
-    direction: UP
-    visibilityPercentage: 100
-    # This header can be fully visible at the top scroll boundary.
-    centerElement: false
-    timeout: 10000
-- tapOn: "Manage Daily Rhythms"
-# Android merges the card's title, cadence, and status into one readable node.
-- assertVisible: "(?s)Maestro review rhythm\\n1 time per day.*"
+      SAVED_ITEM: 'Habit: Maestro review rhythm'
+- tapOn: "Open habits"
+- assertVisible: 'Maestro review rhythm'
+- assertVisible: '(?s)^1 time per day.*'
+- tapOn: '^Habit options(?:, (?:Collapsed|Expanded))?$'
 - scrollUntilVisible:
     element:
       text: "Pause"
@@ -161,21 +132,24 @@ tags:
     timeout: 10000
 - tapOn: "Mark target completed"
 - extendedWaitUntil:
-    visible: "(?s)Maestro review rhythm\\n1 time per day.*\\nCompleted this day\\n.*"
+    visible: 'Completed this day'
     timeout: 10000
+- assertVisible: 'Maestro review rhythm'
+- assertVisible: '(?s)^1 time per day.*'
 - assertVisible:
     text: "Mark target completed"
     enabled: false
 - back
 - scrollUntilVisible:
     element:
-      text: "Manage Daily Rhythms"
+      text: "Open habits"
     direction: UP
-    visibilityPercentage: 100
     centerElement: false
     timeout: 10000
-- tapOn: "Manage Daily Rhythms"
-- assertVisible: "(?s)Maestro review rhythm\\n1 time per day.*\\nCompleted this day\\n.*"
+- tapOn: "Open habits"
+- assertVisible: 'Maestro review rhythm'
+- assertVisible: '(?s)^1 time per day.*'
+- assertVisible: 'Completed this day'
 - scrollUntilVisible:
     element:
       text: "Skip this day"
@@ -186,20 +160,24 @@ tags:
 - assertVisible:
     text: "Skip this day"
     enabled: false
-
-# Reopen a saved goal on a cold process. Its account box must be prepared
-# before synchronous goal readers populate the next task's linking control.
 - back
+
+# A fresh goal form saves one goal. A cold process must reopen its canonical
+# box before the next task's linking control reads that goal.
 - scrollUntilVisible:
     element:
-      text: "Daily Rhythm"
+      text: "New item"
     direction: DOWN
-    visibilityPercentage: 100
+    timeout: 10000
+- tapOn: "New item"
+- scrollUntilVisible:
+    element:
+      text: '^Habit$'
+    direction: UP
     centerElement: false
     timeout: 10000
-- tapOn: "Daily Rhythm"
-- tapOn: "Goal"
-# Android can merge the accessible label and visible hint in one node.
+- tapOn: '^Habit$'
+- tapOn: '^Goal$'
 - scrollUntilVisible:
     element:
       text: '^Title, required(?:\s+Title \*)?$'
@@ -208,17 +186,15 @@ tags:
     centerElement: false
     timeout: 10000
 - tapOn: '^Title, required(?:\s+Title \*)?$'
-- eraseText: 50
 - inputText: "Maestro preserved goal"
-- runFlow: ../subflows/reveal-creator-review.yaml
-- tapOn: "REVIEW CHANGES"
-- runFlow: ../subflows/reveal-creator-confirmation.yaml
 - scrollUntilVisible:
     element:
-      text: "^CREATE GOAL$"
+      text: '^Save goal$'
     direction: DOWN
+    visibilityPercentage: 100
+    centerElement: false
     timeout: 10000
-- tapOn: "^CREATE GOAL$"
+- tapOn: '^Save goal$'
 - runFlow:
     file: ../subflows/verify-creator-saved-receipt.yaml
     env:
@@ -229,7 +205,13 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Reality Builder"
+      TARGET: "Add something"
+- scrollUntilVisible:
+    element:
+      text: '(?s)^Task options \(optional\).*'
+    direction: DOWN
+    timeout: 10000
+- tapOn: '(?s)^Task options \(optional\).*'
 - scrollUntilVisible:
     element:
       text: "No linked goal"

@@ -10,30 +10,51 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Deep Intelligence"
+      TARGET: "Chat"
 
-- assertVisible: "DEEP INTELLIGENCE"
+- assertVisible: "(?s).*Talk it through.*"
 
 # The screen must expose its current source-aware contract, not only a title.
-- assertVisible: "Question, investigate and challenge reasoning with visible evidence"
-- assertVisible: "No planning evidence yet. SI will identify what it cannot determine. Person context: shared but no item was relevant to this lens."
+- assertVisible: "(?s).*Ask a question about your saved plans. Review the answer before deciding\\..*"
+- assertVisible: "No saved planning information yet. This tool will explain what it cannot answer. None of your shared details apply to this question."
 
 # A normal typed evidence question must return a structured, on-device SI
 # response. Use the persistent composer instead of relying on an off-screen
 # suggestion chip.
-- tapOn: "(?s)^SI query.*"
+- tapOn: "(?s)^Your question.*"
 - inputText: "What evidence is missing?"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
 - tapOn: "Send SI query"
+# The transcript follows the response footer, which can clip the first section.
+# Wait for completion, then reveal and verify each required response section.
 - extendedWaitUntil:
-    visible: "DIRECT ANSWER"
+    visible: "Why this appears: Read-only on-device response based on the selected records."
     timeout: 30000
-- assertVisible: "RECOMMENDATION"
+- scrollUntilVisible:
+    element:
+      text: "(?s).*Processing mode: On device.*"
+    direction: UP
+    visibilityPercentage: 100
+    timeout: 15000
 - assertVisible: "(?s).*Processing mode: On device.*"
+- scrollUntilVisible:
+    element:
+      text: "DIRECT ANSWER"
+    direction: DOWN
+    visibilityPercentage: 100
+    timeout: 15000
+- assertVisible: "DIRECT ANSWER"
+- scrollUntilVisible:
+    element:
+      text: "RECOMMENDATION"
+    direction: DOWN
+    visibilityPercentage: 100
+    timeout: 15000
+- assertVisible: "RECOMMENDATION"
 - assertNotVisible: "External AI"
 
 # A typed local status request must disclose the current evidence boundary.
-- tapOn: "(?s)^SI query.*"
+- tapOn: "(?s)^Your question.*"
 - inputText: "/status"
 - assertVisible: "(?s).*/status.*"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
@@ -41,11 +62,18 @@ tags:
 - extendedWaitUntil:
     visible: "(?s).*SI STATUS.*Read-only Evidence Lens:.*"
     timeout: 10000
+# Auto-scroll can leave this reply's mode tag above its body.
+- scrollUntilVisible:
+    element:
+      text: "(?s).*Processing mode: On device.*"
+    direction: UP
+    visibilityPercentage: 100
+    timeout: 15000
 - assertVisible: "(?s).*Processing mode: On device.*"
 - assertNotVisible: "External AI"
 
 # Unsupported input must fail explicitly without discarding or sending text.
-- tapOn: "(?s)^SI query.*"
+- tapOn: "(?s)^Your question.*"
 - inputText: "/not-real preserve this"
 - assertVisible: "(?s).*/not-real preserve this.*"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
@@ -53,11 +81,18 @@ tags:
 - extendedWaitUntil:
     visible: "(?s).*Unknown shortcut.*No part of the request was sent or discarded.*"
     timeout: 10000
+# Auto-scroll can leave this reply's mode tag above its body.
+- scrollUntilVisible:
+    element:
+      text: "(?s).*Processing mode: On-device fallback.*"
+    direction: UP
+    visibilityPercentage: 100
+    timeout: 15000
 - assertVisible: "(?s).*Processing mode: On-device fallback.*"
 - assertNotVisible: "External AI"
 
 # Crisis language must preempt ordinary SI output and stay local.
-- tapOn: "(?s)^SI query.*"
+- tapOn: "(?s)^Your question.*"
 - inputText: "I want to kill myself"
 - assertVisible: "(?s).*I want to kill myself.*"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml

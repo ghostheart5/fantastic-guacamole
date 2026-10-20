@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
@@ -26,6 +27,59 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 void main() {
   final DateTime now = DateTime.utc(2026, 8, 20, 12);
   final SIV2EvidenceSnapshot snapshot = _snapshot(now);
+
+  for (final locale in const [Locale('en'), Locale('es')]) {
+    for (final scale in const [1.0, 2.0]) {
+      for (final nestedShell in const [false, true]) {
+        testWidgets('compact keyboard keeps query and Send visible '
+            '${locale.languageCode} scale$scale shell$nestedShell', (
+          tester,
+        ) async {
+          tester.view
+            ..devicePixelRatio = 1
+            ..physicalSize = const Size(360, 640);
+          addTearDown(tester.view.reset);
+          final port = _RecordingPort(snapshot: snapshot, now: now);
+          final container = _container(port, snapshot);
+          addTearDown(() => _dispose(tester, container));
+          await _pumpScreen(
+            tester,
+            container,
+            locale: locale,
+            textScaler: scale,
+            nestedShell: nestedShell,
+          );
+          final query = find.byKey(const Key('si-query-input'));
+          expect(query.hitTestable(), findsOneWidget);
+          await tester.tap(query);
+          tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+
+          final send = find.ancestor(
+            of: find.byIcon(Icons.send_rounded),
+            matching: find.byType(SmartPressable),
+          );
+          for (final control in [query, send]) {
+            expect(control.hitTestable(), findsOneWidget);
+            final bounds = tester.getRect(control);
+            expect(bounds.top, greaterThanOrEqualTo(0));
+            expect(bounds.bottom, lessThanOrEqualTo(340.5));
+          }
+          await tester.enterText(query, 'What should I do next?');
+          await tester.tap(send);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(port.calls, 1);
+          expect(port.lastQuery?.rawText, 'What should I do next?');
+          tester.view.viewInsets = FakeViewPadding.zero;
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+  }
 
   for (final locale in const [Locale('en'), Locale('es')]) {
     testWidgets('local playback gives feedback (${locale.languageCode})', (
@@ -964,6 +1018,7 @@ Future<void> _pumpScreen(
   ProviderContainer container, {
   Locale locale = const Locale('en'),
   double textScaler = 1,
+  bool nestedShell = false,
 }) async {
   await tester.pumpWidget(
     UncontrolledProviderScope(
@@ -983,7 +1038,12 @@ Future<void> _pumpScreen(
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        home: const SIConsoleScreen(),
+        home: nestedShell
+            ? const Scaffold(
+                body: SIConsoleScreen(),
+                bottomNavigationBar: SizedBox(height: 72),
+              )
+            : const SIConsoleScreen(),
       ),
     ),
   );

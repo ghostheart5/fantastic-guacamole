@@ -11,9 +11,12 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Now Engine"
+      TARGET: "Choose a step"
 
-- assertVisible: "Back\\nIMMEDIATE DECISION ENGINE\\nNow Engine\\nResolve time, energy and commitments into one real next move."
+# Flutter may merge the header with Back and its eyebrow into one native node.
+# Match complete copy lines in either the merged or separate representation.
+- assertVisible: '(?s)^(?:.*\n)?Choose a step(?:\n.*)?$'
+- assertVisible: '(?s)^(?:.*\n)?Describe what you need to do\. Get a manageable next step to review\.(?:\n.*)?$'
 
 # The canonical destination must not regress to a retired product label.
 - assertNotVisible: "SMART COACH"
@@ -47,10 +50,10 @@ tags:
     text: "Fold one shirt. I have five minutes."
 - scrollUntilVisible:
     element:
-      text: "GET GUIDANCE"
+      text: "Get a suggestion"
     direction: DOWN
     timeout: 15000
-- tapOn: "GET GUIDANCE"
+- tapOn: "Get a suggestion"
 - extendedWaitUntil:
     visible: "(?s)Planning guidance ready.*"
     timeout: 30000

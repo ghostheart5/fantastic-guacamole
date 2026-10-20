@@ -1,25 +1,12 @@
 appId: com.ghostheart5.chronospark
 ---
-# SAVED_ITEM is the expected entity-kind/title, not a transient snackbar.
+# Require the durable receipt, exactly one saved change, and the requested item.
+# The manual Save action already authorizes that one entered item. AI drafts
+# retain their separate review; this helper does not confirm them implicitly.
 - extendedWaitUntil:
-    visible: '(?s).*(?:Verify where the work landed|CREATION SAVED).*'
+    visible: '^Saved$'
     timeout: 10000
-- runFlow:
-    when:
-      visible: 'Verify where the work landed'
-    commands:
-      - tapOn: 'Pause guide'
-      - extendedWaitUntil:
-          notVisible: 'Verify where the work landed'
-          timeout: 10000
-- scrollUntilVisible:
-    element:
-      text: '^CREATION SAVED$'
-    direction: UP
-    visibilityPercentage: 100
-    centerElement: false
-    timeout: 10000
-- assertVisible: '^CREATION SAVED$'
-- assertVisible: '^Saved exactly once from the selected confirmation\.$'
+- assertVisible: '^Saved\.$'
 - assertVisible: '^1 change saved\.$'
 - assertVisible: '^${SAVED_ITEM}$'
+- assertVisible: 'Undo save'

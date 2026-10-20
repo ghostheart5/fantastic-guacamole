@@ -247,6 +247,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   @override
   void didChangeMetrics() {
     super.didChangeMetrics();
+    if (mounted) setState(() {});
     // The keyboard opening/closing resizes the viewport without the SI
     // Console ever leaving resizeToAvoidBottomInset: false, so nothing else
     // re-anchors the transcript to the latest message when that happens.
@@ -795,10 +796,16 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final Object? consoleError = snapshotAsync.asError?.error;
     final bool consoleAvailable = availabilityAsync.asData?.value ?? false;
     final MediaQueryData mediaQuery = MediaQuery.of(context);
-    final double keyboardInset = mediaQuery.viewInsets.bottom;
+    final view = View.of(context);
+    final double keyboardInset = math.max(
+      mediaQuery.viewInsets.bottom,
+      view.viewInsets.bottom / view.devicePixelRatio,
+    );
+    final double windowHeight =
+        view.physicalSize.height / view.devicePixelRatio;
     final bool keyboardVisible = keyboardInset > 0;
-    final double composerBottomInset = keyboardInset > 0
-        ? keyboardInset
+    final double composerBottomInset = keyboardVisible
+        ? 0
         : mediaQuery.padding.bottom;
 
     // The composer's own height isn't known until after it's laid out, so
@@ -813,159 +820,221 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         resizeToAvoidBottomInset: false,
         body: SafeArea(
           bottom: false,
-          child: Column(
-            children: [
-              _Header(
-                onBack: () {
-                  unawaited(ref.read(voiceServiceProvider).stop());
-                  goToAppView(context, ref, AppView.nexus);
-                },
-                onSpeakSummary: _messages.any((_Msg msg) => !msg.isUser)
-                    ? () {
-                        if (!_allowSpeechPlayback(context, ref)) return;
-                        final List<_Msg> recentAssistant = _messages
-                            .where((msg) => !msg.isUser)
-                            .toList(growable: false);
-                        final List<String> points = recentAssistant.reversed
-                            .take(3)
-                            .map((msg) => msg.text)
-                            .toList(growable: false);
-                        unawaited(
-                          ref
-                              .read(voiceServiceProvider)
-                              .speakSummary(
-                                title: routine.voiceSummaryTitle,
-                                points: points,
-                              ),
-                        );
-                      }
-                    : null,
-                onSpeakAccessibility: () {
-                  unawaited(_showAccessibilityGuide());
-                },
-              ),
-              _ContextStatusBanner(
-                availabilityLoading: availabilityAsync.isLoading,
-                availabilityError: availabilityAsync.asError?.error,
-                available: consoleAvailable,
-                loading: snapshotAsync.isLoading,
-                error: consoleError,
-                snapshot: snapshot,
-                onRetry: () {
-                  ref.invalidate(siV2AvailabilityProvider);
-                  ref.invalidate(siV2EvidenceSnapshotProvider);
-                },
-              ),
-              Expanded(
-                child: ValueListenableBuilder<double>(
-                  valueListenable: _composerHeight,
-                  builder: (context, composerHeight, _) {
-                    final double composerReservedHeight = composerHeight;
-                    final bool showWelcome = _messages.isEmpty && !_typing;
-                    return Stack(
-                      children: [
-                        Positioned.fill(
-                          child: ListView.builder(
-                            controller: _scroll,
-                            padding: EdgeInsets.fromLTRB(
-                              16,
-                              8,
-                              16,
-                              composerReservedHeight + composerBottomInset,
-                            ),
-                            itemCount: showWelcome
-                                ? 1
-                                : _messages.length + (_typing ? 1 : 0),
-                            itemBuilder: (context, i) {
-                              if (showWelcome) {
-                                return _ConsoleWelcome(
-                                  enabled: consoleAvailable,
-                                  snapshot: snapshot,
-                                  onQuestion: _sendExample,
-                                );
-                              }
-                              if (_typing && i == _messages.length) {
-                                return _TypingIndicator(animation: _typingAnim);
-                              }
-                              final Widget bubble = _BubbleTile(
-                                msg: _messages[i],
-                                onReport: _messages[i].isUser
-                                    ? null
-                                    : () => unawaited(
-                                        _showReportDialog(_messages[i]),
-                                      ),
+          child: LayoutBuilder(
+            builder: (context, viewport) {
+              final bool compactChrome =
+                  keyboardVisible ||
+                  viewport.maxHeight < 600 ||
+                  (mediaQuery.textScaler.scale(1) > 1.3 &&
+                      viewport.maxHeight < 700);
+              // A containing shell may already have resized for the IME.
+              // Budget only the part still covering this safe viewport.
+              final double alreadyOutside = math.max(
+                0,
+                windowHeight - viewport.maxHeight - mediaQuery.padding.top,
+              );
+              final double remainingInset = math.max(
+                0,
+                keyboardInset - alreadyOutside,
+              );
+              return Padding(
+                padding: EdgeInsets.only(bottom: remainingInset),
+                child: Column(
+                  children: [
+                    _Header(
+                      compact: compactChrome,
+                      onBack: () {
+                        unawaited(ref.read(voiceServiceProvider).stop());
+                        goToAppView(context, ref, AppView.nexus);
+                      },
+                      onSpeakSummary: _messages.any((_Msg msg) => !msg.isUser)
+                          ? () {
+                              if (!_allowSpeechPlayback(context, ref)) return;
+                              final List<_Msg> recentAssistant = _messages
+                                  .where((msg) => !msg.isUser)
+                                  .toList(growable: false);
+                              final List<String> points = recentAssistant
+                                  .reversed
+                                  .take(3)
+                                  .map((msg) => msg.text)
+                                  .toList(growable: false);
+                              unawaited(
+                                ref
+                                    .read(voiceServiceProvider)
+                                    .speakSummary(
+                                      title: routine.voiceSummaryTitle,
+                                      points: points,
+                                    ),
                               );
-                              final bool latestResponse =
-                                  i == _messages.length - 1 &&
-                                  !_messages[i].isUser;
-                              return latestResponse
-                                  ? KeyedSubtree(
-                                      key: _latestResponseKey,
-                                      child: KeyedSubtree(
-                                        key: const Key(
-                                          'si-latest-response-anchor',
+                            }
+                          : null,
+                      onSpeakAccessibility: () {
+                        unawaited(_showAccessibilityGuide());
+                      },
+                    ),
+                    _ContextStatusBanner(
+                      compact: compactChrome,
+                      availabilityLoading: availabilityAsync.isLoading,
+                      availabilityError: availabilityAsync.asError?.error,
+                      available: consoleAvailable,
+                      loading: snapshotAsync.isLoading,
+                      error: consoleError,
+                      snapshot: snapshot,
+                      onRetry: () {
+                        ref.invalidate(siV2AvailabilityProvider);
+                        ref.invalidate(siV2EvidenceSnapshotProvider);
+                      },
+                    ),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, contentViewport) =>
+                            ValueListenableBuilder<double>(
+                              valueListenable: _composerHeight,
+                              builder: (context, composerHeight, _) {
+                                final double composerReservedHeight =
+                                    composerHeight;
+                                final bool showWelcome =
+                                    _messages.isEmpty && !_typing;
+                                return Stack(
+                                  children: [
+                                    Positioned.fill(
+                                      child: ListView.builder(
+                                        controller: _scroll,
+                                        padding: EdgeInsets.fromLTRB(
+                                          16,
+                                          8,
+                                          16,
+                                          composerReservedHeight +
+                                              composerBottomInset,
                                         ),
-                                        child: bubble,
+                                        itemCount: showWelcome
+                                            ? 1
+                                            : _messages.length +
+                                                  (_typing ? 1 : 0),
+                                        itemBuilder: (context, i) {
+                                          if (showWelcome) {
+                                            return _ConsoleWelcome(
+                                              enabled: consoleAvailable,
+                                              snapshot: snapshot,
+                                              onQuestion: _sendExample,
+                                            );
+                                          }
+                                          if (_typing &&
+                                              i == _messages.length) {
+                                            return _TypingIndicator(
+                                              animation: _typingAnim,
+                                            );
+                                          }
+                                          final Widget bubble = _BubbleTile(
+                                            msg: _messages[i],
+                                            onReport: _messages[i].isUser
+                                                ? null
+                                                : () => unawaited(
+                                                    _showReportDialog(
+                                                      _messages[i],
+                                                    ),
+                                                  ),
+                                          );
+                                          final bool latestResponse =
+                                              i == _messages.length - 1 &&
+                                              !_messages[i].isUser;
+                                          return latestResponse
+                                              ? KeyedSubtree(
+                                                  key: _latestResponseKey,
+                                                  child: KeyedSubtree(
+                                                    key: const Key(
+                                                      'si-latest-response-anchor',
+                                                    ),
+                                                    child: bubble,
+                                                  ),
+                                                )
+                                              : bubble;
+                                        },
                                       ),
-                                    )
-                                  : bubble;
-                            },
-                          ),
-                        ),
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              bottom: composerBottomInset,
+                                    ),
+                                    Positioned(
+                                      left: 0,
+                                      right: 0,
+                                      bottom: 0,
+                                      child: Padding(
+                                        padding: EdgeInsets.only(
+                                          bottom: composerBottomInset,
+                                        ),
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            maxHeight: math.max(
+                                              0,
+                                              contentViewport.maxHeight -
+                                                  composerBottomInset,
+                                            ),
+                                          ),
+                                          child: KeyedSubtree(
+                                            key: _composerKey,
+                                            child: _InputBar(
+                                              isVoiceActive: () =>
+                                                  mounted && widget.isActive,
+                                              controller: _input,
+                                              entityFilterController:
+                                                  _entityFilter,
+                                              scenarioAssumptionController:
+                                                  _scenarioAssumption,
+                                              advancedComposerController:
+                                                  _advancedComposer,
+                                              onSend: _send,
+                                              compact: keyboardVisible,
+                                              busy: _typing,
+                                              enabled: consoleAvailable,
+                                              intent: _intent,
+                                              sources: _sources,
+                                              timeRange: _timeRange,
+                                              onIntentChanged:
+                                                  (SIV2Intent value) {
+                                                    setState(
+                                                      () => _intent = value,
+                                                    );
+                                                  },
+                                              onSourceChanged:
+                                                  (
+                                                    SIV2Source source,
+                                                    bool selected,
+                                                  ) {
+                                                    if (!selected &&
+                                                        _sources.length == 1) {
+                                                      return;
+                                                    }
+                                                    setState(() {
+                                                      final Set<SIV2Source>
+                                                      updated = _sources
+                                                          .toSet();
+                                                      selected
+                                                          ? updated.add(source)
+                                                          : updated.remove(
+                                                              source,
+                                                            );
+                                                      _sources = updated;
+                                                    });
+                                                  },
+                                              onTimeRangeChanged:
+                                                  (SIV2TimeRange value) {
+                                                    setState(
+                                                      () => _timeRange = value,
+                                                    );
+                                                  },
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
-                            child: KeyedSubtree(
-                              key: _composerKey,
-                              child: _InputBar(
-                                isVoiceActive: () => mounted && widget.isActive,
-                                controller: _input,
-                                entityFilterController: _entityFilter,
-                                scenarioAssumptionController:
-                                    _scenarioAssumption,
-                                advancedComposerController: _advancedComposer,
-                                onSend: _send,
-                                compact: keyboardVisible,
-                                busy: _typing,
-                                enabled: consoleAvailable,
-                                intent: _intent,
-                                sources: _sources,
-                                timeRange: _timeRange,
-                                onIntentChanged: (SIV2Intent value) {
-                                  setState(() => _intent = value);
-                                },
-                                onSourceChanged:
-                                    (SIV2Source source, bool selected) {
-                                      if (!selected && _sources.length == 1) {
-                                        return;
-                                      }
-                                      setState(() {
-                                        final Set<SIV2Source> updated = _sources
-                                            .toSet();
-                                        selected
-                                            ? updated.add(source)
-                                            : updated.remove(source);
-                                        _sources = updated;
-                                      });
-                                    },
-                                onTimeRangeChanged: (SIV2TimeRange value) {
-                                  setState(() => _timeRange = value);
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),
