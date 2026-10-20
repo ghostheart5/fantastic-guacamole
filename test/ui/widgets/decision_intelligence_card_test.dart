@@ -6,9 +6,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
-  for (final creator in [false, true]) {
+  for (final action in [
+    (
+      type: OperatingActionType.openTimeline,
+      english: 'Review on Schedule',
+      spanish: 'Revisar en agenda',
+      destination: '/timeline',
+    ),
+    (
+      type: OperatingActionType.openCreator,
+      english: 'Add something',
+      spanish: 'Añadir algo',
+      destination: '/creator',
+    ),
+    (
+      type: OperatingActionType.openProgression,
+      english: 'Review recovery in Activity',
+      spanish: 'Revisar recuperación en Actividad',
+      destination: '/progression',
+    ),
+  ]) {
     testWidgets(
-      'intelligence answers decision questions for creator=$creator',
+      'intelligence answers decision questions for ${action.type.name}',
       (WidgetTester tester) async {
         final DateTime now = DateTime.utc(2026, 8, 16, 12);
         final OperatingSnapshot snapshot = OperatingSnapshot(
@@ -40,11 +59,9 @@ void main() {
           evidence: const <OperatingEvidence>[],
           actionIntent: OperatingActionIntent(
             id: 'action-a',
-            type: creator
-                ? OperatingActionType.openCreator
-                : OperatingActionType.openTimeline,
-            label: creator ? 'Add something' : 'Review on Schedule',
-            destination: creator ? '/creator' : '/timeline',
+            type: action.type,
+            label: action.english,
+            destination: action.destination,
             targetEntityId: 'task-a',
           ),
           sourceRevisions: const <String, String>{'tasks': '1'},
@@ -87,10 +104,7 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('Start task A'), findsOneWidget);
-        expect(
-          find.text(creator ? 'Add something' : 'Review on Schedule'),
-          findsOneWidget,
-        );
+        expect(find.text(action.english), findsOneWidget);
 
         await tester.pumpWidget(
           MaterialApp(
@@ -119,13 +133,10 @@ void main() {
         expect(find.text('DÓNDE ESTÁS'), findsOneWidget);
         expect(find.text('QUÉ IMPORTA AHORA'), findsOneWidget);
         expect(find.text('POR QUÉ IMPORTA'), findsOneWidget);
-        expect(
-          find.text(creator ? 'Añadir algo' : 'Revisar en agenda'),
-          findsOneWidget,
-        );
+        expect(find.text(action.spanish), findsOneWidget);
         expect(find.text('Abrir Creador'), findsNothing);
         expect(find.text('Start task A'), findsOneWidget);
-        final actionLabel = creator ? 'Añadir algo' : 'Revisar en agenda';
+        final actionLabel = action.spanish;
         await tester.ensureVisible(find.text(actionLabel));
         await tester.tap(find.text(actionLabel));
         expect(actionCount, 1);

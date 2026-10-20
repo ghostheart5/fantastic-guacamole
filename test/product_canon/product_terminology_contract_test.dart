@@ -242,8 +242,9 @@ void main() {
         if (!file.path.endsWith('.dart')) continue;
         final path = file.path.replaceAll('\\', '/');
         for (final line in file.readAsLinesSync()) {
-          if (line.trimLeft().startsWith(RegExp(r'(import|export|part|//)')))
+          if (line.trimLeft().startsWith(RegExp(r'(import|export|part|//)'))) {
             continue;
+          }
           for (final match in _quotedCopy.allMatches(line)) {
             final copy = match.group(2)!;
             // These are compatibility keys, not labels. Preserve stored data,
@@ -272,8 +273,9 @@ void main() {
       for (final file in Directory(
         root,
       ).listSync(recursive: true).whereType<File>()) {
-        if (!file.path.endsWith('.html') && !file.path.endsWith('.txt'))
+        if (!file.path.endsWith('.html') && !file.path.endsWith('.txt')) {
           continue;
+        }
         // Links retain the real legacy domains and package identifiers.
         final text = file.readAsStringSync().replaceAll(
           RegExp(r'https?://[^\s"<>]+'),
