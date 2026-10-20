@@ -1,4 +1,6 @@
 // Runner-only hook. This file contains variable names, never credential values.
+// Python projects only bounded, redacted exception classes/frames from output.
+gradle.startParameter.showStacktrace = org.gradle.api.logging.configuration.ShowStacktrace.ALWAYS
 gradle.beforeProject { project ->
     if (project.path == ':app') {
         project.pluginManager.withPlugin('com.android.application') {

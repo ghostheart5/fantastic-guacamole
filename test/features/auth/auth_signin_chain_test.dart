@@ -13,6 +13,8 @@ import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 
 /// The real sign-in chain — credentials to signIn to an auth-state emission to
 /// the app rendering — had no coverage. Only the mock-login shortcut was
@@ -22,6 +24,60 @@ import 'package:flutter_test/flutter_test.dart';
 /// These drive the contract rather than a backend, so nothing here touches
 /// Firebase or Supabase configuration.
 void main() {
+  testWidgets('Spanish backend failure and retry controls are localized', (
+    tester,
+  ) async {
+    final service = _FakeAuthService();
+    addTearDown(service.dispose);
+    var attempts = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(service),
+          intelligenceStateProvider.overrideWithValue(
+            _configuredIntelligenceState,
+          ),
+        ],
+        child: MaterialApp(
+          locale: const Locale('es'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: AuthGate(
+            initializeBackend: () async {
+              attempts++;
+              return 'Sign-in services are temporarily unavailable.';
+            },
+            child: const Scaffold(body: Text('APP_READY')),
+          ),
+        ),
+      ),
+    );
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+    expect(attempts, 3);
+    expect(find.text('Inicio de sesión no disponible'), findsOneWidget);
+    expect(
+      find.text('El inicio de sesión no está disponible temporalmente.'),
+      findsOneWidget,
+    );
+    final retry = find.text('Reintentar inicio de sesión');
+    expect(retry, findsOneWidget);
+    expect(find.text('Sign-in services unavailable'), findsNothing);
+    await tester.tap(retry);
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+    expect(attempts, 6);
+    expect(find.text('Reintentar inicio de sesión'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('failed backend initialization has a working retry action', (
     WidgetTester tester,
   ) async {

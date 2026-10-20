@@ -8,7 +8,7 @@ String _localizedPlanStatus(BuildContext context, String status) {
     'Plans unavailable' => 'Planes no disponibles',
     'Unlocked for testing' => 'Desbloqueado para pruebas',
     'Premium active' => 'Premium activo',
-    'Premium locked' => 'Premium bloqueado',
+    'No active subscription' => 'Sin suscripción activa',
     _ => status,
   };
   return journeyText(context, status, spanish);
@@ -28,8 +28,8 @@ String _localizedPlanDetail(BuildContext context, String detail) {
       'Esta compilación de pruebas omite las restricciones premium y no usa facturación real.',
     'Premium features are currently unlocked for this account.' =>
       'Las funciones premium están desbloqueadas para esta cuenta.',
-    'Premium access is not yet provisioned in this build.' =>
-      'El acceso premium aún no está habilitado en esta compilación.',
+    'You have no active subscription. Review available plans and Google Play pricing before purchasing.' =>
+      'No tienes una suscripción activa. Revisa los planes disponibles y los precios de Google Play antes de comprar.',
     _ => detail,
   };
   return journeyText(context, detail, spanish);
@@ -469,10 +469,15 @@ class _NeonNavTile extends StatelessWidget {
 }
 
 class _NeonStatusTile extends StatelessWidget {
-  const _NeonStatusTile({required this.title, required this.subtitle});
+  const _NeonStatusTile({
+    required this.title,
+    required this.subtitle,
+    this.subtitleMaxLines = 2,
+  });
 
   final String title;
   final String subtitle;
+  final int? subtitleMaxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -491,9 +496,11 @@ class _NeonStatusTile extends StatelessWidget {
                 ),
                 Text(
                   subtitle,
-                  maxLines: 2,
+                  maxLines: subtitleMaxLines,
                   softWrap: true,
-                  overflow: TextOverflow.ellipsis,
+                  overflow: subtitleMaxLines == null
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white38,
                     fontSize: 11,

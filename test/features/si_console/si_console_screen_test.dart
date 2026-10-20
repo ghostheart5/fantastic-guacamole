@@ -1,7 +1,13 @@
+import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
+import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'dart:async';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
+import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
@@ -12,6 +18,7 @@ import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -20,6 +27,75 @@ void main() {
   final DateTime now = DateTime.utc(2026, 8, 20, 12);
   final SIV2EvidenceSnapshot snapshot = _snapshot(now);
 
+  for (final locale in const [Locale('en'), Locale('es')]) {
+    testWidgets('local playback gives feedback (${locale.languageCode})', (
+      tester,
+    ) async {
+      final port = _RecordingPort(snapshot: snapshot, now: now);
+      final voice = _NoopVoiceService();
+      final container = _container(
+        port,
+        snapshot,
+        playbackEnabled: false,
+        playbackService: voice,
+      );
+      addTearDown(() => _dispose(tester, container));
+      await _pumpScreen(tester, container, locale: locale);
+      await tester.enterText(
+        find.byKey(const Key('si-query-input')),
+        'What should I do next?',
+      );
+      await tester.tap(find.byIcon(Icons.send_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      final summary = find
+          .byType(IconButton)
+          .evaluate()
+          .where((element) {
+            final button = element.widget as IconButton;
+            return button.icon is Icon &&
+                (button.icon as Icon).icon == Icons.volume_up_rounded;
+          })
+          .single
+          .widget;
+      await tester.tap(find.byWidget(summary));
+      await tester.pump();
+      final message = locale.languageCode == 'es'
+          ? 'La lectura en voz alta no está disponible en modo local. Lee el texto de la respuesta.'
+          : 'Speech playback is unavailable in local mode. Read the response text instead.';
+      expect(find.text(message), findsOneWidget);
+      expect(voice.playbackCalls, 0);
+      ScaffoldMessenger.of(
+        tester.element(find.byType(SIConsoleScreen)),
+      ).hideCurrentSnackBar();
+      await tester.pump(const Duration(seconds: 1));
+      final speak = find.text(
+        locale.languageCode == 'es' ? 'ESCUCHAR' : 'SPEAK',
+      );
+      await tester.ensureVisible(speak.first);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(speak.first);
+      await tester.pump();
+      expect(find.text(message), findsOneWidget);
+      expect(voice.playbackCalls, 0);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('rolled-back SI retains the local route', (tester) async {
+    final port = _RecordingPort(snapshot: snapshot, now: now);
+    final container = _container(
+      port,
+      snapshot,
+      conversationAvailable: true,
+      conversationReleased: false,
+    );
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+    expect(find.byType(AssistantConversationScreen), findsNothing);
+    expect(find.byType(SIConsoleScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('private SI route displays the conversation entry', (
     tester,
   ) async {
@@ -29,6 +105,96 @@ void main() {
     await _pumpScreen(tester, container);
     expect(find.text('AI conversation · uses credits'), findsOneWidget);
     expect(find.text('Advanced analysis'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('switching from AI preserves a question in local SI', (
+    tester,
+  ) async {
+    final port = _RecordingPort(snapshot: snapshot, now: now);
+    final container = _container(
+      port,
+      snapshot,
+      conversationAvailable: true,
+      allowedAi: true,
+    );
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'What are my tasks?',
+    );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('conversation-input')))
+          .controller!
+          .text,
+      'What are my tasks?',
+    );
+    await tester.tap(find.byTooltip('On-device tools'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(AssistantConversationScreen), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('si-query-input')))
+          .controller!
+          .text,
+      'What are my tasks?',
+    );
+    expect(port.calls, 0);
+  });
+
+  testWidgets('SI title gets the full row at 200 percent text', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final port = _RecordingPort(snapshot: snapshot, now: now);
+    final container = _container(port, snapshot);
+    addTearDown(() => _dispose(tester, container));
+
+    await _pumpScreen(tester, container, textScaler: 2);
+    final title = find.text('INTELLIGENCE');
+    final summary = find.byIcon(Icons.volume_up_rounded);
+    expect(title, findsOneWidget);
+    expect(summary, findsOneWidget);
+    expect(
+      tester.getTopLeft(title).dy,
+      greaterThan(tester.getBottomLeft(summary).dy),
+    );
+    final paragraph = tester.renderObject<RenderParagraph>(title);
+    final wordBoxes = paragraph.getBoxesForSelection(
+      const TextSelection(baseOffset: 0, extentOffset: 12),
+    );
+    expect(wordBoxes, hasLength(1), reason: 'INTELLIGENCE must stay intact.');
+    expect(find.bySemanticsLabel('DEEP INTELLIGENCE'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Spanish SI title keeps its words intact at 200 percent text', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final port = _RecordingPort(snapshot: snapshot, now: now);
+    final container = _container(port, snapshot);
+    addTearDown(() => _dispose(tester, container));
+
+    await _pumpScreen(
+      tester,
+      container,
+      locale: const Locale('es'),
+      textScaler: 2,
+    );
+    final word = find.text('INTELIGENCIA');
+    expect(word, findsOneWidget);
+    final paragraph = tester.renderObject<RenderParagraph>(word);
+    expect(
+      paragraph.getBoxesForSelection(
+        const TextSelection(baseOffset: 0, extentOffset: 12),
+      ),
+      hasLength(1),
+    );
+    expect(find.bySemanticsLabel('INTELIGENCIA PROFUNDA'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -705,13 +871,47 @@ ProviderContainer _container(
   SIV2EvidenceSnapshot snapshot, {
   bool available = true,
   bool conversationAvailable = false,
+  bool conversationReleased = true,
+  bool allowedAi = false,
+  bool playbackEnabled = true,
+  VoiceService? playbackService,
   VoiceController? voiceController,
 }) {
   return ProviderContainer(
     overrides: [
+      if (allowedAi) ...[
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('synthetic-route-review'),
+        ),
+        personalizationProfileProvider.overrideWith(_AllowedConsent.new),
+      ],
       assistantConversationAvailableProvider.overrideWithValue(
         conversationAvailable,
       ),
+      if (conversationAvailable)
+        for (final capability in [
+          AssistantReleaseCapability.smartPlannerV2,
+          AssistantReleaseCapability.siConsoleV2,
+          AssistantReleaseCapability.safetyCritic,
+        ])
+          assistantReleaseDecisionProvider(capability).overrideWith(
+            (ref) async => const AssistantReleaseController().decide(
+              config: AssistantReleaseConfig(
+                stage: conversationReleased
+                    ? AssistantReleaseStage.general
+                    : AssistantReleaseStage.off,
+                canaryBasisPoints: 0,
+                shadowEvaluationEnabled: false,
+                internalAccountDigests: const {},
+                rollbackCapabilities: const {},
+              ),
+              request: AssistantReleaseRequest(
+                accountScopeId: 'v2.synthetic-route-review',
+                capability: capability,
+                betaOptIn: false,
+              ),
+            ),
+          ),
       if (voiceController != null)
         voiceInputEnabledProvider.overrideWithValue(true),
       if (voiceController != null)
@@ -725,9 +925,18 @@ ProviderContainer _container(
       voiceInputConsentStoreProvider.overrideWithValue(
         VoiceInputConsentStore(const AccountStorageScope.unsafe()),
       ),
-      voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+      voicePlaybackEnabledProvider.overrideWithValue(playbackEnabled),
+      voiceServiceProvider.overrideWithValue(
+        playbackService ?? _NoopVoiceService(),
+      ),
     ],
   );
+}
+
+class _AllowedConsent extends PersonalizationProfileController {
+  @override
+  PersonalizationProfile build() =>
+      const PersonalizationProfile(externalAiAllowed: true);
 }
 
 final _siContextRevisionTestProvider =
@@ -861,8 +1070,28 @@ final class _SlowPort implements SIV2QueryPort {
 }
 
 final class _NoopVoiceService extends VoiceService {
+  int playbackCalls = 0;
+
   @override
-  Future<void> speak(String text) async {}
+  Future<void> speak(String text) async {
+    playbackCalls++;
+  }
+
+  @override
+  Future<void> speakLocalized(
+    String text, {
+    required String languageCode,
+  }) async {
+    playbackCalls++;
+  }
+
+  @override
+  Future<void> speakSummary({
+    required String title,
+    required List<String> points,
+  }) async {
+    playbackCalls++;
+  }
 
   @override
   Future<void> stop() async {}

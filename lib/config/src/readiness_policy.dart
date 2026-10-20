@@ -40,7 +40,31 @@ abstract final class _ReadinessPolicy {
     }
 
     final List<String> issues = <String>[];
+    if (PublicReleaseProfile.compiledValue != 'true' &&
+        PublicReleaseProfile.compiledValue != 'false') {
+      issues.add('Public release profile is malformed.');
+    }
+    if (PublicReleaseProfile.requested) {
+      issues.addAll(PublicReleaseProfile.sourceReadinessIssues());
+      if (InternalBillingTestConfig.compiled.requested ||
+          InternalBillingTestConfig.compiled.publicCreditAdmissionQa ||
+          !Env.enableCloudSync ||
+          !Env.enableCloudRestore ||
+          Env.enableRuntimeFeatureFlags ||
+          isWeb ||
+          (targetPlatform ?? defaultTargetPlatform) != TargetPlatform.android) {
+        issues.add(
+          'Public release requires Android cloud capabilities without internal QA or runtime flag overrides.',
+        );
+      }
+    }
     final bool billingTest = InternalBillingTestConfig.compiled.requested;
+    if (InternalBillingTestConfig.compiled.publicCreditAdmissionQa &&
+        !billingTest) {
+      issues.add(
+        'Public credit admission QA requires the internal license-test profile.',
+      );
+    }
     if (billingTest &&
         (!InternalBillingTestConfig.compiled.hasValidCohort ||
             !Env.cloudServicesEnabled ||
@@ -91,7 +115,7 @@ abstract final class _ReadinessPolicy {
     )) {
       issues.add('Supabase publishable key is missing or malformed.');
     }
-    if (LaunchContainment.subscriptionsEnabled || billingTest) {
+    if (LaunchContainment.publicSubscriptionsEnabled || billingTest) {
       _validateHttpsEndpoint(
         _ServiceEndpoints.receiptVerifyEndpoint,
         label: 'Receipt verification endpoint',
@@ -105,7 +129,7 @@ abstract final class _ReadinessPolicy {
         );
       }
     }
-    if (LaunchContainment.externalAiEnabled) {
+    if (LaunchContainment.publicExternalAiEnabled) {
       _validateHttpsEndpoint(
         _ServiceEndpoints.aiProxyEndpoint,
         label: 'AI proxy endpoint',

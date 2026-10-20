@@ -25,10 +25,27 @@ import {
   containsScheduledStartDepartureConfusion,
 } from "../_shared/ai_proxy_policy.ts";
 import {
-  internalAiAccountAllowed,
   internalAiPreflightResponse,
   parseInternalAiCohort,
 } from "../_shared/internal_ai_cohort.ts";
+import {
+  aiAudienceAllowed,
+  parsePublicAiAudiencePolicy,
+  publicAiAudienceEnabled,
+} from "../_shared/ai_audience_policy.ts";
+import {
+  parseSiTimingExtraction,
+  SI_TIMING_EXTRACTION_INSTRUCTION,
+  SI_TIMING_OUTPUT_CONFIG,
+  type SiTimingRequest,
+  siTimingRequest,
+  timingInputForTaskDay,
+} from "../_shared/si_timing_extraction.ts";
+import { calculateSiTiming } from "../_shared/si_timing_plan.ts";
+import {
+  recordedTaskClock,
+  renderSiTimingReply,
+} from "../_shared/si_timing_reply.ts";
 
 const config: BillingBackendConfig = {
   supabaseUrl: Deno.env.get("SUPABASE_URL") ?? "",
@@ -48,6 +65,7 @@ const SUCCESS_SETTLEMENT_RECONCILIATION_ATTEMPTS = 2;
 const internalAiCohort = parseInternalAiCohort(
   Deno.env.get("CHRONOSPARK_INTERNAL_ACCOUNT_DIGESTS"),
 );
+const publicAiPolicy = parsePublicAiAudiencePolicy(Deno.env.get);
 const ALLOWED_ORIGINS = new Set(
   (Deno.env.get("ALLOWED_ORIGINS") ??
     "https://chronospark.app,https://www.chronospark.app")
@@ -120,6 +138,8 @@ async function settleReservation(
     responsePayload?: Record<string, unknown>;
   } = {},
 ): Promise<Record<string, unknown> | null> {
+  const retainReply = succeeded && details.responsePayload &&
+    Object.keys(details.responsePayload).length > 0;
   const body = {
     p_user_id: userId,
     p_request_key: requestId,
@@ -129,10 +149,13 @@ async function settleReservation(
     p_provider_request_id: details.providerRequestId ?? null,
     p_failure_code: details.failureCode ?? null,
     p_response_payload: details.responsePayload ?? {},
+    ...(retainReply ? { p_response_ttl: "15 minutes" } : {}),
   };
   if (!config.supabaseUrl || !config.secretKey) return null;
   const response = await fetch(
-    `${config.supabaseUrl}/rest/v1/rpc/settle_ai_usage`,
+    `${config.supabaseUrl}/rest/v1/rpc/${
+      retainReply ? "settle_ai_usage_v2" : "settle_ai_usage"
+    }`,
     {
       method: "POST",
       headers: {
@@ -145,7 +168,20 @@ async function settleReservation(
     },
   );
   if (!response.ok) {
-    await response.body?.cancel();
+    // Only an authoritative missing-RPC response permits the metadata-only
+    // compatibility path. A timeout or server error may have committed the
+    // atomic reply+expiry transaction and must use normal reconciliation.
+    if (retainReply && response.status === 404) {
+      const error = await response.json().catch(() => null);
+      if (error?.code === "PGRST202") {
+        return await settleReservation(userId, requestId, succeeded, {
+          ...details,
+          responsePayload: {},
+        });
+      }
+    } else {
+      await response.body?.cancel();
+    }
     throw new SettlementHttpError(response.status);
   }
   const value = await response.json();
@@ -153,6 +189,55 @@ async function settleReservation(
     throw new Error("AI settlement returned an invalid response");
   }
   return value as Record<string, unknown>;
+}
+
+async function loadUnexpiredReply(
+  userId: string,
+  requestId: string,
+): Promise<ProxyResponse | null> {
+  if (!config.supabaseUrl || !config.secretKey) return null;
+  const url = new URL(`${config.supabaseUrl}/rest/v1/ai_usage_requests`);
+  url.searchParams.set("user_id", `eq.${userId}`);
+  url.searchParams.set("request_key", `eq.${requestId}`);
+  url.searchParams.set("state", "eq.completed");
+  url.searchParams.set(
+    "select",
+    "user_id,request_key,state,billing_principal_id,response_payload,response_expires_at," +
+      "billing_principals!ai_usage_requests_principal_fkey(billing_principal_id,current_user_id,retired_at)",
+  );
+  url.searchParams.set("limit", "2");
+  try {
+    const response = await fetch(url, {
+      headers: {
+        apikey: config.secretKey,
+        Authorization: `Bearer ${config.secretKey}`,
+      },
+      signal: AbortSignal.timeout(SETTLEMENT_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      await response.body?.cancel();
+      return null;
+    }
+    const rows = await response.json();
+    if (!Array.isArray(rows) || rows.length !== 1) return null;
+    const row = rows[0];
+    const principal = row?.billing_principals;
+    const payload = row?.response_payload;
+    if (
+      row?.user_id !== userId || row?.request_key !== requestId ||
+      row?.state !== "completed" ||
+      typeof row?.billing_principal_id !== "string" ||
+      principal?.billing_principal_id !== row.billing_principal_id ||
+      principal?.current_user_id !== userId || principal?.retired_at !== null ||
+      typeof row?.response_expires_at !== "string" ||
+      !(Date.parse(row.response_expires_at) > Date.now()) ||
+      !payload || typeof payload !== "object" || Array.isArray(payload) ||
+      payload.requestId !== requestId || typeof payload.message !== "string"
+    ) return null;
+    return payload as ProxyResponse;
+  } catch (_) {
+    return null;
+  }
 }
 
 class SettlementHttpError extends Error {
@@ -291,6 +376,7 @@ Deno.serve(async (req: Request) => {
       config.supabaseUrl && config.publishableKey && config.secretKey &&
         ANTHROPIC_API_KEY,
     ),
+    publicAiAudienceEnabled(publicAiPolicy),
   );
   if (preflight) return preflight;
   if (req.method === "OPTIONS") {
@@ -306,7 +392,7 @@ Deno.serve(async (req: Request) => {
 
   const userId = await authenticatedUserId(req, config);
   if (!userId) return jsonResponse(req, { error: "unauthorized" }, 401);
-  if (!await internalAiAccountAllowed(userId, internalAiCohort)) {
+  if (!await aiAudienceAllowed(userId, internalAiCohort, publicAiPolicy)) {
     return jsonResponse(req, { error: "internal_ai_access_required" }, 403);
   }
   if (
@@ -360,13 +446,26 @@ Deno.serve(async (req: Request) => {
       : [...recentHistory, { role: "user" as const, content: prompt }];
     const userMessages = messages.filter((item) => item.role === "user")
       .map((item) => item.content);
+    const timingRequest = siTimingRequest(body.context, prompt);
+    if (
+      timingRequest &&
+      (!timingRequest.taskDay || !timingRequest.taskTimeZoneId)
+    ) {
+      return jsonResponse(req, {
+        requestId,
+        error: "timing_context_missing",
+      }, 422);
+    }
     const upstreamBody: Record<string, unknown> = {
       model: DEFAULT_MODEL,
       max_tokens: maxTokens,
       temperature: 0,
       messages,
     };
-    upstreamBody.system = system;
+    upstreamBody.system = timingRequest
+      ? `${system} ${SI_TIMING_EXTRACTION_INSTRUCTION}`
+      : system;
+    if (timingRequest) upstreamBody.output_config = SI_TIMING_OUTPUT_CONFIG;
     const cost = quotedCreditCost(upstreamBody);
     if (body.quoteOnly === true) {
       return jsonResponse(req, {
@@ -407,15 +506,12 @@ Deno.serve(async (req: Request) => {
       }, 503);
     }
     if (reserved.duplicate === true) {
-      const cached = reserved.responsePayload;
-      const cachedResponse = cached && typeof cached === "object" &&
-          !Array.isArray(cached)
-        ? cached as Record<string, unknown>
-        : null;
-      if (
-        reserved.state === "completed" && cachedResponse &&
-        typeof cachedResponse.message === "string"
-      ) return jsonResponse(req, cachedResponse as ProxyResponse);
+      // The reservation's compatibility payload has no expiry/principal
+      // receipt. Re-read the exact active account's bounded cache before use.
+      if (reserved.state === "completed" && reserved.conflict !== true) {
+        const cachedResponse = await loadUnexpiredReply(userId, requestId);
+        if (cachedResponse) return jsonResponse(req, cachedResponse);
+      }
       const state = String(reserved.state ?? "unknown");
       const error = state === "denied" &&
           typeof reserved.reason === "string" && reserved.reason.length > 0
@@ -504,7 +600,7 @@ Deno.serve(async (req: Request) => {
         502,
       );
     }
-    if (containsBlockedAssistantClaim(message)) {
+    if (!timingRequest && containsBlockedAssistantClaim(message)) {
       await settleReservation(userId, requestId, false, {
         inputTokens,
         outputTokens,
@@ -518,7 +614,9 @@ Deno.serve(async (req: Request) => {
         502,
       );
     }
-    let finalMessage = message;
+    let finalMessage = timingRequest
+      ? structuredSiTimingReply(timingRequest, message)
+      : message;
     let finalModel = typeof data?.model === "string"
       ? data.model
       : DEFAULT_MODEL;
@@ -527,13 +625,15 @@ Deno.serve(async (req: Request) => {
       : undefined;
     let totalInputTokens = inputTokens;
     let totalOutputTokens = outputTokens;
-    const confusedTaskStart = containsScheduledStartDepartureConfusion(
-      message,
-      body.context,
-      prompt,
-      userMessages,
-    );
-    const contradictoryVerdict = containsRecommendationContradiction(message);
+    const confusedTaskStart = !timingRequest &&
+      containsScheduledStartDepartureConfusion(
+        message,
+        body.context,
+        prompt,
+        userMessages,
+      );
+    const contradictoryVerdict = !timingRequest &&
+      containsRecommendationContradiction(message);
     if (contradictoryVerdict || confusedTaskStart) {
       const repairInstructions = [
         "Rewrite the answer once.",
@@ -742,9 +842,9 @@ Deno.serve(async (req: Request) => {
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
         providerRequestId: finalProviderRequestId,
-        // The billing ledger keeps usage metadata only. Conversation content is
-        // returned to the caller but is never persisted for idempotent replay.
-        responsePayload: {},
+        // The TTL overload stores reply and expiry atomically. Never send this
+        // content to the legacy settlement endpoint without bounded retention.
+        responsePayload: responsePayload as Record<string, unknown>,
       });
     } catch (error) {
       if (
@@ -797,6 +897,46 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : null;
+}
+
+function structuredSiTimingReply(
+  request: SiTimingRequest,
+  providerText: string,
+  nowMs = Date.now(),
+): string {
+  const clarification = request.language === "es"
+    ? "El inicio guardado de la tarea no indica cuándo sales o empiezas a comprar. Confirma la hora de cierre, los minutos de viaje y los minutos de compra para calcular una salida con margen."
+    : "The saved task start does not tell me when you leave or begin shopping. Please confirm the closing time, travel minutes, and shopping minutes so I can calculate a departure with a cushion.";
+  if (!request.taskDay || !request.taskTimeZoneId) return clarification;
+  let structured: unknown;
+  try {
+    structured = JSON.parse(providerText);
+  } catch {
+    return clarification;
+  }
+  const facts = parseSiTimingExtraction(structured, request.userTurns);
+  if (!facts) return clarification;
+  const input = timingInputForTaskDay(
+    facts,
+    request.userTurns,
+    request.taskDay,
+    request.taskTimeZoneId,
+  );
+  if (!input) return clarification;
+  const result = calculateSiTiming(input, {
+    nowMs,
+    optionalBufferMinutes: 15,
+  });
+  return renderSiTimingReply(result, {
+    language: request.language,
+    timeZoneId: request.taskTimeZoneId,
+    travelMinutes: facts.travelMinutes.value,
+    activityMinutes: facts.activityMinutes.value,
+    recordedTaskStart: recordedTaskClock(
+      request.recordedTaskStart,
+      request.language,
+    ),
+  });
 }
 
 export function remainingProviderTimeoutMs(

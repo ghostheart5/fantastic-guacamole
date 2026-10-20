@@ -100,6 +100,24 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   @override
   void initState() {
     super.initState();
+    // Onboarding promises a first choice without requiring cloud consent or
+    // a purchase. Consume that request through the existing local planner.
+    _useLocalTools =
+        ref
+            .read(smartPlannerFirstValueProvider)
+            ?.isValidFor(
+              accountScopeId:
+                  ref.read(accountStorageScopeProvider).v2Namespace ?? '',
+              now: DateTime.now().toUtc(),
+            ) ??
+        false;
+    ref.listenManual(smartPlannerFirstValueProvider, (previous, next) {
+      if (next == null) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_consumeFirstValueRequest());
+      });
+    });
     final voiceService = ref.read(voiceServiceProvider);
     _stopVoice = voiceService.stop;
     final ConsentedHumanContext humanContext = ref.read(
@@ -110,14 +128,11 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         : null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _consumeFirstValueRequest();
+      unawaited(_consumeFirstValueRequest());
     });
   }
 
-  void _consumeFirstValueRequest() {
-    if (!_useLocalTools && ref.read(assistantConversationAvailableProvider)) {
-      return; // The conversation screen reviews this request before sending.
-    }
+  Future<void> _consumeFirstValueRequest() async {
     final String accountScopeId =
         ref.read(accountStorageScopeProvider).v2Namespace ?? '';
     final SmartPlannerFirstValueRequest? request = ref
@@ -125,7 +140,9 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         .takeFor(accountScopeId: accountScopeId, now: DateTime.now().toUtc());
     if (request == null) return;
 
+    _clearChangedCheckIn();
     setState(() {
+      _useLocalTools = true;
       final String? prompt = request.prompt;
       if (prompt != null) _notesController.text = prompt;
       final double? energy = request.energy;
@@ -1224,10 +1241,26 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_useLocalTools && ref.watch(assistantConversationAvailableProvider)) {
+    if (!_useLocalTools &&
+        ref.watch(
+          assistantConversationSurfaceAvailableProvider(
+            ConversationSurface.planner,
+          ),
+        )) {
       return AssistantConversationScreen(
         surface: ConversationSurface.planner,
         onLocalTools: () => setState(() => _useLocalTools = true),
+        onLocalToolsWithDraft: (String draft) {
+          if (draft.isNotEmpty) {
+            // Controller assignments do not call the field's onChanged handler.
+            // An old plan must not remain actionable for this new request.
+            _clearChangedCheckIn();
+          }
+          setState(() {
+            if (draft.isNotEmpty) _notesController.text = draft;
+            _useLocalTools = true;
+          });
+        },
       );
     }
     final PlannerRoutineCopy routine = ChronoSparkLocalizations.of(

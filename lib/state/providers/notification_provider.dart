@@ -1,4 +1,11 @@
 import 'dart:async';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/state/providers/automation_schedule_projection.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_operation.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
+import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
@@ -17,6 +24,85 @@ final notificationProvider =
     NotifierProvider<NotificationNotifier, List<NotificationEntity>>(
       NotificationNotifier.new,
     );
+
+/// Daily automations bypass the one-shot notification repository. Read their
+/// actual OS registrations instead of treating enabled preferences as evidence.
+class AutomationNotification extends NotificationEntity {
+  const AutomationNotification({
+    required super.id,
+    required super.title,
+    required super.message,
+    required super.scheduledAt,
+    required this.registeredTimeKnown,
+    this.cadence,
+  });
+  final bool registeredTimeKnown;
+  final HabitCadence? cadence;
+}
+
+final automationNotificationsProvider =
+    FutureProvider.autoDispose<List<NotificationEntity>>((ref) async {
+      final scope = ref.watch(accountStorageScopeProvider);
+      if (!scope.isWritable || scope.rawUserId == null) return const [];
+      final owner = AccountOperation.capture(ref);
+      final prefs = ref.read(reminderOrchestratorServiceProvider).loadPrefs();
+      final reflection = ref
+          .read(reflectionReminderServiceProvider)
+          .loadPrefs();
+      final pending = await owner.wait(
+        ref
+            .read(notificationSchedulerProvider)
+            .pendingForAccount(
+              AccountDataRegistry.accountDigest(scope.rawUserId!),
+            ),
+      );
+      final now = DateTime.now();
+      DateTime next(int hour, int minute) {
+        final today = DateTime(now.year, now.month, now.day, hour, minute);
+        return today.isAfter(now)
+            ? today
+            : DateTime(now.year, now.month, now.day + 1, hour, minute);
+      }
+
+      return [
+        for (final item in pending)
+          if (item.id == 'daily_planning_reminder' ||
+              item.id == 'habit_reminder_daily' ||
+              item.id == 'reflection_reminder')
+            AutomationNotification(
+              registeredTimeKnown:
+                  item.hour != null &&
+                  item.minute != null &&
+                  !item.cadenceMetadataMalformed,
+              cadence: item.cadence,
+              id: item.id,
+              title: item.title,
+              message: item.body,
+              scheduledAt:
+                  item.hour != null &&
+                      item.minute != null &&
+                      !item.cadenceMetadataMalformed
+                  ? nextRegisteredAutomationTime(
+                      now: now,
+                      hour: item.hour!,
+                      minute: item.minute!,
+                      cadence: item.cadence,
+                      firstScheduledLocal: item.firstScheduledLocal,
+                    )
+                  : switch (item.id) {
+                      'daily_planning_reminder' => next(
+                        prefs.dailyPlanningHour,
+                        prefs.dailyPlanningMinute,
+                      ),
+                      'reflection_reminder' => next(
+                        reflection.time.hour,
+                        reflection.time.minute,
+                      ),
+                      _ => next(20, 0),
+                    },
+            ),
+      ];
+    });
 
 final unreadNotificationsProvider = Provider<int>(
   (Ref ref) => ref

@@ -128,7 +128,8 @@ void main() {
 
     expect(find.byKey(const Key('onboarding-brand-title')), findsOneWidget);
     expect(find.text('SKIP'), findsNothing);
-    await _tapRequired(tester, find.text('CONTINUE TO LOGIN'));
+    expect(find.text('CONTINUE TO LOGIN'), findsNothing);
+    await _tapRequired(tester, find.text('CONTINUE TO SETUP'));
     await tester.pump(const Duration(milliseconds: 400));
 
     final Finder firstValueQuestion = find.byKey(

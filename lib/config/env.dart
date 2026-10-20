@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/config/backend_mode.dart';
 import 'package:fantastic_guacamole/config/firebase_identity.dart';
 import 'package:fantastic_guacamole/config/launch_containment.dart';
 import 'package:fantastic_guacamole/config/internal_billing_test.dart';
+import 'package:fantastic_guacamole/config/public_release_profile.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -53,18 +54,18 @@ abstract final class Env {
       _FeatureFlags.remoteConfigDefaultsJson;
   static bool get enableCloudSync =>
       cloudServicesEnabled &&
-      LaunchContainment.cloudSyncEnabled &&
+      LaunchContainment.publicCloudSyncEnabled &&
       _FeatureFlags.enableCloudSync;
   static bool get enableCloudRestore =>
-      cloudServicesEnabled && LaunchContainment.cloudRestoreEnabled;
+      cloudServicesEnabled && LaunchContainment.publicCloudRestoreEnabled;
   static bool get subscriptionsEnabled =>
-      cloudServicesEnabled && LaunchContainment.subscriptionsEnabled;
+      cloudServicesEnabled && LaunchContainment.publicSubscriptionsEnabled;
   static bool get externalAiEnabled =>
-      cloudServicesEnabled && LaunchContainment.externalAiEnabled;
+      cloudServicesEnabled && LaunchContainment.publicExternalAiEnabled;
   static bool get creditSpendingEnabled =>
-      cloudServicesEnabled && LaunchContainment.creditSpendingEnabled;
+      cloudServicesEnabled && LaunchContainment.publicCreditSpendingEnabled;
   static bool get paidCreditPlansEnabled =>
-      cloudServicesEnabled && LaunchContainment.paidCreditPlansEnabled;
+      cloudServicesEnabled && LaunchContainment.publicPaidCreditPlansEnabled;
   static bool get isMockMode =>
       cloudServicesEnabled && _FeatureFlags.isMockMode;
   static bool get isPaywallDisabled =>
@@ -91,7 +92,7 @@ abstract final class Env {
       cloudServicesEnabled && _ServiceEndpoints.isSupabaseConfigured;
   static bool get isAiProxyConfigured =>
       cloudServicesEnabled &&
-      LaunchContainment.externalAiEnabled &&
+      LaunchContainment.publicExternalAiEnabled &&
       _ServiceEndpoints.isAiProxyConfigured;
 
   static bool get enforceProductionReadiness =>

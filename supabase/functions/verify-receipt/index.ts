@@ -1,5 +1,9 @@
 /// <reference lib="deno.ns" />
-import { CREDIT_TOPUPS, verifyCreditTopup } from "../_shared/credit_topups.ts";
+import {
+  CREDIT_TOPUPS,
+  registerPendingCreditTopup,
+  verifyCreditTopup,
+} from "../_shared/credit_topups.ts";
 
 import {
   authenticatedUserId,
@@ -13,7 +17,16 @@ import {
   googleServiceAccountCredentialFingerprint,
   sha256Hex,
 } from "../_shared/google_auth.ts";
+import { parseInternalAiCohort } from "../_shared/internal_ai_cohort.ts";
 import { googleSubscriptionState } from "../_shared/google_play_rtdn.ts";
+import {
+  creditAdmissionAllowed,
+  creditTopupRequiresLicenseTest,
+  internalCreditTestRequestAllowed,
+  parsePublicCreditTopupPolicy,
+  privateCreditAdmissionQaRequired,
+  publicCreditSaleEnabled,
+} from "../_shared/public_credit_topup_policy.ts";
 import {
   acknowledgeGooglePlaySubscription,
   applyGooglePlayAuthorityAfterAcknowledgement,
@@ -25,6 +38,7 @@ import {
   existingPurchaseProofPolicy,
   isGooglePlayTestPurchase,
   readPurchaseLineage,
+  reconciledInactiveSubscriptionResponse,
   verifyExistingPurchaseRecoveryBinding,
   verifyExternalAccountBinding,
   verifySubscriptionLineItem,
@@ -53,8 +67,18 @@ const ALLOWED_ORIGINS = new Set(
 const MAX_PURCHASE_TOKEN_LENGTH = 4096;
 const LEGACY_ACCOUNT_BINDING_CUTOFF =
   Deno.env.get("GOOGLE_PLAY_LEGACY_ACCOUNT_BINDING_CUTOFF")?.trim() ?? "";
+const publicCreditTopupPolicy = parsePublicCreditTopupPolicy(Deno.env.get);
+const publicCreditAdmissionQaEnabled =
+  Deno.env.get("CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA_ENABLED") === "true";
+const internalBillingCohort = parseInternalAiCohort(
+  Deno.env.get("CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"),
+);
+const internalBillingCohortFingerprint = internalBillingCohort.size > 0
+  ? await sha256Hex([...internalBillingCohort].sort().join(","))
+  : null;
 
 interface VerifyRequest {
+  operation?: string;
   productId: string;
   purchaseToken: string;
   purchaseType: "subscription" | "inapp";
@@ -62,11 +86,15 @@ interface VerifyRequest {
 }
 
 interface VerifyResponse {
+  checkoutAllowed?: boolean;
+  admissionId?: string;
+  pendingRegistered?: boolean;
   consumed?: boolean;
   creditsGranted?: number;
   duplicate?: boolean;
   valid: boolean;
   testPurchase?: boolean;
+  subscriptionReconciled?: boolean;
   acknowledged?: boolean;
   retryable?: boolean;
   expiryTimeMs?: number;
@@ -97,7 +125,20 @@ function cors(req: Request): Record<string, string> {
     "Vary": "Origin",
     "X-Content-Type-Options": "nosniff",
     "X-ChronoSpark-Contract": "verify-receipt-v2",
-    "X-ChronoSpark-Test-Purchase-Guard": "v1",
+    "X-ChronoSpark-Public-Credit-Checkout":
+      publicCreditSaleEnabled(publicCreditTopupPolicy)
+        ? "enabled-v1"
+        : "disabled-v1",
+    "X-ChronoSpark-Credit-Admission-QA":
+      publicCreditAdmissionQaEnabled && internalBillingCohort.size > 0
+        ? "cohort-v1"
+        : "disabled-v1",
+    ...(internalBillingCohortFingerprint
+      ? {
+        "X-ChronoSpark-Internal-Billing-Cohort-SHA256":
+          internalBillingCohortFingerprint,
+      }
+      : {}),
     ...(googleCredentialFingerprint
       ? {
         "X-ChronoSpark-Google-Credential-SHA256": googleCredentialFingerprint,
@@ -175,6 +216,57 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = await req.json() as Partial<VerifyRequest>;
+    if (body.operation === "credit_sale_eligibility") {
+      if (
+        Object.keys(body).some((key) =>
+          key !== "operation" && key !== "productId"
+        ) ||
+        !CREDIT_TOPUPS.has(body.productId ?? "")
+      ) {
+        return jsonResponse(req, {
+          valid: false,
+          error: "invalid_request_body",
+        }, 400);
+      }
+      if (!readServiceAccount() || !googleCredentialFingerprint) {
+        return jsonResponse(req, {
+          valid: false,
+          error: "service_account_not_configured",
+        }, 503);
+      }
+      if (
+        !await creditAdmissionAllowed(
+          publicCreditTopupPolicy,
+          publicCreditAdmissionQaEnabled,
+          userId,
+          internalBillingCohort,
+        )
+      ) {
+        return jsonResponse(req, { valid: true, checkoutAllowed: false });
+      }
+      const admission = await serviceRpc(
+        config,
+        "create_public_credit_checkout_admission",
+        {
+          p_user_id: userId,
+          p_product_id: body.productId,
+        },
+      );
+      if (
+        admission?.allowed !== true ||
+        typeof admission.admissionId !== "string"
+      ) {
+        return jsonResponse(req, {
+          valid: false,
+          error: "checkout_admission_unavailable",
+        }, 503);
+      }
+      return jsonResponse(req, {
+        valid: true,
+        checkoutAllowed: true,
+        admissionId: admission.admissionId,
+      });
+    }
     const productId = body.productId?.trim() ?? "";
     const purchaseToken = body.purchaseToken?.trim() ?? "";
     if (
@@ -191,6 +283,19 @@ Deno.serve(async (req: Request) => {
         400,
       );
     }
+    if (
+      body.purchaseType === "inapp" &&
+      !await internalCreditTestRequestAllowed(
+        body.requireTestPurchase,
+        userId,
+        internalBillingCohort,
+      )
+    ) {
+      return jsonResponse(req, {
+        valid: false,
+        error: "internal_billing_test_not_allowed",
+      }, 403);
+    }
     const serviceAccount = readServiceAccount();
     if (!serviceAccount) {
       return jsonResponse(req, {
@@ -200,16 +305,48 @@ Deno.serve(async (req: Request) => {
     }
     const accessToken = await getGoogleAccessToken(serviceAccount);
     if (body.purchaseType === "inapp") {
-      const result = await verifyCreditTopup({
+      const privateAdmissionQa = await privateCreditAdmissionQaRequired(
+        publicCreditAdmissionQaEnabled,
+        userId,
+        internalBillingCohort,
+      );
+      const topupInput = {
         config,
         userId,
         packageName: ANDROID_PACKAGE_NAME,
         productId,
         token: purchaseToken,
         accessToken,
-        // Credit packs are enabled only for the internal license-test rollout.
-        requireTest: true,
-      });
+        // Closing new sales must not strand an already completed purchase.
+        // An internal client may still demand license-test proof.
+        requireTest: privateAdmissionQa ||
+          creditTopupRequiresLicenseTest(body.requireTestPurchase),
+        requireAdmission: privateAdmissionQa,
+      };
+      if (
+        body.operation !== undefined &&
+        body.operation !== "credit_register_pending"
+      ) {
+        return jsonResponse(req, {
+          valid: false,
+          error: "invalid_request_body",
+        }, 400);
+      }
+      const result = body.operation === "credit_register_pending"
+        ? await registerPendingCreditTopup(topupInput)
+        : await verifyCreditTopup(topupInput);
+      if (privateAdmissionQa && body.operation === "credit_register_pending") {
+        // Private QA diagnostics deliberately exclude account, order and token.
+        console.info(JSON.stringify({
+          event: "credit_pending_reconciliation",
+          productId,
+          outcome: result.purchaseCanceled === true
+            ? "canceled"
+            : result.pendingRegistered === true
+            ? "pending"
+            : result.error ?? "unverified",
+        }));
+      }
       return jsonResponse(
         req,
         result as unknown as VerifyResponse,
@@ -454,12 +591,13 @@ Deno.serve(async (req: Request) => {
     }
     const applied = authority.value;
     const reconciliationOutcome = classifyVerificationReconciliation(applied);
-    if (reconciliationOutcome === "terminal") {
-      return jsonResponse(req, {
-        valid: false,
-        productId,
-        error: "purchase_not_active",
-      }, 200);
+    const inactiveResponse = reconciledInactiveSubscriptionResponse(
+      applied,
+      productId,
+      testPurchase,
+    );
+    if (inactiveResponse) {
+      return jsonResponse(req, inactiveResponse, 200);
     }
     if (!applied || reconciliationOutcome !== "accepted") {
       return jsonResponse(req, {

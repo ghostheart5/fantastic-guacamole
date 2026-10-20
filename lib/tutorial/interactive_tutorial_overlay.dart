@@ -22,6 +22,8 @@ class InteractiveTutorialOverlay extends StatefulWidget {
     this.stepLabel,
     this.onSecondary,
     this.secondaryLabel,
+    this.onBack,
+    this.backLabel,
     this.allowTargetInteraction = true,
     super.key,
   });
@@ -35,6 +37,10 @@ class InteractiveTutorialOverlay extends StatefulWidget {
   final String? stepLabel;
   final VoidCallback? onSecondary;
   final String? secondaryLabel;
+
+  /// Returns to the previous guided step. Hidden when null.
+  final VoidCallback? onBack;
+  final String? backLabel;
   final bool allowTargetInteraction;
 
   @override
@@ -51,6 +57,9 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
   final FocusNode _secondaryFocusNode = FocusNode(
     debugLabel: 'Tutorial secondary action',
   );
+  final FocusNode _backFocusNode = FocusNode(
+    debugLabel: 'Tutorial back action',
+  );
   late final FocusScopeNode _calloutFocusScope;
   Rect? _targetRect;
   FocusNode? _focusBeforeOverlay;
@@ -58,6 +67,7 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
   bool _reduceMotion = false;
   bool _focusScheduled = false;
   bool _movedFocus = false;
+  bool _targetRevealed = false;
 
   @override
   void initState() {
@@ -107,6 +117,9 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
         : TraversalEdgeBehavior.closedLoop;
     if (oldWidget.targetKey != widget.targetKey) {
       _targetRect = null;
+      _targetRevealed = false;
+      _revealTarget();
+    } else if (!_targetRevealed) {
       _revealTarget();
     } else {
       _scheduleMeasurement();
@@ -129,6 +142,7 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
     }
     _primaryFocusNode.dispose();
     _secondaryFocusNode.dispose();
+    _backFocusNode.dispose();
     _calloutFocusScope.dispose();
     _pointerController.dispose();
     super.dispose();
@@ -160,6 +174,8 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
         _scheduleMeasurement();
         return;
       }
+      if (_targetRevealed) return;
+      _targetRevealed = true;
       await Scrollable.ensureVisible(
         targetContext,
         duration: _reduceMotion
@@ -176,6 +192,11 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
   void _scheduleMeasurement() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // Async screens can mount their target after the guide first appears.
+      // Reveal it once it exists, rather than merely drawing an offscreen hole.
+      if (!_targetRevealed && widget.targetKey.currentContext != null) {
+        _revealTarget();
+      }
       final RenderObject? targetObject = widget.targetKey.currentContext
           ?.findRenderObject();
       final RenderObject? overlayObject = _overlayKey.currentContext
@@ -226,62 +247,71 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
                   (measured.bottom + 8).clamp(8, visibleHeight - 8),
                 );
 
-          return Stack(
-            children: <Widget>[
-              if (target == null)
-                Positioned.fill(child: _blocker())
-              else ...<Widget>[
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  right: 0,
-                  height: target.top,
-                  child: _blocker(),
-                ),
-                Positioned(
-                  left: 0,
-                  top: target.top,
-                  width: target.left,
-                  height: target.height,
-                  child: _blocker(),
-                ),
-                Positioned(
-                  left: target.right,
-                  top: target.top,
-                  right: 0,
-                  height: target.height,
-                  child: _blocker(),
-                ),
-                Positioned(
-                  left: 0,
-                  top: target.bottom,
-                  right: 0,
-                  bottom: 0,
-                  child: _blocker(),
-                ),
-                Positioned.fromRect(
-                  rect: target,
-                  child: IgnorePointer(
-                    ignoring: widget.allowTargetInteraction,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.neonCyan, width: 2),
-                        boxShadow: <BoxShadow>[
-                          BoxShadow(
-                            color: AppColors.neonCyan.withValues(alpha: .45),
-                            blurRadius: 18,
-                            spreadRadius: 2,
+          // Modal guides absorb taps on the screen below. Keep that covered
+          // screen out of accessibility navigation too; interactive spotlights
+          // must retain the real target's accessible actions.
+          return BlockSemantics(
+            blocking: !widget.allowTargetInteraction,
+            child: Stack(
+              children: <Widget>[
+                if (target == null)
+                  Positioned.fill(child: _blocker())
+                else ...<Widget>[
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    right: 0,
+                    height: target.top,
+                    child: _blocker(),
+                  ),
+                  Positioned(
+                    left: 0,
+                    top: target.top,
+                    width: target.left,
+                    height: target.height,
+                    child: _blocker(),
+                  ),
+                  Positioned(
+                    left: target.right,
+                    top: target.top,
+                    right: 0,
+                    height: target.height,
+                    child: _blocker(),
+                  ),
+                  Positioned(
+                    left: 0,
+                    top: target.bottom,
+                    right: 0,
+                    bottom: 0,
+                    child: _blocker(),
+                  ),
+                  Positioned.fromRect(
+                    rect: target,
+                    child: IgnorePointer(
+                      ignoring: widget.allowTargetInteraction,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.neonCyan,
+                            width: 2,
                           ),
-                        ],
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: AppColors.neonCyan.withValues(alpha: .45),
+                              blurRadius: 18,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                _pointer(target, size.width, visibleHeight),
+                  _pointer(target, size.width, visibleHeight),
+                ],
+                _callout(target, size.width, visibleHeight, safePadding),
               ],
-              _callout(target, size.width, visibleHeight, safePadding),
-            ],
+            ),
           );
         },
       ),
@@ -381,23 +411,19 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
     final double textScale = MediaQuery.textScalerOf(context).scale(1);
     final double fullRegionHeight = usableBottom - usableTop;
     final double minimumReadableHeight = math.min(320, fullRegionHeight);
-    final double minimumPinnedActionHeight = math.max(400, 160 * textScale);
-    bool pinActionsForLargeText = false;
-    if (textScale >= 1.5 &&
+    bool pinActionsInSafeViewport = false;
+    if ((textScale >= 1.5 || !widget.allowTargetInteraction) &&
         widget.primaryEnabled &&
-        fullRegionHeight >= minimumPinnedActionHeight &&
         regionBottom - regionTop < minimumReadableHeight) {
-      // At large text sizes a large spotlight can leave only a thin strip for
-      // the guide. Give the actionable callout the safe viewport instead of
-      // hiding its explanation and primary action behind an undiscoverable
-      // internal scroll. Guides that require target interaction keep the
-      // target-relative layout by disabling their primary action. Extremely
-      // short viewports keep the whole callout scrollable because even the
-      // pinned action area may not fit at very large text scales.
+      // A large spotlight can leave only a thin strip for the guide, even at
+      // normal text size. Modal guides can cover the target until their action
+      // is pressed; guides that require target interaction keep the
+      // target-relative layout at normal text size. Very short viewports use
+      // the full scrollable viewport so the action is never hidden entirely.
       regionTop = usableTop;
       regionBottom = usableBottom;
       alignment = Alignment.center;
-      pinActionsForLargeText = true;
+      pinActionsInSafeViewport = fullRegionHeight >= 160 * textScale;
     }
     final double regionHeight = regionBottom - regionTop;
     if (calloutWidth <= 0 || regionHeight <= 0) {
@@ -479,7 +505,7 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
                 borderRadius: BorderRadius.circular(8),
                 clipBehavior: Clip.antiAlias,
                 child: Container(
-                  height: pinActionsForLargeText ? regionHeight : null,
+                  height: pinActionsInSafeViewport ? regionHeight : null,
                   constraints: BoxConstraints(maxHeight: regionHeight),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
@@ -487,7 +513,7 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
                       color: AppColors.neonCyan.withValues(alpha: .72),
                     ),
                   ),
-                  child: pinActionsForLargeText
+                  child: pinActionsInSafeViewport
                       ? Column(
                           children: <Widget>[
                             Expanded(
@@ -549,25 +575,73 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
             ),
           );
 
-    if (secondary == null) {
-      return SizedBox(width: double.infinity, child: primary);
-    }
+    final Widget? back = widget.onBack == null
+        ? null
+        : ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: TextButton.icon(
+              key: const Key('tutorial_back_action'),
+              focusNode: _backFocusNode,
+              onPressed: widget.onBack,
+              icon: const Icon(Icons.arrow_back_rounded, size: 18),
+              label: Text(
+                widget.backLabel ?? 'Back',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+
     final double textScale = MediaQuery.textScalerOf(context).scale(1);
+    if (back == null) {
+      if (secondary == null) {
+        return SizedBox(width: double.infinity, child: primary);
+      }
+      return LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          if (constraints.maxWidth >= 300 && textScale <= 1.5) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                Expanded(child: primary),
+                const SizedBox(width: 8),
+                Flexible(child: secondary),
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[primary, const SizedBox(height: 8), secondary],
+          );
+        },
+      );
+    }
+    // Three actions do not fit beside each other in a 390px callout; keep the
+    // primary action full width and pair Back with the secondary action.
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        if (constraints.maxWidth >= 300 && textScale <= 1.5) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              Expanded(child: primary),
-              const SizedBox(width: 8),
-              Flexible(child: secondary),
-            ],
-          );
-        }
+        final bool stack = constraints.maxWidth < 300 || textScale > 1.5;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[primary, const SizedBox(height: 8), secondary],
+          children: <Widget>[
+            primary,
+            const SizedBox(height: 8),
+            if (stack) ...<Widget>[
+              back,
+              if (secondary != null) ...<Widget>[
+                const SizedBox(height: 8),
+                secondary,
+              ],
+            ] else
+              Row(
+                children: <Widget>[
+                  Expanded(child: back),
+                  if (secondary != null) ...<Widget>[
+                    const SizedBox(width: 8),
+                    Expanded(child: secondary),
+                  ],
+                ],
+              ),
+          ],
         );
       },
     );

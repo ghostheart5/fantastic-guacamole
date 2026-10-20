@@ -14,11 +14,13 @@ the backend evidence is captured.
 
 ## Deployment Order
 
-1. In a disposable fresh project, review and pass every tracked migration through
-   `20260830152232_harden_phase8_billing_authority.sql`, both billing pgTAP
-   contracts, and database lint. Only after that independent evidence and a
-   separately approved production change plan may the same migrations be
-   applied to the production project.
+1. In a disposable fresh project, review and pass every tracked migration
+   through the latest migration in the exact release commit, both billing pgTAP
+   contracts, and database lint. Record the latest migration name and compare
+   the complete linked-project migration inventory with that commit before any
+   deployment. Only after that independent evidence and a separately approved
+   production change plan may missing migrations be applied to the production
+   project; never reapply a migration already recorded there.
    Do not run the Android release while linked migration inventory differs from
    the repository.
 2. Set the required Edge Function secrets without committing their values:

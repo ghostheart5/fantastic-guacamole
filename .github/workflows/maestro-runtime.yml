@@ -7,6 +7,25 @@ on:
         description: Immutable QA source revision; defaults to the calling revision
         required: false
         type: string
+      build_only:
+        description: Build and retain a local QA APK without starting a device
+        required: false
+        type: boolean
+        default: false
+      ci_run:
+        description: Successful exact-source CI run required for build-only
+        required: false
+        type: string
+        default: ''
+      apk_target_platform:
+        required: false
+        type: string
+        default: android-x64
+      storage_clearance_sha256:
+        description: Reviewed no-added-charge clearance for 200 MiB of artifacts for seven days
+        required: false
+        type: string
+        default: ''
       suite:
         required: false
         type: string
@@ -35,6 +54,29 @@ on:
         description: Full immutable QA source SHA; defaults to this workflow revision
         required: false
         type: string
+      build_only:
+        description: Build and retain a local QA APK without starting a device
+        required: false
+        type: boolean
+        default: false
+      ci_run:
+        description: Successful exact-source CI run required for build-only
+        required: false
+        type: string
+        default: ''
+      apk_target_platform:
+        description: ABI for the retained QA APK
+        required: false
+        type: choice
+        default: android-x64
+        options:
+          - android-arm64
+          - android-x64
+      storage_clearance_sha256:
+        description: Reviewed no-added-charge clearance for 200 MiB of artifacts for seven days
+        required: false
+        type: string
+        default: ''
       suite:
         description: 'Disposable hosted emulator suite'
         required: true
@@ -87,8 +129,228 @@ env:
   QA_GUEST_PAGES: ${{ inputs.guest_pages || '4k' }}
 
 jobs:
+  qa-apk-build:
+    name: Exact-source local QA APK only
+    if: ${{ inputs.build_only }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
+    env:
+      QA_CI_RUN: ${{ inputs.ci_run }}
+      QA_APK_TARGET: ${{ inputs.apk_target_platform }}
+      QA_STORAGE_CLEARANCE_SHA256: ${{ inputs.storage_clearance_sha256 }}
+      QA_WORKFLOW_SHA: ${{ github.workflow_sha }}
+      QA_WORKFLOW_REF: ${{ github.workflow_ref }}
+    steps:
+      - name: Validate bounded build authorization and exact-source CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REPOSITORY" = ghostheart5/fantastic-guacamole
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$RUNNER_OS" = Linux
+          test "$RUNNER_ARCH" = X64
+          test "$QA_SOURCE_SHA" = 03d67c52ebc8e57c1c11f25aa7e38f4014edd7a2
+          test "$QA_CI_RUN" = 38646062537
+          test "$QA_SUITE" = qa-smoke
+          test "$QA_MONKEY" = false
+          test "$QA_MONKEY_ONLY" = false
+          case "$QA_APK_TARGET" in android-arm64|android-x64) ;; *) exit 1 ;; esac
+          [[ "$QA_STORAGE_CLEARANCE_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          # This digest binds a separately reviewed account-capacity receipt.
+          # Never dispatch before proving 200 MiB for seven days adds no charge.
+          gh api "repos/$GITHUB_REPOSITORY" > "$RUNNER_TEMP/qa-repository.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$QA_CI_RUN" > "$RUNNER_TEMP/qa-ci-run.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          temp = Path(os.environ['RUNNER_TEMP'])
+          repo = json.loads((temp / 'qa-repository.json').read_text())
+          ci = json.loads((temp / 'qa-ci-run.json').read_text())
+          assert repo['full_name'] == os.environ['GITHUB_REPOSITORY']
+          assert repo['private'] is False and repo['visibility'] == 'public'
+          assert ci['repository']['full_name'] == repo['full_name']
+          assert ci['head_sha'] == os.environ['QA_SOURCE_SHA']
+          assert str(ci['id']) == os.environ['QA_CI_RUN']
+          assert ci['path'] == '.github/workflows/ci.yml'
+          assert ci['event'] == 'workflow_dispatch'
+          assert ci['status'] == 'completed' and ci['conclusion'] == 'success'
+          PY
+
+      - name: Checkout exact application source
+        id: checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+
+      - name: Record clean source, configuration and initial resources
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$QA_SOURCE_SHA"
+          test -z "$(git status --porcelain)"
+          git check-ignore -q test-results/qa-apk-build/provenance.json
+          mkdir -p test-results/qa-apk-build
+          python3 - <<'PY'
+          import datetime, hashlib, json, os, shutil, subprocess
+          from pathlib import Path
+          def sha(path):
+              with Path(path).open('rb') as stream:
+                  return hashlib.file_digest(stream, 'sha256').hexdigest()
+          mem = dict(line.split(':', 1) for line in Path('/proc/meminfo').read_text().splitlines())
+          available = int(mem['MemAvailable'].split()[0]) * 1024
+          free = shutil.disk_usage('.').free
+          assert available >= 6 * 1024**3, 'Insufficient available physical RAM'
+          assert free >= 8 * 1024**3, 'Insufficient free disk; no cleanup is authorized'
+          config = 'tool/qa_defines.json'
+          assert sha(config) == '66a668ee353d982f969891834991013cb6c69b79ec1477b996c2eacfee596bd4'
+          assert sha('android/gradle.properties') == '4d44d934bbfa737db09a3513acdb455c73f7b14baf4c6cf4785b58257ceebbd5'
+          ci = json.loads((Path(os.environ['RUNNER_TEMP']) / 'qa-ci-run.json').read_text())
+          receipt = {
+              'startedAtUtc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'sourceSha': os.environ['QA_SOURCE_SHA'],
+              'sourceTree': subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}'], text=True).strip(),
+              'workflowSha': os.environ['QA_WORKFLOW_SHA'], 'workflowRef': os.environ['QA_WORKFLOW_REF'],
+              'runId': os.environ['GITHUB_RUN_ID'], 'runAttempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'ciRun': {'id': ci['id'], 'headSha': ci['head_sha'], 'conclusion': ci['conclusion']},
+              'targetPlatform': os.environ['QA_APK_TARGET'], 'sourceInitiallyClean': True,
+              'qaDefinesSha256': sha(config), 'lockfileSha256': sha('pubspec.lock'),
+              'gradlePropertiesSha256': sha('android/gradle.properties'),
+              'availablePhysicalBytes': available, 'freeDiskBytes': free,
+              'storageClearanceSha256': os.environ['QA_STORAGE_CLEARANCE_SHA256'],
+              'artifactLimitBytes': 199 * 1024**2, 'reservedStorageBytes': 200 * 1024**2,
+              'retentionDays': 7,
+              'boundary': 'Local QA debug artifact only; no device or app acceptance, cloud sync or Play billing proof.'
+          }
+          Path('test-results/qa-apk-build/provenance.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          PY
+
+      - name: Set up Java without a dependency cache
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter without a cache
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: stable
+          flutter-version: '3.44.6'
+          cache: false
+
+      - name: Resolve the locked dependencies with local QA configuration
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+          flutter pub get --enforce-lockfile
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+          flutter --version --machine > test-results/qa-apk-build/flutter-version.json
+          java -version 2> test-results/qa-apk-build/java-version.txt
+
+      - name: Compile only the bounded QA APK
+        id: compile
+        timeout-minutes: 22
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import shutil
+          from pathlib import Path
+          mem = dict(line.split(':', 1) for line in Path('/proc/meminfo').read_text().splitlines())
+          assert int(mem['MemAvailable'].split()[0]) * 1024 >= 6 * 1024**3
+          assert shutil.disk_usage('.').free >= 4 * 1024**3
+          for process in Path('/proc').glob('[0-9]*/cmdline'):
+              try:
+                  name = Path(process.read_bytes().split(b'\0')[0].decode(errors='replace')).name
+              except (OSError, ProcessLookupError):
+                  continue
+              assert name != 'emulator' and not name.startswith('qemu-system-'), 'Unexpected live emulator'
+          PY
+          flutter build apk --debug --target-platform="$QA_APK_TARGET" --dart-define-from-file=tool/qa_defines.json 2>&1 | tee test-results/qa-apk-build/build.log
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Stop only this runner's Gradle daemons
+        if: ${{ always() && steps.compile.outcome != 'skipped' && steps.checkout.outcome == 'success' }}
+        timeout-minutes: 1
+        run: |
+          if [ -f android/gradlew ]; then (cd android && ./gradlew --stop); fi
+
+      - name: Verify actual QA package, ABI, signing and upload bounds
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import datetime, hashlib, json, os, re, shutil, subprocess, zipfile
+          from pathlib import Path
+          output = Path('test-results/qa-apk-build')
+          apk = Path('build/app/outputs/flutter-apk/app-debug.apk')
+          assert apk.is_file() and not apk.is_symlink()
+          sdk = Path(os.environ['ANDROID_HOME'])
+          tools = [p for p in (sdk / 'build-tools').iterdir() if (p / 'aapt2').is_file() and (p / 'apksigner').is_file()]
+          assert tools, 'Android verification tools are missing'
+          tools = max(tools, key=lambda p: tuple(map(int, re.findall(r'\d+', p.name))))
+          badging = subprocess.check_output([str(tools / 'aapt2'), 'dump', 'badging', str(apk)], text=True)
+          identity = re.search(r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", badging, re.M)
+          assert identity and identity.groups() == ('com.ghostheart5.chronospark.qa', '2026101201', '4.2.4-qa')
+          assert re.search(r'^application-debuggable\s*$', badging, re.M)
+          assert re.search(r"^targetSdkVersion:'36'", badging, re.M)
+          expected_abi = {'android-arm64': 'arm64-v8a', 'android-x64': 'x86_64'}[os.environ['QA_APK_TARGET']]
+          with zipfile.ZipFile(apk) as archive:
+              assert archive.testzip() is None
+              entries = archive.namelist()
+              assert f'lib/{expected_abi}/libflutter.so' in entries
+              abis = sorted({name.split('/')[1] for name in entries if name.startswith('lib/') and name.endswith('.so')})
+          signing = subprocess.check_output([str(tools / 'apksigner'), 'verify', '--verbose', '--print-certs', str(apk)], text=True)
+          with apk.open('rb') as stream:
+              digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+          # Credential-free evidence must survive a failed identity guard.
+          print(json.dumps({'apkSha256': digest, 'apkBytes': apk.stat().st_size,
+                            'badging': badging, 'signature': signing}), flush=True)
+          certs = sorted({c.lower() for c in re.findall(r'^(?:V\d+(?:\.\d+)? )?Signer(?: #\d+|:) certificate SHA-256 digest: ([a-fA-F0-9]{64})$', signing, re.M)})
+          assert len(certs) == 1 and 'CN=Android Debug' in signing
+          receipt = json.loads((output / 'provenance.json').read_text())
+          assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip() == receipt['sourceSha']
+          assert not subprocess.check_output(['git', 'status', '--porcelain'], text=True).strip()
+          with Path('pubspec.lock').open('rb') as stream:
+              assert hashlib.file_digest(stream, 'sha256').hexdigest() == receipt['lockfileSha256']
+          receipt.update({
+              'completedAtUtc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'buildExitCode': 0, 'sourceFinallyClean': True,
+              'command': ['flutter', 'build', 'apk', '--debug', '--target-platform=' + os.environ['QA_APK_TARGET'], '--dart-define-from-file=tool/qa_defines.json'],
+              'apk': {'file': 'app-debug.apk', 'sha256': digest, 'bytes': apk.stat().st_size,
+                      'applicationId': identity[1], 'versionCode': identity[2], 'versionName': identity[3],
+                      'nativeAbis': abis, 'requiredAbi': expected_abi, 'signerSha256': certs[0].lower()},
+              'androidBuildTools': tools.name
+          })
+          (output / 'provenance.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          (output / 'apk-badging.txt').write_text(badging)
+          (output / 'apk-signature.txt').write_text(signing)
+          (output / 'app-debug.apk.sha256').write_text(digest + '  app-debug.apk\n')
+          shutil.copyfile(apk, output / 'app-debug.apk')
+          allowed = {'provenance.json', 'flutter-version.json', 'java-version.txt', 'build.log', 'apk-badging.txt', 'apk-signature.txt', 'app-debug.apk.sha256', 'app-debug.apk'}
+          assert {p.name for p in output.iterdir()} == allowed
+          assert all(p.is_file() and not p.is_symlink() for p in output.iterdir())
+          assert sum(p.stat().st_size for p in output.iterdir()) <= receipt['artifactLimitBytes'], 'Artifact exceeds reviewed no-charge capacity'
+          PY
+
+      - name: Retain the verified QA APK and credential-free build receipts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        timeout-minutes: 5
+        with:
+          name: axiomara-qa-apk-${{ inputs.source_sha }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.apk_target_platform }}
+          path: test-results/qa-apk-build/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
   runtime:
     name: Exact-build QA runtime
+    if: ${{ !inputs.build_only }}
     runs-on: ubuntu-24.04
     timeout-minutes: 100
     steps:
@@ -183,6 +445,9 @@ jobs:
       - name: Ensure dependency lockfile is reproducible
         run: git diff --exit-code -- pubspec.lock
 
+      - name: Validate isolated QA flow preparation
+        run: python3 -m unittest discover -s scripts -p test_prepare_isolated_maestro_flows.py -v
+
       - name: Complete initial QA compilation before emulator startup
         timeout-minutes: 22
         run: |
@@ -253,11 +518,62 @@ jobs:
           test -r /dev/kvm && test -w /dev/kvm
 
       - name: Prepare bounded fresh-guest readiness and system diagnostics
+        id: guest_image
         run: |
           set -euo pipefail
-          cat > test-results/maestro-prewarm/prepare_guest.py <<'PY'
-          import json, os, re, subprocess, time
+          python3 - <<'GUEST_IMAGE_SELECTION'
+          import json, os, re
           from pathlib import Path
+          suite = os.environ['QA_SUITE']
+          api = os.environ['QA_GUEST_API']
+          pages = os.environ['QA_GUEST_PAGES']
+          assert api in ('35', '36') and pages in ('4k', '16k')
+          assert suite in ('qa-smoke', 'qa-journeys', 'qa-16k-native')
+          assert all(os.environ[key] in ('true', 'false') for key in ('QA_MONKEY', 'QA_MONKEY_ONLY'))
+          assert re.fullmatch(r'[a-f0-9]{40}', os.environ['QA_SOURCE_SHA'])
+          # The five app-owned API35 smoke flows use a normal AOSP image.
+          # Google services/Play integration are not exercised by those flows.
+          # Keep Google images for 16KB, other APIs, journeys and Monkey.
+          app_smoke = (suite == 'qa-smoke' and api == '35' and
+                       os.environ['QA_MONKEY'] == os.environ['QA_MONKEY_ONLY'] == 'false')
+          target = 'google_apis_ps16k' if pages == '16k' else ('default' if app_smoke else 'google_apis')
+          receipt = {'sourceSha': os.environ['QA_SOURCE_SHA'], 'runId': os.environ['GITHUB_RUN_ID'],
+                     'runAttempt': os.environ['GITHUB_RUN_ATTEMPT'], 'suite': suite,
+                     'api': api, 'pages': pages, 'target': target,
+                     'googleServicesIntegrationCovered': False}
+          Path('test-results/maestro-prewarm/image-selection.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          with Path(os.environ['GITHUB_OUTPUT']).open('a') as output:
+              output.write('target=' + target + '\n')
+          GUEST_IMAGE_SELECTION
+          cat > test-results/maestro-prewarm/record_guest_image.py <<'GUEST_IMAGE_RECORD'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path('test-results/maestro-prewarm')
+          selected = json.loads((root / 'image-selection.json').read_text())
+          assert selected['sourceSha'] == os.environ['QA_SOURCE_SHA']
+          assert selected['runId'] == os.environ['GITHUB_RUN_ID']
+          assert selected['runAttempt'] == os.environ['GITHUB_RUN_ATTEMPT']
+          sdk = Path(os.environ['ANDROID_HOME']).resolve()
+          config = Path(os.environ['ANDROID_AVD_HOME']) / 'test.avd/config.ini'
+          pairs = [line.split('=', 1) for line in config.read_text().splitlines()
+                   if line.strip() and not line.lstrip().startswith('#') and '=' in line]
+          assert len([p for p in pairs if p[0].strip() == 'image.sysdir.1']) == 1
+          values = {key.strip(): value.strip() for key, value in pairs}
+          image = (sdk / values['image.sysdir.1']).resolve()
+          expected = (sdk / 'system-images' / ('android-' + selected['api']) / selected['target'] / 'x86_64').resolve()
+          assert image.is_relative_to(sdk) and image == expected
+          properties = (image / 'source.properties').read_bytes()
+          assert properties and b'Pkg.Revision' in properties
+          receipt = {**selected, 'avdConfigSha256': hashlib.sha256(config.read_bytes()).hexdigest(),
+                     'sdkImagePath': str(image), 'sourcePropertiesSha256': hashlib.sha256(properties).hexdigest(),
+                     'sourceProperties': properties.decode('utf-8'), 'actualAvdImageMatched': True}
+          (root / 'guest-image.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          GUEST_IMAGE_RECORD
+          cat > test-results/maestro-prewarm/prepare_guest.py <<'PY'
+          import json, os, re, subprocess, sys, time
+          from pathlib import Path
+          sys.path.insert(0, str(Path.cwd() / 'scripts'))
+          from hosted_guest_anr import classify_anr
           assert os.environ.get('GITHUB_ACTIONS') == 'true' and os.name == 'posix'
           root = Path('test-results/maestro-prewarm')
           adb = ['adb', '-s', 'emulator-5554']
@@ -268,26 +584,65 @@ jobs:
           page_size = int(shell('getconf', 'PAGE_SIZE'))
           expected_page_size = 16384 if os.environ['QA_GUEST_PAGES'] == '16k' else 4096
           assert page_size == expected_page_size, f'Unexpected guest page size: {page_size}'
+          app_package = 'com.ghostheart5.chronospark.qa'
           receipt = {'passed': False, 'samples': [], 'applicationTestsExecuted': 0,
-                     'pageSizeBytes': page_size, 'androidApi': shell('getprop', 'ro.build.version.sdk')}
+                     'pageSizeBytes': page_size, 'androidApi': shell('getprop', 'ro.build.version.sdk'),
+                     'hostCpuCount': os.cpu_count(), 'guestCpuPresent': shell('cat', '/sys/devices/system/cpu/present')}
           try:
+              receipt['resolvedHomeBeforeSettling'] = shell('cmd', 'package', 'resolve-activity', '--brief',
+                  '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME')
+              def canonical(component):
+                  package, activity = component.split('/')
+                  return package + '/' + (package + activity if activity.startswith('.') else activity)
+              stable_home_samples = 0
+              previous_home = None
               # Boot completion precedes first-boot package and launcher work.
-              # Observe one bounded settling window; never dismiss or retry ANRs.
+              # Require actual HOME focus during the bounded settling window,
+              # not just boot/property readiness. Never dismiss or retry ANRs.
               for index in range(7):
                   if index:
                       time.sleep(10)
                   assert shell('getprop', 'sys.boot_completed') == '1'
                   assert shell('pm', 'path', 'android').startswith('package:')
+                  window = shell('dumpsys', 'window', 'windows')
+                  activities = shell('dumpsys', 'activity', 'activities')
+                  last_anr = shell('dumpsys', 'activity', 'lastanr')
+                  (root / 'prepared-window.txt').write_text(window)
+                  (root / 'prepared-activities.txt').write_text(activities)
+                  (root / 'prepared-lastanr.txt').write_text(last_anr)
+                  (root / f'sample-{index}-window.txt').write_text(window)
+                  (root / f'sample-{index}-activities.txt').write_text(activities)
+                  (root / f'sample-{index}-lastanr.txt').write_text(last_anr)
+                  anr_events = shell('logcat', '-d', '-b', 'events', '-v', 'threadtime')
+                  (root / f'sample-{index}-anr-events.txt').write_text(anr_events)
+                  try:
+                      anr_state = classify_anr(last_anr, anr_events, app_package)
+                  except ValueError as error:
+                      receipt['anrFailure'] = str(error)
+                      raise AssertionError('Unable to determine fresh guest ANR state') from error
+                  receipt['lastAnrState'] = anr_state
+                  assert not anr_state['appAnrObserved'], 'Fresh guest reported an ANR in the app before app tests'
+                  assert not re.search(r'Application (?:Error|Not Responding)|isn.t responding', window, re.I)
+                  # The early resolver can name Setup while HOME has moved to the
+                  # launcher. Read the current visible user-0 HOME task each sample.
+                  homes = set(re.findall(r'^\s*\* Task\{[^\n]*\btype=home\b[^\n]*\bI=([\w.]+/[\w.$]+)[^\n]*\bU=0\b[^\n]*\bvisible=true\b', activities, re.M))
+                  home = next(iter(homes)) if len(homes) == 1 else None
+                  current_focus = {canonical(c) for c in re.findall(r'^\s*mCurrentFocus=Window\{[^\n}]*\bu0\s+([\w.]+/[\w.$]+)', activities, re.M)}
+                  current_resumed = {canonical(c) for c in re.findall(r'^\s*(?:topResumedActivity=|ResumedActivity:)\s*ActivityRecord\{[^\n}]*\bu0\s+([\w.]+/[\w.$]+)', activities, re.M)}
+                  focused = home is not None and current_focus == {canonical(home)}
+                  resumed = home is not None and current_resumed == {canonical(home)}
+                  setup_activity = home is not None and home.startswith('com.google.android.googlesdksetup/')
+                  stable_home_samples = (stable_home_samples + 1 if home == previous_home else 1) if focused and resumed and not setup_activity else 0
+                  previous_home = home
+                  receipt['homeActivity'] = home
                   receipt['samples'].append({'index': index, 'monotonic': time.monotonic(),
+                      'homeActivity': home, 'setupActivity': setup_activity, 'focusedActivities': sorted(current_focus), 'resumedActivities': sorted(current_resumed),
+                      'anrState': anr_state,
+                      'homeFocused': focused, 'homeResumed': resumed, 'stableHomeSamples': stable_home_samples,
                       'guestMemory': shell('cat', '/proc/meminfo'),
                       'hostMemory': Path('/proc/meminfo').read_text(),
                       'hostLoad': Path('/proc/loadavg').read_text().strip()})
-              window = shell('dumpsys', 'window', 'windows')
-              last_anr = shell('dumpsys', 'activity', 'lastanr')
-              (root / 'prepared-window.txt').write_text(window)
-              (root / 'prepared-lastanr.txt').write_text(last_anr)
-              assert '<no anr has occurred since boot>' in last_anr.lower(), 'Fresh guest reported an ANR before app tests'
-              assert not re.search(r'Application (?:Error|Not Responding)|isn.t responding', window, re.I)
+              assert stable_home_samples >= 3, 'Fresh guest HOME never reached stable focused/resumed readiness'
               receipt['passed'] = True
           finally:
               (root / 'guest-readiness.json').write_text(json.dumps(receipt, indent=2) + '\n')
@@ -301,10 +656,28 @@ jobs:
             timeout 30s adb -s emulator-5554 logcat -d -b all -v threadtime > test-results/maestro-prewarm/system-logcat.txt 2>&1 || result=1
             timeout 30s adb -s emulator-5554 shell dumpsys activity lastanr > test-results/maestro-prewarm/final-lastanr.txt 2>&1 || result=1
             timeout 30s adb -s emulator-5554 shell dumpsys window windows > test-results/maestro-prewarm/final-window.txt 2>&1 || result=1
-            grep -Fqi '<no anr has occurred since boot>' test-results/maestro-prewarm/final-lastanr.txt || result=1
+            python3 - test-results/maestro-prewarm/final-lastanr.txt <<'PY' || result=1
+          import json, sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path.cwd() / 'scripts'))
+          from hosted_guest_anr import classify_anr
+          last_anr = Path(sys.argv[1]).read_text(errors='replace')
+          app_package = 'com.ghostheart5.chronospark.qa'
+          root = Path('test-results/maestro-prewarm')
+          try:
+              state = classify_anr(last_anr, (root / 'system-logcat.txt').read_text(errors='replace'), app_package)
+          except ValueError as error:
+              (root / 'final-anr-state.json').write_text(json.dumps({'determined': False, 'diagnostic': str(error)}) + '\n')
+              raise SystemExit('Unable to determine final guest ANR state') from error
+          (root / 'final-anr-state.json').write_text(json.dumps(state, indent=2) + '\n')
+          if state['appAnrObserved']:
+              raise SystemExit('Final guest reported an ANR in the app')
+          PY
             exit "$result"
           }
           trap capture_system EXIT
+          test -s test-results/maestro-prewarm/runner-input-order.json
+          test -s test-results/maestro-prewarm/guest-image.json
           python3 test-results/maestro-prewarm/prepare_guest.py
           if [ "$QA_SUITE" = qa-16k-native ]; then
             python3 test-results/native-tooling/scripts/run_16k_adb_smoke.py
@@ -324,6 +697,17 @@ jobs:
           fi
           SH
 
+      - name: Checkout pinned emulator runner for passive startup
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: ReactiveCircus/android-emulator-runner
+          ref: a421e43855164a8197daf9d8d40fe71c6996bb0d
+          path: test-results/hosted-emulator-runner
+          persist-credentials: false
+
+      - name: Verify exact runner and remove only unsolicited startup input
+        run: python3 scripts/prepare_hosted_emulator_runner.py
+
       - name: Build, install, and execute exact-source QA suite
         timeout-minutes: 70
         env:
@@ -331,20 +715,25 @@ jobs:
           # two-core hosted emulator. Keep a bounded budget with enough room for
           # all five smoke flows or all eleven journey flows plus evidence flush.
           QA_TIMEOUT_SECONDS: ${{ inputs.suite == 'qa-journeys' && '3600' || '1800' }}
-        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        # The verified local copy differs by one startup MENU injection only.
+        # Preserve SDK/AVD setup and let the existing passive HOME guard decide.
+        uses: ./test-results/hosted-emulator-runner
         with:
           api-level: ${{ inputs.guest_api || '35' }}
-          target: ${{ inputs.guest_pages == '16k' && 'google_apis_ps16k' || 'google_apis' }}
+          target: ${{ steps.guest_image.outputs.target }}
           arch: x86_64
           profile: pixel_6
-          cores: 2
+          # Public ubuntu-24.04 runners provide four vCPUs. Use them during
+          # first-boot launcher initialization instead of constraining the guest
+          # to two. Preserve memory, hardware acceleration and all error guards.
+          cores: 4
           ram-size: 4096M
           heap-size: 512M
           emulator-port: 5554
           # Never silently fall back to software emulation: it caused system
           # ANRs and killed the Maestro driver before any flow could execute.
           disable-linux-hw-accel: false
-          pre-emulator-launch-script: '"$ANDROID_HOME/emulator/emulator" -accel-check'
+          pre-emulator-launch-script: '"$ANDROID_HOME/emulator/emulator" -accel-check && python3 test-results/maestro-prewarm/record_guest_image.py'
           disable-animations: true
           disable-spellchecker: true
           script: |
@@ -402,7 +791,7 @@ jobs:
           EXPECTED_API: ${{ inputs.guest_api || '35' }}
         run: |
           python3 - <<'PY'
-          import hashlib, json, os, re
+          import hashlib, importlib.util, json, os, re
           from pathlib import Path
           receipt_path = Path('test-results/native-16k-ci/manifest.json')
           if not receipt_path.is_file():
@@ -415,6 +804,10 @@ jobs:
           assert receipt['sourceSha'] == os.environ['EXPECTED_COMMIT']
           assert receipt['workflowToolingSha'] == os.environ['EXPECTED_TOOLING']
           assert receipt['toolScriptSha256'].lower() == hashlib.sha256(script.read_bytes()).hexdigest()
+          spec = importlib.util.spec_from_file_location('native_smoke', script)
+          native_smoke = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(native_smoke)
+          assert receipt['package'] == native_smoke.PACKAGE == 'com.ghostheart5.chronospark.qa'
           assert receipt['apkSha256'].lower() == compilation['precompiledApkSha256'].lower()
           pubspec_version = re.search(r'(?m)^version:\s*\d+\.\d+\.\d+\+(\d+)\s*$',
                                        Path('pubspec.yaml').read_text())
@@ -429,10 +822,8 @@ jobs:
           for launch in receipt['launches']:
               image = Path(f"test-results/native-16k-ci/launch-{launch['number']}.png")
               assert hashlib.sha256(image.read_bytes()).hexdigest() == launch['screenshotSha256']
-              activities = ('com.ghostheart5.chronospark/.MainActivity',
-                            'com.ghostheart5.chronospark/com.ghostheart5.chronospark.MainActivity')
-              assert any(activity in launch['focus'] for activity in activities)
-              assert any(activity in launch['resumedActivity'] for activity in activities)
+              assert native_smoke.is_chronospark_activity(launch['focus'])
+              assert native_smoke.is_chronospark_activity(launch['resumedActivity'])
               assert launch['uiReadyMarker'] in {'CONTINUE TO LOGIN', 'START LOGIN',
                                                  'SKIP FOR NOW', 'TESTER ACCESS',
                                                  'ENTER SYSTEM', 'NEXUS'}

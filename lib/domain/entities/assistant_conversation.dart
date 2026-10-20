@@ -50,6 +50,15 @@ final class ConversationPacket {
   };
   String get preview =>
       const JsonEncoder.withIndent('  ').convert(toJson()['context']);
+
+  /// Only the note deliberately attached to this request can change its
+  /// emotional-safety route. Other records may describe past or unrelated work.
+  String get attachedNoteSafetyText {
+    final context = toJson()['context'] as Map;
+    final note = context['explicitlyAttachedNote'];
+    if (note is! Map) return '';
+    return [note['title'], note['body']].whereType<String>().join(' ').trim();
+  }
 }
 
 List<Map<String, String>> _boundedHistory(

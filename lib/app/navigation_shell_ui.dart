@@ -275,40 +275,65 @@ extension _NavigationShellUi on _NavigationShellState {
     required bool extended,
   }) {
     final double width = extended ? 224 : 72;
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: SizedBox(
-        width: width,
-        height: double.infinity,
-        child: TemporalGlassSurface(
+    // Reserve system insets before constraining the rail's usable width.
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: SizedBox(
           width: width,
-          padding: const EdgeInsets.all(8),
-          opacity: 0.94,
-          blur: 18,
-          child: SafeArea(
-            child: Column(
-              children: <Widget>[
-                const SizedBox(height: 4),
-                for (
-                  int index = 0;
-                  index < _primaryDestinations.length;
-                  index++
-                ) ...<Widget>[
-                  _buildRailDestination(
-                    index: index,
-                    currentIndex: currentIndex,
-                    extended: extended,
+          height: double.infinity,
+          child: TemporalGlassSurface(
+            width: width,
+            padding: const EdgeInsets.all(8),
+            opacity: 0.94,
+            blur: 18,
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                return SingleChildScrollView(
+                  primary: false,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: <Widget>[
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            const SizedBox(height: 4),
+                            for (
+                              int index = 0;
+                              index < _primaryDestinations.length;
+                              index++
+                            ) ...<Widget>[
+                              _buildRailDestination(
+                                index: index,
+                                currentIndex: currentIndex,
+                                extended: extended,
+                              ),
+                              if (index < _primaryDestinations.length - 1)
+                                const SizedBox(height: 8),
+                            ],
+                          ],
+                        ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Divider(
+                              height: 17,
+                              color: AppColors.panelBorder.withValues(
+                                alpha: 0.52,
+                              ),
+                            ),
+                            _buildRailMapAction(extended: extended),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                  if (index < _primaryDestinations.length - 1)
-                    const SizedBox(height: 8),
-                ],
-                const Spacer(),
-                Divider(
-                  height: 17,
-                  color: AppColors.panelBorder.withValues(alpha: 0.52),
-                ),
-                _buildRailMapAction(extended: extended),
-              ],
+                );
+              },
             ),
           ),
         ),

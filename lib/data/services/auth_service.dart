@@ -212,6 +212,7 @@ class AuthService implements AuthServiceContract, PasswordRecoveryAuth {
       final bool launched = await _auth.auth.signInWithOAuth(
         sb.OAuthProvider.google,
         redirectTo: redirectTo.isEmpty ? null : redirectTo,
+        queryParams: const <String, String>{'prompt': 'select_account'},
       );
       if (!launched) {
         Logger.error('Google OAuth browser launch returned false.');

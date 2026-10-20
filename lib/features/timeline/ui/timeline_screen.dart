@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'timeline_screen.widgets.dart';
+part 'timeline_screen.source_notice.dart';
 part 'timeline_screen.event_copy.dart';
 part 'timeline_screen.filters.dart';
 
@@ -84,6 +85,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   List<TimelineEventEntity>? _cachedCombined;
   int? _cachedCombinedKey;
   DateTime? _cachedCombinedDay;
+  String? _tutorialFocusTaskId;
 
   @override
   void initState() {
@@ -204,6 +206,21 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       grouped.putIfAbsent(key, () => <TimelineEventEntity>[]).add(event);
     }
     final List<String> days = grouped.keys.toList(growable: false);
+    // Keep each event lazy even when a single day contains a long history.
+    final rows =
+        <({String day, TimelineEventEntity? event, bool first, bool last})>[];
+    for (final day in days) {
+      final events = grouped[day]!;
+      rows.add((day: day, event: null, first: false, last: false));
+      for (var index = 0; index < events.length; index++) {
+        rows.add((
+          day: day,
+          event: events[index],
+          first: day == days.first && index == 0,
+          last: index == events.length - 1,
+        ));
+      }
+    }
     String? tutorialEventId;
     String? tutorialTaskId;
     for (final TimelineEventEntity event in filtered) {
@@ -215,6 +232,15 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         break;
       }
     }
+    _focusTutorialTaskIfHidden(
+      combined: combined,
+      expectedTaskIds: expectedTutorialTaskIds,
+      visibleEventIndex: tutorialEventId == null
+          ? null
+          : filtered.indexWhere(
+              (TimelineEventEntity event) => event.id == tutorialEventId,
+            ),
+    );
     final String? publishedTutorialTaskId = ref.watch(
       timelineTutorialEvidenceProvider,
     );
@@ -372,28 +398,29 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate((ctx, i) {
-                      final String day = days[i];
-                      final List<TimelineEventEntity> dayEvents = grouped[day]!;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _TimelineDayHeader(
-                            label: day,
-                            eventCount: dayEvents.length,
+                      final row = rows[i];
+                      final event = row.event;
+                      if (event == null) {
+                        return Semantics(
+                          container: true,
+                          header: true,
+                          child: _TimelineDayHeader(
+                            label: row.day,
+                            eventCount: grouped[row.day]!.length,
                           ),
-                          ...List<Widget>.generate(
-                            dayEvents.length,
-                            (int eventIndex) => _TimelineEventTile(
-                              event: dayEvents[eventIndex],
-                              tutorialTarget:
-                                  dayEvents[eventIndex].id == tutorialEventId,
-                              emphasized: i == 0 && eventIndex == 0,
-                              isLast: eventIndex == dayEvents.length - 1,
-                            ),
-                          ),
-                        ],
+                        );
+                      }
+                      return Semantics(
+                        key: ValueKey('timeline-event-semantics-${event.id}'),
+                        container: true,
+                        child: _TimelineEventTile(
+                          event: event,
+                          tutorialTarget: event.id == tutorialEventId,
+                          emphasized: row.first,
+                          isLast: row.last,
+                        ),
                       );
-                    }, childCount: days.length),
+                    }, childCount: rows.length),
                   ),
                 ),
             ],
@@ -401,6 +428,46 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         ),
       ),
     );
+  }
+
+  /// First-run review blocks every control except the highlighted task. If
+  /// that task is outside the current window (e.g. scheduled 10 days out) or
+  /// in a day group that may not be built yet, show it at the top instead of
+  /// leaving the person behind a scrim with nothing to find.
+  void _focusTutorialTaskIfHidden({
+    required List<TimelineEventEntity> combined,
+    required Set<String> expectedTaskIds,
+    required int? visibleEventIndex,
+  }) {
+    if (expectedTaskIds.isEmpty ||
+        (visibleEventIndex != null && visibleEventIndex == 0)) {
+      return;
+    }
+    TimelineEventEntity? expected;
+    for (final TimelineEventEntity event in combined) {
+      if (event.phase == 'task' &&
+          event.relatedId != null &&
+          expectedTaskIds.contains(event.relatedId)) {
+        expected = event;
+        break;
+      }
+    }
+    // Apply once per task so this never fights the person's own choices.
+    if (expected == null || _tutorialFocusTaskId == expected.relatedId) {
+      return;
+    }
+    _tutorialFocusTaskId = expected.relatedId;
+    final String title = expected.title;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _window = _TimelineWindow.all;
+        _filter = _TimelineFilter.all;
+        _query = title;
+        _searchController.text = title;
+        _refineExpanded = true;
+      });
+    });
   }
 
   void _retryTaskSource() {

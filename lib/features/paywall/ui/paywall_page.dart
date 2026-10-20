@@ -53,11 +53,17 @@ String resolvePaywallPurchaseResultMessage(
           ? 'Acceso de revisión gratuito. Sin pago ni renovación automática.'
           : 'Complimentary review access. No payment or automatic renewal.';
     case 'credits_added':
+      // The server also returns this status for an already fulfilled receipt.
+      // Verification does not prove that this interaction added new credits.
       return localizations.isSpanish
-          ? 'Créditos añadidos a tu cuenta.'
-          : 'Purchased credits added to your account.';
+          ? 'Compra de créditos confirmada. Consulta tu saldo disponible.'
+          : 'Credit purchase confirmed. Check your available balance.';
     case 'purchase_pending':
       return copy.purchasePending;
+    case 'checkout_unresolved':
+      return localizations.isSpanish
+          ? 'Google Play aún no ha confirmado esta compra. Complétala o cancélala en Google Play. Si la pantalla de pago ya se cerró, usa Restaurar compras antes de volver a intentarlo.'
+          : 'Google Play has not confirmed this checkout yet. Finish or cancel it in Google Play. If the payment screen has already closed, use Restore Purchases before trying again.';
     case 'purchase_canceled':
     case 'purchase_cancelled':
       return copy.purchaseCanceled;
@@ -67,6 +73,10 @@ String resolvePaywallPurchaseResultMessage(
           : 'Google Play reported a payment error. Check the purchase or try again.';
     case 'verification_failed':
       return copy.purchaseVerificationFailed;
+    case 'customer_resolution_required':
+      return localizations.isSpanish
+          ? 'Se verificó el pago de Google Play, pero no se añadieron créditos. Registramos el pedido para resolverlo. Contacta con soporte y no repitas la compra.'
+          : 'Google Play payment was verified, but credits were not added. We recorded the order for resolution. Contact support and do not buy it again.';
     case 'acknowledgement_failed':
       return copy.purchaseAcknowledgementFailed;
     default:
@@ -93,13 +103,23 @@ String resolvePaywallRestoreResultMessage(
         localizations: localizations,
       );
     case 'credits_added':
-      return localizations.isSpanish
-          ? 'Créditos añadidos a tu cuenta.'
-          : 'Purchased credits added to your account.';
+    case 'purchase_canceled':
+    case 'purchase_cancelled':
+      return resolvePaywallPurchaseResultMessage(
+        subscription,
+        testingMode: testingMode,
+        localizations: localizations,
+      );
     case 'purchase_pending':
       return copy.restorePending;
     case 'verification_failed':
       return copy.restoreVerificationFailed;
+    case 'customer_resolution_required':
+      return resolvePaywallPurchaseResultMessage(
+        subscription,
+        testingMode: testingMode,
+        localizations: localizations,
+      );
     case 'acknowledgement_failed':
       return copy.restoreAcknowledgementFailed;
     case 'restore_error':

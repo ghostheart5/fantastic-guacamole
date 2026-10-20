@@ -36,6 +36,15 @@ final class SmartPlannerFirstValueRequest {
       createdAt.add(smartPlannerFirstValueRequestLifetime);
 
   bool isExpiredAt(DateTime now) => !now.toUtc().isBefore(expiresAt);
+
+  bool isValidFor({required String accountScopeId, required DateTime now}) {
+    final String scope = accountScopeId.trim();
+    final DateTime currentTime = now.toUtc();
+    return scope.isNotEmpty &&
+        this.accountScopeId == scope &&
+        !createdAt.isAfter(currentTime) &&
+        !isExpiredAt(currentTime);
+  }
 }
 
 final class SmartPlannerFirstValueNotifier
@@ -53,12 +62,7 @@ final class SmartPlannerFirstValueNotifier
     if (pending == null) return null;
 
     state = null;
-    final String currentAccountScopeId = accountScopeId.trim();
-    final DateTime currentTime = now.toUtc();
-    if (currentAccountScopeId.isEmpty ||
-        pending.accountScopeId != currentAccountScopeId ||
-        pending.createdAt.isAfter(currentTime) ||
-        pending.isExpiredAt(currentTime)) {
+    if (!pending.isValidFor(accountScopeId: accountScopeId, now: now)) {
       return null;
     }
     return pending;

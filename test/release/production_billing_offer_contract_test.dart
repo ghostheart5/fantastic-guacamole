@@ -172,14 +172,14 @@ void main() {
       'externalAiEnabled &&',
       'creditSpendingEnabled &&',
       'externalAiProviderRetentionVerified &&',
-      'externalAiSafetyReviewApproved;',
+      'externalAiSafetyValidationPassed;',
     ]) {
       expect(containment, contains(requiredGate));
     }
     expect(
       env,
       contains(
-        'cloudServicesEnabled && LaunchContainment.paidCreditPlansEnabled',
+        'cloudServicesEnabled && LaunchContainment.publicPaidCreditPlansEnabled',
       ),
     );
     final String billingAvailability = File(

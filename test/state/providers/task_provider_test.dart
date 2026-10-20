@@ -1,5 +1,13 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/data/repositories/task_occurrence_repository.dart';
+import 'package:fantastic_guacamole/domain/entities/task_occurrence_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
+import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
@@ -277,6 +285,58 @@ void main() {
   );
 
   test(
+    'completion waits for uncached reward context before durable mutation',
+    () async {
+      final repository = _SlowContextTaskRepository();
+      final TaskEntity seed = TaskEntity(
+        id: 'task-stale',
+        title: 'Recover score context',
+        createdAt: DateTime.utc(2026, 7, 6),
+        difficulty: 3,
+        priority: 4,
+        energyRequired: 3,
+      );
+      await repository.saveTask(seed);
+
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('account-1'),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.provenNotOwned,
+          ),
+          secureStoreProvider.overrideWithValue(
+            SecureStore(backend: InMemorySecureStoreBackend()),
+          ),
+          tasksProvider.overrideWith((Ref ref) async => const <Task>[]),
+          domainTaskRepositoryProvider.overrideWithValue(repository),
+          completeTaskUseCaseProvider.overrideWithValue(
+            CompleteTask(repository),
+          ),
+          optimizationConfigProvider.overrideWith(
+            (Ref ref) async => OptimizationConfig.neutral(),
+          ),
+          learningProvider.overrideWith(_FixedLearningController.new),
+          profileProvider.overrideWith(_TestProfileController.new),
+          siStateProvider.overrideWith(_FixedSiStateController.new),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(taskActionsProvider)
+          .completeTask('task-stale', notify: false);
+
+      final TaskEntity? stored = await repository.getTaskById('task-stale');
+      expect(stored?.isCompleted, isTrue);
+      final score = container.read(completionScoreProvider);
+      expect(score, isNotNull);
+      expect(score!.xp, greaterThan(0));
+    },
+  );
+
+  test(
     'idempotent durable completion suppresses provider side effects',
     () async {
       final _MemoryTaskRepository repository = _MemoryTaskRepository();
@@ -355,6 +415,117 @@ void main() {
     expect(second, hasLength(1));
     expect(second.single.id, first.single.id);
   });
+  test(
+    'high fatigue cannot block canonical Skip of a visible harder task',
+    () async {
+      final repository = _MemoryTaskRepository();
+      final hard = TaskEntity(
+        id: 'hard-visible',
+        title: 'Prepare the report',
+        difficulty: 5,
+        createdAt: DateTime.utc(2026, 10, 14),
+      );
+      final easy = TaskEntity(
+        id: 'easy-ranked',
+        title: 'Fold one shirt',
+        difficulty: 1,
+        createdAt: DateTime.utc(2026, 10, 14),
+      );
+      await repository.saveTask(hard);
+      await repository.saveTask(easy);
+      final ledger = _MemorySkipOccurrenceRepository();
+      final probe = _SkipMirrorProbe();
+      final container = _buildTaskContainer(
+        repository,
+        highFatigue: true,
+        skipLedger: ledger,
+        skipProbe: probe,
+      );
+      addTearDown(container.dispose);
+      expect(
+        (await container.read(allTasksProvider.future)).map((task) => task.id),
+        containsAll(['hard-visible', 'easy-ranked']),
+      );
+      // Use the actual SI filtering/ranking provider, not an overridden task list.
+      expect(
+        (await container.read(tasksProvider.future)).map((task) => task.id),
+        ['easy-ranked'],
+      );
+      final xpBefore = container.read(profileProvider).xp;
+      await container
+          .read(taskActionsProvider)
+          .skipTask('hard-visible', notify: false);
+      final skipped = (await repository.getTaskById('hard-visible'))!;
+      expect(skipped.isSkipped, isTrue);
+      expect(skipped.isCompleted, isFalse);
+      expect(
+        (await repository.getTaskById('easy-ranked'))!.toJson(),
+        easy.toJson(),
+      );
+      expect(repository.saved, hasLength(2));
+      final outcomes = await ledger.listOccurrencesForTask('hard-visible');
+      expect(outcomes, hasLength(1));
+      expect(outcomes.single.terminalOutcome, TaskOccurrenceOutcome.skipped);
+      expect(container.read(profileProvider).xp, xpBefore);
+      expect(probe.logWrites, 1);
+      expect(probe.timelineWrites, 1);
+      final terminal = outcomes.single.toJson();
+      await container
+          .read(taskActionsProvider)
+          .skipTask('hard-visible', notify: false);
+      expect(
+        (await ledger.listOccurrencesForTask('hard-visible')).single.toJson(),
+        terminal,
+      );
+      expect(repository.saved, hasLength(2));
+      expect(container.read(profileProvider).xp, xpBefore);
+      expect(probe.logWrites, 1);
+      expect(probe.timelineWrites, 1);
+    },
+  );
+
+  for (final terminal in ['missing', 'completed', 'canceled']) {
+    test(
+      'canonical Skip rejects $terminal without occurrence or reward',
+      () async {
+        final repository = _MemoryTaskRepository();
+        if (terminal != 'missing') {
+          final now = DateTime.utc(2026, 10, 14);
+          await repository.saveTask(
+            TaskEntity(
+              id: 'terminal',
+              title: 'Terminal record',
+              createdAt: now,
+              isCompleted: terminal == 'completed',
+              completedAt: terminal == 'completed' ? now : null,
+              isCanceled: terminal == 'canceled',
+            ),
+          );
+        }
+        final before = repository.saved.map((task) => task.toJson()).toList();
+        final ledger = _MemorySkipOccurrenceRepository();
+        final probe = _SkipMirrorProbe();
+        final container = _buildTaskContainer(
+          repository,
+          skipLedger: ledger,
+          skipProbe: probe,
+        );
+        addTearDown(container.dispose);
+        final xpBefore = container.read(profileProvider).xp;
+        await expectLater(
+          container
+              .read(taskActionsProvider)
+              .skipTask('terminal', notify: false),
+          throwsA(isA<StateError>()),
+        );
+        expect(repository.saved.map((task) => task.toJson()).toList(), before);
+        expect(await ledger.listOccurrences(), isEmpty);
+        expect(container.read(profileProvider).xp, xpBefore);
+        expect(probe.logWrites, 0);
+        expect(probe.timelineWrites, 0);
+      },
+    );
+  }
 }
 
 ProviderContainer _buildTaskContainer(
@@ -362,6 +533,9 @@ ProviderContainer _buildTaskContainer(
   AccountStorageScope? scope,
   bool mutableScope = false,
   LocalMetricsAccumulator? metricsAccumulator,
+  bool highFatigue = false,
+  _MemorySkipOccurrenceRepository? skipLedger,
+  _SkipMirrorProbe? skipProbe,
 }) {
   return ProviderContainer(
     overrides: [
@@ -380,6 +554,7 @@ ProviderContainer _buildTaskContainer(
         SecureStore(backend: InMemorySecureStoreBackend()),
       ),
       getTasksUseCaseProvider.overrideWithValue(GetTasks(repository)),
+      domainTaskRepositoryProvider.overrideWithValue(repository),
       createTaskUseCaseProvider.overrideWithValue(CreateTask(repository)),
       completeTaskUseCaseProvider.overrideWithValue(CompleteTask(repository)),
       optimizationConfigProvider.overrideWith(
@@ -387,9 +562,29 @@ ProviderContainer _buildTaskContainer(
       ),
       if (metricsAccumulator != null)
         localMetricsAccumulatorProvider.overrideWithValue(metricsAccumulator),
-      learningProvider.overrideWith(_FixedLearningController.new),
+      learningProvider.overrideWith(
+        skipLedger != null
+            ? _MemoryLearningController.new
+            : _FixedLearningController.new,
+      ),
       profileProvider.overrideWith(_TestProfileController.new),
-      siStateProvider.overrideWith(_FixedSiStateController.new),
+      siStateProvider.overrideWith(
+        highFatigue
+            ? _FatiguedSiStateController.new
+            : _FixedSiStateController.new,
+      ),
+      if (skipLedger != null)
+        taskOccurrenceRepositoryProvider.overrideWithValue(skipLedger),
+      if (skipLedger != null)
+        taskOccurrenceCloudReplicaProvider.overrideWithValue(null),
+      if (skipProbe != null)
+        logsActionsProvider.overrideWith(
+          (ref) => _RecordingSkipLogs(ref, skipProbe),
+        ),
+      if (skipProbe != null)
+        timelineActionsProvider.overrideWith(
+          (ref) => _RecordingSkipTimeline(ref, skipProbe),
+        ),
     ],
   );
 }
@@ -446,6 +641,13 @@ class _FixedSiStateController extends SIStateController {
 class _FixedLearningController extends LearningController {
   @override
   LearningState build() => const LearningState();
+}
+
+class _MemoryLearningController extends _FixedLearningController {
+  @override
+  Future<void> apply(LearningState updated) async {
+    state = updated;
+  }
 }
 
 class _TestProfileController extends ProfileController {
@@ -509,4 +711,75 @@ class _FailingTaskRepository implements ITaskRepository {
 
   @override
   Future<void> saveTask(TaskEntity task) async {}
+}
+
+class _SlowContextTaskRepository extends _MemoryTaskRepository {
+  int lookups = 0;
+  @override
+  Future<TaskEntity?> getTaskById(String id) async {
+    if (++lookups == 1) {
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    }
+    return super.getTaskById(id);
+  }
+}
+
+class _FatiguedSiStateController extends SIStateController {
+  @override
+  SIState build() =>
+      const SIState(energy: 0.2, fatigue: 0.8, completedToday: 0);
+}
+
+// Real occurrence coordinator, with only its persistence adapter in memory.
+class _MemorySkipOccurrenceRepository extends TaskOccurrenceRepository {
+  _MemorySkipOccurrenceRepository() : super.unavailable();
+  final Map<String, TaskOccurrence> records = {};
+  @override
+  Future<TaskOccurrence?> getOccurrence(
+    String taskId,
+    String occurrenceKey,
+  ) async => records['$taskId::$occurrenceKey'];
+  @override
+  Future<void> save(TaskOccurrence value) async {
+    records[value.id] = value;
+  }
+
+  @override
+  Future<List<TaskOccurrence>> listOccurrences() async =>
+      records.values.toList();
+  @override
+  Future<List<TaskOccurrence>> listOccurrencesForTask(String taskId) async =>
+      records.values.where((record) => record.taskId == taskId).toList();
+}
+
+class _SkipMirrorProbe {
+  int logWrites = 0;
+  int timelineWrites = 0;
+}
+
+class _RecordingSkipLogs extends LogsActions {
+  _RecordingSkipLogs(super.ref, this.probe);
+  final _SkipMirrorProbe probe;
+  @override
+  Future<void> addMirroredEntry({
+    required String source,
+    required String message,
+    String? id,
+    DateTime? timestamp,
+    bool Function()? shouldContinue,
+  }) async {
+    probe.logWrites++;
+  }
+}
+
+class _RecordingSkipTimeline extends TimelineActions {
+  _RecordingSkipTimeline(super.ref, this.probe);
+  final _SkipMirrorProbe probe;
+  @override
+  Future<void> addMirroredEvent(
+    TimelineEventEntity event, {
+    bool Function()? shouldContinue,
+  }) async {
+    probe.timelineWrites++;
+  }
 }

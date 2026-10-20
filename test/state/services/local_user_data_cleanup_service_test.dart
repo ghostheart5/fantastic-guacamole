@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -608,6 +609,16 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
   final Set<({String id, String? accountScope})> cancelled =
       <({String id, String? accountScope})>{};
   bool clearedTappedPayload = false;
+
+  @override
+  Future<bool> scheduleCadenceAt({
+    required String id,
+    required String title,
+    required String body,
+    required HabitCadence cadence,
+    required DateTime firstAt,
+    String? accountScope,
+  }) async => true;
 
   @override
   Future<bool> cancel(String id, {String? accountScope}) async {

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -37,6 +38,88 @@ class NotificationScheduler implements NotificationSchedulerPort {
   @override
   void clearTappedPayload() {
     tappedPayloadListenable.value = null;
+  }
+
+  /// Read actual registered reminders for this account, without rescheduling.
+  Future<
+    List<
+      ({
+        String id,
+        String title,
+        String body,
+        int? hour,
+        int? minute,
+        HabitCadence? cadence,
+        DateTime? firstScheduledLocal,
+        bool cadenceMetadataMalformed,
+      })
+    >
+  >
+  pendingForAccount(String accountScope) async {
+    if (!await init(requestPermissions: false)) return const [];
+    final pending = await _plugin.pendingNotificationRequests();
+    final result =
+        <
+          ({
+            String id,
+            String title,
+            String body,
+            int? hour,
+            int? minute,
+            HabitCadence? cadence,
+            DateTime? firstScheduledLocal,
+            bool cadenceMetadataMalformed,
+          })
+        >[];
+    for (final request in pending) {
+      final payload = request.payload ?? '';
+      final scoped = parseAccountPayload(payload);
+      if (scoped == null || scoped.accountScope != accountScope) continue;
+      final metadata = jsonDecode(payload) as Map;
+      final hour = metadata['dailyHour'];
+      final minute = metadata['dailyMinute'];
+      final hasTime =
+          hour is int &&
+          minute is int &&
+          hour >= 0 &&
+          hour <= 23 &&
+          minute >= 0 &&
+          minute <= 59;
+      final cadenceRaw = metadata['cadence'];
+      final cadence = HabitCadence.values
+          .where((value) => value.name == cadenceRaw)
+          .firstOrNull;
+      final firstRaw = metadata['firstScheduledLocal'];
+      final first = firstRaw is String ? DateTime.tryParse(firstRaw) : null;
+      final validCadence =
+          cadence != null &&
+          hasTime &&
+          first != null &&
+          !first.isUtc &&
+          first.toIso8601String() == firstRaw &&
+          first.hour == hour &&
+          first.minute == minute &&
+          first.second == 0 &&
+          first.millisecond == 0 &&
+          first.microsecond == 0 &&
+          (cadence != HabitCadence.weekly ||
+              first.weekday == DateTime.monday) &&
+          (cadence != HabitCadence.monthly || first.day == 1);
+      result.add((
+        id: scoped.notificationId,
+        title: request.title ?? '',
+        body: request.body ?? '',
+        hour: hasTime ? hour : null,
+        minute: hasTime ? minute : null,
+        cadence: validCadence ? cadence : null,
+        firstScheduledLocal: validCadence ? first : null,
+        cadenceMetadataMalformed:
+            (metadata.containsKey('cadence') ||
+                metadata.containsKey('firstScheduledLocal')) &&
+            !validCadence,
+      ));
+    }
+    return result;
   }
 
   /// Payload the app was launched with, if it was launched by a notification
@@ -246,6 +329,36 @@ class NotificationScheduler implements NotificationSchedulerPort {
     return true;
   }
 
+  /// The actual first-date calculation used by daily reminder registration.
+  @visibleForTesting
+  static tz.TZDateTime nextDailyScheduledTime({
+    required tz.TZDateTime now,
+    required tz.Location location,
+    required int hour,
+    required int minute,
+  }) {
+    final localNow = tz.TZDateTime.from(now, location);
+    var scheduled = tz.TZDateTime(
+      location,
+      localNow.year,
+      localNow.month,
+      localNow.day,
+      hour,
+      minute,
+    );
+    if (scheduled.isBefore(now)) {
+      scheduled = tz.TZDateTime(
+        location,
+        localNow.year,
+        localNow.month,
+        localNow.day + 1,
+        hour,
+        minute,
+      );
+    }
+    return scheduled;
+  }
+
   @override
   Future<bool> scheduleDailyAt({
     required String id,
@@ -275,18 +388,12 @@ class NotificationScheduler implements NotificationSchedulerPort {
       );
       return false;
     }
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduled = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      hour,
-      minute,
+    final scheduled = nextDailyScheduledTime(
+      now: tz.TZDateTime.now(tz.local),
+      location: tz.local,
+      hour: hour,
+      minute: minute,
     );
-    if (scheduled.isBefore(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
-    }
     await _plugin.zonedSchedule(
       id: _notificationId(_platformKey(id, accountScope)),
       title: title,
@@ -295,7 +402,74 @@ class NotificationScheduler implements NotificationSchedulerPort {
       notificationDetails: _notifDetails,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
-      payload: accountScope == null ? id : accountPayload(accountScope, id),
+      payload: accountScope == null
+          ? id
+          : accountPayload(
+              accountScope,
+              id,
+              dailyHour: hour,
+              dailyMinute: minute,
+            ),
+    );
+    return true;
+  }
+
+  @override
+  Future<bool> scheduleCadenceAt({
+    required String id,
+    required String title,
+    required String body,
+    required HabitCadence cadence,
+    required DateTime firstAt,
+    String? accountScope,
+  }) async {
+    // The bundled Android adapter preserves the explicit first-date lower
+    // bound. Other adapters' repeating calendar triggers drop it, so they
+    // cannot safely suppress a completed current period.
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      Logger.warn('Rhythm cadence reminders are unsupported on this platform.');
+      return false;
+    }
+    if (!_initialized || !_permissionGranted) return false;
+    final local = firstAt.toLocal();
+    final scheduled = tz.TZDateTime(
+      tz.local,
+      local.year,
+      local.month,
+      local.day,
+      local.hour,
+      local.minute,
+    );
+    if (!scheduled.isAfter(tz.TZDateTime.now(tz.local))) return false;
+    final match = switch (cadence) {
+      HabitCadence.daily => DateTimeComponents.time,
+      HabitCadence.weekly => DateTimeComponents.dayOfWeekAndTime,
+      HabitCadence.monthly => DateTimeComponents.dayOfMonthAndTime,
+    };
+    final payload = accountScope == null
+        ? id
+        : jsonEncode(<String, dynamic>{
+            ...jsonDecode(
+                  accountPayload(
+                    accountScope,
+                    id,
+                    dailyHour: local.hour,
+                    dailyMinute: local.minute,
+                  ),
+                )
+                as Map<String, dynamic>,
+            'cadence': cadence.name,
+            'firstScheduledLocal': local.toIso8601String(),
+          });
+    await _plugin.zonedSchedule(
+      id: _notificationId(_platformKey(id, accountScope)),
+      title: title,
+      body: body,
+      scheduledDate: scheduled,
+      notificationDetails: _notifDetails,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: match,
+      payload: payload,
     );
     return true;
   }
@@ -328,11 +502,18 @@ class NotificationScheduler implements NotificationSchedulerPort {
     return accountScope == null ? id : '$accountScope:$id';
   }
 
-  static String accountPayload(String accountScope, String notificationId) {
+  static String accountPayload(
+    String accountScope,
+    String notificationId, {
+    int? dailyHour,
+    int? dailyMinute,
+  }) {
     return jsonEncode(<String, Object>{
       'v': 1,
       'accountScope': accountScope,
       'notificationId': notificationId,
+      if (dailyHour != null && dailyMinute != null) 'dailyHour': dailyHour,
+      if (dailyHour != null && dailyMinute != null) 'dailyMinute': dailyMinute,
     });
   }
 

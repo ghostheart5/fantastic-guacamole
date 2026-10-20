@@ -10,6 +10,74 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 void main() {
   group('SupabaseStorageCloudBackupGateway', () {
+    for (final scenario in <({String name, int status, String body, bool missing})>[
+      (
+        name: 'legacy missing object wrapped in HTTP 400',
+        status: 400,
+        body:
+            '{"statusCode":"404","error":"not_found","message":"Object not found"}',
+        missing: true,
+      ),
+      (
+        name: 'generic bad request',
+        status: 400,
+        body: '{"statusCode":"400","error":"InvalidRequest"}',
+        missing: false,
+      ),
+      (
+        name: 'missing bucket is not a missing backup',
+        status: 400,
+        body: '{"statusCode":"404","error":"NoSuchBucket"}',
+        missing: false,
+      ),
+      (
+        name: 'malformed error body',
+        status: 400,
+        body: '{"statusCode":"404","error":"not_found"',
+        missing: false,
+      ),
+      for (final status in <int>[401, 403, 500])
+        (
+          name: 'HTTP $status cannot be masked by a missing-object body',
+          status: status,
+          body: '{"statusCode":"404","error":"not_found"}',
+          missing: false,
+        ),
+    ]) {
+      test(scenario.name, () async {
+        final sb.SupabaseClient client = _supabaseClient(
+          MockClient((http.Request request) async {
+            if (request.url.path.endsWith('/auth/v1/token')) {
+              return _authResponse();
+            }
+            expect(request.method, 'GET');
+            expect(
+              request.url.path,
+              endsWith('/user-1/backup/full_backup.json'),
+            );
+            return http.Response(scenario.body, scenario.status);
+          }),
+        );
+        addTearDown(client.dispose);
+        await client.auth.signInWithPassword(
+          email: 'sync@chronospark.app',
+          password: 'correct-pass',
+        );
+        final gateway = SupabaseStorageCloudBackupGateway(
+          client: client,
+          expectedUserId: 'user-1',
+        );
+        await Logger.withMutedErrors(() async {
+          expect(
+            (await gateway.downloadBackup()).status,
+            scenario.missing
+                ? CloudBackupReadStatus.notFound
+                : CloudBackupReadStatus.unavailable,
+          );
+        });
+      });
+    }
+
     test('fails closed without an authenticated user', () async {
       final sb.SupabaseClient client = _supabaseClient(
         MockClient((http.Request request) async {

@@ -1,7 +1,9 @@
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/engine/si/api.dart';
+import 'package:fantastic_guacamole/engine/assistant/axiomara_deterministic_router.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
@@ -15,12 +17,50 @@ import 'package:fantastic_guacamole/state/providers/personalization_provider.dar
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:timezone/timezone.dart' as tz;
 
-// Uses the existing private, authenticated AI cohort. Public launch remains
-// contained until the new conversational experience is reviewed on-device.
+// Availability follows the reviewed public capabilities or existing private
+// cohort through the shared providers. Consent and account generation are
+// checked again before quoting and after paid execution.
 final assistantConversationAvailableProvider = Provider<bool>(
-  (ref) => ref.watch(internalCreditTestEnabledProvider),
+  (ref) =>
+      ref.watch(accountStorageScopeProvider).isWritable &&
+      ref.watch(aiProxyAvailableProvider) &&
+      ref.watch(creditSpendingAvailableProvider),
 );
+
+/// Advisory, on-device classification only. The paid conversation boundary
+/// still requires its existing disclosure, quote and explicit confirmation.
+final axiomaraRouterProvider = Provider<AxiomaraRouterPort>(
+  (ref) => const AxiomaraDeterministicRouter(),
+);
+
+// Route selection also respects the surface cohort and safety rollback. Loading
+// or failed release decisions retain the on-device UI until approval resolves.
+final assistantConversationSurfaceAvailableProvider =
+    Provider.family<bool, ConversationSurface>((ref, surface) {
+      if (!ref.watch(assistantConversationAvailableProvider)) return false;
+      final capability = surface == ConversationSurface.planner
+          ? AssistantReleaseCapability.smartPlannerV2
+          : AssistantReleaseCapability.siConsoleV2;
+      return ref
+                  .watch(assistantReleaseDecisionProvider(capability))
+                  .asData
+                  ?.value
+                  .enabled ==
+              true &&
+          ref
+                  .watch(
+                    assistantReleaseDecisionProvider(
+                      AssistantReleaseCapability.safetyCritic,
+                    ),
+                  )
+                  .asData
+                  ?.value
+                  .enabled ==
+              true;
+    });
 
 final conversationTransportProvider = Provider<ConversationTransport>(
   (ref) => ref.watch(internalCreditTestTransportProvider),
@@ -91,7 +131,9 @@ final conversationServiceProvider = Provider<ConversationService>((ref) {
             .where((turn) => turn['role'] == 'user')
             .map((turn) => turn['content']),
       ].join(' ');
-      if (EmotionalSafetyPolicy.assess(text).route !=
+      if (EmotionalSafetyPolicy.assess(
+            '$text ${packet.attachedNoteSafetyText}',
+          ).route !=
           EmotionalSafetyRoute.routine) {
         throw const ConversationFailure('supportive_route_required');
       }
@@ -171,6 +213,26 @@ final class ConversationPacketFactory {
       entityFilter: entityFilter,
       scenarioAssumption: scenario,
     );
+    String? taskTimeZoneId;
+    if (surface == ConversationSurface.si &&
+        query.intent == SIV2Intent.findConflict) {
+      try {
+        final platformZoneId =
+            (await FlutterTimezone.getLocalTimezone().timeout(
+              const Duration(seconds: 2),
+            )).identifier;
+        final platformZone = tz.getLocation(platformZoneId);
+        final localZone = tz.local;
+        if (localZone.name == platformZone.name &&
+            tz.TZDateTime.from(now, localZone).timeZoneOffset ==
+                now.timeZoneOffset) {
+          taskTimeZoneId = localZone.name;
+        }
+      } on Object {
+        // Native zone lookup or startup configuration is unavailable. The
+        // server will request task/date context before a paid calculation.
+      }
+    }
     final effectiveSources = taskOnly
         ? const <SIV2Source>{SIV2Source.tasks}
         : query.sources;
@@ -219,6 +281,8 @@ final class ConversationPacketFactory {
     ).allMatches(prompt.toLowerCase()).map((m) => m.group(0)!).toSet();
     int relevance(SIV2TaskEvidence task) => task.id == attachedId
         ? 10000
+        : task.id == local.focusTaskId
+        ? 9000
         : topic.where((term) => task.title.toLowerCase().contains(term)).length;
     tasks.sort((a, b) => relevance(b).compareTo(relevance(a)));
     final goals = snapshot.goals
@@ -242,6 +306,7 @@ final class ConversationPacketFactory {
         'language': languageCode,
         'nowLocal': now.toIso8601String(),
         'utcOffsetMinutes': now.timeZoneOffset.inMinutes,
+        'taskTimeZoneId': taskTimeZoneId,
         'mode': query.intent.name,
         'timeRange': range.name,
         'selectedSources':
@@ -252,6 +317,7 @@ final class ConversationPacketFactory {
         if (taskOnly) 'contextScope': 'attachedTaskOnly',
         if (taskDetailsUnavailable) 'taskDetailsUnavailable': true,
         'explicitlyAttachedTaskId': ?attachedId,
+        'focusedTaskId': ?local.focusTaskId,
         'tasks': tasks
             .take(12)
             .map(

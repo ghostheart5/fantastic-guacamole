@@ -11,7 +11,9 @@ const Map<String, String> _requiredGates = <String, String>{
   'GitHub workflow lint': r'$ACTIONLINT -no-color',
   'PowerShell parse gate': './scripts/powershell_parse_gate.ps1',
   'full Flutter coverage test':
-      'dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/flutter-tests.jsonl --manifest artifacts/flutter-test-evidence/flutter-tests-manifest.json --timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1',
+      'dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/flutter-tests.jsonl --manifest artifacts/flutter-test-evidence/flutter-tests-manifest.json --timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1 --exclude-tags=local-public-policy',
+  'isolated local public-policy planner':
+      'dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/local-policy-tests.jsonl --manifest artifacts/flutter-test-evidence/local-policy-tests-manifest.json --timeout-seconds 600 -- test/release/local_public_policy_planner_test.dart --no-pub --dart-define-from-file=tool/local_public_policy_test_defines.json',
   'QA compile-time configuration':
       'dart run tool/run_flutter_tests.dart --report artifacts/flutter-test-evidence/qa-config-tests.jsonl --manifest artifacts/flutter-test-evidence/qa-config-tests-manifest.json --timeout-seconds 600 -- test/config/env_mode_resolution_test.dart --no-pub --dart-define-from-file=tool/qa_defines.json',
   'Linux integration': 'bash ./scripts/run_linux_integration_tests.sh',
@@ -22,6 +24,7 @@ const Map<String, String> _requiredGates = <String, String>{
 };
 
 const Map<String, String> _requiredGateJobs = <String, String>{
+  'isolated local public-policy planner': 'flutter-tests',
   'architecture boundary': 'static-policy',
   'Maestro flow contract': 'static-policy',
   'golden comparison contract': 'static-policy',
@@ -60,6 +63,51 @@ void main() {
     ).readAsStringSync();
   });
 
+  group('Android release runtime caller permissions', () {
+    late String source;
+    const caller =
+        '  runtime-gate:\n'
+        '    uses: ./.github/workflows/maestro-runtime.yml\n'
+        '    permissions:\n'
+        '      contents: read\n'
+        '      actions: read\n';
+    const permissionFailure =
+        'Android release runtime gate must explicitly allow only contents: read '
+        'and actions: read for the nested QA workflow.';
+    setUp(() {
+      source = File('.github/workflows/android-release.yml').readAsStringSync();
+      expect(source, contains(caller));
+    });
+
+    test('accepts the explicitly scoped read permissions', () {
+      expect(workflow_validator.validateAndroidReleaseSource(source), isEmpty);
+    });
+
+    final mutations = <String, String>{
+      'rejects the actual missing actions permission startup failure': caller
+          .replaceFirst('      actions: read\n', ''),
+      'rejects missing checkout permission': caller.replaceFirst(
+        '      contents: read\n',
+        '',
+      ),
+      'rejects actions write access': caller.replaceFirst(
+        '      actions: read\n',
+        '      actions: write\n',
+      ),
+      'rejects unrelated additional access': '$caller      id-token: write\n',
+    };
+    for (final mutation in mutations.entries) {
+      test(mutation.key, () {
+        final fixture = source.replaceFirst(caller, mutation.value);
+        expect(fixture, isNot(source));
+        expect(
+          workflow_validator.validateAndroidReleaseSource(fixture),
+          contains(permissionFailure),
+        );
+      });
+    }
+  });
+
   group('Maestro prepared-script contract', () {
     late String source;
     setUp(
@@ -79,6 +127,26 @@ void main() {
     );
 
     final mutations = <String, List<String>>{
+      'passive runner pin is mutable': [
+        'ref: a421e43855164a8197daf9d8d40fe71c6996bb0d',
+        'ref: main',
+      ],
+      'passive runner path changes': [
+        'path: test-results/hosted-emulator-runner',
+        'path: another-runner',
+      ],
+      'passive runner patch omitted': [
+        'run: python3 scripts/prepare_hosted_emulator_runner.py',
+        'run: echo skipped-patch',
+      ],
+      'passive runner patch failure ignored': [
+        'run: python3 scripts/prepare_hosted_emulator_runner.py',
+        'continue-on-error: true\n        run: python3 scripts/prepare_hosted_emulator_runner.py',
+      ],
+      'unpatched external runner is invoked': [
+        'uses: ./test-results/hosted-emulator-runner',
+        'uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d',
+      ],
       'emulator calls a different script': [
         'bash test-results/maestro-prewarm/run-suite.sh',
         'echo skipped',

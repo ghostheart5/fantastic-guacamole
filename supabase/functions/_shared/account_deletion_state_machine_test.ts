@@ -53,6 +53,7 @@ Deno.test("reads status only when both request and receipt hash match", async ()
 
 Deno.test("completes revocation, storage, auth, and durable status", async () => {
   const patches: Array<Record<string, unknown>> = [];
+  const deletionResponse = Response.json({ id: "user-1" });
   const fetcher: typeof fetch = (input, init) => {
     const url = String(input);
     if (url.endsWith("/rpc/claim_account_deletion_request")) {
@@ -74,7 +75,7 @@ Deno.test("completes revocation, storage, auth, and durable status", async () =>
       return Promise.resolve(Response.json([{ request_id: "request" }]));
     }
     if (url.includes("/auth/v1/admin/users/user-1")) {
-      return Promise.resolve(new Response(null, { status: 204 }));
+      return Promise.resolve(deletionResponse);
     }
     throw new Error(`unexpected request: ${url}`);
   };
@@ -90,6 +91,9 @@ Deno.test("completes revocation, storage, auth, and durable status", async () =>
 
   if (!result.completed || result.state !== "completed") {
     throw new Error(`unexpected result: ${JSON.stringify(result)}`);
+  }
+  if (!deletionResponse.bodyUsed) {
+    throw new Error("Auth deletion response must release its body");
   }
   const completion = patches.at(-1);
   if (completion?.state !== "completed" || completion?.lease_id !== null) {

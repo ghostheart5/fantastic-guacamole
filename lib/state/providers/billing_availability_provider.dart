@@ -24,6 +24,12 @@ final internalBillingTestEnabledProvider = Provider<bool>((ref) {
   );
 });
 
+final publicCreditAdmissionQaEnabledProvider = Provider<bool>((ref) {
+  final config = ref.watch(internalBillingTestConfigProvider);
+  return config.publicCreditAdmissionQa &&
+      ref.watch(internalBillingTestEnabledProvider);
+});
+
 final subscriptionPurchasingEnabledProvider = Provider<bool>((ref) {
   return Env.paidCreditPlansEnabled ||
       ref.watch(internalBillingTestEnabledProvider);

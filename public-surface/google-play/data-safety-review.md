@@ -1,5 +1,36 @@
 # Data safety correction gate
 
+## October 2, 2026: build 3102 reconciliation draft
+
+Scope: intended public-profile candidate `4.2.3+2026083102`, package `com.ghostheart5.chronospark`, including the local paid-reply recovery repair. This is preparation for review against the final source, configuration, signed artifact, and deployed services. It records no current Console answers, saved form, submission, hosted-policy publication, or production cleanup/deployment proof. Conflicting workflow guidance below is historical; use the [current requirement disposition](../../docs/engineering/RELEASE_REQUIREMENTS_20260926.md) and [public capability checkpoint](../../docs/engineering/PUBLIC_CAPABILITY_CHECKPOINT_20260926.md).
+
+### Paid-reply recovery: source behavior to reconcile
+
+The repaired AI proxy may retain the complete generated paid reply in an account-linked server request record so an interrupted request can recover its answer. The reply may reproduce user-supplied planning or personal content. The intended settlement path stores reply content with a 15-minute expiry atomically. Retrying an ambiguous settlement can refresh this window; it is not a maximum duration measured from the original debit. Replay rejects expired, missing, or invalid expiry and requires the current account's request authority. Only an authoritative HTTP 404 with code `PGRST202` identifying a missing TTL-capable settlement RPC permits metadata-only fallback: a fresh reply can still be returned, but later recovery is unavailable for that request. Timeouts and HTTP 5xx responses do not permit that fallback.
+
+Replay expiry is not proof of physical deletion at that instant. The existing database migration defines periodic removal of expired response payloads and a five-minute cleanup schedule. Deployment, enabled job state, successful executions, removal lag, and any backup retention have not been checked for this candidate. Do not promise a precise physical-deletion deadline from the source schedule. Billing and usage metadata, provider retention, and user-submitted response reports have separate purposes and retention rules.
+
+The canonical privacy draft is `web/privacy/index.html`; `legal/legal_documents.json` generates `privacy.html`, `assets/legal/privacy_policy.html`, and `assets/legal/privacy_policy.txt`. The October 2 local disclosure distinguishes temporary server reply recovery from the absence of a user-accessible saved conversation archive. Local consistency does not establish the currently hosted policy or installed app's wording.
+
+### Pending final-candidate checks
+
+| Item | Evidence required before accepting a declaration | Current state |
+| --- | --- | --- |
+| Candidate identity | Final source SHA, effective public configuration, AAB hash, installed package/version, and deployed AI proxy/RPC definitions match | Pending |
+| Collected content | Map questions, selected context, recent messages, generated reply content, identifiers, and reports to the actual transmitted and persisted fields; consider Other user-generated content and Other in-app messages against the real payload | Pending |
+| Sensitive content | Determine whether actual off-device emotional or other health-related information requires Health info disclosure; classify payloads separately from the wellness feature declaration | Pending |
+| Storage and purpose | Treat the server reply cache as stored data used for app functionality and interrupted-request recovery; do not label it ephemeral merely because replay lasts 15 minutes | Pending |
+| Optionality and processors | Verify user controls and the provider/data/cost confirmation; review Supabase and Anthropic processing and any applicable sharing exclusions against current terms and behavior | Pending |
+| Retention and cleanup | Verify atomic expiry, expiry rejection, account/request isolation, missing-RPC fallback, current cleanup definition/job and successful removal of a disposable expired reply; record delays and backup limitations | Pending |
+| Deletion | Verify the exact account-deletion path removes or appropriately handles cached content and related records; retain the separate billing/security retention explanation | Pending |
+| Disclosure parity | Compare the final in-app policy, current hosted canonical policy, EN/ES notices, and all active distributed versions; reconcile the saved Console form only after authorized readback | Pending |
+
+Google defines ephemeral processing as memory-only handling for the real-time request. Persistent retry storage does not meet that description; a short lifetime alone is insufficient. Collection, purposes, optionality, and sharing must be assessed independently. Reference checked October 2, 2026: [Google Play Data safety guidance](https://support.google.com/googleplay/android-developer/answer/10787469?hl=en).
+
+The exact category selections and final Console state remain unverified. No checklist row is an approval or a claim that deployment, deletion, or runtime validation has occurred.
+
+## Historical review records
+
 ## September 12 current readback
 
 The [3032 blocker closeout](../../docs/engineering/BLOCKER_CLOSEOUT_3032_20260912.md)

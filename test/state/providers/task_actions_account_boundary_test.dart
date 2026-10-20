@@ -147,19 +147,63 @@ void main() {
     },
   );
 
-  test('skip does not use the next account after task loading', () async {
-    final _Harness harness = _Harness(blockCoordinator: true);
-    addTearDown(harness.dispose);
-    final Completer<List<Task>> loading = Completer<List<Task>>();
-    harness.tasksFuture = loading.future;
-    final Future<void> action = harness.actions.skipTask('shared-id');
-    harness.signIn('account-b');
-    loading.complete(<Task>[Task.fromEntity(harness.accountA.task!)]);
-    await action;
+  for (final transition in ['switch', 'return', 'reset']) {
+    test('skip ignores an old canonical lookup after $transition', () async {
+      final harness = _Harness(blockCoordinator: true);
+      addTearDown(harness.dispose);
+      harness.accountA.lookup = Completer<TaskEntity?>();
+      final action = harness.actions.skipTask('shared-id');
+      await harness.accountA.lookupStarted.future;
+      if (transition != 'reset') harness.signIn('account-b');
+      if (transition != 'switch') harness.signIn('account-a');
+      harness.accountA.lookup!.complete(harness.accountA.task);
+      await action;
+      expect(harness.coordinatorReads, 0);
+      expect(harness.accountA.mutations, 0);
+      expect(harness.accountB.mutations, 0);
+      expect(harness.events, isEmpty);
+    });
+  }
 
+  test('disposed skip does not resume its canonical lookup', () async {
+    final harness = _Harness(blockCoordinator: true);
+    harness.accountA.lookup = Completer<TaskEntity?>();
+    final action = harness.actions.skipTask('shared-id');
+    await harness.accountA.lookupStarted.future;
+    harness.dispose();
+    harness.accountA.lookup!.complete(harness.accountA.task);
+    await action;
     expect(harness.coordinatorReads, 0);
+    expect(harness.accountA.mutations, 0);
     expect(harness.events, isEmpty);
   });
+
+  for (final switched in [false, true]) {
+    test(
+      'skip lookup failure ${switched ? 'is ignored after account switch' : 'is reported for current account'}',
+      () async {
+        final harness = _Harness(blockCoordinator: true);
+        addTearDown(harness.dispose);
+        harness.accountA.lookup = Completer<TaskEntity?>();
+        final action = harness.actions.skipTask('shared-id');
+        await harness.accountA.lookupStarted.future;
+        final failure = StateError('Account storage closed');
+        if (switched) {
+          harness.signIn('account-b');
+          harness.accountA.lookup!.completeError(failure);
+          await action;
+        } else {
+          final expectation = expectLater(action, throwsA(same(failure)));
+          harness.accountA.lookup!.completeError(failure);
+          await expectation;
+        }
+        expect(harness.coordinatorReads, 0);
+        expect(harness.accountA.mutations, 0);
+        expect(harness.accountB.mutations, 0);
+        expect(harness.events, isEmpty);
+      },
+    );
+  }
 
   test('disposed action does not resume a pending lookup', () async {
     final _Harness harness = _Harness();
@@ -182,8 +226,11 @@ void main() {
         final _Harness harness = _Harness();
         addTearDown(harness.dispose);
         harness.tasksFuture = Future<List<Task>>.value(const <Task>[]);
-        harness.durableMutation = (_) async =>
-            CompletionMutationOutcome.applied;
+        var completions = 0;
+        harness.durableMutation = (_) async {
+          completions++;
+          return CompletionMutationOutcome.applied;
+        };
         harness.accountA.lookup = Completer<TaskEntity?>();
         await harness.container.read(tasksProvider.future);
         final Future<void> action = harness.actions.completeTask('shared-id');
@@ -192,8 +239,8 @@ void main() {
 
         if (switchAccount) {
           harness.signIn('account-b');
-          await action;
           harness.accountA.lookup!.completeError(failure);
+          await action;
           await Future<void>.delayed(Duration.zero);
         } else {
           final Future<void> expectation = expectLater(
@@ -203,6 +250,7 @@ void main() {
           harness.accountA.lookup!.completeError(failure);
           await expectation;
         }
+        expect(completions, 0);
         expect(harness.events, isEmpty);
       },
     );

@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'dart:async';
+import 'package:fantastic_guacamole/features/settings/ui/cloud_backup_actions.dart';
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
@@ -393,8 +394,8 @@ class SettingsScreen extends ConsumerWidget {
                           final String subtitle = switch (granted) {
                             true => copy('Granted', 'Concedido'),
                             false => copy(
-                              'Denied (scheduling disabled)',
-                              'Denegado (programación desactivada)',
+                              'Off (scheduling disabled)',
+                              'Desactivado (programación desactivada)',
                             ),
                             null => copy(
                               'Unknown until app initializes notifications',
@@ -500,6 +501,8 @@ class SettingsScreen extends ConsumerWidget {
                 initiallyExpanded: openContextFromNexus,
                 child: const Column(
                   children: <Widget>[
+                    _AdaptiveGuidanceSection(),
+                    SizedBox(height: 10),
                     _PersonContextSection(),
                     SizedBox(height: 10),
                     _ReflectionReminderSection(),
@@ -513,8 +516,6 @@ class SettingsScreen extends ConsumerWidget {
                     _MemoryGovernanceSection(),
                     SizedBox(height: 10),
                     _AssistantReleaseSection(),
-                    SizedBox(height: 10),
-                    _AdaptiveGuidanceSection(),
                   ],
                 ),
               ),

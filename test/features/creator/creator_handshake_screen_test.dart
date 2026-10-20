@@ -72,6 +72,11 @@ void main() {
     await container
         .read(adaptiveGuidanceProvider.notifier)
         .record(GuidanceMilestone.firstSchedule);
+    // Finished first-run guidance: without the Timeline review, the core
+    // guide is still active and Creator correctly runs its guided form.
+    await container
+        .read(adaptiveGuidanceProvider.notifier)
+        .record(GuidanceMilestone.firstTimelineReview);
     container
         .read(creatorDraftPreviewProvider.notifier)
         .stage(

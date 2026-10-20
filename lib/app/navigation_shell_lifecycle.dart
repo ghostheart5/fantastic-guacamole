@@ -22,6 +22,47 @@ extension _NavigationShellLifecycle on _NavigationShellState {
     unawaited(runGuardedBackgroundTask(label: label, task: task));
   }
 
+  void _queueReminderRecovery(_ReminderRecoveryOwner? owner) {
+    if (!mounted) return;
+    _pendingReminderRecovery = owner;
+    if (owner == null ||
+        _reminderRecoveryScheduled ||
+        _reminderRecoveryRunning) {
+      return;
+    }
+    _reminderRecoveryScheduled = true;
+    _runBackgroundTask(
+      'notification permission and reminder recovery',
+      () async {
+        // Provider readiness can change during a frame. Dispatch on the next
+        // event turn rather than mutating notification providers during build.
+        await Future<void>.delayed(Duration.zero);
+        if (!mounted) return;
+        _reminderRecoveryScheduled = false;
+        final queued = _pendingReminderRecovery;
+        _pendingReminderRecovery = null;
+        if (queued == null ||
+            ref.read(_reminderRecoveryOwnerProvider) != queued) {
+          return;
+        }
+        _reminderRecoveryRunning = true;
+        try {
+          // The existing action queries permission without prompting and uses
+          // AccountOperation leases across every await and scoped cancellation.
+          await ref
+              .read(settingsUiActionsProvider)
+              .refreshNotificationPermissionAndReminders();
+        } finally {
+          if (mounted) {
+            _reminderRecoveryRunning = false;
+            final pending = _pendingReminderRecovery;
+            if (pending != null) _queueReminderRecovery(pending);
+          }
+        }
+      },
+    );
+  }
+
   void _initializeRuntimeServices() {
     _dataHygieneScheduler ??= ref.read(dataHygieneSchedulerProvider);
     _audioInterruptionService ??= ref.read(audioInterruptionServiceProvider);
@@ -112,9 +153,24 @@ extension _NavigationShellLifecycle on _NavigationShellState {
     if (!mounted || !Env.enableCloudSync) {
       return;
     }
-    ref.invalidate(replayOfflineQueueProvider);
-    ref.invalidate(syncToCloudProvider);
-    ref.invalidate(offlineQueueCountProvider);
+    final scope = ref.read(accountStorageScopeProvider);
+    _runBackgroundTask('opted-in cloud backup', () async {
+      if (!(await ref.read(cloudSyncPreferenceProvider.future)) ||
+          !mounted ||
+          ref.read(accountStorageScopeProvider).v2Namespace !=
+              scope.v2Namespace) {
+        return;
+      }
+      final completed = await ref.refresh(syncToCloudProvider.future);
+      if (!completed) {
+        Logger.warn('Opted-in cloud backup did not complete.');
+      }
+      if (mounted &&
+          ref.read(accountStorageScopeProvider).v2Namespace ==
+              scope.v2Namespace) {
+        ref.invalidate(offlineQueueCountProvider);
+      }
+    });
   }
 
   void _scheduleNetworkRecoveryRetry() {

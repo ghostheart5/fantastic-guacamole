@@ -698,6 +698,22 @@ export function classifyVerificationReconciliation(
   return "retry";
 }
 
+// Only a completed authority RPC can attest a terminal subscription response.
+export function reconciledInactiveSubscriptionResponse(
+  result: Record<string, unknown> | null,
+  productId: string,
+  testPurchase: boolean,
+) {
+  if (classifyVerificationReconciliation(result) !== "terminal") return null;
+  return {
+    valid: false,
+    productId,
+    error: "purchase_not_active",
+    subscriptionReconciled: true,
+    testPurchase,
+  };
+}
+
 export function classifyPurchaseBinding(
   result: Record<string, unknown> | null,
   expectedUserId: string,

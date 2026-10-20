@@ -1,6 +1,6 @@
-# Ficha de Google Play: Español (Latinoamérica)
+# Axiomara store listing: es-419
 
-Revisada el 17 de septiembre de 2026 para la versión firmada 4.1.0+2026083063 de pruebas cerradas. Este archivo registra el borrador de la ficha; el envío y la publicación en Play Console requieren una verificación separada.
+Prepared October 6, 2026 for the existing public listing. Local copy only; not saved, submitted or published in Play Console. Package com.ghostheart5.chronospark is unchanged.
 
 ## Nombre de la app
 
@@ -8,46 +8,31 @@ Axiomara: Decision OS
 
 ## Descripción breve
 
-Convierte metas, tiempo, energía y contexto en decisiones claras y revisables.
+Planea tu próximo paso según tus metas, tiempo disponible y energía
 
 ## Descripción completa
 
-Axiomara convierte metas, compromisos, tiempo, energía, notas y contexto autorizado por ti en decisiones que puedes revisar antes de actuar.
+Cuando tu lista es larga y el tiempo es corto, Axiomara te ayuda a elegir un próximo paso realista según tus metas, tiempo disponible y energía.
 
-NEXUS: TU PAQUETE DE DECISIÓN EN VIVO
+EMPIEZA CON UNA ACCIÓN ÚTIL
+Registra una tarea, revisa el cambio propuesto y confirma lo que quieres guardar. Dale un lugar en tu horario y márcala como completada cuando termines. Tú decides qué aceptar, cambiar, aplazar o rechazar.
 
-Nexus reúne lo que importa ahora: el próximo movimiento recomendado, por qué encaja, las señales que lo respaldan, la incertidumbre y el control que conservas. Nada cambia en silencio.
+PLANIFICA PARA LA VIDA REAL
+Reúne tareas, metas, notas y ritmos diarios en un solo lugar. Considera tu tiempo disponible, prioridades, presión del horario y el contexto que eliges compartir. Pide un paso más pequeño o explora otro enfoque cuando cambie tu día.
 
-CONSTRUYE REALIDAD
+ENTIENDE LA RECOMENDACIÓN
+Nexus muestra el movimiento recomendado, las señales que lo respaldan y la incertidumbre. Creador / Constructor de Realidad te permite revisar cambios antes de confirmarlos. Ramas Futuras ayuda a comparar alternativas; los escenarios son posibilidades, no promesas.
 
-Usa Constructor de Realidad para registrar metas, tareas, notas y ritmos diarios. Conecta el trabajo de hoy con resultados importantes en lugar de mantener listas aisladas.
+REVISA LO QUE OCURRIÓ
+Registro de Verdad conserva acciones elegidas y resultados para revisarlos o corregirlos. Matriz de Capacidades muestra progreso vinculado a acciones. Los registros opcionales de energía y claridad permiten expresar tu contexto actual.
 
-RESUELVE EL AHORA
-
-Motor del Ahora considera tiempo disponible, prioridad, presión del horario y el contexto que eliges compartir. Pregunta qué hacer, pide un paso más pequeño o explora otro enfoque.
-
-INTERROGA EL RAZONAMIENTO
-
-Inteligencia Profunda te permite cuestionar una recomendación y revisar sus límites. La app separa hechos observados, supuestos y resultados posibles para que la orientación sea comprensible.
-
-COMPARA RAMAS FUTURAS
-
-Ramas Futuras te ayuda a examinar alternativas antes de comprometerte. Los escenarios son posibilidades, no promesas. Tú decides qué aceptar, cambiar, aplazar o rechazar.
-
-CIERRA EL BUCLE DE VERDAD
-
-Registro de Verdad conserva acciones elegidas y resultados. Axiomara aprende de lo que realmente ocurrió, y tú puedes revisar o corregir ese aprendizaje. Matriz de Capacidades muestra el progreso demostrado con acciones.
-
-DISEÑADO PARA LA VIDA REAL
-
-Los registros de energía y claridad son opcionales y temporales. Impulso refleja la evidencia actual de tu trayectoria. La entrada por voz y las respuestas habladas permanecen bajo tu control.
-
-SIN ANUNCIOS. NUNCA.
-
-Sin banners. Sin videos con recompensa. Sin interrupciones para obtener acceso. El uso sin anuncios no depende de una suscripción.
+PLANIFICA SIN ANUNCIOS
+Axiomara no tiene banners ni videos con recompensa. La planificación sin anuncios no requiere una suscripción.
 
 IA Y FUNCIONES DE PAGO OPCIONALES
+Las acciones de IA externa son opcionales. Antes de confirmar una, Axiomara identifica el proveedor, el contexto seleccionado que podría enviarse y el costo previsto en créditos. Puedes rechazarla y continuar sin IA generativa. El acceso por suscripción y los créditos de IA aparecen por separado. Las funciones de pago disponibles y sus precios se muestran antes de comprar.
 
-La planificación básica permanece disponible sin anuncios. Cuando las pruebas privadas elegibles habilitan IA externa, Axiomara identifica el servicio, el contexto que podría enviarse y el costo en créditos antes de una acción de pago. La suscripción y los créditos de IA aparecen por separado.
+COPIA DE SEGURIDAD OPCIONAL EN LA NUBE
+La copia en la nube está desactivada de forma predeterminada. Al activarla, cifra tareas, información del perfil y preferencias de la cuenta antes de enviarlas. Guarda tu clave de recuperación por separado para restaurar en otro dispositivo. Las metas, ritmos diarios, notas e historial no están incluidos.
 
-Axiomara ayuda a planificar y tomar decisiones. No reemplaza apoyo profesional, médico, legal, financiero ni servicios de emergencia.
+Axiomara está dirigida a personas de 18 años en adelante. Ayuda a planificar y tomar decisiones; no reemplaza apoyo profesional, médico, legal, financiero ni servicios de emergencia.

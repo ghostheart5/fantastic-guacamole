@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:fantastic_guacamole/config/backend_mode.dart';
 import 'package:fantastic_guacamole/config/firebase_identity.dart';
 import 'package:fantastic_guacamole/config/internal_billing_test.dart';
+import 'package:fantastic_guacamole/config/public_release_profile.dart';
 
 enum ProductionTarget { all, android, ios }
 
@@ -20,7 +21,11 @@ List<String> validateProductionConfiguration(
   String? googleServicesJson,
   ProductionTarget target = ProductionTarget.all,
 }) {
-  final List<String> failures = <String>[];
+  final List<String> failures = PublicReleaseProfile.validate(values);
+  if (values[PublicReleaseProfile.define] == 'true' &&
+      target != ProductionTarget.android) {
+    failures.add('The public release profile supports Android only.');
+  }
   final String billingFlag =
       values['CHRONOSPARK_INTERNAL_BILLING_TEST'] ?? 'false';
   if (billingFlag != 'true' && billingFlag != 'false') {
@@ -28,6 +33,18 @@ List<String> validateProductionConfiguration(
   }
   final String billingCohort =
       values['CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS'] ?? '';
+  final String admissionQa =
+      values['CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA'] ?? 'false';
+  if (admissionQa != 'true' && admissionQa != 'false') {
+    failures.add(
+      'CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA must be true or false.',
+    );
+  }
+  if (admissionQa == 'true' && billingFlag != 'true') {
+    failures.add(
+      'Public credit admission QA requires the internal license-test profile.',
+    );
+  }
   if (billingFlag == 'true') {
     for (final name in <String>[
       'CHRONOSPARK_ENABLE_MOCK_LOGIN',

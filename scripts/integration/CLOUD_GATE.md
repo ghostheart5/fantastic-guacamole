@@ -1,0 +1,11 @@
+# Disposable cloud acceptance
+
+This gate runs the real application cloud gateway, SyncService, BackupService and BackupCipher against a fresh local Supabase stack built from this checkout's migrations. A second Deno case exercises real Auth, PostgREST and Storage through the application's account deletion state machine. All users and records are synthetic; both entry points reject hosted URLs and require AXIOMARA_DISPOSABLE_DB_GATE=true. No production service key is needed.
+
+The maintained Supabase Database Gate supplies LOCAL_SUPABASE_URL, LOCAL_SUPABASE_ANON_KEY and LOCAL_SUPABASE_SERVICE_KEY from its disposable CLI status. Do not print those keys or attach the status output. The Flutter entry point is test/support/cloud_backup_live.dart: it intentionally lacks the _test suffix, keeping ordinary offline discovery honest rather than adding a skipped integration test.
+
+Checks include encrypted cloud persistence, restore refusal without a recovery key, in-memory recovery-key import and exact task readback, competing revision writes, an injected offline interval and successful retry, account-change denial, two-account database/storage isolation, real deletion completion and repeat safety, invalid receipt denial, refresh-token revocation, lingering-JWT resurrection denial, and preservation of the other account's snapshot.
+
+Local task and secure-key stores are synthetic adapters; Hive uses a temporary local directory. The current cloud envelope covers tasks, profile and settings. These tests do not establish portable restore of all local-only domains, Android Keystore behavior, device UI, a final signed build, provider AI safety, or hosted operational configuration. The deletion test calls the shared production state machine and authentication helper directly; it does not certify the Edge HTTP entry point's complete CORS/recent-sign-in/error contract. Existing unit tests cover that handler separately.
+
+Cloud-client JSON events and cloud-deletion JUnit are uploaded with the checkout's exact source receipt. A nonzero exit fails the gate. Synthetic accounts are removed in finally blocks; the runner removes its disposable stack even on failure. No existing hosted staging data or migration history is changed.

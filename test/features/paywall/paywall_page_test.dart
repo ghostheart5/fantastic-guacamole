@@ -302,7 +302,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(
-        find.text('Purchased credits added to your account.'),
+        find.text('Credit purchase confirmed. Check your available balance.'),
         findsOneWidget,
       );
       expect(
@@ -552,7 +552,90 @@ void main() {
     },
   );
 
+  for (final locale in [const Locale('en'), const Locale('es')]) {
+    testWidgets('late cancellation replaces unresolved checkout in $locale', (
+      tester,
+    ) async {
+      final events = StreamController<SubscriptionState>();
+      addTearDown(events.close);
+      final container = await pumpPaywall(
+        tester,
+        config: _twoPlanConfig,
+        billingTest: true,
+        creditTest: true,
+        locale: locale,
+        outcomes: events.stream,
+      );
+      const unresolved = SubscriptionState(
+        isActive: false,
+        status: 'checkout_unresolved',
+        source: 'google_play',
+        planId: 'credits_100',
+      );
+      events.add(unresolved);
+      await tester.pump();
+      final english = locale.languageCode == 'en';
+      final message = resolvePaywallPurchaseResultMessage(
+        unresolved,
+        testingMode: false,
+        localizations: ChronoSparkLocalizations(locale),
+      );
+      expect(find.text(message), findsOneWidget);
+      expect(
+        message,
+        contains(english ? 'has not confirmed' : 'aún no ha confirmado'),
+      );
+      expect(
+        message,
+        contains(english ? 'Restore Purchases' : 'Restaurar compras'),
+      );
+      events.add(
+        const SubscriptionState(
+          isActive: false,
+          status: 'purchase_canceled',
+          source: 'google_play',
+          planId: 'credits_100',
+        ),
+      );
+      await tester.pump();
+      expect(find.text(message), findsNothing);
+      expect(
+        find.text(
+          english
+              ? 'Purchase canceled. Your current access was not changed.'
+              : 'Compra cancelada. Tu acceso actual no ha cambiado.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        container.read(paywallSubscriptionProvider).requireValue.isActive,
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   test('pending and canceled purchase copy preserves current access', () {
+    for (final locale in [const Locale('en'), const Locale('es')]) {
+      final localization = ChronoSparkLocalizations(locale);
+      for (final status in ['purchase_canceled', 'purchase_cancelled']) {
+        final canceled = SubscriptionState(
+          isActive: false,
+          status: status,
+          source: 'google_play',
+        );
+        expect(
+          resolvePaywallRestoreResultMessage(
+            canceled,
+            testingMode: false,
+            localizations: localization,
+          ),
+          locale.languageCode == 'es'
+              ? 'Compra cancelada. Tu acceso actual no ha cambiado.'
+              : 'Purchase canceled. Your current access was not changed.',
+        );
+      }
+    }
     expect(
       resolvePaywallPurchaseResultMessage(
         const SubscriptionState(
@@ -593,6 +676,39 @@ void main() {
       'Purchase verification could not be confirmed. Your current access stays unchanged; use Restore Purchases to retry.',
     );
   });
+
+  test(
+    'unfulfilled paid credit order gives clear English and Spanish help',
+    () {
+      const state = SubscriptionState(
+        isActive: false,
+        status: 'customer_resolution_required',
+        source: 'google_play',
+      );
+      final english = resolvePaywallPurchaseResultMessage(
+        state,
+        testingMode: false,
+      );
+      const spanish = ChronoSparkLocalizations(Locale('es'));
+      final espanol = resolvePaywallPurchaseResultMessage(
+        state,
+        testingMode: false,
+        localizations: spanish,
+      );
+      expect(english, contains('credits were not added'));
+      expect(english, contains('Contact support'));
+      expect(espanol, contains('no se añadieron créditos'));
+      expect(espanol, contains('Contacta con soporte'));
+      expect(
+        resolvePaywallRestoreResultMessage(
+          state,
+          testingMode: false,
+          localizations: spanish,
+        ),
+        espanol,
+      );
+    },
+  );
 
   test('acknowledgement failure never claims activation', () {
     expect(

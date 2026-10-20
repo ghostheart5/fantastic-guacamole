@@ -387,9 +387,6 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     }
 
     await owner.wait(_bestEffort(() => _writeLedger(account, ledger)));
-    await owner.wait(
-      _bestEffort(() => _recordGuidanceMilestones(preview, owner)),
-    );
     final String resultingRevision = await owner.wait(_domainRevision(owner));
     final CreatorHandshakeReceipt receipt = CreatorHandshakeReceipt(
       proposalId: preview.proposalId,
@@ -401,6 +398,9 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       appliedAt: now,
       undoExpiresAt: now.add(undoLifetime),
       resultingDomainRevision: resultingRevision,
+    );
+    await owner.wait(
+      _bestEffort(() => _recordGuidanceMilestones(preview, receipt, owner)),
     );
     _invalidateDomains(preview.selectedOperations);
     state = state.copyWith(
@@ -1239,12 +1239,17 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
 
   Future<void> _recordGuidanceMilestones(
     CreatorHandshakePreview preview,
+    CreatorHandshakeReceipt receipt,
     AccountOperation owner,
   ) async {
     owner.check();
     final AdaptiveGuidanceNotifier guidance = ref.read(
       adaptiveGuidanceProvider.notifier,
     );
+    // Every confirm path (the tutorial callout or the highlighted Creator
+    // button) must leave the exact task Timeline review will look for. Record
+    // it before the milestones so guidance never resolves without it.
+    await owner.wait(guidance.recordCreatorHandshakeReceipt(receipt));
     await owner.wait(
       guidance.recordIfMissing(
         GuidanceMilestone.firstItem,

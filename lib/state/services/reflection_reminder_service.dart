@@ -1,4 +1,6 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:flutter/foundation.dart';
@@ -95,6 +97,42 @@ class ReflectionReminderService {
   Future<bool> requestNotificationPermission() {
     return _scheduler.requestPermissions();
   }
+
+  /// Restore never requests permission or changes the restored preference.
+  Future<bool> reconcileAfterRestore({
+    required bool permissionGranted,
+    required bool Function() shouldContinue,
+  }) => KeyedMutationCoordinator.shared.runExclusive<bool>(
+    AccountDataRegistry.notificationMutationKeyForScope(
+      _accountScope ?? 'legacy',
+    ),
+    () async {
+      if (!shouldContinue()) return false;
+      if (!await _scheduler.cancel(
+        notificationId,
+        accountScope: _accountScope,
+      )) {
+        return false;
+      }
+      if (!shouldContinue()) return false;
+      final prefs = loadPrefs();
+      if (!prefs.enabled) return true;
+      if (!permissionGranted) return false;
+      final scheduled = await _scheduler.scheduleDailyAt(
+        id: notificationId,
+        title: 'Daily Reflection',
+        body: 'Take 3 minutes to review your day and set intent for tomorrow.',
+        hour: prefs.time.hour,
+        minute: prefs.time.minute,
+        accountScope: _accountScope,
+      );
+      if (!shouldContinue()) {
+        await _scheduler.cancel(notificationId, accountScope: _accountScope);
+        return false;
+      }
+      return scheduled;
+    },
+  );
 }
 
 class VoicePermissionService {

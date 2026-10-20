@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
@@ -8,6 +9,40 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final rule in [RecurrenceRule.daily, RecurrenceRule.weekly]) {
+    testWidgets('task frequency $rule survives form submission', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(900, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      CreatorFormData? submitted;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: DynamicForm(onSubmit: (data) async => submitted = data),
+            ),
+          ),
+        ),
+      );
+      await tester.enterText(
+        find.byType(TextField).first,
+        'Synthetic recurring task',
+      );
+      await tester.tap(find.byKey(const Key('creator-task-repeat')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.text(rule == RecurrenceRule.daily ? 'Daily' : 'Weekly').last,
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('CREATE TASK'));
+      await tester.tap(find.text('CREATE TASK'));
+      await tester.pump();
+      expect(submitted?.recurrenceRule, rule);
+    });
+  }
+
   for (final int minutes in <int>[5, 10]) {
     testWidgets('Creator submits a $minutes-minute task without rounding up', (
       WidgetTester tester,

@@ -63,22 +63,23 @@ void main() {
       guardedBuild,
       contains("CHRONOSPARK_ENFORCE_PROD_READINESS = 'true'"),
     );
+    // Public CI uses the strict profile assembler. Its validated file is the
+    // sole compile input; local contained builds keep their existing flags.
+    expect(releaseWorkflow, contains('scripts/public_release_profile.py'));
     expect(
       releaseWorkflow,
-      contains('--dart-define=CHRONOSPARK_APP_FLAVOR=prod'),
+      contains(r'--defines="$RUNNER_TEMP/public-release-defines.json"'),
     );
     expect(
       releaseWorkflow,
-      contains('--dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true'),
+      contains(
+        r'--dart-define-from-file="$RUNNER_TEMP/public-release-defines.json"',
+      ),
     );
+    expect(releaseWorkflow, isNot(contains('--dart-define=')));
 
     for (final String flag in disabledFlags) {
       expect(guardedBuild, contains("$flag = 'false'"), reason: flag);
-      expect(
-        releaseWorkflow,
-        contains('--dart-define=$flag=false'),
-        reason: flag,
-      );
     }
   });
 

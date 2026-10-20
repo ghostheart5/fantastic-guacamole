@@ -10,9 +10,14 @@ import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
+import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_operation.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
+import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/services/offline_sync_queue_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,14 +38,80 @@ class SyncErrorMessageNotifier extends Notifier<String?> {
   void report(String message) => state = message;
 }
 
-final _sharedPrefsProvider = FutureProvider<SharedPrefsStorage>((ref) async {
+enum CloudRestoreWarning { legacyCleanupPending, remindersPending }
+
+final cloudRestoreWarningsProvider =
+    NotifierProvider<CloudRestoreWarningsNotifier, Set<CloudRestoreWarning>>(
+      CloudRestoreWarningsNotifier.new,
+    );
+
+class CloudRestoreWarningsNotifier extends Notifier<Set<CloudRestoreWarning>> {
+  @override
+  Set<CloudRestoreWarning> build() => {};
+  void clear() => state = {};
+  void add(CloudRestoreWarning warning) => state = {...state, warning};
+}
+
+final restoredReminderReconciliationProvider =
+    Provider<Future<bool> Function()>(
+      (ref) => () async {
+        final owner = AccountOperation.capture(ref);
+        owner.check();
+        final reflection = ref.read(reflectionReminderServiceProvider);
+        final reminders = ref.read(reminderOrchestratorServiceProvider);
+        final scheduler = ref.read(notificationSchedulerProvider);
+        final goals = ref.read(getGoalsUseCaseProvider).call();
+        final habits = await owner.wait(
+          ref.read(getHabitsUseCaseProvider).call(),
+        );
+        // Read current OS permission; never open the permission prompt here.
+        bool granted = false;
+        bool permissionKnown = false;
+        try {
+          granted = await owner.wait(scheduler.init(requestPermissions: false));
+          permissionKnown = true;
+        } on Object {
+          owner.check();
+          // Cancellation still runs if querying OS permission failed.
+        }
+        Future<bool> attempt(Future<bool> Function() action) async {
+          try {
+            return await owner.wait(action());
+          } on Object {
+            owner.check();
+            return false;
+          }
+        }
+
+        final reflected = await attempt(
+          () => reflection.reconcileAfterRestore(
+            permissionGranted: granted,
+            shouldContinue: () => owner.isCurrent,
+          ),
+        );
+        final planned = await attempt(
+          () => reminders.reconcileAfterRestore(
+            goals: goals,
+            habits: habits,
+            permissionGranted: granted,
+            shouldContinue: () => owner.isCurrent,
+          ),
+        );
+        return permissionKnown && reflected && planned;
+      },
+    );
+
+/// Local backup dependencies must finish loading before a transfer begins.
+final cloudBackupPreferencesProvider = FutureProvider<SharedPrefsStorage>((
+  ref,
+) async {
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   return SharedPrefsStorage(prefs);
 });
 
 final _backupServiceProvider = Provider<BackupService?>((ref) {
   final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
-    _sharedPrefsProvider,
+    cloudBackupPreferencesProvider,
   );
   final scope = ref.watch(accountStorageScopeProvider);
   final legacyOwnership = ref.watch(accountLegacyOwnershipProvider);
@@ -54,6 +125,12 @@ final _backupServiceProvider = Provider<BackupService?>((ref) {
           );
       return BackupService(
         taskRepository: ref.watch(domainTaskRepositoryProvider),
+        goalRepository: ref.watch(domainGoalRepositoryProvider),
+        habitRepository: ref.watch(domainHabitRepositoryProvider),
+        noteRepository: ref.watch(domainNoteRepositoryProvider),
+        taskOccurrenceRepository: ref.watch(taskOccurrenceRepositoryProvider),
+        habitOccurrenceRepository: ref.watch(habitOccurrenceRepositoryProvider),
+        decisionOutcomeRepository: ref.watch(decisionOutcomeRepositoryProvider),
         profileStorage: AccountScopedHiveStorage(
           baseBox: HiveBoxes.profile,
           scope: scope,
@@ -103,7 +180,7 @@ OfflineSyncQueueService? _boundQueue(Ref ref) {
 
 final syncServiceProvider = Provider<SyncService?>((ref) {
   final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
-    _sharedPrefsProvider,
+    cloudBackupPreferencesProvider,
   );
   final BackupService? backup = ref.watch(_backupServiceProvider);
   final supabaseClient = ref.watch(supabaseClientProvider);
@@ -137,6 +214,16 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
     },
   );
 });
+
+Future<SyncService?> _readySyncService(Ref ref) async {
+  final service = ref.read(syncServiceProvider);
+  if (service != null) return service;
+  // The synchronous service is initially null while its preferences load.
+  // Wait for that dependency, without crossing an account transition.
+  final owner = AccountOperation.capture(ref);
+  await owner.wait(ref.read(cloudBackupPreferencesProvider.future));
+  return ref.read(syncServiceProvider);
+}
 
 final syncToCloudProvider = FutureProvider<bool>((ref) async {
   // Yield once before publishing synchronization status. Riverpod forbids one
@@ -173,7 +260,7 @@ final syncToCloudProvider = FutureProvider<bool>((ref) async {
     );
 
     final CloudSyncOutcome outcome =
-        await ref.read(syncServiceProvider)?.syncDeltaOutcome() ??
+        await (await _readySyncService(ref))?.syncDeltaOutcome() ??
         CloudSyncOutcome.unavailable;
     final bool success = outcome == CloudSyncOutcome.synced;
     if (!success) {
@@ -255,6 +342,8 @@ final pruneOfflineDeadLettersProvider = FutureProvider<int>((ref) async {
 final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
   await Future<void>.value();
   ref.read(syncErrorMessageProvider.notifier).clear();
+  ref.read(cloudRestoreWarningsProvider.notifier).clear();
+  final owner = AccountOperation.capture(ref);
   try {
     if (!ref.read(cloudRestoreCapabilityProvider) ||
         !(await ref.read(cloudSyncPreferenceProvider.future))) {
@@ -265,8 +354,9 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
       return false;
     }
     final CloudRestoreOutcome outcome =
-        await ref.read(syncServiceProvider)?.restoreFromCloud() ??
+        await (await _readySyncService(ref))?.restoreFromCloud() ??
         CloudRestoreOutcome.unavailable;
+    if (!owner.isCurrent) return false;
     final bool restored =
         outcome == CloudRestoreOutcome.restored ||
         outcome == CloudRestoreOutcome.restoredLegacyCleanupPending;
@@ -295,14 +385,46 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
       ref.read(syncErrorMessageProvider.notifier).report(failureMessage);
     }
     if (restored) {
+      if (outcome == CloudRestoreOutcome.restoredLegacyCleanupPending) {
+        ref
+            .read(cloudRestoreWarningsProvider.notifier)
+            .add(CloudRestoreWarning.legacyCleanupPending);
+      }
       ref.invalidate(allTasksProvider);
       ref.invalidate(tasksProvider);
       ref.invalidate(profileProvider);
       ref.invalidate(goalProgressProvider);
       ref.invalidate(optimizationConfigProvider);
+      ref.invalidate(cloudSyncPreferenceProvider);
+      ref.read(restoredSettingsRevisionProvider.notifier).bump();
+      bool remindersComplete = false;
+      try {
+        remindersComplete = await ref.read(
+          restoredReminderReconciliationProvider,
+        )();
+      } on Object catch (error, stackTrace) {
+        Logger.errorCategory(
+          'Sync Errors',
+          'Restored reminder reconciliation needs retry',
+          error,
+          stackTrace,
+        );
+      }
+      if (!owner.isCurrent) return false;
+      if (!remindersComplete) {
+        ref
+            .read(cloudRestoreWarningsProvider.notifier)
+            .add(CloudRestoreWarning.remindersPending);
+        ref
+            .read(syncErrorMessageProvider.notifier)
+            .report(
+              'Your backup was restored, but device reminders need attention in Settings.',
+            );
+      }
     }
     return restored;
   } catch (error, stackTrace) {
+    if (!owner.isCurrent) return false;
     ref
         .read(syncErrorMessageProvider.notifier)
         .report(
@@ -335,7 +457,7 @@ Future<bool> _executeQueuedSyncAction(
   if (authenticatedUserId != null && item.accountId != authenticatedUserId) {
     return false;
   }
-  final SyncService? syncService = ref.read(syncServiceProvider);
+  final SyncService? syncService = await _readySyncService(ref);
   if (syncService == null) {
     return false;
   }

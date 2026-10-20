@@ -17,6 +17,54 @@ const List<String> _unsafePhrases = <String>[
 ];
 
 void main() {
+  group('Spanish unsupported claims', () {
+    for (final String claim in <String>[
+      'Te garantizo que este plan funcionará.',
+      'Este plan garantiza resultados.',
+      'El éxito está garantizado.',
+      'Este plan curará tu depresión.',
+      'Esta rutina te va a curar.',
+      'Te diagnostico ansiedad.',
+      'Mi diagnóstico es depresión.',
+      'Te prescribo este medicamento.',
+      'He prescrito este medicamento.',
+      'Este es mi asesoramiento legal.',
+      'Esta es mi asesoría legal.',
+      'Sigue mis consejos legales.',
+      'ESTE PLAN TE CURARÁ.',
+      'Mi diagno\u0301stico es ansiedad.',
+      'Esta es mi asesori\u0301a legal.',
+    ]) {
+      test('withholds the claim in every decision field: $claim', () {
+        expect(SiPolicy.containsUnsupportedClaim(claim), isTrue);
+        for (final SiDecisionEntity decision in <SiDecisionEntity>[
+          SiDecisionEntity(rationale: claim),
+          SiDecisionEntity(rationale: 'Revisa el plan.', action: claim),
+          SiDecisionEntity(rationale: 'Revisa el plan.', reasoningTrace: claim),
+        ]) {
+          final SiDecisionEntity gated = SiPolicy.sanitize(decision);
+          expect(gated.rationale, SiPolicy.withheldRationale);
+          expect(gated.action, isEmpty);
+          expect(gated.reasoningTrace, isEmpty);
+          expect(SiPolicy.isSupportedAndSafe(gated), isTrue);
+        }
+      });
+    }
+
+    for (final String text in <String>[
+      'Procura comenzar con una tarea corta.',
+      'Organiza una cita con tu médico.',
+      'Consulta con un profesional de salud.',
+      'Busca orientación de un abogado.',
+      'Si ha completado la tarea, revisa el siguiente paso.',
+      'Tu información permanece segura.',
+    ]) {
+      test('allows ordinary Spanish guidance: $text', () {
+        expect(SiPolicy.containsUnsupportedClaim(text), isFalse);
+      });
+    }
+  });
+
   group('SiPolicy.sanitize is a terminal gate', () {
     for (final String phrase in _unsafePhrases) {
       test('withholds a decision whose rationale contains "$phrase"', () {

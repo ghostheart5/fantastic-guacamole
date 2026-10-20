@@ -1,5 +1,20 @@
 part of 'si_console_screen.dart';
 
+bool _allowSpeechPlayback(BuildContext context, WidgetRef ref) {
+  if (ref.read(voicePlaybackEnabledProvider)) return true;
+  final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        isSpanish
+            ? 'La lectura en voz alta no está disponible en modo local. Lee el texto de la respuesta.'
+            : 'Speech playback is unavailable in local mode. Read the response text instead.',
+      ),
+    ),
+  );
+  return false;
+}
+
 final Expando<String> _siDictationDraftBase = Expando<String>(
   'siDictationDraftBase',
 );
@@ -147,62 +162,109 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final SIRoutineCopy copy = ChronoSparkLocalizations.of(context).siRoutine;
     final bool largeText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
+    final Widget backButton = Semantics(
+      label: copy.backToNexus,
+      button: true,
+      onTap: onBack,
+      child: IconButton(
+        tooltip: copy.backToNexus,
+        onPressed: onBack,
+        constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+        icon: const Icon(Icons.arrow_back_rounded),
+        color: Colors.white,
+      ),
+    );
+    final Widget summaryButton = SizedBox(
+      width: 48,
+      height: 48,
+      child: IconButton(
+        tooltip: copy.readSummary,
+        onPressed: onSpeakSummary,
+        color: AppColors.neonCyan,
+        icon: const Icon(Icons.volume_up_rounded),
+      ),
+    );
+    final Widget accessibilityButton = SizedBox(
+      width: 48,
+      height: 48,
+      child: IconButton(
+        tooltip: copy.accessibilityGuide,
+        onPressed: onSpeakAccessibility,
+        color: Colors.white70,
+        icon: const Icon(Icons.accessibility_new_rounded),
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Semantics(
-                label: copy.backToNexus,
-                button: true,
-                onTap: onBack,
-                child: IconButton(
-                  tooltip: copy.backToNexus,
-                  onPressed: onBack,
-                  constraints: const BoxConstraints.tightFor(
-                    width: 48,
-                    height: 48,
+          if (largeText) ...<Widget>[
+            Row(
+              children: <Widget>[
+                backButton,
+                const Spacer(),
+                summaryButton,
+                const SizedBox(width: 8),
+                accessibilityButton,
+              ],
+            ),
+            const SizedBox(height: 8),
+            _LargeTextTitle(title: copy.title),
+          ] else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                backButton,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TemporalScreenHeader(
+                    title: copy.title,
+                    subtitle: copy.subtitle,
+                    eyebrow: copy.eyebrow,
                   ),
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  color: Colors.white,
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TemporalScreenHeader(
-                  title: copy.title,
-                  subtitle: largeText ? null : copy.subtitle,
-                  eyebrow: largeText ? null : copy.eyebrow,
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 48,
-                height: 48,
-                child: IconButton(
-                  tooltip: copy.readSummary,
-                  onPressed: onSpeakSummary,
-                  color: AppColors.neonCyan,
-                  icon: const Icon(Icons.volume_up_rounded),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 48,
-                height: 48,
-                child: IconButton(
-                  tooltip: copy.accessibilityGuide,
-                  onPressed: onSpeakAccessibility,
-                  color: Colors.white70,
-                  icon: const Icon(Icons.accessibility_new_rounded),
-                ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 8),
+                summaryButton,
+                const SizedBox(width: 8),
+                accessibilityButton,
+              ],
+            ),
         ],
+      ),
+    );
+  }
+}
+
+class _LargeTextTitle extends StatelessWidget {
+  const _LargeTextTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextStyle? style = Theme.of(context).textTheme.headlineSmall
+        ?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
+        );
+    return Semantics(
+      header: true,
+      label: title,
+      child: ExcludeSemantics(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            for (final String word
+                in title.split(' ').where((word) => word.isNotEmpty))
+              FittedBox(
+                alignment: Alignment.centerLeft,
+                fit: BoxFit.scaleDown,
+                child: Text(word, maxLines: 1, softWrap: false, style: style),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -410,14 +472,17 @@ class _BubbleTile extends ConsumerWidget {
                             ? 'Leer respuesta en voz alta'
                             : 'Read response aloud',
                         child: TextButton.icon(
-                          onPressed: () => unawaited(
-                            ref
-                                .read(voiceServiceProvider)
-                                .speakLocalized(
-                                  msg.text,
-                                  languageCode: isSpanish ? 'es' : 'en',
-                                ),
-                          ),
+                          onPressed: () {
+                            if (!_allowSpeechPlayback(context, ref)) return;
+                            unawaited(
+                              ref
+                                  .read(voiceServiceProvider)
+                                  .speakLocalized(
+                                    msg.text,
+                                    languageCode: isSpanish ? 'es' : 'en',
+                                  ),
+                            );
+                          },
                           icon: const Icon(Icons.volume_up_rounded, size: 16),
                           label: Text(isSpanish ? 'ESCUCHAR' : 'SPEAK'),
                         ),

@@ -5,14 +5,14 @@
 appId: com.ghostheart5.chronospark
 ---
 - extendedWaitUntil:
-    visible: "(?:CONTINUE TO LOGIN|Start login|SKIP FOR NOW|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS.*)"
+    visible: "(?:CONTINUE TO LOGIN|CONTINUE TO PROFILE|Start login|SKIP FOR NOW|Create profile|Open profile|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS.*)"
     timeout: 30000
 
 - runFlow:
     when:
-      visible: "CONTINUE TO LOGIN"
+      visible: "CONTINUE TO (?:LOGIN|PROFILE)"
     commands:
-      - tapOn: "CONTINUE TO LOGIN"
+      - tapOn: "CONTINUE TO (?:LOGIN|PROFILE)"
       - waitForAnimationToEnd:
           timeout: 5000
 
@@ -21,16 +21,31 @@ appId: com.ghostheart5.chronospark
     when:
       visible: "Start login"
     commands:
-      # The guide can finish revealing the form after the visibility check.
-      # The required form/Nexus wait below still proves that handoff completed.
-      - tapOn:
-          text: "Start login"
-          optional: true
+      # The target reveal can move the modal action while the entry animation
+      # settles. Wait for its final position and require the guide to close.
       - waitForAnimationToEnd:
           timeout: 5000
+      - tapOn:
+          text: "Start login"
+          retryTapIfNoChange: true
+      - waitForAnimationToEnd:
+          timeout: 5000
+      # The first accessibility tap can race the guide's focus scroll: Maestro
+      # sees the layout move and treats that as a UI change even if the button
+      # was not pressed. Reacquire its final bounds only while it remains open.
+      - runFlow:
+          when:
+            visible: "Start login"
+          commands:
+            - tapOn: "Start login"
+            - waitForAnimationToEnd:
+                timeout: 5000
+      - assertNotVisible: "Start login"
 
+# The form's semantics are hidden while the modal guide is open, so this wait
+# cannot succeed by observing controls behind an undismissed tutorial.
 - extendedWaitUntil:
-    visible: "(?:SKIP FOR NOW|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS.*)"
+    visible: "(?:SKIP FOR NOW|Create profile|Open profile|TESTER ACCESS.*TEST LOGIN|ENTER SYSTEM|NEXUS.*)"
     timeout: 20000
 
 - runFlow:

@@ -78,9 +78,9 @@ void main() {
 
   test('ordinary builds and paid AI containment stay closed', () {
     expect(InternalBillingTestConfig.compiled.requested, isFalse);
-    expect(LaunchContainment.subscriptionsEnabled, isFalse);
-    expect(LaunchContainment.paidCreditPlansEnabled, isFalse);
-    expect(LaunchContainment.externalAiEnabled, isFalse);
-    expect(LaunchContainment.creditSpendingEnabled, isFalse);
+    expect(LaunchContainment.publicSubscriptionsEnabled, isFalse);
+    expect(LaunchContainment.publicPaidCreditPlansEnabled, isFalse);
+    expect(LaunchContainment.publicExternalAiEnabled, isFalse);
+    expect(LaunchContainment.publicCreditSpendingEnabled, isFalse);
   });
 }

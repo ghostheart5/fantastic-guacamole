@@ -2,6 +2,7 @@ import { deleteUserStorageObjects } from "./storage_cleanup.ts";
 
 Deno.test("recursively lists nested folders and deletes every file", async () => {
   const requests: Array<{ method: string; body: Record<string, unknown> }> = [];
+  const deletionResponse = Response.json([]);
   const listings = new Map<string, Array<Record<string, unknown>>>([
     ["user-1", [{ name: "backup", id: null, metadata: null }]],
     [
@@ -24,11 +25,14 @@ Deno.test("recursively lists nested folders and deletes every file", async () =>
         const prefix = String(body.prefix);
         return Promise.resolve(Response.json(listings.get(prefix) ?? []));
       }
-      return Promise.resolve(Response.json([]));
+      return Promise.resolve(deletionResponse);
     },
   });
 
   if (!result) throw new Error("recursive storage cleanup failed");
+  if (!deletionResponse.bodyUsed) {
+    throw new Error("Storage deletion response must release its body");
+  }
   const deletion = requests.find((request) => request.method === "DELETE");
   const paths = deletion?.body.prefixes as string[] | undefined;
   if (
@@ -77,6 +81,17 @@ Deno.test("paginates listings and deletes in bounded batches", async () => {
 });
 
 Deno.test("fails closed on malformed listings or delete failure", async () => {
+  const listingResponse = new Response("failed", { status: 500 });
+  const listingFailure = await deleteUserStorageObjects("user-3", {
+    supabaseUrl: "https://example.supabase.co",
+    serviceRoleKey: "test-service-role",
+    fetcher: () => Promise.resolve(listingResponse),
+  });
+  if (listingFailure || !listingResponse.bodyUsed) {
+    throw new Error(
+      "Failed storage listing must release its body and fail closed",
+    );
+  }
   const malformed = await deleteUserStorageObjects("user-3", {
     supabaseUrl: "https://example.supabase.co",
     serviceRoleKey: "test-service-role",
@@ -84,6 +99,7 @@ Deno.test("fails closed on malformed listings or delete failure", async () => {
   });
   if (malformed) throw new Error("malformed listing must fail closed");
 
+  const deletionResponse = new Response("failed", { status: 500 });
   const deleteFailure = await deleteUserStorageObjects("user-3", {
     supabaseUrl: "https://example.supabase.co",
     serviceRoleKey: "test-service-role",
@@ -91,8 +107,11 @@ Deno.test("fails closed on malformed listings or delete failure", async () => {
       Promise.resolve(
         init?.method === "POST"
           ? Response.json([{ name: "backup.json", id: "1", metadata: {} }])
-          : new Response("failed", { status: 500 }),
+          : deletionResponse,
       ),
   });
   if (deleteFailure) throw new Error("delete failure must fail closed");
+  if (!deletionResponse.bodyUsed) {
+    throw new Error("Failed storage deletion must release its body");
+  }
 });

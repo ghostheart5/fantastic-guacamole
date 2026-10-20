@@ -105,6 +105,29 @@ class AdaptiveGuidanceState {
   bool get hasDeferralFriction =>
       count(GuidanceMilestone.firstTaskDeferral) >= 2;
 
+  /// Whether first-run (or replayed) core guidance decides the next lesson.
+  bool get coreGuidanceOwnsState =>
+      replayLessons.any(_replayableCoreLessons.contains) || !coreComplete;
+
+  /// The core lesson currently shown, or null when core guidance is complete,
+  /// paused, or muted. Creator and the overlay must agree on this value.
+  GuidanceLessonId? get activeCoreLesson =>
+      GuidanceInterventionEngine.activeCoreLesson(this);
+
+  /// Creator runs its guided first-task form exactly when a core Creator lesson
+  /// is active, so every spotlight target the overlay expects is mounted.
+  bool get guidesCreatorTask => switch (activeCoreLesson) {
+    GuidanceLessonId.createFirstItem ||
+    GuidanceLessonId.scheduleFirstItem => true,
+    _ => false,
+  };
+
+  /// A Creator receipt is only useful while the Timeline review step is
+  /// still ahead.
+  bool get awaitsTimelineReview =>
+      !has(GuidanceMilestone.firstTimelineReview) ||
+      replayLessons.contains(GuidanceLessonId.reviewTimeline);
+
   GuidanceLesson? nextIntervention({
     required String currentRoute,
     required DailyDecisionIntelligence decision,
@@ -137,11 +160,10 @@ abstract final class GuidanceInterventionEngine {
       return lesson;
     }
 
-    for (final GuidanceLessonId id in _replayableCoreLessons) {
-      if (state.replayLessons.contains(id)) return _coreLesson(id);
+    if (state.coreGuidanceOwnsState) {
+      final GuidanceLessonId? core = activeCoreLesson(state);
+      return core == null ? null : _coreLesson(core);
     }
-
-    if (!state.coreComplete) return null;
 
     if (state.hasDeferralFriction) {
       final GuidanceLesson? recovery = unresolved(
@@ -202,13 +224,51 @@ abstract final class GuidanceInterventionEngine {
     return null;
   }
 
+  static GuidanceLessonId? activeCoreLesson(AdaptiveGuidanceState state) {
+    bool muted(GuidanceLessonId id) =>
+        state.laterLessons.contains(id) || state.skippedLessons.contains(id);
+
+    GuidanceLessonId? withReceipt(GuidanceLessonId id) {
+      if (id == GuidanceLessonId.reviewTimeline &&
+          state.expectedFirstRunCreatorTaskIds.isEmpty) {
+        // The Timeline spotlight requires an exact Creator receipt. Older
+        // accounts can have both task milestones without that receipt.
+        return muted(GuidanceLessonId.createFirstItem)
+            ? null
+            : GuidanceLessonId.createFirstItem;
+      }
+      return id;
+    }
+
+    for (final GuidanceLessonId id in _replayableCoreLessons) {
+      if (!state.replayLessons.contains(id)) continue;
+      return muted(id) ? null : withReceipt(id);
+    }
+
+    if (state.coreComplete) return null;
+    for (final (GuidanceMilestone milestone, GuidanceLessonId lesson)
+        in <(GuidanceMilestone, GuidanceLessonId)>[
+          (GuidanceMilestone.firstItem, GuidanceLessonId.createFirstItem),
+          (GuidanceMilestone.firstSchedule, GuidanceLessonId.scheduleFirstItem),
+          (
+            GuidanceMilestone.firstTimelineReview,
+            GuidanceLessonId.reviewTimeline,
+          ),
+        ]) {
+      if (state.has(milestone)) continue;
+      // A deferred or muted lesson must not be replaced by a later step.
+      return muted(lesson) ? null : withReceipt(lesson);
+    }
+    return null;
+  }
+
   static GuidanceLesson _coreLesson(GuidanceLessonId id) {
     return switch (id) {
       GuidanceLessonId.createFirstItem => const GuidanceLesson(
         id: GuidanceLessonId.createFirstItem,
         title: 'Capture the first real commitment',
         body:
-            'Create one task with a concrete outcome. Guidance advances only after the item is saved.',
+            'Start with one thing you need to do. Creator saves it; next you can give it a time and see it on Timeline. The guide advances after the task is saved.',
         route: RoutePaths.creator,
         actionLabel: 'Open Creator',
       ),
@@ -216,7 +276,7 @@ abstract final class GuidanceInterventionEngine {
         id: GuidanceLessonId.scheduleFirstItem,
         title: 'Give the commitment a real time',
         body:
-            'Add a date and time. This connects Creator, Smart Planner, and Timeline with evidence the app can use.',
+            'Give your task a date and time so it appears in your plan. You can change the time later.',
         route: RoutePaths.creator,
         actionLabel: 'Schedule in Creator',
       ),
@@ -224,7 +284,7 @@ abstract final class GuidanceInterventionEngine {
         id: GuidanceLessonId.reviewTimeline,
         title: 'Verify where the work landed',
         body:
-            'Inspect the saved result on Timeline. Visiting the screen is recorded; tapping this prompt is not completion.',
+            'Find the task you just saved and see where it sits in your day. The guide advances after you review that task on Timeline.',
         route: RoutePaths.timeline,
         actionLabel: 'Open Timeline',
       ),
@@ -451,10 +511,11 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     final account = _activeScope;
     if (account == null || shouldContinue?.call() == false) return;
     final AdaptiveGuidanceState current = await _current();
+    final GuidanceLessonId? lesson = _lessonCompletedBy(milestone);
     if (!ref.mounted ||
         _activeScope != account ||
         shouldContinue?.call() == false ||
-        current.has(milestone)) {
+        (current.has(milestone) && !current.replayLessons.contains(lesson))) {
       return;
     }
     await record(milestone, shouldContinue: shouldContinue);
@@ -472,7 +533,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     if (taskIds.isEmpty || receipt.appliedOperationIds.isEmpty) return;
 
     final AdaptiveGuidanceState current = await _current();
-    if (_activeScope != account) return;
+    if (_activeScope != account || !current.awaitsTimelineReview) return;
     final Set<String> expectedTaskIds = <String>{
       ...current.expectedFirstRunCreatorTaskIds,
       ...taskIds,
@@ -504,6 +565,16 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     final AdaptiveGuidanceState current = await _current();
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setBool('${_prefix(account)}.later.${lesson.name}', true);
+    // "Finish later" pauses the whole core replay, rather than jumping to the
+    // next replay step or reopening the current step on the following frame.
+    final Set<GuidanceLessonId> replay = current.replayLessons.contains(lesson)
+        ? const <GuidanceLessonId>{}
+        : current.replayLessons;
+    if (replay.isEmpty) {
+      for (final GuidanceLessonId id in current.replayLessons) {
+        await prefs.remove('${_prefix(account)}.replay.${id.name}');
+      }
+    }
     state = AsyncData(
       AdaptiveGuidanceState(
         milestones: current.milestones,
@@ -511,7 +582,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
         skippedLessons: current.skippedLessons,
         completedLessons: current.completedLessons,
         laterLessons: <GuidanceLessonId>{...current.laterLessons, lesson},
-        replayLessons: current.replayLessons,
+        replayLessons: replay,
         expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
       ),
     );
@@ -542,7 +613,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     );
   }
 
-  Future<void> restartLessons() => _restartLessons(replayCore: false);
+  Future<void> restartLessons() => _restartLessons(replayCore: true);
 
   Future<void> _restartLessons({required bool replayCore}) async {
     final String? account = _activeScope;
@@ -555,6 +626,8 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
       await prefs.remove('$prefix.complete.${id.name}');
       await prefs.remove('$prefix.later.${id.name}');
       if (replayCore && _replayableCoreLessons.contains(id)) {
+        // An explicit restart is a new choice to revisit core guidance.
+        await prefs.remove('$prefix.skip.${id.name}');
         await prefs.setBool('$prefix.replay.${id.name}', true);
       } else {
         await prefs.remove('$prefix.replay.${id.name}');
@@ -565,7 +638,9 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
       AdaptiveGuidanceState(
         milestones: current.milestones,
         counts: current.counts,
-        skippedLessons: current.skippedLessons,
+        skippedLessons: replayCore
+            ? current.skippedLessons.difference(_replayableCoreLessons)
+            : current.skippedLessons,
         completedLessons: _lessonsCompletedBy(current.milestones.keys),
         laterLessons: const <GuidanceLessonId>{},
         replayLessons: replayCore

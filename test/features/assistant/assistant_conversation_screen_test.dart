@@ -27,10 +27,13 @@ import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 final scope = AccountStorageScope.authenticated('synthetic-review');
 final records = [
@@ -64,6 +67,7 @@ ProviderContainer setup(
   VoiceController? voiceController,
   Duration? requestTimeout,
   Duration? paidWaitTimeout,
+  NoteEntity? selectedNote,
 }) => ProviderContainer(
   overrides: [
     accountStorageScopeProvider.overrideWith(
@@ -85,13 +89,15 @@ ProviderContainer setup(
     if (humanContext != null)
       consentedHumanContextProvider.overrideWithValue(humanContext),
     selectedPlanningNoteProvider.overrideWith(
-      (ref) async => NoteEntity(
-        id: 'list-note',
-        title: 'Dinner shopping',
-        body: 'Check the pantry before buying rice.',
-        createdAt: DateTime(2026, 9, 16),
-        taskId: 'grocery',
-      ),
+      (ref) async =>
+          selectedNote ??
+          NoteEntity(
+            id: 'list-note',
+            title: 'Dinner shopping',
+            body: 'Check the pantry before buying rice.',
+            createdAt: DateTime(2026, 9, 16),
+            taskId: 'grocery',
+          ),
     ),
     if (voiceController != null)
       voiceInputEnabledProvider.overrideWithValue(true),
@@ -131,6 +137,33 @@ void main() {
       container.read(conversationRequestTimeoutProvider),
       lessThan(internalCreditTestQuoteTransportTimeout),
     );
+  });
+
+  test('SI refuses a UTC fallback when the native zone is London', () async {
+    tzdata.initializeTimeZones();
+    final previousZone = tz.local;
+    tz.setLocalLocation(tz.UTC);
+    addTearDown(() => tz.setLocalLocation(previousZone));
+    const channel = MethodChannel('flutter_timezone');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (_) async => 'Europe/London');
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    final container = setup(
+      (_) async => throw StateError('No transport should run'),
+    );
+    addTearDown(container.dispose);
+    final packet = await container
+        .read(conversationPacketFactoryProvider)
+        .build(
+          surface: ConversationSurface.si,
+          prompt: 'Does Grocery list conflict with an 8 PM store closing?',
+          history: [],
+          languageCode: 'en',
+          intent: SIV2Intent.findConflict,
+          sources: {SIV2Source.tasks},
+        );
+    expect((packet.toJson()['context'] as Map)['taskTimeZoneId'], isNull);
   });
   for (final surface in ConversationSurface.values) {
     for (final scale in [1.0, 1.6]) {
@@ -353,8 +386,92 @@ void main() {
 
     expect(context['selectedSources'], ['tasks']);
     expect(context['tasks'], isNotEmpty);
+    final work = (context['tasks'] as List)
+        .cast<Map<String, dynamic>>()
+        .firstWhere((task) => task['id'] == 'work');
+    expect(work['scheduledStart'], isNotNull);
+    expect(context.containsKey('taskTimeZoneId'), isTrue);
+    final zone = context['taskTimeZoneId'];
+    if (zone != null) expect(zone, isA<String>());
     expect(context['goals'], isEmpty);
   });
+
+  test(
+    'SI carries its uniquely matched grocery task among multiple tasks',
+    () async {
+      final container = setup(
+        (_) async => throw StateError('No transport should run'),
+      );
+      addTearDown(container.dispose);
+      final packet = await container
+          .read(conversationPacketFactoryProvider)
+          .build(
+            surface: ConversationSurface.si,
+            prompt: 'Does Grocery list conflict with an 8 PM store closing?',
+            history: [],
+            languageCode: 'en',
+            intent: SIV2Intent.findConflict,
+            sources: {SIV2Source.tasks},
+          );
+      final context = packet.toJson()['context'] as Map;
+      expect((context['tasks'] as List).length, greaterThan(1));
+      expect(context['focusedTaskId'], 'grocery');
+
+      final ambiguous = setup(
+        (_) async => throw StateError('No transport should run'),
+        readGateway: SIV2ReadGateway(
+          accountScopeId: scope.v2Namespace!,
+          readTasks: () async => [
+            ...records,
+            TaskEntity(id: 'grocery-copy', title: 'Grocery list'),
+          ],
+          readGoals: () async => [],
+          readMilestones: () async => [],
+          readTimeline: () async => [],
+        ),
+      );
+      addTearDown(ambiguous.dispose);
+      final ambiguousPacket = await ambiguous
+          .read(conversationPacketFactoryProvider)
+          .build(
+            surface: ConversationSurface.si,
+            prompt: 'Does Grocery list conflict with an 8 PM store closing?',
+            history: [],
+            languageCode: 'en',
+            intent: SIV2Intent.findConflict,
+            sources: {SIV2Source.tasks},
+          );
+      final ambiguousContext = ambiguousPacket.toJson()['context'] as Map;
+      expect(ambiguousContext['focusedTaskId'], isNull);
+
+      final incidental = setup(
+        (_) async => throw StateError('No transport should run'),
+        readGateway: SIV2ReadGateway(
+          accountScopeId: scope.v2Namespace!,
+          readTasks: () async => [
+            ...records,
+            TaskEntity(id: 'inventory', title: 'Store inventory'),
+          ],
+          readGoals: () async => [],
+          readMilestones: () async => [],
+          readTimeline: () async => [],
+        ),
+      );
+      addTearDown(incidental.dispose);
+      final incidentalPacket = await incidental
+          .read(conversationPacketFactoryProvider)
+          .build(
+            surface: ConversationSurface.si,
+            prompt: 'Does this task conflict with an 8 PM store closing?',
+            history: [],
+            languageCode: 'en',
+            intent: SIV2Intent.findConflict,
+            sources: {SIV2Source.tasks},
+          );
+      final incidentalContext = incidentalPacket.toJson()['context'] as Map;
+      expect(incidentalContext['focusedTaskId'], isNull);
+    },
+  );
 
   for (final failure in [
     StateError('Task details unavailable'),
@@ -477,14 +594,147 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('local question offers free tools and preserves the draft', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var transportCalls = 0;
+    String? handoffDraft;
+    final container = setup((_) async {
+      transportCalls++;
+      throw StateError('A local handoff must not call the AI service');
+    });
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: ThemeData.dark(),
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+            onLocalToolsWithDraft: (draft) => handoffDraft = draft,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'What are my tasks?',
+    );
+    await tester.tap(find.byTooltip('Send to AI'));
+    await waitFor(tester, find.text('Use free tools'));
+    expect(transportCalls, 0);
+    expect(find.text('Get credit price'), findsNothing);
+
+    await tester.tap(find.text('Use free tools'));
+    await tester.pumpAndSettle();
+    expect(handoffDraft, 'What are my tasks?');
+    expect(transportCalls, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Spanish local question offers free tools without a quote', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    String? handoffDraft;
+    var transportCalls = 0;
+    final container = setup((_) async {
+      transportCalls++;
+      throw StateError('Spanish local handoff must not call the AI service');
+    });
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          locale: const Locale('es'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            ChronoSparkLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          theme: ThemeData.dark(),
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+            onLocalToolsWithDraft: (draft) => handoffDraft = draft,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      '¿Cuáles son mis tareas?',
+    );
+    await tester.tap(find.byTooltip('Enviar a IA'));
+    await waitFor(tester, find.text('Usar herramientas gratis'));
+    expect(transportCalls, 0);
+    await tester.tap(find.text('Usar herramientas gratis'));
+    await tester.pumpAndSettle();
+    expect(handoffDraft, '¿Cuáles son mis tareas?');
+    expect(transportCalls, 0);
+  });
+
+  testWidgets('local suggestion can still enter the existing paid quote flow', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var transportCalls = 0;
+    final container = setup((_) async {
+      transportCalls++;
+      throw StateError('The user did not request a quote');
+    });
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: ThemeData.dark(),
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'What are my tasks?',
+    );
+    await tester.tap(find.byTooltip('Send to AI'));
+    await waitFor(tester, find.text('Review AI price'));
+    await tester.tap(find.text('Review AI price'));
+    await waitFor(tester, find.text('Get credit price'));
+    expect(transportCalls, 0);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final failure in <String, String>{
     'daily_budget_exceeded': 'rolling daily AI safety limit',
+    'timing_context_missing': 'one scheduled task and its local date',
     'insufficient_credits': 'not have enough AI credits',
     'credits_exhausted': 'not have enough AI credits',
     'request_denied': 'denied before processing',
     'provider_cost_budget_exceeded': 'service spending limit',
     'rate_limit_exceeded': 'Too many AI requests',
-    'request_completed': 'server already completed',
+    'request_completed': 'already finished, but its reply is unavailable',
     'request_refunded': 'credits were refunded',
     'unsafe_upstream_response': 'credits were refunded',
     'inconsistent_upstream_response': 'credits were refunded',
@@ -548,7 +798,10 @@ void main() {
         expect(find.byKey(const Key('conversation-error')), findsOneWidget);
         expect(find.textContaining(failure.value), findsOneWidget);
         if (failure.key == 'request_completed') {
-          expect(find.textContaining('did not charge again'), findsOneWidget);
+          expect(
+            find.textContaining('did not charge you again'),
+            findsOneWidget,
+          );
         } else {
           expect(
             find.textContaining('No credits were charged'),
@@ -557,6 +810,7 @@ void main() {
         }
         if (<String>{
           'daily_budget_exceeded',
+          'timing_context_missing',
           'insufficient_credits',
           'credits_exhausted',
           'request_completed',
@@ -838,6 +1092,45 @@ void main() {
       );
     },
   );
+
+  test('an attached crisis note blocks a quote before transport', () async {
+    var transportCalls = 0;
+    final container = setup(
+      (_) async {
+        transportCalls++;
+        throw StateError('An attached crisis note must not reach transport');
+      },
+      selectedNote: NoteEntity(
+        id: 'list-note',
+        title: 'Please help',
+        body: 'I want to kill myself tonight.',
+        createdAt: DateTime(2026, 9, 16),
+        taskId: 'grocery',
+      ),
+    );
+    addTearDown(container.dispose);
+    final packet = await container
+        .read(conversationPacketFactoryProvider)
+        .build(
+          surface: ConversationSurface.planner,
+          prompt: 'Can you summarize my note?',
+          selectedTaskId: 'grocery',
+          history: [],
+          languageCode: 'en',
+        );
+    expect(packet.attachedNoteSafetyText, contains('kill myself'));
+    await expectLater(
+      container.read(conversationServiceProvider).quote(packet),
+      throwsA(
+        isA<ConversationFailure>().having(
+          (failure) => failure.code,
+          'code',
+          'supportive_route_required',
+        ),
+      ),
+    );
+    expect(transportCalls, 0);
+  });
 
   test(
     'Advanced mode, entity filter and scenario reach the model packet',
@@ -1554,6 +1847,92 @@ void main() {
   });
 
   testWidgets(
+    'account change withholds a paid reply from the previous account',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var currentScope = scope;
+      final pending = Completer<({int status, Map<String, dynamic> data})>();
+      String? executedRequestId;
+      final container = setup((body) async {
+        if (body['quoteOnly'] != true) {
+          executedRequestId = body['requestId'] as String;
+          return pending.future;
+        }
+        return (
+          status: 200,
+          data: <String, dynamic>{
+            'requestId': body['requestId'],
+            'quote': <String, dynamic>{
+              'credits': 4,
+              'digest': 'fixture',
+              'proof': 'fixture',
+              'policy': 'fixture',
+              'expiresAt': DateTime.now()
+                  .add(const Duration(minutes: 5))
+                  .millisecondsSinceEpoch,
+            },
+          },
+        );
+      }, readScope: () => currentScope);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Private account A question.',
+      );
+      await tester.tap(find.byTooltip('Send to AI'));
+      await waitFor(tester, find.text('Get credit price'));
+      await tester.tap(find.text('Get credit price'));
+      await waitFor(tester, find.text('Use 4 credits'));
+      await tester.tap(find.text('Use 4 credits'));
+      await tester.pump();
+      expect(executedRequestId, isNotNull);
+      currentScope = AccountStorageScope.authenticated(
+        'different-paid-account',
+      );
+      container.invalidate(accountStorageScopeProvider);
+      await tester.pumpAndSettle();
+      pending.complete((
+        status: 200,
+        data: <String, dynamic>{
+          'requestId': executedRequestId,
+          'message': 'Private late response for account A.',
+          'creditsCharged': 4,
+          'remainingCredits': 20,
+          'model': 'transport-fixture',
+        },
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('Private account A question.'), findsNothing);
+      expect(find.text('Private late response for account A.'), findsNothing);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('conversation-input')))
+            .controller!
+            .text,
+        isEmpty,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'account change dismisses private request review and clears input',
     (tester) async {
       var currentScope = scope;
@@ -1606,6 +1985,54 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('account change cancels a free-route handoff', (tester) async {
+    var currentScope = scope;
+    var transportCalls = 0;
+    String? handoffDraft;
+    final container = setup((_) async {
+      transportCalls++;
+      throw StateError('No AI request was approved');
+    }, readScope: () => currentScope);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+            onLocalToolsWithDraft: (draft) => handoffDraft = draft,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'What are my tasks?',
+    );
+    await tester.tap(find.byTooltip('Send to AI'));
+    await waitFor(tester, find.text('Use free tools'));
+
+    currentScope = AccountStorageScope.authenticated('different-local-account');
+    container.invalidate(accountStorageScopeProvider);
+    await tester.pumpAndSettle();
+    expect(find.text('Use free tools'), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('conversation-input')))
+          .controller!
+          .text,
+      isEmpty,
+    );
+    expect(handoffDraft, isNull);
+    expect(transportCalls, 0);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('removing the conversation closes its private review dialog', (
     tester,

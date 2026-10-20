@@ -86,6 +86,44 @@ void main() {
     expect(termsRoute, isNot(contains('url=../terms.html')));
   });
 
+  test(
+    'cloud disclosure matches the contained upload and warns of local loss',
+    () {
+      final document = html_parser.parse(read('web/privacy/index.html'));
+      final heading = document
+          .querySelectorAll('h2')
+          .firstWhere(
+            (element) => element.text == 'Optional encrypted cloud backup',
+          );
+      final upload = heading.nextElementSibling!.text;
+      final limits = heading.nextElementSibling!.nextElementSibling!.text;
+      expect(
+        upload,
+        contains('tasks, profile information, and account preferences'),
+      );
+      for (final domain in [
+        'goals',
+        'habits',
+        'notes',
+        'occurrence history',
+        'decision outcomes',
+      ]) {
+        expect(
+          upload,
+          isNot(contains(domain)),
+          reason: '$domain is not in the contained upload',
+        );
+        expect(
+          limits,
+          contains(domain),
+          reason: '$domain needs an explicit recovery limit',
+        );
+      }
+      expect(limits, contains('cannot be restored from this cloud backup'));
+      expect(limits, contains('lost after uninstalling'));
+    },
+  );
+
   test('privacy policy discloses OAuth account details', () {
     final String privacy = read('web/privacy/index.html');
 
@@ -103,12 +141,20 @@ void main() {
       'web/delete-account/index.html',
     ]) {
       final String source = read(path);
+      const String installLink =
+          '<a href="https://play.google.com/store/apps/details?id=com.ghostheart5.chronospark">Google Play</a>';
+      if (path == 'web/support/index.html') {
+        expect(installLink.allMatches(source), hasLength(1), reason: path);
+      }
+      final String brandingSource = path == 'web/support/index.html'
+          ? source.replaceAll(installLink, '')
+          : source;
       expect(source, contains('Axiomara'), reason: path);
       expect(source.toLowerCase(), contains('marketplace'), reason: path);
-      expect(source, isNot(contains('ChronoSpark')), reason: path);
-      expect(source, isNot(contains('chronospark')), reason: path);
-      expect(source, isNot(contains('Google Play')), reason: path);
-      expect(source, isNot(contains('play.google.com')), reason: path);
+      expect(brandingSource, isNot(contains('ChronoSpark')), reason: path);
+      expect(brandingSource, isNot(contains('chronospark')), reason: path);
+      expect(brandingSource, isNot(contains('Google Play')), reason: path);
+      expect(brandingSource, isNot(contains('play.google.com')), reason: path);
       expect(
         source,
         isNot(contains('contained public configuration')),
@@ -132,7 +178,7 @@ void main() {
     }
     expect(
       read('web/support/index.html'),
-      contains('does not provide an APK or public download'),
+      contains('This site does not distribute APK files.'),
     );
     final String productSite = read('site/index.html');
     expect(productSite, contains('The Human Decision OS'));
@@ -140,7 +186,10 @@ void main() {
     expect(productSite, contains('Smart Planner'));
     expect(productSite, contains('SI Console'));
     expect(productSite, contains('Nexus'));
-    expect(productSite, contains('invited closed testing'));
+    expect(productSite, contains('publicly available'));
+    expect(productSite, isNot(contains('Closed testing')));
+    expect(productSite, isNot(contains('tester support')));
+    expect(productSite, contains('Install and update Axiomara'));
     expect(productSite, contains('does not provide an application download'));
   });
 }

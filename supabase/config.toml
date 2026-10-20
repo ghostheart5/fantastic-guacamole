@@ -21,3 +21,7 @@ verify_jwt = false
 
 [functions.google-play-rtdn]
 verify_jwt = false
+
+[functions.public-credit-refund-reconcile]
+# Protected by a separate, exact-match scheduler secret in the handler.
+verify_jwt = false

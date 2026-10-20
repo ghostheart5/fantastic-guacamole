@@ -40,9 +40,11 @@ export async function internalAiPreflightResponse(
   cohort: ReadonlySet<string>,
   contract: string,
   serviceConfigured: boolean,
+  publicAudienceEnabled = false,
 ): Promise<Response | null> {
   if (req.method !== "GET") return null;
-  const configured = serviceConfigured && cohort.size > 0;
+  const configured = serviceConfigured &&
+    (cohort.size > 0 || publicAudienceEnabled);
   return Response.json(
     { error: configured ? "method_not_allowed" : "internal_ai_not_configured" },
     {
@@ -52,7 +54,7 @@ export async function internalAiPreflightResponse(
         "X-Content-Type-Options": "nosniff",
         "X-ChronoSpark-Contract": contract,
         "X-ChronoSpark-Internal-Ai-Guard": "v1",
-        ...(configured
+        ...(configured && cohort.size > 0
           ? {
             "X-ChronoSpark-Internal-Ai-Cohort-SHA256": await sha256Hex(
               [...cohort].sort().join(","),

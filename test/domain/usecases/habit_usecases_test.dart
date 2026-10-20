@@ -1,4 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
+import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/usecases/habit_usecases.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,6 +33,120 @@ void main() {
 
   setUp(() => repository = _FakeHabitRepository());
 
+  test(
+    'frequency editing persists target and preserves identity and creation',
+    () async {
+      final original = _habit('frequency');
+      final next = await UpdateHabit(repository)(
+        current: [original],
+        id: original.id,
+        title: original.title,
+        cadence: HabitCadence.weekly,
+        targetCount: 3,
+      );
+      expect(next.single.id, original.id);
+      expect(next.single.createdAt, original.createdAt);
+      expect(repository.stored.single.cadence, HabitCadence.weekly);
+      expect(repository.stored.single.targetCount, 3);
+      await expectLater(
+        UpdateHabit(repository)(
+          current: next,
+          id: original.id,
+          title: original.title,
+          targetCount: 0,
+        ),
+        throwsArgumentError,
+      );
+      expect(repository.saveCount, 1);
+    },
+  );
+
+  test(
+    'changed definition does not inherit completed daily or prior target',
+    () async {
+      final now = DateTime(2026, 10, 5, 18);
+      final original = HabitEntity(
+        id: 'revision',
+        title: 'Synthetic rhythm',
+        createdAt: now,
+      );
+      final outcomes = [
+        HabitOccurrenceEntity(
+          habitId: original.id,
+          occurrenceKey: RhythmPlanningContext.occurrenceKey(original, now),
+          operationId: 'first',
+          outcome: HabitOccurrenceOutcome.completed,
+          recordedAt: now,
+        ),
+      ];
+      expect(
+        RhythmPlanningContext.build([original], outcomes, now).single.status,
+        RhythmPeriodStatus.completed,
+      );
+      var next = await UpdateHabit(repository)(
+        current: [original],
+        id: original.id,
+        title: original.title,
+        cadence: HabitCadence.weekly,
+        targetCount: 2,
+      );
+      expect(
+        RhythmPlanningContext.build(next, outcomes, now).single.status,
+        RhythmPeriodStatus.unrecorded,
+      );
+      expect(next.single.frequencyRevision, 1);
+      next = await UpdateHabit(repository)(
+        current: next,
+        id: original.id,
+        title: original.title,
+        cadence: HabitCadence.daily,
+        targetCount: 1,
+      );
+      expect(
+        RhythmPlanningContext.build(next, outcomes, now).single.status,
+        RhythmPeriodStatus.unrecorded,
+      );
+      expect(next.single.frequencyRevision, 2);
+      final restored = HabitEntity.fromJson(next.single.toJson());
+      expect(restored.frequencyRevision, 2);
+      expect(restored.frequencyStartedAt, next.single.frequencyStartedAt);
+      final renamed = (await UpdateHabit(repository)(
+        current: next,
+        id: original.id,
+        title: 'Renamed',
+      )).single;
+      expect(renamed.frequencyStartedAt, restored.frequencyStartedAt);
+      expect(outcomes, hasLength(1));
+    },
+  );
+
+  test(
+    'revised rhythm import rejects malformed revision and missing start',
+    () {
+      final legacy = _habit('import').toJson();
+      expect(HabitEntity.fromJson(legacy).frequencyRevision, 0);
+      expect(
+        () => HabitEntity.fromJson({...legacy, 'frequencyRevision': -1}),
+        throwsFormatException,
+      );
+      expect(
+        () => HabitEntity.fromJson({...legacy, 'frequencyRevision': '1'}),
+        throwsFormatException,
+      );
+      expect(
+        () => HabitEntity.fromJson({...legacy, 'frequencyRevision': 1}),
+        throwsFormatException,
+      );
+      expect(
+        () => HabitEntity.fromJson({
+          ...legacy,
+          'frequencyRevision': 1,
+          'frequencyStartedAt': 'invalid',
+        }),
+        throwsFormatException,
+      );
+    },
+  );
   group('GetHabits', () {
     test('returns what the repository holds', () async {
       repository.stored = <HabitEntity>[_habit('a')];

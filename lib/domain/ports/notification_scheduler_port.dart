@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Notifications
 ///
@@ -20,6 +21,17 @@ abstract interface class NotificationSchedulerPort {
     required String body,
     required int hour,
     required int minute,
+    String? accountScope,
+  });
+
+  /// Register a calendar recurrence whose first eligible fire is [firstAt].
+  /// Unsupported platforms must reject this rather than drop the lower bound.
+  Future<bool> scheduleCadenceAt({
+    required String id,
+    required String title,
+    required String body,
+    required HabitCadence cadence,
+    required DateTime firstAt,
     String? accountScope,
   });
 

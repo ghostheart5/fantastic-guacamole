@@ -13,6 +13,10 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
+if __package__:
+    from .candidate_build_diagnostics import run_flutter_release
+else:
+    from candidate_build_diagnostics import run_flutter_release
 
 # Dispatch must identify a newly reviewed immutable source and its green CI.
 # Never silently fall back to the previous candidate.
@@ -26,10 +30,12 @@ SETTINGS = (
     "CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT", "CHRONOSPARK_ANDROID_SHA256_CERT",
 )
 FLAGS = {
+    "CHRONOSPARK_PUBLIC_RELEASE": "false",
     "CHRONOSPARK_APP_FLAVOR": "prod",
     "CHRONOSPARK_BACKEND_MODE": "cloud",
     "CHRONOSPARK_ENFORCE_PROD_READINESS": "true",
     "CHRONOSPARK_INTERNAL_BILLING_TEST": "false",
+    "CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA": "false",
     "CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS": "",
     **{name: "false" for name in (
         "CHRONOSPARK_VERBOSE_LOGS", "CHRONOSPARK_ENABLE_MOCK_LOGIN",
@@ -46,9 +52,37 @@ def require(condition, message):
         raise ValueError(message)
 
 
-def validate_billing_preflight(receipt):
+def validate_source_containment(containment):
+    # Reviewed public source gates every public capability on explicit build
+    # intent. Pin that implementation rather than accepting arbitrary true
+    # switches. FLAGS and final-define validation force public intent off.
+    reviewed_public_gate = "f02e6ee3299867604227e6fca7df198b04a3712658840505bb0bf4f8931cdd5f"
+    if hashlib.sha256(containment.encode("utf-8")).hexdigest() == reviewed_public_gate:
+        return
+    # Preserve support for the original contained source profile.
+    for feature in ("externalAiEnabled", "subscriptionsEnabled", "creditSpendingEnabled",
+                    "cloudSyncEnabled", "cloudRestoreEnabled", "analyticsEnabled", "crashReportingEnabled"):
+        require(re.search(rf"static const bool {feature}\s*=\s*false;", containment),
+                f"Containment changed: {feature}")
+
+
+def validate_billing_preflight(receipt, credit_admission_qa=False):
     require(type(receipt) is dict and receipt.get("verified") is True and
-            receipt.get("licenseTestGuard") == "v1", "Live billing preflight failed")
+            receipt.get("licenseTestGuard") == "v1" and
+            receipt.get("internalBillingCohortMatched") is True,
+            "Live billing preflight failed")
+    if credit_admission_qa:
+        require(receipt.get("creditAdmissionQaEnabled") is True and
+                receipt.get("creditAdmissionQaMatched") is True,
+                "Deployed private admission QA policy does not match the candidate")
+        admission = receipt.get("creditAdmissionBackend")
+        require(type(admission) is dict and
+                admission.get("migrationVersion") == "20260924030236" and
+                type(admission.get("functionVersions")) is dict and
+                all(type(admission["functionVersions"].get(name)) is int and
+                    admission["functionVersions"][name] > 0
+                    for name in ("verify-receipt", "google-play-rtdn")),
+                "Private credit admission backend migration or function inventory is missing")
     repair = receipt.get("backendRepairGate")
     expected = {
         "schemaVersion": 1,
@@ -124,8 +158,10 @@ def merge_assistant_internal_cohort(testers, reviewer):
 
 
 def assemble_candidate_defines(settings, policy_text, verified_cohort, billing_test=False,
-                               billing_verified_cohort=None):
+                               billing_verified_cohort=None, credit_admission_qa=False):
     require(type(billing_test) is bool, "Billing profile must be explicitly true or false")
+    require(type(credit_admission_qa) is bool and (not credit_admission_qa or billing_test),
+            "Credit admission QA requires the private billing-test profile")
     policy = strict_json(policy_text)
     require(type(policy) is dict and policy.get(COHORT_KEY) == "",
             "Reviewed policy must use the private verified cohort input")
@@ -140,13 +176,16 @@ def assemble_candidate_defines(settings, policy_text, verified_cohort, billing_t
                 f"Missing setting: {name}")
     return {**FLAGS, **{name: settings[name] for name in SETTINGS},
             "CHRONOSPARK_INTERNAL_BILLING_TEST": "true" if billing_test else "false",
+            "CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA": "true" if credit_admission_qa else "false",
             "CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS": billing_cohort,
             "CHRONOSPARK_REMOTE_CONFIG_JSON": json.dumps(policy, sort_keys=True, separators=(",", ":"))}
 
 
 def validate_candidate_defines(defines, expected_policy_sha256, billing_test=False,
-                               billing_verified_cohort=None):
+                               billing_verified_cohort=None, credit_admission_qa=False):
     require(type(billing_test) is bool, "Billing profile must be explicitly true or false")
+    require(type(credit_admission_qa) is bool and (not credit_admission_qa or billing_test),
+            "Credit admission QA requires the private billing-test profile")
     require(type(defines) is dict and set(defines) ==
             set(FLAGS) | set(SETTINGS) | {"CHRONOSPARK_REMOTE_CONFIG_JSON"},
             "Final candidate defines contain missing or unknown settings")
@@ -157,6 +196,7 @@ def validate_candidate_defines(defines, expected_policy_sha256, billing_test=Fal
                 "Billing-test accounts must be inside the assistant cohort")
     expected_flags = {**FLAGS,
         "CHRONOSPARK_INTERNAL_BILLING_TEST": "true" if billing_test else "false",
+        "CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA": "true" if credit_admission_qa else "false",
         "CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS": billing_cohort}
     require(all(type(defines[key]) is str and defines[key] == value
                 for key, value in expected_flags.items()), "Final candidate flags violate production containment")
@@ -175,7 +215,8 @@ def validate_candidate_defines(defines, expected_policy_sha256, billing_test=Fal
             "rolledBackCapabilities": ["plannerExplanation"],
             "consentRequired": True, "runtimeFlagsEnabled": False,
             "internalBillingTest": billing_test,
-            "billingRequiresVerifiedTestPurchase": billing_test}
+            "billingRequiresVerifiedTestPurchase": billing_test,
+            "creditAdmissionQa": credit_admission_qa}
 
 
 def validate_ci_evidence(evidence, source_sha, ci_run, repository):
@@ -193,6 +234,11 @@ def validate_ci_evidence(evidence, source_sha, ci_run, repository):
 
 
 def command(args, root, capture=False, env=None):
+    if args[:3] == ["flutter", "build", "appbundle"]:
+        require(not capture, "Raw Flutter release output capture is not permitted")
+        require(run_flutter_release(args, root, env) == 0,
+                "Flutter release command failed; bounded diagnostics emitted")
+        return ""
     result = subprocess.run(args, cwd=root, text=True, capture_output=capture, env=env)
     require(result.returncode == 0, f"{args[0]} command failed (output not retained)")
     return result.stdout.strip() if capture else ""
@@ -217,6 +263,11 @@ def signing_environment(tooling, runner_temp):
         shutil.copyfile(tooling / "candidate-signing.init.gradle",
                         home / "init.d/candidate-signing.init.gradle")
         (home / "gradle.properties").write_text(
+            # Hosted FULL-symbol AAB finalization exhausted the app's 1536m
+            # local-build heap. Override only this disposable Gradle home.
+            "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m "
+            "-XX:ReservedCodeCacheSize=256m -XX:-HeapDumpOnOutOfMemoryError\n"
+            "org.gradle.workers.max=1\norg.gradle.parallel=false\n"
             "org.gradle.daemon=false\norg.gradle.configuration-cache=false\n",
             encoding="ascii")
         env = os.environ.copy()
@@ -288,6 +339,11 @@ def build(root, bundletool):
     billing_profile = os.environ.get("CANDIDATE_BILLING_TEST", "false")
     require(billing_profile in ("true", "false"), "Unknown billing build profile")
     billing_test = billing_profile == "true"
+    admission_profile = os.environ.get("CANDIDATE_CREDIT_ADMISSION_QA", "false")
+    require(admission_profile in ("true", "false"), "Unknown credit admission QA profile")
+    credit_admission_qa = admission_profile == "true"
+    require(not credit_admission_qa or billing_test,
+            "Credit admission QA requires the private billing-test profile")
     source_sha = os.environ.get("CANDIDATE_SHA", "")
     ci_run = os.environ.get("CANDIDATE_CI_RUN", "")
     require(re.fullmatch(r"[a-f0-9]{40}", source_sha) and re.fullmatch(r"[1-9][0-9]*", ci_run),
@@ -320,11 +376,8 @@ def build(root, bundletool):
                         (root / "pubspec.yaml").read_text())
     require(version is not None, "Invalid committed version")
     require(int(version[2]) >= MINIMUM_VERSION_CODE, "Replacement version code must exceed the installed candidate")
-    containment = (root / "lib/config/launch_containment.dart").read_text()
-    for feature in ("externalAiEnabled", "subscriptionsEnabled", "creditSpendingEnabled",
-                    "cloudSyncEnabled", "cloudRestoreEnabled", "analyticsEnabled", "crashReportingEnabled"):
-        require(re.search(rf"static const bool {feature}\s*=\s*false;", containment),
-                f"Containment changed: {feature}")
+    validate_source_containment(
+        (root / "lib/config/launch_containment.dart").read_text(encoding="utf-8"))
     command(["flutter", "pub", "get"], root)
     command(["git", "diff", "--exit-code"], root)
     command(["pwsh", "-NoProfile", "-File", "scripts/release_guard.ps1"], root)
@@ -332,7 +385,7 @@ def build(root, bundletool):
     if billing_test:
         billing_receipt = strict_json(command(
             ["node", "scripts/verify_internal_billing_backend.mjs"], root, True))
-        validate_billing_preflight(billing_receipt)
+        validate_billing_preflight(billing_receipt, credit_admission_qa)
     key = root / "android/app/upload-keystore.jks"
     props = root / "android/key.properties"
     defines = Path(os.environ["RUNNER_TEMP"]) / "chronospark-candidate-defines.json"
@@ -344,7 +397,8 @@ def build(root, bundletool):
             tester_cohort, os.environ.get("CHRONOSPARK_REVIEWER_ACCOUNT_DIGEST", ""))
         assembled = assemble_candidate_defines(os.environ, (root / POLICY_PATH).read_text(encoding="utf-8"),
                                               assistant_cohort, billing_test,
-                                              billing_verified_cohort=tester_cohort if billing_test else None)
+                                              billing_verified_cohort=tester_cohort if billing_test else None,
+                                              credit_admission_qa=credit_admission_qa)
         # The cohort values are SHA-256 digests of random Supabase UUID account
         # namespaces, not credentials or raw account identifiers. Flutter must
         # read this one build-input file in clear text. The process umask above
@@ -355,7 +409,8 @@ def build(root, bundletool):
         # Read back and validate exactly the file passed to Flutter, before touching keys.
         policy_receipt = validate_candidate_defines(strict_json(defines.read_text(encoding="utf-8")),
                                                    os.environ.get("CANDIDATE_POLICY_SHA256", ""), billing_test,
-                                                   billing_verified_cohort=tester_cohort if billing_test else None)
+                                                   billing_verified_cohort=tester_cohort if billing_test else None,
+                                                   credit_admission_qa=credit_admission_qa)
         command(["dart", "run", "scripts/validate_production_config.dart", "--platform=android",
                  "--google-services=android/app/google-services.json", "--defines=" + str(defines)], root)
         require(strict_json(defines.read_text(encoding="utf-8")) == assembled,
@@ -370,7 +425,10 @@ def build(root, bundletool):
         require(fingerprint and fingerprint[1].replace(":", "").upper() == UPLOAD_SHA1,
                 "Existing upload identity pin mismatch")
         with signing_environment(tooling, Path(os.environ["RUNNER_TEMP"])) as env:
-            command(["flutter", "build", "appbundle", "--release", "--no-pub",
+            # pub get above generates a development plugin registrant. Allow the
+            # release command to regenerate it without dev-only native plugins.
+            # The source/lockfile checks below still reject dependency drift.
+            command(["flutter", "build", "appbundle", "--release",
                      "--dart-define-from-file=" + str(defines)], root, env=env)
     finally:
         for path in (key, props, defines):
@@ -415,6 +473,7 @@ def build(root, bundletool):
         "versionName": version[1], "versionCode": int(version[2]), "targetSdk": target,
         "compiledBillingPermission": billing_test,
         "buildFlags": {**FLAGS, "CHRONOSPARK_INTERNAL_BILLING_TEST": str(billing_test).lower(),
+                       "CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA": str(credit_admission_qa).lower(),
                        "CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS": "private cohort" if billing_test else ""},
         "assistantPolicy": policy_receipt, "native64BitLoadAlignment": native,
         "internalBillingBackend": billing_receipt,

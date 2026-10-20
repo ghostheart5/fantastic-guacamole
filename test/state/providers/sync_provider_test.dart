@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
@@ -13,6 +14,7 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/services/offline_sync_queue_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -104,6 +106,74 @@ void main() {
     expect(first, isFalse);
     expect(gateway.uploadAttempts, 1);
   });
+
+  for (final changeAccount in [false, true]) {
+    test(
+      changeAccount
+          ? 'account transition while preferences load prevents first backup'
+          : 'first backup waits for local preferences before transferring',
+      () async {
+        container.dispose();
+        final ready = Completer<SharedPrefsStorage>();
+        final loadingStarted = Completer<void>();
+        gateway.uploadShouldAlwaysSucceed = true;
+        final service = SyncService(
+          backup: BackupService(
+            taskRepository: repository,
+            profileStorage: profileStorage,
+            prefs: prefs,
+          ),
+          gateway: gateway,
+          expectedAccountId: 'test-user',
+          currentAccountId: () => 'test-user',
+          syncEnabled: true,
+          restoreEnabled: true,
+        );
+        container = ProviderContainer(
+          overrides: [
+            accountStorageScopeProvider.overrideWithValue(
+              AccountStorageScope.authenticated('test-user'),
+            ),
+            cloudSyncCapabilityProvider.overrideWithValue(true),
+            cloudBackupPreferencesProvider.overrideWith((ref) {
+              loadingStarted.complete();
+              return ready.future;
+            }),
+            offlineSyncQueueProvider.overrideWithValue(
+              OfflineSyncQueueService(
+                HiveStorage<String>(HiveBoxes.offlineQueue, hive: hiveStore),
+                accountId: 'test-user',
+                enforceAccountBinding: true,
+              ),
+            ),
+            syncServiceProvider.overrideWith(
+              (ref) => ref.watch(cloudBackupPreferencesProvider).hasValue
+                  ? service
+                  : null,
+            ),
+          ],
+        );
+        var completed = false;
+        final pending = container.read(syncToCloudProvider.future);
+        unawaited(pending.then((_) => completed = true));
+        await loadingStarted.future;
+        await Future<void>.delayed(Duration.zero);
+        expect(completed, isFalse);
+        expect(gateway.uploadAttempts, 0);
+        if (changeAccount) {
+          container
+              .read(authSessionBoundaryProvider.notifier)
+              .begin(userId: 'other-user', isTransitioning: true);
+        }
+        ready.complete(prefs);
+        expect(await pending, !changeAccount);
+        expect(gateway.uploadAttempts, changeAccount ? 0 : 1);
+        if (!changeAccount) {
+          expect(container.read(syncErrorMessageProvider), isNull);
+        }
+      },
+    );
+  }
 
   test(
     'provider queues a safe delta retry after a transient read failure',

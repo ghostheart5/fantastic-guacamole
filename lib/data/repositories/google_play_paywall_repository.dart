@@ -73,42 +73,6 @@ DateTime _testingRenewalDateFor(String? planId) {
   );
 }
 
-class _VerifiedSubscription {
-  const _VerifiedSubscription({
-    required this.expiry,
-    required this.status,
-    required this.providerAcknowledged,
-  });
-
-  final DateTime expiry;
-  final String status;
-  final bool providerAcknowledged;
-}
-
-class _PendingPurchase {
-  _PendingPurchase({
-    required this.productId,
-    required this.userId,
-    required this.completer,
-  }) {
-    completer.future.ignore();
-  }
-
-  final String productId;
-  final String? userId;
-  final Completer<SubscriptionState> completer;
-}
-
-class _PendingRestore {
-  _PendingRestore({required this.userId}) {
-    completer.future.ignore();
-  }
-
-  final String? userId;
-  final Set<String> observedProductIds = <String>{};
-  final Completer<SubscriptionState> completer = Completer<SubscriptionState>();
-}
-
 abstract class BillingClient {
   Stream<List<PurchaseDetails>> get purchaseStream;
   Future<ProductDetailsResponse> queryProductDetails(Set<String> ids);
@@ -172,10 +136,12 @@ class GooglePlayPaywallRepository
     http.Client? httpClient,
     bool? paywallTestingModeOverride,
     bool requireTestPurchase = false,
+    bool requirePublicCreditAdmissionForLicenseTest = false,
     String? receiptVerifyEndpoint,
     SecureStore? secureStore,
     sb.SupabaseClient? supabaseClient,
     Duration authorityRequestTimeout = _kAuthorityRequestTimeout,
+    Duration checkoutResponseTimeout = const Duration(seconds: 120),
   }) : _billingClient =
            billingClient ??
            (requireTestPurchase
@@ -188,6 +154,8 @@ class GooglePlayPaywallRepository
        // Named public parameter intentionally maps to a private field.
        // ignore: prefer_initializing_formals
        _requireTestPurchase = requireTestPurchase,
+       _requirePublicCreditAdmissionForLicenseTest =
+           requireTestPurchase && requirePublicCreditAdmissionForLicenseTest,
        // Named public parameter intentionally maps to a private field.
        // ignore: prefer_initializing_formals
        _secureStore = secureStore,
@@ -197,6 +165,9 @@ class GooglePlayPaywallRepository
        // Named public parameter intentionally maps to a private field.
        // ignore: prefer_initializing_formals
        _authorityRequestTimeout = authorityRequestTimeout,
+       // Keep the injectable deadline public without exposing a mutable field.
+       // ignore: prefer_initializing_formals
+       _checkoutResponseTimeout = checkoutResponseTimeout,
        _receiptVerifyEndpoint =
            receiptVerifyEndpoint ?? Env.receiptVerifyEndpoint {
     _initialization = _loadPersistedState();
@@ -212,9 +183,13 @@ class GooglePlayPaywallRepository
   final http.Client _httpClient;
   final bool _paywallTestingMode;
   final bool _requireTestPurchase;
+  final bool _requirePublicCreditAdmissionForLicenseTest;
+  bool get _creditAdmissionRequired =>
+      !_requireTestPurchase || _requirePublicCreditAdmissionForLicenseTest;
   final SecureStore? _secureStore;
   final sb.SupabaseClient? _supabaseClient;
   final Duration _authorityRequestTimeout;
+  final Duration _checkoutResponseTimeout;
   final String _receiptVerifyEndpoint;
   late final StreamSubscription<List<PurchaseDetails>> _purchaseSub;
   final _purchaseOutcomes = StreamController<PurchaseOutcome>.broadcast();
@@ -253,6 +228,7 @@ class GooglePlayPaywallRepository
       <String, _PendingPurchase>{};
   final Set<String> _approvalPending = <String>{};
   final Map<String, String> _pendingOwnerFingerprints = <String, String>{};
+  final Map<String, DateTime> _creditRegistrationRetryAt = <String, DateTime>{};
   _PendingRestore? _pendingRestore;
 
   static final Map<String, Future<void>> _persistenceQueues =
@@ -481,26 +457,67 @@ class GooglePlayPaywallRepository
     }
 
     final String operationKey = _purchaseOperationKey(gpId, expectedUserId);
+    final checkout = _pendingPurchases[operationKey];
+    if (checkout != null && checkout.checkoutTimedOut) {
+      // A timeout is not evidence that Play closed checkout. Keep its owner
+      // and callback correlation until Play or an explicit restore resolves it.
+      return _transactionOutcomeState(
+        status: 'checkout_unresolved',
+        attemptedPlanId: planId,
+      );
+    }
     final String? pendingOwner = await _pendingOwnerFingerprint(gpId);
     final String? expectedFingerprint = _billingAccountFingerprint(
       expectedUserId,
     );
     if (pendingOwner != null) {
       if (pendingOwner == expectedFingerprint) {
-        return _purchasePendingState(planId);
+        if (planId.startsWith('credits_') && _creditAdmissionRequired) {
+          // Google's pending inventory is the durable retry source. A failed
+          // registration must not turn this owner guard into a no-op.
+          try {
+            final SubscriptionState? recovered =
+                await _retryPendingCreditRegistrationFromPlay(
+                  gpId,
+                  expectedUserId,
+                );
+            if (recovered != null) return recovered;
+          } on Object {
+            // Keep the existing owner guard; never start a second checkout.
+          }
+        }
+        if (await _pendingOwnerFingerprint(gpId) != null ||
+            _approvalPending.contains(operationKey)) {
+          return _purchasePendingState(planId);
+        }
       }
-      throw StateError(
-        'A pending Google Play purchase belongs to another signed-in account.',
-      );
+      if (pendingOwner != expectedFingerprint) {
+        throw StateError(
+          'A pending Google Play purchase belongs to another signed-in account.',
+        );
+      }
     }
     if (_approvalPending.contains(operationKey)) {
-      return _purchasePendingState(planId);
+      if (planId.startsWith('credits_') && _creditAdmissionRequired) {
+        try {
+          final SubscriptionState? recovered =
+              await _retryPendingCreditRegistrationFromPlay(
+                gpId,
+                expectedUserId,
+              );
+          if (recovered != null) return recovered;
+        } on Object {
+          // Keep the in-memory guard; never start a second checkout.
+        }
+      }
+      if (_approvalPending.contains(operationKey)) {
+        return _purchasePendingState(planId);
+      }
     }
     final Future<SubscriptionState>? inFlight = _purchaseStarts[operationKey];
     if (inFlight != null) {
       return inFlight;
     }
-
     final Future<SubscriptionState> purchase = _startSubscriptionOnce(
       planId: planId,
       productId: gpId,
@@ -535,6 +552,10 @@ class GooglePlayPaywallRepository
     if (!_isCurrentBillingAccount(expectedUserId)) {
       throw StateError('The signed-in account changed during billing.');
     }
+    final String? admissionId =
+        planId.startsWith('credits_') && _creditAdmissionRequired
+        ? await _requirePublicCreditCheckoutAllowed(expectedUserId, productId)
+        : null;
 
     final _PendingPurchase pending = _PendingPurchase(
       productId: productId,
@@ -544,10 +565,16 @@ class GooglePlayPaywallRepository
     _pendingPurchases[operationKey] = pending;
     await _rememberPendingOwner(productId, expectedUserId);
 
-    final PurchaseParam param = PurchaseParam(
-      productDetails: selectedProduct,
-      applicationUserName: _billingAccountFingerprint(expectedUserId),
-    );
+    final PurchaseParam param = admissionId == null
+        ? PurchaseParam(
+            productDetails: selectedProduct,
+            applicationUserName: _billingAccountFingerprint(expectedUserId),
+          )
+        : GooglePlayPurchaseParam(
+            productDetails: selectedProduct,
+            applicationUserName: _billingAccountFingerprint(expectedUserId),
+            obfuscatedProfileId: admissionId,
+          );
     late final bool purchaseStarted;
     try {
       purchaseStarted = await _billingClient.buyNonConsumable(
@@ -565,10 +592,18 @@ class GooglePlayPaywallRepository
     }
 
     return pending.completer.future.timeout(
-      const Duration(seconds: 120),
+      _checkoutResponseTimeout,
       onTimeout: () {
-        _removePendingPurchase(operationKey, pending);
-        throw TimeoutException('Purchase timed out.');
+        pending.checkoutTimedOut = true;
+        if (!_isCurrentBillingAccount(expectedUserId)) {
+          throw StateError('The signed-in account changed during billing.');
+        }
+        // Keep the unfinished completer: Android can later cancel with an
+        // empty product ID, which must still resolve this exact checkout.
+        return _transactionOutcomeState(
+          status: 'checkout_unresolved',
+          attemptedPlanId: planId,
+        );
       },
     );
   }
@@ -645,7 +680,8 @@ class GooglePlayPaywallRepository
       final List<PurchaseDetails> pastPurchases = await _billingClient
           .restorePurchases(
             applicationUserName: _billingAccountFingerprint(expectedUserId),
-          );
+          )
+          .timeout(_authorityRequestTimeout);
       if (pastPurchases.isNotEmpty) {
         await _enqueuePurchaseUpdate(pastPurchases);
       } else {
@@ -657,15 +693,21 @@ class GooglePlayPaywallRepository
       if (_isCurrentBillingAccount(expectedUserId)) {
         // Google's successful inventory includes pending INAPP purchases.
         // A consumed pack is absent even while a subscription remains active.
-        // Clear only this account's absent pack guard, never a live purchase.
+        // Clear this account's absent pack guard or timed-out checkout only
+        // after a successful inventory read, never while its caller is waiting.
         for (final entry in _kProductIds.entries) {
-          if (!entry.key.startsWith('credits_')) continue;
           final operation = _purchaseOperationKey(entry.value, expectedUserId);
+          final checkout = _pendingPurchases[operation];
+          final timedOutCheckout = checkout?.checkoutTimedOut ?? false;
+          if (!entry.key.startsWith('credits_') && !timedOutCheckout) continue;
           if (!pastPurchases.any((p) => p.productID == entry.value) &&
               !pending.observedProductIds.contains(entry.value) &&
               !_purchaseStarts.containsKey(operation)) {
             await _clearPendingOwner(entry.value, expectedUserId);
             _approvalPending.remove(operation);
+            if (timedOutCheckout) {
+              _removePendingPurchase(operation, checkout);
+            }
           }
         }
       }
@@ -735,6 +777,29 @@ class GooglePlayPaywallRepository
     final String? userId = client?.auth.currentUser?.id;
     if (client == null || userId == null) {
       return _effectiveStateForCurrentUser;
+    }
+    final String? billingFingerprint = _billingAccountFingerprint(userId);
+    if (_creditAdmissionRequired && billingFingerprint != null) {
+      final DateTime retryNow = DateTime.now().toUtc();
+      for (final String productId in _kProductIds.values.where(
+        (String id) => id.startsWith('chronospark_credits_'),
+      )) {
+        if (await _pendingOwnerFingerprint(productId) != billingFingerprint) {
+          continue;
+        }
+        final String operation = _purchaseOperationKey(productId, userId);
+        final DateTime? lastRetry = _creditRegistrationRetryAt[operation];
+        if (lastRetry != null &&
+            retryNow.difference(lastRetry) < const Duration(seconds: 30)) {
+          continue;
+        }
+        _creditRegistrationRetryAt[operation] = retryNow;
+        try {
+          await _retryPendingCreditRegistrationFromPlay(productId, userId);
+        } on Object {
+          // Preserve the durable owner guard and retry on the next refresh.
+        }
+      }
     }
     if (_authorityRequestUserId != userId) {
       _authorityRequestUserId = userId;
@@ -1156,7 +1221,7 @@ class GooglePlayPaywallRepository
         final String? expectedUserId =
             pending?.userId ?? restore?.userId ?? currentUserId;
         if (productId.startsWith('chronospark_credits_')) {
-          final verified = await _verifiedCreditTopupFromServer(
+          final String creditOutcome = await _verifiedCreditTopupFromServer(
             purchase,
             expectedUserId: expectedUserId,
           );
@@ -1167,12 +1232,13 @@ class GooglePlayPaywallRepository
             );
           } else {
             final outcome = _transactionOutcomeState(
-              status: verified ? 'credits_added' : 'verification_failed',
+              status: creditOutcome,
               attemptedPlanId: null,
             );
             _completePendingPurchase(pending, outcome);
             _completePendingRestore(restore, outcome);
-            if (verified) {
+            if (creditOutcome == 'credits_added' ||
+                creditOutcome == 'purchase_canceled') {
               _approvalPending.remove(operationKey);
               await _clearPendingOwner(productId, expectedUserId);
             }
@@ -1180,14 +1246,34 @@ class GooglePlayPaywallRepository
           _removePendingPurchase(operationKey, pending);
           continue;
         }
-        final _VerifiedSubscription? verification =
+        final _SubscriptionReceipt? verification =
             await _verifiedSubscriptionFromServer(
               purchase,
               expectedUserId: expectedUserId,
             );
         final String? planId = _planIdForProduct(productId);
         final bool accountIsCurrent = _isCurrentBillingAccount(expectedUserId);
-        if (verification != null && planId != null && accountIsCurrent) {
+        if (verification is _InactiveSubscriptionReceipt &&
+            restore != null &&
+            _supabaseClient != null &&
+            planId != null &&
+            accountIsCurrent) {
+          // A reconciled terminal receipt grants no access and needs no local
+          // acknowledgement. Let explicit restore finish its forced authority
+          // refresh rather than treating an expired inventory item as an outage.
+          _completePendingPurchase(
+            pending,
+            _transactionOutcomeState(
+              status: 'verification_failed',
+              attemptedPlanId: planId,
+            ),
+          );
+          _removePendingPurchase(operationKey, pending);
+          continue;
+        }
+        if (verification is _VerifiedSubscription &&
+            planId != null &&
+            accountIsCurrent) {
           bool acknowledged =
               verification.providerAcknowledged ||
               !purchase.pendingCompletePurchase;
@@ -1322,6 +1408,47 @@ class GooglePlayPaywallRepository
         _approvalPending.remove(operationKey);
         _removePendingPurchase(operationKey, pending);
       } else if (purchase.status == PurchaseStatus.pending) {
+        if (productId.startsWith('chronospark_credits_') &&
+            _creditAdmissionRequired) {
+          final registration = await _registerPendingCreditTopupWithServer(
+            purchase,
+            expectedUserId: currentUserId,
+          );
+          if (!_isCurrentBillingAccount(currentUserId)) continue;
+          if (registration == _PendingCreditRegistration.resolutionRequired) {
+            await _rememberPendingOwner(productId, currentUserId);
+            _approvalPending.add(operationKey);
+            final outcome = _transactionOutcomeState(
+              status: 'customer_resolution_required',
+              attemptedPlanId: _planIdForProduct(productId),
+            );
+            _completePendingPurchase(pending, outcome);
+            _completePendingRestore(restore, outcome);
+            _removePendingPurchase(operationKey, pending);
+            continue;
+          }
+          if (registration == _PendingCreditRegistration.canceled ||
+              registration == _PendingCreditRegistration.completed) {
+            await _clearPendingOwner(productId, currentUserId);
+            final canceled = _transactionOutcomeState(
+              status: registration == _PendingCreditRegistration.completed
+                  ? 'credits_added'
+                  : 'purchase_canceled',
+              attemptedPlanId: _planIdForProduct(productId),
+            );
+            _completePendingPurchase(pending, canceled);
+            _completePendingRestore(restore, canceled);
+            _approvalPending.remove(operationKey);
+            _removePendingPurchase(operationKey, pending);
+            continue;
+          }
+          if (registration != _PendingCreditRegistration.registered) {
+            Logger.warn(
+              'Pending Google Play credit token was not registered; '
+              'server verification must retry before completion.',
+            );
+          }
+        }
         final String? planId = _planIdForProduct(productId);
         final SubscriptionState purchasePending = _purchasePendingState(planId);
         await _rememberPendingOwner(productId, currentUserId);

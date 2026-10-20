@@ -12,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  test('incomplete core milestones suppress automatic interventions', () {
+  test('core guidance follows saved milestones and then yields to Nexus', () {
     final DateTime observedAt = DateTime.utc(2026, 8, 18);
     const AdaptiveGuidanceState beforeFirstValue = AdaptiveGuidanceState(
       milestones: <GuidanceMilestone, DateTime>{},
@@ -32,21 +32,49 @@ void main() {
     );
 
     expect(
-      beforeFirstValue.nextIntervention(
-        currentRoute: RoutePaths.nexus,
-        decision: _decision,
-        now: observedAt,
-      ),
-      isNull,
+      beforeFirstValue
+          .nextIntervention(
+            currentRoute: RoutePaths.nexus,
+            decision: _decision,
+            now: observedAt,
+          )
+          ?.id,
+      GuidanceLessonId.createFirstItem,
     );
     expect(incomplete.coreComplete, isFalse);
     expect(
-      incomplete.nextIntervention(
-        currentRoute: RoutePaths.nexus,
-        decision: _decision,
-        now: observedAt.add(const Duration(days: 2)),
-      ),
-      isNull,
+      incomplete
+          .nextIntervention(
+            currentRoute: RoutePaths.nexus,
+            decision: _decision,
+            now: observedAt.add(const Duration(days: 2)),
+          )
+          ?.id,
+      GuidanceLessonId.scheduleFirstItem,
+    );
+
+    final AdaptiveGuidanceState scheduled = AdaptiveGuidanceState(
+      milestones: <GuidanceMilestone, DateTime>{
+        GuidanceMilestone.firstItem: observedAt,
+        GuidanceMilestone.firstSchedule: observedAt,
+      },
+      counts: const <GuidanceMilestone, int>{},
+      skippedLessons: const <GuidanceLessonId>{},
+      completedLessons: const <GuidanceLessonId>{
+        GuidanceLessonId.createFirstItem,
+        GuidanceLessonId.scheduleFirstItem,
+      },
+      expectedFirstRunCreatorTaskIds: const <String>{'task-a'},
+    );
+    expect(
+      scheduled
+          .nextIntervention(
+            currentRoute: RoutePaths.nexus,
+            decision: _decision,
+            now: observedAt,
+          )
+          ?.id,
+      GuidanceLessonId.reviewTimeline,
     );
 
     final AdaptiveGuidanceState complete = AdaptiveGuidanceState(
@@ -77,6 +105,34 @@ void main() {
     );
   });
 
+  test(
+    'existing task milestones without a Creator receipt restart the trace',
+    () {
+      final DateTime observedAt = DateTime.utc(2026, 8, 18);
+      final AdaptiveGuidanceState state = AdaptiveGuidanceState(
+        milestones: <GuidanceMilestone, DateTime>{
+          GuidanceMilestone.firstItem: observedAt,
+          GuidanceMilestone.firstSchedule: observedAt,
+        },
+        counts: const <GuidanceMilestone, int>{},
+        skippedLessons: const <GuidanceLessonId>{},
+        completedLessons: const <GuidanceLessonId>{
+          GuidanceLessonId.createFirstItem,
+          GuidanceLessonId.scheduleFirstItem,
+        },
+      );
+      expect(
+        state
+            .nextIntervention(
+              currentRoute: RoutePaths.nexus,
+              decision: _decision,
+            )
+            ?.id,
+        GuidanceLessonId.createFirstItem,
+      );
+    },
+  );
+
   test('explicit replay remains available before core completion', () {
     const AdaptiveGuidanceState state = AdaptiveGuidanceState(
       milestones: <GuidanceMilestone, DateTime>{},
@@ -84,6 +140,7 @@ void main() {
       skippedLessons: <GuidanceLessonId>{},
       completedLessons: <GuidanceLessonId>{},
       replayLessons: <GuidanceLessonId>{GuidanceLessonId.reviewTimeline},
+      expectedFirstRunCreatorTaskIds: <String>{'task-a'},
     );
 
     expect(
@@ -227,7 +284,7 @@ void main() {
   });
 
   test(
-    'Later is resumable while Skip remains permanent across restart',
+    'Restart reopens skipped core lessons but keeps advanced skips',
     () async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final ProviderContainer first = _guidanceContainer(
@@ -240,6 +297,7 @@ void main() {
 
       await notifier.record(GuidanceMilestone.firstItem);
       await notifier.later(GuidanceLessonId.nexus);
+      await notifier.skip(GuidanceLessonId.createFirstItem);
       await notifier.skip(GuidanceLessonId.siConsole);
       first.dispose();
 
@@ -251,6 +309,10 @@ void main() {
         adaptiveGuidanceProvider.future,
       );
       expect(persisted.laterLessons, contains(GuidanceLessonId.nexus));
+      expect(
+        persisted.skippedLessons,
+        contains(GuidanceLessonId.createFirstItem),
+      );
       expect(persisted.skippedLessons, contains(GuidanceLessonId.siConsole));
 
       await restarted.read(adaptiveGuidanceProvider.notifier).restartLessons();
@@ -258,8 +320,13 @@ void main() {
           .read(adaptiveGuidanceProvider)
           .requireValue;
       expect(afterRestart.laterLessons, isEmpty);
+      expect(
+        afterRestart.skippedLessons,
+        isNot(contains(GuidanceLessonId.createFirstItem)),
+      );
       expect(afterRestart.skippedLessons, contains(GuidanceLessonId.siConsole));
       expect(afterRestart.has(GuidanceMilestone.firstItem), isTrue);
+      expect(afterRestart.replayLessons, _replayableCoreLessonMatcher);
     },
   );
 
@@ -304,6 +371,80 @@ void main() {
       );
       expect(persisted.coreComplete, isTrue);
       expect(persisted.replayLessons, _replayableCoreLessonMatcher);
+    },
+  );
+
+  test(
+    'Restarted core replay advances on new evidence and can pause',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final ProviderContainer container = _guidanceContainer(
+        'guidance-replay-step',
+      );
+      addTearDown(container.dispose);
+      await container.read(adaptiveGuidanceProvider.future);
+      final AdaptiveGuidanceNotifier notifier = container.read(
+        adaptiveGuidanceProvider.notifier,
+      );
+      await notifier.record(GuidanceMilestone.firstItem);
+      await notifier.record(GuidanceMilestone.firstSchedule);
+      await notifier.record(GuidanceMilestone.firstTimelineReview);
+
+      await notifier.restartLessons();
+      expect(
+        container
+            .read(adaptiveGuidanceProvider)
+            .requireValue
+            .nextIntervention(
+              currentRoute: RoutePaths.nexus,
+              decision: _decision,
+            )
+            ?.id,
+        GuidanceLessonId.createFirstItem,
+      );
+
+      await notifier.recordIfMissing(GuidanceMilestone.firstItem);
+      final AdaptiveGuidanceState afterCreator = container
+          .read(adaptiveGuidanceProvider)
+          .requireValue;
+      expect(afterCreator.has(GuidanceMilestone.firstItem), isTrue);
+      expect(
+        afterCreator.replayLessons,
+        isNot(contains(GuidanceLessonId.createFirstItem)),
+      );
+      expect(
+        afterCreator
+            .nextIntervention(
+              currentRoute: RoutePaths.nexus,
+              decision: _decision,
+            )
+            ?.id,
+        GuidanceLessonId.scheduleFirstItem,
+      );
+
+      await notifier.later(GuidanceLessonId.scheduleFirstItem);
+      final AdaptiveGuidanceState paused = container
+          .read(adaptiveGuidanceProvider)
+          .requireValue;
+      expect(paused.replayLessons, isEmpty);
+      expect(paused.has(GuidanceMilestone.firstSchedule), isTrue);
+      expect(paused.has(GuidanceMilestone.firstTimelineReview), isTrue);
+      expect(
+        paused.nextIntervention(
+          currentRoute: RoutePaths.nexus,
+          decision: _decision,
+        ),
+        isNull,
+      );
+
+      final ProviderContainer reopened = _guidanceContainer(
+        'guidance-replay-step',
+      );
+      addTearDown(reopened.dispose);
+      expect(
+        (await reopened.read(adaptiveGuidanceProvider.future)).replayLessons,
+        isEmpty,
+      );
     },
   );
 

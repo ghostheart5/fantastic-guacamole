@@ -30,7 +30,7 @@ final plannerExplanationAvailabilityProvider =
       if (!LaunchContainment.externalAiProviderRetentionVerified) {
         return PlannerExplanationAvailability.providerRetentionUnverified;
       }
-      if (!LaunchContainment.externalAiSafetyReviewApproved) {
+      if (!LaunchContainment.externalAiSafetyValidationPassed) {
         return PlannerExplanationAvailability.safetyReviewRequired;
       }
       if (!ref.watch(personalizationProfileProvider).externalAiAllowed) {

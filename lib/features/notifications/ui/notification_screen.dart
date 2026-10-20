@@ -14,10 +14,16 @@ class NotificationsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final List<NotificationEntity> items = ref.watch(notificationProvider);
+    final es = Localizations.localeOf(context).languageCode == 'es';
+    final localizations = MaterialLocalizations.of(context);
+    final automations = ref.watch(automationNotificationsProvider);
+    final repeating = automations.asData?.value ?? const <NotificationEntity>[];
     final DateTime now = DateTime.now();
-    final int scheduledCount = items
-        .where((item) => item.isEnabled && item.scheduledAt.isAfter(now))
-        .length;
+    final int scheduledCount =
+        repeating.length +
+        items
+            .where((item) => item.isEnabled && item.scheduledAt.isAfter(now))
+            .length;
     final int unreadCount = items
         .where(
           (item) =>
@@ -40,32 +46,52 @@ class NotificationsPage extends ConsumerWidget {
                 child: _Header(
                   unreadCount: unreadCount,
                   scheduledCount: scheduledCount,
-                  totalCount: items.length,
+                  totalCount: items.length + repeating.length,
                   onBack: () => Navigator.of(context).pop(),
                 ),
               ),
               Expanded(
-                child: items.isEmpty
-                    ? const _EmptyState()
-                    : ListView.builder(
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-                        itemCount: items.length,
-                        itemBuilder: (context, i) => _NotificationTile(
-                          item: items[i],
-                          onMarkRead: () async {
-                            await ref
-                                .read(notificationProvider.notifier)
-                                .markRead(items[i].id);
-                          },
-                          onDelete: () async {
-                            await ref
-                                .read(notificationProvider.notifier)
-                                .delete(items[i].id);
-                          },
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+                  children: [
+                    if (automations.isLoading) const LinearProgressIndicator(),
+                    if (automations.hasError)
+                      TextButton(
+                        onPressed: () =>
+                            ref.invalidate(automationNotificationsProvider),
+                        child: Text(
+                          es
+                              ? 'Estado del recordatorio no disponible. Reintentar'
+                              : 'Reminder schedule status unavailable. Retry',
                         ),
                       ),
+                    for (final reminder in repeating)
+                      Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.repeat),
+                          title: Text(reminder.title),
+                          subtitle: Text(
+                            '${reminder.message}\n${reminder is AutomationNotification && !reminder.registeredTimeKnown ? (es ? "Hora configurada; hora registrada no disponible" : "Configured time; registered time unavailable") : (es ? "Pr\u00f3xima hora programada" : "Next scheduled time")}: ${localizations.formatMediumDate(reminder.scheduledAt)} ${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(reminder.scheduledAt))}\n${es ? "La entrega es aproximada. Administra este recordatorio recurrente en Ajustes." : "Delivery is approximate. Manage this repeating reminder in Settings."}',
+                          ),
+                        ),
+                      ),
+                    if (items.isEmpty &&
+                        repeating.isEmpty &&
+                        !automations.isLoading &&
+                        !automations.hasError)
+                      const _EmptyState(),
+                    for (final item in items)
+                      _NotificationTile(
+                        item: item,
+                        onMarkRead: () => ref
+                            .read(notificationProvider.notifier)
+                            .markRead(item.id),
+                        onDelete: () => ref
+                            .read(notificationProvider.notifier)
+                            .delete(item.id),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),

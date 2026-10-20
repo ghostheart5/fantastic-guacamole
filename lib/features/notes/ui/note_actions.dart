@@ -6,7 +6,7 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
-import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
+import 'package:go_router/go_router.dart';
 import 'package:fantastic_guacamole/ui/widgets/text_controller_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,10 +59,12 @@ class _NoteActionsState extends ConsumerState<NoteActions> {
               Widget links(
                 String label,
                 String? value,
-                List<(String, String)> items,
+                List<(String, Widget)> items,
                 void Function(String?) select,
               ) => DropdownButtonFormField<String>(
                 initialValue: value,
+                isDense: false,
+                itemHeight: null,
                 isExpanded: true,
                 decoration: InputDecoration(labelText: label),
                 items: [
@@ -71,10 +73,7 @@ class _NoteActionsState extends ConsumerState<NoteActions> {
                     child: Text(es ? 'Sin vínculo' : 'No link'),
                   ),
                   for (final item in items)
-                    DropdownMenuItem(
-                      value: item.$1,
-                      child: Text(item.$2, overflow: TextOverflow.ellipsis),
-                    ),
+                    DropdownMenuItem(value: item.$1, child: item.$2),
                 ],
                 onChanged: (value) => update(() => select(value)),
               );
@@ -106,15 +105,51 @@ class _NoteActionsState extends ConsumerState<NoteActions> {
                           ),
                         ),
                         links(es ? 'Meta' : 'Goal', goal, [
-                          for (final g in goals) (g.id, g.title),
+                          for (final g in goals)
+                            (
+                              g.id,
+                              Text(g.title, overflow: TextOverflow.ellipsis),
+                            ),
                         ], (value) => goal = value),
                         links(es ? 'Tarea' : 'Task', task, [
-                          for (final t in tasks) (t.id, t.title),
+                          for (final t in tasks)
+                            (
+                              t.id,
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    t.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    '${t.isCompleted
+                                        ? (es ? 'Completada' : 'Completed')
+                                        : t.isSkipped
+                                        ? (es ? 'Omitida' : 'Skipped')
+                                        : t.isCanceled
+                                        ? (es ? 'Cancelada' : 'Canceled')
+                                        : (es ? 'Activa' : 'Active')} · ${_taskTiming(context, t.scheduledFor ?? t.dueDate)}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
                         ], (value) => task = value),
                         links(
                           es ? 'Ritmo diario' : 'Daily Rhythm',
                           habit,
-                          [for (final h in habits) (h.id, h.title)],
+                          [
+                            for (final h in habits)
+                              (
+                                h.id,
+                                Text(h.title, overflow: TextOverflow.ellipsis),
+                              ),
+                          ],
                           (value) => habit = value,
                         ),
                       ],
@@ -195,18 +230,30 @@ class _NoteActionsState extends ConsumerState<NoteActions> {
       ),
     );
     if (confirmed == true && mounted && sameOwner(owner)) {
-      ref.read(planningNoteSelectionProvider.notifier).select(widget.note.id);
+      final router = GoRouter.maybeOf(context);
       final navigator = Navigator.of(context);
-      // Nexus opens note details as an imperative route above the app shell.
-      // Close that route before changing the shell destination underneath it.
+      final fallback = ref.read(appFlowProvider.notifier);
+      ref.read(planningNoteSelectionProvider.notifier).select(widget.note.id);
       final detailRoute = ModalRoute.of(context);
-      if (detailRoute is MaterialPageRoute && navigator.canPop()) {
-        // The consent dialog may still be finishing its reverse transition.
-        // Remove the exact detail route rather than popping that dialog again.
-        navigator.removeRoute(detailRoute);
+      if (router != null) {
+        // Library and detail can both be imperative routes above the shell.
+        // Capture the router before closing them, then reveal its destination.
+        navigator.popUntil((route) => route.settings is Page);
+        router.go(routePathForAppView(AppView.smartPlanner));
+      } else {
+        if (detailRoute is MaterialPageRoute && navigator.canPop()) {
+          navigator.removeRoute(detailRoute);
+        }
+        fallback.show(AppView.smartPlanner);
       }
-      goToAppView(navigator.context, ref, AppView.smartPlanner);
     }
+  }
+
+  String _taskTiming(BuildContext context, DateTime? timing) {
+    if (timing == null) return es ? 'Sin horario' : 'No schedule';
+    final local = timing.toLocal();
+    final l10n = MaterialLocalizations.of(context);
+    return '${l10n.formatMediumDate(local)} ${l10n.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
   }
 
   Future<void> archive() async {

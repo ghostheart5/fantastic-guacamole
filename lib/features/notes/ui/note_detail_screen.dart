@@ -21,9 +21,7 @@ class NoteDetailScreen extends ConsumerWidget {
     final bool readCorrupted = ref.watch(noteReadCorruptedProvider);
     final note = notes.isLoading || notes.hasError
         ? null
-        : notes.asData?.value
-              .where((item) => item.id == noteId && !item.isArchived)
-              .firstOrNull;
+        : notes.asData?.value.where((item) => item.id == noteId).firstOrNull;
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgCreatorIntent,
       child: Scaffold(
@@ -67,6 +65,12 @@ class NoteDetailScreen extends ConsumerWidget {
                   es
                       ? 'Esta nota ya no está disponible en esta cuenta.'
                       : 'This note is no longer available in this account.',
+                )
+              else if (note.isArchived)
+                Text(
+                  es
+                      ? 'Esta nota está archivada y sigue guardada. Vuelve a la biblioteca para restaurarla.'
+                      : 'This note is archived and remains stored. Return to the Library to restore it.',
                 )
               else
                 TemporalGlassSurface(

@@ -11,6 +11,42 @@ void main() {
   const ValueKey<String> privacyKey = ValueKey<String>('login-privacy-action');
   const ValueKey<String> termsKey = ValueKey<String>('login-terms-action');
 
+  testWidgets('first-login guide hides the form until its action is taken', (
+    WidgetTester tester,
+  ) async {
+    final SemanticsHandle semantics = tester.ensureSemantics();
+    int mockLoginTaps = 0;
+    final _LoginHarness harness = await _pumpLoginRouter(
+      tester,
+      initialLocation: RoutePaths.login,
+      showFirstRunGuide: true,
+      onMockLogin: () => mockLoginTaps += 1,
+    );
+    addTearDown(harness.dispose);
+
+    expect(find.bySemanticsLabel('Start login'), findsOneWidget);
+    expect(find.bySemanticsLabel('ENTER SYSTEM'), findsNothing);
+    expect(find.bySemanticsLabel('Continue with Google'), findsNothing);
+    expect(find.text('Start login').hitTestable(), findsOneWidget);
+    await tester.tapAt(
+      tester.getCenter(find.byKey(const ValueKey('qa-tester-access-button'))),
+    );
+    await tester.pump();
+    expect(mockLoginTaps, 0);
+    expect(find.bySemanticsLabel('Start login'), findsOneWidget);
+
+    await tester.tap(find.text('Start login').hitTestable());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.bySemanticsLabel('Start login'), findsNothing);
+    expect(find.bySemanticsLabel('ENTER SYSTEM'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('qa-tester-access-button')));
+    expect(mockLoginTaps, 1);
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
+  });
+
   testWidgets(
     'shows accessible legal actions before account creation and OAuth',
     (WidgetTester tester) async {
@@ -214,6 +250,8 @@ Future<_LoginHarness> _pumpLoginRouter(
   double width = 390,
   double height = 844,
   double textScale = 1,
+  bool showFirstRunGuide = false,
+  VoidCallback? onMockLogin,
 }) async {
   tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
@@ -232,6 +270,9 @@ Future<_LoginHarness> _pumpLoginRouter(
           obscurePassword: true,
           isSubmitting: false,
           isSignUpMode: isSignUpMode,
+          showFirstRunGuide: showFirstRunGuide,
+          showMockHint: onMockLogin != null,
+          onMockLogin: onMockLogin,
           onPrimaryAction: () {},
           onForgotPassword: () {},
           onGoogleSignIn: () {},

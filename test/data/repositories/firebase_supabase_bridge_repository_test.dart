@@ -57,12 +57,38 @@ void main() {
       );
     },
   );
+
+  test(
+    'a rejected device-limit registration is not cached as synced',
+    () async {
+      final List<_RegistrationRequest> registrations = <_RegistrationRequest>[];
+      final sb.SupabaseClient owner = _clientFor(
+        'owner-limit',
+        registrations,
+        registrationResults: <int>[0, 1],
+      );
+      await owner.auth.signInWithPassword(
+        email: 'owner-limit@example.com',
+        password: 'password',
+      );
+      final FirebaseSupabaseBridgeRepository repository =
+          FirebaseSupabaseBridgeRepository(
+            store: SecureStore(backend: InMemorySecureStoreBackend()),
+          );
+
+      await repository.syncFirebaseMessagingToken(owner, 'device-token-123456');
+      await repository.syncFirebaseMessagingToken(owner, 'device-token-123456');
+
+      expect(registrations, hasLength(2));
+    },
+  );
 }
 
 sb.SupabaseClient _clientFor(
   String userId,
-  List<_RegistrationRequest> registrations,
-) {
+  List<_RegistrationRequest> registrations, {
+  List<int>? registrationResults,
+}) {
   return sb.SupabaseClient(
     'https://chronospark.example.com',
     'anon-key',
@@ -96,7 +122,7 @@ sb.SupabaseClient _clientFor(
           ),
         ));
         return http.Response(
-          '1',
+          '${registrationResults?.removeAt(0) ?? 1}',
           200,
           headers: <String, String>{'content-type': 'application/json'},
           request: request,

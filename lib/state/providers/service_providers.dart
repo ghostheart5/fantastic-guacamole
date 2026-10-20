@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/core/debug/telemetry_consent.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
 import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';
@@ -61,6 +62,7 @@ final localUserDataCleanupServiceProvider =
 final reminderOrchestratorServiceProvider =
     Provider<ReminderOrchestratorService>((Ref ref) {
       final scope = ref.watch(accountStorageScopeProvider);
+      final occurrences = ref.watch(habitOccurrenceRepositoryProvider);
       return ReminderOrchestratorService(
         preferences: ref.watch(accountSharedPrefsStoreProvider),
         notifications: ref.read(notificationsServiceProvider),
@@ -68,6 +70,7 @@ final reminderOrchestratorServiceProvider =
         accountScope: scope.isWritable && scope.rawUserId != null
             ? AccountDataRegistry.accountDigest(scope.rawUserId!)
             : null,
+        loadHabitOccurrences: occurrences?.load,
       );
     });
 

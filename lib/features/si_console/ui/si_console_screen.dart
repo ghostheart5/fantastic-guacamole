@@ -748,10 +748,17 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (!_useLocalTools && ref.watch(assistantConversationAvailableProvider)) {
+    if (!_useLocalTools &&
+        ref.watch(
+          assistantConversationSurfaceAvailableProvider(ConversationSurface.si),
+        )) {
       return AssistantConversationScreen(
         surface: ConversationSurface.si,
         onLocalTools: () => setState(() => _useLocalTools = true),
+        onLocalToolsWithDraft: (String draft) => setState(() {
+          if (draft.isNotEmpty) _input.text = draft;
+          _useLocalTools = true;
+        }),
       );
     }
     final SIRoutineCopy routine = ChronoSparkLocalizations.of(
@@ -800,6 +807,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 },
                 onSpeakSummary: _messages.any((_Msg msg) => !msg.isUser)
                     ? () {
+                        if (!_allowSpeechPlayback(context, ref)) return;
                         final List<_Msg> recentAssistant = _messages
                             .where((msg) => !msg.isUser)
                             .toList(growable: false);

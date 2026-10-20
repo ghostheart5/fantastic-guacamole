@@ -1,0 +1,46 @@
+{
+  "date": "2026-09-24",
+  "source_commit": "729b3a64393401b4a8ea1b669e024a15a7e90694",
+  "avd": "axiomara_edge_qa_35",
+  "serial": "emulator-5582",
+  "android_release": "15",
+  "api": 35,
+  "font_scale": 1.5,
+  "navigation": "gesture",
+  "package": "com.ghostheart5.chronospark",
+  "version_code": 2026083084,
+  "version_name": "4.1.0",
+  "installer": null,
+  "first_install_time": "2026-09-24 09:14:26",
+  "last_update_time": "2026-09-24 09:14:26",
+  "process_pid_at_validation": 3243,
+  "signer": "Android Debug",
+  "signer_sha256": "1fd0ccee20e2015826a664e9411ad730420c71fa5cd777d409e2a2b21475b1ec",
+  "apk_sha256": "66fa45284d595af83e28ae0f38cef3cbf9ad7e2321310dda0279a83d151aff18",
+  "observations": [
+    "Nexus header and bottom navigation clear of Android gesture and status bars at 150% text.",
+    "Planner input, Get Guidance button, and safety note reachable and clear of system navigation.",
+    "SI query composer and send control remain above the Android gesture area."
+  ],
+  "limitations": [
+    "Debug QA APK with mock sign-in and disabled paid features; not a Play-signed public artifact.",
+    "Sampled English screens only; no full route, cutout, 3-button, or paid-feature matrix on Android 15."
+  ],
+  "captures": [
+    {
+      "file": "axiomara-android15-nexus-150.png",
+      "bytes": 1142516,
+      "sha256": "e2ccbd26d4c8c778a024fa7ad116167a310ad4281a9a15504ee6977300c4c91d"
+    },
+    {
+      "file": "axiomara-android15-planner-bottom-150.png",
+      "bytes": 571823,
+      "sha256": "6476288f813d7d8d44bc9c54e5167017297e049a50c1aa92e4660b1bae0e502e"
+    },
+    {
+      "file": "axiomara-android15-si-150.png",
+      "bytes": 1308524,
+      "sha256": "5f44ecd2356089a9fbca09479535fade5b0d7420a55aa1ffb65469dab61bfcc5"
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/config/env.dart';
+import 'package:flutter/rendering.dart';
 import 'package:fantastic_guacamole/data/services/mock_auth_service.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
@@ -17,6 +19,7 @@ import 'package:fantastic_guacamole/state/providers/person_context_provider.dart
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
+import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
 import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:flutter/material.dart';
@@ -97,6 +100,7 @@ void main() {
     PersonContextRepository? personContextRepository,
     List<DecisionOutcomeEntity>? decisionOutcomes,
     bool? learningPaused,
+    DateTime? learningNow,
     bool billingAccess = false,
     AiCreditWallet? wallet,
   }) {
@@ -147,6 +151,8 @@ void main() {
           decisionOutcomesProvider.overrideWith(
             (Ref ref) async => decisionOutcomes,
           ),
+        if (learningNow != null)
+          learningLedgerClockProvider.overrideWithValue(() => learningNow),
         if (learningPaused != null)
           learningPausedProvider.overrideWith(
             (Ref ref) async => learningPaused,
@@ -199,6 +205,110 @@ void main() {
     tester.widget<GestureDetector>(tile).onTap!();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+  }
+
+  testWidgets('mounted reminder controls reload restored settings', (
+    tester,
+  ) async {
+    final container = createContainer();
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.scrollUntilVisible(
+      find.text('Planning & guidance'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await invokeNavTile(tester, 'Planning & guidance');
+    final actions =
+        container.read(settingsUiActionsProvider) as _FakeSettingsUiActions;
+    final before = actions.advancedLoads;
+    expect(before, greaterThan(0));
+    expect(find.text('Reminder Time'), findsNothing);
+    actions.reflectionPrefs = const ReflectionReminderPrefs(
+      enabled: true,
+      time: TimeOfDay(hour: 9, minute: 30),
+    );
+    container.read(restoredSettingsRevisionProvider.notifier).bump();
+    await tester.pump();
+    expect(find.text('Reminder Time'), findsOneWidget);
+    expect(actions.advancedLoads, before + 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final locale in const [Locale('en'), Locale('es')]) {
+    testWidgets('cloud recovery scope is readable in ${locale.languageCode}', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(360, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final container = createContainer();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: locale,
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(1.5)),
+              child: SettingsScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      final section = find.text(
+        locale.languageCode == 'es' ? 'Datos y cuenta' : 'Data & account',
+      );
+      await tester.scrollUntilVisible(
+        section,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pump();
+      await tester.tap(section.hitTestable());
+      await tester.pump(const Duration(milliseconds: 300));
+      final warning = find.textContaining(
+        locale.languageCode == 'es'
+            ? 'Otros datos de planificación'
+            : 'Other planning data',
+      );
+      if (Env.enableCloudSync) {
+        expect(warning, findsOneWidget);
+        await tester.scrollUntilVisible(
+          warning,
+          250,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pump();
+        final text = tester.widget<Text>(warning);
+        expect(text.maxLines, isNull);
+        final paragraph = tester.renderObject<RenderParagraph>(warning);
+        expect(paragraph.didExceedMaxLines, isFalse);
+        expect(
+          text.data,
+          contains(
+            locale.languageCode == 'es'
+                ? 'Podrías perderlos'
+                : 'You may lose it',
+          ),
+        );
+      } else {
+        expect(warning, findsNothing);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
   }
 
   for (final locale in const [Locale('en'), Locale('es')]) {
@@ -905,6 +1015,198 @@ void main() {
     expect(find.textContaining('Permanently clear'), findsNothing);
   });
 
+  for (final scenario in const [
+    (
+      name: 'one outcome',
+      count: 1,
+      ageDays: 0,
+      helpfulCount: 1,
+      option: null,
+      english:
+          'low confidence · Still learning: 1 reviewable outcome. No preference is applied yet.',
+      spanish:
+          'confianza baja · Aún está aprendiendo: 1 resultado revisable. Todavía no se aplica ninguna preferencia.',
+    ),
+    (
+      name: 'two outcomes',
+      count: 2,
+      ageDays: 0,
+      helpfulCount: 2,
+      option: null,
+      english:
+          'low confidence · Still learning: 2 reviewable outcomes. No preference is applied yet.',
+      spanish:
+          'confianza baja · Aún está aprendiendo: 2 resultados revisables. Todavía no se aplica ninguna preferencia.',
+    ),
+    (
+      name: 'aged outcomes below the evidence threshold',
+      count: 3,
+      ageDays: 60,
+      helpfulCount: 3,
+      option: 'minimum',
+      english:
+          'low confidence · Still learning: 3 reviewable outcomes. No preference is applied yet.',
+      spanish:
+          'confianza baja · Aún está aprendiendo: 3 resultados revisables. Todavía no se aplica ninguna preferencia.',
+    ),
+    (
+      name: 'eligible outcomes without an option',
+      count: 3,
+      ageDays: 0,
+      helpfulCount: 2,
+      option: null,
+      english:
+          'developing confidence · 67% of recent weighted outcomes helped.',
+      spanish:
+          'confianza en desarrollo · 67% de los resultados recientes ponderados ayudaron.',
+    ),
+    (
+      name: 'minimum option',
+      count: 3,
+      ageDays: 0,
+      helpfulCount: 2,
+      option: 'minimum',
+      english:
+          'developing confidence · 67% of recent weighted outcomes helped. The strongest repeated option is minimum.',
+      spanish:
+          'confianza en desarrollo · 67% de los resultados recientes ponderados ayudaron. La opción repetida con mayor respaldo es «mínima».',
+    ),
+    (
+      name: 'best-fit option',
+      count: 3,
+      ageDays: 0,
+      helpfulCount: 2,
+      option: 'bestFit',
+      english:
+          'developing confidence · 67% of recent weighted outcomes helped. The strongest repeated option is bestFit.',
+      spanish:
+          'confianza en desarrollo · 67% de los resultados recientes ponderados ayudaron. La opción repetida con mayor respaldo es «más adecuada».',
+    ),
+    (
+      name: 'established stretch option',
+      count: 6,
+      ageDays: 0,
+      helpfulCount: 5,
+      option: 'stretch',
+      english:
+          'established confidence · 83% of recent weighted outcomes helped. The strongest repeated option is stretch.',
+      spanish:
+          'confianza consolidada · 83% de los resultados recientes ponderados ayudaron. La opción repetida con mayor respaldo es «de mayor esfuerzo».',
+    ),
+    (
+      name: 'unknown option preserved verbatim',
+      count: 3,
+      ageDays: 0,
+      helpfulCount: 2,
+      option: 'task execution',
+      english:
+          'developing confidence · 67% of recent weighted outcomes helped. The strongest repeated option is task execution.',
+      spanish:
+          'confianza en desarrollo · 67% de los resultados recientes ponderados ayudaron. La opción repetida con mayor respaldo es «task execution».',
+    ),
+  ]) {
+    for (final locale in const [Locale('en'), Locale('es', 'US')]) {
+      testWidgets(
+        'learning pattern copy in ${locale.toLanguageTag()}: ${scenario.name}',
+        (WidgetTester tester) async {
+          useTallSurface(tester);
+          final DateTime now = DateTime.utc(2026, 10, 3, 12);
+          final outcomes = <DecisionOutcomeEntity>[
+            for (int index = 0; index < scenario.count; index += 1)
+              DecisionOutcomeEntity(
+                decisionId: 'localized-decision-$index',
+                kind: index < scenario.helpfulCount
+                    ? DecisionOutcomeKind.accepted
+                    : DecisionOutcomeKind.rejected,
+                surface: 'smart_planner',
+                situation: 'bounded planning choice',
+                recordedAt: now.subtract(Duration(days: scenario.ageDays)),
+                modelVersion: 'predictive-planning-v2',
+                recommendationConfidence: .64,
+                optionChosen: scenario.option,
+                recommendationHelped: index < scenario.helpfulCount,
+              ),
+          ];
+          final savedOutcomes = outcomes
+              .map((outcome) => outcome.toJson())
+              .toList();
+          final ProviderContainer container = createContainer(
+            decisionOutcomes: outcomes,
+            learningPaused: false,
+            learningNow: now,
+          );
+          final bool isSpanish = locale.languageCode == 'es';
+
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp(
+                locale: locale,
+                supportedLocales: ChronoSparkLocalizations.supportedLocales,
+                localizationsDelegates: const [
+                  ChronoSparkLocalizations.delegate,
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                ],
+                home: const SettingsScreen(),
+              ),
+            ),
+          );
+          await tester.pump(const Duration(milliseconds: 200));
+          await invokeNavTile(
+            tester,
+            isSpanish ? 'Planificación y orientación' : 'Planning & guidance',
+          );
+          final String expected = isSpanish
+              ? scenario.spanish
+              : scenario.english;
+          await tester.scrollUntilVisible(
+            find.text(
+              isSpanish
+                  ? 'QUÉ CAMBIÓ CON TUS COMENTARIOS'
+                  : 'WHAT CHANGED FROM YOUR FEEDBACK',
+            ),
+            500,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await tester.pump();
+
+          expect(find.text(expected), findsOneWidget);
+          if (isSpanish) {
+            expect(find.textContaining('Still learning:'), findsNothing);
+            expect(
+              find.textContaining('weighted outcomes helped.'),
+              findsNothing,
+            );
+            expect(
+              find.textContaining('The strongest repeated option'),
+              findsNothing,
+            );
+          }
+          if (scenario.option == 'task execution') {
+            expect(
+              find.textContaining(
+                isSpanish ? 'opción task execution' : 'option task execution',
+              ),
+              findsNWidgets(scenario.count),
+            );
+          }
+          expect(
+            container
+                .read(decisionOutcomesProvider)
+                .requireValue
+                .map((outcome) => outcome.toJson())
+                .toList(),
+            savedOutcomes,
+          );
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+      );
+    }
+  }
+
   testWidgets('shows a reviewable user-controlled learning ledger', (
     WidgetTester tester,
   ) async {
@@ -927,6 +1229,7 @@ void main() {
           ),
       ],
       learningPaused: false,
+      learningNow: now,
     );
 
     await tester.pumpWidget(
@@ -1043,13 +1346,21 @@ void main() {
 
 class _FakeSettingsUiActions extends SettingsUiActions {
   _FakeSettingsUiActions(super.ref);
+  ReflectionReminderPrefs reflectionPrefs = const ReflectionReminderPrefs(
+    enabled: false,
+    time: TimeOfDay(hour: 20, minute: 0),
+  );
+  int advancedLoads = 0;
+
+  @override
+  ReminderOrchestratorPrefs loadAdvancedReminderPrefs() {
+    advancedLoads++;
+    return super.loadAdvancedReminderPrefs();
+  }
 
   @override
   ReflectionReminderPrefs loadReflectionReminderPrefs() {
-    return const ReflectionReminderPrefs(
-      enabled: false,
-      time: TimeOfDay(hour: 20, minute: 0),
-    );
+    return reflectionPrefs;
   }
 
   @override

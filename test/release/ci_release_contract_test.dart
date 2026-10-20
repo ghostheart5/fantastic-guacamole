@@ -18,7 +18,14 @@ void main() {
       'dart run tool/run_flutter_tests.dart --report '
       'artifacts/flutter-test-evidence/flutter-tests.jsonl --manifest '
       'artifacts/flutter-test-evidence/flutter-tests-manifest.json '
-      '--timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1';
+      '--timeout-seconds 3600 -- test --no-pub --coverage --concurrency=1 '
+      '--exclude-tags=local-public-policy';
+  const String localPolicyCommand =
+      'dart run tool/run_flutter_tests.dart --report '
+      'artifacts/flutter-test-evidence/local-policy-tests.jsonl --manifest '
+      'artifacts/flutter-test-evidence/local-policy-tests-manifest.json '
+      '--timeout-seconds 600 -- test/release/local_public_policy_planner_test.dart '
+      '--no-pub --dart-define-from-file=tool/local_public_policy_test_defines.json';
 
   String read(String path) =>
       File.fromUri(root.uri.resolve(path)).readAsStringSync();
@@ -100,7 +107,10 @@ void main() {
         './scripts/version_consistency_guard_contract.ps1',
       ]),
     );
-    expect(commands(flutterJob), contains(boundedCoverageCommand));
+    expect(
+      commands(flutterJob),
+      containsAll(<String>[boundedCoverageCommand, localPolicyCommand]),
+    );
     expect(flutterJob['timeout-minutes'], 90);
     expect(
       commands(integrationJob),
@@ -412,6 +422,15 @@ void main() {
         'runtime-gate',
       });
       expect(publish['needs'], 'build-aab');
+      expect(
+        publish['if'],
+        "github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')",
+      );
+      final ancestry = namedStep(
+        build,
+        'Require protected main ancestry before service settings',
+      );
+      expect(ancestry['run'], contains('git merge-base --is-ancestor'));
       expect(environmentName(build), 'production');
       expect(environmentName(publish), 'production');
 
@@ -436,6 +455,9 @@ void main() {
       final int configIndex = buildSteps.indexOf(
         namedStep(build, 'Validate production configuration'),
       );
+      final int publicProfileIndex = buildSteps.indexOf(
+        namedStep(build, 'Prepare and bind public configuration'),
+      );
       final int backendIndex = buildSteps.indexOf(
         namedStep(build, 'Verify live backend, RTDN, and Play configuration'),
       );
@@ -455,6 +477,28 @@ void main() {
         namedStep(build, 'Upload AAB artifact'),
       );
       expect(configIndex, lessThan(decodeIndex));
+      expect(publicProfileIndex, greaterThan(0));
+      expect(publicProfileIndex, lessThan(configIndex));
+      expect(publicProfileIndex, lessThan(decodeIndex));
+      expect(
+        namedStep(build, 'Prepare and bind public configuration')['run'],
+        contains('scripts/public_release_profile.py'),
+      );
+      expect(
+        namedStep(build, 'Validate production configuration')['run'],
+        contains(r'--defines="$RUNNER_TEMP/public-release-defines.json"'),
+      );
+      expect(
+        namedStep(build, 'Build signed AAB')['run'],
+        contains(
+          r'--dart-define-from-file="$RUNNER_TEMP/public-release-defines.json"',
+        ),
+      );
+      expect(
+        namedStep(build, 'Build signed AAB')['run'],
+        isNot(contains('--dart-define=')),
+        reason: 'Inline overrides must not drift from validated public inputs.',
+      );
       expect(configIndex, lessThan(buildIndex));
       expect(backendIndex, lessThan(decodeIndex));
       expect(backendIndex, lessThan(buildIndex));
@@ -467,7 +511,7 @@ void main() {
       );
       expect(
         namedStep(build, 'Validate release version and tag')['run'],
-        './scripts/version_consistency_guard.ps1 -RequireTag',
+        contains('./scripts/version_consistency_guard.ps1 -RequireTag'),
       );
 
       for (final String stepName in <String>[
@@ -537,6 +581,168 @@ void main() {
         namedStep(publish, 'Create GitHub Release')['uses'],
         matches(RegExp(r'^softprops/action-gh-release@[0-9a-f]{40}$')),
       );
+    },
+  );
+
+  test(
+    'billing monitor and drill cannot activate refunds or account deletion',
+    () {
+      final YamlMap reconciliation = workflow('backend-reconciliation.yml');
+      final YamlMap jobs = reconciliation['jobs'] as YamlMap;
+      final YamlMap monitor = jobs['public-credit-monitor'] as YamlMap;
+      final String condition = monitor['if'] as String;
+      expect(
+        condition,
+        contains("inputs.operation == 'check-credit-resolutions'"),
+      );
+      expect(condition, contains('AXIOMARA_PUBLIC_CREDIT_MONITOR_ENABLED'));
+      expect(
+        condition,
+        isNot(contains('AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED')),
+      );
+      expect(
+        condition,
+        isNot(contains('CHRONOSPARK_PUBLIC_CREDIT_TOPUPS_ENABLED')),
+      );
+      expect(monitor['environment'], 'production');
+      final YamlMap read = namedStep(
+        monitor,
+        'Check paid-order resolution health without executing refunds',
+      );
+      expect(read['run'], 'node scripts/public_credit_monitor_job.mjs check');
+      expect(
+        (read['env'] as YamlMap).containsKey(
+          'PUBLIC_CREDIT_REFUND_RECONCILE_SECRET',
+        ),
+        isFalse,
+      );
+      final YamlMap drill = jobs['credit-alert-drill'] as YamlMap;
+      expect(drill.containsKey('environment'), isFalse);
+      expect(drill.toString(), isNot(contains('secrets.')));
+      expect(drill['if'], contains("inputs.operation == 'test-credit-alert'"));
+      for (final String job in ['public-credit-refunds', 'account-deletion']) {
+        final String mutationCondition = (jobs[job] as YamlMap)['if'] as String;
+        expect(mutationCondition, isNot(contains('check-credit-resolutions')));
+        expect(mutationCondition, isNot(contains('test-credit-alert')));
+      }
+    },
+  );
+
+  test(
+    'manual refunds and account deletion are separate protected operations',
+    () {
+      final YamlMap reconciliation = workflow('backend-reconciliation.yml');
+      final YamlMap dispatch =
+          (reconciliation['on'] as YamlMap)['workflow_dispatch'] as YamlMap;
+      final YamlMap operation =
+          (dispatch['inputs'] as YamlMap)['operation'] as YamlMap;
+      expect(operation['options'], contains('reconcile-credit-refunds'));
+      final YamlMap refund = job(reconciliation, 'public-credit-refunds');
+      final YamlMap deletion = job(reconciliation, 'account-deletion');
+      expect(
+        refund['if'],
+        contains("inputs.operation == 'reconcile-credit-refunds'"),
+      );
+      expect(refund['if'], isNot(contains("inputs.operation == 'reconcile'")));
+      expect(deletion['if'], contains("inputs.operation == 'reconcile'"));
+      expect(deletion['if'], isNot(contains('reconcile-credit-refunds')));
+      expect(refund['environment'], 'production');
+      expect(deletion['environment'], 'production');
+      expect(refund['if'], contains("github.ref == 'refs/heads/main'"));
+      expect(
+        refund['if'],
+        contains("vars.AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED == 'true'"),
+      );
+      expect(refund['if'], contains("github.event_name == 'schedule'"));
+      expect(deletion['if'], contains("github.event_name == 'schedule'"));
+    },
+  );
+
+  test('paid-order recovery stays scheduled after public sales are paused', () {
+    final YamlMap reconciliation = workflow('backend-reconciliation.yml');
+    final YamlMap refundJob =
+        (reconciliation['jobs'] as YamlMap)['public-credit-refunds'] as YamlMap;
+    final String condition = refundJob['if'] as String;
+    expect(condition, contains("github.ref == 'refs/heads/main'"));
+    expect(
+      condition,
+      contains("vars.AXIOMARA_PUBLIC_CREDIT_REFUNDS_ENABLED == 'true'"),
+    );
+    expect(
+      condition,
+      isNot(contains('CHRONOSPARK_PUBLIC_CREDIT_TOPUPS_ENABLED')),
+    );
+    expect(refundJob['environment'], 'production');
+    final YamlMap checkout = namedStep(
+      refundJob,
+      'Checkout exact reconciliation source',
+    );
+    expect((checkout['with'] as YamlMap)['ref'], r'${{ github.sha }}');
+    expect((checkout['with'] as YamlMap)['persist-credentials'], isFalse);
+    expect(
+      namedStep(
+        refundJob,
+        'Reconcile verified unfulfilled credit payments',
+      )['run'],
+      'node scripts/reconcile_public_credit_refunds.mjs',
+    );
+    expect(
+      namedStep(
+        refundJob,
+        'Check unresolved payment age even after worker failure',
+      )['if'],
+      r'${{ !cancelled() }}',
+    );
+  });
+
+  test(
+    'license refund gate is manual, protected and excludes other mutations',
+    () {
+      final workflowValue = workflow('backend-reconciliation.yml');
+      final license = job(workflowValue, 'credit-refund-license-test');
+      expect(license['environment'], 'production');
+      expect(
+        license['if'],
+        contains("inputs.operation == 'test-credit-refund'"),
+      );
+      expect(
+        license['if'],
+        contains("github.event_name == 'workflow_dispatch'"),
+      );
+      expect(
+        license['if'],
+        contains("refs/heads/fix/app-only-readiness-priority2-20260902"),
+      );
+      expect(license['if'], isNot(contains("github.event_name == 'schedule'")));
+      final guard = namedStep(
+        license,
+        'Require successful exact-source CI before checkout or refund credentials',
+      );
+      final invoke = namedStep(
+        license,
+        'Invoke only the server-restricted license-test refund',
+      );
+      expect(
+        steps(license).indexOf(guard),
+        lessThan(steps(license).indexOf(invoke)),
+      );
+      expect(guard.toString(), isNot(contains('secrets.')));
+      expect(guard['run'], contains('.conclusion == "success"'));
+      expect(invoke['run'], contains('run_credit_refund_license_gate.mjs'));
+      expect(
+        license.toString(),
+        isNot(contains('ACCOUNT_DELETE_RECONCILE_SECRET')),
+      );
+      for (final name in [
+        'account-deletion',
+        'public-credit-refunds',
+        'reviewed-repairs',
+      ]) {
+        expect(
+          job(workflowValue, name)['if'],
+          isNot(contains('test-credit-refund')),
+        );
+      }
     },
   );
 
@@ -704,6 +910,13 @@ void main() {
       final String firebase = read('lib/firebase_options.dart');
       expect(gradle, contains('maxOf(flutter.compileSdkVersion, 36)'));
       expect(gradle, contains('maxOf(flutter.targetSdkVersion, 36)'));
+      expect(
+        RegExp(
+          r'buildTypes\s*\{.*?release\s*\{.*?ndk\s*\{.*?debugSymbolLevel\s*=\s*"FULL"',
+          dotAll: true,
+        ).hasMatch(gradle),
+        isTrue,
+      );
       expect(guard, contains('\$requiredTargetApi = 36'));
       expect(guard, contains("'android.permission.ACCESS_COARSE_LOCATION'"));
       expect(guard, contains("'android.permission.ACCESS_FINE_LOCATION'"));
@@ -766,11 +979,38 @@ void main() {
       <Object?>['main'],
     );
     final YamlMap emulatorStep = steps(maestro).singleWhere(
-      (YamlMap step) =>
-          step['uses']?.toString().toLowerCase().startsWith(
-            'reactivecircus/android-emulator-runner@',
-          ) ==
-          true,
+      (YamlMap step) => step['uses'] == './test-results/hosted-emulator-runner',
+    );
+    final runnerCheckout = namedStep(
+      maestro,
+      'Checkout pinned emulator runner for passive startup',
+    );
+    final runnerCheckoutWith = runnerCheckout['with'] as YamlMap;
+    expect(
+      runnerCheckoutWith['repository'],
+      'ReactiveCircus/android-emulator-runner',
+    );
+    expect(
+      runnerCheckoutWith['ref'],
+      'a421e43855164a8197daf9d8d40fe71c6996bb0d',
+    );
+    expect(runnerCheckoutWith['path'], 'test-results/hosted-emulator-runner');
+    expect(runnerCheckoutWith['persist-credentials'], isFalse);
+    final runnerPatch = namedStep(
+      maestro,
+      'Verify exact runner and remove only unsolicited startup input',
+    );
+    expect(
+      runnerPatch['run'],
+      'python3 scripts/prepare_hosted_emulator_runner.py',
+    );
+    expect(
+      steps(maestro).indexOf(runnerCheckout),
+      lessThan(steps(maestro).indexOf(runnerPatch)),
+    );
+    expect(
+      steps(maestro).indexOf(runnerPatch),
+      lessThan(steps(maestro).indexOf(emulatorStep)),
     );
     final String runtimeScript = (emulatorStep['with'] as YamlMap)['script']
         .toString();
@@ -798,9 +1038,10 @@ void main() {
       (emulatorStep['with'] as YamlMap)['disable-linux-hw-accel'],
       isFalse,
     );
+    expect((emulatorStep['with'] as YamlMap)['cores'], 4);
     expect(
       (emulatorStep['with'] as YamlMap)['target'],
-      r"${{ inputs.guest_pages == '16k' && 'google_apis_ps16k' || 'google_apis' }}",
+      r'${{ steps.guest_image.outputs.target }}',
     );
     expect(
       runtimeScript.trim(),
@@ -810,9 +1051,32 @@ void main() {
       maestro,
       'Prepare bounded fresh-guest readiness and system diagnostics',
     )['run'].toString();
+    expect(
+      namedStep(
+        maestro,
+        'Prepare bounded fresh-guest readiness and system diagnostics',
+      )['id'],
+      'guest_image',
+    );
+    expect(preparation, contains('image-selection.json'));
+    expect(
+      (emulatorStep['with'] as YamlMap)['pre-emulator-launch-script'],
+      contains('record_guest_image.py'),
+    );
+    expect(preparation, contains('actualAvdImageMatched'));
+    expect(
+      preparation,
+      contains('test -s test-results/maestro-prewarm/guest-image.json'),
+    );
     expect(preparation, contains('run-suite.sh'));
     expect(preparation, contains("shell('getconf', 'PAGE_SIZE')"));
     expect(preparation, contains('pageSizeBytes'));
+    expect(preparation, contains('hostCpuCount'));
+    expect(preparation, contains('guestCpuPresent'));
+    expect(preparation, contains('stable_home_samples >= 3'));
+    expect(preparation, contains('Fresh guest reported an ANR in the app'));
+    expect(preparation, contains('com.ghostheart5.chronospark.qa'));
+    expect(preparation, contains('Unable to determine final guest ANR state'));
     expect(preparation, contains('run_maestro_android_evidence.ps1'));
     expect(preparation, contains(r'-ExpectedAndroidApi "$QA_GUEST_API"'));
     expect(preparation, contains('-DeviceSerial emulator-5554'));

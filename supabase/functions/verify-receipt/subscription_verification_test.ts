@@ -12,12 +12,41 @@ import {
   readLatestSuccessfulOrderId,
   readLinkedPurchaseToken,
   readPurchaseLineage,
+  reconciledInactiveSubscriptionResponse,
   verifyExistingPurchaseRecoveryBinding,
   verifyExternalAccountBinding,
   verifySubscriptionLineItem,
 } from "../_shared/subscription_verification.ts";
 
 const nowMs = Date.parse("2026-08-27T00:00:00.000Z");
+
+Deno.test("inactive attestation requires terminal authority and preserves test proof", () => {
+  for (const reason of ["terminal_token", "old_token"]) {
+    for (const testPurchase of [true, false]) {
+      const response = reconciledInactiveSubscriptionResponse(
+        { reason },
+        "chronospark_premium_monthly",
+        testPurchase,
+      );
+      if (
+        !response || response.subscriptionReconciled !== true ||
+        response.valid !== false || response.testPurchase !== testPurchase ||
+        response.productId !== "chronospark_premium_monthly"
+      ) {
+        throw new Error("terminal authority or test proof was lost");
+      }
+    }
+  }
+  for (
+    const result of [null, {}, { applied: true }, { duplicate: true }, {
+      reason: "purchase_not_active",
+    }]
+  ) {
+    if (reconciledInactiveSubscriptionResponse(result, "product", true)) {
+      throw new Error("unreconciled result received terminal attestation");
+    }
+  }
+});
 
 Deno.test("license test proof must be the Google response object", () => {
   if (!isGooglePlayTestPurchase({ testPurchase: {} })) {

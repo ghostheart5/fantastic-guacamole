@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsAction;
 
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
@@ -17,6 +18,56 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('long single-day history is lazy and events stay separate', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final events = List.generate(
+      1400,
+      (index) => TimelineEventEntity(
+        id: 'history-$index',
+        type: TimelineEventType.reflection,
+        title: 'History item $index',
+        detail: 'Individual detail $index',
+        timestamp: _timelineNow.subtract(Duration(minutes: index + 1)),
+      ),
+    );
+    final container = _buildContainer(baseEvents: events);
+    addTearDown(container.dispose);
+    await _pumpTimeline(tester, container);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('History item 1399'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('timeline-event-semantics-history-0')),
+      findsOneWidget,
+    );
+    final history = tester.getSemantics(
+      find.byKey(const ValueKey('timeline-event-semantics-history-0')),
+    );
+    expect(history.label, contains('History item 0'));
+    expect(history.label, contains('Individual detail 0'));
+    expect(history.label, contains('11:59 AM'));
+    expect(history.label, isNot(contains('History item 1')));
+    final task = tester.getSemantics(
+      find.byKey(
+        const ValueKey(
+          'timeline-event-semantics-timeline-projected-task-task-managed',
+        ),
+      ),
+    );
+    expect(task.label, isNot(contains('History item 0')));
+    expect(find.bySemanticsLabel('Complete'), findsOneWidget);
+    expect(
+      tester
+          .getSemantics(find.bySemanticsLabel('Complete'))
+          .getSemanticsData()
+          .hasAction(SemanticsAction.tap),
+      isTrue,
+    );
+    semantics.dispose();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'Spanish Timeline localizes current controls and date but preserves saved content',
     (tester) async {
@@ -187,6 +238,100 @@ void main() {
       findsOneWidget,
     );
     expect(container.read(timelineTutorialEvidenceProvider), _managedTask.id);
+  });
+
+  testWidgets('tutorial task outside the week window is brought into view', (
+    WidgetTester tester,
+  ) async {
+    final Task later = Task(
+      id: 'first-task-later',
+      title: 'Dentist in ten days',
+      priority: 3,
+      difficulty: 2,
+      energyRequired: 2,
+      scheduledFor: _timelineNow.add(const Duration(days: 10)),
+    );
+    final ProviderContainer container = _buildContainer(
+      task: later,
+      expectedTutorialTaskIds: <String>{later.id},
+    );
+    addTearDown(container.dispose);
+
+    tester.view.physicalSize = const Size(1200, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: ThemeData(splashFactory: NoSplash.splashFactory),
+          home: const TimelineScreen(),
+        ),
+      ),
+    );
+    for (int i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    // The default Week window hides a task 10 days out; the first-run review
+    // must not leave the person behind a scrim with nothing to find.
+    expect(
+      find.byKey(FirstRunTutorialTargets.timelineEvidence),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(FirstRunTutorialTargets.timelineCompletion),
+      findsOneWidget,
+    );
+    expect(container.read(timelineTutorialEvidenceProvider), later.id);
+  });
+
+  testWidgets('tutorial focuses its task behind another task on the same day', (
+    WidgetTester tester,
+  ) async {
+    final first = Task(
+      id: 'tutorial-first',
+      title: 'Tutorial commitment',
+      priority: 2,
+      difficulty: 2,
+      energyRequired: 2,
+      scheduledFor: DateTime(
+        _timelineNow.year,
+        _timelineNow.month,
+        _timelineNow.day,
+        10,
+      ),
+    );
+    final other = Task(
+      id: 'other-later-today',
+      title: 'Other later commitment',
+      priority: 3,
+      difficulty: 2,
+      energyRequired: 2,
+      scheduledFor: DateTime(
+        _timelineNow.year,
+        _timelineNow.month,
+        _timelineNow.day,
+        23,
+      ),
+    );
+    final container = _buildContainer(
+      tasksLoader: (ref) async => [first, other],
+      expectedTutorialTaskIds: {first.id},
+    );
+    addTearDown(container.dispose);
+    await _pumpTimelineShell(tester, container);
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(container.read(timelineTutorialEvidenceProvider), first.id);
+    expect(
+      find.byKey(FirstRunTutorialTargets.timelineEvidence),
+      findsOneWidget,
+    );
+    expect(find.text('Other later commitment'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('unrelated task cannot become first-run Timeline evidence', (
@@ -551,39 +696,82 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('delete requires explicit confirmation and reports success', (
-    WidgetTester tester,
-  ) async {
-    late _RecordingTaskActions actions;
-    final ProviderContainer container = _buildContainer(
-      onActionsBuilt: (_RecordingTaskActions value) => actions = value,
+  for (final locale in [const Locale('en'), const Locale('es')]) {
+    testWidgets(
+      'removal requires explicit confirmation and reports retained record ${locale.languageCode}',
+      (WidgetTester tester) async {
+        final es = locale.languageCode == 'es';
+        late _RecordingTaskActions actions;
+        final ProviderContainer container = _buildContainer(
+          onActionsBuilt: (_RecordingTaskActions value) => actions = value,
+        );
+        addTearDown(container.dispose);
+        await _pumpTimelineShell(tester, container, locale: locale);
+        await tester.pump(const Duration(milliseconds: 100));
+
+        await tester.tap(
+          find.widgetWithText(OutlinedButton, es ? 'Eliminar' : 'Delete'),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(
+          find.text(
+            es
+                ? '¿Quitar la tarea de la planificación?'
+                : 'Remove task from active planning?',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining(
+            es
+                ? 'Su registro cancelado permanecerá en la Biblioteca.'
+                : 'A canceled record remains in Library.',
+          ),
+          findsOneWidget,
+        );
+        expect(find.textContaining('permanently deleted'), findsNothing);
+        expect(
+          find.textContaining('se eliminará permanentemente'),
+          findsNothing,
+        );
+        expect(find.textContaining(_managedTask.title), findsWidgets);
+        expect(actions.deleteCalls, 0);
+
+        await tester.tap(
+          find.widgetWithText(TextButton, es ? 'Cancelar' : 'Cancel'),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(actions.deleteCalls, 0);
+
+        await tester.tap(
+          find.widgetWithText(OutlinedButton, es ? 'Eliminar' : 'Delete'),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.tap(
+          find.widgetWithText(
+            FilledButton,
+            es ? 'Quitar tarea' : 'Remove task',
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(actions.deleteCalls, 1);
+        expect(actions.deletedId, 'task-managed');
+        expect(
+          find.text(
+            es
+                ? 'Tarea cancelada. Su registro permanece en la Biblioteca.'
+                : 'Task canceled. Its record remains in Library.',
+          ),
+          findsOneWidget,
+        );
+      },
     );
-    addTearDown(container.dispose);
-    await _pumpTimeline(tester, container);
-
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Delete'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Delete task?'), findsOneWidget);
-    expect(find.textContaining('This cannot be undone.'), findsOneWidget);
-    expect(actions.deleteCalls, 0);
-
-    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(actions.deleteCalls, 0);
-
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Delete'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete task'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(actions.deleteCalls, 1);
-    expect(actions.deletedId, 'task-managed');
-    expect(find.text('Task deleted.'), findsOneWidget);
-  });
+  }
 
   testWidgets('Move Tomorrow updates the projected goal itself', (
     tester,

@@ -636,6 +636,7 @@ final class SIV2Response {
     required String recommendation,
     required this.confidence,
     required List<SIV2EvidenceLink> evidenceLinks,
+    this.focusTaskId,
     this.safetyReceipt,
   }) : directAnswer = directAnswer.trim(),
        observedFacts = List<SIV2Statement>.unmodifiable(observedFacts),
@@ -668,6 +669,10 @@ final class SIV2Response {
   final String recommendation;
   final SIV2ConfidenceAnatomy confidence;
   final List<SIV2EvidenceLink> evidenceLinks;
+
+  /// A unique task title match for the current question, selected by the
+  /// deterministic SI engine. Null when the question does not identify one.
+  final String? focusTaskId;
   final AssistantSafetyReceipt? safetyReceipt;
 
   SIV2Response withSafetyReceipt(AssistantSafetyReceipt receipt) =>
@@ -687,6 +692,7 @@ final class SIV2Response {
         recommendation: recommendation,
         confidence: confidence,
         evidenceLinks: evidenceLinks,
+        focusTaskId: focusTaskId,
         safetyReceipt: receipt,
       );
 
@@ -743,6 +749,7 @@ final class SIV2Response {
         ),
         authorityLink,
       ],
+      focusTaskId: focusTaskId,
       safetyReceipt: safetyReceipt,
     );
   }
@@ -771,6 +778,9 @@ final class SIV2Response {
               !item.uri.startsWith('chronospark://'),
         )) {
       throw StateError('SI V2 evidence links must be unique and inspectable.');
+    }
+    if (focusTaskId != null && !linkIds.contains('tasks:$focusTaskId')) {
+      throw StateError('SI V2 focused task must have a cited evidence link.');
     }
     if (observedFacts.any(
           (SIV2Statement item) => item.kind != SIV2StatementKind.observedFact,

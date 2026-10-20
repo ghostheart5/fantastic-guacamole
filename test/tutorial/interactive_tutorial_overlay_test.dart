@@ -5,6 +5,153 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'modal guide isolates actions and restores underlying semantics',
+    (WidgetTester tester) async {
+      final semantics = tester.ensureSemantics();
+      final targetKey = GlobalKey();
+      var guideActivations = 0;
+
+      Future<void> render({
+        required bool interactive,
+        bool showGuide = true,
+      }) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Stack(
+                children: [
+                  Center(
+                    child: ElevatedButton(
+                      key: targetKey,
+                      onPressed: () {},
+                      child: const Text('Open Timeline'),
+                    ),
+                  ),
+                  if (showGuide)
+                    InteractiveTutorialOverlay(
+                      targetKey: targetKey,
+                      allowTargetInteraction: interactive,
+                      title: 'Verify where the work landed',
+                      body: 'Review the saved task in Timeline.',
+                      primaryLabel: 'Open Timeline',
+                      onPrimary: () => guideActivations++,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump();
+      }
+
+      List<SemanticsNode> timelineActions() {
+        final matches = <SemanticsNode>[];
+        void visit(SemanticsNode node) {
+          final data = node.getSemanticsData();
+          if (data.label == 'Open Timeline' &&
+              data.hasAction(SemanticsAction.tap)) {
+            matches.add(node);
+          }
+          node.visitChildren((child) {
+            visit(child);
+            return true;
+          });
+        }
+
+        visit(
+          tester
+              .binding
+              .renderViews
+              .single
+              .owner!
+              .semanticsOwner!
+              .rootSemanticsNode!,
+        );
+        return matches;
+      }
+
+      await render(interactive: false);
+      expect(timelineActions(), hasLength(1));
+      tester.binding.renderViews.single.owner!.semanticsOwner!.performAction(
+        timelineActions().single.id,
+        SemanticsAction.tap,
+      );
+      await tester.pump();
+      expect(guideActivations, 1);
+
+      await render(interactive: true);
+      expect(timelineActions(), hasLength(2));
+      await render(interactive: false);
+      expect(timelineActions(), hasLength(1));
+      await render(interactive: false, showGuide: false);
+      expect(timelineActions(), hasLength(1));
+      expect(find.text('Verify where the work landed'), findsNothing);
+      semantics.dispose();
+    },
+  );
+
+  testWidgets('reveals a scroll target that mounts after the guide', (
+    WidgetTester tester,
+  ) async {
+    final targetKey = GlobalKey();
+    final loaded = ValueNotifier<bool>(false);
+    final scroll = ScrollController();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ValueListenableBuilder<bool>(
+            valueListenable: loaded,
+            builder: (context, ready, child) => Stack(
+              children: [
+                SingleChildScrollView(
+                  controller: scroll,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 900),
+                      if (ready)
+                        SizedBox(
+                          key: targetKey,
+                          height: 100,
+                          child: const Text('Saved task'),
+                        ),
+                      const SizedBox(height: 500),
+                    ],
+                  ),
+                ),
+                InteractiveTutorialOverlay(
+                  targetKey: targetKey,
+                  title: 'Find the saved task',
+                  body: 'Verify the task before continuing.',
+                  primaryLabel: 'Found it',
+                  onPrimary: () {},
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(scroll.offset, 0);
+    loaded.value = true;
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(scroll.offset, greaterThan(0));
+    expect(
+      tester.getRect(find.byKey(targetKey)).bottom,
+      lessThanOrEqualTo(600),
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    loaded.dispose();
+    scroll.dispose();
+  });
+
   testWidgets('defers spotlight geometry for a transient zero-sized viewport', (
     WidgetTester tester,
   ) async {
@@ -196,6 +343,93 @@ void main() {
     );
     expect(callout.top, greaterThanOrEqualTo(0));
     expect(callout.bottom, lessThanOrEqualTo(640));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'modal login guide shows its explanation and action at normal text size',
+    (WidgetTester tester) async {
+      final GlobalKey targetKey = GlobalKey();
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const String explanation =
+          'Use the real account you want Axiomara to remember. '
+          'After authentication, setup continues with your display name.';
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: <Widget>[
+                Positioned(
+                  left: 12,
+                  top: 180,
+                  right: 12,
+                  height: 620,
+                  child: SizedBox(key: targetKey),
+                ),
+                InteractiveTutorialOverlay(
+                  targetKey: targetKey,
+                  stepLabel: 'First setup 2 of 3',
+                  title: 'Sign in or create your account',
+                  body: explanation,
+                  primaryLabel: 'Start login',
+                  onPrimary: () {},
+                  allowTargetInteraction: false,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.text(explanation).hitTestable(), findsOneWidget);
+      expect(find.text('Start login').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('modal login action remains usable in a short viewport', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey targetKey = GlobalKey();
+    bool startedLogin = false;
+    await tester.binding.setSurfaceSize(const Size(640, 360));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: <Widget>[
+              Positioned(
+                left: 12,
+                top: 24,
+                right: 12,
+                height: 312,
+                child: SizedBox(key: targetKey),
+              ),
+              InteractiveTutorialOverlay(
+                targetKey: targetKey,
+                title: 'Sign in or create your account',
+                body: 'Sign in to continue setup.',
+                primaryLabel: 'Start login',
+                onPrimary: () => startedLogin = true,
+                allowTargetInteraction: false,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Start login').hitTestable(), findsOneWidget);
+    await tester.tap(find.text('Start login'));
+    expect(startedLogin, isTrue);
     expect(tester.takeException(), isNull);
   });
 

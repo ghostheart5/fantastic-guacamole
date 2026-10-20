@@ -50,6 +50,11 @@ final voiceInputEnabledProvider = Provider<bool>((ref) {
   return Env.cloudServicesEnabled;
 });
 
+// Keep playback within the same local-mode boundary as VoiceService.
+final voicePlaybackEnabledProvider = Provider<bool>((ref) {
+  return Env.cloudServicesEnabled;
+});
+
 final speechRecognitionServiceProvider = Provider<SpeechRecognitionService>((
   ref,
 ) {

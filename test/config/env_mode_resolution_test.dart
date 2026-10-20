@@ -311,13 +311,15 @@ CHRONOSPARK_PAYWALL_DISABLED=false
         if (_qaDefinesProvided) {
           expect(Env.appFlavor, 'qa');
           expect(Env.flavor, AppFlavor.qualityAssurance);
-          expect(Env.enableMockLogin, isTrue);
-          expect(Env.enableMockMode, isTrue);
-          expect(Env.enableTesterFullAccess, isTrue);
-          expect(Env.enablePaywallDisabled, isTrue);
-          expect(Env.isMockMode, isTrue);
-          expect(Env.hasTesterFullAccess, isTrue);
-          expect(Env.isMockLoginEnabled, isTrue);
+          expect(Env.isLocalMode, isTrue);
+          expect(Env.cloudServicesEnabled, isFalse);
+          expect(Env.enableMockLogin, isFalse);
+          expect(Env.enableMockMode, isFalse);
+          expect(Env.enableTesterFullAccess, isFalse);
+          expect(Env.enablePaywallDisabled, isFalse);
+          expect(Env.isMockMode, isFalse);
+          expect(Env.hasTesterFullAccess, isFalse);
+          expect(Env.isMockLoginEnabled, isFalse);
         } else {
           expect(Env.appFlavor, 'prod');
           expect(Env.flavor, AppFlavor.production);

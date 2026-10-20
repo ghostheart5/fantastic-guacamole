@@ -107,7 +107,7 @@ class IntelligenceState {
 
   bool get paywallEnabled =>
       !environment.isLocalMode &&
-      LaunchContainment.subscriptionsEnabled &&
+      LaunchContainment.publicSubscriptionsEnabled &&
       !flags.paywallDisabled &&
       !flags.testerFullAccess;
 

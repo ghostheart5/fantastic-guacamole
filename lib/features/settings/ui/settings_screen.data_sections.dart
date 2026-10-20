@@ -272,6 +272,20 @@ class _CloudDataControlSection extends ConsumerWidget {
       accentColor: AppColors.neonCyan,
       child: Column(
         children: [
+          if (available)
+            _NeonStatusTile(
+              subtitleMaxLines: null,
+              title: journeyText(
+                context,
+                'Recovery coverage',
+                'Alcance de la recuperación',
+              ),
+              subtitle: journeyText(
+                context,
+                'Cloud backup covers tasks, profile and settings. Other planning data, including goals, habits, notes, history and decision outcomes, stays on this device and cannot be restored from the cloud. You may lose it after uninstalling or losing this device.',
+                'La copia en la nube incluye tareas, perfil y ajustes. Otros datos de planificación, como metas, hábitos, notas, historial y resultados de decisiones, permanecen en este dispositivo y no se restauran desde la nube. Podrías perderlos al desinstalar la aplicación o perder el dispositivo.',
+              ),
+            ),
           _NeonToggleTile(
             title: journeyText(
               context,
@@ -312,6 +326,11 @@ class _CloudDataControlSection extends ConsumerWidget {
                     'Solo local. No se envía nada a la copia de seguridad en la nube.',
                   ),
           ),
+          if (available)
+            CloudBackupActions(
+              key: ValueKey(ref.watch(accountStorageScopeProvider).v2Namespace),
+              enabled: enabled,
+            ),
           if (available)
             _NeonNavTile(
               title: journeyText(

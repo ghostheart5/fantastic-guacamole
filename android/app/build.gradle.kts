@@ -28,7 +28,8 @@ encodedDartDefines
         val key = decoded.substring(0, separator)
         val value = decoded.substring(separator + 1)
         val previous = dartDefines.put(key, value)
-        if (key in setOf("CHRONOSPARK_BACKEND_MODE", "CHRONOSPARK_INTERNAL_BILLING_TEST") &&
+        if (key in setOf("CHRONOSPARK_BACKEND_MODE", "CHRONOSPARK_INTERNAL_BILLING_TEST",
+                "CHRONOSPARK_PUBLIC_RELEASE", "CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA") &&
             previous != null && previous != value) {
             error("Conflicting values supplied for Dart define $key.")
         }
@@ -46,6 +47,13 @@ val isReleaseBuild = gradle.startParameter.taskNames.any {
     it.contains("Release", ignoreCase = true)
 }
 
+if (dartDefines["CHRONOSPARK_APP_FLAVOR"] == "qa") {
+    require(isLocalBackend && !isReleaseBuild &&
+        gradle.startParameter.taskNames.none { it.contains("Profile", ignoreCase = true) }) {
+        "Isolated QA requires debug and a local backend."
+    }
+}
+
 val internalBillingValue = dartDefines["CHRONOSPARK_INTERNAL_BILLING_TEST"] ?: "false"
 require(internalBillingValue == "true" || internalBillingValue == "false") {
     "CHRONOSPARK_INTERNAL_BILLING_TEST must be true or false."
@@ -53,6 +61,16 @@ require(internalBillingValue == "true" || internalBillingValue == "false") {
 val isInternalBillingTest = internalBillingValue == "true"
 require(!isInternalBillingTest || (!isLocalBackend && isReleaseBuild)) {
     "Internal billing requires a cloud release build."
+}
+val publicReleaseValue = dartDefines["CHRONOSPARK_PUBLIC_RELEASE"] ?: "false"
+require(publicReleaseValue == "true" || publicReleaseValue == "false") {
+    "CHRONOSPARK_PUBLIC_RELEASE must be true or false."
+}
+val isPublicRelease = publicReleaseValue == "true"
+require(!isPublicRelease || (!isLocalBackend && isReleaseBuild && !isInternalBillingTest &&
+    dartDefines["CHRONOSPARK_PUBLIC_CREDIT_ADMISSION_QA"] == "false" &&
+    dartDefines["CHRONOSPARK_INTERNAL_BILLING_ACCOUNT_DIGESTS"] == "")) {
+    "Public billing requires a cloud release without internal billing, admission QA or private cohorts."
 }
 
 if (isLocalBackend) {
@@ -118,6 +136,8 @@ android {
         // Internet access for Flutter tooling; production/profile are offline.
         sourceSets.getByName("release").manifest.srcFile("src/local/AndroidManifest.xml")
         sourceSets.getByName("profile").manifest.srcFile("src/local/AndroidManifest.xml")
+    } else if (isPublicRelease) {
+        sourceSets.getByName("release").manifest.srcFile("src/publicRelease/AndroidManifest.xml")
     } else if (isInternalBillingTest) {
         // Only the compiled billing-test profile restores the permission that
         // main deliberately removes from ordinary contained builds.
@@ -132,6 +152,7 @@ android {
 
     defaultConfig {
         applicationId = releaseApplicationId
+        testInstrumentationRunner = "pl.leancode.patrol.PatrolJUnitRunner"
         manifestPlaceholders["chronosparkBackendMode"] = backendMode
         manifestPlaceholders["chronosparkAutoRegisterPlugins"] = (!isLocalBackend).toString()
         minSdk = flutter.minSdkVersion
@@ -152,9 +173,21 @@ android {
     }
 
     buildTypes {
+        debug {
+            if (dartDefines["CHRONOSPARK_APP_FLAVOR"] == "qa") {
+                applicationIdSuffix = ".qa"
+                versionNameSuffix = "-qa"
+            }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+
+            // Include native symbols in the AAB so Play can symbolicate
+            // native crashes from the exact libraries shipped in this build.
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -178,7 +211,16 @@ android {
     }
 }
 
+androidComponents {
+    beforeVariants(selector().all()) { variant ->
+        if (dartDefines["CHRONOSPARK_APP_FLAVOR"] == "qa" && variant.buildType != "debug") {
+            variant.enable = false
+        }
+    }
+}
+
 dependencies {
+
     implementation("androidx.core:core-splashscreen:1.0.1")
     // Billing Library version is intentionally NOT pinned here.
     // in_app_purchase_android manages its own billing dependency; an explicit
