@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
@@ -152,12 +153,20 @@ class TimelineRepository
   }
 
   Future<T> _enqueueWrite<T>(Future<T> Function() operation) {
-    final Future<T> next = _writeTail.then<T>(
-      (_) => operation(),
-      onError: (Object _, StackTrace _) => operation(),
-    );
-    _writeTail = next.then<void>((_) {}, onError: (Object _, StackTrace _) {});
-    return next;
+    // Acquire the account boundary before joining the repository's write tail.
+    // Backup/restore can then capture a consistent history and detect edits
+    // during upload without deadlocking a pending Timeline write.
+    return runAccountStorageMutation(() {
+      final Future<T> next = _writeTail.then<T>(
+        (_) => operation(),
+        onError: (Object _, StackTrace _) => operation(),
+      );
+      _writeTail = next.then<void>(
+        (_) {},
+        onError: (Object _, StackTrace _) {},
+      );
+      return next;
+    });
   }
 
   void _markCorrupted(String raw) {

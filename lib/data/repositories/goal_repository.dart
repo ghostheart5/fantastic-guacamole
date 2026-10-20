@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
+
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
@@ -177,12 +179,17 @@ class GoalRepository implements IGoalRepository, GoalReadHealth {
   }
 
   Future<void> _enqueueWrite(Future<void> Function() operation) {
-    final Future<void> next = _writeTail.then<void>(
-      (_) => operation(),
-      onError: (Object _, StackTrace _) => operation(),
-    );
-    _writeTail = next.then<void>((_) {}, onError: (Object _, StackTrace _) {});
-    return next;
+    return runAccountStorageMutation(() {
+      final Future<void> next = _writeTail.then<void>(
+        (_) => operation(),
+        onError: (Object _, StackTrace _) => operation(),
+      );
+      _writeTail = next.then<void>(
+        (_) {},
+        onError: (Object _, StackTrace _) {},
+      );
+      return next;
+    });
   }
 
   /// Copies an undecodable payload to [_corruptBackupKey] before it is

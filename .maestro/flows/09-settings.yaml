@@ -23,11 +23,11 @@ tags:
 # A missing selector must not silently skip every account assertion.
 - scrollUntilVisible:
     element:
-      text: "(?:Exit Tester Mode|Log Out)\\. .*"
+      text: "(?:Close Profile|Exit Tester Mode|Log Out)\\. .*"
     direction: DOWN
     timeout: 15000
 - assertVisible:
-    text: "(?:Exit Tester Mode|Log Out)\\. .*"
+    text: "(?:Close Profile|Exit Tester Mode|Log Out)\\. .*"
     enabled: true
 
 # Tester mode must expose only tester-safe account controls.
@@ -66,3 +66,22 @@ tags:
       - assertVisible:
           text: "Delete Account\\. .*"
           enabled: true
+
+# A local-only profile exposes local data controls, without cloud/tester access.
+- runFlow:
+    when:
+      visible: "Close Profile\\. .*"
+    commands:
+      - assertVisible:
+          text: "Clear Local Data\\. .*"
+          enabled: true
+      - scrollUntilVisible:
+          element:
+            text: "Delete Local Profile\\. .*"
+          direction: DOWN
+          timeout: 15000
+      - assertVisible:
+          text: "Delete Local Profile\\. .*"
+          enabled: true
+      - assertNotVisible: "Delete Account\\. .*"
+      - assertNotVisible: "Reset Tester Data\\. .*"

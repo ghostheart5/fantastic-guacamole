@@ -1,4 +1,4 @@
-# EMULATOR ONLY. Exit QA Tester A, without real account sign-out credentials.
+# EMULATOR ONLY. Close the isolated local profile and preserve its data.
 appId: com.ghostheart5.chronospark
 tags: [qa, auth]
 ---
@@ -17,16 +17,16 @@ tags: [qa, auth]
 - tapOn: "Data & account\\n.*"
 - scrollUntilVisible:
     element:
-      text: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
+      text: "Close Profile\\. Close this profile and keep its data on this device\\."
     direction: DOWN
     timeout: 15000
 - assertVisible:
-    text: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
+    text: "Close Profile\\. Close this profile and keep its data on this device\\."
     enabled: true
-- tapOn: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
+- tapOn: "Close Profile\\. Close this profile and keep its data on this device\\."
 - runFlow: ../subflows/skip-onboarding.yaml
 - extendedWaitUntil:
-    visible: "(?:CONTINUE TO LOGIN|ENTER SYSTEM|TESTER ACCESS.*TEST LOGIN)"
+    visible: "(?:CONTINUE TO (?:LOGIN|PROFILE)|ENTER SYSTEM|TESTER ACCESS.*TEST LOGIN|Open profile)"
     timeout: 20000
 # The original session-teardown assertion is retained.
 - assertNotVisible: "Open navigation map"

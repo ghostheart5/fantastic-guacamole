@@ -127,9 +127,7 @@ void main() {
         expect(container.read(personalizationProfileProvider).goalCategory, '');
 
         backend.releaseMarkerRead();
-        await tester.pump();
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 500));
+        await _pumpUntilAccountReady(tester, container, account);
         final router = container.read(appRouterProvider);
         router.go(RoutePaths.nexus);
         await tester.pump();
@@ -166,6 +164,32 @@ void main() {
     },
     timeout: const Timeout(Duration(minutes: 2)),
   );
+}
+
+Future<void> _pumpUntilAccountReady(
+  WidgetTester tester,
+  ProviderContainer container,
+  String account,
+) async {
+  // Draining the account mutation queues can include real storage I/O. Merely
+  // advancing the widget's fake clock does not complete those operations.
+  final deadline = Stopwatch()..start();
+  while (deadline.elapsed < const Duration(seconds: 10)) {
+    await tester.pump(const Duration(milliseconds: 20));
+    final boundary = container.read(authSessionBoundaryProvider);
+    if (!boundary.isTransitioning && boundary.blockingIssue != null) {
+      fail('Account boundary blocked: ${boundary.blockingIssue}');
+    }
+    if (!boundary.isTransitioning &&
+        boundary.isStorageReady &&
+        container.read(accountStorageScopeProvider).rawUserId == account) {
+      return;
+    }
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+  }
+  fail('Account boundary did not finish opening $account within 10 seconds.');
 }
 
 class _BlockingAccountMarkerBackend extends InMemorySecureStoreBackend {

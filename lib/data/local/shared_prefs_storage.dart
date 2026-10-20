@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -229,13 +231,13 @@ final class AccountScopedSharedPrefsStorage extends SharedPrefsStorage {
   bool contains(String key) => get(key) != null;
 
   @override
-  Future<void> remove(String key) async {
+  Future<void> remove(String key) => _backupSettingMutation(key, () async {
     await prefs.setBool(_storageKey(_deleteMarkerFor(key)), true);
     await prefs.remove(_storageKey(key));
-  }
+  });
 
   @override
-  Future<void> clear() async {
+  Future<void> clear() => runAccountStorageMutation(() async {
     final String clearMarker = _storageKey(_legacyClearMarker);
     await prefs.setBool(clearMarker, true);
     final String suffix = _scopeSuffix();
@@ -244,7 +246,7 @@ final class AccountScopedSharedPrefsStorage extends SharedPrefsStorage {
     )) {
       await prefs.remove(key);
     }
-  }
+  });
 
   T? _read<T>(String key, T? Function(String key) reader) {
     final T? scoped = reader(_storageKey(key));
@@ -258,10 +260,18 @@ final class AccountScopedSharedPrefsStorage extends SharedPrefsStorage {
     return reader(key);
   }
 
-  Future<void> _write(String key, Future<bool> Function() persist) async {
-    await persist();
-    await prefs.remove(_storageKey(_deleteMarkerFor(key)));
-  }
+  Future<void> _write(String key, Future<bool> Function() persist) =>
+      _backupSettingMutation(key, () async {
+        await persist();
+        await prefs.remove(_storageKey(_deleteMarkerFor(key)));
+      });
+
+  Future<void> _backupSettingMutation(
+    String key,
+    Future<void> Function() action,
+  ) => AccountDataRegistry.accountPreferenceBackupKeys.contains(key)
+      ? runAccountStorageMutation(action)
+      : action();
 
   String _storageKey(String key) {
     final AccountStorageNamespace? namespace = scope.namespace;

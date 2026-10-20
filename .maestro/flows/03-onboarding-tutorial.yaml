@@ -1,5 +1,5 @@
-# P0 - First-run welcome. Account-scoped guidance continues after sign-in;
-# this journey verifies the public first-run page and its authentication handoff.
+# P0 - First-run welcome. Account-scoped guidance continues after entry;
+# this journey verifies the public page and its local-profile or cloud handoff.
 appId: com.ghostheart5.chronospark
 tags:
   - critical
@@ -13,11 +13,25 @@ tags:
     timeout: 60000
 
 - assertVisible: "AXIOMARA"
-- assertVisible: "A living decision system"
+- assertVisible: "A human decision operating system"
 - assertVisible: "Decide with evidence. Act with control. Learn from reality. Axiomara keeps every recommendation inspectable and correctable."
-- assertVisible: "CONTINUE TO LOGIN"
+- assertVisible: "^CONTINUE TO (?:LOGIN|PROFILE)$"
 
-- tapOn: "CONTINUE TO LOGIN"
-- extendedWaitUntil:
-    visible: "ENTER SYSTEM"
-    timeout: 10000
+- runFlow:
+    when:
+      visible: "^CONTINUE TO PROFILE$"
+    commands:
+      - tapOn: "^CONTINUE TO PROFILE$"
+      - extendedWaitUntil:
+          visible: "^(?:Create|Open) profile$"
+          timeout: 10000
+      - assertVisible: "(?s).*No email or online account is created\\..*"
+- runFlow:
+    when:
+      visible: "^CONTINUE TO LOGIN$"
+    commands:
+      - tapOn: "^CONTINUE TO LOGIN$"
+      - extendedWaitUntil:
+          visible: "ENTER SYSTEM"
+          timeout: 10000
+- assertVisible: "(?:Create profile|Open profile|ENTER SYSTEM)"
