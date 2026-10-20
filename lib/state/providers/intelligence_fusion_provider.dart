@@ -61,7 +61,7 @@ final intelligenceFusionProvider = Provider<IntelligenceFusionState>((Ref ref) {
       intelligence?.decision.recommendedAction ??
       (trajectory.pendingTasks == 0
           ? 'Capture one accountable action in Creator.'
-          : 'Open Smart Planner to rank the next feasible action.');
+          : 'Open Choose a step to rank the next feasible action.');
   final String primaryConstraint =
       intelligence?.snapshot.activeRisks.isNotEmpty == true
       ? intelligence!.snapshot.activeRisks.first

@@ -115,7 +115,15 @@ class NexusCopy {
   String workOn(String taskTitle) =>
       isSpanish ? 'Trabaja en: $taskTitle' : 'Work on: $taskTitle';
   String systemAction(String value) {
-    if (!isSpanish) return value;
+    if (!isSpanish) {
+      return switch (value) {
+        'Capture one actionable task in Creator.' =>
+          'Save one task in Add something.',
+        'Reconcile unscheduled work in Smart Planner.' =>
+          'Review unscheduled work in Choose a step.',
+        _ => value,
+      };
+    }
     const String workPrefix = 'Work on: ';
     if (value.startsWith(workPrefix)) {
       return 'Trabaja en: ${value.substring(workPrefix.length)}';
@@ -124,9 +132,9 @@ class NexusCopy {
       'Take a short recovery break before choosing more work.' =>
         'Toma un breve descanso de recuperación antes de elegir más trabajo.',
       'Capture one actionable task in Creator.' =>
-        'Registra una tarea realizable en el Constructor de Realidad.',
+        'Registra una tarea realizable en Añadir algo.',
       'Reconcile unscheduled work in Smart Planner.' =>
-        'Concilia el trabajo no programado en el Planificador Inteligente.',
+        'Concilia el trabajo no programado en Elegir un paso.',
       _ => value,
     };
   }

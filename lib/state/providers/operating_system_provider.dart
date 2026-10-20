@@ -258,15 +258,15 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
     intentDestination = RoutePaths.creator;
   } else if (capacity.isOverloaded) {
     intentType = OperatingActionType.openSmartPlanner;
-    intentLabel = 'Reconcile in Smart Planner';
+    intentLabel = 'Reconcile in Choose a step';
     intentDestination = RoutePaths.smartPlanner;
   } else if (snapshot.evidenceCoverage < .5) {
     intentType = OperatingActionType.openSiConsole;
-    intentLabel = 'Review evidence in SI Console';
+    intentLabel = 'Review evidence in SI Chat';
     intentDestination = RoutePaths.siConsole;
   } else if (snapshot.pressure >= 80 && snapshot.overdueCount == 0) {
     intentType = OperatingActionType.openTrajectoryEngine;
-    intentLabel = 'Review risk in Trajectory Engine';
+    intentLabel = 'Review risk in Insights';
     intentDestination = RoutePaths.trajectoryEngine;
   } else if (snapshot.momentum < 30 && snapshot.completedToday > 0) {
     intentType = OperatingActionType.openProgression;
@@ -274,7 +274,7 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
     intentDestination = RoutePaths.progression;
   } else {
     intentType = OperatingActionType.openTimeline;
-    intentLabel = 'Review on Timeline';
+    intentLabel = 'Review on Schedule';
     intentDestination = RoutePaths.timeline;
   }
   final OperatingActionIntent intent = OperatingActionIntent(
@@ -540,7 +540,7 @@ List<OperatingEvidence> _personContextEvidence(
       OperatingEvidence(
         code: 'person_context_available_empty',
         description:
-            'No fresh consented context passed the governed Nexus behavior policy.',
+            'No fresh consented context passed the rules for using shared details in Today.',
         kind: OperatingEvidenceKind.unavailable,
         recordedAt: recordedAt,
         source: 'person_context',
@@ -570,7 +570,7 @@ List<String> _personContextAssumptions(GovernedDecisionContext? context) {
   }
   if (context.status == GovernedDecisionContextStatus.knownEmpty) {
     return const <String>[
-      'Person context was available but no signal passed the governed Nexus behavior policy.',
+      'Person context was available but no signal passed the rules for using shared details in Today.',
     ];
   }
   return const <String>[

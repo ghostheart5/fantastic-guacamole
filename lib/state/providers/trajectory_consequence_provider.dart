@@ -211,7 +211,7 @@ TrajectoryIntervention? _customIntervention(
       subjectId: subject.id,
       assumptions: <String>[
         'The commitment is completed without creating an unmodeled obligation.',
-        'Projected Progression effects remain informational until an outcome is recorded on Timeline.',
+        'Projected Activity effects remain informational until an outcome is recorded on Schedule.',
         ...personContextAssumptions,
       ],
     ),
@@ -417,7 +417,7 @@ List<TrajectoryIntervention> _interventions(
         TrajectoryIntervention(
           id: 'apply-smart-planner',
           type: TrajectoryInterventionType.applySmartPlanner,
-          title: 'Apply Smart Planner recommendation',
+          title: 'Apply Choose a step recommendation',
           horizon: horizon,
           description:
               'Protect ${selected.title} and use the feasible plan as the active schedule.',
@@ -438,7 +438,7 @@ List<TrajectoryIntervention> _interventions(
           title: 'Complete ${selected.title}',
           horizon: horizon,
           description:
-              'Model the selected Smart Planner task as completed in its feasible block.',
+              'Model the selected Choose a step task as completed in its feasible block.',
           subjectId: selected.id,
           assumptions: <String>[
             'The task is completed without creating an unmodeled commitment.',

@@ -534,7 +534,7 @@ class _PersonalizationSection extends ConsumerWidget {
                   ? 'IA externa y créditos'
                   : 'External AI and credits',
               subtitle: isSpanish
-                  ? 'Las conversaciones del Planificador Inteligente y SI pueden enviar tu pregunta, mensajes recientes y el contexto revisado a Anthropic por medio de Axiomara después de que confirmes. Cada solicitud muestra su precio en créditos. Las pruebas ficticias de abajo son independientes. Se aplican las políticas de retención y seguridad del proveedor; las herramientas locales siguen siendo gratuitas.'
+                  ? 'Las conversaciones de Elegir un paso y SI pueden enviar tu pregunta, mensajes recientes y el contexto revisado a Anthropic por medio de Axiomara después de que confirmes. Cada solicitud muestra su precio en créditos. Las pruebas ficticias de abajo son independientes. Se aplican las políticas de retención y seguridad del proveedor; las herramientas locales siguen siendo gratuitas.'
                   : 'Planner and SI conversations can send your question, recent messages and reviewed context to Anthropic through Axiomara after confirmation. Each request shows its credit price. The fictional tests below are separate. Provider retention and safety policies apply; on-device tools remain free.',
             ),
           if (ref.watch(externalAiAvailableProvider))
@@ -703,12 +703,12 @@ class _LearningLedgerSection extends ConsumerWidget {
             subtitle: outcomesAsync.when(
               loading: () => journeyText(
                 context,
-                'Loading the account-scoped ledger...',
+                'Loading this account’s feedback history...',
                 'Cargando el registro de esta cuenta...',
               ),
               error: (_, _) => journeyText(
                 context,
-                'Ledger unavailable. No learning is applied.',
+                'Feedback history unavailable. No learning is applied.',
                 'El registro no está disponible. No se aplica ningún aprendizaje.',
               ),
               data: (List<DecisionOutcomeEntity> values) => journeyText(
@@ -841,7 +841,7 @@ class _LearningLedgerSection extends ConsumerWidget {
                               content: Text(
                                 journeyText(
                                   context,
-                                  'Learning ledger copied as JSON.',
+                                  'Feedback history copied as JSON.',
                                   'Registro de aprendizaje copiado como JSON.',
                                 ),
                               ),
@@ -873,13 +873,16 @@ class _LearningLedgerSection extends ConsumerWidget {
 
 String _learningLabel(String value, {required bool isSpanish}) {
   final String normalized = value.replaceAll('-', '_');
+  if (normalized == 'smart_planner') {
+    return isSpanish ? 'Elegir un paso' : 'Choose a step';
+  }
   if (isSpanish) {
     final String? translated = <String, String>{
       'task_lifecycle': 'Ciclo de la tarea',
       'task_execution': 'ejecución de tareas',
       'daily_rhythm': 'Ritmo diario',
       'daily_rhythm_occurrence': 'aparición del ritmo diario',
-      'smart_planner': 'Planificador Inteligente',
+      'smart_planner': 'Elegir un paso',
       'shown': 'mostrada',
       'accepted': 'aceptada',
       'rejected': 'rechazada',
@@ -993,8 +996,8 @@ Future<void> _applyLearningLedgerAction(
           ? DecisionOutcomeKind.accepted
           : DecisionOutcomeKind.rejected,
       reason: helped
-          ? 'User corrected this observation to helpful in the learning ledger.'
-          : 'User corrected this observation to not helpful in the learning ledger.',
+          ? 'User corrected this observation to helpful in feedback history.'
+          : 'User corrected this observation to not helpful in feedback history.',
     );
   }
   if (!context.mounted) return;
@@ -1035,7 +1038,7 @@ Future<void> _confirmClearLearningLedger(
           content: Text(
             journeyText(
               context,
-              'This permanently removes the decision-outcome ledger and reverses the preference learning created from it. Tasks, goals, Person Context, and user-authored facts are not changed.',
+              'This permanently removes the feedback history and reverses the preference learning created from it. Tasks, goals, Person Context, and user-authored facts are not changed.',
               'Esto elimina permanentemente el registro de resultados de decisiones y revierte las preferencias aprendidas. Las tareas, metas, el Contexto Personal y los datos escritos por ti no cambian.',
             ),
           ),
@@ -1048,7 +1051,7 @@ Future<void> _confirmClearLearningLedger(
               key: const Key('confirm-delete-learning-ledger'),
               onPressed: () => Navigator.of(dialogContext).pop(true),
               child: Text(
-                journeyText(context, 'Delete ledger', 'Eliminar registro'),
+                journeyText(context, 'Delete feedback history', 'Eliminar registro'),
               ),
             ),
           ],
@@ -1063,7 +1066,7 @@ Future<void> _confirmClearLearningLedger(
       content: Text(
         journeyText(
           context,
-          'Learning ledger deleted.',
+          'Feedback history deleted.',
           'Registro de aprendizaje eliminado.',
         ),
       ),

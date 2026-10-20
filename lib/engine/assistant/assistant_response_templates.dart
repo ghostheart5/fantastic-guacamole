@@ -74,7 +74,7 @@ class AssistantResponseTemplates {
         '✅ $priorityTask\n\n'
         'Impact\n'
         '$impact\n\n'
-        'Timeline Effect\n'
+        'Schedule Effect\n'
         '$timelineEffect\n\n'
         'Next Actions\n'
         '1. ${normalizedActions[0]}\n'

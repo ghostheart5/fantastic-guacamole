@@ -164,7 +164,7 @@ String _trajectoryStatusDetail(
     'The scenario comparison is available, but one supporting intelligence source is incomplete.' =>
       'La comparación de escenarios está disponible, pero una fuente de inteligencia de apoyo está incompleta.',
     'This estimate combines your current plan, schedule, goals, and recorded activity.' =>
-      'La línea base actual, el plan del Planificador Inteligente, los vínculos de la Línea de Tiempo, las metas y las señales de progreso están conciliados.',
+      'La línea base actual, el plan de Elegir un paso, los vínculos de la agenda, las metas y las señales de progreso están conciliados.',
     _ => switch (status) {
       TrajectoryEngineStatus.loading => 'Creando la línea base.',
       TrajectoryEngineStatus.learning =>
@@ -246,7 +246,7 @@ class _BaselineCard extends StatelessWidget {
                     : journeyText(context, 'not scored', 'sin calcular'),
               ),
               _BaselineMetric(
-                label: journeyText(context, 'Progression', 'Progreso'),
+                label: journeyText(context, 'Activity', 'Actividad'),
                 value:
                     'L${baseline.progression.level} • ${baseline.progression.streak}d',
               ),
@@ -282,9 +282,9 @@ class _BaselineCard extends StatelessWidget {
           Text(
             Localizations.localeOf(context).languageCode == 'es'
                 ? '${baseline.tasks.length} tarea(s), ${baseline.goals.length} meta(s) activa(s), '
-                      '${baseline.blocks.length} bloque(s) planificado(s) y ${baseline.timelineSignals.length} señal(es) vinculada(s) de la Línea de Tiempo.'
+                      '${baseline.blocks.length} bloque(s) planificado(s) y ${baseline.timelineSignals.length} señal(es) vinculada(s) de la agenda.'
                 : '${baseline.tasks.length} task(s), ${baseline.goals.length} active goal(s), '
-                      '${baseline.blocks.length} planned block(s), and ${baseline.timelineSignals.length} linked Timeline signal(s).',
+                      '${baseline.blocks.length} planned block(s), and ${baseline.timelineSignals.length} linked Schedule signal(s).',
             style: const TextStyle(
               color: Color(0xFFD8E2FF),
               fontSize: 12,
@@ -578,13 +578,13 @@ class _ScenarioComparisonCard extends StatelessWidget {
                 ),
                 TrajectoryInterventionType.maintainCourse => journeyText(
                   context,
-                  'Review on Timeline',
-                  'Revisar en Línea de Tiempo',
+                  'Review on Schedule',
+                  'Revisar en agenda',
                 ),
                 _ => journeyText(
                   context,
-                  'Review on Timeline',
-                  'Revisar en Línea de Tiempo',
+                  'Review on Schedule',
+                  'Revisar en agenda',
                 ),
               }),
             ),
@@ -740,15 +740,15 @@ class _ScenarioFullDetails extends StatelessWidget {
           _Section(
             label: journeyText(
               context,
-              'TIMELINE IMPACT',
-              'IMPACTO EN LA LÍNEA DE TIEMPO',
+              'SCHEDULE IMPACT',
+              'IMPACTO EN LA AGENDA',
             ),
             value: _trajectoryGeneratedText(context, outcome.timeline.summary),
           ),
           _Section(
             label: journeyText(
               context,
-              'PROGRESSION IMPACT',
+              'ACTIVITY IMPACT',
               'IMPACTO EN EL PROGRESO',
             ),
             value: _trajectoryGeneratedText(
@@ -859,7 +859,7 @@ class _ScenarioFullDetails extends StatelessWidget {
             child: Text(
               journeyText(
                 context,
-                'SIMULATION ONLY — no task, Timeline block, goal, or Progression reward is changed here.',
+                'SIMULATION ONLY — no task, Schedule block, goal, or Activity reward is changed here.',
                 'SOLO SIMULACIÓN — aquí no cambia ninguna tarea, bloque, meta ni recompensa.',
               ),
               style: const TextStyle(
@@ -891,12 +891,12 @@ class _ScenarioFullDetails extends StatelessWidget {
                   ? journeyText(
                       context,
                       'Review in Choose a step',
-                      'Revisar en Planificador Inteligente',
+                      'Revisar en Elegir un paso',
                     )
                   : journeyText(
                       context,
-                      'Review affected work on Timeline',
-                      'Revisar trabajo afectado en Línea de Tiempo',
+                      'Review affected work on Schedule',
+                      'Revisar trabajo afectado en agenda',
                     ),
             ),
           ),
@@ -1164,10 +1164,10 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
         'Solo cambia la intervención declarada; los sucesos no modelados quedan fuera del escenario.',
     'Projected XP is informational and is never awarded by this simulation.':
         'Los XP proyectados son informativos y esta simulación nunca los concede.',
-    'No Progression reward is projected from this intervention alone.':
+    'No Activity reward is projected from this intervention alone.':
         'Esta intervención por sí sola no proyecta una recompensa de progreso.',
     'Keep the suggested plan':
-        'Proteger el camino del Planificador Inteligente',
+        'Proteger el camino de Elegir un paso',
     'Protect the highest-value feasible block.':
         'Proteger el bloque viable de mayor valor.',
     'The protected block is attempted.':
@@ -1175,7 +1175,7 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
     'Delay the milestone': 'Aplazar el hito',
     'Maintain current course': 'Mantener el rumbo actual',
     'Use the suggested option in this estimate':
-        'Aplicar la recomendación del Planificador Inteligente',
+        'Aplicar la recomendación de Elegir un paso',
     'Reduce lower-priority scope': 'Reducir el alcance de menor prioridad',
     'Preserve the current plan without a declared intervention.':
         'Conservar el plan actual sin una intervención declarada.',
@@ -1195,8 +1195,8 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
         'El compromiso eliminado es opcional o puede aplazarse de forma segura con consentimiento.',
     'The commitment is completed without creating an unmodeled obligation.':
         'El compromiso se completa sin crear una obligación no modelada.',
-    'Projected Progression effects remain informational until an outcome is recorded on Timeline.':
-        'Los efectos proyectados en Progreso son informativos hasta registrar un resultado en la Línea de Tiempo.',
+    'Projected Activity effects remain informational until an outcome is recorded on Schedule.':
+        'Los efectos proyectados en Progreso son informativos hasta registrar un resultado en la agenda.',
     'The delayed commitment remains active and consumes later capacity.':
         'El compromiso aplazado sigue activo y consume capacidad posterior.',
     'No replacement work is assumed unless it already exists in the baseline.':
@@ -1231,10 +1231,10 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
   if (value.startsWith(
     'Estimate what happens if you finish the selected task',
   )) {
-    return 'Modelar la tarea seleccionada del Planificador Inteligente como completada en su bloque viable.';
+    return 'Modelar la tarea seleccionada de Elegir un paso como completada en su bloque viable.';
   }
   if (value.startsWith('Model one day of slippage')) {
-    return 'Modelar un día de retraso y sus consecuencias en la Línea de Tiempo y las metas.';
+    return 'Modelar un día de retraso y sus consecuencias en la agenda y las metas.';
   }
   if (value.startsWith(
     'Apply the task-specific deadline/capacity recovery recommendation.',
@@ -1265,7 +1265,7 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
   return value
       .replaceAll(
         'scheduled block(s) are estimated',
-        'bloque(s) del Planificador Inteligente se proyectan',
+        'bloque(s) de Elegir un paso se proyectan',
       )
       .replaceAll(
         'commitment(s) remain displaced',
@@ -1288,8 +1288,8 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
         'bloque(s) vinculados pueden salir de la carga activa',
       )
       .replaceAll(
-        'linked Timeline block(s) are affected',
-        'bloque(s) vinculados de la Línea de Tiempo se ven afectados',
+        'linked Schedule block(s) are affected',
+        'bloque(s) vinculados de la agenda se ven afectados',
       )
       .replaceAll(
         'remaining linked minutes; no target date is recorded',

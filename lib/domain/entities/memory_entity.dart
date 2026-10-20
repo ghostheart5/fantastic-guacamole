@@ -28,9 +28,9 @@ enum MemoryConsentStatus { granted, withdrawn, legacyUnverified }
 
 extension MemorySurfaceLabel on MemorySurface {
   String get label => switch (this) {
-    MemorySurface.smartPlanner => 'Smart Planner',
-    MemorySurface.siConsole => 'SI Console',
-    MemorySurface.creator => 'Creator',
+    MemorySurface.smartPlanner => 'Choose a step',
+    MemorySurface.siConsole => 'SI Chat',
+    MemorySurface.creator => 'Add something',
     MemorySurface.settings => 'Settings',
     MemorySurface.unknown => 'Unknown',
   };

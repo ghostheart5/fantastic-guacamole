@@ -34,6 +34,37 @@ void main() {
       }
     });
 
+    test(
+      'current shortcut names keep legacy routing without advertising old names',
+      () {
+        const names = {
+          '/timeline': '/schedule',
+          '/trajectory': '/insights',
+          '/progression': '/activity',
+        };
+        final help = SIConsoleShortcutRegistry.buildHelp();
+        for (final entry in names.entries) {
+          final legacy = SIConsoleShortcutRegistry.parse(
+            '${entry.key} keep THIS exact text',
+          );
+          final current = SIConsoleShortcutRegistry.parse(
+            '${entry.value} keep THIS exact text',
+          );
+          expect(legacy.kind, SIShortcutParseKind.recognized);
+          expect(legacy.definition, same(current.definition));
+          expect(legacy.resolvedRoute, current.resolvedRoute);
+          expect(legacy.definition!.surface, current.definition!.surface);
+          expect(legacy.arguments, 'keep THIS exact text');
+          expect(legacy.intelligenceInput, current.intelligenceInput);
+          expect(legacy.definition!.shortcut, entry.value);
+          expect(help, contains(entry.value));
+          expect(help, isNot(contains(entry.key)));
+          final suggestions = SIConsoleShortcutRegistry.autocomplete(entry.key);
+          expect(suggestions.single.shortcut, entry.value);
+        }
+      },
+    );
+
     test('every forwarded argument is preserved and never silently lost', () {
       const String argument = 'Keep THIS exact  argument /with-slash';
       final Iterable<SIConsoleShortcutDefinition> forwarded =

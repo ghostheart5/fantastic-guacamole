@@ -365,7 +365,7 @@ class ChronoSparkLocalizations {
     ChronoSparkString.clearPreservedData: 'Clear preserved data',
     ChronoSparkString.clearPreservedDataTitle: 'Clear preserved data?',
     ChronoSparkString.clearPreservedDataBody:
-        'This removes preserved planning records, Timeline history, offline actions, notification schedules, profile progress, and local intelligence from this device. It does not delete your cloud account. This cannot be undone.',
+        'This removes preserved planning records, Schedule history, offline actions, notification schedules, profile progress, and local intelligence from this device. It does not delete your cloud account. This cannot be undone.',
     ChronoSparkString.privacyPolicyTitle: 'Privacy Policy',
     ChronoSparkString.privacyPolicyBody:
         'Read how Axiomara uses, stores, and deletes information. Open the current privacy policy below.',
@@ -522,7 +522,7 @@ class ChronoSparkLocalizations {
     ChronoSparkString.clearPreservedData: 'Borrar datos conservados',
     ChronoSparkString.clearPreservedDataTitle: '¿Borrar datos conservados?',
     ChronoSparkString.clearPreservedDataBody:
-        'Esto elimina de este dispositivo los registros de planificación, historial de Línea de Tiempo, acciones sin conexión, recordatorios, progreso del perfil e inteligencia local conservados. No elimina tu cuenta en la nube. No se puede deshacer.',
+        'Esto elimina de este dispositivo los registros de planificación, historial de agenda, acciones sin conexión, recordatorios, progreso del perfil e inteligencia local conservados. No elimina tu cuenta en la nube. No se puede deshacer.',
     ChronoSparkString.privacyPolicyTitle: 'Política de privacidad',
     ChronoSparkString.privacyPolicyBody:
         'Lee cómo Axiomara usa, guarda y elimina información. Abre la política de privacidad actual.',
@@ -761,7 +761,7 @@ final class PlannerRoutineCopy {
       ? 'Leer en voz alta un resumen breve de planificación'
       : 'Read condensed planning summary aloud';
   String get voiceSummaryTitle => isSpanish
-      ? 'Resumen de voz del Elegir un paso'
+      ? 'Resumen de voz de Elegir un paso'
       : 'Choose a step voice summary';
   String get summaryButton => isSpanish ? 'RESUMEN' : 'SUMMARY';
   String energySummary(double? energy) => energy == null
@@ -779,7 +779,7 @@ final class PlannerRoutineCopy {
       ? 'El estado emocional es $emotion'
       : 'Emotion state is $emotion';
   String get accessibilityLabel => isSpanish
-      ? 'Abrir la guía de accesibilidad del Elegir un paso y leerla en voz alta'
+      ? 'Abrir la guía de accesibilidad de Elegir un paso y leerla en voz alta'
       : 'Open Choose a step accessibility guide and read it aloud';
   String get accessibilityTitle =>
       isSpanish ? 'Guía de accesibilidad' : 'Accessibility Guide';
@@ -877,13 +877,13 @@ final class SIRoutineCopy {
   final bool isSpanish;
 
   String get accessCheckFailed => isSpanish
-      ? 'No se pudo verificar el acceso a la Hablarlo. No se envió ninguna consulta.'
+      ? 'No se pudo verificar el acceso a Hablarlo. No se envió ninguna consulta.'
       : 'Talk it through access could not be verified. No query was sent.';
   String get checkingAccess => isSpanish
-      ? 'Verificando el acceso a la Hablarlo...'
+      ? 'Verificando el acceso a Hablarlo...'
       : 'Checking Talk it through access...';
   String get accessUnavailable => isSpanish
-      ? 'La Hablarlo no está habilitada para esta cuenta. No se envió ninguna consulta.'
+      ? 'Hablarlo no está habilitada para esta cuenta. No se envió ninguna consulta.'
       : 'Talk it through is not enabled for this account. No query was sent.';
   String get contextUnavailable => isSpanish
       ? 'El contexto estratégico no está disponible temporalmente. Tu trabajo guardado no cambió.'
@@ -1069,9 +1069,9 @@ final class SIRoutineCopy {
       'goals' => 'Objetivos',
       'plan' => 'Plan',
       'milestones' => 'Hitos',
-      'timeline' => 'Línea de Tiempo',
-      'trajectory' => 'Trayectoria',
-      'progression' => 'Progresión',
+      'timeline' => 'Agenda',
+      'trajectory' => 'Perspectivas',
+      'progression' => 'Actividad',
       'memories' => 'Memorias',
       'emotions' => 'Emociones',
       _ => definition.label,
@@ -1113,7 +1113,7 @@ final class SIRoutineCopy {
     }
     final String lines = selected
         .map((SIConsoleShortcutDefinition item) {
-          final String aliases = item.aliases
+          final String aliases = item.advertisedAliases
               .where((String alias) => alias.startsWith('/'))
               .join(', ');
           final String aliasText = aliases.isEmpty
@@ -1144,13 +1144,13 @@ final class SIRoutineCopy {
     required String revision,
     required String aliases,
   }) => isSpanish
-      ? 'ESTADO DE SI\n\nEnfoque de evidencia de solo lectura:\n- tareas: $tasks\n- objetivos: $goals\n- hitos: $milestones\n- Línea de Tiempo: $timeline\n- fuentes no disponibles: $unavailableSources\n- revisión: $revision\n\nAlias de evidencia disponibles: $aliases.'
-      : 'SI STATUS\n\nRead-only Evidence Lens:\n- tasks: $tasks\n- goals: $goals\n- milestones: $milestones\n- Timeline: $timeline\n- unavailable sources: $unavailableSources\n- revision: $revision\n\nAvailable evidence aliases: $aliases.';
+      ? 'ESTADO DE SI\n\nChat de solo lectura:\n- tareas: $tasks\n- objetivos: $goals\n- hitos: $milestones\n- agenda: $timeline\n- fuentes no disponibles: $unavailableSources\n- revisión: $revision\n\nAtajos de fuentes disponibles: $aliases.'
+      : 'SI STATUS\n\nRead-only Chat:\n- tasks: $tasks\n- goals: $goals\n- milestones: $milestones\n- Schedule: $timeline\n- unavailable sources: $unavailableSources\n- revision: $revision\n\nAvailable source shortcuts: $aliases.';
   String get responseValidationFailed => isSpanish
       ? 'No se pudo comprobar esta respuesta. Reintenta o incluye más tareas, metas, hitos o entradas de agenda. No se cambió nada.'
       : 'We could not check this answer. Try again or include more saved tasks, goals, milestones, or schedule entries. Nothing was changed.';
   String get voiceSummaryTitle => isSpanish
-      ? 'Resumen de voz de la Hablarlo'
+      ? 'Resumen de voz de Hablarlo'
       : 'Talk it through voice summary';
   String voiceInputLabel({required bool listening}) => isSpanish
       ? listening

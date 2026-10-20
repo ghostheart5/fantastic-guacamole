@@ -179,7 +179,7 @@ final extendedDomainBootstrapProvider = FutureProvider<void>((ref) async {
     await SavePlannerMessage(repository)(
       const PlannerMessage(
         id: 'bootstrap.planner.welcome',
-        label: 'Welcome to Smart Planner',
+        label: 'Welcome to Choose a step',
       ),
     );
     if (!isCurrent()) return;

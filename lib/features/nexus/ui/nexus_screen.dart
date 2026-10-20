@@ -393,12 +393,12 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
               kind: DecisionOutcomeKind.shown,
               surface: 'nexus',
               detail: opensCreator
-                  ? 'Opened Creator for the displayed task recommendation.'
-                  : 'Opened Smart Planner from the selected time block.',
+                  ? 'Opened Add something for the displayed task recommendation.'
+                  : 'Opened Choose a step from the selected time block.',
               situation: 'selected time block',
               optionChosen: opensCreator
                   ? 'create task'
-                  : 'review in Smart Planner',
+                  : 'review in Choose a step',
               recommendationHelped: null,
             ),
       );

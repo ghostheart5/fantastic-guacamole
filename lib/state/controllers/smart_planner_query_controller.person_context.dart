@@ -264,8 +264,8 @@ final class _PlannerPersonContextEvidence {
     ),
     _PlannerPersonContextStatus.knownEmpty => _plannerEvidenceText(
       languageCode,
-      'Person context was checked and known-empty for Smart Planner.',
-      'Se comprobó que no había Contexto Personal disponible para el Planificador Inteligente.',
+      'Person context was checked and known-empty for Choose a step.',
+      'Se comprobó que no había Contexto Personal disponible para Elegir un paso.',
     ),
     _PlannerPersonContextStatus.available => _plannerEvidenceText(
       languageCode,
@@ -308,22 +308,22 @@ final class _PlannerPersonContextEvidence {
     _PlannerPersonContextStatus.unavailable => <String>[
       _plannerEvidenceText(
         languageCode,
-        'Person context was unavailable for Smart Planner and was not used.',
-        'El Contexto Personal no estaba disponible para el Planificador Inteligente y no se usó.',
+        'Person context was unavailable for Choose a step and was not used.',
+        'El Contexto Personal no estaba disponible para Elegir un paso y no se usó.',
       ),
     ],
     _PlannerPersonContextStatus.knownEmpty => <String>[
       _plannerEvidenceText(
         languageCode,
-        'Person context checked for Smart Planner: no consented fresh signals were available.',
-        'Se comprobó el Contexto Personal para el Planificador Inteligente: no había datos vigentes con consentimiento.',
+        'Person context checked for Choose a step: no consented fresh signals were available.',
+        'Se comprobó el Contexto Personal para Elegir un paso: no había datos vigentes con consentimiento.',
       ),
     ],
     _PlannerPersonContextStatus.available => <String>[
       _plannerEvidenceText(
         languageCode,
-        'Person context checked for Smart Planner: $availableSignalCount consented fresh signal(s) available; ${signals.length} used with a limit of $_maxPlannerPersonContextSignals.',
-        'Se comprobó el Contexto Personal para el Planificador Inteligente: $availableSignalCount datos vigentes con consentimiento disponibles; se usaron ${signals.length}, con un máximo de $_maxPlannerPersonContextSignals.',
+        'Person context checked for Choose a step: $availableSignalCount consented fresh signal(s) available; ${signals.length} used with a limit of $_maxPlannerPersonContextSignals.',
+        'Se comprobó el Contexto Personal para Elegir un paso: $availableSignalCount datos vigentes con consentimiento disponibles; se usaron ${signals.length}, con un máximo de $_maxPlannerPersonContextSignals.',
       ),
       ...signals.map(
         (_PlannerPersonContextSignal signal) =>

@@ -274,7 +274,7 @@ void main() {
       now: now,
     );
 
-    expect(response.directAnswer, contains('lens exposed'));
+    expect(response.directAnswer, contains('selected information included'));
     expect(
       response.missingInformation,
       contains('No entity title matched "not present".'),
@@ -311,18 +311,20 @@ void main() {
     expect(
       response.missingInformation,
       containsAll(<String>[
-        'No goal evidence matched the current lens.',
-        'No milestone evidence matched the current lens.',
-        'No Timeline evidence matched the current lens.',
+        'No goal evidence matched the selected information.',
+        'No milestone evidence matched the selected information.',
+        'No Schedule evidence matched the selected information.',
       ]),
     );
     expect(
       response.missingInformation,
-      isNot(contains('No active task evidence matched the current lens.')),
+      isNot(
+        contains('No active task evidence matched the selected information.'),
+      ),
     );
     expect(response.directAnswer, contains('No goal evidence matched'));
     expect(response.directAnswer, contains('No milestone evidence matched'));
-    expect(response.directAnswer, contains('No Timeline evidence matched'));
+    expect(response.directAnswer, contains('No Schedule evidence matched'));
     expect(response.directAnswer, isNot(contains('1 evidence item matched')));
     response.validate();
   });

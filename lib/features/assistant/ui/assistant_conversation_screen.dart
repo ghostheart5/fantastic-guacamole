@@ -1332,6 +1332,6 @@ class _AssistantConversationScreenState
     SIV2Source.tasks => copy('Tasks', 'Tareas'),
     SIV2Source.goals => copy('Goals', 'Metas'),
     SIV2Source.milestones => copy('Milestones', 'Hitos'),
-    SIV2Source.timeline => copy('Timeline', 'Historial'),
+    SIV2Source.timeline => copy('Schedule', 'Agenda'),
   };
 }

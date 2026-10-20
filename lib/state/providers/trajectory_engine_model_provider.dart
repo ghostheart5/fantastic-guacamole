@@ -143,7 +143,7 @@ final trajectoryEngineModelProvider = Provider<TrajectoryEngineModel>((
   } else {
     status = TrajectoryEngineStatus.ready;
     detail =
-        'Current baseline, Smart Planner plan, Timeline links, goals, and Progression signals are reconciled.';
+        'Current baseline, Choose a step plan, schedule links, goals, and Activity signals are reconciled.';
   }
 
   return TrajectoryEngineModel(

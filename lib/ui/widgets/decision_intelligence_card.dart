@@ -209,12 +209,12 @@ String _actionLabel(OperatingActionIntent intent, bool isSpanish) {
   return switch (intent.type) {
     OperatingActionType.openCreator => 'Abrir Creador',
     OperatingActionType.openSmartPlanner =>
-      'Revisar en el Planificador Inteligente',
-    OperatingActionType.openSiConsole => 'Revisar evidencia en la Consola SI',
+      'Revisar en Elegir un paso',
+    OperatingActionType.openSiConsole => 'Revisar evidencia en el Chat SI',
     OperatingActionType.openTrajectoryEngine =>
-      'Revisar riesgo en el Motor de Trayectoria',
+      'Revisar riesgo en Perspectivas',
     OperatingActionType.openProgression => 'Revisar recuperación en Progreso',
-    OperatingActionType.openTimeline => 'Revisar en Línea de Tiempo',
+    OperatingActionType.openTimeline => 'Revisar en agenda',
     _ => intent.label,
   };
 }

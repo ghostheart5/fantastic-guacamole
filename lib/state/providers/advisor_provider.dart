@@ -100,10 +100,10 @@ final progressionReviewProvider = FutureProvider<ProgressionReview>((
   }
   if (ref.watch(timelinePersistenceCorruptedProvider)) {
     return const ProgressionReview(
-      'Progress review is unavailable because saved Timeline evidence could '
+      'Progress review is unavailable because saved Schedule evidence could '
       'not be read completely. Recover that data before relying on a rating.',
       spanishText:
-          'La revisión de progreso no está disponible porque no se pudo leer por completo la evidencia de la Línea de Tiempo. Recupera esos datos antes de confiar en una valoración.',
+          'La revisión de progreso no está disponible porque no se pudo leer por completo la evidencia de la agenda. Recupera esos datos antes de confiar en una valoración.',
       status: ProgressionReviewStatus.unavailable,
     );
   }
@@ -214,12 +214,12 @@ String buildProgressionReview({
 
   final String timelineState = overdue > 0 || timelineHealth < 65
       ? pick(
-          'Timeline integrity is at risk',
-          'La integridad de la Línea de Tiempo está en riesgo',
+          'Schedule integrity is at risk',
+          'La integridad de la agenda está en riesgo',
         )
       : pick(
-          'Timeline integrity is stable',
-          'La integridad de la Línea de Tiempo es estable',
+          'Schedule integrity is stable',
+          'La integridad de la agenda es estable',
         );
 
   final String milestoneState = milestoneCount == 0
@@ -244,7 +244,7 @@ String buildProgressionReview({
       : overdue > 0
       ? pick(
           'Clear one overdue timeline item before adding anything new.',
-          'Resuelve un elemento vencido de la Línea de Tiempo antes de añadir algo nuevo.',
+          'Resuelve un elemento vencido de la agenda antes de añadir algo nuevo.',
         )
       : pressureIndex >= 70
       ? pick(

@@ -24,26 +24,25 @@ String journeyLabel(BuildContext context, String label) =>
                 'La fecha objetivo de la meta es hoy.',
             'Goal target date is upcoming.':
                 'Se acerca la fecha objetivo de la meta.',
-            'Loading your Timeline': 'Cargando tu Línea de Tiempo',
+            'Loading your Timeline': 'Cargando tu agenda',
             'Checking saved tasks before showing your chronology.':
                 'Comprobando las tareas guardadas antes de mostrar tu cronología.',
             'Loading saved Timeline activity.':
-                'Cargando actividad guardada de la Línea de Tiempo.',
+                'Cargando actividad guardada de la agenda.',
             'Timeline tasks could not be loaded':
-                'No se pudieron cargar las tareas de la Línea de Tiempo',
+                'No se pudieron cargar las tareas de la agenda',
             'Timeline tasks could not be loaded.':
-                'No se pudieron cargar las tareas de la Línea de Tiempo.',
+                'No se pudieron cargar las tareas de la agenda.',
             'Nothing has been labeled empty. Retry the saved-task source.':
                 'No se ha marcado nada como vacío. Reintenta la fuente de tareas guardadas.',
             'Retry loading tasks': 'Reintentar carga de tareas',
             'Saved Timeline activity could not be read':
-                'No se pudo leer la actividad guardada de la Línea de Tiempo',
+                'No se pudo leer la actividad guardada de la agenda',
             'Saved Timeline activity could not be read.':
-                'No se pudo leer la actividad guardada de la Línea de Tiempo.',
+                'No se pudo leer la actividad guardada de la agenda.',
             'Your stored data was not erased. Preserve the original before repairing the active Timeline.':
-                'Tus datos guardados no se borraron. Conserva el original antes de reparar la Línea de Tiempo activa.',
-            'Preserve and repair Timeline':
-                'Conservar y reparar Línea de Tiempo',
+                'Tus datos guardados no se borraron. Conserva el original antes de reparar la agenda activa.',
+            'Preserve and repair Timeline': 'Conservar y reparar agenda',
             'Some saved Timeline activity could not be read. Valid activity is shown; preserve the original before repairing it.':
                 'No se pudo leer parte de la actividad guardada. Se muestra la actividad válida; conserva el original antes de repararla.',
             'Some saved Timeline activity could not be read. Valid activity is shown. Preserve the original before repairing it.':
@@ -114,6 +113,28 @@ String journeyLabel(BuildContext context, String label) =>
           }[label] ??
           label
     : const <String, String>{
+            'Loading your Timeline': 'Loading your schedule',
+            'Loading saved Timeline activity.':
+                'Loading saved schedule activity.',
+            'Timeline tasks could not be loaded':
+                'Schedule tasks could not be loaded',
+            'Timeline tasks could not be loaded.':
+                'Schedule tasks could not be loaded.',
+            'Saved Timeline activity could not be read':
+                'Saved schedule activity could not be read',
+            'Saved Timeline activity could not be read.':
+                'Saved schedule activity could not be read.',
+            'Your stored data was not erased. Preserve the original before repairing the active Timeline.':
+                'Your stored data was not erased. Preserve the original before repairing the active schedule.',
+            'Preserve and repair Timeline': 'Preserve and repair schedule',
+            'Some saved Timeline activity could not be read. Valid activity is shown; preserve the original before repairing it.':
+                'Some saved schedule activity could not be read. Valid activity is shown; preserve the original before repairing it.',
+            'Some saved Timeline activity could not be read. Valid activity is shown. Preserve the original before repairing it.':
+                'Some saved schedule activity could not be read. Valid activity is shown. Preserve the original before repairing it.',
+            'Task projections are unavailable. Saved Timeline activity is still shown.':
+                'Task projections are unavailable. Saved schedule activity is still shown.',
+            'Task projections are still loading. Saved Timeline activity is shown below.':
+                'Task projections are still loading. Saved schedule activity is shown below.',
             'Open Creator': 'Add a task',
             'Open Timeline': 'Open schedule',
           }[label] ??

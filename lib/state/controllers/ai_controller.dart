@@ -311,9 +311,9 @@ class AIController {
         request: requestContract,
         recommendation: timelineDeterministic,
         evidence: <String>[
-          'Timeline events available: ${timelineEvents.length}',
-          'Timeline health score: $timelineHealthScore',
-          'Timeline risk score: $timelineRiskScore',
+          'Schedule events available: ${timelineEvents.length}',
+          'Schedule health score: $timelineHealthScore',
+          'Schedule risk score: $timelineRiskScore',
         ],
       );
     }
@@ -566,7 +566,7 @@ class AIController {
         evidence: <String>[
           'Active task signals: ${taskEntities.length}',
           'Active goal signals: ${goals.length}',
-          'Timeline health score: $timelineHealthScore',
+          'Schedule health score: $timelineHealthScore',
         ],
         status: AssistantResponseStatus.fallback,
       );
@@ -859,7 +859,7 @@ class AIController {
 
     final String output =
         'SI ANALYSIS\n\n'
-        'Query: Timeline Deterministic Response\n\n'
+        'Query: Schedule Deterministic Response\n\n'
         'Current State:\n'
         '- Health: $timelineHealthScore%\n'
         '- Risk: $timelineRiskScore%\n'
@@ -872,7 +872,7 @@ class AIController {
         '- Latest milestone: $milestoneText\n\n'
         'Priority Task: Recover one overdue item or execute the nearest deadline now.\n'
         'Impact: ${timelineOverdueCount > 0 ? 'High' : 'Medium'}\n'
-        'Timeline Effect: Deterministic timeline signals used for overdue, upcoming, and on-track judgement.\n\n'
+        'Schedule Effect: Deterministic timeline signals used for overdue, upcoming, and on-track judgement.\n\n'
         'Next Actions:\n'
         '1. ${timelineOverdueCount > 0 ? 'Close one overdue item today.' : 'Protect timeline by completing the next deadline item.'}\n'
         '2. ${timelineUpcomingCount > 0 ? 'Pre-plan the next upcoming deadline block.' : 'Create one upcoming deadline anchor.'}\n'
@@ -978,7 +978,7 @@ class AIController {
         '- On-track state: $trackState\n\n'
         'Priority Task: Execute one goal-aligned high-impact block now.\n'
         'Impact: $impact\n'
-        'Timeline Effect: Deterministic trajectory signals used for pressure, momentum, divergence, and on-track judgement.\n\n'
+        'Schedule Effect: Deterministic trajectory signals used for pressure, momentum, divergence, and on-track judgement.\n\n'
         'Next Actions:\n'
         '1. $nextAction1\n'
         '2. $nextAction2\n'
@@ -1083,7 +1083,7 @@ class AIController {
         '- Top risk: $topRisk\n\n'
         'Priority Task: Advance the highest-priority active milestone this week.\n'
         'Impact: ${summary.overdue > 0 ? 'High' : 'Medium'}\n'
-        'Timeline Effect: Milestones bridge goals to daily execution and improve forecast reliability.\n\n'
+        'Schedule Effect: Milestones bridge goals to daily execution and improve forecast reliability.\n\n'
         'Next Actions:\n'
         '1. ${summary.overdue > 0 ? 'Recover one overdue milestone immediately.' : 'Move the next milestone forward today.'}\n'
         '2. ${summary.highestPriority == null ? 'Create one high-priority milestone.' : 'Block execution time for ${summary.highestPriority!.title}.'}\n'

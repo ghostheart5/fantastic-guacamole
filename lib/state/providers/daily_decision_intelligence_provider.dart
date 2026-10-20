@@ -60,14 +60,14 @@ final dailyDecisionIntelligenceProvider = Provider<DailyDecisionIntelligence>((
   final String fallbackAction =
       replan?.immediateAction ??
       (intelligenceAsync.hasError
-          ? 'Review unavailable decision evidence in SI Console.'
+          ? 'Review unavailable decision evidence in SI Chat.'
           : intelligenceAsync.isLoading
           ? 'Wait for current decision evidence before changing the plan.'
           : trajectory.pendingTasks == 0
           ? 'Capture one meaningful commitment in Creator.'
           : momentum.hasObservedEnergy && momentum.energyPercent < 35
           ? 'Choose the smallest feasible step from the current plan.'
-          : 'Open Smart Planner to rank the next feasible action.');
+          : 'Open Choose a step to rank the next feasible action.');
   final String primaryAction = decision?.recommendedAction ?? fallbackAction;
 
   final String trajectoryText =

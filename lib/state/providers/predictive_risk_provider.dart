@@ -97,6 +97,6 @@ String _mitigation(String code) => switch (code) {
   'pressure' => 'Reduce active load or schedule a recovery block.',
   'deferral' => 'Resolve one deferred commitment before adding another.',
   'deadline' => 'Protect the nearest feasible deadline block on Timeline.',
-  'capacity' => 'Apply Smart Planner and reconcile displaced commitments.',
+  'capacity' => 'Apply Choose a step and reconcile displaced commitments.',
   _ => 'Review the supporting evidence before choosing an intervention.',
 };

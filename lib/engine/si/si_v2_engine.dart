@@ -104,7 +104,7 @@ final class SIV2Engine {
           kind: SIV2StatementKind.observedFact,
           text: question.isSpanish
               ? '${tasks.length} ${tasks.length == 1 ? 'tarea activa coincide' : 'tareas activas coinciden'} con el filtro actual.'
-              : '${tasks.length} active task${tasks.length == 1 ? '' : 's'} matched the current lens.',
+              : '${tasks.length} active task${tasks.length == 1 ? '' : 's'} matched the selected information.',
           evidenceIds: <String>[sourceId(SIV2Source.tasks)],
         ),
       if (query.sources.contains(SIV2Source.goals))
@@ -112,7 +112,7 @@ final class SIV2Engine {
           kind: SIV2StatementKind.observedFact,
           text: question.isSpanish
               ? '${goals.length} ${goals.length == 1 ? 'meta activa coincide' : 'metas activas coinciden'} con el filtro actual.'
-              : '${goals.length} active goal${goals.length == 1 ? '' : 's'} matched the current lens.',
+              : '${goals.length} active goal${goals.length == 1 ? '' : 's'} matched the selected information.',
           evidenceIds: <String>[sourceId(SIV2Source.goals)],
         ),
       if (query.sources.contains(SIV2Source.milestones))
@@ -120,7 +120,7 @@ final class SIV2Engine {
           kind: SIV2StatementKind.observedFact,
           text: question.isSpanish
               ? '${milestones.length} ${milestones.length == 1 ? 'hito coincide' : 'hitos coinciden'} con el filtro actual.'
-              : '${milestones.length} milestone${milestones.length == 1 ? '' : 's'} matched the current lens.',
+              : '${milestones.length} milestone${milestones.length == 1 ? '' : 's'} matched the selected information.',
           evidenceIds: <String>[sourceId(SIV2Source.milestones)],
         ),
       if (query.sources.contains(SIV2Source.timeline))
@@ -128,7 +128,7 @@ final class SIV2Engine {
           kind: SIV2StatementKind.observedFact,
           text: question.isSpanish
               ? '${timeline.length} ${timeline.length == 1 ? 'evento del Historial coincide' : 'eventos del Historial coinciden'} con el filtro actual.'
-              : '${timeline.length} Timeline event${timeline.length == 1 ? '' : 's'} matched the current lens.',
+              : '${timeline.length} Schedule event${timeline.length == 1 ? '' : 's'} matched the selected information.',
           evidenceIds: <String>[sourceId(SIV2Source.timeline)],
         ),
     ];
@@ -266,7 +266,7 @@ final class SIV2Engine {
       if (namedTaskMissing)
         question.isSpanish
             ? 'No se encontró una tarea guardada que coincida con "${question.namedTaskPhrase}" en los datos seleccionados.'
-            : 'No saved task matching "${question.namedTaskPhrase}" was found in the selected evidence lens.',
+            : 'No saved task matching "${question.namedTaskPhrase}" was found in the selected saved information.',
       for (final SIV2Source source in query.sources)
         if (snapshot.unavailableSources.contains(source))
           question.isSpanish
@@ -277,25 +277,25 @@ final class SIV2Engine {
           tasks.isEmpty)
         question.isSpanish
             ? 'Ninguna tarea activa coincide con el filtro actual.'
-            : 'No active task evidence matched the current lens.',
+            : 'No active task evidence matched the selected information.',
       if (query.sources.contains(SIV2Source.goals) &&
           !snapshot.unavailableSources.contains(SIV2Source.goals) &&
           goals.isEmpty)
         question.isSpanish
             ? 'Ninguna meta coincide con el filtro actual.'
-            : 'No goal evidence matched the current lens.',
+            : 'No goal evidence matched the selected information.',
       if (query.sources.contains(SIV2Source.milestones) &&
           !snapshot.unavailableSources.contains(SIV2Source.milestones) &&
           milestones.isEmpty)
         question.isSpanish
             ? 'Ningún hito coincide con el filtro actual.'
-            : 'No milestone evidence matched the current lens.',
+            : 'No milestone evidence matched the selected information.',
       if (query.sources.contains(SIV2Source.timeline) &&
           !snapshot.unavailableSources.contains(SIV2Source.timeline) &&
           timeline.isEmpty)
         question.isSpanish
             ? 'Ningún evento del Historial coincide con el filtro actual.'
-            : 'No Timeline evidence matched the current lens.',
+            : 'No Schedule evidence matched the selected information.',
       if (query.entityFilter != null &&
           tasks.isEmpty &&
           goals.isEmpty &&
@@ -314,7 +314,7 @@ final class SIV2Engine {
       if (question.focus == _SIV2QuestionFocus.unsupported)
         question.isSpanish
             ? 'La pregunta no corresponde a una decisión de planificación que estos datos de solo lectura puedan responder.'
-            : 'The question does not identify a planning decision that this read-only evidence lens can answer.',
+            : 'The question does not identify a planning decision that this read-only Chat can answer.',
       ...?snapshot.personContext?.unknownKinds.map(
         (PersonContextKind kind) => question.isSpanish
             ? 'El Contexto personal no contiene ${kind.name} informado por la persona; SI no lo dedujo.'
@@ -347,7 +347,7 @@ final class SIV2Engine {
           kind: SIV2StatementKind.inference,
           text: question.isSpanish
               ? 'Ninguna fecha vencida domina este filtro; la prioridad y el orden de dependencias deben guiar la elección.'
-              : 'No overdue deadline dominates this lens; priority and dependency order should drive the choice.',
+              : 'No overdue deadline dominates this saved information; priority and dependency order should drive the choice.',
           evidenceIds: focusTask == null
               ? const <String>[]
               : <String>['tasks:${focusTask.id}'],
@@ -357,7 +357,7 @@ final class SIV2Engine {
     final String groundedAnswer = namedTaskMissing
         ? question.isSpanish
               ? 'No encuentro una tarea guardada que coincida con "${question.namedTaskPhrase}" en los datos seleccionados. No puedo explicar su posición ni afirmar que tenga una fecha guardada. Comprueba el título o amplía el filtro.'
-              : 'I could not find a saved task matching "${question.namedTaskPhrase}" in the selected evidence lens. I cannot explain its rank or claim a saved date. Check the title or widen the filter.'
+              : 'I could not find a saved task matching "${question.namedTaskPhrase}" in the selected saved information. I cannot explain its rank or claim a saved date. Check the title or widen the filter.'
         : _directAnswer(
             question: question,
             focusTask: focusTask,
@@ -384,7 +384,7 @@ final class SIV2Engine {
     final String recommendation = namedTaskMissing
         ? question.isSpanish
               ? 'Comprueba el título exacto de la tarea o amplía el filtro antes de decidir. SI no cambió datos guardados.'
-              : 'Check the exact task title or widen the evidence lens before deciding. SI has not changed saved data.'
+              : 'Check the exact task title or include more saved information before deciding. SI has not changed saved data.'
         : _recommendation(
             question: question,
             focusTask: focusTask,
@@ -441,7 +441,7 @@ final class SIV2Engine {
           ? <String>[
               question.isSpanish
                   ? 'La pregunta no corresponde a una decisión de planificación que pueda responderse con estos datos.'
-                  : 'The question does not identify a planning decision that this read-only evidence lens can answer.',
+                  : 'The question does not identify a planning decision that this read-only Chat can answer.',
             ]
           : missing,
       conflicts: refusal ? const <SIV2Conflict>[] : conflicts,
@@ -667,7 +667,7 @@ final class SIV2Engine {
         SIV2EvidenceLink(
           evidenceId: '${source.name}:collection',
           source: source,
-          label: '${source.label} lens ($count matched)',
+          label: '${source.label} records ($count matched)',
           entityId: 'collection',
           observedAt: snapshot.observedAt,
           uri: 'chronospark://${source.name}',
@@ -783,7 +783,7 @@ final class SIV2Engine {
             conflictId: 'missing-goal:$goalId:${task.id}',
             severity: SIV2ConflictSeverity.warning,
             summary:
-                'Task "${task.title}" references a goal outside the current evidence lens.',
+                'Task "${task.title}" references a goal outside the selected saved information.',
             evidenceIds: <String>[
               if (linkById.containsKey(taskEvidence)) taskEvidence,
             ],
@@ -820,7 +820,7 @@ final class SIV2Engine {
             conflictId: 'missing-milestone-dependency:${milestone.id}',
             severity: SIV2ConflictSeverity.warning,
             summary:
-                'Milestone "${milestone.title}" has ${missingDependencies.length} dependency reference${missingDependencies.length == 1 ? '' : 's'} outside the lens.',
+                'Milestone "${milestone.title}" has ${missingDependencies.length} dependency reference${missingDependencies.length == 1 ? '' : 's'} outside the selected information.',
             evidenceIds: <String>[if (linkById.containsKey(evidence)) evidence],
           ),
         );
@@ -955,23 +955,23 @@ final class SIV2Engine {
   }) {
     if (question.focus == _SIV2QuestionFocus.evidenceGaps) {
       return missingInformation.isEmpty
-          ? 'No evidence gaps were identified in the selected lens.'
-          : 'The selected lens has these missing or conflicting items: ${missingInformation.join(' ')}';
+          ? 'No evidence gaps were identified in the selected information.'
+          : 'The selected information has these missing or conflicting items: ${missingInformation.join(' ')}';
     }
     if (totalMatched == 0) {
       return switch (question.focus) {
         _SIV2QuestionFocus.counterfactual =>
-          'The answer would change if the lens exposed a relevant dated or prioritized active task.',
+          'The answer would change if the selected information included a relevant dated or prioritized active task.',
         _SIV2QuestionFocus.forecast =>
           'No matched task supports the do, defer, and skip scenario requested in your question.',
         _SIV2QuestionFocus.comparison =>
-          'The selected lens does not contain two matched records for the comparison you asked for.',
+          'The selected information does not contain two matched records for the comparison you asked for.',
         _SIV2QuestionFocus.conflict =>
           'No explicit schedule, goal-link, or milestone-dependency conflict matching your question was found.',
         _SIV2QuestionFocus.progress =>
-          'No milestone completion record matched, so SI cannot determine progress from this lens.',
+          'No milestone completion record matched, so SI cannot determine progress from this saved information.',
         _SIV2QuestionFocus.unsupported =>
-          'SI cannot answer that question from saved tasks, goals, milestones, or Timeline records. It will not substitute an unrelated planning report.',
+          'SI cannot answer that question from saved tasks, goals, milestones, or Schedule records. It will not substitute an unrelated planning report.',
         _ =>
           'No saved evidence item matched the selected sources, date range, and entity filter, so SI cannot answer this question from app data.',
       };
@@ -995,7 +995,7 @@ final class SIV2Engine {
             ? 0
             : question.titleScore(focusMilestone.title);
         if (focusGoal != null && goalMatch > milestoneMatch) {
-          return 'No active task is linked in this lens, so the next grounded decision is to identify an action for goal "${focusGoal.title}".';
+          return 'No active task is linked in this saved information, so the next grounded decision is to identify an action for goal "${focusGoal.title}".';
         }
         if (focusMilestone != null) {
           return 'No active task matched, but milestone "${focusMilestone.title}" is the clearest recorded place to inspect next.';
@@ -1034,7 +1034,7 @@ final class SIV2Engine {
           return date != null &&
               !date.toUtc().isAfter(now.add(const Duration(days: 7)));
         }).length;
-        return 'The selected lens contains ${tasks.length} active task${tasks.length == 1 ? '' : 's'}: $highPriority high-priority and $datedWithinWeek recorded as due, scheduled, or overdue within seven days.';
+        return 'The selected information contains ${tasks.length} active task${tasks.length == 1 ? '' : 's'}: $highPriority high-priority and $datedWithinWeek recorded as due, scheduled, or overdue within seven days.';
       case _SIV2QuestionFocus.progress:
         final List<SIV2MilestoneEvidence> relevantMilestones = focusGoal == null
             ? focusMilestone == null
@@ -1049,7 +1049,7 @@ final class SIV2Engine {
           final String subject = focusGoal == null
               ? 'the matched evidence'
               : 'goal "${focusGoal.title}"';
-          return 'No milestone completion record is available for $subject, so SI cannot determine progress from the current lens.';
+          return 'No milestone completion record is available for $subject, so SI cannot determine progress from the selected information.';
         }
         final double average =
             relevantMilestones
@@ -1077,17 +1077,17 @@ final class SIV2Engine {
                     milestone.goalId == focusGoal.id,
               )
               .length;
-          return 'Goal "${focusGoal.title}" has $linkedTasks linked active task${linkedTasks == 1 ? '' : 's'} and $linkedMilestones linked milestone${linkedMilestones == 1 ? '' : 's'} in the current lens.';
+          return 'Goal "${focusGoal.title}" has $linkedTasks linked active task${linkedTasks == 1 ? '' : 's'} and $linkedMilestones linked milestone${linkedMilestones == 1 ? '' : 's'} in the selected information.';
         }
-        return 'No task-to-goal or milestone-to-goal link in the current lens answers the alignment question.';
+        return 'No task-to-goal or milestone-to-goal link in the selected information answers the alignment question.';
       case _SIV2QuestionFocus.schedule:
         if (focusTask != null) {
           return 'The relevant saved task is "${focusTask.title}", with ${_timingLabel(focusTask.dueDate ?? focusTask.scheduledFor, now)}.';
         }
         if (focusTimeline != null) {
-          return 'The relevant Timeline record is "${focusTimeline.title}" from ${_dateLabel(focusTimeline.timestamp)} with status "${focusTimeline.status}".';
+          return 'The relevant Schedule record is "${focusTimeline.title}" from ${_dateLabel(focusTimeline.timestamp)} with status "${focusTimeline.status}".';
         }
-        return 'No matched task or Timeline record contains a date that answers the scheduling question.';
+        return 'No matched task or Schedule record contains a date that answers the scheduling question.';
       case _SIV2QuestionFocus.comparison:
         return _comparisonAnswer(
           question: question,
@@ -1145,19 +1145,19 @@ final class SIV2Engine {
         );
         return conflict == null
             ? 'No explicit schedule, goal-link, or milestone-dependency conflict matching your question was found.'
-            : '${conflict.summary} ${conflicts.length == 1 ? 'This is the only explicit conflict in the lens.' : '${conflicts.length - 1} other explicit conflict(s) are also present.'}';
+            : '${conflict.summary} ${conflicts.length == 1 ? 'This is the only explicit conflict in the selected information.' : '${conflicts.length - 1} other explicit conflict(s) are also present.'}';
       case _SIV2QuestionFocus.counterfactual:
         return focusTask == null
-            ? 'The answer would change if the selected lens exposed a relevant dated or prioritized active task.'
+            ? 'The answer would change if the selected information exposed a relevant dated or prioritized active task.'
             : 'For "${focusTask.title}", the answer would change if another relevant task gained an earlier due date, higher priority, or blocking dependency.';
       case _SIV2QuestionFocus.timeline:
         return focusTimeline == null
-            ? 'No Timeline record matches the event or history question in the current lens.'
-            : 'Timeline records "${focusTimeline.title}" at ${_dateLabel(focusTimeline.timestamp)} with type "${focusTimeline.type}" and status "${focusTimeline.status}".';
+            ? 'No Schedule record matches the event or history question in the selected information.'
+            : 'Schedule records "${focusTimeline.title}" at ${_dateLabel(focusTimeline.timestamp)} with type "${focusTimeline.type}" and status "${focusTimeline.status}".';
       case _SIV2QuestionFocus.evidenceGaps:
         return missingInformation.isEmpty
-            ? 'No evidence gaps were identified in the selected lens.'
-            : 'The selected lens has these missing or conflicting items: ${missingInformation.join(' ')}';
+            ? 'No evidence gaps were identified in the selected information.'
+            : 'The selected information has these missing or conflicting items: ${missingInformation.join(' ')}';
       case _SIV2QuestionFocus.overview:
         if (question.requestsListing) {
           final List<String> titles = switch (question.sourceHint) {
@@ -1169,18 +1169,18 @@ final class SIV2Engine {
           };
           final String label = question.sourceHint?.name ?? 'items';
           if (titles.isEmpty) {
-            return 'No saved $label match the current evidence lens.';
+            return 'No saved $label match the selected saved information.';
           }
-          return '${titles.length} saved $label match the current evidence lens:\n'
+          return '${titles.length} saved $label match the selected saved information:\n'
               '${titles.take(20).map((title) => '\u2022 $title').join('\n')}'
-              '${titles.length > 20 ? '\nShowing the first 20; narrow the lens to inspect the rest.' : ''}';
+              '${titles.length > 20 ? '\nShowing the first 20; select fewer saved records to inspect the rest.' : ''}';
         }
         if (focusTask != null && question.titleScore(focusTask.title) > 0) {
           return 'Your question most closely matches saved task "${focusTask.title}", recorded at priority ${focusTask.priority}/5 with ${_timingLabel(focusTask.dueDate ?? focusTask.scheduledFor, now)}.';
         }
         return '$totalMatched evidence item${totalMatched == 1 ? '' : 's'} matched. Ask about the next action, urgency, workload, progress, schedule, goal alignment, conflicts, or a named saved item for a more specific answer.';
       case _SIV2QuestionFocus.unsupported:
-        return 'SI cannot answer that question from saved tasks, goals, milestones, or Timeline records. It will not substitute an unrelated planning report.';
+        return 'SI cannot answer that question from saved tasks, goals, milestones, or Schedule records. It will not substitute an unrelated planning report.';
     }
   }
 
@@ -1210,7 +1210,7 @@ final class SIV2Engine {
       case _SIV2QuestionFocus.timeline:
       case _SIV2QuestionFocus.schedule:
         if (focusTimeline != null && focusTask == null) {
-          return 'Open Timeline record "${focusTimeline.title}" to verify its recorded status before acting.$noMutation';
+          return 'Open Schedule record "${focusTimeline.title}" to verify its recorded status before acting.$noMutation';
         }
         break;
       case _SIV2QuestionFocus.explanation:
@@ -1220,9 +1220,9 @@ final class SIV2Engine {
         }
         break;
       case _SIV2QuestionFocus.unsupported:
-        return 'Ask a planning question that can be checked against tasks, goals, milestones, or Timeline; SI will not invent an answer.';
+        return 'Ask a planning question that can be checked against tasks, goals, milestones, or Schedule; SI will not invent an answer.';
       case _SIV2QuestionFocus.evidenceGaps:
-        return 'Review the named evidence gaps before relying on this lens for a planning decision.$noMutation';
+        return 'Review the named evidence gaps before relying on this saved information for a planning decision.$noMutation';
       case _SIV2QuestionFocus.workload:
       case _SIV2QuestionFocus.urgency:
       case _SIV2QuestionFocus.nextAction:
@@ -1231,7 +1231,7 @@ final class SIV2Engine {
       case _SIV2QuestionFocus.counterfactual:
       case _SIV2QuestionFocus.overview:
         if (question.requestsListing) {
-          return 'Review the listed saved records; narrow the evidence lens if needed.$noMutation';
+          return 'Review the listed saved records; select fewer saved records if needed.$noMutation';
         }
         break;
     }
@@ -1247,7 +1247,7 @@ final class SIV2Engine {
     if (focusMilestone != null) {
       return 'Review milestone "${focusMilestone.title}" before deciding what should happen next.$noMutation';
     }
-    return 'Broaden the selected evidence sources or date range; the current lens does not support a grounded recommendation.$noMutation';
+    return 'Broaden the selected evidence sources or date range; the selected information does not support a grounded recommendation.$noMutation';
   }
 
   SIV2TaskEvidence? _selectFocusTask(
@@ -1484,7 +1484,7 @@ final class SIV2Engine {
         : 'target ${_dateLabel(utc)}';
   }
 
-  // Goal targets are local calendar dates, like Home and Timeline. UTC here
+  // Goal targets are local calendar dates, like Home and Schedule. UTC here
   // is only a day key, so comparing days remains safe across DST transitions.
   DateTime _localDay(DateTime value) {
     if (value.hour == 0 &&
@@ -1833,7 +1833,7 @@ final class _SIV2Question {
       add(
         title: timeline.title,
         evidenceId: 'timeline:${timeline.id}',
-        kind: 'Timeline record',
+        kind: 'Schedule record',
         source: SIV2Source.timeline,
       );
     }

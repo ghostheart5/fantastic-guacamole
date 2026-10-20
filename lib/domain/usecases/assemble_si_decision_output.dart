@@ -66,11 +66,11 @@ class AssembleSiDecisionOutput {
         'At least two task skips were recorded in the last seven days; their reasons are unknown.',
       if (emotionalStrain) 'Emotional strain detected ($emotion).',
       if (timelineOverdueCount > 0)
-        'Timeline has $timelineOverdueCount overdue item${timelineOverdueCount == 1 ? '' : 's'}.',
+        'Schedule has $timelineOverdueCount overdue item${timelineOverdueCount == 1 ? '' : 's'}.',
       if (timelineRiskEventsCount > 0)
-        'Timeline risk signals active ($timelineRiskEventsCount).',
+        'Schedule risk signals active ($timelineRiskEventsCount).',
       if (timelineHealthScore < healthWarningThreshold)
-        'Timeline health is $timelineHealthScore% with elevated risk $timelineRiskScore%.',
+        'Schedule health is $timelineHealthScore% with elevated risk $timelineRiskScore%.',
     ];
 
     final String nextAction =
@@ -114,7 +114,7 @@ class AssembleSiDecisionOutput {
         : 'Rebuild momentum with one immediate win.';
 
     final String plannerMessage = warnings.isEmpty
-        ? 'Timeline is stable (health $timelineHealthScore%). Execute the ranked next action and use the result to update the plan. $memoryHint'
+        ? 'Schedule is stable (health $timelineHealthScore%). Execute the ranked next action and use the result to update the plan. $memoryHint'
         : 'Current evidence shows pressure (timeline risk $timelineRiskScore%). Reduce load or resolve the highest-ranked constraint before adding work.';
 
     return SiDecisionDraft(

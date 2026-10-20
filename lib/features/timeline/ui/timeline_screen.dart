@@ -52,7 +52,7 @@ final class _TimelineSafetyCopy {
 
   String get repairTitle => isSpanish
       ? '¿Reparar la actividad guardada de la Línea de Tiempo?'
-      : 'Repair saved Timeline activity?';
+      : 'Repair saved schedule activity?';
   String get repairBody => isSpanish
       ? 'Axiomara conservará primero los datos originales que no se pueden leer y luego mantendrá cada registro de actividad válido que pueda recuperar.'
       : 'Axiomara will preserve the original unreadable data first, then keep every valid activity record it can read.';
@@ -61,10 +61,10 @@ final class _TimelineSafetyCopy {
       isSpanish ? 'Conservar y reparar' : 'Preserve and repair';
   String get repaired => isSpanish
       ? 'La actividad de la Línea de Tiempo se reparó. Se conservaron los datos originales que no se podían leer.'
-      : 'Timeline activity repaired. The original unreadable data was preserved.';
+      : 'Schedule activity repaired. The original unreadable data was preserved.';
   String get notChanged => isSpanish
       ? 'La actividad de la Línea de Tiempo no cambió porque no se pudo conservar su copia de recuperación.'
-      : 'Timeline activity was not changed because its recovery copy could not be preserved.';
+      : 'Schedule activity was not changed because its recovery copy could not be preserved.';
 }
 
 class TimelineScreen extends ConsumerStatefulWidget {

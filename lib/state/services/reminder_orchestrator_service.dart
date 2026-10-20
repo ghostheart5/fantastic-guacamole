@@ -243,7 +243,7 @@ class ReminderOrchestratorService {
         await _scheduler.scheduleDailyAt(
           id: _dailyPlanningReminderId,
           title: 'Daily Planning Reminder',
-          body: 'Open Planner and set your top 3 execution targets.',
+          body: 'Open Axiomara and choose one manageable next step.',
           hour: hour,
           minute: minute,
           accountScope: _accountScope,
@@ -379,7 +379,7 @@ class ReminderOrchestratorService {
           await daily(
             _dailyPlanningReminderId,
             'Daily Planning Reminder',
-            'Open Planner and set your top 3 execution targets.',
+            'Open Axiomara and choose one manageable next step.',
             prefs.dailyPlanningHour,
             prefs.dailyPlanningMinute,
           );

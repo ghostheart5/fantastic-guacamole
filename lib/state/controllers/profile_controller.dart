@@ -133,7 +133,12 @@ class ProfileState {
       longestStreak: (json['longestStreak'] as num?)?.toInt() ?? 0,
       // Migrate the retired built-in default without changing
       // any real custom profile name.
-      name: const <String>{'Operative', 'ChronoSpark User'}.contains(storedName)
+      name:
+          const <String>{
+            'Operative',
+            'ChronoSpark User',
+            'Axiomara User',
+          }.contains(storedName)
           ? 'Axiomara User'
           : storedName,
       soundEnabled: json['soundEnabled'] as bool? ?? true,

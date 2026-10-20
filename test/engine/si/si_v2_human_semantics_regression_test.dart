@@ -242,7 +242,7 @@ void main() {
         expect(response.recommendation, contains('SI no cambió ningún dato'));
         expect(
           response.observedFacts.map((statement) => statement.text).join(' '),
-          isNot(contains('matched the current lens')),
+          isNot(contains('matched the selected information')),
         );
       },
     );

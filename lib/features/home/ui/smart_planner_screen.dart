@@ -652,7 +652,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     );
     _recordOperatingOutcome(
       DecisionOutcomeKind.accepted,
-      detail: 'Accepted through Smart Planner Use this plan.',
+      detail: 'Accepted through Choose a step Use this plan.',
       optionChosen: response.recommendedKind.name,
       optionSizeMinutes:
           response.optionByKind[response.recommendedKind]?.estimatedMinutes,
