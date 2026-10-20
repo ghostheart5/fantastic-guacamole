@@ -30,14 +30,15 @@ void main() {
         find.byType(TextField).first,
         'Synthetic recurring task',
       );
+      await _expandTaskOptions(tester);
       await tester.tap(find.byKey(const Key('creator-task-repeat')));
       await tester.pumpAndSettle();
       await tester.tap(
         find.text(rule == RecurrenceRule.daily ? 'Daily' : 'Weekly').last,
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('CREATE TASK'));
-      await tester.tap(find.text('CREATE TASK'));
+      await tester.ensureVisible(find.text('Save task'));
+      await tester.tap(find.text('Save task'));
       await tester.pump();
       expect(submitted?.recurrenceRule, rule);
     });
@@ -63,14 +64,15 @@ void main() {
         ),
       );
       await tester.enterText(find.byType(TextField).first, 'Sort three bills');
+      await _expandTaskOptions(tester);
       await tester.tap(find.byKey(const Key('creator-task-estimate')));
       await tester.pumpAndSettle();
       expect(find.text('1 hours 30 min'), findsNothing);
       expect(find.text('1 hour 30 min'), findsOneWidget);
       await tester.tap(find.text('$minutes minutes').last);
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('CREATE TASK'));
-      await tester.tap(find.text('CREATE TASK'));
+      await tester.ensureVisible(find.text('Save task'));
+      await tester.tap(find.text('Save task'));
       await tester.pump();
       expect(submitted?.estimatedDuration, Duration(minutes: minutes));
       expect(submitted?.title, 'Sort three bills');
@@ -95,13 +97,14 @@ void main() {
     await tester.enterText(find.byType(TextField).first, 'A saved intention');
     await tester.pump();
     expect(find.bySemanticsLabel(RegExp('Title, required')), findsOneWidget);
+    await _expandDescription(tester);
     expect(
       find.bySemanticsLabel(RegExp('Description \\(optional\\)')),
       findsOneWidget,
     );
     semantics.dispose();
   });
-  testWidgets('Creator defaults to Task with the complete task field set', (
+  testWidgets('Task options start closed and defaults survive a simple save', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(900, 1600);
@@ -121,25 +124,29 @@ void main() {
       ),
     );
 
-    expect(find.text('CREATE TASK'), findsOneWidget);
+    expect(find.text('Save task'), findsOneWidget);
     expect(find.byKey(const Key('creator-type-selector')), findsOneWidget);
-    expect(find.text('ACTIVE GOAL'), findsOneWidget);
-    expect(find.text('ESTIMATED DURATION'), findsOneWidget);
-    expect(find.text('PRIORITY'), findsOneWidget);
-    expect(find.text('SCHEDULE'), findsOneWidget);
-    expect(find.text('DEADLINE'), findsOneWidget);
+    expect(find.text('Link to a goal (optional)'), findsNothing);
+    expect(find.text('About how long?'), findsNothing);
+    expect(find.text('PRIORITY'), findsNothing);
+    expect(find.text('When to work on it (optional)'), findsNothing);
+    expect(find.text('Due date (optional)'), findsNothing);
+    expect(find.byKey(const Key('creator-task-options')), findsOneWidget);
 
     final Finder titleField = find.byWidgetPredicate(
       (Widget widget) =>
           widget is TextField && widget.decoration?.hintText == 'Title *',
     );
     await tester.enterText(titleField, 'Ship the launch task');
-    await tester.ensureVisible(find.text('CREATE TASK'));
-    await tester.tap(find.text('CREATE TASK'));
+    await tester.ensureVisible(find.text('Save task'));
+    await tester.tap(find.text('Save task'));
     await tester.pump();
 
     expect(submitted?.type, 'Task');
     expect(submitted?.estimatedDuration, const Duration(minutes: 30));
+    expect(submitted?.priority, 3);
+    expect(submitted?.scheduledFor, isNull);
+    expect(submitted?.recurrenceRule, RecurrenceRule.none);
   });
 
   testWidgets('Task links an active goal and submits an estimate', (
@@ -175,14 +182,17 @@ void main() {
       ),
       'Prepare release evidence',
     );
+    await _expandTaskOptions(tester);
     await tester.tap(find.byKey(const Key('creator-task-goal-link')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ship ChronoSpark').last);
     await tester.pumpAndSettle();
+    await _expandTaskOptions(tester);
     await tester.tap(find.byKey(const Key('creator-task-estimate')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('45 minutes').last);
     await tester.pumpAndSettle();
+    await _expandTaskOptions(tester);
     await tester.ensureVisible(find.text('Schedule date and time...'));
     await tester.tap(find.text('Schedule date and time...'));
     await tester.pumpAndSettle();
@@ -191,7 +201,7 @@ void main() {
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
     expect(
-      find.bySemanticsLabel(RegExp(r'^SCHEDULE: .+')),
+      find.bySemanticsLabel(RegExp(r'^When to work on it \(optional\): .+')),
       findsOneWidget,
       reason: 'The selected date and time must be announced, not just shown.',
     );
@@ -200,8 +210,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('CREATE TASK'));
-    await tester.tap(find.text('CREATE TASK'));
+    await tester.ensureVisible(find.text('Save task'));
+    await tester.tap(find.text('Save task'));
     await tester.pump();
 
     expect(submitted?.goalId, 'goal-1');
@@ -231,10 +241,13 @@ void main() {
       ),
     );
 
-    expect(find.text('TARGET DATE'), findsOneWidget);
+    expect(find.text('Target date (optional)'), findsNothing);
+    await tester.tap(find.byKey(const Key('creator-goal-options')));
+    await tester.pumpAndSettle();
+    expect(find.text('Target date (optional)'), findsOneWidget);
     expect(find.text('PRIORITY'), findsNothing);
-    expect(find.text('SCHEDULE'), findsNothing);
-    expect(find.text('DEADLINE'), findsNothing);
+    expect(find.text('When to work on it (optional)'), findsNothing);
+    expect(find.text('Due date (optional)'), findsNothing);
     await tester.enterText(
       find.byWidgetPredicate(
         (Widget widget) =>
@@ -246,7 +259,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('CREATE GOAL'));
+    await tester.tap(find.text('Save goal'));
     await tester.pump();
 
     expect(submitted?.kind, CreatorFormKind.goal);
@@ -275,7 +288,7 @@ void main() {
       ),
     );
 
-    expect(find.text('CADENCE / RECURRENCE'), findsOneWidget);
+    expect(find.text('How often?'), findsOneWidget);
     expect(find.byKey(const Key('creator-rhythm-cadence')), findsOneWidget);
     final increase = find.byKey(const Key('creator-rhythm-increase'));
     final foreground = IconTheme.of(
@@ -307,7 +320,7 @@ void main() {
     );
     await tester.tap(find.text('Weekly'));
     await tester.tap(find.byKey(const Key('creator-rhythm-increase')));
-    await tester.tap(find.text('CREATE DAILY RHYTHM'));
+    await tester.tap(find.text('Save habit'));
     await tester.pump();
 
     expect(submitted?.kind, CreatorFormKind.habit);
@@ -339,13 +352,13 @@ void main() {
 
     expect(find.text('Body (optional)'), findsOneWidget);
     for (final String taskField in <String>[
-      'ACTIVE GOAL',
-      'ESTIMATED DURATION',
+      'Link to a goal (optional)',
+      'About how long?',
       'PRIORITY',
-      'SCHEDULE',
-      'DEADLINE',
-      'CADENCE / RECURRENCE',
-      'TARGET DATE',
+      'When to work on it (optional)',
+      'Due date (optional)',
+      'How often?',
+      'Target date (optional)',
     ]) {
       expect(find.text(taskField), findsNothing, reason: taskField);
     }
@@ -354,7 +367,7 @@ void main() {
         .toList(growable: false);
     await tester.enterText(find.byWidget(fields.first), 'Decision context');
     await tester.enterText(find.byWidget(fields.last), 'Keep this as a note.');
-    await tester.tap(find.text('CREATE NOTE'));
+    await tester.tap(find.text('Save note'));
     await tester.pump();
 
     expect(submitted?.kind, CreatorFormKind.note);
@@ -411,6 +424,7 @@ void main() {
       (Widget widget) =>
           widget is TextField && widget.decoration?.hintText == 'Title *',
     );
+    await _expandDescription(tester);
     final Finder descriptionField = find.byWidgetPredicate(
       (Widget widget) =>
           widget is TextField &&
@@ -426,8 +440,8 @@ void main() {
     );
     expect(submitted, isNull);
 
-    await tester.ensureVisible(find.text('CREATE TASK'));
-    await tester.tap(find.text('CREATE TASK'));
+    await tester.ensureVisible(find.text('Save task'));
+    await tester.tap(find.text('Save task'));
     await tester.pump();
     expect(submitted?.title, 'Review one release decision');
     expect(submitted?.estimatedDuration, const Duration(minutes: 20));
@@ -463,6 +477,7 @@ void main() {
           ),
         ),
       );
+      await _expandTaskOptions(tester);
       final picker = find.byKey(const Key('creator-task-estimate'));
       Duration? estimate() =>
           tester.widget<DropdownButton<Duration>>(picker).value;
@@ -523,6 +538,7 @@ void main() {
     rebuild(() => draftId = null);
     await tester.pump();
 
+    await _expandDescription(tester);
     final Iterable<TextField> fields = tester.widgetList<TextField>(
       find.byType(TextField),
     );
@@ -588,6 +604,7 @@ void main() {
       ),
     );
 
+    await _expandTaskOptions(tester);
     await tester.ensureVisible(find.text('Schedule date and time...'));
     await tester.tap(find.text('Schedule date and time...'));
     await tester.pumpAndSettle();
@@ -624,6 +641,7 @@ void main() {
     await tester.enterText(titleField, 'Keep this title intact');
     expect(tester.testTextInput.isVisible, isTrue);
 
+    await _expandTaskOptions(tester);
     final Finder schedule = find.text('Schedule date and time...');
     await tester.ensureVisible(schedule);
     await tester.tap(schedule);
@@ -675,8 +693,8 @@ void main() {
       ),
     );
 
-    expect(find.text('CREATE TASK'), findsOneWidget);
-    expect(find.text('SCHEDULE'), findsOneWidget);
+    expect(find.text('Save task'), findsOneWidget);
+    expect(find.text('When to work on it'), findsOneWidget);
     expect(find.text('Body (optional)'), findsNothing);
     final Finder titleField = find.byWidgetPredicate(
       (Widget widget) =>
@@ -684,17 +702,15 @@ void main() {
     );
     await tester.enterText(titleField, 'Prepare the first launch');
     await tester.tap(find.bySemanticsLabel('Set priority level 4'));
-    await tester.ensureVisible(find.text('CREATE TASK'));
-    await tester.tap(find.text('CREATE TASK'));
+    await tester.ensureVisible(find.text('Save task'));
+    await tester.tap(find.text('Save task'));
     await tester.pump();
 
     expect(titleReady, isTrue);
     expect(priorityChosen, isTrue);
     expect(submitted, isFalse);
     expect(
-      find.text(
-        'Choose a date and time so your first task can appear on Timeline.',
-      ),
+      find.text('Choose a date and time to see this task in your schedule.'),
       findsOneWidget,
     );
   });
@@ -721,8 +737,8 @@ void main() {
           widget is TextField && widget.decoration?.hintText == 'Title *',
     );
     await tester.enterText(titleField, 'Keep this task');
-    await tester.ensureVisible(find.text('CREATE TASK'));
-    await tester.tap(find.text('CREATE TASK'));
+    await tester.ensureVisible(find.text('Save task'));
+    await tester.tap(find.text('Save task'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -750,4 +766,22 @@ class _DraftTitleValidityNotifier extends Notifier<bool> {
   bool build() => false;
 
   void set(bool value) => state = value;
+}
+
+Future<void> _expandTaskOptions(WidgetTester tester) async {
+  final options = find.byKey(const Key('creator-task-options'));
+  if (options.evaluate().isEmpty ||
+      find.byKey(const Key('creator-task-repeat')).evaluate().isNotEmpty) {
+    return;
+  }
+  await tester.ensureVisible(options);
+  await tester.tap(find.text('Task options (optional)'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _expandDescription(WidgetTester tester) async {
+  final toggle = find.byKey(const Key('creator-description-options'));
+  await tester.ensureVisible(toggle);
+  await tester.tap(toggle);
+  await tester.pumpAndSettle();
 }

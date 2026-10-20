@@ -985,6 +985,7 @@ ButtonStyle _siSegmentedStyle(Color accent) {
 
 class _InputBar extends ConsumerWidget {
   const _InputBar({
+    required this.isVoiceActive,
     required this.controller,
     required this.entityFilterController,
     required this.scenarioAssumptionController,
@@ -1014,6 +1015,7 @@ class _InputBar extends ConsumerWidget {
   final bool compact;
   final bool busy;
   final bool enabled;
+  final bool Function() isVoiceActive;
 
   void _insertShortcut(String shortcut) {
     controller
@@ -1026,11 +1028,12 @@ class _InputBar extends ConsumerWidget {
     final SIRoutineCopy copy = ChronoSparkLocalizations.of(context).siRoutine;
     final VoiceState voice = ref.watch(voiceControllerProvider);
     final bool listening = voice.isListening;
-    final bool interactive = enabled && !busy;
+    final bool interactive = isVoiceActive() && enabled && !busy;
 
     // Recognized speech populates the query box for explicit review and
     // send - it is never auto-sent or routed as a shortcut.
     ref.listen<VoiceState>(voiceControllerProvider, (previous, next) {
+      if (!isVoiceActive()) return;
       if (next.error != null &&
           next.error != previous?.error &&
           context.mounted) {
@@ -1487,8 +1490,9 @@ class _InputBar extends ConsumerWidget {
                                 voiceInputConsentStoreProvider,
                               ),
                               isCurrentRequest: () =>
+                                  isVoiceActive() &&
                                   controller.lifecycleRevision ==
-                                  lifecycleRevision,
+                                      lifecycleRevision,
                             );
                           },
                           child: Container(

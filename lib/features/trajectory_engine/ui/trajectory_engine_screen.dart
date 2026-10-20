@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'package:fantastic_guacamole/l10n/journey_copy.dart';
+
 import 'dart:async';
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
@@ -85,23 +86,27 @@ class _TrajectoryEngineScreenState
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
             children: <Widget>[
               TemporalScreenHeader(
-                title: journeyText(context, 'FUTURE BRANCHES', 'RAMAS FUTURAS'),
+                title: journeyText(
+                  context,
+                  'Patterns & future outcomes',
+                  'Patrones y resultados futuros',
+                ),
                 subtitle: journeyText(
                   context,
-                  'Compare possible consequences before you commit. Simulations are estimates, never promises.',
-                  'Compara consecuencias posibles antes de comprometerte. Las simulaciones son estimaciones, nunca promesas.',
+                  'See where your current plan could lead. Choose an option to explore a different outcome.',
+                  'Ve adónde podría llevarte tu plan. Elige una opción para explorar otro resultado.',
                 ),
                 eyebrow: journeyText(
                   context,
-                  'Counterfactual decision space',
-                  'Espacio de decisiones contrafactuales',
+                  'Predictions are possibilities, not promises',
+                  'Las predicciones son posibilidades, no promesas',
                 ),
                 onBack: () => goToAppView(context, ref, AppView.nexus),
                 trailing: IconButton(
                   tooltip: journeyText(
                     context,
-                    'Recalculate trajectory',
-                    'Recalcular trayectoria',
+                    'Update estimate',
+                    'Actualizar estimación',
                   ),
                   constraints: const BoxConstraints.tightFor(
                     width: AppSizes.touchTarget,
@@ -112,6 +117,19 @@ class _TrajectoryEngineScreenState
                 ),
               ),
               const SizedBox(height: 20),
+              OutlinedButton.icon(
+                key: const Key('insights-patterns'),
+                onPressed: () => goToAppView(context, ref, AppView.progression),
+                icon: const Icon(Icons.insights_outlined),
+                label: Text(
+                  journeyText(
+                    context,
+                    'My patterns & progress',
+                    'Mis patrones y progreso',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               _TrajectoryStateNotice(
                 status: model.status,
                 detail: model.statusDetail,
@@ -189,6 +207,20 @@ class _TrajectoryEngineScreenState
                   _DisclosurePanel(
                     title: journeyText(
                       context,
+                      'Task predictions',
+                      'Predicciones de tareas',
+                    ),
+                    subtitle: journeyText(
+                      context,
+                      'Explore timing and completion estimates',
+                      'Explora estimaciones de tiempo y finalización',
+                    ),
+                    child: _TaskPredictionCard(model: model),
+                  ),
+                  const SizedBox(height: 12),
+                  _DisclosurePanel(
+                    title: journeyText(
+                      context,
                       'Try a custom what-if',
                       'Probar un escenario hipotético',
                     ),
@@ -255,7 +287,6 @@ class _TrajectoryEngineScreenState
                         const SizedBox(height: 8),
                         _CalibrationCard(summary: calibration),
                         const SizedBox(height: 8),
-                        _TaskPredictionCard(model: model),
                       ],
                     ),
                   ),

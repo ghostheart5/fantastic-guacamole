@@ -80,8 +80,8 @@ String journeyLabel(BuildContext context, String label) =>
             'Steady': 'Estable',
             'Not enough evidence': 'Evidencia insuficiente',
             'Not enough history': 'Historial insuficiente',
-            'Open Timeline': 'Abrir Línea de Tiempo',
-            'Open Creator': 'Abrir Creador',
+            'Open Timeline': 'Abrir agenda',
+            'Open Creator': 'Añadir una tarea',
             'Today': 'Hoy',
             'Week': 'Semana',
             'Month': 'Mes',
@@ -113,4 +113,8 @@ String journeyLabel(BuildContext context, String label) =>
             'Note Deleted': 'Nota eliminada',
           }[label] ??
           label
-    : label;
+    : const <String, String>{
+            'Open Creator': 'Add a task',
+            'Open Timeline': 'Open schedule',
+          }[label] ??
+          label;

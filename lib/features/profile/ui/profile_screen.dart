@@ -214,17 +214,13 @@ class _ProfileTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TemporalScreenHeader(
-      title: journeyText(context, 'PROFILE', 'PERFIL'),
+      title: journeyText(context, 'Profile', 'Perfil'),
       subtitle: journeyText(
         context,
-        'Your patterns, held with context.',
-        'Tus patrones, conservados con contexto.',
+        'Review your name and recorded activity. You can edit your name here.',
+        'Revisa tu nombre y actividad registrada. Aquí puedes editar tu nombre.',
       ),
-      eyebrow: journeyText(
-        context,
-        'Identity constellation',
-        'Constelación de identidad',
-      ),
+      eyebrow: journeyText(context, 'About you', 'Sobre ti'),
       trailing: IconButton(
         tooltip: journeyText(context, 'Open settings', 'Abrir ajustes'),
         constraints: const BoxConstraints.tightFor(
@@ -605,7 +601,11 @@ class _IdentityCard extends ConsumerWidget {
         children: [
           Text(
             LaunchContainment.inferredIdentityEnabled
-                ? journeyText(context, 'IDENTITY SIGNAL', 'SEÑAL DE IDENTIDAD')
+                ? journeyText(
+                    context,
+                    'Activity summary',
+                    'Resumen de actividad',
+                  )
                 : journeyText(
                     context,
                     'RECORDED PROGRESS',
@@ -770,14 +770,14 @@ class _NavButtons extends StatelessWidget {
     return Column(
       children: <Widget>[
         _NavBtn(
-          label: journeyText(context, 'VIEW TIMELINE', 'VER LÍNEA DE TIEMPO'),
+          label: journeyText(context, 'Open schedule', 'Abrir agenda'),
           icon: Icons.timeline_rounded,
           color: AppColors.neonViolet,
           onTap: onTimeline,
         ),
         const SizedBox(height: 10),
         _NavBtn(
-          label: journeyText(context, 'PROGRESSION', 'PROGRESIÓN'),
+          label: journeyText(context, 'Activity', 'Actividad'),
           icon: Icons.bolt,
           color: AppColors.memoryAmber,
           onTap: onProgression,
@@ -889,7 +889,7 @@ class _NameEditorState extends State<_NameEditor> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            journeyText(context, 'EDIT IDENTITY', 'EDITAR IDENTIDAD'),
+            journeyText(context, 'Edit your name', 'Editar tu nombre'),
             style: const TextStyle(
               fontSize: 10,
               letterSpacing: 0,

@@ -376,7 +376,7 @@ _localizedRouteExpectations = <_LocalizedRouteExpectation>[
     title: 'Privacy Policy',
     bodyFragment:
         'This policy explains how Axiomara handles data in the Android app and its account, billing, notification, and optional AI services.',
-    callToAction: 'Open Hosted Privacy Policy',
+    callToAction: 'Read privacy policy',
   ),
   _LocalizedRouteExpectation(
     path: RoutePaths.terms,
@@ -384,7 +384,7 @@ _localizedRouteExpectations = <_LocalizedRouteExpectation>[
     title: 'Terms of Service',
     bodyFragment:
         'These terms govern use of Axiomara. By using the app, you agree to these terms and the Privacy Policy.',
-    callToAction: 'Open Hosted Terms',
+    callToAction: 'Read terms',
   ),
   _LocalizedRouteExpectation(
     path: RoutePaths.deleteAccount,
@@ -392,7 +392,7 @@ _localizedRouteExpectations = <_LocalizedRouteExpectation>[
     title: 'Delete Account',
     bodyFragment:
         'Permanent action: Verified deletion removes the authentication account and eligible account-linked data. It cannot be undone.',
-    callToAction: 'Open Hosted Delete Account Page',
+    callToAction: 'Open deletion instructions',
   ),
   _LocalizedRouteExpectation(
     path: RoutePaths.support,
@@ -400,7 +400,7 @@ _localizedRouteExpectations = <_LocalizedRouteExpectation>[
     title: 'Support',
     bodyFragment:
         'Contact path: Email support is available for access, billing, privacy, deletion, and technical issues.',
-    callToAction: 'Open Hosted Support Page',
+    callToAction: 'Get help',
   ),
 ];
 
@@ -410,20 +410,19 @@ _routerErrorExpectations = <_RouterErrorExpectation>[
     locale: Locale('en'),
     title: "We couldn't open that link",
     body:
-        'The link does not match an available Axiomara screen. We recorded a safe diagnostic event without exposing technical details.',
-    recoveryLabel: 'Return to Nexus',
+        'This link does not open an available page. Return Home or open Help to continue.',
+    recoveryLabel: 'Return Home',
   ),
 ];
 
 const List<_AboutExpectation> _aboutExpectations = <_AboutExpectation>[
   _AboutExpectation(
     locale: Locale('en'),
-    title: 'ABOUT AXIOMARA',
-    subtitle:
-        'A human decision operating system for clarity, momentum, and accountable action.',
-    firstSectionTitle: 'What It Does',
+    title: 'About Axiomara',
+    subtitle: 'Space to think and find a manageable next step.',
+    firstSectionTitle: 'What you can do',
     voiceSectionTitle: 'Voice Features',
     voiceSectionBody:
-        'Microphone access powers optional voice-to-text in Smart Planner and the SI Console. Audio is used only after you start a voice action and remains off during normal planning flows.',
+        'Use the microphone only when you want to speak instead of type. Voice input starts after you choose it and grant permission.',
   ),
 ];

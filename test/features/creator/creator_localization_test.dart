@@ -9,7 +9,7 @@ void main() {
   for (final scenario in [
     (CreatorFormKind.task, 'Tarea', 'Task'),
     (CreatorFormKind.goal, 'Meta', 'Goal'),
-    (CreatorFormKind.habit, 'Ritmo diario', 'Daily Rhythm'),
+    (CreatorFormKind.habit, 'Hábito', 'Daily Rhythm'),
     (CreatorFormKind.note, 'Nota', 'Note'),
   ]) {
     testWidgets(
@@ -42,10 +42,10 @@ void main() {
         await tester.pump(const Duration(milliseconds: 200));
         expect(find.text(scenario.$2), findsOneWidget);
         expect(
-          find.text('DETALLES: ${scenario.$2.toUpperCase()}'),
+          find.text('Detalles: ${scenario.$2.toLowerCase()}'),
           findsOneWidget,
         );
-        final submit = find.text('CREAR ${scenario.$2.toUpperCase()}');
+        final submit = find.text('Guardar ${scenario.$2.toLowerCase()}');
         await tester.ensureVisible(submit);
         await tester.tap(submit);
         await tester.pump();
@@ -58,6 +58,12 @@ void main() {
           find.byType(TextField).first,
           'Mañana: revisar el uniforme',
         );
+        if (scenario.$1 != CreatorFormKind.note) {
+          await tester.tap(
+            find.byKey(const Key('creator-description-options')),
+          );
+          await tester.pumpAndSettle();
+        }
         await tester.enterText(
           find.byType(TextField).last,
           'Do not translate my entered text.',

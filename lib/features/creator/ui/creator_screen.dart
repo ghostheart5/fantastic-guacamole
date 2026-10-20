@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/features/creator/ui/daily_rhythms_screen.dart';
 import 'package:fantastic_guacamole/features/creator/ui/record_library_screen.dart';
+import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/l10n/creator_copy.dart';
 import 'package:fantastic_guacamole/l10n/journey_copy.dart';
@@ -63,7 +64,9 @@ class CreatorScreen extends ConsumerWidget {
                   onBack: () => goToAppView(context, ref, AppView.nexus),
                 ),
                 const SizedBox(height: 18),
-                if (!guidedFirstTask && !handshake.isReviewing) ...[
+                if (!guidedFirstTask &&
+                    !handshake.isReviewing &&
+                    plannerDraft != null) ...[
                   Wrap(
                     spacing: 10,
                     runSpacing: 8,
@@ -78,8 +81,8 @@ class CreatorScreen extends ConsumerWidget {
                         label: Text(
                           journeyText(
                             context,
-                            'Browse records',
-                            'Ver registros',
+                            'Open saved items',
+                            'Abrir elementos guardados',
                           ),
                         ),
                       ),
@@ -177,11 +180,22 @@ class CreatorScreen extends ConsumerWidget {
                                 .undo();
                           }
                         : null,
-                    onTimeline: () =>
-                        goToAppView(context, ref, AppView.timeline),
-                    onBrowseTasks: () => Navigator.of(context).push<void>(
+                    onTimeline: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(builder: (_) => const TimelineScreen()),
+                    ),
+                    onBrowseSaved: (kind) => Navigator.of(context).push<void>(
                       MaterialPageRoute<void>(
-                        builder: (_) => const RecordLibraryScreen(),
+                        builder: (_) => kind == CreatorEntityKind.habit
+                            ? const DailyRhythmsScreen()
+                            : RecordLibraryScreen(
+                                initialKind: switch (kind) {
+                                  CreatorEntityKind.goal =>
+                                    CreatorFormKind.goal,
+                                  CreatorEntityKind.note =>
+                                    CreatorFormKind.note,
+                                  _ => CreatorFormKind.task,
+                                },
+                              ),
                       ),
                     ),
                     onNewItem: () => ref
@@ -191,12 +205,14 @@ class CreatorScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                 ],
                 Offstage(
-                  offstage: handshake.isReviewing,
+                  offstage:
+                      handshake.isReviewing ||
+                      (handshake.receipt != null && plannerDraft == null),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: DynamicForm(
                       key: ValueKey<String>(
-                        'creator-form-${handshake.formRevision}',
+                        'creator-form-${handshake.formRevision}-${handshake.receipt == null ? 'draft' : 'saved'}',
                       ),
                       initialType: initialType,
                       activeGoals: ref.watch(goalsProvider),
@@ -209,7 +225,9 @@ class CreatorScreen extends ConsumerWidget {
                       initialEstimatedDuration: plannerDraft == null
                           ? null
                           : Duration(minutes: plannerDraft.estimatedMinutes),
-                      submitLabel: copy.reviewChanges,
+                      submitLabel: guidedFirstTask || plannerDraft != null
+                          ? copy.reviewChanges
+                          : null,
                       clearAfterSubmit: false,
                       guidedFirstTask: guidedFirstTask,
                       tutorialController: ref.read(
@@ -221,14 +239,50 @@ class CreatorScreen extends ConsumerWidget {
                       onTitleValidityChanged: tutorialDraft.setHasTitle,
                       onPriorityChosen: tutorialDraft.markPriorityChosen,
                       onScheduleValidityChanged: tutorialDraft.setHasSchedule,
-                      onSubmit: (data) => ref
-                          .read(creatorHandshakeProvider.notifier)
-                          .stage(
-                            data: data,
-                            source: plannerDraft == null
-                                ? CreatorHandshakeSource.creator
-                                : CreatorHandshakeSource.smartPlanner,
-                          ),
+                      onSubmit: (data) async {
+                        final boundary = ref.read(authSessionBoundaryProvider);
+                        final scope = ref.read(accountStorageScopeProvider);
+                        final notifier = ref.read(
+                          creatorHandshakeProvider.notifier,
+                        );
+                        final staged = await notifier.stage(
+                          data: data,
+                          source: plannerDraft == null
+                              ? CreatorHandshakeSource.creator
+                              : CreatorHandshakeSource.smartPlanner,
+                        );
+                        if (!context.mounted) return;
+                        // A manual Save authorizes exactly the entered item.
+                        // AI drafts, guided setup and context warnings retain
+                        // their separate review. Use the existing guarded
+                        // transaction so receipts, undo and account fencing stay.
+                        if (plannerDraft == null &&
+                            !guidedFirstTask &&
+                            staged.canConfirm &&
+                            staged.preview?.operations.length == 1 &&
+                            staged
+                                    .preview
+                                    ?.personContextBinding
+                                    ?.hasBoundEvidence !=
+                                true &&
+                            identical(
+                              ref.read(creatorHandshakeProvider),
+                              staged,
+                            ) &&
+                            ref.read(authSessionBoundaryProvider).generation ==
+                                boundary.generation &&
+                            ref.read(accountStorageScopeProvider).v2Namespace ==
+                                scope.v2Namespace &&
+                            ref.read(accountStorageScopeProvider).isWritable) {
+                          final result = await notifier.confirm();
+                          if (result.receipt != null && context.mounted) {
+                            tutorialDraft.reset();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(copy.savedSnack)),
+                            );
+                          }
+                        }
+                      },
                     ),
                   ),
                 ),
@@ -686,14 +740,14 @@ class _CreatorHandshakeResultCard extends StatelessWidget {
     required this.state,
     required this.onUndo,
     required this.onTimeline,
-    required this.onBrowseTasks,
+    required this.onBrowseSaved,
     required this.onNewItem,
   });
 
   final CreatorHandshakeState state;
   final Future<void> Function()? onUndo;
   final VoidCallback onTimeline;
-  final VoidCallback onBrowseTasks;
+  final void Function(CreatorEntityKind kind) onBrowseSaved;
   final VoidCallback onNewItem;
 
   @override
@@ -711,6 +765,24 @@ class _CreatorHandshakeResultCard extends StatelessWidget {
               operation.taskMutation!.scheduledFor == null &&
               operation.taskMutation!.dueDate == null,
         );
+    final applied =
+        state.preview?.operations
+            .where(
+              (operation) =>
+                  receipt.appliedOperationIds.contains(operation.operationId),
+            )
+            .toList() ??
+        <CreatorMutationOperation>[];
+    final savedKind =
+        applied.isNotEmpty &&
+            applied.every(
+              (operation) =>
+                  operation.mutation.entityKind ==
+                  applied.first.mutation.entityKind,
+            )
+        ? applied.first.mutation.entityKind
+        : CreatorEntityKind.task;
+    final browseSaved = onlyUndatedTasks || savedKind != CreatorEntityKind.task;
     final Color accent = undone ? AppColors.memoryAmber : AppColors.neonCyan;
     return TemporalGlassSurface(
       key: const Key('creator-handshake-result'),
@@ -780,16 +852,18 @@ class _CreatorHandshakeResultCard extends StatelessWidget {
                   height: 48,
                   child: FilledButton.icon(
                     key: const Key('creator-open-saved-result'),
-                    onPressed: onlyUndatedTasks ? onBrowseTasks : onTimeline,
+                    onPressed: browseSaved
+                        ? () => onBrowseSaved(savedKind)
+                        : onTimeline,
                     icon: Icon(
-                      onlyUndatedTasks
+                      browseSaved
                           ? Icons.library_books_outlined
                           : Icons.timeline_rounded,
                       size: 18,
                     ),
                     label: Text(
-                      onlyUndatedTasks
-                          ? copy.browseSavedTasks
+                      browseSaved
+                          ? copy.browseSavedItem(savedKind.name)
                           : copy.openTimeline,
                     ),
                   ),

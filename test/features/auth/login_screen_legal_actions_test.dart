@@ -25,7 +25,7 @@ void main() {
     addTearDown(harness.dispose);
 
     expect(find.bySemanticsLabel('Start login'), findsOneWidget);
-    expect(find.bySemanticsLabel('ENTER SYSTEM'), findsNothing);
+    expect(find.bySemanticsLabel('Sign in'), findsNothing);
     expect(find.bySemanticsLabel('Continue with Google'), findsNothing);
     expect(find.text('Start login').hitTestable(), findsOneWidget);
     await tester.tapAt(
@@ -40,7 +40,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.bySemanticsLabel('Start login'), findsNothing);
-    expect(find.bySemanticsLabel('ENTER SYSTEM'), findsOneWidget);
+    expect(find.bySemanticsLabel('Sign in'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('qa-tester-access-button')));
     expect(mockLoginTaps, 1);
     expect(tester.takeException(), isNull);
@@ -61,7 +61,7 @@ void main() {
 
       final Finder privacyAction = find.byKey(privacyKey);
       final Finder termsAction = find.byKey(termsKey);
-      final Finder primaryAction = find.text('INITIALIZE PROFILE');
+      final Finder primaryAction = find.text('Create account');
       final Finder googleAction = find.text('Continue with Google');
       final Finder githubAction = find.text('Continue with GitHub');
 
@@ -152,12 +152,12 @@ void main() {
       find.bySemanticsLabel('Abrir términos del servicio'),
       findsOneWidget,
     );
-    expect(find.text('ACCEDER AL SISTEMA'), findsOneWidget);
+    expect(find.text('Tu cuenta'), findsOneWidget);
     expect(find.text('Te damos la bienvenida'), findsOneWidget);
     expect(find.text('Correo electrónico'), findsOneWidget);
     expect(find.text('Contraseña'), findsOneWidget);
     expect(find.text('¿Olvidaste la contraseña?'), findsOneWidget);
-    expect(find.text('ENTRAR AL SISTEMA'), findsOneWidget);
+    expect(find.text('Iniciar sesión'), findsOneWidget);
     expect(find.text('Continuar con Google'), findsOneWidget);
     expect(find.text('Continuar con GitHub'), findsOneWidget);
     expect(find.text('Welcome back'), findsNothing);
@@ -206,7 +206,7 @@ void main() {
         '¿Olvidaste la contraseña?',
         'Privacidad',
         'Términos',
-        'ENTRAR AL SISTEMA',
+        'Iniciar sesión',
       ]) {
         final Finder finder = find.text(label);
         expect(finder, findsOneWidget, reason: label);

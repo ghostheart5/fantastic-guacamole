@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:fantastic_guacamole/features/home/ui/today_screen.dart';
 import 'package:fantastic_guacamole/features/tasks/widgets/task_edit_dialog.dart';
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
@@ -46,7 +47,10 @@ part 'nexus_screen.widgets.dart';
 part 'nexus_screen.timeline_widgets.dart';
 
 class NexusScreen extends ConsumerStatefulWidget {
-  const NexusScreen({super.key});
+  const NexusScreen({super.key, this.showDetails = false});
+
+  /// The detailed review is optional; the normal landing page is Today.
+  final bool showDetails;
 
   @override
   ConsumerState<NexusScreen> createState() => _NexusScreenState();
@@ -69,6 +73,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (!widget.showDetails) return;
     final MediaQueryData media = MediaQuery.of(context);
     if (media.disableAnimations || media.accessibleNavigation) {
       _pulse
@@ -96,6 +101,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.showDetails) return const TodayScreen();
     final ProfileState profile = ref.watch(profileProvider);
     final siState = ref.watch(consentedHumanContextProvider).siState;
     final double energy = siState.energy;

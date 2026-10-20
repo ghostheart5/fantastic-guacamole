@@ -123,7 +123,7 @@ class _TrajectoryStateNotice extends StatelessWidget {
                 ),
                 child: Text(
                   status == TrajectoryEngineStatus.empty
-                      ? journeyText(context, 'Open Creator', 'Abrir Creator')
+                      ? journeyText(context, 'Add a task', 'Añadir una tarea')
                       : journeyText(context, 'Retry', 'Reintentar'),
                 ),
               ),
@@ -163,7 +163,7 @@ String _trajectoryStatusDetail(
       'Los caminos futuros son modelos condicionales. La disponibilidad de trabajo no está configurada, por lo que se omiten el riesgo de capacidad, las fechas de las metas y las recomendaciones de mejor ajuste.',
     'The scenario comparison is available, but one supporting intelligence source is incomplete.' =>
       'La comparación de escenarios está disponible, pero una fuente de inteligencia de apoyo está incompleta.',
-    'Current baseline, Smart Planner plan, Timeline links, goals, and Progression signals are reconciled.' =>
+    'This estimate combines your current plan, schedule, goals, and recorded activity.' =>
       'La línea base actual, el plan del Planificador Inteligente, los vínculos de la Línea de Tiempo, las metas y las señales de progreso están conciliados.',
     _ => switch (status) {
       TrajectoryEngineStatus.loading => 'Creando la línea base.',
@@ -890,7 +890,7 @@ class _ScenarioFullDetails extends StatelessWidget {
                       TrajectoryInterventionType.applySmartPlanner
                   ? journeyText(
                       context,
-                      'Review in Smart Planner',
+                      'Review in Choose a step',
                       'Revisar en Planificador Inteligente',
                     )
                   : journeyText(
@@ -1166,7 +1166,7 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
         'Los XP proyectados son informativos y esta simulación nunca los concede.',
     'No Progression reward is projected from this intervention alone.':
         'Esta intervención por sí sola no proyecta una recompensa de progreso.',
-    'Protect the Smart Planner path':
+    'Keep the suggested plan':
         'Proteger el camino del Planificador Inteligente',
     'Protect the highest-value feasible block.':
         'Proteger el bloque viable de mayor valor.',
@@ -1174,7 +1174,7 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
         'Se intenta completar el bloque protegido.',
     'Delay the milestone': 'Aplazar el hito',
     'Maintain current course': 'Mantener el rumbo actual',
-    'Apply Smart Planner recommendation':
+    'Use the suggested option in this estimate':
         'Aplicar la recomendación del Planificador Inteligente',
     'Reduce lower-priority scope': 'Reducir el alcance de menor prioridad',
     'Preserve the current plan without a declared intervention.':
@@ -1228,7 +1228,9 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
     );
     return 'Proteger $subject y usar el plan viable como horario activo.';
   }
-  if (value.startsWith('Model the selected Smart Planner task as completed')) {
+  if (value.startsWith(
+    'Estimate what happens if you finish the selected task',
+  )) {
     return 'Modelar la tarea seleccionada del Planificador Inteligente como completada en su bloque viable.';
   }
   if (value.startsWith('Model one day of slippage')) {
@@ -1262,7 +1264,7 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
   }
   return value
       .replaceAll(
-        'Smart Planner block(s) are projected',
+        'scheduled block(s) are estimated',
         'bloque(s) del Planificador Inteligente se proyectan',
       )
       .replaceAll(

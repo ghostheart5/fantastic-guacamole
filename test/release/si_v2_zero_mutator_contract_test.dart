@@ -74,9 +74,9 @@ void main() {
           (property: 'observedFacts', englishLabel: 'OBSERVED FACTS'),
           (
             property: 'deterministicCalculations',
-            englishLabel: 'DETERMINISTIC CALCULATIONS',
+            englishLabel: 'Calculated from your records',
           ),
-          (property: 'inferences', englishLabel: 'INFERENCES'),
+          (property: 'inferences', englishLabel: 'Possible explanations'),
           (
             property: 'missingOrConflicting',
             englishLabel: 'MISSING OR CONFLICTING INFORMATION',
@@ -86,8 +86,8 @@ void main() {
             englishLabel: 'SCENARIO ASSUMPTIONS',
           ),
           (property: 'recommendation', englishLabel: 'RECOMMENDATION'),
-          (property: 'confidenceAnatomy', englishLabel: 'CONFIDENCE ANATOMY'),
-          (property: 'evidenceLinks', englishLabel: 'EVIDENCE LINKS'),
+          (property: 'confidenceAnatomy', englishLabel: 'How certain is this?'),
+          (property: 'evidenceLinks', englishLabel: 'Sources used'),
         ]) {
       expect(screen, contains('copy.${section.property}'));
       expect(
@@ -97,7 +97,7 @@ void main() {
       );
     }
     expect(screen, contains('copy.queryBuilder'));
-    expect(localizations, contains("'SI V2 QUERY BUILDER'"));
+    expect(localizations, contains("'Question options'"));
     expect(screen, contains('SIV2Intent.values'));
     expect(screen, contains('SIV2Source.values'));
     expect(screen, contains('SIV2TimeRange.values'));

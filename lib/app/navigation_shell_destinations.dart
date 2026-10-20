@@ -21,7 +21,8 @@ extension _NavigationShellDestinations on _NavigationShellState {
     final AppView? recoveredView =
         AppRouteRegistry.viewForName(savedViewName) ??
         AppRouteRegistry.viewForPath(savedViewName);
-    if (recoveredView != null && _isPrimaryView(recoveredView)) {
+    if (recoveredView != null &&
+        (_isPrimaryView(recoveredView) || recoveredView == AppView.profile)) {
       _syncAppFlowToRouteView(recoveredView);
       _goToView(recoveredView);
       return;
@@ -31,7 +32,14 @@ extension _NavigationShellDestinations on _NavigationShellState {
     final AppView restoredView =
         restoredTab == null || restoredTab < 0 || restoredTab > 3
         ? AppView.nexus
-        : _viewForTabIndex(restoredTab);
+        // The legacy fourth tab was Profile. New selections save a named
+        // recovery view, so a numeric-only legacy preference stays Profile.
+        : switch (restoredTab) {
+            1 => AppView.trajectoryEngine,
+            2 => AppView.timeline,
+            3 => AppView.profile,
+            _ => AppView.nexus,
+          };
     _syncAppFlowToRouteView(restoredView);
     _goToView(restoredView);
   }

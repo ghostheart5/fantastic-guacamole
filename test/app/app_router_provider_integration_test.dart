@@ -19,7 +19,7 @@ import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
-import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
+import 'package:fantastic_guacamole/features/creator/ui/record_library_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_provider_fence.dart';
@@ -202,6 +202,9 @@ void main() {
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 500));
           expect(tester.takeException(), isNull);
+          harness.container.read(profileProvider);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
           expect(harness.container.read(profileProvider).name, account);
           harness.router.go(RoutePaths.settings);
           await tester.pump();
@@ -654,10 +657,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       _expectUri(harness, RoutePaths.timeline);
-      expect(find.byType(TimelineScreen), findsOneWidget);
+      expect(find.byType(RecordLibraryScreen), findsOneWidget);
       expect(find.byType(NexusScreen, skipOffstage: false), findsOneWidget);
       final Element timelineElement = tester.element(
-        find.byType(TimelineScreen),
+        find.byType(RecordLibraryScreen),
       );
       expect(
         tester.element(find.byType(NexusScreen, skipOffstage: false)),
@@ -676,7 +679,7 @@ void main() {
         same(originalNexusElement),
       );
       expect(
-        tester.element(find.byType(TimelineScreen, skipOffstage: false)),
+        tester.element(find.byType(RecordLibraryScreen, skipOffstage: false)),
         same(timelineElement),
       );
       expect(TickerMode.valuesOf(originalNexusElement).enabled, isTrue);
@@ -687,7 +690,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(
-        tester.element(find.byType(TimelineScreen)),
+        tester.element(find.byType(RecordLibraryScreen)),
         same(timelineElement),
       );
 
@@ -721,7 +724,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 500));
 
         _expectUri(harness, RoutePaths.timeline);
-        expect(find.byType(TimelineScreen), findsOneWidget);
+        expect(find.byType(RecordLibraryScreen), findsOneWidget);
         expect(find.byType(NexusScreen, skipOffstage: false), findsNothing);
         expect(
           tester.state<State<NavigationShell>>(find.byType(NavigationShell)),
@@ -746,7 +749,7 @@ void main() {
       );
       await tester.pump();
 
-      await tester.tap(find.byTooltip('Truth Ledger'));
+      await tester.tap(find.byTooltip('My plan'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
@@ -755,7 +758,7 @@ void main() {
         firstLaunch.container
             .read(preferenceServiceProvider)
             .getLastOpenedTab(),
-        2,
+        1,
       );
 
       await tester.pumpWidget(const SizedBox.shrink());
@@ -772,7 +775,7 @@ void main() {
 
       _expectUri(restoredLaunch, RoutePaths.timeline);
       expect(restoredLaunch.container.read(appFlowProvider), AppView.timeline);
-      expect(find.byType(TimelineScreen), findsOneWidget);
+      expect(find.byType(RecordLibraryScreen), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       restoredLaunch.dispose();

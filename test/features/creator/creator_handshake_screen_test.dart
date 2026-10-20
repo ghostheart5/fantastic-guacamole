@@ -111,25 +111,28 @@ void main() {
     await tester.pumpWidget(previewApp(const Locale('es')));
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('MÁS ADECUADO · 20 min'), findsOneWidget);
-    expect(find.text('CONSTRUCTOR DE REALIDAD'), findsOneWidget);
-    expect(find.byTooltip('Volver a Nexus'), findsOneWidget);
+    expect(find.text('Añadir algo'), findsOneWidget);
+    expect(find.byTooltip('Volver a Inicio'), findsOneWidget);
     expect(find.byTooltip('Back'), findsNothing);
-    expect(find.text('Gestionar Ritmos Diarios'), findsOneWidget);
-    expect(find.text('VISTA PREVIA DEL BORRADOR'), findsOneWidget);
-    expect(find.text('REVISAR CAMBIOS'), findsOneWidget);
-    expect(find.text('META ACTIVA'), findsOneWidget);
-    expect(find.text('DURACIÓN ESTIMADA'), findsOneWidget);
+    expect(find.text('Gestionar hábitos'), findsOneWidget);
+    expect(find.text('Borrador sugerido'), findsOneWidget);
+    expect(find.text('Revisar antes de guardar'), findsOneWidget);
+    expect(find.text('Vincular a una meta (opcional)'), findsNothing);
+    expect(find.text('¿Cuánto tiempo?'), findsNothing);
     expect(find.text('Manage Daily Rhythms'), findsNothing);
     expect(repository.saveCalls, 0);
     await tester.pumpWidget(previewApp(const Locale('en')));
     await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.byKey(const Key('creator-task-options')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
     final estimate = tester.widget<DropdownButton<Duration>>(
       find.byKey(const Key('creator-task-estimate')),
     );
     expect(estimate.value, const Duration(minutes: 20));
     expect(repository.saveCalls, 0);
-    await tester.ensureVisible(find.text('REVIEW CHANGES'));
-    await tester.tap(find.text('REVIEW CHANGES'));
+    await tester.ensureVisible(find.text('Review before saving'));
+    await tester.tap(find.text('Review before saving'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     expect(
@@ -143,11 +146,11 @@ void main() {
         .token;
     await tester.pumpWidget(previewApp(const Locale('es', 'MX')));
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('CONFIRMAR CAMBIOS DEL CREADOR'), findsOneWidget);
+    expect(find.text('¿Quieres guardar?'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(const Key('creator-confirm-selected')),
-        matching: find.text('CREAR TAREA'),
+        matching: find.text('Guardar tarea'),
       ),
       findsOneWidget,
     );
@@ -178,7 +181,7 @@ void main() {
     );
     expect(repository.saveCalls, 1);
     expect(repository.tasks.values.single.title, 'Twenty minute Planner task');
-    expect(find.text('CREACIÓN GUARDADA'), findsOneWidget);
+    expect(find.text('Guardado'), findsOneWidget);
     expect(find.text('Tarea: Twenty minute Planner task'), findsOneWidget);
     expect(find.text('Ver tareas guardadas'), findsOneWidget);
     expect(
@@ -192,7 +195,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(repository.deleteCalls, 1);
-    expect(find.text('CREACIÓN DESHECHA'), findsOneWidget);
+    expect(find.text('Guardado deshecho'), findsOneWidget);
     expect(find.text('1 cambio deshecho.'), findsOneWidget);
     expect(
       find.text(
@@ -265,9 +268,11 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('CONFIRM CREATOR CHANGES'), findsOneWidget);
+    expect(find.text('Ready to save?'), findsOneWidget);
     expect(
-      find.textContaining('Nothing is saved until you confirm'),
+      find.textContaining(
+        'Check the selected change below. Confirm to save it.',
+      ),
       findsOneWidget,
     );
     expect(find.textContaining('Account binding'), findsNothing);
@@ -291,13 +296,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(repository.saveCalls, 1);
-    expect(find.text('CREATION SAVED'), findsOneWidget);
+    expect(find.text('Saved'), findsOneWidget);
     expect(repository.tasks.values.single.goalId, 'internal-goal-identity');
     expect(find.text('Task: Ship one verified change'), findsOneWidget);
     expect(find.textContaining('Confirmation:'), findsNothing);
     expect(find.textContaining('Result version:'), findsNothing);
-    expect(find.textContaining('Saved exactly once'), findsOneWidget);
-    expect(find.text('Undo creation'), findsOneWidget);
+    expect(find.text('Saved.'), findsOneWidget);
+    expect(find.text('Undo save'), findsOneWidget);
     // This task has no date: the result must open the account Library, where
     // the actual saved record appears, rather than an empty Timeline window.
     expect(find.text('Browse saved tasks'), findsOneWidget);
@@ -306,8 +311,9 @@ void main() {
     );
     await tester.ensureVisible(savedResult);
     await tester.tap(savedResult);
-    await tester.pumpAndSettle();
-    expect(find.text('Library'), findsOneWidget);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Saved'), findsOneWidget);
     expect(find.text('Ship one verified change'), findsOneWidget);
     await tester.pageBack();
     await tester.pump();
@@ -320,7 +326,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(repository.deleteCalls, 1);
-    expect(find.text('CREATION UNDONE'), findsOneWidget);
+    expect(find.text('Save undone'), findsOneWidget);
     expect(find.text('Task: Ship one verified change'), findsOneWidget);
     container.read(creatorHandshakeProvider.notifier).clearResult();
     await container
@@ -338,7 +344,7 @@ void main() {
     await tester.tap(confirm);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Open Timeline'), findsOneWidget);
+    expect(find.text('Open schedule'), findsOneWidget);
     expect(find.text('Browse saved tasks'), findsNothing);
     container
         .read(creatorDraftPreviewProvider.notifier)
@@ -354,9 +360,9 @@ void main() {
           ),
         );
     await tester.pump();
-    expect(find.text('PLANNER DRAFT PREVIEW'), findsOneWidget);
+    expect(find.text('Suggested draft'), findsOneWidget);
     expect(find.byKey(const Key('creator-handshake-result')), findsNothing);
-    expect(find.text('Undo creation'), findsNothing);
+    expect(find.text('Undo save'), findsNothing);
     expect(repository.saveCalls, 2);
   });
 
@@ -415,10 +421,7 @@ void main() {
       find.byKey(const Key('creator-confirm-selected')),
     );
     expect(confirm.onPressed, isNull);
-    expect(
-      find.textContaining('Select at least one operation'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Select a change to save.'), findsOneWidget);
     expect(repository.saveCalls, 0);
   });
 
@@ -504,10 +507,10 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('GOVERNED CONTEXT REVIEW'), findsOneWidget);
+    expect(find.text('Check against your preferences'), findsOneWidget);
     expect(
       find.text(
-        'Relevant user-reported context was checked. The proposal was not silently rewritten; any conflict requires your confirmation.',
+        'We checked details you shared. The draft is unchanged. Review any conflicts before confirming.',
       ),
       findsOneWidget,
     );
@@ -515,7 +518,7 @@ void main() {
       find.text('presentCapacity: 10 minutes available today'),
       findsOneWidget,
     );
-    expect(find.textContaining('not silently rewritten'), findsNWidgets(2));
+    expect(find.textContaining('not silently rewritten'), findsOneWidget);
     expect(
       find.textContaining('exceeds the fresh user-reported'),
       findsOneWidget,
@@ -649,8 +652,8 @@ void main() {
 
     expect(find.text('Schedule date and time...'), findsNothing);
     expect(container.read(creatorTutorialDraftProvider).hasSchedule, isTrue);
-    await tester.ensureVisible(find.text('REVIEW CHANGES'));
-    await tester.tap(find.text('REVIEW CHANGES'));
+    await tester.ensureVisible(find.text('Review before saving'));
+    await tester.tap(find.text('Review before saving'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -732,6 +735,93 @@ void main() {
       expect(completed.has(GuidanceMilestone.firstItem), isTrue);
       expect(completed.has(GuidanceMilestone.firstSchedule), isTrue);
       expect(container.read(appFlowProvider), AppView.timeline);
+    },
+  );
+  testWidgets(
+    'Manual task saves once, reopens from My plan, and can be undone',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 1100);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final repository = _ScreenTaskRepository();
+      final container = ProviderContainer(
+        overrides: [
+          sensitivePrefsStoreProvider.overrideWithValue(_ScreenPreferences()),
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('simple-save'),
+          ),
+          domainTaskRepositoryProvider.overrideWithValue(repository),
+          domainGoalRepositoryProvider.overrideWithValue(
+            const _ScreenGoalRepository(),
+          ),
+          domainHabitRepositoryProvider.overrideWithValue(
+            const _ScreenHabitRepository(),
+          ),
+          domainNoteRepositoryProvider.overrideWithValue(
+            const _ScreenNoteRepository(),
+          ),
+          secureStoreProvider.overrideWithValue(
+            SecureStore(backend: InMemorySecureStoreBackend()),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(adaptiveGuidanceProvider.future);
+      for (final milestone in [
+        GuidanceMilestone.firstItem,
+        GuidanceMilestone.firstSchedule,
+        GuidanceMilestone.firstTimelineReview,
+      ]) {
+        await container
+            .read(adaptiveGuidanceProvider.notifier)
+            .record(milestone);
+      }
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: CreatorScreen()),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Open saved items'), findsNothing);
+      expect(find.byKey(const Key('creator-task-repeat')), findsNothing);
+      await tester.enterText(find.byType(TextField).first, 'Take a short walk');
+      await tester.ensureVisible(find.text('Save task'));
+      await tester.tap(find.text('Save task'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(repository.saveCalls, 1);
+      expect(repository.tasks.values.single.title, 'Take a short walk');
+      expect(find.byKey(const Key('creator-confirm-selected')), findsNothing);
+      expect(find.text('Saved'), findsOneWidget);
+      expect(find.text('Save task'), findsNothing);
+      // Read back through the actual saved-item UI after leaving creation.
+      await tester.ensureVisible(
+        find.byKey(const Key('creator-open-saved-result')),
+      );
+      await tester.tap(find.byKey(const Key('creator-open-saved-result')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Take a short walk'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.ensureVisible(
+        find.byKey(const Key('creator-undo-confirmed')),
+      );
+      await tester.tap(find.byKey(const Key('creator-undo-confirmed')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(repository.deleteCalls, 1);
+      expect(find.text('Save undone'), findsOneWidget);
+      expect(repository.tasks.values.single.isCanceled, isTrue);
+      await tester.tap(find.text('New item'));
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        isEmpty,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
     },
   );
 }

@@ -3,40 +3,41 @@ class CreatorCopy {
   const CreatorCopy(this.isSpanish);
   final bool isSpanish;
 
-  String get title => isSpanish ? 'CONSTRUCTOR DE REALIDAD' : 'REALITY BUILDER';
-  String get back => isSpanish ? 'Volver a Nexus' : 'Back';
+  String get title => isSpanish ? 'Añadir algo' : 'Add something';
+  String get back => isSpanish ? 'Volver a Inicio' : 'Back Home';
   String get subtitle => isSpanish
-      ? 'Convierte intención en metas, tareas, ritmos y contexto verificable.'
-      : 'Turn intent into goals, tasks, rhythms and verifiable context.';
-  String get eyebrow => isSpanish ? 'Intención → realidad' : 'Intent → reality';
-  String get manageRhythms =>
-      isSpanish ? 'Gestionar Ritmos Diarios' : 'Manage Daily Rhythms';
+      ? 'Ponle un nombre. Añade detalles solo si los necesitas.'
+      : 'Give it a name. Add details only if you need them.';
+  String get eyebrow => isSpanish
+      ? 'Un lugar para tus ideas y planes'
+      : 'A place for your thoughts and plans';
+  String get manageRhythms => isSpanish ? 'Gestionar hábitos' : 'Manage habits';
   String get savedSnack => isSpanish
-      ? 'Confirmado y guardado una sola vez. Puedes deshacerlo aquí.'
-      : 'Confirmed and saved exactly once. Undo is available here.';
-  String get reviewChanges => isSpanish ? 'REVISAR CAMBIOS' : 'REVIEW CHANGES';
+      ? 'Guardado. Puedes deshacerlo aquí.'
+      : 'Saved. You can undo it here.';
+  String get reviewChanges =>
+      isSpanish ? 'Revisar antes de guardar' : 'Review before saving';
   String get draftPreview =>
-      isSpanish ? 'VISTA PREVIA DEL BORRADOR' : 'PLANNER DRAFT PREVIEW';
+      isSpanish ? 'Borrador sugerido' : 'Suggested draft';
   String get draftBoundary => isSpanish
-      ? 'No se ha guardado nada. Revisa y edita el formulario; después pulsa REVISAR CAMBIOS para abrir la confirmación del Creador.'
-      : 'Nothing has been saved. Review and edit the prefilled form, then press REVIEW CHANGES to open Creator confirmation.';
+      ? 'Esto es un borrador. Cambia lo que quieras y elige Revisar antes de guardar. Aún no se guardó nada.'
+      : 'This is a draft. Edit anything you want, then choose Review before saving. Nothing is saved yet.';
   String get discardPreview =>
       isSpanish ? 'Descartar vista previa' : 'Discard preview';
-  String get confirmTitle =>
-      isSpanish ? 'CONFIRMAR CAMBIOS DEL CREADOR' : 'CONFIRM CREATOR CHANGES';
+  String get confirmTitle => isSpanish ? '¿Quieres guardar?' : 'Ready to save?';
   String get confirmBoundary => isSpanish
-      ? 'No se guarda nada hasta que confirmes la operación seleccionada.'
-      : 'Nothing is saved until you confirm the selected operation below.';
+      ? 'Revisa el cambio seleccionado. Confirma para guardarlo.'
+      : 'Check the selected change below. Confirm to save it.';
   String get expires => isSpanish ? 'Caduca' : 'Expires';
   String get contextReview => isSpanish
-      ? 'REVISIÓN DEL CONTEXTO AUTORIZADO'
-      : 'GOVERNED CONTEXT REVIEW';
+      ? 'Revisión de tus preferencias'
+      : 'Check against your preferences';
   String get contextBoundary => isSpanish
-      ? 'Se revisó el contexto pertinente que compartiste. La propuesta no se cambió sin avisarte; cualquier conflicto requiere tu confirmación.'
-      : 'Relevant user-reported context was checked. The proposal was not silently rewritten; any conflict requires your confirmation.';
-  String get confirming => isSpanish ? 'CONFIRMANDO…' : 'CONFIRMING…';
+      ? 'Revisamos los detalles que compartiste. El borrador no cambió. Revisa los conflictos antes de confirmar.'
+      : 'We checked details you shared. The draft is unchanged. Review any conflicts before confirming.';
+  String get confirming => isSpanish ? 'Guardando…' : 'Saving…';
   String get confirmSelected =>
-      isSpanish ? 'CONFIRMAR SELECCIÓN' : 'CONFIRM SELECTED';
+      isSpanish ? 'Guardar cambios seleccionados' : 'Save selected changes';
   String get editDraft => isSpanish ? 'Editar borrador' : 'Edit draft';
   String get cancel => isSpanish ? 'Cancelar' : 'Cancel';
   String get notPresent => isSpanish ? 'No existe' : 'Not present';
@@ -50,62 +51,78 @@ class CreatorCopy {
   String get noDeadline => isSpanish ? 'Sin fecha límite' : 'No deadline';
   String get noTargetDate =>
       isSpanish ? 'Sin fecha objetivo' : 'No target date';
-  String get creationUndone =>
-      isSpanish ? 'CREACIÓN DESHECHA' : 'CREATION UNDONE';
-  String get creationSaved =>
-      isSpanish ? 'CREACIÓN GUARDADA' : 'CREATION SAVED';
-  String get undo => isSpanish ? 'Deshacer creación' : 'Undo creation';
-  String get openTimeline =>
-      isSpanish ? 'Abrir Línea de Tiempo' : 'Open Timeline';
+  String get creationUndone => isSpanish ? 'Guardado deshecho' : 'Save undone';
+  String get creationSaved => isSpanish ? 'Guardado' : 'Saved';
+  String get undo => isSpanish ? 'Deshacer guardado' : 'Undo save';
+  String get openTimeline => isSpanish ? 'Abrir agenda' : 'Open schedule';
   String get browseSavedTasks =>
       isSpanish ? 'Ver tareas guardadas' : 'Browse saved tasks';
+  String browseSavedItem(String kind) => switch (kind) {
+    'habit' => isSpanish ? 'Ver h\u00e1bitos' : 'Open habits',
+    'goal' => isSpanish ? 'Ver metas' : 'View goals',
+    'note' => isSpanish ? 'Ver notas' : 'View notes',
+    _ => browseSavedTasks,
+  };
   String get newItem => isSpanish ? 'Nuevo elemento' : 'New item';
-  String get create => isSpanish ? 'CREAR' : 'CREATE';
+  String get create => isSpanish ? 'Qué quieres guardar' : 'What to save';
+  String get taskOptions =>
+      isSpanish ? 'Opciones de la tarea (opcional)' : 'Task options (optional)';
+  String get taskOptionsHint => isSpanish
+      ? 'Fecha, duración, repetición o meta. Puedes cambiarlas después.'
+      : 'Date, duration, repeat, or goal. You can change these later.';
   String get titleHint => isSpanish ? 'Título *' : 'Title *';
   String get titleSemantic =>
       isSpanish ? 'Título, obligatorio' : 'Title, required';
   String get bodyHint => isSpanish ? 'Contenido (opcional)' : 'Body (optional)';
   String get descriptionHint =>
       isSpanish ? 'Descripción (opcional)' : 'Description (optional)';
-  String get working => isSpanish ? 'PROCESANDO...' : 'WORKING...';
-  String get activeGoal => isSpanish ? 'META ACTIVA' : 'ACTIVE GOAL';
-  String get estimate => isSpanish ? 'DURACIÓN ESTIMADA' : 'ESTIMATED DURATION';
-  String get schedule => isSpanish ? 'PROGRAMACIÓN' : 'SCHEDULE';
+  String get working => isSpanish ? 'Procesando…' : 'Working…';
+  String get activeGoal => isSpanish
+      ? 'Vincular a una meta (opcional)'
+      : 'Link to a goal (optional)';
+  String get estimate => isSpanish ? '¿Cuánto tiempo?' : 'About how long?';
+  String get schedule =>
+      isSpanish ? 'Cuándo hacerlo (opcional)' : 'When to work on it (optional)';
+  String get requiredSchedule =>
+      isSpanish ? 'Cuándo hacerlo' : 'When to work on it';
   String get pickSchedule =>
       isSpanish ? 'Elegir fecha y hora...' : 'Schedule date and time...';
-  String get deadline => isSpanish ? 'FECHA LÍMITE' : 'DEADLINE';
+  String get deadline =>
+      isSpanish ? 'Fecha límite (opcional)' : 'Due date (optional)';
   String get pickDeadline =>
       isSpanish ? 'Añadir fecha límite...' : 'Add deadline...';
-  String get targetDate => isSpanish ? 'FECHA OBJETIVO' : 'TARGET DATE';
+  String get targetDate =>
+      isSpanish ? 'Fecha objetivo (opcional)' : 'Target date (optional)';
   String get pickTargetDate =>
       isSpanish ? 'Añadir fecha objetivo...' : 'Add target date...';
   String get cadenceHeading =>
-      isSpanish ? 'FRECUENCIA / REPETICIÓN' : 'CADENCE / RECURRENCE';
+      isSpanish ? '¿Con qué frecuencia?' : 'How often?';
   String get priority => isSpanish ? 'PRIORIDAD' : 'PRIORITY';
   String get low => isSpanish ? 'BAJA' : 'LOW';
-  String get balanced => isSpanish ? 'EQUILIBRADA' : 'BALANCED';
-  String get critical => isSpanish ? 'CRÍTICA' : 'CRITICAL';
-  String get targetCount =>
-      isSpanish ? 'REPETICIONES OBJETIVO' : 'TARGET COUNT';
+  String get balanced => isSpanish ? 'Media' : 'Medium';
+  String get critical => isSpanish ? 'Alta' : 'High';
+  String get targetCount => isSpanish ? '¿Cuántas veces?' : 'How many times?';
   String get decreaseCount =>
       isSpanish ? 'Reducir repeticiones objetivo' : 'Decrease target count';
   String get increaseCount =>
       isSpanish ? 'Aumentar repeticiones objetivo' : 'Increase target count';
   String get firstScheduleRequired => isSpanish
-      ? 'Elige una fecha y hora para que tu primera tarea aparezca en la Línea de Tiempo.'
-      : 'Choose a date and time so your first task can appear on Timeline.';
+      ? 'Elige fecha y hora para ver esta tarea en tu agenda.'
+      : 'Choose a date and time to see this task in your schedule.';
 
   String kind(String name) => switch (name) {
     'task' => isSpanish ? 'Tarea' : 'Task',
     'goal' => isSpanish ? 'Meta' : 'Goal',
-    'habit' => isSpanish ? 'Ritmo diario' : 'Daily Rhythm',
+    'habit' => isSpanish ? 'Hábito' : 'Habit',
     'note' => isSpanish ? 'Nota' : 'Note',
     _ => isSpanish ? 'Elemento' : 'Item',
   };
-  String createAction(String name) => '$create ${kind(name).toUpperCase()}';
+  String createAction(String name) => isSpanish
+      ? 'Guardar ${kind(name).toLowerCase()}'
+      : 'Save ${kind(name).toLowerCase()}';
   String details(String name) => isSpanish
-      ? 'DETALLES: ${kind(name).toUpperCase()}'
-      : '${kind(name).toUpperCase()} DETAILS';
+      ? 'Detalles: ${kind(name).toLowerCase()}'
+      : '${kind(name)} details';
   String titleRequired(String name) => isSpanish
       ? 'Añade un título antes de crear ${name == 'habit' ? 'el' : 'la'} ${kind(name).toLowerCase()}.'
       : 'Add a title before creating the ${kind(name).toLowerCase()}.';
@@ -213,14 +230,14 @@ class CreatorCopy {
     return 'Aviso: $translated';
   }
 
-  /// Translate known handshake messages at presentation time. Signed previews,
+  /// Explain known handshake messages at presentation time. Signed previews,
   /// account bindings, receipts, and unknown diagnostic details stay unchanged.
   String message(String value) {
-    if (!isSpanish) return value;
+    if (!isSpanish) return _plainEnglishMessages[value] ?? value;
     final fixed = _messages[value];
     if (fixed != null) return fixed;
     for (final name in ['task', 'goal', 'habit', 'note']) {
-      final english = const CreatorCopy(false).kind(name).toLowerCase();
+      final english = name == 'habit' ? 'daily rhythm' : name;
       final noun = kind(name).toLowerCase();
       final article = name == 'habit' ? 'el' : 'la';
       final ofArticle = name == 'habit' ? 'del' : 'de la';
@@ -251,6 +268,44 @@ class CreatorCopy {
     }
     return value;
   }
+
+  static const _plainEnglishMessages = <String, String>{
+    'Review the exact selected change. Nothing has been saved yet.':
+        'Check the selected change. Nothing is saved yet.',
+    'Select at least one operation to enable confirmation.':
+        'Select a change to save.',
+    'Selection updated. Review the bound diff before confirming.':
+        'Your selection changed. Check it before saving.',
+    'No bound Creator operation is selected. Nothing was saved.':
+        'No change is selected. Nothing was saved.',
+    'Confirmation expired. The preview was refreshed; review it again. Nothing was saved.':
+        'This preview expired. Review the updated version. Nothing was saved.',
+    'Confirmation binding did not match the displayed diff. Nothing was saved.':
+        'The confirmation does not match this preview. Review it again. Nothing was saved.',
+    'Creator data changed after this preview. Review the refreshed version before confirming. Nothing was saved.':
+        'Your saved items changed. Review the updated preview. Nothing was saved.',
+    'Applying only the selected, confirmed operation…':
+        'Saving the change you confirmed…',
+    'Creator could not finish the confirmed operation. Review the current data before retrying.':
+        'We could not finish saving. Check your saved items before trying again.',
+    'Saved exactly once from the selected confirmation.': 'Saved.',
+    'Undo is bound to another account. The saved item was not changed.':
+        'This undo belongs to another account. The saved item was not changed.',
+    'The undo window expired. The saved item was not changed.':
+        'It is too late to undo this save. The saved item was not changed.',
+    'Undo could not complete. The current item state was preserved.':
+        'We could not undo this save. The saved item was not changed.',
+    'Creation undone. Repeated undo requests will not mutate data again.':
+        'Save undone. Repeating this will not change anything else.',
+    'Person context changed after this preview. Stage and review a new proposal before confirming. Nothing was saved.':
+        'The information you shared changed. Prepare a new preview and review it. Nothing was saved.',
+    'This confirmation was already applied. No duplicate items were created.':
+        'Already saved. No duplicate items were created.',
+    'Creator confirmation requires a verified account boundary. Nothing was saved.':
+        'We could not verify your account. Nothing was saved.',
+    'Creator confirmation requires a verified account boundary. The saved item was not changed.':
+        'We could not verify your account. The saved item was not changed.',
+  };
 
   static const _messages = <String, String>{
     'Review the exact selected change. Nothing has been saved yet.':

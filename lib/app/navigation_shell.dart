@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
+import 'package:fantastic_guacamole/features/creator/ui/record_library_screen.dart';
 import 'package:fantastic_guacamole/features/goals/ui/goals_screen.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
@@ -40,6 +41,7 @@ import 'package:fantastic_guacamole/state/services/preference_service.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/system/voice/audio_interruption_service.dart';
 import 'package:fantastic_guacamole/system/system_scheduler.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
@@ -360,11 +362,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
 
     final Widget body = switch (view) {
       AppView.nexus ||
-      AppView.profile ||
+      AppView.console ||
       AppView.trajectoryEngine ||
       AppView.timeline => _buildPrimaryShell(tabIndex),
       AppView.smartPlanner => const SmartPlannerScreen(),
-      AppView.console => const SIConsoleScreen(),
+      AppView.profile => const ProfileScreen(),
       AppView.settings => const SettingsScreen(),
       AppView.progression => const ProgressionScreen(),
       AppView.creator => const CreatorScreen(),

@@ -210,7 +210,7 @@ void main() {
     addTearDown(router.dispose);
 
     await pumpProfile(tester, ProfileState(), router: router);
-    await tester.tap(find.text('PROGRESSION'));
+    await tester.tap(find.text('Activity'));
     await tester.pumpAndSettle();
 
     expect(

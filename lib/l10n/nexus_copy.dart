@@ -13,14 +13,11 @@ class NexusCopy {
   final bool isSpanish;
 
   String get productName => 'AXIOMARA';
-  String get nexusTitle =>
-      isSpanish ? 'NEXUS // NÚCLEO VIVO' : 'NEXUS // LIVE CORE';
+  String get nexusTitle => isSpanish ? 'Inicio' : 'Home';
   String get tagline => isSpanish
-      ? 'Elige un próximo paso realista que se ajuste a tu día.'
-      : 'Choose one realistic next step that fits your day.';
-  String get logicCore => isSpanish
-      ? 'AXIOMARA // SISTEMA OPERATIVO DE DECISIONES HUMANAS'
-      : 'AXIOMARA // HUMAN DECISION OS';
+      ? 'Tómate un momento. Elige qué te ayudaría ahora.'
+      : 'Take a moment. Choose what would help right now.';
+  String get logicCore => isSpanish ? 'Espacio para pensar' : 'Space to think';
   String get openNotifications =>
       isSpanish ? 'Abrir notificaciones' : 'Open notifications';
   String get logOut => isSpanish ? 'Cerrar sesión' : 'Log out';
@@ -29,27 +26,27 @@ class NexusCopy {
       : 'Could not log out. Please try again.';
   String get context => isSpanish ? 'CONTEXTO' : 'CONTEXT';
   String profileStatus(String name, int level, int streak) => isSpanish
-      ? '${name.isEmpty ? 'SISTEMA HUMANO LISTO' : name.toUpperCase()}  ·  CAPACIDAD $level  ·  CONTINUIDAD $streak D'
-      : '${name.isEmpty ? 'HUMAN SYSTEM READY' : name.toUpperCase()}  ·  CAPABILITY $level  ·  ${streak}D CONTINUITY';
+      ? (name.isEmpty ? 'Bienvenido' : name)
+      : (name.isEmpty ? 'Welcome' : name);
 
-  String get decisionLoop => isSpanish ? 'TU PRÓXIMO PASO' : 'YOUR NEXT STEP';
+  String get decisionLoop => isSpanish
+      ? '¿Por dónde quieres empezar?'
+      : 'Where would you like to start?';
   String get decisionLoopSubtitle => isSpanish
-      ? 'Añade algo que necesites hacer y elige un momento para hacerlo.'
-      : 'Add something you need to do, then choose a time to do it.';
+      ? 'Pregunta sobre un plan, elige un pequeño paso o guarda una tarea.'
+      : 'Ask about a plan, choose one small step, or save a task.';
   String get buildReality => isSpanish ? 'Añadir una tarea' : 'Add a task';
-  String get morePlanningTools =>
-      isSpanish ? 'Más herramientas de planificación' : 'More planning tools';
+  String get morePlanningTools => isSpanish ? 'Más herramientas' : 'More tools';
   String get resolveNow =>
-      isSpanish ? 'Planificar mis tareas' : 'Plan my tasks';
-  String get interrogate =>
-      isSpanish ? 'Revisar una decisión' : 'Review a decision';
+      isSpanish ? 'Elegir un pequeño paso' : 'Choose a small step';
+  String get interrogate => isSpanish ? 'Hablarlo' : 'Talk it through';
   String get compareFutures =>
       isSpanish ? 'Comparar opciones' : 'Compare options';
   String get reviewTruth =>
       isSpanish ? 'Tareas e historial' : 'Tasks and history';
   String get loopControlNote => isSpanish
-      ? 'Nada cambia sin tu acción. Cada resultado puede revisarse y corregirse.'
-      : 'Nothing changes without your action. Every outcome can be reviewed and corrected.';
+      ? 'Tú eliges qué guardar o cambiar. Puedes revisar los resultados registrados.'
+      : 'You choose what to save or change. You can review recorded results.';
   String get builtForReality =>
       isSpanish ? 'CREADO PARA LA VIDA REAL' : 'BUILT FOR REAL LIFE';
   List<String> get realLifeSituations => isSpanish
@@ -76,8 +73,8 @@ class NexusCopy {
       ? 'Estimación basada en tu cansancio. Toca para registrarlo'
       : 'Estimate from your fatigue report. Tap to check in';
   String get momentumHint => isSpanish
-      ? 'Abre Trayectoria para revisar la referencia actual'
-      : 'Open Trajectory to review the current baseline';
+      ? 'Abre Comparar opciones para revisar esta estimación'
+      : 'Open Compare options to review this estimate';
   String momentumValue(String value) => !isSpanish
       ? value
       : switch (value) {
@@ -103,15 +100,15 @@ class NexusCopy {
             'Momentum $momentumLabel.';
 
   String get currentDecision =>
-      isSpanish ? 'PAQUETE DE DECISIÓN EN VIVO' : 'LIVE DECISION PACKET';
+      isSpanish ? 'Próximo paso sugerido' : 'Suggested next step';
   String get nextMove => isSpanish
-      ? 'Ahora · Por qué · Señal · Incertidumbre · Control'
-      : 'Now · Why · Signal · Uncertainty · Control';
+      ? 'Revísalo, cámbialo o déjalo para después.'
+      : 'Review it, change it, or leave it for later.';
   String get buildNextStep =>
       isSpanish ? 'Define un próximo paso claro' : 'Build one clear next step';
   String get addTaskReason => isSpanish
-      ? 'Añade una tarea en Constructor de Realidad para que el Motor del Ahora ordene trabajo real.'
-      : 'Add a task in Reality Builder so the Now Engine can rank real work.';
+      ? 'Guarda una tarea en Añadir algo para recibir una sugerencia basada en tus planes.'
+      : 'Save a task in Add something to get a suggestion based on your plans.';
   String get scheduledReason => isSpanish
       ? 'Esta tarea programada es el compromiso concreto más próximo.'
       : 'This scheduled task is the nearest concrete commitment.';
@@ -213,11 +210,11 @@ class NexusCopy {
           _ => value,
         };
   String get suggestionUnavailable => isSpanish
-      ? 'No se pudo cargar la sugerencia actual a partir de la evidencia local de planificación.'
-      : 'The current suggestion could not load from local planning evidence.';
+      ? 'No se pudo cargar una sugerencia de tus planes guardados. Reintenta.'
+      : 'We could not load a suggestion from your saved plans. Try again.';
   String get retry => isSpanish ? 'Reintentar' : 'Retry';
   String get priorities =>
-      isSpanish ? 'PRIORIDADES ACTUALES' : 'CURRENT PRIORITIES';
+      isSpanish ? 'Tus elementos guardados' : 'Your saved items';
   String get prioritiesSubtitle =>
       isSpanish ? 'Meta · tarea · nota' : 'Goal · task · note';
   String get goal => isSpanish ? 'META' : 'GOAL';
@@ -272,10 +269,11 @@ class NexusCopy {
   String get clear => isSpanish ? 'Borrar' : 'Clear';
   String get save => isSpanish ? 'Guardar' : 'Save';
 
-  String get learningChanged =>
-      isSpanish ? 'QUÉ CAMBIÓ CON EL APRENDIZAJE' : 'WHAT LEARNING CHANGED';
+  String get learningChanged => isSpanish
+      ? 'Qué cambió con tu opinión'
+      : 'What changed after your feedback';
   String get correctLearning =>
-      isSpanish ? 'Corregir este aprendizaje' : 'Correct this learning';
+      isSpanish ? 'Corregir esta opinión' : 'Correct this feedback';
   String get helped => isSpanish ? 'Esto ayudó' : 'This helped';
   String get didNotHelp => isSpanish ? 'Esto no ayudó' : 'This did not help';
   String learningSummary(

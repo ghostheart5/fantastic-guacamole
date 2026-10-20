@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:fantastic_guacamole/features/goals/ui/goals_screen.dart';
 
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
@@ -23,6 +24,7 @@ import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
+import 'package:fantastic_guacamole/features/creator/ui/record_library_screen.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/profile/ui/profile_screen.dart';
@@ -62,26 +64,26 @@ void main() {
           );
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 400));
-          expect(find.byTooltip('Abrir mapa de navegación'), findsOneWidget);
-          await tester.tap(find.byTooltip('Abrir mapa de navegación'));
+          expect(find.byTooltip('Ver herramientas'), findsOneWidget);
+          await tester.tap(find.byTooltip('Ver herramientas'));
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 400));
-          expect(find.text('Mapa del sistema'), findsWidgets);
+          expect(find.text('Herramientas'), findsWidgets);
           expect(
-            find.text('Un sistema humano: decide, actúa, observa y aprende.'),
+            find.text('Elige una herramienta para ver qué hace.'),
             findsOneWidget,
           );
-          expect(find.byTooltip('Cerrar mapa de navegación'), findsOneWidget);
+          expect(find.byTooltip('Cerrar herramientas'), findsOneWidget);
           expect(
-            find.text('Decisiones, señales y control en vivo'),
+            find.text('Empieza aquí y elige qué te ayudaría hoy'),
             findsOneWidget,
           );
           expect(
-            find.text('Compara caminos posibles sin fingir certeza'),
+            find.text('Revisa tus patrones, predicciones y resultados futuros'),
             findsOneWidget,
           );
           expect(find.text('Navigation Map'), findsNothing);
-          final planner = find.text('Motor del Ahora');
+          final planner = find.text('Elegir un paso');
           await tester.ensureVisible(planner);
           await tester.tap(planner);
           await tester.pump();
@@ -139,8 +141,15 @@ void main() {
       );
       await creator.confirm();
       expect(container.read(timelineProvider), hasLength(1));
-      await tester.ensureVisible(find.text('Open Timeline'));
-      await tester.tap(find.text('Open Timeline'));
+      await tester.ensureVisible(find.text('View notes'));
+      await tester.tap(find.text('View notes'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(RecordLibraryScreen), findsOneWidget);
+      expect(find.textContaining('Release note history'), findsWidgets);
+      await tester.pageBack();
+      await tester.pump();
+      harness.router.go(RoutePaths.timeline);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(TimelineScreen), findsOneWidget);
@@ -188,7 +197,13 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
         for (var attempt = 0; attempt < 3; attempt++) {
-          final openNote = find.bySemanticsLabel('Open NOTE');
+          await _openNotes(tester);
+          final openNote = find
+              .byWidgetPredicate(
+                (w) =>
+                    w is ListTile && w.key.toString().contains('library-note-'),
+              )
+              .first;
           await tester.ensureVisible(openNote);
           await tester.tap(openNote);
           await tester.pump();
@@ -201,7 +216,12 @@ void main() {
           await tester.pump(const Duration(seconds: 1));
           await tester.pump();
           expect(find.byType(NoteDetailScreen), findsNothing);
-          final openGoal = find.bySemanticsLabel('Open GOAL');
+          await tester.drag(
+            find.byType(NestedScrollView),
+            const Offset(0, 600),
+          );
+          await tester.pump(const Duration(milliseconds: 350));
+          final openGoal = find.widgetWithText(OutlinedButton, 'Goals');
           await tester.ensureVisible(openGoal);
           await tester.tap(openGoal);
           await tester.pump();
@@ -234,7 +254,13 @@ void main() {
             );
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        final openNote = find.bySemanticsLabel('Open NOTE');
+        await _openNotes(tester);
+        final openNote = find
+            .byWidgetPredicate(
+              (w) =>
+                  w is ListTile && w.key.toString().contains('library-note-'),
+            )
+            .first;
         await tester.ensureVisible(openNote);
         await tester.tap(openNote);
         await tester.pump();
@@ -307,7 +333,7 @@ void main() {
   ) async {
     await _pumpRouteShell(tester, initialLocation: RoutePaths.timeline);
 
-    expect(find.byType(TimelineScreen), findsOneWidget);
+    expect(find.byType(RecordLibraryScreen), findsOneWidget);
     expect(find.byType(NexusScreen), findsNothing);
   });
 
@@ -316,7 +342,7 @@ void main() {
   ) async {
     final _RouteShellHarness harness = await _pumpRouteShell(tester);
 
-    await tester.tap(find.text('Truth Ledger'));
+    await tester.tap(find.text('My plan').last);
     await tester.pump();
     await tester.pump();
 
@@ -330,10 +356,10 @@ void main() {
   ) async {
     final _RouteShellHarness harness = await _pumpRouteShell(tester);
 
-    expect(find.text('Future Branches'), findsOneWidget);
+    expect(find.text('Insights'), findsOneWidget);
     expect(find.text('Trajectory'), findsNothing);
 
-    await tester.tap(find.text('Future Branches'));
+    await tester.tap(find.text('Insights'));
     await tester.pump();
     await tester.pump();
 
@@ -347,10 +373,10 @@ void main() {
   ) async {
     final _RouteShellHarness harness = await _pumpRouteShell(tester);
 
-    await tester.tap(find.byTooltip('Open navigation map'));
+    await tester.tap(find.byTooltip('Browse tools'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('Now Engine'));
+    await tester.tap(find.text('Choose a step'));
     await tester.pump();
     await tester.pump();
 
@@ -371,7 +397,7 @@ void main() {
 
     const Key navigationKey = ValueKey<String>('phone-bottom-navigation');
     final Finder navigation = find.byKey(navigationKey);
-    final Finder mapAction = find.byTooltip('Open navigation map');
+    final Finder mapAction = find.byTooltip('Browse tools');
 
     expect(navigation, findsOneWidget);
     expect(
@@ -392,7 +418,11 @@ void main() {
   ) async {
     final _RouteShellHarness harness = await _pumpRouteShell(tester);
 
-    await tester.tap(find.text('Human Profile'));
+    await tester.tap(find.byTooltip('Browse tools'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.ensureVisible(find.text('Profile'));
+    await tester.tap(find.text('Profile'));
     await tester.pump();
     await tester.pump();
     _expectRouterUri(harness, RoutePaths.profile);
@@ -892,7 +922,7 @@ const List<_ShellExpectation> _shellExpectations = <_ShellExpectation>[
   _ShellExpectation(
     route: RoutePaths.logs,
     view: AppView.timeline,
-    screenType: TimelineScreen,
+    screenType: RecordLibraryScreen,
   ),
   _ShellExpectation(
     route: RoutePaths.tasks,
@@ -917,7 +947,7 @@ const List<_ShellExpectation> _shellExpectations = <_ShellExpectation>[
   _ShellExpectation(
     route: RoutePaths.timeline,
     view: AppView.timeline,
-    screenType: TimelineScreen,
+    screenType: RecordLibraryScreen,
   ),
   _ShellExpectation(
     route: RoutePaths.smartPlanner,
@@ -946,7 +976,7 @@ const List<_ShellExpectation> _adaptiveGuidanceExpectations =
       _ShellExpectation(
         route: RoutePaths.timeline,
         view: AppView.timeline,
-        screenType: TimelineScreen,
+        screenType: RecordLibraryScreen,
       ),
       _ShellExpectation(
         route: RoutePaths.si,
@@ -1015,4 +1045,13 @@ NavigationShell _navigationShellForRoute(GoRouterState state, AppView view) {
 class _StaticGoals extends GoalsNotifier {
   @override
   List<GoalEntity> build() => const <GoalEntity>[];
+}
+
+Future<void> _openNotes(WidgetTester tester) async {
+  await tester.tap(find.text('My plan').last);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 350));
+  await tester.tap(find.text('Notes'));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 350));
 }

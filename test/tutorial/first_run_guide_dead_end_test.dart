@@ -216,12 +216,12 @@ void main() {
     addTearDown(router.dispose);
     await _pumpRouterWithGuide(tester, container, router);
 
-    expect(find.text('Capture the first real commitment'), findsNothing);
+    expect(find.text('Add your first task'), findsNothing);
     router.go(RoutePaths.nexus);
     for (int i = 0; i < 4; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
-    expect(find.text('Capture the first real commitment'), findsOneWidget);
+    expect(find.text('Add your first task'), findsOneWidget);
   });
 
   for (final language in <String>['en', 'es']) {

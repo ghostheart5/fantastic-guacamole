@@ -122,7 +122,7 @@ void main() {
     }
 
     expect(backendAttempts, 4);
-    expect(find.text('ENTER SYSTEM'), findsOneWidget);
+    expect(find.text('Sign in'), findsOneWidget);
   });
 
   Future<void> pumpGate(
@@ -166,9 +166,9 @@ void main() {
     for (int i = 0; i < 8; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    await tester.ensureVisible(find.text('ENTER SYSTEM'));
+    await tester.ensureVisible(find.text('Sign in'));
     await tester.pump();
-    await tester.tap(find.text('ENTER SYSTEM'));
+    await tester.tap(find.text('Sign in'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
   }
@@ -182,7 +182,7 @@ void main() {
     await pumpGate(tester, service);
 
     expect(find.text('APP_READY'), findsNothing);
-    expect(find.text('ENTER SYSTEM'), findsOneWidget);
+    expect(find.text('Sign in'), findsOneWidget);
     expect(find.textContaining('TESTER ACCESS'), findsNothing);
   });
 
@@ -376,20 +376,20 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
-    expect(find.text('ENTER SYSTEM'), findsOneWidget);
-    expect(find.text('ACCESS SYSTEM'), findsOneWidget);
+    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.text('Your account'), findsOneWidget);
 
     await tester.tap(find.text('Create Account'));
     await tester.pump();
 
-    expect(find.text('INITIALIZE PROFILE'), findsOneWidget);
-    expect(find.text('CREATE ACCOUNT'), findsOneWidget);
+    expect(find.text('Create account'), findsOneWidget);
+    expect(find.text('New here?'), findsOneWidget);
 
     await tester.tap(find.text('Switch to Login'));
     await tester.pump();
 
-    expect(find.text('ENTER SYSTEM'), findsOneWidget);
-    expect(find.text('ACCESS SYSTEM'), findsOneWidget);
+    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.text('Your account'), findsOneWidget);
   });
 
   testWidgets('forgot password sends a reset for a valid email', (

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -106,11 +107,11 @@ void main() {
           status: ProgressionReviewStatus.empty,
         ),
       );
-      expect(find.text('MATRIZ DE CAPACIDADES'), findsOneWidget);
+      expect(find.text('Actividad'), findsOneWidget);
       expect(find.byTooltip('Compartir progreso'), findsOneWidget);
       expect(find.text('IMPULSO DE FINALIZACIÓN'), findsOneWidget);
       expect(find.text('Fiabilidad de planificación'), findsOneWidget);
-      expect(find.text('CAPABILITY MATRIX'), findsNothing);
+      expect(find.text('Activity'), findsNothing);
       expect(find.text('TIER'), findsNothing);
       expect(find.textContaining('puntos de evidencia (XP)'), findsOneWidget);
       expect(
@@ -126,7 +127,7 @@ void main() {
   ) async {
     await pumpProgression(tester, trajectory: _emptyTrajectory);
 
-    expect(find.text('CAPABILITY MATRIX'), findsOneWidget);
+    expect(find.text('Activity'), findsOneWidget);
     expect(find.text('Not enough evidence'), findsOneWidget);
     expect(find.text('Not enough history'), findsOneWidget);
     expect(find.text('Off Track'), findsNothing);
@@ -142,7 +143,7 @@ void main() {
   ) async {
     await pumpProgression(tester, trajectory: _activeTrajectory);
 
-    expect(find.text('CAPABILITY MATRIX'), findsOneWidget);
+    expect(find.text('Activity'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -218,7 +219,7 @@ void main() {
       physicalSize: const Size(412, 915),
     );
 
-    expect(find.text('CAPABILITY MATRIX'), findsOneWidget);
+    expect(find.text('Activity'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -229,7 +230,7 @@ void main() {
     // the populated-prediction path had never been rendered anywhere.
     await pumpProgression(tester, trajectory: _predictiveTrajectory);
 
-    expect(find.text('CAPABILITY MATRIX'), findsOneWidget);
+    expect(find.text('Activity'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -285,7 +286,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Retry progress review'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, 'Open Creator'), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Add a task'), findsNothing);
     },
   );
 
@@ -299,7 +300,7 @@ void main() {
     container.read(appFlowProvider.notifier).toProgression();
     await tester.pump();
 
-    final Finder backToNexus = find.bySemanticsLabel('Back to Nexus');
+    final Finder backToNexus = find.bySemanticsLabel('Back Home');
     expect(backToNexus, findsOneWidget);
 
     await tester.tap(backToNexus);
@@ -326,7 +327,7 @@ void main() {
       );
       await tester.pump();
       expect(find.text('Saved evidence is unavailable.'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, 'Open Creator'), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Add a task'), findsNothing);
       expect(find.text('PRESSURE'), findsNothing);
       expect(find.text('No milestones recorded yet.'), findsNothing);
       expect(
@@ -370,12 +371,9 @@ void main() {
         findsOneWidget,
       );
       if (status == ProgressionReviewStatus.empty) {
-        expect(
-          find.widgetWithText(FilledButton, 'Open Creator'),
-          findsOneWidget,
-        );
+        expect(find.widgetWithText(FilledButton, 'Add a task'), findsOneWidget);
       } else {
-        expect(find.widgetWithText(FilledButton, 'Open Creator'), findsNothing);
+        expect(find.widgetWithText(FilledButton, 'Add a task'), findsNothing);
       }
       expect(tester.takeException(), isNull);
     });
@@ -393,7 +391,7 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Open Creator'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Add a task'));
     await tester.pump();
 
     expect(container.read(appFlowProvider), AppView.creator);
@@ -419,7 +417,7 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Open Timeline'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Open schedule'));
     await tester.pump();
 
     expect(container.read(appFlowProvider), AppView.timeline);

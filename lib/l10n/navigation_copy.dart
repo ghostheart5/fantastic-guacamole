@@ -12,28 +12,26 @@ class NavigationCopy {
 
   final bool isSpanish;
 
-  String get openMap =>
-      isSpanish ? 'Abrir mapa de navegación' : 'Open navigation map';
-  String get closeMap =>
-      isSpanish ? 'Cerrar mapa de navegación' : 'Close navigation map';
-  String get mapTitle => isSpanish ? 'Mapa del sistema' : 'System Map';
-  String get railMapTitle => isSpanish ? 'Mapa del sistema' : 'System map';
+  String get openMap => isSpanish ? 'Ver herramientas' : 'Browse tools';
+  String get closeMap => isSpanish ? 'Cerrar herramientas' : 'Close tools';
+  String get mapTitle => isSpanish ? 'Herramientas' : 'Tools';
+  String get railMapTitle => isSpanish ? 'Herramientas' : 'Tools';
   String get mapSubtitle => isSpanish
-      ? 'Un sistema humano: decide, actúa, observa y aprende.'
-      : 'One human system: decide, act, observe and learn.';
+      ? 'Elige una herramienta para ver qué hace.'
+      : 'Choose a tool to see what it does.';
 
   String label(AppRouteDefinition destination) => !isSpanish
       ? destination.label
       : switch (destination.appView) {
-          AppView.nexus => 'Núcleo Nexus',
-          AppView.trajectoryEngine => 'Ramas Futuras',
-          AppView.timeline => 'Registro de Verdad',
-          AppView.profile => 'Perfil Humano',
-          AppView.creator => 'Constructor de Realidad',
-          AppView.smartPlanner => 'Motor del Ahora',
-          AppView.console => 'Inteligencia Profunda',
-          AppView.progression => 'Matriz de Capacidades',
-          AppView.settings => 'Centro de Control',
+          AppView.nexus => 'Hoy',
+          AppView.trajectoryEngine => 'Perspectivas',
+          AppView.timeline => 'Mi plan',
+          AppView.profile => 'Perfil',
+          AppView.creator => 'Añadir algo',
+          AppView.smartPlanner => 'Elegir un paso',
+          AppView.console => 'Chat',
+          AppView.progression => 'Actividad',
+          AppView.settings => 'Ajustes',
           AppView.goals => 'Metas',
           null => destination.label,
         };
@@ -41,22 +39,17 @@ class NavigationCopy {
   String subtitle(AppRouteDefinition destination) => !isSpanish
       ? destination.navigationSubtitle ?? ''
       : switch (destination.appView) {
-          AppView.nexus => 'Decisiones, señales y control en vivo',
+          AppView.nexus => 'Empieza aquí y elige qué te ayudaría hoy',
           AppView.trajectoryEngine =>
-            'Compara caminos posibles sin fingir certeza',
-          AppView.timeline =>
-            'Recibos de decisiones, resultados e historial corregible',
-          AppView.profile => 'Identidad, continuidad y capacidad',
-          AppView.creator =>
-            'Convierte intención en metas, tareas y contexto vinculados',
-          AppView.smartPlanner =>
-            'Resuelve límites reales en un movimiento ejecutable',
-          AppView.console =>
-            'Interroga contexto, evidencia y resultados posibles',
+            'Revisa tus patrones, predicciones y resultados futuros',
+          AppView.timeline => 'Encuentra tareas, metas, hábitos y tu agenda',
+          AppView.profile => 'Ve tu nombre y tu actividad registrada',
+          AppView.creator => 'Guarda una tarea, nota, meta o hábito',
+          AppView.smartPlanner => 'Encuentra un próximo paso manejable',
+          AppView.console => 'Pregunta sobre tus planes guardados',
           AppView.progression =>
-            'Descubre capacidades demostradas mediante la acción',
-          AppView.settings =>
-            'Controles de privacidad, memoria, inteligencia y cuenta',
+            'Revisa tareas completadas y avances registrados',
+          AppView.settings => 'Gestiona tu cuenta, privacidad y preferencias',
           AppView.goals => 'Metas y resultados',
           null => destination.navigationSubtitle ?? '',
         };

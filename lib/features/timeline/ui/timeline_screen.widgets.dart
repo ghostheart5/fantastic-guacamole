@@ -801,11 +801,11 @@ class _TimelineHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TemporalScreenHeader(
-      title: journeyText(context, 'TRUTH LEDGER', 'REGISTRO DE VERDAD'),
+      title: journeyText(context, 'Schedule', 'Agenda'),
       subtitle: journeyText(
         context,
-        'Decision receipts, real outcomes and a history you can correct.',
-        'Recibos de decisiones, resultados reales y un historial que puedes corregir.',
+        'See tasks with dates and past activity. Open a task to update it.',
+        'Ve tareas con fecha y actividad anterior. Abre una tarea para actualizarla.',
       ),
       eyebrow: journeyText(
         context,
@@ -814,7 +814,7 @@ class _TimelineHeader extends StatelessWidget {
       ),
       accent: AppColors.neonViolet,
       onBack: onBack,
-      backTooltip: journeyText(context, 'Back to Nexus', 'Volver a Nexus'),
+      backTooltip: journeyText(context, 'Back Home', 'Volver a Inicio'),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[

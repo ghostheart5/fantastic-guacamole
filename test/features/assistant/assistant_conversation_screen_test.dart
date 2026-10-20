@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
+import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
@@ -25,6 +26,10 @@ import 'package:fantastic_guacamole/state/providers/personalization_provider.dar
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
+import 'package:fantastic_guacamole/state/providers/service_providers.dart';
+import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
+import 'package:fantastic_guacamole/system/voice/speech_recognition_service.dart';
+import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -65,6 +70,10 @@ ProviderContainer setup(
   ITaskRepository? taskRepository,
   ConsentedHumanContext? humanContext,
   VoiceController? voiceController,
+  SpeechRecognitionService? speechService,
+  VoicePermissionService? voicePermission,
+  VoiceInputConsentStore? voiceConsent,
+  bool conversationAvailable = true,
   Duration? requestTimeout,
   Duration? paidWaitTimeout,
   NoteEntity? selectedNote,
@@ -74,7 +83,11 @@ ProviderContainer setup(
       (ref) => readScope?.call() ?? scope,
     ),
     authSessionBoundaryProvider.overrideWith(_Boundary.new),
-    assistantConversationAvailableProvider.overrideWithValue(true),
+    assistantConversationAvailableProvider.overrideWithValue(
+      conversationAvailable,
+    ),
+    if (!conversationAvailable)
+      siV2AvailabilityProvider.overrideWith((ref) async => true),
     personalizationProfileProvider.overrideWith(_Consent.new),
     conversationTransportProvider.overrideWithValue(transport),
     if (requestTimeout != null)
@@ -99,13 +112,20 @@ ProviderContainer setup(
             taskId: 'grocery',
           ),
     ),
-    if (voiceController != null)
+    if (voiceController != null || speechService != null)
       voiceInputEnabledProvider.overrideWithValue(true),
+    if (speechService != null)
+      speechRecognitionServiceProvider.overrideWithValue(speechService),
+    if (speechService != null)
+      voiceServiceProvider.overrideWithValue(_SilentVoiceService()),
+    if (voicePermission != null)
+      voicePermissionServiceProvider.overrideWithValue(voicePermission),
     if (voiceController != null)
       voiceControllerProvider.overrideWith(() => voiceController),
-    if (voiceController != null)
+    if (voiceController != null || speechService != null)
       voiceInputConsentStoreProvider.overrideWithValue(
-        VoiceInputConsentStore(const AccountStorageScope.unsafe()),
+        voiceConsent ??
+            VoiceInputConsentStore(const AccountStorageScope.unsafe()),
       ),
     for (final capability in [
       AssistantReleaseCapability.smartPlannerV2,
@@ -203,11 +223,15 @@ void main() {
         );
         await tester.pumpAndSettle();
         await tester.tap(
-          find.text(planner ? 'Energy for this request' : 'Advanced analysis'),
+          find.text(
+            planner
+                ? 'How much energy do you have? (optional)'
+                : 'Choose information to use (optional)',
+          ),
         );
         await tester.pumpAndSettle();
         final label = tester.renderObject<RenderBox>(
-          find.text(planner ? 'Energy (optional)' : 'Analysis mode'),
+          find.text(planner ? 'Energy (optional)' : 'What kind of help?'),
         );
         var checkedClips = 0;
         RenderObject? ancestor = label.parent;
@@ -1373,6 +1397,113 @@ void main() {
     );
   }
 
+  for (final retainedView in ['assistant', 'SI console', 'local SI console']) {
+    for (final pendingStage in ['capture', 'permission', 'consent']) {
+      testWidgets(
+        'retained $retainedView stops $pendingStage on tab deactivation',
+        (tester) async {
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+          final active = ValueNotifier(true);
+          final speech = _RetainedSpeechService();
+          final permission = _RetainedVoicePermission(
+            pending: pendingStage == 'permission',
+          );
+          final consent = _RetainedVoiceConsent(
+            pending: pendingStage == 'consent',
+          );
+          final container = setup(
+            (_) async => throw StateError('Dictation must not send'),
+            speechService: speech,
+            voicePermission: permission,
+            voiceConsent: consent,
+            conversationAvailable: retainedView != 'local SI console',
+          );
+          addTearDown(() async {
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.pump();
+            container.dispose();
+            active.dispose();
+          });
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp(
+                home: ValueListenableBuilder<bool>(
+                  valueListenable: active,
+                  builder: (context, isActive, _) => MediaQuery(
+                    data: const MediaQueryData(disableAnimations: true),
+                    child: IndexedStack(
+                      index: isActive ? 0 : 1,
+                      children: [
+                        if (retainedView != 'assistant')
+                          SIConsoleScreen(isActive: isActive)
+                        else
+                          AssistantConversationScreen(
+                            surface: ConversationSurface.si,
+                            isActive: isActive,
+                            onLocalTools: () {},
+                          ),
+                        const Scaffold(body: Text('Other tab')),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final input = find.byKey(
+            Key(
+              retainedView == 'local SI console'
+                  ? 'si-query-input'
+                  : 'conversation-input',
+            ),
+          );
+          await tester.enterText(input, 'Keep my draft');
+          final mic = retainedView == 'local SI console'
+              ? find.bySemanticsLabel('Start voice input')
+              : find.byTooltip('Start voice input');
+          await tester.ensureVisible(mic);
+          await tester.tap(mic);
+          await tester.pumpAndSettle();
+          if (pendingStage == 'capture') {
+            expect(speech.starts, 1);
+            expect(speech.isListening, isTrue);
+          } else {
+            expect(speech.starts, 0);
+          }
+          final revision = container
+              .read(voiceControllerProvider.notifier)
+              .lifecycleRevision;
+          active.value = false;
+          await tester.pumpAndSettle();
+          expect(speech.isListening, isFalse);
+          expect(speech.stops, greaterThan(0));
+          expect(
+            container.read(voiceControllerProvider.notifier).lifecycleRevision,
+            greaterThan(revision),
+          );
+          // Returning must not revive consent or permission from the old visit.
+          active.value = true;
+          await tester.pumpAndSettle();
+          consent.release();
+          permission.release();
+          speech.emitLateResult('stale private audio');
+          await tester.pumpAndSettle();
+          expect(speech.starts, pendingStage == 'capture' ? 1 : 0);
+          expect(container.read(voiceControllerProvider).isListening, isFalse);
+          expect(
+            tester.widget<TextField>(input).controller!.text,
+            'Keep my draft',
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   testWidgets(
     'dictation uses the replacement voice controller after provider invalidation',
     (tester) async {
@@ -1821,7 +1952,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Advanced analysis'));
+    await tester.tap(find.text('Choose information to use (optional)'));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButtonFormField<SIV2Intent>));
     await tester.pumpAndSettle();
@@ -1957,7 +2088,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Energy for this request'));
+      await tester.tap(find.text('How much energy do you have? (optional)'));
       await tester.pumpAndSettle();
       expect(find.byType(Slider), findsNothing);
       expect(find.text('Not set'), findsWidgets);
@@ -2092,6 +2223,66 @@ class _Boundary extends AuthSessionBoundaryNotifier {
     isTransitioning: false,
     isStorageReady: true,
   );
+}
+
+class _SilentVoiceService extends VoiceService {
+  @override
+  Future<void> stop() async {}
+}
+
+class _RetainedVoiceConsent extends VoiceInputConsentStore {
+  _RetainedVoiceConsent({required bool pending})
+    : gate = pending ? Completer<bool>() : null,
+      super(const AccountStorageScope.unsafe());
+  final Completer<bool>? gate;
+  @override
+  Future<bool> isApproved() async => gate == null ? true : await gate!.future;
+  void release() {
+    if (gate != null && !gate!.isCompleted) gate!.complete(true);
+  }
+}
+
+class _RetainedVoicePermission extends VoicePermissionService {
+  _RetainedVoicePermission({required bool pending})
+    : gate = pending ? Completer<bool>() : null;
+  final Completer<bool>? gate;
+  @override
+  Future<bool> requestPermission() async =>
+      gate == null ? true : await gate!.future;
+  void release() {
+    if (gate != null && !gate!.isCompleted) gate!.complete(true);
+  }
+}
+
+class _RetainedSpeechService implements SpeechRecognitionService {
+  int starts = 0;
+  int stops = 0;
+  bool _listening = false;
+  void Function(String, bool)? _result;
+  @override
+  bool get isListening => _listening;
+  @override
+  Future<bool> initialize() async => true;
+  @override
+  Future<void> listen({
+    required void Function(String, bool) onResult,
+    required void Function() onDone,
+    String? localeId,
+  }) async {
+    starts++;
+    _listening = true;
+    _result = onResult;
+  }
+
+  @override
+  Future<void> stop() async {
+    stops++;
+    _listening = false;
+  }
+
+  @override
+  Future<void> cancel() => stop();
+  void emitLateResult(String text) => _result?.call(text, false);
 }
 
 final class _ConversationVoiceController extends VoiceController {

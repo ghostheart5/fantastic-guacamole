@@ -36,11 +36,11 @@ class GoalsScreen extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
                 child: TemporalScreenHeader(
-                  title: journeyText(context, 'GOALS', 'METAS'),
+                  title: journeyText(context, 'Goals', 'Metas'),
                   subtitle: journeyText(
                     context,
-                    'Direct the next horizon.',
-                    'Dirige tu próximo horizonte.',
+                    'Save a goal you want to work toward. Open it to review or edit it.',
+                    'Guarda una meta que quieras alcanzar. Ábrela para revisarla o editarla.',
                   ),
                   eyebrow: journeyText(
                     context,

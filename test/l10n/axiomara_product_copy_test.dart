@@ -6,29 +6,26 @@ import 'package:fantastic_guacamole/l10n/nexus_copy.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test(
-    'product identity distinguishes the human decision operating system',
-    () {
-      expect(ProductIdentity.name, 'Axiomara');
-      expect(ProductIdentity.category, 'Human Decision OS');
-      expect(ProductIdentity.legacyName, 'ChronoSpark');
-    },
-  );
+  test('product identity describes reflection and planning', () {
+    expect(ProductIdentity.name, 'Axiomara');
+    expect(ProductIdentity.category, 'Reflection and planning');
+    expect(ProductIdentity.legacyName, 'ChronoSpark');
+  });
 
-  test('Nexus exposes the full decision packet and user-control boundary', () {
+  test('Home names the next step and keeps the user-control boundary', () {
     const NexusCopy english = NexusCopy(false);
     const NexusCopy spanish = NexusCopy(true);
 
-    expect(english.currentDecision, 'LIVE DECISION PACKET');
-    expect(english.nextMove, contains('Uncertainty'));
-    expect(english.loopControlNote, contains('Nothing changes'));
+    expect(english.currentDecision, 'Suggested next step');
+    expect(english.nextMove, contains('Review'));
+    expect(english.loopControlNote, contains('You choose'));
     expect(english.realLifeSituations, hasLength(3));
     expect(english.checkInDisclosure, contains('after you reopen the app'));
     expect(english.checkInDisclosure, contains('Saved on this device'));
 
-    expect(spanish.currentDecision, 'PAQUETE DE DECISIÓN EN VIVO');
-    expect(spanish.nextMove, contains('Incertidumbre'));
-    expect(spanish.loopControlNote, contains('Nada cambia'));
+    expect(spanish.currentDecision, 'Próximo paso sugerido');
+    expect(spanish.nextMove, contains('Revísalo'));
+    expect(spanish.loopControlNote, contains('Tú eliges'));
     expect(spanish.realLifeSituations, hasLength(3));
     expect(spanish.checkInDisclosure, contains('vuelves a abrir'));
     expect(spanish.checkInDisclosure, contains('este dispositivo'));
@@ -36,30 +33,30 @@ void main() {
     expect(spanish.momentumValue('BUILDING'), 'CRECIENDO');
   });
 
-  test('all nine navigation surfaces use the new product language', () {
+  test('all nine navigation surfaces use the same everyday names', () {
     const NavigationCopy english = NavigationCopy(false);
     const NavigationCopy spanish = NavigationCopy(true);
     final Map<AppView, String> expectedEnglish = <AppView, String>{
-      AppView.nexus: 'Nexus Core',
-      AppView.trajectoryEngine: 'Future Branches',
-      AppView.timeline: 'Truth Ledger',
-      AppView.profile: 'Human Profile',
-      AppView.creator: 'Reality Builder',
-      AppView.smartPlanner: 'Now Engine',
-      AppView.console: 'Deep Intelligence',
-      AppView.progression: 'Capability Matrix',
-      AppView.settings: 'Control Center',
+      AppView.nexus: 'Today',
+      AppView.trajectoryEngine: 'Insights',
+      AppView.timeline: 'My plan',
+      AppView.profile: 'Profile',
+      AppView.creator: 'Add something',
+      AppView.smartPlanner: 'Choose a step',
+      AppView.console: 'Chat',
+      AppView.progression: 'Activity',
+      AppView.settings: 'Settings',
     };
     final Map<AppView, String> expectedSpanish = <AppView, String>{
-      AppView.nexus: 'Núcleo Nexus',
-      AppView.trajectoryEngine: 'Ramas Futuras',
-      AppView.timeline: 'Registro de Verdad',
-      AppView.profile: 'Perfil Humano',
-      AppView.creator: 'Constructor de Realidad',
-      AppView.smartPlanner: 'Motor del Ahora',
-      AppView.console: 'Inteligencia Profunda',
-      AppView.progression: 'Matriz de Capacidades',
-      AppView.settings: 'Centro de Control',
+      AppView.nexus: 'Hoy',
+      AppView.trajectoryEngine: 'Perspectivas',
+      AppView.timeline: 'Mi plan',
+      AppView.profile: 'Perfil',
+      AppView.creator: 'Añadir algo',
+      AppView.smartPlanner: 'Elegir un paso',
+      AppView.console: 'Chat',
+      AppView.progression: 'Actividad',
+      AppView.settings: 'Ajustes',
     };
 
     for (final AppRouteDefinition route

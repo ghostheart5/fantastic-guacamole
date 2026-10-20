@@ -187,7 +187,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
 
       expect(tester.takeException(), isNull);
-      expect(find.bySemanticsLabel('Back to Nexus'), findsOneWidget);
+      expect(find.bySemanticsLabel('Back Home'), findsOneWidget);
       expect(find.bySemanticsLabel('Send SI query'), findsOneWidget);
       expect(find.byKey(const Key('si-query-input')), findsOneWidget);
       expect(find.text('What needs attention?'), findsOneWidget);
@@ -249,7 +249,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('si-v2-intent-forecast')));
     await tester.pump();
 
-    expect(find.text('SI V2 QUERY BUILDER'), findsOneWidget);
+    expect(find.text('Question options'), findsOneWidget);
     expect(find.byKey(const Key('si-v2-intent-forecast')), findsOneWidget);
     expect(find.byKey(const Key('si-v2-source-tasks')), findsOneWidget);
     expect(find.byKey(const Key('si-v2-range-thirtyDays')), findsOneWidget);
@@ -299,13 +299,13 @@ void main() {
 
     for (final String section in <String>[
       'OBSERVED FACTS',
-      'DETERMINISTIC CALCULATIONS',
-      'INFERENCES',
+      'Calculated from your records',
+      'Possible explanations',
       'MISSING OR CONFLICTING INFORMATION',
       'SCENARIOS',
       'SCENARIO ASSUMPTIONS',
-      'CONFIDENCE ANATOMY',
-      'EVIDENCE LINKS',
+      'How certain is this?',
+      'Sources used',
     ]) {
       expect(find.text(section, skipOffstage: false), findsOneWidget);
     }

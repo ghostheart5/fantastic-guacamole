@@ -1,4 +1,9 @@
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/features/creator/ui/daily_rhythms_screen.dart';
+import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
+import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
+import 'package:fantastic_guacamole/features/creator/ui/open_creator.dart';
+import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/features/notes/ui/note_detail_screen.dart';
@@ -10,12 +15,19 @@ import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum _LibraryKind { tasks, notes, goals }
+enum _LibraryKind { tasks, notes, goals, completed }
 
 /// Searchable account library for records that are intentionally absent from
 /// the date-bound Timeline, including completed tasks and archived notes.
 class RecordLibraryScreen extends ConsumerStatefulWidget {
-  const RecordLibraryScreen({super.key});
+  const RecordLibraryScreen({
+    super.key,
+    this.asPlan = false,
+    this.initialKind = CreatorFormKind.task,
+  });
+
+  final bool asPlan;
+  final CreatorFormKind initialKind;
 
   @override
   ConsumerState<RecordLibraryScreen> createState() =>
@@ -26,6 +38,16 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
   final TextEditingController _search = TextEditingController();
   _LibraryKind _kind = _LibraryKind.tasks;
   bool _taskBusy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _kind = switch (widget.initialKind) {
+      CreatorFormKind.goal => _LibraryKind.goals,
+      CreatorFormKind.note => _LibraryKind.notes,
+      _ => _LibraryKind.tasks,
+    };
+  }
 
   @override
   void dispose() {
@@ -39,50 +61,134 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF030812),
       appBar: AppBar(
-        title: Text(es ? 'Biblioteca' : 'Library'),
+        automaticallyImplyLeading: !widget.asPlan,
+        title: Text(
+          widget.asPlan
+              ? (es ? 'Mi plan' : 'My plan')
+              : (es ? 'Guardado' : 'Saved'),
+        ),
         backgroundColor: const Color(0xFF030812),
+        actions: [
+          if (widget.asPlan)
+            IconButton(
+              tooltip: es ? 'Todos los elementos guardados' : 'All saved items',
+              icon: const Icon(Icons.inventory_2_outlined),
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(builder: (_) => const RecordLibraryScreen()),
+              ),
+            ),
+        ],
       ),
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: TextField(
-                key: const Key('record-library-search'),
-                controller: _search,
-                onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  hintText: es ? 'Buscar registros' : 'Search records',
-                ),
-              ),
-            ),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SegmentedButton<_LibraryKind>(
-                segments: <ButtonSegment<_LibraryKind>>[
-                  ButtonSegment(
-                    value: _LibraryKind.tasks,
-                    label: Text(es ? 'Tareas' : 'Tasks'),
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            SliverToBoxAdapter(
+              child: Column(
+                children: <Widget>[
+                  if (widget.asPlan)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () =>
+                                goToAppView(context, ref, AppView.goals),
+                            icon: const Icon(Icons.flag_outlined),
+                            label: Text(es ? 'Metas' : 'Goals'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => Navigator.of(context).push<void>(
+                              MaterialPageRoute(
+                                builder: (_) => const DailyRhythmsScreen(),
+                              ),
+                            ),
+                            icon: const Icon(Icons.repeat_rounded),
+                            label: Text(es ? 'Hábitos' : 'Habits'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => Navigator.of(context).push<void>(
+                              MaterialPageRoute(
+                                builder: (_) => const TimelineScreen(),
+                              ),
+                            ),
+                            icon: const Icon(Icons.calendar_today_outlined),
+                            label: Text(es ? 'Agenda' : 'Schedule'),
+                          ),
+                          FilledButton.icon(
+                            onPressed: () => openCreatorForItem(
+                              context,
+                              ref,
+                              CreatorFormKind.task,
+                            ),
+                            icon: const Icon(Icons.add),
+                            label: Text(es ? 'Añadir tarea' : 'Add task'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: Text(
+                      widget.asPlan
+                          ? (es
+                                ? 'Tus tareas, incluidas las que no tienen fecha. Abre una para editarla.'
+                                : 'Your tasks, including those without a date. Open one to edit it.')
+                          : es
+                          ? 'Busca una tarea, nota o meta guardada. Abre un elemento para revisarlo.'
+                          : 'Find a saved task, note, or goal. Open an item to review it.',
+                    ),
                   ),
-                  ButtonSegment(
-                    value: _LibraryKind.notes,
-                    label: Text(es ? 'Notas' : 'Notes'),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: TextField(
+                      key: const Key('record-library-search'),
+                      controller: _search,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        hintText: es
+                            ? 'Buscar elementos guardados'
+                            : 'Search saved items',
+                      ),
+                    ),
                   ),
-                  ButtonSegment(
-                    value: _LibraryKind.goals,
-                    label: Text(es ? 'Metas' : 'Goals'),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: SegmentedButton<_LibraryKind>(
+                      segments: <ButtonSegment<_LibraryKind>>[
+                        ButtonSegment(
+                          value: _LibraryKind.tasks,
+                          label: Text(es ? 'Tareas' : 'Tasks'),
+                        ),
+                        if (widget.asPlan)
+                          ButtonSegment(
+                            value: _LibraryKind.completed,
+                            label: Text(es ? 'Completadas' : 'Completed'),
+                          ),
+                        ButtonSegment(
+                          value: _LibraryKind.notes,
+                          label: Text(es ? 'Notas' : 'Notes'),
+                        ),
+                        if (!widget.asPlan)
+                          ButtonSegment(
+                            value: _LibraryKind.goals,
+                            label: Text(es ? 'Metas' : 'Goals'),
+                          ),
+                      ],
+                      selected: <_LibraryKind>{_kind},
+                      onSelectionChanged: (value) =>
+                          setState(() => _kind = value.single),
+                    ),
                   ),
+                  const SizedBox(height: 8),
                 ],
-                selected: <_LibraryKind>{_kind},
-                onSelectionChanged: (value) =>
-                    setState(() => _kind = value.single),
               ),
             ),
-            const SizedBox(height: 8),
-            Expanded(child: _body(es)),
           ],
+          body: _body(es),
         ),
       ),
     );
@@ -90,6 +196,7 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
 
   Widget _body(bool es) => switch (_kind) {
     _LibraryKind.tasks => _tasks(es),
+    _LibraryKind.completed => _tasks(es),
     _LibraryKind.notes => _notes(es),
     _LibraryKind.goals => _goals(es),
   };
@@ -123,8 +230,17 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
                 .where((task) => _matches(task.title, task.description))
                 .toList(growable: false)
               ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        final visibleItems = widget.asPlan
+            ? items
+                  .where(
+                    (task) => _kind == _LibraryKind.completed
+                        ? task.isCompleted
+                        : task.isActive,
+                  )
+                  .toList()
+            : items;
         return _list(
-          items
+          visibleItems
               .map((task) {
                 final status = task.isCompleted
                     ? (es ? 'Completada' : 'Completed')
@@ -141,16 +257,62 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
                   children: [
                     ListTile(
                       key: ValueKey('library-task-${task.id}'),
-                      leading: Icon(
-                        task.isCompleted
-                            ? Icons.check_circle_outline
-                            : Icons.task_alt_rounded,
-                        color: AppColors.neonCyan,
-                      ),
+                      leading: widget.asPlan && actionable
+                          ? IconButton(
+                              tooltip: es ? 'Completar tarea' : 'Complete task',
+                              onPressed: !enabled
+                                  ? null
+                                  : () => _manageTask(
+                                      task,
+                                      'complete',
+                                      es,
+                                      boundary,
+                                      scope.v2Namespace,
+                                    ),
+                              icon: const Icon(
+                                Icons.radio_button_unchecked_rounded,
+                              ),
+                            )
+                          : Icon(
+                              task.isCompleted
+                                  ? Icons.check_circle_outline
+                                  : Icons.task_alt_rounded,
+                              color: AppColors.neonCyan,
+                            ),
                       title: Text(task.title),
                       subtitle: Text(
                         '$status${timing == null ? '' : ' · ${MaterialLocalizations.of(context).formatMediumDate(timing.toLocal())}'}',
                       ),
+                      trailing: widget.asPlan
+                          ? PopupMenuButton<String>(
+                              tooltip: es ? 'Más opciones' : 'More options',
+                              enabled: enabled,
+                              onSelected: (action) => _manageTask(
+                                task,
+                                action,
+                                es,
+                                boundary,
+                                scope.v2Namespace,
+                              ),
+                              itemBuilder: (_) => [
+                                if (actionable)
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    child: Text(es ? 'Editar' : 'Edit'),
+                                  ),
+                                if (actionable)
+                                  PopupMenuItem(
+                                    value: 'skip',
+                                    child: Text(es ? 'Omitir' : 'Skip'),
+                                  ),
+                                if (!task.isCanceled)
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text(es ? 'Eliminar' : 'Delete'),
+                                  ),
+                              ],
+                            )
+                          : null,
                       onTap: !enabled || !actionable
                           ? null
                           : () => _manageTask(
@@ -161,39 +323,42 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
                               scope.v2Namespace,
                             ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final action in [
-                            if (actionable) 'edit',
-                            if (actionable) 'complete',
-                            if (actionable) 'skip',
-                            if (!task.isCanceled) 'delete',
-                          ])
-                            OutlinedButton(
-                              key: ValueKey('library-task-${task.id}-$action'),
-                              onPressed: !enabled
-                                  ? null
-                                  : () => _manageTask(
-                                      task,
-                                      action,
-                                      es,
-                                      boundary,
-                                      scope.v2Namespace,
-                                    ),
-                              child: Text(switch (action) {
-                                'edit' => es ? 'Editar' : 'Edit',
-                                'complete' => es ? 'Completar' : 'Complete',
-                                'skip' => es ? 'Omitir' : 'Skip',
-                                _ => es ? 'Eliminar' : 'Delete',
-                              }),
-                            ),
-                        ],
+                    if (!widget.asPlan)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final action in [
+                              if (actionable) 'edit',
+                              if (actionable) 'complete',
+                              if (actionable) 'skip',
+                              if (!task.isCanceled) 'delete',
+                            ])
+                              OutlinedButton(
+                                key: ValueKey(
+                                  'library-task-${task.id}-$action',
+                                ),
+                                onPressed: !enabled
+                                    ? null
+                                    : () => _manageTask(
+                                        task,
+                                        action,
+                                        es,
+                                        boundary,
+                                        scope.v2Namespace,
+                                      ),
+                                child: Text(switch (action) {
+                                  'edit' => es ? 'Editar' : 'Edit',
+                                  'complete' => es ? 'Completar' : 'Complete',
+                                  'skip' => es ? 'Omitir' : 'Skip',
+                                  _ => es ? 'Eliminar' : 'Delete',
+                                }),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 );
               })
@@ -267,8 +432,8 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
             ),
             content: Text(
               es
-                  ? '«${existing.title}» se cancelará. Su registro cancelado permanecerá en la Biblioteca.'
-                  : '"${existing.title}" will be canceled. A canceled record remains in Library.',
+                  ? '«${existing.title}» se cancelará. Podrás encontrarla en Guardado.'
+                  : '"${existing.title}" will be canceled. You can still find it in Saved.',
             ),
             actions: [
               TextButton(
@@ -415,7 +580,21 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
     if (children.isEmpty) {
       return Center(
         child: Text(
-          es ? 'No hay registros coincidentes.' : 'No matching records.',
+          widget.asPlan && _search.text.trim().isEmpty
+              ? (_kind == _LibraryKind.completed
+                    ? (es
+                          ? 'Aquí aparecerán las tareas que completes.'
+                          : 'Tasks you complete will appear here.')
+                    : _kind == _LibraryKind.tasks
+                    ? (es
+                          ? 'No hay tareas pendientes. Añade una cuando quieras.'
+                          : 'No open tasks. Add one whenever you’re ready.')
+                    : (es
+                          ? 'Tus notas aparecerán aquí.'
+                          : 'Your notes will appear here.'))
+              : es
+              ? 'No hay registros coincidentes.'
+              : 'No matching records.',
         ),
       );
     }

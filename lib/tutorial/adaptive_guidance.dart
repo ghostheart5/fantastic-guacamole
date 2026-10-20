@@ -169,11 +169,11 @@ abstract final class GuidanceInterventionEngine {
       final GuidanceLesson? recovery = unresolved(
         const GuidanceLesson(
           id: GuidanceLessonId.timelineExecution,
-          title: 'Correct repeated deferral',
+          title: 'Try a smaller step or a different time',
           body:
-              'The plan has been deferred more than once. Reduce scope or move the item, then save the real outcome.',
+              'You moved this more than once. You can make it smaller, choose another time, or record what happened.',
           route: RoutePaths.timeline,
-          actionLabel: 'Correct on Timeline',
+          actionLabel: 'Review in schedule',
         ),
       );
       if (recovery != null) return recovery;
@@ -266,27 +266,27 @@ abstract final class GuidanceInterventionEngine {
     return switch (id) {
       GuidanceLessonId.createFirstItem => const GuidanceLesson(
         id: GuidanceLessonId.createFirstItem,
-        title: 'Capture the first real commitment',
+        title: 'Add your first task',
         body:
-            'Start with one thing you need to do. Creator saves it; next you can give it a time and see it on Timeline. The guide advances after the task is saved.',
+            'Write one thing you need to do. Review it and confirm to save it. Next, you can choose a time for it.',
         route: RoutePaths.creator,
-        actionLabel: 'Open Creator',
+        actionLabel: 'Add a task',
       ),
       GuidanceLessonId.scheduleFirstItem => const GuidanceLesson(
         id: GuidanceLessonId.scheduleFirstItem,
-        title: 'Give the commitment a real time',
+        title: 'Choose when to do it',
         body:
             'Give your task a date and time so it appears in your plan. You can change the time later.',
         route: RoutePaths.creator,
-        actionLabel: 'Schedule in Creator',
+        actionLabel: 'Choose a date and time',
       ),
       GuidanceLessonId.reviewTimeline => const GuidanceLesson(
         id: GuidanceLessonId.reviewTimeline,
-        title: 'Verify where the work landed',
+        title: 'Find your saved task',
         body:
-            'Find the task you just saved and see where it sits in your day. The guide advances after you review that task on Timeline.',
+            'Open the task you just saved in your schedule. Check its date and details.',
         route: RoutePaths.timeline,
-        actionLabel: 'Open Timeline',
+        actionLabel: 'Open schedule',
       ),
       GuidanceLessonId.nexus ||
       GuidanceLessonId.smartPlanner ||
@@ -306,31 +306,31 @@ abstract final class GuidanceInterventionEngine {
     return switch (id) {
       GuidanceLessonId.nexus => GuidanceLesson(
         id: id,
-        title: 'Inspect why this block is next',
+        title: 'Review the suggested next step',
         body:
-            '${decision.rationale} Review the inline rationale and stated uncertainty before acting.',
+            '${decision.rationale} Read why it was suggested and what is uncertain before deciding.',
         route: RoutePaths.nexus,
-        actionLabel: 'Inspect in Nexus',
+        actionLabel: 'Review on Home',
       ),
       GuidanceLessonId.smartPlanner => GuidanceLesson(
         id: id,
-        title: 'Interrogate the active plan',
+        title: 'Ask for help with a plan',
         body:
-            '${decision.replanAction ?? 'Ask one specific question about the ranked task, its constraints, or what should move.'} Guidance waits for a submitted question.',
+            '${decision.replanAction ?? 'Ask one specific question about the ranked task, its constraints, or what should move.'} Type a question to get a suggestion.',
         route: RoutePaths.smartPlanner,
-        actionLabel: 'Ask Smart Planner',
+        actionLabel: 'Ask for a next step',
       ),
       GuidanceLessonId.timelineExecution => GuidanceLesson(
         id: id,
-        title: 'Create an outcome the system can learn from',
+        title: 'Record what happened',
         body:
-            'Complete, defer, or correct one scheduled item. Only the saved outcome advances this intervention.',
+            'Open a scheduled task. Mark it done, move it, or correct its details, then save your change.',
         route: RoutePaths.timeline,
-        actionLabel: 'Open executable work',
+        actionLabel: 'Open schedule',
       ),
       GuidanceLessonId.siConsole => GuidanceLesson(
         id: id,
-        title: 'Challenge weak or incomplete evidence',
+        title: 'Ask what is missing',
         body:
             '${decision.warning} Ask what evidence is missing and what input could change the recommendation.',
         route: RoutePaths.siConsole,
@@ -338,17 +338,17 @@ abstract final class GuidanceInterventionEngine {
       ),
       GuidanceLessonId.trajectoryEngine => GuidanceLesson(
         id: id,
-        title: 'Compare a real alternative',
+        title: 'Compare another option',
         body:
-            'Model one change to time, scope, or priority. Compare the consequence and assumptions instead of treating the path as certain.',
+            'Try a different time, amount of work, or priority. Compare the estimate before changing your plan.',
         route: RoutePaths.trajectoryEngine,
-        actionLabel: 'Compare paths',
+        actionLabel: 'Compare options',
       ),
       GuidanceLessonId.progression => const GuidanceLesson(
         id: GuidanceLessonId.progression,
-        title: 'Verify what became reliable',
+        title: 'Review your activity',
         body:
-            'Review the outcomes behind progression. The actual review event completes this intervention.',
+            'See the tasks and milestones you recorded. Open the details to review them.',
         route: RoutePaths.progression,
         actionLabel: 'Review outcomes',
       ),
@@ -564,7 +564,13 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     if (_activeScope != account) return;
     final AdaptiveGuidanceState current = await _current();
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('${_prefix(account)}.later.${lesson.name}', true);
+    final Set<GuidanceLessonId> pausedLessons =
+        _replayableCoreLessons.contains(lesson)
+        ? _replayableCoreLessons
+        : <GuidanceLessonId>{lesson};
+    for (final id in pausedLessons) {
+      await prefs.setBool('${_prefix(account)}.later.${id.name}', true);
+    }
     // "Finish later" pauses the whole core replay, rather than jumping to the
     // next replay step or reopening the current step on the following frame.
     final Set<GuidanceLessonId> replay = current.replayLessons.contains(lesson)
@@ -575,13 +581,17 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
         await prefs.remove('${_prefix(account)}.replay.${id.name}');
       }
     }
+    if (_activeScope != account) return;
     state = AsyncData(
       AdaptiveGuidanceState(
         milestones: current.milestones,
         counts: current.counts,
         skippedLessons: current.skippedLessons,
         completedLessons: current.completedLessons,
-        laterLessons: <GuidanceLessonId>{...current.laterLessons, lesson},
+        laterLessons: <GuidanceLessonId>{
+          ...current.laterLessons,
+          ...pausedLessons,
+        },
         replayLessons: replay,
         expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
       ),

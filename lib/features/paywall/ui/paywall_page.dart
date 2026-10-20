@@ -235,7 +235,8 @@ class _PaywallCopy {
     'No se pudo activar la suscripción. Vuelve a intentarlo.',
   );
 
-  String get plansAndCredits => _select('PLAN & CREDITS', 'PLANES Y CRÉDITOS');
+  String get plansAndCredits =>
+      _select('Plans and AI credits', 'Planes y créditos de IA');
 
   String get subscriptionTesting =>
       _select('Subscription testing', 'Pruebas de suscripción');
@@ -246,15 +247,15 @@ class _PaywallCopy {
   String get licenseTest => _select('License test', 'Prueba de licencia');
 
   String subscriptionSubtitle(String localizedTitle) => _select(
-    '${localizedTitle.toUpperCase()} · Subscription status and external-assistant credit allowance.',
-    '${localizedTitle.toUpperCase()} · Estado de la suscripción y saldo de créditos del asistente externo.',
+    '$localizedTitle. Review your subscription and available AI credits.',
+    '$localizedTitle. Revisa tu suscripción y tus créditos de IA disponibles.',
   );
 
   String get unlockedForTesting =>
       _select('Unlocked for testing', 'Desbloqueado para pruebas');
 
   String get temporalCommerce =>
-      _select('Temporal commerce', 'Comercio temporal');
+      _select('Optional AI plans', 'Planes opcionales de IA');
 
   String get subscriptionActive =>
       _select('Subscription active', 'Suscripción activa');

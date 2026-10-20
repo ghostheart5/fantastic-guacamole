@@ -366,7 +366,7 @@ class _CloudDataControlSection extends ConsumerWidget {
             ),
             subtitle: journeyText(
               context,
-              'Smart Planner and SI Console explain when a request stays local or uses an opted-in external service.',
+              'Choose a step and Talk it through explain when a request uses this device or an external service you have allowed.',
               'El Planificador Inteligente y la Consola SI explican cuándo una solicitud permanece local o usa un servicio externo autorizado.',
             ),
           ),

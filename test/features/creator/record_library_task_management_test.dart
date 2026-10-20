@@ -228,7 +228,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('library-task-b-delete')));
       await tester.pumpAndSettle();
       expect(
-        find.textContaining('canceled record remains in Library'),
+        find.textContaining('You can still find it in Saved'),
         findsOneWidget,
       );
       expect(find.textContaining('permanently deleted'), findsNothing);
@@ -404,6 +404,29 @@ void main() {
     expect(h.ledger.records, hasLength(1));
     expect(h.repo.records['a']!.isSkipped, isTrue);
   });
+  testWidgets(
+    'My plan completes an undated task and reads it back under Completed',
+    (tester) async {
+      final h = _Harness();
+      await h.pump(tester, asPlan: true);
+      expect(find.text('My plan'), findsOneWidget);
+      expect(find.byKey(const ValueKey('library-task-a-skip')), findsNothing);
+      expect(find.byKey(const ValueKey('library-task-a-delete')), findsNothing);
+      final row = find.byKey(const ValueKey('library-task-a'));
+      await tester.tap(
+        find.descendant(of: row, matching: find.byTooltip('Complete task')),
+      );
+      await tester.pumpAndSettle();
+      expect(h.repo.records['a']!.isCompleted, isTrue);
+      expect(h.ledger.records, hasLength(1));
+      expect(row, findsNothing);
+      await tester.tap(find.text('Completed'));
+      await tester.pumpAndSettle();
+      expect(find.text('First task'), findsOneWidget);
+      expect(find.text('Second task'), findsNothing);
+      expect(tester.widget<ListTile>(row).onTap, isNull);
+    },
+  );
 }
 
 final _scope = NotifierProvider<_Scope, AccountStorageScope>(_Scope.new);
@@ -464,7 +487,7 @@ class _Harness {
   late final ProviderContainer container;
   List<Map<String, dynamic>> snapshot() =>
       repo.records.values.map((task) => task.toJson()).toList();
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {bool asPlan = false}) async {
     addTearDown(container.dispose);
     tester.view.physicalSize = const Size(1000, 1800);
     tester.view.devicePixelRatio = 1;
@@ -472,15 +495,15 @@ class _Harness {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(
-          localizationsDelegates: [
+        child: MaterialApp(
+          localizationsDelegates: const [
             ChronoSparkLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          supportedLocales: [Locale('en'), Locale('es')],
-          home: RecordLibraryScreen(),
+          supportedLocales: const [Locale('en'), Locale('es')],
+          home: RecordLibraryScreen(asPlan: asPlan),
         ),
       ),
     );

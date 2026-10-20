@@ -23,23 +23,18 @@ void main() {
       ChronoSparkFeatureCanon.byCategory(
         ChronoSparkFeatureCategory.primaryCanonFeature,
       ).map((ChronoSparkFeatureDefinition item) => item.displayName),
-      containsAll(<String>[
-        'Nexus Core',
-        'Truth Ledger',
-        'Future Branches',
-        'Human Profile',
-      ]),
+      containsAll(<String>['Today', 'My plan', 'Insights', 'Chat']),
     );
     expect(
       ChronoSparkFeatureCanon.byCategory(
         ChronoSparkFeatureCategory.supportSurface,
       ).map((ChronoSparkFeatureDefinition item) => item.displayName),
       containsAll(<String>[
-        'Reality Builder',
-        'Now Engine',
-        'Deep Intelligence',
-        'Capability Matrix',
-        'Control Center',
+        'Add something',
+        'Choose a step',
+        'Profile',
+        'Activity',
+        'Settings',
       ]),
     );
   });
