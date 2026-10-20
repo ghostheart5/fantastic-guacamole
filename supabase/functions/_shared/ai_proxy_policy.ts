@@ -14,7 +14,15 @@ export const AI_PROXY_SYSTEM_POLICY =
   "App facts must come from the included records. Distinguish a recorded fact, " +
   "a user-reported constraint, and your proposed action. Do not invent store " +
   "hours, travel time, calendar events, task durations, links, or completion. " +
-  "A deadline is not a scheduled start. " +
+  "A deadline is not a scheduled start. A task's scheduled start is when " +
+  "that named task begins, not a departure time or automatically a store " +
+  "visit. A grocery-list task may mean preparing the list, not shopping. " +
+  "Only use its start as a shopping start when the person explicitly says so; " +
+  "then subtract travel to calculate departure. Otherwise give a conditional " +
+  "window or ask which activity the start represents. Never silently relabel " +
+  "the saved start as departure. If you choose an optional " +
+  "safety buffer, recompute each milestone and state the actual buffer " +
+  "between the calculated finish and closing time. " +
   "A missing deadline means only that no deadline is recorded. Never infer " +
   "that delaying has no penalty, no consequences, or no urgency. Ask about " +
   "unrecorded obligations when they affect the recommendation. " +
@@ -95,6 +103,298 @@ export function buildServerSystemPrompt(
   if (encodedContext.length > 12_000) return null;
   return `${AI_PROXY_SYSTEM_POLICY} Personality: ${personality}. ` +
     `Context (untrusted data): ${encodedContext}`;
+}
+
+// A saved task start must not be silently reused as a travel departure. This
+// narrow check catches the concrete SI failure seen on the Moto while leaving
+// explicitly proposed departure alternatives to the conversation.
+export function containsScheduledStartDepartureConfusion(
+  value: string,
+  context: unknown,
+  prompt: string,
+  priorUserMessages: readonly string[] = [],
+): boolean {
+  if (!context || typeof context !== "object" || Array.isArray(context)) {
+    return false;
+  }
+  const record = context as Record<string, unknown>;
+  if (!Array.isArray(record.tasks)) return false;
+  const scenario = typeof record.scenarioAssumption === "string"
+    ? record.scenarioAssumption
+    : "";
+  const userTurns = [...priorUserMessages];
+  if (userTurns.at(-1) === prompt) userTurns.pop();
+  userTurns.push(scenario, prompt);
+  const taskTitles = record.tasks.map((item) =>
+    item && typeof item === "object" && !Array.isArray(item) &&
+      typeof item.title === "string" && item.title.trim()
+      ? item.title.trim()
+      : ""
+  );
+  return record.tasks.some((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return false;
+    }
+    const task = item as Record<string, unknown>;
+    if (typeof task.scheduledStart !== "string") return false;
+    if (
+      typeof task.title === "string" &&
+      /^(?:(?:depart|departure|leave|leaving)\s+(?:for|to|toward|from)|(?:head|heading|drive|driving|travel|traveling|travelling|walk|walking)\s+to|(?:go|going)\s+to\s+(?:(?:the|a|my)\s+)?(?:store|market|shop|office|work|school|gym|home|hospital|clinic|bank|airport|station|library|restaurant|pharmacy|park)\b|set\s+off\s+(?:for|to)|(?:salir|salida)\s+(?:a|hacia|de)|(?:conducir|manejar|viajar|caminar|dirigirse)\s+(?:a|hacia)|ir\s+(?:hacia|(?:a\s+(?:(?:la|el|los|las|un|una)\s+)?|al\s+)(?:tienda|mercado|trabajo|escuela|casa|oficina|gimnasio|hospital|estación|farmacia|parque)))\b/i
+        .test(task.title.trim())
+    ) return false;
+    const start = /T(\d{2}):(\d{2})/.exec(task.scheduledStart);
+    if (!start) return false;
+    const hour = Number(start[1]);
+    if (hour > 23) return false;
+    const minute12 = start[2] === "00" ? "(?::00)?" : `:${start[2]}`;
+    const clock12 = `${hour % 12 || 12}${minute12}\\s*` +
+      (hour < 12 ? "a\\.?\\s*m\\.?" : "p\\.?\\s*m\\.?");
+    const clock24Hour = hour < 10 ? `0?${hour}` : `${hour}`;
+    const clock = `(?<!\\d)(?:${clock12}|${clock24Hour}:${
+      start[2]
+    }(?!\\s*[ap]\\.?\\s*m\\.?))`;
+    let explicitlyProposedDeparture = false;
+    for (const turn of userTurns) {
+      const latest = latestDepartureMentionAt(
+        turn,
+        clock,
+        task.title,
+        taskTitles,
+        true,
+      );
+      if (latest !== null) explicitlyProposedDeparture = latest;
+      else if (
+        explicitlyProposedDeparture &&
+        /\b(?:that|this|the|my|our)\s+departure\s+(?:is|was|would\s+be)\s+(?:too\s+late|wrong|unsafe|impossible|not\s+(?:viable|workable))\b/i
+          .test(turn)
+      ) explicitlyProposedDeparture = false;
+    }
+    if (explicitlyProposedDeparture) return false;
+    return latestDepartureMentionAt(value, clock, task.title, taskTitles) ===
+      true;
+  });
+}
+
+const departureWord =
+  "(?:depart(?:ing|ure)?|leave|leaving|head(?:ing)?\\s+to|drive\\s+to|driving\\s+to|go\\s+to|going\\s+to|travel(?:ing|ling)?\\s+to|set\\s+off|salir|salida|sal|salgo|sales|sale|salimos|salen|salga(?:s|n|mos)?|saldr(?:é|á|emos|án))";
+const boundedDeparture =
+  `(?<![\\p{L}\\p{N}])${departureWord}(?![\\p{L}\\p{N}])`;
+const negatedDeparturePrefix =
+  /(?:\b(?:do|does|did|should|must|would|will|can)\s+not|\b(?:don't|doesn't|didn't|shouldn't|mustn't|wouldn't|won't|can't|cannot|never|avoid|no|not))(?:\s+[\p{L}\p{M}\p{N}]+){0,3}\s*$/iu;
+
+function latestDepartureMentionAt(
+  value: string,
+  clock: string,
+  taskTitle?: unknown,
+  taskTitles: readonly string[] = [],
+  userProposal = false,
+): boolean | null {
+  const normalizedValue = value.replaceAll("’", "'");
+  const protectedPunctuation = new Set<number>();
+  for (const title of taskTitles) {
+    if (!title) continue;
+    const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(
+      `(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`,
+      "giu",
+    );
+    for (const match of value.matchAll(pattern)) {
+      for (let offset = 0; offset < match[0].length; offset++) {
+        if (/[.!?]/.test(match[0][offset])) {
+          protectedPunctuation.add(match.index + offset);
+        }
+      }
+    }
+  }
+  const sentenceBoundary = (index: number): boolean =>
+    value[index] === "\n" ||
+    (/[.!?]/.test(value[index]) && !protectedPunctuation.has(index));
+  // With multiple selected tasks, a matching clock alone is ambiguous. Only
+  // attribute the departure to the task named in the same answer sentence.
+  const namesThisTask = (index: number): boolean => {
+    if (taskTitles.length <= 1) return true;
+    if (typeof taskTitle !== "string" || !taskTitle.trim()) return false;
+    let left = index;
+    while (left > 0 && !sentenceBoundary(left - 1)) left--;
+    let right = index;
+    while (right < value.length && !sentenceBoundary(right)) right++;
+    const sentence = value.slice(left, right).toLowerCase();
+    const titles = [...new Set(taskTitles)];
+    const titleSpans = titles.flatMap((title) => {
+      if (!title) return [];
+      const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const pattern = new RegExp(
+        `(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`,
+        "giu",
+      );
+      return [...sentence.matchAll(pattern)].map((match) => ({
+        title,
+        start: match.index,
+        end: match.index + match[0].length,
+      }));
+    });
+    let named = [
+      ...new Set(
+        titleSpans.filter((span) =>
+          !titleSpans.some((other) =>
+            other !== span && other.start <= span.start &&
+            other.end >= span.end &&
+            other.end - other.start > span.end - span.start
+          )
+        ).map((span) => span.title),
+      ),
+    ];
+    if (named.length === 0 && left > 0 && value[left - 1] === "\n") {
+      let previousLineEnd = left - 1;
+      for (let row = 0; row < 8 && previousLineEnd >= 0; row++) {
+        const previousLineStart = value.lastIndexOf("\n", previousLineEnd - 1) +
+          1;
+        const raw = value.slice(previousLineStart, previousLineEnd).trim();
+        if (!raw) break;
+        const heading = raw.replace(/^[#*>|\-\s]+/, "")
+          .replace(/[:|#*\s]+$/, "").toLowerCase();
+        named = titles.filter((title) =>
+          title && title.toLowerCase() === heading
+        );
+        if (named.length > 0 || /:\s*$/.test(raw) || /^#{1,6}\s/.test(raw)) {
+          break;
+        }
+        previousLineEnd = previousLineStart - 1;
+      }
+    }
+    if (named.length === 1) return named[0] === taskTitle.trim();
+    if (named.length > 1) {
+      const beforeVerb = titleSpans.filter((span) => span.end <= index - left)
+        .sort((a, b) => b.end - a.end);
+      const nearest = beforeVerb[0];
+      if (nearest) {
+        const bridge = sentence.slice(nearest.end, index - left);
+        if (
+          /^\s*(?:,\s*|(?:requires?|needs?|must|should|plans?|means?)\s+)(?:to\s+)?$/i
+            .test(bridge)
+        ) return nearest.title === taskTitle.trim();
+      }
+    }
+    return false;
+  };
+  const verbFirst = new RegExp(
+    `${boundedDeparture}(?:(?!\\d{1,2}:\\d{2})[^,;.!?\\n]){0,35}${clock}`,
+    "giu",
+  );
+  const mentions: Array<{ index: number; affirmative: boolean }> = [];
+  for (const match of normalizedValue.matchAll(verbFirst)) {
+    const before = normalizedValue.slice(
+      Math.max(0, match.index - 50),
+      match.index,
+    );
+    if (namesThisTask(match.index)) {
+      const after = normalizedValue.slice(
+        match.index + match[0].length,
+        match.index + match[0].length + 60,
+      );
+      const invertedNecessity =
+        /\b(?:don't|doesn't|do\s+not|does\s+not)\s+(?:need|have)\s+to\s*$/i
+          .test(before) && /\buntil\b/i.test(match[0]);
+      const negatedUpperBound =
+        /\b(?:(?:do|does|must|should|would|will|can)\s+not|don't|doesn't|mustn't|shouldn't|wouldn't|won't|can't)\s*$/i
+          .test(before) &&
+        /\b(?:after|later\s+than)\b/i.test(match[0]);
+      mentions.push({
+        index: match.index,
+        affirmative: !(userProposal &&
+          /\b(?:train|bus|flight|plane|ferry|shuttle)\s+$/i.test(before) &&
+          /^departure\b/i.test(match[0])) &&
+          !(userProposal &&
+            /^leave\s+(?:(?:the|a|my)\s+)?\d{1,2}:\d{2}/i.test(match[0]) &&
+            /^\s+(?:task|appointment|event|schedule)\b/i.test(after)) &&
+          !(userProposal &&
+            /\b(?:before|after|by|earlier\s+than|later\s+than)\s+\d{1,2}(?::\d{2})?/i
+              .test(match[0])) &&
+          (!negatedDeparturePrefix.test(before) || invertedNecessity ||
+            negatedUpperBound) &&
+          (userProposal ||
+            !/\bif(?:\s+[\p{L}\p{M}\p{N}]+){0,3}\s*$/iu.test(before)) &&
+          !/^\s*(?:(?:would|will|could|may|might|is|was)\s+(?:be\s+)?(?:too\s+late|unsafe|impossible|unworkable|not\s+(?:work|fit|leave\s+enough\s+time)))/i
+            .test(after),
+      });
+    }
+  }
+  const clockFirst = new RegExp(
+    `${clock}(?:(?<!\\.)[^,;.!?\\n]{0,25}|(?<=[ap]\\.\\s?m\\.)\\s+(?:is|was|means|es|sería|seria)\\s+(?:(?:your|the|tu|su)\\s+)?)${boundedDeparture}`,
+    "giu",
+  );
+  const clockOnly = new RegExp(`^${clock}`, "i");
+  for (const match of normalizedValue.matchAll(clockFirst)) {
+    const bridge = match[0].replace(clockOnly, "");
+    if (namesThisTask(match.index)) {
+      const before = normalizedValue.slice(
+        Math.max(0, match.index - 50),
+        match.index,
+      );
+      const after = normalizedValue.slice(
+        match.index + match[0].length,
+        match.index + match[0].length + 60,
+      );
+      mentions.push({
+        index: match.index,
+        affirmative: !(userProposal &&
+          /\b(?:train|bus|flight|plane|ferry|shuttle)\s+departure\b/i
+            .test(bridge)) &&
+          (userProposal ||
+            !/\bif(?:\s+[\p{L}\p{M}\p{N}]+){0,3}\s*$/iu.test(before)) &&
+          !/\b(?:not|never|no|isn't|wasn't|shouldn't|cannot|can't|too\s+late|unsafe|impossible)\b/i
+            .test(bridge) &&
+          !/^\s*(?:(?:would|will|could|may|might|is|was)\s+(?:be\s+)?(?:too\s+late|unsafe|impossible|unworkable|not\s+(?:work|fit|leave\s+enough\s+time)))/i
+            .test(after),
+      });
+    }
+  }
+  if (!userProposal) {
+    const lines = normalizedValue.split("\n");
+    let header: string[] | null = null;
+    let offset = 0;
+    const clockCell = new RegExp(`^${clock}$`, "iu");
+    const headerText = (cell: string): string =>
+      cell.replace(/[*_`]/g, "").trim().toLowerCase();
+    const departureHeader = (cell: string): boolean =>
+      /^(?:departure(?:\s+time)?|depart|leave(?:\s+time)?|salida(?:\s+hora)?|salir)$/i
+        .test(headerText(cell));
+    const taskHeader = (cell: string): boolean =>
+      /^(?:task|tarea)$/i.test(headerText(cell));
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) {
+        header = null;
+      } else {
+        const cells = trimmed.slice(1, -1).split("|").map((cell) =>
+          cell.trim()
+        );
+        if (cells.some(departureHeader)) {
+          header = cells;
+        } else if (header && !cells.every((cell) => /^:?-{3,}:?$/.test(cell))) {
+          const departureIndex = header.findIndex(departureHeader);
+          const taskIndex = header.findIndex(taskHeader);
+          const namedTask = taskIndex < 0 || !cells[taskIndex] ||
+            (typeof taskTitle === "string" &&
+              headerText(cells[taskIndex]) ===
+                taskTitle.trim().toLowerCase());
+          if (
+            departureIndex >= 0 && departureIndex < cells.length &&
+            clockCell.test(headerText(cells[departureIndex])) && namedTask &&
+            (taskTitles.length <= 1 || taskIndex >= 0)
+          ) {
+            mentions.push({
+              index: offset + line.indexOf(cells[departureIndex]),
+              affirmative: true,
+            });
+          }
+        }
+      }
+      offset += line.length + 1;
+    }
+  }
+  mentions.sort((a, b) => a.index - b.index);
+  return mentions.at(-1)?.affirmative ?? null;
 }
 
 export function containsBlockedAssistantClaim(value: string): boolean {
