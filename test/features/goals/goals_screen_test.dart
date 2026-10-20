@@ -121,7 +121,7 @@ void main() {
         addTearDown(container.dispose);
         await tester.pumpWidget(_testApp(container, es));
         await tester.pumpAndSettle();
-        expect(find.text(es ? 'METAS' : 'GOALS'), findsOneWidget);
+        expect(find.text(es ? 'Metas' : 'Goals'), findsOneWidget);
         expect(find.text('Ship the first release'), findsOneWidget);
         expect(
           find.byTooltip(
@@ -309,7 +309,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('GOALS'), findsOneWidget);
+    expect(find.text('Goals'), findsOneWidget);
     expect(find.text('Ship the first release'), findsOneWidget);
     expect(find.bySemanticsLabel('Ship the first release'), findsOneWidget);
     expect(

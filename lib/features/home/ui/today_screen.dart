@@ -324,26 +324,39 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                   (
                     CreatorFormKind.task,
                     Icons.check_circle_outline,
-                    _t('Task', 'Tarea'),
-                    _t('Something to do once', 'Algo para hacer una vez'),
+                    journeyText(sheet, 'Task', 'Tarea'),
+                    journeyText(
+                      sheet,
+                      'Something to do once',
+                      'Algo para hacer una vez',
+                    ),
                   ),
                   (
                     CreatorFormKind.goal,
                     Icons.flag_outlined,
-                    _t('Goal', 'Meta'),
-                    _t('Something to work toward', 'Algo que quieres alcanzar'),
+                    journeyText(sheet, 'Goal', 'Meta'),
+                    journeyText(
+                      sheet,
+                      'Something to work toward',
+                      'Algo que quieres alcanzar',
+                    ),
                   ),
                   (
                     CreatorFormKind.habit,
                     Icons.repeat_rounded,
-                    _t('Habit', 'Hábito'),
-                    _t('Something to repeat', 'Algo para repetir'),
+                    journeyText(sheet, 'Habit', 'Hábito'),
+                    journeyText(
+                      sheet,
+                      'Something to repeat',
+                      'Algo para repetir',
+                    ),
                   ),
                   (
                     CreatorFormKind.note,
                     Icons.notes_rounded,
-                    _t('Note', 'Nota'),
-                    _t(
+                    journeyText(sheet, 'Note', 'Nota'),
+                    journeyText(
+                      sheet,
                       'Something to get off your mind',
                       'Algo que quieres anotar',
                     ),

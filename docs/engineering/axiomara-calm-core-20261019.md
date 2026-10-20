@@ -15,7 +15,7 @@ This candidate implements the owner's October 19, 2026 request to reduce overloa
 1. **Today** replaces the dense default dashboard. It shows up to three current tasks, direct completion controls, goal and habit entry points, and clear links to chat and insights. Unscheduled tasks remain eligible. A deadline due today remains eligible even if its planned work time is later.
 2. **My plan** lists all active tasks, including undated tasks, plus separate completed tasks and notes. Goals, habits, and the actual schedule are directly reachable. Task completion stays visible; edit, skip, and removal sit in an overflow menu. All saved items remain reachable from the archive icon, including canceled records. The header scrolls in limited height, including a landscape keyboard.
 3. **Insights** retains the existing trajectory, prediction, scenario comparison, custom what-if, tracking, calibration, and evidence systems. Patterns/progress have an explicit entry point. Task predictions have a named disclosure instead of being buried inside model-source details.
-4. **Chat** is a primary tab and retains the AI/SI implementation and its existing consent, credit-price, account, safety, and source-inspection controls.
+4. **Chat** is a primary tab and retains the AI/SI implementation and its existing consent, credit-price, account, safety, and source-inspection controls. Leaving Chat invalidates active or pending voice capture, including consent and permission requests, while preserving typed drafts.
 5. The previous dense Home remains available as an optional detailed daily review. It is no longer the default landing screen.
 
 ## Creation and completion
@@ -26,6 +26,7 @@ This candidate implements the owner's October 19, 2026 request to reduce overloa
 - AI planner drafts, guided setup, and items carrying bound Person Context evidence still require review before confirmation.
 - The saved result exposes undo and readback. The form is hidden after saving; New item starts with a blank form.
 - Existing task actions and habit controls continue to record outcomes and feed tracking/intelligence. Pending completion cannot be tapped twice, write failures do not announce success, and account changes suppress the old account's result.
+- Setup completion also checks the initiating account namespace and authentication generation after each awaited operation, so an old setup action cannot complete a replacement account's setup.
 
 ## Navigation compatibility
 
@@ -35,7 +36,7 @@ The primary tabs are Today, My plan, Insights, and Chat. Existing canonical path
 
 Machine-readable runs, the rendered Today preview, source hashes, and the build outcome are delivered alongside the candidate. Inspect those receipts for exact counts and exit status; early failed attempts are preserved separately from the final verification.
 
-Windows visual snapshots for the optional detailed review were inspected and refreshed for intentional changes from the supplied plain-language patch. Linux snapshots were not refreshed: the local Docker Linux engine is unavailable. Linux golden reconciliation remains required before cross-platform CI/release acceptance. No passing Windows test is presented as proof of a Play-installed build or a human usability result.
+Windows visual snapshots were inspected and refreshed using the Windows Flutter renderer. Eight Linux masters were refreshed from exact actual renders in [hosted CI run 39457545252](https://github.com/ghostheart5/fantastic-guacamole/actions/runs/39457545252), after individual visual review. The Linux images were not substituted with Windows renders. Cross-platform acceptance requires normal comparisons on the final source, with unchanged golden guards. No passing host test establishes a Play-installed build or a human usability result.
 
 The Android QA artifact, when built successfully, uses the existing local QA configuration and separate `.qa` package. It is for interface/local-flow review; it does not establish that paid external AI or live cloud recovery was exercised. This candidate is not a Google Play submission or publication.
 
@@ -63,4 +64,10 @@ On the v3/v4 emulator builds, actual UI checks verified local profile entry; vis
 
 The final v5 app-code change from v4 is limited to accurate Today empty-state wording. Its 16 focused Today checks passed. The prior empty-state fixture included completed tasks, while the shipping feed excludes them; the final test also covers the actual empty active list. Earlier failed helper attempts and regression receipts are retained. One habit readback helper assertion was issued after scrolling the new habit title offscreen; the preceding archived UI tree contains the correct habit readback. This is not recorded as a new app failure or hidden as an all-green automation session.
 
-The reminder service reported a saved-change/reminder-update warning in the emulator. Saved habit outcomes were verified separately; native reminder delivery was not verified. Linux goldens and live production/paid-provider behavior remain outside this candidate's acceptance evidence.
+The reminder service reported a saved-change/reminder-update warning in the emulator. Saved habit outcomes were verified separately; native reminder delivery was not verified. These v3/v4/v5 emulator observations remain historical candidate evidence. Current-main host checks and emulator observations must retain their own source and artifact bindings. Live production/paid-provider behavior remains outside this evidence.
+
+## Main integration review
+
+The main integration preserves upstream account-opening and backup-isolation changes and includes the separately validated SI task-start repair from PR #123. Independent review identified and resolved setup completion crossing account generations and voice capture remaining active in a retained Chat tab. The actual screen journey also exposed an Add-sheet localization lookup against a deactivated Today context; its builder now uses the sheet's own context. Schedule back navigation now pops an explicitly opened schedule before returning to its caller, instead of changing the URL while leaving that schedule over the next screen.
+
+The integration journey exercises the current Today/Add flow, optional task controls, ordinary Save, schedule readback, completion, and saved history. Temporary host render captures no longer write files into the source tree during the default tests. Historical failed runs are retained as failed attempts; final main validation is recorded separately through hosted checks and the shared TESTING system's app-owned receipts.

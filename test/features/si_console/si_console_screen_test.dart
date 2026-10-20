@@ -104,7 +104,7 @@ void main() {
     addTearDown(() => _dispose(tester, container));
     await _pumpScreen(tester, container);
     expect(find.text('AI conversation · uses credits'), findsOneWidget);
-    expect(find.text('Advanced analysis'), findsOneWidget);
+    expect(find.text('Choose information to use (optional)'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -153,7 +153,7 @@ void main() {
     addTearDown(() => _dispose(tester, container));
 
     await _pumpScreen(tester, container, textScaler: 2);
-    final title = find.text('INTELLIGENCE');
+    final title = find.text('Talk');
     final summary = find.byIcon(Icons.volume_up_rounded);
     expect(title, findsOneWidget);
     expect(summary, findsOneWidget);
@@ -161,12 +161,14 @@ void main() {
       tester.getTopLeft(title).dy,
       greaterThan(tester.getBottomLeft(summary).dy),
     );
-    final paragraph = tester.renderObject<RenderParagraph>(title);
-    final wordBoxes = paragraph.getBoxesForSelection(
-      const TextSelection(baseOffset: 0, extentOffset: 12),
-    );
-    expect(wordBoxes, hasLength(1), reason: 'INTELLIGENCE must stay intact.');
-    expect(find.bySemanticsLabel('DEEP INTELLIGENCE'), findsOneWidget);
+    for (final word in ['Talk', 'it', 'through']) {
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(word));
+      final wordBoxes = paragraph.getBoxesForSelection(
+        TextSelection(baseOffset: 0, extentOffset: word.length),
+      );
+      expect(wordBoxes, hasLength(1), reason: '$word must stay intact.');
+    }
+    expect(find.bySemanticsLabel('Talk it through'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -185,16 +187,16 @@ void main() {
       locale: const Locale('es'),
       textScaler: 2,
     );
-    final word = find.text('INTELIGENCIA');
+    final word = find.text('Hablarlo');
     expect(word, findsOneWidget);
     final paragraph = tester.renderObject<RenderParagraph>(word);
     expect(
       paragraph.getBoxesForSelection(
-        const TextSelection(baseOffset: 0, extentOffset: 12),
+        const TextSelection(baseOffset: 0, extentOffset: 8),
       ),
       hasLength(1),
     );
-    expect(find.bySemanticsLabel('INTELIGENCIA PROFUNDA'), findsOneWidget);
+    expect(find.bySemanticsLabel('Hablarlo'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -319,7 +321,7 @@ void main() {
     await tester.pump();
 
     expect(port.calls, 0);
-    expect(find.textContaining('SI V2 could not validate'), findsNothing);
+    expect(find.textContaining('We could not check this answer'), findsNothing);
   });
 
   testWidgets('example question executes in one tap', (
@@ -354,13 +356,16 @@ void main() {
     await _pumpScreen(tester, container);
 
     expect(
-      find.textContaining('SI Console is not enabled for this account'),
+      find.textContaining('Talk it through is not enabled for this account'),
       findsOneWidget,
     );
     expect(find.byKey(const Key('si-console-welcome')), findsOneWidget);
     expect(find.text('SPEAK'), findsNothing);
     expect(find.text('REPORT'), findsNothing);
-    expect(find.bySemanticsLabel('SI Console unavailable'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Talk it through unavailable'),
+      findsOneWidget,
+    );
     final TextField field = tester.widget<TextField>(
       find.byKey(const Key('si-query-input')),
     );
@@ -386,7 +391,10 @@ void main() {
 
     expect(port.calls, 1);
     expect(
-      find.textContaining('SI V2 could not validate', skipOffstage: false),
+      find.textContaining(
+        'We could not check this answer',
+        skipOffstage: false,
+      ),
       findsOneWidget,
     );
     expect(
@@ -487,7 +495,7 @@ void main() {
       expect(find.byKey(const Key('si-v2-response')), findsNothing);
       expect(
         find.textContaining(
-          'previous SI evidence responses were cleared',
+          'previous local answers were cleared',
           skipOffstage: false,
         ),
         findsOneWidget,
@@ -530,7 +538,7 @@ void main() {
       expect(find.byKey(const Key('si-v2-response')), findsNothing);
       expect(
         find.textContaining(
-          'previous SI evidence responses were cleared',
+          'previous local answers were cleared',
           skipOffstage: false,
         ),
         findsOneWidget,
@@ -549,7 +557,7 @@ void main() {
 
     expect(
       find.textContaining(
-        'Person context: unavailable; SI inferred nothing personal',
+        'Your shared details are unavailable. No personal details were guessed.',
       ),
       findsOneWidget,
     );
@@ -569,7 +577,7 @@ void main() {
 
     expect(
       find.textContaining(
-        'Person context: shared but no item was relevant to this lens',
+        'None of your shared details apply to this question.',
       ),
       findsOneWidget,
     );

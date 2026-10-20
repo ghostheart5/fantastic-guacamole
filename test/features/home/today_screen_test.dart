@@ -1,6 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
@@ -343,23 +342,35 @@ void main() {
     }
   }
 
-  testWidgets('Capture the actual Today widget for visual review', (
-    tester,
-  ) async {
-    await pumpToday(tester, height: 1050);
-    await tester.pumpAndSettle();
-    final boundary =
-        previewKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-    await tester.runAsync(() async {
-      final image = await boundary.toImage(pixelRatio: 1);
-      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-      final target = File('artifacts/calm-core/today-preview.png');
-      await target.parent.create(recursive: true);
-      await target.writeAsBytes(bytes!.buffer.asUint8List());
-      image.dispose();
-    });
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
+  testWidgets(
+    'Today renders a reviewable image without changing source files',
+    (tester) async {
+      await pumpToday(tester, height: 1050);
+      await tester.pumpAndSettle();
+      final boundary =
+          previewKey.currentContext!.findRenderObject()!
+              as RenderRepaintBoundary;
+      await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 1);
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        expect(bytes, isNotNull);
+        expect(bytes!.buffer.asUint8List().take(8), [
+          137,
+          80,
+          78,
+          71,
+          13,
+          10,
+          26,
+          10,
+        ]);
+        expect(image.width, greaterThan(0));
+        expect(image.height, greaterThan(0));
+        image.dispose();
+      });
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }
 
 class _Actions extends TaskActions {

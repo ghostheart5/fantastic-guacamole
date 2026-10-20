@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import 'package:fantastic_guacamole/data/storage/hive_service.dart';
+import 'package:hive/hive.dart';
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart' as guards;
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
@@ -12,6 +16,12 @@ import 'package:fantastic_guacamole/data/services/contracts/auth_service_contrac
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/optimizer/optimization_config.dart';
@@ -20,6 +30,7 @@ import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
+import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
@@ -37,6 +48,26 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  late Directory hiveRoot;
+  setUpAll(() async {
+    hiveRoot = await Directory.systemTemp.createTemp(
+      'axiomara-auth-integration-',
+    );
+    Hive.init(hiveRoot.path);
+  });
+  tearDownAll(() async {
+    await Hive.close();
+    final tempRoot = await Directory.systemTemp.resolveSymbolicLinks();
+    final resolved = await hiveRoot.resolveSymbolicLinks();
+    if (!resolved.startsWith('$tempRoot${Platform.pathSeparator}') ||
+        !hiveRoot.uri.pathSegments
+            .where((part) => part.isNotEmpty)
+            .last
+            .startsWith('axiomara-auth-integration-')) {
+      throw StateError('Refusing to remove an unexpected test storage path.');
+    }
+    await hiveRoot.delete(recursive: true);
+  });
   setUp(() {
     WidgetController.hitTestWarningShouldBeFatal = true;
   });
@@ -248,6 +279,7 @@ void main() {
     expect(await container.read(tasksProvider.future), hasLength(1));
 
     final Map<String, dynamic> metrics = await _waitForMetric(
+      tester,
       container,
       key: 'tasks_created',
       expected: 1,
@@ -256,102 +288,185 @@ void main() {
     expect(metrics['tasks_completed'], 0);
   });
 
-  testWidgets('screen journey reviews, creates, and routes to Truth Ledger', (
-    WidgetTester tester,
-  ) async {
-    await SharedPrefsService.clear();
-    final _InMemoryTaskRepository repository = _InMemoryTaskRepository();
-    final ProviderContainer container = _integrationContainer(repository);
-    final GoRouter router = container.read(appRouterProvider);
-    router.go(RoutePaths.nexus);
+  testWidgets(
+    'screen journey saves a task, completes it, and reads its history',
+    (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      await SharedPrefsService.init();
+      await SharedPrefsService.clear();
+      final _InMemoryTaskRepository repository = _InMemoryTaskRepository();
+      final ProviderContainer container = _integrationContainer(repository);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        container.dispose();
+      });
+      final GoRouter router = container.read(appRouterProvider);
+      router.go(RoutePaths.nexus);
 
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp.router(routerConfig: router),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
-    await _tapRequired(tester, find.byIcon(Icons.map_outlined));
-    await tester.pump(const Duration(milliseconds: 250));
-    final Finder creatorButton = find.text('Reality Builder');
-    await _tapRequired(tester, creatorButton);
-    await tester.pump(const Duration(milliseconds: 600));
-    expect(router.routeInformationProvider.value.uri.path, RoutePaths.creator);
-    expect(find.byType(CreatorScreen), findsOneWidget);
+      expect(find.byKey(const Key('today-add')), findsOneWidget);
+      await _tapRequired(tester, find.byKey(const Key('today-add')));
+      await tester.pump(const Duration(milliseconds: 250));
+      await _tapRequired(tester, find.byKey(const Key('today-add-task')));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        RoutePaths.creator,
+      );
+      expect(find.byType(CreatorScreen), findsOneWidget);
 
-    final Finder titleField = find.byWidgetPredicate(
-      (Widget widget) =>
-          widget is TextField && widget.decoration?.hintText == 'Title *',
-    );
-    await tester.enterText(titleField, 'UI journey task');
-    await tester.pump();
-    expect(find.byKey(const Key('creator-type-selector')), findsOneWidget);
-    await _hideKeyboard(tester);
-    await _tapRequired(tester, find.bySemanticsLabel('Set priority level 4'));
-    final Finder scheduleControl = find.text('Schedule date and time...');
-    await tester.ensureVisible(scheduleControl);
-    await _tapRequired(tester, scheduleControl);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(DatePickerDialog), findsOneWidget);
-    final Finder datePickerOk = find.descendant(
-      of: find.byType(DatePickerDialog),
-      matching: find.widgetWithText(TextButton, 'OK'),
-    );
-    expect(datePickerOk.hitTestable(), findsOneWidget);
-    await _tapRequired(tester, datePickerOk);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(TimePickerDialog), findsOneWidget);
-    final Finder timePickerOk = find.descendant(
-      of: find.byType(TimePickerDialog),
-      matching: find.widgetWithText(TextButton, 'OK'),
-    );
-    expect(timePickerOk.hitTestable(), findsOneWidget);
-    await _tapRequired(tester, timePickerOk);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('Schedule date and time...'), findsNothing);
-    await _hideKeyboard(tester);
+      final Finder titleField = find.byWidgetPredicate(
+        (Widget widget) =>
+            widget is TextField && widget.decoration?.hintText == 'Title *',
+      );
+      await tester.enterText(titleField, 'UI journey task');
+      await tester.pump();
+      expect(find.byKey(const Key('creator-type-selector')), findsOneWidget);
+      await _hideKeyboard(tester);
+      await _tapRequired(tester, find.byKey(const Key('creator-task-options')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await _tapRequired(tester, find.bySemanticsLabel('Set priority level 4'));
+      final Finder scheduleControl = find.text('Schedule date and time...');
+      await tester.ensureVisible(scheduleControl);
+      await _tapRequired(tester, scheduleControl);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(DatePickerDialog), findsOneWidget);
+      final Finder datePickerOk = find.descendant(
+        of: find.byType(DatePickerDialog),
+        matching: find.widgetWithText(TextButton, 'OK'),
+      );
+      expect(datePickerOk.hitTestable(), findsOneWidget);
+      await _tapRequired(tester, datePickerOk);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(TimePickerDialog), findsOneWidget);
+      final Finder timePickerOk = find.descendant(
+        of: find.byType(TimePickerDialog),
+        matching: find.widgetWithText(TextButton, 'OK'),
+      );
+      expect(timePickerOk.hitTestable(), findsOneWidget);
+      await _tapRequired(tester, timePickerOk);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Schedule date and time...'), findsNothing);
+      await _hideKeyboard(tester);
 
-    final Finder reviewButton = find.text('REVIEW CHANGES');
-    await tester.ensureVisible(reviewButton);
-    await tester.pump(const Duration(milliseconds: 200));
-    await _tapRequired(tester, reviewButton);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+      final int xpBeforeCompletion = container.read(profileProvider).xp;
+      final Finder saveButton = find.text('Save task');
+      await tester.ensureVisible(saveButton);
+      await tester.pump(const Duration(milliseconds: 200));
+      await _tapRequired(tester, saveButton);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('CONFIRM CREATOR CHANGES'), findsOneWidget);
-    final Finder confirmButton = find.byKey(
-      const Key('creator-confirm-selected'),
-    );
-    await tester.ensureVisible(confirmButton);
-    await _tapRequired(tester, confirmButton);
-    await tester.pump();
-    await _waitForRouterPath(tester, router, RoutePaths.timeline);
-    final List<TaskEntity> persisted = (await repository.getAllTasks())
-        .where((TaskEntity task) => task.title == 'UI journey task')
-        .toList();
-    expect(persisted, hasLength(1));
-    expect(persisted.single.priority, 4);
-    expect(persisted.single.scheduledFor, isNotNull);
-    expect(persisted.single.isCompleted, isFalse);
-    final tasks = await container.read(tasksProvider.future);
-    expect(tasks.where((task) => task.title == 'UI journey task'), isNotEmpty);
-    final Map<String, dynamic> metrics = await _waitForMetric(
-      container,
-      key: 'tasks_created',
-      expected: 1,
-    );
-    expect(metrics['tasks_created'], 1);
+      await _waitForVisible(
+        tester,
+        find.byKey(const Key('creator-handshake-result')),
+      );
+      expect(
+        find.byKey(const Key('creator-handshake-result')),
+        findsOneWidget,
+        reason:
+            'Save phase: ${container.read(creatorHandshakeProvider).phase}; '
+            '${container.read(creatorHandshakeProvider).message}; '
+            'form: ${find.byKey(const Key('creator-form-error')).evaluate().map((element) => (element.widget as Text).data).toList()}',
+      );
+      expect(find.byKey(const Key('creator-confirm-selected')), findsNothing);
+      final List<TaskEntity> persisted = (await repository.getAllTasks())
+          .where((TaskEntity task) => task.title == 'UI journey task')
+          .toList();
+      expect(persisted, hasLength(1));
+      expect(persisted.single.priority, 4);
+      expect(persisted.single.scheduledFor, isNotNull);
+      expect(persisted.single.isCompleted, isFalse);
+      final tasks = await container.read(tasksProvider.future);
+      expect(
+        tasks.where((task) => task.title == 'UI journey task'),
+        isNotEmpty,
+      );
+      final Map<String, dynamic> metrics = await _waitForMetric(
+        tester,
+        container,
+        key: 'tasks_created',
+        expected: 1,
+      );
+      expect(metrics['tasks_created'], 1);
+      expect(container.read(profileProvider).xp, xpBeforeCompletion);
 
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump();
-    container.dispose();
-  });
+      await _tapRequired(
+        tester,
+        find.byKey(const Key('creator-open-saved-result')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(TimelineScreen), findsOneWidget);
+      expect(find.text('UI journey task'), findsOneWidget);
+      await _tapRequired(tester, find.text('Complete'));
+      await tester.pump(const Duration(milliseconds: 600));
+      final Map<String, dynamic> completedMetrics = await _waitForMetric(
+        tester,
+        container,
+        key: 'tasks_completed',
+        expected: 1,
+      );
+      expect(completedMetrics['tasks_completed'], 1);
+      final TaskEntity completed = (await repository.getAllTasks()).singleWhere(
+        (task) => task.title == 'UI journey task',
+      );
+      expect(completed.isCompleted, isTrue);
+      expect(completed.priority, 4);
+      expect(completed.scheduledFor, persisted.single.scheduledFor);
+      expect(
+        container.read(profileProvider).xp,
+        greaterThan(xpBeforeCompletion),
+      );
+
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, 1200));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await _tapRequired(tester, find.bySemanticsLabel('Back'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(TimelineScreen), findsNothing);
+      expect(find.byType(CreatorScreen), findsOneWidget);
+      expect(find.byKey(const Key('creator-handshake-result')), findsOneWidget);
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        RoutePaths.creator,
+      );
+      await _tapRequired(tester, find.bySemanticsLabel('Back Home'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await _waitForRouterPath(tester, router, RoutePaths.nexus);
+      await _waitForVisible(tester, find.byKey(const Key('today-add')));
+      expect(
+        find.byKey(const Key('today-add')),
+        findsOneWidget,
+        reason:
+            'Home navigation must show Today; remaining schedule screens: '
+            '${find.byType(TimelineScreen).evaluate().length}.',
+      );
+      await _tapRequired(tester, find.byTooltip('My plan'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await _waitForRouterPath(tester, router, RoutePaths.timeline);
+      await _tapRequired(tester, find.text('Completed'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('UI journey task'), findsOneWidget);
+      expect(find.byTooltip('Complete task'), findsNothing);
+    },
+  );
 }
 
 Future<void> _hideKeyboard(WidgetTester tester) async {
@@ -361,22 +476,37 @@ Future<void> _hideKeyboard(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 600));
 }
 
+Future<void> _waitForVisible(WidgetTester tester, Finder target) async {
+  for (var attempt = 0; attempt < 100 && target.evaluate().isEmpty; attempt++) {
+    // Allow bounded repository/platform work to settle as well as UI frames.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pump(const Duration(milliseconds: 40));
+  }
+}
+
 Future<void> _tapRequired(WidgetTester tester, Finder target) async {
   expect(target, findsOneWidget);
-  await tester.ensureVisible(target);
+  await Scrollable.ensureVisible(tester.element(target), alignment: 0.5);
   await tester.pump(const Duration(milliseconds: 250));
   expect(
     target.hitTestable(),
     findsOneWidget,
-    reason: 'A required interaction must be reachable before tapping.',
+    reason:
+        'A required interaction must be reachable before tapping: ${tester.getRect(target)}.',
   );
   await tester.tap(target);
 }
 
 ProviderContainer _integrationContainer(_InMemoryTaskRepository repository) {
-  return ProviderContainer(
+  final container = ProviderContainer(
     overrides: [
       domainTaskRepositoryProvider.overrideWithValue(repository),
+      hiveStoreProvider.overrideWithValue(const _IntegrationHiveStore()),
+      domainGoalRepositoryProvider.overrideWithValue(const _UnchangedGoals()),
+      domainHabitRepositoryProvider.overrideWithValue(const _UnchangedHabits()),
+      domainNoteRepositoryProvider.overrideWithValue(const _UnchangedNotes()),
       secureStoreProvider.overrideWithValue(
         SecureStore(backend: InMemorySecureStoreBackend()),
       ),
@@ -387,6 +517,7 @@ ProviderContainer _integrationContainer(_InMemoryTaskRepository repository) {
       audioFeedbackControllerProvider.overrideWithValue(
         const _SilentAudioFeedbackController(),
       ),
+      soundEnabledProvider.overrideWith(_SilentSound.new),
       optimizationConfigProvider.overrideWith(
         (Ref ref) async => OptimizationConfig.neutral(),
       ),
@@ -399,9 +530,19 @@ ProviderContainer _integrationContainer(_InMemoryTaskRepository repository) {
       guards.onboardingCompleteGuardProvider.overrideWithValue(true),
     ],
   );
+  // These screen fixtures mount the router below AuthGate. Establish the same
+  // ready account boundary that AuthGate normally supplies before actions run.
+  final boundary = container.read(authSessionBoundaryProvider.notifier);
+  final generation = boundary.begin(
+    userId: 'integration-task-user',
+    isTransitioning: false,
+  );
+  boundary.complete(generation, storageReady: true);
+  return container;
 }
 
 Future<Map<String, dynamic>> _waitForMetric(
+  WidgetTester tester,
   ProviderContainer container, {
   required String key,
   required int expected,
@@ -413,7 +554,10 @@ Future<Map<String, dynamic>> _waitForMetric(
     if (snapshot[key] == expected) {
       return snapshot;
     }
-    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pump(const Duration(milliseconds: 40));
   } while (DateTime.now().isBefore(deadline));
   return snapshot;
 }
@@ -486,6 +630,11 @@ const IntelligenceState _authenticatedIntelligence = IntelligenceState(
   mockLogin: MockLoginConfigState(email: '', password: ''),
 );
 
+class _SilentSound extends SoundEnabledNotifier {
+  @override
+  bool build() => false;
+}
+
 class _SilentAudioFeedbackController extends AudioFeedbackController {
   const _SilentAudioFeedbackController();
 
@@ -494,6 +643,64 @@ class _SilentAudioFeedbackController extends AudioFeedbackController {
 
   @override
   Future<void> playTaskComplete() => Future<void>.value();
+}
+
+// Creator reads all domains to bind its save transaction. Keep unrelated
+// domains synthetic and fail if a task journey tries to mutate any of them.
+class _IntegrationHiveStore implements HiveStore {
+  const _IntegrationHiveStore();
+  @override
+  Future<void> init() async {}
+  @override
+  bool isBoxOpen(String key) => Hive.isBoxOpen(key);
+  @override
+  Box<T> box<T>(String key) => Hive.box<T>(key);
+  @override
+  Future<Box<T>> openBox<T>(String key) async =>
+      Hive.isBoxOpen(key) ? Hive.box<T>(key) : await Hive.openBox<T>(key);
+  @override
+  Future<void> clearBox(String key) async =>
+      (await openBox<dynamic>(key)).clear();
+  @override
+  Future<void> closeBox(String key) async {
+    if (Hive.isBoxOpen(key)) await Hive.box<dynamic>(key).close();
+  }
+}
+
+class _UnchangedGoals implements IGoalRepository {
+  const _UnchangedGoals();
+  @override
+  List<GoalEntity> getGoals() => const [];
+  @override
+  Future<void> deleteGoal(String id) =>
+      throw StateError('Unexpected goal mutation');
+  @override
+  Future<void> saveGoal(GoalEntity goal) =>
+      throw StateError('Unexpected goal mutation');
+  @override
+  Future<void> saveGoals(List<GoalEntity> goals) =>
+      throw StateError('Unexpected goal mutation');
+}
+
+class _UnchangedHabits implements IHabitRepository {
+  const _UnchangedHabits();
+  @override
+  Future<List<HabitEntity>> getHabits() async => const [];
+  @override
+  Future<void> saveHabits(List<HabitEntity> habits) =>
+      throw StateError('Unexpected habit mutation');
+}
+
+class _UnchangedNotes implements INoteRepository {
+  const _UnchangedNotes();
+  @override
+  Future<List<NoteEntity>> getNotes() async => const [];
+  @override
+  Future<void> deleteNote(String id) =>
+      throw StateError('Unexpected note mutation');
+  @override
+  Future<void> saveNote(NoteEntity note) =>
+      throw StateError('Unexpected note mutation');
 }
 
 class _InMemoryTaskRepository implements ITaskRepository {

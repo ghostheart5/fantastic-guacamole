@@ -105,6 +105,9 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Edit and link'));
+        await tester.pumpAndSettle();
+        expect(find.text('Edit and link').hitTestable(), findsOneWidget);
         await tester.tap(find.text('Edit and link'));
         await tester.pumpAndSettle();
         final taskPicker = find

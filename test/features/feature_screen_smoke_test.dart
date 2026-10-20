@@ -101,7 +101,7 @@ void main() {
     expect(find.text('Skip'), findsOneWidget);
   });
 
-  testWidgets('NexusScreen renders with a supplied screen model', (
+  testWidgets('detailed Nexus review renders with a supplied screen model', (
     WidgetTester tester,
   ) async {
     final ProviderContainer container = ProviderContainer(
@@ -126,7 +126,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: NexusScreen()),
+        child: const MaterialApp(home: NexusScreen(showDetails: true)),
       ),
     );
     await tester.pump();

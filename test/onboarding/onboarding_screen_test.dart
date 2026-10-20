@@ -1,9 +1,12 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_content_contract.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -101,7 +104,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 400));
 
-      final Finder body = find.textContaining('Decide with evidence');
+      final Finder body = find.textContaining('Put your thoughts into words');
       final Finder button = find.widgetWithText(
         FilledButton,
         welcomeEntryLabel,
@@ -296,6 +299,7 @@ void main() {
     });
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        domainTaskRepositoryProvider.overrideWithValue(_EmptyTasks()),
         accountStorageScopeProvider.overrideWithValue(
           AccountStorageScope.authenticated('onboarding-test-user'),
         ),
@@ -317,6 +321,22 @@ void main() {
 
     expect(container.read(onboardingCompleteProvider), isTrue);
     expect(container.read(smartPlannerFirstValueProvider), isNull);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(onboardingCompleteStorageKey), isTrue);
+    final namespace = AccountStorageScope.authenticated(
+      'onboarding-test-user',
+    ).v2Namespace;
+    expect(prefs.getBool('onboarding_profile_complete_v1.$namespace'), isTrue);
+    final guidance = await container.read(adaptiveGuidanceProvider.future);
+    expect(guidance.activeCoreLesson, isNull);
+    expect(
+      guidance.laterLessons,
+      containsAll([
+        GuidanceLessonId.createFirstItem,
+        GuidanceLessonId.scheduleFirstItem,
+        GuidanceLessonId.reviewTimeline,
+      ]),
+    );
   });
 
   testWidgets('missing account scope cannot falsely complete first setup', (
@@ -431,7 +451,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 400));
 
-    final Finder body = find.textContaining('Decide with evidence');
+    final Finder body = find.textContaining('Put your thoughts into words');
     final Finder action = find.text(welcomeEntryLabel);
     expect(body, findsOneWidget);
     expect(action, findsOneWidget);
@@ -471,6 +491,19 @@ class _TestProfileController extends ProfileController {
     final String trimmed = name.trim();
     if (trimmed.isNotEmpty) state = state.copyWith(name: trimmed);
   }
+}
+
+class _EmptyTasks implements ITaskRepository {
+  @override
+  Future<List<TaskEntity>> getAllTasks() async => [];
+  @override
+  Future<TaskEntity?> getTaskById(String id) async => null;
+  @override
+  Future<void> saveTask(TaskEntity task) async =>
+      throw UnsupportedError('read-only fixture');
+  @override
+  Future<void> deleteTask(String id) async =>
+      throw UnsupportedError('read-only fixture');
 }
 
 void _setLargeTestSurface(WidgetTester tester) {

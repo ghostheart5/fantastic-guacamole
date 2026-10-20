@@ -54,13 +54,13 @@ void main() {
     (tester) async {
       notifier.createdAt = DateTime.now();
       await open(tester);
+      await tester.tap(find.text('Habit options'));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Record earlier'));
       await tester.tap(find.text('Record earlier'));
       await tester.pumpAndSettle();
       expect(
-        find.text(
-          'No earlier day is available. This rhythm was created today.',
-        ),
+        find.text('No earlier day is available. This habit was created today.'),
         findsOneWidget,
       );
       expect(find.byType(DatePickerDialog), findsNothing);

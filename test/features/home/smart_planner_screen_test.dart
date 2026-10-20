@@ -922,7 +922,7 @@ void main() {
 
       expect(find.byKey(const Key('first-use-context-offer')), findsOneWidget);
       expect(find.textContaining('decision support'), findsOneWidget);
-      expect(find.textContaining('Smart Planner only'), findsOneWidget);
+      expect(find.textContaining('Choose a step only'), findsOneWidget);
       expect(find.textContaining('expiry · 30 days'), findsOneWidget);
       expect((await repository.load()).signals, isEmpty);
 
