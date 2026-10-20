@@ -30,76 +30,89 @@ class GoalsScreen extends ConsumerWidget {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                child: TemporalScreenHeader(
-                  title: journeyText(context, 'Goals', 'Metas'),
-                  subtitle: journeyText(
-                    context,
-                    'Save a goal you want to work toward. Open it to review or edit it.',
-                    'Guarda una meta que quieras alcanzar. Ábrela para revisarla o editarla.',
-                  ),
-                  eyebrow: journeyText(
-                    context,
-                    '${goals.length} active',
-                    '${goals.length} ${goals.length == 1 ? 'activa' : 'activas'}',
-                  ),
-                  backTooltip: es ? 'Atrás' : 'Back',
-                  accent: AppColors.memoryAmber,
-                  onBack: () {
-                    if (Navigator.of(context).canPop()) {
-                      Navigator.of(context).pop();
-                    } else {
-                      goToAppView(context, ref, AppView.nexus);
-                    }
-                  },
-                  trailing: IconButton(
-                    tooltip: journeyText(context, 'Add goal', 'Añadir meta'),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(
-                      width: 48,
-                      height: 48,
+          child: CustomScrollView(
+            slivers: <Widget>[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                  child: TemporalScreenHeader(
+                    title: journeyText(context, 'Goals', 'Metas'),
+                    subtitle: journeyText(
+                      context,
+                      'Save a goal you want to work toward. Open it to review or edit it.',
+                      'Guarda una meta que quieras alcanzar. Ábrela para revisarla o editarla.',
                     ),
-                    onPressed: goalsRead.hasError
-                        ? null
-                        : () async => _showAddSheet(context, ref),
-                    icon: const Icon(
-                      Icons.add_rounded,
-                      color: AppColors.neonCyan,
+                    eyebrow: journeyText(
+                      context,
+                      '${goals.length} active',
+                      '${goals.length} ${goals.length == 1 ? 'activa' : 'activas'}',
+                    ),
+                    backTooltip: es ? 'Atrás' : 'Back',
+                    accent: AppColors.memoryAmber,
+                    onBack: () {
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      } else {
+                        goToAppView(context, ref, AppView.nexus);
+                      }
+                    },
+                    trailing: IconButton(
+                      tooltip: journeyText(context, 'Add goal', 'Añadir meta'),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 48,
+                        height: 48,
+                      ),
+                      onPressed: goalsRead.hasError
+                          ? null
+                          : () async => _showAddSheet(context, ref),
+                      icon: const Icon(
+                        Icons.add_rounded,
+                        color: AppColors.neonCyan,
+                      ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: goalsRead.hasError
-                    ? Column(
-                        children: [
-                          Text(
-                            es
-                                ? 'No se pueden leer tus metas. Los datos existentes se conservaron.'
-                                : 'Your goals could not be read. Existing data was preserved.',
-                          ),
-                          TextButton(
-                            onPressed: () => ref.invalidate(goalsReadProvider),
-                            child: Text(es ? 'Reintentar' : 'Retry'),
-                          ),
-                        ],
-                      )
-                    : goals.isEmpty
-                    ? _EmptyGoals(
-                        onAdd: () async => _showAddSheet(context, ref),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-                        itemCount: goals.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
-                        itemBuilder: (ctx, i) => _GoalCard(goal: goals[i]),
-                      ),
-              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              if (goalsRead.hasError)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          es
+                              ? 'No se pueden leer tus metas. Los datos existentes se conservaron.'
+                              : 'Your goals could not be read. Existing data was preserved.',
+                        ),
+                        TextButton(
+                          onPressed: () => ref.invalidate(goalsReadProvider),
+                          child: Text(es ? 'Reintentar' : 'Retry'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else if (goals.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _EmptyGoals(
+                    onAdd: () async => _showAddSheet(context, ref),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+                  sliver: SliverList.separated(
+                    itemCount: goals.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    itemBuilder: (ctx, i) =>
+                        _GoalCard(key: ValueKey(goals[i].id), goal: goals[i]),
+                  ),
+                ),
             ],
           ),
         ),
@@ -458,7 +471,7 @@ class _EmptyGoals extends StatelessWidget {
 }
 
 class _GoalCard extends ConsumerStatefulWidget {
-  const _GoalCard({required this.goal});
+  const _GoalCard({super.key, required this.goal});
   final GoalEntity goal;
 
   @override
@@ -467,8 +480,67 @@ class _GoalCard extends ConsumerStatefulWidget {
 
 class _GoalCardState extends ConsumerState<_GoalCard> {
   bool _expanded = false;
+  bool _completing = false;
+
+  Future<bool> _completeGoal() async {
+    if (_completing) return false;
+    final container = ProviderScope.containerOf(context, listen: false);
+    final scope = container.read(accountStorageScopeProvider);
+    final boundary = container.read(authSessionBoundaryProvider);
+    final goalId = widget.goal.id;
+    bool isCurrent() {
+      try {
+        final currentScope = container.read(accountStorageScopeProvider);
+        final currentBoundary = container.read(authSessionBoundaryProvider);
+        return currentScope.isWritable &&
+            currentScope.v2Namespace == scope.v2Namespace &&
+            currentBoundary.generation == boundary.generation &&
+            currentBoundary.userId == currentScope.rawUserId &&
+            currentBoundary.isStorageReady &&
+            !currentBoundary.isTransitioning &&
+            !(currentBoundary.blockingIssue?.trim().isNotEmpty ?? false);
+      } on Object {
+        return false;
+      }
+    }
+
+    if (!isCurrent()) return false;
+    final messenger = ScaffoldMessenger.of(context);
+    final warning = journeyText(
+      context,
+      'Goal completed. Some reminders or activity updates could not finish.',
+      'Meta completada. No se pudieron completar algunos recordatorios o actualizaciones de actividad.',
+    );
+    final failure = journeyText(
+      context,
+      'Goal could not be completed. Please try again.',
+      'No se pudo completar la meta. Inténtalo de nuevo.',
+    );
+    setState(() => _completing = true);
+    try {
+      final result = await container
+          .read(goalsProvider.notifier)
+          .complete(goalId);
+      if (result.accountChanged || !isCurrent()) return false;
+      // Canonical completion removes this keyed card before auxiliary work
+      // finishes. The surviving scaffold can report a warning without inviting
+      // another completion or using a disposed card's context/ref.
+      if (result.hasWarnings && messenger.mounted) {
+        messenger.showSnackBar(SnackBar(content: Text(warning)));
+      }
+      return true;
+    } on Object {
+      if (isCurrent() && messenger.mounted) {
+        messenger.showSnackBar(SnackBar(content: Text(failure)));
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => _completing = false);
+    }
+  }
 
   Future<void> _editGoal() async {
+    if (_completing) return;
     String nextTitle = '';
     String nextDescription = '';
     final bool? save = await showDialog<bool>(
@@ -530,6 +602,7 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
   }
 
   Future<void> _deleteGoal() async {
+    if (_completing) return;
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -646,45 +719,21 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
     final dateColor = isOverdue ? AppColors.recallRed : AppColors.neonCyan;
     final goalColor = Color(widget.goal.colorHex);
 
+    final completionScope = ref.watch(accountStorageScopeProvider);
+    final completionBoundary = ref.watch(authSessionBoundaryProvider);
+    final canComplete =
+        completionScope.isWritable &&
+        completionBoundary.userId == completionScope.rawUserId &&
+        completionBoundary.isStorageReady &&
+        !completionBoundary.isTransitioning &&
+        !(completionBoundary.blockingIssue?.trim().isNotEmpty ?? false);
+
     return Dismissible(
       key: Key(widget.goal.id),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (_) async {
-        try {
-          final result = await ref
-              .read(goalsProvider.notifier)
-              .complete(widget.goal.id);
-          if (context.mounted && result.hasWarnings && !result.accountChanged) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  journeyText(
-                    context,
-                    'Goal completed. Some reminders or activity updates could not finish.',
-                    'Meta completada. No se pudieron completar algunos recordatorios o actualizaciones de actividad.',
-                  ),
-                ),
-              ),
-            );
-          }
-          return true;
-        } on Object {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  journeyText(
-                    context,
-                    'Goal could not be completed. Please try again.',
-                    'No se pudo completar la meta. Inténtalo de nuevo.',
-                  ),
-                ),
-              ),
-            );
-          }
-          return false;
-        }
-      },
+      direction: _completing || !canComplete
+          ? DismissDirection.none
+          : DismissDirection.endToStart,
+      confirmDismiss: (_) => _completeGoal(),
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
@@ -737,12 +786,14 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                           ),
                         ),
                         PopupMenuButton<String>(
+                          enabled: !_completing,
                           tooltip: journeyText(
                             context,
                             'Manage goal',
                             'Administrar meta',
                           ),
                           onSelected: (value) async {
+                            if (_completing) return;
                             if (value == 'edit') await _editGoal();
                             if (value == 'delete') await _deleteGoal();
                           },
@@ -837,17 +888,19 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                             size: 18,
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            journeyText(
-                              context,
-                              'Target ${targetDate.day}/${targetDate.month}/${targetDate.year}',
-                              'Objetivo ${targetDate.day}/${targetDate.month}/${targetDate.year}',
-                            ),
-                            style: TextStyle(
-                              color: dateColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0,
+                          Flexible(
+                            child: Text(
+                              journeyText(
+                                context,
+                                'Target ${targetDate.day}/${targetDate.month}/${targetDate.year}',
+                                'Objetivo ${targetDate.day}/${targetDate.month}/${targetDate.year}',
+                              ),
+                              style: TextStyle(
+                                color: dateColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0,
+                              ),
                             ),
                           ),
                         ],
@@ -884,15 +937,18 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          Text(
-                            es
-                                ? '$completed de $total acciones únicas'
-                                : '$completed of $total one-time actions',
-                            style: TextStyle(
-                              color: goalColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0,
+                          Flexible(
+                            flex: 2,
+                            child: Text(
+                              es
+                                  ? '$completed de $total acciones únicas'
+                                  : '$completed of $total one-time actions',
+                              style: TextStyle(
+                                color: goalColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0,
+                              ),
                             ),
                           ),
                         ],
@@ -915,6 +971,35 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                         ),
                       ),
                     ],
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        key: ValueKey('complete-goal-${widget.goal.id}'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: goalColor,
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        onPressed: _completing || !canComplete
+                            ? null
+                            : () => _completeGoal(),
+                        child: Semantics(
+                          label: journeyText(
+                            context,
+                            'Mark goal complete: ${widget.goal.title}',
+                            'Marcar meta como completada: ${widget.goal.title}',
+                          ),
+                          excludeSemantics: true,
+                          child: Text(
+                            journeyText(
+                              context,
+                              'Mark goal complete',
+                              'Marcar meta como completada',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                     if (!progressRead.isLoading &&
                         !progressRead.hasError &&
                         (goalProgress.recurringCompletedCount > 0 ||

@@ -13,8 +13,10 @@ tags:
     env:
       TARGET: "Choose a step"
 
-- assertVisible: 'Choose a step'
-- assertVisible: 'Describe what you need to do. Get a manageable next step to review.'
+# Flutter may merge the header with Back and its eyebrow into one native node.
+# Match complete copy lines in either the merged or separate representation.
+- assertVisible: '(?s)^(?:.*\n)?Choose a step(?:\n.*)?$'
+- assertVisible: '(?s)^(?:.*\n)?Describe what you need to do\. Get a manageable next step to review\.(?:\n.*)?$'
 
 # The canonical destination must not regress to a retired product label.
 - assertNotVisible: "SMART COACH"

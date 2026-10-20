@@ -25,11 +25,32 @@ tags:
 - inputText: "What evidence is missing?"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
 - tapOn: "Send SI query"
+# The transcript follows the response footer, which can clip the first section.
+# Wait for completion, then reveal and verify each required response section.
 - extendedWaitUntil:
-    visible: "DIRECT ANSWER"
+    visible: "Why this appears: Read-only on-device response based on the selected records."
     timeout: 30000
-- assertVisible: "RECOMMENDATION"
+- scrollUntilVisible:
+    element:
+      text: "(?s).*Processing mode: On device.*"
+    direction: UP
+    visibilityPercentage: 100
+    timeout: 15000
 - assertVisible: "(?s).*Processing mode: On device.*"
+- scrollUntilVisible:
+    element:
+      text: "DIRECT ANSWER"
+    direction: DOWN
+    visibilityPercentage: 100
+    timeout: 15000
+- assertVisible: "DIRECT ANSWER"
+- scrollUntilVisible:
+    element:
+      text: "RECOMMENDATION"
+    direction: DOWN
+    visibilityPercentage: 100
+    timeout: 15000
+- assertVisible: "RECOMMENDATION"
 - assertNotVisible: "External AI"
 
 # A typed local status request must disclose the current evidence boundary.
@@ -41,6 +62,13 @@ tags:
 - extendedWaitUntil:
     visible: "(?s).*SI STATUS.*Read-only Evidence Lens:.*"
     timeout: 10000
+# Auto-scroll can leave this reply's mode tag above its body.
+- scrollUntilVisible:
+    element:
+      text: "(?s).*Processing mode: On device.*"
+    direction: UP
+    visibilityPercentage: 100
+    timeout: 15000
 - assertVisible: "(?s).*Processing mode: On device.*"
 - assertNotVisible: "External AI"
 
@@ -53,6 +81,13 @@ tags:
 - extendedWaitUntil:
     visible: "(?s).*Unknown shortcut.*No part of the request was sent or discarded.*"
     timeout: 10000
+# Auto-scroll can leave this reply's mode tag above its body.
+- scrollUntilVisible:
+    element:
+      text: "(?s).*Processing mode: On-device fallback.*"
+    direction: UP
+    visibilityPercentage: 100
+    timeout: 15000
 - assertVisible: "(?s).*Processing mode: On-device fallback.*"
 - assertNotVisible: "External AI"
 

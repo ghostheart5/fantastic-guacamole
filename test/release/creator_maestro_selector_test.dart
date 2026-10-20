@@ -228,6 +228,127 @@ void main() {
     },
   );
 
+  test(
+    'Planner copy matches complete lines in the observed merged native node',
+    () {
+      final selectors =
+          entries(commands('.maestro/flows/04-smart-planner.yaml'))
+              .where((entry) => entry.key == 'assertVisible')
+              .map((entry) => entry.value)
+              .whereType<String>()
+              .where(
+                (value) =>
+                    value.contains('Choose a step') ||
+                    value.contains('Describe what'),
+              )
+              .toList();
+      expect(selectors, hasLength(2));
+      const title = 'Choose a step';
+      const help =
+          'Describe what you need to do. Get a manageable next step to review.';
+      const merged = 'Back\nHelp with your next step\n$title\n$help';
+      for (var index = 0; index < selectors.length; index++) {
+        final matcher = RegExp(
+          selectors[index].replaceFirst('(?s)', ''),
+          dotAll: true,
+        );
+        final line = [title, help][index];
+        expect(matcher.hasMatch(line), isTrue);
+        expect(matcher.hasMatch(merged), isTrue);
+        expect(matcher.hasMatch('Unrelated $line'), isFalse);
+        expect(matcher.hasMatch('$line extra unrelated copy'), isFalse);
+        expect(matcher.hasMatch('Back\nHelp with your next step'), isFalse);
+      }
+    },
+  );
+
+  test(
+    'SI reveals clipped response sections without dropping response contracts',
+    () {
+      final flow = commands('.maestro/flows/06-si-console.yaml');
+      final verified = <String>[];
+      var phase = '';
+      String? revealed;
+      var completionObserved = false;
+      for (final command in flow.whereType<Map<dynamic, dynamic>>()) {
+        final input = command['inputText'];
+        if (input is String) {
+          phase = input;
+          revealed = null;
+          completionObserved = false;
+        }
+        final wait = command['extendedWaitUntil'];
+        if (wait is Map) {
+          final visible = wait['visible'] as String;
+          if (phase == 'What evidence is missing?') {
+            expect(
+              visible,
+              contains(
+                'Read-only on-device response based on the selected records.',
+              ),
+            );
+          } else if (phase == '/status') {
+            expect(visible, contains('SI STATUS.*Read-only Evidence Lens:'));
+          } else if (phase == '/not-real preserve this') {
+            expect(
+              visible,
+              contains(
+                'Unknown shortcut.*No part of the request was sent or discarded.',
+              ),
+            );
+          } else if (phase == 'I want to kill myself') {
+            expect(visible, "Let's pause and focus on your safety");
+            verified.add('crisis');
+          }
+          completionObserved = true;
+        }
+        final scroll = command['scrollUntilVisible'];
+        if (scroll is Map) {
+          expect(
+            completionObserved,
+            isTrue,
+            reason: 'Wait for the current reply before revealing it.',
+          );
+          revealed = (scroll['element'] as Map)['text'] as String;
+          expect(scroll['visibilityPercentage'], 100);
+          expect(
+            scroll['direction'],
+            revealed.contains('Processing mode:') ? 'UP' : 'DOWN',
+          );
+        }
+        final assertion = command['assertVisible'];
+        if (assertion is String &&
+            (assertion.contains('Processing mode:') ||
+                ['DIRECT ANSWER', 'RECOMMENDATION'].contains(assertion))) {
+          // Replay the clipped viewport from the hosted failure: none of these
+          // required sections can be assumed visible after following the footer.
+          expect(
+            revealed,
+            assertion,
+            reason: 'Reveal the required $phase section before asserting it.',
+          );
+          verified.add('$phase|$assertion');
+          revealed = null;
+        }
+      }
+      expect(verified, [
+        'What evidence is missing?|(?s).*Processing mode: On device.*',
+        'What evidence is missing?|DIRECT ANSWER',
+        'What evidence is missing?|RECOMMENDATION',
+        '/status|(?s).*Processing mode: On device.*',
+        '/not-real preserve this|(?s).*Processing mode: On-device fallback.*',
+        'crisis',
+      ]);
+      expect(
+        entries(flow).where(
+          (entry) =>
+              entry.key == 'assertNotVisible' && entry.value == 'External AI',
+        ),
+        hasLength(4),
+      );
+    },
+  );
+
   for (final String path in <String>[
     '.maestro/flows/05-creator.yaml',
     '.maestro/subflows/create-scheduled-task.yaml',
