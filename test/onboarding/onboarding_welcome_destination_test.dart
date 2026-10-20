@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -30,6 +31,9 @@ void main() {
               profileProvider.overrideWith(_TestProfileController.new),
             ],
           );
+          final entryDestination = Env.isLocalMode
+              ? 'LOCAL PROFILE DESTINATION'
+              : 'SIGN IN DESTINATION';
           final router = GoRouter(
             initialLocation: '/welcome',
             routes: [
@@ -40,8 +44,7 @@ void main() {
               ),
               GoRoute(
                 path: '/signin',
-                builder: (_, _) =>
-                    const Scaffold(body: Text('SIGN IN DESTINATION')),
+                builder: (_, _) => Scaffold(body: Text(entryDestination)),
               ),
             ],
           );
@@ -71,6 +74,10 @@ void main() {
               ? (language == 'es'
                     ? 'CONTINUAR CONFIGURACIÓN'
                     : 'CONTINUE TO SETUP')
+              : Env.isLocalMode
+              ? (language == 'es'
+                    ? 'CONTINUAR AL PERFIL'
+                    : 'CONTINUE TO PROFILE')
               : (language == 'es'
                     ? 'CONTINUAR AL ACCESO'
                     : 'CONTINUE TO LOGIN');
@@ -84,9 +91,9 @@ void main() {
               find.byKey(const Key('first-value-question')),
               findsOneWidget,
             );
-            expect(find.text('SIGN IN DESTINATION'), findsNothing);
+            expect(find.text(entryDestination), findsNothing);
           } else {
-            expect(find.text('SIGN IN DESTINATION'), findsOneWidget);
+            expect(find.text(entryDestination), findsOneWidget);
             expect(find.byKey(const Key('first-value-question')), findsNothing);
           }
           final prefs = await SharedPreferences.getInstance();

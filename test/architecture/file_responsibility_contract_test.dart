@@ -30,6 +30,8 @@ void main() {
     ],
     'lib/data/services/backup_service.dart': <String>[
       'backup_service.models.dart',
+      'backup_service.manifest_validation.dart',
+      'backup_service.planning_cloud.dart',
     ],
     'lib/data/repositories/google_play_paywall_repository.dart': <String>[
       'google_play_paywall_repository.transactions.dart',

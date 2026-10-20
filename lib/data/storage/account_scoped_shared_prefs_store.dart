@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -32,29 +34,33 @@ final class AccountScopedSharedPrefsStore
   /// namespace only when the authentication boundary has proven ownership.
   /// The legacy source is preserved so migration is recoverable and another
   /// account can never acquire it through an ambiguous owner inference.
-  Future<void> migrateOwnedLegacyValues(Iterable<String> keys) async {
-    if (legacyOwnership != LegacyScopeOwnership.provenOwned) return;
-    await delegate.init();
-    for (final String key in keys.toSet()) {
-      if (key.trim().isEmpty) continue;
-      final String storageKey = _storageKey(key);
-      final String? scopedValue = delegate.load(storageKey);
-      final String? legacyValue = delegate.load(key);
-      final LegacyMigrationEligibility eligibility =
-          AccountStorageNamespace.legacyMigrationEligibility(
-            v2Exists: scopedValue != null,
-            legacyExists: legacyValue != null,
-            ownership: legacyOwnership,
-          );
-      if (eligibility == LegacyMigrationEligibility.copyAllowed) {
-        await delegate.save(storageKey, legacyValue!);
-      }
-    }
-  }
+  Future<void> migrateOwnedLegacyValues(Iterable<String> keys) =>
+      runAccountStorageMutation(() async {
+        if (legacyOwnership != LegacyScopeOwnership.provenOwned) return;
+        await delegate.init();
+        for (final String key in keys.toSet()) {
+          if (key.trim().isEmpty) continue;
+          final String storageKey = _storageKey(key);
+          final String? scopedValue = delegate.load(storageKey);
+          final String? legacyValue = delegate.load(key);
+          final LegacyMigrationEligibility eligibility =
+              AccountStorageNamespace.legacyMigrationEligibility(
+                v2Exists: scopedValue != null,
+                legacyExists: legacyValue != null,
+                ownership: legacyOwnership,
+              );
+          if (eligibility == LegacyMigrationEligibility.copyAllowed) {
+            await delegate.save(storageKey, legacyValue!);
+          }
+        }
+      });
 
   @override
   Future<void> save(String key, String value) {
-    return delegate.save(_storageKey(key), value);
+    return _backupSettingMutation(
+      key,
+      () => delegate.save(_storageKey(key), value),
+    );
   }
 
   @override
@@ -70,15 +76,15 @@ final class AccountScopedSharedPrefsStore
   }
 
   @override
-  Future<void> delete(String key) async {
+  Future<void> delete(String key) => _backupSettingMutation(key, () async {
     // Persist suppression first so a partially failed delete cannot expose a
     // preserved legacy value that belongs to this proven account.
     await delegate.save(_storageKey(_legacyDeleteMarkerFor(key)), 'true');
     await delegate.delete(_storageKey(key));
-  }
+  });
 
   @override
-  Future<void> clear() async {
+  Future<void> clear() => runAccountStorageMutation(() async {
     final EnumerableSharedPrefsStore? enumerable =
         delegate is EnumerableSharedPrefsStore
         ? delegate as EnumerableSharedPrefsStore
@@ -97,7 +103,14 @@ final class AccountScopedSharedPrefsStore
     )) {
       await delegate.delete(key);
     }
-  }
+  });
+
+  Future<void> _backupSettingMutation(
+    String key,
+    Future<void> Function() action,
+  ) => AccountDataRegistry.accountPreferenceBackupKeys.contains(key)
+      ? runAccountStorageMutation(action)
+      : action();
 
   @override
   Future<Set<String>> keys() async {

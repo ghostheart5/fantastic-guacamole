@@ -1,4 +1,4 @@
-# EMULATOR ONLY. Require actual QA controls; no conditional branch may skip them.
+# EMULATOR ONLY. Require the configured local-profile controls without skips.
 appId: com.ghostheart5.chronospark
 tags: [qa, core, settings]
 ---
@@ -17,11 +17,11 @@ tags: [qa, core, settings]
 - tapOn: "Data & account\\n.*"
 - scrollUntilVisible:
     element:
-      text: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
+      text: "Close Profile\\. Close this profile and keep its data on this device\\."
     direction: DOWN
     timeout: 15000
 - assertVisible:
-    text: "Exit Tester Mode\\. Return to login and disable the current tester sign-in state\\."
+    text: "Close Profile\\. Close this profile and keep its data on this device\\."
     enabled: true
 - scrollUntilVisible:
     element:
@@ -33,11 +33,13 @@ tags: [qa, core, settings]
     enabled: true
 - scrollUntilVisible:
     element:
-      text: "Reset Tester Data\\. Erase local test content and restart onboarding\\."
+      text: "Delete Local Profile\\. Permanently remove this profile and its data from this device\\."
     direction: DOWN
     timeout: 15000
 - assertVisible:
-    text: "Reset Tester Data\\. Erase local test content and restart onboarding\\."
+    text: "Delete Local Profile\\. Permanently remove this profile and its data from this device\\."
     enabled: true
 - assertNotVisible: "Delete Account\\. .*"
 - assertNotVisible: "Log Out\\. .*"
+- assertNotVisible: "Exit Tester Mode\\. .*"
+- assertNotVisible: "Reset Tester Data\\. .*"

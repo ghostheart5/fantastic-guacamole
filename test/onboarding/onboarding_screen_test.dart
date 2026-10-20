@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_content_contract.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
@@ -11,6 +12,9 @@ import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  final String welcomeEntryLabel = Env.isLocalMode
+      ? 'CONTINUE TO PROFILE'
+      : 'CONTINUE TO LOGIN';
   for (final surface in <({Size size, double scale, bool split})>[
     (size: const Size(320, 640), scale: 1, split: true),
     (size: const Size(320, 640), scale: 2, split: true),
@@ -62,7 +66,7 @@ void main() {
         expect(titleBounds.right, lessThanOrEqualTo(surface.size.width));
         final Finder button = find.widgetWithText(
           FilledButton,
-          'CONTINUE TO LOGIN',
+          welcomeEntryLabel,
         );
         expect(button.hitTestable(), findsOneWidget);
         expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
@@ -100,7 +104,7 @@ void main() {
       final Finder body = find.textContaining('Decide with evidence');
       final Finder button = find.widgetWithText(
         FilledButton,
-        'CONTINUE TO LOGIN',
+        welcomeEntryLabel,
       );
       final Finder scrollView = find.ancestor(
         of: body,
@@ -169,9 +173,12 @@ void main() {
 
     expect(find.text('AXIOMARA'), findsOneWidget);
     expect(find.text('SKIP'), findsNothing);
-    expect(find.text('CONTINUE TO LOGIN'), findsOneWidget);
-    expect(find.text('Continue to login'), findsNothing);
-    await tester.tap(find.text('CONTINUE TO LOGIN'));
+    expect(find.text(welcomeEntryLabel), findsOneWidget);
+    expect(
+      find.text(Env.isLocalMode ? 'Continue to profile' : 'Continue to login'),
+      findsNothing,
+    );
+    await tester.tap(find.text(welcomeEntryLabel));
     await tester.pump(const Duration(milliseconds: 300));
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -425,7 +432,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     final Finder body = find.textContaining('Decide with evidence');
-    final Finder action = find.text('CONTINUE TO LOGIN');
+    final Finder action = find.text(welcomeEntryLabel);
     expect(body, findsOneWidget);
     expect(action, findsOneWidget);
     expect(

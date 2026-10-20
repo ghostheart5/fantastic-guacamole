@@ -97,6 +97,11 @@ jobs:
       - name: Test verified passive emulator startup
         run: python3 -B -m unittest discover -s scripts -p test_prepare_hosted_emulator_runner.py -v
 
+      - name: Test source-bound QA stress preparation
+        run: |
+          python3 -B -m unittest discover -s scripts -p test_prepare_monkey_seed_flows.py -v
+          python3 -B -m unittest discover -s scripts -p test_prepare_qa_monkey_config.py -v
+
       - name: Test internal billing build controls
         run: |
           python3 -B -m unittest discover -s scripts -p test_android_candidate_build.py

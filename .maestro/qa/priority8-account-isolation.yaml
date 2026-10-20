@@ -1,0 +1,46 @@
+# DISPOSABLE LOCAL QA: close/reopen persistence, not a multi-account proof.
+# Local mode has one profile. Cloud A/B/A isolation remains in the original
+# flows/priority8-account-isolation.yaml and host account-boundary tests.
+appId: com.ghostheart5.chronospark
+tags: [qa, priority8, profile-preservation]
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in-qa.yaml
+- runFlow:
+    file: ../subflows/create-scheduled-task.yaml
+    env:
+      TASK_TITLE: "P8 Local Profile Sentinel"
+- assertVisible: "(?s).*P8 Local Profile Sentinel.*"
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Control Center"
+- scrollUntilVisible:
+    element:
+      text: "Data & account\\n.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Data & account\\n.*"
+- scrollUntilVisible:
+    element:
+      text: "Close Profile\\. Close this profile and keep its data on this device\\."
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Close Profile\\. Close this profile and keep its data on this device\\."
+- extendedWaitUntil:
+    visible: "Open profile"
+    timeout: 20000
+- assertNotVisible: "Open navigation map"
+- assertNotVisible: "Create profile"
+- stopApp
+- launchApp
+- runFlow: ../subflows/sign-in-qa.yaml
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Truth Ledger"
+- extendedWaitUntil:
+    visible: "(?s).*P8 Local Profile Sentinel.*"
+    timeout: 20000
+- assertNotVisible: "(?s).*P8 Account B Sentinel.*"

@@ -829,7 +829,7 @@ jobs:
               assert hashlib.sha256(image.read_bytes()).hexdigest() == launch['screenshotSha256']
               assert native_smoke.is_chronospark_activity(launch['focus'])
               assert native_smoke.is_chronospark_activity(launch['resumedActivity'])
-              assert launch['uiReadyMarker'] in {'CONTINUE TO LOGIN', 'START LOGIN',
+              assert launch['uiReadyMarker'] in {'CONTINUE TO LOGIN', 'CONTINUE TO PROFILE', 'START LOGIN',
                                                  'SKIP FOR NOW', 'TESTER ACCESS',
                                                  'ENTER SYSTEM', 'NEXUS'}
               assert launch['uiNodeCount'] > 0 and launch['uiWaitSeconds'] >= 5

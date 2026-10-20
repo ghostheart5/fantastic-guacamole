@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
+
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
@@ -53,7 +55,7 @@ class HabitOccurrenceRepository implements IHabitOccurrenceRepository {
 
   @override
   Future<void> save(HabitOccurrenceEntity occurrence) {
-    final Future<void> operation = _tail.then((_) async {
+    return _serializeWrite(() async {
       final List<HabitOccurrenceEntity> current = await load();
       final int existing = current.indexWhere(
         (HabitOccurrenceEntity value) => value.id == occurrence.id,
@@ -77,14 +79,12 @@ class HabitOccurrenceRepository implements IHabitOccurrenceRepository {
         ),
       );
     });
-    _tail = operation.catchError((Object _) {});
-    return operation;
   }
 
   @override
   Future<void> replaceSnapshot(List<HabitOccurrenceEntity> occurrences) {
     final List<HabitOccurrenceEntity> snapshot = List.unmodifiable(occurrences);
-    final Future<void> operation = _tail.then((_) async {
+    return _serializeWrite(() async {
       await _store.init();
       final Set<String> ids = <String>{};
       for (final HabitOccurrenceEntity occurrence in snapshot) {
@@ -108,7 +108,13 @@ class HabitOccurrenceRepository implements IHabitOccurrenceRepository {
         ),
       );
     });
-    _tail = operation.catchError((Object _) {});
-    return operation;
+  }
+
+  Future<void> _serializeWrite(Future<void> Function() action) {
+    return runAccountStorageMutation(() {
+      final operation = _tail.then((_) => action());
+      _tail = operation.catchError((Object _) {});
+      return operation;
+    });
   }
 }

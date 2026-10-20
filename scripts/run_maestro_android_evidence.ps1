@@ -113,7 +113,7 @@ function Get-SelectedFlows {
                 '.maestro/qa/09-settings.yaml',
                 '.maestro/qa/10-subscription-containment.yaml',
                 '.maestro/qa/11-logout.yaml',
-                '.maestro/flows/priority8-account-isolation.yaml',
+                '.maestro/qa/priority8-account-isolation.yaml',
                 '.maestro/flows/priority8-learned-lifecycle.yaml',
                 '.maestro/flows/priority8-learned-lifecycle-readback.yaml'
             )

@@ -129,6 +129,7 @@ void main() {
     expect(find.byKey(const Key('onboarding-brand-title')), findsOneWidget);
     expect(find.text('SKIP'), findsNothing);
     expect(find.text('CONTINUE TO LOGIN'), findsNothing);
+    expect(find.text('CONTINUE TO PROFILE'), findsNothing);
     await _tapRequired(tester, find.text('CONTINUE TO SETUP'));
     await tester.pump(const Duration(milliseconds: 400));
 

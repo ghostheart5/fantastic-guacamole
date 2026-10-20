@@ -19,6 +19,11 @@ import 'package:fantastic_guacamole/state/providers/account_operation.dart';
 import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
+import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
+import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/services/offline_sync_queue_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -131,6 +136,7 @@ final _backupServiceProvider = Provider<BackupService?>((ref) {
         taskOccurrenceRepository: ref.watch(taskOccurrenceRepositoryProvider),
         habitOccurrenceRepository: ref.watch(habitOccurrenceRepositoryProvider),
         decisionOutcomeRepository: ref.watch(decisionOutcomeRepositoryProvider),
+        timelineRepository: ref.watch(domainTimelineRepositoryProvider),
         profileStorage: AccountScopedHiveStorage(
           baseBox: HiveBoxes.profile,
           scope: scope,
@@ -293,6 +299,46 @@ final syncToCloudProvider = FutureProvider<bool>((ref) async {
   }
 });
 
+/// Only the confirmed full-backup button invokes this provider. Expanded
+/// planning data is never queued for an automatic legacy upload.
+final backupPlanningToCloudProvider = FutureProvider<bool>((ref) async {
+  await Future<void>.value();
+  final owner = AccountOperation.capture(ref);
+  if (!owner.isCurrent) return false;
+  ref.read(syncErrorMessageProvider.notifier).clear();
+  if (!ref.read(cloudSyncCapabilityProvider) ||
+      !await owner.wait(ref.read(cloudSyncPreferenceProvider.future))) {
+    return false;
+  }
+  try {
+    final service = await _readySyncService(ref);
+    owner.check();
+    final outcome =
+        await service?.backupPlanningToCloud(
+          shouldContinue: () =>
+              owner.isCurrent &&
+              (ref.read(cloudSyncPreferenceProvider).asData?.value ?? false),
+        ) ??
+        CloudSyncOutcome.unavailable;
+    if (!owner.isCurrent) return false;
+    if (outcome != CloudSyncOutcome.synced) {
+      ref
+          .read(syncErrorMessageProvider.notifier)
+          .report(_syncOutcomeMessage(outcome));
+    }
+    return outcome == CloudSyncOutcome.synced;
+  } on Object {
+    if (owner.isCurrent) {
+      ref
+          .read(syncErrorMessageProvider.notifier)
+          .report(
+            'Planning backup could not be verified. Keep your local data and retry.',
+          );
+    }
+    return false;
+  }
+});
+
 final replayOfflineQueueProvider = FutureProvider<int>((ref) async {
   await Future<void>.value();
   ref.read(syncErrorMessageProvider.notifier).clear();
@@ -392,6 +438,13 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
       }
       ref.invalidate(allTasksProvider);
       ref.invalidate(tasksProvider);
+      ref.invalidate(goalsProvider);
+      ref.invalidate(habitsProvider);
+      ref.invalidate(notesProvider);
+      ref.invalidate(timelineProvider);
+      ref.invalidate(habitOccurrencesProvider);
+      ref.invalidate(decisionOutcomesProvider);
+      ref.invalidate(taskOccurrenceCoordinatorProvider);
       ref.invalidate(profileProvider);
       ref.invalidate(goalProgressProvider);
       ref.invalidate(optimizationConfigProvider);
@@ -411,6 +464,7 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
         );
       }
       if (!owner.isCurrent) return false;
+      ref.invalidate(automationNotificationsProvider);
       if (!remindersComplete) {
         ref
             .read(cloudRestoreWarningsProvider.notifier)
@@ -483,7 +537,7 @@ String _syncOutcomeMessage(CloudSyncOutcome outcome) {
     CloudSyncOutcome.recoveryKeyRequired =>
       'This cloud backup needs its recovery key before synchronization can continue.',
     CloudSyncOutcome.conflict =>
-      'Cloud data changed on another device. Nothing was overwritten; retry to merge the newest version.',
+      'The backup changed or requires an explicit full planning backup. Review local and cloud data before trying again.',
     CloudSyncOutcome.unavailable =>
       'Cloud synchronization is temporarily unavailable. Local changes remain available.',
     CloudSyncOutcome.uploadFailed =>
