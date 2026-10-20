@@ -1,6 +1,8 @@
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
 import 'package:flutter/material.dart';
 
+enum _LocalProfileError { deletion, opening }
+
 /// Entry for production device profiles, including interrupted deletion retry.
 class LocalProfileScreen extends StatefulWidget {
   const LocalProfileScreen({required this.service, super.key});
@@ -13,7 +15,7 @@ class LocalProfileScreen extends StatefulWidget {
 class _LocalProfileScreenState extends State<LocalProfileScreen> {
   final TextEditingController _name = TextEditingController();
   bool _busy = false;
-  String? _error;
+  _LocalProfileError? _error;
 
   @override
   void dispose() {
@@ -40,8 +42,8 @@ class _LocalProfileScreenState extends State<LocalProfileScreen> {
       if (mounted) {
         setState(
           () => _error = widget.service.hasPendingDeletion
-              ? 'Deletion is incomplete. Your profile remains closed. Retry to finish removing its data.'
-              : 'Your local profile could not be opened. Retry; your saved profile has not been replaced.',
+              ? _LocalProfileError.deletion
+              : _LocalProfileError.opening,
         );
       }
     } finally {
@@ -115,7 +117,16 @@ class _LocalProfileScreenState extends State<LocalProfileScreen> {
                     Semantics(
                       liveRegion: true,
                       child: Text(
-                        _error!,
+                        switch (_error!) {
+                          _LocalProfileError.deletion => copy(
+                            'Deletion is incomplete. Your profile remains closed. Retry to finish removing its data.',
+                            'La eliminación no se completó. Tu perfil permanece cerrado. Inténtalo de nuevo para terminar de eliminar sus datos.',
+                          ),
+                          _LocalProfileError.opening => copy(
+                            'Your local profile could not be opened. Retry; your saved profile has not been replaced.',
+                            'No se pudo abrir tu perfil local. Inténtalo de nuevo; tu perfil guardado no se ha reemplazado.',
+                          ),
+                        },
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.error,
                         ),

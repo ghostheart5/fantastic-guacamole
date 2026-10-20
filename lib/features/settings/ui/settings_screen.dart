@@ -394,8 +394,8 @@ class SettingsScreen extends ConsumerWidget {
                           final String subtitle = switch (granted) {
                             true => copy('Granted', 'Concedido'),
                             false => copy(
-                              'Denied (scheduling disabled)',
-                              'Denegado (programación desactivada)',
+                              'Off (scheduling disabled)',
+                              'Desactivado (programación desactivada)',
                             ),
                             null => copy(
                               'Unknown until app initializes notifications',

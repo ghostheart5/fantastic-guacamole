@@ -13,8 +13,9 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 SERIAL = "emulator-5554"
-PACKAGE = "com.ghostheart5.chronospark"
-ACTIVITY = f"{PACKAGE}/.MainActivity"
+PACKAGE = "com.ghostheart5.chronospark.qa"
+# QA changes applicationId, while the Activity remains in the base namespace.
+ACTIVITY = f"{PACKAGE}/com.ghostheart5.chronospark.MainActivity"
 ROOT = Path("test-results/native-16k-ci")
 APK = Path("build/app/outputs/flutter-apk/app-debug.apk")
 UI_MARKERS = (
@@ -89,7 +90,8 @@ def resumed_activity(activity_dump: str) -> str:
 
 
 def is_chronospark_activity(value: str) -> bool:
-    return f"{PACKAGE}/.MainActivity" in value or f"{PACKAGE}/{PACKAGE}.MainActivity" in value
+    components = re.findall(r"(?<![\w.$])([\w.]+/[\w.$]+)(?![\w.$])", value)
+    return set(components) == {ACTIVITY}
 
 
 def focus() -> tuple[str, str]:
@@ -134,12 +136,13 @@ def app_fatals(log: str) -> list[str]:
     matches: list[str] = []
     for index, line in enumerate(lines):
         if "FATAL EXCEPTION" in line and any(
-            f"Process: {PACKAGE}" in candidate
+            re.search(r"Process:\s*" + re.escape(PACKAGE) + r"(?=[:,\s]|$)", candidate)
             for candidate in lines[index : index + 9]
         ):
             matches.append(line)
         if "Fatal signal" in line and any(
-            f"Cmdline: {PACKAGE}" in candidate or f">>> {PACKAGE} <<<" in candidate
+            re.search(r"Cmdline:\s*" + re.escape(PACKAGE) + r"(?=[:\s]|$)", candidate)
+            or re.search(r">>>\s*" + re.escape(PACKAGE) + r"(?=[:\s])", candidate)
             for candidate in lines[index : index + 35]
         ):
             matches.append(line)
@@ -179,7 +182,10 @@ def main() -> int:
         run("install", "-r", str(APK.resolve()), timeout=120)
         package_info = shell("dumpsys", "package", PACKAGE, timeout=30)
         version_match = re.search(r"versionCode=(\d+)", package_info)
-        assert version_match and version_match.group(1) == receipt["sourceVersionCode"]
+        assert version_match and version_match.group(1) == receipt["sourceVersionCode"], (
+            f"Installed QA package {PACKAGE} does not match source version "
+            f"{receipt['sourceVersionCode']}"
+        )
         receipt["installedVersionCode"] = version_match.group(1)
         run("logcat", "-c", timeout=20)
         for number in range(1, 6):

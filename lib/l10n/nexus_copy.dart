@@ -16,8 +16,8 @@ class NexusCopy {
   String get nexusTitle =>
       isSpanish ? 'NEXUS // NÚCLEO VIVO' : 'NEXUS // LIVE CORE';
   String get tagline => isSpanish
-      ? 'Tu criterio amplificado: una decisión clara y futuros que puedes comparar.'
-      : 'Your judgment amplified: one clear decision and futures you can compare.';
+      ? 'Elige un próximo paso realista que se ajuste a tu día.'
+      : 'Choose one realistic next step that fits your day.';
   String get logicCore => isSpanish
       ? 'AXIOMARA // SISTEMA OPERATIVO DE DECISIONES HUMANAS'
       : 'AXIOMARA // HUMAN DECISION OS';
@@ -32,16 +32,21 @@ class NexusCopy {
       ? '${name.isEmpty ? 'SISTEMA HUMANO LISTO' : name.toUpperCase()}  ·  CAPACIDAD $level  ·  CONTINUIDAD $streak D'
       : '${name.isEmpty ? 'HUMAN SYSTEM READY' : name.toUpperCase()}  ·  CAPABILITY $level  ·  ${streak}D CONTINUITY';
 
-  String get decisionLoop => isSpanish ? 'BUCLE DE VERDAD' : 'TRUTH LOOP';
+  String get decisionLoop => isSpanish ? 'TU PRÓXIMO PASO' : 'YOUR NEXT STEP';
   String get decisionLoopSubtitle => isSpanish
-      ? 'Intención → decisión → acción → resultado → aprendizaje corregible'
-      : 'Intent → decision → action → outcome → correctable learning';
-  String get buildReality => isSpanish ? 'Construir realidad' : 'Build reality';
-  String get resolveNow => isSpanish ? 'Resolver ahora' : 'Resolve now';
-  String get interrogate => isSpanish ? 'Interrogar' : 'Interrogate';
+      ? 'Añade algo que necesites hacer y elige un momento para hacerlo.'
+      : 'Add something you need to do, then choose a time to do it.';
+  String get buildReality => isSpanish ? 'Añadir una tarea' : 'Add a task';
+  String get morePlanningTools =>
+      isSpanish ? 'Más herramientas de planificación' : 'More planning tools';
+  String get resolveNow =>
+      isSpanish ? 'Planificar mis tareas' : 'Plan my tasks';
+  String get interrogate =>
+      isSpanish ? 'Revisar una decisión' : 'Review a decision';
   String get compareFutures =>
-      isSpanish ? 'Comparar futuros' : 'Compare futures';
-  String get reviewTruth => isSpanish ? 'Revisar verdad' : 'Review truth';
+      isSpanish ? 'Comparar opciones' : 'Compare options';
+  String get reviewTruth =>
+      isSpanish ? 'Tareas e historial' : 'Tasks and history';
   String get loopControlNote => isSpanish
       ? 'Nada cambia sin tu acción. Cada resultado puede revisarse y corregirse.'
       : 'Nothing changes without your action. Every outcome can be reviewed and corrected.';
@@ -315,15 +320,23 @@ class NexusCopy {
           context,
         ).formatTimeOfDay(TimeOfDay.fromDateTime(value.toLocal()))
       : DateTimeFormats.timelineTime(value);
-  String dateTime(BuildContext context, DateTime value) {
-    if (!isSpanish) return DateTimeFormats.relativeLocalDateTime(value);
+  String upcomingOccurrence(
+    BuildContext context,
+    DateTime value, {
+    DateTime? now,
+  }) =>
+      '${isSpanish ? 'Próxima ocurrencia' : 'Upcoming occurrence'} · ${dateTime(context, value, now: now)}';
+  String dateTime(BuildContext context, DateTime value, {DateTime? now}) {
+    if (!isSpanish) {
+      return DateTimeFormats.relativeLocalDateTime(value, now: now);
+    }
     final local = value.toLocal();
-    final now = DateTime.now();
-    final difference = DateTime.utc(
-      local.year,
-      local.month,
-      local.day,
-    ).difference(DateTime.utc(now.year, now.month, now.day)).inDays;
+    final reference = (now ?? DateTime.now()).toLocal();
+    final difference = DateTime.utc(local.year, local.month, local.day)
+        .difference(
+          DateTime.utc(reference.year, reference.month, reference.day),
+        )
+        .inDays;
     final day = switch (difference) {
       0 => 'Hoy',
       1 => 'Mañana',

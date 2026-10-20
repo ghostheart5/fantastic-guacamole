@@ -210,9 +210,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   @override
   Widget build(BuildContext context) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
-    final String continueToLogin = l10n.isSpanish
-        ? 'CONTINUAR AL ACCESO'
-        : 'CONTINUE TO LOGIN';
+    final bool isAuthenticated = ref
+        .watch(intelligenceStateProvider)
+        .auth
+        .isAuthenticated;
+    final String welcomeAction = isAuthenticated
+        ? (l10n.isSpanish ? 'CONTINUAR CONFIGURACIÓN' : 'CONTINUE TO SETUP')
+        : (l10n.isSpanish ? 'CONTINUAR AL ACCESO' : 'CONTINUE TO LOGIN');
     final List<_Slide> slides = <_Slide>[
       _Slide(
         icon: Icons.bolt_rounded,
@@ -245,7 +249,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                         ? SizedBox(
                             width: 180,
                             child: _GradientButton(
-                              label: continueToLogin,
+                              label: welcomeAction,
                               onTap: _next,
                             ),
                           )
@@ -289,7 +293,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                               SizedBox(
                                 width: 180,
                                 child: _GradientButton(
-                                  label: continueToLogin,
+                                  label: welcomeAction,
                                   onTap: _next,
                                 ),
                               ),
@@ -300,7 +304,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                             children: [
                               // Primary action button
                               _GradientButton(
-                                label: continueToLogin,
+                                label: welcomeAction,
                                 onTap: _next,
                               ),
                               const SizedBox(height: 17),

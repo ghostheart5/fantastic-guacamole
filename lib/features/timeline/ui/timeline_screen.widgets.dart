@@ -634,13 +634,17 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
           context: context,
           builder: (BuildContext dialogContext) => AlertDialog(
             title: Text(
-              journeyText(context, 'Delete task?', '¿Eliminar tarea?'),
+              journeyText(
+                context,
+                'Remove task from active planning?',
+                '¿Quitar la tarea de la planificación?',
+              ),
             ),
             content: Text(
               journeyText(
                 context,
-                '"${widget.event.title}" will be permanently deleted. This cannot be undone.',
-                '«${widget.event.title}» se eliminará permanentemente. Esta acción no se puede deshacer.',
+                '"${widget.event.title}" will be canceled. A canceled record remains in Library.',
+                '«${widget.event.title}» se cancelará. Su registro cancelado permanecerá en la Biblioteca.',
               ),
             ),
             actions: <Widget>[
@@ -655,7 +659,7 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
                   foregroundColor: Colors.white,
                 ),
                 child: Text(
-                  journeyText(context, 'Delete task', 'Eliminar tarea'),
+                  journeyText(context, 'Remove task', 'Quitar tarea'),
                 ),
               ),
             ],
@@ -666,7 +670,11 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
 
     await _runManagementAction(
       action: () => ref.read(taskActionsProvider).deleteTask(taskId),
-      successMessage: journeyText(context, 'Task deleted.', 'Tarea eliminada.'),
+      successMessage: journeyText(
+        context,
+        'Task canceled. Its record remains in Library.',
+        'Tarea cancelada. Su registro permanece en la Biblioteca.',
+      ),
       errorMessage: journeyText(
         context,
         'Task could not be deleted. Refresh and try again.',

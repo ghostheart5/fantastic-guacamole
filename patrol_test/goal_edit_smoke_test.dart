@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:patrol/patrol.dart';
+import 'current_navigation_support.dart';
 
 void main() {
   patrolTest(
@@ -44,27 +45,14 @@ void main() {
       }
 
       await $.pump(const Duration(seconds: 1));
-      final startupEnd = DateTime.now().add(const Duration(seconds: 40));
-      var continuedWelcome = false;
-      while (!$(const Key('local-profile-continue')).exists &&
-          !$(find.byTooltip('Open navigation map')).exists &&
-          DateTime.now().isBefore(startupEnd)) {
-        if (!continuedWelcome && $('CONTINUE TO LOGIN').exists) {
-          await $('CONTINUE TO LOGIN').scrollTo();
-          await $('CONTINUE TO LOGIN').tap();
-          continuedWelcome = true;
-        }
-        await $.pump(const Duration(milliseconds: 200));
-      }
-      if ($(const Key('local-profile-continue')).exists) {
-        await $(const Key('local-profile-continue')).tap();
-      }
-      if (!$(find.byTooltip('Open navigation map')).exists) {
-        await $(const Key('first-value-skip')).waitUntilVisible();
-        await $(const Key('first-value-skip')).tap();
-      }
-      await $.pump(const Duration(seconds: 1));
-      if ($('Pause guide').exists) await $('Pause guide').tap();
+      await settleCurrentUserNavigation(
+        $,
+        destinationReady: () => find
+            .byTooltip('Open navigation map')
+            .hitTestable()
+            .evaluate()
+            .isNotEmpty,
+      );
       final container = ProviderScope.containerOf(
         $.tester.element(find.byType(StartupBootstrapGate).first),
         listen: false,
@@ -86,6 +74,11 @@ void main() {
         await $.pump(const Duration(milliseconds: 300));
       }
       await $('GOAL').tap();
+      await settleCurrentUserNavigation(
+        $,
+        destinationReady: () =>
+            find.byTooltip('Add goal').hitTestable().evaluate().isNotEmpty,
+      );
       await $(find.byTooltip('Add goal')).waitUntilVisible();
       await $(find.byTooltip('Add goal')).tap();
       const title = 'QA Cloud fold one towel';

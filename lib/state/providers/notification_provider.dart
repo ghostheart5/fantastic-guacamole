@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/state/providers/automation_schedule_projection.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_operation.dart';
@@ -32,8 +34,10 @@ class AutomationNotification extends NotificationEntity {
     required super.message,
     required super.scheduledAt,
     required this.registeredTimeKnown,
+    this.cadence,
   });
   final bool registeredTimeKnown;
+  final HabitCadence? cadence;
 }
 
 final automationNotificationsProvider =
@@ -66,12 +70,25 @@ final automationNotificationsProvider =
               item.id == 'habit_reminder_daily' ||
               item.id == 'reflection_reminder')
             AutomationNotification(
-              registeredTimeKnown: item.hour != null && item.minute != null,
+              registeredTimeKnown:
+                  item.hour != null &&
+                  item.minute != null &&
+                  !item.cadenceMetadataMalformed,
+              cadence: item.cadence,
               id: item.id,
               title: item.title,
               message: item.body,
-              scheduledAt: item.hour != null && item.minute != null
-                  ? next(item.hour!, item.minute!)
+              scheduledAt:
+                  item.hour != null &&
+                      item.minute != null &&
+                      !item.cadenceMetadataMalformed
+                  ? nextRegisteredAutomationTime(
+                      now: now,
+                      hour: item.hour!,
+                      minute: item.minute!,
+                      cadence: item.cadence,
+                      firstScheduledLocal: item.firstScheduledLocal,
+                    )
                   : switch (item.id) {
                       'daily_planning_reminder' => next(
                         prefs.dailyPlanningHour,

@@ -88,6 +88,15 @@ jobs:
       - name: Test hosted Android guest readiness
         run: python3 -B -m unittest discover -s scripts -p test_hosted_guest_readiness.py -v
 
+      - name: Test native 16 KB identity and foreground attribution
+        run: python3 -B -m unittest discover -s scripts -p test_run_16k_adb_smoke.py -v
+
+      - name: Test hosted image scope and actual AVD provenance
+        run: python3 -B -m unittest discover -s scripts -p test_hosted_guest_image.py -v
+
+      - name: Test verified passive emulator startup
+        run: python3 -B -m unittest discover -s scripts -p test_prepare_hosted_emulator_runner.py -v
+
       - name: Test internal billing build controls
         run: |
           python3 -B -m unittest discover -s scripts -p test_android_candidate_build.py
