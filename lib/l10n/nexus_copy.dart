@@ -42,6 +42,7 @@ class NexusCopy {
   String get interrogate => isSpanish ? 'Hablarlo' : 'Talk it through';
   String get compareFutures =>
       isSpanish ? 'Comparar opciones' : 'Compare options';
+  String get scheduleEyebrow => isSpanish ? 'AGENDA' : 'SCHEDULE';
   String get reviewTruth =>
       isSpanish ? 'Tareas e historial' : 'Tasks and history';
   String get loopControlNote => isSpanish

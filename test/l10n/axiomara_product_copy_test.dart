@@ -19,6 +19,8 @@ void main() {
     const NexusCopy english = NexusCopy(false);
     const NexusCopy spanish = NexusCopy(true);
 
+    expect(english.scheduleEyebrow, 'SCHEDULE');
+    expect(spanish.scheduleEyebrow, 'AGENDA');
     expect(english.currentDecision, 'Suggested next step');
     expect(english.nextMove, contains('Review'));
     expect(english.loopControlNote, contains('You choose'));

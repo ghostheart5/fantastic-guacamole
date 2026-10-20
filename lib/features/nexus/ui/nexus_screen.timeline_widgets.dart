@@ -223,7 +223,7 @@ class _TimelineSnapshot extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         _SectionHeading(
-          eyebrow: isSpanish ? 'CRONOLOGÍA' : 'TIMELINE',
+          eyebrow: NexusCopy(isSpanish).scheduleEyebrow,
           title: isSpanish ? 'Hoy de un vistazo' : 'Today at a glance',
           icon: Icons.timeline_rounded,
           accent: AppColors.neonCyan,

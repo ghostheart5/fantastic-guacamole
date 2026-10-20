@@ -81,10 +81,38 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+          from html.parser import HTMLParser
+          import re
+
+          class VisibleCopy(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.parts = []
+                  self.hidden_depth = 0
+
+              def handle_starttag(self, tag, attrs):
+                  if tag in {'script', 'style'}:
+                      self.hidden_depth += 1
+                  for key, value in attrs:
+                      if value and (key in {'alt', 'aria-label', 'title'} or (tag == 'meta' and key == 'content')):
+                          self.parts.append(value)
+
+              def handle_endtag(self, tag):
+                  if tag in {'script', 'style'}:
+                      self.hidden_depth = max(0, self.hidden_depth - 1)
+
+              def handle_data(self, data):
+                  if not self.hidden_depth:
+                      self.parts.append(data)
+
+          retired_copy = re.compile(
+              r'\b(?:nexus|(?:human[ -])?decision[ -]os|human decision operating system|truth[ -]ledger|smart[ -]planner|si[ -]console|trajectory[ -]engine)\b',
+              re.IGNORECASE,
+          )
 
           root = Path('_site')
           required = {
-              'index.html': ('AXIOMARA', 'The Human Decision OS', 'Nine connected systems', 'Smart Planner', 'SI Console', 'NO ADS', 'does not provide an application download'),
+              'index.html': ('AXIOMARA', 'Reflection and planning', 'Tools for your day', 'Today', 'Add something', 'My plan', 'Choose a step', 'SI Chat', 'Insights', 'Activity', 'NO ADS', 'does not provide an application download'),
               'privacy/index.html': ('Axiomara Privacy Policy', 'does not display ads', 'Anthropic', 'account-deletion page'),
               'terms/index.html': ('Axiomara Terms of Service', 'Marketplace purchases', 'does not provide unlimited AI usage'),
               'support/index.html': ('Axiomara Support', 'Email Axiomara support', 'Install and update Axiomara', 'This site does not distribute APK files.', 'Deleting the app or your Axiomara account does not cancel store billing.'),
@@ -131,6 +159,11 @@ jobs:
               if not path.is_file() or path.suffix.lower() not in {'.html', '.css', '.js', '.txt', '.xml'}:
                   continue
               text = path.read_text(encoding='utf-8')
+              if path.suffix.lower() == '.html':
+                  visible = VisibleCopy()
+                  visible.feed(text)
+                  if retired_copy.search(' '.join(visible.parts)):
+                      raise SystemExit(f'{path.relative_to(root)} exposes retired visible product wording')
               if path.relative_to(root).as_posix() == 'index.html':
                   # Allow only the approved tracked links to the public listing.
                   for placement in ('hero', 'footer'):
