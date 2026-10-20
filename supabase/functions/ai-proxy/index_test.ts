@@ -689,9 +689,22 @@ Deno.test("served SI repairs task-start departure confusion before settlement", 
     if (path.endsWith("/reserve_ai_repair_budget")) {
       return Promise.resolve(Response.json({ allowed: true }));
     }
-    if (path.endsWith("/settle_ai_usage")) {
-      if (JSON.parse(String(init?.body)).p_succeeded !== true) {
-        throw new Error("corrected response was not settled as success");
+    if (path.endsWith("/settle_ai_usage_v2")) {
+      const payload = JSON.parse(String(init?.body));
+      if (
+        providerCalls !== 2 || payload.p_succeeded !== true ||
+        payload.p_input_tokens !== 30 || payload.p_output_tokens !== 17 ||
+        payload.p_provider_request_id !== "provider-repair" ||
+        payload.p_user_id !== "11111111-1111-4111-8111-111111111111" ||
+        payload.p_request_key !== "synthetic-si-task-start-repair" ||
+        payload.p_response_ttl !== "15 minutes" ||
+        !payload.p_response_payload?.message?.startsWith(
+          "If 7:13 PM is your shopping start",
+        )
+      ) {
+        throw new Error(
+          "corrected response was not settled with both calls, account scope and bounded retention",
+        );
       }
       settlements++;
       return Promise.resolve(Response.json({ state: "completed" }));
@@ -744,18 +757,31 @@ Deno.test("served SI repairs task-start departure confusion before settlement", 
     const request = (extra: Record<string, unknown>) =>
       new Request("https://local.example/ai-proxy", {
         method: "POST",
-        headers: { authorization: "******" },
+        headers: { authorization: "Bearer synthetic-session" },
         body: JSON.stringify({ ...input, ...extra }),
       });
-    const { quote } = await (await handler(request({ quoteOnly: true })))
-      .json();
+    const quoted = await handler(request({ quoteOnly: true }));
+    const { quote } = await quoted.json();
+    if (quoted.status !== 200 || !quote) {
+      throw new Error(`task-start repair quote failed: HTTP ${quoted.status}`);
+    }
     const response = await handler(request({ quote }));
     const body = await response.json();
     if (
       response.status !== 200 ||
       !body.message.startsWith("If 7:13 PM is your shopping start") ||
       providerCalls !== 2 || settlements !== 1
-    ) throw new Error("task-start confusion was not repaired exactly once");
+    ) {
+      throw new Error(
+        "task-start confusion was not repaired exactly once: " +
+          JSON.stringify({
+            status: response.status,
+            body,
+            providerCalls,
+            settlements,
+          }),
+      );
+    }
   } finally {
     globalThis.fetch = originalFetch;
   }
