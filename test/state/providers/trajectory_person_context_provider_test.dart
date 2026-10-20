@@ -137,7 +137,7 @@ void main() {
       expect(
         comparison.outcomes.every(
           (outcome) => outcome.assumptions.contains(
-            'Person context was available but contained no fresh consented Trajectory operational signals.',
+            'Person context was available but contained no fresh consented Insights operational signals.',
           ),
         ),
         isTrue,

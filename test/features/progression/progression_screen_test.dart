@@ -558,7 +558,7 @@ void main() {
 
       await pumpProgression(tester, trajectory: _activeTrajectory);
 
-      await tester.tap(find.byTooltip('Share progression'));
+      await tester.tap(find.byTooltip('Share progress'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.text('Progress snapshot'));

@@ -315,7 +315,7 @@ class CreatorCopy {
     'Selection updated. Review the bound diff before confirming.':
         'Selección actualizada. Revisa los cambios antes de confirmar.',
     'No bound Creator operation is selected. Nothing was saved.':
-        'No hay ninguna operación del Creador seleccionada. No se guardó nada.',
+        'No se ha seleccionado ningún cambio. No se guardó nada.',
     'Confirmation expired. The preview was refreshed; review it again. Nothing was saved.':
         'La confirmación caducó. Se actualizó la vista previa; revísala de nuevo. No se guardó nada.',
     'Confirmation binding did not match the displayed diff. Nothing was saved.':

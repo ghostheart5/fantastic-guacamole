@@ -132,9 +132,11 @@ class NexusCopy {
     return switch (value) {
       'Take a short recovery break before choosing more work.' =>
         'Toma un breve descanso de recuperación antes de elegir más trabajo.',
-      'Capture one actionable task in Creator.' =>
+      'Capture one actionable task in Creator.' ||
+      'Save one task in Add something.' =>
         'Registra una tarea realizable en Añadir algo.',
-      'Reconcile unscheduled work in Smart Planner.' =>
+      'Reconcile unscheduled work in Smart Planner.' ||
+      'Review unscheduled work in Choose a step.' =>
         'Concilia el trabajo no programado en Elegir un paso.',
       _ => value,
     };

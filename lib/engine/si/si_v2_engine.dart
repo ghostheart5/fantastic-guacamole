@@ -1242,7 +1242,7 @@ final class SIV2Engine {
       return 'Review "${focusTask.title}" first, then explicitly choose whether to act, defer, edit, or reject the recommendation.$noMutation';
     }
     if (focusGoal != null) {
-      return 'Review goal "${focusGoal.title}" and choose its next concrete task in Creator.$noMutation';
+      return 'Review goal "${focusGoal.title}" and choose its next concrete task in Add something.$noMutation';
     }
     if (focusMilestone != null) {
       return 'Review milestone "${focusMilestone.title}" before deciding what should happen next.$noMutation';

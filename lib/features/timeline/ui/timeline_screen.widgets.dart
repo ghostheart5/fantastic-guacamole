@@ -539,8 +539,8 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
       setState(() {
         _error = journeyText(
           context,
-          'Timeline action failed. Refresh and try again.',
-          'La acción de la Línea de Tiempo falló. Actualiza e inténtalo de nuevo.',
+          'Schedule action failed. Refresh and try again.',
+          'La acción de la agenda falló. Actualiza e inténtalo de nuevo.',
         );
       });
     } finally {
@@ -1281,8 +1281,8 @@ class _TimelineRangeButton extends StatelessWidget {
       onTap: onTap,
       semanticLabel: journeyText(
         context,
-        'Show $label timeline',
-        'Mostrar Línea de Tiempo: $label',
+        'Show $label schedule',
+        'Mostrar agenda: $label',
       ),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),

@@ -334,8 +334,8 @@ class AIController {
         request: requestContract,
         recommendation: trajectoryDeterministic,
         evidence: <String>[
-          'Trajectory pressure: ${trajectory.pressureIndex}',
-          'Trajectory momentum: ${trajectory.momentum}',
+          'Forecast pressure: ${trajectory.pressureIndex}',
+          'Forecast momentum: ${trajectory.momentum}',
           'Behavior divergence: ${trajectory.behaviorDivergence}',
         ],
       );
@@ -968,7 +968,7 @@ class AIController {
 
     final String output =
         'SI ANALYSIS\n\n'
-        'Query: Trajectory Deterministic Response\n\n'
+        'Query: Local forecast response\n\n'
         'Current State:\n'
         '- Pressure: $pressure\n'
         '- Momentum: $momentumPct%\n'

@@ -909,7 +909,7 @@ class _FirstValueSlide extends StatelessWidget {
                                             : 'Your words and this check-in are used once and are not saved. This device may record that a suggestion was shown or used. Nothing is created until you review and confirm it in Add something.',
                                         preservesProtectedDestination
                                             ? 'Continuar conserva la página que pediste. Este paso no cambia ni crea nada.'
-                                            : 'Tus palabras y este registro se usan una vez y no se guardan. Un recibo local puede registrar que se mostró o usó la orientación. No se crea nada hasta que lo confirmes en Creador.',
+                                            : 'Tus palabras y este registro se usan una vez y no se guardan. Un recibo local puede registrar que se mostró o usó la orientación. No se crea nada hasta que lo confirmes en Añadir algo.',
                                       ),
                                       style: const TextStyle(
                                         color: Colors.white70,

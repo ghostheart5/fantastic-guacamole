@@ -1162,6 +1162,8 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
         'No hay disponibilidad observada. Se omiten el riesgo de capacidad y las fechas de finalización.',
     'Only the declared intervention changes; unmodeled life events remain outside this scenario.':
         'Solo cambia la intervención declarada; los sucesos no modelados quedan fuera del escenario.',
+    'Model this commitment as completed, then compare capacity, risk, goal timing, and Activity consequences.':
+        'Modelar este compromiso como completado y comparar sus consecuencias en capacidad, riesgo, fechas de metas y actividad.',
     'Projected XP is informational and is never awarded by this simulation.':
         'Los XP proyectados son informativos y esta simulación nunca los concede.',
     'No Activity reward is projected from this intervention alone.':
@@ -1195,7 +1197,7 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
     'The commitment is completed without creating an unmodeled obligation.':
         'El compromiso se completa sin crear una obligación no modelada.',
     'Projected Activity effects remain informational until an outcome is recorded on Schedule.':
-        'Los efectos proyectados en Progreso son informativos hasta registrar un resultado en la agenda.',
+        'Los efectos proyectados en la actividad son informativos hasta registrar un resultado en la agenda.',
     'The delayed commitment remains active and consumes later capacity.':
         'El compromiso aplazado sigue activo y consume capacidad posterior.',
     'No replacement work is assumed unless it already exists in the baseline.':

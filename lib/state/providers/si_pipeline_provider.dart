@@ -350,7 +350,7 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
     siDecisionOutputProvider.future,
   );
   final String engineSnapshot =
-      'Sources available: tasks ${aggregation.tasks.length}, goals ${aggregation.goals.length}, Timeline ${aggregation.timeline.length}, memories ${aggregation.memories.length}';
+      'Sources available: tasks ${aggregation.tasks.length}, goals ${aggregation.goals.length}, Schedule ${aggregation.timeline.length}, memories ${aggregation.memories.length}';
 
   return SIConsoleScreenModel(
     aggregation: aggregation,

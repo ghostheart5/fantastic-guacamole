@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/config/product_identity.dart';
 import 'package:fantastic_guacamole/l10n/navigation_copy.dart';
 import 'package:fantastic_guacamole/l10n/nexus_copy.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fantastic_guacamole/engine/assistant/assistant_response_templates.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/domain/strategic/si_console_shortcut_registry.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
@@ -114,12 +115,50 @@ void main() {
         spanish.systemAction('Capture one actionable task in Creator.'),
         contains('Añadir algo'),
       );
+      expect(
+        spanish.systemAction('Review unscheduled work in Choose a step.'),
+        contains('Elegir un paso'),
+      );
+      expect(
+        spanish.systemAction('Save one task in Add something.'),
+        contains('Añadir algo'),
+      );
+      expect(
+        english.systemAction('Save one task in Add something.'),
+        'Save one task in Add something.',
+      );
       const userTitle = 'Work on: My Smart Planner migration notes';
       expect(english.systemAction(userTitle), userTitle);
       expect(
         spanish.systemAction(userTitle),
         'Trabaja en: My Smart Planner migration notes',
       );
+    },
+  );
+
+  test(
+    'legacy query categories receive current display names only at output',
+    () {
+      for (final entry in {
+        'Timeline Query': 'Schedule question',
+        'Trajectory Query': 'Forecast question',
+      }.entries) {
+        final text = AssistantResponseTemplates.siAnalysis(
+          query: 'Review my plan',
+          category: entry.key,
+          goalsCount: 1,
+          openTasks: 2,
+          overdue: 0,
+          priorityTask: 'Saved user task',
+          impact: 'Low',
+          timelineEffect: 'No change',
+          nextActions: ['Review'],
+          confidence: 60,
+        );
+        expect(text, contains('Intent Category\n${entry.value}'));
+        expect(text, isNot(contains('Intent Category\n${entry.key}')));
+        expect(text, contains('Saved user task'));
+      }
     },
   );
 

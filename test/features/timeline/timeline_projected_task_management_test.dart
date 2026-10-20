@@ -77,10 +77,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.text('Agenda'), findsOneWidget);
       expect(find.text('VENCE HOY'), findsOneWidget);
-      expect(
-        find.bySemanticsLabel('Mostrar Línea de Tiempo: Semana'),
-        findsOneWidget,
-      );
+      expect(find.bySemanticsLabel('Mostrar agenda: Semana'), findsOneWidget);
       expect(find.text('NEXT 7 DAYS'), findsNothing);
       await tester.tap(find.text('Buscar y filtrar'));
       await tester.pump(const Duration(milliseconds: 300));
@@ -207,7 +204,7 @@ void main() {
         addTearDown(container.dispose);
         await _pumpTimelineShell(tester, container);
         await tester.pump(const Duration(milliseconds: 50));
-        final Finder selector = find.bySemanticsLabel('Show $window timeline');
+        final Finder selector = find.bySemanticsLabel('Show $window schedule');
         await tester.ensureVisible(selector);
         await tester.tap(selector);
         await tester.pump(const Duration(milliseconds: 50));
@@ -404,7 +401,7 @@ void main() {
     await _pumpTimelineShell(tester, container);
     await tester.pump();
 
-    expect(find.text('Timeline tasks could not be loaded'), findsOneWidget);
+    expect(find.text('Schedule tasks could not be loaded'), findsOneWidget);
     expect(find.text('No saved activity in this view'), findsNothing);
 
     await tester.tap(find.byKey(const Key('timeline-task-source-retry')));
@@ -452,7 +449,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.text('Saved Timeline activity could not be read'),
+      find.text('Saved schedule activity could not be read'),
       findsOneWidget,
     );
     expect(find.text('No saved activity in this view'), findsNothing);
@@ -482,7 +479,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.text('Saved Timeline activity could not be read'),
+      find.text('Saved schedule activity could not be read'),
       findsOneWidget,
     );
     expect(
@@ -507,7 +504,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.text('¿Reparar la actividad guardada de la Línea de Tiempo?'),
+      find.text('¿Reparar la actividad guardada de la agenda?'),
       findsOneWidget,
     );
     expect(find.textContaining('conservará primero'), findsOneWidget);

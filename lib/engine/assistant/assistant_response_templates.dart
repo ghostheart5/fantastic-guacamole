@@ -55,6 +55,11 @@ class AssistantResponseTemplates {
       );
     }
 
+    final String categoryLabel = switch (category) {
+      'Timeline Query' => 'Schedule question',
+      'Trajectory Query' => 'Forecast question',
+      _ => category,
+    };
     final String evidenceStrength = confidence >= 82
         ? 'Strong'
         : confidence >= 65
@@ -65,7 +70,7 @@ class AssistantResponseTemplates {
         'Query\n'
         '$query\n\n'
         'Intent Category\n'
-        '$category\n\n'
+        '$categoryLabel\n\n'
         'Current State\n'
         '• $goalsCount active goals\n'
         '• $openTasks open tasks\n'

@@ -145,7 +145,7 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
     OperatingEvidence(
       code: 'ranked_action',
       description: subjectId == null
-          ? 'No active task was available, so Creator is the next planning step.'
+          ? 'No active task was available, so Add something is the next planning step.'
           : 'The action was selected from current task, schedule, energy, and friction signals.',
       kind: OperatingEvidenceKind.derived,
       recordedAt: now,
@@ -254,7 +254,7 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
   final String intentDestination;
   if (isCaptureAction) {
     intentType = OperatingActionType.openCreator;
-    intentLabel = 'Open Creator';
+    intentLabel = 'Add something';
     intentDestination = RoutePaths.creator;
   } else if (capacity.isOverloaded) {
     intentType = OperatingActionType.openSmartPlanner;
@@ -270,7 +270,7 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
     intentDestination = RoutePaths.trajectoryEngine;
   } else if (snapshot.momentum < 30 && snapshot.completedToday > 0) {
     intentType = OperatingActionType.openProgression;
-    intentLabel = 'Review recovery in Progression';
+    intentLabel = 'Review recovery in Activity';
     intentDestination = RoutePaths.progression;
   } else {
     intentType = OperatingActionType.openTimeline;
@@ -505,9 +505,9 @@ String _canonicalRecommendedAction(SIStateAggregation aggregation) {
     return 'Work on: ${selected.title}';
   }
   if (aggregation.tasks.isEmpty) {
-    return 'Capture one actionable task in Creator.';
+    return 'Save one task in Add something.';
   }
-  return 'Reconcile unscheduled work in Smart Planner.';
+  return 'Review unscheduled work in Choose a step.';
 }
 
 TaskScoreBreakdown? _scoreFor(List<RankedTask> ranked, String? subjectId) {

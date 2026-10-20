@@ -70,8 +70,8 @@ class _TimelineSourceNotice extends StatelessWidget {
                 tooltip: issue == _TimelineSourceIssue.persistence
                     ? journeyText(
                         context,
-                        'Preserve and repair Timeline source',
-                        'Conservar y reparar la fuente de la Línea de Tiempo',
+                        'Preserve and repair schedule source',
+                        'Conservar y reparar la fuente de la agenda',
                       )
                     : journeyText(context, 'Retry source', 'Reintentar fuente'),
                 onPressed: onRetry,

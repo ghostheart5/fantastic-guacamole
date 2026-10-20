@@ -85,7 +85,7 @@ class AssembleSiDecisionOutput {
         'Split remaining tasks into tomorrow queue.',
       if (planPreviewIsEmpty) 'Generate a 3-block adaptive plan for today.',
       if (timelineOverdueCount > 0)
-        'Resolve one overdue timeline item before adding new commitments.',
+        'Resolve one overdue schedule item before adding new commitments.',
       if (timelineUpcomingCount >= 5)
         'Pre-plan upcoming deadlines now to prevent rollover pressure.',
       if (activeHabitCount > 0)
@@ -100,11 +100,11 @@ class AssembleSiDecisionOutput {
         'How can you convert this stable state into one decisive action?',
       if (hasMemories) 'What memory should inform this decision?',
       if (timelineOverdueCount > 0)
-        'Which overdue timeline item should be recovered first?',
+        'Which overdue schedule item should be recovered first?',
       if (timelineUpcomingCount > 0)
-        'What is the next timeline deadline this week?',
+        'What is the next schedule deadline this week?',
       if (timelineRecommendationCount > 0)
-        'What timeline recommendation should be applied now?',
+        'What schedule recommendation should be applied now?',
     ];
 
     final String progressionFeedback = streak >= 7
@@ -115,7 +115,7 @@ class AssembleSiDecisionOutput {
 
     final String plannerMessage = warnings.isEmpty
         ? 'Schedule is stable (health $timelineHealthScore%). Execute the ranked next action and use the result to update the plan. $memoryHint'
-        : 'Current evidence shows pressure (timeline risk $timelineRiskScore%). Reduce load or resolve the highest-ranked constraint before adding work.';
+        : 'Current evidence shows pressure (schedule risk $timelineRiskScore%). Reduce load or resolve the highest-ranked constraint before adding work.';
 
     return SiDecisionDraft(
       nextAction: nextAction,

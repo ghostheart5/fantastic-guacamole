@@ -241,7 +241,7 @@ class _TimelineSnapshot extends StatelessWidget {
               const _PanelDivider(),
               SmartPressable(
                 onTap: onOpen,
-                semanticLabel: isSpanish ? 'Abrir Cronología' : 'Open Schedule',
+                semanticLabel: isSpanish ? 'Abrir agenda' : 'Open Schedule',
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(
                     minHeight: AppSizes.touchTarget,
@@ -256,7 +256,7 @@ class _TimelineSnapshot extends StatelessWidget {
                         Expanded(
                           child: Text(
                             isSpanish
-                                ? 'Abrir la Cronología completa'
+                                ? 'Abrir la agenda completa'
                                 : 'Open full Schedule',
                             style: const TextStyle(
                               color: AppColors.neonCyan,
@@ -673,7 +673,7 @@ List<_TimelineDisplayItem> _buildTimelineSummary({
           label: isSpanish ? 'ÚLTIMO AÑADIDO' : 'LAST ADDED',
           title: isSpanish ? 'Sin actividad reciente' : 'No recent activity',
           detail: isSpanish
-              ? 'Tu última incorporación a la Cronología aparecerá aquí.'
+              ? 'Tu última incorporación a la agenda aparecerá aquí.'
               : 'Your latest Schedule addition will appear here.',
           accent: AppColors.memoryAmber,
         )
@@ -788,7 +788,7 @@ String _latestAdditionDetail(
   final String title = event.title.trim();
   return title.toLowerCase().endsWith('added')
       ? isSpanish
-            ? '$title en la Cronología.'
+            ? '$title en la agenda.'
             : '$title in Schedule.'
       : event.detail.trim();
 }

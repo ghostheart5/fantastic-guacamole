@@ -64,7 +64,7 @@ final dailyDecisionIntelligenceProvider = Provider<DailyDecisionIntelligence>((
           : intelligenceAsync.isLoading
           ? 'Wait for current decision evidence before changing the plan.'
           : trajectory.pendingTasks == 0
-          ? 'Capture one meaningful commitment in Creator.'
+          ? 'Save one commitment in Add something.'
           : momentum.hasObservedEnergy && momentum.energyPercent < 35
           ? 'Choose the smallest feasible step from the current plan.'
           : 'Open Choose a step to rank the next feasible action.');

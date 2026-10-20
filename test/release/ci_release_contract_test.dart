@@ -837,7 +837,9 @@ void main() {
       build,
     ).map((YamlMap step) => step['run']?.toString() ?? '').join('\n');
     expect(buildCommands, contains('Unexpected public file'));
-    expect(buildCommands, contains('The Human Decision OS'));
+    expect(buildCommands, contains('Reflection and planning'));
+    expect(buildCommands, contains('retired_copy'));
+    expect(buildCommands, contains('VisibleCopy'));
     expect(buildCommands, isNot(contains('flutter build')));
     expect(buildCommands, isNot(contains('CHRONOSPARK_APP_FLAVOR=prod')));
   });

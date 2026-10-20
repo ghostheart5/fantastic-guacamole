@@ -243,7 +243,7 @@ String buildProgressionReview({
         )
       : overdue > 0
       ? pick(
-          'Clear one overdue timeline item before adding anything new.',
+          'Clear one overdue schedule item before adding anything new.',
           'Resuelve un elemento vencido de la agenda antes de añadir algo nuevo.',
         )
       : pressureIndex >= 70

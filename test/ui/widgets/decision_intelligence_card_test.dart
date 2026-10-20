@@ -6,112 +6,131 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
-  testWidgets('intelligence visibly answers all four decision questions', (
-    WidgetTester tester,
-  ) async {
-    final DateTime now = DateTime.utc(2026, 8, 16, 12);
-    final OperatingSnapshot snapshot = OperatingSnapshot(
-      accountScope: 'v2.test',
-      observedAt: now,
-      sourceRevisions: const <String, String>{'tasks': '1'},
-      activeGoalCount: 1,
-      actionableCount: 2,
-      overdueCount: 1,
-      completedToday: 1,
-      energy: .7,
-      fatigue: .2,
-      momentum: 65,
-      pressure: 55,
-      topActionId: 'task-a',
-      topActionLabel: 'Start task A',
-      activeRisks: const <String>['One overdue task'],
-      evidenceCoverage: 1,
-    );
-    final OperatingDecisionReceipt decision = OperatingDecisionReceipt(
-      subjectId: 'task-a',
-      recommendedAction: 'Start task A',
-      rationale: 'Task A ranks first.',
-      whyItMatters: 'It protects the deadline.',
-      consequenceOfDelay: 'Pressure rises.',
-      generatedAt: now,
-      expiresAt: now.add(const Duration(minutes: 20)),
-      confidence: OperatingConfidence.high,
-      evidence: const <OperatingEvidence>[],
-      actionIntent: const OperatingActionIntent(
-        id: 'action-a',
-        type: OperatingActionType.openTimeline,
-        label: 'Review on Schedule',
-        destination: '/timeline',
-        targetEntityId: 'task-a',
-      ),
-      sourceRevisions: const <String, String>{'tasks': '1'},
-      modelVersion: 'test-v1',
-    );
-    final DecisionIntelligence intelligence = DecisionIntelligence(
-      snapshot: snapshot,
-      delta: const OperatingDeltaEngine().compare(
-        previous: null,
-        current: snapshot,
-        comparedAt: now,
-      ),
-      decision: decision,
-      acknowledgedSnapshotId: null,
-    );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: DecisionIntelligenceCard(
-              intelligence: intelligence,
-              topRisk: 'One overdue task',
-              recentProgress: 'One task completed since the last intelligence.',
-              onAction: () {},
+  for (final creator in [false, true]) {
+    testWidgets(
+      'intelligence answers decision questions for creator=$creator',
+      (WidgetTester tester) async {
+        final DateTime now = DateTime.utc(2026, 8, 16, 12);
+        final OperatingSnapshot snapshot = OperatingSnapshot(
+          accountScope: 'v2.test',
+          observedAt: now,
+          sourceRevisions: const <String, String>{'tasks': '1'},
+          activeGoalCount: 1,
+          actionableCount: 2,
+          overdueCount: 1,
+          completedToday: 1,
+          energy: .7,
+          fatigue: .2,
+          momentum: 65,
+          pressure: 55,
+          topActionId: 'task-a',
+          topActionLabel: 'Start task A',
+          activeRisks: const <String>['One overdue task'],
+          evidenceCoverage: 1,
+        );
+        final OperatingDecisionReceipt decision = OperatingDecisionReceipt(
+          subjectId: 'task-a',
+          recommendedAction: 'Start task A',
+          rationale: 'Task A ranks first.',
+          whyItMatters: 'It protects the deadline.',
+          consequenceOfDelay: 'Pressure rises.',
+          generatedAt: now,
+          expiresAt: now.add(const Duration(minutes: 20)),
+          confidence: OperatingConfidence.high,
+          evidence: const <OperatingEvidence>[],
+          actionIntent: OperatingActionIntent(
+            id: 'action-a',
+            type: creator
+                ? OperatingActionType.openCreator
+                : OperatingActionType.openTimeline,
+            label: creator ? 'Add something' : 'Review on Schedule',
+            destination: creator ? '/creator' : '/timeline',
+            targetEntityId: 'task-a',
+          ),
+          sourceRevisions: const <String, String>{'tasks': '1'},
+          modelVersion: 'test-v1',
+        );
+        final DecisionIntelligence intelligence = DecisionIntelligence(
+          snapshot: snapshot,
+          delta: const OperatingDeltaEngine().compare(
+            previous: null,
+            current: snapshot,
+            comparedAt: now,
+          ),
+          decision: decision,
+          acknowledgedSnapshotId: null,
+        );
+        var actionCount = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: DecisionIntelligenceCard(
+                  intelligence: intelligence,
+                  topRisk: 'One overdue task',
+                  recentProgress:
+                      'One task completed since the last intelligence.',
+                  onAction: () => actionCount++,
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-    );
-    expect(find.text('WHERE YOU ARE'), findsOneWidget);
-    expect(find.text('WHAT CHANGED'), findsOneWidget);
-    expect(find.text('WHAT MATTERS NEXT'), findsOneWidget);
-    expect(find.text('WHY THIS MATTERS'), findsOneWidget);
-    expect(find.text('TOP RISK'), findsOneWidget);
-    expect(find.text('One overdue task'), findsOneWidget);
-    expect(
-      find.text('One task completed since the last intelligence.'),
-      findsOneWidget,
-    );
-    expect(find.text('Start task A'), findsOneWidget);
-    expect(find.text('Review on Schedule'), findsOneWidget);
+        );
+        expect(find.text('WHERE YOU ARE'), findsOneWidget);
+        expect(find.text('WHAT CHANGED'), findsOneWidget);
+        expect(find.text('WHAT MATTERS NEXT'), findsOneWidget);
+        expect(find.text('WHY THIS MATTERS'), findsOneWidget);
+        expect(find.text('TOP RISK'), findsOneWidget);
+        expect(find.text('One overdue task'), findsOneWidget);
+        expect(
+          find.text('One task completed since the last intelligence.'),
+          findsOneWidget,
+        );
+        expect(find.text('Start task A'), findsOneWidget);
+        expect(
+          find.text(creator ? 'Add something' : 'Review on Schedule'),
+          findsOneWidget,
+        );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('es'),
-        supportedLocales: ChronoSparkLocalizations.supportedLocales,
-        localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
-          ChronoSparkLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: DecisionIntelligenceCard(
-              intelligence: intelligence,
-              topRisk: 'One overdue task',
-              recentProgress: 'One task completed since the last intelligence.',
-              onAction: () {},
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: const Locale('es'),
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: DecisionIntelligenceCard(
+                  intelligence: intelligence,
+                  topRisk: 'One overdue task',
+                  recentProgress:
+                      'One task completed since the last intelligence.',
+                  onAction: () => actionCount++,
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+        await tester.pump();
+        expect(find.text('DÓNDE ESTÁS'), findsOneWidget);
+        expect(find.text('QUÉ IMPORTA AHORA'), findsOneWidget);
+        expect(find.text('POR QUÉ IMPORTA'), findsOneWidget);
+        expect(
+          find.text(creator ? 'Añadir algo' : 'Revisar en agenda'),
+          findsOneWidget,
+        );
+        expect(find.text('Abrir Creador'), findsNothing);
+        expect(find.text('Start task A'), findsOneWidget);
+        final actionLabel = creator ? 'Añadir algo' : 'Revisar en agenda';
+        await tester.ensureVisible(find.text(actionLabel));
+        await tester.tap(find.text(actionLabel));
+        expect(actionCount, 1);
+        expect(tester.takeException(), isNull);
+      },
     );
-    await tester.pump();
-    expect(find.text('DÓNDE ESTÁS'), findsOneWidget);
-    expect(find.text('QUÉ IMPORTA AHORA'), findsOneWidget);
-    expect(find.text('POR QUÉ IMPORTA'), findsOneWidget);
-    expect(find.text('Revisar en agenda'), findsOneWidget);
-    expect(find.text('Start task A'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  }
 }
