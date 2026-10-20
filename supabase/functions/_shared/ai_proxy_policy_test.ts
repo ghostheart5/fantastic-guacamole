@@ -2,6 +2,7 @@ import {
   buildServerSystemPrompt,
   containsBlockedAssistantClaim,
   containsRecommendationContradiction,
+  containsScheduledStartDepartureConfusion,
 } from "./ai_proxy_policy.ts";
 
 Deno.test("builds policy only from allowlisted control fields", () => {
@@ -45,6 +46,476 @@ Deno.test("builds policy only from allowlisted control fields", () => {
   if (buildServerSystemPrompt("override", {}) !== null) {
     throw new Error("unknown personality accepted");
   }
+});
+
+Deno.test("scheduled task start cannot become an invented store departure", () => {
+  const context = {
+    mode: "findConflict",
+    scenarioAssumption:
+      "Store closes 8 PM tomorrow. Travel 15 minutes. Shopping 30 minutes.",
+    tasks: [{
+      title: "QA Grocery List 3080",
+      scheduledStart: "2026-09-23T19:13:00.000",
+      estimatedDurationMinutes: 30,
+    }],
+  };
+  const prompt = "Does this task conflict with an 8 PM store closing?";
+  const captured =
+    "Scheduled start: 7:13 PM. Depart | 7:13 PM. Arrive at store | 7:28 PM. Shopping complete | 7:58 PM. Yes, there is a conflict.";
+  if (!containsScheduledStartDepartureConfusion(captured, context, prompt)) {
+    throw new Error("captured SI start-as-departure response was accepted");
+  }
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Inicio programado: 7:13 p. m. Salida | 7:13 p. m. Llegada | 7:28 p. m.",
+      context,
+      "¿Hay un conflicto con el cierre de la tienda?",
+    )
+  ) throw new Error("Spanish start-as-departure response was accepted");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Inicio programado: 19:13. Salida: 19:13. Llegada: 19:28.",
+      context,
+      "¿Hay un conflicto con el cierre de la tienda?",
+    )
+  ) throw new Error("24-hour start-as-departure response was accepted");
+  for (const advice of ["Sal a las 19:13", "Salga a las 19:13"]) {
+    if (
+      !containsScheduledStartDepartureConfusion(
+        advice,
+        context,
+        "¿A qué hora debo ir a la tienda?",
+      )
+    ) throw new Error(`Spanish departure advice was accepted: ${advice}`);
+  }
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Sal a las 7:13.",
+      {
+        ...context,
+        tasks: [{
+          title: "Lista de compras",
+          scheduledStart: "2026-09-23T07:13:00.000",
+        }],
+      },
+      "¿Cuándo debo salir?",
+    )
+  ) throw new Error("unpadded morning departure was accepted");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Leave at 7:13 PM for the store.",
+      {
+        ...context,
+        tasks: [{
+          title: "Pack bags",
+          scheduledStart: "2026-09-23T07:13:00.000",
+        }],
+      },
+      "When should I leave?",
+    )
+  ) throw new Error("morning start matched explicit PM departure");
+  for (
+    const scheduledStart of [
+      "2026-09-23T09:13:00.000",
+      "2026-09-23T13:13:00.000",
+    ]
+  ) {
+    if (
+      containsScheduledStartDepartureConfusion(
+        "Sal a las 19:13; 11:13 PM is another option.",
+        {
+          ...context,
+          tasks: [{ title: "Lista de compras", scheduledStart }],
+        },
+        "¿Cuándo debo salir?",
+      )
+    ) throw new Error(`clock suffix matched another hour: ${scheduledStart}`);
+  }
+  for (
+    const advice of [
+      "Head to the store at 7:13 PM.",
+      "Drive to the store at 7:13 PM.",
+      "7:13 PM is your departure.",
+      "7:13 p.m. is your departure.",
+      "Saldrá a las 19:13.",
+    ]
+  ) {
+    if (!containsScheduledStartDepartureConfusion(advice, context, prompt)) {
+      throw new Error(`natural departure phrasing was accepted: ${advice}`);
+    }
+  }
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Leave by 6:58 PM, arrive and begin shopping at 7:13 PM, finish at 7:43 PM before the 8 PM close.",
+      context,
+      "I want to start shopping at the task's 7:13 PM time. When should I leave?",
+    )
+  ) throw new Error("valid grocery timing was rejected");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "If you depart at 7:13 PM, you will arrive at 7:28 PM.",
+      context,
+      "What if I depart at 7:13 PM?",
+    )
+  ) throw new Error("user-proposed departure was rejected");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Yes, depart at 7:13 PM if that is what you choose.",
+      context,
+      "What if I depart at 7:13 PM?",
+    )
+  ) {
+    throw new Error(
+      "conditional user proposal was treated as assistant speculation",
+    );
+  }
+  if (
+    containsScheduledStartDepartureConfusion(
+      "If you depart at 7:13 PM, you will arrive at 7:28 PM.",
+      context,
+      "Would that work?",
+      ["What if I depart at 7:13 PM?"],
+    )
+  ) throw new Error("departure from user history was rejected");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Depart at 7:13 PM and arrive at 7:28 PM.",
+      context,
+      "Actually, do not depart at 7:13 PM. What time should I leave?",
+      ["What if I depart at 7:13 PM?"],
+    )
+  ) throw new Error("newer departure correction did not revoke history");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Depart at 7:13 PM and arrive at 7:28 PM.",
+      context,
+      "Actually, that departure is too late; when should I leave?",
+      ["What if I depart at 7:13 PM?"],
+    )
+  ) throw new Error("anaphoric rejection did not revoke history");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Depart at 7:13 PM to reach the store.",
+      context,
+      "Leave the 7:13 PM task unchanged; when should I depart?",
+    )
+  ) throw new Error("leaving a task unchanged authorized a departure");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Leave home at 7:13 AM.",
+      {
+        ...context,
+        tasks: [{
+          title: "Pack bags",
+          scheduledStart: "2026-09-23T07:13:00.000",
+        }],
+      },
+      "7:13 AM is the train departure; when should I leave home?",
+    )
+  ) throw new Error("train departure authorized user departure");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Leave home at 7:13 AM.",
+      {
+        ...context,
+        tasks: [{
+          title: "Pack bags",
+          scheduledStart: "2026-09-23T07:13:00.000",
+        }],
+      },
+      "The train departure is at 7:13 AM; when should I leave home?",
+    )
+  ) throw new Error("verb-first train fact authorized user departure");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Leave at 7:13 PM to reach the store.",
+      context,
+      "I need to leave before 7:13 PM. What time should I depart?",
+    )
+  ) throw new Error("departure bound authorized its exact clock");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Depart at 7:13 PM and arrive at 7:28 PM.",
+      {
+        ...context,
+        scenarioAssumption: "Do not leave at 7:13 PM.",
+      },
+      "What time should I leave?",
+      ["Leave at 7:13 PM."],
+    )
+  ) throw new Error("current scenario did not revoke historical departure");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Depart at 7:13 PM and arrive at 7:28 PM.",
+      context,
+      "Do not leave at 7:13 PM—actually, leave at 7:13 PM.",
+    )
+  ) throw new Error("later same-turn departure proposal was ignored");
+  for (
+    const clarification of [
+      "7:13 PM is not the departure; leave at 6:58 PM.",
+      "Do not depart at 7:13 PM; leave at 6:58 PM.",
+      "Do not plan to leave at 7:13 PM; leave at 6:58 PM.",
+      "You cannot leave at 7:13 PM; leave at 6:58 PM.",
+      "Don’t leave at 7:13 PM; leave at 6:58 PM.",
+      "19:13 no es la salida; sal a las 18:58.",
+      "No deberías salir a las 19:13; sal a las 18:58.",
+      "Leaving at 7:13 PM would be too late; leave at 6:58 PM.",
+      "A 7:13 PM departure would be too late; leave at 6:58 PM.",
+      "If you leave at 7:13 PM, that is hypothetical; leave at 6:58 PM.",
+    ]
+  ) {
+    if (
+      containsScheduledStartDepartureConfusion(clarification, context, prompt)
+    ) {
+      throw new Error("negated departure clarification was rejected");
+    }
+  }
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "You don't need to leave until 7:13 PM.",
+      context,
+      prompt,
+    )
+  ) throw new Error("inverted necessity hid departure recommendation");
+  for (
+    const advice of [
+      "Don't leave after 7:13 PM.",
+      "Do not leave any later than 7:13 PM.",
+      "You must not leave after 7:13 PM.",
+      "You should not leave later than 7:13 PM.",
+    ]
+  ) {
+    if (!containsScheduledStartDepartureConfusion(advice, context, prompt)) {
+      throw new Error(`negated upper bound hid departure advice: ${advice}`);
+    }
+  }
+  const twoTasks = {
+    ...context,
+    tasks: [
+      { title: "Task A", scheduledStart: "2026-09-23T19:13:00.000" },
+      { title: "Shopping Task B", scheduledStart: "2026-09-23T19:28:00.000" },
+    ],
+  };
+  if (
+    containsScheduledStartDepartureConfusion(
+      "For Shopping Task B, leave at 7:13 PM to arrive at its 7:28 PM start.",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("another task's valid departure was rejected");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "For Task A, leave at 7:13 PM to arrive at 7:28 PM.",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("named task's start-as-departure error was missed");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Unlike Shopping Task B, Task A requires leaving at 7:13 PM.",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("multi-task comparison lost local attribution");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Unlike Task A, Shopping Task B requires leaving at 7:13 PM.",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("multi-task comparison attributed the other task");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "For Dr. appointment, leave at 7:13 PM to arrive at 7:28 PM.",
+      {
+        ...context,
+        tasks: [
+          {
+            title: "Dr. appointment",
+            scheduledStart: "2026-09-23T19:13:00.000",
+          },
+          { title: "Shopping", scheduledStart: "2026-09-23T19:28:00.000" },
+        ],
+      },
+      "Compare both tasks.",
+    )
+  ) throw new Error("punctuation in task title split attribution");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "For Task A, leave at 7:13 PM to arrive at 7:28 PM.",
+      twoTasks,
+      "For Shopping Task B, leave at 7:13 PM. What about Task A?",
+    )
+  ) throw new Error("Task B proposal exempted Task A start confusion");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Task A:\nDepart | 7:13 PM.",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("task heading did not attribute its departure row");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Task A:\nScheduled start | 7:13 PM\nDepart | 7:13 PM.",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("task heading was lost across a metadata row");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "| Task | Departure |\n| --- | --- |\n| Task A | 7:13 PM |\n| Shopping Task B | 7:00 PM |",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("Markdown departure column bypassed the guard");
+  for (
+    const table of [
+      "| Task | Departure time |\n| --- | --- |\n| Task A | 7:13 PM |",
+      "| **Task** | **Departure** |\n| --- | --- |\n| Task A | 7:13 PM |",
+      "| Task | Departure |\n| --- | --- |\n| Task A | **7:13 PM** |",
+      "| Task | Departure |\n| --- | --- |\n| **Task A** | **7:13 PM** |",
+    ]
+  ) {
+    if (
+      !containsScheduledStartDepartureConfusion(
+        table,
+        twoTasks,
+        "Compare Task A with Shopping Task B.",
+      )
+    ) throw new Error("formatted Markdown departure header bypassed guard");
+  }
+  if (
+    containsScheduledStartDepartureConfusion(
+      "| Task | Departure |\n| --- | --- |\n| Shopping Task B | 7:13 PM |",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("Markdown departure column matched the wrong task");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Shopping Task B:\nDepart | 7:13 PM to arrive at 7:28 PM.",
+      twoTasks,
+      "Compare Task A with Shopping Task B.",
+    )
+  ) throw new Error("other task heading misattributed the departure row");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "For Groceries, depart at 7:13 PM to arrive at 7:28 PM.",
+      {
+        ...context,
+        tasks: [
+          { title: "Groceries", scheduledStart: "2026-09-23T19:13:00.000" },
+          { title: "Groceries", scheduledStart: "2026-09-23T19:28:00.000" },
+        ],
+      },
+      "Compare both Groceries tasks.",
+    )
+  ) throw new Error("duplicate task titles bypassed the named-task guard");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "For Task A groceries, leave at 7:28 PM.",
+      {
+        ...context,
+        tasks: [
+          { title: "Task A", scheduledStart: "2026-09-23T19:13:00.000" },
+          {
+            title: "Task A groceries",
+            scheduledStart: "2026-09-23T19:28:00.000",
+          },
+        ],
+      },
+      "Compare Task A and Task A groceries.",
+    )
+  ) throw new Error("overlapping task title masked the specific task");
+  for (const title of ["Leave feedback", "Prepare departure checklist"]) {
+    if (
+      !containsScheduledStartDepartureConfusion(
+        "Depart at 7:13 PM to go to the store.",
+        {
+          ...context,
+          tasks: [{ title, scheduledStart: "2026-09-23T19:13:00.000" }],
+        },
+        "When should I go to the store?",
+      )
+    ) throw new Error(`non-travel title bypassed the guard: ${title}`);
+  }
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Leave at 7:13 PM to go to the store.",
+      {
+        ...context,
+        tasks: [{
+          title: "Go to sleep",
+          scheduledStart: "2026-09-23T19:13:00.000",
+        }],
+      },
+      "When should I go to the store?",
+    )
+  ) throw new Error("non-travel Go to sleep title bypassed the guard");
+  for (
+    const title of [
+      "Depart for store",
+      "Drive to store",
+      "Head to store",
+      "Walk to store",
+      "Walking to store",
+    ]
+  ) {
+    if (
+      containsScheduledStartDepartureConfusion(
+        "Drive to the store at 7:13 PM.",
+        {
+          ...context,
+          tasks: [{ title, scheduledStart: "2026-09-23T19:13:00.000" }],
+        },
+        "When should I go to the store?",
+      )
+    ) {
+      throw new Error(
+        `actual travel task was treated as preparation: ${title}`,
+      );
+    }
+  }
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Sal a las 19:13 para ir a la tienda.",
+      {
+        ...context,
+        tasks: [{
+          title: "Ir a la tienda",
+          scheduledStart: "2026-09-23T19:13:00.000",
+        }],
+      },
+      "¿Cuándo debo salir?",
+    )
+  ) throw new Error("Spanish travel task was treated as list preparation");
+  if (
+    containsScheduledStartDepartureConfusion(
+      "Sal a las 19:13 para ir al mercado.",
+      {
+        ...context,
+        tasks: [{
+          title: "Ir al mercado",
+          scheduledStart: "2026-09-23T19:13:00.000",
+        }],
+      },
+      "¿Cuándo debo salir?",
+    )
+  ) throw new Error("Spanish al travel task was treated as list preparation");
+  if (
+    !containsScheduledStartDepartureConfusion(
+      "Leave at 7 PM to go to the store.",
+      {
+        ...context,
+        tasks: [{
+          title: "Shopping list",
+          scheduledStart: "2026-09-23T19:00:00.000",
+        }],
+      },
+      "When should I go to the store?",
+    )
+  ) throw new Error("minute-less on-the-hour departure was accepted");
 });
 
 Deno.test("detects a direct recommendation contradicted by its own evidence", () => {

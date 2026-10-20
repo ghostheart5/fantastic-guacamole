@@ -22,6 +22,7 @@ import {
   buildServerSystemPrompt,
   containsBlockedAssistantClaim,
   containsRecommendationContradiction,
+  containsScheduledStartDepartureConfusion,
 } from "../_shared/ai_proxy_policy.ts";
 import {
   internalAiPreflightResponse,
@@ -443,6 +444,8 @@ Deno.serve(async (req: Request) => {
         recentHistory.at(-1)?.content === prompt
       ? recentHistory
       : [...recentHistory, { role: "user" as const, content: prompt }];
+    const userMessages = messages.filter((item) => item.role === "user")
+      .map((item) => item.content);
     const timingRequest = siTimingRequest(body.context, prompt);
     if (
       timingRequest &&
@@ -622,7 +625,30 @@ Deno.serve(async (req: Request) => {
       : undefined;
     let totalInputTokens = inputTokens;
     let totalOutputTokens = outputTokens;
-    if (!timingRequest && containsRecommendationContradiction(message)) {
+    const confusedTaskStart = !timingRequest &&
+      containsScheduledStartDepartureConfusion(
+        message,
+        body.context,
+        prompt,
+        userMessages,
+      );
+    const contradictoryVerdict = !timingRequest &&
+      containsRecommendationContradiction(message);
+    if (contradictoryVerdict || confusedTaskStart) {
+      const repairInstructions = [
+        "Rewrite the answer once.",
+        ...(confusedTaskStart
+          ? [
+            "You treated a saved task's scheduled start as a travel departure. It only marks the start of the named task; a grocery list may be list preparation, not shopping. Do not assume it is shopping start unless the person explicitly linked them. Keep saved facts separate from hypothetical store hours, recalculate any conditional travel and shopping timeline and the actual closing-time buffer.",
+          ]
+          : []),
+        ...(contradictoryVerdict
+          ? [
+            "Its opening recommendation conflicts with its own evidence. Preserve the grounded facts and make the first verdict match the reasoning.",
+          ]
+          : []),
+        "Return only the corrected answer.",
+      ].join(" ");
       const repairBody: Record<string, unknown> = {
         ...upstreamBody,
         messages: [
@@ -630,8 +656,7 @@ Deno.serve(async (req: Request) => {
           { role: "assistant", content: message },
           {
             role: "user",
-            content:
-              "Rewrite the answer once. Its opening recommendation conflicts with its own evidence. Preserve the grounded facts, make the first verdict match the reasoning, and return only the corrected answer.",
+            content: repairInstructions,
           },
         ],
       };
@@ -765,7 +790,13 @@ Deno.serve(async (req: Request) => {
         !repairedMessage ||
         !repairedUsageIsValid ||
         containsBlockedAssistantClaim(repairedMessage) ||
-        containsRecommendationContradiction(repairedMessage)
+        containsRecommendationContradiction(repairedMessage) ||
+        containsScheduledStartDepartureConfusion(
+          repairedMessage,
+          body.context,
+          prompt,
+          userMessages,
+        )
       ) {
         await settleReservation(userId, requestId, false, {
           ...(repairedUsageIsValid
