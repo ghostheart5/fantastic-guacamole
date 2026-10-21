@@ -233,8 +233,6 @@ class SettingsScreen extends ConsumerWidget {
         .length;
     final routes = ref.watch(routeSurfaceProvider);
     final soundEnabled = ref.watch(soundEnabledProvider);
-    final themeAsync = ref.watch(currentThemeProvider);
-    final bool isDarkMode = themeAsync.asData?.value.isDark ?? true;
     final access = ref.watch(appAccessProvider);
     final String localizedPlanStatus = _localizedPlanStatus(
       context,
@@ -376,29 +374,7 @@ class SettingsScreen extends ConsumerWidget {
                   accentColor: AppColors.neonCyan,
                   child: Column(
                     children: [
-                      _NeonToggleTile(
-                        title: copy(
-                          'Dark forms and dialogs',
-                          'Formularios y diálogos oscuros',
-                        ),
-                        value: isDarkMode,
-                        onChanged: (bool enabled) {
-                          final AppThemeEntity next = enabled
-                              ? AppThemeEntity.dark()
-                              : AppThemeEntity.light();
-                          unawaited(ref.read(themeActionsProvider).save(next));
-                        },
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: Text(
-                          copy(
-                            'Background artwork stays dark. This setting changes forms and dialogs.',
-                            'El fondo sigue oscuro. Este ajuste cambia los formularios y diálogos.',
-                          ),
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                      ),
+                      const _FormAppearanceSetting(),
                       _NeonToggleTile(
                         title: copy('Sound effects', 'Efectos de sonido'),
                         value: soundEnabled,

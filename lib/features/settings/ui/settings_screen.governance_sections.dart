@@ -318,8 +318,8 @@ class _MemoryGovernanceSection extends ConsumerWidget {
             content: Text(
               journeyText(
                 context,
-                'This clears short-lived Choose a step and Talk it through context. It does not delete tasks, goals, Schedule data, or governed memory receipts.',
-                'Esto borra el contexto temporal de Elegir un paso y el Chat SI. No elimina tareas, metas, datos de agenda ni registros de memoria controlados.',
+                'This clears short-lived Choose a step and Chat context. It does not delete tasks, goals, Schedule data, or governed memory receipts.',
+                'Esto borra el contexto temporal de Elegir un paso y Chat. No elimina tareas, metas, datos de agenda ni registros de memoria controlados.',
               ),
             ),
             actions: <Widget>[

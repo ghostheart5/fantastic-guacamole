@@ -347,7 +347,7 @@ void main() {
     container.read(appFlowProvider.notifier).toProgression();
     await tester.pump();
 
-    final Finder backToNexus = find.bySemanticsLabel('Back Home');
+    final Finder backToNexus = find.bySemanticsLabel('Back to Today');
     expect(backToNexus, findsOneWidget);
 
     await tester.tap(backToNexus);

@@ -16,8 +16,10 @@ String _localizedPlanStatus(BuildContext context, String status) {
 
 String _localizedPlanDetail(BuildContext context, String detail) {
   final String spanish = switch (detail) {
+    'Google Play license testing. Use a test payment method. Choose a step and Chat can use external AI after you review the app context and confirm the credit price. On-device tools remain available.' ||
+    'Google Play license testing. Use a test payment method. Choose a step and SI Chat can use external AI after you review the app context and confirm the credit price. On-device tools remain available.' ||
     'Google Play license testing. Use a test payment method. Choose a step and Talk it through can use external AI after you review the app context and confirm the credit price. On-device tools remain available.' =>
-      'Pruebas de licencia de Google Play. Usa un método de pago de prueba. El Elegir un paso y la Hablarlo pueden usar IA externa después de que revises el contexto y confirmes el precio en créditos. Las herramientas locales siguen disponibles.',
+      'Pruebas de licencia de Google Play. Usa un método de pago de prueba. Elegir un paso y Chat pueden usar IA externa después de que revises el contexto y confirmes el precio en créditos. Las herramientas locales siguen disponibles.',
     'Google Play license testing. Use a test payment method. AI and credit spending remain unavailable.' =>
       'Pruebas de licencia de Google Play. Usa un método de pago de prueba. La IA y el gasto de créditos siguen sin estar disponibles.',
     'Your profile and plans are stored on this device. No subscription is required.' =>
@@ -367,6 +369,44 @@ class _SettingsCategory extends StatelessWidget {
           children: <Widget>[child],
         ),
       ),
+    );
+  }
+}
+
+class _FormAppearanceSetting extends ConsumerWidget {
+  const _FormAppearanceSetting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    String copy(String english, String spanish) =>
+        journeyText(context, english, spanish);
+    final isDark = ref.watch(currentThemeProvider).asData?.value.isDark ?? true;
+    return Column(
+      children: [
+        _NeonToggleTile(
+          title: copy(
+            'Dark forms and dialogs',
+            'Formularios y diálogos oscuros',
+          ),
+          value: isDark,
+          onChanged: (enabled) {
+            final next = enabled
+                ? AppThemeEntity.dark()
+                : AppThemeEntity.light();
+            unawaited(ref.read(themeActionsProvider).save(next));
+          },
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Text(
+            copy(
+              'Background artwork stays dark. This setting changes forms and dialogs.',
+              'El fondo sigue oscuro. Este ajuste cambia los formularios y diálogos.',
+            ),
+            style: const TextStyle(color: Colors.white70),
+          ),
+        ),
+      ],
     );
   }
 }

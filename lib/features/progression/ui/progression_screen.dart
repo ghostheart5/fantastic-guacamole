@@ -263,16 +263,16 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
                     Semantics(
                       label: journeyText(
                         context,
-                        'Back Home',
-                        'Volver a Inicio',
+                        'Back to Today',
+                        'Volver a Hoy',
                       ),
                       button: true,
                       onTap: () => goToAppView(context, ref, AppView.nexus),
                       child: IconButton(
                         tooltip: journeyText(
                           context,
-                          'Back Home',
-                          'Volver a Inicio',
+                          'Back to Today',
+                          'Volver a Hoy',
                         ),
                         onPressed: () =>
                             goToAppView(context, ref, AppView.nexus),

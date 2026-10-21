@@ -1253,8 +1253,8 @@ class _PlannerEmotionCheckIn extends ConsumerWidget {
             value: ref.watch(emotionCheckInProvider).shareWithPlanning,
             title: Text(
               ChronoSparkLocalizations.of(context).isSpanish
-                  ? 'Usar también en Inicio y Hablarlo durante este registro'
-                  : 'Also use on Home and in Talk it through for this check-in',
+                  ? 'Usar también en Hoy y Chat durante este registro'
+                  : 'Also use on Today and in Chat for this check-in',
             ),
             subtitle: Text(
               ChronoSparkLocalizations.of(context).isSpanish

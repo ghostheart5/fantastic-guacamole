@@ -1351,7 +1351,7 @@ void main() {
     addTearDown(container.dispose);
     await _pumpPlanner(tester, container);
 
-    await _scrollTo(tester, find.text('PLANNER UNAVAILABLE'));
+    await _scrollTo(tester, find.text('CHOOSE A STEP UNAVAILABLE'));
     expect(
       find.text(
         'Choose a step is not enabled for this account. No guidance request will be sent.',
@@ -1360,7 +1360,7 @@ void main() {
     );
     expect(find.text('Get a suggestion'), findsNothing);
 
-    await tester.tap(find.text('PLANNER UNAVAILABLE'));
+    await tester.tap(find.text('CHOOSE A STEP UNAVAILABLE'));
     await tester.pump();
 
     final _PlannerV2TestController planner =

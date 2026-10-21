@@ -258,7 +258,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
               child: ListTile(
                 key: const Key('today-chat'),
                 leading: const Icon(Icons.chat_bubble_outline_rounded),
-                title: Text(_t('Talk it through', 'Hablarlo')),
+                title: Text(_t('Chat', 'Chat')),
                 subtitle: Text(
                   _t(
                     'AI and SI help with your thoughts and plans.',

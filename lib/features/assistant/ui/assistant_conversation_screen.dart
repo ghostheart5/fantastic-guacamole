@@ -831,7 +831,7 @@ class _AssistantConversationScreenState
         title: Text(
           planner
               ? copy('Choose a step', 'Elegir un paso')
-              : copy('Talk it through', 'Hablarlo'),
+              : copy('Chat', 'Chat'),
         ),
         leading: BackButton(
           onPressed: _busy
