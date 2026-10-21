@@ -14,6 +14,7 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
   final energy = humanContext.siState.energy;
   final learning = ref.watch(learningProvider);
   final learningMetrics = ref.watch(learningMetricsProvider);
+  final execution = ref.watch(executionSignalsProvider);
   final completionScore = ref.watch(completionScoreProvider);
   final siState = humanContext.siState;
   final personalization = ref.watch(personalizationProfileProvider);
@@ -33,7 +34,9 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
   final int pressureIndex =
       ((pendingTasks * 16) +
               (hasObservedEnergy ? (1 - energy) * 32 : 0) +
-              ((1 - learningMetrics.momentum) * 18))
+              (execution.actioned7d == 0
+                  ? 0
+                  : (1 - learningMetrics.momentum) * 18))
           .clamp(0.0, 100.0)
           .round();
 

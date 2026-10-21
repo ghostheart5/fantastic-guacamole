@@ -88,11 +88,7 @@ final class SIV2Query {
     if (schemaVersion != siV2SchemaVersion || this.rawText.isEmpty) {
       throw ArgumentError('SI V2 queries require a supported schema and text.');
     }
-    if (this.sources.isEmpty) {
-      throw ArgumentError(
-        'SI V2 queries require at least one evidence source.',
-      );
-    }
+    // An empty selection is a conversation without saved app evidence.
   }
 
   factory SIV2Query.fromUserInput({
@@ -158,7 +154,10 @@ final class SIV2Query {
     return SIV2Query(
       rawText: rawText,
       intent: detectedIntent,
-      sources: shortcutSources.isEmpty ? selectedSources : shortcutSources,
+      // An explicit chat-only choice wins over convenience shortcuts.
+      sources: selectedSources.isEmpty || shortcutSources.isEmpty
+          ? selectedSources
+          : shortcutSources,
       timeRange: timeRange,
       entityFilter: entityFilter,
       assumptions: <String>[
@@ -762,8 +761,12 @@ final class SIV2Response {
       throw StateError('SI V2 response contract is incomplete.');
     }
     if (confidence.coveredSignals < 0 ||
-        confidence.requiredSignals <= 0 ||
-        confidence.coveredSignals > confidence.requiredSignals) {
+        confidence.requiredSignals < 0 ||
+        confidence.coveredSignals > confidence.requiredSignals ||
+        (confidence.requiredSignals == 0 &&
+            (query.sources.isNotEmpty ||
+                confidence.strength != SIV2EvidenceStrength.limited ||
+                confidence.freshness != SIV2Freshness.unavailable))) {
       throw StateError('SI V2 confidence anatomy has invalid coverage.');
     }
     final Set<String> linkIds = evidenceLinks

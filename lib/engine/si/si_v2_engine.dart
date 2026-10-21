@@ -409,7 +409,8 @@ final class SIV2Engine {
         : age <= const Duration(hours: 24)
         ? SIV2Freshness.aging
         : SIV2Freshness.stale;
-    final SIV2EvidenceStrength strength = namedTaskMissing
+    final SIV2EvidenceStrength strength =
+        namedTaskMissing || requiredSignals == 0
         ? SIV2EvidenceStrength.limited
         : coveredSignals > 0 && coveredSignals == requiredSignals
         ? (conflicts.length <= 1

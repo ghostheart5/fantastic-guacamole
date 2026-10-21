@@ -8,6 +8,8 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/features/progression/ui/progression_screen.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
+import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
@@ -37,6 +39,7 @@ void main() {
     List<TimelineEventEntity>? timelineOverdue,
     List<LearningHistorySnapshot>? learningHistorySnapshots,
     List<LogEntryEntity> savedLogs = const [],
+    List<HabitOccurrenceEntity> habitOutcomes = const [],
   }) async {
     tester.platformDispatcher.views.first
       ..physicalSize = physicalSize
@@ -58,6 +61,7 @@ void main() {
         trajectorySummaryProvider.overrideWithValue(trajectory),
         progressionProvider.overrideWithValue(ProgressionState.initial()),
         logsProvider.overrideWith(() => _SavedLogs(savedLogs)),
+        habitOccurrencesProvider.overrideWith((ref) async => habitOutcomes),
         progressionReviewProvider.overrideWith(
           reviewOverride ??
               (Ref ref) async => ProgressionReview(
@@ -95,6 +99,44 @@ void main() {
   }
 
   testWidgets(
+    'Activity includes saved daily weekly and monthly habit outcomes',
+    (tester) async {
+      await pumpProgression(
+        tester,
+        trajectory: _emptyTrajectory,
+        habitOutcomes: [
+          for (final slot in ['2026-10-21', 'week:2026-10-19', 'month:2026-10'])
+            HabitOccurrenceEntity(
+              habitId: slot,
+              occurrenceKey: slot,
+              operationId: slot,
+              outcome: HabitOccurrenceOutcome.completed,
+              recordedAt: DateTime.utc(2026, 10, 21),
+            ),
+          HabitOccurrenceEntity(
+            habitId: 'skip',
+            occurrenceKey: '2026-10-21',
+            operationId: 'skip',
+            outcome: HabitOccurrenceOutcome.skipped,
+            recordedAt: DateTime.utc(2026, 10, 21),
+          ),
+        ],
+      );
+      await tester.pump();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('progression-habit-history')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(
+        find.textContaining('Completed periods: 3 · Skipped periods: 1'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'Spanish progression translates controls and evidence without changing values',
     (tester) async {
       await pumpProgression(
@@ -113,7 +155,7 @@ void main() {
       expect(find.text('Fiabilidad de planificación'), findsOneWidget);
       expect(find.text('Activity'), findsNothing);
       expect(find.text('TIER'), findsNothing);
-      expect(find.textContaining('puntos de evidencia (XP)'), findsOneWidget);
+      expect(find.textContaining('XP para el nivel'), findsOneWidget);
       expect(
         find.text('Aún no hay historial de planificación guardado.'),
         findsOneWidget,
@@ -165,7 +207,10 @@ void main() {
     );
     expect(find.text('100% completed'), findsOneWidget);
     expect(find.text('Not enough history'), findsOneWidget);
-    expect(find.text('Last 30 days • 1 completed'), findsOneWidget);
+    expect(
+      find.text('Last 30 days • 1 tasks and goals completed'),
+      findsOneWidget,
+    );
     expect(find.text('Off Track'), findsNothing);
     expect(
       find.text('Your momentum trend will appear after you complete an item.'),
@@ -196,7 +241,9 @@ void main() {
         );
 
         expect(
-          find.text('Last 30 days • $completionCount completed'),
+          find.text(
+            'Last 30 days • $completionCount tasks and goals completed',
+          ),
           findsOneWidget,
         );
         expect(
@@ -447,7 +494,10 @@ void main() {
 
       expect(find.text('COMPLETION MOMENTUM'), findsOneWidget);
       expect(find.text('XP PROGRESSION'), findsNothing);
-      expect(find.text('Last 30 days • 5 completed'), findsOneWidget);
+      expect(
+        find.text('Last 30 days • 5 tasks and goals completed'),
+        findsOneWidget,
+      );
     },
   );
 
@@ -475,7 +525,10 @@ void main() {
       );
       expect(find.text('0% completed'), findsOneWidget);
       expect(find.text('Declining'), findsOneWidget);
-      expect(find.text('Last 30 days • 1 completed'), findsOneWidget);
+      expect(
+        find.text('Last 30 days • 1 tasks and goals completed'),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     },
   );
@@ -575,7 +628,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(clipboardText, contains('Axiomara Capability Snapshot'));
+      expect(clipboardText, contains('Axiomara Progress Snapshot'));
     },
   );
 }

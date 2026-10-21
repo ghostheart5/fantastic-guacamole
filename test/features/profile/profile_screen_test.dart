@@ -156,9 +156,9 @@ void main() {
       locale: const Locale('es'),
     );
 
-    expect(find.text('CRECIMIENTO'), findsOneWidget);
-    expect(find.text('DISCIPLINA'), findsOneWidget);
-    expect(find.text('EJECUCIÓN'), findsOneWidget);
+    expect(find.text('PROGRESO'), findsOneWidget);
+    expect(find.text('CONSTANCIA'), findsOneWidget);
+    expect(find.text('CUMPLIMIENTO'), findsOneWidget);
     expect(find.text('NIVEL'), findsOneWidget);
     expect(find.text('RACHA'), findsOneWidget);
     expect(find.textContaining('NIVEL DE AXIOMARA 2'), findsOneWidget);
@@ -336,7 +336,7 @@ void main() {
       );
 
       await tester.enterText(find.byType(TextField), '   ');
-      await tester.tap(find.text('Update Identity'));
+      await tester.tap(find.text('Save name'));
       await tester.pump();
 
       expect(container.read(profileProvider).name, 'Keegan');
@@ -351,7 +351,7 @@ void main() {
       );
 
       await tester.enterText(find.byType(TextField), '  Nova  ');
-      await tester.tap(find.text('Update Identity'));
+      await tester.tap(find.text('Save name'));
       await tester.pump();
       await tester.pump();
 

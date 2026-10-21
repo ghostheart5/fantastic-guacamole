@@ -165,6 +165,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
       const DecisionEngine().recommend(
         inputs: plannerInputs,
         state: decisionState,
+        energyOrigin: siState.energyOrigin,
         learning: learning,
         now: observedAt,
       );
@@ -172,6 +173,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
       .recommend(
         inputs: plannerInputs,
         state: decisionState,
+        energyOrigin: siState.energyOrigin,
         learning: learning,
         personContext: personContext,
         now: observedAt,

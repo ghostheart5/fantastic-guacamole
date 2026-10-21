@@ -72,7 +72,7 @@ void main() {
       spanish.plannerRoutine.voiceSummaryTitle,
       contains('Elegir un paso'),
     );
-    expect(spanish.siRoutine.accessCheckFailed, contains('Hablarlo'));
+    expect(spanish.siRoutine.accessCheckFailed, contains('Chat'));
     expect(
       spanish.siRoutine.responseValidationFailed,
       contains('No se cambió'),

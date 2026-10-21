@@ -159,7 +159,7 @@ Deno.test("normal server-policy Chat quote changes from thirteen credits to five
     quotedCreditCost({
       ...upstream,
       system: upstream.system + "x".repeat(8000),
-    }) > 5,
+    }) === 5,
   );
 });
 
@@ -191,6 +191,7 @@ Deno.test("prior signed policy and tampered cheaper quote are rejected", async (
   assert(q.policy === CREDIT_POLICY);
   for (
     const change of [
+      { policy: "monthly-credits-v3-sonnet46-20261020" },
       { policy: "monthly-credits-v2-sonnet46-20260908" },
       { credits: q.credits + 1 },
       { credits: q.credits - 1 },
@@ -204,4 +205,26 @@ Deno.test("prior signed policy and tampered cheaper quote are rejected", async (
       }, 1001),
     );
   }
+});
+
+Deno.test("every admitted context stays at most five while full provider reserve grows", () => {
+  for (const max_tokens of [1, 64, 256, 1024]) {
+    for (const size of [0, 1000, 8000, 32000, 63000]) {
+      const body = { ...request, max_tokens, system: "x".repeat(size) };
+      const credits = quotedCreditCost(body);
+      assert(Number.isInteger(credits) && credits >= 1 && credits <= 5);
+    }
+  }
+  const large = { ...request, max_tokens: 1024, system: "x".repeat(63000) };
+  assert(quotedCreditCost(large) === 5);
+  assert(
+    quotedProviderCostMicrousd(large) > 5 * MAX_PROVIDER_MICROUSD_PER_CREDIT,
+  );
+  let rejected = false;
+  try {
+    quotedCreditCost({ ...request, system: "x".repeat(65000) });
+  } catch {
+    rejected = true;
+  }
+  assert(rejected);
 });

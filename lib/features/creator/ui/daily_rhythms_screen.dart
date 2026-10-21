@@ -562,7 +562,11 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
                                   );
                           }),
                     icon: const Icon(Icons.undo_rounded),
-                    label: Text(_t('Correct outcome', 'Corregir resultado')),
+                    label: Text(
+                      current.outcome == HabitOccurrenceOutcome.completed
+                          ? _t('Change to skipped', 'Cambiar a omitido')
+                          : _t('Change to completed', 'Cambiar a completado'),
+                    ),
                   ),
                 SizedBox(
                   width: double.infinity,

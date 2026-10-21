@@ -294,6 +294,15 @@ class _FutureBranches extends StatelessWidget {
               letterSpacing: 0,
             ),
           ),
+          const SizedBox(height: 6),
+          Text(
+            journeyText(
+              context,
+              'Momentum, pressure and risk are model scores, not chances of success. Wider ranges mean more uncertainty.',
+              'El impulso, la presión y el riesgo son puntuaciones del modelo, no probabilidades de éxito. Los rangos más amplios indican más incertidumbre.',
+            ),
+            style: const TextStyle(color: Colors.white60, fontSize: 12),
+          ),
           const SizedBox(height: 10),
           for (int index = 0; index < visible.length; index++) ...<Widget>[
             _BranchRow(
@@ -426,8 +435,6 @@ class _BranchRow extends StatelessWidget {
                             letterSpacing: 0,
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        _ResultAssumptions(assumptions: outcome.assumptions),
                       ],
                     ),
                   ),
@@ -802,7 +809,9 @@ TrajectoryScenarioOutcome? _selected(
   if (comparison == null || comparison.outcomes.isEmpty) return null;
   if (selectedId != null) {
     for (final TrajectoryScenarioOutcome outcome in comparison.outcomes) {
-      if (outcome.id == selectedId) return outcome;
+      if (outcome.id == selectedId || outcome.intervention.id == selectedId) {
+        return outcome;
+      }
     }
   }
   return comparison.recommended ?? comparison.outcomes.first;

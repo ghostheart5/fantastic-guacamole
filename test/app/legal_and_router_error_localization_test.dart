@@ -410,8 +410,8 @@ _routerErrorExpectations = <_RouterErrorExpectation>[
     locale: Locale('en'),
     title: "We couldn't open that link",
     body:
-        'This link does not open an available page. Return Home or open Help to continue.',
-    recoveryLabel: 'Return Home',
+        'This link does not open an available page. Return to Today or open Help to continue.',
+    recoveryLabel: 'Return to Today',
   ),
 ];
 

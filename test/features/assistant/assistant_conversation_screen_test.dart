@@ -149,6 +149,51 @@ ProviderContainer setup(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'chat-only packets exclude saved records even when account has tasks and a selected note',
+    () async {
+      final container = setup(
+        (_) async => throw StateError('No network expected'),
+      );
+      addTearDown(container.dispose);
+      for (final surface in ConversationSurface.values) {
+        for (final prompt in [
+          'Compare two fictional quiet breaks',
+          '/tasks explain a fictional example',
+          '/goals explain a fictional example',
+          '/milestones explain a fictional example',
+          '/timeline explain a fictional example',
+        ]) {
+          final packet = await container
+              .read(conversationPacketFactoryProvider)
+              .build(
+                surface: surface,
+                prompt: prompt,
+                history: [],
+                languageCode: 'en',
+                sources: {},
+              );
+          final context = packet.toJson()['context'] as Map;
+          expect(context['selectedSources'], isEmpty);
+          for (final key in [
+            'tasks',
+            'goals',
+            'milestones',
+            'timeline',
+            'unavailableSources',
+          ]) {
+            expect(context[key], isEmpty);
+          }
+          expect(context['contextScope'], 'chatOnly');
+          expect(context['evidenceRevision'], 'chat-only');
+          expect(context.containsKey('explicitlyAttachedNote'), isFalse);
+          expect(packet.preview, isNot(contains('Grocery list')));
+          expect(packet.preview, isNot(contains('Dinner shopping')));
+        }
+      }
+    },
+  );
+
   test('conversation deadline precedes the production transport deadline', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
@@ -348,7 +393,7 @@ void main() {
     );
     expect(context['tasks'], isEmpty);
     expect(context['selectedSources'], ['goals']);
-    expect(context['unavailableSources'], contains('tasks'));
+    expect(context['unavailableSources'], isEmpty);
     expect(repository.reads, 0);
   });
 
@@ -572,6 +617,102 @@ void main() {
     }
     expect(finder, findsOneWidget);
   }
+
+  testWidgets(
+    'chat-only option keeps slash task prompts out of saved context review',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var transportCalls = 0;
+      final container = setup((_) async {
+        transportCalls++;
+        throw StateError('Reviewing context must not request a credit quote');
+      });
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('conversation-advanced')));
+      await tester.pumpAndSettle();
+      final chatOnly = find.text('Use just this chat');
+      await tester.ensureVisible(chatOnly);
+      await tester.tap(chatOnly);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'Saved planning records are off. Earlier messages in this chat still apply.',
+        ),
+        findsOneWidget,
+      );
+      final sources = tester.widgetList<FilterChip>(find.byType(FilterChip));
+      expect(sources, hasLength(SIV2Source.values.length));
+      expect(sources.every((source) => !source.selected), isTrue);
+
+      final input = find.byKey(const Key('conversation-input'));
+      await tester.ensureVisible(input);
+      await tester.enterText(input, '/tasks explain a fictional example');
+      final send = find.byTooltip('Send to AI');
+      await tester.ensureVisible(send);
+      await tester.tap(send);
+      // Routing may offer local help before the disclosure; neither choice
+      // should override the explicit chat-only source selection.
+      await waitFor(
+        tester,
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Text &&
+              (widget.data == 'Free on-device option' ||
+                  widget.data == 'Review what AI will receive'),
+        ),
+      );
+      if (find.text('Review AI price').evaluate().isNotEmpty) {
+        await tester.tap(find.text('Review AI price'));
+      }
+      await waitFor(tester, find.text('Get credit price'));
+      final includedContext = find.text('Included app context');
+      await tester.ensureVisible(includedContext);
+      await tester.tap(includedContext);
+      await tester.pumpAndSettle();
+      final review = find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(SelectableText),
+      );
+      final reviewText = tester
+          .widgetList<SelectableText>(review)
+          .map((widget) => widget.data ?? widget.textSpan!.toPlainText())
+          .join('\n');
+      expect(reviewText, contains('/tasks explain a fictional example'));
+      expect(reviewText, contains('Sources: just this chat'));
+      for (final excluded in [
+        'Grocery list',
+        'Finish work',
+        'Dinner shopping',
+        'Milk, rice and vegetables for dinner.',
+        'Check the pantry before buying rice.',
+        'Attached note',
+      ]) {
+        expect(reviewText, isNot(contains(excluded)));
+      }
+      expect(transportCalls, 0);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('Review what AI will receive'), findsNothing);
+      expect(transportCalls, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('Spanish conversation dictation requests Spanish recognition', (
     tester,

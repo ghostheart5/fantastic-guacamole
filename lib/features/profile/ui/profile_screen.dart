@@ -309,7 +309,7 @@ class _IdentityConstellation extends ConsumerWidget {
                   top: 14,
                   right: 4,
                   child: _ConstellationLabel(
-                    label: journeyText(context, 'GROWTH', 'CRECIMIENTO'),
+                    label: journeyText(context, 'PROGRESS', 'PROGRESO'),
                     value: identity.growthIdentity,
                     showValue: hasEvidence,
                     accent: AppColors.neonViolet,
@@ -320,7 +320,7 @@ class _IdentityConstellation extends ConsumerWidget {
                   top: 106,
                   left: 4,
                   child: _ConstellationLabel(
-                    label: journeyText(context, 'DISCIPLINE', 'DISCIPLINA'),
+                    label: journeyText(context, 'CONSISTENCY', 'CONSTANCIA'),
                     value: identity.disciplineIdentity,
                     showValue: hasEvidence,
                     accent: AppColors.memoryAmber,
@@ -330,7 +330,11 @@ class _IdentityConstellation extends ConsumerWidget {
                   right: 4,
                   bottom: 14,
                   child: _ConstellationLabel(
-                    label: journeyText(context, 'EXECUTION', 'EJECUCIÓN'),
+                    label: journeyText(
+                      context,
+                      'FOLLOW THROUGH',
+                      'CUMPLIMIENTO',
+                    ),
                     value: identity.executionIdentity,
                     showValue: hasEvidence,
                     accent: AppColors.neonCyan,
@@ -950,13 +954,7 @@ class _NameEditorState extends State<_NameEditor> {
                       dimension: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text(
-                      journeyText(
-                        context,
-                        'Update Identity',
-                        'Actualizar identidad',
-                      ),
-                    ),
+                  : Text(journeyText(context, 'Save name', 'Guardar nombre')),
             ),
           ),
         ],

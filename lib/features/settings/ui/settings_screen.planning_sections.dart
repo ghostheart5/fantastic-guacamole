@@ -37,6 +37,21 @@ class _ReflectionReminderSectionState
       return;
     }
     setState(() => _enabled = enabled);
+    if (value && !enabled) _showSchedulingFailure();
+  }
+
+  void _showSchedulingFailure() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          journeyText(
+            context,
+            'Reminder could not be scheduled. Check notification permission and try again.',
+            'No se pudo programar el recordatorio. Revisa el permiso de notificaciones e inténtalo de nuevo.',
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _pickTime() async {
@@ -57,13 +72,13 @@ class _ReflectionReminderSectionState
     );
     if (picked == null || !mounted) return;
     setState(() => _time = picked);
-    await ref
+    final scheduled = await ref
         .read(settingsUiActionsProvider)
         .setReflectionReminderTime(time: picked);
-    if (_enabled) {
-      await ref
-          .read(settingsUiActionsProvider)
-          .setReflectionReminderEnabled(enabled: true, time: picked);
+    if (!mounted) return;
+    if (!scheduled) {
+      setState(() => _enabled = false);
+      _showSchedulingFailure();
     }
   }
 
@@ -602,7 +617,15 @@ class _PersonalizationSection extends ConsumerWidget {
 }
 
 String _planningStyleLabel(String value, {required bool isSpanish}) {
-  if (!isSpanish) return value;
+  if (!isSpanish) {
+    return switch (value) {
+      'flexible' => 'Flexible',
+      'timeBlocked' => 'Time blocks',
+      'energyMatched' => 'Match my energy',
+      'singleTask' => 'One task at a time',
+      _ => value,
+    };
+  }
   return switch (value) {
     'flexible' => 'Flexible',
     'timeBlocked' => 'Por bloques de tiempo',
@@ -613,7 +636,16 @@ String _planningStyleLabel(String value, {required bool isSpanish}) {
 }
 
 String _priorityStrategyLabel(String value, {required bool isSpanish}) {
-  if (!isSpanish) return value;
+  if (!isSpanish) {
+    return switch (value) {
+      'balanced' => 'Balanced',
+      'deadlineFirst' => 'Deadlines first',
+      'energyFirst' => 'Energy first',
+      'goalFirst' => 'Goals first',
+      'quickWins' => 'Quick wins',
+      _ => value,
+    };
+  }
   return switch (value) {
     'balanced' => 'Equilibrada',
     'deadlineFirst' => 'Primero las fechas límite',
@@ -625,7 +657,15 @@ String _priorityStrategyLabel(String value, {required bool isSpanish}) {
 }
 
 String _recoveryPolicyLabel(String value, {required bool isSpanish}) {
-  if (!isSpanish) return value;
+  if (!isSpanish) {
+    return switch (value) {
+      'askFirst' => 'Ask me first',
+      'reschedule' => 'Reschedule',
+      'reduceScope' => 'Make it smaller',
+      'recoveryQueue' => 'Save for later',
+      _ => value,
+    };
+  }
   return switch (value) {
     'askFirst' => 'Preguntar primero',
     'reschedule' => 'Reprogramar',

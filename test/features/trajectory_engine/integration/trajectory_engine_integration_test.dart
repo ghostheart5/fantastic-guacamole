@@ -18,6 +18,133 @@ import '../../../helpers/trajectory_test_fixture.dart';
 
 void main() {
   group('Trajectory Engine integration', () {
+    testWidgets(
+      'composing delay selects the revision-qualified delay outcome',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(900, 1800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final fixture = trajectoryTestEngineModel();
+        final baseline = trajectoryTestBaseline();
+        final generated = const FutureConsequenceEngine().compare(
+          baseline: baseline,
+          generatedAt: trajectoryFixtureNow,
+          interventions: [
+            TrajectoryIntervention(
+              id: 'complete',
+              type: TrajectoryInterventionType.completeTask,
+              title: 'Complete QA',
+              horizon: const Duration(days: 7),
+              description: 'Original complete result',
+              subjectId: 'task-launch',
+            ),
+            TrajectoryIntervention(
+              id: 'custom-delay-task-launch-1-7',
+              type: TrajectoryInterventionType.delayTask,
+              title: 'Delay QA',
+              horizon: const Duration(days: 7),
+              description: 'Selected custom delay result',
+              subjectId: 'task-launch',
+              delay: const Duration(days: 1),
+            ),
+          ],
+        );
+        final comparison = TrajectoryComparison(
+          baseline: baseline,
+          outcomes: generated.outcomes,
+          recommendedScenarioId: generated.outcomes.first.id,
+        );
+        await tester.pumpWidget(
+          _harness(
+            model: TrajectoryEngineModel(
+              status: TrajectoryEngineStatus.ready,
+              summary: fixture.summary,
+              momentum: fixture.momentum,
+              comparison: comparison,
+              statusDetail: fixture.statusDetail,
+              hasAvailableNetworkInterface: true,
+            ),
+          ),
+        );
+        await tester.pump();
+        final scrollable = find.byType(Scrollable).first;
+        await tester.scrollUntilVisible(
+          find.text('Try a custom what-if').hitTestable(),
+          300,
+          scrollable: scrollable,
+        );
+        await tester.tap(find.text('Try a custom what-if').hitTestable());
+        await tester.pump(const Duration(seconds: 1));
+        await tester.scrollUntilVisible(
+          find.text('Delay').hitTestable(),
+          300,
+          scrollable: scrollable,
+        );
+        await tester.tap(find.text('Delay').hitTestable());
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.scrollUntilVisible(
+          find.text('Compare 7-day path').hitTestable(),
+          300,
+          scrollable: scrollable,
+        );
+        await tester.tap(find.text('Compare 7-day path').hitTestable());
+        await tester.pump();
+        await tester.drag(find.byType(ListView), const Offset(0, 5000));
+        await tester.pump();
+        await tester.scrollUntilVisible(
+          find.text('Selected custom delay result'),
+          300,
+          scrollable: scrollable,
+        );
+        expect(find.text('Selected custom delay result'), findsOneWidget);
+        expect(find.text('Original complete result'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('unobserved capacity is displayed as not scored', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(900, 1800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final fixture = trajectoryTestEngineModel();
+      final comparison = trajectoryTestComparison(
+        baseline: trajectoryTestBaseline(
+          availabilityOrigin: PredictiveEvidenceOrigin.unavailable,
+        ),
+      );
+      await tester.pumpWidget(
+        _harness(
+          model: TrajectoryEngineModel(
+            status: TrajectoryEngineStatus.partial,
+            summary: fixture.summary,
+            momentum: fixture.momentum,
+            comparison: comparison,
+            statusDetail: fixture.statusDetail,
+            hasAvailableNetworkInterface: true,
+          ),
+        ),
+      );
+      await tester.pump();
+      final scrollable = find.byType(Scrollable).first;
+      await tester.scrollUntilVisible(
+        find.text('Full impact and evidence'),
+        300,
+        scrollable: scrollable,
+      );
+      await tester.tap(find.text('Full impact and evidence'));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.scrollUntilVisible(
+        find.textContaining('Capacity overload: not scored.'),
+        300,
+        scrollable: scrollable,
+      );
+      expect(
+        find.textContaining('Capacity overload: not scored.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Capacity overload: 0%'), findsNothing);
+    });
+
     testWidgets('localizes the observed Spanish overview', (tester) async {
       await tester.binding.setSurfaceSize(const Size(900, 1800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -260,7 +387,7 @@ void main() {
       await tester.tap(find.text('Evidence and model details'));
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('CURRENT TRAJECTORY BASELINE'), findsOneWidget);
-      expect(find.textContaining('trajectory-fixture-r1'), findsWidgets);
+      expect(find.textContaining('trajectory-fixture-r1'), findsNothing);
       expect(find.text('FORECAST MONITORING'), findsOneWidget);
       expect(find.text('PROVISIONAL'), findsOneWidget);
     });

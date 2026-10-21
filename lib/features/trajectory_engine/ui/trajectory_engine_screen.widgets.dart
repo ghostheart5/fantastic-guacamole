@@ -294,8 +294,8 @@ class _BaselineCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             Localizations.localeOf(context).languageCode == 'es'
-                ? 'Revisión ${baseline.revision} • confianza ${_trajectoryConfidenceLabel(context, baseline.confidence.band)} • ventana de datos de ${baseline.evidenceWindow.inDays} días'
-                : 'Revision ${baseline.revision} • ${_trajectoryConfidenceLabel(context, baseline.confidence.band)} confidence • ${baseline.evidenceWindow.inDays}-day evidence window',
+                ? 'Confianza ${_trajectoryConfidenceLabel(context, baseline.confidence.band)} • ventana de datos de ${baseline.evidenceWindow.inDays} días'
+                : '${_trajectoryConfidenceLabel(context, baseline.confidence.band)} confidence • ${baseline.evidenceWindow.inDays}-day evidence window',
             style: const TextStyle(
               color: Color(0xFF93A4D6),
               fontSize: 11,
@@ -801,7 +801,7 @@ class _ScenarioFullDetails extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: Text(
-                '${_trajectoryGeneratedText(context, risk.label)}: ${risk.currentScore}% → ${risk.projectedScore}%. ${_trajectoryGeneratedText(context, risk.explanation)}',
+                '${_trajectoryGeneratedText(context, risk.label)}: ${risk.isScored ? '${risk.currentScore}/100 → ${risk.projectedScore}/100' : journeyText(context, 'not scored', 'sin calcular')}. ${_trajectoryGeneratedText(context, risk.explanation)}',
                 style: const TextStyle(
                   color: Color(0xFFB8C7FF),
                   fontSize: 11,
@@ -822,13 +822,33 @@ class _ScenarioFullDetails extends StatelessWidget {
               style: const TextStyle(color: Colors.white, fontSize: 13),
             ),
             subtitle: Text(
-              '${_trajectoryConfidenceLabel(context, outcome.confidence.band)} ${journeyText(context, 'confidence', 'de confianza')} • ±${outcome.uncertainty} ${journeyText(context, 'points', 'puntos')} • ${outcome.modelVersion}',
+              '${_trajectoryConfidenceLabel(context, outcome.confidence.band)} ${journeyText(context, 'confidence', 'de confianza')} • ±${outcome.uncertainty} ${journeyText(context, 'points', 'puntos')}',
               style: const TextStyle(color: Color(0xFF93A4D6), fontSize: 11),
             ),
             children: <Widget>[
               _EvidenceList(
                 title: journeyText(context, 'Evidence', 'Evidencia'),
-                values: outcome.evidence,
+                values: [
+                  journeyText(
+                    context,
+                    '${baseline.observationCount} recorded outcomes in the last ${baseline.evidenceWindow.inDays} days.',
+                    '${baseline.observationCount} resultados registrados en los últimos ${baseline.evidenceWindow.inDays} días.',
+                  ),
+                  journeyText(
+                    context,
+                    '${baseline.completedInWindow} completed and ${baseline.deferredInWindow} deferred outcomes.',
+                    '${baseline.completedInWindow} resultados completados y ${baseline.deferredInWindow} aplazados.',
+                  ),
+                  journeyText(
+                    context,
+                    baseline.hasObservedAvailability
+                        ? '${baseline.availableMinutes} minutes of configured working time.'
+                        : 'Working availability has not been provided.',
+                    baseline.hasObservedAvailability
+                        ? '${baseline.availableMinutes} minutos de tiempo de trabajo configurado.'
+                        : 'No se ha indicado la disponibilidad de trabajo.',
+                  ),
+                ],
               ),
               _EvidenceList(
                 title: journeyText(context, 'Assumptions', 'Supuestos'),
@@ -839,7 +859,7 @@ class _ScenarioFullDetails extends StatelessWidget {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  '${journeyText(context, 'Generated', 'Generado')} ${localizations.formatMediumDate(outcome.generatedAt.toLocal())} • ${journeyText(context, 'baseline', 'línea base')} ${outcome.baselineRevision}',
+                  '${journeyText(context, 'Generated', 'Generado')} ${localizations.formatMediumDate(outcome.generatedAt.toLocal())}',
                   style: const TextStyle(
                     color: Color(0xFF7F91C8),
                     fontSize: 10,
@@ -1140,6 +1160,14 @@ class _Panel extends StatelessWidget {
 }
 
 String _trajectoryGeneratedText(BuildContext context, String value) {
+  value = value.replaceAll(
+    RegExp(r' against baseline \S+\. '),
+    journeyText(
+      context,
+      ' compared with your saved plan. ',
+      ' en comparación con tu plan guardado. ',
+    ),
+  );
   if (Localizations.localeOf(context).languageCode != 'es') return value;
   const exact = <String, String>{
     'Pressure load': 'Carga de presión',

@@ -4,7 +4,7 @@ class CreatorCopy {
   final bool isSpanish;
 
   String get title => isSpanish ? 'Añadir algo' : 'Add something';
-  String get back => isSpanish ? 'Volver a Inicio' : 'Back Home';
+  String get back => isSpanish ? 'Volver a Hoy' : 'Back to Today';
   String get subtitle => isSpanish
       ? 'Ponle un nombre. Añade detalles solo si los necesitas.'
       : 'Give it a name. Add details only if you need them.';

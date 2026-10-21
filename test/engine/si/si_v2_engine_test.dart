@@ -7,6 +7,43 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final DateTime now = DateTime.utc(2026, 8, 20, 12);
 
+  test('record shortcuts cannot override an explicit chat-only choice', () {
+    for (final shortcut in ['/tasks', '/goals', '/milestones', '/timeline']) {
+      final query = SIV2Query.fromUserInput(
+        rawText: '$shortcut explain a fictional example',
+        selectedIntent: SIV2Intent.answer,
+        selectedSources: {},
+        timeRange: SIV2TimeRange.all,
+      );
+      expect(query.sources, isEmpty, reason: shortcut);
+      final response = const SIV2Engine().analyze(
+        query: query,
+        snapshot: _snapshot(now),
+        now: now,
+      );
+      expect(response.evidenceLinks, isEmpty, reason: shortcut);
+    }
+  });
+
+  test(
+    'no selected app sources means no saved evidence and limited confidence',
+    () {
+      final result = const SIV2Engine().analyze(
+        query: SIV2Query.fromUserInput(
+          rawText: 'Compare two fictional breaks',
+          selectedIntent: SIV2Intent.compare,
+          selectedSources: {},
+          timeRange: SIV2TimeRange.all,
+        ),
+        snapshot: _snapshot(now),
+        now: now,
+      );
+      expect(result.evidenceLinks, isEmpty);
+      expect(result.confidence.requiredSignals, 0);
+      expect(result.confidence.strength, SIV2EvidenceStrength.limited);
+    },
+  );
+
   test(
     'bare tasks is a usable record request, not an unsupported question',
     () {

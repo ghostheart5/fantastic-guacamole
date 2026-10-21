@@ -377,7 +377,10 @@ class SettingsScreen extends ConsumerWidget {
                   child: Column(
                     children: [
                       _NeonToggleTile(
-                        title: copy('Dark Mode', 'Modo oscuro'),
+                        title: copy(
+                          'Dark forms and dialogs',
+                          'Formularios y diálogos oscuros',
+                        ),
                         value: isDarkMode,
                         onChanged: (bool enabled) {
                           final AppThemeEntity next = enabled
@@ -385,6 +388,16 @@ class SettingsScreen extends ConsumerWidget {
                               : AppThemeEntity.light();
                           unawaited(ref.read(themeActionsProvider).save(next));
                         },
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: Text(
+                          copy(
+                            'Background artwork stays dark. This setting changes forms and dialogs.',
+                            'El fondo sigue oscuro. Este ajuste cambia los formularios y diálogos.',
+                          ),
+                          style: const TextStyle(color: Colors.white70),
+                        ),
                       ),
                       _NeonToggleTile(
                         title: copy('Sound effects', 'Efectos de sonido'),

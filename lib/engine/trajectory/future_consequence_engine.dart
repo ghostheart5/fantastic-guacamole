@@ -349,6 +349,7 @@ class FutureConsequenceEngine {
         TrajectoryRiskContribution(
           code: 'capacity',
           label: 'Capacity overload',
+          isScored: baseline.hasObservedAvailability,
           currentScore: capacityBase,
           projectedScore: projectedCapacity,
           explanation: baseline.hasObservedAvailability

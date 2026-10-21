@@ -5,9 +5,71 @@ import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
 import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
+import 'package:fantastic_guacamole/domain/entities/work_window_entity.dart';
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'rationale distinguishes current observed energy and configured windows',
+    () {
+      final now = DateTime(2026, 10, 21, 10);
+      final result = const DecisionEngine().recommend(
+        tasks: [
+          TaskEntity(
+            id: 'qa',
+            title: 'QA step',
+            createdAt: now,
+            estimatedDuration: const Duration(minutes: 10),
+          ),
+        ],
+        state: SiStateEntity(
+          energy: .7,
+          attention: .7,
+          fatigue: .2,
+          lastUpdated: now,
+        ),
+        energyOrigin: PredictiveEvidenceOrigin.observed,
+        workWindows: [
+          WorkWindowEntity(
+            id: 'qa-window',
+            start: now,
+            end: now.add(const Duration(hours: 1)),
+          ),
+        ],
+        learning: LearningEntity(),
+        now: now,
+      );
+      expect(result.selectedTask?.id, 'qa');
+      expect(result.rationale, contains('configured work windows'));
+      expect(result.rationale, contains('current check-in'));
+      expect(result.rationale, isNot(contains('assumed or estimated')));
+    },
+  );
+  test('rationale identifies default state and assumed availability', () {
+    final now = DateTime(2026, 10, 21, 10);
+    final result = const DecisionEngine().recommend(
+      tasks: [
+        TaskEntity(
+          id: 'qa',
+          title: 'QA step',
+          createdAt: now,
+          estimatedDuration: const Duration(minutes: 10),
+        ),
+      ],
+      state: SiStateEntity(energy: .5, attention: .5, fatigue: .5),
+      learning: LearningEntity(),
+      now: now,
+    );
+    expect(result.selectedTask?.id, 'qa');
+    expect(result.rationale, contains('assumed or estimated work window'));
+    expect(result.rationale, contains('default or older check-in'));
+    expect(result.rationale, isNot(contains('learned effort tolerance')));
+    expect(
+      result.evidence.firstWhere((item) => item.source == 'plan').detail,
+      contains('not confirmed availability'),
+    );
+  });
   for (final minutes in [1, 2, 5]) {
     test('governed $minutes-minute capacity does not expand a short task', () {
       final now = DateTime(2026, 9, 11, 12);
