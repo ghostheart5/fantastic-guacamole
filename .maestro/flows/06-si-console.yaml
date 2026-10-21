@@ -12,7 +12,7 @@ tags:
     env:
       TARGET: "Chat"
 
-- assertVisible: "(?s).*Talk it through.*"
+- assertVisible: "^Chat$"
 
 # The screen must expose its current source-aware contract, not only a title.
 - assertVisible: "(?s).*Ask a question about your saved plans. Review the answer before deciding\\..*"
