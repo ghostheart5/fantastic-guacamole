@@ -445,7 +445,7 @@ void main() {
         router.routeInformationProvider.value.uri.path,
         RoutePaths.creator,
       );
-      await _tapRequired(tester, find.bySemanticsLabel('Back Home'));
+      await _tapRequired(tester, find.bySemanticsLabel('Back to Today'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       await _waitForRouterPath(tester, router, RoutePaths.nexus);
