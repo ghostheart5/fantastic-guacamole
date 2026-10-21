@@ -1,7 +1,9 @@
 import { sha256Hex } from "./billing_backend.ts";
 
-export const CREDIT_POLICY = "monthly-credits-v2-sonnet46-20260908";
+export const CREDIT_POLICY = "monthly-credits-v3-sonnet46-20261020";
+// Database funding reserve per debited credit; not the customer price.
 export const MAX_PROVIDER_MICROUSD_PER_CREDIT = 3000;
+export const CUSTOMER_QUOTE_MICROUSD_PER_CREDIT = 8000;
 // Includes a conservative framing allowance. Count all serialized request bytes,
 // not only the newest prompt; UTF-8 bytes bound text-token encoding size.
 export function quotedProviderCostMicrousd(
@@ -21,7 +23,7 @@ export function quotedCreditCost(upstream: Record<string, unknown>): number {
     1,
     Math.ceil(
       quotedProviderCostMicrousd(upstream) /
-        MAX_PROVIDER_MICROUSD_PER_CREDIT,
+        CUSTOMER_QUOTE_MICROUSD_PER_CREDIT,
     ),
   );
 }
