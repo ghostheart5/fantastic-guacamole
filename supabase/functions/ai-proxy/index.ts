@@ -1,6 +1,5 @@
 import {
   createCreditQuote,
-  MAX_PROVIDER_MICROUSD_PER_CREDIT,
   quotedCreditCost,
   quotedProviderCostMicrousd,
   verifyCreditQuote,
@@ -403,7 +402,11 @@ Deno.serve(async (req: Request) => {
     })
   ) return jsonResponse(req, { error: "rate_limit_exceeded" }, 429);
 
-  let reservation: { userId: string; requestId: string } | null = null;
+  let reservation: {
+    userId: string;
+    requestId: string;
+    providerCallStarted: boolean;
+  } | null = null;
   try {
     const contentLength = Number(req.headers.get("content-length") ?? 0);
     if (contentLength > 32_000) {
@@ -531,12 +534,44 @@ Deno.serve(async (req: Request) => {
         error: reason,
       }, aiReservationFailureStatus(reason));
     }
-    reservation = { userId, requestId };
+    reservation = { userId, requestId, providerCallStarted: false };
+    // Customer credits and database provider funding are separate. Expand the
+    // reservation to the full unchanged worst-case cost before any provider
+    // call; neither a denial nor an ambiguous RPC response may permit work.
+    const initialProviderCost = quotedProviderCostMicrousd(upstreamBody);
+    let providerBudget: Record<string, unknown> | null = null;
+    try {
+      providerBudget = await serviceRpc(
+        config,
+        "reserve_ai_repair_budget",
+        {
+          p_user_id: userId,
+          p_request_key: requestId,
+          p_required_provider_cost_microusd: initialProviderCost,
+        },
+        fetch,
+        AbortSignal.timeout(SETTLEMENT_TIMEOUT_MS),
+      );
+    } catch (error) {
+      console.error("AI initial provider budget check failed", error);
+    }
+    if (providerBudget?.allowed !== true) {
+      await settleReservation(userId, requestId, false, {
+        inputTokens: 0,
+        outputTokens: 0,
+        failureCode: providerBudget
+          ? String(providerBudget.reason ?? "provider_cost_budget_exceeded")
+          : "provider_budget_check_failed",
+      });
+      reservation = null;
+      return jsonResponse(req, { requestId, error: "request_refunded" }, 409);
+    }
 
     const upstreamTimeoutMs = remainingProviderTimeoutMs(providerFlowStartedAt);
     if (upstreamTimeoutMs <= 0) {
       throw new DOMException("Provider flow deadline exceeded", "TimeoutError");
     }
+    reservation.providerCallStarted = true;
     const upstream = await fetch(ANTHROPIC_API, {
       method: "POST",
       // Leave time to refund a reservation before the edge request expires.
@@ -668,8 +703,7 @@ Deno.serve(async (req: Request) => {
           {
             p_user_id: userId,
             p_request_key: requestId,
-            p_required_provider_cost_microusd:
-              cost * MAX_PROVIDER_MICROUSD_PER_CREDIT +
+            p_required_provider_cost_microusd: initialProviderCost +
               quotedProviderCostMicrousd(repairBody),
           },
           fetch,
@@ -876,6 +910,12 @@ Deno.serve(async (req: Request) => {
           reservation.requestId,
           false,
           {
+            // A budget expansion may have committed even if its reply was
+            // lost. Explicit zero usage releases all funding when no provider
+            // call began; unknown usage after dispatch stays conservative.
+            ...(reservation.providerCallStarted
+              ? {}
+              : { inputTokens: 0, outputTokens: 0 }),
             failureCode: error instanceof DOMException &&
                 error.name === "TimeoutError"
               ? "provider_timeout"

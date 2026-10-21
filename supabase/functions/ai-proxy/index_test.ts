@@ -1,3 +1,4 @@
+import { quotedProviderCostMicrousd } from "../_shared/ai_credit_quote.ts";
 // Exercise the actual served handler, including its reservation/refund order.
 // Only transport/configuration are substituted; no network or credentials.
 type Handler = (request: Request) => Promise<Response>;
@@ -78,6 +79,9 @@ Deno.test("duplicate denied AI request preserves its original budget reason", as
     if (path.endsWith("/consume_backend_rate_limit")) {
       return Promise.resolve(Response.json({ allowed: true }));
     }
+    if (path.endsWith("/reserve_ai_repair_budget")) {
+      throw new Error("duplicate must not expand provider budget");
+    }
     if (path.endsWith("/reserve_ai_usage")) {
       return Promise.resolve(Response.json({
         allowed: false,
@@ -139,6 +143,9 @@ for (
         return Promise.resolve(Response.json({ id: userId }));
       }
       if (path.endsWith("/consume_backend_rate_limit")) {
+        return Promise.resolve(Response.json({ allowed: true }));
+      }
+      if (path.endsWith("/reserve_ai_repair_budget")) {
         return Promise.resolve(Response.json({ allowed: true }));
       }
       if (path.endsWith("/reserve_ai_usage")) {
@@ -347,6 +354,9 @@ for (
       if (path.endsWith("/consume_backend_rate_limit")) {
         return Promise.resolve(Response.json({ allowed: true }));
       }
+      if (path.endsWith("/reserve_ai_repair_budget")) {
+        throw new Error("duplicate must not expand provider budget");
+      }
       if (path.endsWith("/reserve_ai_usage")) {
         return Promise.resolve(Response.json({
           allowed: true,
@@ -438,6 +448,8 @@ Deno.test("contradictory Planner verdict is repaired before one settled response
   let providerCalls = 0;
   let reservations = 0;
   let settlements = 0;
+  const budgets: number[] = [];
+  let providerEstimate = 0;
   globalThis.fetch = ((url, init) => {
     const path = String(url);
     if (path.endsWith("/auth/v1/user")) {
@@ -455,6 +467,8 @@ Deno.test("contradictory Planner verdict is repaired before one settled response
       );
     }
     if (path.endsWith("/reserve_ai_repair_budget")) {
+      const body = JSON.parse(String(init?.body));
+      budgets.push(body.p_required_provider_cost_microusd);
       return Promise.resolve(Response.json({ allowed: true }));
     }
     if (
@@ -469,6 +483,17 @@ Deno.test("contradictory Planner verdict is repaired before one settled response
       return Promise.resolve(Response.json({ state: "completed" }));
     }
     if (path === "https://api.anthropic.com/v1/messages") {
+      providerEstimate += quotedProviderCostMicrousd(
+        JSON.parse(String(init?.body)),
+      );
+      if (
+        budgets.length !== providerCalls + 1 ||
+        budgets.at(-1) !== providerEstimate
+      ) {
+        throw new Error(
+          "provider fetch preceded full cumulative budget approval",
+        );
+      }
       providerCalls++;
       const repaired = providerCalls === 2;
       return Promise.resolve(Response.json({
@@ -510,7 +535,8 @@ Deno.test("contradictory Planner verdict is repaired before one settled response
       response.status !== 200 ||
       body.message !==
         "Review release evidence first. The grocery window has passed, and release review fits now." ||
-      providerCalls !== 2 || reservations !== 1 || settlements !== 1
+      providerCalls !== 2 || reservations !== 1 || settlements !== 1 ||
+      budgets.length !== 2 || quote.credits !== 5 || body.creditsCharged !== 5
     ) throw new Error("contradictory response was not repaired exactly once");
   } finally {
     globalThis.fetch = originalFetch;
@@ -522,6 +548,7 @@ Deno.test("served SI timing uses one quoted provider call and deterministic wind
   const originalFetch = globalThis.fetch;
   let providerCalls = 0;
   let repairCalls = 0;
+  const fundedRequests = new Set<string>();
   let settlements = 0;
   globalThis.fetch = ((url, init) => {
     const path = String(url);
@@ -541,6 +568,11 @@ Deno.test("served SI timing uses one quoted provider call and deterministic wind
       }));
     }
     if (path.endsWith("/reserve_ai_repair_budget")) {
+      const body = JSON.parse(String(init?.body));
+      if (!fundedRequests.has(body.p_request_key)) {
+        fundedRequests.add(body.p_request_key);
+        return Promise.resolve(Response.json({ allowed: true }));
+      }
       repairCalls++;
       throw new Error("timing answer must not enter paid repair");
     }
@@ -990,6 +1022,9 @@ for (
         );
       }
       if (path.endsWith("/reserve_ai_repair_budget")) {
+        if (providerCalls === 0) {
+          return Promise.resolve(Response.json({ allowed: true }));
+        }
         repairBudgetCalls++;
         if (budgetFailure === "timeout") {
           if (!init?.signal) {
@@ -1088,6 +1123,9 @@ Deno.test("expired repair flow settles only first provider usage", async () => {
       );
     }
     if (path.endsWith("/reserve_ai_repair_budget")) {
+      if (providerCalls === 0) {
+        return Promise.resolve(Response.json({ allowed: true }));
+      }
       flowExpired = true;
       return Promise.resolve(Response.json({ allowed: true }));
     }
@@ -1165,6 +1203,9 @@ Deno.test("failure settlement outage preserves deterministic client error", asyn
     if (path.endsWith("/consume_backend_rate_limit")) {
       return Promise.resolve(Response.json({ allowed: true }));
     }
+    if (path.endsWith("/reserve_ai_repair_budget")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
     if (path.endsWith("/reserve_ai_usage")) {
       return Promise.resolve(
         Response.json({ allowed: true, duplicate: false, balance: 84 }),
@@ -1225,6 +1266,9 @@ for (const settlementFailure of ["timeout", "network"] as const) {
         );
       }
       if (path.endsWith("/consume_backend_rate_limit")) {
+        return Promise.resolve(Response.json({ allowed: true }));
+      }
+      if (path.endsWith("/reserve_ai_repair_budget")) {
         return Promise.resolve(Response.json({ allowed: true }));
       }
       if (path.endsWith("/reserve_ai_usage")) {
@@ -1312,6 +1356,9 @@ Deno.test("a lost reconciliation response is retried to an authoritative settlem
     if (path.endsWith("/consume_backend_rate_limit")) {
       return Promise.resolve(Response.json({ allowed: true }));
     }
+    if (path.endsWith("/reserve_ai_repair_budget")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
     if (path.endsWith("/reserve_ai_usage")) {
       return Promise.resolve(
         Response.json({ allowed: true, duplicate: false, balance: 83 }),
@@ -1393,6 +1440,9 @@ Deno.test("an ambiguous settlement survives a later deterministic reconciliation
       );
     }
     if (path.endsWith("/consume_backend_rate_limit")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
+    if (path.endsWith("/reserve_ai_repair_budget")) {
       return Promise.resolve(Response.json({ allowed: true }));
     }
     if (path.endsWith("/reserve_ai_usage")) {
@@ -1483,6 +1533,9 @@ Deno.test("an exhausted ambiguous settlement still delivers the paid reply", asy
     if (path.endsWith("/consume_backend_rate_limit")) {
       return Promise.resolve(Response.json({ allowed: true }));
     }
+    if (path.endsWith("/reserve_ai_repair_budget")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
     if (path.endsWith("/reserve_ai_usage")) {
       return Promise.resolve(
         Response.json({ allowed: true, duplicate: false, balance: 82 }),
@@ -1557,6 +1610,9 @@ for (const deterministicStatus of [400, 401, 404] as const) {
         );
       }
       if (path.endsWith("/consume_backend_rate_limit")) {
+        return Promise.resolve(Response.json({ allowed: true }));
+      }
+      if (path.endsWith("/reserve_ai_repair_budget")) {
         return Promise.resolve(Response.json({ allowed: true }));
       }
       if (path.endsWith("/reserve_ai_usage")) {
@@ -1662,6 +1718,9 @@ for (
       }
       if (path.endsWith("/consume_backend_rate_limit")) {
         return Promise.resolve(json({ allowed: true }));
+      }
+      if (path.endsWith("/reserve_ai_repair_budget")) {
+        return Promise.resolve(Response.json({ allowed: true }));
       }
       if (path.endsWith("/reserve_ai_usage")) {
         if (state !== "new") {
@@ -1833,3 +1892,213 @@ Deno.test("AI handler rejects noncohort and anonymous accounts before quote, deb
     globalThis.fetch = originalFetch;
   }
 });
+
+for (
+  const mode of [
+    "allowed",
+    "denied",
+    "null",
+    "malformed-allow",
+    "network",
+    "timeout",
+    "deadline",
+    "refund-outage",
+    "dispatch-network",
+  ] as const
+) {
+  Deno.test(`initial full provider funding before five-credit dispatch: ${mode}`, async () => {
+    if (!handler) throw new Error("handler was not registered");
+    const originalFetch = globalThis.fetch;
+    const originalNow = Date.now;
+    let expired = false;
+    Date.now = () => expired ? 21_000 : 0;
+    const events: string[] = [];
+    const refunds: Array<Record<string, unknown>> = [];
+    let providerCalls = 0, debits = 0, budget = 0, quotedCredits = 0;
+    let completed = false;
+    const problems: string[] = [];
+    globalThis.fetch = ((url, init) => {
+      const path = String(url);
+      if (path.endsWith("/auth/v1/user")) {
+        return Promise.resolve(
+          Response.json({ id: "11111111-1111-4111-8111-111111111111" }),
+        );
+      }
+      if (path.endsWith("/consume_backend_rate_limit")) {
+        return Promise.resolve(Response.json({ allowed: true }));
+      }
+      if (path.endsWith("/reserve_ai_usage")) {
+        events.push("credits");
+        const body = JSON.parse(String(init?.body));
+        if (completed) {
+          return Promise.resolve(
+            Response.json({
+              allowed: true,
+              duplicate: true,
+              state: "completed",
+              balance: 79,
+            }),
+          );
+        }
+        debits++;
+        if (body.p_credit_amount !== 5) problems.push("wrong customer debit");
+        return Promise.resolve(
+          Response.json({
+            allowed: true,
+            duplicate: false,
+            state: "reserved",
+            balance: 79,
+          }),
+        );
+      }
+      if (path.endsWith("/reserve_ai_repair_budget")) {
+        events.push("budget");
+        const body = JSON.parse(String(init?.body));
+        budget = body.p_required_provider_cost_microusd;
+        if (
+          !init?.signal ||
+          body.p_user_id !== "11111111-1111-4111-8111-111111111111" ||
+          body.p_request_key !== `synthetic-initial-budget-${mode}`
+        ) problems.push("budget scope/timeout missing");
+        if (mode === "network") {
+          return Promise.reject(
+            new TypeError("synthetic lost expansion response"),
+          );
+        }
+        if (mode === "timeout") {
+          return Promise.reject(
+            new DOMException("synthetic timeout", "TimeoutError"),
+          );
+        }
+        if (mode === "null") return Promise.resolve(Response.json(null));
+        if (mode === "denied" || mode === "refund-outage") {
+          return Promise.resolve(
+            Response.json({
+              allowed: false,
+              reason: "provider_cost_budget_exceeded",
+            }),
+          );
+        }
+        if (mode === "malformed-allow") {
+          return Promise.resolve(Response.json({ allowed: "true" }));
+        }
+        if (mode === "deadline") expired = true;
+        return Promise.resolve(Response.json({ allowed: true }));
+      }
+      if (path === "https://api.anthropic.com/v1/messages") {
+        events.push("provider");
+        providerCalls++;
+        const body = JSON.parse(String(init?.body));
+        if (
+          events.slice(0, 3).join(",") !== "credits,budget,provider" ||
+          budget !== quotedProviderCostMicrousd(body) || budget <= 5 * 3000
+        ) problems.push("underfunded/out-of-order provider");
+        if (body.model !== "claude-sonnet-4-6" || body.max_tokens !== 1024) {
+          problems.push("model/output changed");
+        }
+        if (mode === "dispatch-network") {
+          return Promise.reject(
+            new TypeError("synthetic lost provider response"),
+          );
+        }
+        return Promise.resolve(Response.json({
+          id: "synthetic-provider",
+          model: "claude-sonnet-4-6",
+          stop_reason: "end_turn",
+          content: [{
+            type: "text",
+            text: "Consider the fictional reading option.",
+          }],
+          usage: { input_tokens: 20, output_tokens: 10 },
+        }));
+      }
+      if (
+        path.endsWith("/settle_ai_usage") ||
+        path.endsWith("/settle_ai_usage_v2")
+      ) {
+        events.push("settle");
+        const body = JSON.parse(String(init?.body));
+        if (body.p_succeeded === false) {
+          refunds.push(body);
+          if (mode === "refund-outage") {
+            return Promise.reject(new TypeError("synthetic settlement outage"));
+          }
+          return Promise.resolve(Response.json({ state: "refunded" }));
+        }
+        completed = true;
+        return Promise.resolve(Response.json({ state: "completed" }));
+      }
+      if (path.includes("/rest/v1/ai_usage_requests?")) {
+        return Promise.resolve(Response.json([]));
+      }
+      throw new Error(`unexpected transport ${path}`);
+    }) as typeof fetch;
+    try {
+      const input = {
+        requestId: `synthetic-initial-budget-${mode}`,
+        prompt: "Compare two fictional options for a quiet break.",
+        personality: "planner",
+        context: {},
+        maxTokens: 1024,
+        allowExternalAi: true,
+      };
+      const request = (extra: Record<string, unknown>) =>
+        new Request("https://local.example/ai-proxy", {
+          method: "POST",
+          headers: { authorization: "Bearer synthetic-session" },
+          body: JSON.stringify({ ...input, ...extra }),
+        });
+      const q = await handler(request({ quoteOnly: true }));
+      const { quote } = await q.json();
+      quotedCredits = quote.credits;
+      if (events.length) problems.push("quote reserved/provider work");
+      const response = await handler(request({ quote }));
+      const result = await response.json();
+      if (quotedCredits !== 5 || debits !== 1) {
+        problems.push("quote/debit not five exactly once");
+      }
+      if (mode === "allowed") {
+        if (
+          response.status !== 200 || result.creditsCharged !== 5 ||
+          providerCalls !== 1 || refunds.length
+        ) problems.push("normal five-credit response failed");
+        const retry = await handler(request({ quote }));
+        await retry.body?.cancel();
+        if (
+          events.filter((v) => v === "budget").length !== 1 ||
+          providerCalls !== 1 || debits !== 1
+        ) problems.push("duplicate expanded budget or redebited");
+      } else if (mode === "dispatch-network") {
+        if (
+          providerCalls !== 1 || refunds.length !== 1 ||
+          refunds[0].p_input_tokens !== null ||
+          refunds[0].p_output_tokens !== null
+        ) problems.push("uncertain dispatched usage incorrectly zeroed");
+      } else {
+        if (
+          providerCalls !== 0 || refunds.length < 1 ||
+          refunds.some((v) =>
+            v.p_input_tokens !== 0 || v.p_output_tokens !== 0 ||
+            v.p_succeeded !== false
+          )
+        ) problems.push("pre-dispatch failure lost zero usage/refund");
+        if (mode === "refund-outage") {
+          if (response.status !== 500 || result.error !== "request_failed") {
+            problems.push("outage invented completed refund");
+          }
+        } else if (mode === "deadline") {
+          if (response.status !== 500 || result.error !== "request_failed") {
+            problems.push("deadline did not terminate");
+          }
+        } else if (
+          response.status !== 409 || result.error !== "request_refunded" ||
+          refunds.length !== 1
+        ) problems.push("budget failure did not terminate/refund once");
+      }
+      if (problems.length) throw new Error(problems.join("; "));
+    } finally {
+      globalThis.fetch = originalFetch;
+      Date.now = originalNow;
+    }
+  });
+}
