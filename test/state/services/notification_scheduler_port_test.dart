@@ -462,6 +462,140 @@ void main() {
     expect(scheduler.cancelled, contains('reflection_reminder'));
   });
 
+  for (final succeeds in [false, true]) {
+    test(
+      'enabled reflection time schedules once and reports $succeeds',
+      () async {
+        final preferences = _MemoryPreferences();
+        await preferences.save(ReflectionReminderService.enabledKey, 'true');
+        final scheduler = _RecordingScheduler()..scheduleSucceeds = succeeds;
+        final service = ReflectionReminderService(
+          preferences: preferences,
+          scheduler: scheduler,
+          permissionListenable: scheduler.permissionSignal,
+        );
+        expect(
+          await service.setTime(time: const TimeOfDay(hour: 10, minute: 30)),
+          succeeds,
+        );
+        expect(scheduler.dailySchedules, hasLength(1));
+        expect(service.loadPrefs().enabled, succeeds);
+      },
+    );
+  }
+
+  test(
+    'resume preserves matching pending reflection instead of canceling it',
+    () async {
+      final preferences = _MemoryPreferences();
+      await preferences.save(ReflectionReminderService.enabledKey, 'true');
+      final scheduler = _RecordingScheduler();
+      final service = ReflectionReminderService(
+        preferences: preferences,
+        scheduler: scheduler,
+        permissionListenable: scheduler.permissionSignal,
+        hasMatchingRegistration: (time) async =>
+            time == const TimeOfDay(hour: 20, minute: 0),
+      );
+      expect(
+        await service.reconcileAfterRestore(
+          permissionGranted: true,
+          shouldContinue: () => true,
+        ),
+        isTrue,
+      );
+      expect(scheduler.cancelled, isEmpty);
+      expect(scheduler.dailySchedules, isEmpty);
+      expect(scheduler.permissionRequests, 0);
+    },
+  );
+
+  test('resume replaces a missing reflection registration', () async {
+    final preferences = _MemoryPreferences();
+    await preferences.save(ReflectionReminderService.enabledKey, 'true');
+    final scheduler = _RecordingScheduler();
+    final service = ReflectionReminderService(
+      preferences: preferences,
+      scheduler: scheduler,
+      permissionListenable: scheduler.permissionSignal,
+      hasMatchingRegistration: (_) async => false,
+    );
+    expect(
+      await service.reconcileAfterRestore(
+        permissionGranted: true,
+        shouldContinue: () => true,
+      ),
+      isTrue,
+    );
+    expect(scheduler.cancelled, [ReflectionReminderService.notificationId]);
+    expect(scheduler.dailySchedules, hasLength(1));
+    expect(scheduler.permissionRequests, 0);
+  });
+
+  test(
+    'account change during registration lookup stops reconciliation',
+    () async {
+      final preferences = _MemoryPreferences();
+      await preferences.save(ReflectionReminderService.enabledKey, 'true');
+      final scheduler = _RecordingScheduler();
+      var current = true;
+      final service = ReflectionReminderService(
+        preferences: preferences,
+        scheduler: scheduler,
+        permissionListenable: scheduler.permissionSignal,
+        hasMatchingRegistration: (_) async {
+          current = false;
+          return true;
+        },
+      );
+      expect(
+        await service.reconcileAfterRestore(
+          permissionGranted: true,
+          shouldContinue: () => current,
+        ),
+        isFalse,
+      );
+      expect(scheduler.cancelled, isEmpty);
+      expect(scheduler.dailySchedules, isEmpty);
+    },
+  );
+
+  test('reflection scheduling failure is not reported as enabled', () async {
+    final preferences = _MemoryPreferences();
+    final scheduler = _RecordingScheduler()..scheduleSucceeds = false;
+    final service = ReflectionReminderService(
+      preferences: preferences,
+      scheduler: scheduler,
+      permissionListenable: scheduler.permissionSignal,
+    );
+    expect(
+      await service.setEnabled(
+        enabled: true,
+        time: const TimeOfDay(hour: 9, minute: 15),
+      ),
+      isFalse,
+    );
+    expect(service.loadPrefs().enabled, isFalse);
+    expect(service.loadPrefs().time, const TimeOfDay(hour: 9, minute: 15));
+  });
+
+  test('changing disabled reflection time never registers an alarm', () async {
+    final preferences = _MemoryPreferences();
+    final scheduler = _RecordingScheduler();
+    final service = ReflectionReminderService(
+      preferences: preferences,
+      scheduler: scheduler,
+      permissionListenable: scheduler.permissionSignal,
+    );
+    expect(
+      await service.setTime(time: const TimeOfDay(hour: 11, minute: 20)),
+      isTrue,
+    );
+    expect(scheduler.dailySchedules, isEmpty);
+    expect(service.loadPrefs().enabled, isFalse);
+    expect(service.loadPrefs().time, const TimeOfDay(hour: 11, minute: 20));
+  });
+
   test('daily planning orchestration uses the scheduler port', () async {
     final _MemoryPreferences preferences = _MemoryPreferences();
     final _RecordingScheduler scheduler = _RecordingScheduler();

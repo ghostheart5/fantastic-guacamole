@@ -228,6 +228,7 @@ void main() {
               (TrajectoryRiskContribution item) => item.code == 'capacity',
             );
         expect(capacity.currentScore, 0);
+        expect(capacity.isScored, isFalse);
         expect(capacity.projectedScore, 0);
         expect(capacity.explanation, contains('not scored'));
       }

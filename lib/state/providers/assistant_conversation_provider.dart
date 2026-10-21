@@ -195,7 +195,10 @@ final class ConversationPacketFactory {
     final snapshot = await ref
         .read(siV2ReadGatewayProvider)
         .read(observedAt: now.toUtc(), decisionText: prompt);
-    final note = surface == ConversationSurface.planner && !taskOnly
+    final note =
+        surface == ConversationSurface.planner &&
+            !taskOnly &&
+            sources.isNotEmpty
         ? await ref.read(selectedPlanningNoteProvider.future)
         : null;
     if (!ref.mounted ||
@@ -313,7 +316,10 @@ final class ConversationPacketFactory {
             effectiveSources.map((source) => source.name).toList()..sort(),
         'entityFilter': entityFilter,
         'scenarioAssumption': scenario,
-        'evidenceRevision': snapshot.revision,
+        'evidenceRevision': effectiveSources.isEmpty
+            ? 'chat-only'
+            : snapshot.revision,
+        if (effectiveSources.isEmpty) 'contextScope': 'chatOnly',
         if (taskOnly) 'contextScope': 'attachedTaskOnly',
         if (taskDetailsUnavailable) 'taskDetailsUnavailable': true,
         'explicitlyAttachedTaskId': ?attachedId,
@@ -385,7 +391,7 @@ final class ConversationPacketFactory {
           timeline.length,
         ].fold<int>(0, (sum, size) => sum + (size > 12 ? size - 12 : 0)),
         'unavailableSources': snapshot.unavailableSources
-            .where((source) => !taskOnly || source == SIV2Source.tasks)
+            .where(effectiveSources.contains)
             .map((source) => source.name)
             .toList(),
         if (note != null) 'selectedNoteId': note.id,
@@ -399,6 +405,7 @@ final class ConversationPacketFactory {
         if (surface == ConversationSurface.planner)
           'reportedEnergy': human.authorizeReportedEnergy(reportedEnergy),
         if (surface == ConversationSurface.planner &&
+            effectiveSources.isNotEmpty &&
             !taskOnly &&
             human.emotionAllowed &&
             human.emotion != null)

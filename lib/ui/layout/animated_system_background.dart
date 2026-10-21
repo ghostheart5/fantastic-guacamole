@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AnimatedSystemBackground extends StatefulWidget {
   const AnimatedSystemBackground({
@@ -131,36 +132,41 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
         )!;
         final Alignment begin = Alignment(-1 + (t * 0.6), -1 + (t * 0.2));
         final Alignment end = Alignment(1 - (t * 0.4), 1 - (t * 0.1));
-        return Stack(
-          fit: StackFit.expand,
-          children: <Widget>[
-            ?child,
-            if (widget.showGradientOverlay)
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: begin,
-                    end: end,
-                    colors: <Color>[
-                      tint(color2, overlayOpacity * 0.72),
-                      tint(color1, overlayOpacity * 0.82),
-                      tint(color1, overlayOpacity),
-                      tint(color2, overlayOpacity * 0.9),
-                    ],
+        // These artwork surfaces remain dark in either Material theme. Match
+        // system icons to the actual background, not the selected form theme.
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle.light,
+          child: Stack(
+            fit: StackFit.expand,
+            children: <Widget>[
+              ?child,
+              if (widget.showGradientOverlay)
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: begin,
+                      end: end,
+                      colors: <Color>[
+                        tint(color2, overlayOpacity * 0.72),
+                        tint(color1, overlayOpacity * 0.82),
+                        tint(color1, overlayOpacity),
+                        tint(color2, overlayOpacity * 0.9),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            if (showGlow)
-              RepaintBoundary(
-                child: CustomPaint(
-                  painter: _GlowPainter(
-                    progress: t,
-                    opacity: t > 0.02 ? 0.35 * overlayOpacity : 0,
+              if (showGlow)
+                RepaintBoundary(
+                  child: CustomPaint(
+                    painter: _GlowPainter(
+                      progress: t,
+                      opacity: t > 0.02 ? 0.35 * overlayOpacity : 0,
+                    ),
                   ),
                 ),
-              ),
-            ?widget.child,
-          ],
+              ?widget.child,
+            ],
+          ),
         );
       },
     );

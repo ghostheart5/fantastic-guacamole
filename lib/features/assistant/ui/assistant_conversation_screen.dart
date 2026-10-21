@@ -656,6 +656,13 @@ class _AssistantConversationScreenState
 
   String _contextPreview(ConversationPacket packet) {
     final data = Map<String, dynamic>.from(packet.toJson()['context'] as Map);
+    final sourceNames =
+        (data['selectedSources'] as List?)?.whereType<String>().toSet() ??
+        <String>{};
+    final includedSources = SIV2Source.values
+        .where((source) => sourceNames.contains(source.name))
+        .map(_sourceLabel)
+        .join(', ');
     final lines = <String>[
       if (data['contextScope'] == 'attachedTaskOnly')
         copy(
@@ -667,8 +674,8 @@ class _AssistantConversationScreenState
         'Análisis seleccionado: ${_intentLabel(_intent)}',
       ),
       copy(
-        'Sources: ${_sources.map(_sourceLabel).join(', ')}',
-        'Fuentes: ${_sources.map(_sourceLabel).join(', ')}',
+        'Sources: ${includedSources.isEmpty ? 'just this chat' : includedSources}',
+        'Fuentes: ${includedSources.isEmpty ? 'solo esta conversación' : includedSources}',
       ),
       copy('Dates: ${_rangeLabel(_range)}', 'Fechas: ${_rangeLabel(_range)}'),
       if (_filter.text.trim().isNotEmpty)
@@ -824,7 +831,7 @@ class _AssistantConversationScreenState
         title: Text(
           planner
               ? copy('Choose a step', 'Elegir un paso')
-              : copy('Talk it through', 'Hablarlo'),
+              : copy('Chat', 'Chat'),
         ),
         leading: BackButton(
           onPressed: _busy
@@ -1065,7 +1072,7 @@ class _AssistantConversationScreenState
                                       : (selected) => setState(() {
                                           if (selected) {
                                             _sources = {..._sources, s};
-                                          } else if (_sources.length > 1) {
+                                          } else {
                                             _sources = {..._sources}..remove(s);
                                           }
                                         }),
@@ -1073,6 +1080,29 @@ class _AssistantConversationScreenState
                               )
                               .toList(),
                         ),
+                        TextButton(
+                          onPressed: !enabled
+                              ? null
+                              : () => setState(() {
+                                  _sources = <SIV2Source>{};
+                                  _attachedTaskId = null;
+                                  _energy = null;
+                                  _pending = null;
+                                }),
+                          child: Text(
+                            copy(
+                              'Use just this chat',
+                              'Usar solo esta conversación',
+                            ),
+                          ),
+                        ),
+                        if (_sources.isEmpty && _attachedTaskId == null)
+                          Text(
+                            copy(
+                              'Saved planning records are off. Earlier messages in this chat still apply.',
+                              'No se incluyen registros de planificación. Los mensajes anteriores de esta conversación aún se usan.',
+                            ),
+                          ),
                         TextField(
                           key: const Key('conversation-entity-filter'),
                           controller: _filter,

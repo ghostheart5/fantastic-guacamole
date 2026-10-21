@@ -111,13 +111,26 @@ final reflectionReminderServiceProvider = Provider<ReflectionReminderService>((
 ) {
   final scope = ref.watch(accountStorageScopeProvider);
   final scheduler = ref.read(notificationSchedulerProvider);
+  final account = scope.isWritable && scope.rawUserId != null
+      ? AccountDataRegistry.accountDigest(scope.rawUserId!)
+      : null;
   return ReflectionReminderService(
     preferences: ref.watch(accountSharedPrefsStoreProvider),
     scheduler: scheduler,
     permissionListenable: scheduler.permissionStatusListenable,
-    accountScope: scope.isWritable && scope.rawUserId != null
-        ? AccountDataRegistry.accountDigest(scope.rawUserId!)
-        : null,
+    accountScope: account,
+    hasMatchingRegistration: (time) async {
+      if (account == null) return false;
+      final pending = await scheduler.pendingForAccount(account);
+      return pending.any(
+        (item) =>
+            item.id == ReflectionReminderService.notificationId &&
+            item.hour == time.hour &&
+            item.minute == time.minute &&
+            item.cadence == null &&
+            !item.cadenceMetadataMalformed,
+      );
+    },
   );
 });
 

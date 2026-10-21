@@ -187,7 +187,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
 
       expect(tester.takeException(), isNull);
-      expect(find.bySemanticsLabel('Back Home'), findsOneWidget);
+      expect(find.bySemanticsLabel('Back to Today'), findsOneWidget);
       expect(find.bySemanticsLabel('Send SI query'), findsOneWidget);
       expect(find.byKey(const Key('si-query-input')), findsOneWidget);
       expect(find.text('What needs attention?'), findsOneWidget);

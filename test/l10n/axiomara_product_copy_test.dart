@@ -3,6 +3,8 @@ import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/config/product_identity.dart';
 import 'package:fantastic_guacamole/l10n/navigation_copy.dart';
 import 'package:fantastic_guacamole/l10n/nexus_copy.dart';
+import 'package:fantastic_guacamole/l10n/creator_copy.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_response_templates.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
@@ -14,6 +16,37 @@ void main() {
     expect(ProductIdentity.name, 'Axiomara');
     expect(ProductIdentity.category, 'Reflection and planning');
     expect(ProductIdentity.legacyName, 'ChronoSpark');
+  });
+
+  test('destination copy matches the current navigation in both locales', () {
+    for (final spanish in [false, true]) {
+      final locale = ChronoSparkLocalizations(Locale(spanish ? 'es' : 'en'));
+      final navigation = NavigationCopy(spanish);
+      final nexus = NexusCopy(spanish);
+      final creator = CreatorCopy(spanish);
+      for (final entry in {
+        ChronoSparkString.nexus: AppView.nexus,
+        ChronoSparkString.smartPlanner: AppView.smartPlanner,
+        ChronoSparkString.siConsole: AppView.console,
+        ChronoSparkString.timeline: AppView.timeline,
+        ChronoSparkString.trajectoryEngine: AppView.trajectoryEngine,
+      }.entries) {
+        expect(
+          locale.text(entry.key),
+          navigation.label(AppRouteRegistry.routeForView(entry.value)),
+        );
+      }
+      expect(nexus.nexusTitle, spanish ? 'Hoy' : 'Today');
+      expect(nexus.interrogate, 'Chat');
+      expect(locale.siRoutine.title, 'Chat');
+      expect(locale.siRoutine.accessibilitySurface, 'Chat');
+      expect(creator.back, spanish ? 'Volver a Hoy' : 'Back to Today');
+      expect(locale.siRoutine.backToNexus, creator.back);
+      expect(
+        nexus.momentumHint,
+        contains(spanish ? 'Perspectivas' : 'Insights'),
+      );
+    }
   });
 
   test('Home names the next step and keeps the user-control boundary', () {

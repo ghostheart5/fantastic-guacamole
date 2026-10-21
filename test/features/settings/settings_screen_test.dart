@@ -724,7 +724,13 @@ void main() {
     await tester.tap(find.text('Apariencia y permisos'));
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('APARIENCIA Y PERMISOS'), findsOneWidget);
-    expect(find.text('Modo oscuro'), findsOneWidget);
+    expect(find.text('Formularios y diálogos oscuros'), findsOneWidget);
+    expect(
+      find.text(
+        'El fondo sigue oscuro. Este ajuste cambia los formularios y diálogos.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Efectos de sonido'), findsOneWidget);
     expect(find.text('APPEARANCE & PERMISSIONS'), findsNothing);
     expect(find.text('Dark Mode'), findsNothing);
@@ -1372,7 +1378,8 @@ class _FakeSettingsUiActions extends SettingsUiActions {
   }
 
   @override
-  Future<void> setReflectionReminderTime({required TimeOfDay time}) async {}
+  Future<bool> setReflectionReminderTime({required TimeOfDay time}) async =>
+      true;
 
   @override
   Future<bool> requestNotificationPermission() async => true;

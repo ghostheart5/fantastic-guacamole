@@ -93,6 +93,33 @@ void main() {
     fixture.expectPreferencesPreserved();
   });
 
+  testWidgets('resume preserves the matching account reflection registration', (
+    tester,
+  ) async {
+    final fixture = await _Fixture.create(granted: true);
+    await fixture.mount(tester);
+    fixture.scheduler.scheduled.clear();
+    fixture.scheduler.cancelled.clear();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await _flush(tester);
+    expect(
+      fixture.scheduler.scheduled.where(
+        (row) => row.id == 'reflection_reminder',
+      ),
+      isEmpty,
+    );
+    expect(
+      fixture.scheduler.cancelled.where(
+        (key) => key.endsWith(':reflection_reminder'),
+      ),
+      isEmpty,
+    );
+    expect(fixture.scheduler.ownPending('a'), hasLength(4));
+    expect(fixture.scheduler.ownPending('b'), hasLength(4));
+    fixture.expectPreferencesPreserved();
+  });
+
   testWidgets(
     'A to B to A while permission awaits rejects the old generation',
     (tester) async {
@@ -349,6 +376,7 @@ class _Scheduler implements NotificationScheduler {
   final pending = <String>{};
   final cancelled = <String>[];
   final scheduled = <_Registration>[];
+  final dailyTimes = <String, (int, int)>{};
   void seed(String user) {
     for (final id in [
       'daily_planning_reminder',
@@ -393,6 +421,7 @@ class _Scheduler implements NotificationScheduler {
     final key = '$accountScope:$id';
     cancelled.add(key);
     pending.remove(key);
+    dailyTimes.remove(key);
     return true;
   }
 
@@ -410,7 +439,40 @@ class _Scheduler implements NotificationScheduler {
   }) async {
     scheduled.add((id: id, time: (hour, minute), cadence: null));
     pending.add('$accountScope:$id');
+    dailyTimes['$accountScope:$id'] = (hour, minute);
     return true;
+  }
+
+  @override
+  Future<
+    List<
+      ({
+        String id,
+        String title,
+        String body,
+        int? hour,
+        int? minute,
+        HabitCadence? cadence,
+        DateTime? firstScheduledLocal,
+        bool cadenceMetadataMalformed,
+      })
+    >
+  >
+  pendingForAccount(String accountScope) async {
+    final prefix = '$accountScope:';
+    return [
+      for (final key in pending.where((key) => key.startsWith(prefix)))
+        (
+          id: key.substring(prefix.length),
+          title: 'Fixture reminder',
+          body: '',
+          hour: dailyTimes[key]?.$1,
+          minute: dailyTimes[key]?.$2,
+          cadence: null,
+          firstScheduledLocal: null,
+          cadenceMetadataMalformed: false,
+        ),
+    ];
   }
 
   @override

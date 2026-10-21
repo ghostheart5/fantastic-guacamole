@@ -207,7 +207,7 @@ void main() {
     addTearDown(() => _dispose(tester, container));
 
     await _pumpScreen(tester, container, textScaler: 2);
-    final title = find.text('Talk');
+    final title = find.text('Chat');
     final summary = find.byIcon(Icons.volume_up_rounded);
     expect(title, findsOneWidget);
     expect(summary, findsOneWidget);
@@ -215,14 +215,14 @@ void main() {
       tester.getTopLeft(title).dy,
       greaterThan(tester.getBottomLeft(summary).dy),
     );
-    for (final word in ['Talk', 'it', 'through']) {
+    for (final word in ['Chat']) {
       final paragraph = tester.renderObject<RenderParagraph>(find.text(word));
       final wordBoxes = paragraph.getBoxesForSelection(
         TextSelection(baseOffset: 0, extentOffset: word.length),
       );
       expect(wordBoxes, hasLength(1), reason: '$word must stay intact.');
     }
-    expect(find.bySemanticsLabel('Talk it through'), findsOneWidget);
+    expect(find.bySemanticsLabel('Chat'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -241,16 +241,16 @@ void main() {
       locale: const Locale('es'),
       textScaler: 2,
     );
-    final word = find.text('Hablarlo');
+    final word = find.text('Chat');
     expect(word, findsOneWidget);
     final paragraph = tester.renderObject<RenderParagraph>(word);
     expect(
       paragraph.getBoxesForSelection(
-        const TextSelection(baseOffset: 0, extentOffset: 8),
+        const TextSelection(baseOffset: 0, extentOffset: 4),
       ),
       hasLength(1),
     );
-    expect(find.bySemanticsLabel('Hablarlo'), findsOneWidget);
+    expect(find.bySemanticsLabel('Chat'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -410,16 +410,13 @@ void main() {
     await _pumpScreen(tester, container);
 
     expect(
-      find.textContaining('Talk it through is not enabled for this account'),
+      find.textContaining('Chat is not enabled for this account'),
       findsOneWidget,
     );
     expect(find.byKey(const Key('si-console-welcome')), findsOneWidget);
     expect(find.text('SPEAK'), findsNothing);
     expect(find.text('REPORT'), findsNothing);
-    expect(
-      find.bySemanticsLabel('Talk it through unavailable'),
-      findsOneWidget,
-    );
+    expect(find.bySemanticsLabel('Chat unavailable'), findsOneWidget);
     final TextField field = tester.widget<TextField>(
       find.byKey(const Key('si-query-input')),
     );

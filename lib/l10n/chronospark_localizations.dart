@@ -127,10 +127,10 @@ class ChronoSparkLocalizations {
     return switch (id) {
       'createFirstItem' => 'Añadir una tarea',
       'scheduleFirstItem' => 'Elegir fecha y hora',
-      'reviewTimeline' => 'Abrir agenda',
-      'nexus' => 'Revisar en Inicio',
+      'reviewTimeline' => 'Abrir Mi plan',
+      'nexus' => 'Revisar en Hoy',
       'smartPlanner' => 'Pedir un próximo paso',
-      'timelineExecution' => 'Abrir agenda',
+      'timelineExecution' => 'Abrir Mi plan',
       'siConsole' => 'Revisar las fuentes',
       'trajectoryEngine' => 'Comparar opciones',
       'progression' => 'Revisar resultados',
@@ -257,12 +257,12 @@ class ChronoSparkLocalizations {
   }
 
   static const Map<ChronoSparkString, String> _en = <ChronoSparkString, String>{
-    ChronoSparkString.nexus: 'Home',
+    ChronoSparkString.nexus: 'Today',
     ChronoSparkString.smartPlanner: 'Choose a step',
     ChronoSparkString.creator: 'Add something',
-    ChronoSparkString.siConsole: 'Talk it through',
-    ChronoSparkString.timeline: 'Schedule',
-    ChronoSparkString.trajectoryEngine: 'Compare options',
+    ChronoSparkString.siConsole: 'Chat',
+    ChronoSparkString.timeline: 'My plan',
+    ChronoSparkString.trajectoryEngine: 'Insights',
     ChronoSparkString.progression: 'Activity',
     ChronoSparkString.preparingSummary: 'Preparing your summary',
     ChronoSparkString.retryNexus: 'Try again',
@@ -272,7 +272,7 @@ class ChronoSparkLocalizations {
     ChronoSparkString.openCreator: 'Add something',
     ChronoSparkString.startInCreator: 'Add your first task',
     ChronoSparkString.todayTimeBlocks: "Today's time blocks",
-    ChronoSparkString.openTimeline: 'Open schedule',
+    ChronoSparkString.openTimeline: 'Open My plan',
     ChronoSparkString.timeBlocksUnavailable:
         'Time blocks are unavailable right now.',
     ChronoSparkString.retry: 'Retry',
@@ -365,7 +365,7 @@ class ChronoSparkLocalizations {
     ChronoSparkString.clearPreservedData: 'Clear preserved data',
     ChronoSparkString.clearPreservedDataTitle: 'Clear preserved data?',
     ChronoSparkString.clearPreservedDataBody:
-        'This removes preserved planning records, Schedule history, offline actions, notification schedules, profile progress, and local intelligence from this device. It does not delete your cloud account. This cannot be undone.',
+        'This removes preserved planning records, schedule history, offline actions, notification schedules, profile progress, and local intelligence from this device. It does not delete your cloud account. This cannot be undone.',
     ChronoSparkString.privacyPolicyTitle: 'Privacy Policy',
     ChronoSparkString.privacyPolicyBody:
         'Read how Axiomara uses, stores, and deletes information. Open the current privacy policy below.',
@@ -395,7 +395,7 @@ class ChronoSparkLocalizations {
         'Write down a thought, save something you need to do, or ask for help with your plans. Suggestions are there to review. You choose what happens next.',
     ChronoSparkString.aboutCoreSurfacesTitle: 'Find your way around',
     ChronoSparkString.aboutCoreSurfacesBody:
-        'Start at Home. Add something saves tasks, notes, goals, and habits. Choose a step helps with planning. Talk it through answers questions about your plans. Schedule shows dated tasks and history. Compare options shows estimates. Activity shows recorded progress.',
+        'Start at Today. Add something saves tasks, notes, goals, and habits. Choose a step helps with planning. Chat answers questions about your plans. My plan shows tasks, goals, habits, your schedule, and history. Insights shows patterns, predictions, and future outcomes to review. Activity shows recorded progress.',
     ChronoSparkString.aboutGuidingPrincipleTitle: 'You stay in control',
     ChronoSparkString.aboutGuidingPrincipleBody:
         'Review suggestions before acting. Estimates can be wrong. You can review or correct recorded outcomes.',
@@ -405,20 +405,20 @@ class ChronoSparkLocalizations {
         'Use the microphone only when you want to speak instead of type. Voice input starts after you choose it and grant permission.',
     ChronoSparkString.routerErrorTitle: "We couldn't open that link",
     ChronoSparkString.routerErrorBody:
-        'This link does not open an available page. Return Home or open Help to continue.',
-    ChronoSparkString.routerErrorReturnNexus: 'Return Home',
+        'This link does not open an available page. Return to Today or open Help to continue.',
+    ChronoSparkString.routerErrorReturnNexus: 'Return to Today',
     ChronoSparkString.routerErrorReturnLogin: 'Return to Login',
     ChronoSparkString.routerErrorReturnOnboarding: 'Return to Setup',
     ChronoSparkString.routerErrorReturnSupport: 'Return to Support',
   };
 
   static const Map<ChronoSparkString, String> _es = <ChronoSparkString, String>{
-    ChronoSparkString.nexus: 'Inicio',
+    ChronoSparkString.nexus: 'Hoy',
     ChronoSparkString.smartPlanner: 'Elegir un paso',
     ChronoSparkString.creator: 'Añadir algo',
-    ChronoSparkString.siConsole: 'Hablarlo',
-    ChronoSparkString.timeline: 'Agenda',
-    ChronoSparkString.trajectoryEngine: 'Comparar opciones',
+    ChronoSparkString.siConsole: 'Chat',
+    ChronoSparkString.timeline: 'Mi plan',
+    ChronoSparkString.trajectoryEngine: 'Perspectivas',
     ChronoSparkString.progression: 'Actividad',
     ChronoSparkString.preparingSummary: 'Preparando tu resumen',
     ChronoSparkString.retryNexus: 'Reintentar',
@@ -428,7 +428,7 @@ class ChronoSparkLocalizations {
     ChronoSparkString.openCreator: 'Añadir algo',
     ChronoSparkString.startInCreator: 'Añade tu primera tarea',
     ChronoSparkString.todayTimeBlocks: 'Bloques de tiempo de hoy',
-    ChronoSparkString.openTimeline: 'Abrir agenda',
+    ChronoSparkString.openTimeline: 'Abrir Mi plan',
     ChronoSparkString.timeBlocksUnavailable:
         'Los bloques de tiempo no están disponibles ahora.',
     ChronoSparkString.retry: 'Reintentar',
@@ -553,7 +553,7 @@ class ChronoSparkLocalizations {
         'Escribe una idea, guarda algo que necesites hacer o pide ayuda con tus planes. Puedes revisar las sugerencias. Tú decides qué hacer después.',
     ChronoSparkString.aboutCoreSurfacesTitle: 'Cómo moverte por la app',
     ChronoSparkString.aboutCoreSurfacesBody:
-        'Empieza en Inicio. Añadir algo guarda tareas, notas, metas y hábitos. Elegir un paso ayuda a planificar. Hablarlo responde preguntas sobre tus planes. Agenda muestra tareas con fecha e historial. Comparar opciones muestra estimaciones. Actividad muestra avances registrados.',
+        'Empieza en Hoy. Añadir algo guarda tareas, notas, metas y hábitos. Elegir un paso ayuda a planificar. Chat responde preguntas sobre tus planes. Mi plan muestra tareas, metas, hábitos, tu agenda e historial. Perspectivas muestra patrones, predicciones y resultados futuros para revisar. Actividad muestra avances registrados.',
     ChronoSparkString.aboutGuidingPrincipleTitle: 'Tú decides',
     ChronoSparkString.aboutGuidingPrincipleBody:
         'Revisa las sugerencias antes de actuar. Las estimaciones pueden equivocarse. Puedes revisar o corregir los resultados registrados.',
@@ -563,8 +563,8 @@ class ChronoSparkLocalizations {
         'Usa el micrófono cuando quieras hablar en vez de escribir. La entrada de voz empieza cuando la eliges y das permiso.',
     ChronoSparkString.routerErrorTitle: 'No pudimos abrir ese enlace',
     ChronoSparkString.routerErrorBody:
-        'Este enlace no abre una página disponible. Vuelve a Inicio o abre Ayuda para continuar.',
-    ChronoSparkString.routerErrorReturnNexus: 'Volver a Inicio',
+        'Este enlace no abre una página disponible. Vuelve a Hoy o abre Ayuda para continuar.',
+    ChronoSparkString.routerErrorReturnNexus: 'Volver a Hoy',
     ChronoSparkString.routerErrorReturnLogin: 'Volver al inicio de sesión',
     ChronoSparkString.routerErrorReturnOnboarding: 'Volver a configuración',
     ChronoSparkString.routerErrorReturnSupport: 'Volver a soporte',
@@ -578,21 +578,21 @@ final class PlannerRoutineCopy {
   final bool isSpanish;
 
   String get accessCheckFailed => isSpanish
-      ? 'No se pudo verificar el acceso al Elegir un paso. No se enviará ninguna solicitud de orientación.'
-      : 'Planner access could not be verified. No guidance request will be sent.';
+      ? 'No se pudo verificar el acceso a Elegir un paso. No se enviará ninguna solicitud de orientación.'
+      : 'Choose a step access could not be verified. No guidance request will be sent.';
   String get checkingAccess => isSpanish
-      ? 'Verificando el acceso al Elegir un paso...'
+      ? 'Verificando el acceso a Elegir un paso...'
       : 'Checking Choose a step access...';
   String get accessUnavailable => isSpanish
-      ? 'El Elegir un paso no está habilitado para esta cuenta. No se enviará ninguna solicitud de orientación.'
+      ? 'Elegir un paso no está habilitado para esta cuenta. No se enviará ninguna solicitud de orientación.'
       : 'Choose a step is not enabled for this account. No guidance request will be sent.';
   String get onDeviceReady => isSpanish
-      ? 'El Elegir un paso en el dispositivo está listo.'
+      ? 'Elegir un paso está listo en el dispositivo.'
       : 'On-device Choose a step is ready.';
   String get retryAccessCheck =>
       isSpanish ? 'Reintentar verificación de acceso' : 'Retry access check';
   String get guidanceUnavailable => isSpanish
-      ? 'El Elegir un paso aún no está habilitado para esta cuenta. Tu registro no se guardó ni cambió.'
+      ? 'Elegir un paso aún no está habilitado para esta cuenta. Tu registro no se guardó ni cambió.'
       : 'Choose a step is not enabled for this account yet. Your check-in was not saved or changed.';
   String get guidanceRetry => isSpanish
       ? 'No se pudo generar la orientación. Tu registro sigue aquí. Pulsa Obtener una sugerencia para reintentar.'
@@ -794,7 +794,7 @@ final class PlannerRoutineCopy {
       ? const <String>[
           'Ajusta el control de energía para definir la intensidad',
           'Selecciona el estado emocional para adaptar la orientación',
-          'Usa Obtener orientación para generar una respuesta de planificación',
+          'Usa Obtener una sugerencia para generar una respuesta de planificación',
           'Usa el botón de voz para leer en voz alta la orientación más reciente',
           'Usa el botón de resumen para escuchar un repaso breve',
           'Usa el botón del micrófono para las interacciones de voz',
@@ -802,7 +802,7 @@ final class PlannerRoutineCopy {
       : const <String>[
           'Adjust energy slider to set intensity',
           'Select emotional state to tune guidance',
-          'Use Get Guidance to generate a planning response',
+          'Use Get a suggestion to generate a planning response',
           'Use the speak button to read the latest guidance aloud',
           'Use summary button for condensed voice recap',
           'Use microphone button for voice interactions',
@@ -851,7 +851,7 @@ final class PlannerRoutineCopy {
   String get checkingButton =>
       isSpanish ? 'VERIFICANDO ACCESO...' : 'CHECKING ACCESS...';
   String get unavailableButton =>
-      isSpanish ? 'PLANIFICADOR NO DISPONIBLE' : 'PLANNER UNAVAILABLE';
+      isSpanish ? 'ELEGIR UN PASO NO DISPONIBLE' : 'CHOOSE A STEP UNAVAILABLE';
   String get thinkingButton => isSpanish ? 'PENSANDO...' : 'THINKING...';
   String guidanceButton({required bool refresh}) => isSpanish
       ? refresh
@@ -877,14 +877,13 @@ final class SIRoutineCopy {
   final bool isSpanish;
 
   String get accessCheckFailed => isSpanish
-      ? 'No se pudo verificar el acceso a Hablarlo. No se envió ninguna consulta.'
-      : 'Talk it through access could not be verified. No query was sent.';
-  String get checkingAccess => isSpanish
-      ? 'Verificando el acceso a Hablarlo...'
-      : 'Checking Talk it through access...';
+      ? 'No se pudo verificar el acceso a Chat. No se envió ninguna consulta.'
+      : 'Chat access could not be verified. No query was sent.';
+  String get checkingAccess =>
+      isSpanish ? 'Verificando el acceso a Chat...' : 'Checking Chat access...';
   String get accessUnavailable => isSpanish
-      ? 'Hablarlo no está habilitada para esta cuenta. No se envió ninguna consulta.'
-      : 'Talk it through is not enabled for this account. No query was sent.';
+      ? 'Chat no está habilitado para esta cuenta. No se envió ninguna consulta.'
+      : 'Chat is not enabled for this account. No query was sent.';
   String get contextUnavailable => isSpanish
       ? 'El contexto estratégico no está disponible temporalmente. Tu trabajo guardado no cambió.'
       : 'Strategic context is temporarily unavailable. Saved work is unchanged.';
@@ -943,8 +942,8 @@ final class SIRoutineCopy {
   String get askFromEvidence => isSpanish
       ? 'Pregunta sobre tus planes guardados'
       : 'Ask about your saved plans';
-  String get backToNexus => isSpanish ? 'Volver a Inicio' : 'Back Home';
-  String get title => isSpanish ? 'Hablarlo' : 'Talk it through';
+  String get backToNexus => isSpanish ? 'Volver a Hoy' : 'Back to Today';
+  String get title => 'Chat';
   String get subtitle => isSpanish
       ? 'Pregunta sobre tus planes guardados. Revisa la respuesta antes de decidir.'
       : 'Ask a question about your saved plans. Review the answer before deciding.';
@@ -1026,28 +1025,28 @@ final class SIRoutineCopy {
           'Escribe una indicación en el campo y luego envíala.',
           'Usa Resumen para escuchar respuestas recientes del asistente.',
           'Usa Escuchar en las respuestas del asistente para leerlas en voz alta.',
-          'Usa Atrás para volver a Inicio.',
+          'Usa Atrás para volver a Hoy.',
         ]
       : const <String>[
           'Type a prompt in the input field, then send.',
           'Use Summary to hear recent assistant responses.',
           'Use Speak on assistant bubbles to read aloud.',
-          'Use Back to return Home.',
+          'Use Back to return to Today.',
         ];
   List<String> get accessibilitySteps => isSpanish
       ? const <String>[
           '1. Escribe una indicación y luego envíala.',
           '2. Resumen lee respuestas recientes del asistente.',
           '3. Escuchar lee una respuesta en voz alta.',
-          '4. Atrás vuelve a Inicio.',
+          '4. Atrás vuelve a Hoy.',
         ]
       : const <String>[
           '1. Type a prompt, then send.',
           '2. Summary reads recent assistant responses.',
           '3. Speak reads one response aloud.',
-          '4. Back returns Home.',
+          '4. Back returns to Today.',
         ];
-  String get accessibilitySurface => isSpanish ? 'Hablarlo' : 'Talk it through';
+  String get accessibilitySurface => 'Chat';
   String get personContextChanged => isSpanish
       ? 'Los detalles que compartiste cambiaron y se borraron las respuestas locales anteriores. Pregunta de nuevo para usar la información actualizada.'
       : 'The details you shared changed, so previous local answers were cleared. Ask again to use the updated information.';
@@ -1145,13 +1144,12 @@ final class SIRoutineCopy {
     required String aliases,
   }) => isSpanish
       ? 'ESTADO DE SI\n\nChat de solo lectura:\n- tareas: $tasks\n- objetivos: $goals\n- hitos: $milestones\n- agenda: $timeline\n- fuentes no disponibles: $unavailableSources\n- revisión: $revision\n\nAtajos de fuentes disponibles: $aliases.'
-      : 'SI STATUS\n\nRead-only Chat:\n- tasks: $tasks\n- goals: $goals\n- milestones: $milestones\n- Schedule: $timeline\n- unavailable sources: $unavailableSources\n- revision: $revision\n\nAvailable source shortcuts: $aliases.';
+      : 'SI STATUS\n\nRead-only Chat:\n- tasks: $tasks\n- goals: $goals\n- milestones: $milestones\n- schedule: $timeline\n- unavailable sources: $unavailableSources\n- revision: $revision\n\nAvailable source shortcuts: $aliases.';
   String get responseValidationFailed => isSpanish
       ? 'No se pudo comprobar esta respuesta. Reintenta o incluye más tareas, metas, hitos o entradas de agenda. No se cambió nada.'
       : 'We could not check this answer. Try again or include more saved tasks, goals, milestones, or schedule entries. Nothing was changed.';
-  String get voiceSummaryTitle => isSpanish
-      ? 'Resumen de voz de Hablarlo'
-      : 'Talk it through voice summary';
+  String get voiceSummaryTitle =>
+      isSpanish ? 'Resumen de voz de Chat' : 'Chat voice summary';
   String voiceInputLabel({required bool listening}) => isSpanish
       ? listening
             ? 'Detener entrada de voz'
@@ -1161,12 +1159,12 @@ final class SIRoutineCopy {
       : 'Start voice input';
   String sendLabel({required bool enabled, required bool busy}) => isSpanish
       ? !enabled
-            ? 'Hablarlo no disponible'
+            ? 'Chat no disponible'
             : busy
             ? 'SI está analizando'
             : 'Enviar consulta SI'
       : !enabled
-      ? 'Talk it through unavailable'
+      ? 'Chat unavailable'
       : busy
       ? 'SI is analyzing'
       : 'Send SI query';

@@ -1023,7 +1023,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
             consentConfirmed: true,
             whyStored:
                 'Save this explicit planning-style preference for review and future opt-in use.',
-            provenance: 'User-entered in Smart Planner memory consent dialog.',
+            provenance: 'User-entered in Choose a step memory consent dialog.',
           );
       if (!mounted) return;
       final String expiry = receipt.expiresAt!

@@ -225,6 +225,7 @@ class TrajectoryRiskContribution {
     required this.currentScore,
     required this.projectedScore,
     required this.explanation,
+    this.isScored = true,
   });
 
   final String code;
@@ -232,6 +233,7 @@ class TrajectoryRiskContribution {
   final int currentScore;
   final int projectedScore;
   final String explanation;
+  final bool isScored;
 }
 
 class TrajectoryRiskProjection {

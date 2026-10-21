@@ -816,7 +816,7 @@ class _TimelineHeader extends StatelessWidget {
       onBack: onBack,
       backTooltip: Navigator.canPop(context)
           ? journeyText(context, 'Back', 'Atrás')
-          : journeyText(context, 'Back Home', 'Volver a Inicio'),
+          : journeyText(context, 'Back to Today', 'Volver a Hoy'),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[

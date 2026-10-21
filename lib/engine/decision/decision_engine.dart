@@ -74,6 +74,8 @@ class DecisionEngine {
     List<TaskEntity>? tasks,
     required SiStateEntity state,
     required LearningEntity learning,
+    PredictiveEvidenceOrigin energyOrigin =
+        PredictiveEvidenceOrigin.unavailable,
     double priorityScale = 1,
     List<WorkWindowEntity> workWindows = const <WorkWindowEntity>[],
     List<TimeBlock> existingBlocks = const <TimeBlock>[],
@@ -330,7 +332,7 @@ class DecisionEngine {
           ? math.min(5, _governedExecutionMinutes(selected, personContext))
           : _governedExecutionMinutes(selected, personContext),
       rationale:
-          'Selected ${selected.title} using urgency, energy fit, learned effort tolerance, and schedule feasibility.${const {'anxious', 'fatigued', 'scattered', 'negative'}.contains(state.mood) ? ' Your shared emotional check-in limits this first step to at most five minutes; urgency does not increase that limit.' : ''}${personContext?.hasAppliedBehavior ?? false ? ' ${personContext!.explanations.join(' ')}' : ''}',
+          'Selected ${selected.title} using task urgency and estimated effort. ${usesAssumedWindow || workWindowOrigin != PredictiveEvidenceOrigin.observed ? 'Schedule fit uses an assumed or estimated work window; confirm your available time.' : 'Schedule fit uses your configured work windows.'} ${energyOrigin != PredictiveEvidenceOrigin.observed || state.isStaleAt(timestamp) ? 'Energy guidance uses a default or older check-in.' : 'Energy guidance uses your current check-in.'}${const {'anxious', 'fatigued', 'scattered', 'negative'}.contains(state.mood) ? ' Your shared emotional check-in limits this first step to at most five minutes; urgency does not increase that limit.' : ''}${personContext?.hasAppliedBehavior ?? false ? ' ${personContext!.explanations.join(' ')}' : ''}',
       evidence: <DecisionEvidence>[
         DecisionEvidence(
           source: 'task',
@@ -345,7 +347,11 @@ class DecisionEngine {
         ),
         DecisionEvidence(
           source: 'plan',
-          detail: plan.isFeasible
+          detail:
+              usesAssumedWindow ||
+                  workWindowOrigin != PredictiveEvidenceOrigin.observed
+              ? 'fit checked against an assumed or estimated work window, not confirmed availability'
+              : plan.isFeasible
               ? 'fits available work windows'
               : 'fits available capacity; other tasks remain unscheduled',
           observedAt: timestamp,

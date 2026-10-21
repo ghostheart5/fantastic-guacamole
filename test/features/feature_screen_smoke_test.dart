@@ -95,7 +95,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.bySemanticsLabel('Back Home'), findsOneWidget);
+    expect(find.bySemanticsLabel('Back to Today'), findsOneWidget);
     expect(find.text('Due-date only task'), findsOneWidget);
     expect(find.text('Complete'), findsOneWidget);
     expect(find.text('Skip'), findsOneWidget);

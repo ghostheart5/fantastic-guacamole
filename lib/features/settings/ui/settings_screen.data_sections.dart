@@ -366,8 +366,8 @@ class _CloudDataControlSection extends ConsumerWidget {
             ),
             subtitle: journeyText(
               context,
-              'Choose a step and Talk it through explain when a request uses this device or an external service you have allowed.',
-              'El Elegir un paso y el Chat SI explican cuándo una solicitud permanece local o usa un servicio externo autorizado.',
+              'Choose a step and Chat explain when a request uses this device or an external service you have allowed.',
+              'Elegir un paso y Chat explican cuándo una solicitud permanece local o usa un servicio externo autorizado.',
             ),
           ),
         ],

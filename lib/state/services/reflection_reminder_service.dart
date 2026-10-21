@@ -22,6 +22,7 @@ class ReflectionReminderService {
     required this._scheduler,
     required this.permissionListenable,
     this._accountScope,
+    this.hasMatchingRegistration,
   });
 
   static const String enabledKey = 'reflection_reminder_enabled';
@@ -32,6 +33,15 @@ class ReflectionReminderService {
   final NotificationSchedulerPort _scheduler;
   final ValueListenable<bool?> permissionListenable;
   final String? _accountScope;
+  final Future<bool> Function(TimeOfDay time)? hasMatchingRegistration;
+
+  Future<T> _mutate<T>(Future<T> Function() action) =>
+      KeyedMutationCoordinator.shared.runExclusive<T>(
+        AccountDataRegistry.notificationMutationKeyForScope(
+          _accountScope ?? 'legacy',
+        ),
+        action,
+      );
 
   ReflectionReminderPrefs loadPrefs() {
     final String? enabledStr = _preferences.load(enabledKey);
@@ -53,46 +63,56 @@ class ReflectionReminderService {
     return ReflectionReminderPrefs(enabled: enabled, time: time);
   }
 
-  Future<bool> setEnabled({
-    required bool enabled,
-    required TimeOfDay time,
-  }) async {
-    await _preferences.save(enabledKey, enabled.toString());
+  Future<bool> setEnabled({required bool enabled, required TimeOfDay time}) =>
+      _mutate(() async {
+        await _preferences.save(enabledKey, 'false');
+        await _preferences.save(timeKey, '${time.hour}:${time.minute}');
 
-    if (!enabled) {
-      await _scheduler.cancel(notificationId, accountScope: _accountScope);
-      return false;
-    }
+        if (!enabled) {
+          await _scheduler.cancel(notificationId, accountScope: _accountScope);
+          return false;
+        }
 
-    final bool granted = await _scheduler.requestPermissions();
-    if (!granted) {
+        final bool granted = await _scheduler.requestPermissions();
+        if (!granted) {
+          await _preferences.save(enabledKey, 'false');
+          await _scheduler.cancel(notificationId, accountScope: _accountScope);
+          return false;
+        }
+
+        final scheduled = await _scheduler.scheduleDailyAt(
+          id: notificationId,
+          title: 'Daily Reflection',
+          body:
+              'Take 3 minutes to review your day and set intent for tomorrow.',
+          hour: time.hour,
+          minute: time.minute,
+          accountScope: _accountScope,
+        );
+        await _preferences.save(enabledKey, scheduled.toString());
+        if (!scheduled) {
+          await _scheduler.cancel(notificationId, accountScope: _accountScope);
+        }
+        return scheduled;
+      });
+
+  Future<bool> setTime({required TimeOfDay time}) => _mutate(() async {
+    await _preferences.save(timeKey, '${time.hour}:${time.minute}');
+    if (!loadPrefs().enabled) return true;
+    final scheduled = await _scheduler.scheduleDailyAt(
+      id: notificationId,
+      title: 'Daily Reflection',
+      body: 'Take 3 minutes to review your day and set intent for tomorrow.',
+      hour: time.hour,
+      minute: time.minute,
+      accountScope: _accountScope,
+    );
+    if (!scheduled) {
       await _preferences.save(enabledKey, 'false');
       await _scheduler.cancel(notificationId, accountScope: _accountScope);
-      return false;
     }
-
-    await _scheduler.scheduleDailyAt(
-      id: notificationId,
-      title: 'Daily Reflection',
-      body: 'Take 3 minutes to review your day and set intent for tomorrow.',
-      hour: time.hour,
-      minute: time.minute,
-      accountScope: _accountScope,
-    );
-    return true;
-  }
-
-  Future<void> setTime({required TimeOfDay time}) async {
-    await _preferences.save(timeKey, '${time.hour}:${time.minute}');
-    await _scheduler.scheduleDailyAt(
-      id: notificationId,
-      title: 'Daily Reflection',
-      body: 'Take 3 minutes to review your day and set intent for tomorrow.',
-      hour: time.hour,
-      minute: time.minute,
-      accountScope: _accountScope,
-    );
-  }
+    return scheduled;
+  });
 
   Future<bool> requestNotificationPermission() {
     return _scheduler.requestPermissions();
@@ -108,6 +128,17 @@ class ReflectionReminderService {
     ),
     () async {
       if (!shouldContinue()) return false;
+      final prefs = loadPrefs();
+      // An inexact daily alarm may still be waiting to fire after its nominal
+      // minute. Preserve that occurrence (and any posted notification) when
+      // this account already has the requested daily registration.
+      if (prefs.enabled &&
+          permissionGranted &&
+          hasMatchingRegistration != null) {
+        final matches = await hasMatchingRegistration!(prefs.time);
+        if (!shouldContinue()) return false;
+        if (matches) return true;
+      }
       if (!await _scheduler.cancel(
         notificationId,
         accountScope: _accountScope,
@@ -115,7 +146,6 @@ class ReflectionReminderService {
         return false;
       }
       if (!shouldContinue()) return false;
-      final prefs = loadPrefs();
       if (!prefs.enabled) return true;
       if (!permissionGranted) return false;
       final scheduled = await _scheduler.scheduleDailyAt(

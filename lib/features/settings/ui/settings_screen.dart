@@ -233,8 +233,6 @@ class SettingsScreen extends ConsumerWidget {
         .length;
     final routes = ref.watch(routeSurfaceProvider);
     final soundEnabled = ref.watch(soundEnabledProvider);
-    final themeAsync = ref.watch(currentThemeProvider);
-    final bool isDarkMode = themeAsync.asData?.value.isDark ?? true;
     final access = ref.watch(appAccessProvider);
     final String localizedPlanStatus = _localizedPlanStatus(
       context,
@@ -376,16 +374,7 @@ class SettingsScreen extends ConsumerWidget {
                   accentColor: AppColors.neonCyan,
                   child: Column(
                     children: [
-                      _NeonToggleTile(
-                        title: copy('Dark Mode', 'Modo oscuro'),
-                        value: isDarkMode,
-                        onChanged: (bool enabled) {
-                          final AppThemeEntity next = enabled
-                              ? AppThemeEntity.dark()
-                              : AppThemeEntity.light();
-                          unawaited(ref.read(themeActionsProvider).save(next));
-                        },
-                      ),
+                      const _FormAppearanceSetting(),
                       _NeonToggleTile(
                         title: copy('Sound effects', 'Efectos de sonido'),
                         value: soundEnabled,

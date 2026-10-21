@@ -6,8 +6,10 @@ import 'dart:math' as math;
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
+import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
@@ -67,11 +69,11 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
     final trajectory = ref.read(trajectorySummaryProvider);
     final String text = journeyText(
       context,
-      'Axiomara Capability Snapshot\n'
-          'Capability tier ${profile.level} • Evidence points ${profile.xp} XP • Continuity ${profile.streak}d\n'
+      'Axiomara Progress Snapshot\n'
+          'Level ${profile.level} • ${profile.xp} XP • Streak ${profile.streak}d\n'
           'Momentum ${(trajectory.momentum * 100).round()}% • Completed tasks ${trajectory.completedTasks}\n'
-          'Building proven capability with Axiomara: ${AppUrls.website}',
-      'Resumen de capacidades de Axiomara\nNivel de capacidad ${profile.level} • Puntos de evidencia ${profile.xp} XP • Continuidad ${profile.streak}d\nImpulso ${(trajectory.momentum * 100).round()}% • Tareas completadas ${trajectory.completedTasks}\nDesarrollando capacidad demostrada con Axiomara: ${AppUrls.website}',
+          'Building steady progress with Axiomara: ${AppUrls.website}',
+      'Resumen de progreso de Axiomara\nNivel ${profile.level} • ${profile.xp} XP • Racha ${profile.streak}d\nImpulso ${(trajectory.momentum * 100).round()}% • Tareas completadas ${trajectory.completedTasks}\nProgresando con Axiomara: ${AppUrls.website}',
     );
 
     if (!await _confirmShare(
@@ -139,12 +141,12 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
     final trajectory = ref.read(trajectorySummaryProvider);
     final String text = journeyText(
       context,
-      'Axiomara Capability Proven\n'
-          'Capability tier ${profile.level} reached\n'
+      'Axiomara Progress Milestone\n'
+          'Level ${profile.level} reached\n'
           'Current streak: ${profile.streak} days\n'
           'Momentum ${(trajectory.momentum * 100).round()}%\n'
           'Build with Axiomara: ${AppUrls.website}',
-      'Capacidad demostrada en Axiomara\nNivel de capacidad ${profile.level} alcanzado\nContinuidad actual: ${profile.streak} días\nImpulso ${(trajectory.momentum * 100).round()}%\nConstruye con Axiomara: ${AppUrls.website}',
+      'Progreso en Axiomara\nNivel ${profile.level} alcanzado\nRacha actual: ${profile.streak} días\nImpulso ${(trajectory.momentum * 100).round()}%\nConstruye con Axiomara: ${AppUrls.website}',
     );
 
     if (!await _confirmShare(
@@ -261,16 +263,16 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
                     Semantics(
                       label: journeyText(
                         context,
-                        'Back Home',
-                        'Volver a Inicio',
+                        'Back to Today',
+                        'Volver a Hoy',
                       ),
                       button: true,
                       onTap: () => goToAppView(context, ref, AppView.nexus),
                       child: IconButton(
                         tooltip: journeyText(
                           context,
-                          'Back Home',
-                          'Volver a Inicio',
+                          'Back to Today',
+                          'Volver a Hoy',
                         ),
                         onPressed: () =>
                             goToAppView(context, ref, AppView.nexus),
@@ -392,6 +394,8 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
                     children: <Widget>[
                       _ObservedContinuitySummary(),
                       SizedBox(height: 18),
+                      _HabitHistorySummary(),
+                      SizedBox(height: 18),
                       Divider(color: Colors.white12),
                       SizedBox(height: 18),
                       _XpProgressChartCard(),
@@ -469,7 +473,7 @@ class _ProgressionOverview extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    journeyText(context, 'TIER', 'NIVEL'),
+                    journeyText(context, 'LEVEL', 'NIVEL'),
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 10,
@@ -490,8 +494,8 @@ class _ProgressionOverview extends StatelessWidget {
               Text(
                 journeyText(
                   context,
-                  'CAPABILITY TIER $level · ${levelTitle.toUpperCase()}',
-                  'NIVEL DE CAPACIDAD $level · ${journeyLabel(context, levelTitle).toUpperCase()}',
+                  'LEVEL $level · ${levelTitle.toUpperCase()}',
+                  'NIVEL $level · ${journeyLabel(context, levelTitle).toUpperCase()}',
                 ),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: AppColors.memoryAmber,
@@ -503,8 +507,8 @@ class _ProgressionOverview extends StatelessWidget {
               Text(
                 journeyText(
                   context,
-                  '$xpToNext evidence points (XP) until tier ${level + 1}',
-                  '$xpToNext puntos de evidencia (XP) para el nivel ${level + 1}',
+                  '$xpToNext XP until level ${level + 1}',
+                  '$xpToNext XP para el nivel ${level + 1}',
                 ),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.white70,
@@ -540,6 +544,64 @@ class _ProgressionOverview extends StatelessWidget {
                 ],
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HabitHistorySummary extends ConsumerWidget {
+  const _HabitHistorySummary();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final history = ref.watch(habitOccurrencesProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          journeyText(context, 'HABIT HISTORY', 'HISTORIAL DE HÁBITOS'),
+          style: const TextStyle(
+            color: AppColors.memoryAmber,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        history.when(
+          data: (items) {
+            final completed = items
+                .where(
+                  (item) => item.outcome == HabitOccurrenceOutcome.completed,
+                )
+                .length;
+            final skipped = items.length - completed;
+            return Text(
+              journeyText(
+                context,
+                'Completed periods: $completed · Skipped periods: $skipped. Each daily, weekly or monthly period counts once, using its latest saved outcome.',
+                '$completed períodos completados · $skipped omitidos. Cada período diario, semanal o mensual cuenta una vez, con su último resultado guardado.',
+              ),
+              key: const Key('progression-habit-history'),
+              style: const TextStyle(color: Color(0xFFC6D0E2), fontSize: 13),
+            );
+          },
+          loading: () => Text(
+            journeyText(
+              context,
+              'Loading saved habit outcomes…',
+              'Cargando resultados guardados de hábitos…',
+            ),
+          ),
+          error: (_, _) => TextButton(
+            onPressed: () => ref.invalidate(habitOccurrencesProvider),
+            child: Text(
+              journeyText(
+                context,
+                'Habit history unavailable — tap to retry',
+                'Historial de hábitos no disponible: toca para reintentar',
+              ),
+            ),
           ),
         ),
       ],
@@ -617,7 +679,7 @@ class _ObservedContinuitySummary extends ConsumerWidget {
         Row(
           children: <Widget>[
             _ProgressMetric(
-              label: journeyText(context, 'COMPLETED', 'COMPLETADAS'),
+              label: journeyText(context, 'TASKS DONE', 'TAREAS HECHAS'),
               value: '${trajectory.completedTasks}',
               color: AppColors.neonCyan,
             ),
@@ -630,7 +692,7 @@ class _ObservedContinuitySummary extends ConsumerWidget {
             const _ProgressMetricDivider(),
             _ProgressMetric(
               label: journeyText(context, 'PRESSURE', 'PRESIÓN'),
-              value: '${trajectory.pressureIndex}%',
+              value: '${trajectory.pressureIndex}/100',
               color: AppColors.memoryAmber,
             ),
           ],
@@ -1164,8 +1226,8 @@ class _XpProgressChartCard extends ConsumerWidget {
           Text(
             journeyText(
               context,
-              'Last 30 days • $end completed',
-              'Últimos 30 días • $end completadas',
+              'Last 30 days • $end tasks and goals completed',
+              'Últimos 30 días • $end tareas y metas completadas',
             ),
             style: const TextStyle(
               color: Color(0xFFC6D0E2),

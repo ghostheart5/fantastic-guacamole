@@ -42,8 +42,8 @@ class SettingsUiActions {
     return _reminderService.setEnabled(enabled: enabled, time: time);
   }
 
-  Future<void> setReflectionReminderTime({required TimeOfDay time}) async {
-    await _reminderService.setTime(time: time);
+  Future<bool> setReflectionReminderTime({required TimeOfDay time}) async {
+    return _reminderService.setTime(time: time);
   }
 
   Future<bool> requestNotificationPermission() {

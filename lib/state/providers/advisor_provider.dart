@@ -201,25 +201,34 @@ String buildProgressionReview({
           'Aún no hay una referencia de cumplimiento de siete días',
         )
       : completionRate >= 0.75
-      ? pick('Execution is reliable', 'El cumplimiento es fiable')
+      ? pick(
+          'Recorded follow-through is high',
+          'El cumplimiento registrado es alto',
+        )
       : completionRate >= 0.45
-      ? pick('Execution is unstable', 'El cumplimiento es irregular')
-      : pick('Execution is breaking down', 'El cumplimiento está disminuyendo');
+      ? pick(
+          'Recorded follow-through is mixed',
+          'El cumplimiento registrado es variable',
+        )
+      : pick(
+          'Recorded follow-through is low',
+          'El cumplimiento registrado es bajo',
+        );
 
   final String pressureState = pressureIndex >= 75
-      ? pick('Pressure is critical', 'La presión es crítica')
+      ? pick('Modeled load is high', 'La carga modelada es alta')
       : pressureIndex >= 55
-      ? pick('Pressure is elevated', 'La presión es elevada')
-      : pick('Pressure is manageable', 'La presión es manejable');
+      ? pick('Modeled load is elevated', 'La carga modelada es elevada')
+      : pick('Modeled load is low', 'La carga modelada es baja');
 
   final String timelineState = overdue > 0 || timelineHealth < 65
       ? pick(
-          'Schedule integrity is at risk',
-          'La integridad de la agenda está en riesgo',
+          'Saved schedule checks flag issues',
+          'Las comprobaciones de la agenda guardada indican problemas',
         )
       : pick(
-          'Schedule integrity is stable',
-          'La integridad de la agenda es estable',
+          'No issues flagged in saved schedule checks',
+          'No se señalan problemas en las comprobaciones de la agenda guardada',
         );
 
   final String milestoneState = milestoneCount == 0
@@ -275,16 +284,18 @@ String buildProgressionReview({
   if (spanish) {
     return 'REVISIÓN DE PROGRESO\n\n'
         '$executionState. $completionDetail $pressureState (índice $pressureIndex). '
-        '$timelineState (estado $timelineHealth%, riesgo $timelineRisk%, vencidos $overdue). '
-        '$milestoneState${milestoneCount == 0 ? '' : ' (estado $milestoneHealth%, vencidos $milestoneOverdue)'}.\n\n'
+        '$timelineState (puntuación $timelineHealth/100, problemas $timelineRisk/100, vencidos $overdue). '
+        'Estas comprobaciones no miden tu disponibilidad ni predicen la probabilidad de éxito. '
+        '$milestoneState${milestoneCount == 0 ? '' : ' (puntuación $milestoneHealth/100, vencidos $milestoneOverdue)'}.\n\n'
         'Carga activa: $activeTasks ${activeTasks == 1 ? 'tarea' : 'tareas'} en $activeGoals ${activeGoals == 1 ? 'meta' : 'metas'}.\n'
         'Próxima práctica: $oneAction';
   }
   return 'PROGRESS REVIEW\n\n'
       '$executionState. $completionDetail '
       '$pressureState (index $pressureIndex). '
-      '$timelineState (health $timelineHealth%, risk $timelineRisk%, overdue $overdue). '
-      '$milestoneState${milestoneCount == 0 ? '' : ' (health $milestoneHealth%, overdue $milestoneOverdue)'}.\n\n'
+      '$timelineState (record score $timelineHealth/100, issue score $timelineRisk/100, overdue $overdue). '
+      'These checks do not measure your availability or predict a chance of success. '
+      '$milestoneState${milestoneCount == 0 ? '' : ' (record score $milestoneHealth/100, overdue $milestoneOverdue)'}.\n\n'
       'Active workload: $activeTasks tasks across $activeGoals goals.\n'
       'Next practice: $oneAction';
 }

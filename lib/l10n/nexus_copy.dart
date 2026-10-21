@@ -13,7 +13,7 @@ class NexusCopy {
   final bool isSpanish;
 
   String get productName => 'AXIOMARA';
-  String get nexusTitle => isSpanish ? 'Inicio' : 'Home';
+  String get nexusTitle => isSpanish ? 'Hoy' : 'Today';
   String get tagline => isSpanish
       ? 'Tómate un momento. Elige qué te ayudaría ahora.'
       : 'Take a moment. Choose what would help right now.';
@@ -39,7 +39,7 @@ class NexusCopy {
   String get morePlanningTools => isSpanish ? 'Más herramientas' : 'More tools';
   String get resolveNow =>
       isSpanish ? 'Elegir un pequeño paso' : 'Choose a small step';
-  String get interrogate => isSpanish ? 'Hablarlo' : 'Talk it through';
+  String get interrogate => 'Chat';
   String get compareFutures =>
       isSpanish ? 'Comparar opciones' : 'Compare options';
   String get scheduleEyebrow => isSpanish ? 'AGENDA' : 'SCHEDULE';
@@ -74,8 +74,8 @@ class NexusCopy {
       ? 'Estimación basada en tu cansancio. Toca para registrarlo'
       : 'Estimate from your fatigue report. Tap to check in';
   String get momentumHint => isSpanish
-      ? 'Abre Comparar opciones para revisar esta estimación'
-      : 'Open Compare options to review this estimate';
+      ? 'Abre Perspectivas para revisar esta estimación'
+      : 'Open Insights to review this estimate';
   String momentumValue(String value) => !isSpanish
       ? value
       : switch (value) {

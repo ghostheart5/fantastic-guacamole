@@ -112,7 +112,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('MÁS ADECUADO · 20 min'), findsOneWidget);
     expect(find.text('Añadir algo'), findsOneWidget);
-    expect(find.byTooltip('Volver a Inicio'), findsOneWidget);
+    expect(find.byTooltip('Volver a Hoy'), findsOneWidget);
     expect(find.byTooltip('Back'), findsNothing);
     expect(find.text('Gestionar hábitos'), findsOneWidget);
     expect(find.text('Borrador sugerido'), findsOneWidget);
