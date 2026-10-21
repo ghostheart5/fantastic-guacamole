@@ -684,7 +684,19 @@ void main() {
       final includedContext = find.text('Included app context');
       await tester.ensureVisible(includedContext);
       await tester.tap(includedContext);
-      await tester.pumpAndSettle();
+      // The focused prompt can keep its cursor animation alive. Wait for
+      // disclosure content rather than waiting for every animation to stop.
+      await tester.pump(const Duration(milliseconds: 300));
+      await waitFor(
+        tester,
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is SelectableText &&
+              (widget.data ?? widget.textSpan!.toPlainText()).contains(
+                'Sources: just this chat',
+              ),
+        ),
+      );
       final review = find.descendant(
         of: find.byType(AlertDialog),
         matching: find.byType(SelectableText),
@@ -707,7 +719,8 @@ void main() {
       }
       expect(transportCalls, 0);
       await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Review what AI will receive'), findsNothing);
       expect(transportCalls, 0);
       expect(tester.takeException(), isNull);
