@@ -353,7 +353,9 @@ void main() {
         trajectory: _activeTrajectory,
         appFlowOverride: flow,
       );
-      flow.toProgression();
+      final initializedFlow = container.read(appFlowProvider.notifier);
+      expect(initializedFlow, same(flow));
+      initializedFlow.toProgression();
       await tester.pump();
 
       final owner = tester.binding.renderViews.single.owner!.semanticsOwner!;
