@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'package:fantastic_guacamole/app/router/app_router.dart';
+import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/state/providers/local_profile_auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -31,11 +34,173 @@ import 'package:fantastic_guacamole/system/notifications/notification_scheduler.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const String _markerKey = 'auth_boundary_account_marker_v1';
 
 void main() {
   if (Env.isLocalMode) {
+    test(
+      'completed local setup survives real coordinator cold reopen and a held storage gate',
+      () async {
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+        final store = SecureStore(backend: InMemorySecureStoreBackend());
+        final first = _BoundaryHarness(useLocalAuth: true, secureStore: store);
+        await first.coordinator.initialize();
+        final local = first.container.read(localProfileAuthServiceProvider);
+        final user = await local.createProfile();
+        await first.settle();
+        final namespace = first.container
+            .read(accountStorageScopeProvider)
+            .v2Namespace;
+        expect(namespace, isNotNull);
+        await first.container.read(accountOnboardingCompleteProvider.future);
+        await first.container
+            .read(accountOnboardingCompleteProvider.notifier)
+            .complete();
+        expect(
+          first.container.read(guards.onboardingCompleteGuardProvider),
+          isTrue,
+        );
+        final scopedStore = store.forAccount(
+          AccountStorageScope.authenticated(user.id),
+        );
+        await scopedStore.writeString(
+          'setup-reentry-sentinel',
+          'retained plan',
+        );
+        final prefs = await SharedPreferences.getInstance();
+        final key = 'onboarding_profile_complete_v1.$namespace';
+        expect(prefs.getBool(key), isTrue);
+        final persisted = <String, Object>{
+          for (final key in prefs.getKeys()) key: prefs.get(key)!,
+        };
+        await local.signOut();
+        await first.settle();
+        expect(
+          first.container.read(guards.authenticatedGuardProvider),
+          isFalse,
+        );
+        expect(first.cleanup.cancelledAccountIds, [user.id]);
+        await first.dispose();
+
+        SharedPreferences.setMockInitialValues(persisted);
+        final preparationStarted = Completer<void>();
+        final releasePreparation = Completer<void>();
+        final reopened = _BoundaryHarness(
+          useLocalAuth: true,
+          secureStore: store,
+          prepareGoals: (scope, ownership) async {
+            expect(scope.rawUserId, user.id);
+            expect(ownership, LegacyScopeOwnership.provenNotOwned);
+            if (!preparationStarted.isCompleted) preparationStarted.complete();
+            await releasePreparation.future;
+          },
+        );
+        addTearDown(reopened.dispose);
+        addTearDown(() {
+          if (!releasePreparation.isCompleted) releasePreparation.complete();
+        });
+        final observations =
+            <({bool authenticated, bool complete, int generation})>[];
+        void observe() => observations.add((
+          authenticated: reopened.container.read(
+            guards.authenticatedGuardProvider,
+          ),
+          complete: reopened.container.read(
+            guards.onboardingCompleteGuardProvider,
+          ),
+          generation: reopened.boundary.generation,
+        ));
+        final authSubscription = reopened.container.listen<bool>(
+          guards.authenticatedGuardProvider,
+          (_, _) => observe(),
+        );
+        final setupSubscription = reopened.container.listen<bool>(
+          guards.onboardingCompleteGuardProvider,
+          (_, _) => observe(),
+        );
+        addTearDown(authSubscription.close);
+        addTearDown(setupSubscription.close);
+        await reopened.coordinator.initialize();
+        final reopenedLocal = reopened.container.read(
+          localProfileAuthServiceProvider,
+        );
+        expect(reopenedLocal.currentUser, isNull);
+        expect((await reopenedLocal.openProfile()).id, user.id);
+        await preparationStarted.future;
+        expect(reopened.boundary.isTransitioning, isTrue);
+        expect(
+          reopened.container.read(guards.authenticatedGuardProvider),
+          isFalse,
+        );
+        expect(
+          reopened.container.read(guards.onboardingCompleteGuardProvider),
+          isFalse,
+        );
+        final reopenedPrefs = await SharedPreferences.getInstance();
+        expect(
+          reopenedPrefs.getBool(key),
+          isTrue,
+          reason: 'Unsafe/loading gates must not rewrite persisted completion.',
+        );
+
+        releasePreparation.complete();
+        await reopened.settle();
+        expect(
+          await reopened.container.read(
+            accountOnboardingCompleteProvider.future,
+          ),
+          isTrue,
+        );
+        expect(reopened.boundary.isTransitioning, isFalse);
+        expect(
+          reopened.container.read(accountStorageScopeProvider).v2Namespace,
+          namespace,
+        );
+        expect(
+          reopened.container.read(guards.authenticatedGuardProvider),
+          isTrue,
+        );
+        expect(
+          reopened.container.read(guards.onboardingCompleteGuardProvider),
+          isTrue,
+        );
+        expect(
+          observations.any((value) => value.authenticated && value.complete),
+          isTrue,
+        );
+        expect(reopenedPrefs.getBool(key), isTrue);
+        expect(
+          await scopedStore.readString('setup-reentry-sentinel'),
+          'retained plan',
+        );
+        expect(reopened.cleanup.clearCalls, 0);
+        for (final location in [RoutePaths.login, RoutePaths.onboarding]) {
+          final uri = Uri(
+            path: location,
+            queryParameters: {'returnTo': RoutePaths.timeline},
+          );
+          expect(
+            computeAppRedirect(
+              isAuthenticated: reopened.container.read(
+                guards.authenticatedGuardProvider,
+              ),
+              welcomeComplete: true,
+              onboardingComplete: reopened.container.read(
+                guards.onboardingCompleteGuardProvider,
+              ),
+              location: location,
+              uri: uri,
+            ),
+            RoutePaths.timeline,
+            reason:
+                'A completed profile must escape a transient setup redirect without another setup action.',
+          );
+        }
+      },
+    );
+
     for (final bool deleteProfile in <bool>[true, false]) {
       test(
         'local ${deleteProfile ? 'profile deletion' : 'data clearing'} drains the departing outcome save before cleanup',
@@ -578,6 +743,12 @@ final class _TestCleanupService extends LocalUserDataCleanupService {
   int clearCalls = 0;
   String? clearedAccountId;
   Future<void> Function(String)? onClear;
+  final List<String> cancelledAccountIds = [];
+
+  @override
+  Future<void> cancelScheduledNotificationsForAccount(String accountId) async {
+    cancelledAccountIds.add(accountId);
+  }
 
   @override
   Future<void> clearForAccountSwitch(String accountId) async {

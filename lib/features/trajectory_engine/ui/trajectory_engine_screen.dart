@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'dart:async';
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
+import 'package:fantastic_guacamole/ui/navigation/open_schedule.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
@@ -543,7 +544,7 @@ class _TrajectoryEngineScreenState
       case TrajectoryInterventionType.delayTask:
       case TrajectoryInterventionType.reduceScope:
       case TrajectoryInterventionType.recoverCommitment:
-        goToAppView(context, ref, AppView.timeline);
+        unawaited(openSchedule(context));
     }
   }
 }

@@ -452,6 +452,8 @@ void main() {
       'Control Centre',
       'Human Profile',
       'Capability Matrix',
+      'Deep Intelligence',
+      'Inteligencia profunda',
       'Núcleo Nexus',
       'RAMAS FUTURAS',
       'Registro de Verdad',
@@ -672,7 +674,7 @@ bool _isTextSurface(File file) {
 
 // Review rendered strings rather than banning route/type/storage identifiers.
 final RegExp _retiredVisibleProductNames = RegExp(
-  r'\b(?:nexus(?:[ -]core)?|chrono\s?spark|(?:human[ -])?decision[ -]os|truth[ -]ledger|trajectory[ -]engine|future[ -]branches|reality[ -]builder|now[ -]engine|control[ -]cent(?:er|re)|human[ -]profile|capability[ -]matrix|smart[ -]planner|planner v2|review on home|daily rhythms?|ritmos? diarios?|planificador v2|si[ -]console|planificador inteligente|consola si|motor de trayectorias?|constructor de realidad|núcleo nexus|ramas futuras|registro de (?:la )?verdad|motor (?:del? )?ahora|centro de control|perfil humano|matriz de capacidades)\b',
+  r'\b(?:nexus(?:[ -]core)?|chrono\s?spark|(?:human[ -])?decision[ -]os|truth[ -]ledger|trajectory[ -]engine|future[ -]branches|reality[ -]builder|now[ -]engine|control[ -]cent(?:er|re)|human[ -]profile|capability[ -]matrix|smart[ -]planner|planner v2|review on home|daily rhythms?|ritmos? diarios?|planificador v2|si[ -]console|deep[ -]intelligence|inteligencia profunda|planificador inteligente|consola si|motor de trayectorias?|constructor de realidad|núcleo nexus|ramas futuras|registro de (?:la )?verdad|motor (?:del? )?ahora|centro de control|perfil humano|matriz de capacidades)\b',
   caseSensitive: false,
 );
 final RegExp _quotedCopy = RegExp(r"""(['"])((?:\\.|(?!\1).)*)\1""");

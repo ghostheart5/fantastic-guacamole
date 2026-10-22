@@ -56,7 +56,8 @@ extension _NavigationShellNotificationRouting on _NavigationShellState {
       return;
     }
     if (logicalPayload.startsWith('reflection_reminder')) {
-      _goToView(AppView.timeline);
+      if (!_canOpenReflectionSchedule()) return;
+      unawaited(openSchedule(context));
       return;
     }
     if (logicalPayload.startsWith('streak_break_recovery_')) {
@@ -64,5 +65,24 @@ extension _NavigationShellNotificationRouting on _NavigationShellState {
       return;
     }
     _goToView(AppView.timeline);
+  }
+
+  // External taps can arrive while a mounted shell is being redirected. Recheck
+  // current admission after the cold-launch await and immediately before push.
+  bool _canOpenReflectionSchedule() {
+    final scope = ref.read(accountStorageScopeProvider);
+    final boundary = ref.read(authSessionBoundaryProvider);
+    final recovery = ref.read(passwordRecoveryStateProvider).asData?.value;
+    return mounted &&
+        ref.read(route_guards.authenticatedGuardProvider) &&
+        ref.read(route_guards.onboardingWelcomeCompleteGuardProvider) &&
+        ref.read(route_guards.onboardingCompleteGuardProvider) &&
+        scope.isWritable &&
+        boundary.userId == scope.rawUserId &&
+        !boundary.isTransitioning &&
+        boundary.isStorageReady &&
+        !(boundary.blockingIssue?.trim().isNotEmpty ?? false) &&
+        recovery != null &&
+        !recovery.isPending;
   }
 }
