@@ -373,11 +373,46 @@ class _SettingsCategory extends StatelessWidget {
   }
 }
 
-class _FormAppearanceSetting extends ConsumerWidget {
+class _FormAppearanceSetting extends ConsumerStatefulWidget {
   const _FormAppearanceSetting();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_FormAppearanceSetting> createState() =>
+      _FormAppearanceSettingState();
+}
+
+class _FormAppearanceSettingState
+    extends ConsumerState<_FormAppearanceSetting> {
+  bool _saving = false;
+
+  Future<void> _save(bool dark) async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await ref
+          .read(themeActionsProvider)
+          .save(dark ? AppThemeEntity.dark() : AppThemeEntity.light());
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              journeyText(
+                context,
+                'Appearance could not be saved. Your previous setting is unchanged.',
+                'No se pudo guardar la apariencia. Se conserva el ajuste anterior.',
+              ),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     String copy(String english, String spanish) =>
         journeyText(context, english, spanish);
     final isDark = ref.watch(currentThemeProvider).asData?.value.isDark ?? true;
@@ -389,12 +424,7 @@ class _FormAppearanceSetting extends ConsumerWidget {
             'Formularios y diálogos oscuros',
           ),
           value: isDark,
-          onChanged: (enabled) {
-            final next = enabled
-                ? AppThemeEntity.dark()
-                : AppThemeEntity.light();
-            unawaited(ref.read(themeActionsProvider).save(next));
-          },
+          onChanged: _saving ? null : _save,
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),

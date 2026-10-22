@@ -318,8 +318,8 @@ class _MemoryGovernanceSection extends ConsumerWidget {
             content: Text(
               journeyText(
                 context,
-                'This clears short-lived Choose a step and Chat context. It does not delete tasks, goals, Schedule data, or governed memory receipts.',
-                'Esto borra el contexto temporal de Elegir un paso y Chat. No elimina tareas, metas, datos de agenda ni registros de memoria controlados.',
+                'This clears short-lived assistant planning context. Saved Chat conversations are separate: open Chat and choose Clear conversation to delete that history. This does not delete tasks, goals, Schedule data, or governed memory receipts.',
+                'Esto borra el contexto temporal de planificación del asistente. Las conversaciones guardadas de Chat son independientes: abre Chat y elige Borrar conversación para eliminar ese historial. No elimina tareas, metas, datos de agenda ni registros de memoria controlados.',
               ),
             ),
             actions: <Widget>[
@@ -501,18 +501,12 @@ class _PreferenceDropdown<T> extends StatelessWidget {
         child: DropdownButtonFormField<T>(
           initialValue: value,
           isExpanded: true,
-          dropdownColor: const Color(0xFF0B111C),
-          style: const TextStyle(color: Colors.white70, fontSize: 13),
-          decoration: InputDecoration(
-            labelText: label,
-            labelStyle: const TextStyle(color: Colors.white54),
-            enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(
-                color: AppColors.neonCyan.withValues(alpha: 0.2),
-              ),
-              borderRadius: BorderRadius.circular(10),
-            ),
+          dropdownColor: Theme.of(context).colorScheme.surface,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 13,
           ),
+          decoration: InputDecoration(labelText: label),
           items: items
               .map(
                 (T item) => DropdownMenuItem<T>(

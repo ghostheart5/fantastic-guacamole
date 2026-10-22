@@ -35,6 +35,7 @@ void main() {
     Locale locale = const Locale('en'),
     Future<List<Task>> Function()? load,
     Future<void> Function(String)? complete,
+    ThemeData? theme,
   }) async {
     tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1;
@@ -76,7 +77,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
-          theme: appTheme,
+          theme: theme ?? appTheme,
           locale: locale,
           supportedLocales: ChronoSparkLocalizations.supportedLocales,
           localizationsDelegates: const [
@@ -98,6 +99,78 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     return container;
+  }
+
+  for (final dark in [true, false]) {
+    testWidgets('Today artwork text stays readable with dark forms=$dark', (
+      tester,
+    ) async {
+      final theme = dark ? appTheme : appLightTheme;
+      var completions = 0;
+      await pumpToday(
+        tester,
+        theme: theme,
+        complete: (_) async {
+          completions++;
+        },
+      );
+      addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+      double contrast(Color foreground, Color background) {
+        final first = Color.alphaBlend(
+          foreground,
+          background,
+        ).computeLuminance();
+        final second = background.computeLuminance();
+        return first > second
+            ? (first + .05) / (second + .05)
+            : (second + .05) / (first + .05);
+      }
+
+      final background = tester
+          .widget<Scaffold>(find.byType(Scaffold))
+          .backgroundColor!;
+      for (final label in [
+        'Today',
+        'One thing at a time.',
+        'Add what matters. Take a step when you’re ready.',
+        'A place to start',
+      ]) {
+        final text = tester.renderObject<RenderParagraph>(find.text(label));
+        expect(
+          contrast(text.text.style!.color!, background),
+          greaterThanOrEqualTo(4.5),
+        );
+      }
+      final task = find.text('Take a short walk');
+      final taskText = tester.renderObject<RenderParagraph>(task);
+      final card = tester.widget<Card>(
+        find.ancestor(of: task, matching: find.byType(Card)).first,
+      );
+      final surface = Color.alphaBlend(
+        card.color ?? theme.cardTheme.color!,
+        background,
+      );
+      expect(
+        contrast(taskText.text.style!.color!, surface),
+        greaterThanOrEqualTo(4.5),
+      );
+      for (final icon in [
+        Icons.notifications_outlined,
+        Icons.settings_outlined,
+      ]) {
+        final target = find.byIcon(icon);
+        final color =
+            tester.widget<Icon>(target).color ??
+            IconTheme.of(tester.element(target)).color!;
+        expect(contrast(color, background), greaterThanOrEqualTo(3));
+      }
+      expect(
+        Theme.of(tester.element(find.byType(TodayScreen))).brightness,
+        theme.brightness,
+      );
+      expect(completions, 0);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   for (final kind in CreatorFormKind.values) {

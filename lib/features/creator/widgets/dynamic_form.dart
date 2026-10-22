@@ -286,6 +286,10 @@ class _DynamicFormState extends State<DynamicForm> {
           if (_type != CreatorFormKind.note && !widget.guidedFirstTask)
             ExpansionTile(
               key: const Key('creator-description-options'),
+              textColor: Colors.white,
+              collapsedTextColor: Colors.white,
+              iconColor: Colors.white70,
+              collapsedIconColor: Colors.white70,
               tilePadding: EdgeInsets.zero,
               title: Text(
                 ChronoSparkLocalizations.of(context).isSpanish
@@ -306,14 +310,25 @@ class _DynamicFormState extends State<DynamicForm> {
             else
               ExpansionTile(
                 key: const Key('creator-task-options'),
+                textColor: Colors.white,
+                collapsedTextColor: Colors.white,
+                iconColor: Colors.white70,
+                collapsedIconColor: Colors.white70,
                 tilePadding: EdgeInsets.zero,
                 title: Text(_copy.taskOptions),
-                subtitle: Text(_copy.taskOptionsHint),
+                subtitle: Text(
+                  _copy.taskOptionsHint,
+                  style: const TextStyle(color: Colors.white70),
+                ),
                 children: _buildTaskFields(),
               ),
           if (_type == CreatorFormKind.goal)
             ExpansionTile(
               key: const Key('creator-goal-options'),
+              textColor: Colors.white,
+              collapsedTextColor: Colors.white,
+              iconColor: Colors.white70,
+              collapsedIconColor: Colors.white70,
               tilePadding: EdgeInsets.zero,
               title: Text(
                 ChronoSparkLocalizations.of(context).isSpanish
@@ -355,34 +370,42 @@ class _DynamicFormState extends State<DynamicForm> {
           ? 'Frecuencia'
           : 'Repeat',
     ),
-    DropdownButton<RecurrenceRule>(
-      key: const Key('creator-task-repeat'),
-      value: _taskRecurrence,
-      isExpanded: true,
-      items: [
-        for (final rule in RecurrenceRule.values)
-          DropdownMenuItem(
-            value: rule,
-            child: Text(
-              ChronoSparkLocalizations.of(context).isSpanish
-                  ? switch (rule) {
-                      RecurrenceRule.none => 'No se repite',
-                      RecurrenceRule.daily => 'Diariamente',
-                      RecurrenceRule.weekly => 'Semanalmente',
-                    }
-                  : switch (rule) {
-                      RecurrenceRule.none => 'Does not repeat',
-                      RecurrenceRule.daily => 'Daily',
-                      RecurrenceRule.weekly => 'Weekly',
-                    },
-            ),
-          ),
-      ],
-      onChanged: _submitting
-          ? null
-          : (value) {
-              if (value != null) setState(() => _taskRecurrence = value);
-            },
+    _DropdownShell(
+      accent: AppColors.neonCyan,
+      child: DropdownRouteKeyboardGuard(
+        child: DropdownButton<RecurrenceRule>(
+          key: const Key('creator-task-repeat'),
+          value: _taskRecurrence,
+          isExpanded: true,
+          dropdownColor: Theme.of(context).colorScheme.surface,
+          style: _dropdownTextStyle(context),
+          iconEnabledColor: _formAccent(context, AppColors.neonCyan),
+          items: [
+            for (final rule in RecurrenceRule.values)
+              DropdownMenuItem(
+                value: rule,
+                child: Text(
+                  ChronoSparkLocalizations.of(context).isSpanish
+                      ? switch (rule) {
+                          RecurrenceRule.none => 'No se repite',
+                          RecurrenceRule.daily => 'Diariamente',
+                          RecurrenceRule.weekly => 'Semanalmente',
+                        }
+                      : switch (rule) {
+                          RecurrenceRule.none => 'Does not repeat',
+                          RecurrenceRule.daily => 'Daily',
+                          RecurrenceRule.weekly => 'Weekly',
+                        },
+                ),
+              ),
+          ],
+          onChanged: _submitting
+              ? null
+              : (value) {
+                  if (value != null) setState(() => _taskRecurrence = value);
+                },
+        ),
+      ),
     ),
     const SizedBox(height: 18),
     _FieldLabel(text: _copy.activeGoal),
@@ -496,8 +519,10 @@ class _DynamicFormState extends State<DynamicForm> {
         key: key,
         controller: controller,
         maxLines: maxLines,
-        style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
-        decoration: _inputDecoration(hint, _accentFor(_type)),
+        style: Theme.of(
+          context,
+        ).textTheme.bodyLarge?.copyWith(fontSize: 14, height: 1.5),
+        decoration: _inputDecoration(hint),
       ),
     );
   }
@@ -521,17 +546,18 @@ class _CreatorTypePicker extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 48),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: _formSurface(context),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _accentFor(selected).withValues(alpha: 0.3)),
+        border: Border.all(color: _formBorder(context, _accentFor(selected))),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownRouteKeyboardGuard(
           child: DropdownButton<CreatorFormKind>(
             value: selected,
             isExpanded: true,
-            dropdownColor: AppColors.bgSecondary,
-            iconEnabledColor: _accentFor(selected),
+            dropdownColor: Theme.of(context).colorScheme.surface,
+            style: _dropdownTextStyle(context),
+            iconEnabledColor: _formAccent(context, _accentFor(selected)),
             onChanged: enabled
                 ? (CreatorFormKind? value) {
                     if (value != null) onChanged(value);
@@ -543,14 +569,18 @@ class _CreatorTypePicker extends StatelessWidget {
                     value: type,
                     child: Row(
                       children: <Widget>[
-                        Icon(_iconFor(type), size: 18, color: _accentFor(type)),
+                        Icon(
+                          _iconFor(type),
+                          size: 18,
+                          color: _formAccent(context, _accentFor(type)),
+                        ),
                         const SizedBox(width: 10),
                         Text(
                           ChronoSparkLocalizations.of(
                             context,
                           ).creator.kind(type.name),
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -593,8 +623,9 @@ class _GoalLinkPicker extends StatelessWidget {
           key: const Key('creator-task-goal-link'),
           value: selected,
           isExpanded: true,
-          dropdownColor: AppColors.bgSecondary,
-          iconEnabledColor: AppColors.neonViolet,
+          dropdownColor: Theme.of(context).colorScheme.surface,
+          style: _dropdownTextStyle(context),
+          iconEnabledColor: _formAccent(context, AppColors.neonViolet),
           onChanged: onChanged,
           items: <DropdownMenuItem<String?>>[
             DropdownMenuItem<String?>(
@@ -636,8 +667,9 @@ class _EstimatePicker extends StatelessWidget {
           key: const Key('creator-task-estimate'),
           value: selected,
           isExpanded: true,
-          dropdownColor: AppColors.bgSecondary,
-          iconEnabledColor: AppColors.neonCyan,
+          dropdownColor: Theme.of(context).colorScheme.surface,
+          style: _dropdownTextStyle(context),
+          iconEnabledColor: _formAccent(context, AppColors.neonCyan),
           onChanged: (Duration? value) {
             if (value != null) onChanged(value);
           },
@@ -671,9 +703,9 @@ class _DropdownShell extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 48),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: _formSurface(context),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: accent.withValues(alpha: 0.24)),
+        border: Border.all(color: _formBorder(context, accent)),
       ),
       child: DropdownButtonHideUnderline(child: child),
     );
@@ -828,10 +860,6 @@ class _DateField extends StatelessWidget {
             : selected!,
         firstDate: firstDate,
         lastDate: DateTime(now.year + 10, 12, 31),
-        builder: (BuildContext context, Widget? child) => Theme(
-          data: ThemeData.dark(),
-          child: child ?? const SizedBox.shrink(),
-        ),
       );
       if (date == null || !context.mounted) return;
       if (!includeTime) {
@@ -842,10 +870,6 @@ class _DateField extends StatelessWidget {
       final TimeOfDay? time = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.fromDateTime(suggested),
-        builder: (BuildContext context, Widget? child) => Theme(
-          data: ThemeData.dark(),
-          child: child ?? const SizedBox.shrink(),
-        ),
       );
       if (time == null) return;
       // The picker callback belongs to the parent form state, which performs
@@ -880,13 +904,17 @@ class _DateField extends StatelessWidget {
             constraints: const BoxConstraints(minHeight: 48),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.04),
+              color: _formSurface(context),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: accent.withValues(alpha: 0.24)),
+              border: Border.all(color: _formBorder(context, accent)),
             ),
             child: Row(
               children: <Widget>[
-                Icon(Icons.calendar_today_outlined, size: 16, color: accent),
+                Icon(
+                  Icons.calendar_today_outlined,
+                  size: 16,
+                  color: _formAccent(context, accent),
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -894,8 +922,11 @@ class _DateField extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       color: selected == null
-                          ? const Color(0xFFAEB9D0)
-                          : Colors.white70,
+                          ? Theme.of(
+                                  context,
+                                ).inputDecorationTheme.hintStyle?.color ??
+                                Theme.of(context).colorScheme.onSurfaceVariant
+                          : Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ),
@@ -905,9 +936,13 @@ class _DateField extends StatelessWidget {
                     semanticLabel: ChronoSparkLocalizations.of(
                       context,
                     ).creator.clearDate(label),
-                    child: const Padding(
-                      padding: EdgeInsets.all(11),
-                      child: Icon(Icons.close, size: 15, color: Colors.white54),
+                    child: Padding(
+                      padding: const EdgeInsets.all(11),
+                      child: Icon(
+                        Icons.close,
+                        size: 15,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
               ],
@@ -955,9 +990,23 @@ class _CadencePicker extends StatelessWidget {
       style: ButtonStyle(
         minimumSize: const WidgetStatePropertyAll<Size>(Size(0, 48)),
         foregroundColor: WidgetStateProperty.resolveWith<Color>(
-          (Set<WidgetState> states) => states.contains(WidgetState.selected)
-              ? AppColors.memoryAmber
-              : Colors.white70,
+          (Set<WidgetState> states) =>
+              Theme.of(context).brightness == Brightness.light
+              ? (states.contains(WidgetState.selected)
+                    ? Theme.of(context).colorScheme.onSecondaryContainer
+                    : Theme.of(context).colorScheme.onSurface)
+              : (states.contains(WidgetState.selected)
+                    ? AppColors.memoryAmber
+                    : Colors.white70),
+        ),
+        backgroundColor: WidgetStateProperty.resolveWith<Color?>(
+          (states) => states.contains(WidgetState.selected)
+              ? (Theme.of(context).brightness == Brightness.light
+                    ? Theme.of(context).colorScheme.secondaryContainer
+                    : AppColors.bgTertiary)
+              : (Theme.of(context).brightness == Brightness.light
+                    ? Theme.of(context).colorScheme.surface
+                    : null),
         ),
       ),
     );
@@ -999,6 +1048,14 @@ class _TargetCountPicker extends StatelessWidget {
         IconButton.outlined(
           key: const Key('creator-rhythm-decrease'),
           tooltip: ChronoSparkLocalizations.of(context).creator.decreaseCount,
+          style: IconButton.styleFrom(
+            backgroundColor: Theme.of(context).brightness == Brightness.light
+                ? Theme.of(context).colorScheme.surface
+                : null,
+            foregroundColor: Theme.of(context).brightness == Brightness.light
+                ? Theme.of(context).colorScheme.onSurface
+                : null,
+          ),
           onPressed: value > 1 ? () => onChanged(value - 1) : null,
           icon: const Icon(Icons.remove_rounded),
         ),
@@ -1007,8 +1064,8 @@ class _TargetCountPicker extends StatelessWidget {
           key: const Key('creator-rhythm-increase'),
           tooltip: ChronoSparkLocalizations.of(context).creator.increaseCount,
           style: IconButton.styleFrom(
-            backgroundColor: AppColors.neonCyan,
-            foregroundColor: const Color(0xFF001318),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
           ),
           onPressed: value < 365 ? () => onChanged(value + 1) : null,
           icon: const Icon(Icons.add_rounded),
@@ -1054,25 +1111,30 @@ class _FieldLabel extends StatelessWidget {
   }
 }
 
-InputDecoration _inputDecoration(String hint, Color accent) => InputDecoration(
+InputDecoration _inputDecoration(String hint) => InputDecoration(
   hintText: hint,
-  hintStyle: const TextStyle(color: Color(0xFFAEB9D0), fontSize: 14),
-  filled: true,
-  fillColor: Colors.white.withValues(alpha: 0.04),
   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-  border: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(8),
-    borderSide: BorderSide(color: accent.withValues(alpha: 0.15)),
-  ),
-  enabledBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(8),
-    borderSide: BorderSide(color: accent.withValues(alpha: 0.15)),
-  ),
-  focusedBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(8),
-    borderSide: BorderSide(color: accent.withValues(alpha: 0.5)),
-  ),
 );
+
+Color _formSurface(BuildContext context) =>
+    Theme.of(context).inputDecorationTheme.fillColor ??
+    Theme.of(context).colorScheme.surface;
+
+Color _formAccent(BuildContext context, Color artworkAccent) =>
+    Theme.of(context).brightness == Brightness.light
+    ? Theme.of(context).colorScheme.primary
+    : artworkAccent;
+
+Color _formBorder(BuildContext context, Color artworkAccent) =>
+    Theme.of(context).brightness == Brightness.light
+    ? Theme.of(context).inputDecorationTheme.enabledBorder?.borderSide.color ??
+          Theme.of(context).colorScheme.outline
+    : artworkAccent.withValues(alpha: .24);
+
+TextStyle _dropdownTextStyle(BuildContext context) =>
+    (Theme.of(context).textTheme.bodyMedium ?? const TextStyle()).copyWith(
+      color: Theme.of(context).colorScheme.onSurface,
+    );
 
 Color _accentFor(CreatorFormKind type) => switch (type) {
   CreatorFormKind.task => AppColors.neonCyan,

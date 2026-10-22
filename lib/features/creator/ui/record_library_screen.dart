@@ -39,6 +39,15 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
   _LibraryKind _kind = _LibraryKind.tasks;
   bool _taskBusy = false;
 
+  // These controls sit on the fixed dark artwork/glass surfaces, while form
+  // fields and popup menus continue to use the selected app theme.
+  ButtonStyle get _surfaceButtonStyle => OutlinedButton.styleFrom(
+    foregroundColor: Colors.white,
+    backgroundColor: const Color(0xFF10203F),
+    disabledForegroundColor: Colors.white38,
+    side: const BorderSide(color: Colors.white54),
+  );
+
   @override
   void initState() {
     super.initState();
@@ -68,6 +77,11 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
               : (es ? 'Guardado' : 'Saved'),
         ),
         backgroundColor: const Color(0xFF030812),
+        foregroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: Theme.of(
+          context,
+        ).textTheme.titleLarge?.copyWith(color: Colors.white),
         actions: [
           if (widget.asPlan)
             IconButton(
@@ -93,12 +107,14 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
                         runSpacing: 8,
                         children: [
                           OutlinedButton.icon(
+                            style: _surfaceButtonStyle,
                             onPressed: () =>
                                 goToAppView(context, ref, AppView.goals),
                             icon: const Icon(Icons.flag_outlined),
                             label: Text(es ? 'Metas' : 'Goals'),
                           ),
                           OutlinedButton.icon(
+                            style: _surfaceButtonStyle,
                             onPressed: () => Navigator.of(context).push<void>(
                               MaterialPageRoute(
                                 builder: (_) => const DailyRhythmsScreen(),
@@ -108,6 +124,7 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
                             label: Text(es ? 'Hábitos' : 'Habits'),
                           ),
                           OutlinedButton.icon(
+                            style: _surfaceButtonStyle,
                             onPressed: () => Navigator.of(context).push<void>(
                               MaterialPageRoute(
                                 builder: (_) => const TimelineScreen(),
@@ -131,6 +148,7 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                     child: Text(
+                      style: const TextStyle(color: Colors.white70),
                       widget.asPlan
                           ? (es
                                 ? 'Tus tareas, incluidas las que no tienen fecha. Abre una para editarla.'
@@ -158,6 +176,21 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: SegmentedButton<_LibraryKind>(
+                      style: ButtonStyle(
+                        foregroundColor: WidgetStateProperty.resolveWith(
+                          (states) => states.contains(WidgetState.selected)
+                              ? const Color(0xFF030812)
+                              : Colors.white,
+                        ),
+                        backgroundColor: WidgetStateProperty.resolveWith(
+                          (states) => states.contains(WidgetState.selected)
+                              ? AppColors.neonCyan
+                              : const Color(0xFF10203F),
+                        ),
+                        side: const WidgetStatePropertyAll(
+                          BorderSide(color: Colors.white54),
+                        ),
+                      ),
                       segments: <ButtonSegment<_LibraryKind>>[
                         ButtonSegment(
                           value: _LibraryKind.tasks,
@@ -256,9 +289,18 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ListTile(
+                      textColor: Colors.white,
+                      iconColor: Colors.white70,
+                      titleTextStyle: Theme.of(
+                        context,
+                      ).textTheme.titleMedium?.copyWith(color: Colors.white),
+                      subtitleTextStyle: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
                       key: ValueKey('library-task-${task.id}'),
                       leading: widget.asPlan && actionable
                           ? IconButton(
+                              color: Colors.white70,
                               tooltip: es ? 'Completar tarea' : 'Complete task',
                               onPressed: !enabled
                                   ? null
@@ -285,6 +327,7 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
                       ),
                       trailing: widget.asPlan
                           ? PopupMenuButton<String>(
+                              iconColor: Colors.white70,
                               tooltip: es ? 'Más opciones' : 'More options',
                               enabled: enabled,
                               onSelected: (action) => _manageTask(
@@ -337,6 +380,7 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
                               if (!task.isCanceled) 'delete',
                             ])
                               OutlinedButton(
+                                style: _surfaceButtonStyle,
                                 key: ValueKey(
                                   'library-task-${task.id}-$action',
                                 ),
@@ -502,6 +546,14 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
       items
           .map(
             (note) => ListTile(
+              textColor: Colors.white,
+              iconColor: Colors.white70,
+              titleTextStyle: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: Colors.white),
+              subtitleTextStyle: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
               key: ValueKey('library-note-${note.id}'),
               leading: Icon(
                 note.isArchived ? Icons.archive_outlined : Icons.note_outlined,
@@ -522,6 +574,10 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
                     ),
               trailing: note.isArchived
                   ? TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.neonCyan,
+                        backgroundColor: const Color(0xFF10203F),
+                      ),
                       onPressed: () =>
                           ref.read(notesProvider.notifier).restoreNote(note.id),
                       child: Text(es ? 'Restaurar' : 'Restore'),
@@ -549,6 +605,14 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
       items
           .map(
             (goal) => ListTile(
+              textColor: Colors.white,
+              iconColor: Colors.white70,
+              titleTextStyle: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: Colors.white),
+              subtitleTextStyle: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
               key: ValueKey('library-goal-${goal.id}'),
               leading: Icon(
                 goal.isCompleted
@@ -564,6 +628,10 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
               ),
               trailing: goal.isCompleted
                   ? TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.neonCyan,
+                        backgroundColor: const Color(0xFF10203F),
+                      ),
                       onPressed: () =>
                           ref.read(goalsProvider.notifier).reopen(goal),
                       child: Text(es ? 'Reabrir' : 'Reopen'),
@@ -580,6 +648,7 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
     if (children.isEmpty) {
       return Center(
         child: Text(
+          style: const TextStyle(color: Colors.white70),
           widget.asPlan && _search.text.trim().isEmpty
               ? (_kind == _LibraryKind.completed
                     ? (es
@@ -614,11 +683,19 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Text(
+          style: const TextStyle(color: Colors.white70),
           es
               ? 'No se pudieron leer los registros.'
               : 'Records could not be read.',
         ),
-        TextButton(onPressed: retry, child: Text(es ? 'Reintentar' : 'Retry')),
+        TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.neonCyan,
+            backgroundColor: const Color(0xFF10203F),
+          ),
+          onPressed: retry,
+          child: Text(es ? 'Reintentar' : 'Retry'),
+        ),
       ],
     ),
   );

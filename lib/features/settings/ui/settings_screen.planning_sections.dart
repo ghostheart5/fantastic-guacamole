@@ -60,11 +60,13 @@ class _ReflectionReminderSectionState
       initialTime: _time,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: AppColors.neonViolet,
-            onPrimary: Colors.white,
-            surface: Color(0xFF0B111C),
-            onSurface: Colors.white70,
+          colorScheme: Theme.of(context).colorScheme.copyWith(
+            primary: Theme.of(context).brightness == Brightness.dark
+                ? AppColors.neonViolet
+                : const Color(0xFF6251A3),
+            onPrimary: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF071426)
+                : Colors.white,
           ),
         ),
         child: child ?? const SizedBox.shrink(),
@@ -225,11 +227,13 @@ class _ReminderAutomationSectionState
       initialTime: _dailyPlanningTime,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: AppColors.neonCyan,
-            onPrimary: Colors.white,
-            surface: Color(0xFF0B111C),
-            onSurface: Colors.white70,
+          colorScheme: Theme.of(context).colorScheme.copyWith(
+            primary: Theme.of(context).brightness == Brightness.dark
+                ? AppColors.neonCyan
+                : const Color(0xFF00627A),
+            onPrimary: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF071426)
+                : Colors.white,
           ),
         ),
         child: child ?? const SizedBox.shrink(),

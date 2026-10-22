@@ -318,7 +318,8 @@ class _FutureBranches extends StatelessWidget {
                 _ => AppColors.memoryAmber,
               },
               selected: visible[index].id == selectedId,
-              onTap: () => onSelected(visible[index].id),
+              // Selection belongs to the intervention, not a baseline revision.
+              onTap: () => onSelected(visible[index].intervention.id),
             ),
             if (index != visible.length - 1)
               Divider(color: Colors.white.withValues(alpha: .09), height: 1),
@@ -649,6 +650,18 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
             selected: <TrajectoryCustomAdjustment>{_adjustment},
             showSelectedIcon: false,
             style: ButtonStyle(
+              foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                final colors = Theme.of(context).colorScheme;
+                return states.contains(WidgetState.selected)
+                    ? colors.onPrimary
+                    : colors.onSurface;
+              }),
+              backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                final colors = Theme.of(context).colorScheme;
+                return states.contains(WidgetState.selected)
+                    ? colors.primary
+                    : colors.surface;
+              }),
               minimumSize: const WidgetStatePropertyAll<Size>(
                 Size(0, AppSizes.touchTarget),
               ),

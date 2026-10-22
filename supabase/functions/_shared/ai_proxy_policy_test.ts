@@ -1,9 +1,55 @@
 import {
+  AI_PERSONAL_CONTEXT_GROUNDING_POLICY,
   buildServerSystemPrompt,
   containsBlockedAssistantClaim,
   containsRecommendationContradiction,
   containsScheduledStartDepartureConfusion,
 } from "./ai_proxy_policy.ts";
+
+Deno.test("personal grounding policy accompanies sparse and supplied planning context", () => {
+  // This verifies server prompt assembly, not model compliance or a paid call.
+  for (
+    const context of [
+      {
+        mode: "answer",
+        selectedSources: [],
+        scenarioAssumption: "I need a calm break after work.",
+      },
+      {
+        mode: "compare",
+        selectedSources: ["tasks"],
+        tasks: [{ title: "Evening break" }],
+      },
+    ]
+  ) {
+    for (const personality of ["planner", "strategist", "strict"]) {
+      const prompt = buildServerSystemPrompt(personality, context);
+      if (!prompt?.startsWith(AI_PERSONAL_CONTEXT_GROUNDING_POLICY)) {
+        throw new Error(
+          "personal grounding must be server policy for every personality and source scope",
+        );
+      }
+      if (
+        !prompt.includes("A prior assistant assertion is not evidence") ||
+        !prompt.includes(
+          "label optional examples and hypothetical conditions explicitly",
+        ) ||
+        !prompt.includes(
+          "transport, location, occupation, relationships, schedule, preferences, or emotional state",
+        )
+      ) {
+        throw new Error(
+          "general evidence, history and hypothetical boundaries missing",
+        );
+      }
+      if (!prompt.includes(JSON.stringify(context))) {
+        throw new Error(
+          "grounding policy must preserve the actual supplied context",
+        );
+      }
+    }
+  }
+});
 
 Deno.test("builds policy only from allowlisted control fields", () => {
   const prompt = buildServerSystemPrompt("planner", {

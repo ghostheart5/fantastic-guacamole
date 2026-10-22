@@ -226,17 +226,6 @@ class GoalsScreen extends ConsumerWidget {
                             lastDate: DateTime.now().add(
                               const Duration(days: 730),
                             ),
-                            builder: (context, child) => Theme(
-                              data: Theme.of(context).copyWith(
-                                colorScheme: const ColorScheme.dark(
-                                  primary: AppColors.memoryAmber,
-                                  onPrimary: Colors.black,
-                                  surface: Color(0xFF0B111C),
-                                  onSurface: Colors.white70,
-                                ),
-                              ),
-                              child: child ?? const SizedBox.shrink(),
-                            ),
                           );
                           if (picked != null) {
                             setSheetState(() => targetDate = picked);
@@ -382,7 +371,6 @@ class GoalsScreen extends ConsumerWidget {
                         width: double.infinity,
                         child: TextButton(
                           style: TextButton.styleFrom(
-                            foregroundColor: AppColors.neonCyan,
                             minimumSize: const Size.fromHeight(48),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -1068,31 +1056,22 @@ class _SheetField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 52),
-      decoration: BoxDecoration(
-        color: AppColors.bgSecondary.withValues(alpha: 0.84),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.memoryAmber.withValues(alpha: 0.38),
-        ),
-      ),
       child: TextField(
         controller: controller,
         maxLines: maxLines,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          letterSpacing: 0,
-        ),
+        // Field fill, foreground, hint and active border belong to the selected
+        // form theme; the surrounding artwork remains dark in either mode.
+        style: Theme.of(
+          context,
+        ).textTheme.bodyLarge?.copyWith(fontSize: 14, letterSpacing: 0),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: Colors.white54, letterSpacing: 0),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 14,
             vertical: 12,
           ),
-          border: InputBorder.none,
         ),
       ),
     );

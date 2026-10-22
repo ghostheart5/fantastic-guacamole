@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation_history.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_response_body.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
@@ -15,6 +16,7 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/ai_content_report_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
@@ -23,11 +25,39 @@ import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/ui/system/crisis_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+part 'assistant_conversation_screen.history.dart';
 
 /// The conversational route is explicitly model-backed. Local tools remain an
 /// intentional user choice, never an invisible fallback for a failed request.
 enum _LocalRouteChoice { freeTools, aiPrice }
+
+/// The artwork stays dark in both form modes. Only body text/list chrome gets
+/// contrast colors here; fields and dropdown menus keep the selected app theme.
+class _ConversationBody extends StatelessWidget {
+  const _ConversationBody({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DefaultTextStyle.merge(
+    style: const TextStyle(color: Colors.white),
+    child: ListTileTheme.merge(
+      textColor: Colors.white,
+      iconColor: Colors.white70,
+      child: ExpansionTileTheme(
+        data: Theme.of(context).expansionTileTheme.copyWith(
+          textColor: Colors.white,
+          collapsedTextColor: Colors.white,
+          iconColor: Colors.white70,
+          collapsedIconColor: Colors.white70,
+        ),
+        child: SafeArea(child: child),
+      ),
+    ),
+  );
+}
 
 class AssistantConversationScreen extends ConsumerStatefulWidget {
   const AssistantConversationScreen({
@@ -71,12 +101,27 @@ class _AssistantConversationScreenState
   SIV2Intent _intent = SIV2Intent.answer;
   SIV2TimeRange _range = SIV2TimeRange.all;
   Set<SIV2Source> _sources = SIV2Source.values.toSet();
+  bool _historyLoading = true;
+  bool _historyReady = false;
+  bool _historySaveFailed = false;
+  bool _historyConflict = false;
+  bool _historyClearFailed = false;
+  int _historyEpoch = 0;
+  int _storedHistoryRevision = 0;
+  Future<void> _historyWriteTail = Future<void>.value();
+  void _updateHistory(VoidCallback update) => setState(update);
   bool get _spanish => ChronoSparkLocalizations.of(context).isSpanish;
   String copy(String en, String es) => _spanish ? es : en;
 
   @override
   void initState() {
     super.initState();
+    if (widget.surface == ConversationSurface.si) {
+      _sources = <SIV2Source>{};
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_loadChat());
+      });
+    }
     if (widget.surface != ConversationSurface.planner) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -406,10 +451,18 @@ class _AssistantConversationScreenState
           {'role': 'user', 'content': prompt},
           {'role': 'assistant', 'content': review.publishableText},
         ]);
+        if (widget.surface == ConversationSurface.si &&
+            _history.length > AssistantConversationHistory.maxMessages) {
+          _history.removeRange(
+            0,
+            _history.length - AssistantConversationHistory.maxMessages,
+          );
+        }
         _input.clear();
         _pending = null;
         _error = null;
       });
+      _persistChat();
       ref.invalidate(aiCreditWalletProvider);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _scroll.hasClients) {
@@ -780,6 +833,12 @@ class _AssistantConversationScreenState
           _waitIndicatorDismissed = false;
           _error = null;
         });
+        _restartChat();
+      }
+    });
+    ref.listen(authSessionBoundaryProvider, (previous, next) {
+      if (previous != null && previous.generation != next.generation) {
+        _restartChat();
       }
     });
     final consent = ref.watch(personalizationProfileProvider).externalAiAllowed;
@@ -821,10 +880,17 @@ class _AssistantConversationScreenState
       }
     });
     final planner = widget.surface == ConversationSurface.planner;
+    final selectedTheme = Theme.of(context);
+    final lightForms = selectedTheme.brightness == Brightness.light;
     final tasks = planner
         ? ref.watch(siV2EvidenceSnapshotProvider).asData?.value.tasks
         : null;
-    final enabled = widget.isActive && consent && !_busy && _pending == null;
+    final enabled =
+        widget.isActive &&
+        consent &&
+        !_busy &&
+        _pending == null &&
+        (planner || (_historyReady && !_historyLoading && !_historyConflict));
     final scaffold = Scaffold(
       backgroundColor: const Color(0xFF07111C),
       appBar: AppBar(
@@ -855,7 +921,7 @@ class _AssistantConversationScreenState
           ),
         ],
       ),
-      body: SafeArea(
+      body: _ConversationBody(
         child: Column(
           children: [
             Expanded(
@@ -877,6 +943,7 @@ class _AssistantConversationScreenState
                       'Cuenta qué te preocupa o pregunta sobre un plan. Las respuestas usan esta conversación y la información que apruebes. Puedes corregirlas. Las sugerencias no cambian elementos guardados.',
                     ),
                   ),
+                  if (!planner) _chatHistoryControls(),
                   if (!consent) ...[
                     const SizedBox(height: 12),
                     Text(
@@ -1069,13 +1136,17 @@ class _AssistantConversationScreenState
                                   selected: _sources.contains(s),
                                   onSelected: !enabled
                                       ? null
-                                      : (selected) => setState(() {
-                                          if (selected) {
-                                            _sources = {..._sources, s};
-                                          } else {
-                                            _sources = {..._sources}..remove(s);
-                                          }
-                                        }),
+                                      : (selected) {
+                                          setState(() {
+                                            if (selected) {
+                                              _sources = {..._sources, s};
+                                            } else {
+                                              _sources = {..._sources}
+                                                ..remove(s);
+                                            }
+                                          });
+                                          _persistChat();
+                                        },
                                 ),
                               )
                               .toList(),
@@ -1083,12 +1154,15 @@ class _AssistantConversationScreenState
                         TextButton(
                           onPressed: !enabled
                               ? null
-                              : () => setState(() {
-                                  _sources = <SIV2Source>{};
-                                  _attachedTaskId = null;
-                                  _energy = null;
-                                  _pending = null;
-                                }),
+                              : () {
+                                  setState(() {
+                                    _sources = <SIV2Source>{};
+                                    _attachedTaskId = null;
+                                    _energy = null;
+                                    _pending = null;
+                                  });
+                                  _persistChat();
+                                },
                           child: Text(
                             copy(
                               'Use just this chat',
@@ -1109,6 +1183,9 @@ class _AssistantConversationScreenState
                           enabled: enabled,
                           maxLength: 120,
                           decoration: InputDecoration(
+                            counterStyle: const TextStyle(
+                              color: Colors.white70,
+                            ),
                             labelText: copy(
                               'Filter saved titles',
                               'Filtrar títulos guardados',
@@ -1121,6 +1198,9 @@ class _AssistantConversationScreenState
                           enabled: enabled,
                           maxLength: 500,
                           decoration: InputDecoration(
+                            counterStyle: const TextStyle(
+                              color: Colors.white70,
+                            ),
                             labelText: copy(
                               'Scenario to explore',
                               'Escenario que quieres explorar',
@@ -1131,36 +1211,54 @@ class _AssistantConversationScreenState
                     ),
                   ..._history.map(
                     (turn) => Card(
-                      color: turn['role'] == 'user'
+                      color: lightForms
+                          ? (turn['role'] == 'user'
+                                ? selectedTheme
+                                      .colorScheme
+                                      .surfaceContainerHighest
+                                : selectedTheme.colorScheme.surface)
+                          : turn['role'] == 'user'
                           ? const Color(0xFF162C40)
                           : const Color(0xFF101E2C),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              turn['role'] == 'user'
-                                  ? copy('You', 'Tú')
-                                  : copy('AI response', 'Respuesta de IA'),
-                              style: const TextStyle(color: Colors.cyanAccent),
-                            ),
-                            const SizedBox(height: 8),
-                            if (turn['role'] == 'assistant')
-                              AssistantResponseBody(text: turn['content']!)
-                            else
-                              SelectableText(turn['content']!),
-                            if (turn['role'] == 'assistant')
-                              TextButton.icon(
-                                onPressed: _busy
-                                    ? null
-                                    : () => _report(turn['content']!),
-                                icon: const Icon(Icons.flag_outlined),
-                                label: Text(
-                                  copy('Report response', 'Reportar respuesta'),
+                        child: DefaultTextStyle.merge(
+                          style: TextStyle(
+                            color: selectedTheme.colorScheme.onSurface,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                turn['role'] == 'user'
+                                    ? copy('You', 'Tú')
+                                    : copy('AI response', 'Respuesta de IA'),
+                                style: TextStyle(
+                                  color: lightForms
+                                      ? selectedTheme.colorScheme.primary
+                                      : Colors.cyanAccent,
                                 ),
                               ),
-                          ],
+                              const SizedBox(height: 8),
+                              if (turn['role'] == 'assistant')
+                                AssistantResponseBody(text: turn['content']!)
+                              else
+                                SelectableText(turn['content']!),
+                              if (turn['role'] == 'assistant')
+                                TextButton.icon(
+                                  onPressed: _busy
+                                      ? null
+                                      : () => _report(turn['content']!),
+                                  icon: const Icon(Icons.flag_outlined),
+                                  label: Text(
+                                    copy(
+                                      'Report response',
+                                      'Reportar respuesta',
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -1272,6 +1370,7 @@ class _AssistantConversationScreenState
                       maxLines: 5,
                       maxLength: 4000,
                       decoration: InputDecoration(
+                        counterStyle: const TextStyle(color: Colors.white70),
                         labelText: copy(
                           'Your question or follow-up',
                           'Tu pregunta o continuación',
@@ -1283,6 +1382,8 @@ class _AssistantConversationScreenState
                   const SizedBox(width: 8),
                   if (ref.watch(voiceInputEnabledProvider)) ...[
                     IconButton(
+                      color: Colors.cyanAccent,
+                      disabledColor: Colors.white38,
                       tooltip: copy(
                         listening ? 'Stop voice input' : 'Start voice input',
                         listening
@@ -1330,6 +1431,8 @@ class _AssistantConversationScreenState
                     const SizedBox(width: 4),
                   ],
                   IconButton(
+                    color: Colors.cyanAccent,
+                    disabledColor: Colors.white38,
                     tooltip: copy('Send to AI', 'Enviar a IA'),
                     onPressed: enabled && !listening ? () => _send() : null,
                     icon: const Icon(Icons.send_rounded),

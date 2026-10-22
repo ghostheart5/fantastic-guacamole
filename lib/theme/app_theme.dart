@@ -148,6 +148,10 @@ final ThemeData appTheme = ThemeData(
   ),
 ).copyWith(shadowColor: neonCyan.withValues(alpha: 0.18));
 
+// Neon cyan remains an artwork accent. On white form surfaces use a darker
+// cyan so labels, focus borders and selected controls remain readable.
+const _lightFormAccent = Color(0xFF00627A);
+
 final ThemeData appLightTheme = ThemeData(
   useMaterial3: true,
   brightness: Brightness.light,
@@ -157,11 +161,11 @@ final ThemeData appLightTheme = ThemeData(
   canvasColor: const Color(0xFFF4F7FF),
   splashFactory: InkRipple.splashFactory,
   colorScheme: const ColorScheme.light(
-    primary: primaryNeon,
-    secondary: neonViolet,
-    tertiary: neonMagenta,
+    primary: _lightFormAccent,
+    secondary: Color(0xFF6251A3),
+    tertiary: Color(0xFF8A5400),
     surface: Color(0xFFFFFFFF),
-    onPrimary: Color(0xFF031023),
+    onPrimary: Colors.white,
     onSecondary: Colors.white,
     onSurface: Color(0xFF0F1A33),
     error: Color(0xFFC6285A),
@@ -185,7 +189,7 @@ final ThemeData appLightTheme = ThemeData(
   ),
   bottomNavigationBarTheme: BottomNavigationBarThemeData(
     backgroundColor: Colors.white,
-    selectedItemColor: primaryNeon,
+    selectedItemColor: _lightFormAccent,
     unselectedItemColor: const Color(0xFF5A6B8E),
     selectedLabelStyle: neonTextTheme.labelLarge?.copyWith(
       color: const Color(0xFF0A1A35),
@@ -201,7 +205,7 @@ final ThemeData appLightTheme = ThemeData(
   ),
   buttonTheme: const ButtonThemeData(
     shape: RoundedRectangleBorder(borderRadius: buttonRadius),
-    buttonColor: primaryNeon,
+    buttonColor: _lightFormAccent,
     textTheme: ButtonTextTheme.primary,
   ),
   elevatedButtonTheme: ElevatedButtonThemeData(
@@ -221,6 +225,8 @@ final ThemeData appLightTheme = ThemeData(
   ),
   filledButtonTheme: FilledButtonThemeData(
     style: FilledButton.styleFrom(
+      backgroundColor: _lightFormAccent,
+      foregroundColor: Colors.white,
       minimumSize: const Size(48, 48),
       shape: const RoundedRectangleBorder(borderRadius: buttonRadius),
       textStyle: neonTextTheme.labelLarge,
@@ -228,16 +234,26 @@ final ThemeData appLightTheme = ThemeData(
   ),
   outlinedButtonTheme: OutlinedButtonThemeData(
     style: OutlinedButton.styleFrom(
+      backgroundColor: Colors.white,
+      foregroundColor: _lightFormAccent,
       minimumSize: const Size(48, 48),
       shape: const RoundedRectangleBorder(borderRadius: buttonRadius),
       textStyle: neonTextTheme.labelLarge,
+    ),
+  ),
+  textButtonTheme: TextButtonThemeData(
+    style: TextButton.styleFrom(
+      // These buttons can also appear over the retained dark artwork.
+      backgroundColor: Colors.white,
+      foregroundColor: _lightFormAccent,
+      minimumSize: const Size(48, 48),
     ),
   ),
   inputDecorationTheme: InputDecorationTheme(
     filled: true,
     fillColor: Colors.white,
     hintStyle: neonTextTheme.bodyLarge?.copyWith(
-      color: const Color(0xFF6A7899),
+      color: const Color(0xFF62708D),
     ),
     labelStyle: neonTextTheme.labelLarge?.copyWith(
       color: const Color(0xFF223A66),
@@ -250,12 +266,9 @@ final ThemeData appLightTheme = ThemeData(
         width: 1.2,
       ),
     ),
-    focusedBorder: OutlineInputBorder(
+    focusedBorder: const OutlineInputBorder(
       borderRadius: inputRadius,
-      borderSide: BorderSide(
-        color: primaryNeon.withValues(alpha: 0.8),
-        width: 1.6,
-      ),
+      borderSide: BorderSide(color: _lightFormAccent, width: 1.6),
     ),
     errorBorder: const OutlineInputBorder(
       borderRadius: inputRadius,
