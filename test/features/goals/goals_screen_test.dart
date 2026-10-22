@@ -17,6 +17,11 @@ void main() {
     testWidgets(
       'new goal fields and date picker use ${light ? 'Light' : 'Dark'} forms',
       (tester) async {
+        final previousFatal = WidgetController.hitTestWarningShouldBeFatal;
+        WidgetController.hitTestWarningShouldBeFatal = true;
+        addTearDown(
+          () => WidgetController.hitTestWarningShouldBeFatal = previousFatal,
+        );
         await tester.binding.setSurfaceSize(const Size(1000, 1800));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         final goals = _SavedWithWarning();
@@ -30,13 +35,15 @@ void main() {
         );
         await tester.pump();
         final stored = container.read(goalsProvider).single;
-        await tester.tap(find.byTooltip('Add goal'));
-        await tester.pump(const Duration(milliseconds: 400));
+        await _revealGoalControl(tester, find.byTooltip('Add goal'));
+        await tester.tap(find.byTooltip('Add goal').hitTestable());
+        await tester.pumpAndSettle();
         for (final hint in ['Goal title', 'Description (optional)']) {
           final field = find.byWidgetPredicate(
             (widget) =>
                 widget is TextField && widget.decoration?.hintText == hint,
           );
+          await _revealGoalControl(tester, field);
           final inputFinder = find.descendant(
             of: field,
             matching: find.byType(InputDecorator),
@@ -75,11 +82,13 @@ void main() {
           );
         }
         FocusManager.instance.primaryFocus?.unfocus();
-        await tester.pump();
+        await tester.testTextInput.hide();
+        await tester.pumpAndSettle();
         final date = find.text('Set target date (optional)');
-        await tester.ensureVisible(date);
-        await tester.tap(date);
-        await tester.pump(const Duration(milliseconds: 400));
+        await _revealGoalControl(tester, date);
+        await tester.tap(date.hitTestable());
+        await tester.pumpAndSettle();
+        expect(find.byType(DatePickerDialog), findsOneWidget);
         final pickerContext = tester.element(find.byType(DatePickerDialog));
         final pickerTheme = Theme.of(pickerContext);
         expect(pickerTheme.brightness, selectedTheme.brightness);
@@ -94,10 +103,12 @@ void main() {
           ),
           greaterThanOrEqualTo(4.5),
         );
-        await tester.tap(find.text('Cancel'));
-        await tester.pump(const Duration(milliseconds: 400));
+        final pickerCancel = find.text('Cancel');
+        await _revealGoalControl(tester, pickerCancel);
+        await tester.tap(pickerCancel.hitTestable());
+        await tester.pumpAndSettle();
         final cancel = find.text('CANCEL');
-        await tester.ensureVisible(cancel);
+        await _revealGoalControl(tester, cancel);
         final material = tester
             .element(cancel)
             .findAncestorWidgetOfExactType<Material>()!;
@@ -113,8 +124,8 @@ void main() {
           _contrast(text.text.style!.color!, background),
           greaterThanOrEqualTo(4.5),
         );
-        await tester.tap(cancel);
-        await tester.pump(const Duration(milliseconds: 400));
+        await tester.tap(cancel.hitTestable());
+        await tester.pumpAndSettle();
         expect(goals.saves, 0);
         expect(container.read(goalsProvider).single, same(stored));
         expect(find.text('Unsaved contrast title'), findsNothing);
@@ -503,4 +514,35 @@ double _contrast(Color foreground, Color background) {
   return painted >= base
       ? (painted + .05) / (base + .05)
       : (base + .05) / (painted + .05);
+}
+
+/// Revealing a nested sheet control can schedule another layout when a field
+/// loses focus. Settle, reveal to the viewport center, settle again and require
+/// an actual hit target before the single gesture. No callback bypass/missed tap.
+Future<void> _revealGoalControl(WidgetTester tester, Finder control) async {
+  for (var observation = 0; observation < 4; observation++) {
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 50),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 2),
+    );
+    expect(control, findsOneWidget);
+    await Scrollable.ensureVisible(
+      tester.element(control),
+      alignment: .5,
+      duration: Duration.zero,
+    );
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 50),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 2),
+    );
+    if (control.hitTestable().evaluate().length == 1) return;
+  }
+  expect(
+    control.hitTestable(),
+    findsOneWidget,
+    reason:
+        'The real goal control must be reachable after bounded sheet layout settling.',
+  );
 }

@@ -1001,7 +1001,9 @@ class _CadencePicker extends StatelessWidget {
         ),
         backgroundColor: WidgetStateProperty.resolveWith<Color?>(
           (states) => states.contains(WidgetState.selected)
-              ? Theme.of(context).colorScheme.secondaryContainer
+              ? (Theme.of(context).brightness == Brightness.light
+                    ? Theme.of(context).colorScheme.secondaryContainer
+                    : AppColors.bgTertiary)
               : (Theme.of(context).brightness == Brightness.light
                     ? Theme.of(context).colorScheme.surface
                     : null),

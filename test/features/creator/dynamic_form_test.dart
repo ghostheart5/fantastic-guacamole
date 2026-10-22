@@ -172,6 +172,20 @@ void main() {
                 selected ? {WidgetState.selected} : {},
               ) ??
               AppColors.bgSecondary;
+          if (selected) {
+            expect(
+              background,
+              theme.brightness == Brightness.light
+                  ? theme.colorScheme.secondaryContainer
+                  : AppColors.bgTertiary,
+            );
+            expect(
+              _paintedCreatorText(tester, text),
+              theme.brightness == Brightness.light
+                  ? theme.colorScheme.onSecondaryContainer
+                  : AppColors.memoryAmber,
+            );
+          }
           expect(
             _creatorContrast(_paintedCreatorText(tester, text), background),
             greaterThanOrEqualTo(4.5),
@@ -1129,12 +1143,25 @@ void _expectCreatorPopupContrast(
 ) {
   expect(label, findsOneWidget);
   expect(Theme.of(tester.element(label)).brightness, selectedTheme.brightness);
-  final popup = tester.widget<Material>(
-    find.ancestor(of: label, matching: find.byType(Material)).first,
+  // Flutter 3.44 paints a dropdown behind a transparent Material. Inspect the
+  // actual menu painter, as the Settings popup regression does.
+  final paintedMenu = find.ancestor(
+    of: label,
+    matching: find.byWidgetPredicate(
+      (widget) =>
+          widget is CustomPaint &&
+          widget.painter?.runtimeType.toString() == '_DropdownMenuPainter',
+    ),
   );
-  expect(popup.color, selectedTheme.colorScheme.surface);
+  expect(paintedMenu, findsOneWidget);
+  final painter = tester.widget<CustomPaint>(paintedMenu).painter!;
+  // The pinned Flutter painter type is private; fail if its public color
+  // getter changes rather than substituting an assumed theme background.
+  // ignore: avoid_dynamic_calls
+  final menuColor = (painter as dynamic).color as Color;
+  expect(menuColor, selectedTheme.colorScheme.surface);
   expect(
-    _creatorContrast(_paintedCreatorText(tester, label), popup.color!),
+    _creatorContrast(_paintedCreatorText(tester, label), menuColor),
     greaterThanOrEqualTo(4.5),
   );
 }
