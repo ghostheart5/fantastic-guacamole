@@ -427,8 +427,8 @@ class _BranchRow extends StatelessWidget {
                         const SizedBox(height: 3),
                         Text(
                           isSpanish
-                              ? 'Impulso $momentumLow–$momentumHigh%  ·  Presión $pressureLow–$pressureHigh%  ·  Evidencia $confidenceLabel'
-                              : 'Momentum $momentumLow–$momentumHigh%  ·  Pressure $pressureLow–$pressureHigh%  ·  $confidenceLabel evidence',
+                              ? 'Impulso $momentumLow–$momentumHigh/100  ·  Presión $pressureLow–$pressureHigh/100  ·  Evidencia $confidenceLabel'
+                              : 'Momentum $momentumLow–$momentumHigh/100  ·  Pressure $pressureLow–$pressureHigh/100  ·  $confidenceLabel evidence',
                           style: const TextStyle(
                             color: Colors.white60,
                             fontSize: 11,

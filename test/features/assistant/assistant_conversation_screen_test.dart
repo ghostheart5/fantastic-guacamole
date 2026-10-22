@@ -265,6 +265,133 @@ Future<void> pumpConversationScreen(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  for (final selectedTheme in [appLightTheme, appTheme]) {
+    for (final language in ['en', 'es']) {
+      testWidgets(
+        '${selectedTheme.brightness.name} $language free tools stays visible at 320px and 200 percent text',
+        (tester) async {
+          failOnMissedChatTaps();
+          await tester.binding.setSurfaceSize(const Size(320, 1000));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          var requests = 0;
+          var fallbackCalls = 0;
+          String? handoff;
+          final container = setup((_) async {
+            requests++;
+            throw StateError('Free tools must not request paid AI');
+          });
+          addTearDown(() async {
+            await tester.pumpWidget(const SizedBox.shrink());
+            container.dispose();
+          });
+          await container
+              .read(assistantConversationHistoryRepositoryProvider)!
+              .save(
+                expectedRevision: 0,
+                messages: [
+                  {'role': 'user', 'content': 'A calm break, please.'},
+                  {'role': 'assistant', 'content': 'Try one quiet breath.'},
+                ],
+                sources: {},
+              );
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp(
+                theme: selectedTheme,
+                locale: Locale(language),
+                supportedLocales: ChronoSparkLocalizations.supportedLocales,
+                localizationsDelegates: const [
+                  ChronoSparkLocalizations.delegate,
+                  ...GlobalMaterialLocalizations.delegates,
+                ],
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: const TextScaler.linear(2)),
+                  child: child!,
+                ),
+                home: AssistantConversationScreen(
+                  surface: ConversationSurface.si,
+                  onLocalTools: () => fallbackCalls++,
+                  onLocalToolsWithDraft: (draft) => handoff = draft,
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await waitForChatReady(tester);
+          final button = find.byKey(const Key('conversation-free-tools'));
+          final label = find.text(
+            language == 'es' ? 'Herramientas gratis' : 'Free tools',
+          );
+          expect(label, findsOneWidget);
+          expect(button.hitTestable(), findsOneWidget);
+          final bounds = tester.getRect(button);
+          expect(bounds.left, greaterThanOrEqualTo(16));
+          expect(bounds.right, lessThanOrEqualTo(304));
+          expect(bounds.height, greaterThanOrEqualTo(48));
+          final paragraph = tester.renderObject<RenderParagraph>(
+            find.descendant(of: label, matching: find.byType(RichText)).first,
+          );
+          expect(paragraph.didExceedMaxLines, isFalse);
+          final material = tester.widget<Material>(
+            find.descendant(of: button, matching: find.byType(Material)).first,
+          );
+          final background = material.color!;
+          final foreground = Color.alphaBlend(
+            paragraph.text.style!.color!,
+            background,
+          );
+          expect(
+            (foreground.computeLuminance() + .05) /
+                (background.computeLuminance() + .05),
+            greaterThanOrEqualTo(4.5),
+          );
+          expect(tester.takeException(), isNull);
+          await enterChatText(tester, 'A quiet next step');
+          await tapRevealedChatControl(tester, button);
+          expect(handoff, 'A quiet next step');
+          expect(fallbackCalls, 0);
+          expect(requests, 0);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets('visible free tools keeps the existing no-draft callback', (
+    tester,
+  ) async {
+    var calls = 0;
+    final container = setup(
+      (_) async => throw StateError('Free tools must not request AI'),
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () => calls++,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await waitForChatReady(tester);
+    await tapRevealedChatControl(
+      tester,
+      find.byKey(const Key('conversation-free-tools')),
+    );
+    expect(calls, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'blocked history hydration disables real input send and voice until restored',
     (tester) async {
@@ -915,13 +1042,8 @@ void main() {
               ? 'How much energy do you have? (optional)'
               : 'Choose information to use (optional)',
         );
-        await tester.scrollUntilVisible(
-          advanced,
-          180,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.tap(advanced);
-        await tester.pumpAndSettle();
+        failOnMissedChatTaps();
+        await tapRevealedChatControl(tester, advanced);
         await tester.ensureVisible(
           find.text(planner ? 'Energy (optional)' : 'What kind of help?'),
         );
@@ -2637,11 +2759,16 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final never = Completer<({int status, Map<String, dynamic> data})>();
     String? executedRequestId;
+    var quoteCalls = 0;
+    var paidCalls = 0;
+    failOnMissedChatTaps();
     final container = setup((body) async {
       if (body['quoteOnly'] != true) {
+        paidCalls++;
         executedRequestId = body['requestId'] as String?;
         return never.future;
       }
+      quoteCalls++;
       return (
         status: 200,
         data: <String, dynamic>{
@@ -2686,7 +2813,19 @@ void main() {
     await tester.pump(const Duration(milliseconds: 101));
     await tester.pump();
     expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, isTrue);
-    expect(find.text('Retry same request'), findsOneWidget);
+    // The error/retry rows are lazy ListView children below the composer.
+    // Reveal the actual control without retrying the paid request.
+    final retry = find.text('Retry same request');
+    await tester.scrollUntilVisible(
+      retry,
+      120,
+      scrollable: find.byType(Scrollable).first,
+      maxScrolls: 20,
+    );
+    await Scrollable.ensureVisible(tester.element(retry), alignment: .5);
+    await tester.pumpAndSettle();
+    expect(retry, findsOneWidget);
+    expect(retry.hitTestable(), findsOneWidget);
     expect(
       find.textContaining('took too long to confirm a reply'),
       findsOneWidget,
@@ -2703,7 +2842,26 @@ void main() {
       },
     ));
     await tester.pumpAndSettle();
-    expect(find.text('The late paid response arrived.'), findsOneWidget);
+    final lateReply = find.text('The late paid response arrived.');
+    // The reply replaces rows above the former retry controls. Start the
+    // bounded search at the top so a previous bottom offset cannot hide it.
+    tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position
+        .jumpTo(0);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      lateReply,
+      120,
+      scrollable: find.byType(Scrollable).first,
+      maxScrolls: 20,
+    );
+    await tester.ensureVisible(lateReply);
+    await tester.pumpAndSettle();
+    expect(lateReply, findsOneWidget);
+    expect(lateReply.hitTestable(), findsOneWidget);
+    expect(quoteCalls, 1);
+    expect(paidCalls, 1);
     expect(find.text('Retry same request'), findsNothing);
     expect(tester.takeException(), isNull);
   });

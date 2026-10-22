@@ -191,8 +191,8 @@ class _BaselineCard extends StatelessWidget {
     return _Panel(
       title: journeyText(
         context,
-        'Current trajectory baseline',
-        'Línea base de trayectoria actual',
+        'Current plan estimates',
+        'Estimaciones del plan actual',
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,16 +205,16 @@ class _BaselineCard extends StatelessWidget {
                 label: journeyText(context, 'Momentum', 'Impulso'),
                 value: journeyText(
                   context,
-                  'modeled ${baseline.momentum}%',
-                  '${baseline.momentum}% modelado',
+                  'modeled ${baseline.momentum}/100',
+                  '${baseline.momentum}/100 modelado',
                 ),
               ),
               _BaselineMetric(
                 label: journeyText(context, 'Pressure', 'Presión'),
                 value: journeyText(
                   context,
-                  'modeled ${baseline.pressure}%',
-                  '${baseline.pressure}% modelada',
+                  'modeled ${baseline.pressure}/100',
+                  '${baseline.pressure}/100 modelada',
                 ),
               ),
               _BaselineMetric(
@@ -258,7 +258,7 @@ class _BaselineCard extends StatelessWidget {
               Localizations.localeOf(context).languageCode == 'es'
                   ? 'Contexto personal autorizado: ${baseline.availableMinutes} min disponibles / ${baseline.unscheduledMinutes} min sin programar. '
                         'Comparación sin contexto: ${baseline.noContextAvailableMinutes} min disponibles / ${baseline.noContextUnscheduledMinutes} min sin programar.'
-                  : 'Governed Person Context: ${baseline.availableMinutes}m available / ${baseline.unscheduledMinutes}m unscheduled. '
+                  : 'Shared personal context: ${baseline.availableMinutes}m available / ${baseline.unscheduledMinutes}m unscheduled. '
                         'No-context comparison: ${baseline.noContextAvailableMinutes}m available / ${baseline.noContextUnscheduledMinutes}m unscheduled.',
               style: const TextStyle(
                 color: Color(0xFFFFC857),
@@ -333,6 +333,9 @@ class _TaskPredictionCard extends StatelessWidget {
         ),
       );
     }
+    final bool pooledHistory = (summary.predictionExplanation ?? '').startsWith(
+      'No exact task history exists,',
+    );
     final int probability = ((summary.predictionProbability ?? 0) * 100)
         .round();
     final int lower = ((summary.predictionLowerBound ?? 0) * 100).round();
@@ -346,6 +349,31 @@ class _TaskPredictionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
+          Text(
+            summary.predictionSampleSize == 0
+                ? journeyText(
+                    context,
+                    'No recorded task outcomes are available for this estimate.',
+                    'No hay resultados de tareas registrados disponibles para esta estimación.',
+                  )
+                : pooledHistory
+                ? journeyText(
+                    context,
+                    'Across ${summary.predictionSampleSize} recorded task outcomes — no history for this task.',
+                    'Basado en ${summary.predictionSampleSize} resultados de otras tareas; sin historial para esta tarea.',
+                  )
+                : journeyText(
+                    context,
+                    'Based on ${summary.predictionSampleSize} recorded task outcomes.',
+                    'Basado en ${summary.predictionSampleSize} resultados de tareas registrados.',
+                  ),
+            style: const TextStyle(
+              color: Color(0xFFFFC857),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
           Text(
             '${summary.predictionTitle}: ${_trajectoryGeneratedText(context, summary.predictionOutcome ?? '')}',
             style: const TextStyle(
@@ -625,7 +653,7 @@ class _ScenarioComparisonCard extends StatelessWidget {
               ),
             ),
             subtitle: Text(
-              '${_trajectoryConfidenceLabel(context, outcome.confidence.band)} ${journeyText(context, 'confidence', 'de confianza')} · ±${outcome.uncertainty} ${journeyText(context, 'points', 'puntos')}',
+              '${_trajectoryConfidenceLabel(context, outcome.confidence.band)} ${journeyText(context, 'confidence', 'de confianza')} · ±${outcome.uncertainty} ${journeyText(context, 'score points', 'puntos de la escala')}',
               style: const TextStyle(color: Color(0xFF93A4C9), fontSize: 11),
             ),
             children: <Widget>[
@@ -822,7 +850,7 @@ class _ScenarioFullDetails extends StatelessWidget {
               style: const TextStyle(color: Colors.white, fontSize: 13),
             ),
             subtitle: Text(
-              '${_trajectoryConfidenceLabel(context, outcome.confidence.band)} ${journeyText(context, 'confidence', 'de confianza')} • ±${outcome.uncertainty} ${journeyText(context, 'points', 'puntos')}',
+              '${_trajectoryConfidenceLabel(context, outcome.confidence.band)} ${journeyText(context, 'confidence', 'de confianza')} • ±${outcome.uncertainty} ${journeyText(context, 'score points', 'puntos de la escala')}',
               style: const TextStyle(color: Color(0xFF93A4D6), fontSize: 11),
             ),
             children: <Widget>[
@@ -988,8 +1016,8 @@ class _MetricDelta extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             uncertainty == 0
-                ? '$current% → $projected%'
-                : '$current% → $low–$high%',
+                ? '$current/100 → $projected/100'
+                : '$current/100 → $low–$high/100',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,
@@ -1160,6 +1188,28 @@ class _Panel extends StatelessWidget {
 }
 
 String _trajectoryGeneratedText(BuildContext context, String value) {
+  final String? plain = switch (value) {
+    'Energy is a seeded planning estimate, not a user observation.' =>
+      journeyText(
+        context,
+        'Energy is a starting estimate, not something you recorded.',
+        'La energía es una estimación inicial, no un dato que hayas registrado.',
+      ),
+    'Only the declared intervention changes; unmodeled life events remain outside this scenario.' =>
+      journeyText(
+        context,
+        'This estimate changes only the option you chose, not other events in your life.',
+        'Esta estimación cambia solo la opción elegida, no otros sucesos de tu vida.',
+      ),
+    'Person context was available but contained no fresh consented Insights operational signals.' =>
+      journeyText(
+        context,
+        'Shared personal information had no recent details this estimate could use.',
+        'La información personal compartida no tenía datos recientes utilizables para esta estimación.',
+      ),
+    _ => null,
+  };
+  if (plain != null) return plain;
   value = value.replaceAll(
     RegExp(r' against baseline \S+\. '),
     journeyText(

@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/repositories/trajectory_forecast_ledger_repository.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -18,6 +19,113 @@ import '../../../helpers/trajectory_test_fixture.dart';
 
 void main() {
   group('Trajectory Engine integration', () {
+    for (final historyKind in ['pooled', 'unknown', 'unavailable']) {
+      for (final language in ['en', 'es']) {
+        testWidgets(
+          'task evidence scope leads percentages in $language history=$historyKind',
+          (tester) async {
+            await tester.binding.setSurfaceSize(const Size(900, 1800));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+            final fixture = trajectoryTestEngineModel();
+            final bool pooled = historyKind == 'pooled';
+            final int samples = historyKind == 'unavailable' ? 0 : 5;
+            final summary = TrajectorySummaryView(
+              pendingTasks: fixture.summary.pendingTasks,
+              completedTasks: fixture.summary.completedTasks,
+              completedToday: fixture.summary.completedToday,
+              level: fixture.summary.level,
+              streak: fixture.summary.streak,
+              energy: fixture.summary.energy,
+              momentum: fixture.summary.momentum,
+              adaptability: fixture.summary.adaptability,
+              lastCompletionXp: fixture.summary.lastCompletionXp,
+              lastCompletionQuality: fixture.summary.lastCompletionQuality,
+              pressureIndex: fixture.summary.pressureIndex,
+              behaviorDivergence: fixture.summary.behaviorDivergence,
+              alert: fixture.summary.alert,
+              predictionTitle: 'Unmatched task',
+              predictionOutcome: 'Higher observed follow-through',
+              predictionProbability: samples == 0 ? .5 : .86,
+              predictionLowerBound: samples == 0 ? 0 : .67,
+              predictionUpperBound: 1,
+              predictionSampleSize: samples,
+              predictionExplanation: pooled
+                  ? 'No exact task history exists, so this estimate uses all recorded completed and skipped task outcomes.'
+                  : samples == 0
+                  ? 'Account storage is not ready.'
+                  : 'The source does not identify whether task history matches.',
+            );
+            await tester.pumpWidget(
+              _harness(
+                locale: Locale(language),
+                model: TrajectoryEngineModel(
+                  status: TrajectoryEngineStatus.ready,
+                  summary: summary,
+                  momentum: fixture.momentum,
+                  comparison: fixture.comparison,
+                  statusDetail: fixture.statusDetail,
+                  hasAvailableNetworkInterface: true,
+                ),
+              ),
+            );
+            await tester.pump();
+            // Forecast scores use their actual 0–100 scale, not percent probability.
+            final scorePrefix = language == 'en' ? 'Momentum' : 'Impulso';
+            expect(
+              find.textContaining(RegExp('$scorePrefix \\d+–\\d+/100')),
+              findsWidgets,
+            );
+            expect(
+              find.textContaining(RegExp('$scorePrefix \\d+–\\d+%')),
+              findsNothing,
+            );
+            final section = language == 'en'
+                ? 'Task predictions'
+                : 'Predicciones de tareas';
+            final scrollable = find.byType(Scrollable).first;
+            await tester.scrollUntilVisible(
+              find.text(section).hitTestable(),
+              300,
+              scrollable: scrollable,
+            );
+            await tester.tap(find.text(section).hitTestable());
+            await tester.pump(const Duration(seconds: 1));
+            final lead = find.text(
+              samples == 0
+                  ? language == 'en'
+                        ? 'No recorded task outcomes are available for this estimate.'
+                        : 'No hay resultados de tareas registrados disponibles para esta estimación.'
+                  : pooled
+                  ? language == 'en'
+                        ? 'Across 5 recorded task outcomes — no history for this task.'
+                        : 'Basado en 5 resultados de otras tareas; sin historial para esta tarea.'
+                  : language == 'en'
+                  ? 'Based on 5 recorded task outcomes.'
+                  : 'Basado en 5 resultados de tareas registrados.',
+            );
+            await tester.scrollUntilVisible(lead, 150, scrollable: scrollable);
+            expect(lead, findsOneWidget);
+            // Preserve the separate probability estimate and statistical interval.
+            final estimate = find.textContaining(
+              samples == 0
+                  ? language == 'en'
+                        ? '50% smoothed completion estimate • 0–100% interval • 0 outcomes'
+                        : '50% de finalización estimada • intervalo 0–100% • 0 resultados'
+                  : language == 'en'
+                  ? '86% smoothed completion estimate • 67–100% interval • 5 outcomes'
+                  : '86% de finalización estimada • intervalo 67–100% • 5 resultados',
+            );
+            expect(estimate, findsOneWidget);
+            expect(
+              tester.getTopLeft(lead).dy,
+              lessThan(tester.getTopLeft(estimate).dy),
+            );
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+
     testWidgets(
       'composing delay selects the revision-qualified delay outcome',
       (tester) async {
@@ -346,7 +454,7 @@ void main() {
       expect(find.text('7 DAYS'), findsOneWidget);
       expect(find.text('30 DAYS'), findsOneWidget);
       expect(find.text('90 DAYS'), findsOneWidget);
-      expect(find.text('CURRENT TRAJECTORY BASELINE'), findsNothing);
+      expect(find.text('CURRENT PLAN ESTIMATES'), findsNothing);
       expect(find.text('FORECAST MONITORING'), findsNothing);
       expect(find.text('ASSUMPTIONS FOR THIS RESULT'), findsWidgets);
       expect(
@@ -386,7 +494,7 @@ void main() {
       );
       await tester.tap(find.text('Evidence and model details'));
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('CURRENT TRAJECTORY BASELINE'), findsOneWidget);
+      expect(find.text('CURRENT PLAN ESTIMATES'), findsOneWidget);
       expect(find.textContaining('trajectory-fixture-r1'), findsNothing);
       expect(find.text('FORECAST MONITORING'), findsOneWidget);
       expect(find.text('PROVISIONAL'), findsOneWidget);
@@ -466,7 +574,7 @@ void main() {
 
       expect(find.text('RECALCULATION NEEDED'), findsOneWidget);
       expect(find.text('CURRENT DIRECTION'), findsNothing);
-      expect(find.text('CURRENT TRAJECTORY BASELINE'), findsNothing);
+      expect(find.text('CURRENT PLAN ESTIMATES'), findsNothing);
       expect(find.textContaining('No future conclusion'), findsOneWidget);
     });
 
