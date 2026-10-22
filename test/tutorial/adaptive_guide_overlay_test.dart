@@ -103,7 +103,10 @@ void main() {
               ),
             ),
           );
-          await tester.pumpAndSettle();
+          // The tutorial pointer repeats continuously; wait for its content,
+          // rather than requiring every animation to become idle.
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
           final explanation = find.textContaining(
             language == 'es'
                 ? 'Las herramientas gratuitas no usan créditos'
@@ -129,14 +132,16 @@ void main() {
             read++
           ) {
             await tester.drag(scrollable, const Offset(0, -160));
-            await tester.pumpAndSettle();
+            await tester.pump(const Duration(milliseconds: 300));
+            await tester.pump();
           }
           expect(target.hitTestable(), findsOneWidget);
           expect(chatEntries, 0);
           expect(underlyingActions, 0);
           expect(tester.takeException(), isNull);
           await tester.tap(target.hitTestable());
-          await tester.pumpAndSettle();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
           expect(chatEntries, dismiss ? 0 : 1);
           expect(underlyingActions, 0);
           expect(
