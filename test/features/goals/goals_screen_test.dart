@@ -82,7 +82,7 @@ void main() {
           );
         }
         FocusManager.instance.primaryFocus?.unfocus();
-        await tester.testTextInput.hide();
+        tester.testTextInput.hide();
         await tester.pumpAndSettle();
         final date = find.text('Set target date (optional)');
         await _revealGoalControl(tester, date);
