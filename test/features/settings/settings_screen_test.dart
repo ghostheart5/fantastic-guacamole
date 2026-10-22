@@ -847,11 +847,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Allow external AI assistance'), findsNothing);
-    expect(find.text('PERSON CONTEXT'), findsOneWidget);
-    expect(find.text('Person context unavailable'), findsOneWidget);
+    expect(find.text('PERSONAL INFORMATION'), findsOneWidget);
+    expect(find.text('Personal information unavailable'), findsOneWidget);
     expect(
       find.text(
-        'A verified signed-in account is required. No personal context will be invented.',
+        'A verified signed-in account is required. No personal information will be invented.',
       ),
       findsOneWidget,
     );
@@ -972,8 +972,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('PERSON CONTEXT'), findsOneWidget);
-    expect(find.text('Add person context'), findsOneWidget);
+    expect(find.text('PERSONAL INFORMATION'), findsOneWidget);
+    expect(find.text('Add personal information'), findsOneWidget);
     expect(container.read(personContextSettingsEntryProvider), isFalse);
   });
 
@@ -1034,17 +1034,17 @@ void main() {
     expect(find.text('Not provided'), findsOneWidget);
     expect(
       find.text(
-        'Stored only on this device. Person Context is excluded from backup and sync, and will not be restored after reinstalling Axiomara or changing devices.',
+        'Information you save here for guidance stays only on this device. It is excluded from backup and sync, and will not be restored after reinstalling Axiomara or changing devices.',
       ),
       findsOneWidget,
     );
 
-    await invokeNavTile(tester, 'Add person context');
+    await invokeNavTile(tester, 'Add personal information');
 
-    expect(find.text('Add person context'), findsNWidgets(2));
+    expect(find.text('Add personal information'), findsNWidgets(2));
     expect(
       find.text(
-        'Before you opt in: Person Context is stored only on this device, excluded from backup and sync, and will not be restored after reinstalling Axiomara or changing devices.',
+        'Before you opt in: Information you save here for guidance is stored only on this device, excluded from backup and sync, and will not be restored after reinstalling Axiomara or changing devices.',
       ),
       findsOneWidget,
     );
@@ -1100,19 +1100,21 @@ void main() {
     );
     await invokeNavTile(tester, 'Planificación y orientación');
 
-    expect(find.text('CONTEXTO PERSONAL'), findsOneWidget);
-    expect(find.text('Añadir contexto personal'), findsOneWidget);
+    expect(find.text('INFORMACIÓN PERSONAL'), findsOneWidget);
+    expect(find.text('Añadir información personal'), findsOneWidget);
     expect(
-      find.textContaining('Se guarda solo en este dispositivo'),
+      find.textContaining(
+        'La información que guardas aquí para recibir orientación permanece solo en este dispositivo',
+      ),
       findsOneWidget,
     );
 
-    await invokeNavTile(tester, 'Añadir contexto personal');
+    await invokeNavTile(tester, 'Añadir información personal');
 
     expect(find.textContaining('No se infiere nada'), findsOneWidget);
     expect(find.textContaining('Antes de aceptar'), findsOneWidget);
     expect(find.text('Guardar con consentimiento'), findsOneWidget);
-    expect(find.text('Add person context'), findsNothing);
+    expect(find.text('Add personal information'), findsNothing);
   });
 
   testWidgets(
@@ -1152,18 +1154,21 @@ void main() {
       );
       await invokeNavTile(tester, 'Planning & guidance');
 
-      expect(find.text('Person context unavailable'), findsOneWidget);
-      expect(find.text('Clear corrupt Person Context data'), findsOneWidget);
+      expect(find.text('Personal information unavailable'), findsOneWidget);
+      expect(
+        find.text('Clear corrupt personal information data'),
+        findsOneWidget,
+      );
 
-      await invokeNavTile(tester, 'Clear corrupt Person Context data');
+      await invokeNavTile(tester, 'Clear corrupt personal information data');
 
       expect(
-        find.text('Permanently clear corrupt Person Context?'),
+        find.text('Permanently clear corrupt personal information?'),
         findsOneWidget,
       );
       expect(
         find.text(
-          'This permanently clears only recoverable or corrupt Person Context payloads stored on this device. Tasks, goals, and Schedule items are unaffected. This cannot be undone.',
+          'This permanently clears only recoverable or corrupt personal information payloads stored on this device. Tasks, goals, and Schedule items are unaffected. This cannot be undone.',
         ),
         findsOneWidget,
       );
@@ -1174,7 +1179,7 @@ void main() {
       expect(store.values[repository.storageKey!], '{corrupt-active');
       expect(store.values[repository.corruptionKey!], '{recoverable-copy');
 
-      await invokeNavTile(tester, 'Clear corrupt Person Context data');
+      await invokeNavTile(tester, 'Clear corrupt personal information data');
       await tester.tap(
         find.byKey(const Key('person-context-confirm-clear-corrupt')),
       );
@@ -1186,7 +1191,10 @@ void main() {
       expect(store.values['tasks-sentinel'], 'tasks stay');
       expect(store.values['goals-sentinel'], 'goals stay');
       expect(store.values['timeline-sentinel'], 'Timeline stays');
-      expect(find.text('Corrupt Person Context data cleared.'), findsOneWidget);
+      expect(
+        find.text('Corrupt personal information data cleared.'),
+        findsOneWidget,
+      );
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
@@ -1213,9 +1221,12 @@ void main() {
     await tester.tap(find.text('Planning & guidance'));
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Person context temporarily unavailable'), findsOneWidget);
-    expect(find.text('Retry person context'), findsOneWidget);
-    expect(find.text('Clear corrupt Person Context data'), findsNothing);
+    expect(
+      find.text('Personal information temporarily unavailable'),
+      findsOneWidget,
+    );
+    expect(find.text('Retry personal information'), findsOneWidget);
+    expect(find.text('Clear corrupt personal information data'), findsNothing);
     expect(find.textContaining('Permanently clear'), findsNothing);
   });
 

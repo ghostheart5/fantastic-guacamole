@@ -580,7 +580,11 @@ class _ScenarioComparisonCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          _ResultAssumptions(assumptions: outcome.assumptions),
+          _ResultAssumptions(
+            key: ValueKey<String>('trajectory-assumptions-${outcome.id}'),
+            assumptions: outcome.assumptions,
+            sharedInformationWarnings: baseline.personContextWarnings,
+          ),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
@@ -881,7 +885,13 @@ class _ScenarioFullDetails extends StatelessWidget {
               _EvidenceList(
                 title: journeyText(context, 'Assumptions', 'Supuestos'),
                 values: outcome.assumptions
-                    .map((value) => _trajectoryGeneratedText(context, value))
+                    .map(
+                      (value) => _trajectoryAssumptionText(
+                        context,
+                        value,
+                        baseline.personContextWarnings,
+                      ),
+                    )
                     .toList(growable: false),
               ),
               Align(

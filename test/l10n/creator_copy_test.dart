@@ -87,6 +87,28 @@ void main() {
       endsWith('The saved item was not changed.'),
     );
   });
+  test(
+    'bound preview warnings name shared information without changing consent',
+    () {
+      for (final entity in ['task', 'goal', 'daily rhythm', 'note']) {
+        final message =
+            'Review the exact selected change and its governed Person Context warnings. The proposed $entity was not silently rewritten. Explicit confirmation is required; nothing has been saved yet.';
+        expect(
+          en.message(message),
+          'Review the exact selected change and warnings based on personal information you shared. The proposed $entity was not silently rewritten. Explicit confirmation is required; nothing has been saved yet.',
+        );
+        expect(
+          es.message(message),
+          contains('avisos basados en la información personal que compartiste'),
+        );
+        expect(
+          es.message(message),
+          contains('Se requiere tu confirmación; aún no se ha guardado nada.'),
+        );
+        expect(en.message(message), isNot(contains('Person Context')));
+      }
+    },
+  );
   test('unrecognized text stays verbatim in both languages', () {
     for (final copy in [en, es]) {
       const original = 'My plan: keep the name Creator and call Ana: tomorrow.';

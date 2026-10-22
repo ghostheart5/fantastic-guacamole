@@ -233,7 +233,15 @@ class CreatorCopy {
   /// Explain known handshake messages at presentation time. Signed previews,
   /// account bindings, receipts, and unknown diagnostic details stay unchanged.
   String message(String value) {
-    if (!isSpanish) return _plainEnglishMessages[value] ?? value;
+    if (!isSpanish) {
+      for (final entity in ['task', 'goal', 'daily rhythm', 'note']) {
+        if (value ==
+            'Review the exact selected change and its governed Person Context warnings. The proposed $entity was not silently rewritten. Explicit confirmation is required; nothing has been saved yet.') {
+          return 'Review the exact selected change and warnings based on personal information you shared. The proposed $entity was not silently rewritten. Explicit confirmation is required; nothing has been saved yet.';
+        }
+      }
+      return _plainEnglishMessages[value] ?? value;
+    }
     final fixed = _messages[value];
     if (fixed != null) return fixed;
     for (final name in ['task', 'goal', 'habit', 'note']) {
@@ -244,7 +252,7 @@ class CreatorCopy {
       final selected = name == 'habit' ? 'confirmado' : 'confirmada';
       final templates = <String, String>{
         'Review the exact selected change and its governed Person Context warnings. The proposed $english was not silently rewritten. Explicit confirmation is required; nothing has been saved yet.':
-            'Revisa el cambio seleccionado y los avisos sobre tu contexto autorizado. No se modificó $article $noun sin avisarte. Se requiere tu confirmación; aún no se ha guardado nada.',
+            'Revisa el cambio seleccionado y los avisos basados en la información personal que compartiste. No se modificó $article $noun sin avisarte. Se requiere tu confirmación; aún no se ha guardado nada.',
         'The saved replay record does not match the confirmed $english. Nothing was changed.':
             'El registro guardado no coincide con $article $noun $selected. No se cambió nada.',
         'The target $english identity is already used by different data. Nothing was changed.':

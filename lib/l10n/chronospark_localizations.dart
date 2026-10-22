@@ -598,8 +598,8 @@ final class PlannerRoutineCopy {
       ? 'No se pudo generar la orientación. Tu registro sigue aquí. Pulsa Obtener una sugerencia para reintentar.'
       : 'Guidance could not be generated. Your check-in is still here. Tap Get a suggestion to retry.';
   String get personContextChanged => isSpanish
-      ? 'Tu Contexto Personal cambió, por lo que se borró la orientación anterior. Pulsa Obtener una sugerencia para revisar un plan actual.'
-      : 'Your Person Context changed, so the previous guidance was cleared. Tap Get a suggestion to review a current plan.';
+      ? 'La información personal que compartiste cambió, por lo que se borró la orientación anterior. Pulsa Obtener una sugerencia para revisar un plan actual.'
+      : 'Your shared personal information changed, so the previous guidance was cleared. Tap Get a suggestion to review a current plan.';
   String get guidanceTimeout => isSpanish
       ? 'La solicitud de orientación agotó el tiempo. Pulsa Obtener una sugerencia otra vez o acorta el texto para recibir una respuesta más rápida.'
       : 'Guidance request timed out. Tap Get a suggestion again or shorten your input for a faster response.';
@@ -912,8 +912,8 @@ final class SIRoutineCopy {
       ? 'Ninguno de tus detalles compartidos se aplica a esta pregunta.'
       : 'None of your shared details apply to this question.';
   String personContextEvidence(int count) => isSpanish
-      ? 'Contexto personal: $count ${count == 1 ? 'elemento declarado por el usuario disponible' : 'elementos declarados por el usuario disponibles'}. Cada respuesta cita solo el contexto pertinente a esa pregunta; no se verifica de forma independiente.'
-      : 'Person context: $count user-reported ${count == 1 ? 'item available' : 'items available'}. Each answer cites only context relevant to that question; it is not independently verified.';
+      ? 'Información personal que compartiste: $count ${count == 1 ? 'elemento declarado por el usuario disponible' : 'elementos declarados por el usuario disponibles'}. Cada respuesta cita solo el contexto pertinente a esa pregunta; no se verifica de forma independiente.'
+      : 'Personal information you shared: $count user-reported ${count == 1 ? 'item available' : 'items available'}. Each answer cites only context relevant to that question; it is not independently verified.';
   String get retryEvidence => isSpanish
       ? 'Reintentar carga de información guardada'
       : 'Try loading saved information again';

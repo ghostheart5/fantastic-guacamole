@@ -52,16 +52,16 @@ final class PersonContextSafetyCopy {
   String get aboutYou => isSpanish ? 'Sobre ti' : 'About you';
   String get rightNow => isSpanish ? 'Ahora mismo' : 'Right now';
   String get addTitle =>
-      isSpanish ? 'Añadir contexto personal' : 'Add person context';
+      isSpanish ? 'Añadir información personal' : 'Add personal information';
   String get exactOnly => isSpanish
       ? 'No se infiere nada. Axiomara usará únicamente el texto exacto que decidas guardar.'
       : 'Nothing is inferred. Axiomara will use only the exact text you choose to save.';
   String get beforeOptIn => isSpanish
-      ? 'Antes de aceptar: el Contexto personal se guarda solo en este dispositivo, se excluye de copias de seguridad y sincronización, y no se restaurará tras reinstalar Axiomara o cambiar de dispositivo.'
-      : 'Before you opt in: Person Context is stored only on this device, excluded from backup and sync, and will not be restored after reinstalling Axiomara or changing devices.';
+      ? 'Antes de aceptar: la información que guardas aquí para recibir orientación se guarda solo en este dispositivo, se excluye de copias de seguridad y sincronización, y no se restaurará tras reinstalar Axiomara o cambiar de dispositivo.'
+      : 'Before you opt in: Information you save here for guidance is stored only on this device, excluded from backup and sync, and will not be restored after reinstalling Axiomara or changing devices.';
   String get storedOnlyHere => isSpanish
-      ? 'Se guarda solo en este dispositivo. El Contexto personal se excluye de copias de seguridad y sincronización, y no se restaurará tras reinstalar Axiomara o cambiar de dispositivo.'
-      : 'Stored only on this device. Person Context is excluded from backup and sync, and will not be restored after reinstalling Axiomara or changing devices.';
+      ? 'La información que guardas aquí para recibir orientación permanece solo en este dispositivo. Se excluye de copias de seguridad y sincronización, y no se restaurará tras reinstalar Axiomara o cambiar de dispositivo.'
+      : 'Information you save here for guidance stays only on this device. It is excluded from backup and sync, and will not be restored after reinstalling Axiomara or changing devices.';
   String get type => isSpanish ? 'Tipo' : 'Type';
   String get exactTextToRemember =>
       isSpanish ? 'Texto exacto que se recordará' : 'Exact text to remember';
@@ -88,13 +88,14 @@ final class PersonContextSafetyCopy {
   String get saveWithConsent =>
       isSpanish ? 'Guardar con consentimiento' : 'Save with consent';
   String get savedWithConsent => isSpanish
-      ? 'Contexto personal guardado con consentimiento.'
-      : 'Person context saved with consent.';
+      ? 'Información personal guardada con consentimiento.'
+      : 'Personal information saved with consent.';
   String get actionFailed => isSpanish
-      ? 'No se pudo completar la acción de Contexto personal. Los datos existentes no cambiaron. Inténtalo de nuevo.'
-      : 'The Person Context action could not be completed. Existing data was unchanged. Retry.';
-  String get correctTitle =>
-      isSpanish ? 'Corregir contexto personal' : 'Correct person context';
+      ? 'No se pudo completar la acción de información personal. Los datos existentes no cambiaron. Inténtalo de nuevo.'
+      : 'The personal information action could not be completed. Existing data was unchanged. Retry.';
+  String get correctTitle => isSpanish
+      ? 'Corregir información personal'
+      : 'Correct personal information';
   String get exactText => isSpanish ? 'Texto exacto' : 'Exact text';
   String get correctionReason => isSpanish
       ? '¿Por qué lo estás corrigiendo?'
@@ -102,8 +103,8 @@ final class PersonContextSafetyCopy {
   String get saveCorrection =>
       isSpanish ? 'Guardar corrección' : 'Save correction';
   String get deleteTitle => isSpanish
-      ? '¿Eliminar este contexto personal?'
-      : 'Delete this person context?';
+      ? '¿Eliminar esta información personal?'
+      : 'Delete this personal information?';
   String deleteBody(String value) => isSpanish
       ? '“$value” se eliminará permanentemente. Las tareas, objetivos y elementos de la agenda no cambiarán.'
       : '“$value” will be permanently removed. Tasks, goals, and Schedule items are unchanged.';
@@ -115,8 +116,9 @@ final class PersonContextSafetyCopy {
       : 'Axiomara will immediately stop using “$value”. The timestamped record remains available for review, export, correction, or deletion.';
   String get withdrawConsent =>
       isSpanish ? 'Retirar consentimiento' : 'Withdraw consent';
-  String get reviewTitle =>
-      isSpanish ? 'Revisar contexto personal' : 'Review person context';
+  String get reviewTitle => isSpanish
+      ? 'Revisar información personal'
+      : 'Review personal information';
   String get loading => isSpanish
       ? 'Cargando contexto consentido…'
       : 'Loading consented context…';
@@ -124,11 +126,11 @@ final class PersonContextSafetyCopy {
       ? 'Los datos de contexto recuperables necesitan atención y no están disponibles para revisión.'
       : 'Recoverable context data needs attention and is not available for review.';
   String get accountUnavailable => isSpanish
-      ? 'El contexto personal no está disponible para esta cuenta.'
-      : 'Person context unavailable';
+      ? 'La información personal no está disponible para esta cuenta.'
+      : 'Personal information unavailable';
   String get notProvidedTruth => isSpanish
-      ? 'No proporcionado. Axiomara no inventará contexto personal.'
-      : 'Not provided. Axiomara will not invent personal context.';
+      ? 'No proporcionado. Axiomara no inventará información personal.'
+      : 'Not provided. Axiomara will not invent personal information.';
   String get correct => isSpanish ? 'Corregir' : 'Correct';
   String get done => isSpanish ? 'Hecho' : 'Done';
   String signalDetails(PersonContextSignal signal) {
@@ -180,35 +182,37 @@ final class PersonContextSafetyCopy {
   }
 
   String get exportCopied => isSpanish
-      ? 'Se copió la exportación de Contexto personal.'
-      : 'Person context export copied.';
+      ? 'Se copió la exportación de información personal.'
+      : 'Personal information export copied.';
   String get deleteAllTitle => isSpanish
-      ? '¿Eliminar todo el contexto personal?'
-      : 'Delete all person context?';
+      ? '¿Eliminar toda la información guardada aquí?'
+      : 'Delete all information saved here?';
   String deleteAllBody(int count) => isSpanish
       ? 'Esto elimina permanentemente $count ${count == 1 ? 'elemento de contexto creado por ti' : 'elementos de contexto creados por ti'}. Las tareas, objetivos y elementos de la agenda no cambiarán.'
       : 'This permanently removes $count user-authored context item${count == 1 ? '' : 's'}. Tasks, goals, and Schedule items are unchanged.';
   String get deleteAll => isSpanish ? 'Eliminar todo' : 'Delete all';
   String get clearCorruptTitle => isSpanish
-      ? '¿Borrar permanentemente el Contexto personal dañado?'
-      : 'Permanently clear corrupt Person Context?';
+      ? '¿Borrar permanentemente la información personal dañada?'
+      : 'Permanently clear corrupt personal information?';
   String get clearCorruptBody => isSpanish
-      ? 'Esto borra permanentemente solo los datos recuperables o dañados de Contexto personal guardados en este dispositivo. Las tareas, objetivos y elementos de la agenda no se verán afectados. No se puede deshacer.'
-      : 'This permanently clears only recoverable or corrupt Person Context payloads stored on this device. Tasks, goals, and Schedule items are unaffected. This cannot be undone.';
+      ? 'Esto borra permanentemente solo los datos recuperables o dañados de información personal guardados en este dispositivo. Las tareas, objetivos y elementos de la agenda no se verán afectados. No se puede deshacer.'
+      : 'This permanently clears only recoverable or corrupt personal information payloads stored on this device. Tasks, goals, and Schedule items are unaffected. This cannot be undone.';
   String get permanentlyClear =>
       isSpanish ? 'Borrar permanentemente' : 'Permanently clear';
   String get corruptCleared => isSpanish
-      ? 'Se borraron los datos dañados de Contexto personal.'
-      : 'Corrupt Person Context data cleared.';
-  String get sectionLabel => isSpanish ? 'CONTEXTO PERSONAL' : 'PERSON CONTEXT';
+      ? 'Se borraron los datos dañados de información personal.'
+      : 'Corrupt personal information data cleared.';
+  String get sectionLabel =>
+      isSpanish ? 'INFORMACIÓN PERSONAL' : 'PERSONAL INFORMATION';
   String get temporarilyUnavailable => isSpanish
-      ? 'Contexto personal no disponible temporalmente'
-      : 'Person context temporarily unavailable';
+      ? 'Información personal no disponible temporalmente'
+      : 'Personal information temporarily unavailable';
   String get transientBody => isSpanish
       ? 'El contexto guardado no cambió ni se trató como vacío. Inténtalo de nuevo cuando la cuenta o el almacenamiento del dispositivo estén listos.'
       : 'Stored context was not changed or treated as empty. Retry after the account or device storage is ready.';
-  String get retryContext =>
-      isSpanish ? 'Reintentar Contexto personal' : 'Retry person context';
+  String get retryContext => isSpanish
+      ? 'Reintentar información personal'
+      : 'Retry personal information';
   String get retryBody => isSpanish
       ? 'Intenta una nueva lectura sin eliminar nada.'
       : 'Attempts a fresh read without deleting anything.';
@@ -216,14 +220,14 @@ final class PersonContextSafetyCopy {
       ? 'Los datos de contexto recuperables necesitan atención. No se tratan como vacíos ni se usan para ofrecer guía.'
       : 'Recoverable context data needs attention. It is not being treated as empty or used for guidance.';
   String get clearCorruptNav => isSpanish
-      ? 'Borrar datos dañados de Contexto personal'
-      : 'Clear corrupt Person Context data';
+      ? 'Borrar datos dañados de información personal'
+      : 'Clear corrupt personal information data';
   String get clearCorruptNavBody => isSpanish
-      ? 'Borra permanentemente solo los datos recuperables o dañados de Contexto personal.'
-      : 'Permanently clears only recoverable or corrupt Person Context payloads.';
+      ? 'Borra permanentemente solo los datos recuperables o dañados de información personal.'
+      : 'Permanently clears only recoverable or corrupt personal information payloads.';
   String get signedInRequired => isSpanish
-      ? 'Se requiere una cuenta verificada con sesión iniciada. No se inventará contexto personal.'
-      : 'A verified signed-in account is required. No personal context will be invented.';
+      ? 'Se requiere una cuenta verificada con sesión iniciada. No se inventará información personal.'
+      : 'A verified signed-in account is required. No personal information will be invented.';
   String get coauthoredDisclosure => isSpanish
       ? 'Opcional y creado contigo. Axiomara usa solo el contexto exacto que guardas, únicamente para los propósitos y áreas que eliges. Lo desconocido permanece desconocido.'
       : 'Optional and co-authored. Axiomara uses only the exact context you save, only for the purposes and surfaces you choose. Unknown stays unknown.';
@@ -255,14 +259,15 @@ final class PersonContextSafetyCopy {
   String get reviewNavBody => isSpanish
       ? 'Revisa el origen, consentimiento, alcance, vigencia, historial y controles.'
       : 'Inspect source, consent, scope, freshness, history, and controls.';
-  String get exportContext =>
-      isSpanish ? 'Exportar contexto personal' : 'Export person context';
+  String get exportContext => isSpanish
+      ? 'Exportar información personal'
+      : 'Export personal information';
   String get exportNavBody => isSpanish
       ? 'Copia solo los elementos marcados para exportar.'
       : 'Copies only items marked for export.';
   String get deleteAllNav => isSpanish
-      ? 'Eliminar todo el contexto personal'
-      : 'Delete all person context';
+      ? 'Eliminar toda la información guardada aquí'
+      : 'Delete all information saved here';
   String deleteAllNavBody(int count) => isSpanish
       ? 'Elimina permanentemente los $count elementos de contexto.'
       : 'Permanently removes all $count context items.';

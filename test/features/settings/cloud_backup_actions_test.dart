@@ -150,6 +150,22 @@ void main() {
           ),
           findsOneWidget,
         );
+        expect(
+          find.textContaining(
+            spanish
+                ? 'tareas, metas, hábitos, notas'
+                : 'tasks, goals, habits, notes',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining(
+            spanish
+                ? 'la información personal compartida para orientación permanecen aquí'
+                : 'personal information shared for guidance stay on this device',
+          ),
+          findsOneWidget,
+        );
         await tester.tap(find.text(spanish ? 'Cancelar' : 'Cancel'));
         await tester.pumpAndSettle();
         expect(uploads, 0);

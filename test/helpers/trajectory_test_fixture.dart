@@ -14,6 +14,7 @@ TrajectoryBaseline trajectoryTestBaseline({
   PredictiveEvidenceOrigin energyOrigin = PredictiveEvidenceOrigin.observed,
   PredictiveEvidenceOrigin availabilityOrigin =
       PredictiveEvidenceOrigin.observed,
+  List<String> personContextWarnings = const <String>[],
 }) => TrajectoryBaseline(
   accountScope: 'v2.test-account',
   revision: 'trajectory-fixture-r1',
@@ -90,6 +91,7 @@ TrajectoryBaseline trajectoryTestBaseline({
   },
   energyOrigin: energyOrigin,
   availabilityOrigin: availabilityOrigin,
+  personContextWarnings: personContextWarnings,
 );
 
 TrajectoryComparison trajectoryTestComparison({

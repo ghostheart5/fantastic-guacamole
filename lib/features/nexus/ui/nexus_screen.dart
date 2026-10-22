@@ -425,8 +425,8 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
         content: Text(
           journeyText(
             context,
-            'This Person Context is ignored for the current use.',
-            'Este Contexto Personal se omite en el uso actual.',
+            'This shared personal information is ignored for the current use.',
+            'Esta información personal compartida se omite en el uso actual.',
           ),
         ),
         behavior: SnackBarBehavior.floating,

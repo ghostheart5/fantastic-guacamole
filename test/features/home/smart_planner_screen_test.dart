@@ -1484,7 +1484,7 @@ void main() {
       expect(find.text('Use this plan'), findsNothing);
       expect(
         find.text(
-          'Your Person Context changed, so the previous guidance was cleared. Tap Get a suggestion to review a current plan.',
+          'Your shared personal information changed, so the previous guidance was cleared. Tap Get a suggestion to review a current plan.',
         ),
         findsOneWidget,
       );
