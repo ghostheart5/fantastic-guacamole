@@ -1366,3 +1366,80 @@ Deno.test("blocks new clause after refusal: No puedo diagnosticar tu condicion a
     throw new Error("object refusal boundary mismatch");
   }
 });
+
+Deno.test("wellbeing guidance is optional and avoids promised physiology", () => {
+  for (const personality of ["planner", "strategist", "strict"]) {
+    const prompt = buildServerSystemPrompt(personality, {});
+    if (
+      !prompt?.includes(
+        "offer a small optional step in tentative everyday language",
+      ) ||
+      !prompt.includes("Do not invent a scientific mechanism") ||
+      !prompt.includes("without adding a stock medical disclaimer")
+    ) {
+      throw new Error("wellbeing calibration must apply to every personality");
+    }
+  }
+});
+
+for (
+  const text of [
+    "Take one slow breath. One cycle resets your nervous system and fits inside a minute.",
+    "This exercise will regulate your stress response.",
+    "One breath lowers your cortisol.",
+    "This pause normalizes your heart rate.",
+    "Un ciclo reinicia tu sistema nervioso.",
+    "Esta pausa regulará tu respuesta al estrés.",
+    "Una respiración reduce tu cortisol.",
+    "Este paso normalizará tu frecuencia cardíaca.",
+    "I cannot promise this helps, but one breath resets your nervous system.",
+    "It might feel calming. One cycle resets your nervous system.",
+    "You can try a breath and it resets your nervous system.",
+    "I cannot claim an effect because this resets your nervous system.",
+    "Puede resultar relajante y esta pausa regula tu sistema nervioso.",
+    "No puedo prometer un efecto, pero esta pausa regula tu sistema nervioso.",
+    "Puede resultar agradable. Una respiración baja tu cortisol.",
+    "A slow breath may feel calming, but it resets your nervous system.",
+    "Una respiración no reinicia tu sistema nervioso, pero esta pausa regula tu respuesta al estrés.",
+    'The phrase "reset" is questionable, but one cycle resets your nervous system.',
+    "La frase “reinicia tu sistema nervioso” es imprecisa, pero este paso baja tu cortisol.",
+  ]
+) {
+  Deno.test(`blocks categorical wellbeing effect: ${text}`, () => {
+    if (!containsBlockedAssistantClaim(text)) {
+      throw new Error(`categorical physiological effect accepted: ${text}`);
+    }
+  });
+}
+
+for (
+  const text of [
+    "If you want, try one comfortable slow breath. It may feel calming.",
+    "Try a brief pause; notice how you feel, then choose whether to continue.",
+    "This may help you feel calmer; it is optional.",
+    "Si quieres, prueba una respiración cómoda y lenta. Puede resultar relajante.",
+    "Haz una pausa breve si te apetece y observa cómo te sientes.",
+    "One breath does not reset your nervous system.",
+    "I cannot claim that one cycle resets your nervous system.",
+    "Una respiración no reinicia tu sistema nervioso.",
+    "No puedo afirmar que una pausa regula tu sistema nervioso.",
+    "Reset your task filters, then review your plan.",
+    "Regula la frecuencia de tu hábito según tu agenda.",
+    "A slow breath may help lower your heart rate and regulate your stress response.",
+    "One breath does not reset your nervous system or regulate your stress response.",
+    "Una respiración puede ayudar a bajar tu frecuencia cardíaca y regular tu respuesta al estrés.",
+    "Una respiración no reinicia tu sistema nervioso ni regula tu respuesta al estrés.",
+    "Regular exercise lowers heart rate over time.",
+    "El ejercicio regular reduce la frecuencia cardíaca con el tiempo.",
+    'The phrase "one cycle resets your nervous system" is too certain.',
+    'You asked: "One breath lowers your cortisol and it resets your nervous system?"',
+    "La frase “un ciclo reinicia tu sistema nervioso” es demasiado categórica.",
+    "What does a nervous-system reset mean?",
+  ]
+) {
+  Deno.test(`allows optional or non-assertive wellbeing wording: ${text}`, () => {
+    if (containsBlockedAssistantClaim(text)) {
+      throw new Error(`ordinary suggestion or refusal rejected: ${text}`);
+    }
+  });
+}
