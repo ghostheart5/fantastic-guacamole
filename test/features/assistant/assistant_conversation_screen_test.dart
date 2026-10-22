@@ -1042,13 +1042,8 @@ void main() {
               ? 'How much energy do you have? (optional)'
               : 'Choose information to use (optional)',
         );
-        await tester.scrollUntilVisible(
-          advanced,
-          180,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.tap(advanced);
-        await tester.pumpAndSettle();
+        failOnMissedChatTaps();
+        await tapRevealedChatControl(tester, advanced);
         await tester.ensureVisible(
           find.text(planner ? 'Energy (optional)' : 'What kind of help?'),
         );
@@ -2764,11 +2759,16 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final never = Completer<({int status, Map<String, dynamic> data})>();
     String? executedRequestId;
+    var quoteCalls = 0;
+    var paidCalls = 0;
+    failOnMissedChatTaps();
     final container = setup((body) async {
       if (body['quoteOnly'] != true) {
+        paidCalls++;
         executedRequestId = body['requestId'] as String?;
         return never.future;
       }
+      quoteCalls++;
       return (
         status: 200,
         data: <String, dynamic>{
@@ -2813,7 +2813,19 @@ void main() {
     await tester.pump(const Duration(milliseconds: 101));
     await tester.pump();
     expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, isTrue);
-    expect(find.text('Retry same request'), findsOneWidget);
+    // The error/retry rows are lazy ListView children below the composer.
+    // Reveal the actual control without retrying the paid request.
+    final retry = find.text('Retry same request');
+    await tester.scrollUntilVisible(
+      retry,
+      120,
+      scrollable: find.byType(Scrollable).first,
+      maxScrolls: 20,
+    );
+    await Scrollable.ensureVisible(tester.element(retry), alignment: .5);
+    await tester.pumpAndSettle();
+    expect(retry, findsOneWidget);
+    expect(retry.hitTestable(), findsOneWidget);
     expect(
       find.textContaining('took too long to confirm a reply'),
       findsOneWidget,
@@ -2830,7 +2842,26 @@ void main() {
       },
     ));
     await tester.pumpAndSettle();
-    expect(find.text('The late paid response arrived.'), findsOneWidget);
+    final lateReply = find.text('The late paid response arrived.');
+    // The reply replaces rows above the former retry controls. Start the
+    // bounded search at the top so a previous bottom offset cannot hide it.
+    tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position
+        .jumpTo(0);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      lateReply,
+      120,
+      scrollable: find.byType(Scrollable).first,
+      maxScrolls: 20,
+    );
+    await tester.ensureVisible(lateReply);
+    await tester.pumpAndSettle();
+    expect(lateReply, findsOneWidget);
+    expect(lateReply.hitTestable(), findsOneWidget);
+    expect(quoteCalls, 1);
+    expect(paidCalls, 1);
     expect(find.text('Retry same request'), findsNothing);
     expect(tester.takeException(), isNull);
   });
