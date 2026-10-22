@@ -19,6 +19,7 @@ import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/logs_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,6 +41,7 @@ void main() {
     List<LearningHistorySnapshot>? learningHistorySnapshots,
     List<LogEntryEntity> savedLogs = const [],
     List<HabitOccurrenceEntity> habitOutcomes = const [],
+    AppFlowController? appFlowOverride,
   }) async {
     tester.platformDispatcher.views.first
       ..physicalSize = physicalSize
@@ -52,6 +54,8 @@ void main() {
 
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        if (appFlowOverride != null)
+          appFlowProvider.overrideWith(() => appFlowOverride),
         accountStorageScopeProvider.overrideWithValue(
           AccountStorageScope.authenticated('progression-test-account'),
         ),
@@ -337,24 +341,69 @@ void main() {
     },
   );
 
-  testWidgets('the back arrow returns to Nexus', (WidgetTester tester) async {
-    final ProviderContainer container = await pumpProgression(
-      tester,
-      trajectory: _activeTrajectory,
-    );
-    // Simulate having arrived here from somewhere other than the planner, so
-    // tapping back is actually exercising a transition, not a no-op.
-    container.read(appFlowProvider.notifier).toProgression();
-    await tester.pump();
+  for (final activation in ['semantics', 'pointer']) {
+    testWidgets('Activity exposes one Back action; $activation returns once', (
+      WidgetTester tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        final flow = _CountingAppFlowController();
+        final container = await pumpProgression(
+          tester,
+          trajectory: _activeTrajectory,
+          appFlowOverride: flow,
+        );
+        final initializedFlow = container.read(appFlowProvider.notifier);
+        expect(initializedFlow, same(flow));
+        initializedFlow.toProgression();
+        await tester.pump();
 
-    final Finder backToNexus = find.bySemanticsLabel('Back to Today');
-    expect(backToNexus, findsOneWidget);
+        final owner = tester.binding.renderViews.single.owner!.semanticsOwner!;
+        final actionableBack = <SemanticsNode>[];
+        void inspect(SemanticsNode node) {
+          final data = node.getSemanticsData();
+          if ((data.label == 'Back to Today' ||
+                  data.tooltip == 'Back to Today') &&
+              data.flagsCollection.isButton &&
+              data.hasAction(SemanticsAction.tap)) {
+            actionableBack.add(node);
+          }
+          node.visitChildren((child) {
+            inspect(child);
+            return true;
+          });
+        }
 
-    await tester.tap(backToNexus);
-    await tester.pump();
+        // Widget finders alone miss an IconButton's additional native semantics.
+        inspect(owner.rootSemanticsNode!);
+        expect(actionableBack, hasLength(1));
+        final back = actionableBack.single;
+        expect(back.rect.size, const Size(48, 48));
+        expect(back.rect.size, tester.getSize(find.byTooltip('Back to Today')));
+        final title = tester.getSemantics(find.text('Activity'));
+        final share = tester.getSemantics(find.byTooltip('Share progress'));
+        expect(title.id, isNot(back.id));
+        expect(
+          title.getSemanticsData().hasAction(SemanticsAction.tap),
+          isFalse,
+        );
+        expect(share.id, isNot(back.id));
+        expect(share.id, isNot(title.id));
+        expect(share.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
 
-    expect(container.read(appFlowProvider), AppView.nexus);
-  });
+        if (activation == 'semantics') {
+          owner.performAction(back.id, SemanticsAction.tap);
+        } else {
+          await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+        }
+        await tester.pump();
+        expect(container.read(appFlowProvider), AppView.nexus);
+        expect(flow.todayCalls, 1);
+      } finally {
+        semantics.dispose();
+      }
+    });
+  }
 
   testWidgets(
     'unavailable review offers retry and recovers without adding work',
@@ -662,6 +711,16 @@ const TrajectorySummaryView _emptyTrajectory = TrajectorySummaryView(
   predictionProbability: null,
   predictionExplanation: null,
 );
+
+class _CountingAppFlowController extends AppFlowController {
+  int todayCalls = 0;
+
+  @override
+  void show(AppView view) {
+    if (view == AppView.nexus) todayCalls++;
+    super.show(view);
+  }
+}
 
 const TrajectorySummaryView _activeTrajectory = TrajectorySummaryView(
   pendingTasks: 4,
