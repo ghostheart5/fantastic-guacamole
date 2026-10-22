@@ -392,6 +392,108 @@ void main() {
     },
   );
 
+  test('account readback leaves Schedule through Creator before Settings', () {
+    const helperPath = '.maestro/subflows/return-from-schedule-to-today.yaml';
+    final helper = commands(helperPath);
+    expect(helper, hasLength(5));
+    expect(helper[0], 'back');
+    expect(helper[1], {
+      'extendedWaitUntil': {'visible': r'^Add something$', 'timeout': 10000},
+    });
+    expect(helper[2], {
+      'scrollUntilVisible': {
+        'element': {'text': r'^Back to Today$'},
+        'direction': 'UP',
+        'visibilityPercentage': 100,
+        'centerElement': false,
+        'timeout': 10000,
+      },
+    });
+    expect(helper[3], {'tapOn': r'^Back to Today$'});
+    expect(helper[4], {
+      'extendedWaitUntil': {'visible': r'^Today$', 'timeout': 10000},
+    });
+    // The complete helper contains navigation only: no launch/clear/logout,
+    // record writes, conditional bypass, or retry can erase the saved sentinel.
+    final qa = commands('.maestro/qa/priority8-account-isolation.yaml');
+    final account = commands('.maestro/flows/priority8-account-isolation.yaml');
+    const returnCall = '../subflows/return-from-schedule-to-today.yaml';
+    bool isReturn(dynamic value) =>
+        value is Map && value['runFlow'] == returnCall;
+    final localReturn = qa.indexWhere(isReturn);
+    expect(localReturn, greaterThan(0));
+    expect(qa.where(isReturn), hasLength(1));
+    expect(qa[localReturn - 1], {
+      'assertVisible': '(?s).*P8 Local Profile Sentinel.*',
+    });
+    expect(qa[localReturn + 1], {
+      'runFlow': {
+        'file': '../subflows/open-from-nexus.yaml',
+        'env': {'TARGET': 'Settings'},
+      },
+    });
+    final accountReturns = <int>[
+      for (var i = 0; i < account.length; i++)
+        if (isReturn(account[i])) i,
+    ];
+    expect(accountReturns, hasLength(2));
+    expect(account[accountReturns[0] - 1], {
+      'assertVisible': '(?s).*P8 Account A Sentinel.*',
+    });
+    expect(account[accountReturns[1] - 2], {
+      'assertVisible': '(?s).*P8 Account B Sentinel.*',
+    });
+    expect(account[accountReturns[1] - 1], {
+      'assertNotVisible': '(?s).*P8 Account A Sentinel.*',
+    });
+    for (final index in accountReturns) {
+      expect(account[index + 1], {
+        'runFlow': '../subflows/exit-tester-account.yaml',
+      });
+    }
+    for (final path in [
+      '.maestro/qa/priority8-account-isolation.yaml',
+      '.maestro/flows/priority8-account-isolation.yaml',
+    ]) {
+      for (final entry in entries(commands(path))) {
+        if (entry.key != 'runFlow') continue;
+        final value = entry.value;
+        final relative = value is String
+            ? value
+            : value is Map
+            ? value['file'] as String?
+            : null;
+        if (relative == null) continue;
+        expect(
+          File.fromUri(File(path).absolute.uri.resolve(relative)).existsSync(),
+          isTrue,
+          reason: 'Missing dependency $path -> $relative',
+        );
+      }
+    }
+    final savedTask = commands('.maestro/subflows/create-scheduled-task.yaml');
+    expect(savedTask.last, {
+      'extendedWaitUntil': {
+        'visible':
+            r'(?s).*${TASK_TITLE}.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*',
+        'timeout': 20000,
+      },
+    });
+    expect(
+      entries(savedTask).any(
+        (entry) =>
+            entry.key == 'runFlow' &&
+            entry.value is Map &&
+            (entry.value as Map<dynamic, dynamic>)['file'] ==
+                'verify-creator-saved-receipt.yaml',
+      ),
+      isTrue,
+    );
+    expect(qa, contains('stopApp'));
+    expect(qa, contains('launchApp'));
+    expect(account.last, {'assertNotVisible': '(?s).*P8 Account B Sentinel.*'});
+  });
+
   test('all five smoke flows retain resolvable source-bound dependencies', () {
     final visited = <String>{};
     void visit(String path) {

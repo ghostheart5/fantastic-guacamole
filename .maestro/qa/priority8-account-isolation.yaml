@@ -12,6 +12,7 @@ tags: [qa, priority8, profile-preservation]
     env:
       TASK_TITLE: "P8 Local Profile Sentinel"
 - assertVisible: "(?s).*P8 Local Profile Sentinel.*"
+- runFlow: ../subflows/return-from-schedule-to-today.yaml
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:

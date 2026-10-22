@@ -14,6 +14,7 @@ tags:
     env:
       TASK_TITLE: "P8 Account A Sentinel"
 - assertVisible: "(?s).*P8 Account A Sentinel.*"
+- runFlow: ../subflows/return-from-schedule-to-today.yaml
 
 - runFlow: ../subflows/exit-tester-account.yaml
 - tapOn: "TESTER B.*ISOLATION LOGIN"
@@ -36,6 +37,7 @@ tags:
       TASK_TITLE: "P8 Account B Sentinel"
 - assertVisible: "(?s).*P8 Account B Sentinel.*"
 - assertNotVisible: "(?s).*P8 Account A Sentinel.*"
+- runFlow: ../subflows/return-from-schedule-to-today.yaml
 
 - runFlow: ../subflows/exit-tester-account.yaml
 - tapOn: "TESTER ACCESS.*TEST LOGIN"
