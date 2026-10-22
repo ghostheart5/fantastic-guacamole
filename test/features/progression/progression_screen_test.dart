@@ -346,56 +346,62 @@ void main() {
       WidgetTester tester,
     ) async {
       final semantics = tester.ensureSemantics();
-      addTearDown(semantics.dispose);
-      final flow = _CountingAppFlowController();
-      final container = await pumpProgression(
-        tester,
-        trajectory: _activeTrajectory,
-        appFlowOverride: flow,
-      );
-      final initializedFlow = container.read(appFlowProvider.notifier);
-      expect(initializedFlow, same(flow));
-      initializedFlow.toProgression();
-      await tester.pump();
+      try {
+        final flow = _CountingAppFlowController();
+        final container = await pumpProgression(
+          tester,
+          trajectory: _activeTrajectory,
+          appFlowOverride: flow,
+        );
+        final initializedFlow = container.read(appFlowProvider.notifier);
+        expect(initializedFlow, same(flow));
+        initializedFlow.toProgression();
+        await tester.pump();
 
-      final owner = tester.binding.renderViews.single.owner!.semanticsOwner!;
-      final actionableBack = <SemanticsNode>[];
-      void inspect(SemanticsNode node) {
-        final data = node.getSemanticsData();
-        if ((data.label == 'Back to Today' ||
-                data.tooltip == 'Back to Today') &&
-            data.flagsCollection.isButton &&
-            data.hasAction(SemanticsAction.tap)) {
-          actionableBack.add(node);
+        final owner = tester.binding.renderViews.single.owner!.semanticsOwner!;
+        final actionableBack = <SemanticsNode>[];
+        void inspect(SemanticsNode node) {
+          final data = node.getSemanticsData();
+          if ((data.label == 'Back to Today' ||
+                  data.tooltip == 'Back to Today') &&
+              data.flagsCollection.isButton &&
+              data.hasAction(SemanticsAction.tap)) {
+            actionableBack.add(node);
+          }
+          node.visitChildren((child) {
+            inspect(child);
+            return true;
+          });
         }
-        node.visitChildren((child) {
-          inspect(child);
-          return true;
-        });
-      }
 
-      // Widget finders alone miss an IconButton's additional native semantics.
-      inspect(owner.rootSemanticsNode!);
-      expect(actionableBack, hasLength(1));
-      final back = actionableBack.single;
-      expect(back.rect.size, const Size(48, 48));
-      expect(back.rect.size, tester.getSize(find.byTooltip('Back to Today')));
-      final title = tester.getSemantics(find.text('Activity'));
-      final share = tester.getSemantics(find.byTooltip('Share progress'));
-      expect(title.id, isNot(back.id));
-      expect(title.getSemanticsData().hasAction(SemanticsAction.tap), isFalse);
-      expect(share.id, isNot(back.id));
-      expect(share.id, isNot(title.id));
-      expect(share.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+        // Widget finders alone miss an IconButton's additional native semantics.
+        inspect(owner.rootSemanticsNode!);
+        expect(actionableBack, hasLength(1));
+        final back = actionableBack.single;
+        expect(back.rect.size, const Size(48, 48));
+        expect(back.rect.size, tester.getSize(find.byTooltip('Back to Today')));
+        final title = tester.getSemantics(find.text('Activity'));
+        final share = tester.getSemantics(find.byTooltip('Share progress'));
+        expect(title.id, isNot(back.id));
+        expect(
+          title.getSemanticsData().hasAction(SemanticsAction.tap),
+          isFalse,
+        );
+        expect(share.id, isNot(back.id));
+        expect(share.id, isNot(title.id));
+        expect(share.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
 
-      if (activation == 'semantics') {
-        owner.performAction(back.id, SemanticsAction.tap);
-      } else {
-        await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+        if (activation == 'semantics') {
+          owner.performAction(back.id, SemanticsAction.tap);
+        } else {
+          await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+        }
+        await tester.pump();
+        expect(container.read(appFlowProvider), AppView.nexus);
+        expect(flow.todayCalls, 1);
+      } finally {
+        semantics.dispose();
       }
-      await tester.pump();
-      expect(container.read(appFlowProvider), AppView.nexus);
-      expect(flow.todayCalls, 1);
     });
   }
 
