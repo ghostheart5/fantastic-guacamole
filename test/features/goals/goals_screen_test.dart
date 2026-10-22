@@ -1,7 +1,9 @@
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/features/goals/ui/goals_screen.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'dart:async';
@@ -11,6 +13,115 @@ import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 
 void main() {
+  for (final light in [false, true]) {
+    testWidgets(
+      'new goal fields and date picker use ${light ? 'Light' : 'Dark'} forms',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1000, 1800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final goals = _SavedWithWarning();
+        final container = ProviderContainer(
+          overrides: [goalsProvider.overrideWith(() => goals)],
+        );
+        addTearDown(container.dispose);
+        final selectedTheme = light ? appLightTheme : appTheme;
+        await tester.pumpWidget(
+          _testApp(container, false, theme: selectedTheme),
+        );
+        await tester.pump();
+        final stored = container.read(goalsProvider).single;
+        await tester.tap(find.byTooltip('Add goal'));
+        await tester.pump(const Duration(milliseconds: 400));
+        for (final hint in ['Goal title', 'Description (optional)']) {
+          final field = find.byWidgetPredicate(
+            (widget) =>
+                widget is TextField && widget.decoration?.hintText == hint,
+          );
+          final inputFinder = find.descendant(
+            of: field,
+            matching: find.byType(InputDecorator),
+          );
+          final input = tester.widget<InputDecorator>(inputFinder);
+          final fill = input.decoration.fillColor!;
+          expect(
+            Theme.of(tester.element(field)).brightness,
+            selectedTheme.brightness,
+          );
+          expect(fill, selectedTheme.inputDecorationTheme.fillColor);
+          final hintParagraph = tester.renderObject<RenderParagraph>(
+            find.descendant(of: field, matching: find.byType(RichText)).first,
+          );
+          expect(
+            _contrast(hintParagraph.text.style!.color!, fill),
+            greaterThanOrEqualTo(4.5),
+          );
+          await tester.enterText(
+            field,
+            hint == 'Goal title'
+                ? 'Unsaved contrast title'
+                : 'Unsaved contrast description',
+          );
+          await tester.pump();
+          final editable = tester.widget<EditableText>(
+            find.descendant(of: field, matching: find.byType(EditableText)),
+          );
+          expect(
+            _contrast(editable.style.color!, fill),
+            greaterThanOrEqualTo(4.5),
+          );
+          expect(
+            tester.widget<InputDecorator>(inputFinder).decoration.focusedBorder,
+            selectedTheme.inputDecorationTheme.focusedBorder,
+          );
+        }
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pump();
+        final date = find.text('Set target date (optional)');
+        await tester.ensureVisible(date);
+        await tester.tap(date);
+        await tester.pump(const Duration(milliseconds: 400));
+        final pickerContext = tester.element(find.byType(DatePickerDialog));
+        final pickerTheme = Theme.of(pickerContext);
+        expect(pickerTheme.brightness, selectedTheme.brightness);
+        expect(
+          pickerTheme.colorScheme.primary,
+          selectedTheme.colorScheme.primary,
+        );
+        expect(
+          _contrast(
+            pickerTheme.colorScheme.onPrimary,
+            pickerTheme.colorScheme.primary,
+          ),
+          greaterThanOrEqualTo(4.5),
+        );
+        await tester.tap(find.text('Cancel'));
+        await tester.pump(const Duration(milliseconds: 400));
+        final cancel = find.text('CANCEL');
+        await tester.ensureVisible(cancel);
+        final material = tester
+            .element(cancel)
+            .findAncestorWidgetOfExactType<Material>()!;
+        final text = tester.renderObject<RenderParagraph>(
+          find.descendant(of: cancel, matching: find.byType(RichText)).first,
+        );
+        // Light form buttons use their white fill with a dark theme foreground.
+        // Dark buttons have transparent fill over the retained dark sheet.
+        final background = material.color == null || material.color!.a == 0
+            ? const Color(0xFF081426)
+            : material.color!;
+        expect(
+          _contrast(text.text.style!.color!, background),
+          greaterThanOrEqualTo(4.5),
+        );
+        await tester.tap(cancel);
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(goals.saves, 0);
+        expect(container.read(goalsProvider).single, same(stored));
+        expect(find.text('Unsaved contrast title'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   for (final save in [false, true]) {
     testWidgets('focused goal edit closes safely; save=$save', (tester) async {
       final notifier = _EditedGoals();
@@ -328,9 +439,11 @@ Widget _testApp(
   ProviderContainer container,
   bool es, {
   bool disableAnimations = true,
+  ThemeData? theme,
 }) => UncontrolledProviderScope(
   container: container,
   child: MaterialApp(
+    theme: theme,
     locale: Locale(es ? 'es' : 'en'),
     supportedLocales: const [Locale('en'), Locale('es')],
     localizationsDelegates: const [
@@ -382,4 +495,12 @@ class _EditedGoals extends _GoalsNotifier {
     state = [updated];
     return const GoalMutationResult();
   }
+}
+
+double _contrast(Color foreground, Color background) {
+  final painted = Color.alphaBlend(foreground, background).computeLuminance();
+  final base = background.computeLuminance();
+  return painted >= base
+      ? (painted + .05) / (base + .05)
+      : (base + .05) / (painted + .05);
 }

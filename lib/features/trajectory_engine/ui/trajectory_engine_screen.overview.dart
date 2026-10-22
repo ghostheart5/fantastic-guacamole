@@ -650,6 +650,18 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
             selected: <TrajectoryCustomAdjustment>{_adjustment},
             showSelectedIcon: false,
             style: ButtonStyle(
+              foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                final colors = Theme.of(context).colorScheme;
+                return states.contains(WidgetState.selected)
+                    ? colors.onPrimary
+                    : colors.onSurface;
+              }),
+              backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                final colors = Theme.of(context).colorScheme;
+                return states.contains(WidgetState.selected)
+                    ? colors.primary
+                    : colors.surface;
+              }),
               minimumSize: const WidgetStatePropertyAll<Size>(
                 Size(0, AppSizes.touchTarget),
               ),

@@ -4,11 +4,273 @@ import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/theme/app_theme.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final theme in [appLightTheme, appTheme]) {
+    testWidgets(
+      '${theme.brightness.name} creator fields and actual dropdown menus retain selected mode and submitted values',
+      (tester) async {
+        _fatalCreatorTaps();
+        await tester.binding.setSurfaceSize(const Size(700, 1800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        CreatorFormData? submitted;
+        await _pumpThemedCreator(
+          tester,
+          theme,
+          DynamicForm(
+            initialDraftId: 'contrast-task',
+            initialTitle: 'A visible task',
+            initialDescription: 'A visible description',
+            activeGoals: [
+              GoalEntity(
+                id: 'goal-mode',
+                title: 'A visible goal',
+                createdAt: DateTime(2026, 10, 21),
+              ),
+            ],
+            onSubmit: (value) async => submitted = value,
+          ),
+        );
+        expect(find.byType(TemporalGlassSurface), findsOneWidget);
+        expect(
+          tester
+              .widget<TemporalGlassSurface>(find.byType(TemporalGlassSurface))
+              .opacity,
+          .88,
+        );
+        for (final label in [
+          find.text('Add a description (optional)'),
+          find.text('Task options (optional)'),
+        ]) {
+          expect(
+            _creatorContrast(
+              _paintedCreatorText(tester, label),
+              AppColors.bgSecondary,
+            ),
+            greaterThanOrEqualTo(4.5),
+          );
+        }
+        await _tapCreatorControl(
+          tester,
+          find.byKey(const Key('creator-description-options')),
+        );
+        final fields = find.byType(TextField);
+        expect(fields, findsNWidgets(2));
+        for (final field in fields.evaluate()) {
+          final finder = find.byWidget(field.widget);
+          final editable = tester.widget<EditableText>(
+            find.descendant(of: finder, matching: find.byType(EditableText)),
+          );
+          final decoration = tester
+              .widget<InputDecorator>(
+                find.descendant(
+                  of: finder,
+                  matching: find.byType(InputDecorator),
+                ),
+              )
+              .decoration;
+          expect(Theme.of(field).brightness, theme.brightness);
+          expect(decoration.fillColor, theme.inputDecorationTheme.fillColor);
+          expect(
+            _creatorContrast(editable.style.color!, decoration.fillColor!),
+            greaterThanOrEqualTo(4.5),
+          );
+          expect(
+            _creatorContrast(
+              decoration.hintStyle!.color!,
+              decoration.fillColor!,
+            ),
+            greaterThanOrEqualTo(4.5),
+          );
+        }
+        final type = find.byType(DropdownButton<CreatorFormKind>);
+        await _tapCreatorControl(tester, type);
+        _expectCreatorPopupContrast(tester, find.text('Goal').last, theme);
+        await _tapCreatorControl(tester, find.text('Task').last);
+        await _tapCreatorControl(
+          tester,
+          find.byKey(const Key('creator-task-options')),
+        );
+        final repeat = find.byKey(const Key('creator-task-repeat'));
+        await _tapCreatorControl(tester, repeat);
+        _expectCreatorPopupContrast(tester, find.text('Daily').last, theme);
+        await _tapCreatorControl(tester, find.text('Daily').last);
+        expect(
+          tester.widget<DropdownButton<RecurrenceRule>>(repeat).value,
+          RecurrenceRule.daily,
+        );
+        expect(
+          _creatorContrast(
+            _paintedCreatorText(tester, find.text('Daily')),
+            theme.inputDecorationTheme.fillColor!,
+          ),
+          greaterThanOrEqualTo(4.5),
+        );
+        final link = find.byKey(const Key('creator-task-goal-link'));
+        await _tapCreatorControl(tester, link);
+        _expectCreatorPopupContrast(
+          tester,
+          find.text('A visible goal').last,
+          theme,
+        );
+        await _tapCreatorControl(tester, find.text('A visible goal').last);
+        final estimate = find.byKey(const Key('creator-task-estimate'));
+        await _tapCreatorControl(tester, estimate);
+        _expectCreatorPopupContrast(
+          tester,
+          find.text('10 minutes').last,
+          theme,
+        );
+        await _tapCreatorControl(tester, find.text('10 minutes').last);
+        expect(submitted, isNull);
+        await _tapCreatorControl(tester, find.text('Save task'));
+        expect(submitted?.title, 'A visible task');
+        expect(submitted?.description, 'A visible description');
+        expect(submitted?.goalId, 'goal-mode');
+        expect(submitted?.estimatedDuration, const Duration(minutes: 10));
+        expect(submitted?.recurrenceRule, RecurrenceRule.daily);
+      },
+    );
+
+    testWidgets(
+      '${theme.brightness.name} creator cadence contrasts in both states and preserves habit values',
+      (tester) async {
+        _fatalCreatorTaps();
+        await tester.binding.setSurfaceSize(const Size(700, 1400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        CreatorFormData? submitted;
+        await _pumpThemedCreator(
+          tester,
+          theme,
+          DynamicForm(
+            initialType: CreatorFormKind.habit,
+            initialDraftId: 'cadence-mode',
+            initialTitle: 'A visible rhythm',
+            onSubmit: (value) async => submitted = value,
+          ),
+        );
+        final cadence = find.byKey(const Key('creator-rhythm-cadence'));
+        for (final label in ['Daily', 'Weekly']) {
+          final text = find.descendant(of: cadence, matching: find.text(label));
+          final button = tester.widget<TextButton>(
+            find.ancestor(of: text, matching: find.byType(TextButton)).first,
+          );
+          final selected = tester
+              .widget<SegmentedButton<HabitCadence>>(cadence)
+              .selected
+              .contains(
+                label == 'Daily' ? HabitCadence.daily : HabitCadence.weekly,
+              );
+          final background =
+              button.style?.backgroundColor?.resolve(
+                selected ? {WidgetState.selected} : {},
+              ) ??
+              AppColors.bgSecondary;
+          expect(
+            _creatorContrast(_paintedCreatorText(tester, text), background),
+            greaterThanOrEqualTo(4.5),
+          );
+        }
+        await _tapCreatorControl(
+          tester,
+          find.descendant(of: cadence, matching: find.text('Weekly')),
+        );
+        expect(tester.widget<SegmentedButton<HabitCadence>>(cadence).selected, {
+          HabitCadence.weekly,
+        });
+        await _tapCreatorControl(tester, find.text('Save habit'));
+        expect(submitted?.habitCadence, HabitCadence.weekly);
+        expect(submitted?.recurrenceRule, RecurrenceRule.weekly);
+        expect(submitted?.title, 'A visible rhythm');
+      },
+    );
+
+    testWidgets(
+      '${theme.brightness.name} creator date and time pickers inherit mode and cancel without saving',
+      (tester) async {
+        _fatalCreatorTaps();
+        await tester.binding.setSurfaceSize(const Size(900, 1600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final submissions = <CreatorFormData>[];
+        await _pumpThemedCreator(
+          tester,
+          theme,
+          DynamicForm(
+            initialDraftId: 'picker-mode',
+            initialTitle: 'A scheduled task',
+            onSubmit: (value) async => submissions.add(value),
+          ),
+        );
+        await _tapCreatorControl(
+          tester,
+          find.byKey(const Key('creator-task-options')),
+        );
+        final schedule = find.text('Schedule date and time...');
+        await _tapCreatorControl(tester, schedule);
+        expect(
+          Theme.of(tester.element(find.byType(DatePickerDialog))).brightness,
+          theme.brightness,
+        );
+        await _tapCreatorControl(
+          tester,
+          find.descendant(
+            of: find.byType(DatePickerDialog),
+            matching: find.text('Cancel'),
+          ),
+        );
+        expect(schedule, findsOneWidget);
+        expect(submissions, isEmpty);
+        await _tapCreatorControl(tester, schedule);
+        await _tapCreatorControl(
+          tester,
+          find.descendant(
+            of: find.byType(DatePickerDialog),
+            matching: find.text('OK'),
+          ),
+        );
+        expect(
+          Theme.of(tester.element(find.byType(TimePickerDialog))).brightness,
+          theme.brightness,
+        );
+        await _tapCreatorControl(
+          tester,
+          find.descendant(
+            of: find.byType(TimePickerDialog),
+            matching: find.text('Cancel'),
+          ),
+        );
+        expect(schedule, findsOneWidget);
+        expect(submissions, isEmpty);
+        await _tapCreatorControl(tester, schedule);
+        await _tapCreatorControl(
+          tester,
+          find.descendant(
+            of: find.byType(DatePickerDialog),
+            matching: find.text('OK'),
+          ),
+        );
+        await _tapCreatorControl(
+          tester,
+          find.descendant(
+            of: find.byType(TimePickerDialog),
+            matching: find.text('OK'),
+          ),
+        );
+        expect(schedule, findsNothing);
+        expect(submissions, isEmpty);
+        await _tapCreatorControl(tester, find.text('Save task'));
+        expect(submissions, hasLength(1));
+        expect(submissions.single.scheduledFor, isNotNull);
+        expect(submissions.single.title, 'A scheduled task');
+      },
+    );
+  }
   for (final rule in [RecurrenceRule.daily, RecurrenceRule.weekly]) {
     testWidgets('task frequency $rule survives form submission', (
       tester,
@@ -784,4 +1046,95 @@ Future<void> _expandDescription(WidgetTester tester) async {
   await tester.ensureVisible(toggle);
   await tester.tap(toggle);
   await tester.pumpAndSettle();
+}
+
+void _fatalCreatorTaps() {
+  final previous = WidgetController.hitTestWarningShouldBeFatal;
+  WidgetController.hitTestWarningShouldBeFatal = true;
+  addTearDown(() => WidgetController.hitTestWarningShouldBeFatal = previous);
+}
+
+Future<void> _pumpThemedCreator(
+  WidgetTester tester,
+  ThemeData theme,
+  DynamicForm form,
+) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: theme,
+      home: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SingleChildScrollView(child: form),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tapCreatorControl(WidgetTester tester, Finder control) async {
+  await tester.pumpAndSettle(
+    const Duration(milliseconds: 50),
+    EnginePhase.sendSemanticsUpdate,
+    const Duration(seconds: 2),
+  );
+  if (control.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      control,
+      180,
+      scrollable: find.byType(Scrollable).first,
+      maxScrolls: 20,
+    );
+  }
+  expect(control, findsOneWidget);
+  await Scrollable.ensureVisible(tester.element(control), alignment: .5);
+  await tester.pumpAndSettle(
+    const Duration(milliseconds: 50),
+    EnginePhase.sendSemanticsUpdate,
+    const Duration(seconds: 2),
+  );
+  expect(control.hitTestable(), findsOneWidget);
+  await tester.tap(control.hitTestable());
+  await tester.pumpAndSettle(
+    const Duration(milliseconds: 50),
+    EnginePhase.sendSemanticsUpdate,
+    const Duration(seconds: 2),
+  );
+}
+
+Color _paintedCreatorText(WidgetTester tester, Finder finder) {
+  final rich = find
+      .descendant(of: finder, matching: find.byType(RichText))
+      .first;
+  final color = tester.renderObject<RenderParagraph>(rich).text.style?.color;
+  expect(color, isNotNull);
+  return color!;
+}
+
+double _creatorContrast(Color foreground, Color background) {
+  final opaqueBackground = Color.alphaBlend(background, AppColors.bgSecondary);
+  final first = Color.alphaBlend(
+    foreground,
+    opaqueBackground,
+  ).computeLuminance();
+  final second = opaqueBackground.computeLuminance();
+  return first > second
+      ? (first + .05) / (second + .05)
+      : (second + .05) / (first + .05);
+}
+
+void _expectCreatorPopupContrast(
+  WidgetTester tester,
+  Finder label,
+  ThemeData selectedTheme,
+) {
+  expect(label, findsOneWidget);
+  expect(Theme.of(tester.element(label)).brightness, selectedTheme.brightness);
+  final popup = tester.widget<Material>(
+    find.ancestor(of: label, matching: find.byType(Material)).first,
+  );
+  expect(popup.color, selectedTheme.colorScheme.surface);
+  expect(
+    _creatorContrast(_paintedCreatorText(tester, label), popup.color!),
+    greaterThanOrEqualTo(4.5),
+  );
 }

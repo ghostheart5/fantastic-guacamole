@@ -65,10 +65,13 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                 Expanded(
                   child: Text(
                     _t('Today', 'Hoy'),
-                    style: Theme.of(context).textTheme.headlineMedium,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.headlineMedium?.copyWith(color: Colors.white),
                   ),
                 ),
                 IconButton(
+                  color: Colors.white70,
                   tooltip: _t('Notifications', 'Notificaciones'),
                   onPressed: () => context.push(
                     ref.read(routeSurfaceProvider).notifications,
@@ -76,6 +79,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                   icon: const Icon(Icons.notifications_outlined),
                 ),
                 IconButton(
+                  color: Colors.white70,
                   tooltip: _t('Settings', 'Ajustes'),
                   onPressed: () => goToAppView(context, ref, AppView.settings),
                   icon: const Icon(Icons.settings_outlined),
@@ -85,7 +89,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
             const SizedBox(height: 16),
             Text(
               _t('One thing at a time.', 'Una cosa a la vez.'),
-              style: Theme.of(context).textTheme.titleLarge,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(color: Colors.white),
             ),
             const SizedBox(height: 6),
             Text(
@@ -93,6 +99,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                 'Add what matters. Take a step when you’re ready.',
                 'Añade lo que importa. Da un paso cuando quieras.',
               ),
+              style: const TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
@@ -109,7 +116,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
             const SizedBox(height: 24),
             Text(
               _t('A place to start', 'Por dónde empezar'),
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: Colors.white),
             ),
             const SizedBox(height: 8),
             tasks.when(
@@ -125,6 +134,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                       'Your tasks could not load. Try again to see your plan.',
                       'No se pudieron cargar tus tareas. Reintenta para ver tu plan.',
                     ),
+                    style: const TextStyle(color: Colors.white70),
                   ),
                   TextButton(
                     onPressed: () => ref.invalidate(allTasksProvider),
@@ -174,6 +184,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                                 ? 'Tus tareas est\u00e1n programadas para m\u00e1s adelante. Tu plan completo sigue disponible.'
                                 : 'No hay tareas pendientes ahora. A\u00f1ade algo cuando quieras o consulta tu historial en Mi plan.',
                           ),
+                          style: const TextStyle(color: Colors.white70),
                         ),
                       ),
                     for (final task in available.take(3))

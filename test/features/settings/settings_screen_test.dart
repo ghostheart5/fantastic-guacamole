@@ -23,6 +23,8 @@ import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service
 import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -205,6 +207,126 @@ void main() {
     tester.widget<GestureDetector>(tile).onTap!();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+  }
+
+  for (final theme in [appTheme, appLightTheme]) {
+    testWidgets(
+      '${theme.brightness.name} planning preference fields and menus remain readable',
+      (tester) async {
+        final previousFatal = WidgetController.hitTestWarningShouldBeFatal;
+        WidgetController.hitTestWarningShouldBeFatal = true;
+        addTearDown(
+          () => WidgetController.hitTestWarningShouldBeFatal = previousFatal,
+        );
+        useTallSurface(tester);
+        final container = createContainer();
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(theme: theme, home: const SettingsScreen()),
+          ),
+        );
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.scrollUntilVisible(
+          find.text('Planning & guidance'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await invokeNavTile(tester, 'Planning & guidance');
+        final before = container.read(personalizationProfileProvider);
+        double contrast(Color foreground, Color background) {
+          final first = Color.alphaBlend(
+            foreground,
+            background,
+          ).computeLuminance();
+          final second = background.computeLuminance();
+          return first > second
+              ? (first + .05) / (second + .05)
+              : (second + .05) / (first + .05);
+        }
+
+        for (final label in [
+          'Planning style',
+          'Priority strategy',
+          'Missed-task recovery',
+        ]) {
+          await tester.scrollUntilVisible(
+            find.text(label),
+            250,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await tester.pump(const Duration(milliseconds: 350));
+          final field = find
+              .ancestor(
+                of: find.text(label),
+                matching: find.byType(DropdownButtonFormField<String>),
+              )
+              .first;
+          final decorator = tester.widget<InputDecorator>(
+            find.descendant(of: field, matching: find.byType(InputDecorator)),
+          );
+          final fill = Color.alphaBlend(
+            decorator.decoration.fillColor!,
+            const Color(0xFF050D1A),
+          );
+          var paintedLabels = 0;
+          for (final element
+              in find
+                  .descendant(of: field, matching: find.byType(RichText))
+                  .evaluate()) {
+            final paragraph = element.renderObject! as RenderParagraph;
+            if (paragraph.text.toPlainText().trim().isEmpty) continue;
+            paintedLabels++;
+            expect(
+              contrast(paragraph.text.style!.color!, fill),
+              greaterThanOrEqualTo(4.5),
+              reason: label,
+            );
+          }
+          expect(paintedLabels, greaterThanOrEqualTo(2), reason: label);
+        }
+        final field = find
+            .ancestor(
+              of: find.text('Planning style'),
+              matching: find.byType(DropdownButtonFormField<String>),
+            )
+            .first;
+        final button = find.descendant(
+          of: field,
+          matching: find.byType(DropdownButton<String>),
+        );
+        await tester.ensureVisible(button);
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(button.hitTestable(), findsOneWidget);
+        final dropdown = tester.widget<DropdownButton<String>>(button);
+        final alternate = dropdown.items!.firstWhere(
+          (item) => item.value != dropdown.value,
+        );
+        final alternateLabel = (alternate.child as Text).data!;
+        await tester.tap(button.hitTestable());
+        await tester.pump(const Duration(milliseconds: 350));
+        final menuText = find.text(alternateLabel).last;
+        expect(menuText.hitTestable(), findsOneWidget);
+        final material = tester.widget<Material>(
+          find.ancestor(of: menuText, matching: find.byType(Material)).first,
+        );
+        final paragraph = tester.renderObject<RenderParagraph>(menuText);
+        expect(material.color, theme.colorScheme.surface);
+        expect(
+          contrast(paragraph.text.style!.color!, material.color!),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(Theme.of(tester.element(menuText)).brightness, theme.brightness);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pump(const Duration(milliseconds: 350));
+        final after = container.read(personalizationProfileProvider);
+        expect(after.planningStyle, before.planningStyle);
+        expect(after.priorityStrategy, before.priorityStrategy);
+        expect(after.recoveryPolicy, before.recoveryPolicy);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('mounted reminder controls reload restored settings', (

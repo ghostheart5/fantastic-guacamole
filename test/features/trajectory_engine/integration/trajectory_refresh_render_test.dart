@@ -10,7 +10,9 @@ import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provi
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
+import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -117,7 +119,7 @@ TrajectoryEngineModel _ready({String revision = 'original-baseline'}) {
   );
 }
 
-Future<ProviderContainer> _open(WidgetTester tester) async {
+Future<ProviderContainer> _open(WidgetTester tester, {ThemeData? theme}) async {
   await tester.binding.setSurfaceSize(const Size(900, 1800));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
@@ -140,7 +142,7 @@ Future<ProviderContainer> _open(WidgetTester tester) async {
         ),
         trajectoryEngineModelProvider.overrideWith((ref) => ref.watch(_model)),
       ],
-      child: const MaterialApp(home: TrajectoryEngineScreen()),
+      child: MaterialApp(theme: theme, home: const TrajectoryEngineScreen()),
     ),
   );
   await tester.pump();
@@ -173,6 +175,54 @@ Future<void> _chooseDelay(WidgetTester tester) async {
 }
 
 void main() {
+  for (final theme in [appTheme, appLightTheme]) {
+    testWidgets(
+      '${theme.brightness.name} what-if segments remain readable and local',
+      (tester) async {
+        final container = await _open(tester, theme: theme);
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await _chooseDelay(tester);
+        final segmented = find.byType(
+          SegmentedButton<TrajectoryCustomAdjustment>,
+        );
+        await tester.ensureVisible(segmented);
+        await tester.pump(const Duration(milliseconds: 350));
+        for (final label in ['Complete', 'Delay', 'Remove']) {
+          final text = find.descendant(
+            of: segmented,
+            matching: find.text(label),
+          );
+          expect(text, findsOneWidget);
+          final paragraph = tester.renderObject<RenderParagraph>(text);
+          final material = tester.widget<Material>(
+            find.ancestor(of: text, matching: find.byType(Material)).first,
+          );
+          expect(material.color, isNotNull);
+          final foreground = Color.alphaBlend(
+            paragraph.text.style!.color!,
+            material.color!,
+          ).computeLuminance();
+          final background = material.color!.computeLuminance();
+          final contrast = foreground > background
+              ? (foreground + .05) / (background + .05)
+              : (background + .05) / (foreground + .05);
+          expect(contrast, greaterThanOrEqualTo(4.5), reason: label);
+        }
+        expect(
+          Theme.of(tester.element(segmented)).brightness,
+          theme.brightness,
+        );
+        final actions =
+            container.read(trajectoryForecastLedgerActionsProvider)
+                as _CountingActions;
+        expect(actions.tracks, 0);
+        expect(actions.reconciles, 0);
+        expect(container.read(trajectoryCustomScenarioProvider), isNull);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('selected modeled path survives a new baseline revision', (
     tester,
   ) async {

@@ -501,18 +501,12 @@ class _PreferenceDropdown<T> extends StatelessWidget {
         child: DropdownButtonFormField<T>(
           initialValue: value,
           isExpanded: true,
-          dropdownColor: const Color(0xFF0B111C),
-          style: const TextStyle(color: Colors.white70, fontSize: 13),
-          decoration: InputDecoration(
-            labelText: label,
-            labelStyle: const TextStyle(color: Colors.white54),
-            enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(
-                color: AppColors.neonCyan.withValues(alpha: 0.2),
-              ),
-              borderRadius: BorderRadius.circular(10),
-            ),
+          dropdownColor: Theme.of(context).colorScheme.surface,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 13,
           ),
+          decoration: InputDecoration(labelText: label),
           items: items
               .map(
                 (T item) => DropdownMenuItem<T>(
