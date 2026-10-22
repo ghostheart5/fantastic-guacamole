@@ -46,7 +46,9 @@ void main() {
       );
       expect(settings.id, isNot(node.id));
       expect(settings.id, isNot(title.id));
-      expect(settings.getSemanticsData().label, 'Open settings');
+      // Tooltip exposes its accessible description through tooltip, not label.
+      expect(settings.getSemanticsData().tooltip, 'Open settings');
+      expect(settings.getSemanticsData().label, isEmpty);
       expect(settings.getSemanticsData().flagsCollection.isButton, isTrue);
       expect(
         settings.getSemanticsData().hasAction(SemanticsAction.tap),
