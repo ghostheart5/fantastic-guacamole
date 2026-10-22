@@ -308,13 +308,27 @@ void main() {
         await tester.pump(const Duration(milliseconds: 350));
         final menuText = find.text(alternateLabel).last;
         expect(menuText.hitTestable(), findsOneWidget);
-        final material = tester.widget<Material>(
-          find.ancestor(of: menuText, matching: find.byType(Material)).first,
+        // Flutter 3.44 paints the menu behind a transparent Material. Inspect
+        // that painter's actual color rather than the transparent wrapper.
+        final paintedMenu = find.ancestor(
+          of: menuText,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is CustomPaint &&
+                widget.painter?.runtimeType.toString() ==
+                    '_DropdownMenuPainter',
+          ),
         );
+        expect(paintedMenu, findsOneWidget);
+        final painter = tester.widget<CustomPaint>(paintedMenu).painter!;
+        // The pinned Flutter painter type is private; its public color getter
+        // is the actual BoxDecoration fill. Fail if that API or type changes.
+        // ignore: avoid_dynamic_calls
+        final menuColor = (painter as dynamic).color as Color;
         final paragraph = tester.renderObject<RenderParagraph>(menuText);
-        expect(material.color, theme.colorScheme.surface);
+        expect(menuColor, theme.colorScheme.surface);
         expect(
-          contrast(paragraph.text.style!.color!, material.color!),
+          contrast(paragraph.text.style!.color!, menuColor),
           greaterThanOrEqualTo(4.5),
         );
         expect(Theme.of(tester.element(menuText)).brightness, theme.brightness);
