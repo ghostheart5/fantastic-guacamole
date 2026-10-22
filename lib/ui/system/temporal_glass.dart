@@ -91,6 +91,7 @@ class TemporalScreenHeader extends StatelessWidget {
       children: <Widget>[
         if (onBack != null) ...<Widget>[
           Semantics(
+            container: true,
             label: backTooltip,
             button: true,
             onTap: onBack,
