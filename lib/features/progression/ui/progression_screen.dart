@@ -261,6 +261,8 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Semantics(
+                      container: true,
+                      excludeSemantics: true,
                       label: journeyText(
                         context,
                         'Back to Today',
