@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:flutter/rendering.dart';
 import 'package:fantastic_guacamole/data/services/mock_auth_service.dart';
@@ -104,6 +105,8 @@ void main() {
     bool? learningPaused,
     DateTime? learningNow,
     bool billingAccess = false,
+    bool billingCreditAccess = false,
+    bool guideReady = false,
     AiCreditWallet? wallet,
   }) {
     final AccountStorageScope resolvedScope =
@@ -119,13 +122,16 @@ void main() {
       overrides: [
         if (billingAccess)
           appAccessProvider.overrideWithValue(
-            const AppAccessState(
+            AppAccessState(
               hasPremiumAccess: true,
               hasTesterFullAccess: false,
               paywallDisabled: false,
               internalBillingTest: true,
+              internalCreditTest: billingCreditAccess,
             ),
           ),
+        if (guideReady)
+          adaptiveGuidanceProvider.overrideWith(_CopyGuidance.new),
         if (authService != null)
           authServiceProvider.overrideWithValue(authService),
         accountStorageScopeProvider.overrideWithValue(resolvedScope),
@@ -207,6 +213,76 @@ void main() {
     tester.widget<GestureDetector>(tile).onTap!();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+  }
+
+  for (final es in [false, true]) {
+    testWidgets(
+      '${es ? 'Spanish' : 'English'} Settings use current Chat and plain guide descriptions',
+      (tester) async {
+        useTallSurface(tester);
+        final container = createContainer(
+          billingAccess: true,
+          billingCreditAccess: true,
+          guideReady: true,
+        );
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              locale: Locale(es ? 'es' : 'en'),
+              supportedLocales: ChronoSparkLocalizations.supportedLocales,
+              localizationsDelegates: const [
+                ChronoSparkLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: const SettingsScreen(),
+            ),
+          ),
+        );
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(
+          find.textContaining(
+            es
+                ? 'Elegir un paso y Chat pueden usar IA externa'
+                : 'Choose a step and Chat can use external AI',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('Choose a step and SI Chat can use external AI'),
+          findsNothing,
+        );
+        await invokeNavTile(
+          tester,
+          es ? 'Planificación y orientación' : 'Planning & guidance',
+        );
+        final guide = es
+            ? 'Vuelve a mostrar la guía sin cambiar tu trabajo ni tu actividad guardados.'
+            : 'Shows the guide again without changing your saved work or activity.';
+        final setup = es
+            ? 'Vuelve a abrir la bienvenida y la configuración de la cuenta. Conserva tu trabajo guardado y el progreso de la guía.'
+            : 'Reopens welcome and account setup. Keeps your saved work and guide progress.';
+        await tester.scrollUntilVisible(
+          find.text(guide),
+          400,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text(guide).hitTestable(), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text(setup),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text(setup).hitTestable(), findsOneWidget);
+        expect(find.textContaining('contextual intervention'), findsNothing);
+        expect(find.textContaining('intervención contextual'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final theme in [appTheme, appLightTheme]) {
@@ -1754,4 +1830,14 @@ class _MemoryStore implements SharedPrefsStore {
 
   @override
   Future<void> clear() async => values.clear();
+}
+
+class _CopyGuidance extends AdaptiveGuidanceNotifier {
+  @override
+  Future<AdaptiveGuidanceState> build() async => const AdaptiveGuidanceState(
+    milestones: {},
+    counts: {},
+    skippedLessons: {},
+    completedLessons: {},
+  );
 }

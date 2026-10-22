@@ -42,6 +42,10 @@ class TrajectoryEngineScreen extends ConsumerStatefulWidget {
 class _TrajectoryEngineScreenState
     extends ConsumerState<TrajectoryEngineScreen> {
   String? _selectedScenarioId;
+  _CustomComparisonRequest? _customRequest;
+  (_CustomComparisonRequest?, _CustomComparisonState?)? _lastCustomFeedback;
+  final GlobalKey _comparisonPreviewKey = GlobalKey();
+  final GlobalKey _customFeedbackKey = GlobalKey();
   TrajectoryEngineModel? _lastDisplayModel;
   AsyncValue<TrajectoryCalibrationSummary>? _lastCalibration;
   bool _isRefreshing = false;
@@ -82,6 +86,7 @@ class _TrajectoryEngineScreenState
     if (_comparisonContext != comparisonContext) {
       _lastDisplayModel = null;
       _lastCalibration = null;
+      _customRequest = null;
       if (_comparisonContext != null) _selectedScenarioId = null;
       _comparisonContext = comparisonContext;
     }
@@ -114,6 +119,15 @@ class _TrajectoryEngineScreenState
       comparison,
       _selectedScenarioId,
     );
+    final customFeedback = _customFeedbackState(model);
+    final feedbackIdentity = (_customRequest, customFeedback);
+    if (_lastCustomFeedback != feedbackIdentity) {
+      _lastCustomFeedback = feedbackIdentity;
+      final request = _customRequest;
+      if (request != null && customFeedback != null) {
+        _revealCustomFeedback(request);
+      }
+    }
     final bool blocksContent =
         model.status == TrajectoryEngineStatus.empty ||
         comparison == null &&
@@ -212,6 +226,11 @@ class _TrajectoryEngineScreenState
                         child: CircularProgressIndicator(),
                       ),
                     ),
+                  if (blocksContent && customFeedback != null)
+                    _CustomComparisonFeedback(
+                      key: _customFeedbackKey,
+                      state: customFeedback,
+                    ),
                   AbsorbPointer(
                     absorbing: refreshing,
                     child: ExcludeFocus(
@@ -255,20 +274,24 @@ class _TrajectoryEngineScreenState
                                   case final TrajectoryScenarioOutcome
                                       outcome) ...<Widget>[
                                 const SizedBox(height: 12),
-                                _ScenarioComparisonCard(
-                                  baseline: value.baseline,
-                                  outcome: outcome,
-                                  isRecommended:
-                                      canRecommendScenario &&
-                                      outcome.id == value.recommendedScenarioId,
-                                  onOpen: () => _openScenarioDestination(
-                                    outcome.intervention,
-                                  ),
-                                  onTrack: () =>
-                                      _trackScenario(value.baseline, outcome),
-                                  onCorrect: () => _correctAssumptions(
-                                    value.baseline,
-                                    outcome,
+                                KeyedSubtree(
+                                  key: _comparisonPreviewKey,
+                                  child: _ScenarioComparisonCard(
+                                    baseline: value.baseline,
+                                    outcome: outcome,
+                                    isRecommended:
+                                        canRecommendScenario &&
+                                        outcome.id ==
+                                            value.recommendedScenarioId,
+                                    onOpen: () => _openScenarioDestination(
+                                      outcome.intervention,
+                                    ),
+                                    onTrack: () =>
+                                        _trackScenario(value.baseline, outcome),
+                                    onCorrect: () => _correctAssumptions(
+                                      value.baseline,
+                                      outcome,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -301,22 +324,42 @@ class _TrajectoryEngineScreenState
                                 child: _CustomScenarioComposer(
                                   baseline: value.baseline,
                                   horizonDays: horizonDays,
+                                  feedback: customFeedback == null
+                                      ? null
+                                      : _CustomComparisonFeedback(
+                                          key: _customFeedbackKey,
+                                          state: customFeedback,
+                                          onView:
+                                              customFeedback ==
+                                                  _CustomComparisonState.ready
+                                              ? _viewCustomComparison
+                                              : null,
+                                        ),
                                   onComposed:
                                       (TrajectoryCustomScenarioDraft draft) {
                                         if (_isRefreshing) return;
+                                        final request =
+                                            _CustomComparisonRequest(
+                                              draft: draft,
+                                              scenarioId:
+                                                  trajectoryCustomScenarioId(
+                                                    draft,
+                                                    horizonDays: horizonDays,
+                                                  ),
+                                              previous: model.comparison,
+                                              context: comparisonContext,
+                                            );
                                         ref
                                             .read(
                                               trajectoryCustomScenarioProvider
                                                   .notifier,
                                             )
                                             .compose(draft);
-                                        setState(
-                                          () => _selectedScenarioId =
-                                              trajectoryCustomScenarioId(
-                                                draft,
-                                                horizonDays: horizonDays,
-                                              ),
-                                        );
+                                        setState(() {
+                                          _customRequest = request;
+                                          _selectedScenarioId =
+                                              request.scenarioId;
+                                        });
                                       },
                                   onClear: () {
                                     if (_isRefreshing) return;
@@ -326,7 +369,10 @@ class _TrajectoryEngineScreenState
                                               .notifier,
                                         )
                                         .clear();
-                                    setState(() => _selectedScenarioId = null);
+                                    setState(() {
+                                      _selectedScenarioId = null;
+                                      _customRequest = null;
+                                    });
                                   },
                                 ),
                               ),
@@ -406,6 +452,97 @@ class _TrajectoryEngineScreenState
         ),
       ),
     );
+  }
+
+  _CustomComparisonState? _customFeedbackState(TrajectoryEngineModel model) {
+    final request = _customRequest;
+    if (request == null || !_customRequestIsCurrent(request)) {
+      return null;
+    }
+    if (_isRefreshing || model.status == TrajectoryEngineStatus.loading) {
+      return _CustomComparisonState.pending;
+    }
+    if (model.status == TrajectoryEngineStatus.error ||
+        model.comparison == null) {
+      return _CustomComparisonState.unavailable;
+    }
+    final comparison = model.comparison!;
+    final matching =
+        comparison.baseline.accountScope == request.context.$1 &&
+        comparison.outcomes.any(
+          (outcome) =>
+              outcome.intervention.id == request.scenarioId &&
+              outcome.intervention.horizon.inDays == request.context.$3,
+        );
+    if (matching) {
+      // Repeating the identical request may reuse an already reconciled result.
+      return _CustomComparisonState.ready;
+    }
+    // Retained AsyncData is not a rejection of this request. A synchronous
+    // rejected draft produces a fresh comparison without its outcome.
+    if (identical(model.comparison, request.previous)) {
+      return _CustomComparisonState.pending;
+    }
+    if (comparison.outcomes.any(
+      (outcome) => outcome.intervention.id.startsWith('custom-'),
+    )) {
+      // An older custom result is not a rejection of the latest request.
+      return _CustomComparisonState.pending;
+    }
+    return _CustomComparisonState.unavailable;
+  }
+
+  bool _customRequestIsCurrent(_CustomComparisonRequest request) =>
+      request.context ==
+          (
+            ref.read(accountStorageScopeProvider).v2Namespace,
+            ref.read(authSessionBoundaryProvider).generation,
+            ref.read(trajectoryHorizonDaysProvider),
+          ) &&
+      identical(ref.read(trajectoryCustomScenarioProvider), request.draft);
+
+  void _revealCustomFeedback(_CustomComparisonRequest request) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !identical(_customRequest, request) ||
+          !_customRequestIsCurrent(request)) {
+        return;
+      }
+      final target = _customFeedbackKey.currentContext;
+      if (target != null) {
+        unawaited(Scrollable.ensureVisible(target, alignment: 1));
+      }
+    });
+  }
+
+  void _viewCustomComparison() {
+    final request = _customRequest;
+    if (request == null ||
+        _customFeedbackState(ref.read(trajectoryEngineModelProvider)) !=
+            _CustomComparisonState.ready) {
+      return;
+    }
+    setState(() => _selectedScenarioId = request.scenarioId);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !identical(request, _customRequest) ||
+          _customFeedbackState(ref.read(trajectoryEngineModelProvider)) !=
+              _CustomComparisonState.ready) {
+        return;
+      }
+      final target = _comparisonPreviewKey.currentContext;
+      if (target != null) {
+        unawaited(
+          Scrollable.ensureVisible(
+            target,
+            alignment: .05,
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 250),
+          ),
+        );
+      }
+    });
   }
 
   void _openDecisionAction(OperatingActionIntent intent) {

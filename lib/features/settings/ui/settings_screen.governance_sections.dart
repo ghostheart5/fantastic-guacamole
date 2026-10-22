@@ -746,8 +746,8 @@ class _AdaptiveGuidanceSection extends ConsumerWidget {
                 ),
                 subtitle: journeyText(
                   context,
-                  'Keeps real outcomes and reopens the next relevant contextual intervention.',
-                  'Conserva los resultados reales y vuelve a abrir la siguiente intervención contextual pertinente.',
+                  'Shows the guide again without changing your saved work or activity.',
+                  'Vuelve a mostrar la guía sin cambiar tu trabajo ni tu actividad guardados.',
                 ),
                 onTap: () => unawaited(_restartGuide(context, ref)),
               ),
@@ -759,8 +759,8 @@ class _AdaptiveGuidanceSection extends ConsumerWidget {
                 ),
                 subtitle: journeyText(
                   context,
-                  'Reopens welcome and account setup. Keeps tasks, milestones, and Adaptive Guide progress.',
-                  'Vuelve a abrir la bienvenida y la configuración de la cuenta. Conserva las tareas, los hitos y el progreso de la Guía Adaptativa.',
+                  'Reopens welcome and account setup. Keeps your saved work and guide progress.',
+                  'Vuelve a abrir la bienvenida y la configuración de la cuenta. Conserva tu trabajo guardado y el progreso de la guía.',
                 ),
                 onTap: () => unawaited(_restartFirstSetup(context, ref)),
               ),

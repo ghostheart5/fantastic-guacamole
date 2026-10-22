@@ -686,8 +686,10 @@ class _CustomScenarioComposer extends StatefulWidget {
     required this.horizonDays,
     required this.onComposed,
     required this.onClear,
+    this.feedback,
   });
 
+  final Widget? feedback;
   final TrajectoryBaseline baseline;
   final int horizonDays;
   final ValueChanged<TrajectoryCustomScenarioDraft> onComposed;
@@ -881,6 +883,10 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
               ),
             ],
           ),
+          if (widget.feedback case final Widget feedback) ...[
+            const SizedBox(height: 10),
+            feedback,
+          ],
         ],
       ),
     );
@@ -966,4 +972,64 @@ TrajectoryScenarioOutcome? _selected(
     }
   }
   return comparison.recommended ?? comparison.outcomes.first;
+}
+
+enum _CustomComparisonState { pending, ready, unavailable }
+
+class _CustomComparisonRequest {
+  const _CustomComparisonRequest({
+    required this.draft,
+    required this.scenarioId,
+    required this.previous,
+    required this.context,
+  });
+  final TrajectoryCustomScenarioDraft draft;
+  final String scenarioId;
+  final TrajectoryComparison? previous;
+  final (String?, int, int) context;
+}
+
+class _CustomComparisonFeedback extends StatelessWidget {
+  const _CustomComparisonFeedback({
+    super.key,
+    required this.state,
+    this.onView,
+  });
+  final _CustomComparisonState state;
+  final VoidCallback? onView;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(switch (state) {
+          _CustomComparisonState.pending => journeyText(
+            context,
+            'Updating your comparison…',
+            'Actualizando tu comparación…',
+          ),
+          _CustomComparisonState.ready => journeyText(
+            context,
+            'Your comparison is ready. Preview only; no changes saved.',
+            'Tu comparación está lista. Solo es una vista previa; no se guardaron cambios.',
+          ),
+          _CustomComparisonState.unavailable => journeyText(
+            context,
+            'This change could not be compared with the current information. Try another task or change.',
+            'No se pudo comparar este cambio con la información actual. Prueba otra tarea u otro cambio.',
+          ),
+        }, style: const TextStyle(color: Colors.white, fontSize: 13)),
+        if (state == _CustomComparisonState.ready && onView != null)
+          TextButton.icon(
+            onPressed: onView,
+            icon: const Icon(Icons.visibility_outlined),
+            label: Text(
+              journeyText(context, 'View comparison', 'Ver comparación'),
+            ),
+          ),
+      ],
+    ),
+  );
 }
