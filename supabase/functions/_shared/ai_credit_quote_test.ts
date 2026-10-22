@@ -109,9 +109,9 @@ Deno.test("invalid output budgets are rejected", () => {
   }
 });
 
-// Mirrors the normal conversation factory's context shape with synthetic data. Uses
-// the real server policy, not a shortened policy that hides the base price.
-Deno.test("normal server-policy Chat quote changes from thirteen credits to five", () => {
+// Mirrors the normal conversation factory with the CURRENT real server policy.
+// Its exact length may evolve; the customer cap must not shrink provider funding.
+Deno.test("current server-policy Chat stays capped while full provider reserve grows", () => {
   const upstream = {
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
@@ -153,14 +153,14 @@ Deno.test("normal server-policy Chat quote changes from thirteen credits to five
   assert(upstream.system !== null);
   const providerCost = quotedProviderCostMicrousd(upstream);
   assert(MAX_PROVIDER_MICROUSD_PER_CREDIT === 3000);
-  assert(Math.ceil(providerCost / MAX_PROVIDER_MICROUSD_PER_CREDIT) === 13);
+  assert(providerCost > 5 * MAX_PROVIDER_MICROUSD_PER_CREDIT);
   assert(quotedCreditCost(upstream) === 5);
-  assert(
-    quotedCreditCost({
-      ...upstream,
-      system: upstream.system + "x".repeat(8000),
-    }) === 5,
-  );
+  const largerContext = {
+    ...upstream,
+    system: upstream.system + "x".repeat(8000),
+  };
+  assert(quotedCreditCost(largerContext) === 5);
+  assert(quotedProviderCostMicrousd(largerContext) === providerCost + 8000 * 3);
 });
 
 Deno.test("lower customer conversion never raises any valid previous quote", () => {
