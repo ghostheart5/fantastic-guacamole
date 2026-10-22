@@ -265,6 +265,133 @@ Future<void> pumpConversationScreen(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  for (final selectedTheme in [appLightTheme, appTheme]) {
+    for (final language in ['en', 'es']) {
+      testWidgets(
+        '${selectedTheme.brightness.name} $language free tools stays visible at 320px and 200 percent text',
+        (tester) async {
+          failOnMissedChatTaps();
+          await tester.binding.setSurfaceSize(const Size(320, 1000));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          var requests = 0;
+          var fallbackCalls = 0;
+          String? handoff;
+          final container = setup((_) async {
+            requests++;
+            throw StateError('Free tools must not request paid AI');
+          });
+          addTearDown(() async {
+            await tester.pumpWidget(const SizedBox.shrink());
+            container.dispose();
+          });
+          await container
+              .read(assistantConversationHistoryRepositoryProvider)!
+              .save(
+                expectedRevision: 0,
+                messages: [
+                  {'role': 'user', 'content': 'A calm break, please.'},
+                  {'role': 'assistant', 'content': 'Try one quiet breath.'},
+                ],
+                sources: {},
+              );
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp(
+                theme: selectedTheme,
+                locale: Locale(language),
+                supportedLocales: ChronoSparkLocalizations.supportedLocales,
+                localizationsDelegates: const [
+                  ChronoSparkLocalizations.delegate,
+                  ...GlobalMaterialLocalizations.delegates,
+                ],
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(2)),
+                  child: child!,
+                ),
+                home: AssistantConversationScreen(
+                  surface: ConversationSurface.si,
+                  onLocalTools: () => fallbackCalls++,
+                  onLocalToolsWithDraft: (draft) => handoff = draft,
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await waitForChatReady(tester);
+          final button = find.byKey(const Key('conversation-free-tools'));
+          final label = find.text(
+            language == 'es' ? 'Herramientas gratis' : 'Free tools',
+          );
+          expect(label, findsOneWidget);
+          expect(button.hitTestable(), findsOneWidget);
+          final bounds = tester.getRect(button);
+          expect(bounds.left, greaterThanOrEqualTo(16));
+          expect(bounds.right, lessThanOrEqualTo(304));
+          expect(bounds.height, greaterThanOrEqualTo(48));
+          final paragraph = tester.renderObject<RenderParagraph>(
+            find.descendant(of: label, matching: find.byType(RichText)).first,
+          );
+          expect(paragraph.didExceedMaxLines, isFalse);
+          final material = tester.widget<Material>(
+            find.descendant(of: button, matching: find.byType(Material)).first,
+          );
+          final background = material.color!;
+          final foreground = Color.alphaBlend(
+            paragraph.text.style!.color!,
+            background,
+          );
+          expect(
+            (foreground.computeLuminance() + .05) /
+                (background.computeLuminance() + .05),
+            greaterThanOrEqualTo(4.5),
+          );
+          expect(tester.takeException(), isNull);
+          await enterChatText(tester, 'A quiet next step');
+          await tapRevealedChatControl(tester, button);
+          expect(handoff, 'A quiet next step');
+          expect(fallbackCalls, 0);
+          expect(requests, 0);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets('visible free tools keeps the existing no-draft callback', (
+    tester,
+  ) async {
+    var calls = 0;
+    final container = setup(
+      (_) async => throw StateError('Free tools must not request AI'),
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () => calls++,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await waitForChatReady(tester);
+    await tapRevealedChatControl(
+      tester,
+      find.byKey(const Key('conversation-free-tools')),
+    );
+    expect(calls, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'blocked history hydration disables real input send and voice until restored',
     (tester) async {

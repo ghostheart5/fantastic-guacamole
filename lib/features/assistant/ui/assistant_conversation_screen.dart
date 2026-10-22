@@ -904,26 +904,44 @@ class _AssistantConversationScreenState
               ? null
               : () => goToAppView(context, ref, AppView.nexus),
         ),
-        actions: [
-          IconButton(
-            tooltip: copy('On-device tools', 'Herramientas locales'),
-            onPressed: _busy
-                ? null
-                : () {
-                    final handoff = widget.onLocalToolsWithDraft;
-                    if (handoff == null) {
-                      widget.onLocalTools();
-                    } else {
-                      handoff(_input.text.trim());
-                    }
-                  },
-            icon: const Icon(Icons.offline_bolt_outlined),
-          ),
-        ],
       ),
       body: _ConversationBody(
         child: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Tooltip(
+                  message: copy('On-device tools', 'Herramientas locales'),
+                  child: OutlinedButton.icon(
+                    key: const Key('conversation-free-tools'),
+                    onPressed: _busy
+                        ? null
+                        : () {
+                            final handoff = widget.onLocalToolsWithDraft;
+                            if (handoff == null) {
+                              widget.onLocalTools();
+                            } else {
+                              handoff(_input.text.trim());
+                            }
+                          },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xFF10203F),
+                      minimumSize: const Size(0, 48),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      side: const BorderSide(color: Colors.cyanAccent),
+                    ),
+                    icon: const Icon(Icons.offline_bolt_outlined),
+                    label: Text(copy('Free tools', 'Herramientas gratis')),
+                  ),
+                ),
+              ),
+            ),
             Expanded(
               child: ListView(
                 controller: _scroll,

@@ -496,8 +496,8 @@ class _ProgressionOverview extends StatelessWidget {
               Text(
                 journeyText(
                   context,
-                  'LEVEL $level · ${levelTitle.toUpperCase()}',
-                  'NIVEL $level · ${journeyLabel(context, levelTitle).toUpperCase()}',
+                  'LEVEL $level · TITLE: ${levelTitle.toUpperCase()}',
+                  'NIVEL $level · TÍTULO: ${journeyLabel(context, levelTitle).toUpperCase()}',
                 ),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: AppColors.memoryAmber,
@@ -661,15 +661,15 @@ class _ObservedContinuitySummary extends ConsumerWidget {
           )
         : journeyText(
             context,
-            'Milestones completed: ${milestoneSummary.completed}/${milestoneSummary.total} · Schedule milestones: $timelineMilestones',
-            'Hitos completados: ${milestoneSummary.completed}/${milestoneSummary.total} · Hitos en la agenda: $timelineMilestones',
+            'Tracked milestones completed: ${milestoneSummary.completed} of ${milestoneSummary.total}. Milestone events in your schedule: $timelineMilestones (a separate count).',
+            'Hitos registrados completados: ${milestoneSummary.completed} de ${milestoneSummary.total}. Eventos de hito en tu agenda: $timelineMilestones (un recuento aparte).',
           );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          journeyText(context, 'OBSERVED CONTINUITY', 'CONTINUIDAD OBSERVADA'),
+          journeyText(context, 'SAVED PROGRESS', 'PROGRESO GUARDADO'),
           style: const TextStyle(
             color: AppColors.memoryAmber,
             fontSize: 11,
@@ -700,6 +700,19 @@ class _ObservedContinuitySummary extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 14),
+        Text(
+          journeyText(
+            context,
+            'The task total comes from saved completion history. The 30-day chart below counts recent tasks and goals, so the totals can differ.',
+            'El total de tareas usa el historial de finalizaciones guardado. El gráfico de 30 días de abajo cuenta tareas y metas recientes, así que los totales pueden ser distintos.',
+          ),
+          style: const TextStyle(
+            color: Color(0xFFC6D0E2),
+            fontSize: 12,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 8),
         Text(
           milestoneText,
           style: const TextStyle(
