@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/l10n/creator_copy.dart';
 import 'package:fantastic_guacamole/l10n/nexus_copy.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -186,6 +187,36 @@ void main() {
       }
     },
   );
+
+  test('planning journeys dispatch the current suggestion action', () {
+    final label = const PlannerRoutineCopy(
+      false,
+    ).guidanceButton(refresh: false);
+    for (final path in [
+      '.maestro/flows/04-smart-planner.yaml',
+      '.maestro/flows/priority8-learned-lifecycle.yaml',
+    ]) {
+      final flow = commands(path);
+      final tap = flow.indexWhere(
+        (command) => command is Map && command['tapOn'] == label,
+      );
+      expect(tap, greaterThan(0), reason: path);
+      expect(flow[tap - 1], {
+        'scrollUntilVisible': {
+          'element': {'text': label},
+          'direction': 'DOWN',
+          'timeout': 15000,
+        },
+      });
+      expect(flow[tap + 1], {
+        'extendedWaitUntil': {
+          'visible': '(?s)Planning guidance ready.*',
+          'timeout': 30000,
+        },
+      });
+      expect(visibleSelectorValues(flow), isNot(contains('GET GUIDANCE')));
+    }
+  });
 
   test('manual saves and Planner review preserve distinct consent paths', () {
     const copy = CreatorCopy(false);

@@ -153,10 +153,10 @@ tags:
     text: "Fold one shirt. I have five minutes."
 - scrollUntilVisible:
     element:
-      text: "GET GUIDANCE"
+      text: "Get a suggestion"
     direction: DOWN
     timeout: 15000
-- tapOn: "GET GUIDANCE"
+- tapOn: "Get a suggestion"
 - extendedWaitUntil:
     visible: "(?s)Planning guidance ready.*"
     timeout: 30000
