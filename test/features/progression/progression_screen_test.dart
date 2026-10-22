@@ -12,7 +12,6 @@ import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/models/progression_state.dart';
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
