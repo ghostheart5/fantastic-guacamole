@@ -174,10 +174,15 @@ class _ResultAssumptions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<String> visible = assumptions
-        .map((String value) => value.trim())
-        .where((String value) => value.isNotEmpty)
-        .toList(growable: false);
+    final List<String> visible =
+        _trajectoryAssumptionTexts(
+              context,
+              assumptions,
+              sharedInformationWarnings,
+            )
+            .map((String value) => value.trim())
+            .where((String value) => value.isNotEmpty)
+            .toList(growable: false);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
@@ -260,7 +265,7 @@ class _ResultAssumptions extends StatelessWidget {
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          '• ${_trajectoryAssumptionText(context, assumption, sharedInformationWarnings)}',
+                          '• $assumption',
                           style: const TextStyle(
                             color: Color(0xFFD8E2FF),
                             fontSize: 11,
@@ -278,12 +283,44 @@ class _ResultAssumptions extends StatelessWidget {
   }
 }
 
+List<String> _trajectoryAssumptionTexts(
+  BuildContext context,
+  List<String> assumptions,
+  List<String> sharedInformationWarnings,
+) {
+  final pairedConstraints = <String>{
+    for (final warning in sharedInformationWarnings)
+      if (assumptions.contains(_reportedTrajectoryAssumption(warning)))
+        'Person Context constraint: $warning',
+  };
+  return assumptions
+      .where((value) => !pairedConstraints.contains(value))
+      .map(
+        (value) => _trajectoryAssumptionText(
+          context,
+          value,
+          sharedInformationWarnings,
+        ),
+      )
+      .toList(growable: false);
+}
+
+String _reportedTrajectoryAssumption(String warning) =>
+    'User-reported Person Context: $warning It constrains this scenario but is not treated as identity or a guaranteed outcome.';
+
 String _trajectoryAssumptionText(
   BuildContext context,
   String assumption,
   List<String> sharedInformationWarnings,
 ) {
   for (final String warning in sharedInformationWarnings) {
+    if (assumption == _reportedTrajectoryAssumption(warning)) {
+      return journeyText(
+        context,
+        'Information you shared: ${_trajectoryGeneratedText(context, warning)} It limits this scenario but does not define you or guarantee an outcome.',
+        'Información que compartiste: ${_trajectoryGeneratedText(context, warning)} Limita este escenario, pero no te define ni garantiza un resultado.',
+      );
+    }
     if (assumption == 'Person Context constraint: $warning') {
       return journeyText(
         context,

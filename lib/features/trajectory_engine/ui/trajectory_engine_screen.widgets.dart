@@ -884,15 +884,11 @@ class _ScenarioFullDetails extends StatelessWidget {
               ),
               _EvidenceList(
                 title: journeyText(context, 'Assumptions', 'Supuestos'),
-                values: outcome.assumptions
-                    .map(
-                      (value) => _trajectoryAssumptionText(
-                        context,
-                        value,
-                        baseline.personContextWarnings,
-                      ),
-                    )
-                    .toList(growable: false),
+                values: _trajectoryAssumptionTexts(
+                  context,
+                  outcome.assumptions,
+                  baseline.personContextWarnings,
+                ),
               ),
               Align(
                 alignment: Alignment.centerLeft,

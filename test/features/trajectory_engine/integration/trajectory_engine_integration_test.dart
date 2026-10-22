@@ -150,6 +150,95 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    for (final language in ['en', 'es']) {
+      testWidgets(
+        'paired shared-information warnings preserve qualifiers once in $language',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(900, 1800));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          const explanation = 'Explicit boundary excludes task-polish.';
+          const paired =
+              'User-reported Person Context: $explanation It constrains this scenario but is not treated as identity or a guaranteed outcome.';
+          const unrelated =
+              'User-reported Person Context: A different user-authored note. It constrains this scenario but is not treated as identity or a guaranteed outcome.';
+          const unrelatedConstraint =
+              'Person Context constraint: User-authored note, not a baseline warning.';
+          final scope = AccountStorageScope.authenticated('test-account');
+          final comparison = trajectoryTestComparison(
+            baseline: trajectoryTestBaseline(
+              accountScope: scope.v2Namespace!,
+              personContextWarnings: [explanation],
+            ),
+            plannerAssumptions: [paired, unrelated, unrelatedConstraint],
+          );
+          final outcome = comparison.outcomes.firstWhere(
+            (value) => value.intervention.id == 'planner',
+          );
+          // Exercise the real engine pair, not a hand-deduplicated UI fixture.
+          expect(outcome.assumptions, contains(paired));
+          expect(
+            outcome.assumptions,
+            contains('Person Context constraint: $explanation'),
+          );
+          final section = find.byKey(
+            ValueKey<String>('trajectory-assumptions-${outcome.id}'),
+          );
+          final title = language == 'es'
+              ? 'Supuestos de esta estimación'
+              : 'What this estimate assumes';
+          final expected = language == 'es'
+              ? 'Información que compartiste: $explanation Limita este escenario, pero no te define ni garantiza un resultado.'
+              : 'Information you shared: $explanation It limits this scenario but does not define you or guarantee an outcome.';
+          final store = _MemoryStore();
+          await tester.pumpWidget(
+            _harness(
+              model: _modelWithOutcomes(comparison, [outcome]),
+              locale: Locale(language),
+              repository: TrajectoryForecastLedgerRepository(
+                store: store,
+                scope: scope,
+              ),
+            ),
+          );
+          await _pumpForecastTransition(tester);
+          await tester.scrollUntilVisible(
+            find.text(title).hitTestable(),
+            250,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await Scrollable.ensureVisible(
+            tester.element(section),
+            alignment: .5,
+          );
+          await _pumpForecastTransition(tester);
+          expect(find.textContaining(explanation), findsNothing);
+          await tester.tap(find.text(title).hitTestable());
+          await _pumpForecastTransition(tester);
+          Finder withinAssumptions(Finder matching) =>
+              find.descendant(of: section, matching: matching);
+          expect(
+            withinAssumptions(find.textContaining(explanation)),
+            findsOneWidget,
+          );
+          expect(withinAssumptions(find.text('• $expected')), findsOneWidget);
+          expect(withinAssumptions(find.text('• $paired')), findsNothing);
+          expect(
+            withinAssumptions(
+              find.text('• Person Context constraint: $explanation'),
+            ),
+            findsNothing,
+          );
+          expect(withinAssumptions(find.text('• $unrelated')), findsOneWidget);
+          expect(
+            withinAssumptions(find.text('• $unrelatedConstraint')),
+            findsOneWidget,
+          );
+          expect(store.writes, 0);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     testWidgets(
       'forecast assumptions reset when the selected outcome changes',
       (tester) async {
