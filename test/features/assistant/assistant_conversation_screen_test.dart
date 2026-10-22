@@ -191,6 +191,56 @@ Future<void> enterChatText(WidgetTester tester, String text) async {
   );
 }
 
+void failOnMissedChatTaps() {
+  final previous = WidgetController.hitTestWarningShouldBeFatal;
+  WidgetController.hitTestWarningShouldBeFatal = true;
+  addTearDown(() => WidgetController.hitTestWarningShouldBeFatal = previous);
+}
+
+/// Expansion and scroll corrections can schedule another layout after reveal.
+/// Recompute the actual control's hit target after bounded settling; tap once.
+Future<void> tapRevealedChatControl(WidgetTester tester, Finder control) async {
+  Future<void> settleLayout() async {
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 50),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 2),
+    );
+  }
+
+  for (var attempt = 0; attempt < 4; attempt++) {
+    await settleLayout();
+    if (control.evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        control,
+        180,
+        scrollable: find.byType(Scrollable).first,
+        maxScrolls: 20,
+      );
+      await settleLayout();
+    }
+    expect(control, findsOneWidget);
+    await Scrollable.ensureVisible(
+      tester.element(control),
+      alignment: .5,
+      duration: Duration.zero,
+    );
+    await settleLayout();
+    final hitTarget = control.hitTestable();
+    if (hitTarget.evaluate().length == 1) {
+      expect(hitTarget, findsOneWidget);
+      await tester.tap(hitTarget);
+      await settleLayout();
+      return;
+    }
+  }
+  expect(
+    control.hitTestable(),
+    findsOneWidget,
+    reason: 'The actual control must be hit-testable after layout settles.',
+  );
+}
+
 Future<void> pumpConversationScreen(
   WidgetTester tester,
   ProviderContainer container, {
@@ -293,6 +343,7 @@ void main() {
     testWidgets(
       '${selectedTheme.brightness.name} Chat keeps body and bubbles readable without changing form mode',
       (tester) async {
+        failOnMissedChatTaps();
         await tester.binding.setSurfaceSize(const Size(600, 1600));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         var requests = 0;
@@ -408,14 +459,18 @@ void main() {
           greaterThanOrEqualTo(4.5),
         );
         final options = find.byKey(const Key('conversation-advanced'));
-        await tester.ensureVisible(options);
-        await tester.tap(options);
-        await tester.pump(const Duration(milliseconds: 300));
-        final dropdown = find.byType(DropdownButtonFormField<SIV2Intent>);
-        await tester.ensureVisible(dropdown);
-        await tester.tap(dropdown);
-        await tester.pump(const Duration(milliseconds: 300));
+        await tapRevealedChatControl(tester, options);
+        final dropdown = find.descendant(
+          of: find.byType(DropdownButtonFormField<SIV2Intent>),
+          matching: find.byType(DropdownButton<SIV2Intent>),
+        );
+        await tapRevealedChatControl(tester, dropdown);
         final explain = find.text('Explain').last;
+        expect(
+          explain,
+          findsOneWidget,
+          reason: 'Inspect the actual open dropdown menu.',
+        );
         final popupTheme = Theme.of(tester.element(explain));
         expect(popupTheme.brightness, selectedTheme.brightness);
         final popup = tester.widget<Material>(
@@ -425,8 +480,7 @@ void main() {
           contrast(paintedText(explain), popup.color ?? popupTheme.canvasColor),
           greaterThanOrEqualTo(4.5),
         );
-        await tester.tap(explain);
-        await tester.pump(const Duration(milliseconds: 300));
+        await tapRevealedChatControl(tester, explain);
         expect(requests, 0);
         expect(tester.takeException(), isNull);
       },
@@ -436,6 +490,7 @@ void main() {
   testWidgets(
     'saved Chat survives route and container restart without auto sending, and explicitly clears',
     (tester) async {
+      failOnMissedChatTaps();
       await tester.binding.setSurfaceSize(const Size(600, 1500));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final backend = InMemorySecureStoreBackend();
@@ -498,8 +553,10 @@ void main() {
       });
       await show(restarted);
       expect(find.textContaining('Try a short pause'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('conversation-advanced')));
-      await tester.pump(const Duration(milliseconds: 300));
+      await tapRevealedChatControl(
+        tester,
+        find.byKey(const Key('conversation-advanced')),
+      );
       expect(
         tester
             .widgetList<FilterChip>(find.byType(FilterChip))
@@ -544,31 +601,29 @@ void main() {
         ),
       );
       expect(copied, isEmpty);
-      await tester.ensureVisible(privacy);
-      await tester.tap(privacy);
-      await tester.pump(const Duration(milliseconds: 300));
+      await tapRevealedChatControl(tester, privacy);
       expect(
         find.textContaining('Signing out keeps this account'),
         findsOneWidget,
       );
-      await tester.ensureVisible(
-        find.byKey(const Key('conversation-copy-history')),
-      );
-      await tester.tap(find.byKey(const Key('conversation-copy-history')));
-      await tester.pump();
+      final copyHistory = find.byKey(const Key('conversation-copy-history'));
+      expect(tester.widget<TextButton>(copyHistory).onPressed, isNotNull);
+      await tapRevealedChatControl(tester, copyHistory);
       expect(copied.single, {
         'text':
             'user: A quiet break after work\n\nassistant: Try a short pause wherever you are comfortable.',
       });
-      await tester.tap(find.byKey(const Key('conversation-clear-history')));
-      await tester.pumpAndSettle();
-      await tester.tap(
+      await tapRevealedChatControl(
+        tester,
+        find.byKey(const Key('conversation-clear-history')),
+      );
+      await tapRevealedChatControl(
+        tester,
         find.descendant(
           of: find.byType(AlertDialog),
           matching: find.text('Clear conversation'),
         ),
       );
-      await tester.pumpAndSettle();
       final cleared = await restarted
           .read(assistantConversationHistoryRepositoryProvider)!
           .load();
@@ -1216,6 +1271,7 @@ void main() {
   testWidgets(
     'chat-only option keeps slash task prompts out of saved context review',
     (tester) async {
+      failOnMissedChatTaps();
       await tester.binding.setSurfaceSize(const Size(412, 915));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       var transportCalls = 0;
@@ -1240,17 +1296,20 @@ void main() {
       );
       await tester.pumpAndSettle();
       await waitForChatReady(tester);
-      await tester.scrollUntilVisible(
+      await tapRevealedChatControl(
+        tester,
         find.byKey(const Key('conversation-advanced')),
-        180,
-        scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.byKey(const Key('conversation-advanced')));
-      await tester.pumpAndSettle();
-      final chatOnly = find.text('Use just this chat');
-      await tester.ensureVisible(chatOnly);
-      await tester.tap(chatOnly);
-      await tester.pumpAndSettle();
+      final tasks = find.widgetWithText(FilterChip, 'Tasks');
+      expect(tester.widget<FilterChip>(tasks).selected, isFalse);
+      await tapRevealedChatControl(tester, tasks);
+      expect(
+        tester.widget<FilterChip>(tasks).selected,
+        isTrue,
+        reason: 'Reset must turn off a source that this test actually enabled.',
+      );
+      final chatOnly = find.widgetWithText(TextButton, 'Use just this chat');
+      await tapRevealedChatControl(tester, chatOnly);
       expect(
         find.text(
           'Saved planning records are off. Earlier messages in this chat still apply.',
