@@ -31,27 +31,36 @@ class CurrentThemeController extends AsyncNotifier<AppThemeEntity> {
 }
 
 class ThemeActions {
-  const ThemeActions(this._ref);
+  ThemeActions(this._ref);
 
   final Ref _ref;
+  Future<void> _pending = Future<void>.value();
 
-  Future<void> save(AppThemeEntity theme) async {
-    _ref.read(currentThemeProvider.notifier).setTheme(theme);
+  Future<void> _serialize(Future<void> Function() write) {
+    final operation = _pending.then((_) => write());
+    // A failed preference write must neither publish an unsaved appearance nor
+    // poison subsequent attempts. Keep the failure on the caller's future.
+    _pending = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return operation;
+  }
+
+  Future<void> save(AppThemeEntity theme) => _serialize(() async {
+    // Let initial hydration finish before publishing a newer saved preference.
+    await _ref.read(currentThemeProvider.future);
     await _ref.read(saveThemeUseCaseProvider).call(theme);
-    _ref.invalidate(currentThemeProvider);
+    if (!_ref.mounted) return;
+    _ref.read(currentThemeProvider.notifier).setTheme(theme);
     _ref.invalidate(availableThemesProvider);
-  }
+  });
 
-  Future<void> switchTo(String id) async {
-    final AppThemeEntity? switched = await _ref
-        .read(switchThemeUseCaseProvider)
-        .call(id);
-    if (switched == null) {
-      // Unknown/stale theme id: preserve the user's existing saved theme
-      // rather than treating this as a successful switch.
-      return;
-    }
-    _ref.invalidate(currentThemeProvider);
+  Future<void> switchTo(String id) => _serialize(() async {
+    await _ref.read(currentThemeProvider.future);
+    final switched = await _ref.read(switchThemeUseCaseProvider).call(id);
+    if (!_ref.mounted || switched == null) return;
+    _ref.read(currentThemeProvider.notifier).setTheme(switched);
     _ref.invalidate(availableThemesProvider);
-  }
+  });
 }

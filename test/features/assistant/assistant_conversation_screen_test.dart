@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/repositories/assistant_conversation_repository.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/entities/emotional_state.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
@@ -17,6 +19,7 @@ import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
@@ -27,6 +30,7 @@ import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart'
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/system/voice/speech_recognition_service.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
@@ -77,8 +81,12 @@ ProviderContainer setup(
   Duration? requestTimeout,
   Duration? paidWaitTimeout,
   NoteEntity? selectedNote,
+  SecureStoreBackend? historyBackend,
 }) => ProviderContainer(
   overrides: [
+    secureStoreProvider.overrideWithValue(
+      SecureStore(backend: historyBackend ?? InMemorySecureStoreBackend()),
+    ),
     accountStorageScopeProvider.overrideWith(
       (ref) => readScope?.call() ?? scope,
     ),
@@ -148,6 +156,293 @@ ProviderContainer setup(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets(
+    'saved Chat survives route and container restart without auto sending, and explicitly clears',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(600, 1500));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      var transportCalls = 0;
+      final first = setup((_) async {
+        transportCalls++;
+        throw StateError('No automatic AI request');
+      }, historyBackend: backend);
+      await first
+          .read(assistantConversationHistoryRepositoryProvider)!
+          .save(
+            expectedRevision: 0,
+            messages: [
+              {'role': 'user', 'content': 'A quiet break after work'},
+              {
+                'role': 'assistant',
+                'content': 'Try a short pause wherever you are comfortable.',
+              },
+            ],
+            sources: {},
+          );
+      Future<void> show(ProviderContainer container) async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: AssistantConversationScreen(
+                surface: ConversationSurface.si,
+                onLocalTools: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await show(first);
+      expect(find.textContaining('Try a short pause'), findsOneWidget);
+      expect(
+        find.textContaining('The last 6 messages are included'),
+        findsOneWidget,
+      );
+      expect(transportCalls, 0);
+      // A new route state, then a new provider container, model route reentry and
+      // process recreation over the same durable backend without a provider call.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await show(first);
+      expect(find.textContaining('Try a short pause'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      first.dispose();
+      final restarted = setup((_) async {
+        transportCalls++;
+        throw StateError('No automatic AI request');
+      }, historyBackend: backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        restarted.dispose();
+      });
+      await show(restarted);
+      expect(find.textContaining('Try a short pause'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('conversation-advanced')));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        tester
+            .widgetList<FilterChip>(find.byType(FilterChip))
+            .every((chip) => !chip.selected),
+        isTrue,
+      );
+      expect(
+        find.text(
+          'Saved planning records are off. Earlier messages in this chat still apply.',
+        ),
+        findsOneWidget,
+      );
+      final restored = await restarted
+          .read(assistantConversationHistoryRepositoryProvider)!
+          .load();
+      final packet = await restarted
+          .read(conversationPacketFactoryProvider)
+          .build(
+            surface: ConversationSurface.si,
+            prompt: '/tasks explain a fictional example',
+            history: restored.messages,
+            languageCode: 'en',
+            sources: restored.sources,
+          );
+      expect(packet.toJson()['history'], restored.messages);
+      final restoredContext = packet.toJson()['context'] as Map;
+      expect(restoredContext['selectedSources'], isEmpty);
+      expect(restoredContext['tasks'], isEmpty);
+      expect(restoredContext.containsKey('explicitlyAttachedNote'), isFalse);
+      final copied = <Object?>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') copied.add(call.arguments);
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      expect(copied, isEmpty);
+      await tester.ensureVisible(
+        find.byKey(const Key('conversation-copy-history')),
+      );
+      await tester.tap(find.byKey(const Key('conversation-copy-history')));
+      await tester.pump();
+      expect(copied.single, {
+        'text':
+            'user: A quiet break after work\n\nassistant: Try a short pause wherever you are comfortable.',
+      });
+      await tester.tap(find.byKey(const Key('conversation-clear-history')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Clear conversation'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final cleared = await restarted
+          .read(assistantConversationHistoryRepositoryProvider)!
+          .load();
+      expect(cleared.messages, isEmpty);
+      expect(cleared.sources, isEmpty);
+      expect(find.textContaining('Try a short pause'), findsNothing);
+      expect(transportCalls, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final conflictingClear in [false, true]) {
+    testWidgets(
+      conflictingClear
+          ? 'concurrent clear preserves a paid mock answer and offers explicit reload without resurrecting history'
+          : 'failed local save keeps a paid mock answer and save retry never executes AI again',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(600, 1500));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final backend = _FailingChatBackend();
+        var quoteCalls = 0;
+        var paidCalls = 0;
+        late final ProviderContainer container;
+        container = setup((body) async {
+          if (body['quoteOnly'] == true) {
+            quoteCalls++;
+            return (
+              status: 200,
+              data: <String, dynamic>{
+                'requestId': body['requestId'],
+                'quote': {
+                  'credits': 4,
+                  'digest': 'fixture',
+                  'proof': 'fixture',
+                  'policy': 'fixture',
+                  'expiresAt': DateTime.now()
+                      .add(const Duration(minutes: 5))
+                      .millisecondsSinceEpoch,
+                },
+              },
+            );
+          }
+          paidCalls++;
+          if (conflictingClear) {
+            await container
+                .read(assistantConversationHistoryRepositoryProvider)!
+                .clear();
+          }
+          return (
+            status: 200,
+            data: <String, dynamic>{
+              'requestId': body['requestId'],
+              'message':
+                  'Try a brief quiet pause before choosing your next activity.',
+              'creditsCharged': 4,
+              'remainingCredits': 20,
+              'model': 'transport-fixture',
+            },
+          );
+        }, historyBackend: backend);
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: AssistantConversationScreen(
+                surface: ConversationSurface.si,
+                onLocalTools: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        backend.failWrites = !conflictingClear;
+        await tester.enterText(
+          find.byKey(const Key('conversation-input')),
+          'Suggest a quiet break after work.',
+        );
+        await tester.tap(find.byTooltip('Send to AI'));
+        for (
+          var i = 0;
+          i < 20 && find.text('Get credit price').evaluate().isEmpty;
+          i++
+        ) {
+          await tester.pump(const Duration(milliseconds: 100));
+          if (find.text('Review AI price').evaluate().isNotEmpty) {
+            await tester.tap(find.text('Review AI price'));
+          }
+        }
+        expect(find.text('Get credit price'), findsOneWidget);
+        await tester.tap(find.text('Get credit price'));
+        for (
+          var i = 0;
+          i < 20 && find.text('Use 4 credits').evaluate().isEmpty;
+          i++
+        ) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await tester.tap(find.text('Use 4 credits'));
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(find.textContaining('Try a brief quiet pause'), findsOneWidget);
+        expect(quoteCalls, 1);
+        expect(paidCalls, 1);
+        if (conflictingClear) {
+          expect(find.text('Retry saving chat'), findsNothing);
+          expect(
+            (await container
+                    .read(assistantConversationHistoryRepositoryProvider)!
+                    .load())
+                .messages,
+            isEmpty,
+          );
+          final reload = find.text('Reload saved chat');
+          await tester.scrollUntilVisible(
+            reload,
+            -300,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await tester.tap(reload);
+          await tester.pump(const Duration(milliseconds: 300));
+          await tester.tap(
+            find.descendant(
+              of: find.byType(AlertDialog),
+              matching: find.text('Reload saved chat'),
+            ),
+          );
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.textContaining('Try a brief quiet pause'), findsNothing);
+          expect(quoteCalls, 1);
+          expect(paidCalls, 1);
+          expect(tester.takeException(), isNull);
+          return;
+        }
+        backend.failWrites = false;
+        final retry = find.text('Retry saving chat');
+        await tester.scrollUntilVisible(
+          retry,
+          -300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(retry);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(
+          (await container
+                  .read(assistantConversationHistoryRepositoryProvider)!
+                  .load())
+              .messages,
+          hasLength(2),
+        );
+        expect(quoteCalls, 1);
+        expect(paidCalls, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   test(
     'chat-only packets exclude saved records even when account has tasks and a selected note',
@@ -2367,6 +2662,18 @@ class _Consent extends PersonalizationProfileController {
   @override
   PersonalizationProfile build() =>
       const PersonalizationProfile(externalAiAllowed: true);
+}
+
+class _FailingChatBackend extends InMemorySecureStoreBackend {
+  bool failWrites = false;
+  @override
+  Future<void> write({required String key, required String value}) async {
+    if (failWrites &&
+        key.startsWith(AssistantConversationRepository.storageKey)) {
+      throw StateError('synthetic_local_write_failure');
+    }
+    return super.write(key: key, value: value);
+  }
 }
 
 class _Boundary extends AuthSessionBoundaryNotifier {

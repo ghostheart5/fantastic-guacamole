@@ -12,6 +12,7 @@ import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -31,6 +32,7 @@ void main() {
     TrajectorySummaryView? trajectory,
     Locale locale = const Locale('en'),
     List<Task>? scheduleTasks,
+    ThemeData? theme,
   }) async {
     tester.platformDispatcher.views.first
       ..physicalSize = const Size(1200, 4000)
@@ -69,6 +71,7 @@ void main() {
         container: container,
         child: router == null
             ? MaterialApp(
+                theme: theme,
                 locale: locale,
                 supportedLocales: ChronoSparkLocalizations.supportedLocales,
                 localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
@@ -80,6 +83,7 @@ void main() {
                 home: const ProfileScreen(),
               )
             : MaterialApp.router(
+                theme: theme,
                 locale: locale,
                 supportedLocales: ChronoSparkLocalizations.supportedLocales,
                 localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
@@ -113,6 +117,77 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final unavailable in [false, true]) {
+    testWidgets('Profile back opens Today when unavailable=$unavailable', (
+      tester,
+    ) async {
+      final router = GoRouter(
+        initialLocation: RoutePaths.profile,
+        routes: [
+          GoRoute(
+            path: RoutePaths.profile,
+            builder: (_, _) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.nexus,
+            builder: (_, _) => const Scaffold(body: Text('Today destination')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await pumpProfile(
+        tester,
+        ProfileState(
+          readStatus: unavailable
+              ? ProfileReadStatus.unavailable
+              : ProfileReadStatus.ready,
+        ),
+        router: router,
+      );
+      await tester.tap(find.byTooltip('Back to Today'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(router.routeInformationProvider.value.uri.path, RoutePaths.nexus);
+      expect(find.text('Today destination'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('Profile back pops to its previous route without changing data', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: RoutePaths.nexus,
+      routes: [
+        GoRoute(
+          path: RoutePaths.nexus,
+          builder: (_, _) => const Scaffold(body: Text('Today destination')),
+        ),
+        GoRoute(
+          path: RoutePaths.profile,
+          builder: (_, _) => const ProfileScreen(),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    final container = await pumpProfile(
+      tester,
+      ProfileState(name: 'QA Profile', xp: 174, level: 2, streak: 3),
+      router: router,
+    );
+    final popped = router.push<void>(RoutePaths.profile);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await popped;
+    expect(find.text('Today destination'), findsOneWidget);
+    expect(container.read(profileProvider).name, 'QA Profile');
+    expect(container.read(profileProvider).xp, 174);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('renders for a brand-new account', (WidgetTester tester) async {
     await pumpProfile(tester, ProfileState());
 
@@ -128,6 +203,43 @@ void main() {
       findsOneWidget,
     );
   });
+
+  for (final dark in [true, false]) {
+    testWidgets(
+      'Profile name field respects dark forms=$dark with readable text',
+      (tester) async {
+        await pumpProfile(
+          tester,
+          ProfileState(name: 'QA Profile'),
+          theme: dark ? appTheme : appLightTheme,
+        );
+        final field = find.byKey(const Key('profile-name-input'));
+        final editable = tester.widget<EditableText>(
+          find.descendant(of: field, matching: find.byType(EditableText)),
+        );
+        final decoration = tester
+            .widget<InputDecorator>(
+              find.descendant(of: field, matching: find.byType(InputDecorator)),
+            )
+            .decoration;
+        final text = editable.style.color!;
+        final background = Color.alphaBlend(
+          decoration.fillColor!,
+          const Color(0xFF050D1A),
+        );
+        final visibleText = Color.alphaBlend(text, background);
+        final light = visibleText.computeLuminance();
+        final surface = background.computeLuminance();
+        final contrast = light > surface
+            ? (light + .05) / (surface + .05)
+            : (surface + .05) / (light + .05);
+        expect(contrast, greaterThanOrEqualTo(4.5));
+        expect(editable.controller.text, 'QA Profile');
+        expect(find.text('Your name'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('renders for an established account', (
     WidgetTester tester,

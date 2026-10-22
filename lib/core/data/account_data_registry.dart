@@ -65,6 +65,15 @@ class AccountDataCleanupPlan {
 /// complete account backup.
 const List<AccountDataDomain> accountDataDomains = <AccountDataDomain>[
   AccountDataDomain(
+    id: 'assistant_chat_history',
+    label: 'Chat conversation',
+    owner: 'Chat',
+    backupStatus: AccountDataBackupStatus.localOnly,
+    storage: 'Account-scoped platform secure storage',
+    notes:
+        'Recent published message pairs and source choices only. Explicit Chat copy export; excluded from planning backups and cloud sync.',
+  ),
+  AccountDataDomain(
     id: 'tasks',
     label: 'Tasks',
     owner: 'Choose a step / Schedule',
@@ -476,6 +485,7 @@ abstract final class AccountDataRegistry {
     final String namespace = accountNamespace(accountId);
     return <String>{
       'si_engine_state_v2.$namespace.',
+      'assistant_chat_history_v1.$namespace',
       if (includeLegacyOwnedData) pendingPurchaseOwnerSecureKeyPrefix,
     };
   }

@@ -7,6 +7,58 @@ import 'package:html/parser.dart' as html_parser;
 void main() {
   String read(String path) => File(path).readAsStringSync();
 
+  test(
+    'privacy copies describe bounded local Chat continuity and explicit controls',
+    () {
+      for (final path in [
+        'web/privacy/index.html',
+        'privacy.html',
+        'assets/legal/privacy_policy.html',
+        'assets/legal/privacy_policy.txt',
+      ]) {
+        final source = read(path);
+        for (final phrase in [
+          'Chat saves up to 40 recent messages',
+          'account-scoped secure storage on this device',
+          'restarting the app',
+          'excluded from planning backups and cloud sync',
+          'Clear conversation',
+          'Copy conversation',
+          'clipboard',
+          "Signing out preserves this account's saved Chat history on the device",
+          'signing back into the same account restores access',
+          "explicitly clearing this account's local data removes its saved Chat history",
+          'The last six messages',
+          'even when saved planning sources are off',
+          'Choose a step conversations use separate screen-session context',
+        ]) {
+          expect(source, contains(phrase), reason: path);
+        }
+        expect(
+          source,
+          isNot(contains('does not provide a saved transcript archive')),
+          reason: path,
+        );
+        expect(
+          source,
+          isNot(contains('remains available while its screen remains open')),
+          reason: path,
+        );
+        expect(
+          source,
+          isNot(contains('Signing out or clearing this account')),
+          reason: path,
+        );
+        expect(
+          source,
+          contains('default 30-day retention period'),
+          reason: path,
+        );
+        expect(source, contains('15-minute recovery window'), reason: path);
+      }
+    },
+  );
+
   String plainText(String html) {
     final String mainHtml =
         html_parser.parse(html).querySelector('main')?.innerHtml ?? '';
@@ -72,6 +124,32 @@ void main() {
       final Map<String, dynamic> copy = rawCopy as Map<String, dynamic>;
       expect(read(copy['path'] as String), read(copy['source'] as String));
     }
+    final chat = read(
+      'lib/features/assistant/ui/assistant_conversation_screen.history.dart',
+    );
+    expect(
+      chat,
+      contains('Signing out keeps this account’s saved history on the device'),
+    );
+    expect(
+      chat,
+      contains('signing back into the same account restores access'),
+    );
+    expect(
+      chat,
+      contains(
+        'Al cerrar sesión, el historial guardado de esta cuenta permanece en el dispositivo',
+      ),
+    );
+    expect(chat, isNot(contains('cleared or you sign out')));
+    expect(
+      chat,
+      isNot(
+        contains(
+          'Se borran al limpiar los datos locales de esta cuenta o cerrar sesión',
+        ),
+      ),
+    );
   });
 
   test('app-linked legal routes resolve to current documents', () {

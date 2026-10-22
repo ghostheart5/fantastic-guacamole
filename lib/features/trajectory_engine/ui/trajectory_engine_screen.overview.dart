@@ -318,7 +318,8 @@ class _FutureBranches extends StatelessWidget {
                 _ => AppColors.memoryAmber,
               },
               selected: visible[index].id == selectedId,
-              onTap: () => onSelected(visible[index].id),
+              // Selection belongs to the intervention, not a baseline revision.
+              onTap: () => onSelected(visible[index].intervention.id),
             ),
             if (index != visible.length - 1)
               Divider(color: Colors.white.withValues(alpha: .09), height: 1),

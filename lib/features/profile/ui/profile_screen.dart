@@ -209,14 +209,24 @@ class _ProfileBody extends ConsumerWidget {
   }
 }
 
-class _ProfileTitle extends StatelessWidget {
+class _ProfileTitle extends ConsumerWidget {
   const _ProfileTitle({required this.onOpenSettings});
 
   final VoidCallback onOpenSettings;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return TemporalScreenHeader(
+      onBack: () {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+          return;
+        }
+        goToAppView(context, ref, AppView.nexus);
+      },
+      backTooltip: Navigator.canPop(context)
+          ? journeyText(context, 'Back', 'Atrás')
+          : journeyText(context, 'Back to Today', 'Volver a Hoy'),
       title: journeyText(context, 'Profile', 'Perfil'),
       subtitle: journeyText(
         context,
@@ -906,29 +916,13 @@ class _NameEditorState extends State<_NameEditor> {
           ),
           const SizedBox(height: 14),
           TextField(
+            key: const Key('profile-name-input'),
             controller: _controller,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontSize: 14),
             decoration: InputDecoration(
-              hintText: journeyText(
-                context,
-                'Enter identity callsign',
-                'Escribe tu nombre de identidad',
-              ),
-              hintStyle: const TextStyle(color: Colors.white30),
-              filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.03),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: AppColors.neonViolet.withValues(alpha: 0.2),
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: AppColors.neonViolet.withValues(alpha: 0.2),
-                ),
-              ),
+              hintText: journeyText(context, 'Your name', 'Tu nombre'),
             ),
           ),
           if (_saveError case final String message) ...[

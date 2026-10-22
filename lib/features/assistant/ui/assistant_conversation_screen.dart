@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation_history.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_response_body.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
@@ -15,6 +16,7 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/ai_content_report_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
@@ -23,7 +25,10 @@ import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/ui/system/crisis_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+part 'assistant_conversation_screen.history.dart';
 
 /// The conversational route is explicitly model-backed. Local tools remain an
 /// intentional user choice, never an invisible fallback for a failed request.
@@ -71,12 +76,27 @@ class _AssistantConversationScreenState
   SIV2Intent _intent = SIV2Intent.answer;
   SIV2TimeRange _range = SIV2TimeRange.all;
   Set<SIV2Source> _sources = SIV2Source.values.toSet();
+  bool _historyLoading = true;
+  bool _historyReady = false;
+  bool _historySaveFailed = false;
+  bool _historyConflict = false;
+  bool _historyClearFailed = false;
+  int _historyEpoch = 0;
+  int _storedHistoryRevision = 0;
+  Future<void> _historyWriteTail = Future<void>.value();
+  void _updateHistory(VoidCallback update) => setState(update);
   bool get _spanish => ChronoSparkLocalizations.of(context).isSpanish;
   String copy(String en, String es) => _spanish ? es : en;
 
   @override
   void initState() {
     super.initState();
+    if (widget.surface == ConversationSurface.si) {
+      _sources = <SIV2Source>{};
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_loadChat());
+      });
+    }
     if (widget.surface != ConversationSurface.planner) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -406,10 +426,18 @@ class _AssistantConversationScreenState
           {'role': 'user', 'content': prompt},
           {'role': 'assistant', 'content': review.publishableText},
         ]);
+        if (widget.surface == ConversationSurface.si &&
+            _history.length > AssistantConversationHistory.maxMessages) {
+          _history.removeRange(
+            0,
+            _history.length - AssistantConversationHistory.maxMessages,
+          );
+        }
         _input.clear();
         _pending = null;
         _error = null;
       });
+      _persistChat();
       ref.invalidate(aiCreditWalletProvider);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _scroll.hasClients) {
@@ -780,6 +808,12 @@ class _AssistantConversationScreenState
           _waitIndicatorDismissed = false;
           _error = null;
         });
+        _restartChat();
+      }
+    });
+    ref.listen(authSessionBoundaryProvider, (previous, next) {
+      if (previous != null && previous.generation != next.generation) {
+        _restartChat();
       }
     });
     final consent = ref.watch(personalizationProfileProvider).externalAiAllowed;
@@ -824,7 +858,12 @@ class _AssistantConversationScreenState
     final tasks = planner
         ? ref.watch(siV2EvidenceSnapshotProvider).asData?.value.tasks
         : null;
-    final enabled = widget.isActive && consent && !_busy && _pending == null;
+    final enabled =
+        widget.isActive &&
+        consent &&
+        !_busy &&
+        _pending == null &&
+        (planner || (_historyReady && !_historyLoading && !_historyConflict));
     final scaffold = Scaffold(
       backgroundColor: const Color(0xFF07111C),
       appBar: AppBar(
@@ -877,6 +916,7 @@ class _AssistantConversationScreenState
                       'Cuenta qué te preocupa o pregunta sobre un plan. Las respuestas usan esta conversación y la información que apruebes. Puedes corregirlas. Las sugerencias no cambian elementos guardados.',
                     ),
                   ),
+                  if (!planner) _chatHistoryControls(),
                   if (!consent) ...[
                     const SizedBox(height: 12),
                     Text(
@@ -1069,13 +1109,17 @@ class _AssistantConversationScreenState
                                   selected: _sources.contains(s),
                                   onSelected: !enabled
                                       ? null
-                                      : (selected) => setState(() {
-                                          if (selected) {
-                                            _sources = {..._sources, s};
-                                          } else {
-                                            _sources = {..._sources}..remove(s);
-                                          }
-                                        }),
+                                      : (selected) {
+                                          setState(() {
+                                            if (selected) {
+                                              _sources = {..._sources, s};
+                                            } else {
+                                              _sources = {..._sources}
+                                                ..remove(s);
+                                            }
+                                          });
+                                          _persistChat();
+                                        },
                                 ),
                               )
                               .toList(),
@@ -1083,12 +1127,15 @@ class _AssistantConversationScreenState
                         TextButton(
                           onPressed: !enabled
                               ? null
-                              : () => setState(() {
-                                  _sources = <SIV2Source>{};
-                                  _attachedTaskId = null;
-                                  _energy = null;
-                                  _pending = null;
-                                }),
+                              : () {
+                                  setState(() {
+                                    _sources = <SIV2Source>{};
+                                    _attachedTaskId = null;
+                                    _energy = null;
+                                    _pending = null;
+                                  });
+                                  _persistChat();
+                                },
                           child: Text(
                             copy(
                               'Use just this chat',

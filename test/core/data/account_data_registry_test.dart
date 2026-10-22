@@ -2,6 +2,28 @@ import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('Chat history is local-only and covered by account cleanup', () {
+    final domain = accountDataDomains.singleWhere(
+      (d) => d.id == 'assistant_chat_history',
+    );
+    expect(domain.backupStatus, AccountDataBackupStatus.localOnly);
+    expect(domain.cloudReplicated, isFalse);
+    expect(accountDataBackupManifest()['excludedDomains'], contains(domain.id));
+    expect(
+      AccountDataRegistry.secureKeyPrefixesForAccount('owner-a'),
+      contains(
+        'assistant_chat_history_v1.${AccountDataRegistry.accountNamespace('owner-a')}',
+      ),
+    );
+    expect(
+      AccountDataRegistry.secureKeyPrefixesForAccount('owner-b'),
+      isNot(
+        contains(
+          'assistant_chat_history_v1.${AccountDataRegistry.accountNamespace('owner-a')}',
+        ),
+      ),
+    );
+  });
   test('device-global preferences are excluded from account cleanup', () {
     expect(
       AccountDataRegistry.accountPreferenceExactKeys.intersection(

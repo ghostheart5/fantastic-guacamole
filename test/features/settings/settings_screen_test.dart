@@ -240,6 +240,68 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final dark in [true, false]) {
+    testWidgets(
+      'Reflection picker follows dark forms=$dark and Cancel preserves time',
+      (tester) async {
+        useTallSurface(tester);
+        final container = createContainer();
+        final actions =
+            container.read(settingsUiActionsProvider) as _FakeSettingsUiActions;
+        actions.reflectionPrefs = const ReflectionReminderPrefs(
+          enabled: true,
+          time: TimeOfDay(hour: 20, minute: 0),
+        );
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: dark ? appTheme : appLightTheme,
+              home: const SettingsScreen(),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.scrollUntilVisible(
+          find.text('Planning & guidance'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await invokeNavTile(tester, 'Planning & guidance');
+        await tester.scrollUntilVisible(
+          find.text('Reminder Time'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(find.text('8:00 PM'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        final dialog = find.byType(TimePickerDialog);
+        expect(dialog, findsOneWidget);
+        final pickerTheme = Theme.of(tester.element(dialog));
+        expect(
+          pickerTheme.brightness,
+          dark ? Brightness.dark : Brightness.light,
+        );
+        final primary = pickerTheme.colorScheme.primary.computeLuminance();
+        final onPrimary = pickerTheme.colorScheme.onPrimary.computeLuminance();
+        final contrast = primary > onPrimary
+            ? (primary + .05) / (onPrimary + .05)
+            : (onPrimary + .05) / (primary + .05);
+        expect(contrast, greaterThanOrEqualTo(4.5));
+        await tester.tap(find.text('Cancel'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(actions.reflectionTimeWrites, 0);
+        expect(
+          actions.reflectionPrefs.time,
+          const TimeOfDay(hour: 20, minute: 0),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final locale in const [Locale('en'), Locale('es')]) {
     testWidgets('cloud recovery scope is readable in ${locale.languageCode}', (
       tester,
@@ -1357,6 +1419,7 @@ class _FakeSettingsUiActions extends SettingsUiActions {
     time: TimeOfDay(hour: 20, minute: 0),
   );
   int advancedLoads = 0;
+  int reflectionTimeWrites = 0;
 
   @override
   ReminderOrchestratorPrefs loadAdvancedReminderPrefs() {
@@ -1378,8 +1441,10 @@ class _FakeSettingsUiActions extends SettingsUiActions {
   }
 
   @override
-  Future<bool> setReflectionReminderTime({required TimeOfDay time}) async =>
-      true;
+  Future<bool> setReflectionReminderTime({required TimeOfDay time}) async {
+    reflectionTimeWrites++;
+    return true;
+  }
 
   @override
   Future<bool> requestNotificationPermission() async => true;
