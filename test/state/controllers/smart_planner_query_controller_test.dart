@@ -1077,6 +1077,73 @@ void main() {
     });
   }
 
+  for (final language in ['en', 'es']) {
+    test(
+      '$language actual planner habit evidence uses current labels and preserves counts',
+      () async {
+        final habit = HabitEntity(
+          id: 'copy-walk',
+          title: 'Morning walk',
+          createdAt: DateTime.utc(2026, 8, 1),
+          cadence: HabitCadence.weekly,
+          targetCount: 3,
+        );
+        final tasks = _MemoryTaskRepository();
+        final container = plannerContainer(
+          tasks: tasks,
+          rhythms: [
+            RhythmPlanningEntry(
+              habit,
+              '2026-08-24',
+              RhythmPeriodStatus.unrecorded,
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        final result = await container
+            .read(smartPlannerQueryControllerProvider)
+            .requestPlanningGuidance(
+              energy: .5,
+              emotion: null,
+              notes: language == 'es'
+                  ? 'Planifica mi Morning walk'
+                  : 'Plan my morning walk',
+              history: const [],
+              previousSavedNotes: null,
+              languageCode: language,
+            );
+        expect(result.request.context['focusedEvidenceKind'], 'daily_rhythm');
+        expect(result.plannerResponse.options, isNotEmpty);
+        final evidence = result.plannerResponse.verifiedEvidence.join(' ');
+        expect(
+          evidence,
+          contains(language == 'es' ? 'Hábitos: 1' : 'Habits: 1'),
+        );
+        expect(
+          evidence,
+          contains(
+            language == 'es'
+                ? 'Hábito elegido: "Morning walk"'
+                : 'Focused habit: "Morning walk"',
+          ),
+        );
+        expect(
+          evidence,
+          contains(
+            language == 'es'
+                ? 'Se desconocen las repeticiones individuales y la duración de las sesiones'
+                : 'Individual repetitions and session durations are unknown',
+          ),
+        );
+        expect(evidence, isNot(contains('Daily Rhythm')));
+        expect(evidence, isNot(contains('Ritmo diario')));
+        expect(result.plannerResponse.nextStep, contains('Morning walk'));
+        expect(habit.targetCount, 3);
+        expect(tasks.writeCalls, 0);
+      },
+    );
+  }
+
   for (final status in RhythmPeriodStatus.values) {
     test(
       'rhythm period ${status.name} changes the planning response',
@@ -1241,7 +1308,7 @@ void main() {
           .timeout(const Duration(seconds: 5));
       expect(
         result.plannerResponse.verifiedEvidence.join(' '),
-        contains('Daily Rhythm outcomes were unavailable'),
+        contains('Habit outcomes were unavailable'),
       );
       expect(result.plannerResponse.options, isNotEmpty);
       pending.complete(const []);
@@ -1398,9 +1465,7 @@ void main() {
       expect(
         familyTime.plannerResponse.verifiedEvidence,
         contains(
-          contains(
-            'Verified person-context evidence: user-authored current priority',
-          ),
+          contains('Information you shared: user-authored current priority'),
         ),
       );
       expect(
@@ -1610,6 +1675,229 @@ void main() {
     );
   });
 
+  for (final language in ['en', 'es']) {
+    for (final status in ['unavailable', 'known_empty', 'available']) {
+      test('$language generated personal-information copy preserves $status', () async {
+        final tasks = _MemoryTaskRepository();
+        final container = plannerContainer(
+          tasks: tasks,
+          personContext: status == 'unavailable'
+              ? null
+              : contextView(
+                  status == 'known_empty'
+                      ? []
+                      : [
+                          contextSignal(
+                            id: 'style',
+                            kind: PersonContextKind.preferredSupportStyle,
+                            value: 'Keep the wording direct',
+                          ),
+                          contextSignal(
+                            id: 'priority',
+                            kind: PersonContextKind.currentPriority,
+                            value: 'Prepare release notes first',
+                          ),
+                          contextSignal(
+                            id: 'capacity',
+                            kind: PersonContextKind.presentCapacity,
+                            value: 'Use a short work block',
+                          ),
+                          contextSignal(
+                            id: 'commitment',
+                            kind: PersonContextKind.commitment,
+                            value: 'Keep the 4 PM appointment',
+                          ),
+                          contextSignal(
+                            id: 'boundary',
+                            kind: PersonContextKind.boundary,
+                            value: 'Do not schedule over José’s family dinner',
+                          ),
+                        ],
+                ),
+        );
+        addTearDown(container.dispose);
+        final result = await container
+            .read(smartPlannerQueryControllerProvider)
+            .requestPlanningGuidance(
+              energy: .5,
+              emotion: null,
+              notes: 'Help me choose the next practical step.',
+              history: const [],
+              previousSavedNotes: null,
+              languageCode: language,
+            );
+        expect(result.request.context['personContextStatus'], status);
+        final evidence = result.plannerResponse.verifiedEvidence.join(' ');
+        final visible = result.plannerResponse.toAccessibleText();
+        if (status == 'unavailable') {
+          expect(
+            result.plannerResponse.adaptationReceipt.adjustments,
+            contains(
+              language == 'es'
+                  ? 'La información personal que compartiste no estaba disponible y no se usó.'
+                  : 'Personal information you shared was unavailable and was not used.',
+            ),
+          );
+        } else if (status == 'known_empty') {
+          expect(
+            result.plannerResponse.adaptationReceipt.adjustments,
+            contains(
+              language == 'es'
+                  ? 'Se revisó la información personal que compartiste; no había datos recientes con consentimiento disponibles para Elegir un paso.'
+                  : 'Personal information you shared was checked; no recent details with consent were available for Choose a step.',
+            ),
+          );
+        }
+        expect(visible, isNot(contains('Person context')));
+        expect(visible, isNot(contains('Contexto Personal')));
+        if (status == 'unavailable') {
+          expect(
+            evidence,
+            contains(
+              language == 'es'
+                  ? 'La información personal que compartiste no estaba disponible para Elegir un paso y no se usó.'
+                  : 'Personal information you shared was unavailable for Choose a step and was not used.',
+            ),
+          );
+        } else if (status == 'known_empty') {
+          expect(
+            evidence,
+            contains(
+              language == 'es'
+                  ? 'Se revisó la información personal que compartiste para Elegir un paso: no había datos recientes con consentimiento.'
+                  : 'Personal information you shared was checked for Choose a step: no recent details with consent were available.',
+            ),
+          );
+        } else {
+          expect(
+            result.request.context['personContextAvailableSignalCount'],
+            5,
+          );
+          expect(result.request.context['personContextSignalsUsed'], 3);
+          expect(result.request.context['personContextSignalsRejected'], 2);
+          expect(
+            evidence,
+            contains(
+              language == 'es'
+                  ? '5 datos recientes con consentimiento disponibles; se usaron 3, con un máximo de 3.'
+                  : '5 recent details with consent available; 3 used with a limit of 3.',
+            ),
+          );
+          expect(
+            evidence,
+            contains('Do not schedule over José’s family dinner'),
+          );
+          expect(
+            result.plannerResponse.adaptationReceipt.adjustments,
+            contains(
+              language == 'es'
+                  ? 'Solo se usó información personal reciente que compartiste con consentimiento, pertinente por su categoría o por una coincidencia de texto con esta solicitud.'
+                  : 'Used only recent personal information you shared with consent and typed or positive-text relevance to this planning request.',
+            ),
+          );
+          expect(
+            result.plannerResponse.adaptationReceipt.adjustments,
+            contains(
+              language == 'es'
+                  ? 'Se usaron 3 datos recientes que compartiste con consentimiento, con un máximo de 3; se trataron como información aportada por ti, sin deducir tu identidad.'
+                  : 'Used 3 recent details you shared with consent, up to 3; treated them as user-provided evidence, not inferred identity.',
+            ),
+          );
+          expect(
+            evidence,
+            contains(
+              language == 'es'
+                  ? 'Es una declaración guardada con consentimiento, no un rasgo o una identidad deducidos.'
+                  : 'This is a consented saved statement, not an inferred trait or identity.',
+            ),
+          );
+          expect(
+            evidence,
+            contains(
+              language == 'es'
+                  ? 'Información que compartiste:'
+                  : 'Information you shared:',
+            ),
+          );
+        }
+        expect(tasks.writeCalls, 0);
+      });
+    }
+    test(
+      '$language completed habit is not proposed again under current wording',
+      () async {
+        final tasks = _MemoryTaskRepository();
+        final habit = HabitEntity(
+          id: 'resolved-wording',
+          title: 'Morning walk',
+          createdAt: DateTime.utc(2026, 8, 1),
+        );
+        final container = plannerContainer(
+          tasks: tasks,
+          rhythms: [
+            RhythmPlanningEntry(
+              habit,
+              '2026-08-24',
+              RhythmPeriodStatus.completed,
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        final result = await container
+            .read(smartPlannerQueryControllerProvider)
+            .requestPlanningGuidance(
+              energy: .5,
+              emotion: null,
+              notes: 'Plan my morning walk',
+              history: const [],
+              previousSavedNotes: null,
+              languageCode: language,
+            );
+        expect(result.plannerResponse.isClarification, isTrue);
+        expect(result.plannerResponse.options, isEmpty);
+        expect(
+          result.plannerResponse.mattersMost,
+          language == 'es'
+              ? 'Este hábito ya tiene un resultado registrado en el periodo actual; no se propuso repetir el trabajo.'
+              : 'This habit is completed for its current period; no repeat work was proposed.',
+        );
+        expect(result.request.context['focusedEvidenceKind'], 'daily_rhythm');
+        expect(habit.title, 'Morning walk');
+        expect(tasks.writeCalls, 0);
+      },
+    );
+    test(
+      '$language local fallback names planning and preserves the failure boundary',
+      () {
+        final container = plannerContainer();
+        addTearDown(container.dispose);
+        final result = container
+            .read(smartPlannerQueryControllerProvider)
+            .localFallbackResult(
+              input: 'Fold one shirt in five minutes.',
+              message: 'A local fallback is available.',
+              energy: .5,
+              emotion: null,
+              history: const [],
+              reason: 'test_normal_path_failure',
+              languageCode: language,
+            );
+        expect(result.plannerResponse.isClarification, isFalse);
+        expect(
+          result.plannerResponse.recommendationReason,
+          language == 'es'
+              ? 'La petición habitual de planificación no se completó.'
+              : 'The usual planning request did not complete.',
+        );
+        expect(
+          result.plannerResponse.verifiedEvidence,
+          contains('Fallback reason: test_normal_path_failure'),
+        );
+        expect(result.response.status, AssistantResponseStatus.fallback);
+      },
+    );
+  }
+
   test('null and valid-empty person context remain distinguishable', () async {
     final ProviderContainer unavailableContainer = plannerContainer();
     final ProviderContainer emptyContainer = plannerContainer(
@@ -1636,13 +1924,13 @@ void main() {
     expect(
       unavailable.plannerResponse.verifiedEvidence,
       contains(
-        'Person context was unavailable for Choose a step and was not used.',
+        'Personal information you shared was unavailable for Choose a step and was not used.',
       ),
     );
     expect(
       knownEmpty.plannerResponse.verifiedEvidence,
       contains(
-        'Person context checked for Choose a step: no consented fresh signals were available.',
+        'Personal information you shared was checked for Choose a step: no recent details with consent were available.',
       ),
     );
   });

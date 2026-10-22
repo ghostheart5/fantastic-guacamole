@@ -310,7 +310,7 @@ abstract final class GuidanceInterventionEngine {
         body:
             '${decision.rationale} Read why it was suggested and what is uncertain before deciding.',
         route: RoutePaths.nexus,
-        actionLabel: 'Review on Home',
+        actionLabel: 'Review today',
       ),
       GuidanceLessonId.smartPlanner => GuidanceLesson(
         id: id,

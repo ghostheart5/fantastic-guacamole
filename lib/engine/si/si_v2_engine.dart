@@ -1,6 +1,28 @@
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 
+// Presentation-only labels; enum names and evidence identities remain stable.
+String _missingPersonalInformationKindLabel(
+  PersonContextKind kind, {
+  required bool isSpanish,
+}) => switch (kind) {
+  PersonContextKind.role => isSpanish ? 'rol' : 'role',
+  PersonContextKind.value => isSpanish ? 'valor' : 'value',
+  PersonContextKind.currentPriority =>
+    isSpanish ? 'prioridad actual' : 'current priority',
+  PersonContextKind.lifeArea => isSpanish ? 'área de vida' : 'life area',
+  PersonContextKind.presentCapacity =>
+    isSpanish ? 'capacidad actual' : 'capacity right now',
+  PersonContextKind.preferredSupportStyle =>
+    isSpanish ? 'estilo de apoyo preferido' : 'preferred support style',
+  PersonContextKind.boundary => isSpanish ? 'límite' : 'boundary',
+  PersonContextKind.importantRelationship =>
+    isSpanish ? 'relación importante' : 'important relationship',
+  PersonContextKind.commitment => isSpanish ? 'compromiso' : 'commitment',
+  PersonContextKind.outcomeHistory =>
+    isSpanish ? 'resultado confirmado' : 'confirmed outcome',
+};
+
 final class SIV2Engine {
   const SIV2Engine();
 
@@ -317,8 +339,8 @@ final class SIV2Engine {
             : 'The question does not identify a planning decision that this read-only Chat can answer.',
       ...?snapshot.personContext?.unknownKinds.map(
         (PersonContextKind kind) => question.isSpanish
-            ? 'El Contexto personal no contiene ${kind.name} informado por la persona; SI no lo dedujo.'
-            : 'Person Context has no user-provided ${kind.name}; SI did not infer it.',
+            ? 'La información personal que compartiste no incluye un dato sobre ${_missingPersonalInformationKindLabel(kind, isSpanish: true)}; SI no lo dedujo.'
+            : 'The personal information you shared does not include a user-reported ${_missingPersonalInformationKindLabel(kind, isSpanish: false)}; SI did not infer it.',
       ),
       ...conflicts.map((SIV2Conflict item) => item.summary),
     ];

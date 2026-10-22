@@ -312,6 +312,14 @@ void main() {
     testWidgets(
       '${es ? 'Spanish' : 'English'} note edit and explicit planning consent controls',
       (tester) async {
+        const habitTitle = 'José’s Daily Rhythm — mañana';
+        await container.read(domainHabitRepositoryProvider).saveHabits([
+          HabitEntity(
+            id: 'legacy-named-habit',
+            title: habitTitle,
+            createdAt: now,
+          ),
+        ]);
         await tester.binding.setSurfaceSize(const Size(600, 1000));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         await tester.pumpWidget(
@@ -332,6 +340,23 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text(es ? 'Editar y vincular' : 'Edit and link'));
         await tester.pumpAndSettle();
+        expect(find.text(es ? 'Hábitos' : 'Habits'), findsOneWidget);
+        expect(find.text(es ? 'Ritmo diario' : 'Daily Rhythm'), findsNothing);
+        final habitPicker = find
+            .byWidgetPredicate(
+              (widget) => widget is DropdownButtonFormField<String>,
+            )
+            .at(2);
+        await tester.ensureVisible(habitPicker);
+        await tester.pumpAndSettle();
+        expect(habitPicker.hitTestable(), findsOneWidget);
+        await tester.tap(habitPicker.hitTestable());
+        await tester.pumpAndSettle();
+        expect(find.text(habitTitle).hitTestable(), findsOneWidget);
+        await tester.tap(find.text(habitTitle).hitTestable());
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byKey(const Key('note-edit-title')));
+        await tester.pumpAndSettle();
         await tester.enterText(
           find.byKey(const Key('note-edit-title')),
           'Updated constraint',
@@ -339,6 +364,7 @@ void main() {
         await tester.tap(find.text(es ? 'Guardar' : 'Save'));
         await tester.pumpAndSettle();
         expect(find.text('Updated constraint'), findsOneWidget);
+        expect(repository.items.single.habitId, 'legacy-named-habit');
         expect(repository.items, hasLength(1));
         await tester.tap(
           find.text(es ? 'Usar en la planificación' : 'Use in planning'),
@@ -403,8 +429,11 @@ class _Goals implements IGoalRepository {
 }
 
 class _Habits implements IHabitRepository {
+  List<HabitEntity> items = [];
   @override
-  Future<List<HabitEntity>> getHabits() async => [];
+  Future<List<HabitEntity>> getHabits() async => List.of(items);
   @override
-  Future<void> saveHabits(List<HabitEntity> habits) async {}
+  Future<void> saveHabits(List<HabitEntity> habits) async {
+    items = List.of(habits);
+  }
 }

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:fantastic_guacamole/l10n/creator_copy.dart';
+import 'package:fantastic_guacamole/l10n/nexus_copy.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yaml/yaml.dart';
 
@@ -142,6 +143,155 @@ void main() {
             expect(matcher.hasMatch('Today\nToday'), isFalse);
           }
         }
+      }
+    },
+  );
+
+  test(
+    'all scheduled-task journeys reveal optional fields before date selection',
+    () {
+      for (final path in [
+        '.maestro/flows/05-creator.yaml',
+        '.maestro/subflows/create-scheduled-task.yaml',
+        '.maestro/flows/priority8-learned-lifecycle.yaml',
+      ]) {
+        var optionsRevealed = false;
+        var scheduleCount = 0;
+        for (final command in commands(
+          path,
+        ).whereType<Map<dynamic, dynamic>>()) {
+          final tap = command['tapOn'];
+          if (tap is String && tap.contains('Task options')) {
+            optionsRevealed = true;
+          }
+          final scroll = command['scrollUntilVisible'];
+          if (scroll is Map &&
+              scroll['element'] is Map &&
+              (scroll['element'] as Map)['text'] is String &&
+              ((scroll['element'] as Map)['text'] as String).contains(
+                'Schedule date and time',
+              )) {
+            expect(optionsRevealed, isTrue, reason: path);
+          }
+          if (tap is String && tap.contains('Schedule date and time')) {
+            final matcher = RegExp(tap);
+            expect(matcher.hasMatch('Schedule date and time...'), isTrue);
+            expect(matcher.hasMatch('Clear Schedule date and time'), isFalse);
+            expect(optionsRevealed, isTrue, reason: path);
+            optionsRevealed = false;
+            scheduleCount++;
+          }
+        }
+        expect(scheduleCount, path.contains('learned-lifecycle') ? 2 : 1);
+      }
+    },
+  );
+
+  test('manual saves and Planner review preserve distinct consent paths', () {
+    const copy = CreatorCopy(false);
+    final manual = commands('.maestro/subflows/create-scheduled-task.yaml');
+    final manualTaps = entries(manual)
+        .where((entry) => entry.key == 'tapOn')
+        .map((entry) => entry.value)
+        .whereType<String>();
+    expect(manualTaps, contains('^${copy.createAction('task')}\$'));
+    expect(manualTaps, isNot(contains('^${copy.reviewChanges}\$')));
+    final lifecycle = commands(
+      '.maestro/flows/priority8-learned-lifecycle.yaml',
+    );
+    final scalarEntries = entries(lifecycle)
+        .where((entry) => entry.value is String)
+        .map((entry) => entry.value as String)
+        .toList();
+    expect(scalarEntries, contains('^${copy.draftPreview}\$'));
+    expect(scalarEntries, contains('^${copy.reviewChanges}\$'));
+    expect(scalarEntries, contains('^Ready to save\\?\$'));
+    expect(scalarEntries, contains('Task: Fold one shirt'));
+    for (final proof in [
+      'Use this plan',
+      'Task Completed',
+      const NexusCopy(false).learningChanged,
+      'stopApp',
+      'RECENT RAW OBSERVATIONS',
+    ]) {
+      expect(
+        File(
+          '.maestro/flows/priority8-learned-lifecycle.yaml',
+        ).readAsStringSync(),
+        contains(proof),
+      );
+    }
+  });
+
+  test(
+    'learned journey opens the real detailed review before learning proof',
+    () {
+      final flow = commands('.maestro/flows/priority8-learned-lifecycle.yaml');
+      const copy = NexusCopy(false);
+      final entry = flow.indexWhere(
+        (command) =>
+            command is Map && command['tapOn'] == r'^Review my day in detail$',
+      );
+      final learning = flow.indexWhere(
+        (command) =>
+            command is Map &&
+            command['extendedWaitUntil'] is Map &&
+            (command['extendedWaitUntil'] as Map)['visible'] ==
+                '^${copy.learningChanged}\$',
+      );
+      final completed = flow.indexWhere(
+        (command) =>
+            command is Map &&
+            command['assertVisible'] == '.*completed outcome.*',
+      );
+      final restart = flow.indexWhere(
+        (command) =>
+            command == 'stopApp' ||
+            (command is Map && command.containsKey('stopApp')),
+      );
+      expect(entry, greaterThanOrEqualTo(0));
+      expect(learning, greaterThan(entry));
+      expect(completed, greaterThan(learning));
+      expect(restart, greaterThan(completed));
+      final todaySource = File(
+        'lib/features/home/ui/today_screen.dart',
+      ).readAsStringSync();
+      expect(todaySource, contains("'Review my day in detail'"));
+      expect(todaySource, contains('NexusScreen(showDetails: true)'));
+      final raw = File(
+        '.maestro/flows/priority8-learned-lifecycle.yaml',
+      ).readAsStringSync();
+      expect(raw, isNot(contains('WHAT LEARNING CHANGED')));
+      // Each pushed Schedule returns to its Creator receipt, then uses the
+      // explicit Creator header. No blind direct Schedule-to-Today assumption.
+      var returnChains = 0;
+      for (var index = 0; index + 3 < flow.length; index++) {
+        final back = flow[index];
+        final wait = flow[index + 1];
+        final tap = flow[index + 3];
+        if ((back == 'back' || (back is Map && back.containsKey('back'))) &&
+            wait is Map &&
+            wait['extendedWaitUntil'] is Map &&
+            (wait['extendedWaitUntil'] as Map)['visible'] ==
+                r'^Add something$' &&
+            tap is Map &&
+            tap['tapOn'] == r'^Back to Today$') {
+          returnChains++;
+        }
+      }
+      expect(returnChains, 2);
+      for (final path in [
+        '.maestro/flows/priority8-learned-lifecycle.yaml',
+        '.maestro/flows/priority8-learned-lifecycle-readback.yaml',
+      ]) {
+        final selectors = entries(commands(path)).map((entry) => entry.value);
+        expect(selectors, contains('RECENT RAW OBSERVATIONS'));
+        expect(
+          selectors,
+          contains(
+            '(?s).*Task Lifecycle.*completed.*Completed the task.*helped.*',
+          ),
+        );
       }
     },
   );

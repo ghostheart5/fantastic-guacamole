@@ -86,9 +86,7 @@ class HabitEntity {
   factory HabitEntity.fromJson(Map<String, dynamic> json) {
     final Object? rawRevision = json['frequencyRevision'];
     if (rawRevision != null && (rawRevision is! int || rawRevision < 0)) {
-      throw const FormatException(
-        'Daily Rhythm frequency revision is invalid.',
-      );
+      throw const FormatException('Habit frequency revision is invalid.');
     }
     final int revision = rawRevision as int? ?? 0;
     final DateTime? frequencyStart = DateTime.tryParse(
@@ -102,7 +100,7 @@ class HabitEntity {
             created == null ||
             frequencyStart.isBefore(created))) {
       throw const FormatException(
-        'Revised Daily Rhythm requires a valid frequency start.',
+        'Revised habit requires a valid frequency start.',
       );
     }
     return HabitEntity(
@@ -110,7 +108,7 @@ class HabitEntity {
       title:
           json['title']?.toString() ??
           json['name']?.toString() ??
-          'Untitled Daily Rhythm',
+          'Untitled habit',
       userId: json['userId']?.toString(),
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??

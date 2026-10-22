@@ -259,18 +259,18 @@ final class _PlannerPersonContextEvidence {
   String adaptationSummaryFor({String languageCode = 'en'}) => switch (status) {
     _PlannerPersonContextStatus.unavailable => _plannerEvidenceText(
       languageCode,
-      'Person context was unavailable and was not used.',
-      'El Contexto Personal no estaba disponible y no se usó.',
+      'Personal information you shared was unavailable and was not used.',
+      'La información personal que compartiste no estaba disponible y no se usó.',
     ),
     _PlannerPersonContextStatus.knownEmpty => _plannerEvidenceText(
       languageCode,
-      'Person context was checked and known-empty for Choose a step.',
-      'Se comprobó que no había Contexto Personal disponible para Elegir un paso.',
+      'Personal information you shared was checked; no recent details with consent were available for Choose a step.',
+      'Se revisó la información personal que compartiste; no había datos recientes con consentimiento disponibles para Elegir un paso.',
     ),
     _PlannerPersonContextStatus.available => _plannerEvidenceText(
       languageCode,
-      'Used ${signals.length} consented fresh person-context signal(s), bounded to $_maxPlannerPersonContextSignals; treated them as user-provided evidence, not inferred identity.',
-      'Se usaron ${signals.length} datos vigentes y autorizados del Contexto Personal, con un máximo de $_maxPlannerPersonContextSignals; se trataron como información aportada por ti, sin deducir tu identidad.',
+      'Used ${signals.length} recent details you shared with consent, up to $_maxPlannerPersonContextSignals; treated them as user-provided evidence, not inferred identity.',
+      'Se usaron ${signals.length} datos recientes que compartiste con consentimiento, con un máximo de $_maxPlannerPersonContextSignals; se trataron como información aportada por ti, sin deducir tu identidad.',
     ),
   };
 
@@ -308,22 +308,22 @@ final class _PlannerPersonContextEvidence {
     _PlannerPersonContextStatus.unavailable => <String>[
       _plannerEvidenceText(
         languageCode,
-        'Person context was unavailable for Choose a step and was not used.',
-        'El Contexto Personal no estaba disponible para Elegir un paso y no se usó.',
+        'Personal information you shared was unavailable for Choose a step and was not used.',
+        'La información personal que compartiste no estaba disponible para Elegir un paso y no se usó.',
       ),
     ],
     _PlannerPersonContextStatus.knownEmpty => <String>[
       _plannerEvidenceText(
         languageCode,
-        'Person context checked for Choose a step: no consented fresh signals were available.',
-        'Se comprobó el Contexto Personal para Elegir un paso: no había datos vigentes con consentimiento.',
+        'Personal information you shared was checked for Choose a step: no recent details with consent were available.',
+        'Se revisó la información personal que compartiste para Elegir un paso: no había datos recientes con consentimiento.',
       ),
     ],
     _PlannerPersonContextStatus.available => <String>[
       _plannerEvidenceText(
         languageCode,
-        'Person context checked for Choose a step: $availableSignalCount consented fresh signal(s) available; ${signals.length} used with a limit of $_maxPlannerPersonContextSignals.',
-        'Se comprobó el Contexto Personal para Elegir un paso: $availableSignalCount datos vigentes con consentimiento disponibles; se usaron ${signals.length}, con un máximo de $_maxPlannerPersonContextSignals.',
+        'Personal information you shared was checked for Choose a step: $availableSignalCount recent details with consent available; ${signals.length} used with a limit of $_maxPlannerPersonContextSignals.',
+        'Se revisó la información personal que compartiste para Elegir un paso: $availableSignalCount datos recientes con consentimiento disponibles; se usaron ${signals.length}, con un máximo de $_maxPlannerPersonContextSignals.',
       ),
       ...signals.map(
         (_PlannerPersonContextSignal signal) =>
@@ -410,11 +410,11 @@ final class _PlannerPersonContextSignal {
   );
 
   String get evidence =>
-      'Verified person-context evidence: $sourceLabel $label for ${purpose.name}, "$value". This is a consented saved statement, not an inferred trait or identity.';
+      'Information you shared: $sourceLabel $label for ${purpose.name}, "$value". This is a consented saved statement, not an inferred trait or identity.';
 
   String evidenceFor({String languageCode = 'en'}) => _plannerEvidenceText(
     languageCode,
     evidence,
-    'Información verificada del Contexto Personal: ${_plannerEvidenceLabel(source.name)}, ${_plannerEvidenceLabel(kind.name)} para ${_plannerEvidenceLabel(purpose.name)}, "$value". Es una declaración guardada con consentimiento, no un rasgo o una identidad deducidos.',
+    'Información que compartiste: ${_plannerEvidenceLabel(source.name)}, ${_plannerEvidenceLabel(kind.name)} para ${_plannerEvidenceLabel(purpose.name)}, "$value". Es una declaración guardada con consentimiento, no un rasgo o una identidad deducidos.',
   );
 }

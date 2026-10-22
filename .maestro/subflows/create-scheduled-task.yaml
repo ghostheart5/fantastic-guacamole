@@ -32,31 +32,32 @@ appId: com.ghostheart5.chronospark
 - waitForAnimationToEnd
 - scrollUntilVisible:
     element:
-      text: "Schedule date and time"
+      text: '(?s)^Task options \(optional\).*'
     direction: DOWN
     timeout: 10000
-- tapOn: "Schedule date and time"
-- extendedWaitUntil:
-    visible: "OK"
-    timeout: 10000
-- tapOn: "OK"
-- extendedWaitUntil:
-    visible: "OK"
-    timeout: 10000
-- tapOn: "OK"
-- runFlow: reveal-creator-review.yaml
-- tapOn:
-    text: "REVIEW CHANGES"
-    retryTapIfNoChange: true
-- extendedWaitUntil:
-    visible: "CONFIRM CREATOR CHANGES"
-    timeout: 10000
+- tapOn: '(?s)^Task options \(optional\).*'
 - scrollUntilVisible:
     element:
-      text: "^CREATE TASK$"
+      text: '^Schedule date and time(?:\.\.\.)?$'
     direction: DOWN
     timeout: 10000
-- tapOn: "^CREATE TASK$"
+- tapOn: '^Schedule date and time(?:\.\.\.)?$'
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+- scrollUntilVisible:
+    element:
+      text: '^Save task$'
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: false
+    timeout: 10000
+- tapOn: '^Save task$'
 - runFlow:
     file: verify-creator-saved-receipt.yaml
     env:

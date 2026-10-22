@@ -7,7 +7,7 @@ appId: com.ghostheart5.chronospark
     commands:
       - runFlow:
           when:
-            notVisible: "REVIEW CHANGES"
+            notVisible: '^Review before saving$'
           commands:
             - swipe:
                 # Stay above the Android keyboard when the title is focused.
@@ -17,7 +17,7 @@ appId: com.ghostheart5.chronospark
                 duration: 500
             - waitForAnimationToEnd:
                 timeout: 3000
-- assertVisible: "REVIEW CHANGES"
+- assertVisible: '^Review before saving$'
 # Android can report a one-pixel clipped button as fully visible. Reveal more
 # of the outer form before resolving a semantic tap; stay outside notes/IME.
 - swipe:
@@ -28,11 +28,11 @@ appId: com.ghostheart5.chronospark
     timeout: 3000
 - scrollUntilVisible:
     element:
-      text: "REVIEW CHANGES"
+      text: '^Review before saving$'
     direction: DOWN
     visibilityPercentage: 100
     # At the form's scroll boundary, a fully visible button cannot always move
     # to the viewport center. Its semantic tap and confirmation remain required.
     centerElement: false
     timeout: 10000
-- assertVisible: "REVIEW CHANGES"
+- assertVisible: '^Review before saving$'

@@ -51,37 +51,32 @@ tags:
 - waitForAnimationToEnd
 - scrollUntilVisible:
     element:
-      text: "Schedule date and time"
+      text: '(?s)^Task options \(optional\).*'
     direction: DOWN
     timeout: 10000
-- tapOn: "Schedule date and time"
-- extendedWaitUntil:
-    visible: "OK"
-    timeout: 10000
-- tapOn: "OK"
-- extendedWaitUntil:
-    visible: "OK"
-    timeout: 10000
-- tapOn: "OK"
-- runFlow: ../subflows/reveal-creator-review.yaml
-# Match the Creator smoke flow: finish picker/IME layout transitions before
-# resolving the button's tap position, then require the real preview handoff.
-- waitForAnimationToEnd:
-    timeout: 5000
-- tapOn:
-    text: "REVIEW CHANGES"
-    retryTapIfNoChange: true
-- extendedWaitUntil:
-    visible: "CONFIRM CREATOR CHANGES"
-    timeout: 10000
+- tapOn: '(?s)^Task options \(optional\).*'
 - scrollUntilVisible:
     element:
-      text: "^CREATE TASK$"
+      text: '^Schedule date and time(?:\.\.\.)?$'
     direction: DOWN
     timeout: 10000
-- tapOn: "^CREATE TASK$"
-# The first save may retain Creator's receipt under the guide overlay.
-# Verify one saved change, then use the visible Timeline handoff.
+- tapOn: '^Schedule date and time(?:\.\.\.)?$'
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+- scrollUntilVisible:
+    element:
+      text: '^Save task$'
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: false
+    timeout: 10000
+- tapOn: '^Save task$'
 - runFlow:
     file: ../subflows/verify-creator-saved-receipt.yaml
     env:
@@ -111,14 +106,18 @@ tags:
     timeout: 20000
 # Timeline's back control scrolls with its header above the completed task.
 # The top boundary cannot center this header; require the whole control instead.
+- back
+- extendedWaitUntil:
+    visible: '^Add something$'
+    timeout: 10000
 - scrollUntilVisible:
     element:
-      text: "Back to Today"
+      text: '^Back to Today$'
     direction: UP
     visibilityPercentage: 100
     centerElement: false
     timeout: 10000
-- tapOn: "Back to Today"
+- tapOn: '^Back to Today$'
 - extendedWaitUntil:
     visible: "^Today$"
     timeout: 10000
@@ -174,14 +173,20 @@ tags:
 # Add a schedule so the confirmed task exposes the real Timeline completion
 # control rather than only an informational creation event.
 - extendedWaitUntil:
-    visible: "PLANNER DRAFT PREVIEW"
+    visible: '^Suggested draft$'
     timeout: 10000
 - scrollUntilVisible:
     element:
-      text: "Schedule date and time"
+      text: '(?s)^Task options \(optional\).*'
     direction: DOWN
     timeout: 10000
-- tapOn: "Schedule date and time"
+- tapOn: '(?s)^Task options \(optional\).*'
+- scrollUntilVisible:
+    element:
+      text: '^Schedule date and time(?:\.\.\.)?$'
+    direction: DOWN
+    timeout: 10000
+- tapOn: '^Schedule date and time(?:\.\.\.)?$'
 - extendedWaitUntil:
     visible: "OK"
     timeout: 10000
@@ -196,32 +201,28 @@ tags:
 # default scrollUntilVisible gesture. Scroll the outer form's side gutter.
 - runFlow: ../subflows/reveal-creator-review.yaml
 - tapOn:
-    text: "REVIEW CHANGES"
+    text: '^Review before saving$'
     retryTapIfNoChange: true
 # The longer Planner preview retains the form's scroll offset. Review its
 # heading before scrolling down to the explicit confirmation control.
 - scrollUntilVisible:
     element:
-      text: "CONFIRM CREATOR CHANGES"
+      text: '^Ready to save\?$'
     direction: UP
     timeout: 10000
 - extendedWaitUntil:
-    visible: "CONFIRM CREATOR CHANGES"
+    visible: '^Ready to save\?$'
     timeout: 10000
 - scrollUntilVisible:
     element:
-      text: "^CREATE TASK$"
+      text: '^Save task$'
     direction: DOWN
     timeout: 10000
-- tapOn: "^CREATE TASK$"
-- scrollUntilVisible:
-    element:
-      text: "CREATION SAVED"
-    direction: UP
-    timeout: 10000
-- extendedWaitUntil:
-    visible: "CREATION SAVED"
-    timeout: 15000
+- tapOn: '^Save task$'
+- runFlow:
+    file: ../subflows/verify-creator-saved-receipt.yaml
+    env:
+      SAVED_ITEM: 'Task: Fold one shirt'
 - scrollUntilVisible:
     element:
       text: "Open schedule"
@@ -247,25 +248,42 @@ tags:
 - extendedWaitUntil:
     visible: "(?s).*Task Completed.*Fold one shirt marked complete.*"
     timeout: 20000
+- back
+- extendedWaitUntil:
+    visible: '^Add something$'
+    timeout: 10000
 - scrollUntilVisible:
     element:
-      text: "Back to Today"
+      text: '^Back to Today$'
     direction: UP
     visibilityPercentage: 100
     centerElement: false
     timeout: 10000
-- tapOn: "Back to Today"
+- tapOn: '^Back to Today$'
+
+# Today keeps the detailed learning panel behind its explicit review entry.
+- extendedWaitUntil:
+    visible: '^Today$'
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: '^Review my day in detail$'
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: false
+    timeout: 15000
+- tapOn: '^Review my day in detail$'
 
 # The latest completion must publish an explainable, correctable change.
 - scrollUntilVisible:
     element:
-      text: "WHAT LEARNING CHANGED"
+      text: '^What changed after your feedback$'
     direction: DOWN
     visibilityPercentage: 100
     centerElement: false
     timeout: 20000
 - extendedWaitUntil:
-    visible: "WHAT LEARNING CHANGED"
+    visible: '^What changed after your feedback$'
     timeout: 20000
 - assertVisible: ".*completed outcome.*"
 

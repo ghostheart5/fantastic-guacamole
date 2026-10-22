@@ -1422,6 +1422,136 @@ void main() {
     }
   }
 
+  for (final language in ['en', 'es']) {
+    testWidgets(
+      '$language stored habit observations display current labels without rewriting user text',
+      (tester) async {
+        useTallSurface(tester);
+        final now = DateTime.utc(2026, 9, 2, 12);
+        final outcomes = [
+          DecisionOutcomeEntity(
+            decisionId: 'legacy-habit-label',
+            kind: DecisionOutcomeKind.completed,
+            surface: 'daily_rhythm',
+            situation: 'daily rhythm occurrence',
+            recordedAt: now,
+            modelVersion: 'habit-outcome-v1',
+            recommendationConfidence: .64,
+            completionResult:
+                'My Daily Rhythm notes stay exactly as I wrote them.',
+          ),
+          DecisionOutcomeEntity(
+            decisionId: 'legacy-habit-occurrence-label',
+            kind: DecisionOutcomeKind.completed,
+            surface: 'daily_rhythm_occurrence',
+            situation: 'Daily Rhythm helped my routine',
+            recordedAt: now.subtract(const Duration(minutes: 1)),
+            modelVersion: 'habit-outcome-v1',
+            recommendationConfidence: .64,
+          ),
+        ];
+        final saved = outcomes.map((outcome) => outcome.toJson()).toList();
+        final container = createContainer(
+          decisionOutcomes: outcomes,
+          learningPaused: false,
+          learningNow: now,
+        );
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: appTheme,
+              locale: Locale(language),
+              supportedLocales: ChronoSparkLocalizations.supportedLocales,
+              localizationsDelegates: const [
+                ChronoSparkLocalizations.delegate,
+                ...GlobalMaterialLocalizations.delegates,
+              ],
+              home: const SettingsScreen(),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 200));
+        await invokeNavTile(
+          tester,
+          language == 'es'
+              ? 'Planificación y orientación'
+              : 'Planning & guidance',
+        );
+        final first = find.byKey(
+          ValueKey<String>('learning-ledger-${outcomes.first.id}'),
+        );
+        await tester.scrollUntilVisible(
+          first,
+          400,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(
+          find.descendant(
+            of: first,
+            matching: find.textContaining(
+              language == 'es' ? 'Hábito ·' : 'Habit ·',
+            ),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: first,
+            matching: find.textContaining(
+              language == 'es' ? 'registro de hábito' : 'habit occurrence',
+            ),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: first,
+            matching: find.textContaining(
+              'My Daily Rhythm notes stay exactly as I wrote them.',
+            ),
+          ),
+          findsOneWidget,
+        );
+        final second = find.byKey(
+          ValueKey<String>('learning-ledger-${outcomes.last.id}'),
+        );
+        await tester.scrollUntilVisible(
+          second,
+          250,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(
+          find.descendant(
+            of: second,
+            matching: find.textContaining(
+              language == 'es' ? 'registro de hábito ·' : 'Habit occurrence ·',
+            ),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: second,
+            matching: find.textContaining('Daily Rhythm helped my routine'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          container
+              .read(decisionOutcomesProvider)
+              .requireValue
+              .map((outcome) => outcome.toJson())
+              .toList(),
+          saved,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('shows a reviewable user-controlled learning ledger', (
     WidgetTester tester,
   ) async {
