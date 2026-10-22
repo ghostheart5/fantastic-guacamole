@@ -1061,7 +1061,7 @@ class _SheetField extends StatelessWidget {
       child: TextField(
         controller: controller,
         maxLines: maxLines,
-        // Field fill, foreground, hint and focus border belong to the selected
+        // Field fill, foreground, hint and active border belong to the selected
         // form theme; the surrounding artwork remains dark in either mode.
         style: Theme.of(
           context,
