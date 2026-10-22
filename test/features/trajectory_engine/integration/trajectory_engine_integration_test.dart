@@ -19,6 +19,313 @@ import '../../../helpers/trajectory_test_fixture.dart';
 
 void main() {
   group('Trajectory Engine integration', () {
+    for (final language in ['en', 'es']) {
+      testWidgets(
+        'forecast assumptions are optional and complete in $language',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(900, 1800));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          final store = _MemoryStore();
+          final scope = AccountStorageScope.authenticated('test-account');
+          final comparison = _modelForScope(scope.v2Namespace!).comparison!;
+          final outcome = comparison.outcomes.firstWhere(
+            (value) => value.intervention.id == 'planner',
+          );
+          final model = _modelWithOutcomes(comparison, [outcome]);
+          final section = find.byKey(
+            ValueKey<String>('trajectory-assumptions-${outcome.id}'),
+          );
+          final title = language == 'es'
+              ? 'Supuestos de esta estimación'
+              : 'What this estimate assumes';
+          final notice = language == 'es'
+              ? 'Explorar esta previsión no cambia tu plan guardado.'
+              : 'Exploring this forecast does not change your saved plan.';
+          await tester.pumpWidget(
+            _harness(
+              model: model,
+              locale: Locale(language),
+              repository: TrajectoryForecastLedgerRepository(
+                store: store,
+                scope: scope,
+              ),
+            ),
+          );
+          await _pumpForecastTransition(tester);
+          await tester.scrollUntilVisible(
+            find.text(title).hitTestable(),
+            250,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await Scrollable.ensureVisible(
+            tester.element(section),
+            alignment: .5,
+          );
+          await _pumpForecastTransition(tester);
+          expect(find.text(notice).hitTestable(), findsOneWidget);
+          final bullets = find.descendant(
+            of: section,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Text && (widget.data?.startsWith('• ') ?? false),
+            ),
+          );
+          expect(bullets, findsNothing);
+          await tester.tap(find.text(title).hitTestable());
+          await _pumpForecastTransition(tester);
+          expect(
+            bullets,
+            findsNWidgets(
+              outcome.assumptions
+                  .where((value) => value.trim().isNotEmpty)
+                  .length,
+            ),
+          );
+          await tester.ensureVisible(find.text(title));
+          await _pumpForecastTransition(tester);
+          await tester.tap(find.text(title).hitTestable());
+          await _pumpForecastTransition(tester);
+          expect(bullets, findsNothing);
+          expect(store.writes, 0);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets('forecast assumptions keep shared-information warnings visible', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(900, 1800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final comparison = trajectoryTestComparison(
+        baseline: trajectoryTestBaseline(
+          energyOrigin: PredictiveEvidenceOrigin.estimated,
+          availabilityOrigin: PredictiveEvidenceOrigin.unavailable,
+          personContextWarnings: ['Explicit boundary excludes task-polish.'],
+        ),
+      );
+      await tester.pumpWidget(
+        _harness(
+          model: _modelWithOutcomes(comparison, [comparison.outcomes[1]]),
+        ),
+      );
+      await _pumpForecastTransition(tester);
+      expect(find.text('PARTIAL EVIDENCE'), findsOneWidget);
+      expect(
+        find.textContaining('energy is estimated; not observed'),
+        findsOneWidget,
+      );
+      await tester.scrollUntilVisible(
+        find.text('What this estimate assumes').hitTestable(),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(
+        find.text(
+          'Review the assumptions for limits or missing details in information you shared.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Explicit boundary excludes task-polish.'),
+        findsNothing,
+      );
+      await tester.tap(find.text('What this estimate assumes').hitTestable());
+      await _pumpForecastTransition(tester);
+      expect(
+        find.textContaining('Explicit boundary excludes task-polish.'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Information you shared: Explicit boundary'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Person Context constraint:'), findsNothing);
+      expect(
+        find.textContaining(
+          'Capacity-based risk and goal completion dates are withheld.',
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    for (final language in ['en', 'es']) {
+      testWidgets(
+        'paired shared-information warnings preserve qualifiers once in $language',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(900, 1800));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          const explanation = 'Explicit boundary excludes task-polish.';
+          const paired =
+              'User-reported Person Context: $explanation It constrains this scenario but is not treated as identity or a guaranteed outcome.';
+          const unrelated =
+              'User-reported Person Context: A different user-authored note. It constrains this scenario but is not treated as identity or a guaranteed outcome.';
+          const unrelatedConstraint =
+              'Person Context constraint: User-authored note, not a baseline warning.';
+          final scope = AccountStorageScope.authenticated('test-account');
+          final comparison = trajectoryTestComparison(
+            baseline: trajectoryTestBaseline(
+              accountScope: scope.v2Namespace!,
+              personContextWarnings: [explanation],
+            ),
+            plannerAssumptions: [paired, unrelated, unrelatedConstraint],
+          );
+          final outcome = comparison.outcomes.firstWhere(
+            (value) => value.intervention.id == 'planner',
+          );
+          // Exercise the real engine pair, not a hand-deduplicated UI fixture.
+          expect(outcome.assumptions, contains(paired));
+          expect(
+            outcome.assumptions,
+            contains('Person Context constraint: $explanation'),
+          );
+          final section = find.byKey(
+            ValueKey<String>('trajectory-assumptions-${outcome.id}'),
+          );
+          final title = language == 'es'
+              ? 'Supuestos de esta estimación'
+              : 'What this estimate assumes';
+          final expected = language == 'es'
+              ? 'Información que compartiste: $explanation Limita este escenario, pero no te define ni garantiza un resultado.'
+              : 'Information you shared: $explanation It limits this scenario but does not define you or guarantee an outcome.';
+          final store = _MemoryStore();
+          await tester.pumpWidget(
+            _harness(
+              model: _modelWithOutcomes(comparison, [outcome]),
+              locale: Locale(language),
+              repository: TrajectoryForecastLedgerRepository(
+                store: store,
+                scope: scope,
+              ),
+            ),
+          );
+          await _pumpForecastTransition(tester);
+          await tester.scrollUntilVisible(
+            find.text(title).hitTestable(),
+            250,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await Scrollable.ensureVisible(
+            tester.element(section),
+            alignment: .5,
+          );
+          await _pumpForecastTransition(tester);
+          expect(find.textContaining(explanation), findsNothing);
+          await tester.tap(find.text(title).hitTestable());
+          await _pumpForecastTransition(tester);
+          Finder withinAssumptions(Finder matching) =>
+              find.descendant(of: section, matching: matching);
+          expect(
+            withinAssumptions(find.textContaining(explanation)),
+            findsOneWidget,
+          );
+          expect(withinAssumptions(find.text('• $expected')), findsOneWidget);
+          expect(withinAssumptions(find.text('• $paired')), findsNothing);
+          expect(
+            withinAssumptions(
+              find.text('• Person Context constraint: $explanation'),
+            ),
+            findsNothing,
+          );
+          expect(withinAssumptions(find.text('• $unrelated')), findsOneWidget);
+          expect(
+            withinAssumptions(find.text('• $unrelatedConstraint')),
+            findsOneWidget,
+          );
+          expect(store.writes, 0);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets(
+      'forecast assumptions reset when the selected outcome changes',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(900, 1800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final comparison = trajectoryTestComparison();
+        final first = comparison.outcomes.firstWhere(
+          (value) => value.intervention.id == 'planner',
+        );
+        final second = comparison.outcomes.firstWhere(
+          (value) => value.intervention.id == 'maintain',
+        );
+        await tester.pumpWidget(
+          _harness(model: _modelWithOutcomes(comparison, [first])),
+        );
+        await _pumpForecastTransition(tester);
+        await tester.scrollUntilVisible(
+          find.text('What this estimate assumes').hitTestable(),
+          250,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(find.text('What this estimate assumes').hitTestable());
+        await _pumpForecastTransition(tester);
+        expect(
+          find.textContaining('The protected block is attempted.'),
+          findsOneWidget,
+        );
+        await tester.pumpWidget(
+          _harness(model: _modelWithOutcomes(comparison, [second])),
+        );
+        await _pumpForecastTransition(tester);
+        expect(
+          find.textContaining('The protected block is attempted.'),
+          findsNothing,
+        );
+        final section = find.byKey(
+          ValueKey<String>('trajectory-assumptions-${second.id}'),
+        );
+        final expansion = tester.widget<ExpansionTile>(
+          find.descendant(of: section, matching: find.byType(ExpansionTile)),
+        );
+        expect(expansion.initiallyExpanded, isFalse);
+        expect(
+          find.descendant(
+            of: section,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Text && (widget.data?.startsWith('• ') ?? false),
+            ),
+          ),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('forecast assumptions fit narrow Spanish enlarged text', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        _harness(locale: const Locale('es'), textScale: 2),
+      );
+      await _pumpForecastTransition(tester);
+      final title = find.text('Supuestos de esta estimación');
+      await tester.scrollUntilVisible(
+        title.hitTestable(),
+        180,
+        scrollable: find.byType(Scrollable).first,
+        maxScrolls: 40,
+      );
+      await tester.ensureVisible(title);
+      await _pumpForecastTransition(tester);
+      final bounds = tester.getRect(title);
+      expect(bounds.left, greaterThanOrEqualTo(0));
+      expect(bounds.right, lessThanOrEqualTo(320));
+      expect(title.hitTestable(), findsOneWidget);
+      await tester.tap(title.hitTestable());
+      await _pumpForecastTransition(tester);
+      expect(
+        find.textContaining('Esta estimación cambia solo'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
     for (final historyKind in ['pooled', 'unknown', 'unavailable']) {
       for (final language in ['en', 'es']) {
         testWidgets(
@@ -277,8 +584,8 @@ void main() {
       expect(find.textContaining('CAMINO MODELADO'), findsWidgets);
       expect(find.text('Compare options'), findsNothing);
       expect(find.textContaining('MODELED PATH'), findsNothing);
-      expect(find.text('SUPUESTOS DE ESTE RESULTADO'), findsWidgets);
-      expect(find.text('ASSUMPTIONS FOR THIS RESULT'), findsNothing);
+      expect(find.text('Supuestos de esta estimación'), findsWidgets);
+      expect(find.text('What this estimate assumes'), findsNothing);
     });
 
     testWidgets('localizes the fixed custom-removal description in Spanish', (
@@ -456,7 +763,7 @@ void main() {
       expect(find.text('90 DAYS'), findsOneWidget);
       expect(find.text('CURRENT PLAN ESTIMATES'), findsNothing);
       expect(find.text('FORECAST MONITORING'), findsNothing);
-      expect(find.text('ASSUMPTIONS FOR THIS RESULT'), findsWidgets);
+      expect(find.text('What this estimate assumes'), findsWidgets);
       expect(
         find.text('Exclude this forecast from monitoring'),
         findsOneWidget,
@@ -609,6 +916,7 @@ Widget _harness({
   TrajectoryEngineModel? model,
   TrajectoryForecastLedgerRepository? repository,
   Locale locale = const Locale('en'),
+  double textScale = 1,
 }) => ProviderScope(
   overrides: [
     trajectoryEngineModelProvider.overrideWithValue(
@@ -630,6 +938,12 @@ Widget _harness({
   ],
   child: MaterialApp(
     locale: locale,
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(textScaler: TextScaler.linear(textScale)),
+      child: child!,
+    ),
     supportedLocales: const <Locale>[Locale('en'), Locale('es')],
     localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
       ChronoSparkLocalizations.delegate,
@@ -643,6 +957,7 @@ Widget _harness({
 
 class _MemoryStore implements SharedPrefsStore {
   final Map<String, String> values = <String, String>{};
+  int writes = 0;
 
   @override
   Future<void> clear() async => values.clear();
@@ -653,7 +968,29 @@ class _MemoryStore implements SharedPrefsStore {
   @override
   String? load(String key) => values[key];
   @override
-  Future<void> save(String key, String value) async => values[key] = value;
+  Future<void> save(String key, String value) async {
+    writes++;
+    values[key] = value;
+  }
+}
+
+TrajectoryEngineModel _modelWithOutcomes(
+  TrajectoryComparison comparison,
+  List<TrajectoryScenarioOutcome> outcomes,
+) {
+  final fixture = trajectoryTestEngineModel();
+  return TrajectoryEngineModel(
+    status: TrajectoryEngineStatus.partial,
+    summary: fixture.summary,
+    momentum: fixture.momentum,
+    comparison: TrajectoryComparison(
+      baseline: comparison.baseline,
+      outcomes: outcomes,
+      recommendedScenarioId: outcomes.first.id,
+    ),
+    statusDetail: fixture.statusDetail,
+    hasAvailableNetworkInterface: true,
+  );
 }
 
 TrajectoryEngineModel _modelForScope(String accountScope) {
@@ -691,4 +1028,11 @@ TrajectoryEngineModel _modelForScope(String accountScope) {
     statusDetail: fixture.statusDetail,
     hasAvailableNetworkInterface: fixture.hasAvailableNetworkInterface,
   );
+}
+
+Future<void> _pumpForecastTransition(WidgetTester tester) async {
+  // The space artwork animates continuously; advance just the disclosure.
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 350));
+  await tester.pump();
 }

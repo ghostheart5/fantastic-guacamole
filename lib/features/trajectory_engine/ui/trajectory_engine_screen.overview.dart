@@ -163,16 +163,26 @@ String _spanishUnobservedEvidenceState(PredictiveEvidenceOrigin origin) =>
     };
 
 class _ResultAssumptions extends StatelessWidget {
-  const _ResultAssumptions({required this.assumptions});
+  const _ResultAssumptions({
+    super.key,
+    required this.assumptions,
+    required this.sharedInformationWarnings,
+  });
 
   final List<String> assumptions;
+  final List<String> sharedInformationWarnings;
 
   @override
   Widget build(BuildContext context) {
-    final List<String> visible = assumptions
-        .map((String value) => value.trim())
-        .where((String value) => value.isNotEmpty)
-        .toList(growable: false);
+    final List<String> visible =
+        _trajectoryAssumptionTexts(
+              context,
+              assumptions,
+              sharedInformationWarnings,
+            )
+            .map((String value) => value.trim())
+            .where((String value) => value.isNotEmpty)
+            .toList(growable: false);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
@@ -189,46 +199,137 @@ class _ResultAssumptions extends StatelessWidget {
           Text(
             journeyText(
               context,
-              'ASSUMPTIONS FOR THIS RESULT',
-              'SUPUESTOS DE ESTE RESULTADO',
+              'Exploring this forecast does not change your saved plan.',
+              'Explorar esta previsión no cambia tu plan guardado.',
             ),
             style: const TextStyle(
-              color: Color(0xFFFFC857),
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
+              color: Color(0xFFD8E2FF),
+              fontSize: 11,
+              height: 1.35,
             ),
           ),
-          const SizedBox(height: 3),
-          if (visible.isEmpty)
+          if (sharedInformationWarnings.any(
+            (String warning) => warning.trim().isNotEmpty,
+          )) ...<Widget>[
+            const SizedBox(height: 6),
             Text(
               journeyText(
                 context,
-                'No additional scenario assumptions were listed. Task durations and future availability remain modeled.',
-                'No se indicaron supuestos adicionales. Las duraciones y la disponibilidad futura siguen siendo estimaciones.',
+                'Review the assumptions for limits or missing details in information you shared.',
+                'Revisa los supuestos para conocer los límites o datos que faltan en la información que compartiste.',
               ),
               style: const TextStyle(
-                color: Color(0xFFD8E2FF),
-                fontSize: 10,
-                height: 1.3,
+                color: Color(0xFFFFC857),
+                fontSize: 11,
+                height: 1.35,
               ),
-            )
-          else
-            for (final String assumption in visible)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Text(
-                  '• ${_trajectoryGeneratedText(context, assumption)}',
-                  style: const TextStyle(
-                    color: Color(0xFFD8E2FF),
-                    fontSize: 10,
-                    height: 1.3,
-                  ),
+            ),
+          ],
+          Material(
+            type: MaterialType.transparency,
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 4),
+              iconColor: const Color(0xFFFFC857),
+              collapsedIconColor: const Color(0xFFFFC857),
+              title: Text(
+                journeyText(
+                  context,
+                  'What this estimate assumes',
+                  'Supuestos de esta estimación',
+                ),
+                style: const TextStyle(
+                  color: Color(0xFFFFC857),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
+              children: <Widget>[
+                if (visible.isEmpty)
+                  Text(
+                    journeyText(
+                      context,
+                      'No additional scenario assumptions were listed. Task durations and future availability remain modeled.',
+                      'No se indicaron supuestos adicionales. Las duraciones y la disponibilidad futura siguen siendo estimaciones.',
+                    ),
+                    style: const TextStyle(
+                      color: Color(0xFFD8E2FF),
+                      fontSize: 11,
+                      height: 1.35,
+                    ),
+                  )
+                else
+                  for (final String assumption in visible)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '• $assumption',
+                          style: const TextStyle(
+                            color: Color(0xFFD8E2FF),
+                            fontSize: 11,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
+}
+
+List<String> _trajectoryAssumptionTexts(
+  BuildContext context,
+  List<String> assumptions,
+  List<String> sharedInformationWarnings,
+) {
+  final pairedConstraints = <String>{
+    for (final warning in sharedInformationWarnings)
+      if (assumptions.contains(_reportedTrajectoryAssumption(warning)))
+        'Person Context constraint: $warning',
+  };
+  return assumptions
+      .where((value) => !pairedConstraints.contains(value))
+      .map(
+        (value) => _trajectoryAssumptionText(
+          context,
+          value,
+          sharedInformationWarnings,
+        ),
+      )
+      .toList(growable: false);
+}
+
+String _reportedTrajectoryAssumption(String warning) =>
+    'User-reported Person Context: $warning It constrains this scenario but is not treated as identity or a guaranteed outcome.';
+
+String _trajectoryAssumptionText(
+  BuildContext context,
+  String assumption,
+  List<String> sharedInformationWarnings,
+) {
+  for (final String warning in sharedInformationWarnings) {
+    if (assumption == _reportedTrajectoryAssumption(warning)) {
+      return journeyText(
+        context,
+        'Information you shared: ${_trajectoryGeneratedText(context, warning)} It limits this scenario but does not define you or guarantee an outcome.',
+        'Información que compartiste: ${_trajectoryGeneratedText(context, warning)} Limita este escenario, pero no te define ni garantiza un resultado.',
+      );
+    }
+    if (assumption == 'Person Context constraint: $warning') {
+      return journeyText(
+        context,
+        'Information you shared: ${_trajectoryGeneratedText(context, warning)}',
+        'Información que compartiste: ${_trajectoryGeneratedText(context, warning)}',
+      );
+    }
+  }
+  return _trajectoryGeneratedText(context, assumption);
 }
 
 class _FutureBranches extends StatelessWidget {

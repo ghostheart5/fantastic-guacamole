@@ -8,14 +8,16 @@ import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dar
 final DateTime trajectoryFixtureNow = DateTime.utc(2026, 8, 16, 15);
 
 TrajectoryBaseline trajectoryTestBaseline({
+  String accountScope = 'v2.test-account',
   int momentum = 61,
   int pressure = 58,
   int observationCount = 12,
   PredictiveEvidenceOrigin energyOrigin = PredictiveEvidenceOrigin.observed,
   PredictiveEvidenceOrigin availabilityOrigin =
       PredictiveEvidenceOrigin.observed,
+  List<String> personContextWarnings = const <String>[],
 }) => TrajectoryBaseline(
-  accountScope: 'v2.test-account',
+  accountScope: accountScope,
   revision: 'trajectory-fixture-r1',
   observedAt: trajectoryFixtureNow,
   evidenceWindow: const Duration(days: 7),
@@ -90,11 +92,15 @@ TrajectoryBaseline trajectoryTestBaseline({
   },
   energyOrigin: energyOrigin,
   availabilityOrigin: availabilityOrigin,
+  personContextWarnings: personContextWarnings,
 );
 
 TrajectoryComparison trajectoryTestComparison({
   int horizonDays = 7,
   TrajectoryBaseline? baseline,
+  List<String> plannerAssumptions = const <String>[
+    'The protected block is attempted.',
+  ],
 }) {
   final TrajectoryBaseline resolvedBaseline =
       baseline ?? trajectoryTestBaseline();
@@ -125,9 +131,7 @@ TrajectoryComparison trajectoryTestComparison({
                     end: trajectoryFixtureNow.add(const Duration(minutes: 90)),
                   ),
                 ],
-                assumptions: const <String>[
-                  'The protected block is attempted.',
-                ],
+                assumptions: plannerAssumptions,
               ),
               TrajectoryIntervention(
                 id: 'delay',

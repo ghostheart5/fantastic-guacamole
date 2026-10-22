@@ -1224,7 +1224,9 @@ void main() {
       await tester.pump();
 
       expect(
-        find.text('This Person Context is ignored for the current use.'),
+        find.text(
+          'This shared personal information is ignored for the current use.',
+        ),
         findsOneWidget,
       );
       expect(

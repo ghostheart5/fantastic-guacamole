@@ -92,4 +92,38 @@ void main() {
       );
     }
   });
+
+  test(
+    'personal information evidence preserves scope and verification limits',
+    () {
+      const english = ChronoSparkLocalizations(Locale('en'));
+      const spanish = ChronoSparkLocalizations(Locale('es'));
+      for (final count in <int>[1, 2]) {
+        final englishEvidence = english.siRoutine.personContextEvidence(count);
+        final spanishEvidence = spanish.siRoutine.personContextEvidence(count);
+        expect(
+          englishEvidence,
+          startsWith('Personal information you shared: $count'),
+        );
+        expect(englishEvidence, contains('user-reported'));
+        expect(
+          englishEvidence,
+          contains('only context relevant to that question'),
+        );
+        expect(englishEvidence, contains('not independently verified'));
+        expect(
+          spanishEvidence,
+          startsWith('Información personal que compartiste: $count'),
+        );
+        expect(
+          spanishEvidence,
+          contains('solo el contexto pertinente a esa pregunta'),
+        );
+        expect(
+          spanishEvidence,
+          contains('no se verifica de forma independiente'),
+        );
+      }
+    },
+  );
 }

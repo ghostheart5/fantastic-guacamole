@@ -1082,8 +1082,8 @@ Future<void> _confirmClearLearningLedger(
           content: Text(
             journeyText(
               context,
-              'This permanently removes the feedback history and reverses the preference learning created from it. Tasks, goals, Person Context, and user-authored facts are not changed.',
-              'Esto elimina permanentemente el registro de resultados de decisiones y revierte las preferencias aprendidas. Las tareas, metas, el Contexto Personal y los datos escritos por ti no cambian.',
+              'This permanently removes the feedback history and reverses the preference learning created from it. Tasks, goals, personal information, and user-authored facts are not changed.',
+              'Esto elimina permanentemente el registro de resultados de decisiones y revierte las preferencias aprendidas. Las tareas, metas, la información personal y los datos escritos por ti no cambian.',
             ),
           ),
           actions: <Widget>[

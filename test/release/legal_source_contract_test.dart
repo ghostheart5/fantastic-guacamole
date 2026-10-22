@@ -181,7 +181,7 @@ void main() {
       );
       for (final domain in [
         'goals',
-        'Daily Rhythms',
+        'habits',
         'notes',
         'occurrence history',
         'decision outcomes',
@@ -201,9 +201,14 @@ void main() {
       expect(limits, contains('lost after uninstalling'));
       expect(limits, contains('and confirm'));
       expect(limits, contains('replaces the previous cloud snapshot'));
+      expect(limits, contains('tasks, profile information, and settings'));
+      expect(limits, isNot(contains('Daily Rhythms')));
+      expect(limits, isNot(contains('Person Context')));
       expect(
         limits,
-        contains('Private memories and Person Context are excluded'),
+        contains(
+          'Private memories and personal information shared for guidance are excluded',
+        ),
       );
     },
   );

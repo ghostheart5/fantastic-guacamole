@@ -52,11 +52,11 @@ class CloudBackupActionsState extends ConsumerState<CloudBackupActions> {
               journeyText(
                 context,
                 restore
-                    ? 'This replaces the planning data included in your verified cloud backup on this device. Full backups include tasks, goals, Daily Rhythms, notes, outcome and schedule history, profile and settings. Older backups may only include tasks, profile and settings. Review your local data before continuing.'
-                    : 'Send an encrypted snapshot of tasks, goals, Daily Rhythms, notes, outcome and schedule history, profile and settings to your account. This replaces your previous cloud snapshot with this device’s data. Restore the latest backup first if you are using a replacement device. Private memories and Person Context stay on this device.',
+                    ? 'This replaces the planning data included in your verified cloud backup on this device. Full backups include tasks, goals, habits, notes, outcome and schedule history, profile and settings. Older backups may only include tasks, profile and settings. Review your local data before continuing.'
+                    : 'Send an encrypted snapshot of tasks, goals, habits, notes, outcome and schedule history, profile and settings to your account. This replaces your previous cloud snapshot with this device’s data. Restore the latest backup first if you are using a replacement device. Private memories and personal information shared for guidance stay on this device.',
                 restore
-                    ? 'Esto reemplaza en este dispositivo los datos incluidos en tu copia verificada. Las copias completas incluyen tareas, metas, ritmos diarios, notas, historial de resultados y cronología, perfil y ajustes. Las copias anteriores pueden incluir solo tareas, perfil y ajustes. Revisa los datos locales antes de continuar.'
-                    : 'Envía a tu cuenta una copia cifrada de tareas, metas, ritmos diarios, notas, historial de resultados y cronología, perfil y ajustes. Reemplaza la copia anterior con los datos de este dispositivo. Restaura primero la copia más reciente si usas otro dispositivo. Las memorias privadas y el Contexto Personal permanecen aquí.',
+                    ? 'Esto reemplaza en este dispositivo los datos incluidos en tu copia verificada. Las copias completas incluyen tareas, metas, hábitos, notas, historial de resultados y cronología, perfil y ajustes. Las copias anteriores pueden incluir solo tareas, perfil y ajustes. Revisa los datos locales antes de continuar.'
+                    : 'Envía a tu cuenta una copia cifrada de tareas, metas, hábitos, notas, historial de resultados y cronología, perfil y ajustes. Reemplaza la copia anterior con los datos de este dispositivo. Restaura primero la copia más reciente si usas otro dispositivo. Las memorias privadas y la información personal compartida para orientación permanecen aquí.',
               ),
             ),
             actions: [
