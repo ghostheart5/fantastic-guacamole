@@ -406,7 +406,7 @@ class _MemoryGovernanceSection extends ConsumerWidget {
             title: journeyText(
               context,
               'Saved conversation preferences',
-              'Memoria duradera del Chat SI',
+              'Preferencias de conversación guardadas',
             ),
             subtitle: journeyText(
               context,
@@ -559,8 +559,8 @@ class _AssistantReleaseSection extends ConsumerWidget {
             child: Text(
               journeyText(
                 context,
-                'New assistant behavior is assigned deterministically. Joining beta is optional; leaving removes beta eligibility. Planner, SI, memory, critic, and optional external explanation each have an independent emergency rollback.',
-                'El comportamiento nuevo del asistente se asigna de forma determinista. Unirse a la beta es opcional; salir elimina la elegibilidad. El Planificador, SI, la memoria, el crítico y la explicación externa opcional tienen cada uno una reversión de emergencia independiente.',
+                'New assistant behavior is assigned deterministically. Joining beta is optional; leaving removes beta eligibility. Local planning, SI, memory, critic, and optional external explanation each have an independent emergency rollback.',
+                'El comportamiento nuevo del asistente se asigna de forma determinista. Unirse a la beta es opcional; salir elimina la elegibilidad. La planificación local, SI, la memoria, el crítico y la explicación externa opcional tienen cada uno una reversión de emergencia independiente.',
               ),
               style: const TextStyle(
                 color: Colors.white60,
@@ -607,8 +607,8 @@ class _AssistantReleaseSection extends ConsumerWidget {
           _NeonStatusTile(
             title: journeyText(
               context,
-              'Your Planner cohort',
-              'Tu cohorte del Planificador',
+              'Your local planning rollout group',
+              'Tu grupo de activación de planificación local',
             ),
             subtitle: plannerDecision.when(
               data: (AssistantReleaseDecision decision) =>
@@ -677,8 +677,8 @@ String _assistantCapabilityLabel(
       isSpanish ? 'Crítico de seguridad' : 'Safety critic',
     AssistantReleaseCapability.plannerExplanation =>
       isSpanish
-          ? 'Explicación opcional del Planificador'
-          : 'Optional Planner explanation',
+          ? 'Explicación opcional de planificación'
+          : 'Optional planning explanation',
   };
 }
 

@@ -1195,6 +1195,18 @@ class _Panel extends StatelessWidget {
 
 String _trajectoryGeneratedText(BuildContext context, String value) {
   final String? plain = switch (value) {
+    'Person context was unavailable at scenario construction, so no personal context was inferred.' =>
+      journeyText(
+        context,
+        'Shared personal information was unavailable, so none was inferred for this estimate.',
+        'La información personal compartida no estaba disponible, por lo que no se dedujo para esta estimación.',
+      ),
+    'The no-context capacity and unscheduled values remain available for comparison.' =>
+      journeyText(
+        context,
+        'Capacity and unscheduled-work estimates without shared personal information remain available for comparison.',
+        'Las estimaciones de capacidad y trabajo sin programar calculadas sin información personal compartida siguen disponibles para comparar.',
+      ),
     'Energy is a seeded planning estimate, not a user observation.' =>
       journeyText(
         context,

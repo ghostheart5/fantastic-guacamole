@@ -249,7 +249,8 @@ void main() {
             final copy = match.group(2)!;
             // These are compatibility keys, not labels. Preserve stored data,
             // old incoming navigation names, and exact memory provenance reads.
-            if (copy == 'nexus' ||
+            if (_isInternalPlannerReceiptProvenance(path, line, copy) ||
+                copy == 'nexus' ||
                 copy.startsWith('nexus-') ||
                 (path.endsWith('/si_console_screen.widgets.dart') &&
                     copy == 'si-console-welcome') ||
@@ -286,6 +287,23 @@ void main() {
         }
       }
     }
+    // These are the current editable listing drafts, not historical Console,
+    // graphics/data-safety receipts or wiki pages. This does not publish them.
+    for (final path in <String>[
+      'public-surface/google-play/store-listing-en-US.md',
+      'public-surface/google-play/store-listing-es-419.md',
+    ]) {
+      final content = File(path).readAsStringSync();
+      expect(
+        content,
+        contains('Local copy only; not saved, submitted or published'),
+      );
+      if (_retiredVisibleProductNames.hasMatch(
+        _listingCopyForTerminologyReview(content),
+      )) {
+        violations.add(path);
+      }
+    }
     expect(violations, isEmpty, reason: violations.join('\n'));
   });
 
@@ -297,10 +315,28 @@ void main() {
       'Truth Ledger',
       'Trajectory Engine',
       'Smart Planner',
+      'Planner V2',
+      'Planificador V2',
       'SI Console',
       'Planificador Inteligente',
       'Consola SI',
       'Constructor de Realidad',
+      'Nexus Core',
+      'Future Branches',
+      'Reality Builder',
+      'Now Engine',
+      'Control Center',
+      'Control Centre',
+      'Human Profile',
+      'Capability Matrix',
+      'Núcleo Nexus',
+      'RAMAS FUTURAS',
+      'Registro de Verdad',
+      'Motor del Ahora',
+      'Centro de Control',
+      'Perfil Humano',
+      'Matriz de Capacidades',
+      'Motor de Trayectorias',
     ]) {
       expect(
         _retiredVisibleProductNames.hasMatch(label),
@@ -313,6 +349,11 @@ void main() {
       'ChronoSparkLocalizations',
       'TemporalGlassSurface',
       'trajectoryEngine',
+      'futureBranches',
+      'truthLedger',
+      'humanProfile',
+      'capabilityMatrix',
+      'realityBuilder',
       'SI Chat',
       'predictions',
       'future outcomes',
@@ -325,6 +366,65 @@ void main() {
       );
     }
   });
+
+  test('listing guard excludes only the stable package identifier', () {
+    expect(
+      _retiredVisibleProductNames.hasMatch(
+        _listingCopyForTerminologyReview(
+          'Package com.ghostheart5.chronospark is unchanged.',
+        ),
+      ),
+      isFalse,
+    );
+    for (final copy in [
+      'Package com.ghostheart5.chronospark is unchanged. Nexus',
+      'Package com.other.chronospark is unchanged.',
+      'Future Branches',
+      'RAMAS FUTURAS',
+    ]) {
+      expect(
+        _retiredVisibleProductNames.hasMatch(
+          _listingCopyForTerminologyReview(copy),
+        ),
+        isTrue,
+        reason: copy,
+      );
+    }
+  });
+
+  test(
+    'receipt provenance exception cannot hide displayed Planner V2 copy',
+    () {
+      const path = 'lib/features/home/ui/smart_planner_screen.dart';
+      const provenance = 'Matched operating receipt shown in Planner V2.';
+      expect(
+        _isInternalPlannerReceiptProvenance(
+          path,
+          "detail: '$provenance',",
+          provenance,
+        ),
+        isTrue,
+      );
+      for (final line in [
+        "Text('$provenance')",
+        "label: '$provenance',",
+        "detail: 'Planner V2',",
+      ]) {
+        expect(
+          _isInternalPlannerReceiptProvenance(path, line, provenance),
+          isFalse,
+        );
+      }
+      expect(
+        _isInternalPlannerReceiptProvenance(
+          'lib/features/settings/ui/settings_screen.dart',
+          "detail: '$provenance',",
+          provenance,
+        ),
+        isFalse,
+      );
+    },
+  );
 
   test('legal citation exception cannot hide retired product wording', () {
     const String noticePath =
@@ -391,7 +491,22 @@ bool _isTextSurface(File file) {
 
 // Review rendered strings rather than banning route/type/storage identifiers.
 final RegExp _retiredVisibleProductNames = RegExp(
-  r'\b(?:nexus|chrono\s?spark|(?:human[ -])?decision[ -]os|truth[ -]ledger|trajectory[ -]engine|smart[ -]planner|si[ -]console|planificador inteligente|consola si|motor de trayectoria|constructor de realidad)\b',
+  r'\b(?:nexus(?:[ -]core)?|chrono\s?spark|(?:human[ -])?decision[ -]os|truth[ -]ledger|trajectory[ -]engine|future[ -]branches|reality[ -]builder|now[ -]engine|control[ -]cent(?:er|re)|human[ -]profile|capability[ -]matrix|smart[ -]planner|planner v2|planificador v2|si[ -]console|planificador inteligente|consola si|motor de trayectorias?|constructor de realidad|núcleo nexus|ramas futuras|registro de (?:la )?verdad|motor (?:del? )?ahora|centro de control|perfil humano|matriz de capacidades)\b',
   caseSensitive: false,
 );
 final RegExp _quotedCopy = RegExp(r"""(['"])((?:\\.|(?!\1).)*)\1""");
+
+// Historical shown-event provenance is serialized/exported, not a display
+// label or lookup key. Keep the exception pinned to its exact producer field.
+bool _isInternalPlannerReceiptProvenance(
+  String path,
+  String line,
+  String copy,
+) =>
+    path == 'lib/features/home/ui/smart_planner_screen.dart' &&
+    line.trim() ==
+        "detail: 'Matched operating receipt shown in Planner V2.'," &&
+    copy == 'Matched operating receipt shown in Planner V2.';
+
+String _listingCopyForTerminologyReview(String content) =>
+    content.replaceAll('com.ghostheart5.chronospark', '');
