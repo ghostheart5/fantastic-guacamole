@@ -71,6 +71,9 @@ jobs:
 
       - name: Start disposable Supabase backend
         timeout-minutes: 15
+        env:
+          # Clear setup-cli's single-registry override so CLI pull fallbacks work.
+          SUPABASE_INTERNAL_IMAGE_REGISTRY: ''
         run: supabase start
 
       - name: Set up Flutter for real cloud-client integration
