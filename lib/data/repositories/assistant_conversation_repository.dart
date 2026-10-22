@@ -8,10 +8,7 @@ import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 /// Instances share the account mutation lock with account cleanup. A revision
 /// check prevents an older screen or a paid reply from reviving cleared history.
 class AssistantConversationRepository {
-  AssistantConversationRepository(
-    this._store, {
-    required bool Function() isCurrent,
-  }) : _isCurrent = isCurrent;
+  AssistantConversationRepository(this._store, {required this._isCurrent});
 
   static const storageKey = 'assistant_chat_history_v1';
   static const maxMessages = AssistantConversationHistory.maxMessages;

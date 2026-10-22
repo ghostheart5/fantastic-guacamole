@@ -253,7 +253,7 @@ final ThemeData appLightTheme = ThemeData(
     filled: true,
     fillColor: Colors.white,
     hintStyle: neonTextTheme.bodyLarge?.copyWith(
-      color: const Color(0xFF6A7899),
+      color: const Color(0xFF62708D),
     ),
     labelStyle: neonTextTheme.labelLarge?.copyWith(
       color: const Color(0xFF223A66),
@@ -266,7 +266,7 @@ final ThemeData appLightTheme = ThemeData(
         width: 1.2,
       ),
     ),
-    focusedBorder: OutlineInputBorder(
+    focusedBorder: const OutlineInputBorder(
       borderRadius: inputRadius,
       borderSide: BorderSide(color: _lightFormAccent, width: 1.6),
     ),

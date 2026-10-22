@@ -3,6 +3,9 @@ import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'dart:async';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
@@ -158,6 +161,17 @@ void main() {
     addTearDown(() => _dispose(tester, container));
     await _pumpScreen(tester, container);
     expect(find.text('AI conversation · uses credits'), findsOneWidget);
+    expect(
+      find.text(
+        'Saved on this device for this account. Up to 6 recent messages go with your next AI request.',
+      ),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Choose information to use (optional)'),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Choose information to use (optional)'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -938,10 +952,16 @@ ProviderContainer _container(
 }) {
   return ProviderContainer(
     overrides: [
-      if (allowedAi) ...[
+      secureStoreProvider.overrideWithValue(
+        SecureStore(backend: InMemorySecureStoreBackend()),
+      ),
+      if (conversationAvailable || allowedAi) ...[
         accountStorageScopeProvider.overrideWithValue(
           AccountStorageScope.authenticated('synthetic-route-review'),
         ),
+        authSessionBoundaryProvider.overrideWith(_ReadyChatBoundary.new),
+      ],
+      if (allowedAi) ...[
         personalizationProfileProvider.overrideWith(_AllowedConsent.new),
       ],
       assistantConversationAvailableProvider.overrideWithValue(
@@ -989,6 +1009,16 @@ ProviderContainer _container(
         playbackService ?? _NoopVoiceService(),
       ),
     ],
+  );
+}
+
+class _ReadyChatBoundary extends AuthSessionBoundaryNotifier {
+  @override
+  AuthSessionBoundary build() => const AuthSessionBoundary(
+    generation: 1,
+    userId: 'synthetic-route-review',
+    isTransitioning: false,
+    isStorageReady: true,
   );
 }
 
@@ -1046,6 +1076,27 @@ Future<void> _pumpScreen(
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 200));
+  // SI resolves its optional Chat route asynchronously. Wait for actual local
+  // history hydration, then require a usable field when this fixture consents.
+  if (find.byType(AssistantConversationScreen).evaluate().isNotEmpty) {
+    for (var i = 0; i < 40; i++) {
+      if (find.text('Loading saved chat…').evaluate().isEmpty) break;
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(find.text('Loading saved chat…'), findsNothing);
+    expect(
+      find.textContaining('Saved chat could not be loaded.'),
+      findsNothing,
+    );
+    if (container.read(personalizationProfileProvider).externalAiAllowed) {
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('conversation-input')))
+            .enabled,
+        isTrue,
+      );
+    }
+  }
 }
 
 Future<void> _dispose(WidgetTester tester, ProviderContainer container) async {

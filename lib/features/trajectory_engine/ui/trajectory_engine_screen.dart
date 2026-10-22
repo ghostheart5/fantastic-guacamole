@@ -179,8 +179,11 @@ class _TrajectoryEngineScreenState
                   ),
                   const SizedBox(height: 12),
                   _TrajectoryStateNotice(
-                    status: model.status,
-                    detail: model.statusDetail,
+                    // The updating overlay reports refresh progress. Keep this
+                    // prior-result notice at its original height too, so a
+                    // transient loading message cannot shrink the list extent.
+                    status: displayModel.status,
+                    detail: displayModel.statusDetail,
                     onRetry: () =>
                         ref.read(trajectoryEngineActionsProvider).refresh(),
                     onCreate: () => goToAppView(context, ref, AppView.creator),

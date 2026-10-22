@@ -200,8 +200,8 @@ extension _StoredChat on _AssistantConversationScreenState {
       const SizedBox(height: 12),
       Text(
         copy(
-          'Chat keeps up to 40 recent messages on this device for this account; long messages may be shortened. It is excluded from planning backups and cloud sync. Signing out keeps this account’s saved history on the device; signing back into the same account restores access. Use Clear conversation or clear this account’s local data to delete it. The last 6 messages are included with your next AI request, even when saved planning sources are off.',
-          'Chat conserva hasta 40 mensajes recientes en este dispositivo para esta cuenta; los mensajes largos pueden acortarse. No se incluyen en las copias de planificación ni se sincronizan con la nube. Al cerrar sesión, el historial guardado de esta cuenta permanece en el dispositivo; puedes volver a verlo al iniciar sesión en la misma cuenta. Usa Borrar conversación o limpia los datos locales de esta cuenta para eliminarlo. Los últimos 6 mensajes se incluyen en tu próxima solicitud de IA, incluso con las fuentes de planificación desactivadas.',
+          'Saved on this device for this account. Up to 6 recent messages go with your next AI request.',
+          'Guardado en este dispositivo para esta cuenta. Tu próxima solicitud de IA incluye hasta 6 mensajes recientes.',
         ),
       ),
       Text(
@@ -260,20 +260,41 @@ extension _StoredChat on _AssistantConversationScreenState {
             'No se pudo borrar la conversación. Es posible que el historial siga guardado. Vuelve a intentar Borrar conversación.',
           ),
         ),
-      Wrap(
-        spacing: 8,
-        children: [
-          TextButton(
-            key: const Key('conversation-copy-history'),
-            onPressed: _busy || _historyLoading || _history.isEmpty
-                ? null
-                : _copyChat,
-            child: Text(copy('Copy conversation', 'Copiar conversación')),
+      ExpansionTile(
+        key: const Key('conversation-history-privacy'),
+        title: Text(
+          copy('Chat history & privacy', 'Historial de Chat y privacidad'),
+        ),
+        subtitle: Text(
+          copy(
+            'Up to 40 messages · copy or clear',
+            'Hasta 40 mensajes · copiar o borrar',
           ),
-          TextButton(
-            key: const Key('conversation-clear-history'),
-            onPressed: _busy || _historyLoading ? null : _clearChat,
-            child: Text(copy('Clear conversation', 'Borrar conversación')),
+        ),
+        childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+        children: [
+          Text(
+            copy(
+              'Chat keeps up to 40 recent messages on this device for this account; long messages may be shortened. It is excluded from planning backups and cloud sync. Signing out keeps this account’s saved history on the device; signing back into the same account restores access. Use Clear conversation or clear this account’s local data to delete it. The last 6 messages are included with your next AI request, even when saved planning sources are off. Copy conversation puts the visible text on your clipboard; you choose where to paste it.',
+              'Chat conserva hasta 40 mensajes recientes en este dispositivo para esta cuenta; los mensajes largos pueden acortarse. No se incluyen en las copias de planificación ni se sincronizan con la nube. Al cerrar sesión, el historial guardado de esta cuenta permanece en el dispositivo; puedes volver a verlo al iniciar sesión en la misma cuenta. Usa Borrar conversación o limpia los datos locales de esta cuenta para eliminarlo. Los últimos 6 mensajes se incluyen en tu próxima solicitud de IA, incluso con las fuentes de planificación desactivadas. Copiar conversación pone el texto visible en el portapapeles; tú eliges dónde pegarlo.',
+            ),
+          ),
+          Wrap(
+            spacing: 8,
+            children: [
+              TextButton(
+                key: const Key('conversation-copy-history'),
+                onPressed: _busy || _historyLoading || _history.isEmpty
+                    ? null
+                    : _copyChat,
+                child: Text(copy('Copy conversation', 'Copiar conversación')),
+              ),
+              TextButton(
+                key: const Key('conversation-clear-history'),
+                onPressed: _busy || _historyLoading ? null : _clearChat,
+                child: Text(copy('Clear conversation', 'Borrar conversación')),
+              ),
+            ],
           ),
         ],
       ),

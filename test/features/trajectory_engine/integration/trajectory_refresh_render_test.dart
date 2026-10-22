@@ -201,11 +201,6 @@ void main() {
     (tester) async {
       final container = await _open(tester);
       await _chooseDelay(tester);
-      final offset = tester
-          .state<ScrollableState>(find.byType(Scrollable).first)
-          .position
-          .pixels;
-      expect(offset, greaterThan(0));
       expect(find.text('Declared delay: 1 day'), findsOneWidget);
 
       final compare = find.widgetWithText(FilledButton, 'Compare 7-day path');
@@ -216,8 +211,22 @@ void main() {
         Focus.of(tester.element(find.text('Compare 7-day path'))).hasFocus,
         isTrue,
       );
+      // Focus is a separate interaction and may reveal its target. Measure
+      // the settled viewport immediately before the evidence refresh itself.
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      final offset = position.pixels;
+      final extent = position.maxScrollExtent;
+      final compareY = tester.getTopLeft(find.text('Compare 7-day path')).dy;
+      expect(offset, greaterThan(0));
       container.read(_model.notifier).show(TrajectoryEngineStatus.loading);
       await tester.pump();
+      expect(position.maxScrollExtent, closeTo(extent, 1));
+      expect(
+        tester.getTopLeft(find.text('Compare 7-day path')).dy,
+        closeTo(compareY, 1),
+      );
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       oldCompare(); // A callback obtained before refresh must also fail closed.
       expect(container.read(trajectoryCustomScenarioProvider), isNull);
@@ -306,7 +315,14 @@ void main() {
       await tester.drag(find.byType(ListView), const Offset(0, 20000));
       await tester.pump();
       expect(
-        tester.widget<IconButton>(find.byTooltip('Update estimate')).onPressed,
+        tester
+            .widget<IconButton>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is IconButton && widget.tooltip == 'Update estimate',
+              ),
+            )
+            .onPressed,
         isNull,
       );
       await tester.tap(find.byTooltip('Back'));

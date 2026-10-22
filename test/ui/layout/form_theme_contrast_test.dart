@@ -29,7 +29,11 @@ void main() {
                 body: Column(
                   children: [
                     const TextField(
-                      decoration: InputDecoration(labelText: 'Name'),
+                      decoration: InputDecoration(
+                        labelText: 'Name',
+                        hintText: 'Your name',
+                        floatingLabelBehavior: FloatingLabelBehavior.always,
+                      ),
                     ),
                     TextButton(onPressed: () {}, child: const Text('Cancel')),
                     FilledButton(onPressed: () {}, child: const Text('Save')),
@@ -52,6 +56,13 @@ void main() {
           AppColors.background,
         );
         expect(_contrast(input.style.color!, fill), greaterThanOrEqualTo(4.5));
+        final hint = tester.renderObject<RenderParagraph>(
+          find.text('Your name'),
+        );
+        expect(
+          _contrast(hint.text.style!.color!, fill),
+          greaterThanOrEqualTo(4.5),
+        );
 
         for (final entry in [
           ('Cancel', theme.textButtonTheme.style),

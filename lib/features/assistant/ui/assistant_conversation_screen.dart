@@ -34,6 +34,31 @@ part 'assistant_conversation_screen.history.dart';
 /// intentional user choice, never an invisible fallback for a failed request.
 enum _LocalRouteChoice { freeTools, aiPrice }
 
+/// The artwork stays dark in both form modes. Only body text/list chrome gets
+/// contrast colors here; fields and dropdown menus keep the selected app theme.
+class _ConversationBody extends StatelessWidget {
+  const _ConversationBody({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DefaultTextStyle.merge(
+    style: const TextStyle(color: Colors.white),
+    child: ListTileTheme.merge(
+      textColor: Colors.white,
+      iconColor: Colors.white70,
+      child: ExpansionTileTheme(
+        data: Theme.of(context).expansionTileTheme.copyWith(
+          textColor: Colors.white,
+          collapsedTextColor: Colors.white,
+          iconColor: Colors.white70,
+          collapsedIconColor: Colors.white70,
+        ),
+        child: SafeArea(child: child),
+      ),
+    ),
+  );
+}
+
 class AssistantConversationScreen extends ConsumerStatefulWidget {
   const AssistantConversationScreen({
     super.key,
@@ -855,6 +880,8 @@ class _AssistantConversationScreenState
       }
     });
     final planner = widget.surface == ConversationSurface.planner;
+    final selectedTheme = Theme.of(context);
+    final lightForms = selectedTheme.brightness == Brightness.light;
     final tasks = planner
         ? ref.watch(siV2EvidenceSnapshotProvider).asData?.value.tasks
         : null;
@@ -894,7 +921,7 @@ class _AssistantConversationScreenState
           ),
         ],
       ),
-      body: SafeArea(
+      body: _ConversationBody(
         child: Column(
           children: [
             Expanded(
@@ -1156,6 +1183,9 @@ class _AssistantConversationScreenState
                           enabled: enabled,
                           maxLength: 120,
                           decoration: InputDecoration(
+                            counterStyle: const TextStyle(
+                              color: Colors.white70,
+                            ),
                             labelText: copy(
                               'Filter saved titles',
                               'Filtrar títulos guardados',
@@ -1168,6 +1198,9 @@ class _AssistantConversationScreenState
                           enabled: enabled,
                           maxLength: 500,
                           decoration: InputDecoration(
+                            counterStyle: const TextStyle(
+                              color: Colors.white70,
+                            ),
                             labelText: copy(
                               'Scenario to explore',
                               'Escenario que quieres explorar',
@@ -1178,36 +1211,54 @@ class _AssistantConversationScreenState
                     ),
                   ..._history.map(
                     (turn) => Card(
-                      color: turn['role'] == 'user'
+                      color: lightForms
+                          ? (turn['role'] == 'user'
+                                ? selectedTheme
+                                      .colorScheme
+                                      .surfaceContainerHighest
+                                : selectedTheme.colorScheme.surface)
+                          : turn['role'] == 'user'
                           ? const Color(0xFF162C40)
                           : const Color(0xFF101E2C),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              turn['role'] == 'user'
-                                  ? copy('You', 'Tú')
-                                  : copy('AI response', 'Respuesta de IA'),
-                              style: const TextStyle(color: Colors.cyanAccent),
-                            ),
-                            const SizedBox(height: 8),
-                            if (turn['role'] == 'assistant')
-                              AssistantResponseBody(text: turn['content']!)
-                            else
-                              SelectableText(turn['content']!),
-                            if (turn['role'] == 'assistant')
-                              TextButton.icon(
-                                onPressed: _busy
-                                    ? null
-                                    : () => _report(turn['content']!),
-                                icon: const Icon(Icons.flag_outlined),
-                                label: Text(
-                                  copy('Report response', 'Reportar respuesta'),
+                        child: DefaultTextStyle.merge(
+                          style: TextStyle(
+                            color: selectedTheme.colorScheme.onSurface,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                turn['role'] == 'user'
+                                    ? copy('You', 'Tú')
+                                    : copy('AI response', 'Respuesta de IA'),
+                                style: TextStyle(
+                                  color: lightForms
+                                      ? selectedTheme.colorScheme.primary
+                                      : Colors.cyanAccent,
                                 ),
                               ),
-                          ],
+                              const SizedBox(height: 8),
+                              if (turn['role'] == 'assistant')
+                                AssistantResponseBody(text: turn['content']!)
+                              else
+                                SelectableText(turn['content']!),
+                              if (turn['role'] == 'assistant')
+                                TextButton.icon(
+                                  onPressed: _busy
+                                      ? null
+                                      : () => _report(turn['content']!),
+                                  icon: const Icon(Icons.flag_outlined),
+                                  label: Text(
+                                    copy(
+                                      'Report response',
+                                      'Reportar respuesta',
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -1319,6 +1370,7 @@ class _AssistantConversationScreenState
                       maxLines: 5,
                       maxLength: 4000,
                       decoration: InputDecoration(
+                        counterStyle: const TextStyle(color: Colors.white70),
                         labelText: copy(
                           'Your question or follow-up',
                           'Tu pregunta o continuación',
@@ -1330,6 +1382,8 @@ class _AssistantConversationScreenState
                   const SizedBox(width: 8),
                   if (ref.watch(voiceInputEnabledProvider)) ...[
                     IconButton(
+                      color: Colors.cyanAccent,
+                      disabledColor: Colors.white38,
                       tooltip: copy(
                         listening ? 'Stop voice input' : 'Start voice input',
                         listening
@@ -1377,6 +1431,8 @@ class _AssistantConversationScreenState
                     const SizedBox(width: 4),
                   ],
                   IconButton(
+                    color: Colors.cyanAccent,
+                    disabledColor: Colors.white38,
                     tooltip: copy('Send to AI', 'Enviar a IA'),
                     onPressed: enabled && !listening ? () => _send() : null,
                     icon: const Icon(Icons.send_rounded),

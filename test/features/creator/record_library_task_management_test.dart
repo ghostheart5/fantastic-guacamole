@@ -30,7 +30,10 @@ import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/theme/app_theme.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,6 +42,146 @@ import 'package:hive/hive.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final light in [false, true]) {
+    testWidgets(
+      'My plan dark artwork stays readable with ${light ? 'Light' : 'Dark'} forms',
+      (tester) async {
+        final h = _Harness();
+        await h.pump(
+          tester,
+          asPlan: true,
+          theme: light ? appLightTheme : appTheme,
+        );
+        final before = h.snapshot();
+        for (final label in ['Goals', 'Habits', 'Schedule']) {
+          _expectButtonContrast(tester, find.text(label));
+        }
+        const page = Color(0xFF030812);
+        expect(
+          tester.widget<Scaffold>(find.byType(Scaffold).first).backgroundColor,
+          page,
+        );
+        expect(
+          _contrast(_paintedText(tester, find.text('My plan')), page),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(
+          _contrast(
+            _paintedText(
+              tester,
+              find.text(
+                'Your tasks, including those without a date. Open one to edit it.',
+              ),
+            ),
+            page,
+          ),
+          greaterThanOrEqualTo(4.5),
+        );
+        final row = find.byKey(const ValueKey('library-task-a'));
+        for (final label in ['First task', 'Active']) {
+          final text = find.descendant(of: row, matching: find.text(label));
+          // Glass blends these dark gradient endpoints over the fixed page.
+          for (final background in [
+            page,
+            AppColors.bgSecondary,
+            AppColors.background,
+          ]) {
+            expect(
+              _contrast(_paintedText(tester, text), background),
+              greaterThanOrEqualTo(4.5),
+            );
+          }
+        }
+        final segmented = tester.widget<SegmentedButton<dynamic>>(
+          find.byWidgetPredicate(
+            (widget) => widget is SegmentedButton<dynamic>,
+          ),
+        );
+        for (final label in ['Tasks', 'Completed', 'Notes']) {
+          final states = <WidgetState>{
+            if (label == 'Tasks') WidgetState.selected,
+          };
+          final background = segmented.style!.backgroundColor!.resolve(states)!;
+          expect(
+            _contrast(_paintedText(tester, find.text(label)), background),
+            greaterThanOrEqualTo(4.5),
+          );
+        }
+        final search = find.byKey(const Key('record-library-search'));
+        expect(
+          Theme.of(tester.element(search)).brightness,
+          light ? Brightness.light : Brightness.dark,
+        );
+        await tester.enterText(search, 'First');
+        await tester.pumpAndSettle();
+        final editable = tester.widget<EditableText>(
+          find.descendant(of: search, matching: find.byType(EditableText)),
+        );
+        final input = tester.widget<InputDecorator>(
+          find.descendant(of: search, matching: find.byType(InputDecorator)),
+        );
+        expect(
+          _contrast(editable.style.color!, input.decoration.fillColor!),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(find.text('First task'), findsOneWidget);
+        expect(find.text('Second task'), findsNothing);
+        // Popup menus keep the chosen form theme instead of inheriting a dark
+        // theme or white text painted for the surrounding artwork.
+        await tester.tap(find.byTooltip('More options'));
+        await tester.pumpAndSettle();
+        final menuText = find.text('Edit');
+        expect(
+          Theme.of(tester.element(menuText)).brightness,
+          light ? Brightness.light : Brightness.dark,
+        );
+        final material = tester
+            .element(menuText)
+            .findAncestorWidgetOfExactType<Material>()!;
+        expect(
+          _contrast(_paintedText(tester, menuText), material.color!),
+          greaterThanOrEqualTo(4.5),
+        );
+        await tester.tapAt(const Offset(5, 5));
+        await tester.pumpAndSettle();
+        await tester.enterText(search, 'No such QA record');
+        await tester.pumpAndSettle();
+        expect(
+          _contrast(
+            _paintedText(tester, find.text('No matching records.')),
+            page,
+          ),
+          greaterThanOrEqualTo(4.5),
+        );
+        await tester.tap(find.byTooltip('All saved items'));
+        await tester.pumpAndSettle();
+        for (final action in ['edit', 'complete', 'skip', 'delete']) {
+          final button = find.byKey(ValueKey('library-task-a-$action'));
+          final label = find.descendant(
+            of: button,
+            matching: find.byType(Text),
+          );
+          _expectButtonContrast(tester, label);
+        }
+        h.repo.failReads = true;
+        await tester.enterText(
+          find.byKey(const Key('record-library-search')),
+          'Retry query',
+        );
+        await tester.pumpAndSettle();
+        _expectButtonContrast(tester, find.text('Retry'));
+        expect(
+          Theme.of(
+            tester.element(find.byKey(const Key('record-library-search'))),
+          ).brightness,
+          light ? Brightness.light : Brightness.dark,
+        );
+        expect(h.snapshot(), before);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets(
     'unscheduled Library task is tappable and has lifecycle controls',
@@ -487,7 +630,11 @@ class _Harness {
   late final ProviderContainer container;
   List<Map<String, dynamic>> snapshot() =>
       repo.records.values.map((task) => task.toJson()).toList();
-  Future<void> pump(WidgetTester tester, {bool asPlan = false}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    bool asPlan = false,
+    ThemeData? theme,
+  }) async {
     addTearDown(container.dispose);
     tester.view.physicalSize = const Size(1000, 1800);
     tester.view.devicePixelRatio = 1;
@@ -496,6 +643,7 @@ class _Harness {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
+          theme: theme,
           localizationsDelegates: const [
             ChronoSparkLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
@@ -541,8 +689,13 @@ class _Repo implements ITaskRepository {
   final records = <String, TaskEntity>{};
   Completer<TaskEntity?>? lookupGate;
   int lookups = 0;
+  bool failReads = false;
   @override
-  Future<List<TaskEntity>> getAllTasks() async => records.values.toList();
+  Future<List<TaskEntity>> getAllTasks() async {
+    if (failReads) throw StateError('Read failure for contrast fixture');
+    return records.values.toList();
+  }
+
   @override
   Future<TaskEntity?> getTaskById(String id) async {
     lookups++;
@@ -657,4 +810,27 @@ class _DirectHiveStore implements HiveStore {
   Future<void> closeBox(String key) async {
     if (Hive.isBoxOpen(key)) await Hive.box<String>(key).close();
   }
+}
+
+Color _paintedText(WidgetTester tester, Finder text) {
+  final rich = find.descendant(of: text, matching: find.byType(RichText)).first;
+  return tester.renderObject<RenderParagraph>(rich).text.style!.color!;
+}
+
+double _contrast(Color foreground, Color background) {
+  final painted = Color.alphaBlend(foreground, background).computeLuminance();
+  final base = background.computeLuminance();
+  return painted >= base
+      ? (painted + .05) / (base + .05)
+      : (base + .05) / (painted + .05);
+}
+
+void _expectButtonContrast(WidgetTester tester, Finder label) {
+  final material = tester
+      .element(label)
+      .findAncestorWidgetOfExactType<Material>()!;
+  expect(
+    _contrast(_paintedText(tester, label), material.color!),
+    greaterThanOrEqualTo(4.5),
+  );
 }

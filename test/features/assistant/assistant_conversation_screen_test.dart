@@ -34,6 +34,7 @@ import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/system/voice/speech_recognition_service.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
+import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -103,6 +104,11 @@ ProviderContainer setup(
     if (paidWaitTimeout != null)
       conversationPaidWaitTimeoutProvider.overrideWithValue(paidWaitTimeout),
     siV2ReadGatewayProvider.overrideWithValue(readGateway ?? gateway),
+    // Retained local-SI voice tests exercise capture lifecycle, not the real
+    // Person Context secure-preference loader and its account mutation queue.
+    siV2PersonContextRevisionProvider.overrideWithValue(
+      'fixture-context-revision',
+    ),
     siV2EvidenceSnapshotProvider.overrideWith(
       (ref) => (readGateway ?? gateway).read(observedAt: DateTime.now()),
     ),
@@ -154,8 +160,278 @@ ProviderContainer setup(
   ],
 );
 
+/// Hydration is asynchronous, especially when SI resolves its Chat route on a
+/// later frame. A settled animation is not evidence that the form is usable.
+Future<void> waitForChatReady(WidgetTester tester) async {
+  final input = find.byKey(const Key('conversation-input'));
+  for (var i = 0; i < 40; i++) {
+    if (input.evaluate().length == 1 &&
+        tester.widget<TextField>(input).enabled == true) {
+      return;
+    }
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+  expect(input, findsOneWidget);
+  expect(
+    tester.widget<TextField>(input).enabled,
+    isTrue,
+    reason: 'Chat must finish loading before typing or dictating.',
+  );
+}
+
+Future<void> enterChatText(WidgetTester tester, String text) async {
+  await waitForChatReady(tester);
+  await tester.enterText(find.byKey(const Key('conversation-input')), text);
+  expect(
+    tester
+        .widget<TextField>(find.byKey(const Key('conversation-input')))
+        .controller!
+        .text,
+    text,
+  );
+}
+
+Future<void> pumpConversationScreen(
+  WidgetTester tester,
+  ProviderContainer container, {
+  ThemeData? theme,
+}) async {
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        theme: theme,
+        home: AssistantConversationScreen(
+          surface: ConversationSurface.si,
+          onLocalTools: () {},
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await waitForChatReady(tester);
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets(
+    'blocked history hydration disables real input send and voice until restored',
+    (tester) async {
+      final backend = _GatedChatReadBackend();
+      final voice = _ConversationVoiceController();
+      var calls = 0;
+      final container = setup(
+        (_) async {
+          calls++;
+          throw StateError('Hydration must never request AI');
+        },
+        historyBackend: backend,
+        voiceController: voice,
+      );
+      addTearDown(() async {
+        if (!backend.release.isCompleted) backend.release.complete();
+        await tester.pump();
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(backend.entered, isTrue);
+      final input = find.byKey(const Key('conversation-input'));
+      expect(tester.widget<TextField>(input).enabled, isFalse);
+      IconButton button(String tooltip) => tester.widget<IconButton>(
+        find.byWidgetPredicate(
+          (widget) => widget is IconButton && widget.tooltip == tooltip,
+        ),
+      );
+      expect(button('Send to AI').onPressed, isNull);
+      expect(button('Start voice input').onPressed, isNull);
+      expect(find.text('Loading saved chat…'), findsOneWidget);
+      await tester.tap(
+        find.byWidgetPredicate(
+          (widget) => widget is IconButton && widget.tooltip == 'Send to AI',
+        ),
+      );
+      await tester.tap(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is IconButton && widget.tooltip == 'Start voice input',
+        ),
+      );
+      expect(calls, 0);
+      expect(voice.starts, 0);
+      backend.release.complete();
+      await waitForChatReady(tester);
+      expect(button('Send to AI').onPressed, isNotNull);
+      expect(button('Start voice input').onPressed, isNotNull);
+      await enterChatText(
+        tester,
+        'This draft is entered only after restoration.',
+      );
+      expect(
+        tester.widget<TextField>(input).controller!.text,
+        'This draft is entered only after restoration.',
+      );
+      expect(find.text('Loading saved chat…'), findsNothing);
+      expect(calls, 0);
+      expect(voice.starts, 0);
+    },
+  );
+
+  for (final selectedTheme in [appLightTheme, appTheme]) {
+    testWidgets(
+      '${selectedTheme.brightness.name} Chat keeps body and bubbles readable without changing form mode',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(600, 1600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        var requests = 0;
+        final container = setup((_) async {
+          requests++;
+          throw StateError('Rendering must not send AI');
+        });
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await container
+            .read(assistantConversationHistoryRepositoryProvider)!
+            .save(
+              expectedRevision: 0,
+              messages: [
+                {'role': 'user', 'content': 'A calm break, please.'},
+                {
+                  'role': 'assistant',
+                  'content': 'A short pause can help you regroup.',
+                },
+              ],
+              sources: {},
+            );
+        await pumpConversationScreen(tester, container, theme: selectedTheme);
+        Color paintedText(Finder finder) {
+          final rich = find
+              .descendant(of: finder, matching: find.byType(RichText))
+              .first;
+          final paragraph = tester.renderObject<RenderParagraph>(rich);
+          final color = paragraph.text.style?.color;
+          expect(
+            color,
+            isNotNull,
+            reason: 'Check the rendered text style, not only its theme.',
+          );
+          return color!;
+        }
+
+        double contrast(Color foreground, Color background) {
+          final first = Color.alphaBlend(
+            foreground,
+            background,
+          ).computeLuminance();
+          final second = background.computeLuminance();
+          return first > second
+              ? (first + .05) / (second + .05)
+              : (second + .05) / (first + .05);
+        }
+
+        final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+        expect(scaffold.backgroundColor, const Color(0xFF07111C));
+        for (final text in [
+          find.textContaining('Say what is on your mind'),
+          find.text(
+            'Saved on this device for this account. Up to 6 recent messages go with your next AI request.',
+          ),
+          find.text('Saved planning sources: off.'),
+          find.text('Chat history & privacy'),
+        ]) {
+          expect(
+            contrast(paintedText(text), scaffold.backgroundColor!),
+            greaterThanOrEqualTo(4.5),
+          );
+        }
+        expect(
+          find.byKey(const Key('conversation-copy-history')),
+          findsNothing,
+        );
+        final answer = find.text('A short pause can help you regroup.');
+        final bubble = tester.widget<Card>(
+          find.ancestor(of: answer, matching: find.byType(Card)).first,
+        );
+        expect(
+          contrast(paintedText(answer), bubble.color!),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(
+          bubble.color,
+          selectedTheme.brightness == Brightness.light
+              ? selectedTheme.colorScheme.surface
+              : const Color(0xFF101E2C),
+        );
+        final userMessage = find.widgetWithText(
+          SelectableText,
+          'A calm break, please.',
+        );
+        final userBubble = tester.widget<Card>(
+          find.ancestor(of: userMessage, matching: find.byType(Card)).first,
+        );
+        final userText = tester.widget<EditableText>(
+          find.descendant(of: userMessage, matching: find.byType(EditableText)),
+        );
+        expect(
+          contrast(userText.style.color!, userBubble.color!),
+          greaterThanOrEqualTo(4.5),
+        );
+        final input = find.byKey(const Key('conversation-input'));
+        final formTheme = Theme.of(tester.element(input));
+        expect(formTheme.brightness, selectedTheme.brightness);
+        expect(
+          formTheme.inputDecorationTheme.fillColor,
+          selectedTheme.inputDecorationTheme.fillColor,
+        );
+        final editable = tester.widget<EditableText>(
+          find.descendant(of: input, matching: find.byType(EditableText)),
+        );
+        expect(
+          contrast(
+            editable.style.color!,
+            formTheme.inputDecorationTheme.fillColor!,
+          ),
+          greaterThanOrEqualTo(4.5),
+        );
+        final options = find.byKey(const Key('conversation-advanced'));
+        await tester.ensureVisible(options);
+        await tester.tap(options);
+        await tester.pump(const Duration(milliseconds: 300));
+        final dropdown = find.byType(DropdownButtonFormField<SIV2Intent>);
+        await tester.ensureVisible(dropdown);
+        await tester.tap(dropdown);
+        await tester.pump(const Duration(milliseconds: 300));
+        final explain = find.text('Explain').last;
+        final popupTheme = Theme.of(tester.element(explain));
+        expect(popupTheme.brightness, selectedTheme.brightness);
+        final popup = tester.widget<Material>(
+          find.ancestor(of: explain, matching: find.byType(Material)).first,
+        );
+        expect(
+          contrast(paintedText(explain), popup.color ?? popupTheme.canvasColor),
+          greaterThanOrEqualTo(4.5),
+        );
+        await tester.tap(explain);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(requests, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets(
     'saved Chat survives route and container restart without auto sending, and explicitly clears',
@@ -182,25 +458,27 @@ void main() {
             sources: {},
           );
       Future<void> show(ProviderContainer container) async {
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: MaterialApp(
-              home: AssistantConversationScreen(
-                surface: ConversationSurface.si,
-                onLocalTools: () {},
-              ),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
+        await pumpConversationScreen(tester, container);
       }
 
       await show(first);
       expect(find.textContaining('Try a short pause'), findsOneWidget);
       expect(
-        find.textContaining('The last 6 messages are included'),
+        find.text(
+          'Saved on this device for this account. Up to 6 recent messages go with your next AI request.',
+        ),
         findsOneWidget,
+      );
+      final privacy = find.byKey(const Key('conversation-history-privacy'));
+      expect(tester.widget<ExpansionTile>(privacy).initiallyExpanded, isFalse);
+      expect(find.text('Chat history & privacy'), findsOneWidget);
+      expect(find.text('Up to 40 messages · copy or clear'), findsOneWidget);
+      expect(find.text('Saved planning sources: off.'), findsOneWidget);
+      expect(find.byKey(const Key('conversation-copy-history')), findsNothing);
+      expect(find.byKey(const Key('conversation-clear-history')), findsNothing);
+      expect(
+        find.textContaining('Signing out keeps this account'),
+        findsNothing,
       );
       expect(transportCalls, 0);
       // A new route state, then a new provider container, model route reentry and
@@ -266,6 +544,13 @@ void main() {
         ),
       );
       expect(copied, isEmpty);
+      await tester.ensureVisible(privacy);
+      await tester.tap(privacy);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.textContaining('Signing out keeps this account'),
+        findsOneWidget,
+      );
       await tester.ensureVisible(
         find.byKey(const Key('conversation-copy-history')),
       );
@@ -361,10 +646,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         backend.failWrites = !conflictingClear;
-        await tester.enterText(
-          find.byKey(const Key('conversation-input')),
-          'Suggest a quiet break after work.',
-        );
+        await enterChatText(tester, 'Suggest a quiet break after work.');
         await tester.tap(find.byTooltip('Send to AI'));
         for (
           var i = 0;
@@ -391,6 +673,14 @@ void main() {
         expect(find.textContaining('Try a brief quiet pause'), findsOneWidget);
         expect(quoteCalls, 1);
         expect(paidCalls, 1);
+        expect(
+          find.byKey(const Key('conversation-copy-history')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('conversation-clear-history')),
+          findsNothing,
+        );
         if (conflictingClear) {
           expect(find.text('Retry saving chat'), findsNothing);
           expect(
@@ -562,14 +852,24 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(
-          find.text(
-            planner
-                ? 'How much energy do you have? (optional)'
-                : 'Choose information to use (optional)',
-          ),
+        if (!planner) {
+          await waitForChatReady(tester);
+        }
+        final advanced = find.text(
+          planner
+              ? 'How much energy do you have? (optional)'
+              : 'Choose information to use (optional)',
         );
+        await tester.scrollUntilVisible(
+          advanced,
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(advanced);
         await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.text(planner ? 'Energy (optional)' : 'What kind of help?'),
+        );
         final label = tester.renderObject<RenderBox>(
           find.text(planner ? 'Energy (optional)' : 'What kind of help?'),
         );
@@ -939,6 +1239,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await waitForChatReady(tester);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('conversation-advanced')),
+        180,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(find.byKey(const Key('conversation-advanced')));
       await tester.pumpAndSettle();
       final chatOnly = find.text('Use just this chat');
@@ -957,7 +1263,7 @@ void main() {
 
       final input = find.byKey(const Key('conversation-input'));
       await tester.ensureVisible(input);
-      await tester.enterText(input, '/tasks explain a fictional example');
+      await enterChatText(tester, '/tasks explain a fictional example');
       final send = find.byTooltip('Send to AI');
       await tester.ensureVisible(send);
       await tester.tap(send);
@@ -1055,6 +1361,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await waitForChatReady(tester);
     await tester.tap(find.byTooltip('Iniciar entrada de voz'));
     await tester.pumpAndSettle();
     final agree = find.text('Aceptar y dictar');
@@ -1096,10 +1403,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('conversation-input')),
-      'What are my tasks?',
-    );
+    await enterChatText(tester, 'What are my tasks?');
     await tester.tap(find.byTooltip('Send to AI'));
     await waitFor(tester, find.text('Use free tools'));
     expect(transportCalls, 0);
@@ -1147,10 +1451,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('conversation-input')),
-      '¿Cuáles son mis tareas?',
-    );
+    await enterChatText(tester, '¿Cuáles son mis tareas?');
     await tester.tap(find.byTooltip('Enviar a IA'));
     await waitFor(tester, find.text('Usar herramientas gratis'));
     expect(transportCalls, 0);
@@ -1187,10 +1488,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('conversation-input')),
-      'What are my tasks?',
-    );
+    await enterChatText(tester, 'What are my tasks?');
     await tester.tap(find.byTooltip('Send to AI'));
     await waitFor(tester, find.text('Review AI price'));
     await tester.tap(find.text('Review AI price'));
@@ -1257,10 +1555,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.enterText(
-          find.byKey(const Key('conversation-input')),
-          'Keep this question for a safe retry.',
-        );
+        await enterChatText(tester, 'Keep this question for a safe retry.');
         await tester.tap(find.byTooltip('Send to AI'));
         await waitFor(tester, find.text('Get credit price'));
         await tester.tap(find.text('Get credit price'));
@@ -1357,10 +1652,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const Key('conversation-input')),
-        'Keep this question for a fresh request.',
-      );
+      await enterChatText(tester, 'Keep this question for a fresh request.');
       await tester.tap(find.byTooltip('Send to AI'));
       await waitFor(tester, find.text('Get credit price'));
       await tester.tap(find.text('Get credit price'));
@@ -1433,10 +1725,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: 'initial Spanish layout');
-      await tester.enterText(
-        find.byKey(const Key('conversation-input')),
-        'Conserva esta pregunta para reintentar.',
-      );
+      await enterChatText(tester, 'Conserva esta pregunta para reintentar.');
       await tester.tap(find.byTooltip('Enviar a IA'));
       await waitFor(tester, find.text('Consultar precio'));
       expect(tester.takeException(), isNull, reason: 'disclosure dialog');
@@ -1502,10 +1791,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const Key('conversation-input')),
-        'Conserva esta pregunta.',
-      );
+      await enterChatText(tester, 'Conserva esta pregunta.');
       await tester.tap(find.byTooltip('Enviar a IA'));
       await waitFor(tester, find.text('Consultar precio'));
       await tester.tap(find.text('Consultar precio'));
@@ -1665,10 +1951,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.enterText(
-          find.byKey(const Key('conversation-input')),
-          'Groceries',
-        );
+        await enterChatText(tester, 'Groceries');
         await tester.tap(find.byTooltip('Start voice input'));
         await tester.pumpAndSettle();
         expect(
@@ -1774,10 +2057,7 @@ void main() {
             isTrue,
           );
         }
-        await tester.enterText(
-          find.byKey(const Key('conversation-input')),
-          'What time should I go to the store?',
-        );
+        await enterChatText(tester, 'What time should I go to the store?');
         await tester.tap(find.byTooltip('Send to AI'));
         await waitFor(tester, find.text('Get credit price'));
         expect(
@@ -1807,8 +2087,8 @@ void main() {
         expect(find.text('Send report'), findsOneWidget);
         await tester.tap(find.text('Cancel'));
         await tester.pumpAndSettle();
-        await tester.enterText(
-          find.byKey(const Key('conversation-input')),
+        await enterChatText(
+          tester,
           'Between 5 pm and 7 pm. The trip takes 45 minutes.',
         );
         await tester.tap(find.byTooltip('Send to AI'));
@@ -1910,6 +2190,9 @@ void main() {
                   : 'conversation-input',
             ),
           );
+          if (retainedView != 'local SI console') {
+            await waitForChatReady(tester);
+          }
           await tester.enterText(input, 'Keep my draft');
           final mic = retainedView == 'local SI console'
               ? find.bySemanticsLabel('Start voice input')
@@ -1984,6 +2267,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(voice.lifecycleRevision, isNot(revision));
 
+      await waitForChatReady(tester);
       await tester.tap(find.byTooltip('Start voice input'));
       await tester.pumpAndSettle();
       final agree = find.text('Agree and dictate');
@@ -2045,10 +2329,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('conversation-input')),
-      'Compare the grocery timing.',
-    );
+    await enterChatText(tester, 'Compare the grocery timing.');
     await tester.tap(find.byTooltip('Send to AI'));
     await waitFor(tester, find.text('Get credit price'));
     await tester.tap(find.text('Get credit price'));
@@ -2109,10 +2390,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const Key('conversation-input')),
-        'Compare my two options.',
-      );
+      await enterChatText(tester, 'Compare my two options.');
       await tester.tap(find.byTooltip('Send to AI'));
       await waitFor(tester, find.text('Get credit price'));
       await tester.tap(find.text('Get credit price'));
@@ -2175,8 +2453,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const Key('conversation-input')),
+      await enterChatText(
+        tester,
         'Keep this question while the quote times out.',
       );
       await tester.tap(find.byTooltip('Send to AI'));
@@ -2254,10 +2532,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('conversation-input')),
-      'Compare my two options.',
-    );
+    await enterChatText(tester, 'Compare my two options.');
     await tester.tap(find.byTooltip('Send to AI'));
     await waitFor(tester, find.text('Get credit price'));
     await tester.tap(find.text('Get credit price'));
@@ -2340,10 +2615,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('conversation-input')),
-      'Compare my two options.',
-    );
+    await enterChatText(tester, 'Compare my two options.');
     await tester.tap(find.byTooltip('Send to AI'));
     await waitFor(tester, find.text('Get credit price'));
     await tester.tap(find.text('Get credit price'));
@@ -2401,8 +2673,18 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Choose information to use (optional)'));
+    await waitForChatReady(tester);
+    final advanced = find.byKey(const Key('conversation-advanced'));
+    await tester.scrollUntilVisible(
+      advanced,
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(advanced);
     await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byType(DropdownButtonFormField<SIV2Intent>),
+    );
     await tester.tap(find.byType(DropdownButtonFormField<SIV2Intent>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Forecast').last);
@@ -2472,10 +2754,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const Key('conversation-input')),
-        'Private account A question.',
-      );
+      await enterChatText(tester, 'Private account A question.');
       await tester.tap(find.byTooltip('Send to AI'));
       await waitFor(tester, find.text('Get credit price'));
       await tester.tap(find.text('Get credit price'));
@@ -2541,10 +2820,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(Slider), findsNothing);
       expect(find.text('Not set'), findsWidgets);
-      await tester.enterText(
-        find.byKey(const Key('conversation-input')),
-        'Private grocery question',
-      );
+      await enterChatText(tester, 'Private grocery question');
       await tester.tap(find.byTooltip('Send to AI'));
       await waitFor(tester, find.text('Get credit price'));
       currentScope = AccountStorageScope.authenticated(
@@ -2591,10 +2867,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('conversation-input')),
-      'What are my tasks?',
-    );
+    await enterChatText(tester, 'What are my tasks?');
     await tester.tap(find.byTooltip('Send to AI'));
     await waitFor(tester, find.text('Use free tools'));
 
@@ -2643,10 +2916,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('conversation-input')),
-      'Private review question',
-    );
+    await enterChatText(tester, 'Private review question');
     await tester.tap(find.byTooltip('Send to AI'));
     await waitFor(tester, find.text('Get credit price'));
     visible.value = false;
@@ -2662,6 +2932,19 @@ class _Consent extends PersonalizationProfileController {
   @override
   PersonalizationProfile build() =>
       const PersonalizationProfile(externalAiAllowed: true);
+}
+
+class _GatedChatReadBackend extends InMemorySecureStoreBackend {
+  final release = Completer<void>();
+  bool entered = false;
+  @override
+  Future<String?> read({required String key}) async {
+    if (key.startsWith(AssistantConversationRepository.storageKey)) {
+      entered = true;
+      await release.future;
+    }
+    return super.read(key: key);
+  }
 }
 
 class _FailingChatBackend extends InMemorySecureStoreBackend {

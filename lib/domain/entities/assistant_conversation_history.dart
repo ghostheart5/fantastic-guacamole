@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Account-scoped local Chat continuity
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 
 class AssistantConversationRevisionConflict extends StateError {

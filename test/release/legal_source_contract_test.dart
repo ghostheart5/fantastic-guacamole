@@ -30,7 +30,7 @@ void main() {
           "explicitly clearing this account's local data removes its saved Chat history",
           'The last six messages',
           'even when saved planning sources are off',
-          'Choose a step conversations use separate screen-session context',
+          'Choose a step keeps a separate conversation only while its screen is open',
         ]) {
           expect(source, contains(phrase), reason: path);
         }
