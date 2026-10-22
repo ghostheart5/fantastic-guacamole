@@ -7,16 +7,16 @@ tags:
 - stopApp
 - launchApp
 - extendedWaitUntil:
-    visible: "(?s).*(?:CONTINUE TO (?:LOGIN|PROFILE)|Start login|TESTER ACCESS.*TEST LOGIN|Create profile|Open profile|NEXUS.*|SETTINGS).*"
+    visible: "(?s)^(?:(?:.*(?:CONTINUE TO (?:LOGIN|PROFILE)|Start login|TESTER ACCESS.*TEST LOGIN|Create profile|Open profile).*)|Today|Settings|Make the app work for you\\nSettings\\nChange your preferences, review shared information, or manage your account\\.)$"
     timeout: 30000
 - runFlow:
     when:
-      notVisible: "(?s).*SETTINGS.*"
+      notVisible: "^(?:Settings|Make the app work for you\\nSettings\\nChange your preferences, review shared information, or manage your account\\.)$"
     commands:
       - runFlow: ../subflows/sign-in-qa.yaml
 
 - extendedWaitUntil:
-    visible: "(?s).*(?:TESTER ACCESS.*TEST LOGIN|Create profile|Open profile|NEXUS.*|SETTINGS).*"
+    visible: "(?s)^(?:(?:.*(?:TESTER ACCESS.*TEST LOGIN|Create profile|Open profile).*)|Today|Settings|Make the app work for you\\nSettings\\nChange your preferences, review shared information, or manage your account\\.)$"
     timeout: 30000
 
 # QA mock authentication is process-local; reuse the same isolated tester
@@ -27,20 +27,20 @@ tags:
     commands:
       - tapOn: "TESTER ACCESS.*TEST LOGIN"
       - extendedWaitUntil:
-          visible: "NEXUS.*"
+          visible: "^Today$"
           timeout: 30000
 
 - runFlow:
     when:
-      visible: "NEXUS.*"
+      visible: "^Today$"
     commands:
       - runFlow:
           file: ../subflows/open-from-nexus.yaml
           env:
-            TARGET: "Control Center"
+            TARGET: "Settings"
 
 - extendedWaitUntil:
-    visible: "(?s).*SETTINGS.*"
+    visible: "^(?:Settings|Make the app work for you\\nSettings\\nChange your preferences, review shared information, or manage your account\\.)$"
     timeout: 15000
 - scrollUntilVisible:
     element:

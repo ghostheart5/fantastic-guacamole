@@ -7,14 +7,14 @@ appId: com.ghostheart5.chronospark
       - tapOn: "Turn an intention into a path"
 - runFlow:
     when:
-      notVisible: "REALITY BUILDER"
+      notVisible: "Add something"
     commands:
       - runFlow:
           file: open-from-nexus.yaml
           env:
-            TARGET: "Reality Builder"
+            TARGET: "Add something"
 - extendedWaitUntil:
-    visible: "REALITY BUILDER"
+    visible: "Add something"
     timeout: 15000
 # Android can merge the accessible label and visible hint in one node.
 - scrollUntilVisible:
@@ -63,10 +63,10 @@ appId: com.ghostheart5.chronospark
       SAVED_ITEM: 'Task: ${TASK_TITLE}'
 - scrollUntilVisible:
     element:
-      text: "Open Timeline"
+      text: "Open schedule"
     direction: DOWN
     timeout: 10000
-- tapOn: "Open Timeline"
+- tapOn: "Open schedule"
 - extendedWaitUntil:
     visible: "(?s).*${TASK_TITLE}.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*"
     timeout: 20000

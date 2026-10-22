@@ -400,6 +400,92 @@ void main() {
     }
 
     for (final language in ['en', 'es']) {
+      testWidgets('baseline evidence localizes structured warnings in $language', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(const Size(900, 1800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        const labels = '"Revisar José’s résumé", "Llamar a Zoë"';
+        const warnings = <String>[
+          'Current priority matched $labels and may only break a close ranking tie.',
+          'Explicit boundary excluded $labels from this decision.',
+          'Fresh capacity limited this decision to 35 minutes.',
+          'Scheduled commitment protected $labels during conflict checks.',
+        ];
+        const spanishWarnings = <String>[
+          'La prioridad actual coincide con $labels y solo puede desempatar opciones de valoración similar.',
+          'El límite explícito excluyó $labels de esta decisión.',
+          'La capacidad reciente limitó esta decisión a 35 minutos.',
+          'El compromiso programado protegió $labels al comprobar conflictos.',
+        ];
+        const unknown =
+            'User note: $labels remains outside known warning templates.';
+        final scope = AccountStorageScope.authenticated('test-account');
+        final store = _MemoryStore();
+        final baseline = trajectoryTestBaseline(
+          accountScope: scope.v2Namespace!,
+          personContextWarnings: [...warnings, unknown],
+        );
+        final comparison = trajectoryTestComparison(baseline: baseline);
+        await tester.pumpWidget(
+          _harness(
+            model: _modelWithOutcomes(comparison, [comparison.outcomes.first]),
+            locale: Locale(language),
+            repository: TrajectoryForecastLedgerRepository(
+              store: store,
+              scope: scope,
+            ),
+          ),
+        );
+        await _pumpForecastTransition(tester);
+        final detailsTitle = language == 'es'
+            ? 'Datos y detalles del modelo'
+            : 'Evidence and model details';
+        final toggle = find.text(detailsTitle);
+        await tester.scrollUntilVisible(
+          toggle.hitTestable(),
+          250,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await Scrollable.ensureVisible(tester.element(toggle), alignment: .5);
+        await _pumpForecastTransition(tester);
+        expect(toggle.hitTestable(), findsOneWidget);
+        await tester.tap(toggle.hitTestable());
+        await _pumpForecastTransition(tester);
+        expect(
+          find.text(
+            language == 'es'
+                ? 'ESTIMACIONES DEL PLAN ACTUAL'
+                : 'CURRENT PLAN ESTIMATES',
+          ),
+          findsOneWidget,
+        );
+        for (var index = 0; index < warnings.length; index++) {
+          expect(
+            find.text(
+              '• ${language == 'es' ? spanishWarnings[index] : warnings[index]}',
+            ),
+            findsOneWidget,
+          );
+          if (language == 'es') {
+            expect(find.text('• ${warnings[index]}'), findsNothing);
+          }
+        }
+        expect(find.text('• $unknown'), findsOneWidget);
+        final summary = language == 'es'
+            ? 'Esta estimación: ${baseline.availableMinutes} min disponibles / ${baseline.unscheduledMinutes} min sin programar. Comparación sin información compartida: ${baseline.noContextAvailableMinutes} min disponibles / ${baseline.noContextUnscheduledMinutes} min sin programar.'
+            : 'This estimate: ${baseline.availableMinutes}m available / ${baseline.unscheduledMinutes}m unscheduled. Comparison without shared information: ${baseline.noContextAvailableMinutes}m available / ${baseline.noContextUnscheduledMinutes}m unscheduled.';
+        expect(find.text(summary), findsOneWidget);
+        expect(
+          find.textContaining('Contexto personal autorizado:'),
+          findsNothing,
+        );
+        expect(store.writes, 0);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    for (final language in ['en', 'es']) {
       testWidgets('unavailable shared-information fallbacks render in $language', (
         tester,
       ) async {

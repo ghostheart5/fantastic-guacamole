@@ -21,6 +21,131 @@ void main() {
     }
   }
 
+  Iterable<String> visibleSelectorValues(dynamic value) sync* {
+    if (value is Map) {
+      for (final entry in value.entries) {
+        // Absence assertions intentionally verify retired labels stay absent.
+        if (entry.key == 'assertNotVisible') continue;
+        if (const {
+              'TARGET',
+              'tapOn',
+              'assertVisible',
+              'text',
+              'visible',
+              'notVisible',
+            }.contains(entry.key) &&
+            entry.value is String) {
+          yield entry.value as String;
+        }
+        yield* visibleSelectorValues(entry.value);
+      }
+    } else if (value is Iterable) {
+      for (final child in value) {
+        yield* visibleSelectorValues(child);
+      }
+    }
+  }
+
+  final retiredDestination = RegExp(
+    r'\b(?:Nexus(?: Core)?|Control Center|Reality Builder|Truth Ledger|Now Engine|Smart Planner|SI Console|Trajectory Engine|Future Branches|Human Profile|Capability Matrix)\b',
+    caseSensitive: false,
+  );
+
+  final staleUppercaseHeading = RegExp(r'\bSETTINGS\b');
+
+  test(
+    'runtime YAML destinations and visible selectors use current labels',
+    () {
+      final files = Directory('.maestro')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.yaml'));
+      for (final file in files) {
+        for (final document in loadYamlDocuments(file.readAsStringSync())) {
+          for (final selector in visibleSelectorValues(document.contents)) {
+            expect(
+              retiredDestination.hasMatch(selector) ||
+                  staleUppercaseHeading.hasMatch(selector),
+              isFalse,
+              reason: '${file.path} has a retired visible selector: $selector',
+            );
+          }
+        }
+      }
+    },
+  );
+
+  test('selector guard ignores filenames and preserved typed text only', () {
+    final fixture = loadYaml("""
+# Nexus remains an internal historical name.
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: Settings
+- inputText: My note says Nexus and Control Center
+- assertNotVisible:
+    text: Control Center
+- tapOn:
+    text: Control Center
+- assertVisible: Truth Ledger
+- assertVisible: SETTINGS
+""");
+    expect(
+      visibleSelectorValues(fixture).where(
+        (value) =>
+            retiredDestination.hasMatch(value) ||
+            staleUppercaseHeading.hasMatch(value),
+      ),
+      ['Control Center', 'Truth Ledger', 'SETTINGS'],
+    );
+  });
+
+  test(
+    'readiness matches standalone or exact merged Settings and Today nodes',
+    () {
+      const mergedSettings =
+          'Make the app work for you\nSettings\nChange your preferences, review shared information, or manage your account.';
+      for (final path in [
+        '.maestro/qa/10-subscription-containment.yaml',
+        '.maestro/flows/priority8-learned-lifecycle-readback.yaml',
+      ]) {
+        final selectors = entries(commands(path))
+            .where(
+              (entry) => const {
+                'visible',
+                'notVisible',
+                'assertVisible',
+              }.contains(entry.key),
+            )
+            .map((entry) => entry.value)
+            .whereType<String>()
+            .where((value) => value.contains('Settings'));
+        expect(selectors, isNotEmpty);
+        for (final selector in selectors) {
+          final matcher = RegExp(
+            selector.replaceFirst('(?s)', ''),
+            dotAll: true,
+          );
+          expect(matcher.hasMatch('Settings'), isTrue);
+          expect(matcher.hasMatch(mergedSettings), isTrue);
+          expect(
+            matcher.hasMatch('Unrelated\nSettings\nUnrelated subtitle'),
+            isFalse,
+          );
+          expect(matcher.hasMatch('$mergedSettings extra'), isFalse);
+          expect(matcher.hasMatch('Unrelated\n$mergedSettings'), isFalse);
+          expect(matcher.hasMatch('SETTINGS'), isFalse);
+          expect(matcher.hasMatch('Old Settings panel'), isFalse);
+          expect(matcher.hasMatch('Settings\nUnrelated subtitle'), isFalse);
+          if (selector.contains('Today')) {
+            expect(matcher.hasMatch('Today'), isTrue);
+            expect(matcher.hasMatch('Today\nToday'), isFalse);
+          }
+        }
+      }
+    },
+  );
+
   test(
     'shared setup exits prefer the top action and cover a lower-only viewport',
     () {

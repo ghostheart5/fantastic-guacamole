@@ -8,8 +8,8 @@ tags: [qa, billing, containment]
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Control Center"
-- assertVisible: "(?s).*SETTINGS.*"
+      TARGET: "Settings"
+- assertVisible: "^(?:Settings|Make the app work for you\\nSettings\\nChange your preferences, review shared information, or manage your account\\.)$"
 - assertVisible: "Appearance & permissions\\n.*"
 # Subscriptions are disabled at source for both QA and the signed candidate.
 # Settings omits the entire plan-and-credits card at the top of the screen.

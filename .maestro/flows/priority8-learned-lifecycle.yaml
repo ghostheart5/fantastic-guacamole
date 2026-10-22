@@ -25,13 +25,13 @@ tags:
       - tapOn: "Turn an intention into a path"
 - runFlow:
     when:
-      notVisible: "REALITY BUILDER"
+      notVisible: "Add something"
     commands:
       - runFlow:
           file: ../subflows/open-from-nexus.yaml
           env:
-            TARGET: "Reality Builder"
-- assertVisible: "REALITY BUILDER"
+            TARGET: "Add something"
+- assertVisible: "Add something"
 # Android can merge the accessible label and visible hint in one node.
 - scrollUntilVisible:
     element:
@@ -88,14 +88,14 @@ tags:
       SAVED_ITEM: "Task: Priority 8 journey seed"
 - scrollUntilVisible:
     element:
-      text: "Open Timeline"
+      text: "Open schedule"
     direction: DOWN
     visibilityPercentage: 100
     centerElement: true
     timeout: 10000
-- tapOn: "Open Timeline"
+- tapOn: "Open schedule"
 - extendedWaitUntil:
-    visible: "TRUTH LEDGER"
+    visible: "Schedule"
     timeout: 10000
 - extendedWaitUntil:
     visible: "(?s).*Priority 8 journey seed.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*"
@@ -113,22 +113,23 @@ tags:
 # The top boundary cannot center this header; require the whole control instead.
 - scrollUntilVisible:
     element:
-      text: "Back to Nexus"
+      text: "Back to Today"
     direction: UP
     visibilityPercentage: 100
     centerElement: false
     timeout: 10000
-- tapOn: "Back to Nexus"
+- tapOn: "Back to Today"
 - extendedWaitUntil:
-    visible: "NEXUS.*"
+    visible: "^Today$"
     timeout: 10000
 
 # Nexus -> Smart Planner input/output -> explicit Use this plan acceptance.
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Now Engine"
-- assertVisible: "Back\\nIMMEDIATE DECISION ENGINE\\nNow Engine\\nResolve time, energy and commitments into one real next move."
+      TARGET: "Choose a step"
+- assertVisible: '(?s)^(?:.*\n)?Choose a step(?:\n.*)?$'
+- assertVisible: '(?s)^(?:.*\n)?Describe what you need to do\. Get a manageable next step to review\.(?:\n.*)?$'
 - scrollUntilVisible:
     element:
       text: "What would you like help planning right now\\?"
@@ -223,14 +224,14 @@ tags:
     timeout: 15000
 - scrollUntilVisible:
     element:
-      text: "Open Timeline"
+      text: "Open schedule"
     direction: DOWN
     visibilityPercentage: 100
     centerElement: true
     timeout: 10000
-- tapOn: "Open Timeline"
+- tapOn: "Open schedule"
 - extendedWaitUntil:
-    visible: "TRUTH LEDGER"
+    visible: "Schedule"
     timeout: 10000
 # The concrete Planner action must keep its title through Creator. Require its scheduled
 # row and completion so the earlier seed outcome cannot satisfy this handoff.
@@ -248,12 +249,12 @@ tags:
     timeout: 20000
 - scrollUntilVisible:
     element:
-      text: "Back to Nexus"
+      text: "Back to Today"
     direction: UP
     visibilityPercentage: 100
     centerElement: false
     timeout: 10000
-- tapOn: "Back to Nexus"
+- tapOn: "Back to Today"
 
 # The latest completion must publish an explainable, correctable change.
 - scrollUntilVisible:
@@ -275,12 +276,12 @@ tags:
 - launchApp
 - runFlow: ../subflows/sign-in-qa.yaml
 - extendedWaitUntil:
-    visible: "NEXUS.*"
+    visible: "^Today$"
     timeout: 30000
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Control Center"
+      TARGET: "Settings"
 - scrollUntilVisible:
     element:
       text: "Planning & guidance\\n.*"
