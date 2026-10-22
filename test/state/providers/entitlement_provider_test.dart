@@ -50,18 +50,75 @@ void main() {
       expect(harness.repository.refreshCalls, 1);
     });
 
-    test('legacy retry deadline rebuilds entitlement authority', () async {
-      final _Harness harness = await _Harness.create(
-        subscription: _inactiveSubscription,
-        user: _user('user-a'),
-        legacyRetryAt: DateTime.now().add(const Duration(milliseconds: 30)),
+    testWidgets('legacy retry deadline rebuilds entitlement authority', (
+      tester,
+    ) async {
+      final scheduledDelays = <Duration>[];
+      final timerOrigins = <String>[];
+      _Harness? harness;
+      // Observe the real provider's timer while delegating scheduling to the
+      // widget binding's fake clock. Setup must not race a 30 ms wall deadline.
+      final creating = runZoned(
+        () => _Harness.create(
+          subscription: _inactiveSubscription,
+          user: _user('user-a'),
+          legacyRetryAt: DateTime.now().add(const Duration(days: 1)),
+        ),
+        zoneSpecification: ZoneSpecification(
+          createTimer: (self, parent, zone, delay, callback) {
+            if (delay > Duration.zero) {
+              scheduledDelays.add(delay);
+              timerOrigins.add(StackTrace.current.toString());
+            }
+            return parent.createTimer(zone, delay, callback);
+          },
+        ),
       );
-      final int initialRefreshes = harness.repository.refreshCalls;
+      unawaited(
+        creating.then((value) {
+          harness = value;
+        }),
+      );
+      try {
+        for (var i = 0; harness == null && i < 24; i++) {
+          await tester.pump(Duration.zero);
+        }
+        expect(
+          harness,
+          isNotNull,
+          reason:
+              'Harness setup must finish without advancing the retry clock.',
+        );
+        expect(scheduledDelays, hasLength(1));
+        expect(
+          timerOrigins.single,
+          contains('EntitlementNotifier._scheduleExpiry'),
+        );
+        expect(timerOrigins.single, contains('entitlement_provider.dart'));
+        final retryDelay = scheduledDelays.single;
+        expect(retryDelay, greaterThan(Duration.zero));
+        expect(retryDelay, lessThanOrEqualTo(const Duration(days: 1)));
+        final initialRefreshes = harness!.repository.refreshCalls;
 
-      await Future<void>.delayed(const Duration(milliseconds: 60));
-      await harness.settle();
-
-      expect(harness.repository.refreshCalls, greaterThan(initialRefreshes));
+        await tester.pump(retryDelay - const Duration(microseconds: 1));
+        expect(
+          harness!.repository.refreshCalls,
+          initialRefreshes,
+          reason: 'Authority must not refresh before the registered deadline.',
+        );
+        await tester.pump(const Duration(microseconds: 1));
+        for (var i = 0; i < 8; i++) {
+          await tester.pump(Duration.zero);
+        }
+        expect(
+          harness!.repository.refreshCalls,
+          initialRefreshes + 1,
+          reason:
+              'The production deadline timer must trigger one authority rebuild.',
+        );
+      } finally {
+        harness?.dispose();
+      }
     });
 
     test(
@@ -518,6 +575,16 @@ class _Harness {
   final SecureStore secureStore;
   final StreamController<User?> authController;
   final _FakePaywallRepository repository;
+  bool _disposed = false;
+
+  void dispose() {
+    if (_disposed) {
+      return;
+    }
+    _disposed = true;
+    container.dispose();
+  }
+
   static Future<_Harness> create({
     required SubscriptionState subscription,
     required User? user,
@@ -561,7 +628,8 @@ class _Harness {
         accountLegacyOwnershipProvider.overrideWithValue(legacyOwnership),
       ],
     );
-    addTearDown(container.dispose);
+    late final _Harness harness;
+    addTearDown(() => harness.dispose());
     addTearDown(authController.close);
 
     // `read` alone does not keep an async provider subscribed, so its stream is
@@ -569,7 +637,7 @@ class _Harness {
     container.listen(authUserProvider, (_, _) {}, fireImmediately: true);
     container.listen(entitlementProvider, (_, _) {}, fireImmediately: true);
 
-    final _Harness harness = _Harness(
+    harness = _Harness(
       container: container,
       secureStore: store,
       authController: authController,
