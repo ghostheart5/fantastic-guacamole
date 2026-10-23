@@ -1,14 +1,10 @@
-name: Public Release Evidence
+name: Public Configuration Fingerprint Only (capture branch)
 
 on:
   workflow_dispatch:
     inputs:
       source_sha:
         description: Reviewed full source commit SHA
-        required: true
-        type: string
-      packet:
-        description: Reviewed JSON receipt and six record texts; never include credentials
         required: true
         type: string
 
@@ -37,20 +33,38 @@ jobs:
         env:
           SOURCE_SHA: ${{ inputs.source_sha }}
         run: git merge-base --is-ancestor "$SOURCE_SHA" origin/main
-      - name: Validate packet and effective public configuration
+      - name: Fingerprint current canonical public configuration without writing values
         env:
-          PUBLIC_EVIDENCE_PACKET: ${{ inputs.packet }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
           CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
           CHRONOSPARK_SUPABASE_ANON_KEY: ${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
           CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT: ${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}
           CHRONOSPARK_AI_PROXY_ENDPOINT: ${{ secrets.CHRONOSPARK_AI_PROXY_ENDPOINT }}
           CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT: ${{ secrets.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT }}
           CHRONOSPARK_ANDROID_SHA256_CERT: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
-        run: python3 scripts/publish_public_release_evidence.py --output "$RUNNER_TEMP/public-release-evidence"
-      - name: Upload validated operator evidence
+        run: |
+          python3 - <<'PYCODE'
+          import hashlib, json, os, subprocess, sys
+          from pathlib import Path
+          sys.path.insert(0,'scripts')
+          from public_release_profile import PUBLIC_POLICY, PUBLIC_SETTINGS, PUBLIC_FLAGS, assemble_public_defines, canonical, resolve_public_settings, validate_public_defines, validate_source_gates
+          source=os.environ['SOURCE_SHA']
+          assert subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()==source, 'Checked-out source mismatch'
+          validate_source_gates(Path('lib/config/launch_containment.dart').read_text())
+          settings=resolve_public_settings({key:os.environ.get(key) for key in PUBLIC_SETTINGS})
+          defines=assemble_public_defines(settings,PUBLIC_POLICY)
+          policy_hash=hashlib.sha256(canonical(PUBLIC_POLICY).encode()).hexdigest()
+          summary=validate_public_defines(defines,policy_hash)
+          receipt={'sourceSha':source,'definesSha256':hashlib.sha256(canonical(defines).encode()).hexdigest(),'publicFlags':PUBLIC_FLAGS,'policy':summary,'boundary':'Read-only fingerprint only; no review approved, release built, credential changed, or service setting value exported.'}
+          out=Path(os.environ['RUNNER_TEMP'])/'public-configuration-fingerprint'
+          out.mkdir()
+          (out/'fingerprint.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          print('Canonical configuration fingerprint computed; no service values exported.')
+          PYCODE
+      - name: Upload hash-only configuration receipt
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: chronospark-public-evidence-${{ inputs.source_sha }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/public-release-evidence/
+          name: public-configuration-fingerprint-${{ inputs.source_sha }}
+          path: ${{ runner.temp }}/public-configuration-fingerprint/
           if-no-files-found: error
-          retention-days: 90
+          retention-days: 3
