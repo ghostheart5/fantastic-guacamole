@@ -1,10 +1,12 @@
 # Notes
 
-Notes are Creator-owned inputs for information, context, and reflection. Use them to capture something worth keeping nearby without turning it into an action before you are ready.
+> Guide updated October 23, 2026. Screen names can vary by installed version. The October 22–23 repairs are tested and merged; this does not establish that a new Google Play build is available. See [[Release Notes|Release-Notes]].
 
-Create and manage Notes in [[Creator]]. A Note can inform your thinking, but it does not automatically become a task, goal, recommendation, or scheduled item.
+Notes are Add something-owned inputs for information, context, and reflection. Use them to capture something worth keeping nearby without turning it into an action before you are ready.
 
-## Notes, Tasks, Goals, and Daily Rhythms
+Create and manage Notes in [[Add something|Creator]]. A Note can inform your thinking, but it does not automatically become a task, goal, recommendation, or scheduled item.
+
+## Notes, Tasks, Goals, and habits
 
 These four kinds of entries serve different purposes:
 
@@ -13,9 +15,9 @@ These four kinds of entries serve different purposes:
 | **Note** | Context, information, research, ideas, decisions, and reflection. |
 | **Task** | A specific action you intend to complete. |
 | **Goal** | An outcome you are working toward. |
-| **Daily Rhythm** | A repeatable action or routine you want to practice consistently. |
+| **habit** | A repeatable action or routine you want to practice consistently. |
 
-A Note can support any of the other three, but it remains context until you intentionally create the related Task, Goal, or Daily Rhythm.
+A Note can support any of the other three, but it remains context until you intentionally create the related Task, Goal, or habit.
 
 ## Good uses for Notes
 
@@ -36,9 +38,9 @@ When a Note leads to work, make the next step explicit:
 
 1. Keep the Note as the supporting context.
 2. Create a separate Task for the action, or a Goal for the outcome.
-3. Use [[Timeline]] only when that action needs to be planned or reviewed on a schedule.
+3. Use [[Schedule|Timeline]] only when that action needs to be planned or reviewed on a schedule.
 
-For example, a Note titled **Presentation research** might contain customer observations and links. If you decide to act on it, create a Task such as **Draft presentation outline**. The Task—not the Note—is the item you would schedule in Timeline.
+For example, a Note titled **Presentation research** might contain customer observations and links. If you decide to act on it, create a Task such as **Draft presentation outline**. The Task—not the Note—is the item you would schedule in Schedule.
 
 ## Reflection and review
 
@@ -49,11 +51,11 @@ Notes can support deliberate reflection. A short reflection can record:
 - What you learned
 - What you would change next time
 
-Review Notes when they are useful to a current decision or plan. A review may lead to no action, a new Task, a Goal adjustment, or a change to a Daily Rhythm. The choice remains yours.
+Review Notes when they are useful to a current decision or plan. A review may lead to no action, a new Task, a Goal adjustment, or a change to a habit. The choice remains yours.
 
 ## Notes across Axiomara
 
-Notes are part of the context available across Axiomara. [[Nexus]] can show the state of connected inputs, while [[Smart Planner]] and [[SI Console]] can help you work with relevant available information. Treat their output as guidance to evaluate, not as an automatic conclusion drawn from every Note.
+Notes are part of the context available across Axiomara. [[Today|Nexus]] can show the state of connected inputs, while [[Chat|Smart Planner]] and [[SI Chat|SI Console]] can help you work with relevant available information. Treat their output as guidance to evaluate, not as an automatic conclusion drawn from every Note.
 
 ## A simple Note structure
 
@@ -75,13 +77,13 @@ Use only the sections that help. A quick idea can stay short; a decision record 
 
 ## Related pages
 
-- [[Creator]]
-- [[Daily Workflow]]
-- [[Tasks]]
-- [[Goals]]
-- [[Daily Rhythms]]
-- [[Timeline]]
-- [[Nexus]]
-- [[Smart Planner]]
-- [[SI Console]]
-- [[Core Concepts]]
+- [[Add something|Creator]]
+- [[Daily Workflow|Daily Workflow]]
+- [[Tasks|Tasks]]
+- [[Goals|Goals]]
+- [[habits|Daily Rhythms]]
+- [[Schedule|Timeline]]
+- [[Today|Nexus]]
+- [[Chat|Smart Planner]]
+- [[SI Chat|SI Console]]
+- [[Core Concepts|Core Concepts]]

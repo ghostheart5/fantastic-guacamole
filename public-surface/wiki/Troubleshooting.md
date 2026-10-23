@@ -1,47 +1,21 @@
 # Troubleshooting
 
-Use these safe checks before contacting support. Do not send passwords, verification or recovery codes, API keys, or payment credentials.
+> Guide updated October 23, 2026. Screen names can vary by installed version. The October 22–23 repairs are tested and merged; this does not establish that a new Google Play build is available. See [[Release Notes|Release-Notes]].
 
-## Notifications or reminders are not arriving
+## An old comparison does not match the controls
+Check whether you edited the draft after calculating. Press Compare again, then View comparison and verify the task and operation. The October 23 tested repair hides old readiness/View after operation edits. If your public build still offers a stale link, report the installed version and exact steps; a merged fix is not proof of store delivery.
 
-1. Confirm that the relevant reminder is enabled in [[Settings]].
-2. Confirm that notifications are allowed for Axiomara in your device app settings.
-3. Review device battery-management settings, which can delay notifications on some devices.
+## A forecast has limited or missing evidence
+Review the chosen horizon, actual dates and completion history. Add only information you know. Changing horizons can reset the comparison; it is not the same as refreshing the current horizon. Do not invent records or deadlines to obtain a favorable chart.
 
-## Voice features are unavailable
+## A reminder arrives late or does not appear
+Check the enabled reminder and time in Settings, Android notification permission and device battery behavior. Timing can vary; the reviewed earlier notification arrived about 102 seconds late. A notification is not proof that a task was completed. Avoid clearing app data as a diagnostic shortcut.
 
-1. Confirm that microphone access is allowed for Axiomara in device app settings.
-2. Return to Settings and try the voice feature again.
+## Chat or a cloud question is unavailable
+Review connectivity, consent, selected context and account availability. Check your credit quote and balance. Do not resend repeatedly while a request may still be active. Free planning tools remain separate from cloud questions.
 
-Microphone access is used when you choose a microphone or voice-playback control. Do not grant unrelated permissions to resolve a voice issue.
+## I cannot find a setting
+Expand the relevant Settings section. Guide replay and welcome/account setup are separate actions, with explanations of what they retain. Account deletion is different from sign-out or subscription cancellation.
 
-## Sign-in or synced-data issue
-
-1. Confirm your device has a working connection.
-2. Confirm that you are using the intended sign-in provider and account.
-3. Retry through the app.
-
-Do not share credentials or verification codes with support. Do not assume cloud data is immediately available in every situation.
-
-## App is slow or unresponsive
-
-1. Close and reopen the app.
-2. Restart your device if the issue continues.
-3. Check the official store listing for an available update.
-
-Do not clear app storage, reset the app, or uninstall it until you understand what local data could be affected.
-
-## Account deletion
-
-Use the in-app account controls when available, or follow [Delete an account](https://ghostheart5.github.io/fantastic-guacamole/delete-account/). A deletion request must not include passwords, recovery codes, or payment credentials.
-
-## Contact support
-
-For account, purchase, privacy, tester, or technical support, use [Axiomara Support](https://ghostheart5.github.io/fantastic-guacamole/support/). Include your app version, Android and device model, affected feature or screen, reproduction steps, and a screenshot when appropriate.
-
-## Related pages
-
-- [[Settings]]
-- [[Notifications & Reminders]]
-- [Support](https://ghostheart5.github.io/fantastic-guacamole/support/)
-- [Privacy Policy](https://ghostheart5.github.io/fantastic-guacamole/privacy/)
+## Report the smallest reproducible case
+Record the app version, screen, action, result and expected result. Share only redacted screenshots or synthetic examples. Never send passwords, recovery keys, payment data or private conversations. [[Support|support-page]]

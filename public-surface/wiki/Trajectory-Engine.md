@@ -1,44 +1,28 @@
-# Trajectory Engine
+# Predictions and comparisons
 
-Trajectory Engine explores where the current pattern may lead and what could change that direction. It is a scenario laboratory, not a prediction machine.
+> Guide updated October 23, 2026. Screen names can vary by installed version. The October 22–23 repairs are tested and merged; this does not establish that a new Google Play build is available. See [[Release Notes|Release-Notes]].
 
-## The three-layer view
+Predictions explores possible outcomes from recorded work and assumptions. It is decision support, not a promise about your future.
 
-1. **Baseline** — the path implied by current commitments, recorded behavior, and operating signals.
-2. **Scenario** — a deliberate change to one or more assumptions, priorities, or actions.
-3. **Correction** — a concrete option that could move the baseline toward the chosen direction.
+## Compare a task change
 
-## Compare possible futures
+1. Open **Insights**, then **Predictions** where available.
+2. Choose the planning horizon and review the baseline, missing evidence and uncertainty.
+3. Open the custom comparison controls and select a task.
+4. Choose **Complete**, **Delay** or **Remove**. For Delay, review the number of days.
+5. Press **Compare**. Wait for the nearby ready message, then choose **View comparison**.
+6. Read the selected task, operation, assumptions and modeled result together.
 
-A useful scenario identifies:
+Comparing Complete does not complete the real task. Comparing Delay does not reschedule it. Comparing Remove does not delete it. Any actual change to your plan requires a separate explicit action.
 
-- the planning horizon;
-- the evidence used;
-- the assumptions being changed;
-- expected effects on goals, Timeline, Energy, Clarity, Momentum, and Progression;
-- trade-offs and risks; and
-- the first reversible action available to the user.
+## When you edit the draft
 
-A scenario remains separate from saved work. Comparing it does not move a task, change a goal, or spend a resource.
+The tested October 23 repair clears the old ready message and View link after the operation changes. Press Compare again to calculate the edited request. The last calculated preview may remain visible; it is not a result for inputs you have not compared. Clear removes comparison feedback. This repair is merged; public delivery is a separate release step.
 
-## Example
+Subject changes, delay changes and automatic task replacement have focused test coverage. The recorded physical-phone repair sequence exercised Complete → Delay → Remove, matching result views, Clear and sampled record continuity. This is not every possible input combination.
 
-If a project deadline is at risk, Trajectory might compare:
+## Horizons and incomplete evidence
 
-- **Maintain course:** preserve all commitments and accept increased schedule pressure.
-- **Protect the deadline:** defer lower-impact work and preserve the project's critical path.
-- **Protect capacity:** reduce scope and keep daily load within the available Energy signal.
+Review the selected 7-, 30- or 90-day horizon where offered. Changing horizons can reset the comparison identity; refreshing the same horizon is a different action. Missing dates or little completion history can limit a result. Add only true information and keep uncertainty visible. A populated chart is not proof that its future outcome will happen.
 
-The engine should show why each path differs and which assumption drives the result.
-
-## Reality checks
-
-Trajectory is only as good as the available evidence. Missing completion history, stale schedules, or an unrecorded life constraint can make a scenario misleading. The surface should name those limitations and invite correction.
-
-## Related pages
-
-- [[Nexus]]
-- [[Smart Planner]]
-- [[SI Console]]
-- [[Progression]]
-- [[Timeline]]
+[[My plan and Schedule|Timeline]] · [[Chat|Smart-Planner]] · [[Release Notes|Release-Notes]]
