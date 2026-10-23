@@ -1,47 +1,11 @@
-# Timeline
+# My plan and Schedule
 
-Timeline is where you plan and review scheduled action over time. It helps you see the work that is current, upcoming, overdue, or complete so you can decide what to do next.
+> Guide updated October 23, 2026. Screen names can vary by installed version. The October 22–23 repairs are tested and merged; this does not establish that a new Google Play build is available. See [[Release Notes|Release-Notes]].
 
-Create and manage tasks, goals, Daily Rhythms, and notes in [[Creator]]. Timeline is their schedule and review surface, not a second authoring surface.
+My plan lets you review saved tasks, goals, habits and notes. Schedule shows work in time. Keep a planned date, a start time and a hard deadline distinct; use only the constraints that are true.
 
-## Review scheduled action
+Review the date and time before saving an edit. Mark real completion from the record rather than using a simulated Complete result. Delay and Remove inside Insights are comparisons, not changes to the real plan.
 
-Use Timeline to:
+In the reviewed repair, forecast and reflection navigation reaches Schedule. A real reflection-notification card tap also opened Schedule on the earlier tested build. These are bounded checks, not proof of every notification or navigation path.
 
-- Review scheduled items across the available planning windows.
-- Narrow the view with search and filters when available.
-- See current, upcoming, overdue, and completed scheduled context.
-- Revisit a schedule as circumstances change.
-
-Not every item type is guaranteed to appear in Timeline. Availability depends on the item, its schedule, and the current product configuration.
-
-## Task actions
-
-For an eligible scheduled task, Timeline can offer actions such as:
-
-- Mark complete.
-- Mark not completed and move it forward.
-- Skip.
-- Reschedule.
-
-You choose and confirm these actions. Timeline does not decide or act automatically for you.
-
-## A practical flow
-
-1. Create or update the work in [[Creator]].
-2. Review its scheduled context in Timeline.
-3. Complete, skip, reschedule, or leave it for later based on your circumstances.
-4. Use [[Nexus]], [[Smart Planner]], or [[SI Console]] when you want orientation or guidance for the next move.
-
-## Important boundary
-
-Timeline helps organize scheduled action. It does not create a separate source of truth for your tasks, goals, Daily Rhythms, or notes, and it does not guarantee that a plan will unfold as scheduled.
-
-## Related pages
-
-- [[Creator]]
-- [[Tasks]]
-- [[Nexus]]
-- [[Smart Planner]]
-- [[SI Console]]
-- [[Daily Rhythms]]
+[[Today|Nexus]] · [[Add something|Creator]] · [[Predictions|Trajectory-Engine]] · [[Reminders|Notifications-&-Reminders]]

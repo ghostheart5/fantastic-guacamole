@@ -1,74 +1,33 @@
-# Axiomara — The Human Decision OS
+# Axiomara — reflection and planning
 
-Axiomara connects the moving parts of real life into one decision system. It helps you capture what matters, understand the state you are in, build a realistic plan, test possible futures, and learn from what actually happened.
+> Guide updated October 23, 2026. Screen names can vary by installed version. The October 22–23 repairs are tested and merged; this does not establish that a new Google Play build is available. See [Release Notes](Release-Notes).
 
-It is designed around a simple principle: **intelligence should make your choices clearer without taking control away from you.**
+Keep tasks, goals, habits and notes connected. Choose a useful next step, make time for it, record what happened and review your progress.
 
-## Nine connected systems
+[Guía en español](Spanish-Guide)
 
-| System | What it contributes |
-| --- | --- |
-| **[[Nexus]]** | A live operating view of your priorities, commitments, Energy, Clarity, Momentum, and next useful action. |
-| **[[Creator]]** | Fast structured capture for tasks, goals, Daily Rhythms, and notes. |
-| **[[Timeline]]** | Time-aware planning, sequencing, and a record of what changed. |
-| **[[Smart Planner]]** | Conversational planning that uses selected context and explains the proposed plan. |
-| **[[SI Console]]** | Deeper investigation of trade-offs, risks, scenarios, and decisions. |
-| **[[Trajectory Engine]]** | Forward-looking scenarios with explicit assumptions and corrective options. |
-| **[[Progression]]** | Evidence-backed levels, experience, streaks, and leverage actions. |
-| **Signal Center** | Energy, Clarity, Momentum, pressure, and readiness interpreted together. |
-| **Control Layer** | Consent, account, privacy, billing, and AI controls that keep the user in charge. |
+## Find your way
 
-## The operating loop
+| In the app | What you can do | Guide |
+| --- | --- | --- |
+| Today | Review your day and one manageable next step. | [Today](Nexus) |
+| Add something | Create a task, goal, habit or note; review before saving. | [Add something](Creator) |
+| My plan and Schedule | Review your records and put work in time. | [My plan and Schedule](Timeline) |
+| Chat | Ask AI or SI Chat using the context you choose. | [Chat](Smart-Planner) |
+| Insights | Review patterns and compare modeled outcomes. | [Predictions](Trajectory-Engine) |
+| Activity | Review recorded progress, XP and levels. | [Activity](Progression) |
+| Settings | Manage guidance, appearance, language, reminders, account and credits. | [[Settings]] |
 
-```text
-Capture → Connect → Decide → Execute → Reflect
-    ↑                                      ↓
-    └──────────── learn and adjust ────────┘
-```
+Start with [Getting Started](Getting-Started), then use [Daily Workflow](Daily-Workflow). Older links remain available so bookmarks still work; their page titles now explain the current tools.
 
-The loop is not a rigid routine. Axiomara may help with one urgent decision today and a longer trajectory review tomorrow. Your records remain useful across both.
+## Your choices stay yours
 
-## A real question, answered with real context
+A comparison is a preview, not a change to your saved plan. AI suggestions need your review. Free planning tools are separate from cloud questions with a displayed credit quote. Settings shows your account's allowance and balance; eligibility and availability can differ.
 
-Suppose you ask Smart Planner:
+Axiomara has no ads. Modeled outcomes have assumptions and uncertainty; neither forecasts nor AI responses guarantee results or replace qualified professional help.
 
-> What time should I go to the store? Use my grocery task and today's schedule.
+## Help
 
-A useful answer should not repeat a generic productivity script. It should:
+[[FAQ]] · [[Troubleshooting]] · [Support](support-page) · [Release Notes](Release-Notes)
 
-1. inspect the attached grocery task and the schedule you allowed it to use;
-2. identify the open windows and any uncertainty;
-3. recommend a specific time with a reason;
-4. state the assumption that could change the answer; and
-5. leave the decision and any schedule change to you.
-
-Follow-up questions should continue the same line of thought, so “What if traffic is worse after 6?” refines the answer instead of starting over.
-
-## Start here
-
-- [[Getting Started]] — build the first useful loop.
-- [[Core Concepts]] — understand records, signals, and decisions.
-- [[Smart Planner]] — turn context into an explainable plan.
-- [[SI Console]] — investigate a complex choice.
-- [[Trajectory Engine]] — compare possible futures.
-- [[Progression]] — understand evidence-backed advancement.
-- [[Settings]] — manage permissions, intelligence, account, and privacy controls.
-
-## Trust contract
-
-- **No ads.** Axiomara is not funded by attention or forced video views.
-- **Explicit AI.** A user can see when an external intelligence action is requested and what context it may use.
-- **Human authority.** Recommendations do not silently create, move, complete, or delete commitments.
-- **Visible uncertainty.** Assumptions and missing context should be named, not hidden behind confident language.
-- **Account control.** Privacy, access, billing, and deletion controls remain part of the product surface.
-
-Axiomara is decision support. It is not medical, legal, financial, emergency, or other professional advice, and it does not guarantee an outcome.
-
-## Help and policies
-
-- [[FAQ]]
-- [[Troubleshooting]]
-- [[Privacy Policy]]
-- [[Security Policy]]
-- [[Account Deletion]]
-- [[Support Page]]
+Install and update through [Google Play](https://play.google.com/store/apps/details?id=com.ghostheart5.chronospark). Read the [website](https://ghostheart5.github.io/fantastic-guacamole/), [Privacy Policy](privacy-policy), [Terms](terms-of-service) and [Account Deletion](Account-Deletion).

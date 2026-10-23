@@ -1,5 +1,7 @@
 # Axiomara Support
 
+> Guide updated October 23, 2026. Screen names can vary by installed version. The October 22–23 repairs are tested and merged; this does not establish that a new Google Play build is available. See [[Release Notes|Release-Notes]].
+
 Axiomara's authoritative public Support page is published at:
 
 [https://ghostheart5.github.io/fantastic-guacamole/support/](https://ghostheart5.github.io/fantastic-guacamole/support/)

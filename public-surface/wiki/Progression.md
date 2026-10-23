@@ -1,6 +1,8 @@
-# Progression
+# Activity
 
-Progression turns recorded follow-through into visible evidence. It connects completed work, sustained Daily Rhythms, goal movement, and reflection without turning productivity into a judgment of personal worth.
+> Guide updated October 23, 2026. Screen names can vary by installed version. The October 22–23 repairs are tested and merged; this does not establish that a new Google Play build is available. See [[Release Notes|Release-Notes]].
+
+Activity turns recorded follow-through into visible evidence. It connects completed work, sustained habits, goal movement, and reflection without turning productivity into a judgment of personal worth.
 
 ## What it can show
 
@@ -15,19 +17,19 @@ Progression turns recorded follow-through into visible evidence. It connects com
 
 A level or Momentum change should trace back to recorded events. The interface may celebrate progress, but the explanation matters more than the visual effect.
 
-Progression should not award credit repeatedly for the same event, imply that every action has equal value, or hide why a score changed.
+Activity should not award credit repeatedly for the same event, imply that every action has equal value, or hide why a score changed.
 
 ## How it connects
 
-- Creator provides the tasks, goals, Daily Rhythms, and notes.
-- Timeline provides time and completion context.
-- Nexus uses current Progression signals for orientation.
-- Trajectory uses progress evidence when comparing futures.
+- Add something provides the tasks, goals, habits, and notes.
+- Schedule provides time and completion context.
+- Today uses current Activity signals for orientation.
+- Predictions uses progress evidence when comparing futures.
 - Planner and SI can explain how a proposed action may affect the chosen direction.
 
 ## Healthy use
 
-Use Progression to ask:
+Use Activity to ask:
 
 - What evidence shows that I am moving?
 - Which action created the most leverage?
@@ -38,8 +40,8 @@ Levels, streaks, and experience are feedback signals. They are not status, money
 
 ## Related pages
 
-- [[Nexus]]
-- [[Trajectory Engine]]
-- [[Daily Rhythms]]
-- [[Goals]]
-- [[Timeline]]
+- [[Today|Nexus]]
+- [[Predictions|Trajectory Engine]]
+- [[habits|Daily Rhythms]]
+- [[Goals|Goals]]
+- [[Schedule|Timeline]]

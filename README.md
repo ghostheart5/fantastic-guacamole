@@ -1,78 +1,36 @@
 # AXIOMARA
 
-> **The Human Decision OS** — decide with evidence, act with control.
+> Reflection and planning — choose a useful next step, act, and learn from what happened.
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
-[![Dart](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/dart.yml/badge.svg)](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/dart.yml)
-[![Android](https://img.shields.io/badge/Android-API%2036-3DDC84?logo=android&logoColor=white)](android/)
-[![License](https://img.shields.io/badge/License-MIT-5cf2b5.svg)](LICENSE)
+Axiomara connects tasks, goals, habits, notes, schedules, progress, AI/SI Chat and modeled future outcomes. Start with one real action rather than configuring every tool.
 
-Axiomara is a connected planning and decision-support system for real life. It brings tasks, goals, Daily Rhythms, notes, schedules, operating-state signals, strategic questions, possible trajectories, and visible progress into one user-controlled loop.
+The Android app is [available on Google Play](https://play.google.com/store/apps/details?id=com.ghostheart5.chronospark). The [product website](https://ghostheart5.github.io/fantastic-guacamole/) and [user guides](https://github.com/ghostheart5/fantastic-guacamole/wiki) explain the tools and account controls. Installed screens can vary by version. Tested and merged changes are separate from public app delivery; see [updates and availability](https://github.com/ghostheart5/fantastic-guacamole/wiki/Release-Notes).
 
-The Android app is publicly available on **[Google Play](https://play.google.com/store/apps/details?id=com.ghostheart5.chronospark)**. The public listing was checked on October 8, 2026; availability and the build delivered can vary by account, region, and device. Download buckets do not establish active users or revenue. Its product site and required account information are available at **[ghostheart5.github.io/fantastic-guacamole](https://ghostheart5.github.io/fantastic-guacamole/)**.
+## A useful daily loop
 
-## Start with one useful action
+1. **Today:** review your day and choose a manageable step.
+2. **Add something:** create a task, goal, habit or note; review and save.
+3. **My plan and Schedule:** check saved work and add real dates, start times or deadlines.
+4. **Act and record:** complete real work, then review Activity and Insights.
+5. **Explore when useful:** compare a possibility in Insights or ask AI/SI Chat using selected context.
 
-Start by choosing one realistic next action from the work competing for your time. First-use guidance optionally asks about your problem and capacity, offers a helpful choice or a skip, and creates nothing until you confirm in Creator. Save and schedule a real task, complete it, and review what happened. The product names below describe the tools supporting that path.
+## Compare without changing your real plan
 
-This is the core outcome being evaluated, not a proven retention or conversion claim. Optional Cloud Backup covers tasks, profile information, and account preferences; goals, daily rhythms, notes, and history are excluded. Keep your recovery key separately.
+Select a task and Complete, Delay or Remove, then press Compare and View comparison. These are modeled previews: they do not complete, reschedule or delete the real task. Edit the draft and compare again before interpreting a new result. Assumptions, missing evidence and uncertainty matter; no forecast guarantees an outcome.
 
-## The operating model
+The October 22–23 repairs include Schedule navigation, clearer guidance and comparison feedback. PR203 fixes stale readiness/View after an operation edit; the matching Complete/Delay/Remove results were verified on a Moto. That technical validation is separate from store publication and human acceptance.
 
-```text
-Capture → Connect → Decide → Execute → Reflect
-```
+## Free tools, Chat and control
 
-Axiomara does not force every situation through one rigid workflow. Its systems remain connected so a person can enter where the real problem is:
+Free planning tools are separate from cloud questions with a displayed credit quote. Review selected context, consent and the quote before confirmation. Eligible accounts may receive 20 included monthly credits without rollover; check Settings for the actual allowance, balance and reset. This is not unlimited AI or a universal credit grant.
 
-| System | Role |
-| --- | --- |
-| **Nexus** | Current operating state, relevant signals, and a next move to review. |
-| **Creator** | Structured capture for tasks, goals, Daily Rhythms, and notes. |
-| **Timeline** | Scheduled action, sequence, conflicts, and history across time. |
-| **Smart Planner** | Contextual planning assistance grounded in selected work and constraints. |
-| **SI Console** | Deeper strategic investigation through intent, evidence, assumptions, and scenarios. |
-| **Trajectory** | Forward-looking path comparison with visible uncertainty and trade-offs. |
-| **Progression** | Evidence-backed XP, levels, streaks, momentum, and reflection. |
-| **Signal Center** | Reviewable reminders, notifications, and system events. |
-| **Control Layer** | Consent, privacy, account, notification, billing, and AI-credit boundaries. |
+Settings explains guide replay and welcome/account setup separately, along with reminders, privacy and account controls. Optional Cloud Backup covers tasks, profile information and account preferences; goals, habits, notes and history are excluded. Keep your recovery key separately.
 
-## Intelligence contract
+Axiomara has no ads. Guidance can be revised or ignored and is not a substitute for qualified professional help. Privacy, terms, support and account-deletion routes remain available through the website.
 
-Axiomara's intelligence surfaces are expected to:
+## Guides
 
-1. understand the actual question;
-2. use only relevant, permitted context;
-3. separate evidence, assumptions, and uncertainty;
-4. provide a concrete and realistic response;
-5. preserve the person's authority to revise, reject, or act.
-
-Guidance is decision support. It is not a guarantee, diagnosis, prediction, or substitute for qualified medical, legal, financial, mental-health, or emergency help.
-
-## Trust principles
-
-- **No ads.** Axiomara does not display ads or require anyone to watch an ad.
-- **Explicit AI actions.** Enabled external AI actions identify what is sent and the expected credit cost before confirmation.
-- **Human authority.** Recommendations remain reviewable guidance.
-- **Clear account control.** Privacy, support, billing guidance, and deletion routes remain publicly available.
-- **Evidence before release claims.** Source checks, build evidence, store state, and physical-device results are reported separately.
-
-## Documentation
-
-The product guide lives in the **[Axiomara Wiki](https://github.com/ghostheart5/fantastic-guacamole/wiki)**:
-
-- [Overview](https://github.com/ghostheart5/fantastic-guacamole/wiki/Overview)
-- [Getting Started](https://github.com/ghostheart5/fantastic-guacamole/wiki/Getting-Started)
-- [Core Concepts](https://github.com/ghostheart5/fantastic-guacamole/wiki/Core-Concepts)
-- [Nexus](https://github.com/ghostheart5/fantastic-guacamole/wiki/Nexus)
-- [Creator](https://github.com/ghostheart5/fantastic-guacamole/wiki/Creator)
-- [Timeline](https://github.com/ghostheart5/fantastic-guacamole/wiki/Timeline)
-- [Smart Planner](https://github.com/ghostheart5/fantastic-guacamole/wiki/Smart-Planner)
-- [SI Console](https://github.com/ghostheart5/fantastic-guacamole/wiki/SI-CONSOLE)
-- [Trajectory](https://github.com/ghostheart5/fantastic-guacamole/wiki/Trajectory-Engine)
-- [Progression](https://github.com/ghostheart5/fantastic-guacamole/wiki/Progression)
-
-Architecture and engineering context are summarized in [AXIOMARA.md](AXIOMARA.md). Incident response and evidence boundaries are defined in [docs/INCIDENT_RESPONSE_RUNBOOK.md](docs/INCIDENT_RESPONSE_RUNBOOK.md).
+[Getting started](https://github.com/ghostheart5/fantastic-guacamole/wiki/Getting-Started) · [My plan and Schedule](https://github.com/ghostheart5/fantastic-guacamole/wiki/Timeline) · [Chat](https://github.com/ghostheart5/fantastic-guacamole/wiki/Smart-Planner) · [Predictions](https://github.com/ghostheart5/fantastic-guacamole/wiki/Trajectory-Engine) · [Settings](https://github.com/ghostheart5/fantastic-guacamole/wiki/Settings) · [Troubleshooting](https://github.com/ghostheart5/fantastic-guacamole/wiki/Troubleshooting)
 
 ## Development
 

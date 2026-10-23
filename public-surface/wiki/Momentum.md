@@ -1,8 +1,10 @@
 # Momentum
 
+> Guide updated October 23, 2026. Screen names can vary by installed version. The October 22–23 repairs are tested and merged; this does not establish that a new Google Play build is available. See [[Release Notes|Release-Notes]].
+
 Momentum is a system signal that helps describe whether your recent operating pattern is building, holding, or losing lift. It is not a separate Axiomara screen, a measure of your worth, or a guarantee about what will happen next.
 
-Axiomara surfaces Momentum within **Progression** as part of the broader picture of your current operating conditions.
+Axiomara surfaces Momentum within **Activity** as part of the broader picture of your current operating conditions.
 
 ## What Momentum means
 
@@ -44,29 +46,29 @@ When there is not enough prior history for a meaningful comparison, Axiomara tre
 
 Momentum is not about forcing intensity or protecting an unbroken streak. A sustainable pattern is usually built through small, realistic choices:
 
-1. Choose one useful next action in [[Nexus]].
-2. Capture new work in [[Creator]] before it is lost.
-3. Use [[Timeline]] when an action needs a place in time.
-4. Keep [[Daily Rhythms]] realistic and repeatable.
+1. Choose one useful next action in [[Today|Nexus]].
+2. Capture new work in [[Add something|Creator]] before it is lost.
+3. Use [[Schedule|Timeline]] when an action needs a place in time.
+4. Keep [[habits|Daily Rhythms]] realistic and repeatable.
 5. Review what happened and adjust the plan.
 
 A missed item is information. You can reschedule, simplify, refine, or retire it without treating the whole system as a failure.
 
 ## Momentum and other Axiomara concepts
 
-### Momentum and Progression
+### Momentum and Activity
 
-Progression is the evidence-backed advancement and leverage surface. Momentum is one signal presented within that broader picture. A future Progression Wiki page will explain the surrounding indicators in more detail.
+Activity is the evidence-backed advancement and leverage surface. Momentum is one signal presented within that broader picture. A future Activity Wiki page will explain the surrounding indicators in more detail.
 
-### Momentum and Trajectory Engine
+### Momentum and Predictions
 
-Trajectory Engine is separate. It examines explicit future scenarios, assumptions, horizon comparisons, and possible corrections. Momentum describes current and recent operating conditions.
+Predictions is separate. It examines explicit future scenarios, assumptions, horizon comparisons, and possible corrections. Momentum describes current and recent operating conditions.
 
 Momentum can inform future planning, but it is not a scenario comparison and it is not a prediction.
 
-### Momentum and Smart Planner or SI Console
+### Momentum and Chat or SI Chat
 
-[[Smart Planner]] can provide explainable planning assistance, and [[SI Console]] can support deeper strategic investigation. Momentum is only one possible piece of context. Review any guidance before acting.
+[[Chat|Smart Planner]] can provide explainable planning assistance, and [[SI Chat|SI Console]] can support deeper strategic investigation. Momentum is only one possible piece of context. Review any guidance before acting.
 
 ## What Momentum is not
 
@@ -82,14 +84,14 @@ Use the signal to make a kinder, more realistic next choice—not to demand perf
 
 ## Related pages
 
-[[Core Concepts]]
-[[Daily Workflow]]
-[[Nexus]]
-[[Creator]]
-[[Timeline]]
-[[Daily Rhythms]]
-[[Goals]]
-[[Tasks]]
-[[Smart Planner]]
-[[SI Console]]
-[[FAQ]]
+[[Core Concepts|Core Concepts]]
+[[Daily Workflow|Daily Workflow]]
+[[Today|Nexus]]
+[[Add something|Creator]]
+[[Schedule|Timeline]]
+[[habits|Daily Rhythms]]
+[[Goals|Goals]]
+[[Tasks|Tasks]]
+[[Chat|Smart Planner]]
+[[SI Chat|SI Console]]
+[[FAQ|FAQ]]

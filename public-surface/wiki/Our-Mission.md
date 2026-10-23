@@ -1,5 +1,7 @@
 # Our Mission
 
+> Guide updated October 23, 2026. Screen names can vary by installed version. The October 22–23 repairs are tested and merged; this does not establish that a new Google Play build is available. See [[Release Notes|Release-Notes]].
+
 Axiomara exists to help people turn fragmented information into understandable choices and deliberate action.
 
 Modern life produces more signals than most people can hold at once: obligations, ideas, goals, schedules, changes in capacity, competing priorities, and uncertainty about what comes next. Axiomara's mission is to connect those signals without taking authority away from the person living the life.

@@ -1,5 +1,7 @@
 # Notifications & Reminders
 
+> Guide updated October 23, 2026. Screen names can vary by installed version. The October 22–23 repairs are tested and merged; this does not establish that a new Google Play build is available. See [[Release Notes|Release-Notes]].
+
 Notifications and reminders are optional device alerts that can help keep selected plans visible. You control which reminder types are enabled and when applicable reminders are scheduled.
 
 They are configured from **Settings → Notifications**. Your device must allow notifications for Axiomara before reminders can be delivered.
@@ -19,7 +21,7 @@ Axiomara currently provides the following Settings controls:
 | Reminder | Current behavior |
 | --- | --- |
 | **Goal reminders** | Schedules around a Goal's target date, preferring one day before when possible. |
-| **Daily Rhythm reminders** | Uses a daily cadence for the first active Daily Rhythm when this control is enabled. |
+| **habit reminders** | Uses a daily cadence for the first active habit when this control is enabled. |
 | **Daily Planning reminder** | Runs once each day at the planning time you select. |
 | **Reflection reminder** | Runs daily at the time you select to invite a short reflection. |
 
@@ -33,13 +35,13 @@ Each control is optional. Turn on only the reminders that are useful to you, and
 4. Choose a time for Daily Planning or Reflection when those controls are enabled.
 5. Review your choices when your schedule or priorities change.
 
-For a schedule-specific action, create and manage the item in [[Creator]], then use [[Timeline]] to plan and review that action. A reminder is support for the plan; it is not the plan itself.
+For a schedule-specific action, create and manage the item in [[Add something|Creator]], then use [[Schedule|Timeline]] to plan and review that action. A reminder is support for the plan; it is not the plan itself.
 
-## Signal Center
+## reminders
 
-Axiomara also includes an in-app event stream called **Signal Center**. It shows available system notifications inside the app. You can review entries, mark them as read, or remove them.
+Axiomara also includes an in-app event stream called **reminders**. It shows available system notifications inside the app. You can review entries, mark them as read, or remove them.
 
-Signal Center is separate from device notifications. Seeing an item in Signal Center does not mean that a device alert was delivered, and allowing device alerts does not require every Signal Center item to create one.
+reminders is separate from device notifications. Seeing an item in reminders does not mean that a device alert was delivered, and allowing device alerts does not require every reminders item to create one.
 
 ## If a reminder does not arrive
 
@@ -54,15 +56,15 @@ If the app shows notification access as denied, use **Fix notification access** 
 
 ## Use reminders as support, not pressure
 
-Fewer, well-chosen reminders are usually more useful than a constant stream of alerts. Keep the reminders that help you return to a meaningful plan, Daily Rhythm, or reflection practice, and adjust the rest.
+Fewer, well-chosen reminders are usually more useful than a constant stream of alerts. Keep the reminders that help you return to a meaningful plan, habit, or reflection practice, and adjust the rest.
 
 ## Related pages
 
-- [[Settings]]
-- [[Creator]]
-- [[Goals]]
-- [[Daily Rhythms]]
-- [[Daily Workflow]]
-- [[Notes]]
-- [[Timeline]]
-- [[FAQ]]
+- [[Settings|Settings]]
+- [[Add something|Creator]]
+- [[Goals|Goals]]
+- [[habits|Daily Rhythms]]
+- [[Daily Workflow|Daily Workflow]]
+- [[Notes|Notes]]
+- [[Schedule|Timeline]]
+- [[FAQ|FAQ]]
