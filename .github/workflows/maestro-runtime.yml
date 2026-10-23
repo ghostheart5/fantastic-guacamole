@@ -7,6 +7,15 @@ on:
         description: Full immutable application source SHA to render
         required: true
         type: string
+      locale:
+        description: Language to capture
+        type: choice
+        required: true
+        default: both
+        options:
+          - both
+          - en-US
+          - es-US
 
 permissions:
   contents: read
@@ -24,7 +33,7 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        locale: [en-US, es-US]
+        locale: ${{ fromJSON(inputs.locale == 'en-US' && '["en-US"]' || inputs.locale == 'es-US' && '["es-US"]' || '["en-US","es-US"]') }}
     env:
       QA_SOURCE_SHA: ${{ inputs.source_sha }}
     steps:

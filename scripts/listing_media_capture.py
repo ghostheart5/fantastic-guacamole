@@ -185,7 +185,7 @@ class Capture:
         # Never submit an external AI request. This is the authentic entry view.
         self.screenshot(folder+'/05-chat')
         titles = {'phone': ('Stretch for two minutes', 'Estirar durante dos minutos'),
-                  'tablet-7': ('Prepare lunch for tomorrow', 'Preparar el almuerzo de manana'),
+                  'tablet-7': ('Prepare lunch for tomorrow', 'Preparar el almuerzo de hoy'),
                   'tablet': ('Write down one priority', 'Anotar una prioridad')}
         self.create('task', titles[form][self.locale == 'es-US'], capture_form=folder)
 
@@ -255,7 +255,7 @@ def main():
         shell('wm', 'density', '420')
         shell('am', 'start', '-n', PACKAGE+'/'+ 'com.ghostheart5.chronospark.MainActivity')
         c.profile()
-        titles = ['Plan a relaxing evening', 'Read a little each day', 'Make time for walking'] if args.locale == 'en-US' else ['Preparar una tarde tranquila', 'Leer un poco cada dia', 'Dedicar tiempo a caminar']
+        titles = ['Plan a relaxing evening', 'Read a little each day', 'Make time for walking'] if args.locale == 'en-US' else ['Preparar una tarde tranquila', 'Leer un rato', 'Dedicar tiempo a caminar']
         c.create('task', titles[0], schedule=True)
         c.nav('My plan', 'Mi plan')
         c.tap(r'^(?:Schedule|Agenda)$', scroll=True)
