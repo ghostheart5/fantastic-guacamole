@@ -175,6 +175,10 @@ class Capture:
         self.tap(r'^(?:Schedule|Agenda)$', scroll=True)
         self.wait(r'^(?:Schedule|Agenda)$')
         self.screenshot(folder+'/03-schedule')
+        # My plan opens Schedule on a pushed route without the shell tools menu.
+        shell('input', 'keyevent', '4')
+        self.actions.append({'action': 'back', 'fromObservedScreen': 'Schedule'})
+        self.wait(r'^(?:My plan|Mi plan)$')
         self.nav('Insights', 'Perspectivas')
         self.screenshot(folder+'/04-insights')
         self.nav('Chat', 'Chat')
@@ -257,6 +261,9 @@ def main():
         c.tap(r'^(?:Schedule|Agenda)$', scroll=True)
         c.tap(r'^(?:Complete|Completar)$', scroll=True)
         c.wait(r'.*(?:Task Completed|Tarea completada|marcada como completada).*')
+        shell('input', 'keyevent', '4')
+        c.actions.append({'action': 'back', 'fromObservedScreen': 'Schedule'})
+        c.wait(r'^(?:My plan|Mi plan)$')
         c.create('habit', titles[1])
         c.create('goal', titles[2])
         c.create('task', 'Take five quiet minutes' if args.locale == 'en-US' else 'Tomar cinco minutos de calma', schedule=True)
@@ -277,7 +284,7 @@ def main():
             recorder = None
             video = args.output/(form+'-walkthrough.mp4')
             adb('pull', remote, str(video))
-            receipt['videos'].append({'path': video.name, 'sha256': sha(video), 'pixels': [width,height],
+            receipt['videos'].append({'path': video.name, 'sha256': sha(video), 'requestedEmulatorPixels': [width,height],
                                       'boundary': 'Unedited real QA capture, bounded to first 180 seconds; may not include the entire screenshot journey. Not yet a polished store video.'})
         assert len(c.images) == 21
         receipt['status'] = 'captured-awaiting-visual-review'
