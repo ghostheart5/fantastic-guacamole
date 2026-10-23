@@ -40,12 +40,29 @@ def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def apk_identity(apk):
+def signer_digest(signing):
+    signers = sorted({v.lower() for v in re.findall(
+        r'^(?:V\d+(?:\.\d+)? )?Signer(?: #\d+|:) certificate SHA-256 digest: ([a-fA-F0-9]{64})$',
+        signing, re.M)})
+    assert len(signers) == 1, 'Expected one unique signer certificate; raw output retained'
+    return signers[0]
+
+
+def apk_identity(apk, diagnostics=None):
     sdk = Path(os.environ['ANDROID_HOME'])
     available = sorted(sdk.glob('build-tools/*/aapt2'))
     assert available
     tools = available[-1].parent
     badging = run(str(tools/'aapt2'), 'dump', 'badging', str(apk))
+    if diagnostics:
+        (diagnostics/'apk-badging.txt').write_text(badging)
+    signature = subprocess.run([str(tools/'apksigner'), 'verify', '--verbose', '--print-certs', str(apk)],
+                               capture_output=True, text=True, timeout=40)
+    signing = signature.stdout
+    if diagnostics:
+        (diagnostics/'apk-signature.txt').write_text(signing)
+        (diagnostics/'apk-signature-stderr.txt').write_text(signature.stderr)
+    signature.check_returncode()
     match = re.search(r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", badging, re.M)
     version = re.search(r'^version:\s*(.*)$', Path('pubspec.yaml').read_text(), re.M).group(1)
     name, code = version.split('+')
@@ -62,17 +79,17 @@ def apk_identity(apk):
         flutter_abis = sorted(p.split('/')[1] for p in archive.namelist()
                               if re.fullmatch(r'lib/[^/]+/libflutter\.so', p))
     assert 'x86_64' in flutter_abis
-    signing = run(str(tools/'apksigner'), 'verify', '--verbose', '--print-certs', str(apk))
-    signers = re.findall(r'^Signer #\d+ certificate SHA-256 digest: ([a-fA-F0-9]{64})$', signing, re.M)
-    assert len(signers) == 1
+    # Match the existing main build-only verifier: the same certificate can
+    # appear for several signature schemes. Distinct certificates still fail.
+    signer = signer_digest(signing)
     return {'package': PACKAGE, 'versionCode': code, 'versionName': name+'-qa',
             'requiredFlutterAbi': 'x86_64', 'flutterAbis': flutter_abis, 'nativeAbis': abis,
-            'debuggable': True, 'signerSha256': signers[0].lower()}, badging, signing
+            'debuggable': True, 'signerSha256': signer}, badging, signing
 
 
 def apk_artifact_mode():
     parser = argparse.ArgumentParser()
-    parser.add_argument('mode', choices=['seal-apk', 'verify-reused-apk'])
+    parser.add_argument('mode', choices=['preserve-apk', 'seal-apk', 'verify-reused-apk'])
     parser.add_argument('--source', required=True)
     parser.add_argument('--apk', type=Path, required=True)
     parser.add_argument('--output', type=Path)
@@ -85,15 +102,33 @@ def apk_artifact_mode():
     assert not run('git', 'status', '--porcelain').strip()
     assert args.apk.is_file() and not args.apk.is_symlink()
     assert args.apk.stat().st_size < 189*1024**2
-    identity, badging, signing = apk_identity(args.apk)
     current = {'schema': 1, 'sourceSha': args.source,
                'sourceTree': run('git','rev-parse','HEAD^{tree}').strip(),
                'qaDefinesSha256': sha('tool/qa_defines.json'), 'lockfileSha256': sha('pubspec.lock'),
-               'apkSha256': sha(args.apk), 'identity': identity}
+               'apkSha256': sha(args.apk)}
+    if args.mode == 'preserve-apk':
+        assert args.output is not None
+        args.output.mkdir(parents=True, exist_ok=False)
+        # Preserve expensive compilation bytes before parsing any tool output.
+        # This artifact is explicitly unverified and cannot claim app acceptance.
+        shutil.copyfile(args.apk, args.output/'app-debug.apk')
+        current.update({'verificationStatus': 'NOT_VERIFIED',
+                        'producerRunId': os.environ['GITHUB_RUN_ID'],
+                        'producerToolingSha': os.environ['GITHUB_SHA'],
+                        'producerWorkflowRef': os.environ['GITHUB_WORKFLOW_REF'],
+                        'boundary': 'Raw compilation preservation only. Identity/signature NOT VERIFIED. Never a public release or app acceptance.'})
+        (args.output/'receipt.json').write_text(json.dumps(current,indent=2)+'\n')
+        assert sum(p.stat().st_size for p in args.output.iterdir()) < 190*1024**2
+        return
+    diagnostics = Path('test-results/listing-media/apk-verification')
+    diagnostics.mkdir(parents=True, exist_ok=True)
+    identity, badging, signing = apk_identity(args.apk, diagnostics)
+    current['identity'] = identity
     if args.mode == 'seal-apk':
         assert args.output is not None
         args.output.mkdir(parents=True, exist_ok=False)
         current.update({'producerRunId': os.environ['GITHUB_RUN_ID'],
+                        'verificationStatus': 'verified',
                         'producerToolingSha': os.environ['GITHUB_SHA'],
                         'producerWorkflowRef': os.environ['GITHUB_WORKFLOW_REF'],
                         'sealToolSha256': sha(__file__),
@@ -115,7 +150,12 @@ def apk_artifact_mode():
         receipt_path = args.apk.parent/'receipt.json'
         assert sha(receipt_path) == expected_receipt
         receipt = json.loads(receipt_path.read_text())
+        assert receipt.get('verificationStatus') in {'verified', 'NOT_VERIFIED'}
         for key, actual in current.items():
+            if key == 'identity' and receipt['verificationStatus'] == 'NOT_VERIFIED':
+                # Explicitly reviewed raw receipts have no identity assertion.
+                # The consumer has just reverified the real APK independently.
+                continue
             assert receipt[key] == actual, key
         assert current['apkSha256'] == expected_apk
         assert receipt['producerRunId'] == producer_run
@@ -427,7 +467,7 @@ def main():
 
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1 and sys.argv[1] in {'seal-apk','verify-reused-apk'}:
+    if len(sys.argv) > 1 and sys.argv[1] in {'preserve-apk','seal-apk','verify-reused-apk'}:
         apk_artifact_mode()
     else:
         main()

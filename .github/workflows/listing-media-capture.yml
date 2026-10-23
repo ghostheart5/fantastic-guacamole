@@ -78,7 +78,7 @@ jobs:
           [[ "$QA_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
           if [ -n "$REUSE_RUN_ID$REUSE_ARTIFACT$REUSE_APK_SHA256$REUSE_RECEIPT_SHA256$REUSE_TOOLING_SHA" ]; then
             [[ "$REUSE_RUN_ID" =~ ^[0-9]+$ ]]
-            [[ "$REUSE_ARTIFACT" =~ ^axiomara-listing-qa-apk-[a-zA-Z0-9.-]+$ ]]
+            [[ "$REUSE_ARTIFACT" =~ ^axiomara-listing-(qa|raw)-apk-[a-zA-Z0-9.-]+$ ]]
             [[ "$REUSE_APK_SHA256" =~ ^[a-f0-9]{64}$ ]]
             [[ "$REUSE_RECEIPT_SHA256" =~ ^[a-f0-9]{64}$ ]]
             [[ "$REUSE_TOOLING_SHA" =~ ^[a-f0-9]{40}$ ]]
@@ -215,10 +215,24 @@ jobs:
           git diff --exit-code
           test -z "$(git status --porcelain)"
 
+      - name: Preserve raw compilation bytes before any identity parsing
+        id: preserve
+        if: inputs.reuse_run_id == ''
+        run: python3 test-results/listing-tooling/scripts/listing_media_capture.py preserve-apk --source "$QA_SOURCE_SHA" --apk build/app/outputs/flutter-apk/app-debug.apk --output test-results/listing-raw-apk
+
       - name: Seal freshly built QA APK with source and signer identity
         id: seal
         if: inputs.reuse_run_id == ''
         run: python3 test-results/listing-tooling/scripts/listing_media_capture.py seal-apk --source "$QA_SOURCE_SHA" --apk build/app/outputs/flutter-apk/app-debug.apk --output test-results/listing-apk
+
+      - name: Retain raw NOT VERIFIED APK only when sealing failed
+        if: always() && inputs.reuse_run_id == '' && steps.compile.outcome == 'success' && steps.preserve.outcome == 'success' && steps.seal.outcome != 'success'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: axiomara-listing-raw-apk-${{ matrix.locale }}-${{ inputs.source_sha }}-${{ github.run_attempt }}
+          path: test-results/listing-raw-apk/*
+          if-no-files-found: error
+          retention-days: 3
 
       - name: Retain verified QA APK before any emulator or UI failure
         if: inputs.reuse_run_id == '' && steps.seal.outcome == 'success'
