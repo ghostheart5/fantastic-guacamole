@@ -96,6 +96,63 @@ jobs:
           flutter-version: '3.44.6'
           cache: false
 
+      - name: Install and verify required official Android SDK packages
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          evidence=test-results/listing-media/sdk
+          mkdir -p "$evidence"
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager"
+          # Existing accepted SDK licenses only. EOF cannot accept a new license.
+          # sdkmanager retains its own archive integrity checks; a corrupt ZIP
+          # must fail instead of being used by Gradle's implicit NDK installer.
+          installed=false
+          for attempt in 1 2; do
+            if timeout 300s "$sdkmanager" --sdk_root="$ANDROID_HOME" \
+              'ndk;28.2.13676358' 'cmake;3.22.1' \
+              'platforms;android-36' 'build-tools;36.0.0' 'platform-tools' \
+              </dev/null 2>&1 | tee "$evidence/sdkmanager-attempt-$attempt.log"; then
+              installed=true
+              break
+            fi
+          done
+          test "$installed" = true
+          python3 - <<'PY'
+          import datetime, hashlib, json, os
+          from pathlib import Path
+          sdk = Path(os.environ['ANDROID_HOME'])
+          evidence = Path('test-results/listing-media/sdk')
+          packages = {'ndk/28.2.13676358': '28.2.13676358',
+                      'cmake/3.22.1': '3.22.1',
+                      'build-tools/36.0.0': '36.0.0',
+                      'platforms/android-36': None}
+          receipt = {'sourceSha': os.environ['QA_SOURCE_SHA'], 'status': 'failed',
+                     'checkedAtUtc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                     'packages': []}
+          try:
+              for name, expected in packages.items():
+                  props = sdk / name / 'source.properties'
+                  raw = props.read_bytes()
+                  text = raw.decode('utf-8')
+                  values = dict(line.split('=', 1) for line in text.splitlines()
+                                if '=' in line and not line.lstrip().startswith('#'))
+                  values = {k.strip(): v.strip() for k, v in values.items()}
+                  actual = values['Pkg.Revision']
+                  assert expected is None or actual == expected, (name, actual, expected)
+                  if name == 'platforms/android-36':
+                      assert values['AndroidVersion.ApiLevel'] == '36'
+                  (evidence / (name.replace('/', '-')+'-source.properties')).write_bytes(raw)
+                  receipt['packages'].append({'path': name, 'revision': actual,
+                      'sourcePropertiesSha256': hashlib.sha256(raw).hexdigest()})
+              assert (sdk / 'ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/clang').is_file()
+              assert (sdk / 'cmake/3.22.1/bin/cmake').is_file()
+              assert (sdk / 'build-tools/36.0.0/aapt2').is_file()
+              receipt['status'] = 'verified'
+          finally:
+              (evidence / 'sdk-verification.json').write_text(json.dumps(receipt, indent=2)+'\n')
+          PY
+
       - name: Build only local QA APK without provider credentials
         timeout-minutes: 25
         run: |
