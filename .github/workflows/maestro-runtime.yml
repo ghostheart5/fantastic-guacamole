@@ -41,7 +41,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: listing-media-capture
+  group: listing-media-capture-${{ inputs.locale }}
   cancel-in-progress: false
 
 jobs:
