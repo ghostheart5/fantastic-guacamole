@@ -190,16 +190,48 @@ class Capture:
         self.actions = []
         self.images = []
         self.frames = 0
+        self.dumps = 0
+        self.ui_readiness = []
 
     def tree(self):
-        shell('uiautomator', 'dump', '/sdcard/window.xml')
-        xml = adb('exec-out', 'cat', '/sdcard/window.xml')
-        tree = ET.fromstring(xml)
-        self.frames += 1
-        (self.output / f'ui-{self.frames:04d}.xml').write_text(xml, encoding='utf-8')
-        visible = '\n'.join(n.get('text', '') + '\n' + n.get('content-desc', '') for n in tree.iter('node'))
-        assert not re.search(r"isn.t responding|Application Error|keeps stopping", visible, re.I), visible
-        return tree
+        # Cold Flutter startup can briefly have no accessibility root. Observe
+        # readiness passively; never reuse an earlier dump or repeat an action.
+        from hosted_guest_anr import classify_anr
+        for attempt in range(5):
+            self.dumps += 1
+            remote = f'/sdcard/listing-capture-{self.dumps:04d}.xml'
+            dump = subprocess.run(['adb','-s',SERIAL,'shell','uiautomator','dump',remote],
+                                  capture_output=True, text=True, timeout=40)
+            prefix = self.output/f'ui-dump-{self.dumps:04d}'
+            Path(str(prefix)+'-stdout.txt').write_text(dump.stdout)
+            Path(str(prefix)+'-stderr.txt').write_text(dump.stderr)
+            content = subprocess.run(['adb','-s',SERIAL,'exec-out','cat',remote],
+                                     capture_output=True, text=True, timeout=20)
+            xml = content.stdout
+            Path(str(prefix)+'-raw.txt').write_text(xml+content.stderr)
+            try:
+                tree = ET.fromstring(xml)
+                assert tree.tag == 'hierarchy' and next(tree.iter('node'), None) is not None
+                valid = dump.returncode == 0 and content.returncode == 0
+            except (ET.ParseError, AssertionError):
+                valid = False
+            self.ui_readiness.append({'dump': self.dumps, 'attempt': attempt,
+                                      'dumpExitCode': dump.returncode,
+                                      'readExitCode': content.returncode, 'validHierarchy': valid})
+            if valid:
+                self.frames += 1
+                (self.output/f'ui-{self.frames:04d}.xml').write_text(xml, encoding='utf-8')
+                visible = '\n'.join(n.get('text', '')+'\n'+n.get('content-desc', '') for n in tree.iter('node'))
+                assert not re.search(r"isn.t responding|Application Error|keeps stopping", visible, re.I), visible
+                return tree
+            window = shell('dumpsys','window','windows')
+            assert not re.search(r"Application (?:Error|Not Responding)|isn.t responding", window, re.I)
+            last_anr = shell('dumpsys','activity','lastanr')
+            events = shell('logcat','-d','-b','events','-v','threadtime')
+            anr = classify_anr(last_anr, events, PACKAGE)
+            assert not anr['appAnrObserved'], 'App ANR while waiting for accessibility readiness'
+            time.sleep(2)
+        raise AssertionError('No valid fresh UI hierarchy after five passive observations; dump diagnostics retained')
 
     def find(self, pattern, tree=None):
         result = []
@@ -362,7 +394,7 @@ def main():
                'qaDefinesSha256': sha('tool/qa_defines.json'),
                'startedAtUtc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
                'boundary': 'Real UI in disposable local QA profile. No cloud account or external AI request; no production acceptance. Media requires visual review before upload.',
-               'actions': c.actions, 'screenshots': c.images, 'videos': []}
+               'actions': c.actions, 'screenshots': c.images, 'videos': [], 'uiReadiness': c.ui_readiness}
     recorder = None
     try:
         build_tools = sorted(Path(os.environ['ANDROID_HOME']).glob('build-tools/*/aapt2'))
