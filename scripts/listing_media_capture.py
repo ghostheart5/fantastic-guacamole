@@ -21,7 +21,7 @@ import zipfile
 
 PACKAGE = 'com.ghostheart5.chronospark.qa'
 SERIAL = 'emulator-5554'
-RETIRED = re.compile(r'\b(?:Nexus Core|Smart Planner|Trajectory Engine|Truth Ledger|Reality Builder|Capability Matrix|Deep Intelligence|Control Center|Daily Rhythms)\b', re.I)
+RETIRED = re.compile(r'\b(?:Nexus Core|Smart Planner|Now Engine|Trajectory Engine|Future Branches|Truth Ledger|Reality Builder|Capability Matrix|Deep Intelligence|SI Console|Human Profile|Control Center|Daily Rhythms)\b', re.I)
 
 
 def run(*args, binary=False, timeout=40):
@@ -290,9 +290,15 @@ class Capture:
         raise AssertionError(f'UI did not reach {pattern}')
 
     def nav(self, en, es):
-        self.tap(r'^(?:Browse tools|Ver herramientas)$')
+        # The extended tablet rail adds its visible Tools text to the same
+        # semantics node; accept only those source-defined language pairs.
+        self.tap(r'^(?:Browse tools(?:\nTools)?|Ver herramientas(?:\nHerramientas)?)$')
         self.tap(r'^(?:'+re.escape(en)+'|'+re.escape(es)+r')(?:\n.*)?$', scroll=True)
-        self.wait(r'^(?:'+re.escape(en)+'|'+re.escape(es)+r')$')
+        # Insights is the navigation label; its real screen heading is more
+        # descriptive. Require that heading rather than a stale nav label.
+        heading = (r'^(?:Patterns & future outcomes|Patrones y resultados futuros)$'
+                   if en == 'Insights' else r'^(?:'+re.escape(en)+'|'+re.escape(es)+r')$')
+        self.wait(heading)
 
     def screenshot(self, name):
         time.sleep(2)
@@ -318,7 +324,7 @@ class Capture:
             for pattern in [r'^CONTINUE TO (?:LOGIN|PROFILE|SETUP)$|^CONTINUAR (?:AL ACCESO|AL PERFIL|CONFIGURACIÓN)$',
                             r'^(?:Start login|Comenzar acceso)$',
                             r'^(?:Create profile|Crear perfil|Open profile|Abrir perfil)$',
-                            r'^(?:Go to Today|Ir a Hoy|SKIP FOR NOW|OMITIR POR AHORA)$',
+                            r'^(?:Go to Today|Ir a Hoy|SKIP FOR NOW|SALTAR POR AHORA)$',
                             r'^(?:Pause guide|Pausar guía)$']:
                 if self.find(pattern, tree):
                     self.tap(pattern)
@@ -364,7 +370,7 @@ class Capture:
         shell('input', 'keyevent', '111')
         if schedule:
             self.tap(r'^(?:Task options \(optional\)|Opciones de la tarea \(opcional\)).*', scroll=True)
-            self.tap(r'^(?:Schedule date and time|Elegir fecha y hora)\.\.\.$', scroll=True)
+            self.tap(r'^(?:Schedule date and time|Elegir fecha y hora)(?:\.\.\.)?$', scroll=True)
             self.tap(r'^(?:OK|Aceptar|ACEPTAR)$')
             self.tap(r'^(?:OK|Aceptar|ACEPTAR)$')
         en, es = names[kind]
