@@ -12,3 +12,4 @@
 [[FAQ]]
 [[Troubleshooting]]
 [[Updates and availability|Release-Notes]]
+[[Guía en español|Spanish-Guide]]
