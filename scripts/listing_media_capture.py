@@ -47,15 +47,21 @@ def signer_digest(signing):
     return signers[0]
 
 
-def unique_title_editor(tree):
+def observed_title_editor(tree):
     editors = [n for n in tree.iter('node') if n.get('class') == 'android.widget.EditText'
                and n.get('package') == PACKAGE and n.get('enabled') == 'true'
                and n.get('password') != 'true'
                and re.fullmatch(r'\[\d+,\d+\]\[\d+,\d+\]', n.get('bounds',''))]
     assert len(editors) == 1, 'Expected exactly one observed editable title field'
-    assert not editors[0].get('text'), 'New title field must be empty before demo input'
     left, top, right, bottom = map(int,re.findall(r'\d+',editors[0].get('bounds')))
     assert right > left and bottom > top
+    return editors[0]
+
+
+def unique_title_editor(tree):
+    editor = observed_title_editor(tree)
+    assert not editor.get('text'), 'New title field must be empty before demo input'
+    left, top, right, bottom = map(int,re.findall(r'\d+',editor.get('bounds')))
     return left, top, right, bottom
 
 
@@ -364,6 +370,44 @@ class Capture:
         self.wait(r'^(?:Today|Hoy)$')
         assert self.find(r'^(?:Add a goal, task or habit|Añadir una meta, tarea o hábito)$')
 
+    def enter_title(self, title):
+        assert title.isascii() and re.fullmatch(r'[A-Za-z0-9 ]+', title), 'Demo titles use simple ASCII words'
+        # Observe focus after the keyboard relayout before delivering text.
+        # A real hosted attempt dropped the tail of one fast input command.
+        previous_bounds = None
+        for _ in range(5):
+            editor = observed_title_editor(self.tree())
+            assert not editor.get('text'), 'New title field must be empty before demo input'
+            bounds = editor.get('bounds')
+            if editor.get('focused') == 'true' and bounds == previous_bounds:
+                break
+            previous_bounds = bounds if editor.get('focused') == 'true' else None
+            time.sleep(1)
+        else:
+            raise AssertionError('Observed empty title editor did not settle with focus')
+        self.actions.append({'action':'enter-title','delivery':'verified-ASCII-chunks-at-most-four-characters',
+                             'focusedUiTree':f'ui-{self.frames:04d}.xml','characters':len(title)})
+        for start in range(0, len(title), 4):
+            expected = title[:start+4]
+            for character in title[start:start+4]:
+                shell('input', 'text', '%s' if character == ' ' else character)
+                time.sleep(0.15)
+            previous_text = title[:start]
+            for _ in range(5):
+                editor = observed_title_editor(self.tree())
+                assert editor.get('focused') == 'true' and editor.get('bounds') == bounds, 'Title editor focus or settled bounds changed'
+                actual = editor.get('text', '')
+                assert expected.startswith(actual) and actual.startswith(previous_text), 'Title input deviated from expected cumulative prefix'
+                if actual == expected:
+                    break
+                previous_text = actual
+                time.sleep(1)
+            else:
+                raise AssertionError('Title input made no complete chunk progress within five observations')
+            self.actions.append({'action':'verify-title-prefix','characters':len(expected),
+                                 'uiTree':f'ui-{self.frames:04d}.xml'})
+        # No retry, clearing, or save occurs after incomplete or incorrect input.
+
     def create(self, kind, title, schedule=False, capture_form=None):
         self.nav('Add something', 'Añadir algo')
         names = {'task': ('Task', 'Tarea'), 'goal': ('Goal', 'Meta'), 'habit': ('Habit', 'Hábito')}
@@ -393,9 +437,7 @@ class Capture:
             shell('input','tap',str((left+right)//2),str((top+bottom)//2))
             self.actions.append({'action':'tap','observedSelector':'unique visible nonpassword title EditText in Add something',
                                  'uiTree':f'ui-{self.frames:04d}.xml'})
-        assert title.isascii(), 'ADB input text is deliberately limited to ASCII demo names'
-        shell('input', 'text', title.replace(' ', '%s'))
-        self.wait('^'+re.escape(title)+'$')
+        self.enter_title(title)
         shell('input', 'keyevent', '111')
         if schedule:
             self.tap(r'^(?:Task options \(optional\)|Opciones de la tarea \(opcional\)).*', scroll=True)
