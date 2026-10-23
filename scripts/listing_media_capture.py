@@ -48,6 +48,18 @@ def signer_digest(signing):
     return signers[0]
 
 
+def unique_title_editor(tree):
+    editors = [n for n in tree.iter('node') if n.get('class') == 'android.widget.EditText'
+               and n.get('package') == PACKAGE and n.get('enabled') == 'true'
+               and n.get('password') != 'true'
+               and re.fullmatch(r'\[\d+,\d+\]\[\d+,\d+\]', n.get('bounds',''))]
+    assert len(editors) == 1, 'Expected exactly one observed editable title field'
+    assert not editors[0].get('text'), 'New title field must be empty before demo input'
+    left, top, right, bottom = map(int,re.findall(r'\d+',editors[0].get('bounds')))
+    assert right > left and bottom > top
+    return left, top, right, bottom
+
+
 def apk_identity(apk, diagnostics=None):
     sdk = Path(os.environ['ANDROID_HOME'])
     available = sorted(sdk.glob('build-tools/*/aapt2'))
@@ -192,6 +204,7 @@ class Capture:
         self.frames = 0
         self.dumps = 0
         self.ui_readiness = []
+        self.diagnostic_form_captured = False
 
     def tree(self):
         # Cold Flutter startup can briefly have no accessibility root. Observe
@@ -319,13 +332,35 @@ class Capture:
     def create(self, kind, title, schedule=False, capture_form=None):
         self.nav('Add something', 'Añadir algo')
         names = {'task': ('Task', 'Tarea'), 'goal': ('Goal', 'Meta'), 'habit': ('Habit', 'Hábito')}
-        if kind != 'task':
-            self.tap(r'^(?:Task|Tarea)$', scroll=True)
-            en, es = names[kind]
-            self.tap(r'^(?:'+en+'|'+es+')$')
-        self.tap(r'^(?:Title, required|Título, obligatorio)(?:\s+Title \*|\s+Título \*)?$', scroll=True)
+        # Saved receipts deliberately survive navigation. New item is the
+        # visible action that opens a fresh form; the last selected type also
+        # persists, so never assume the next dropdown starts at Task.
+        if self.find(r'^(?:New item|Nuevo elemento)$'):
+            self.tap(r'^(?:New item|Nuevo elemento)$')
+        en, es = names[kind]
+        desired = r'^(?:'+en+'|'+es+')$'
+        if not self.find(desired):
+            self.tap(r'^(?:Task|Tarea|Goal|Meta|Habit|Hábito|Note|Nota)$', scroll=True)
+            self.tap(desired)
+        if not self.diagnostic_form_captured:
+            self.screenshot('diagnostic/01-add-task-before-demo')
+            self.diagnostic_form_captured = True
+        tree = self.tree()
+        labeled = self.find(r'^(?:Title, required|Título, obligatorio)(?:\s+Title \*|\s+Título \*)?$', tree)
+        if labeled:
+            self.tap(r'^(?:Title, required|Título, obligatorio)(?:\s+Title \*|\s+Título \*)?$')
+        else:
+            # The real Android 35 dump omits Flutter TextField hint/label text.
+            # In this collapsed form the title is the sole editable control.
+            # Require that exact observed condition rather than guessed pixels.
+            assert self.find(r'^(?:Add something|Añadir algo)$', tree)
+            left, top, right, bottom = unique_title_editor(tree)
+            shell('input','tap',str((left+right)//2),str((top+bottom)//2))
+            self.actions.append({'action':'tap','observedSelector':'unique visible nonpassword title EditText in Add something',
+                                 'uiTree':f'ui-{self.frames:04d}.xml'})
         assert title.isascii(), 'ADB input text is deliberately limited to ASCII demo names'
         shell('input', 'text', title.replace(' ', '%s'))
+        self.wait('^'+re.escape(title)+'$')
         shell('input', 'keyevent', '111')
         if schedule:
             self.tap(r'^(?:Task options \(optional\)|Opciones de la tarea \(opcional\)).*', scroll=True)
@@ -451,6 +486,7 @@ def main():
         shell('wm', 'density', '420')
         shell('am', 'start', '-n', PACKAGE+'/'+ 'com.ghostheart5.chronospark.MainActivity')
         c.profile()
+        c.screenshot('diagnostic/00-today-before-demo')
         titles = ['Plan a relaxing evening', 'Read a little each day', 'Make time for walking'] if args.locale == 'en-US' else ['Preparar una tarde tranquila', 'Leer un rato', 'Dedicar tiempo a caminar']
         c.create('task', titles[0], schedule=True)
         c.nav('My plan', 'Mi plan')
@@ -482,7 +518,7 @@ def main():
             adb('pull', remote, str(video))
             receipt['videos'].append({'path': video.name, 'sha256': sha(video), 'requestedEmulatorPixels': [width,height],
                                       'boundary': 'Unedited real QA capture, bounded to first 180 seconds; may not include the entire screenshot journey. Not yet a polished store video.'})
-        assert len(c.images) == 21
+        assert len([i for i in c.images if not i['path'].startswith('diagnostic/')]) == 21
         receipt['status'] = 'captured-awaiting-visual-review'
     except Exception as error:
         receipt['error'] = str(error)
