@@ -67,13 +67,19 @@ def unique_title_editor(tree):
 
 def destination_heading(en, es):
     # Flutter may merge adjacent header text into newline-separated semantics.
-    # Match an exact semantic line, never an arbitrary substring. Chat uses its
-    # unique header subtitle so the bottom navigation label cannot satisfy it.
+    # Match exact semantics, never a navigation label alone. Local Chat merges
+    # its welcome heading, evidence explanation and processing boundary.
     if en == 'Insights':
         labels = ('Patterns & future outcomes', 'Patrones y resultados futuros')
     elif en == 'Chat':
         labels = ('Ask a question about your saved plans. Review the answer before deciding.',
-                  'Pregunta sobre tus planes guardados. Revisa la respuesta antes de decidir.')
+                  'Pregunta sobre tus planes guardados. Revisa la respuesta antes de decidir.',
+                  'Ask about your saved plans\n'
+                  'Ask about saved tasks, goals, milestones, or your schedule. This local tool can read them, but cannot change them.\n'
+                  'This mode uses local rules: it does not send questions to external AI or spend AI credits. Voice tools require separate consent.',
+                  'Pregunta sobre tus planes guardados\n'
+                  'Pregunta sobre tareas, metas, hitos o tu agenda. Esta herramienta local puede leerlos, pero no cambiarlos.\n'
+                  'Este modo usa reglas locales: no envía preguntas a una IA externa ni gasta créditos de IA. Las herramientas de voz requieren un consentimiento aparte.')
     else:
         return r'^(?:'+re.escape(en)+'|'+re.escape(es)+r')$'
     return r'(?:^|\n)(?:'+'|'.join(re.escape(v) for v in labels)+r')(?:\n|$)'
