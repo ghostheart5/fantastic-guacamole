@@ -310,7 +310,7 @@ abstract final class GuidanceInterventionEngine {
         body:
             '${decision.rationale} Read why it was suggested and what is uncertain before deciding.',
         route: RoutePaths.nexus,
-        actionLabel: 'Review on Home',
+        actionLabel: 'Review today',
       ),
       GuidanceLessonId.smartPlanner => GuidanceLesson(
         id: id,
@@ -332,7 +332,8 @@ abstract final class GuidanceInterventionEngine {
         id: id,
         title: 'Ask what is missing',
         body:
-            '${decision.warning} Ask what evidence is missing and what input could change the recommendation.',
+            '${decision.warning} Ask what evidence is missing and what input could change the recommendation. '
+            'Free tools use no credits; questions to cloud AI show their price, up to 5 credits, before you confirm. Eligible free plans include 20 credits per month without rollover; check Settings for your allowance and reset date.',
         route: RoutePaths.siConsole,
         actionLabel: 'Inspect evidence',
       ),

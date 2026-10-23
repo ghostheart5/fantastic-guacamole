@@ -56,7 +56,12 @@ void main() {
         es.message(value),
         'Esta confirmación ya se aplicó. No se duplicó ${entry.$2}.',
       );
-      expect(en.message(value), value);
+      expect(
+        en.message(value),
+        entry.$1 == 'habit'
+            ? 'This confirmation was already applied. No duplicate habit was created.'
+            : value,
+      );
     }
   });
   test('duration and cadence distinguish singular and plural', () {
@@ -93,9 +98,10 @@ void main() {
       for (final entity in ['task', 'goal', 'daily rhythm', 'note']) {
         final message =
             'Review the exact selected change and its governed Person Context warnings. The proposed $entity was not silently rewritten. Explicit confirmation is required; nothing has been saved yet.';
+        final noun = entity == 'daily rhythm' ? 'habit' : entity;
         expect(
           en.message(message),
-          'Review the exact selected change and warnings based on personal information you shared. The proposed $entity was not silently rewritten. Explicit confirmation is required; nothing has been saved yet.',
+          'Review the exact selected change and warnings based on personal information you shared. The proposed $noun was not silently rewritten. Explicit confirmation is required; nothing has been saved yet.',
         );
         expect(
           es.message(message),
@@ -106,9 +112,37 @@ void main() {
           contains('Se requiere tu confirmación; aún no se ha guardado nada.'),
         );
         expect(en.message(message), isNot(contains('Person Context')));
+        if (entity == 'daily rhythm') {
+          expect(
+            es.message(message),
+            contains('No se modificó el hábito sin avisarte.'),
+          );
+        }
       }
     },
   );
+  test('legacy habit producer keys retain safety meaning with current nouns', () {
+    const cases = <String, String>{
+      'The saved replay record does not match the confirmed daily rhythm. Nothing was changed.':
+          'The saved replay record does not match the confirmed habit. Nothing was changed.',
+      'The target daily rhythm identity is already used by different data. Nothing was changed.':
+          'The target habit identity is already used by different data. Nothing was changed.',
+      'The undo record no longer matches the confirmed daily rhythm. Nothing was changed.':
+          'The undo record no longer matches the confirmed habit. Nothing was changed.',
+      'The created daily rhythm changed after confirmation, so automatic undo was blocked.':
+          'The created habit changed after confirmation, so automatic undo was blocked.',
+    };
+    for (final entry in cases.entries) {
+      expect(en.message(entry.key), entry.value);
+      expect(es.message(entry.key), contains('hábito'));
+      expect(es.message(entry.key), isNot(contains('ritmo diario')));
+    }
+    const entered = 'My Daily Rhythm: José’s habit called "daily rhythm".';
+    expect(en.message(entered), entered);
+    expect(es.message(entered), entered);
+    expect(en.evidence(entered), entered);
+    expect(es.evidence(entered), entered);
+  });
   test('unrecognized text stays verbatim in both languages', () {
     for (final copy in [en, es]) {
       const original = 'My plan: keep the name Creator and call Ana: tomorrow.';

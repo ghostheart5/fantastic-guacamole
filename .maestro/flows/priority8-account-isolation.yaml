@@ -14,38 +14,40 @@ tags:
     env:
       TASK_TITLE: "P8 Account A Sentinel"
 - assertVisible: "(?s).*P8 Account A Sentinel.*"
+- runFlow: ../subflows/return-from-schedule-to-today.yaml
 
 - runFlow: ../subflows/exit-tester-account.yaml
 - tapOn: "TESTER B.*ISOLATION LOGIN"
 - extendedWaitUntil:
-    visible: "NEXUS.*"
+    visible: "^Today$"
     timeout: 30000
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Truth Ledger"
+      TARGET: "My plan"
 - assertNotVisible: "(?s).*P8 Account A Sentinel.*"
 
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Reality Builder"
+      TARGET: "Add something"
 - runFlow:
     file: ../subflows/create-scheduled-task.yaml
     env:
       TASK_TITLE: "P8 Account B Sentinel"
 - assertVisible: "(?s).*P8 Account B Sentinel.*"
 - assertNotVisible: "(?s).*P8 Account A Sentinel.*"
+- runFlow: ../subflows/return-from-schedule-to-today.yaml
 
 - runFlow: ../subflows/exit-tester-account.yaml
 - tapOn: "TESTER ACCESS.*TEST LOGIN"
 - extendedWaitUntil:
-    visible: "NEXUS.*"
+    visible: "^Today$"
     timeout: 30000
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Truth Ledger"
+      TARGET: "My plan"
 - extendedWaitUntil:
     visible: "(?s).*P8 Account A Sentinel.*"
     timeout: 20000

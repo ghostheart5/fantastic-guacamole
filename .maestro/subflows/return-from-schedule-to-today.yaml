@@ -1,0 +1,19 @@
+# Return only from a Schedule pushed by Creator's saved receipt.
+# Keep the receipt and scheduled-task assertions in the caller before leaving.
+appId: com.ghostheart5.chronospark
+---
+- back
+- extendedWaitUntil:
+    visible: '^Add something$'
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: '^Back to Today$'
+    direction: UP
+    visibilityPercentage: 100
+    centerElement: false
+    timeout: 10000
+- tapOn: '^Back to Today$'
+- extendedWaitUntil:
+    visible: '^Today$'
+    timeout: 10000

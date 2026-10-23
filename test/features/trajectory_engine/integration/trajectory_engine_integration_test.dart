@@ -239,6 +239,321 @@ void main() {
       );
     }
 
+    for (final language in ['en', 'es']) {
+      for (final paired in [true, false]) {
+        for (final surface in ['compact', 'full impact']) {
+          testWidgets(
+            'structured warnings preserve quoted titles in $language $surface paired=$paired',
+            (tester) async {
+              await tester.binding.setSurfaceSize(const Size(900, 1800));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+              const labels = '"Revisar José’s résumé", "Llamar a Zoë"';
+              const warnings = <String>[
+                'Current priority matched $labels and may only break a close ranking tie.',
+                'Explicit boundary excluded $labels from this decision.',
+                'Fresh capacity limited this decision to 35 minutes.',
+                'Scheduled commitment protected $labels during conflict checks.',
+              ];
+              const spanishWarnings = <String>[
+                'La prioridad actual coincide con $labels y solo puede desempatar opciones de valoración similar.',
+                'El límite explícito excluyó $labels de esta decisión.',
+                'La capacidad reciente limitó esta decisión a 35 minutos.',
+                'El compromiso programado protegió $labels al comprobar conflictos.',
+              ];
+              const unknown =
+                  'Explicit boundary excluded "Texto mío" from this decision.';
+              const unknownReported =
+                  'User-reported Person Context: A user note outside the structured warnings. It constrains this scenario but is not treated as identity or a guaranteed outcome.';
+              final reported = <String>[
+                for (final warning in warnings)
+                  'User-reported Person Context: $warning It constrains this scenario but is not treated as identity or a guaranteed outcome.',
+              ];
+              final scope = AccountStorageScope.authenticated('test-account');
+              final store = _MemoryStore();
+              final comparison = trajectoryTestComparison(
+                baseline: trajectoryTestBaseline(
+                  accountScope: scope.v2Namespace!,
+                  personContextWarnings: warnings,
+                ),
+                plannerAssumptions: [
+                  if (paired) ...reported,
+                  unknown,
+                  unknownReported,
+                ],
+              );
+              final outcome = comparison.outcomes.firstWhere(
+                (value) => value.intervention.id == 'planner',
+              );
+              for (final warning in warnings) {
+                expect(
+                  outcome.assumptions,
+                  contains('Person Context constraint: $warning'),
+                );
+              }
+              await tester.pumpWidget(
+                _harness(
+                  model: _modelWithOutcomes(comparison, [outcome]),
+                  locale: Locale(language),
+                  repository: TrajectoryForecastLedgerRepository(
+                    store: store,
+                    scope: scope,
+                  ),
+                ),
+              );
+              await _pumpForecastTransition(tester);
+              final title = surface == 'compact'
+                  ? (language == 'es'
+                        ? 'Supuestos de esta estimación'
+                        : 'What this estimate assumes')
+                  : (language == 'es'
+                        ? 'Impacto completo y datos'
+                        : 'Full impact and evidence');
+              final section = surface == 'compact'
+                  ? find.byKey(
+                      ValueKey<String>('trajectory-assumptions-${outcome.id}'),
+                    )
+                  : find
+                        .ancestor(
+                          of: find.text(title),
+                          matching: find.byType(ExpansionTile),
+                        )
+                        .first;
+              await tester.scrollUntilVisible(
+                find.text(title).hitTestable(),
+                250,
+                scrollable: find.byType(Scrollable).first,
+              );
+              await Scrollable.ensureVisible(
+                tester.element(find.text(title)),
+                alignment: .5,
+              );
+              await _pumpForecastTransition(tester);
+              expect(find.text(title).hitTestable(), findsOneWidget);
+              await tester.tap(find.text(title).hitTestable());
+              await _pumpForecastTransition(tester);
+              if (surface == 'full impact') {
+                final evidenceTitle = language == 'es'
+                    ? 'Evidencia y supuestos'
+                    : 'Evidence and assumptions';
+                final evidenceToggle = find.descendant(
+                  of: section,
+                  matching: find.text(evidenceTitle),
+                );
+                expect(evidenceToggle, findsOneWidget);
+                await tester.scrollUntilVisible(
+                  evidenceToggle.hitTestable(),
+                  250,
+                  scrollable: find.byType(Scrollable).first,
+                );
+                await Scrollable.ensureVisible(
+                  tester.element(evidenceToggle),
+                  alignment: .5,
+                );
+                await _pumpForecastTransition(tester);
+                expect(evidenceToggle.hitTestable(), findsOneWidget);
+                await tester.tap(evidenceToggle.hitTestable());
+                await _pumpForecastTransition(tester);
+              }
+              final rendered = tester
+                  .widgetList<Text>(
+                    find.descendant(of: section, matching: find.byType(Text)),
+                  )
+                  .map((text) => text.data ?? '')
+                  .join('\n');
+              final prefix = language == 'es'
+                  ? 'Información que compartiste: '
+                  : 'Information you shared: ';
+              final qualifier = language == 'es'
+                  ? ' Limita este escenario, pero no te define ni garantiza un resultado.'
+                  : ' It limits this scenario but does not define you or guarantee an outcome.';
+              for (var index = 0; index < warnings.length; index++) {
+                final expectedWarning = language == 'es'
+                    ? spanishWarnings[index]
+                    : warnings[index];
+                final expected =
+                    '$prefix$expectedWarning${paired ? qualifier : ''}';
+                expect(
+                  RegExp(RegExp.escape(expected)).allMatches(rendered),
+                  hasLength(1),
+                );
+                expect(
+                  rendered,
+                  isNot(
+                    contains('Person Context constraint: ${warnings[index]}'),
+                  ),
+                );
+                expect(rendered, isNot(contains(reported[index])));
+              }
+              expect(
+                RegExp(RegExp.escape(qualifier)).allMatches(rendered),
+                hasLength(paired ? 4 : 0),
+              );
+              expect(rendered, contains(labels));
+              expect(rendered, contains(unknown));
+              expect(rendered, contains(unknownReported));
+              expect(store.writes, 0);
+              expect(tester.takeException(), isNull);
+            },
+          );
+        }
+      }
+    }
+
+    for (final language in ['en', 'es']) {
+      testWidgets('baseline evidence localizes structured warnings in $language', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(const Size(900, 1800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        const labels = '"Revisar José’s résumé", "Llamar a Zoë"';
+        const warnings = <String>[
+          'Current priority matched $labels and may only break a close ranking tie.',
+          'Explicit boundary excluded $labels from this decision.',
+          'Fresh capacity limited this decision to 35 minutes.',
+          'Scheduled commitment protected $labels during conflict checks.',
+        ];
+        const spanishWarnings = <String>[
+          'La prioridad actual coincide con $labels y solo puede desempatar opciones de valoración similar.',
+          'El límite explícito excluyó $labels de esta decisión.',
+          'La capacidad reciente limitó esta decisión a 35 minutos.',
+          'El compromiso programado protegió $labels al comprobar conflictos.',
+        ];
+        const unknown =
+            'User note: $labels remains outside known warning templates.';
+        final scope = AccountStorageScope.authenticated('test-account');
+        final store = _MemoryStore();
+        final baseline = trajectoryTestBaseline(
+          accountScope: scope.v2Namespace!,
+          personContextWarnings: [...warnings, unknown],
+        );
+        final comparison = trajectoryTestComparison(baseline: baseline);
+        await tester.pumpWidget(
+          _harness(
+            model: _modelWithOutcomes(comparison, [comparison.outcomes.first]),
+            locale: Locale(language),
+            repository: TrajectoryForecastLedgerRepository(
+              store: store,
+              scope: scope,
+            ),
+          ),
+        );
+        await _pumpForecastTransition(tester);
+        final detailsTitle = language == 'es'
+            ? 'Datos y detalles del modelo'
+            : 'Evidence and model details';
+        final toggle = find.text(detailsTitle);
+        await tester.scrollUntilVisible(
+          toggle.hitTestable(),
+          250,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await Scrollable.ensureVisible(tester.element(toggle), alignment: .5);
+        await _pumpForecastTransition(tester);
+        expect(toggle.hitTestable(), findsOneWidget);
+        await tester.tap(toggle.hitTestable());
+        await _pumpForecastTransition(tester);
+        expect(
+          find.text(
+            language == 'es'
+                ? 'ESTIMACIONES DEL PLAN ACTUAL'
+                : 'CURRENT PLAN ESTIMATES',
+          ),
+          findsOneWidget,
+        );
+        for (var index = 0; index < warnings.length; index++) {
+          expect(
+            find.text(
+              '• ${language == 'es' ? spanishWarnings[index] : warnings[index]}',
+            ),
+            findsOneWidget,
+          );
+          if (language == 'es') {
+            expect(find.text('• ${warnings[index]}'), findsNothing);
+          }
+        }
+        expect(find.text('• $unknown'), findsOneWidget);
+        final summary = language == 'es'
+            ? 'Esta estimación: ${baseline.availableMinutes} min disponibles / ${baseline.unscheduledMinutes} min sin programar. Comparación sin información compartida: ${baseline.noContextAvailableMinutes} min disponibles / ${baseline.noContextUnscheduledMinutes} min sin programar.'
+            : 'This estimate: ${baseline.availableMinutes}m available / ${baseline.unscheduledMinutes}m unscheduled. Comparison without shared information: ${baseline.noContextAvailableMinutes}m available / ${baseline.noContextUnscheduledMinutes}m unscheduled.';
+        expect(find.text(summary), findsOneWidget);
+        expect(
+          find.textContaining('Contexto personal autorizado:'),
+          findsNothing,
+        );
+        expect(store.writes, 0);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    for (final language in ['en', 'es']) {
+      testWidgets('unavailable shared-information fallbacks render in $language', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(const Size(900, 1800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        const raw = <String>[
+          'Person context was unavailable at scenario construction, so no personal context was inferred.',
+          'The no-context capacity and unscheduled values remain available for comparison.',
+        ];
+        final expected = language == 'es'
+            ? <String>[
+                'La información personal compartida no estaba disponible, por lo que no se dedujo para esta estimación.',
+                'Las estimaciones de capacidad y trabajo sin programar calculadas sin información personal compartida siguen disponibles para comparar.',
+              ]
+            : <String>[
+                'Shared personal information was unavailable, so none was inferred for this estimate.',
+                'Capacity and unscheduled-work estimates without shared personal information remain available for comparison.',
+              ];
+        final scope = AccountStorageScope.authenticated('test-account');
+        final store = _MemoryStore();
+        final comparison = trajectoryTestComparison(
+          baseline: trajectoryTestBaseline(
+            accountScope: scope.v2Namespace!,
+            availabilityOrigin: PredictiveEvidenceOrigin.unavailable,
+          ),
+          plannerAssumptions: raw,
+        );
+        final outcome = comparison.outcomes.firstWhere(
+          (value) => value.intervention.id == 'planner',
+        );
+        await tester.pumpWidget(
+          _harness(
+            model: _modelWithOutcomes(comparison, [outcome]),
+            locale: Locale(language),
+            repository: TrajectoryForecastLedgerRepository(
+              store: store,
+              scope: scope,
+            ),
+          ),
+        );
+        await _pumpForecastTransition(tester);
+        final title = language == 'es'
+            ? 'Supuestos de esta estimación'
+            : 'What this estimate assumes';
+        await tester.scrollUntilVisible(
+          find.text(title).hitTestable(),
+          250,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await Scrollable.ensureVisible(
+          tester.element(find.text(title)),
+          alignment: .5,
+        );
+        await _pumpForecastTransition(tester);
+        expect(find.text(title).hitTestable(), findsOneWidget);
+        await tester.tap(find.text(title).hitTestable());
+        await _pumpForecastTransition(tester);
+        for (final value in expected) {
+          expect(find.text('• $value'), findsOneWidget);
+        }
+        for (final value in raw) {
+          expect(find.text('• $value'), findsNothing);
+        }
+        expect(store.writes, 0);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     testWidgets(
       'forecast assumptions reset when the selected outcome changes',
       (tester) async {
@@ -574,7 +889,7 @@ void main() {
       expect(find.textContaining('Límite de evidencia:'), findsOneWidget);
       await tester.drag(find.byType(ListView), const Offset(0, -1100));
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('RAMAS FUTURAS'), findsWidgets);
+      expect(find.text('Opciones estimadas'), findsWidgets);
       expect(
         find.text(
           'Selecciona un camino para revisar sus consecuencias proyectadas.',

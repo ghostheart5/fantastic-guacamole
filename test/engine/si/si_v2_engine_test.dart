@@ -530,6 +530,58 @@ void main() {
     expect(() => milestone.dependencies.add('m3'), throwsUnsupportedError);
   });
 
+  for (final spanish in [false, true]) {
+    test(
+      'unknown personal information uses plain ${spanish ? 'Spanish' : 'English'} labels without inference',
+      () {
+        final context = SIV2PersonContextEvidence(
+          observedAt: now,
+          purposes: operationalPersonContextPurposes,
+          signals: const [],
+          unknownKinds: const {
+            PersonContextKind.commitment,
+            PersonContextKind.currentPriority,
+          },
+          behaviorTrace: const {'surface': 'siConsole'},
+        );
+        final response = const SIV2Engine().analyze(
+          query: SIV2Query(
+            rawText: spanish
+                ? '¿Qué debería hacer después?'
+                : 'What should I do next?',
+            intent: SIV2Intent.answer,
+            sources: const {SIV2Source.tasks},
+            timeRange: SIV2TimeRange.all,
+          ),
+          snapshot: _snapshot(now, personContext: context),
+          now: now,
+        );
+        expect(
+          response.missingInformation,
+          contains(
+            spanish
+                ? 'La información personal que compartiste no incluye un dato sobre compromiso; SI no lo dedujo.'
+                : 'The personal information you shared does not include a user-reported commitment; SI did not infer it.',
+          ),
+        );
+        expect(
+          response.missingInformation,
+          contains(
+            spanish
+                ? 'La información personal que compartiste no incluye un dato sobre prioridad actual; SI no lo dedujo.'
+                : 'The personal information you shared does not include a user-reported current priority; SI did not infer it.',
+          ),
+        );
+        expect(response.userReportedEvidence, isEmpty);
+        expect(context.unknownKinds, {
+          PersonContextKind.commitment,
+          PersonContextKind.currentPriority,
+        });
+        expect(PersonContextKind.currentPriority.name, 'currentPriority');
+      },
+    );
+  }
+
   test('user-reported context is cited separately and never typed as fact', () {
     final SIV2PersonContextSignalEvidence contextSignal =
         SIV2PersonContextSignalEvidence(

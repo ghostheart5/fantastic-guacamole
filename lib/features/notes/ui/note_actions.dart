@@ -140,18 +140,13 @@ class _NoteActionsState extends ConsumerState<NoteActions> {
                               ),
                             ),
                         ], (value) => task = value),
-                        links(
-                          es ? 'Ritmo diario' : 'Daily Rhythm',
-                          habit,
-                          [
-                            for (final h in habits)
-                              (
-                                h.id,
-                                Text(h.title, overflow: TextOverflow.ellipsis),
-                              ),
-                          ],
-                          (value) => habit = value,
-                        ),
+                        links(es ? 'Hábitos' : 'Habits', habit, [
+                          for (final h in habits)
+                            (
+                              h.id,
+                              Text(h.title, overflow: TextOverflow.ellipsis),
+                            ),
+                        ], (value) => habit = value),
                       ],
                     ),
                   ),

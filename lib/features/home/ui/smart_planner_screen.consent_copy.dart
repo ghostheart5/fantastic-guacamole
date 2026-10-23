@@ -99,8 +99,8 @@ extension _PlannerExplanationQuoteConsent on _SmartPlannerScreenState {
               Text(
                 journeyText(
                   context,
-                  'Your deterministic Planner V2 result remains the authority. This optional service can explain the visible plan but cannot change, save, schedule, or create anything.',
-                  'El resultado determinista del Planificador V2 sigue siendo la referencia. Este servicio opcional puede explicar el plan visible, pero no puede cambiar, guardar, programar ni crear nada.',
+                  'Your local planning result remains the reference. This optional service can explain the visible plan but cannot change, save, schedule, or create anything.',
+                  'El resultado de planificación local sigue siendo la referencia. Este servicio opcional puede explicar el plan visible, pero no puede cambiar, guardar, programar ni crear nada.',
                 ),
               ),
               const SizedBox(height: 14),

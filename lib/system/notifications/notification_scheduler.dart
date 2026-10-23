@@ -18,6 +18,17 @@ class NotificationScheduler implements NotificationSchedulerPort {
 
   final FlutterLocalNotificationsPlugin _plugin;
   bool _initialized = false;
+  bool _launchPayloadClaimed = false;
+
+  /// Test isolation only. Release builds cannot rearm a consumed launch.
+  @visibleForTesting
+  void resetLaunchConsumptionForTesting() {
+    assert(() {
+      _launchPayloadClaimed = false;
+      return true;
+    }());
+  }
+
   bool _permissionGranted = true;
   static final ValueNotifier<bool?> permissionGrantedListenable =
       ValueNotifier<bool?>(null);
@@ -123,11 +134,16 @@ class NotificationScheduler implements NotificationSchedulerPort {
   }
 
   /// Payload the app was launched with, if it was launched by a notification
-  /// tap. Returns null once consumed so a later read cannot re-route.
+  /// tap. Queries the retained native launch intent at most once per process,
+  /// including ordinary launches and failed reads, so remounts cannot replay it.
+  /// Foreground notification callbacks remain independent.
   Future<String?> consumeLaunchPayload() async {
-    if (!_initialized) {
+    if (!_initialized || _launchPayloadClaimed) {
       return null;
     }
+    // Android retains the Activity intent. Claim before awaiting so concurrent
+    // shell mounts cannot replay it. Real foreground taps use the listener.
+    _launchPayloadClaimed = true;
     try {
       final NotificationAppLaunchDetails? details = await _plugin
           .getNotificationAppLaunchDetails();

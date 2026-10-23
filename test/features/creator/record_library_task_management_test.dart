@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
+import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -42,6 +44,35 @@ import 'package:hive/hive.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets(
+    'My plan remains the task library and Schedule pushes a separate review',
+    (tester) async {
+      final h = _Harness(withSchedule: true);
+      await h.pump(tester, asPlan: true);
+      final before = h.snapshot();
+      expect(find.byType(RecordLibraryScreen), findsOneWidget);
+      expect(find.text('My plan'), findsOneWidget);
+      expect(find.text('First task'), findsOneWidget);
+      expect(find.byType(TimelineScreen), findsNothing);
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Schedule'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
+      expect(find.byType(TimelineScreen), findsOneWidget);
+      expect(find.text('Schedule'), findsOneWidget);
+      await tester.tap(find.byTooltip('Back').hitTestable());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
+      expect(find.byType(TimelineScreen), findsNothing);
+      expect(find.text('My plan'), findsOneWidget);
+      expect(find.text('First task'), findsOneWidget);
+      expect(h.snapshot(), before);
+      expect(h.ledger.records, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final light in [false, true]) {
     testWidgets(
@@ -582,7 +613,11 @@ class _Scope extends Notifier<AccountStorageScope> {
 }
 
 class _Harness {
-  _Harness({String? terminal, ITaskRepository? canonicalRepository}) {
+  _Harness({
+    String? terminal,
+    ITaskRepository? canonicalRepository,
+    bool withSchedule = false,
+  }) {
     repo.records['a'] = TaskEntity(
       id: 'a',
       title: 'First task',
@@ -609,6 +644,11 @@ class _Harness {
           canonicalRepository ?? repo,
         ),
         goalsProvider.overrideWith(_EmptyGoals.new),
+        if (withSchedule) ...[
+          timelineProvider.overrideWith(_ScheduleEvents.new),
+          timelinePersistenceCorruptedProvider.overrideWithValue(false),
+          allTasksProvider.overrideWith((ref) async => const <Task>[]),
+        ],
         taskOccurrenceRepositoryProvider.overrideWithValue(ledger),
         taskOccurrenceCloudReplicaProvider.overrideWithValue(null),
         learningProvider.overrideWith(_MemoryLearning.new),
@@ -833,4 +873,9 @@ void _expectButtonContrast(WidgetTester tester, Finder label) {
     _contrast(_paintedText(tester, label), material.color!),
     greaterThanOrEqualTo(4.5),
   );
+}
+
+class _ScheduleEvents extends TimelineNotifier {
+  @override
+  List<TimelineEventEntity> build() => const <TimelineEventEntity>[];
 }

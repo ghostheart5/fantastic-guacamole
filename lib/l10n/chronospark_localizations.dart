@@ -113,7 +113,8 @@ class ChronoSparkLocalizations {
       'timelineExecution' =>
         'Completa, aplaza o corrige un bloque. Solo el resultado guardado hace avanzar esta guía.',
       'siConsole' =>
-        'Pregunta qué evidencia falta y qué dato podría cambiar la recomendación.',
+        'Pregunta qué evidencia falta y qué dato podría cambiar la recomendación. '
+            'Las herramientas gratuitas no usan créditos; las preguntas a la IA en la nube muestran su precio, de hasta 5 créditos, antes de confirmar. Los planes gratuitos elegibles incluyen 20 créditos al mes sin acumulación; consulta tu asignación y fecha de renovación en Ajustes.',
       'trajectoryEngine' =>
         'Cambia tiempo, alcance o prioridad y compara las consecuencias y supuestos.',
       'progression' =>

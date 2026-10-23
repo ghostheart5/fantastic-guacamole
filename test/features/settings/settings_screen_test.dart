@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:flutter/rendering.dart';
 import 'package:fantastic_guacamole/data/services/mock_auth_service.dart';
@@ -104,6 +105,8 @@ void main() {
     bool? learningPaused,
     DateTime? learningNow,
     bool billingAccess = false,
+    bool billingCreditAccess = false,
+    bool guideReady = false,
     AiCreditWallet? wallet,
   }) {
     final AccountStorageScope resolvedScope =
@@ -119,13 +122,16 @@ void main() {
       overrides: [
         if (billingAccess)
           appAccessProvider.overrideWithValue(
-            const AppAccessState(
+            AppAccessState(
               hasPremiumAccess: true,
               hasTesterFullAccess: false,
               paywallDisabled: false,
               internalBillingTest: true,
+              internalCreditTest: billingCreditAccess,
             ),
           ),
+        if (guideReady)
+          adaptiveGuidanceProvider.overrideWith(_CopyGuidance.new),
         if (authService != null)
           authServiceProvider.overrideWithValue(authService),
         accountStorageScopeProvider.overrideWithValue(resolvedScope),
@@ -207,6 +213,76 @@ void main() {
     tester.widget<GestureDetector>(tile).onTap!();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+  }
+
+  for (final es in [false, true]) {
+    testWidgets(
+      '${es ? 'Spanish' : 'English'} Settings use current Chat and plain guide descriptions',
+      (tester) async {
+        useTallSurface(tester);
+        final container = createContainer(
+          billingAccess: true,
+          billingCreditAccess: true,
+          guideReady: true,
+        );
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              locale: Locale(es ? 'es' : 'en'),
+              supportedLocales: ChronoSparkLocalizations.supportedLocales,
+              localizationsDelegates: const [
+                ChronoSparkLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: const SettingsScreen(),
+            ),
+          ),
+        );
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(
+          find.textContaining(
+            es
+                ? 'Elegir un paso y Chat pueden usar IA externa'
+                : 'Choose a step and Chat can use external AI',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('Choose a step and SI Chat can use external AI'),
+          findsNothing,
+        );
+        await invokeNavTile(
+          tester,
+          es ? 'Planificación y orientación' : 'Planning & guidance',
+        );
+        final guide = es
+            ? 'Vuelve a mostrar la guía sin cambiar tu trabajo ni tu actividad guardados.'
+            : 'Shows the guide again without changing your saved work or activity.';
+        final setup = es
+            ? 'Vuelve a abrir la bienvenida y la configuración de la cuenta. Conserva tu trabajo guardado y el progreso de la guía.'
+            : 'Reopens welcome and account setup. Keeps your saved work and guide progress.';
+        await tester.scrollUntilVisible(
+          find.text(guide),
+          400,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text(guide).hitTestable(), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text(setup),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text(setup).hitTestable(), findsOneWidget);
+        expect(find.textContaining('contextual intervention'), findsNothing);
+        expect(find.textContaining('intervención contextual'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final theme in [appTheme, appLightTheme]) {
@@ -1422,6 +1498,136 @@ void main() {
     }
   }
 
+  for (final language in ['en', 'es']) {
+    testWidgets(
+      '$language stored habit observations display current labels without rewriting user text',
+      (tester) async {
+        useTallSurface(tester);
+        final now = DateTime.utc(2026, 9, 2, 12);
+        final outcomes = [
+          DecisionOutcomeEntity(
+            decisionId: 'legacy-habit-label',
+            kind: DecisionOutcomeKind.completed,
+            surface: 'daily_rhythm',
+            situation: 'daily rhythm occurrence',
+            recordedAt: now,
+            modelVersion: 'habit-outcome-v1',
+            recommendationConfidence: .64,
+            completionResult:
+                'My Daily Rhythm notes stay exactly as I wrote them.',
+          ),
+          DecisionOutcomeEntity(
+            decisionId: 'legacy-habit-occurrence-label',
+            kind: DecisionOutcomeKind.completed,
+            surface: 'daily_rhythm_occurrence',
+            situation: 'Daily Rhythm helped my routine',
+            recordedAt: now.subtract(const Duration(minutes: 1)),
+            modelVersion: 'habit-outcome-v1',
+            recommendationConfidence: .64,
+          ),
+        ];
+        final saved = outcomes.map((outcome) => outcome.toJson()).toList();
+        final container = createContainer(
+          decisionOutcomes: outcomes,
+          learningPaused: false,
+          learningNow: now,
+        );
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: appTheme,
+              locale: Locale(language),
+              supportedLocales: ChronoSparkLocalizations.supportedLocales,
+              localizationsDelegates: const [
+                ChronoSparkLocalizations.delegate,
+                ...GlobalMaterialLocalizations.delegates,
+              ],
+              home: const SettingsScreen(),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 200));
+        await invokeNavTile(
+          tester,
+          language == 'es'
+              ? 'Planificación y orientación'
+              : 'Planning & guidance',
+        );
+        final first = find.byKey(
+          ValueKey<String>('learning-ledger-${outcomes.first.id}'),
+        );
+        await tester.scrollUntilVisible(
+          first,
+          400,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(
+          find.descendant(
+            of: first,
+            matching: find.textContaining(
+              language == 'es' ? 'Hábito ·' : 'Habit ·',
+            ),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: first,
+            matching: find.textContaining(
+              language == 'es' ? 'registro de hábito' : 'habit occurrence',
+            ),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: first,
+            matching: find.textContaining(
+              'My Daily Rhythm notes stay exactly as I wrote them.',
+            ),
+          ),
+          findsOneWidget,
+        );
+        final second = find.byKey(
+          ValueKey<String>('learning-ledger-${outcomes.last.id}'),
+        );
+        await tester.scrollUntilVisible(
+          second,
+          250,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(
+          find.descendant(
+            of: second,
+            matching: find.textContaining(
+              language == 'es' ? 'registro de hábito ·' : 'Habit occurrence ·',
+            ),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: second,
+            matching: find.textContaining('Daily Rhythm helped my routine'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          container
+              .read(decisionOutcomesProvider)
+              .requireValue
+              .map((outcome) => outcome.toJson())
+              .toList(),
+          saved,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('shows a reviewable user-controlled learning ledger', (
     WidgetTester tester,
   ) async {
@@ -1624,4 +1830,14 @@ class _MemoryStore implements SharedPrefsStore {
 
   @override
   Future<void> clear() async => values.clear();
+}
+
+class _CopyGuidance extends AdaptiveGuidanceNotifier {
+  @override
+  Future<AdaptiveGuidanceState> build() async => const AdaptiveGuidanceState(
+    milestones: {},
+    counts: {},
+    skippedLessons: {},
+    completedLessons: {},
+  );
 }

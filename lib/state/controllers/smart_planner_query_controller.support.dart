@@ -691,20 +691,20 @@ final class _PlannerEvidence {
     if (!rhythmReadSucceeded)
       _plannerEvidenceText(
         languageCode,
-        'Daily Rhythm outcomes were unavailable; remaining rhythm work was not assumed.',
-        'Los resultados de Ritmo diario no estaban disponibles; no se supuso que quedara trabajo por hacer.',
+        'Habit outcomes were unavailable; remaining habit work was not assumed.',
+        'Los resultados de los hábitos no estaban disponibles; no se supuso que quedara trabajo por hacer.',
       ),
     if (rhythmReadSucceeded && rhythms.isNotEmpty)
       _plannerEvidenceText(
         languageCode,
-        'Daily Rhythms: ${rhythms.where((entry) => entry.needsAttention).length} current-period targets have no recorded outcome. Individual repetitions and session durations are unknown.',
-        'Ritmos diarios: ${rhythms.where((entry) => entry.needsAttention).length} objetivos del período actual no tienen un resultado registrado. Se desconocen las repeticiones individuales y la duración de las sesiones.',
+        'Habits: ${rhythms.where((entry) => entry.needsAttention).length} current-period targets have no recorded outcome. Individual repetitions and session durations are unknown.',
+        'Hábitos: ${rhythms.where((entry) => entry.needsAttention).length} objetivos del período actual no tienen un resultado registrado. Se desconocen las repeticiones individuales y la duración de las sesiones.',
       ),
     if (focusRhythm != null)
       _plannerEvidenceText(
         languageCode,
-        'Focused Daily Rhythm: "${SmartPlannerQueryController._safeEvidenceTitle(focusRhythm!.habit.title)}"; ${focusRhythm!.habit.targetCount} per ${focusRhythm!.habit.cadence.name}; period ${focusRhythm!.periodKey}; ${focusRhythm!.status.name}.',
-        'Ritmo diario elegido: "${SmartPlannerQueryController._safeEvidenceTitle(focusRhythm!.habit.title)}"; ${focusRhythm!.habit.targetCount} por ${_plannerEvidenceLabel(focusRhythm!.habit.cadence.name)}; período ${focusRhythm!.periodKey}; ${_plannerEvidenceLabel(focusRhythm!.status.name)}.',
+        'Focused habit: "${SmartPlannerQueryController._safeEvidenceTitle(focusRhythm!.habit.title)}"; ${focusRhythm!.habit.targetCount} per ${focusRhythm!.habit.cadence.name}; period ${focusRhythm!.periodKey}; ${focusRhythm!.status.name}.',
+        'Hábito elegido: "${SmartPlannerQueryController._safeEvidenceTitle(focusRhythm!.habit.title)}"; ${focusRhythm!.habit.targetCount} por ${_plannerEvidenceLabel(focusRhythm!.habit.cadence.name)}; período ${focusRhythm!.periodKey}; ${_plannerEvidenceLabel(focusRhythm!.status.name)}.',
       ),
     if (!noteReadSucceeded)
       _plannerEvidenceText(
@@ -760,8 +760,8 @@ final class _PlannerEvidence {
     if (focusRhythm != null) {
       return _plannerEvidenceText(
         languageCode,
-        'Used the matched Daily Rhythm and its current period outcome.',
-        'Se usó el Ritmo diario coincidente y su resultado del período actual.',
+        'Used the matched habit and its current period outcome.',
+        'Se usó el hábito coincidente y su resultado del período actual.',
       );
     }
     if (selectedNote != null) {
@@ -788,8 +788,8 @@ final class _PlannerEvidence {
     if (personContext.planningFocus != null) {
       return _plannerEvidenceText(
         languageCode,
-        'Used only consented, fresh Person Context with typed or positive-text relevance to this planning request.',
-        'Solo se usó Contexto Personal vigente y autorizado, pertinente por su categoría o por una coincidencia de texto con esta solicitud.',
+        'Used only recent personal information you shared with consent and typed or positive-text relevance to this planning request.',
+        'Solo se usó información personal reciente que compartiste con consentimiento, pertinente por su categoría o por una coincidencia de texto con esta solicitud.',
       );
     }
     if (hasStoredEvidence) {
@@ -818,7 +818,7 @@ final class _PlannerEvidence {
       return null;
     }
     if (focusRhythm != null) {
-      return 'Daily Rhythm "${SmartPlannerQueryController._safeEvidenceTitle(focusRhythm!.habit.title)}"';
+      return 'Habit "${SmartPlannerQueryController._safeEvidenceTitle(focusRhythm!.habit.title)}"';
     }
     final TaskEntity? task = focusTask;
     if (task != null) {
@@ -843,7 +843,7 @@ final class _PlannerEvidence {
     }
     if (savedContextDeclined) return null;
     if (focusRhythm != null) {
-      return 'el Ritmo diario "${SmartPlannerQueryController._safeEvidenceTitle(focusRhythm!.habit.title)}"';
+      return 'el hábito "${SmartPlannerQueryController._safeEvidenceTitle(focusRhythm!.habit.title)}"';
     }
     if (focusTask != null) {
       return 'la tarea guardada "${SmartPlannerQueryController._safeEvidenceTitle(focusTask!.title)}"';

@@ -256,10 +256,10 @@ class _BaselineCard extends StatelessWidget {
           if (baseline.personContextWarnings.isNotEmpty) ...<Widget>[
             Text(
               Localizations.localeOf(context).languageCode == 'es'
-                  ? 'Contexto personal autorizado: ${baseline.availableMinutes} min disponibles / ${baseline.unscheduledMinutes} min sin programar. '
-                        'Comparación sin contexto: ${baseline.noContextAvailableMinutes} min disponibles / ${baseline.noContextUnscheduledMinutes} min sin programar.'
-                  : 'Shared personal context: ${baseline.availableMinutes}m available / ${baseline.unscheduledMinutes}m unscheduled. '
-                        'No-context comparison: ${baseline.noContextAvailableMinutes}m available / ${baseline.noContextUnscheduledMinutes}m unscheduled.',
+                  ? 'Esta estimación: ${baseline.availableMinutes} min disponibles / ${baseline.unscheduledMinutes} min sin programar. '
+                        'Comparación sin información compartida: ${baseline.noContextAvailableMinutes} min disponibles / ${baseline.noContextUnscheduledMinutes} min sin programar.'
+                  : 'This estimate: ${baseline.availableMinutes}m available / ${baseline.unscheduledMinutes}m unscheduled. '
+                        'Comparison without shared information: ${baseline.noContextAvailableMinutes}m available / ${baseline.noContextUnscheduledMinutes}m unscheduled.',
               style: const TextStyle(
                 color: Color(0xFFFFC857),
                 fontSize: 11,
@@ -269,7 +269,7 @@ class _BaselineCard extends StatelessWidget {
             const SizedBox(height: 6),
             ...baseline.personContextWarnings.map(
               (String warning) => Text(
-                '• ${_trajectoryGeneratedText(context, warning)}',
+                '• ${_trajectorySharedInformationWarningText(context, warning)}',
                 style: const TextStyle(
                   color: Color(0xFFD8E2FF),
                   fontSize: 11,
@@ -1195,6 +1195,18 @@ class _Panel extends StatelessWidget {
 
 String _trajectoryGeneratedText(BuildContext context, String value) {
   final String? plain = switch (value) {
+    'Person context was unavailable at scenario construction, so no personal context was inferred.' =>
+      journeyText(
+        context,
+        'Shared personal information was unavailable, so none was inferred for this estimate.',
+        'La información personal compartida no estaba disponible, por lo que no se dedujo para esta estimación.',
+      ),
+    'The no-context capacity and unscheduled values remain available for comparison.' =>
+      journeyText(
+        context,
+        'Capacity and unscheduled-work estimates without shared personal information remain available for comparison.',
+        'Las estimaciones de capacidad y trabajo sin programar calculadas sin información personal compartida siguen disponibles para comparar.',
+      ),
     'Energy is a seeded planning estimate, not a user observation.' =>
       journeyText(
         context,

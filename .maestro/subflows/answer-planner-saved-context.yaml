@@ -47,4 +47,4 @@ appId: com.ghostheart5.chronospark
           direction: UP
           centerElement: false
           timeout: 30000
-      - assertNotVisible: "(?s).*ONE CLARIFYING QUESTION.*"
+      - assertNotVisible: "(?s).*Which saved task or goal, if any, should this plan support\\?.*"

@@ -406,7 +406,7 @@ class _MemoryGovernanceSection extends ConsumerWidget {
             title: journeyText(
               context,
               'Saved conversation preferences',
-              'Memoria duradera del Chat SI',
+              'Preferencias de conversación guardadas',
             ),
             subtitle: journeyText(
               context,
@@ -559,8 +559,8 @@ class _AssistantReleaseSection extends ConsumerWidget {
             child: Text(
               journeyText(
                 context,
-                'New assistant behavior is assigned deterministically. Joining beta is optional; leaving removes beta eligibility. Planner, SI, memory, critic, and optional external explanation each have an independent emergency rollback.',
-                'El comportamiento nuevo del asistente se asigna de forma determinista. Unirse a la beta es opcional; salir elimina la elegibilidad. El Planificador, SI, la memoria, el crítico y la explicación externa opcional tienen cada uno una reversión de emergencia independiente.',
+                'New assistant behavior is assigned deterministically. Joining beta is optional; leaving removes beta eligibility. Local planning, SI, memory, critic, and optional external explanation each have an independent emergency rollback.',
+                'El comportamiento nuevo del asistente se asigna de forma determinista. Unirse a la beta es opcional; salir elimina la elegibilidad. La planificación local, SI, la memoria, el crítico y la explicación externa opcional tienen cada uno una reversión de emergencia independiente.',
               ),
               style: const TextStyle(
                 color: Colors.white60,
@@ -607,8 +607,8 @@ class _AssistantReleaseSection extends ConsumerWidget {
           _NeonStatusTile(
             title: journeyText(
               context,
-              'Your Planner cohort',
-              'Tu cohorte del Planificador',
+              'Your local planning rollout group',
+              'Tu grupo de activación de planificación local',
             ),
             subtitle: plannerDecision.when(
               data: (AssistantReleaseDecision decision) =>
@@ -677,8 +677,8 @@ String _assistantCapabilityLabel(
       isSpanish ? 'Crítico de seguridad' : 'Safety critic',
     AssistantReleaseCapability.plannerExplanation =>
       isSpanish
-          ? 'Explicación opcional del Planificador'
-          : 'Optional Planner explanation',
+          ? 'Explicación opcional de planificación'
+          : 'Optional planning explanation',
   };
 }
 
@@ -746,8 +746,8 @@ class _AdaptiveGuidanceSection extends ConsumerWidget {
                 ),
                 subtitle: journeyText(
                   context,
-                  'Keeps real outcomes and reopens the next relevant contextual intervention.',
-                  'Conserva los resultados reales y vuelve a abrir la siguiente intervención contextual pertinente.',
+                  'Shows the guide again without changing your saved work or activity.',
+                  'Vuelve a mostrar la guía sin cambiar tu trabajo ni tu actividad guardados.',
                 ),
                 onTap: () => unawaited(_restartGuide(context, ref)),
               ),
@@ -759,8 +759,8 @@ class _AdaptiveGuidanceSection extends ConsumerWidget {
                 ),
                 subtitle: journeyText(
                   context,
-                  'Reopens welcome and account setup. Keeps tasks, milestones, and Adaptive Guide progress.',
-                  'Vuelve a abrir la bienvenida y la configuración de la cuenta. Conserva las tareas, los hitos y el progreso de la Guía Adaptativa.',
+                  'Reopens welcome and account setup. Keeps your saved work and guide progress.',
+                  'Vuelve a abrir la bienvenida y la configuración de la cuenta. Conserva tu trabajo guardado y el progreso de la guía.',
                 ),
                 onTap: () => unawaited(_restartFirstSetup(context, ref)),
               ),

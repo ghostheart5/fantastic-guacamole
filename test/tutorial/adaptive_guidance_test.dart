@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:flutter/widgets.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -12,6 +14,75 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test(
+    'Chat guide explains free tools, quoted cap and conditional allowance in both languages',
+    () {
+      final observedAt = DateTime.utc(2026, 1, 1);
+      final state = AdaptiveGuidanceState(
+        milestones: {
+          GuidanceMilestone.firstItem: observedAt,
+          GuidanceMilestone.firstSchedule: observedAt,
+          GuidanceMilestone.firstTimelineReview: observedAt,
+        },
+        counts: const {},
+        skippedLessons: const {},
+        completedLessons: const {},
+      );
+      final lesson = state.nextIntervention(
+        currentRoute: RoutePaths.siConsole,
+        decision: _decision,
+        now: DateTime.utc(2026, 1, 3),
+      )!;
+      expect(lesson.id, GuidanceLessonId.siConsole);
+      expect(lesson.route, RoutePaths.siConsole);
+      expect(lesson.actionLabel, 'Inspect evidence');
+      expect(lesson.body, startsWith(_decision.warning));
+      for (final language in ['en', 'es']) {
+        final copy = ChronoSparkLocalizations(Locale(language));
+        final body = copy.guideBody(lesson.id.name, lesson.body);
+        expect(
+          body,
+          contains(
+            language == 'es'
+                ? 'herramientas gratuitas no usan créditos'
+                : 'Free tools use no credits',
+          ),
+        );
+        expect(
+          body,
+          contains(
+            language == 'es'
+                ? 'hasta 5 créditos, antes'
+                : 'up to 5 credits, before',
+          ),
+        );
+        expect(
+          body,
+          contains(
+            language == 'es'
+                ? 'planes gratuitos elegibles'
+                : 'Eligible free plans',
+          ),
+        );
+        expect(
+          body,
+          contains(language == 'es' ? 'sin acumulación' : 'without rollover'),
+        );
+        expect(
+          body,
+          contains(language == 'es' ? 'en Ajustes' : 'check Settings'),
+        );
+        expect(
+          copy.guideAction(lesson.id.name, lesson.actionLabel),
+          language == 'es' ? 'Revisar las fuentes' : 'Inspect evidence',
+        );
+      }
+      expect(state.completedLessons, isEmpty);
+      expect(state.skippedLessons, isEmpty);
+      expect(state.milestones.length, 3);
+    },
+  );
+
   test(
     'pausing core guidance survives later milestones and storage reload',
     () async {

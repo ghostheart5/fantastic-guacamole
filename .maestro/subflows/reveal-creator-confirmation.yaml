@@ -7,7 +7,7 @@ appId: com.ghostheart5.chronospark
     commands:
       - runFlow:
           when:
-            notVisible: "CONFIRM CREATOR CHANGES"
+            notVisible: '^Ready to save\?$'
           commands:
             - swipe:
                 start: "95%, 15%"
@@ -15,13 +15,13 @@ appId: com.ghostheart5.chronospark
                 duration: 500
             - waitForAnimationToEnd:
                 timeout: 3000
-- assertVisible: "CONFIRM CREATOR CHANGES"
+- assertVisible: '^Ready to save\?$'
 - repeat:
     times: 8
     commands:
       - runFlow:
           when:
-            notVisible: "Review the exact selected change. Nothing has been saved yet."
+            notVisible: '^Check the selected change below\. Confirm to save it\.$'
           commands:
             - swipe:
                 start: "95%, 45%"
@@ -29,4 +29,4 @@ appId: com.ghostheart5.chronospark
                 duration: 500
             - waitForAnimationToEnd:
                 timeout: 3000
-- assertVisible: "Review the exact selected change. Nothing has been saved yet."
+- assertVisible: '^Check the selected change below\. Confirm to save it\.$'

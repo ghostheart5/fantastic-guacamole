@@ -7,14 +7,14 @@ appId: com.ghostheart5.chronospark
       - tapOn: "Turn an intention into a path"
 - runFlow:
     when:
-      notVisible: "REALITY BUILDER"
+      notVisible: "Add something"
     commands:
       - runFlow:
           file: open-from-nexus.yaml
           env:
-            TARGET: "Reality Builder"
+            TARGET: "Add something"
 - extendedWaitUntil:
-    visible: "REALITY BUILDER"
+    visible: "Add something"
     timeout: 15000
 # Android can merge the accessible label and visible hint in one node.
 - scrollUntilVisible:
@@ -32,41 +32,42 @@ appId: com.ghostheart5.chronospark
 - waitForAnimationToEnd
 - scrollUntilVisible:
     element:
-      text: "Schedule date and time"
+      text: '(?s)^Task options \(optional\).*'
     direction: DOWN
     timeout: 10000
-- tapOn: "Schedule date and time"
-- extendedWaitUntil:
-    visible: "OK"
-    timeout: 10000
-- tapOn: "OK"
-- extendedWaitUntil:
-    visible: "OK"
-    timeout: 10000
-- tapOn: "OK"
-- runFlow: reveal-creator-review.yaml
-- tapOn:
-    text: "REVIEW CHANGES"
-    retryTapIfNoChange: true
-- extendedWaitUntil:
-    visible: "CONFIRM CREATOR CHANGES"
-    timeout: 10000
+- tapOn: '(?s)^Task options \(optional\).*'
 - scrollUntilVisible:
     element:
-      text: "^CREATE TASK$"
+      text: '^Schedule date and time(?:\.\.\.)?$'
     direction: DOWN
     timeout: 10000
-- tapOn: "^CREATE TASK$"
+- tapOn: '^Schedule date and time(?:\.\.\.)?$'
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+- scrollUntilVisible:
+    element:
+      text: '^Save task$'
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: false
+    timeout: 10000
+- tapOn: '^Save task$'
 - runFlow:
     file: verify-creator-saved-receipt.yaml
     env:
       SAVED_ITEM: 'Task: ${TASK_TITLE}'
 - scrollUntilVisible:
     element:
-      text: "Open Timeline"
+      text: "Open schedule"
     direction: DOWN
     timeout: 10000
-- tapOn: "Open Timeline"
+- tapOn: "Open schedule"
 - extendedWaitUntil:
     visible: "(?s).*${TASK_TITLE}.*(?:Task is scheduled for a planned work time|Scheduled work time has passed. The task remains open; no deadline was missed).*"
     timeout: 20000

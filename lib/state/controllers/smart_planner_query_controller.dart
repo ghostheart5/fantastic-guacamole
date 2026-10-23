@@ -461,8 +461,8 @@ class SmartPlannerQueryController
         : base.copyWith(
             mattersMost: message,
             recommendationReason: base.languageCode == 'es'
-                ? 'La petición habitual de Planner V2 no se completó.'
-                : 'The normal Planner V2 request did not complete.',
+                ? 'La petición habitual de planificación no se completó.'
+                : 'The usual planning request did not complete.',
             verifiedEvidence: <String>[
               ...base.verifiedEvidence,
               'Fallback reason: $reason',
@@ -654,8 +654,8 @@ class SmartPlannerQueryController
               )
             : evidence.resolvedRhythm != null
             ? copy(
-                'This Daily Rhythm is ${evidence.resolvedRhythm!.status.name} for its current period; no repeat work was proposed.',
-                'Este ritmo diario ya tiene un resultado registrado en el periodo actual; no se propuso repetir el trabajo.',
+                'This habit is ${evidence.resolvedRhythm!.status.name} for its current period; no repeat work was proposed.',
+                'Este hábito ya tiene un resultado registrado en el periodo actual; no se propuso repetir el trabajo.',
               )
             : evidence.personContext.planningFocus?.kind ==
                   PersonContextKind.boundary

@@ -611,6 +611,89 @@ void main() {
     );
   });
 
+  test('governed warning templates match applied trajectory constraints', () {
+    const account = 'account:test';
+    const surface = PersonContextSurface.trajectory;
+    const priorityTitle = 'Résumé José';
+    const boundaryTitle = 'Archivar café';
+    const commitmentTitle = 'Meeting Zoë';
+    final signals = <PersonContextSignal>[
+      _signalFor(
+        PersonContextKind.currentPriority,
+        id: 'priority',
+        value: priorityTitle,
+        now: now,
+        surface: surface,
+      ),
+      _signalFor(
+        PersonContextKind.boundary,
+        id: 'boundary',
+        value: 'Do not $boundaryTitle',
+        now: now,
+        surface: surface,
+      ),
+      _signalFor(
+        PersonContextKind.presentCapacity,
+        id: 'capacity',
+        value: '35 minutes available today',
+        now: now,
+        surface: surface,
+      ),
+      _signalFor(
+        PersonContextKind.commitment,
+        id: 'commitment',
+        value: 'Keep scheduled $commitmentTitle',
+        now: now,
+        surface: surface,
+      ),
+    ];
+    final context = GovernedDecisionContext.resolve(
+      view: PersonContextView(
+        accountScopeId: account,
+        surface: surface,
+        purposes: operationalPersonContextPurposes,
+        observedAt: now,
+        signals: signals,
+        unknownKinds: const {},
+      ),
+      accountScopeId: account,
+      tasks: [
+        TaskEntity(id: 'priority-task', title: priorityTitle, createdAt: now),
+        TaskEntity(id: 'excluded-task', title: boundaryTitle, createdAt: now),
+        TaskEntity(
+          id: 'protected-task',
+          title: commitmentTitle,
+          createdAt: now,
+        ),
+      ],
+      now: now,
+      surface: surface,
+    );
+    expect(context.status, GovernedDecisionContextStatus.applied);
+    expect(context.priorityTaskIds, {'priority-task'});
+    expect(context.excludedTaskIds, {'excluded-task'});
+    expect(context.protectedCommitmentTaskIds, {'protected-task'});
+    expect(context.capacityCapMinutes, 35);
+    expect(context.appliedSignalIds, {
+      'priority',
+      'boundary',
+      'capacity',
+      'commitment',
+    });
+    expect(context.trace!.rejected, isEmpty);
+    // This exact producer contract feeds the forecast presentation regressions.
+    // Assert effects first so matching text cannot pass with unapplied signals.
+    expect(
+      context.explanations,
+      unorderedEquals([
+        'Current priority matched "$priorityTitle" and may only break a close ranking tie.',
+        'Explicit boundary excluded "$boundaryTitle" from this decision.',
+        'Fresh capacity limited this decision to 35 minutes.',
+        'Scheduled commitment protected "$commitmentTitle" during conflict checks.',
+      ]),
+    );
+  });
+
   for (final entry in <String, int>{
     'STRESS3027 demo. I have only five minutes before school pickup. Help me take one small step and stop.':
         5,

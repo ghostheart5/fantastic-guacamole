@@ -1,6 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/features/creator/ui/daily_rhythms_screen.dart';
-import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
+import 'package:fantastic_guacamole/ui/navigation/open_schedule.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/features/creator/ui/open_creator.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
@@ -125,11 +125,7 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
                           ),
                           OutlinedButton.icon(
                             style: _surfaceButtonStyle,
-                            onPressed: () => Navigator.of(context).push<void>(
-                              MaterialPageRoute(
-                                builder: (_) => const TimelineScreen(),
-                              ),
-                            ),
+                            onPressed: () => openSchedule(context),
                             icon: const Icon(Icons.calendar_today_outlined),
                             label: Text(es ? 'Agenda' : 'Schedule'),
                           ),

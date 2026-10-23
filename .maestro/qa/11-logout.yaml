@@ -8,7 +8,7 @@ tags: [qa, auth]
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Control Center"
+      TARGET: "Settings"
 - scrollUntilVisible:
     element:
       text: "Data & account\\n.*"

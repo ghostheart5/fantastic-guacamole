@@ -4,7 +4,7 @@ appId: com.ghostheart5.chronospark
 - runFlow:
     file: open-from-nexus.yaml
     env:
-      TARGET: "Control Center"
+      TARGET: "Settings"
 - scrollUntilVisible:
     element:
       text: "Data & account\\n.*"

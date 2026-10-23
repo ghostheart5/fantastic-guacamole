@@ -920,12 +920,16 @@ String _learningLabel(String value, {required bool isSpanish}) {
   if (normalized == 'smart_planner') {
     return isSpanish ? 'Elegir un paso' : 'Choose a step';
   }
+  if (normalized == 'daily_rhythm') {
+    return isSpanish ? 'Hábito' : 'Habit';
+  }
+  if (normalized == 'daily_rhythm_occurrence') {
+    return isSpanish ? 'registro de hábito' : 'Habit occurrence';
+  }
   if (isSpanish) {
     final String? translated = <String, String>{
       'task_lifecycle': 'Ciclo de la tarea',
       'task_execution': 'ejecución de tareas',
-      'daily_rhythm': 'Ritmo diario',
-      'daily_rhythm_occurrence': 'aparición del ritmo diario',
       'smart_planner': 'Elegir un paso',
       'shown': 'mostrada',
       'accepted': 'aceptada',
@@ -943,10 +947,13 @@ String _learningLabel(String value, {required bool isSpanish}) {
 }
 
 String _learningGeneratedText(String value, {required bool isSpanish}) {
+  // Exact app-authored historical template only; never rewrite user text.
+  if (value == 'daily rhythm occurrence') {
+    return isSpanish ? 'registro de hábito' : 'habit occurrence';
+  }
   if (!isSpanish) return value;
   return switch (value) {
     'task execution' => 'ejecución de tareas',
-    'daily rhythm occurrence' => 'aparición del ritmo diario',
     'bounded planning choice' => 'elección de planificación limitada',
     'Completed the task.' => 'Completó la tarea.',
     'minimum' => 'mínima',

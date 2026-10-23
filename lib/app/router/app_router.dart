@@ -211,7 +211,9 @@ String? computeAppRedirect({
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final _AppRouterRefreshListenable refresh = ref.read(
+  // Keep the refresh provider observed for the router's lifetime. A read-only
+  // dependency pauses its guard listeners after the temporary read closes.
+  final _AppRouterRefreshListenable refresh = ref.watch(
     _appRouterRefreshListenableProvider,
   );
   final String initialLocation = _resolveInitialLocation(

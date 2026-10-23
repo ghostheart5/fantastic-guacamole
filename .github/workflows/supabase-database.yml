@@ -43,6 +43,12 @@ jobs:
         with:
           version: 2.116.0
 
+      - name: Enable registry fallback for disposable Supabase tools
+        timeout-minutes: 2
+        run: |
+          # setup-cli forces one registry; all CLI tools need their pull fallbacks.
+          printf '%s\n' 'SUPABASE_INTERNAL_IMAGE_REGISTRY=' >> "$GITHUB_ENV"
+
       - name: Set up Deno
         timeout-minutes: 10
         uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed

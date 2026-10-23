@@ -308,6 +308,43 @@ List<String> _trajectoryAssumptionTexts(
 String _reportedTrajectoryAssumption(String warning) =>
     'User-reported Person Context: $warning It constrains this scenario but is not treated as identity or a guaranteed outcome.';
 
+// Only call for warnings matched against the structured baseline list. Task
+// labels remain verbatim; the producer-owned framing is localized separately.
+String _trajectorySharedInformationWarningText(
+  BuildContext context,
+  String warning,
+) {
+  if (Localizations.localeOf(context).languageCode != 'es') return warning;
+  final templates = <(RegExp, String Function(String))>[
+    (
+      RegExp(
+        r'^Current priority matched (.+) and may only break a close ranking tie\.$',
+      ),
+      (labels) =>
+          'La prioridad actual coincide con $labels y solo puede desempatar opciones de valoración similar.',
+    ),
+    (
+      RegExp(r'^Explicit boundary excluded (.+) from this decision\.$'),
+      (labels) => 'El límite explícito excluyó $labels de esta decisión.',
+    ),
+    (
+      RegExp(r'^Fresh capacity limited this decision to ([0-9]+) minutes\.$'),
+      (minutes) =>
+          'La capacidad reciente limitó esta decisión a $minutes minutos.',
+    ),
+    (
+      RegExp(r'^Scheduled commitment protected (.+) during conflict checks\.$'),
+      (labels) =>
+          'El compromiso programado protegió $labels al comprobar conflictos.',
+    ),
+  ];
+  for (final (pattern, render) in templates) {
+    final match = pattern.firstMatch(warning);
+    if (match != null) return render(match.group(1)!);
+  }
+  return _trajectoryGeneratedText(context, warning);
+}
+
 String _trajectoryAssumptionText(
   BuildContext context,
   String assumption,
@@ -317,15 +354,15 @@ String _trajectoryAssumptionText(
     if (assumption == _reportedTrajectoryAssumption(warning)) {
       return journeyText(
         context,
-        'Information you shared: ${_trajectoryGeneratedText(context, warning)} It limits this scenario but does not define you or guarantee an outcome.',
-        'Información que compartiste: ${_trajectoryGeneratedText(context, warning)} Limita este escenario, pero no te define ni garantiza un resultado.',
+        'Information you shared: ${_trajectorySharedInformationWarningText(context, warning)} It limits this scenario but does not define you or guarantee an outcome.',
+        'Información que compartiste: ${_trajectorySharedInformationWarningText(context, warning)} Limita este escenario, pero no te define ni garantiza un resultado.',
       );
     }
     if (assumption == 'Person Context constraint: $warning') {
       return journeyText(
         context,
-        'Information you shared: ${_trajectoryGeneratedText(context, warning)}',
-        'Información que compartiste: ${_trajectoryGeneratedText(context, warning)}',
+        'Information you shared: ${_trajectorySharedInformationWarningText(context, warning)}',
+        'Información que compartiste: ${_trajectorySharedInformationWarningText(context, warning)}',
       );
     }
   }
@@ -373,7 +410,7 @@ class _FutureBranches extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            journeyText(context, 'Estimated options', 'RAMAS FUTURAS'),
+            journeyText(context, 'Estimated options', 'Opciones estimadas'),
             style: const TextStyle(
               color: AppColors.neonViolet,
               fontSize: 11,
@@ -649,8 +686,10 @@ class _CustomScenarioComposer extends StatefulWidget {
     required this.horizonDays,
     required this.onComposed,
     required this.onClear,
+    this.feedback,
   });
 
+  final Widget? feedback;
   final TrajectoryBaseline baseline;
   final int horizonDays;
   final ValueChanged<TrajectoryCustomScenarioDraft> onComposed;
@@ -844,6 +883,10 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
               ),
             ],
           ),
+          if (widget.feedback case final Widget feedback) ...[
+            const SizedBox(height: 10),
+            feedback,
+          ],
         ],
       ),
     );
@@ -929,4 +972,64 @@ TrajectoryScenarioOutcome? _selected(
     }
   }
   return comparison.recommended ?? comparison.outcomes.first;
+}
+
+enum _CustomComparisonState { pending, ready, unavailable }
+
+class _CustomComparisonRequest {
+  const _CustomComparisonRequest({
+    required this.draft,
+    required this.scenarioId,
+    required this.previous,
+    required this.context,
+  });
+  final TrajectoryCustomScenarioDraft draft;
+  final String scenarioId;
+  final TrajectoryComparison? previous;
+  final (String?, int, int) context;
+}
+
+class _CustomComparisonFeedback extends StatelessWidget {
+  const _CustomComparisonFeedback({
+    super.key,
+    required this.state,
+    this.onView,
+  });
+  final _CustomComparisonState state;
+  final VoidCallback? onView;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(switch (state) {
+          _CustomComparisonState.pending => journeyText(
+            context,
+            'Updating your comparison…',
+            'Actualizando tu comparación…',
+          ),
+          _CustomComparisonState.ready => journeyText(
+            context,
+            'Your comparison is ready. Preview only; no changes saved.',
+            'Tu comparación está lista. Solo es una vista previa; no se guardaron cambios.',
+          ),
+          _CustomComparisonState.unavailable => journeyText(
+            context,
+            'This change could not be compared with the current information. Try another task or change.',
+            'No se pudo comparar este cambio con la información actual. Prueba otra tarea u otro cambio.',
+          ),
+        }, style: const TextStyle(color: Colors.white, fontSize: 13)),
+        if (state == _CustomComparisonState.ready && onView != null)
+          TextButton.icon(
+            onPressed: onView,
+            icon: const Icon(Icons.visibility_outlined),
+            label: Text(
+              journeyText(context, 'View comparison', 'Ver comparación'),
+            ),
+          ),
+      ],
+    ),
+  );
 }

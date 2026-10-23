@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
+import 'package:fantastic_guacamole/app/router/route_guards.dart'
+    as route_guards;
+import 'package:fantastic_guacamole/state/providers/auth_provider.dart'
+    show passwordRecoveryStateProvider;
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
@@ -42,6 +46,7 @@ import 'package:fantastic_guacamole/system/notifications/notification_scheduler.
 import 'package:fantastic_guacamole/system/voice/audio_interruption_service.dart';
 import 'package:fantastic_guacamole/system/system_scheduler.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/ui/navigation/open_schedule.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';

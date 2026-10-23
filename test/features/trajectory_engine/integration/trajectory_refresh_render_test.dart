@@ -1,3 +1,10 @@
+import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
+import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_provider.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
@@ -119,13 +126,23 @@ TrajectoryEngineModel _ready({String revision = 'original-baseline'}) {
   );
 }
 
-Future<ProviderContainer> _open(WidgetTester tester, {ThemeData? theme}) async {
+Future<ProviderContainer> _open(
+  WidgetTester tester, {
+  ThemeData? theme,
+  bool scheduleSources = false,
+}) async {
   await tester.binding.setSurfaceSize(const Size(900, 1800));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         accountStorageScopeProvider.overrideWithValue(_scope),
+        if (scheduleSources) ...[
+          goalsProvider.overrideWith(_ScheduleGoals.new),
+          timelineProvider.overrideWith(_ScheduleTimeline.new),
+          timelinePersistenceCorruptedProvider.overrideWithValue(false),
+          allTasksProvider.overrideWith((ref) async => const <Task>[]),
+        ],
         trajectoryForecastLedgerActionsProvider.overrideWith(
           _CountingActions.new,
         ),
@@ -175,6 +192,83 @@ Future<void> _chooseDelay(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+    'forecast review opens actual Schedule and Back retains Insights preview',
+    (tester) async {
+      final container = await _open(tester, scheduleSources: true);
+      container.read(appFlowProvider.notifier).show(AppView.trajectoryEngine);
+      final target = _ready().comparison!.outcomes.firstWhere(
+        (outcome) =>
+            outcome.intervention.type ==
+            TrajectoryInterventionType.maintainCourse,
+      );
+      await tester.scrollUntilVisible(
+        find.text(target.intervention.title).first.hitTestable(),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(
+        find.text(target.intervention.title).first.hitTestable(),
+      );
+      await tester.pump();
+      await tester.scrollUntilVisible(
+        find.text('Review on Schedule').hitTestable(),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Review on Schedule').hitTestable());
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(find.byType(TimelineScreen), findsOneWidget);
+      expect(find.text('Schedule'), findsOneWidget);
+      expect(container.read(appFlowProvider), AppView.trajectoryEngine);
+      await tester.tap(find.byTooltip('Back').hitTestable());
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(find.byType(TimelineScreen), findsNothing);
+      expect(find.byType(TrajectoryEngineScreen), findsOneWidget);
+      expect(find.text('Review on Schedule').hitTestable(), findsOneWidget);
+      expect(container.read(appFlowProvider), AppView.trajectoryEngine);
+      final actions =
+          container.read(trajectoryForecastLedgerActionsProvider)
+              as _CountingActions;
+      expect(actions.tracks, 0);
+      expect(actions.reconciles, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'planner adjustment still selects Choose a step instead of Schedule',
+    (tester) async {
+      final container = await _open(tester, scheduleSources: true);
+      final target = _ready().comparison!.outcomes.firstWhere(
+        (outcome) =>
+            outcome.intervention.type ==
+            TrajectoryInterventionType.applySmartPlanner,
+      );
+      await tester.scrollUntilVisible(
+        find.text(target.intervention.title).first.hitTestable(),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(
+        find.text(target.intervention.title).first.hitTestable(),
+      );
+      await tester.pump();
+      await tester.scrollUntilVisible(
+        find.text('Review adjustment').hitTestable(),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Review adjustment').hitTestable());
+      await tester.pump();
+      expect(container.read(appFlowProvider), AppView.smartPlanner);
+      expect(find.byType(TimelineScreen), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final theme in [appTheme, appLightTheme]) {
     testWidgets(
       '${theme.brightness.name} what-if segments remain readable and local',
@@ -458,4 +552,14 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+}
+
+class _ScheduleGoals extends GoalsNotifier {
+  @override
+  List<GoalEntity> build() => const <GoalEntity>[];
+}
+
+class _ScheduleTimeline extends TimelineNotifier {
+  @override
+  List<TimelineEventEntity> build() => const <TimelineEventEntity>[];
 }

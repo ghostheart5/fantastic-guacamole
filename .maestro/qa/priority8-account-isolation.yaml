@@ -12,10 +12,11 @@ tags: [qa, priority8, profile-preservation]
     env:
       TASK_TITLE: "P8 Local Profile Sentinel"
 - assertVisible: "(?s).*P8 Local Profile Sentinel.*"
+- runFlow: ../subflows/return-from-schedule-to-today.yaml
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Control Center"
+      TARGET: "Settings"
 - scrollUntilVisible:
     element:
       text: "Data & account\\n.*"
@@ -39,7 +40,7 @@ tags: [qa, priority8, profile-preservation]
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Truth Ledger"
+      TARGET: "My plan"
 - extendedWaitUntil:
     visible: "(?s).*P8 Local Profile Sentinel.*"
     timeout: 20000

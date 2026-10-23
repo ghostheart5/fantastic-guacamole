@@ -29,6 +29,30 @@ HabitEntity _habit(String id, {String? title, bool active = true}) {
 }
 
 void main() {
+  test(
+    'missing habit title uses current copy without rewriting supplied names',
+    () {
+      final missing = HabitEntity.fromJson({'id': 'missing-title'});
+      expect(missing.title, 'Untitled habit');
+      final legacyName = HabitEntity.fromJson({
+        'id': 'legacy-name',
+        'name': 'My Daily Rhythm',
+      });
+      expect(legacyName.title, 'My Daily Rhythm');
+      final suppliedTitle = HabitEntity.fromJson({
+        'id': 'supplied-title',
+        'title': 'Daily Rhythm',
+        'name': 'Other name',
+      });
+      expect(suppliedTitle.title, 'Daily Rhythm');
+      expect(
+        HabitEntity.fromJson(suppliedTitle.toJson()).title,
+        'Daily Rhythm',
+      );
+      expect(missing.id, 'missing-title');
+    },
+  );
+
   late _FakeHabitRepository repository;
 
   setUp(() => repository = _FakeHabitRepository());

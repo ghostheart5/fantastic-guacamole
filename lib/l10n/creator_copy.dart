@@ -235,10 +235,25 @@ class CreatorCopy {
   String message(String value) {
     if (!isSpanish) {
       for (final entity in ['task', 'goal', 'daily rhythm', 'note']) {
+        final noun = entity == 'daily rhythm' ? 'habit' : entity;
         if (value ==
             'Review the exact selected change and its governed Person Context warnings. The proposed $entity was not silently rewritten. Explicit confirmation is required; nothing has been saved yet.') {
-          return 'Review the exact selected change and warnings based on personal information you shared. The proposed $entity was not silently rewritten. Explicit confirmation is required; nothing has been saved yet.';
+          return 'Review the exact selected change and warnings based on personal information you shared. The proposed $noun was not silently rewritten. Explicit confirmation is required; nothing has been saved yet.';
         }
+        // Match only closed producer messages; legacy input nouns stay stable.
+        final entityMessages = <String, String>{
+          'The saved replay record does not match the confirmed $entity. Nothing was changed.':
+              'The saved replay record does not match the confirmed $noun. Nothing was changed.',
+          'The target $entity identity is already used by different data. Nothing was changed.':
+              'The target $noun identity is already used by different data. Nothing was changed.',
+          'The undo record no longer matches the confirmed $entity. Nothing was changed.':
+              'The undo record no longer matches the confirmed $noun. Nothing was changed.',
+          'The created $entity changed after confirmation, so automatic undo was blocked.':
+              'The created $noun changed after confirmation, so automatic undo was blocked.',
+          'This confirmation was already applied. No duplicate $entity was created.':
+              'This confirmation was already applied. No duplicate $noun was created.',
+        };
+        if (entityMessages.containsKey(value)) return entityMessages[value]!;
       }
       return _plainEnglishMessages[value] ?? value;
     }
