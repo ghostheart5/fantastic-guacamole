@@ -1,0 +1,168 @@
+name: Listing media capture (isolated local QA)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full immutable application source SHA to render
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: listing-media-capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    name: Real UI ${{ matrix.locale }} phone and tablets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        locale: [en-US, es-US]
+    env:
+      QA_SOURCE_SHA: ${{ inputs.source_sha }}
+    steps:
+      - name: Validate public disposable hosted boundary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REPOSITORY" = ghostheart5/fantastic-guacamole
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$RUNNER_OS" = Linux
+          test "$RUNNER_ARCH" = X64
+          [[ "$QA_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$(gh api "repos/$GITHUB_REPOSITORY" --jq .visibility)" = public
+          python3 - <<'PY'
+          import shutil
+          from pathlib import Path
+          mem = dict(line.split(':', 1) for line in Path('/proc/meminfo').read_text().splitlines())
+          assert int(mem['MemAvailable'].split()[0]) * 1024 >= 6 * 1024**3
+          assert shutil.disk_usage('.').free >= 8 * 1024**3
+          PY
+
+      - name: Checkout immutable application
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Require clean main-ancestor source and local QA flags
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$QA_SOURCE_SHA"
+          test -z "$(git status --porcelain)"
+          git merge-base --is-ancestor "$QA_SOURCE_SHA" origin/main
+          git check-ignore -q test-results/listing-media/probe
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          q = json.loads(Path('tool/qa_defines.json').read_text())
+          assert q['CHRONOSPARK_APP_FLAVOR'] == 'qa'
+          assert q['CHRONOSPARK_BACKEND_MODE'] == 'local'
+          for key in ['CHRONOSPARK_ENABLE_MOCK_LOGIN','CHRONOSPARK_ENABLE_MOCK_MODE',
+                      'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS','CHRONOSPARK_ENABLE_CLOUD_SYNC',
+                      'CHRONOSPARK_ENABLE_ANALYTICS','CHRONOSPARK_ENABLE_CRASH_REPORTING',
+                      'CHRONOSPARK_ENABLE_RUNTIME_FEATURE_FLAGS']:
+              assert q[key] is False, key
+          assert q.get('CHRONOSPARK_PUBLIC_RELEASE', False) is False
+          PY
+
+      - name: Checkout immutable capture tooling separately
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          path: test-results/listing-tooling
+          persist-credentials: false
+
+      - name: Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: stable
+          flutter-version: '3.44.6'
+          cache: false
+
+      - name: Build only local QA APK without provider credentials
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+          flutter pub get --enforce-lockfile
+          git diff --exit-code
+          flutter build apk --debug --target-platform=android-x64 --dart-define-from-file=tool/qa_defines.json
+          (cd android && ./gradlew --stop)
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+      - name: Enable hosted KVM
+        run: |
+          set -euo pipefail
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+
+      - name: Checkout pinned emulator runner
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: ReactiveCircus/android-emulator-runner
+          ref: a421e43855164a8197daf9d8d40fe71c6996bb0d
+          path: test-results/hosted-emulator-runner
+          persist-credentials: false
+
+      - name: Preserve existing passive startup guard
+        run: |
+          mkdir -p test-results/maestro-prewarm
+          python3 scripts/prepare_hosted_emulator_runner.py
+
+      - name: Capture real visible English or Spanish UI
+        timeout-minutes: 23
+        uses: ./test-results/hosted-emulator-runner
+        with:
+          api-level: '35'
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 4096M
+          heap-size: 512M
+          emulator-port: 5554
+          disable-linux-hw-accel: false
+          disable-animations: true
+          disable-spellchecker: true
+          pre-emulator-launch-script: '"$ANDROID_HOME/emulator/emulator" -accel-check'
+          script: python3 test-results/listing-tooling/scripts/listing_media_capture.py --locale '${{ matrix.locale }}' --source "$QA_SOURCE_SHA" --apk build/app/outputs/flutter-apk/app-debug.apk --output 'test-results/listing-media/${{ matrix.locale }}'
+
+      - name: Bound media artifact size
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('test-results/listing-media')
+          assert root.is_dir(), 'Capture did not produce evidence'
+          files = list(root.rglob('*'))
+          assert not any(p.is_symlink() for p in files)
+          assert sum(p.stat().st_size for p in files if p.is_file()) < 190 * 1024**2
+          PY
+
+      - name: Retain candidates and failed-capture evidence for review
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: axiomara-listing-media-${{ matrix.locale }}-${{ inputs.source_sha }}-${{ github.run_attempt }}
+          path: test-results/listing-media/**
+          if-no-files-found: error
+          retention-days: 3
