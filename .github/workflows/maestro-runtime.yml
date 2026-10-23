@@ -16,6 +16,26 @@ on:
           - both
           - en-US
           - es-US
+      reuse_run_id:
+        description: Optional reviewed QA APK producer run; all five reuse fields required together
+        type: string
+        default: ''
+      reuse_artifact:
+        description: Exact reviewed producer QA APK artifact name
+        type: string
+        default: ''
+      reuse_apk_sha256:
+        description: Independently reviewed APK SHA-256
+        type: string
+        default: ''
+      reuse_receipt_sha256:
+        description: Independently reviewed producer receipt SHA-256
+        type: string
+        default: ''
+      reuse_tooling_sha:
+        description: Reviewed immutable producer workflow commit SHA
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -29,6 +49,9 @@ jobs:
     name: Real UI ${{ matrix.locale }} phone and tablets
     runs-on: ubuntu-24.04
     timeout-minutes: 55
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -36,6 +59,11 @@ jobs:
         locale: ${{ fromJSON(inputs.locale == 'en-US' && '["en-US"]' || inputs.locale == 'es-US' && '["es-US"]' || '["en-US","es-US"]') }}
     env:
       QA_SOURCE_SHA: ${{ inputs.source_sha }}
+      REUSE_RUN_ID: ${{ inputs.reuse_run_id }}
+      REUSE_ARTIFACT: ${{ inputs.reuse_artifact }}
+      REUSE_APK_SHA256: ${{ inputs.reuse_apk_sha256 }}
+      REUSE_RECEIPT_SHA256: ${{ inputs.reuse_receipt_sha256 }}
+      REUSE_TOOLING_SHA: ${{ inputs.reuse_tooling_sha }}
     steps:
       - name: Validate public disposable hosted boundary
         env:
@@ -48,6 +76,13 @@ jobs:
           test "$RUNNER_OS" = Linux
           test "$RUNNER_ARCH" = X64
           [[ "$QA_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          if [ -n "$REUSE_RUN_ID$REUSE_ARTIFACT$REUSE_APK_SHA256$REUSE_RECEIPT_SHA256$REUSE_TOOLING_SHA" ]; then
+            [[ "$REUSE_RUN_ID" =~ ^[0-9]+$ ]]
+            [[ "$REUSE_ARTIFACT" =~ ^axiomara-listing-qa-apk-[a-zA-Z0-9.-]+$ ]]
+            [[ "$REUSE_APK_SHA256" =~ ^[a-f0-9]{64}$ ]]
+            [[ "$REUSE_RECEIPT_SHA256" =~ ^[a-f0-9]{64}$ ]]
+            [[ "$REUSE_TOOLING_SHA" =~ ^[a-f0-9]{40}$ ]]
+          fi
           test "$(gh api "repos/$GITHUB_REPOSITORY" --jq .visibility)" = public
           python3 - <<'PY'
           import shutil
@@ -99,6 +134,7 @@ jobs:
           java-version: '17'
 
       - name: Flutter
+        if: inputs.reuse_run_id == ''
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           channel: stable
@@ -165,6 +201,7 @@ jobs:
 
       - name: Build only local QA APK without provider credentials
         id: compile
+        if: inputs.reuse_run_id == ''
         timeout-minutes: 25
         run: |
           set -euo pipefail
@@ -177,6 +214,35 @@ jobs:
           (cd android && ./gradlew --stop)
           git diff --exit-code
           test -z "$(git status --porcelain)"
+
+      - name: Seal freshly built QA APK with source and signer identity
+        id: seal
+        if: inputs.reuse_run_id == ''
+        run: python3 test-results/listing-tooling/scripts/listing_media_capture.py seal-apk --source "$QA_SOURCE_SHA" --apk build/app/outputs/flutter-apk/app-debug.apk --output test-results/listing-apk
+
+      - name: Retain verified QA APK before any emulator or UI failure
+        if: inputs.reuse_run_id == '' && steps.seal.outcome == 'success'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: axiomara-listing-qa-apk-${{ matrix.locale }}-${{ inputs.source_sha }}-${{ github.run_attempt }}
+          path: test-results/listing-apk/*
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Download only explicitly reviewed producer QA APK
+        if: inputs.reuse_run_id != ''
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: ${{ inputs.reuse_artifact }}
+          run-id: ${{ inputs.reuse_run_id }}
+          github-token: ${{ github.token }}
+          path: test-results/reused-apk
+
+      - name: Verify reviewed producer, source, QA profile, ABI, signer and hashes
+        if: inputs.reuse_run_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 test-results/listing-tooling/scripts/listing_media_capture.py verify-reused-apk --source "$QA_SOURCE_SHA" --apk test-results/reused-apk/app-debug.apk
 
       - name: Enable hosted KVM
         run: |

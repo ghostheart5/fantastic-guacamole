@@ -11,11 +11,13 @@ import os
 from pathlib import Path
 import re
 import signal
+import shutil
 import struct
 import subprocess
 import sys
 import time
 import xml.etree.ElementTree as ET
+import zipfile
 
 PACKAGE = 'com.ghostheart5.chronospark.qa'
 SERIAL = 'emulator-5554'
@@ -36,6 +38,109 @@ def shell(*args):
 
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def apk_identity(apk):
+    sdk = Path(os.environ['ANDROID_HOME'])
+    available = sorted(sdk.glob('build-tools/*/aapt2'))
+    assert available
+    tools = available[-1].parent
+    badging = run(str(tools/'aapt2'), 'dump', 'badging', str(apk))
+    match = re.search(r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", badging, re.M)
+    version = re.search(r'^version:\s*(.*)$', Path('pubspec.yaml').read_text(), re.M).group(1)
+    name, code = version.split('+')
+    assert match and match.groups() == (PACKAGE, code, name+'-qa')
+    assert re.search(r'^application-debuggable\s*$', badging, re.M)
+    native = re.search(r'^native-code:\s*(.*)$', badging, re.M)
+    assert native
+    abis = re.findall(r"'([^']+)'", native[1])
+    assert 'x86_64' in abis
+    # Plugins may carry extra ABIs even in the x86_64 Flutter build. Require
+    # the actual Flutter engine ABI instead of assuming aapt lists only one.
+    with zipfile.ZipFile(apk) as archive:
+        assert archive.testzip() is None
+        flutter_abis = sorted(p.split('/')[1] for p in archive.namelist()
+                              if re.fullmatch(r'lib/[^/]+/libflutter\.so', p))
+    assert 'x86_64' in flutter_abis
+    signing = run(str(tools/'apksigner'), 'verify', '--verbose', '--print-certs', str(apk))
+    signers = re.findall(r'^Signer #\d+ certificate SHA-256 digest: ([a-fA-F0-9]{64})$', signing, re.M)
+    assert len(signers) == 1
+    return {'package': PACKAGE, 'versionCode': code, 'versionName': name+'-qa',
+            'requiredFlutterAbi': 'x86_64', 'flutterAbis': flutter_abis, 'nativeAbis': abis,
+            'debuggable': True, 'signerSha256': signers[0].lower()}, badging, signing
+
+
+def apk_artifact_mode():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('mode', choices=['seal-apk', 'verify-reused-apk'])
+    parser.add_argument('--source', required=True)
+    parser.add_argument('--apk', type=Path, required=True)
+    parser.add_argument('--output', type=Path)
+    args = parser.parse_args()
+    assert os.name == 'posix' and os.environ.get('GITHUB_ACTIONS') == 'true'
+    assert os.environ.get('RUNNER_ENVIRONMENT') == 'github-hosted'
+    assert os.environ.get('GITHUB_REPOSITORY') == 'ghostheart5/fantastic-guacamole'
+    assert re.fullmatch('[a-f0-9]{40}', args.source)
+    assert run('git', 'rev-parse', 'HEAD').strip() == args.source
+    assert not run('git', 'status', '--porcelain').strip()
+    assert args.apk.is_file() and not args.apk.is_symlink()
+    assert args.apk.stat().st_size < 189*1024**2
+    identity, badging, signing = apk_identity(args.apk)
+    current = {'schema': 1, 'sourceSha': args.source,
+               'sourceTree': run('git','rev-parse','HEAD^{tree}').strip(),
+               'qaDefinesSha256': sha('tool/qa_defines.json'), 'lockfileSha256': sha('pubspec.lock'),
+               'apkSha256': sha(args.apk), 'identity': identity}
+    if args.mode == 'seal-apk':
+        assert args.output is not None
+        args.output.mkdir(parents=True, exist_ok=False)
+        current.update({'producerRunId': os.environ['GITHUB_RUN_ID'],
+                        'producerToolingSha': os.environ['GITHUB_SHA'],
+                        'producerWorkflowRef': os.environ['GITHUB_WORKFLOW_REF'],
+                        'sealToolSha256': sha(__file__),
+                        'boundary': 'Debug x86_64 local QA APK only. Not public release or app acceptance.'})
+        shutil.copyfile(args.apk, args.output/'app-debug.apk')
+        (args.output/'apk-badging.txt').write_text(badging)
+        (args.output/'apk-signature.txt').write_text(signing)
+        (args.output/'receipt.json').write_text(json.dumps(current,indent=2)+'\n')
+        assert sum(p.stat().st_size for p in args.output.iterdir()) < 190*1024**2
+    else:
+        expected_receipt = os.environ['REUSE_RECEIPT_SHA256']
+        expected_apk = os.environ['REUSE_APK_SHA256']
+        producer_sha = os.environ['REUSE_TOOLING_SHA']
+        producer_run = os.environ['REUSE_RUN_ID']
+        assert re.fullmatch('[a-f0-9]{64}', expected_receipt)
+        assert re.fullmatch('[a-f0-9]{64}', expected_apk)
+        assert re.fullmatch('[a-f0-9]{40}', producer_sha)
+        assert re.fullmatch('[0-9]+', producer_run)
+        receipt_path = args.apk.parent/'receipt.json'
+        assert sha(receipt_path) == expected_receipt
+        receipt = json.loads(receipt_path.read_text())
+        for key, actual in current.items():
+            assert receipt[key] == actual, key
+        assert current['apkSha256'] == expected_apk
+        assert receipt['producerRunId'] == producer_run
+        assert receipt['producerToolingSha'] == producer_sha
+        repo = os.environ['GITHUB_REPOSITORY']
+        producer = json.loads(run('gh','api',f'repos/{repo}/actions/runs/{producer_run}'))
+        assert producer['head_sha'] == producer_sha
+        assert producer['event'] == 'workflow_dispatch'
+        assert producer['repository']['full_name'] == repo
+        assert producer['path'] in {'.github/workflows/maestro-runtime.yml','.github/workflows/listing-media-capture.yml'}
+        artifacts = json.loads(run('gh','api',f'repos/{repo}/actions/runs/{producer_run}/artifacts'))['artifacts']
+        matching = [a for a in artifacts if a['name'] == os.environ['REUSE_ARTIFACT'] and not a['expired']]
+        assert len(matching) == 1
+        assert matching[0]['workflow_run']['head_sha'] == producer_sha
+        target = Path('build/app/outputs/flutter-apk/app-debug.apk')
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(args.apk, target)
+        assert sha(target) == expected_apk
+        evidence = Path('test-results/listing-media/reuse')
+        evidence.mkdir(parents=True, exist_ok=False)
+        shutil.copyfile(receipt_path, evidence/'producer-receipt.json')
+        (evidence/'verification.json').write_text(json.dumps({'status':'verified',
+            'producerRunId': producer_run, 'producerToolingSha': producer_sha,
+            'producerReceiptSha256': expected_receipt, 'artifactId': matching[0]['id'],
+            'consumerToolingSha': os.environ['GITHUB_SHA'], **current},indent=2)+'\n')
 
 
 class Capture:
@@ -231,19 +336,38 @@ def main():
         sys.path.insert(0, str(Path.cwd()/'scripts'))
         from hosted_guest_anr import classify_anr
         # Passive readiness guard: never inject HOME/MENU or dismiss an ANR.
-        home = shell('cmd', 'package', 'resolve-activity', '--brief', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME').splitlines()[-1].split('/')[0]
+        receipt['resolvedHomeBeforeSettling'] = shell('cmd', 'package', 'resolve-activity', '--brief', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME')
+        def canonical(component):
+            package, activity = component.split('/')
+            return package+'/'+(package+activity if activity.startswith('.') else activity)
         stable = 0
+        previous_home = None
         receipt['homeSamples'] = []
-        for _ in range(7):
+        for index in range(7):
             window = shell('dumpsys', 'window', 'windows')
+            activities = shell('dumpsys', 'activity', 'activities')
             assert not re.search(r"Application (?:Error|Not Responding)|isn.t responding", window, re.I)
             last_anr = shell('dumpsys', 'activity', 'lastanr')
             events = shell('logcat', '-d', '-b', 'events', '-v', 'threadtime')
+            for label, value in [('window',window), ('activities',activities), ('lastanr',last_anr), ('anr-events',events)]:
+                (args.output/f'home-{index}-{label}.txt').write_text(value)
             anr = classify_anr(last_anr, events, PACKAGE)
             assert not anr['appAnrObserved'], 'Fresh guest has app ANR evidence'
-            focused = bool(re.search(r'mCurrentFocus=.*'+re.escape(home), window))
-            stable = stable+1 if focused else 0
-            receipt['homeSamples'].append({'focused': focused, 'stable': stable, 'anr': anr})
+            # Android 35 reports these activity focus fields in the activity
+            # dump. The early HOME resolver may still name Setup. Match the
+            # actual visible HOME task, as the existing runtime guard does.
+            homes = set(re.findall(r'^\s*\* Task\{[^\n]*\btype=home\b[^\n]*\bI=([\w.]+/[\w.$]+)[^\n]*\bU=0\b[^\n]*\bvisible=true\b', activities, re.M))
+            home = next(iter(homes)) if len(homes) == 1 else None
+            focuses = {canonical(v) for v in re.findall(r'^\s*mCurrentFocus=Window\{[^\n}]*\bu0\s+([\w.]+/[\w.$]+)', activities, re.M)}
+            resumed = {canonical(v) for v in re.findall(r'^\s*(?:topResumedActivity=|ResumedActivity:)\s*ActivityRecord\{[^\n}]*\bu0\s+([\w.]+/[\w.$]+)', activities, re.M)}
+            focused = home is not None and focuses == {canonical(home)}
+            active = home is not None and resumed == {canonical(home)}
+            setup = home is not None and home.startswith('com.google.android.googlesdksetup/')
+            stable = (stable+1 if home == previous_home else 1) if focused and active and not setup else 0
+            previous_home = home
+            receipt['homeSamples'].append({'focused': focused, 'resumed': active, 'homeActivity': home,
+                                          'focusedActivities': sorted(focuses), 'resumedActivities': sorted(resumed),
+                                          'stable': stable, 'anr': anr})
             time.sleep(10)
         assert stable >= 3, 'Guest must already focus HOME without injected input'
         adb('install', str(args.apk))
@@ -303,4 +427,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] in {'seal-apk','verify-reused-apk'}:
+        apk_artifact_mode()
+    else:
+        main()
