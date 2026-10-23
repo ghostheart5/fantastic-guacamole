@@ -82,7 +82,11 @@ class _Actions extends TrajectoryForecastLedgerActions {
   }
 }
 
-TrajectoryBaseline _baseline(String accountScope) {
+TrajectoryBaseline _baseline(
+  String accountScope, {
+  bool secondSubject = false,
+  bool replacePrimarySubject = false,
+}) {
   final b = trajectoryTestBaseline();
   return TrajectoryBaseline(
     accountScope: accountScope,
@@ -98,13 +102,21 @@ TrajectoryBaseline _baseline(String accountScope) {
     availableMinutes: b.availableMinutes,
     occupiedMinutes: b.occupiedMinutes,
     unscheduledMinutes: b.unscheduledMinutes,
-    tasks: const [
-      TrajectoryTaskNode(
-        id: 'undated',
-        title: 'Undated task',
-        priority: 3,
-        estimatedMinutes: 20,
-      ),
+    tasks: [
+      if (!replacePrimarySubject)
+        const TrajectoryTaskNode(
+          id: 'undated',
+          title: 'Undated task',
+          priority: 3,
+          estimatedMinutes: 20,
+        ),
+      if (secondSubject)
+        const TrajectoryTaskNode(
+          id: 'second',
+          title: 'Second task',
+          priority: 2,
+          estimatedMinutes: 15,
+        ),
     ],
     goals: const [],
     blocks: const [],
@@ -119,12 +131,16 @@ TrajectoryEngineModel _model(
   TrajectoryCustomScenarioDraft? draft, {
   String? accountScope,
   int days = 7,
+  bool secondSubject = false,
+  bool replacePrimarySubject = false,
   TrajectoryEngineStatus status = TrajectoryEngineStatus.ready,
 }) {
   final fixture = trajectoryTestEngineModel();
   final baseline = _baseline(
     accountScope ??
         AccountStorageScope.authenticated('comparison-test').v2Namespace!,
+    secondSubject: secondSubject,
+    replacePrimarySubject: replacePrimarySubject,
   );
   final interventions = <TrajectoryIntervention>[
     TrajectoryIntervention(
@@ -146,7 +162,11 @@ TrajectoryEngineModel _model(
             TrajectoryInterventionType.reduceScope,
         },
         title:
-            'My scenario: ${draft.adjustment == TrajectoryCustomAdjustment.complete ? 'complete' : 'delay'} Undated task',
+            'My scenario: ${switch (draft.adjustment) {
+              TrajectoryCustomAdjustment.complete => 'complete',
+              TrajectoryCustomAdjustment.delay => 'delay',
+              TrajectoryCustomAdjustment.reduceScope => 'remove',
+            }} ${baseline.tasks.where((task) => task.id == draft.subjectId).firstOrNull?.title ?? 'Undated task'}',
         description: 'A local comparison; no task changes.',
         subjectId: draft.subjectId,
         delay: Duration(days: draft.delayDays),
@@ -177,7 +197,25 @@ Future<void> _frames(WidgetTester tester) async {
   await tester.pump();
 }
 
-Future<ProviderContainer> _open(WidgetTester tester, {bool es = false}) async {
+Future<void> _waitForIdleScroll(WidgetTester tester) async {
+  final position = tester
+      .state<ScrollableState>(find.byType(Scrollable).first)
+      .position;
+  for (
+    var frame = 0;
+    frame < 60 && position.isScrollingNotifier.value;
+    frame++
+  ) {
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  expect(position.isScrollingNotifier.value, isFalse);
+}
+
+Future<ProviderContainer> _open(
+  WidgetTester tester, {
+  bool es = false,
+  bool secondSubject = false,
+}) async {
   tester.view.physicalSize = const Size(450, 850);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -207,6 +245,7 @@ Future<ProviderContainer> _open(WidgetTester tester, {bool es = false}) async {
           control.mode == 'rejected' ? null : draft,
           days: days,
           accountScope: scope.v2Namespace,
+          secondSubject: secondSubject,
           status: control.mode == 'loading'
               ? TrajectoryEngineStatus.loading
               : control.mode == 'error'
@@ -372,6 +411,185 @@ void main() {
       },
     );
   }
+
+  for (final edit in ['adjustment', 'delay', 'subject']) {
+    testWidgets(
+      '$edit invalidates ready feedback until the new draft is compared',
+      (tester) async {
+        final container = await _open(tester, secondSubject: edit == 'subject');
+        try {
+          await _composer(tester);
+          if (edit == 'delay') {
+            await tester.ensureVisible(find.text('Delay'));
+            await tester.tap(find.text('Delay'));
+            await _frames(tester);
+          }
+          await tester.ensureVisible(find.text('Compare 7-day path'));
+          await _compare(tester);
+          expect(find.text('View comparison'), findsOneWidget);
+          final submitted = container.read(trajectoryCustomScenarioProvider)!;
+          final previousComparison = container
+              .read(trajectoryEngineModelProvider)
+              .comparison;
+          final oldView = tester
+              .widget<TextButton>(
+                find.widgetWithText(TextButton, 'View comparison'),
+              )
+              .onPressed!;
+          switch (edit) {
+            case 'adjustment':
+              await tester.ensureVisible(find.text('Remove'));
+              await tester.tap(find.text('Remove'));
+            case 'delay':
+              await tester.ensureVisible(find.byType(Slider));
+              await tester.drag(find.byType(Slider), const Offset(40, 0));
+            case 'subject':
+              await tester.ensureVisible(
+                find.byType(DropdownButtonFormField<String>),
+              );
+              await tester.tap(find.byType(DropdownButtonFormField<String>));
+              await _frames(tester);
+              await tester.tap(find.text('Second task').last);
+          }
+          oldView(); // A retained ready callback must fail closed after local edits.
+          await _frames(tester);
+          expect(find.text('View comparison'), findsNothing);
+          expect(
+            find.textContaining('Your comparison is ready.'),
+            findsNothing,
+          );
+          expect(find.text('Updating your comparison…'), findsNothing);
+          await _waitForIdleScroll(tester);
+          final offset = tester
+              .state<ScrollableState>(find.byType(Scrollable).first)
+              .position
+              .pixels;
+          oldView();
+          await _frames(tester);
+          expect(
+            tester
+                .state<ScrollableState>(find.byType(Scrollable).first)
+                .position
+                .pixels,
+            offset,
+          );
+          expect(
+            container.read(trajectoryCustomScenarioProvider),
+            same(submitted),
+          );
+          expect(
+            container.read(trajectoryEngineModelProvider).comparison,
+            same(previousComparison),
+          );
+          await tester.ensureVisible(find.text('Compare 7-day path'));
+          await _compare(tester);
+          final next = container.read(trajectoryCustomScenarioProvider)!;
+          switch (edit) {
+            case 'adjustment':
+              expect(next.adjustment, TrajectoryCustomAdjustment.reduceScope);
+            case 'delay':
+              expect(next.adjustment, TrajectoryCustomAdjustment.delay);
+              expect(next.delayDays, greaterThan(submitted.delayDays));
+            case 'subject':
+              expect(next.subjectId, 'second');
+          }
+          expect(find.text('View comparison').hitTestable(), findsOneWidget);
+          expect(
+            find.textContaining('Your comparison is ready.').hitTestable(),
+            findsOneWidget,
+          );
+          final actions =
+              container.read(trajectoryForecastLedgerActionsProvider)
+                  as _Actions;
+          expect(actions.tracks, 0);
+          expect(actions.reconciles, 0);
+          expect(
+            container
+                .read(trajectoryEngineModelProvider)
+                .comparison!
+                .baseline
+                .tasks
+                .every(
+                  (task) => task.dueAt == null && task.scheduledAt == null,
+                ),
+            isTrue,
+          );
+          expect(tester.takeException(), isNull);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+          await tester.pump(Duration.zero);
+        }
+      },
+    );
+  }
+
+  testWidgets(
+    'automatic subject replacement invalidates feedback without a build-time setState',
+    (tester) async {
+      final container = await _open(tester, secondSubject: true);
+      try {
+        await _composer(tester);
+        await _compare(tester);
+        final submitted = container.read(trajectoryCustomScenarioProvider)!;
+        expect(find.text('View comparison'), findsOneWidget);
+        final oldView = tester
+            .widget<TextButton>(
+              find.widgetWithText(TextButton, 'View comparison'),
+            )
+            .onPressed!;
+        container
+            .read(_control.notifier)
+            .show(
+              _model(
+                submitted,
+                secondSubject: true,
+                replacePrimarySubject: true,
+              ),
+            );
+        await _frames(tester);
+        expect(find.text('View comparison'), findsNothing);
+        expect(find.textContaining('Your comparison is ready.'), findsNothing);
+        expect(
+          container.read(trajectoryCustomScenarioProvider),
+          same(submitted),
+        );
+        await _waitForIdleScroll(tester);
+        final offset = tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position
+            .pixels;
+        oldView();
+        await _frames(tester);
+        expect(
+          tester
+              .state<ScrollableState>(find.byType(Scrollable).first)
+              .position
+              .pixels,
+          offset,
+        );
+        expect(tester.takeException(), isNull);
+        container.read(_control.notifier).mode('automatic');
+        await _frames(tester);
+        await tester.ensureVisible(find.text('Compare 7-day path'));
+        await _compare(tester);
+        expect(
+          container.read(trajectoryCustomScenarioProvider)!.subjectId,
+          'second',
+        );
+        expect(find.text('View comparison').hitTestable(), findsOneWidget);
+        final actions =
+            container.read(trajectoryForecastLedgerActionsProvider) as _Actions;
+        expect(actions.tracks, 0);
+        expect(actions.reconciles, 0);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+        await tester.pump(Duration.zero);
+      }
+    },
+  );
 
   testWidgets(
     'retained old data and loading cannot claim ready or rejection before reconciled result',

@@ -335,6 +335,7 @@ class _TrajectoryEngineScreenState
                                               ? _viewCustomComparison
                                               : null,
                                         ),
+                                  onDraftChanged: _invalidateCustomFeedback,
                                   onComposed:
                                       (TrajectoryCustomScenarioDraft draft) {
                                         if (_isRefreshing) return;
@@ -452,6 +453,15 @@ class _TrajectoryEngineScreenState
         ),
       ),
     );
+  }
+
+  void _invalidateCustomFeedback() {
+    // Invalidate retained callbacks immediately, including subject replacement
+    // during the composer's didUpdateWidget. Rebuild after the current frame.
+    _customRequest = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _customRequest == null) setState(() {});
+    });
   }
 
   _CustomComparisonState? _customFeedbackState(TrajectoryEngineModel model) {

@@ -686,6 +686,7 @@ class _CustomScenarioComposer extends StatefulWidget {
     required this.horizonDays,
     required this.onComposed,
     required this.onClear,
+    required this.onDraftChanged,
     this.feedback,
   });
 
@@ -694,6 +695,7 @@ class _CustomScenarioComposer extends StatefulWidget {
   final int horizonDays;
   final ValueChanged<TrajectoryCustomScenarioDraft> onComposed;
   final VoidCallback onClear;
+  final VoidCallback onDraftChanged;
 
   @override
   State<_CustomScenarioComposer> createState() =>
@@ -704,6 +706,7 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
   String? _subjectId;
   TrajectoryCustomAdjustment _adjustment = TrajectoryCustomAdjustment.complete;
   double _delayDays = 1;
+  bool _draftChanged = false;
 
   @override
   void initState() {
@@ -717,7 +720,12 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
     if (!widget.baseline.tasks.any(
       (TrajectoryTaskNode task) => task.id == _subjectId,
     )) {
-      _subjectId = widget.baseline.tasks.firstOrNull?.id;
+      final nextSubjectId = widget.baseline.tasks.firstOrNull?.id;
+      if (nextSubjectId != _subjectId) {
+        _subjectId = nextSubjectId;
+        _draftChanged = true;
+        widget.onDraftChanged();
+      }
     }
   }
 
@@ -765,7 +773,14 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
                     ),
                   )
                   .toList(growable: false),
-              onChanged: (String? value) => setState(() => _subjectId = value),
+              onChanged: (String? value) {
+                if (value == _subjectId) return;
+                widget.onDraftChanged();
+                setState(() {
+                  _subjectId = value;
+                  _draftChanged = true;
+                });
+              },
             ),
           ),
           const SizedBox(height: 10),
@@ -813,7 +828,12 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
               ),
             ),
             onSelectionChanged: (Set<TrajectoryCustomAdjustment> selected) {
-              setState(() => _adjustment = selected.first);
+              if (selected.first == _adjustment) return;
+              widget.onDraftChanged();
+              setState(() {
+                _adjustment = selected.first;
+                _draftChanged = true;
+              });
             },
           ),
           if (showsDelay) ...<Widget>[
@@ -832,7 +852,14 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
               label: Localizations.localeOf(context).languageCode == 'es'
                   ? '${_delayDays.round()} días'
                   : '${_delayDays.round()} days',
-              onChanged: (double value) => setState(() => _delayDays = value),
+              onChanged: (double value) {
+                if (value == _delayDays) return;
+                widget.onDraftChanged();
+                setState(() {
+                  _delayDays = value;
+                  _draftChanged = true;
+                });
+              },
             ),
           ],
           const SizedBox(height: 10),
@@ -843,13 +870,16 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
               FilledButton.icon(
                 onPressed: _subjectId == null
                     ? null
-                    : () => widget.onComposed(
-                        TrajectoryCustomScenarioDraft(
-                          subjectId: _subjectId!,
-                          adjustment: _adjustment,
-                          delayDays: _delayDays.round(),
-                        ),
-                      ),
+                    : () {
+                        setState(() => _draftChanged = false);
+                        widget.onComposed(
+                          TrajectoryCustomScenarioDraft(
+                            subjectId: _subjectId!,
+                            adjustment: _adjustment,
+                            delayDays: _delayDays.round(),
+                          ),
+                        );
+                      },
                 icon: const Icon(Icons.alt_route_rounded),
                 label: Text(
                   journeyText(
@@ -883,9 +913,9 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
               ),
             ],
           ),
-          if (widget.feedback case final Widget feedback) ...[
+          if (!_draftChanged && widget.feedback != null) ...[
             const SizedBox(height: 10),
-            feedback,
+            widget.feedback!,
           ],
         ],
       ),
