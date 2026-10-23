@@ -253,6 +253,9 @@ jobs:
         shell: pwsh
         run: ./scripts/release_guard.ps1
 
+      - name: Validate hosted release memory wrapper
+        run: python3 -m unittest discover -s scripts -p test_run_hosted_release_build.py
+
       - name: Configure Firebase Android file
         env:
           GOOGLE_SERVICES_JSON_B64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
@@ -346,6 +349,8 @@ jobs:
 
       - name: Build signed AAB
         run: >-
+          python3 scripts/run_hosted_release_build.py
+          --receipt build/release-evidence/hosted-gradle-memory.json --
           flutter build appbundle --release
           --verbose
           --dart-define-from-file="$RUNNER_TEMP/public-release-defines.json"
@@ -417,6 +422,14 @@ jobs:
       - name: Remove runner-only sensitive material
         if: always()
         run: rm -f android/app/key.jks android/key.properties android/app/google-services.json .env "$RUNNER_TEMP/public-release-defines.json"
+
+      - name: Upload hosted Gradle memory receipt
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: chronospark-release-memory-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: ignore
+          path: build/release-evidence/hosted-gradle-memory.json
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
