@@ -6,7 +6,7 @@
 
 The reviewed source is `f4fa365b9659a09490fbd44c06942af97e6149ba`, merged in PR203 as `d3509c3aa06a2f36042c8b4b1fc9fd77e9f343aa`.
 
-- Current wording and guidance describe Today, Add something, My plan, Schedule, Chat, Insights, Predictions and Activity.
+- Current wording and guidance describe Today, Add something, My plan, Schedule, Chat, Insights and Activity.
 - Forecast/reflection navigation reaches Schedule in the reviewed paths; profile setup and startup notification routing have targeted repairs.
 - Expanded baseline warning wording has English/Spanish regression coverage.
 - Comparison readiness is nearby and View comparison reveals the matching result. Editing Complete → Delay → Remove clears the previous ready/View action until Compare is pressed again.

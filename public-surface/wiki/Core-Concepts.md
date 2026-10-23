@@ -8,7 +8,7 @@
 
 **Action and progress:** completing real work produces recorded activity. XP and levels are feedback, not money or a measure of personal worth.
 
-**Comparison:** Predictions creates a modeled preview from selected inputs. Complete, Delay and Remove here do not edit the real record. Change the draft, then compare again.
+**Comparison:** Insights creates a modeled preview from selected inputs. Complete, Delay and Remove here do not edit the real record. Change the draft, then compare again.
 
 **Guidance:** AI/SI Chat uses the context you choose. Review evidence, assumptions, consent and any displayed credit quote. Suggestions do not silently authorize saved changes.
 

@@ -20,6 +20,6 @@ In **Chat**, select the context you want to share and ask a specific question. F
 
 ## 5. Compare a possibility
 
-Open **Insights → Predictions** when available. Review the horizon, evidence and uncertainty. Select a task and an operation such as **Complete**, **Delay** or **Remove**, then press **Compare**. **View comparison** opens that calculated result. Changing an input requires a new comparison; it does not silently change your saved task.
+Open **Insights** and find **Compose a what-if path** when available. Review the horizon, evidence and uncertainty. Select a task and an operation such as **Complete**, **Delay** or **Remove**, then press **Compare**. **View comparison** opens that calculated result. Changing an input requires a new comparison; it does not silently change your saved task.
 
 Continue with [[Predictions|Trajectory-Engine]], [[Settings]] and [[Troubleshooting]].

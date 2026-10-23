@@ -6,7 +6,7 @@
 A reflection and planning app for tasks, goals, habits, notes, progress, Chat and modeled future outcomes. Start with one useful action rather than configuring every tool.
 
 ## Why do older guides use different names?
-Navigation and wording have been simplified. The guides now use Today, Add something, My plan, Schedule, Chat, Insights, Predictions and Activity. Older wiki addresses remain valid for bookmarks. Your installed public build may differ from the latest tested source.
+Navigation and wording have been simplified. The guides now use Today, Add something, My plan, Schedule, Chat, Insights and Activity. Older wiki addresses remain valid for bookmarks. Your installed public build may differ from the latest tested source.
 
 ## Does Compare change my task?
 No. Complete, Delay and Remove are simulations in the comparison controls. Press Compare, then View comparison. Edit your real record separately if you choose to act. After changing draft inputs, compare again.

@@ -4,7 +4,7 @@
 
 My plan lets you review saved tasks, goals, habits and notes. Schedule shows work in time. Keep a planned date, a start time and a hard deadline distinct; use only the constraints that are true.
 
-Review the date and time before saving an edit. Mark real completion from the record rather than using a simulated Complete result. Delay and Remove inside Predictions are comparisons, not changes to the real plan.
+Review the date and time before saving an edit. Mark real completion from the record rather than using a simulated Complete result. Delay and Remove inside Insights are comparisons, not changes to the real plan.
 
 In the reviewed repair, forecast and reflection navigation reaches Schedule. A real reflection-notification card tap also opened Schedule on the earlier tested build. These are bounded checks, not proof of every notification or navigation path.
 

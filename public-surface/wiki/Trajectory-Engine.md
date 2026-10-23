@@ -4,9 +4,11 @@
 
 Predictions explores possible outcomes from recorded work and assumptions. It is decision support, not a promise about your future.
 
+The entry in navigation is **Insights**; there is no separate navigation action named Predictions. On the **Patterns & future outcomes** screen, use the **Compose a what-if path** panel. Save a task first if the panel has no task to compare.
+
 ## Compare a task change
 
-1. Open **Insights**, then **Predictions** where available.
+1. Open **Insights** (the **Patterns & future outcomes** screen), then find **Compose a what-if path**.
 2. Choose the planning horizon and review the baseline, missing evidence and uncertainty.
 3. Open the custom comparison controls and select a task.
 4. Choose **Complete**, **Delay** or **Remove**. For Delay, review the number of days.

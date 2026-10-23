@@ -14,7 +14,7 @@ Keep tasks, goals, habits and notes connected. Choose a useful next step, make t
 | Add something | Create a task, goal, habit or note; review before saving. | [Add something](Creator) |
 | My plan and Schedule | Review your records and put work in time. | [My plan and Schedule](Timeline) |
 | Chat | Ask AI or SI Chat using the context you choose. | [Chat](Smart-Planner) |
-| Insights and Predictions | Review patterns and compare modeled outcomes. | [Predictions](Trajectory-Engine) |
+| Insights | Review patterns and compare modeled outcomes. | [Predictions](Trajectory-Engine) |
 | Activity | Review recorded progress, XP and levels. | [Activity](Progression) |
 | Settings | Manage guidance, appearance, language, reminders, account and credits. | [[Settings]] |
 

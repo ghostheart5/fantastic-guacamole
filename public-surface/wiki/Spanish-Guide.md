@@ -12,7 +12,7 @@ Actualizada el 23 de octubre de 2026. Los nombres pueden variar según el idioma
 
 ## Compara una posibilidad
 
-En la sección de información y **Predicciones**, elige el horizonte y una tarea. Selecciona **Completar**, **Retrasar** o **Eliminar** y pulsa **Comparar**. Abre la comparación para leer el resultado correspondiente.
+Abre la sección de información (**Insights** en inglés), titulada **Patrones y resultados futuros**. Busca **Crear un camino hipotético**, elige el horizonte y una tarea. Selecciona **Completar**, **Retrasar** o **Eliminar** y pulsa **Comparar**. Abre la comparación para leer el resultado correspondiente.
 
 Estas opciones son simulaciones: no completan, cambian de fecha ni eliminan la tarea guardada. Si cambias los datos, compara otra vez. La corrección probada el 23 de octubre quita el aviso y enlace del resultado anterior cuando cambia la operación; al pulsar Comparar se calcula el nuevo resultado.
 
