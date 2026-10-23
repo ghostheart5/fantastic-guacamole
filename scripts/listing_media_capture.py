@@ -199,6 +199,7 @@ class Capture:
     def __init__(self, output, locale):
         self.output, self.locale = output, locale
         self.width, self.height = 1080, 1920
+        self.density = 420
         self.actions = []
         self.images = []
         self.frames = 0
@@ -290,9 +291,23 @@ class Capture:
         raise AssertionError(f'UI did not reach {pattern}')
 
     def nav(self, en, es):
+        tools = r'^(?:Browse tools(?:\nTools)?|Ver herramientas(?:\nHerramientas)?)$'
+        back = r'^(?:Back to Today|Volver a Hoy)$'
+        tree = self.tree()
+        if not self.find(tools, tree):
+            # Secondary screens such as Add something intentionally have no
+            # primary navigation. Use their observed Back to Today action.
+            if en == 'Add something' and self.find(r'^(?:Add something|Añadir algo)$', tree):
+                assert self.find(back, tree)
+                return
+            assert self.find(back, tree), 'No Tools menu or observed Back to Today control'
+            self.tap(back)
+            self.wait(r'^(?:Add a goal, task or habit|Añadir una meta, tarea o hábito)$')
+            if en == 'Today':
+                return
         # The extended tablet rail adds its visible Tools text to the same
         # semantics node; accept only those source-defined language pairs.
-        self.tap(r'^(?:Browse tools(?:\nTools)?|Ver herramientas(?:\nHerramientas)?)$')
+        self.tap(tools)
         self.tap(r'^(?:'+re.escape(en)+'|'+re.escape(es)+r')(?:\n.*)?$', scroll=True)
         # Insights is the navigation label; its real screen heading is more
         # descriptive. Require that heading rather than a stale nav label.
@@ -312,6 +327,7 @@ class Capture:
         size = struct.unpack('>II', image.read_bytes()[16:24])
         assert size == (self.width, self.height), size
         self.images.append({'path': image.relative_to(self.output).as_posix(), 'sha256': sha(image), 'pixels': list(size),
+                            'densityDpi': self.density, 'logicalWidthDp': self.width*160/self.density,
                             'locale': self.locale, 'uiTree': f'ui-{self.frames:04d}.xml',
                             'uiTreeSha256': sha(self.output/f'ui-{self.frames:04d}.xml')})
 
@@ -435,7 +451,8 @@ def main():
                'qaDefinesSha256': sha('tool/qa_defines.json'),
                'startedAtUtc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
                'boundary': 'Real UI in disposable local QA profile. No cloud account or external AI request; no production acceptance. Media requires visual review before upload.',
-               'actions': c.actions, 'screenshots': c.images, 'videos': [], 'uiReadiness': c.ui_readiness}
+               'actions': c.actions, 'screenshots': c.images, 'videos': [], 'uiReadiness': c.ui_readiness,
+               'viewports': []}
     recorder = None
     try:
         build_tools = sorted(Path(os.environ['ANDROID_HOME']).glob('build-tools/*/aapt2'))
@@ -495,6 +512,7 @@ def main():
         c.screenshot('diagnostic/00-today-before-demo')
         titles = ['Plan a relaxing evening', 'Read a little each day', 'Make time for walking'] if args.locale == 'en-US' else ['Preparar una tarde tranquila', 'Leer un rato', 'Dedicar tiempo a caminar']
         c.create('task', titles[0], schedule=True)
+        c.screenshot('diagnostic/02-first-saved-task')
         c.nav('My plan', 'Mi plan')
         c.tap(r'^(?:Schedule|Agenda)$', scroll=True)
         c.tap(r'^(?:Complete|Completar)$', scroll=True)
@@ -505,11 +523,24 @@ def main():
         c.create('habit', titles[1])
         c.create('goal', titles[2])
         c.create('task', 'Take five quiet minutes' if args.locale == 'en-US' else 'Tomar cinco minutos de calma', schedule=True)
-        for form, width, height, density in [('phone',1080,1920,420), ('tablet-7',1200,1920,240), ('tablet',1600,2560,240)]:
+        for form, width, height, density in [('phone',1080,1920,420), ('tablet-7',1080,1920,240), ('tablet',1440,2560,220)]:
+            assert width*16 == height*9, 'Store gallery requires genuine 9:16 renders'
+            logical_width = width*160/density
+            assert (logical_width < 600 if form == 'phone' else logical_width >= 600)
+            assert form != 'tablet' or logical_width >= 1024
             shell('wm', 'size', f'{width}x{height}')
             shell('wm', 'density', str(density))
             c.width, c.height = width, height
+            c.density = density
             time.sleep(4)
+            size_readback, density_readback = shell('wm','size'), shell('wm','density')
+            assert f'Override size: {width}x{height}' in size_readback
+            assert f'Override density: {density}' in density_readback or (
+                f'Physical density: {density}' in density_readback and 'Override density:' not in density_readback)
+            receipt['viewports'].append({'form':form,'pixels':[width,height],'densityDpi':density,
+                'logicalWidthDp':logical_width,'windowManagerSize':size_readback,
+                'windowManagerDensity':density_readback,'androidConfiguration':shell('am','get-config'),
+                'renderedNatively':True,'boundary':'Guest reconfiguration and real redraw, never crop or stretch'})
             remote = '/sdcard/'+form+'.mp4'
             recorder = subprocess.Popen(['adb','-s',SERIAL,'shell','screenrecord','--time-limit','180','--bit-rate','6000000',remote])
             c.record_screens(form)
