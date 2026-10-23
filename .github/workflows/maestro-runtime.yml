@@ -97,6 +97,7 @@ jobs:
           cache: false
 
       - name: Install and verify required official Android SDK packages
+        id: sdk
         timeout-minutes: 12
         run: |
           set -euo pipefail
@@ -154,13 +155,16 @@ jobs:
           PY
 
       - name: Build only local QA APK without provider credentials
+        id: compile
         timeout-minutes: 25
         run: |
           set -euo pipefail
           cp .env.example .env
-          flutter pub get --enforce-lockfile
+          mkdir -p test-results/listing-media/build
+          flutter --version --machine > test-results/listing-media/build/flutter-version.json
+          flutter pub get --enforce-lockfile 2>&1 | tee test-results/listing-media/build/pub-get.log
           git diff --exit-code
-          flutter build apk --debug --target-platform=android-x64 --dart-define-from-file=tool/qa_defines.json
+          flutter build apk --debug --target-platform=android-x64 --dart-define-from-file=tool/qa_defines.json 2>&1 | tee test-results/listing-media/build/flutter-build.log
           (cd android && ./gradlew --stop)
           git diff --exit-code
           test -z "$(git status --porcelain)"
@@ -186,6 +190,7 @@ jobs:
           python3 scripts/prepare_hosted_emulator_runner.py
 
       - name: Capture real visible English or Spanish UI
+        id: capture
         timeout-minutes: 23
         uses: ./test-results/hosted-emulator-runner
         with:
@@ -205,11 +210,28 @@ jobs:
 
       - name: Bound media artifact size
         if: always()
+        env:
+          SDK_OUTCOME: ${{ steps.sdk.outcome }}
+          BUILD_OUTCOME: ${{ steps.compile.outcome }}
+          CAPTURE_OUTCOME: ${{ steps.capture.outcome }}
+          CAPTURE_LOCALE: ${{ matrix.locale }}
         run: |
           python3 - <<'PY'
+          import datetime, json, os
           from pathlib import Path
           root = Path('test-results/listing-media')
-          assert root.is_dir(), 'Capture did not produce evidence'
+          root.mkdir(parents=True, exist_ok=True)
+          # Pre-capture failures must also retain a factual stage receipt.
+          receipt = {'sourceSha': os.environ['QA_SOURCE_SHA'],
+                     'workflowSha': os.environ['GITHUB_SHA'],
+                     'runId': os.environ['GITHUB_RUN_ID'],
+                     'locale': os.environ['CAPTURE_LOCALE'],
+                     'recordedAtUtc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                     'sdkOutcome': os.environ['SDK_OUTCOME'],
+                     'buildOutcome': os.environ['BUILD_OUTCOME'],
+                     'captureOutcome': os.environ['CAPTURE_OUTCOME'],
+                     'boundary': 'Stage outcomes only; no successful capture is inferred from artifact upload.'}
+          (root / 'stage-outcomes.json').write_text(json.dumps(receipt, indent=2)+'\n')
           files = list(root.rglob('*'))
           assert not any(p.is_symlink() for p in files)
           assert sum(p.stat().st_size for p in files if p.is_file()) < 190 * 1024**2
