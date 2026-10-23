@@ -10,7 +10,6 @@ import json
 import os
 from pathlib import Path
 import re
-import signal
 import shutil
 import struct
 import subprocess
@@ -58,6 +57,20 @@ def unique_title_editor(tree):
     left, top, right, bottom = map(int,re.findall(r'\d+',editors[0].get('bounds')))
     assert right > left and bottom > top
     return left, top, right, bottom
+
+
+def destination_heading(en, es):
+    # Flutter may merge adjacent header text into newline-separated semantics.
+    # Match an exact semantic line, never an arbitrary substring. Chat uses its
+    # unique header subtitle so the bottom navigation label cannot satisfy it.
+    if en == 'Insights':
+        labels = ('Patterns & future outcomes', 'Patrones y resultados futuros')
+    elif en == 'Chat':
+        labels = ('Ask a question about your saved plans. Review the answer before deciding.',
+                  'Pregunta sobre tus planes guardados. Revisa la respuesta antes de decidir.')
+    else:
+        return r'^(?:'+re.escape(en)+'|'+re.escape(es)+r')$'
+    return r'(?:^|\n)(?:'+'|'.join(re.escape(v) for v in labels)+r')(?:\n|$)'
 
 
 def apk_identity(apk, diagnostics=None):
@@ -206,6 +219,8 @@ class Capture:
         self.dumps = 0
         self.ui_readiness = []
         self.diagnostic_form_captured = False
+        self.completed_demo_tasks = []
+        self.undone_capture_tasks = []
 
     def tree(self):
         # Cold Flutter startup can briefly have no accessibility root. Observe
@@ -311,9 +326,7 @@ class Capture:
         self.tap(r'^(?:'+re.escape(en)+'|'+re.escape(es)+r')(?:\n.*)?$', scroll=True)
         # Insights is the navigation label; its real screen heading is more
         # descriptive. Require that heading rather than a stale nav label.
-        heading = (r'^(?:Patterns & future outcomes|Patrones y resultados futuros)$'
-                   if en == 'Insights' else r'^(?:'+re.escape(en)+'|'+re.escape(es)+r')$')
-        self.wait(heading)
+        self.wait(destination_heading(en, es))
 
     def screenshot(self, name):
         time.sleep(2)
@@ -400,6 +413,20 @@ class Capture:
         if capture_form:
             self.screenshot(capture_form+'/07-saved-task')
 
+    def complete_scheduled_task(self, title):
+        self.nav('My plan', 'Mi plan')
+        self.tap(r'^(?:Schedule|Agenda)$', scroll=True)
+        self.tap(r'^(?:Complete|Completar)$', scroll=True)
+        # Tie each completion to its own title. A previous completion heading
+        # must not satisfy the next sample's observed-result requirement.
+        result = re.escape(title)+r' (?:marked complete\.|marcada como completada\.)'
+        self.wait(r'(?:^|\n)'+result+r'(?:\n|$)')
+        self.completed_demo_tasks.append({'title':title,'status':'verified-in-visible-completion-detail',
+                                          'uiTree':f'ui-{self.frames:04d}.xml'})
+        shell('input', 'keyevent', '4')
+        self.actions.append({'action':'back','fromObservedScreen':'Schedule'})
+        self.wait(r'^(?:My plan|Mi plan)$')
+
     def record_screens(self, form):
         folder = form+'/'+('es' if self.locale == 'es-US' else 'en')
         self.nav('Today', 'Hoy')
@@ -422,6 +449,13 @@ class Capture:
                   'tablet-7': ('Prepare lunch for tomorrow', 'Preparar el almuerzo de hoy'),
                   'tablet': ('Write down one priority', 'Anotar una prioridad')}
         self.create('task', titles[form][self.locale == 'es-US'], capture_form=folder)
+        # The creation/receipt storyboard uses a temporary sample task. Its
+        # visible Undo action restores the one-pending-task gallery state.
+        self.tap(r'^(?:Undo save|Deshacer guardado)$')
+        self.wait(r'(?:^|\n)(?:Save undone|Guardado deshecho)(?:\n|$)')
+        self.undone_capture_tasks.append({'title':titles[form][self.locale == 'es-US'],
+                                         'status':'verified-visible-save-undone',
+                                         'uiTree':f'ui-{self.frames:04d}.xml'})
 
 
 def main():
@@ -452,8 +486,11 @@ def main():
                'startedAtUtc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
                'boundary': 'Real UI in disposable local QA profile. No cloud account or external AI request; no production acceptance. Media requires visual review before upload.',
                'actions': c.actions, 'screenshots': c.images, 'videos': [], 'uiReadiness': c.ui_readiness,
-               'viewports': []}
-    recorder = None
+               'captureMode':'native-still-capture-only',
+               'captureModeBoundary':'No concurrent screen recorder and no pixel editing. Previous thin perimeter origin remains unproven; clean-frame acceptance requires actual visual review.',
+               'viewports': [], 'completedDemoTasks':c.completed_demo_tasks,
+               'undoneTemporaryCaptureTasks':c.undone_capture_tasks,
+               'demoDataBoundary':'Sample planning items created and completed through normal UI in a fresh isolated local profile; no owner data or injected storage/history.'}
     try:
         build_tools = sorted(Path(os.environ['ANDROID_HOME']).glob('build-tools/*/aapt2'))
         assert build_tools
@@ -513,13 +550,13 @@ def main():
         titles = ['Plan a relaxing evening', 'Read a little each day', 'Make time for walking'] if args.locale == 'en-US' else ['Preparar una tarde tranquila', 'Leer un rato', 'Dedicar tiempo a caminar']
         c.create('task', titles[0], schedule=True)
         c.screenshot('diagnostic/02-first-saved-task')
-        c.nav('My plan', 'Mi plan')
-        c.tap(r'^(?:Schedule|Agenda)$', scroll=True)
-        c.tap(r'^(?:Complete|Completar)$', scroll=True)
-        c.wait(r'.*(?:Task Completed|Tarea completada|marcada como completada).*')
-        shell('input', 'keyevent', '4')
-        c.actions.append({'action': 'back', 'fromObservedScreen': 'Schedule'})
-        c.wait(r'^(?:My plan|Mi plan)$')
+        c.complete_scheduled_task(titles[0])
+        extra_completions = (['Put one thing away','Prepare a glass of water'] if args.locale == 'en-US'
+                             else ['Guardar una cosa','Preparar un vaso de agua'])
+        for title in extra_completions:
+            c.create('task',title,schedule=True)
+            c.complete_scheduled_task(title)
+        assert len(c.completed_demo_tasks) == 3
         c.create('habit', titles[1])
         c.create('goal', titles[2])
         c.create('task', 'Take five quiet minutes' if args.locale == 'en-US' else 'Tomar cinco minutos de calma', schedule=True)
@@ -541,20 +578,7 @@ def main():
                 'logicalWidthDp':logical_width,'windowManagerSize':size_readback,
                 'windowManagerDensity':density_readback,'androidConfiguration':shell('am','get-config'),
                 'renderedNatively':True,'boundary':'Guest reconfiguration and real redraw, never crop or stretch'})
-            remote = '/sdcard/'+form+'.mp4'
-            recorder = subprocess.Popen(['adb','-s',SERIAL,'shell','screenrecord','--time-limit','180','--bit-rate','6000000',remote])
             c.record_screens(form)
-            observed = subprocess.run(['adb','-s',SERIAL,'shell','pidof','screenrecord'], capture_output=True, text=True, timeout=20)
-            pid = observed.stdout.strip()
-            if pid:
-                assert re.fullmatch(r'\d+', pid), 'Expected exactly one owned guest recorder'
-                shell('kill', '-2', pid)
-            recorder.wait(timeout=15)
-            recorder = None
-            video = args.output/(form+'-walkthrough.mp4')
-            adb('pull', remote, str(video))
-            receipt['videos'].append({'path': video.name, 'sha256': sha(video), 'requestedEmulatorPixels': [width,height],
-                                      'boundary': 'Unedited real QA capture, bounded to first 180 seconds; may not include the entire screenshot journey. Not yet a polished store video.'})
         assert len([i for i in c.images if not i['path'].startswith('diagnostic/')]) == 21
         receipt['status'] = 'captured-awaiting-visual-review'
     except Exception as error:
@@ -566,8 +590,6 @@ def main():
             pass
         raise
     finally:
-        if recorder is not None and recorder.poll() is None:
-            recorder.send_signal(signal.SIGINT)
         (args.output/'manifest.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 
 
