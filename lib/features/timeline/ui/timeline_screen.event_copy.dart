@@ -10,9 +10,26 @@ extension _TimelineEventCopy on _TimelineEventTile {
       event.title == 'Task Completed' &&
       event.detail.endsWith(' marked complete.');
 
-  String _localizedTitle(BuildContext context) => _isTaskCompleted
-      ? journeyText(context, 'Task Completed', 'Tarea completada')
-      : _displayTitle;
+  bool get _isGoalCreated {
+    final goalId = event.relatedId;
+    return goalId != null &&
+        goalId.isNotEmpty &&
+        event.type == TimelineEventType.reflection &&
+        event.title == 'Goal created' &&
+        (event.id == 'creator-goal:$goalId:created' ||
+            event.id == 'timeline-goal-created-$goalId');
+  }
+
+  String _localizedTitle(BuildContext context) {
+    if (_isTaskCompleted) {
+      return journeyText(context, 'Task Completed', 'Tarea completada');
+    }
+    // Translate only a proven generated wrapper; keep stored titles/details.
+    if (_isGoalCreated) {
+      return journeyText(context, 'Goal created', 'Meta creada');
+    }
+    return _displayTitle;
+  }
 
   String _localizedDetail(BuildContext context) {
     if (_isTaskCompleted) {

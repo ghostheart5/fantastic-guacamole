@@ -1273,6 +1273,10 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
     'Maintain current course': 'Mantener el rumbo actual',
     'Use the suggested option in this estimate':
         'Aplicar la recomendación de Elegir un paso',
+    'Apply Choose a step recommendation':
+        'Aplicar la recomendación de Elegir un paso',
+    'Model the selected Choose a step task as completed in its feasible block.':
+        'Modelar la tarea seleccionada de Elegir un paso como completada en su bloque viable.',
     'Reduce lower-priority scope': 'Reducir el alcance de menor prioridad',
     'Preserve the current plan without a declared intervention.':
         'Conservar el plan actual sin una intervención declarada.',
