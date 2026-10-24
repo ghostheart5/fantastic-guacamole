@@ -24,6 +24,7 @@ class _TrajectoryOverviewCard extends StatelessWidget {
         : const Color(0xFF6EE7F9);
     final String momentumBand = isSpanish
         ? switch (trajectoryMomentumBand(baseline.momentum)) {
+            'STRONG' => 'FUERTE',
             'BUILDING' => 'CRECIENDO',
             'STEADY' => 'ESTABLE',
             'FADING' => 'DISMINUYENDO',

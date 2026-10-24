@@ -903,6 +903,94 @@ void main() {
       expect(find.text('What this estimate assumes'), findsNothing);
     });
 
+    testWidgets(
+      'localizes current generated Spanish forecast copy and strong momentum',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(900, 2400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final fixture = trajectoryTestEngineModel();
+        final baseline = trajectoryTestBaseline(momentum: 90);
+        final comparison = const FutureConsequenceEngine().compare(
+          baseline: baseline,
+          generatedAt: trajectoryFixtureNow,
+          interventions: [
+            TrajectoryIntervention(
+              id: 'apply-smart-planner',
+              type: TrajectoryInterventionType.applySmartPlanner,
+              title: 'Apply Choose a step recommendation',
+              description:
+                  'Protect Ship protected milestone and use the feasible plan as the active schedule.',
+              horizon: const Duration(days: 7),
+              subjectId: 'task-launch',
+              proposedBlocks: baseline.blocks,
+            ),
+            TrajectoryIntervention(
+              id: 'complete-task-launch',
+              type: TrajectoryInterventionType.completeTask,
+              title: 'Complete Ship protected milestone',
+              description:
+                  'Model the selected Choose a step task as completed in its feasible block.',
+              horizon: const Duration(days: 7),
+              subjectId: 'task-launch',
+            ),
+          ],
+        );
+        await tester.pumpWidget(
+          _harness(
+            locale: const Locale('es'),
+            model: TrajectoryEngineModel(
+              status: TrajectoryEngineStatus.ready,
+              summary: fixture.summary,
+              momentum: fixture.momentum,
+              comparison: comparison,
+              statusDetail: fixture.statusDetail,
+              hasAvailableNetworkInterface: true,
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(find.text('FUERTE'), findsOneWidget);
+        expect(find.text('STRONG'), findsNothing);
+        final scrollable = find.byType(Scrollable).first;
+        await tester.scrollUntilVisible(
+          find.text('Aplicar la recomendación de Elegir un paso'),
+          300,
+          scrollable: scrollable,
+        );
+        expect(find.text('Apply Choose a step recommendation'), findsNothing);
+        await tester.scrollUntilVisible(
+          find.text('Completar Ship protected milestone').first,
+          300,
+          scrollable: scrollable,
+        );
+        await tester.tap(find.text('Completar Ship protected milestone').first);
+        await tester.pump(const Duration(milliseconds: 300));
+        const description =
+            'Modelar la tarea seleccionada de Elegir un paso como completada en su bloque viable.';
+        await tester.scrollUntilVisible(
+          find.text(description),
+          300,
+          scrollable: scrollable,
+        );
+        expect(find.text(description), findsOneWidget);
+        expect(
+          find.textContaining('Model the selected Choose a step task'),
+          findsNothing,
+        );
+        expect(
+          comparison.outcomes
+              .singleWhere(
+                (outcome) => outcome.intervention.id == 'complete-task-launch',
+              )
+              .intervention
+              .description,
+          'Model the selected Choose a step task as completed in its feasible block.',
+        );
+        expect(comparison.baseline.momentum, 90);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     testWidgets('localizes the fixed custom-removal description in Spanish', (
       tester,
     ) async {

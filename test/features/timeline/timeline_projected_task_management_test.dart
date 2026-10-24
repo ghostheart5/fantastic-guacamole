@@ -148,6 +148,47 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final eventId in [
+    'creator-goal:release:created',
+    'timeline-goal-created-release',
+  ]) {
+    testWidgets('Spanish generated goal creation preserves history: $eventId', (
+      tester,
+    ) async {
+      const goalTitle = 'Goal created - my own plan';
+      final generated = TimelineEventEntity(
+        id: eventId,
+        type: TimelineEventType.reflection,
+        title: 'Goal created',
+        detail: goalTitle,
+        timestamp: _timelineNow,
+        relatedId: 'release',
+      );
+      final userReflection = TimelineEventEntity(
+        id: 'creator-goal:another-goal:created',
+        type: TimelineEventType.reflection,
+        title: 'Goal created',
+        detail: 'My own English reflection.',
+        timestamp: _timelineNow,
+        relatedId: 'release',
+      );
+      final container = _buildContainer(
+        tasksLoader: (ref) async => [],
+        baseEvents: [generated, userReflection],
+      );
+      addTearDown(container.dispose);
+      await _pumpTimelineShell(tester, container, locale: const Locale('es'));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.ensureVisible(find.text('Meta creada'));
+      expect(find.text(goalTitle), findsOneWidget);
+      expect(find.text('Goal created'), findsOneWidget);
+      expect(find.text('My own English reflection.'), findsOneWidget);
+      expect(generated.title, 'Goal created');
+      expect(generated.detail, goalTitle);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   test('Timeline labels use local dates and times for UTC stored instants', () {
     for (final DateTime local in <DateTime>[
       DateTime(2026, 9, 10, 4, 57),
