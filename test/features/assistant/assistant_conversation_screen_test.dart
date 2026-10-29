@@ -83,6 +83,7 @@ ProviderContainer setup(
   Duration? paidWaitTimeout,
   NoteEntity? selectedNote,
   SecureStoreBackend? historyBackend,
+  bool externalAiAllowed = true,
 }) => ProviderContainer(
   overrides: [
     secureStoreProvider.overrideWithValue(
@@ -97,7 +98,9 @@ ProviderContainer setup(
     ),
     if (!conversationAvailable)
       siV2AvailabilityProvider.overrideWith((ref) async => true),
-    personalizationProfileProvider.overrideWith(_Consent.new),
+    personalizationProfileProvider.overrideWith(
+      externalAiAllowed ? _Consent.new : _NoConsent.new,
+    ),
     conversationTransportProvider.overrideWithValue(transport),
     if (requestTimeout != null)
       conversationRequestTimeoutProvider.overrideWithValue(requestTimeout),
@@ -359,6 +362,149 @@ void main() {
       );
     }
   }
+
+  testWidgets(
+    'AI off shows a pinned notice and send explains how to turn it on',
+    (tester) async {
+      var requests = 0;
+      final container = setup((_) async {
+        requests++;
+        throw StateError('AI-off chat must not request paid AI');
+      }, externalAiAllowed: false);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('conversation-ai-off-notice')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(find.text('AI chat is off'), findsOneWidget);
+      expect(find.text('Turn on AI in Settings to type'), findsOneWidget);
+      final input = find.byKey(const Key('conversation-input'));
+      expect(tester.widget<TextField>(input).enabled, isFalse);
+      final send = tester.widget<IconButton>(
+        find.byWidgetPredicate(
+          (widget) => widget is IconButton && widget.tooltip == 'Send to AI',
+        ),
+      );
+      expect(send.onPressed, isNotNull);
+      await tester.tap(find.byTooltip('Send to AI'));
+      await tester.pumpAndSettle();
+      expect(find.text('Turn on AI chat first'), findsOneWidget);
+      expect(find.text('Open settings'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('Turn on AI chat first'), findsNothing);
+      expect(requests, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final language in ['en', 'es']) {
+    testWidgets('$language AI-off chat fits 320x640 at 200 percent text', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final container = setup(
+        (_) async => throw StateError('AI-off chat must not request AI'),
+        externalAiAllowed: false,
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: Locale(language),
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              ChronoSparkLocalizations.delegate,
+              ...GlobalMaterialLocalizations.delegates,
+            ],
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            ),
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      // The notice title is the first thing visible above the fold.
+      expect(
+        find
+            .text(
+              language == 'es'
+                  ? 'El chat con IA está desactivado'
+                  : 'AI chat is off',
+            )
+            .hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        find
+            .byTooltip(language == 'es' ? 'Enviar a IA' : 'Send to AI')
+            .hitTestable(),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byTooltip(language == 'es' ? 'Enviar a IA' : 'Send to AI'),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          language == 'es'
+              ? 'Primero activa el chat con IA'
+              : 'Turn on AI chat first',
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('AI on hides the notice and empty send asks for a question', (
+    tester,
+  ) async {
+    var requests = 0;
+    final container = setup((_) async {
+      requests++;
+      throw StateError('Empty send must not request paid AI');
+    });
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await pumpConversationScreen(tester, container);
+    expect(find.byKey(const Key('conversation-ai-off-notice')), findsNothing);
+    await tester.tap(find.byTooltip('Send to AI'));
+    await tester.pump();
+    expect(find.text('Type a question first, then tap send.'), findsOneWidget);
+    expect(requests, 0);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('visible free tools keeps the existing no-draft callback', (
     tester,
@@ -3149,6 +3295,11 @@ class _Consent extends PersonalizationProfileController {
   @override
   PersonalizationProfile build() =>
       const PersonalizationProfile(externalAiAllowed: true);
+}
+
+class _NoConsent extends PersonalizationProfileController {
+  @override
+  PersonalizationProfile build() => const PersonalizationProfile();
 }
 
 class _GatedChatReadBackend extends InMemorySecureStoreBackend {
