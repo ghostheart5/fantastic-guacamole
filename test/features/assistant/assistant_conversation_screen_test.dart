@@ -392,7 +392,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('AI chat is off'), findsOneWidget);
-      expect(find.text('Turn on AI in Settings to type here.'), findsOneWidget);
+      expect(find.text('Turn on AI in Settings to type'), findsOneWidget);
       final input = find.byKey(const Key('conversation-input'));
       expect(tester.widget<TextField>(input).enabled, isFalse);
       final send = tester.widget<IconButton>(
@@ -412,6 +412,78 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final language in ['en', 'es']) {
+    testWidgets('$language AI-off chat fits 320x640 at 200 percent text', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final container = setup(
+        (_) async => throw StateError('AI-off chat must not request AI'),
+        externalAiAllowed: false,
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: Locale(language),
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              ChronoSparkLocalizations.delegate,
+              ...GlobalMaterialLocalizations.delegates,
+            ],
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            ),
+            home: AssistantConversationScreen(
+              surface: ConversationSurface.si,
+              onLocalTools: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      // The notice title is the first thing visible above the fold.
+      expect(
+        find
+            .text(
+              language == 'es'
+                  ? 'El chat con IA está desactivado'
+                  : 'AI chat is off',
+            )
+            .hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        find
+            .byTooltip(language == 'es' ? 'Enviar a IA' : 'Send to AI')
+            .hitTestable(),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byTooltip(language == 'es' ? 'Enviar a IA' : 'Send to AI'),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          language == 'es'
+              ? 'Primero activa el chat con IA'
+              : 'Turn on AI chat first',
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('AI on hides the notice and empty send asks for a question', (
     tester,

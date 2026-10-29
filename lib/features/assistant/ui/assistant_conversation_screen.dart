@@ -190,17 +190,33 @@ class _AssistantConversationScreenState
   /// Explains why the conversation is locked instead of leaving a dead send
   /// button. Users read a greyed-out send icon as a bug.
   Future<void> _explainAiOff() async {
-    final openSettings = await _confirm(
-      title: copy('Turn on AI chat first', 'Primero activa el chat con IA'),
-      content: Text(
-        copy(
-          'AI chat is off for your account, so nothing can be sent yet. To use it, open Settings, go to Personalization and turn on "Allow external AI assistance". Each message shows its credit price before anything is sent or charged. Free tools work without credits.',
-          'El chat con IA está desactivado en tu cuenta, así que aún no se puede enviar nada. Para usarlo, abre Ajustes, ve a Personalización y activa "Permitir asistencia de IA externa". Cada mensaje muestra su precio en créditos antes de enviar o cobrar algo. Las herramientas gratis funcionan sin créditos.',
+    // Scrollable so the title and actions still fit at large text sizes.
+    final openSettings = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        scrollable: true,
+        title: Text(
+          copy('Turn on AI chat first', 'Primero activa el chat con IA'),
         ),
+        content: Text(
+          copy(
+            'AI chat is off for your account, so nothing can be sent yet. To use it, open Settings, go to Personalization and turn on "Allow external AI assistance". Each message shows its credit price before anything is sent or charged. Free tools work without credits.',
+            'El chat con IA está desactivado en tu cuenta, así que aún no se puede enviar nada. Para usarlo, abre Ajustes, ve a Personalización y activa "Permitir asistencia de IA externa". Cada mensaje muestra su precio en créditos antes de enviar o cobrar algo. Las herramientas gratis funcionan sin créditos.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(copy('Cancel', 'Cancelar')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(copy('Open settings', 'Abrir ajustes')),
+          ),
+        ],
       ),
-      action: copy('Open settings', 'Abrir ajustes'),
     );
-    if (!mounted || !openSettings) return;
+    if (!mounted || openSettings != true) return;
     goToAppView(context, ref, AppView.settings);
   }
 
@@ -972,75 +988,77 @@ class _AssistantConversationScreenState
                 ),
               ),
             ),
-            // Pinned above the scrolling history so it is always visible
-            // while the input and send button are locked.
-            if (!consent)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Container(
-                  key: const Key('conversation-ai-off-notice'),
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2A1F05),
-                    border: Border.all(color: Colors.amberAccent),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.lock_outline,
-                            color: Colors.amberAccent,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              copy(
-                                'AI chat is off',
-                                'El chat con IA está desactivado',
-                              ),
-                              style: const TextStyle(
-                                color: Colors.amberAccent,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        copy(
-                          'You need to turn on AI before you can type or send here. Go to Settings › Personalization and turn on "Allow external AI assistance". Each message shows its credit price before anything is charged.',
-                          'Debes activar la IA antes de escribir o enviar aquí. Ve a Ajustes › Personalización y activa "Permitir asistencia de IA externa". Cada mensaje muestra su precio en créditos antes de cobrar algo.',
-                        ),
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      const SizedBox(height: 8),
-                      FilledButton.icon(
-                        key: const Key('conversation-ai-off-settings'),
-                        onPressed: _busy
-                            ? null
-                            : () => goToAppView(context, ref, AppView.settings),
-                        icon: const Icon(Icons.settings_outlined),
-                        label: Text(
-                          copy(
-                            'Turn on AI in Settings',
-                            'Activar IA en Ajustes',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             Expanded(
               child: ListView(
                 controller: _scroll,
                 padding: const EdgeInsets.all(16),
                 children: [
+                  // First in the list so it is the first thing seen on open,
+                  // but it scrolls, so large text cannot overflow the screen.
+                  if (!consent) ...[
+                    Container(
+                      key: const Key('conversation-ai-off-notice'),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2A1F05),
+                        border: Border.all(color: Colors.amberAccent),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.lock_outline,
+                                color: Colors.amberAccent,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  copy(
+                                    'AI chat is off',
+                                    'El chat con IA está desactivado',
+                                  ),
+                                  style: const TextStyle(
+                                    color: Colors.amberAccent,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            copy(
+                              'You need to turn on AI before you can type or send here. Go to Settings › Personalization and turn on "Allow external AI assistance". Each message shows its credit price before anything is charged.',
+                              'Debes activar la IA antes de escribir o enviar aquí. Ve a Ajustes › Personalización y activa "Permitir asistencia de IA externa". Cada mensaje muestra su precio en créditos antes de cobrar algo.',
+                            ),
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                          const SizedBox(height: 8),
+                          FilledButton.icon(
+                            key: const Key('conversation-ai-off-settings'),
+                            onPressed: _busy
+                                ? null
+                                : () => goToAppView(
+                                    context,
+                                    ref,
+                                    AppView.settings,
+                                  ),
+                            icon: const Icon(Icons.settings_outlined),
+                            label: Text(
+                              copy(
+                                'Turn on AI in Settings',
+                                'Activar IA en Ajustes',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   Text(
                     copy(
                       'AI conversation · uses credits',
@@ -1469,17 +1487,15 @@ class _AssistantConversationScreenState
                       maxLength: 4000,
                       decoration: InputDecoration(
                         counterStyle: const TextStyle(color: Colors.white70),
-                        labelText: copy(
-                          'Your question or follow-up',
-                          'Tu pregunta o continuación',
-                        ),
-                        helperText: consent
-                            ? null
+                        labelText: consent
+                            ? copy(
+                                'Your question or follow-up',
+                                'Tu pregunta o continuación',
+                              )
                             : copy(
-                                'Turn on AI in Settings to type here.',
-                                'Activa la IA en Ajustes para escribir aquí.',
+                                'Turn on AI in Settings to type',
+                                'Activa la IA en Ajustes para escribir',
                               ),
-                        helperStyle: const TextStyle(color: Colors.amberAccent),
                         border: const OutlineInputBorder(),
                       ),
                     ),
