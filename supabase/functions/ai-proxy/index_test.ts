@@ -31,15 +31,15 @@ Deno.test("provider retries share one bounded deadline", () => {
     throw new Error("provider deadline helper was not exported");
   }
   const startedAtMs = 1_000_000;
-  if (remainingProviderTimeoutMs(startedAtMs, startedAtMs) !== 20_000) {
-    throw new Error("first provider call did not keep its 20 second cap");
+  if (remainingProviderTimeoutMs(startedAtMs, startedAtMs) !== 40_000) {
+    throw new Error("first provider call did not keep its 40 second cap");
   }
   if (
-    remainingProviderTimeoutMs(startedAtMs, startedAtMs + 12_000) !== 8_000
+    remainingProviderTimeoutMs(startedAtMs, startedAtMs + 37_000) !== 8_000
   ) {
     throw new Error("repair call did not inherit the remaining flow budget");
   }
-  if (remainingProviderTimeoutMs(startedAtMs, startedAtMs + 20_000) !== 0) {
+  if (remainingProviderTimeoutMs(startedAtMs, startedAtMs + 45_000) !== 0) {
     throw new Error("expired provider flow received another timeout window");
   }
 });
@@ -1106,7 +1106,7 @@ Deno.test("expired repair flow settles only first provider usage", async () => {
   let flowExpired = false;
   let providerCalls = 0;
   let settlements = 0;
-  Date.now = () => flowExpired ? 21_000 : 0;
+  Date.now = () => flowExpired ? 46_000 : 0;
   globalThis.fetch = ((url, init) => {
     const path = String(url);
     if (path.endsWith("/auth/v1/user")) {
@@ -1911,7 +1911,7 @@ for (
     const originalFetch = globalThis.fetch;
     const originalNow = Date.now;
     let expired = false;
-    Date.now = () => expired ? 21_000 : 0;
+    Date.now = () => expired ? 46_000 : 0;
     const events: string[] = [];
     const refunds: Array<Record<string, unknown>> = [];
     let providerCalls = 0, debits = 0, budget = 0, quotedCredits = 0;
@@ -1993,7 +1993,8 @@ for (
           events.slice(0, 3).join(",") !== "credits,budget,provider" ||
           budget !== quotedProviderCostMicrousd(body) || budget <= 5 * 3000
         ) problems.push("underfunded/out-of-order provider");
-        if (body.model !== "claude-sonnet-4-6" || body.max_tokens !== 1024) {
+        // Older clients still send maxTokens 1024; the reply limit is 2048.
+        if (body.model !== "claude-sonnet-4-6" || body.max_tokens !== 2048) {
           problems.push("model/output changed");
         }
         if (mode === "dispatch-network") {
@@ -2102,3 +2103,80 @@ for (
     }
   });
 }
+
+Deno.test("a reply that reaches the length limit is delivered with a notice", async () => {
+  if (!handler) throw new Error("handler was not registered");
+  const originalFetch = globalThis.fetch;
+  const settlements: Array<Record<string, unknown>> = [];
+  globalThis.fetch = ((url, init) => {
+    const path = String(url);
+    if (path.endsWith("/auth/v1/user")) {
+      return Promise.resolve(
+        Response.json({ id: "11111111-1111-4111-8111-111111111111" }),
+      );
+    }
+    if (path.endsWith("/consume_backend_rate_limit")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
+    if (path.endsWith("/reserve_ai_usage")) {
+      return Promise.resolve(
+        Response.json({ allowed: true, duplicate: false, balance: 84 }),
+      );
+    }
+    if (path.endsWith("/reserve_ai_repair_budget")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
+    if (path === "https://api.anthropic.com/v1/messages") {
+      return Promise.resolve(Response.json({
+        id: "provider-long-story",
+        model: "claude-sonnet-4-6",
+        stop_reason: "max_tokens",
+        content: [{
+          type: "text",
+          text: "Reyes found the button in the evidence bag and",
+        }],
+        usage: { input_tokens: 900, output_tokens: 2048 },
+      }));
+    }
+    if (
+      path.endsWith("/settle_ai_usage") || path.endsWith("/settle_ai_usage_v2")
+    ) {
+      settlements.push(JSON.parse(String(init?.body)));
+      return Promise.resolve(Response.json({ state: "completed" }));
+    }
+    throw new Error(`unexpected transport target: ${path}`);
+  }) as typeof fetch;
+  try {
+    const input = {
+      requestId: "synthetic-truncated-story",
+      prompt: "Lets add option a and b",
+      personality: "planner",
+      context: {},
+      maxTokens: 1024,
+      allowExternalAi: true,
+    };
+    const request = (extra: Record<string, unknown>) =>
+      new Request("https://local.example/ai-proxy", {
+        method: "POST",
+        headers: { authorization: "Bearer synthetic-session" },
+        body: JSON.stringify({ ...input, ...extra }),
+      });
+    const quoted = await handler(request({ quoteOnly: true }));
+    const { quote } = await quoted.json();
+    const response = await handler(request({ quote }));
+    const body = await response.json();
+    if (
+      response.status !== 200 ||
+      !body.message?.startsWith("Reyes found the button") ||
+      !body.message.includes("Ask me to continue.") ||
+      settlements.length !== 1 || settlements[0].p_succeeded !== true ||
+      settlements[0].p_output_tokens !== 2048
+    ) {
+      throw new Error(
+        `truncated reply was not delivered: ${JSON.stringify(body)}`,
+      );
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

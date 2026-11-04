@@ -98,7 +98,7 @@ Deno.test("provider reserve exposes the conservative pre-rounding cost", () => {
   );
 });
 Deno.test("invalid output budgets are rejected", () => {
-  for (const max_tokens of [0, -1, 1025, NaN, 1.5, "256"]) {
+  for (const max_tokens of [0, -1, 2049, NaN, 1.5, "256"]) {
     let rejected = false;
     try {
       quotedCreditCost({ ...request, max_tokens });
