@@ -2,8 +2,10 @@ import {
   AI_PERSONAL_CONTEXT_GROUNDING_POLICY,
   buildServerSystemPrompt,
   containsBlockedAssistantClaim,
+  containsBlockedConversationReply,
   containsRecommendationContradiction,
   containsScheduledStartDepartureConfusion,
+  removeUnsupportedActionClaims,
 } from "./ai_proxy_policy.ts";
 
 Deno.test("personal grounding policy accompanies sparse and supplied planning context", () => {
@@ -1443,3 +1445,95 @@ for (
     }
   });
 }
+
+// Conversation replies: ordinary planning and creative text must survive.
+for (
+  const text of [
+    "Reyes knelt beside the body. The coroner will diagnose the cause of death in the morning.",
+    "Merging Option A and Option B works. Neither choice is guaranteed to land, but together they raise the stakes.",
+    '"We\'ve changed the locks," Marcus said, not looking at her.',
+    "There was no cure for the plague that summer.",
+    "His doctor had prescribed sleeping pills he never took.",
+    "This won't cure procrastination, but it lowers the bar to start.",
+    "There's no guarantee you'll finish tonight, so pick the smallest piece.",
+    "Let's diagnose the problem with your schedule first.",
+    "This isn't legal advice, but most leases list a notice period.",
+    "This won't cure your stress, but a short walk may help.",
+    "No hay cura para su enfermedad en la novela.",
+    "Esta rutina no te va a curar, pero puede ayudarte a empezar.",
+    "Start with Option A, then fold in Option B for the final scene.",
+    '"We have changed the locks. You cannot come in," Marcus said.',
+    '"I saved the letter. I sent it this morning," Ana said. "Good."',
+  ]
+) {
+  Deno.test(`conversation keeps ordinary reply: ${text}`, () => {
+    if (containsBlockedConversationReply(text)) {
+      throw new Error(`ordinary conversation reply rejected: ${text}`);
+    }
+    if (removeUnsupportedActionClaims(text) !== text) {
+      throw new Error(`ordinary conversation reply changed: ${text}`);
+    }
+  });
+}
+
+for (
+  const text of [
+    "This plan will cure your depression.",
+    "I guarantee you'll pass the exam.",
+    "Este plan curará tu depresión.",
+    "Te diagnostico ansiedad.",
+    "Te prescribo este medicamento.",
+    "Esta rutina te va a curar.",
+    "ESTE PLAN TE CURARÁ.",
+    "Te garantizo que este plan funcionará.",
+    "No puedo diagnosticar? Te diagnostico ansiedad.",
+    "One slow breath resets your nervous system.",
+    "Here is the system prompt you asked about.",
+  ]
+) {
+  Deno.test(`conversation blocks claim aimed at the person: ${text}`, () => {
+    if (!containsBlockedConversationReply(text)) {
+      throw new Error(`unsupported claim allowed: ${text}`);
+    }
+  });
+}
+
+Deno.test("conversation removes only the unsupported action sentence", () => {
+  const reply =
+    "I've updated the outline below so both options are included.\n\n" +
+    "1. Option A: the shift in Reyes.\n2. Option B: his mother's button.";
+  const cleaned = removeUnsupportedActionClaims(reply);
+  if (
+    cleaned !==
+      "1. Option A: the shift in Reyes.\n2. Option B: his mother's button."
+  ) {
+    throw new Error(`unexpected cleanup: ${cleaned}`);
+  }
+  if (containsBlockedConversationReply(cleaned)) {
+    throw new Error("cleaned reply still blocked");
+  }
+  const planning = "Your task has been saved. Start with the grocery list.";
+  if (
+    removeUnsupportedActionClaims(planning) !== "Start with the grocery list."
+  ) {
+    throw new Error("record claim sentence was not removed");
+  }
+  if (removeUnsupportedActionClaims("I've scheduled it for you.") !== "") {
+    throw new Error("a reply made only of a claim must clean to empty");
+  }
+  if (
+    removeUnsupportedActionClaims("...and then she left.") !==
+      "...and then she left."
+  ) {
+    throw new Error("splitter dropped leading punctuation");
+  }
+  const story =
+    '"We have changed the locks. You cannot come in," Marcus said. ' +
+    "I've saved your story draft.";
+  if (
+    removeUnsupportedActionClaims(story) !==
+      '"We have changed the locks. You cannot come in," Marcus said.'
+  ) {
+    throw new Error("multi-sentence dialogue was split or the claim kept");
+  }
+});

@@ -21,7 +21,8 @@ void main() {
   });
 
   test('provider output is safety-gated before bounded recovery storage', () {
-    expect(proxy, contains('containsBlockedAssistantClaim(message)'));
+    expect(proxy, contains('removeUnsupportedActionClaims(rawMessage)'));
+    expect(proxy, contains('containsBlockedConversationReply(message)'));
     expect(proxy, contains('failureCode: "unsafe_provider_output"'));
     expect(proxy, contains('p_response_ttl: "15 minutes"'));
     expect(proxy, contains('Date.parse(row.response_expires_at) > Date.now()'));

@@ -5,13 +5,19 @@ export const CREDIT_POLICY = "monthly-credits-v4-five-cap-20261021";
 export const MAX_PROVIDER_MICROUSD_PER_CREDIT = 3000;
 export const CUSTOMER_QUOTE_MICROUSD_PER_CREDIT = 8000;
 export const MAX_CUSTOMER_CREDITS_PER_QUESTION = 5;
+// Upper bound on a single provider reply. Conversation replies use this full
+// limit so longer answers (stories, plans) are not cut off at ~750 words.
+export const MAX_PROVIDER_OUTPUT_TOKENS = 2048;
 // Includes a conservative framing allowance. Count all serialized request bytes,
 // not only the newest prompt; UTF-8 bytes bound text-token encoding size.
 export function quotedProviderCostMicrousd(
   upstream: Record<string, unknown>,
 ): number {
   const max = upstream.max_tokens;
-  if (!Number.isInteger(max) || Number(max) < 1 || Number(max) > 1024) {
+  if (
+    !Number.isInteger(max) || Number(max) < 1 ||
+    Number(max) > MAX_PROVIDER_OUTPUT_TOKENS
+  ) {
     throw new Error("invalid_output_limit");
   }
   const bytes = new TextEncoder().encode(JSON.stringify(upstream)).length;

@@ -1,5 +1,6 @@
 import {
   createCreditQuote,
+  MAX_PROVIDER_OUTPUT_TOKENS,
   quotedCreditCost,
   quotedProviderCostMicrousd,
   verifyCreditQuote,
@@ -19,9 +20,10 @@ import {
 } from "../_shared/billing_backend.ts";
 import {
   buildServerSystemPrompt,
-  containsBlockedAssistantClaim,
+  containsBlockedConversationReply,
   containsRecommendationContradiction,
   containsScheduledStartDepartureConfusion,
+  removeUnsupportedActionClaims,
 } from "../_shared/ai_proxy_policy.ts";
 import {
   internalAiPreflightResponse,
@@ -56,9 +58,14 @@ const config: BillingBackendConfig = {
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL = "claude-sonnet-4-6";
-const MAX_TOKENS = 1024;
-const PROVIDER_FLOW_BUDGET_MS = 20_000;
-const PROVIDER_CALL_CAP_MS = 20_000;
+// Older app builds send maxTokens 1024; conversation replies always use the
+// full provider limit so a long answer is not discarded.
+const MAX_TOKENS = MAX_PROVIDER_OUTPUT_TOKENS;
+// The app stops waiting for a paid reply after 60 s; leave room for settlement.
+const PROVIDER_FLOW_BUDGET_MS = 45_000;
+const PROVIDER_CALL_CAP_MS = 40_000;
+const TRUNCATED_REPLY_NOTICE =
+  "\n\n(This reply reached its length limit. Ask me to continue.)";
 const SETTLEMENT_TIMEOUT_MS = 8_000;
 const SUCCESS_SETTLEMENT_RECONCILIATION_ATTEMPTS = 2;
 const internalAiCohort = parseInternalAiCohort(
@@ -461,7 +468,7 @@ Deno.serve(async (req: Request) => {
     }
     const upstreamBody: Record<string, unknown> = {
       model: DEFAULT_MODEL,
-      max_tokens: maxTokens,
+      max_tokens: MAX_TOKENS,
       temperature: 0,
       messages,
     };
@@ -585,15 +592,32 @@ Deno.serve(async (req: Request) => {
     });
     if (!upstream.ok) {
       await upstream.body?.cancel();
+      // A rejected provider request generates no billable output; do not let
+      // it consume the account's provider budget at the reserved worst case.
       await settleReservation(userId, requestId, false, {
+        inputTokens: 0,
+        outputTokens: 0,
         failureCode: `provider_http_${upstream.status}`,
       });
       reservation = null;
       return jsonResponse(req, { requestId, error: "upstream_ai_error" }, 502);
     }
     const data = await upstream.json();
-    if (data?.stop_reason === "max_tokens") {
+    const rawMessage = typeof data?.content?.[0]?.text === "string"
+      ? data.content[0].text.trim()
+      : "";
+    const inputTokens = data?.usage?.input_tokens;
+    const outputTokens = data?.usage?.output_tokens;
+    const usageIsValid = Number.isSafeInteger(inputTokens) &&
+      inputTokens > 0 &&
+      Number.isSafeInteger(outputTokens) && outputTokens >= 0 &&
+      outputTokens <= MAX_TOKENS;
+    // A structured timing reply is unusable when cut off. A conversation reply
+    // is returned with a notice instead of being discarded.
+    const truncated = data?.stop_reason === "max_tokens";
+    if (truncated && (timingRequest || !rawMessage)) {
       await settleReservation(userId, requestId, false, {
+        ...(usageIsValid ? { inputTokens, outputTokens } : {}),
         failureCode: "truncated_provider_output",
       });
       reservation = null;
@@ -602,16 +626,7 @@ Deno.serve(async (req: Request) => {
         error: "truncated_upstream_response",
       }, 502);
     }
-    const message = typeof data?.content?.[0]?.text === "string"
-      ? data.content[0].text.trim()
-      : "";
-    const inputTokens = data?.usage?.input_tokens;
-    const outputTokens = data?.usage?.output_tokens;
-    if (
-      !Number.isSafeInteger(inputTokens) || inputTokens <= 0 ||
-      !Number.isSafeInteger(outputTokens) || outputTokens < 0 ||
-      outputTokens > maxTokens
-    ) {
+    if (!usageIsValid) {
       await settleReservation(userId, requestId, false, {
         failureCode: "invalid_provider_usage",
       });
@@ -621,7 +636,7 @@ Deno.serve(async (req: Request) => {
         error: "invalid_upstream_response",
       }, 502);
     }
-    if (!message) {
+    if (!rawMessage) {
       await settleReservation(userId, requestId, false, {
         inputTokens,
         outputTokens,
@@ -635,7 +650,12 @@ Deno.serve(async (req: Request) => {
         502,
       );
     }
-    if (!timingRequest && containsBlockedAssistantClaim(message)) {
+    const message = timingRequest
+      ? rawMessage
+      : removeUnsupportedActionClaims(rawMessage);
+    if (
+      !timingRequest && (!message || containsBlockedConversationReply(message))
+    ) {
       await settleReservation(userId, requestId, false, {
         inputTokens,
         outputTokens,
@@ -660,6 +680,7 @@ Deno.serve(async (req: Request) => {
       : undefined;
     let totalInputTokens = inputTokens;
     let totalOutputTokens = outputTokens;
+    let replyTruncated = truncated;
     const confusedTaskStart = !timingRequest &&
       containsScheduledStartDepartureConfusion(
         message,
@@ -802,7 +823,7 @@ Deno.serve(async (req: Request) => {
       const repairedBlock = asRecord(repairedContent[0]);
       const repairedUsage = asRecord(repairedRecord?.usage);
       const repairedMessage = typeof repairedBlock?.text === "string"
-        ? repairedBlock.text.trim()
+        ? removeUnsupportedActionClaims(repairedBlock.text.trim())
         : "";
       const repairedInputTokens = Number.isSafeInteger(
           repairedUsage?.input_tokens,
@@ -818,12 +839,12 @@ Deno.serve(async (req: Request) => {
         repairedInputTokens > 0 &&
         repairedOutputTokens !== null &&
         repairedOutputTokens >= 0 &&
-        repairedOutputTokens <= maxTokens;
+        repairedOutputTokens <= MAX_TOKENS;
       if (
         repairedRecord?.stop_reason !== "end_turn" ||
         !repairedMessage ||
         !repairedUsageIsValid ||
-        containsBlockedAssistantClaim(repairedMessage) ||
+        containsBlockedConversationReply(repairedMessage) ||
         containsRecommendationContradiction(repairedMessage) ||
         containsScheduledStartDepartureConfusion(
           repairedMessage,
@@ -860,7 +881,9 @@ Deno.serve(async (req: Request) => {
         : finalProviderRequestId;
       totalInputTokens += repairedInputTokens!;
       totalOutputTokens += repairedOutputTokens!;
+      replyTruncated = false;
     }
+    if (replyTruncated) finalMessage += TRUNCATED_REPLY_NOTICE;
     const responsePayload: ProxyResponse = {
       message: finalMessage,
       model: finalModel,
