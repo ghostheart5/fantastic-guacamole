@@ -1460,7 +1460,10 @@ for (
     "This isn't legal advice, but most leases list a notice period.",
     "This won't cure your stress, but a short walk may help.",
     "No hay cura para su enfermedad en la novela.",
+    "Esta rutina no te va a curar, pero puede ayudarte a empezar.",
     "Start with Option A, then fold in Option B for the final scene.",
+    '"We have changed the locks. You cannot come in," Marcus said.',
+    '"I saved the letter. I sent it this morning," Ana said. "Good."',
   ]
 ) {
   Deno.test(`conversation keeps ordinary reply: ${text}`, () => {
@@ -1478,6 +1481,12 @@ for (
     "This plan will cure your depression.",
     "I guarantee you'll pass the exam.",
     "Este plan curará tu depresión.",
+    "Te diagnostico ansiedad.",
+    "Te prescribo este medicamento.",
+    "Esta rutina te va a curar.",
+    "ESTE PLAN TE CURARÁ.",
+    "Te garantizo que este plan funcionará.",
+    "No puedo diagnosticar? Te diagnostico ansiedad.",
     "One slow breath resets your nervous system.",
     "Here is the system prompt you asked about.",
   ]
@@ -1517,5 +1526,14 @@ Deno.test("conversation removes only the unsupported action sentence", () => {
       "...and then she left."
   ) {
     throw new Error("splitter dropped leading punctuation");
+  }
+  const story =
+    '"We have changed the locks. You cannot come in," Marcus said. ' +
+    "I've saved your story draft.";
+  if (
+    removeUnsupportedActionClaims(story) !==
+      '"We have changed the locks. You cannot come in," Marcus said.'
+  ) {
+    throw new Error("multi-sentence dialogue was split or the claim kept");
   }
 });

@@ -516,12 +516,20 @@ function claimsActionOutsideQuotes(sentence: string): boolean {
 // repair, and quoted dialogue is never read as the assistant's own claim.
 export function removeUnsupportedActionClaims(value: string): string {
   return value.split("\n").map((line) => {
-    const parts = line.match(/[^.!?]+(?:[.!?]+["”’)]*|$)\s*/g) ?? [];
+    // Hide quoted dialogue before splitting so a multi-sentence quote stays
+    // whole and is never read as the assistant's own claim.
+    const quotes: string[] = [];
+    const masked = line.replaceAll(QUOTED_TEXT, (quote) => {
+      quotes.push(quote);
+      return `${quotes.length - 1}`;
+    });
+    const parts = masked.match(/[^.!?]+(?:[.!?]+["”’)]*|$)\s*/g) ?? [];
     // Never drop text the splitter did not cover (e.g. a leading "...").
-    const sentences = parts.join("") === line ? parts : [line];
+    const sentences = parts.join("") === masked ? parts : [masked];
     return sentences.filter((sentence) => !claimsActionOutsideQuotes(sentence))
       .join("")
-      .trimEnd();
+      .trimEnd()
+      .replaceAll(/(\d+)/g, (_, index) => quotes[Number(index)]);
   }).join("\n").replaceAll(/\n{3,}/g, "\n\n").trim();
 }
 
@@ -540,6 +548,9 @@ export function containsBlockedConversationReply(value: string): boolean {
     // guarantee you'll finish", "this won't cure your stress").
     /(?<!\b(?:no|not|never|won't|can't|cannot|isn't|doesn't|don't|nothing)\s+(?:[a-z']+\s+){0,2})\b(?:cure[sd]?|diagnos(?:e|es|ed|ing)|prescrib(?:e|es|ed|ing)|guarantee[sd]?)\s+(?:[a-z']+\s+)?(?:you|your|yourself)\b/,
     /(?<!\bno\s+(?:[a-z]+\s+){0,2})\b(?:cur(?:a|an|ara|aran|o)|diagnostic(?:o|a|an|ara)|prescrib(?:o|e|en|ira)|garantiz(?:o|a|an|ara))\s+(?:[a-z]+\s+)?(?:tu|tus|su|sus|te|le|les)\b/,
+    // Spanish object pronoun before the verb ("te diagnostico ansiedad",
+    // "esta rutina te va a curar"), unless denied ("no te va a curar").
+    /(?<!\b(?:no|nunca|nada|ni)\s+)\bte\s+(?:(?:voy|va|vamos|van)\s+a\s+|(?:he|ha|hemos|han)\s+)?(?:cur(?:o|a|an|ara|aran|ar|ado)|diagnostic(?:o|a|an|ara|ar|ado)|prescrib(?:o|e|en|ira|ir)|prescrito|garantiz(?:o|a|an|ara|ar|ado))\b/,
   ].some((pattern) => pattern.test(normalized.replaceAll("’", "'"))) ||
     claimsActionOutsideQuotes(value.replaceAll(/\n+/g, " "));
 }
