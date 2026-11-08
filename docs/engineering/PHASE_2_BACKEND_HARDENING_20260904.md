@@ -67,7 +67,7 @@ Reference: [Firebase App Check service coverage](https://firebase.google.com/doc
 
 ## Live key-to-client mapping - read-only verified
 
-Browser account: `domnichols39@gmail.com`, project `chronospark-app`, number
+Browser account: the owner Google account, project `chronospark-app`, number
 `956622397052`. The installed Firebase CLI instead lists
 `ghostheart131517@gmail.com`; it was not switched or used to modify this project.
 Live browser-visible key strings were hashed in memory and not printed or saved.
@@ -268,7 +268,7 @@ the old domains. This closes the configuration cleanup, not sign-in/recovery or
 HTTPS app-link runtime proof; those retain their later phase evidence requirements.
 
 **Firebase: exact live allowlists verified, baseline not yet fully closed.** All
-three previously mapped key records were re-read under `domnichols39@gmail.com`.
+three previously mapped key records were re-read under the owner Google account.
 They have identical lists of 25 selected APIs, no Generative Language API, and
 application restriction None. No key string was revealed or setting saved.
 
@@ -431,7 +431,7 @@ Firebase project `chronospark-app` (project number `956622397052`), app
 
 The public certificate ZIP was downloaded from this app's Google Play signing
 page (developer `7769568821533010883`, app `4976364997895633041`). The archive
-`C:\Users\keegan radetski\Downloads\certificates (2).zip` contains three public
+`%USERPROFILE%\Downloads\certificates (2).zip` contains three public
 DER certificates, not private signing keys. Its SHA-256 is
 `A90795C642CD0C3F9071D4FB3B493FCD8B74BBDF6DC0361B4FF21B05E8C7E7AC`.
 An independent helper rehashed the archive and confirmed all four approved values.
@@ -552,7 +552,7 @@ run, commit or push occurred in this completion attempt.
 ## Provider account corrected; organization-level key found - 2026-09-05 14:26 UTC
 
 After the owner signed in again, live account readback confirmed
-`domnichols39@gmail.com` / Dom Keegan Radetski, not the earlier
+the owner Google account, not the earlier
 `ghostheart131517@gmail.com` session. The Default workspace still showed zero
 keys, but that workspace-only result was incomplete for organization-scoped
 credentials. Organization settings > API keys, with Created by Anyone, Type All,
@@ -560,7 +560,7 @@ Status All and Workspace All, showed one key:
 
 - Name: **Dom**; record ID `apikey_01JxbP8RRmLPrBaaZkR1fRbb`.
 - Status: **Active**; type Personal; scope Organization.
-- Created by `domnichols39@gmail.com`; created September 2, 2026.
+- Created by the owner Google account; created September 2, 2026.
 - Expires October 2, 2026; Last used displayed a dash (not proof of no use).
 - Its masked preview's visible ending matches the previously disclosed key's
   ending. This is a strong candidate, not a full-secret comparison or proof that
@@ -579,7 +579,7 @@ open pending the exact action and readback.
 ## Approved provider-key disablement - PASS - 2026-09-05 14:28 UTC
 
 The owner explicitly approved disabling the exact exposed-key candidate Dom,
-created September 2 under `domnichols39@gmail.com`, with the warning that any
+created September 2 under the owner Google account, with the warning that any
 consumer using it would stop authenticating until a replacement was installed.
 Immediately before the action, the inspector still showed the exact record
 `apikey_01JxbP8RRmLPrBaaZkR1fRbb`, Personal / Organization, Active, and the expected
@@ -671,7 +671,7 @@ installation-handoff checkpoint above: the owner's secret update is saved.
 No credential value was revealed, copied, or printed by the agent.
 
 The provider organization inventory separately confirmed replacement name
-`chronospark-supabase-prod-20260905`, created by `domnichols39@gmail.com`, linked
+`chronospark-supabase-prod-20260905`, created by the owner Google account, linked
 to service account `chronospark-supabase-prod`
 (`svac_01ErTRqsVrWv8YS4qNsPubbA`), scope **Default**, created September 5,
 and saved expiration **October 5, 2026**. It was the only record returned by

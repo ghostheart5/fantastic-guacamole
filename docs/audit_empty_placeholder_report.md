@@ -1,7 +1,7 @@
 # Empty and Placeholder Audit
 
 Generated: 2026-06-26 13:48:56
-Workspace: C:\Users\keegan radetski\Desktop\productive\chronospark
+Workspace: %USERPROFILE%\Desktop\productive\chronospark
 
 ## Summary
 - Total folders: 436

@@ -4,7 +4,7 @@ Saved at the user's request on 2026-09-14. This records the completed audit; sav
 
 ## Scope and verdict
 
-- Checkout: `C:/Users/keegan radetski/Documents/Codex/2026-09-01/t/ChronoSpark-app-only-priority2`.
+- Checkout: `%USERPROFILE%/Documents/Codex/2026-09-01/t/ChronoSpark-app-only-priority2`.
 - Reviewed HEAD: `7fb06e7619f37a498e9a85324f2f83ae25aa759d`.
 - Branch: `fix/aab-prebuild-cleanup-20260905`.
 - Mode: audit and bounded validation; no application repairs, commits, rebuilds or publication.

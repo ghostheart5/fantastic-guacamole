@@ -11,15 +11,15 @@ The exact signed AAB was built, validated, converted to APK splits, installed, a
 | Field | Evidence |
 | --- | --- |
 | Repository | `ghostheart5/fantastic-guacamole` |
-| Checkout | `C:\Users\keegan radetski\ChronoSpark-production-candidate-20260901` |
+| Checkout | `%USERPROFILE%\ChronoSpark-production-candidate-20260901` |
 | Branch | `codex/production-candidate-20260901` |
 | Green base | `33a7e39dd3de49b219c0de750bb1fdd31e9d8573` |
 | Candidate checkpoint | `9b5d0aa925f64d979fa8873172a58d116cd8c048` |
 | Final tested app-source commit | `9b5d0aa925f64d979fa8873172a58d116cd8c048` |
 | versionName / versionCode | `4.1.0` / `2026083003` |
-| AAB path | `C:\Users\keegan radetski\ChronoSpark-production-candidate-20260901\build\app\outputs\bundle\release\app-release-prod-vc2026083003.aab` |
+| AAB path | `%USERPROFILE%\ChronoSpark-production-candidate-20260901\build\app\outputs\bundle\release\app-release-prod-vc2026083003.aab` |
 | AAB bytes / SHA-256 | `84,769,126` / `161A85F12F910B6B1BBF3D64CD49342B425DEAA7411FE89AC8BAAC1A7B27A6F4` |
-| APKS path | `C:\Users\keegan radetski\ChronoSpark-production-candidate-20260901\build\app\outputs\bundle\release\app-release-prod-vc2026083003.apks` |
+| APKS path | `%USERPROFILE%\ChronoSpark-production-candidate-20260901\build\app\outputs\bundle\release\app-release-prod-vc2026083003.apks` |
 | APKS bytes / SHA-256 | `104,876,953` / `FC7AADD110E250B88C113BF425D3918F0FE07EC4011E92CE43EF8C2E2E03A5EB` |
 | Upload certificate SHA-1 | `8A:24:D7:BA:AC:AB:52:F0:A3:77:7D:D0:47:C9:07:96:2E:82:FA:A5` (local-to-Play match) |
 | Upload certificate SHA-256 | `D8:8E:CF:C6:1A:95:B5:8B:53:3E:38:96:37:8A:2D:70:89:4D:6E:F2:74:D8:C5:6C:9F:90:A7:7C:54:4E:8D:79` |
@@ -60,7 +60,7 @@ The exact signed AAB was built, validated, converted to APK splits, installed, a
 ## Superseded artifact evidence
 
 - AAB bytes: `84,769,831`; SHA-256: `8E96865BFEB2DA907346976F0F9BC5BD0FBC72E9D9292ACBBA470FBECAB4D614`.
-- APKS path: `C:\Users\keegan radetski\ChronoSpark-production-candidate-20260901\build\app\outputs\bundle\release\app-release-prod-vc2026083003.apks`; bytes: `104,876,953`; SHA-256: `D8736FF4735751A3EF70F5AC9925D4764D2788E69A10E6036AC2D2BD63AD2588`.
+- APKS path: `%USERPROFILE%\ChronoSpark-production-candidate-20260901\build\app\outputs\bundle\release\app-release-prod-vc2026083003.apks`; bytes: `104,876,953`; SHA-256: `D8736FF4735751A3EF70F5AC9925D4764D2788E69A10E6036AC2D2BD63AD2588`.
 - Installed API 24 splits were selected from that APKS archive and the base master APK verified with the expected SHA-256 signing certificate fingerprint `D8:8E:CF:C6:1A:95:B5:8B:53:3E:38:96:37:8A:2D:70:89:4D:6E:F2:74:D8:C5:6C:9F:90:A7:7C:54:4E:8D:79`.
 - These values are retained only as an audit trail. They are not final candidate evidence because app source changed afterward.
 
@@ -84,7 +84,7 @@ The exact signed AAB was built, validated, converted to APK splits, installed, a
 - API 37 first launch stayed rendered with one PID through the 90-second sample window. Google Play Services then killed that process at about 129 seconds while reloading `measurement.dynamite`; a second cold-start soak kept the same top-resumed PID for 180 seconds with no repeat or strict critical log match.
 - API 37 onboarding, lifecycle, force-stop/reopen, true airplane-mode startup/reconnection, and the same five Monkey stages passed. The lifecycle seed was run alone after a system Battery Saver welcome dialog prevented the first attempt from starting any stress events.
 - API 37 native UI inspection exposes field hints. API 24 does not; minimum API therefore controls the release verdict.
-- Evidence root: `C:\Users\keegan radetski\ChronoSpark-production-candidate-20260901\build\release-test-evidence\final-9b5d0aa9`.
+- Evidence root: `%USERPROFILE%\ChronoSpark-production-candidate-20260901\build\release-test-evidence\final-9b5d0aa9`.
 
 ## Reproduction commands
 

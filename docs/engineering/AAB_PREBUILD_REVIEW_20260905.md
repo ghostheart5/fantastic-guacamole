@@ -7,7 +7,7 @@ change, commit, or push is part of this review.
 
 ## Source and scope
 
-- Checkout: `C:\Users\keegan radetski\Documents\Codex\2026-09-01\t\ChronoSpark-app-only-priority2`.
+- Checkout: `%USERPROFILE%\Documents\Codex\2026-09-01\t\ChronoSpark-app-only-priority2`.
 - Branch: `fix/app-only-readiness-priority2-20260902`.
 - Starting HEAD: `d2f1bf934b5e3eeef7f26c9918e8954dc6318594`.
 - Starting tracked source was clean. Existing untracked evidence and ignored

@@ -278,7 +278,7 @@ void main() {
     );
     await profileStorage.put(
       'profile_state',
-      jsonEncode(<String, dynamic>{'name': 'Keegan', 'xp': 42}),
+      jsonEncode(<String, dynamic>{'name': 'Avery', 'xp': 42}),
     );
     await service.prefs.setString(
       'user_preferences_json',
@@ -323,7 +323,7 @@ void main() {
       contains('timeline'),
     );
     expect(task['id'], 'task-1');
-    expect(backup['profile'], <String, dynamic>{'name': 'Keegan', 'xp': 42});
+    expect(backup['profile'], <String, dynamic>{'name': 'Avery', 'xp': 42});
     expect(backup['settings'], <String, dynamic>{
       'cloud_sync_enabled_v1': true,
       'reflection_reminder_enabled': 'true',

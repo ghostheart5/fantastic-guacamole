@@ -251,7 +251,7 @@ void main() {
         level: 8,
         streak: 15,
         longestStreak: 22,
-        name: 'Keegan',
+        name: 'Avery',
       ),
     );
 
@@ -286,7 +286,7 @@ void main() {
   ) async {
     await pumpProfile(
       tester,
-      ProfileState(xp: 640, level: 8, streak: 15, name: 'Keegan'),
+      ProfileState(xp: 640, level: 8, streak: 15, name: 'Avery'),
       trajectory: _evidenceTrajectory,
     );
 
@@ -444,14 +444,14 @@ void main() {
     ) async {
       final ProviderContainer container = await pumpProfile(
         tester,
-        ProfileState(name: 'Keegan'),
+        ProfileState(name: 'Avery'),
       );
 
       await tester.enterText(find.byType(TextField), '   ');
       await tester.tap(find.text('Save name'));
       await tester.pump();
 
-      expect(container.read(profileProvider).name, 'Keegan');
+      expect(container.read(profileProvider).name, 'Avery');
     });
 
     testWidgets('a trimmed non-empty name is saved', (
@@ -459,7 +459,7 @@ void main() {
     ) async {
       final ProviderContainer container = await pumpProfile(
         tester,
-        ProfileState(name: 'Keegan'),
+        ProfileState(name: 'Avery'),
       );
 
       await tester.enterText(find.byType(TextField), '  Nova  ');
