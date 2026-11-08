@@ -67,7 +67,7 @@ Reference: [Firebase App Check service coverage](https://firebase.google.com/doc
 
 ## Live key-to-client mapping - read-only verified
 
-Browser account: `domnichols39@gmail.com`, project `chronospark-app`, number
+Browser account: the owner Google account, project `chronospark-app`, number
 `956622397052`. The installed Firebase CLI instead lists
 `ghostheart131517@gmail.com`; it was not switched or used to modify this project.
 Live browser-visible key strings were hashed in memory and not printed or saved.
@@ -268,7 +268,7 @@ the old domains. This closes the configuration cleanup, not sign-in/recovery or
 HTTPS app-link runtime proof; those retain their later phase evidence requirements.
 
 **Firebase: exact live allowlists verified, baseline not yet fully closed.** All
-three previously mapped key records were re-read under `domnichols39@gmail.com`.
+three previously mapped key records were re-read under the owner Google account.
 They have identical lists of 25 selected APIs, no Generative Language API, and
 application restriction None. No key string was revealed or setting saved.
 
@@ -560,7 +560,7 @@ Status All and Workspace All, showed one key:
 
 - Name: **Dom**; record ID `apikey_01JxbP8RRmLPrBaaZkR1fRbb`.
 - Status: **Active**; type Personal; scope Organization.
-- Created by `domnichols39@gmail.com`; created September 2, 2026.
+- Created by the owner Google account; created September 2, 2026.
 - Expires October 2, 2026; Last used displayed a dash (not proof of no use).
 - Its masked preview's visible ending matches the previously disclosed key's
   ending. This is a strong candidate, not a full-secret comparison or proof that
@@ -579,7 +579,7 @@ open pending the exact action and readback.
 ## Approved provider-key disablement - PASS - 2026-09-05 14:28 UTC
 
 The owner explicitly approved disabling the exact exposed-key candidate Dom,
-created September 2 under `domnichols39@gmail.com`, with the warning that any
+created September 2 under the owner Google account, with the warning that any
 consumer using it would stop authenticating until a replacement was installed.
 Immediately before the action, the inspector still showed the exact record
 `apikey_01JxbP8RRmLPrBaaZkR1fRbb`, Personal / Organization, Active, and the expected
@@ -671,7 +671,7 @@ installation-handoff checkpoint above: the owner's secret update is saved.
 No credential value was revealed, copied, or printed by the agent.
 
 The provider organization inventory separately confirmed replacement name
-`chronospark-supabase-prod-20260905`, created by `domnichols39@gmail.com`, linked
+`chronospark-supabase-prod-20260905`, created by the owner Google account, linked
 to service account `chronospark-supabase-prod`
 (`svac_01ErTRqsVrWv8YS4qNsPubbA`), scope **Default**, created September 5,
 and saved expiration **October 5, 2026**. It was the only record returned by

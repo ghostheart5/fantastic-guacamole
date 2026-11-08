@@ -2,7 +2,7 @@
 
 Status: completed on September 8, 2026. Reached level 20 / 36,100 XP at 07:33 Chicago time and verified the same progress after a cold app reopen. Starting profile: level 2 / 200 XP. Eight findings remain documented below; reaching the target is not an all-features defect-free verdict.
 
-The user authorized continuous demo use of the current Moto profile, with issues documented and progress continued where possible. Device: Moto G Stylus 5G 2022, hardware ZY22G665VG; Play-installed ChronoSpark 4.1.0+2026083018. Main profile: domnichols39@gmail.com. This is synthetic demo activity, not a record of the user's real-world work.
+The user authorized continuous demo use of the current Moto profile, with issues documented and progress continued where possible. Device: Moto G Stylus 5G 2022, hardware ZY22G665VG; Play-installed ChronoSpark 4.1.0+2026083018. Main profile: the owner Google account. This is synthetic demo activity, not a record of the user's real-world work.
 
 Progress is earned through ordinary Creator confirmations and app completion controls. No direct XP edits, database seeding, date changes, data resets, or monkey events are used. Planner, SI Console, Timeline, goals, notes, rhythms, Settings, and progression are inspected during the run. The same installed app and original saved data are preserved.
 

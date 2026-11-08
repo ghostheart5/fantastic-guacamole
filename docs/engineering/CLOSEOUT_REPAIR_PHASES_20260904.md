@@ -63,7 +63,7 @@ validity. The owner subsequently explicitly accepted the verified Firebase-only
 API allowlists as the Phase 2 baseline, retaining extra per-app restrictions as a
 compatibility-dependent follow-up. This is accepted residual hardening, not
 completed application restrictions; it is no longer a Phase 2 exit blocker.
-At 2026-09-05 14:26 UTC, the owner signed in as `domnichols39@gmail.com`.
+At 2026-09-05 14:26 UTC, the owner signed in as the owner Google account.
 Organization-level key inventory revealed the active Personal/Organization key
 Dom (`apikey_01JxbP8RRmLPrBaaZkR1fRbb`, created September 2), whose masked ending
 matches the exposed key. The zero-key Default workspace view did not include it.

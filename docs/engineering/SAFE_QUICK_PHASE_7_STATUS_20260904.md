@@ -12,7 +12,7 @@ This is Phase 7 of the agreed 13-phase safe-quick plan, not binder Priority 7.
 - Frozen signed app source: `61c7331dda9e82201a0561dbcd79aa0b37118446`.
 - Production Supabase: `qpwhuckyirnqtmvhpede`.
 - Firebase: `chronospark-app`, project number `956622397052`, signed-in owner
-  account `domnichols39@gmail.com`.
+  account the owner Google account.
 - Production Android: `com.ghostheart5.chronospark`; Firebase app ID
   `1:956622397052:android:3ecf5fcda0f2e1ef9133f9`.
 - No app rebuild, full-suite rerun, commit/push, migration, Edge deployment,
@@ -95,7 +95,7 @@ Reference: [Supabase Cron quickstart](https://supabase.com/docs/guides/cron/quic
    settings, renamed only its Firebase nickname from `chronospark (android)`
    to `ChronoSpark — Production Android`, then selected that distinct entry
    in Crashlytics alert settings. Enabled E-mail for new fatal, non-fatal and
-   ANR issues for `domnichols39@gmail.com`. Each category offered only E-mail;
+   ANR issues for the owner Google account. Each category offered only E-mail;
    no In-console option was available for these three categories. Reloaded
    the page, reselected production, and independently read back all three as
    E-mail. Existing trending E-mail and regression E-mail/In-console settings
