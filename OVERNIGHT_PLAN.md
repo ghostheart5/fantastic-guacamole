@@ -4,7 +4,7 @@ Updated: 2026-09-01T10:20:00-05:00
 
 ## Safety boundary
 
-- Candidate checkout: `C:\Users\keegan radetski\ChronoSpark-production-candidate-20260901`
+- Candidate checkout: `%USERPROFILE%\ChronoSpark-production-candidate-20260901`
 - Candidate branch: `codex/production-candidate-20260901`
 - Tested app-source commit: `9b5d0aa925f64d979fa8873172a58d116cd8c048`
 - The stable branch and the dirty launch-readiness checkout are not build or edit targets.

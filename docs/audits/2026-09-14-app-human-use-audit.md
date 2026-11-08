@@ -10,7 +10,7 @@ This report covers the shipping app's user journeys and their source wiring, wit
 
 ## Identity, preservation, and evidence
 
-- Checkout: `C:/Users/keegan radetski/Documents/Codex/2026-09-01/t/ChronoSpark-app-only-priority2`.
+- Checkout: `%USERPROFILE%/Documents/Codex/2026-09-01/t/ChronoSpark-app-only-priority2`.
 - Reviewed source HEAD: `7fb06e7619f37a498e9a85324f2f83ae25aa759d`, branch `fix/aab-prebuild-cleanup-20260905`.
 - Moto g stylus 5G 2022, Android 13, package `com.ghostheart5.chronospark`, installed version `4.1.0` / `2026083048`.
 - Walkthrough used Android user **11, ChronoSpark-Review**, after explicit device-availability approval. Every captured UI action checked the Android user and foreground package. Main profile user 0 and the other connected device were not operated.

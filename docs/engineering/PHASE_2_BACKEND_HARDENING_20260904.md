@@ -431,7 +431,7 @@ Firebase project `chronospark-app` (project number `956622397052`), app
 
 The public certificate ZIP was downloaded from this app's Google Play signing
 page (developer `7769568821533010883`, app `4976364997895633041`). The archive
-`C:\Users\keegan radetski\Downloads\certificates (2).zip` contains three public
+`%USERPROFILE%\Downloads\certificates (2).zip` contains three public
 DER certificates, not private signing keys. Its SHA-256 is
 `A90795C642CD0C3F9071D4FB3B493FCD8B74BBDF6DC0361B4FF21B05E8C7E7AC`.
 An independent helper rehashed the archive and confirmed all four approved values.
@@ -552,7 +552,7 @@ run, commit or push occurred in this completion attempt.
 ## Provider account corrected; organization-level key found - 2026-09-05 14:26 UTC
 
 After the owner signed in again, live account readback confirmed
-`domnichols39@gmail.com` / Dom Keegan Radetski, not the earlier
+the owner Google account, not the earlier
 `ghostheart131517@gmail.com` session. The Default workspace still showed zero
 keys, but that workspace-only result was incomplete for organization-scoped
 credentials. Organization settings > API keys, with Created by Anyone, Type All,

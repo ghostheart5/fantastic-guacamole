@@ -6,7 +6,7 @@ This report records the repair pass that followed the whole-app and SI Console a
 
 ## Candidate identity
 
-- Checkout: `C:/Users/keegan radetski/Documents/Codex/2026-09-01/t/ChronoSpark-app-only-priority2`
+- Checkout: `%USERPROFILE%/Documents/Codex/2026-09-01/t/ChronoSpark-app-only-priority2`
 - Branch: `fix/aab-prebuild-cleanup-20260905`
 - Candidate version: `4.1.0+2026083049`
 - Repair base: `7fb06e7619f37a498e9a85324f2f83ae25aa759d`

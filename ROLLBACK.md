@@ -3,7 +3,7 @@
 ## Baseline Recovery
 
 - Baseline commit: `46494890aa5a8ddbec7c6a3c303fc9aa845651b4`
-- Complete local bundle: `C:\Users\keegan radetski\ChronoSpark-snapshots\20260829-2040-readiness-4649489\repository.bundle`
+- Complete local bundle: `%USERPROFILE%\ChronoSpark-snapshots\20260829-2040-readiness-4649489\repository.bundle`
 - Bundle SHA-256: `EB9414A71782F523A03A2B07CE9DC2693E518CD9CF626FC6D7C6E2AE8C006417`
 - Snapshot manifest SHA-256: `DD010134877D70E906FF7776521667052100DF2F4439077B010E8BF7F190EF4D`
 - Original checkout remains on `integration/production-candidate-hardening-20260827` with its pre-existing Gradle modification preserved.

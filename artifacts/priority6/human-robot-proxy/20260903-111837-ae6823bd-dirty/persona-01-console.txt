@@ -51,4 +51,4 @@ Possible causes:
 
 ==== Debug output (logs & screenshots) ====
 
-C:\Users\keegan radetski\Documents\Codex\2026-09-01\t\ChronoSpark-app-only-priority2\artifacts\priority6\human-robot-proxy\20260903-111837-ae6823bd-dirty\persona-01-maestro\2026-09-03_111911
+%USERPROFILE%\Documents\Codex\2026-09-01\t\ChronoSpark-app-only-priority2\artifacts\priority6\human-robot-proxy\20260903-111837-ae6823bd-dirty\persona-01-maestro\2026-09-03_111911

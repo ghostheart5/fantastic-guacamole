@@ -26,15 +26,15 @@ containment passes do not mean the disabled capability is a completed product.
 
 ## Baseline
 
-- Audit: `C:\Users\keegan radetski\Downloads\ChronoSpark_2040_Vision_Reaudit_2026-08-30.md`
+- Audit: `%USERPROFILE%\Downloads\ChronoSpark_2040_Vision_Reaudit_2026-08-30.md`
 - Audit SHA-256: `7B4E86423D8C5BB78CB59D97075648C8837551327A6A11504E83C7601794BA5D`
 - Audited commit: `c9ad6084e115227770f48fb09d46c364b4cd1a53`
 - Repair baseline: `46494890aa5a8ddbec7c6a3c303fc9aa845651b4`
 - Delta from audit: one commit, 19 files, `+405/-66`, cold-start evidence gating only.
 - Repair branch: `fix/chronospark-2040-launch-readiness-20260829`
-- Repair worktree: `C:\Users\keegan radetski\ChronoSpark-2040-launch-readiness-20260829`
+- Repair worktree: `%USERPROFILE%\ChronoSpark-2040-launch-readiness-20260829`
 - Original checkout: preserved with its pre-existing unstaged `android/gradle.properties` change.
-- Recovery snapshot: `C:\Users\keegan radetski\ChronoSpark-snapshots\20260829-2040-readiness-4649489`
+- Recovery snapshot: `%USERPROFILE%\ChronoSpark-snapshots\20260829-2040-readiness-4649489`
 - Current verdict: `NO-GO - NOT READY`
 
 Statuses are `PASS`, `FAIL`, `BLOCKED_EXTERNAL`, and `NOT_RUN`. Containment is not a completed product repair.

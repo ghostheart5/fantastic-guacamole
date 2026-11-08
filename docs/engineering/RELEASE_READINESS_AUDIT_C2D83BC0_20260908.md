@@ -10,7 +10,7 @@ Audit date: September 8, 2026, America/Chicago; some evidence timestamps are Sep
 
 | Item | Observed state |
 | --- | --- |
-| Repository | `C:\Users\keegan radetski\Documents\Codex\2026-09-01\t\ChronoSpark-app-only-priority2` |
+| Repository | `%USERPROFILE%\Documents\Codex\2026-09-01\t\ChronoSpark-app-only-priority2` |
 | Origin | `https://github.com/ghostheart5/fantastic-guacamole.git` |
 | Branch | `fix/aab-prebuild-cleanup-20260905` |
 | Audited source | `c2d83bc0dd0c7b512e2d2b152a7ca2a230c73b30` |
@@ -50,7 +50,7 @@ Evidence roots, relative to the repository:
 | Production artifact | Guarded build of exact source attempted and stopped before compilation for missing required configuration | No current-source signed AAB, installation or runtime proof |
 | Historical artifact | Previous 3021 AAB freshly checked for hash, signature, manifest, native alignment and bundled mapping | Useful baseline only; cannot inherit a PASS for the new source |
 
-Host: Windows; Flutter 3.44.6 / Dart 3.12.2; Android SDK at `C:\Android\Sdk`; current Android work uses JDK `C:\Users\keegan radetski\AppData\Local\Programs\jdk-17.0.20.1+1`; PowerShell 5.1, Python 3, Node 24.19.0, Deno 2.9.4 and Git 2.54.0 available. Local Deno differs from the CI pin of 2.1.4; these are local results, and exact CI-environment parity remains unverified. Version outputs are preserved in `R/tool-versions.json`; individual historical inspection commands remain in its inspection JSON. Exact per-command executable/arguments, duration and exit code are recorded in `R/static-checks.json` and the named manifest files.
+Host: Windows; Flutter 3.44.6 / Dart 3.12.2; Android SDK at `C:\Android\Sdk`; current Android work uses JDK `%USERPROFILE%\AppData\Local\Programs\jdk-17.0.20.1+1`; PowerShell 5.1, Python 3, Node 24.19.0, Deno 2.9.4 and Git 2.54.0 available. Local Deno differs from the CI pin of 2.1.4; these are local results, and exact CI-environment parity remains unverified. Version outputs are preserved in `R/tool-versions.json`; individual historical inspection commands remain in its inspection JSON. Exact per-command executable/arguments, duration and exit code are recorded in `R/static-checks.json` and the named manifest files.
 
 The host has approximately 15.16 GiB RAM. Concurrent suite/build/emulator execution reduced free memory to approximately 0.02 GiB. The auditor stopped only the audit-owned Gradle client/daemon and `emulator-5580`, then sequenced work. The first local QA APK attempt was explicitly canceled, producing no APK; this is a **host resource limitation**, not an app compilation error or an observed app memory leak. `android/gradle.properties` permits an 8 GiB JVM heap plus 4 GiB metaspace. Later bounded debug observations are recorded below; representative release performance remains unverified. Approximately 26.65 GiB disk space was free at audit start; historical artifacts were preserved.
 

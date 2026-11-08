@@ -15,7 +15,7 @@
     - Platform android-36.1, build-tools 36.1.0
     - ANDROID_HOME = C:\Android\Sdk
     - ANDROID_SDK_ROOT = C:\Android\Sdk
-    - Java binary at: C:\Users\keegan radetski\Downloads\jdk-17.0.19_windows-x64_bin\jdk-17.0.19\bin\java
+    - Java binary at: %USERPROFILE%\Downloads\jdk-17.0.19_windows-x64_bin\jdk-17.0.19\bin\java
       This JDK is specified in your Flutter configuration.
       To change the current JDK, run: `flutter config --jdk-dir="path/to/jdk"`.
     - Java version Java(TM) SE Runtime Environment (build 17.0.19+9-LTS-183)

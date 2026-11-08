@@ -13,7 +13,7 @@
   },
   "approval": "Owner explicitly approved adding exactly four missing public fingerprints to the existing production Android app while preserving every existing fingerprint and key restriction.",
   "publicCertificateSource": {
-    "path": "C:\\Users\\keegan radetski\\Downloads\\certificates (2).zip",
+    "path": "%USERPROFILE%\\Downloads\\certificates (2).zip",
     "sha256": "A90795C642CD0C3F9071D4FB3B493FCD8B74BBDF6DC0361B4FF21B05E8C7E7AC",
     "contents": ["deployment_cert.der", "hybrid_classical_cert.der", "hybrid_pqc_cert.der"],
     "privateKeysIncluded": false,
