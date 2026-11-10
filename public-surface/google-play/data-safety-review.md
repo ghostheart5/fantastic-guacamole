@@ -61,12 +61,14 @@ License-tester status and test payment methods govern whether a test purchase is
 
 ## Historical correction items requiring current verification
 
-1. Verify the approved public privacy URL (`https://chronospark.app/privacy/`)
-   serves the final policy over valid HTTPS before saving it in Console. Do not
-   substitute the old GitHub Pages URL without checking its redirect and content.
-2. Verify the approved account-deletion URL
-   (`https://chronospark.app/delete-account/`) exposes a working external request
-   route over valid HTTPS before saving it. A loaded page is not deletion proof.
+1. Use the public privacy URL `https://ghostheart5.github.io/fantastic-guacamole/privacy/`
+   and verify it serves the final policy over valid HTTPS before saving it in Console.
+   Do not use `chronospark.app`: as of November 9, 2026 that domain serves an
+   unrelated third-party site and is not under project control.
+2. Use the account-deletion URL
+   `https://ghostheart5.github.io/fantastic-guacamole/delete-account/` and verify it
+   exposes a working external request route over valid HTTPS before saving it. A
+   loaded page is not deletion proof.
 3. Select OAuth as an account-creation method because the app supports Google sign-in.
 4. Do not keep the optional partial-data-deletion answer as `Yes` unless a separate working external request path and matching in-app behavior are verified. The August 31 readback found a broken GitHub URL; verify the current request service before making this declaration.
 

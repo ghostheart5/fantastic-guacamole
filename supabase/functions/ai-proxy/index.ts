@@ -73,8 +73,7 @@ const internalAiCohort = parseInternalAiCohort(
 );
 const publicAiPolicy = parsePublicAiAudiencePolicy(Deno.env.get);
 const ALLOWED_ORIGINS = new Set(
-  (Deno.env.get("ALLOWED_ORIGINS") ??
-    "https://chronospark.app,https://www.chronospark.app")
+  (Deno.env.get("ALLOWED_ORIGINS") ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean),

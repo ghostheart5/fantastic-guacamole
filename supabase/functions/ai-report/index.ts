@@ -5,8 +5,7 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
   "";
 const ALLOWED_ORIGINS = new Set(
-  (Deno.env.get("ALLOWED_ORIGINS") ??
-    "https://chronospark.app,https://www.chronospark.app")
+  (Deno.env.get("ALLOWED_ORIGINS") ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean),

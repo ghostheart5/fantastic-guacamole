@@ -23,8 +23,7 @@ const recentSignInSeconds = Number.isFinite(configuredRecentSignInSeconds) &&
   ? configuredRecentSignInSeconds
   : DEFAULT_RECENT_SIGN_IN_SECONDS;
 const allowedOrigins = new Set(
-  (Deno.env.get("ALLOWED_ORIGINS") ??
-    "https://chronospark.app,https://www.chronospark.app")
+  (Deno.env.get("ALLOWED_ORIGINS") ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean),

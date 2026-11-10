@@ -58,8 +58,7 @@ const ALLOWED_PRODUCT_IDS = new Set([
   "chronospark_premium_annual",
 ]);
 const ALLOWED_ORIGINS = new Set(
-  (Deno.env.get("ALLOWED_ORIGINS") ??
-    "https://chronospark.app,https://www.chronospark.app")
+  (Deno.env.get("ALLOWED_ORIGINS") ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean),
