@@ -1,5 +1,6 @@
 class AppUrls {
-  static const String _base = 'https://chronospark.app';
+  // chronospark.app is no longer under our control (Nov 2026). Do not link to
+  // it; public pages live on GitHub Pages.
   static const String _githubPagesBase =
       'https://ghostheart5.github.io/fantastic-guacamole';
 
@@ -9,7 +10,6 @@ class AppUrls {
   static const String deleteAccount = '$_githubPagesBase/delete-account/';
   static const String terms = '$_githubPagesBase/terms/';
   static const String support = '$_githubPagesBase/support/';
-  static const String changelog = '$_base/changelog';
 
   // App stores
   static const String googlePlay =
@@ -21,5 +21,4 @@ class AppUrls {
 
   // Deep link scheme
   static const String deepLinkScheme = 'chronospark';
-  static const String deepLinkBase = 'https://chronospark.app/app/';
 }

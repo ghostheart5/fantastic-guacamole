@@ -4,8 +4,6 @@
 <dict>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:chronospark.app</string>
-		<string>applinks:www.chronospark.app</string>
 		<string>applinks:ghostheart5.github.io</string>
 	</array>
 </dict>
