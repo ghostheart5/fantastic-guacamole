@@ -627,6 +627,10 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
   }
 
   @override
+  Future<List<String>> pendingIdsForAccount(String accountScope) async =>
+      const <String>[];
+
+  @override
   Future<bool> cancelAll() async => true;
 
   @override

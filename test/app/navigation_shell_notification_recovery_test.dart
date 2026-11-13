@@ -11,6 +11,9 @@ import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
@@ -29,7 +32,7 @@ void main() {
       await fixture.mount(tester);
       expect(fixture.scheduler.ownPending('a'), isEmpty);
       expect(fixture.scheduler.ownPending('b'), hasLength(4));
-      expect(fixture.scheduler.cancelled, hasLength(4));
+      expect(fixture.scheduler.cancelled, hasLength(8));
       expect(fixture.scheduler.permissionRequests, 0);
       expect(fixture.scheduler.scheduled, isEmpty);
       fixture.expectPreferencesPreserved();
@@ -75,7 +78,7 @@ void main() {
       ),
       hasLength(1),
     );
-    expect(fixture.scheduler.ownPending('a'), hasLength(4));
+    expect(fixture.scheduler.ownPending('a'), hasLength(6));
     expect(fixture.scheduler.permissionRequests, 0);
     fixture.expectPreferencesPreserved();
   });
@@ -115,7 +118,7 @@ void main() {
       ),
       isEmpty,
     );
-    expect(fixture.scheduler.ownPending('a'), hasLength(4));
+    expect(fixture.scheduler.ownPending('a'), hasLength(6));
     expect(fixture.scheduler.ownPending('b'), hasLength(4));
     fixture.expectPreferencesPreserved();
   });
@@ -143,7 +146,7 @@ void main() {
       gate.complete();
       await _flush(tester);
       expect(fixture.scheduler.permissionQueries, 2);
-      expect(fixture.scheduler.cancelled, hasLength(4));
+      expect(fixture.scheduler.cancelled, hasLength(8));
       expect(fixture.scheduler.ownPending('a'), isEmpty);
       expect(fixture.scheduler.ownPending('b'), hasLength(4));
       expect(
@@ -244,6 +247,7 @@ class _Fixture {
         notificationSchedulerProvider.overrideWithValue(scheduler),
         domainGoalRepositoryProvider.overrideWithValue(_Goals()),
         domainHabitRepositoryProvider.overrideWithValue(_Habits()),
+        getTasksUseCaseProvider.overrideWithValue(GetTasks(_Tasks())),
         unreadNotificationsProvider.overrideWithValue(0),
         goalsProvider.overrideWith(_StaticGoals.new),
       ],
@@ -328,6 +332,13 @@ class _Goals implements IGoalRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _Tasks implements ITaskRepository {
+  @override
+  Future<List<TaskEntity>> getAllTasks() async => const <TaskEntity>[];
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _Habits implements IHabitRepository {
   @override
   Future<List<HabitEntity>> getHabits() async => [
@@ -336,6 +347,7 @@ class _Habits implements IHabitRepository {
       title: 'Fixture rhythm',
       cadence: HabitCadence.weekly,
       createdAt: DateTime(2026),
+      reminderMinutes: 20 * 60,
     ),
   ];
   @override

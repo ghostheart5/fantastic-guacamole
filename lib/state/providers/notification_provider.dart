@@ -67,7 +67,7 @@ final automationNotificationsProvider =
       return [
         for (final item in pending)
           if (item.id == 'daily_planning_reminder' ||
-              item.id == 'habit_reminder_daily' ||
+              item.id.startsWith('habit_reminder_') ||
               item.id == 'reflection_reminder')
             AutomationNotification(
               registeredTimeKnown:

@@ -178,6 +178,68 @@ class _TrajectoryEngineScreenState
                       icon: const Icon(Icons.refresh_rounded),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  _DisclosurePanel(
+                    key: const Key('insights-how-it-helps'),
+                    title: journeyText(
+                      context,
+                      'How this helps you',
+                      'Cómo te ayuda esto',
+                    ),
+                    subtitle: journeyText(
+                      context,
+                      'What this screen does, in plain words',
+                      'Qué hace esta pantalla, en palabras simples',
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        for (final String point in <String>[
+                          journeyText(
+                            context,
+                            'It reads what you already put in Axiomara: your tasks and their times, your goals, your free time and your energy check-ins.',
+                            'Lee lo que ya pusiste en Axiomara: tus tareas y sus horarios, tus metas, tu tiempo libre y tus registros de energía.',
+                          ),
+                          journeyText(
+                            context,
+                            'It shows a few paths you could take: keep going as you are, let the planner rearrange your day, finish a task, push one back, cut something, or catch up on something you missed.',
+                            'Muestra algunos caminos posibles: seguir igual, dejar que el planificador reorganice tu día, terminar una tarea, aplazar una, recortar algo o ponerte al día con algo pendiente.',
+                          ),
+                          journeyText(
+                            context,
+                            'Pick a path and a time range (7, 30 or 90 days) to see how much you might get done and how much pressure you might feel. \u201cRecommended adjustment\u201d marks the path that looks best right now.',
+                            'Elige un camino y un periodo (7, 30 o 90 días) para ver cuánto podrías lograr y cuánta presión podrías sentir. \u201cAjuste recomendado\u201d marca el camino que mejor se ve ahora.',
+                          ),
+                          journeyText(
+                            context,
+                            'Nothing changes until you tap Review to act on a path. These are estimates, not promises.',
+                            'Nada cambia hasta que tocas Revisar para actuar. Son estimaciones, no promesas.',
+                          ),
+                          journeyText(
+                            context,
+                            'My patterns & progress shows what you have actually done: tasks finished, your streak and your pressure.',
+                            'Mis patrones y progreso muestra lo que de verdad hiciste: tareas terminadas, tu racha y tu presión.',
+                          ),
+                          journeyText(
+                            context,
+                            'It needs a few tasks with times and some check-ins before it has much to show. The more you use Axiomara, the more useful it gets.',
+                            'Necesita algunas tareas con horario y algunos registros antes de mostrar mucho. Cuanto más uses Axiomara, más útil será.',
+                          ),
+                        ])
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              '\u2022 $point',
+                              style: const TextStyle(
+                                color: Color(0xFFD7E0F5),
+                                fontSize: 13,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 20),
                   OutlinedButton.icon(
                     key: const Key('insights-patterns'),
