@@ -37,6 +37,10 @@ abstract interface class NotificationSchedulerPort {
 
   Future<bool> cancel(String id, {String? accountScope});
 
+  /// Logical ids of the OS reminders currently registered for [accountScope].
+  /// Lets sign-out cancel per-rhythm reminders that no local record lists.
+  Future<List<String>> pendingIdsForAccount(String accountScope);
+
   Future<bool> cancelAll();
 
   void clearTappedPayload();

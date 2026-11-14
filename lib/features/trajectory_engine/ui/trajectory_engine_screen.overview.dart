@@ -639,6 +639,7 @@ class _OverviewMetric extends StatelessWidget {
 
 class _DisclosurePanel extends StatelessWidget {
   const _DisclosurePanel({
+    super.key,
     required this.title,
     required this.subtitle,
     required this.child,

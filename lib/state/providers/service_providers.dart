@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
 import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';
@@ -71,6 +72,8 @@ final reminderOrchestratorServiceProvider =
             ? AccountDataRegistry.accountDigest(scope.rawUserId!)
             : null,
         loadHabitOccurrences: occurrences?.load,
+        // Linked-task progress drives each goal's "almost there" reminder.
+        loadGoalTasks: () => ref.read(getTasksUseCaseProvider).call(),
       );
     });
 

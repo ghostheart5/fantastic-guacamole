@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/state/services/habit_occurrence_coordinator.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -269,6 +270,78 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     });
   }
 
+  String _reminderLabel(HabitEntity habit) {
+    final int? minutes = habit.reminderMinutes;
+    if (minutes == null) {
+      return _t('No reminder set', 'Sin recordatorio');
+    }
+    final String time = MaterialLocalizations.of(
+      context,
+    ).formatTimeOfDay(TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60));
+    final String when = switch (habit.cadence) {
+      HabitCadence.daily => _t('every day', 'cada día'),
+      HabitCadence.weekly => _t('every Monday', 'cada lunes'),
+      HabitCadence.monthly => _t(
+        'on the 1st of each month',
+        'el día 1 de cada mes',
+      ),
+    };
+    return _t('Reminder: $time $when', 'Recordatorio: $time $when');
+  }
+
+  Future<void> _editReminder(String owner, HabitEntity habit) async {
+    final int? current = habit.reminderMinutes;
+    if (current != null) {
+      final String? choice = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(_t('Reminder', 'Recordatorio')),
+          content: Text(_reminderLabel(habit)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, 'remove'),
+              child: Text(_t('Turn off', 'Desactivar')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, 'change'),
+              child: Text(_t('Change time', 'Cambiar hora')),
+            ),
+          ],
+        ),
+      );
+      if (choice == null || !_sameAccount(owner)) return;
+      if (choice == 'remove') {
+        await _run(owner, habit, (notifier) async {
+          await notifier.setReminderTime(habit.id, null);
+          return _t('Reminder turned off.', 'Recordatorio desactivado.');
+        });
+        return;
+      }
+    }
+    if (!mounted) return;
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      helpText: _t('Remind me at', 'Recordarme a las'),
+      initialTime: current == null
+          ? const TimeOfDay(hour: 17, minute: 0)
+          : TimeOfDay(hour: current ~/ 60, minute: current % 60),
+    );
+    if (picked == null || !_sameAccount(owner)) return;
+    // The person just asked for a reminder, so this is the moment to ask
+    // Android for notification permission if it was never granted.
+    await ref.read(notificationSchedulerProvider).requestPermissions();
+    if (!_sameAccount(owner)) return;
+    await _run(owner, habit, (notifier) async {
+      await notifier.setReminderTime(
+        habit.id,
+        picked.hour * 60 + picked.minute,
+      );
+      return _reminderLabel(
+        habit.copyWith(reminderMinutes: picked.hour * 60 + picked.minute),
+      );
+    });
+  }
+
   Future<void> _backfill(String owner, HabitEntity habit) async {
     final now = DateTime.now();
     final created = (habit.frequencyStartedAt ?? habit.createdAt).toLocal();
@@ -497,6 +570,11 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
                   ? '${habit.targetCount} ${habit.targetCount == 1 ? 'vez' : 'veces'} por $period · ${habit.active ? 'Activo' : 'En pausa'}'
                   : '${habit.targetCount} ${habit.targetCount == 1 ? 'time' : 'times'} per $period · ${habit.active ? 'Active' : 'Paused'}',
             ),
+            const SizedBox(height: 4),
+            Text(
+              _reminderLabel(habit),
+              key: ValueKey<String>('rhythm-reminder-label-${habit.id}'),
+            ),
             if (habit.description?.isNotEmpty ?? false) ...[
               const SizedBox(height: 8),
               Text(habit.description!),
@@ -610,6 +688,19 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
                               habit.active
                                   ? _t('Pause', 'Pausar')
                                   : _t('Resume', 'Reanudar'),
+                            ),
+                          ),
+                          TextButton(
+                            key: ValueKey<String>(
+                              'rhythm-reminder-${habit.id}',
+                            ),
+                            onPressed: busy
+                                ? null
+                                : () => _editReminder(owner, habit),
+                            child: Text(
+                              habit.reminderMinutes == null
+                                  ? _t('Set reminder', 'Poner recordatorio')
+                                  : _t('Reminder', 'Recordatorio'),
                             ),
                           ),
                           TextButton(

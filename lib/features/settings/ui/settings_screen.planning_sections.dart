@@ -276,8 +276,8 @@ class _ReminderAutomationSectionState
             ),
             subtitle: journeyText(
               context,
-              'Schedules around target date (prefers 1 day before).',
-              'Se programa cerca de la fecha objetivo, preferiblemente un día antes.',
+              'At 9 AM three days before, the day before, and the morning a goal is due. Plus one "almost there" reminder when most of its steps are done.',
+              'A las 9:00 tres días antes, el día anterior y la mañana en que vence la meta. Además, un aviso de "ya casi" cuando la mayoría de sus pasos estén hechos.',
             ),
           ),
           _NeonToggleTile(
@@ -297,8 +297,8 @@ class _ReminderAutomationSectionState
             ),
             subtitle: journeyText(
               context,
-              'Follows the first active habit at 8 PM: daily, Mondays, or the first of each month. Completed or skipped periods wait until the next period.',
-              'Sigue el primer ritmo activo a las 20:00: cada día, los lunes o el primer día del mes. Los períodos completados u omitidos esperan hasta el siguiente período.',
+              'Each habit reminds you at the time you set with Set reminder on that habit: daily, Mondays, or the first of each month. Habits without a time stay quiet. Completed or skipped periods wait until the next period.',
+              'Cada hábito te avisa a la hora que le pongas con Poner recordatorio: cada día, los lunes o el primer día del mes. Los hábitos sin hora no avisan. Los períodos completados u omitidos esperan hasta el siguiente período.',
             ),
           ),
           _NeonToggleTile(

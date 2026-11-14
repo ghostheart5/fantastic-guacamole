@@ -19,7 +19,9 @@ class HabitEntity {
     this.frequencyStartedAt,
     this.stepTaskIds = const <String>[],
     this.status = HabitStatus.active,
-  }) : updatedAt = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    int? reminderMinutes,
+  }) : reminderMinutes = _validReminderMinutes(reminderMinutes),
+       updatedAt = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
 
   final String id;
   final String title;
@@ -33,6 +35,21 @@ class HabitEntity {
   final DateTime? frequencyStartedAt;
   final List<String> stepTaskIds;
   final HabitStatus status;
+
+  /// Optional local reminder time, as minutes after midnight (for example
+  /// 17 * 60 for 5:00 PM). Null means this habit sends no reminder.
+  final int? reminderMinutes;
+
+  int? get reminderHour =>
+      reminderMinutes == null ? null : reminderMinutes! ~/ 60;
+  int? get reminderMinute =>
+      reminderMinutes == null ? null : reminderMinutes! % 60;
+
+  static int? _validReminderMinutes(Object? raw) {
+    if (raw is! num) return null;
+    final int value = raw.toInt();
+    return value >= 0 && value < 24 * 60 ? value : null;
+  }
 
   bool get active => status == HabitStatus.active;
   String get name => title;
@@ -48,6 +65,8 @@ class HabitEntity {
     DateTime? updatedAt,
     String? userId,
     HabitStatus? status,
+    int? reminderMinutes,
+    bool clearReminder = false,
   }) {
     return HabitEntity(
       id: id,
@@ -62,6 +81,9 @@ class HabitEntity {
       frequencyStartedAt: frequencyStartedAt ?? this.frequencyStartedAt,
       stepTaskIds: stepTaskIds ?? this.stepTaskIds,
       status: status ?? this.status,
+      reminderMinutes: clearReminder
+          ? null
+          : (reminderMinutes ?? this.reminderMinutes),
     );
   }
 
@@ -80,6 +102,7 @@ class HabitEntity {
       'stepTaskIds': stepTaskIds,
       'status': status.name,
       'active': active,
+      if (reminderMinutes != null) 'reminderMinutes': reminderMinutes,
     };
   }
 
@@ -132,6 +155,7 @@ class HabitEntity {
         orElse: () =>
             json['active'] == false ? HabitStatus.paused : HabitStatus.active,
       ),
+      reminderMinutes: _validReminderMinutes(json['reminderMinutes']),
     );
   }
 }

@@ -220,6 +220,7 @@ class NotificationsRepository implements INotificationRepository {
         'habit_reminder_daily',
         'daily_planning_reminder',
         'reflection_reminder',
+        ...await _pendingRhythmReminderIds(),
       };
       for (final String id in scopedIds) {
         await _cancelPlatformStrict(id, accountScope: _accountScope);
@@ -248,11 +249,12 @@ class NotificationsRepository implements INotificationRepository {
       for (final NotificationEntity entry in entries) {
         await _cancelPlatform(entry.id);
       }
-      for (final String id in const <String>[
+      for (final String id in <String>{
         'habit_reminder_daily',
         'daily_planning_reminder',
         'reflection_reminder',
-      ]) {
+        ...await _pendingRhythmReminderIds(),
+      }) {
         await _cancelPlatform(id);
       }
       final String? storageKey = _storageKey;
@@ -262,6 +264,25 @@ class NotificationsRepository implements INotificationRepository {
       }
       _scheduler.clearTappedPayload();
     });
+  }
+
+  /// Rhythm reminders and the extra goal reminder slots are registered
+  /// straight with the OS, so read them back from the platform for cleanup.
+  Future<List<String>> _pendingRhythmReminderIds() async {
+    final String? scope = _accountScope;
+    if (scope == null) return const <String>[];
+    try {
+      return (await _scheduler.pendingIdsForAccount(scope))
+          .where(
+            (String id) =>
+                id.startsWith('habit_reminder_') ||
+                id.startsWith('goal_reminder_'),
+          )
+          .toList(growable: false);
+    } catch (error) {
+      Logger.warn('Could not list pending rhythm reminders: $error');
+      return const <String>[];
+    }
   }
 
   Future<void> _upsert(NotificationEntity notification) async {

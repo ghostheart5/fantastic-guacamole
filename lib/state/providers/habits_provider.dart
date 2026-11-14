@@ -241,6 +241,29 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
         );
   });
 
+  /// Sets (or clears, with null) the habit's own reminder time, as minutes
+  /// after midnight. Changing a reminder is not a frequency change, so the
+  /// habit's history and revision stay untouched.
+  Future<void> setReminderTime(String id, int? minutesAfterMidnight) =>
+      _mutate((current) async {
+        if (!current.any((value) => value.id == id)) {
+          throw StateError('Daily Rhythm not found.');
+        }
+        final next = current
+            .map(
+              (habit) => habit.id == id
+                  ? habit.copyWith(
+                      reminderMinutes: minutesAfterMidnight,
+                      clearReminder: minutesAfterMidnight == null,
+                      updatedAt: DateTime.now(),
+                    )
+                  : habit,
+            )
+            .toList(growable: false);
+        await ref.read(saveHabitsUseCaseProvider).call(next);
+        return next;
+      });
+
   Future<void> removeHabit(String id) => _mutate(
     (current) =>
         ref.read(deleteHabitUseCaseProvider).call(current: current, id: id),

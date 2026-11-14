@@ -128,6 +128,7 @@ void main() {
                 id: 'habit',
                 title: 'Local habit',
                 createdAt: DateTime.now(),
+                reminderMinutes: 17 * 60,
               ),
             ],
             permissionGranted: granted,
@@ -137,7 +138,8 @@ void main() {
         );
         expect(scheduler.permissionRequests, 0);
         expect(prefs.load('reflection_reminder_enabled'), 'true');
-        expect(scheduler.schedules.length, granted ? 1 : 0);
+        // Three days before, the day before, and the morning it is due.
+        expect(scheduler.schedules.length, granted ? 3 : 0);
         expect(scheduler.dailySchedules.length, granted ? 2 : 0);
         expect(scheduler.cadenceSchedules, granted ? 1 : 0);
         if (granted) {
@@ -221,11 +223,14 @@ void main() {
         unorderedEquals([
           'daily_planning_reminder',
           'habit_reminder_daily',
-          'goal_reminder_legacy-tracked',
-          ...goals.map((goal) => 'goal_reminder_${goal.id}'),
+          'habit_reminder_owned-habit',
+          for (final id in ['legacy-tracked', ...goals.map((goal) => goal.id)])
+            for (final suffix in ['', '_3d', '_due', '_close'])
+              'goal_reminder_$id$suffix',
         ]),
       );
-      expect(scheduler.cancelled.toSet().length, 698);
+      // Fixed reminders, the rhythm's own id, and four slots per goal.
+      expect(scheduler.cancelled.toSet().length, 3 + 696 * 4);
       expect(
         scheduler.operations.every((op) => op == 'cancel:$account'),
         isTrue,
@@ -751,6 +756,10 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
     }
     return true;
   }
+
+  @override
+  Future<List<String>> pendingIdsForAccount(String accountScope) async =>
+      const <String>[];
 
   @override
   Future<bool> cancelAll() async {

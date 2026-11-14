@@ -50,10 +50,9 @@ void main() {
       current = false;
       release.complete();
       await pending;
-      expect(fixture.scheduler.events, [
-        'cancel:qa:habit_reminder_daily',
-        'cancel:qa:habit_reminder_daily',
-      ]);
+      // The rhythm's own id was tracked before the read, so the next sync
+      // cancels it; nothing was registered for the stale account.
+      expect(fixture.scheduler.events, ['cancel:qa:habit_reminder_daily']);
       expect(fixture.scheduler.cadences, isEmpty);
     },
   );
@@ -142,7 +141,7 @@ void main() {
         await fixture.service.syncHabitReminders([habit]);
         expect(fixture.scheduler.events, [
           'cancel:qa:habit_reminder_daily',
-          'cadence:qa:habit_reminder_daily',
+          'cadence:qa:habit_reminder_first',
         ]);
         final schedule = fixture.scheduler.cadences.single;
         expect(schedule.cadence, cadence);
@@ -160,7 +159,8 @@ void main() {
           fixture.outcomes.add(fixture.outcome(habit, now, outcome));
           await fixture.service.syncHabitReminders([
             habit,
-            fixture.habit(HabitCadence.daily, id: 'second'),
+            // A rhythm without its own time gets no reminder at all.
+            fixture.habit(HabitCadence.daily, id: 'second', reminder: false),
           ]);
           expect(fixture.scheduler.cadences.single.firstAt, next);
           expect(fixture.scheduler.cadences.single.body, contains(habit.title));
@@ -278,7 +278,7 @@ void main() {
       expect(
         fixture.scheduler.events.indexOf('cancel:qa:habit_reminder_daily'),
         lessThan(
-          fixture.scheduler.events.indexOf('cadence:qa:habit_reminder_daily'),
+          fixture.scheduler.events.indexOf('cadence:qa:habit_reminder_first'),
         ),
       );
     },
@@ -321,11 +321,16 @@ class _Fixture {
       return outcomes;
     },
   );
-  HabitEntity habit(HabitCadence cadence, {String id = 'first'}) => HabitEntity(
+  HabitEntity habit(
+    HabitCadence cadence, {
+    String id = 'first',
+    bool reminder = true,
+  }) => HabitEntity(
     id: id,
     title: '$id rhythm',
     createdAt: now,
     cadence: cadence,
+    reminderMinutes: reminder ? 20 * 60 : null,
   );
   HabitOccurrenceEntity outcome(
     HabitEntity habit,
@@ -415,6 +420,10 @@ class _Scheduler implements NotificationSchedulerPort {
     NotificationEntity notification, {
     String? accountScope,
   }) async => true;
+  @override
+  Future<List<String>> pendingIdsForAccount(String accountScope) async =>
+      const <String>[];
+
   @override
   Future<bool> cancelAll() async => true;
   @override

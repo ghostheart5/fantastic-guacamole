@@ -308,6 +308,9 @@ class TaskActions {
         .read(completeTaskUseCaseProvider)
         .call(id);
     if (!operation.isCurrent(_ref)) return;
+    // Goal reminders depend on linked-task progress ("almost there"), so a
+    // completion re-reads goals and lets the goal list resync its reminders.
+    _ref.invalidate(goalsReadProvider);
     if (completionDecision.shouldRunGuidance) {
       unawaited(_recordGuidance(operation, GuidanceMilestone.firstCompletion));
     }
