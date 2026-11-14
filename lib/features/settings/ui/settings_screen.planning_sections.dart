@@ -297,8 +297,8 @@ class _ReminderAutomationSectionState
             ),
             subtitle: journeyText(
               context,
-              'Each habit reminds you at the time you set on it in Daily Rhythms: daily, Mondays, or the first of each month. Habits without a time stay quiet. Completed or skipped periods wait until the next period.',
-              'Cada ritmo te avisa a la hora que le pongas en Ritmos diarios: cada día, los lunes o el primer día del mes. Los ritmos sin hora no avisan. Los períodos completados u omitidos esperan hasta el siguiente período.',
+              'Each habit reminds you at the time you set with Set reminder on that habit: daily, Mondays, or the first of each month. Habits without a time stay quiet. Completed or skipped periods wait until the next period.',
+              'Cada hábito te avisa a la hora que le pongas con Poner recordatorio: cada día, los lunes o el primer día del mes. Los hábitos sin hora no avisan. Los períodos completados u omitidos esperan hasta el siguiente período.',
             ),
           ),
           _NeonToggleTile(
