@@ -33,6 +33,16 @@ import 'current_navigation_support.dart';
 // Run only in a disposable Android QA profile bound by the native runner.
 // All creation/outcome/toggle mutations use ordinary visible controls. Native
 // registration metadata is read via the real plugin, not a mocked scheduler.
+//
+// Reminder rule under test (per-rhythm reminders): a rhythm without its own
+// reminder time stays quiet; "Set reminder" on its card registers one
+// repeating reminder `habit_reminder_<habitId>` at the chosen time (the picker
+// default, 5:00 PM, is accepted here); a checked-in period defers the first
+// fire to the next period; pausing the rhythm cancels it.
+const int _reminderHour = 17;
+const int _reminderMinute = 0;
+bool _isHabitReminder(String id) => id.startsWith('habit_reminder_');
+
 void main() {
   patrolTest('habit reminder cadence skips completed periods through real UI', (
     $,
@@ -354,14 +364,27 @@ void main() {
 
     DateTime expectedFirst(HabitCadence cadence, DateTime now, bool terminal) {
       final initial = switch (cadence) {
-        HabitCadence.daily => DateTime(now.year, now.month, now.day, 20),
+        HabitCadence.daily => DateTime(
+          now.year,
+          now.month,
+          now.day,
+          _reminderHour,
+          _reminderMinute,
+        ),
         HabitCadence.weekly => DateTime(
           now.year,
           now.month,
           now.day - now.weekday + DateTime.monday,
-          20,
+          _reminderHour,
+          _reminderMinute,
         ),
-        HabitCadence.monthly => DateTime(now.year, now.month, 1, 20),
+        HabitCadence.monthly => DateTime(
+          now.year,
+          now.month,
+          1,
+          _reminderHour,
+          _reminderMinute,
+        ),
       };
       if (!terminal && initial.isAfter(now)) return initial;
       return switch (cadence) {
@@ -369,19 +392,22 @@ void main() {
           initial.year,
           initial.month,
           initial.day + 1,
-          20,
+          _reminderHour,
+          _reminderMinute,
         ),
         HabitCadence.weekly => DateTime(
           initial.year,
           initial.month,
           initial.day + 7,
-          20,
+          _reminderHour,
+          _reminderMinute,
         ),
         HabitCadence.monthly => DateTime(
           initial.year,
           initial.month + 1,
           1,
-          20,
+          _reminderHour,
+          _reminderMinute,
         ),
       };
     }
@@ -391,6 +417,7 @@ void main() {
       HabitCadence? cadence,
       DateTime? first,
       String? title,
+      String? habitId,
     }) async {
       // Only this QA application's sandboxed alarm cache, never auth storage.
       final cache = File(
@@ -421,13 +448,21 @@ void main() {
                 ? NotificationScheduler.parseAccountPayload(payload)
                 : null;
             return scoped?.accountScope == account &&
-                scoped?.notificationId == 'habit_reminder_daily';
+                _isHabitReminder(scoped?.notificationId ?? '');
           }).toList();
           if (cadence == null) {
             if (own.isNotEmpty) return false;
           } else {
             if (own.length != 1) return false;
             final item = own.single;
+            final payload = item['payload'];
+            if (payload is! String ||
+                NotificationScheduler.parseAccountPayload(
+                      payload,
+                    )?.notificationId !=
+                    'habit_reminder_$habitId') {
+              return false;
+            }
             final component = switch (cadence) {
               HabitCadence.daily => 'Time',
               HabitCadence.weekly => 'DayOfWeekAndTime',
@@ -438,7 +473,7 @@ void main() {
             );
             if (actual != first ||
                 item['matchDateTimeComponents'] != component ||
-                item['body'] != 'Stay consistent: $title') {
+                item['body'] != 'Time for "$title". Tap to check in.') {
               return false;
             }
             matchedNative = item;
@@ -463,17 +498,20 @@ void main() {
 
     Future<Map<String, Object?>> registration(
       HabitCadence cadence,
+      String habitId,
       String title,
       bool terminal,
     ) async {
+      final reminderId = 'habit_reminder_$habitId';
       final expected = expectedFirst(cadence, DateTime.now(), terminal);
       await waitRead(
         () async {
           final all = await scheduler.pendingForAccount(account);
           final selected = all
-              .where((item) => item.id == 'habit_reminder_daily')
+              .where((item) => _isHabitReminder(item.id))
               .toList();
           return selected.length == 1 &&
+              selected.single.id == reminderId &&
               selected.single.cadence == cadence &&
               selected.single.firstScheduledLocal == expected &&
               selected.single.body.contains(title);
@@ -482,9 +520,11 @@ void main() {
       );
       final selected = (await scheduler.pendingForAccount(
         account,
-      )).where((item) => item.id == 'habit_reminder_daily').single;
-      expect(selected.hour, 20);
-      expect(selected.minute, 0);
+      )).where((item) => _isHabitReminder(item.id)).single;
+      expect(selected.id, reminderId);
+      expect(selected.hour, _reminderHour);
+      expect(selected.minute, _reminderMinute);
+      expect(selected.body, 'Time for "$title". Tap to check in.');
       expect(selected.firstScheduledLocal, expected);
       return {
         'id': selected.id,
@@ -501,6 +541,7 @@ void main() {
           cadence: cadence,
           first: expected,
           title: title,
+          habitId: habitId,
         ),
       };
     }
@@ -549,7 +590,7 @@ void main() {
         expect(
           (await scheduler.pendingForAccount(
             account,
-          )).where((item) => item.id == 'habit_reminder_daily'),
+          )).where((item) => _isHabitReminder(item.id)),
           isEmpty,
         );
         await toggleHabitReminder(true);
@@ -617,7 +658,59 @@ void main() {
                 .map((habit) => habit.id),
             [id],
           );
-          return {'habit_id': id, ...await registration(cadence, title, false)};
+          // A rhythm without its own reminder time must stay quiet.
+          await $.pump(const Duration(seconds: 2));
+          expect(habit.reminderMinutes, isNull);
+          expect(
+            (await scheduler.pendingForAccount(
+              account,
+            )).where((item) => _isHabitReminder(item.id)),
+            isEmpty,
+            reason: 'A new rhythm without a reminder time must not register.',
+          );
+          await manageRhythms();
+          final setReminder = find.byKey(
+            ValueKey<String>('rhythm-reminder-$id'),
+          );
+          await reveal(setReminder);
+          expect(
+            find.descendant(
+              of: setReminder,
+              matching: find.text('Set reminder'),
+            ),
+            findsOneWidget,
+          );
+          await tap(setReminder);
+          // The picker opens on the 5:00 PM default; accept it as shown.
+          final ok = find.widgetWithText(TextButton, 'OK');
+          await waitRead(
+            () async => ok.hitTestable().evaluate().isNotEmpty,
+            'The ordinary time picker must open from Set reminder.',
+          );
+          await $(ok.hitTestable()).tap();
+          await waitRead(
+            () async =>
+                (await habitRepo.getHabits())
+                    .singleWhere((habit) => habit.id == id)
+                    .reminderMinutes ==
+                _reminderHour * 60 + _reminderMinute,
+            'The chosen reminder time must be saved on the owned rhythm.',
+          );
+          await reveal(
+            find.byKey(ValueKey<String>('rhythm-reminder-label-$id')),
+          );
+          final reminderLabel = $.tester
+              .widget<Text>(
+                find.byKey(ValueKey<String>('rhythm-reminder-label-$id')),
+              )
+              .data;
+          expect(reminderLabel, startsWith('Reminder: '));
+          return {
+            'habit_id': id,
+            'quiet_before_time_set': true,
+            'reminder_label': reminderLabel,
+            ...await registration(cadence, id, title, false),
+          };
         });
         await caseRun('${cadence.name}-terminal-period-defers-reminder', () async {
           await manageRhythms();
@@ -669,12 +762,12 @@ void main() {
                 $.tester.widget<ButtonStyleButton>(button).onPressed == null,
             'Same-period terminal action must become disabled after the recorded outcome.',
           );
-          final pending = await registration(cadence, title, true);
+          final pending = await registration(cadence, id, title, true);
           await pauseOwned(id, title);
           await waitRead(
             () async => (await scheduler.pendingForAccount(
               account,
-            )).where((item) => item.id == 'habit_reminder_daily').isEmpty,
+            )).where((item) => _isHabitReminder(item.id)).isEmpty,
             'Pausing the only active owned rhythm must cancel its alarm.',
           );
           return {
@@ -716,7 +809,7 @@ void main() {
         expect(
           (await scheduler.pendingForAccount(
             account,
-          )).where((item) => item.id == 'habit_reminder_daily'),
+          )).where((item) => _isHabitReminder(item.id)),
           isEmpty,
         );
         expect({
