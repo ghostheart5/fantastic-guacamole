@@ -560,8 +560,11 @@ class ReminderOrchestratorService {
     final bool close =
         total >= 2 && done >= 1 && (remaining <= 1 || done / total >= 0.75);
     // Deadline reminders already cover goals due today or tomorrow.
+    // Compared as calendar dates: a 23-hour daylight-saving day must not make
+    // a goal due in two days look like it is due tomorrow.
     final bool deadlineSoon =
-        dueDay != null && dueDay.difference(today).inDays <= 1;
+        dueDay != null &&
+        !dueDay.isAfter(DateTime(today.year, today.month, today.day + 1));
     final DateTime? earlier = previousNudges[goal.id];
     if (!progressKnown) {
       // Progress could not be read: keep any pending nudge as it was.

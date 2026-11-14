@@ -2,6 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
 
+String? _visibleWelcomeAction() {
+  for (final action in const [
+    'CONTINUE TO PROFILE',
+    'CONTINUE TO LOGIN',
+    'CONTINUE TO SETUP',
+  ]) {
+    if (find.text(action).hitTestable().evaluate().isNotEmpty) return action;
+  }
+  return null;
+}
+
 // Exercise visible setup and guidance controls; never mutate providers or
 // bypass protected routes. A requested destination can require setup again.
 Future<void> settleCurrentUserNavigation(
@@ -28,17 +39,10 @@ Future<void> settleCurrentUserNavigation(
         .isNotEmpty) {
       await $(const Key('local-profile-continue')).tap();
       readyFrames = 0;
-    } else if (find
-            .text('CONTINUE TO LOGIN')
-            .hitTestable()
-            .evaluate()
-            .isNotEmpty ||
-        find.text('CONTINUE TO SETUP').hitTestable().evaluate().isNotEmpty) {
-      final welcomeAction =
-          find.text('CONTINUE TO LOGIN').hitTestable().evaluate().isNotEmpty
-          ? 'CONTINUE TO LOGIN'
-          : 'CONTINUE TO SETUP';
-      await $(welcomeAction).tap();
+    } else if (_visibleWelcomeAction() != null) {
+      // Local mode shows "CONTINUE TO PROFILE"; cloud mode shows login; a
+      // signed-in person resuming setup shows "CONTINUE TO SETUP".
+      await $(_visibleWelcomeAction()).tap();
       readyFrames = 0;
     } else if (find
             .text('FIRST SETUP 3 OF 3')

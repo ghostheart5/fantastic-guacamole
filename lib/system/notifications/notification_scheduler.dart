@@ -294,7 +294,6 @@ class NotificationScheduler implements NotificationSchedulerPort {
   Future<bool> requestPermissions() => init(requestPermissions: true);
 
   @override
-  @override
   Future<List<String>> pendingIdsForAccount(String accountScope) async {
     final pending = await pendingForAccount(accountScope);
     return pending.map((item) => item.id).toList(growable: false);
