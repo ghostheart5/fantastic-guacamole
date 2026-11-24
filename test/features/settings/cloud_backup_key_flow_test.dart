@@ -27,6 +27,8 @@ void main() {
     CloudBackupDiscardOutcome discardOutcome =
         CloudBackupDiscardOutcome.discarded,
     CloudBackupPresence presence = CloudBackupPresence.noEncryptedBackup,
+    CloudBackupDiscardOutcome lostKeyOutcome =
+        CloudBackupDiscardOutcome.discarded,
     bool importThrows = false,
     _Calls? calls,
   }) {
@@ -59,6 +61,12 @@ void main() {
           record.restores.add(key);
           if (importThrows) throw StateError('secure storage failed');
           return importOutcome;
+        }),
+        cloudBackupLostKeyDiscardProvider.overrideWithValue(() async {
+          record.lostKeyDiscards += 1;
+          // No key is made before the discard is confirmed.
+          record.keysBeforeLostKeyDiscard.add(record.createdKeys);
+          return lostKeyOutcome;
         }),
         cloudBackupPresenceProvider.overrideWithValue(() async {
           record.presenceChecks += 1;
@@ -192,6 +200,84 @@ void main() {
         expect(calls.preferenceWrites, <bool>[true]);
       },
     );
+
+    Future<void> openLostKeyPath(WidgetTester tester) async {
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+      await tapText(tester, copy.createNewKey);
+      await tapText(tester, discardCopy.lostKeyAction);
+    }
+
+    Future<void> confirmTyped(WidgetTester tester) async {
+      await tester.enterText(
+        find.byKey(const Key('discard-cloud-backup-confirmation')),
+        discardCopy.confirmationWord,
+      );
+      await tester.pump();
+      await tapText(tester, discardCopy.deleteAction);
+    }
+
+    testWidgets(
+      'a lost key starts over: discard is confirmed, then a new key is saved ($lang)',
+      (tester) async {
+        final calls = _Calls();
+        final container = containerFor(
+          calls: calls,
+          presence: CloudBackupPresence.encryptedBackup,
+        );
+        await mount(
+          tester,
+          container,
+          const CloudBackupToggle(available: true),
+          spanish: spanish,
+        );
+
+        await openLostKeyPath(tester);
+        expect(find.text(discardCopy.lostKeyFirstTitle), findsOneWidget);
+        expect(find.text(discardCopy.lostKeyFirstBody), findsOneWidget);
+        await tapText(tester, discardCopy.continueAction);
+        await confirmTyped(tester);
+
+        expect(calls.lostKeyDiscards, 1);
+        expect(calls.keysBeforeLostKeyDiscard, <int>[0]);
+        expect(calls.createdKeys, 1);
+        expect(calls.preferenceWrites, isEmpty);
+        await tapText(tester, copy.showKey);
+        expect(find.text(deviceKey), findsOneWidget);
+        await tapText(tester, copy.savedIt);
+        expect(calls.preferenceWrites, <bool>[true]);
+        expect(await container.read(recoveryKeySavedProvider.future), isTrue);
+      },
+    );
+
+    for (final int cancelAt in <int>[1, 2]) {
+      testWidgets(
+        'cancelling the lost-key discard at step $cancelAt changes nothing ($lang)',
+        (tester) async {
+          final calls = _Calls();
+          final container = containerFor(
+            calls: calls,
+            presence: CloudBackupPresence.encryptedBackup,
+          );
+          await mount(
+            tester,
+            container,
+            const CloudBackupToggle(available: true),
+            spanish: spanish,
+          );
+
+          await openLostKeyPath(tester);
+          if (cancelAt == 2) {
+            await tapText(tester, discardCopy.continueAction);
+            expect(find.text(discardCopy.secondStepTitle), findsOneWidget);
+          }
+          await tapText(tester, cancel);
+          expect(calls.lostKeyDiscards, 0);
+          expect(calls.createdKeys, 0);
+          expect(calls.preferenceWrites, isEmpty);
+        },
+      );
+    }
 
     testWidgets(
       'a new key is refused when the account already has an encrypted backup ($lang)',
@@ -461,6 +547,52 @@ void main() {
     );
   }
 
+  for (final CloudBackupDiscardOutcome refusal in <CloudBackupDiscardOutcome>[
+    CloudBackupDiscardOutcome.refused,
+    CloudBackupDiscardOutcome.newerVersion,
+    CloudBackupDiscardOutcome.unavailable,
+    CloudBackupDiscardOutcome.cloudBackupUnreadable,
+    CloudBackupDiscardOutcome.changed,
+    CloudBackupDiscardOutcome.accountChanged,
+  ]) {
+    testWidgets(
+      'a lost-key discard that does not happen leaves no key and backup off ($refusal)',
+      (tester) async {
+        const copy = BackupRecoveryKeyCopy(isSpanish: false);
+        const discardCopy = CloudBackupDiscardCopy(isSpanish: false);
+        final calls = _Calls();
+        final container = containerFor(
+          calls: calls,
+          presence: CloudBackupPresence.encryptedBackup,
+          lostKeyOutcome: refusal,
+        );
+        await mount(
+          tester,
+          container,
+          const CloudBackupToggle(available: true),
+          spanish: false,
+        );
+        await tester.tap(find.byType(Switch));
+        await tester.pumpAndSettle();
+        await tapText(tester, copy.createNewKey);
+        await tapText(tester, discardCopy.lostKeyAction);
+        await tapText(tester, discardCopy.continueAction);
+        await tester.enterText(
+          find.byKey(const Key('discard-cloud-backup-confirmation')),
+          discardCopy.confirmationWord,
+        );
+        await tester.pump();
+        await tapText(tester, discardCopy.deleteAction);
+
+        expect(calls.lostKeyDiscards, 1);
+        expect(calls.createdKeys, 0);
+        expect(calls.preferenceWrites, isEmpty);
+        expect(find.text(discardCopy.outcome(refusal)), findsOneWidget);
+        expect(find.text(copy.showKey), findsNothing);
+      },
+    );
+  }
+
   testWidgets('a refused discard is explained and nothing else happens', (
     tester,
   ) async {
@@ -546,6 +678,43 @@ void main() {
     expect(kEn.backupExistsBody, contains('Use my saved key'));
     expect(kEs.backupExistsBody, contains('Usar mi clave guardada'));
     expect(kEn.cannotCheckForBackup, contains('online'));
+    // A row the cloud returned but nobody could parse is not "go online".
+    for (final String text in <String>[
+      en.status(CloudBackupKeyCheck.cloudBackupUnreadable),
+      kEn.importOutcome(RecoveryKeyImportOutcome.cloudBackupUnreadable),
+      kEn.cannotReadCloudBackup,
+      const CloudBackupDiscardCopy(
+        isSpanish: false,
+      ).outcome(CloudBackupDiscardOutcome.cloudBackupUnreadable),
+    ]) {
+      expect(text, contains('could not be read'));
+      expect(text, isNot(contains('online')));
+      expect(text, isNot(contains('connection')));
+    }
+    expect(
+      es.status(CloudBackupKeyCheck.cloudBackupUnreadable),
+      allOf(contains('No se pudo leer'), isNot(contains('conexión'))),
+    );
+    const lostEn = CloudBackupDiscardCopy(isSpanish: false);
+    const lostEs = CloudBackupDiscardCopy(isSpanish: true);
+    expect(
+      lostEn.lostKeyFirstBody,
+      allOf(
+        contains('permanently deletes the existing cloud backup'),
+        contains('Nothing on this phone is deleted'),
+        contains('reveal the recovery key'),
+      ),
+    );
+    expect(
+      lostEs.lostKeyFirstBody,
+      allOf(
+        contains('borra para siempre la copia en la nube'),
+        contains('No se borra nada de este teléfono'),
+        contains('muestra la clave de recuperación'),
+      ),
+    );
+    expect(lostEn.lostKeyAction, 'I lost my saved key');
+    expect(lostEs.lostKeyAction, 'Perdí mi clave guardada');
     expect(kEs.cannotCheckForBackup, contains('conexión'));
     expect(en.status(CloudBackupKeyCheck.unreadable), contains('damaged'));
     expect(es.status(CloudBackupKeyCheck.unreadable), contains('dañada'));
@@ -583,6 +752,8 @@ class _Calls {
   final List<String> restores = <String>[];
   final List<bool> preferenceAtRestore = <bool>[];
   int presenceChecks = 0;
+  int lostKeyDiscards = 0;
+  final List<int> keysBeforeLostKeyDiscard = <int>[];
   int createdKeys = 0;
   int discards = 0;
 }

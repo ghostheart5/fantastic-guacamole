@@ -414,6 +414,44 @@ final recoveryKeyRestoreBeforeEnablingProvider =
       },
     );
 
+/// For a user who says the saved key is lost: discards the account's
+/// encrypted cloud backup so backup can start over, even before Cloud Backup
+/// is on and with no key on this device (see
+/// [SyncService.discardCloudBackupForLostKey]). Never creates a key and never
+/// changes the Cloud Backup setting.
+final cloudBackupLostKeyDiscardProvider =
+    Provider<Future<CloudBackupDiscardOutcome> Function()>(
+      (ref) => () async {
+        final owner = AccountOperation.capture(ref);
+        if (!owner.isCurrent) return CloudBackupDiscardOutcome.accountChanged;
+        if (!ref.read(cloudSyncCapabilityProvider)) {
+          return CloudBackupDiscardOutcome.unavailable;
+        }
+        final SyncService? service;
+        try {
+          service = await _readyKeyCheckService(ref);
+        } on StaleAccountOperation {
+          return CloudBackupDiscardOutcome.accountChanged;
+        }
+        if (!owner.isCurrent) return CloudBackupDiscardOutcome.accountChanged;
+        if (service == null) return CloudBackupDiscardOutcome.unavailable;
+        final CloudBackupDiscardOutcome outcome = await service
+            .discardCloudBackupForLostKey();
+        if (!owner.isCurrent) return CloudBackupDiscardOutcome.accountChanged;
+        if (outcome == CloudBackupDiscardOutcome.discarded) {
+          // The discard went through the key-check service, which keeps no
+          // record; clear this account's record of the deleted backup too.
+          await ref.read(cloudBackupStatusStoreProvider)?.clear();
+          ref.invalidate(lastCloudBackupProvider);
+          ref
+              .read(cloudBackupAttentionProvider.notifier)
+              .set(CloudBackupAttention.none);
+        }
+        ref.invalidate(cloudBackupKeyStatusProvider);
+        return outcome;
+      },
+    );
+
 /// Read-only: whether the account already has an encrypted cloud backup.
 /// Asked before a new key is created, because a new key could never open it.
 final cloudBackupPresenceProvider =

@@ -734,42 +734,59 @@ Future<_RecoveryKeyStepResult> _runRecoveryKeyStep(
       if (!context.mounted || !sameAccount()) {
         return _RecoveryKeyStepResult.cancelled;
       }
-      if (presence == CloudBackupPresence.unknown) {
+      if (presence == CloudBackupPresence.unknown ||
+          presence == CloudBackupPresence.cloudBackupUnreadable) {
         messenger.showSnackBar(
-          SnackBar(content: Text(copy.cannotCheckForBackup)),
+          SnackBar(
+            content: Text(
+              presence == CloudBackupPresence.unknown
+                  ? copy.cannotCheckForBackup
+                  : copy.cannotReadCloudBackup,
+            ),
+          ),
         );
         return _RecoveryKeyStepResult.cancelled;
       }
       if (presence == CloudBackupPresence.encryptedBackup) {
-        final bool useSaved =
-            await showDialog<bool>(
-              context: context,
-              builder: (BuildContext dialogContext) => AlertDialog(
-                scrollable: true,
-                title: Text(copy.backupExistsTitle),
-                content: Text(copy.backupExistsBody),
-                actions: <Widget>[
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(false),
-                    child: Text(journeyText(context, 'Cancel', 'Cancelar')),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(true),
-                    child: Text(copy.useSavedKey),
-                  ),
-                ],
+        final String? next = await showDialog<String>(
+          context: context,
+          builder: (BuildContext dialogContext) => AlertDialog(
+            scrollable: true,
+            title: Text(copy.backupExistsTitle),
+            content: Text(copy.backupExistsBody),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(journeyText(context, 'Cancel', 'Cancelar')),
               ),
-            ) ??
-            false;
-        if (!useSaved || !context.mounted || !sameAccount()) {
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop('lost'),
+                child: Text(CloudBackupDiscardCopy.of(context).lostKeyAction),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop('restore'),
+                child: Text(copy.useSavedKey),
+              ),
+            ],
+          ),
+        );
+        if (next == null || !context.mounted || !sameAccount()) {
           return _RecoveryKeyStepResult.cancelled;
         }
-        return _restoreSavedKeyStep(
-          context,
-          ref,
-          turningOn: turningOn,
-          sameAccount: sameAccount,
-        );
+        if (next == 'restore') {
+          return _restoreSavedKeyStep(
+            context,
+            ref,
+            turningOn: turningOn,
+            sameAccount: sameAccount,
+          );
+        }
+        // Lost key: a new key is made only after the old backup is gone.
+        if (!await _discardForLostKey(context, ref, sameAccount) ||
+            !context.mounted ||
+            !sameAccount()) {
+          return _RecoveryKeyStepResult.cancelled;
+        }
       }
     } else {
       return _restoreSavedKeyStep(
@@ -779,7 +796,11 @@ Future<_RecoveryKeyStepResult> _runRecoveryKeyStep(
         sameAccount: sameAccount,
       );
     }
-    key = await actions.createBackupRecoveryKey();
+    try {
+      key = await actions.createBackupRecoveryKey();
+    } on Object {
+      return _RecoveryKeyStepResult.cancelled;
+    }
     if (!context.mounted || !sameAccount()) {
       return _RecoveryKeyStepResult.cancelled;
     }
@@ -977,18 +998,21 @@ class CloudBackupKeyStatus extends ConsumerWidget {
   }
 }
 
-/// Two deliberate steps: an explanation that names the safer choice, then a
-/// typed confirmation word. Only then is the discard requested.
-Future<void> _discardCloudBackup(BuildContext context, WidgetRef ref) async {
-  final bool Function() sameAccount = _accountLease(ref);
+/// Two deliberate steps: an explanation ([title], [body]) that names the
+/// safer choice, then a typed confirmation word. True only when both pass.
+Future<bool> _confirmDiscardTwice(
+  BuildContext context, {
+  required String title,
+  required String body,
+}) async {
   final CloudBackupDiscardCopy copy = CloudBackupDiscardCopy.of(context);
   final bool understood =
       await showDialog<bool>(
         context: context,
         builder: (BuildContext dialogContext) => AlertDialog(
           scrollable: true,
-          title: Text(copy.firstStepTitle),
-          content: Text(copy.firstStepBody),
+          title: Text(title),
+          content: Text(body),
           actions: <Widget>[
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -1002,9 +1026,8 @@ Future<void> _discardCloudBackup(BuildContext context, WidgetRef ref) async {
         ),
       ) ??
       false;
-  if (!understood || !context.mounted || !sameAccount()) return;
-  final bool confirmed =
-      await showDialog<bool>(
+  if (!understood || !context.mounted) return false;
+  return await showDialog<bool>(
         context: context,
         builder: (BuildContext dialogContext) => TextControllerScope(
           builder: (dialogContext, controllers) {
@@ -1055,12 +1078,49 @@ Future<void> _discardCloudBackup(BuildContext context, WidgetRef ref) async {
         ),
       ) ??
       false;
+}
+
+/// Discards a cloud backup this device cannot read, after two confirmations.
+Future<void> _discardCloudBackup(BuildContext context, WidgetRef ref) async {
+  final bool Function() sameAccount = _accountLease(ref);
+  final CloudBackupDiscardCopy copy = CloudBackupDiscardCopy.of(context);
+  final bool confirmed = await _confirmDiscardTwice(
+    context,
+    title: copy.firstStepTitle,
+    body: copy.firstStepBody,
+  );
   if (!confirmed || !context.mounted || !sameAccount()) return;
   final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
   final CloudBackupDiscardOutcome outcome = await ref.read(
     cloudBackupDiscardProvider,
   )();
   messenger.showSnackBar(SnackBar(content: Text(copy.outcome(outcome))));
+}
+
+/// For a user whose saved key is lost: after two confirmations, deletes the
+/// existing encrypted cloud backup so a new key can be made. True only when
+/// the discard was confirmed by the server and a re-read.
+Future<bool> _discardForLostKey(
+  BuildContext context,
+  WidgetRef ref,
+  bool Function() sameAccount,
+) async {
+  final CloudBackupDiscardCopy copy = CloudBackupDiscardCopy.of(context);
+  final bool confirmed = await _confirmDiscardTwice(
+    context,
+    title: copy.lostKeyFirstTitle,
+    body: copy.lostKeyFirstBody,
+  );
+  if (!confirmed || !context.mounted || !sameAccount()) return false;
+  final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+  CloudBackupDiscardOutcome outcome;
+  try {
+    outcome = await ref.read(cloudBackupLostKeyDiscardProvider)();
+  } on Object {
+    outcome = CloudBackupDiscardOutcome.unavailable;
+  }
+  messenger.showSnackBar(SnackBar(content: Text(copy.outcome(outcome))));
+  return outcome == CloudBackupDiscardOutcome.discarded && sameAccount();
 }
 
 /// Bilingual copy for the "Last backup" line next to the Cloud Backup toggle.
@@ -1201,6 +1261,11 @@ final class BackupRecoveryKeyCopy {
     'No se pudo comprobar si esta cuenta ya tiene una copia en la nube, así que no se creó ninguna clave nueva. Inténtalo de nuevo cuando tengas conexión.',
   );
 
+  String get cannotReadCloudBackup => _text(
+    'Your cloud backup could not be read, so no new key was created.',
+    'No se pudo leer tu copia en la nube, así que no se creó ninguna clave nueva.',
+  );
+
   String get checkKeyAction =>
       _text('Check and use key', 'Comprobar y usar clave');
 
@@ -1228,6 +1293,10 @@ final class BackupRecoveryKeyCopy {
     RecoveryKeyImportOutcome.newerVersion => _text(
       'Your cloud backup was made by a newer version of Axiomara. Update the app on this device, then try again. Your current key was not changed.',
       'Tu copia en la nube la hizo una versión más nueva de Axiomara. Actualiza la aplicación en este dispositivo y vuelve a intentarlo. Tu clave actual no se cambió.',
+    ),
+    RecoveryKeyImportOutcome.cloudBackupUnreadable => _text(
+      'Your cloud backup could not be read, so this key could not be checked. Your current key was not changed.',
+      'No se pudo leer tu copia en la nube, así que no se pudo comprobar esta clave. Tu clave actual no se cambió.',
     ),
     RecoveryKeyImportOutcome.cloudUnavailable => _text(
       'Could not reach your cloud backup to check this key. Get online and try again. Your current key was not changed.',
@@ -1305,6 +1374,10 @@ final class CloudBackupKeyStatusCopy {
         'Your cloud backup could not be read. You can discard it and start over.',
         'No se pudo leer tu copia en la nube. Puedes descartarla y empezar de nuevo.',
       ),
+      CloudBackupKeyCheck.cloudBackupUnreadable => _text(
+        'Your cloud backup could not be read, so this device cannot check it.',
+        'No se pudo leer tu copia en la nube, así que este dispositivo no puede comprobarla.',
+      ),
       CloudBackupKeyCheck.unavailable => _text(
         'Could not check your cloud backup right now. Check your connection.',
         'Ahora no se pudo comprobar tu copia en la nube. Revisa tu conexión.',
@@ -1352,6 +1425,17 @@ final class CloudBackupDiscardCopy {
   String get firstStepBody => _text(
     'This device cannot open your cloud backup. If you saved the recovery key, or still have the device that made this backup, cancel and restore the key instead. Discarding permanently deletes the cloud backup for this account and cannot be undone. Data on this device is not changed, and the next backup starts again with this device\'s key.',
     'Este dispositivo no puede abrir tu copia en la nube. Si guardaste la clave de recuperación, o aún tienes el dispositivo que hizo esta copia, cancela y restaura la clave. Descartar borra para siempre la copia en la nube de esta cuenta y no se puede deshacer. Los datos de este dispositivo no cambian, y la próxima copia empieza de nuevo con la clave de este dispositivo.',
+  );
+
+  String get lostKeyAction =>
+      _text('I lost my saved key', 'Perdí mi clave guardada');
+
+  String get lostKeyFirstTitle =>
+      _text('Start over without the key?', '¿Empezar de nuevo sin la clave?');
+
+  String get lostKeyFirstBody => _text(
+    'Without its saved key, nobody can open this cloud backup. Continuing permanently deletes the existing cloud backup for this account, and it cannot be undone. Nothing on this phone is deleted. If another phone or tablet signed in to this account still works, open Settings there, reveal the recovery key and save it, then cancel here and use it instead. After the backup is deleted, a new key is made here for you to save.',
+    'Sin su clave guardada, nadie puede abrir esta copia en la nube. Si continúas, se borra para siempre la copia en la nube de esta cuenta y no se puede deshacer. No se borra nada de este teléfono. Si otro teléfono o tableta con esta cuenta aún funciona, abre allí Ajustes, muestra la clave de recuperación y guárdala; luego cancela aquí y úsala. Después de borrar la copia, se crea aquí una clave nueva para que la guardes.',
   );
 
   String get continueAction => _text('Continue', 'Continuar');
@@ -1402,6 +1486,10 @@ final class CloudBackupDiscardCopy {
     CloudBackupDiscardOutcome.refused => _text(
       'The server did not allow deleting the cloud backup, so nothing was deleted. This needs a server update, and is not possible while an account deletion is in progress.',
       'El servidor no permitió borrar la copia en la nube, así que no se borró nada. Esto necesita una actualización del servidor y no es posible mientras se elimina la cuenta.',
+    ),
+    CloudBackupDiscardOutcome.cloudBackupUnreadable => _text(
+      'Your cloud backup could not be read, so nothing was deleted.',
+      'No se pudo leer tu copia en la nube, así que no se borró nada.',
     ),
     CloudBackupDiscardOutcome.unavailable => _text(
       'Could not reach your cloud backup, so nothing was deleted. Check your connection and try again.',

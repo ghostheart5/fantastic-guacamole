@@ -89,14 +89,22 @@ class BackupCipher {
         payload['ciphertext'] is String;
   }
 
-  /// Whether [payload] is a backup envelope in a format this build does not
-  /// know, as a newer app version could write. It cannot be judged here.
+  /// Whether [payload] is a well-formed backup envelope (named format, iv
+  /// and ciphertext) in a format this build does not know, as a newer app
+  /// version could write. It cannot be judged here. A row that merely names
+  /// a format is not such an envelope.
   bool hasUnknownFormat(Map<String, dynamic> payload) {
     final Object? format = payload['format'];
+    final Object? iv = payload['iv'];
+    final Object? ciphertext = payload['ciphertext'];
     return format is String &&
         format.trim().isNotEmpty &&
         format != _format &&
-        format != _legacyFormat;
+        format != _legacyFormat &&
+        iv is String &&
+        iv.isNotEmpty &&
+        ciphertext is String &&
+        ciphertext.isNotEmpty;
   }
 
   /// Decrypts [payload] with [recoveryKey] without reading or changing the

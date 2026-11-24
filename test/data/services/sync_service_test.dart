@@ -1489,12 +1489,23 @@ void main() {
     );
 
     test(
-      'a row the gateway cannot parse is reported as not checkable',
+      'a row the gateway cannot parse is reported as unreadable, not offline',
       () async {
         gateway.fullReadOverride = const CloudBackupReadResult.malformed();
         expect(
           await serviceWith(originalKeys).checkCloudBackupKey(),
-          CloudBackupKeyCheck.unavailable,
+          CloudBackupKeyCheck.cloudBackupUnreadable,
+        );
+        expect(
+          await serviceWith(originalKeys).importRecoveryKey(otherKey),
+          RecoveryKeyImportOutcome.cloudBackupUnreadable,
+        );
+        // A junk row that only names a format is not a newer app's backup.
+        gateway.fullReadOverride = null;
+        gateway.fullBackup = <String, dynamic>{'format': 'something-else'};
+        expect(
+          await serviceWith(originalKeys).checkCloudBackupKey(),
+          CloudBackupKeyCheck.malformed,
         );
       },
     );
@@ -1525,7 +1536,10 @@ void main() {
       gateway.fullReadOverride = const CloudBackupReadResult.unavailable();
       expect(await service.findCloudBackup(), CloudBackupPresence.unknown);
       gateway.fullReadOverride = const CloudBackupReadResult.malformed();
-      expect(await service.findCloudBackup(), CloudBackupPresence.unknown);
+      expect(
+        await service.findCloudBackup(),
+        CloudBackupPresence.cloudBackupUnreadable,
+      );
       expect(await storedKey(noKeys), isNull);
       expect(gateway.uploadBackupCalls, 0);
     });
@@ -1674,6 +1688,131 @@ void main() {
       );
       expect(gateway.deleteCalls, 0);
       expect(gateway.fullBackup, isNotNull);
+    });
+  });
+
+  group('starting over when the saved key is lost', () {
+    late SecureStore originalKeys;
+    late SecureStore noKeys;
+    late CloudBackupStatusStore status;
+
+    SyncService serviceWith(SecureStore keys) => SyncService(
+      backup: backupService,
+      gateway: gateway,
+      secureStore: keys,
+      statusStore: status,
+      syncEnabled: true,
+      restoreEnabled: true,
+    );
+
+    setUp(() async {
+      originalKeys = SecureStore(backend: InMemorySecureStoreBackend());
+      gateway.fullBackup = await BackupCipher(
+        originalKeys,
+      ).encryptPayload(_fullCloudBackup(tasks: const <Map<String, dynamic>>[]));
+      gateway.revision = 5;
+      noKeys = SecureStore(backend: InMemorySecureStoreBackend());
+      status = CloudBackupStatusStore(prefs);
+      await status.write(const CloudBackupStatus(revision: 4));
+    });
+
+    test(
+      'a device with no key can discard a recognised encrypted backup',
+      () async {
+        // The ordinary discard still refuses without a key.
+        expect(
+          await serviceWith(noKeys).discardUnreadableCloudBackup(),
+          CloudBackupDiscardOutcome.noKeyOnDevice,
+        );
+        expect(gateway.deleteCalls, 0);
+
+        expect(
+          await serviceWith(noKeys).discardCloudBackupForLostKey(),
+          CloudBackupDiscardOutcome.discarded,
+        );
+        expect(gateway.deletedRevisions, <int>[5]);
+        expect(gateway.fullBackup, isNull);
+        expect(status.read(), isNull);
+        // The service never makes a key itself.
+        expect(await BackupCipher(noKeys).loadExistingRecoveryKey(), isNull);
+      },
+    );
+
+    test('a key that opens the backup means it is not lost', () async {
+      expect(
+        await serviceWith(originalKeys).discardCloudBackupForLostKey(),
+        CloudBackupDiscardOutcome.readable,
+      );
+      expect(gateway.deleteCalls, 0);
+    });
+
+    test('refuses anything but a recognised encrypted backup', () async {
+      final Map<String, dynamic> encrypted = gateway.fullBackup!;
+      final Map<CloudBackupReadResult?, CloudBackupDiscardOutcome> reads = {
+        const CloudBackupReadResult.unavailable():
+            CloudBackupDiscardOutcome.unavailable,
+        const CloudBackupReadResult.malformed():
+            CloudBackupDiscardOutcome.cloudBackupUnreadable,
+        const CloudBackupReadResult.ownerMismatch():
+            CloudBackupDiscardOutcome.ownerMismatch,
+        const CloudBackupReadResult.notFound():
+            CloudBackupDiscardOutcome.nothingToDiscard,
+      };
+      for (final MapEntry<CloudBackupReadResult?, CloudBackupDiscardOutcome>
+          read
+          in reads.entries) {
+        gateway.fullReadOverride = read.key;
+        expect(
+          await serviceWith(noKeys).discardCloudBackupForLostKey(),
+          read.value,
+        );
+      }
+      gateway.fullReadOverride = null;
+
+      // A newer app's encryption format.
+      gateway.fullBackup = <String, dynamic>{
+        'format': 'chronospark_backup_aes256_gcm_v3',
+        'iv': 'AAAA',
+        'ciphertext': 'AAAA',
+      };
+      expect(
+        await serviceWith(noKeys).discardCloudBackupForLostKey(),
+        CloudBackupDiscardOutcome.newerVersion,
+      );
+      // Content that is not an encrypted backup at all.
+      gateway.fullBackup = <String, dynamic>{'unexpected': true};
+      expect(
+        await serviceWith(noKeys).discardCloudBackupForLostKey(),
+        CloudBackupDiscardOutcome.changed,
+      );
+      // An older plaintext backup needs no key.
+      gateway.fullBackup = <String, dynamic>{
+        'version': '3.0.0',
+        'tasks': <dynamic>[],
+      };
+      expect(
+        await serviceWith(noKeys).discardCloudBackupForLostKey(),
+        CloudBackupDiscardOutcome.readable,
+      );
+      expect(gateway.deleteCalls, 0);
+
+      gateway.fullBackup = encrypted;
+      gateway.refuseDelete = true;
+      expect(
+        await serviceWith(noKeys).discardCloudBackupForLostKey(),
+        CloudBackupDiscardOutcome.refused,
+      );
+      expect(gateway.fullBackup, isNotNull);
+      expect(status.read()!.revision, 4);
+
+      gateway.refuseDelete = false;
+      gateway.beforeDelete = () async => gateway.revision = 6;
+      expect(
+        await serviceWith(noKeys).discardCloudBackupForLostKey(),
+        CloudBackupDiscardOutcome.changed,
+      );
+      expect(gateway.fullBackup, isNotNull);
+      expect(await BackupCipher(noKeys).loadExistingRecoveryKey(), isNull);
     });
   });
 }

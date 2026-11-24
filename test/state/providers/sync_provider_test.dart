@@ -389,6 +389,28 @@ void main() {
   );
 
   test(
+    'a lost-key discard works before Cloud Backup is on and never turns it on',
+    () async {
+      final _DiscardingSyncService service = _DiscardingSyncService(
+        BackupService(
+          taskRepository: repository,
+          profileStorage: profileStorage,
+          prefs: prefs,
+        ),
+        gateway,
+      );
+      final keys = keyContainer(service, cloudBackupOn: false);
+      expect(
+        await keys.read(cloudBackupLostKeyDiscardProvider)(),
+        CloudBackupDiscardOutcome.discarded,
+      );
+      expect(service.lostKeyDiscards, 1);
+      expect(service.discards, 0);
+      expect(await keys.read(cloudSyncPreferenceProvider.future), isFalse);
+    },
+  );
+
+  test(
     'discarding refreshes the key status and clears backup attention',
     () async {
       final _DiscardingSyncService service = _DiscardingSyncService(
@@ -520,6 +542,14 @@ class _DiscardingSyncService extends SyncService {
   Future<CloudBackupKeyCheck> checkCloudBackupKey({
     String? recoveryKey,
   }) async => check;
+
+  int lostKeyDiscards = 0;
+
+  @override
+  Future<CloudBackupDiscardOutcome> discardCloudBackupForLostKey() async {
+    lostKeyDiscards += 1;
+    return CloudBackupDiscardOutcome.discarded;
+  }
 
   @override
   Future<CloudBackupDiscardOutcome> discardUnreadableCloudBackup() async {
