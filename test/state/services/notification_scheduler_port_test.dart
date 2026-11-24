@@ -160,6 +160,8 @@ void main() {
       await prefs.save('daily_planning_reminder_time', '7:30');
       await prefs.save('habit_reminders_enabled', 'true');
       await prefs.save('goal_reminders_enabled', 'true');
+      // Past the one-time move off the old shared 8 PM rhythm reminder.
+      await prefs.save('legacy_habit_reminder_migrated', 'true');
       await prefs.save(
         'scheduled_goal_reminder_ids',
         '["legacy-tracked", "completed-0"]',

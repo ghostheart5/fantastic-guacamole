@@ -221,7 +221,10 @@ HabitEntity _habit(String id, {int? minutes}) => HabitEntity(
 );
 
 class _Fixture {
-  _Fixture(this.now);
+  _Fixture(this.now) {
+    // An account past the one-time move off the old shared 8 PM reminder.
+    preferences.values['legacy_habit_reminder_migrated'] = 'true';
+  }
   final DateTime now;
   final preferences = _Preferences();
   final scheduler = _Scheduler();

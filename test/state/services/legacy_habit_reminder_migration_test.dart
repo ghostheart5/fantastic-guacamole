@@ -79,6 +79,67 @@ void main() {
     expect(fixture.scheduler.cancelled, ['habit_reminder_daily']);
   });
 
+  test(
+    'a sync or reconcile before the migration leaves the old reminder',
+    () async {
+      final fixture = _Fixture(legacyPending: true);
+      final habits = [fixture.habit('a')];
+      await fixture.service.syncHabitReminders(habits);
+      await fixture.service.reconcileAfterRestore(
+        goals: [],
+        habits: habits,
+        permissionGranted: true,
+        shouldContinue: () => true,
+      );
+      expect(
+        fixture.scheduler.cancelled,
+        isNot(contains('habit_reminder_daily')),
+      );
+      final result = await fixture.migrate(habits);
+      expect(result.single.reminderMinutes, 20 * 60);
+      expect(fixture.saved, hasLength(1));
+      expect(fixture.scheduler.cancelled.last, 'habit_reminder_daily');
+      // Once migrated, the old id is cancelled like any stale reminder.
+      fixture.scheduler.cancelled.clear();
+      await fixture.service.syncHabitReminders(result);
+      expect(fixture.scheduler.cancelled, contains('habit_reminder_daily'));
+    },
+  );
+
+  test('a tracked old id survives a sync before the migration', () async {
+    final fixture = _Fixture(legacyPending: false);
+    await fixture.preferences.save(
+      'scheduled_habit_reminder_ids',
+      '["habit_reminder_daily"]',
+    );
+    await fixture.service.syncHabitReminders([
+      fixture.habit('a'),
+      fixture.habit('b', reminderMinutes: 9 * 60),
+    ]);
+    expect(
+      fixture.preferences.load('scheduled_habit_reminder_ids'),
+      '["habit_reminder_b","habit_reminder_daily"]',
+    );
+    final result = await fixture.migrate([fixture.habit('a')]);
+    expect(result.single.reminderMinutes, 20 * 60);
+  });
+
+  test(
+    'turning reminders off cancels the old one but keeps its sign',
+    () async {
+      final fixture = _Fixture(legacyPending: true);
+      await fixture.service.setHabitRemindersEnabled(false);
+      expect(fixture.notifications.cancelled, ['habit_reminder_daily']);
+      fixture.scheduler.pending = [];
+      // Off, the migration waits; nothing is re-created.
+      final off = await fixture.migrate([fixture.habit('a')]);
+      expect(off.single.reminderMinutes, isNull);
+      await fixture.service.setHabitRemindersEnabled(true);
+      final on = await fixture.migrate([fixture.habit('a')]);
+      expect(on.single.reminderMinutes, 20 * 60);
+    },
+  );
+
   test('stops without saving when the account changes', () async {
     final fixture = _Fixture(legacyPending: true);
     final result = await fixture.service.migrateLegacyHabitReminder(
@@ -98,14 +159,16 @@ class _Fixture {
   }
   final preferences = _Preferences();
   final scheduler = _Scheduler();
+  final notifications = _Repository();
   final saved = <List<HabitEntity>>[];
   bool saveFails = false;
   late final service = ReminderOrchestratorService(
     preferences: preferences,
-    notifications: NotificationsService(_Repository()),
+    notifications: NotificationsService(notifications),
     scheduler: scheduler,
     accountScope: 'qa',
     now: () => DateTime(2026, 11, 23, 10),
+    loadHabitOccurrences: () async => [],
   );
 
   Future<void> save(List<HabitEntity> habits) async {
@@ -195,8 +258,12 @@ class _Scheduler implements NotificationSchedulerPort {
 }
 
 class _Repository implements INotificationRepository {
+  final cancelled = <String>[];
   @override
-  Future<void> cancelNotification(String id) async {}
+  Future<void> cancelNotification(String id) async {
+    cancelled.add(id);
+  }
+
   @override
   Future<List<NotificationEntity>> getNotifications() async => [];
   @override
