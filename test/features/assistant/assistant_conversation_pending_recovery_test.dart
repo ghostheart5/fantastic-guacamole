@@ -53,8 +53,11 @@ ProviderContainer _setup(
   Duration? paidWaitTimeout,
   AccountStorageScope Function()? readScope,
   Completer<void>? releaseGate,
+  bool fakeClockPurgeTimer = false,
 }) => ProviderContainer(
   overrides: [
+    if (fakeClockPurgeTimer)
+      conversationPurgeTimerProvider.overrideWithValue(Timer.new),
     secureStoreProvider.overrideWithValue(SecureStore(backend: backend)),
     accountStorageScopeProvider.overrideWith(
       (ref) => readScope?.call() ?? _scope,
@@ -655,6 +658,59 @@ void main() {
           jsonDecode((await _storedChat(backend))!) as Map<String, dynamic>;
       expect(stored, damagedChat);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'with the screen closed and the app running, a request is purged at its collect-by time but never while it still runs',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      final reply = Completer<_Response>();
+      final container = _setup(
+        (body) async {
+          if (body['quoteOnly'] == true) {
+            return _quote(body, valid: const Duration(seconds: 1));
+          }
+          return reply.future;
+        },
+        backend,
+        fakeClockPurgeTimer: true,
+      );
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await _confirmPaidRequest(tester, 'Compare my two options.');
+      await _leave(tester, container);
+      expect(await _storedChat(backend), contains('Compare my two options.'));
+
+      // The collect-by time passes on the real clock and the timer fires.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 1500)),
+      );
+      await tester.pump(const Duration(seconds: 3));
+      await _settle(tester);
+      expect(
+        await _storedChat(backend),
+        contains('Compare my two options.'),
+        reason: 'A request still running is never purged.',
+      );
+
+      // The run ends without a usable reply: nothing can be collected now.
+      reply.complete((
+        status: 503,
+        data: <String, dynamic>{'error': 'service_unavailable'},
+      ));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      await _settle(tester);
+      final purged = await _storedChat(backend);
+      expect(purged, isNot(contains('Compare my two options.')));
+      expect(purged, isNot(contains('"quote"')));
+      expect(purged, contains('"expired":true'));
+      expect(tester.takeException(), isNull);
+      // The fake-clock timer belongs to the container; end it in the body.
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
     },
   );
 

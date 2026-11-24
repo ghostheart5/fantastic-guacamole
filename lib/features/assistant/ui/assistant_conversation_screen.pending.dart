@@ -53,6 +53,17 @@ extension _PendingRequest on _AssistantConversationScreenState {
         ref.read(accountStorageScopeProvider).v2Namespace == scope &&
         ref.read(authSessionBoundaryProvider).generation == authGeneration;
     final registry = ref.read(conversationExecutionRegistryProvider);
+    // Any stored request still collectable, on either surface, has its
+    // content removed at its collect-by time even if no screen is open then.
+    final store = ref.read(assistantConversationHistoryRepositoryProvider);
+    final now = DateTime.now();
+    if (store != null) {
+      for (final stored in saved.pendingRequests.values) {
+        if (!stored.isExpired(now)) {
+          registry.schedulePurge(stored.collectBefore, store);
+        }
+      }
+    }
     final pending = saved.pendingRequests[surface];
     if (pending == null) {
       final expiredId = saved.expiredPendingRequests[surface];
@@ -76,10 +87,10 @@ extension _PendingRequest on _AssistantConversationScreenState {
       _showFailure(_pendingUnreadableText);
       return;
     }
-    if (_busy || _pending != null) return;
     // A run still going since the app started is joined even after the
-    // quote's lifetime; it needs no new server call.
-    if (pending.isExpired(DateTime.now()) && !registry.isRunning(id)) {
+    // quote's lifetime; it needs no new server call. Checked before the busy
+    // return so the question is put back even while another request runs.
+    if (pending.isExpired(now) && !registry.isRunning(id)) {
       registry.finish(id, shown: true);
       _forgetPending(id);
       _updateHistory(() {
@@ -88,6 +99,7 @@ extension _PendingRequest on _AssistantConversationScreenState {
       _showFailure(_pendingExpiredText(questionRestored: true));
       return;
     }
+    if (_busy || _pending != null) return;
     // After an app restart the release decisions may still be loading; a new
     // request waits for them too (ConversationPacketFactory.build).
     try {

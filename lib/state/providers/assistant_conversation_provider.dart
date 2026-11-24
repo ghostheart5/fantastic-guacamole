@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/data/repositories/assistant_conversation_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
@@ -148,17 +149,86 @@ final conversationServiceProvider = Provider<ConversationService>((ref) {
 /// joins the running request instead of sending it again. A new account or
 /// session starts an empty registry; its stored request is then re-sent with
 /// the same id, which the server answers from its reply cache.
+typedef ConversationPurgeTimer =
+    Timer Function(Duration delay, void Function() callback);
+
+/// Creates the purge timer outside any fake-time zone (a widget test's fake
+/// clock would otherwise report it as a leak when a test ends with a request
+/// in flight). The callback runs back in the zone that armed it. Disposing
+/// the registry cancels it.
+final conversationPurgeTimerProvider = Provider<ConversationPurgeTimer>(
+  (ref) => (delay, callback) {
+    final zone = Zone.current;
+    return Zone.root.createTimer(delay, () => zone.run(callback));
+  },
+);
+
 final conversationExecutionRegistryProvider =
     Provider<ConversationExecutionRegistry>((ref) {
       ref.watch(accountStorageScopeProvider.select((s) => s.v2Namespace));
       ref.watch(authSessionBoundaryProvider.select((b) => b.generation));
-      return ConversationExecutionRegistry();
+      final registry = ConversationExecutionRegistry(
+        createTimer: ref.read(conversationPurgeTimerProvider),
+      );
+      // An account or generation change drops this registry and its timer.
+      ref.onDispose(registry.dispose);
+      return registry;
     });
 
 final class ConversationExecutionRegistry {
+  ConversationExecutionRegistry({ConversationPurgeTimer? createTimer})
+    : _createTimer = createTimer ?? Timer.new;
+
+  final ConversationPurgeTimer _createTimer;
   final _running =
       <String, ({Future<ConversationAnswer> future, bool failed})>{};
   final _shown = <String>{};
+  Timer? _purgeTimer;
+  DateTime? _purgeAt;
+  AssistantConversationRepository? _purgeStore;
+  bool _disposed = false;
+
+  /// Removes a stored request's content once it can no longer be collected,
+  /// while the app keeps running and no screen is open. One timer, armed for
+  /// the earliest collect-by time; an earlier deadline replaces a later one.
+  /// A request still running or holding an unshown reply here is never
+  /// purged ([isRunning]); the repository re-checks the account.
+  void schedulePurge(DateTime at, AssistantConversationRepository store) {
+    if (_disposed) return;
+    _purgeStore = store;
+    final armed = _purgeAt;
+    if (_purgeTimer?.isActive == true && armed != null && !at.isBefore(armed)) {
+      return;
+    }
+    _purgeTimer?.cancel();
+    _purgeAt = at;
+    final delay = at.difference(DateTime.now().toUtc());
+    _purgeTimer = _createTimer(
+      // A second of margin so the expiry check sees the deadline as passed.
+      (delay.isNegative ? Duration.zero : delay) + const Duration(seconds: 1),
+      () => unawaited(_runPurge()),
+    );
+  }
+
+  Future<void> _runPurge() async {
+    _purgeTimer = null;
+    _purgeAt = null;
+    final store = _purgeStore;
+    if (store == null || _disposed) return;
+    try {
+      final next = await store.purgeExpiredPending(keep: isRunning);
+      if (next != null) schedulePurge(next, store);
+    } on Object {
+      // Account changed or storage failed: the next load or account opening
+      // purges instead.
+    }
+  }
+
+  void dispose() {
+    _disposed = true;
+    _purgeTimer?.cancel();
+    _purgeTimer = null;
+  }
 
   /// Joins the running execution of this request, or starts one. A failed
   /// attempt may be re-sent: the server never reserves the same id twice.
@@ -179,6 +249,9 @@ final class ConversationExecutionRegistry {
         onError: (Object _) {
           if (identical(_running[id]?.future, future)) {
             _running[id] = (future: future, failed: true);
+            // A run kept past its deadline may now be purged.
+            final store = _purgeStore;
+            if (store != null) schedulePurge(DateTime.now().toUtc(), store);
           }
         },
       ),

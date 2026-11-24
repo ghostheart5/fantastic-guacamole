@@ -310,8 +310,8 @@ extension _StoredChat on _AssistantConversationScreenState {
           Text(
             key: const Key('conversation-pending-privacy'),
             copy(
-              'While a question you paid for is being answered, it is also kept on this device for a few minutes so the reply can be collected if you leave.',
-              'Mientras se responde una pregunta que pagaste, también se guarda en este dispositivo unos minutos para poder recibir la respuesta si sales.',
+              'While a question you paid for is being answered, it is also kept on this device so the reply can be collected if you leave. It is deleted when the reply is shown. If the reply cannot be collected, it is deleted about 5 minutes after you confirm the price at the latest, or, if the app is closed then, the next time the app opens this account.',
+              'Mientras se responde una pregunta que pagaste, también se guarda en este dispositivo para poder recibir la respuesta si sales. Se borra cuando se muestra la respuesta. Si la respuesta no se puede recuperar, se borra como máximo unos 5 minutos después de confirmar el precio o, si la app está cerrada en ese momento, la próxima vez que la app abra esta cuenta.',
             ),
           ),
           Wrap(

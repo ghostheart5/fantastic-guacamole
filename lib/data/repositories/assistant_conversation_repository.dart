@@ -156,22 +156,30 @@ class AssistantConversationRepository {
   /// Replaces the body of every request that can no longer be collected, or
   /// cannot be rebuilt, with a content-free marker. Requests still running in
   /// the app ([keep]) are left alone. Never touches the Chat part.
-  Future<void> _purge(
+  ///
+  /// Returns the earliest collect-by time of a request still collectable, so
+  /// a caller can purge again then.
+  Future<DateTime?> _purge(
     Map<String, dynamic>? decoded,
     bool Function(String requestId)? keep,
   ) async {
-    if (decoded == null) return;
+    if (decoded == null) return null;
     final stored = decoded['pendingRequests'];
-    if (stored is! Map<String, dynamic>) return;
+    if (stored is! Map<String, dynamic>) return null;
     final now = DateTime.now().toUtc();
     final view = _parsePending(decoded);
     final next = Map<String, Object?>.of(stored);
     var changed = false;
+    DateTime? nextDeadline;
     for (final entry in view.pending.entries) {
-      if (!entry.value.isExpired(now) ||
-          keep?.call(entry.value.requestId) == true) {
+      if (!entry.value.isExpired(now)) {
+        final at = entry.value.collectBefore;
+        if (nextDeadline == null || at.isBefore(nextDeadline)) {
+          nextDeadline = at;
+        }
         continue;
       }
+      if (keep?.call(entry.value.requestId) == true) continue;
       next[entry.key.name] = {
         'version': 1,
         'expired': true,
@@ -189,8 +197,8 @@ class AssistantConversationRepository {
       next[surface.name] = {'version': 1, 'unreadable': true};
       changed = true;
     }
-    if (!changed) return;
-    await _writeRaw({...decoded, 'pendingRequests': next});
+    if (changed) await _writeRaw({...decoded, 'pendingRequests': next});
+    return nextDeadline;
   }
 
   /// Loads Chat. Pending requests that can no longer be collected are
@@ -219,16 +227,19 @@ class AssistantConversationRepository {
     );
   });
 
-  /// Runs when the account's storage becomes ready, so a request body never
-  /// outlives its collect-by time just because no screen was opened.
-  Future<void> purgeExpiredPending() => runAccountStorageMutation(() async {
+  /// Runs when the account's storage becomes ready and when a collect-by time
+  /// passes while the app runs, so a request body never outlives it just
+  /// because no screen was opened. Returns the next collect-by time, if any.
+  Future<DateTime?> purgeExpiredPending({
+    bool Function(String requestId)? keep,
+  }) => runAccountStorageMutation(() async {
     final Map<String, dynamic>? decoded;
     try {
       decoded = await _readRaw();
     } on FormatException {
-      return;
+      return null;
     }
-    await _purge(decoded, null);
+    return _purge(decoded, keep);
   });
 
   /// [completedRequestId] removes the Chat request whose reply these
@@ -273,7 +284,10 @@ class AssistantConversationRepository {
   /// Stores a confirmed request before it is sent, replacing any earlier one
   /// for the same surface. Other stored data is kept exactly as it is, even
   /// when the Chat part cannot be read.
-  Future<void> savePending(PendingConversationRequest request) =>
+  ///
+  /// Returns true when this replaced a marker of an earlier request the
+  /// person has not been told about yet, so the caller can tell them now.
+  Future<bool> savePending(PendingConversationRequest request) =>
       runAccountStorageMutation(() async {
         final decoded =
             await _readRaw() ??
@@ -283,6 +297,10 @@ class AssistantConversationRepository {
               'messages': <Object?>[],
               'sources': <Object?>[],
             };
+        final view = _parsePending(decoded);
+        final replacedUntold =
+            view.expired.containsKey(request.surface) ||
+            view.unreadable.contains(request.surface);
         await _writeRaw({
           ...decoded,
           'pendingRequests': {
@@ -290,6 +308,7 @@ class AssistantConversationRepository {
             request.surface.name: request.toJson(),
           },
         });
+        return replacedUntold;
       });
 
   /// Removes the surface's stored request or marker when it is [requestId],

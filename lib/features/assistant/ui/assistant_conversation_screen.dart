@@ -474,15 +474,28 @@ class _AssistantConversationScreenState
         final repository = ref.read(
           assistantConversationHistoryRepositoryProvider,
         );
+        final record = PendingConversationRequest(
+          quote: quote,
+          savedAt: DateTime.now(),
+        );
+        final bool replacedUntold;
         try {
           if (repository == null) throw StateError('chat_account_unavailable');
-          await repository.savePending(
-            PendingConversationRequest(quote: quote, savedAt: DateTime.now()),
-          );
+          replacedUntold = await repository.savePending(record);
         } on Object {
           throw const ConversationFailure('request_not_saved');
         }
-        if (!current()) return;
+        // Its content is removed once it can no longer be collected, even if
+        // no screen is open then.
+        registry.schedulePurge(record.collectBefore, repository);
+        if (!mounted || !current()) return;
+        if (replacedUntold) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_pendingExpiredText(questionRestored: false)),
+            ),
+          );
+        }
         _pending = quote;
       }
       _paidWaitTimer = Timer(ref.read(conversationPaidWaitTimeoutProvider), () {

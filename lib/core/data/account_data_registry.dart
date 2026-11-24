@@ -71,7 +71,7 @@ const List<AccountDataDomain> accountDataDomains = <AccountDataDomain>[
     backupStatus: AccountDataBackupStatus.localOnly,
     storage: 'Account-scoped platform secure storage',
     notes:
-        'Recent published message pairs and source choices. While a confirmed paid AI request (Chat or Choose a step) is being answered, its exact request and signed quote are kept for up to 5 minutes so the reply can be collected; after that only a content-free marker remains until the person is told. Explicit Chat copy export; excluded from planning backups and cloud sync.',
+        'Recent published message pairs and source choices. While a confirmed paid AI request (Chat or Choose a step) is being answered, its exact request and signed quote are kept so the reply can be collected. They are deleted when the reply is shown. If the reply cannot be collected, they are deleted about 5 minutes after the price was confirmed at the latest (a timer while the app runs), or, if the app is closed then, the next time the app opens this account. A reply that arrived but was not yet shown keeps them until it is shown or the app closes. Only a content-free marker remains until the person is told. Explicit Chat copy export; excluded from planning backups and cloud sync.',
   ),
   AccountDataDomain(
     id: 'tasks',

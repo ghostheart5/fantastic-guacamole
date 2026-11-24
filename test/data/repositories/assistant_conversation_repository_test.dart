@@ -235,11 +235,18 @@ void main() {
       await repository('b').savePending(
         pendingFor(ConversationSurface.planner, 'b-old', savedAt: old),
       );
-      await repository('b').purgeExpiredPending();
-      await repository('b').purgeExpiredPending();
+      expect(await repository('b').purgeExpiredPending(), isNull);
+      expect(await repository('b').purgeExpiredPending(), isNull);
       final b = await repository('b').loadPending();
       expect(b.pendingRequests, isEmpty);
       expect(b.expiredPendingRequests, {ConversationSurface.planner: 'b-old'});
+
+      // A new request on that surface reports the untold marker it replaces,
+      // and the purge returns its collect-by time for the in-app timer.
+      final fresh = pendingFor(ConversationSurface.planner, 'b-new');
+      expect(await repository('b').savePending(fresh), isTrue);
+      expect(await repository('b').savePending(fresh), isFalse);
+      expect(await repository('b').purgeExpiredPending(), fresh.collectBefore);
 
       // Telling the person removes the marker.
       await repository(

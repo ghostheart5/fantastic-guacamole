@@ -13,6 +13,7 @@ import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_provider_fence.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
@@ -515,9 +516,13 @@ class AuthSessionBoundaryCoordinator {
     // collect-by time just because Chat or Choose a step is not opened again.
     final chat = _ref.read(assistantConversationHistoryRepositoryProvider);
     if (chat != null) {
+      final registry = _ref.read(conversationExecutionRegistryProvider);
       unawaited(
         chat.purgeExpiredPending().then<void>(
-          (_) {},
+          // A request still collectable is purged at its collect-by time.
+          (next) {
+            if (next != null) registry.schedulePurge(next, chat);
+          },
           onError: (Object error) =>
               Logger.warn('Expired AI request purge did not complete.'),
         ),
