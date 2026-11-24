@@ -180,6 +180,83 @@ void main() {
   });
 
   test(
+    'a first key made by automatic backup during an import stays recoverable',
+    () async {
+      final _GatedFirstReadBackend backend = _GatedFirstReadBackend(
+        'cloud_backup_encryption_key_v1',
+      );
+      final SecureStore store = SecureStore(backend: backend);
+      final KeyedMutationCoordinator mutations = KeyedMutationCoordinator();
+      final BackupCipher importing = BackupCipher(
+        store,
+        mutationCoordinator: mutations,
+      );
+      final BackupCipher automatic = BackupCipher(
+        store,
+        mutationCoordinator: mutations,
+      );
+      final String imported = base64Encode(List<int>.filled(32, 9));
+
+      // The import starts reading the current key while none exists yet.
+      final Future<void> import = importing.installUnverifiedRecoveryKey(
+        imported,
+      );
+      await backend.firstRead;
+      // Automatic backup on the same device now needs a key to upload with.
+      final Future<Map<String, dynamic>> upload = automatic.encryptPayload(
+        <String, dynamic>{'version': '6.0.0'},
+      );
+      await pumpEventQueue();
+      backend.release();
+      await import;
+      final Map<String, dynamic> uploaded = await upload;
+
+      // Whichever ran first, the key the upload used is still on the device.
+      expect(await importing.decryptPayload(uploaded), <String, dynamic>{
+        'version': '6.0.0',
+      });
+    },
+  );
+
+  test(
+    'a rollback is not restored over a key installed during the decrypt',
+    () async {
+      final _GatedFirstReadBackend backend = _GatedFirstReadBackend(
+        'cloud_backup_encryption_key_v1.rollback',
+        armed: false,
+      );
+      final SecureStore store = SecureStore(backend: backend);
+      final KeyedMutationCoordinator mutations = KeyedMutationCoordinator();
+      final BackupCipher cipher = BackupCipher(
+        store,
+        mutationCoordinator: mutations,
+      );
+      final Map<String, dynamic> oldBackup = await cipher.encryptPayload(
+        <String, dynamic>{'version': '3.0.0'},
+      );
+      await cipher.installUnverifiedRecoveryKey(
+        base64Encode(List<int>.filled(32, 9)),
+      );
+      final String verified = base64Encode(List<int>.filled(32, 4));
+
+      backend.armed = true;
+      final Future<Map<String, dynamic>> decrypt = cipher.decryptPayload(
+        oldBackup,
+      );
+      await backend.firstRead;
+      // A proven key is installed while the decrypt is still running.
+      await BackupCipher(
+        store,
+        mutationCoordinator: mutations,
+      ).installVerifiedRecoveryKey(verified);
+      backend.release();
+      await decrypt;
+
+      expect(await cipher.loadExistingRecoveryKey(), verified);
+    },
+  );
+
+  test(
     'a verified key replaces the stored key and drops the rollback',
     () async {
       final SecureStore store = SecureStore(
@@ -367,6 +444,32 @@ class _LegacyClaimBackend implements SecureStoreBackend {
   @override
   Future<Map<String, String>> readAll() async =>
       Map<String, String>.unmodifiable(_values);
+}
+
+/// Holds the first read of [gatedKey] until [release] is called.
+class _GatedFirstReadBackend extends InMemorySecureStoreBackend {
+  _GatedFirstReadBackend(this.gatedKey, {this.armed = true});
+
+  final String gatedKey;
+  bool armed;
+  final Completer<void> _firstRead = Completer<void>();
+  final Completer<void> _release = Completer<void>();
+
+  Future<void> get firstRead => _firstRead.future;
+
+  void release() => _release.complete();
+
+  @override
+  Future<String?> read({required String key}) async {
+    if (armed && key == gatedKey && !_firstRead.isCompleted) {
+      // Read the value first, as a slow platform read would.
+      final String? value = await super.read(key: key);
+      _firstRead.complete();
+      await _release.future;
+      return value;
+    }
+    return super.read(key: key);
+  }
 }
 
 Future<String> _keyUsedForEncryption(BackupCipher cipher) async {

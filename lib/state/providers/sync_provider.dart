@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
+import 'package:fantastic_guacamole/data/services/cloud_backup_status_store.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/account_scoped_hive_storage.dart';
@@ -27,6 +28,9 @@ import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/services/offline_sync_queue_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+export 'package:fantastic_guacamole/data/services/sync_service.dart'
+    show CloudBackupKeyCheck, RecoveryKeyImportOutcome;
 
 /// User-safe sync failure state. Raw exceptions remain in the redacted logger
 /// and are never rendered by Nexus or settings surfaces.
@@ -184,6 +188,33 @@ OfflineSyncQueueService? _boundQueue(Ref ref) {
   return ref.watch(offlineSyncQueueProvider);
 }
 
+/// Per-account record of the last cloud backup this device wrote, restored or
+/// matched. Null while preferences load or when no account is signed in.
+final cloudBackupStatusStoreProvider = Provider<CloudBackupStatusStore?>((ref) {
+  final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
+    cloudBackupPreferencesProvider,
+  );
+  final scope = ref.watch(accountStorageScopeProvider);
+  if (!scope.isWritable) return null;
+  final legacyOwnership = ref.watch(accountLegacyOwnershipProvider);
+  return prefsAsync.whenOrNull(
+    data: (SharedPrefsStorage prefs) => CloudBackupStatusStore(
+      AccountScopedSharedPrefsStorage(
+        delegate: prefs,
+        scope: scope,
+        legacyOwnership: legacyOwnership,
+      ),
+    ),
+  );
+});
+
+/// When the cloud backup this device last wrote, restored or matched was
+/// made. Null when this device has no record of one.
+final lastCloudBackupProvider = FutureProvider<DateTime?>((ref) async {
+  await ref.watch(cloudBackupPreferencesProvider.future);
+  return ref.watch(cloudBackupStatusStoreProvider)?.read()?.backedUpAt;
+});
+
 final syncServiceProvider = Provider<SyncService?>((ref) {
   final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
     cloudBackupPreferencesProvider,
@@ -214,6 +245,7 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
               )
             : const UnavailableCloudBackupGateway(),
         secureStore: ref.read(secureStoreProvider),
+        statusStore: ref.watch(cloudBackupStatusStoreProvider),
         expectedAccountId: scope.isWritable ? scope.rawUserId : null,
         currentAccountId: () => supabaseClient?.auth.currentUser?.id,
       );
@@ -291,6 +323,7 @@ final syncToCloudProvider = FutureProvider<bool>((ref) async {
     final CloudSyncOutcome outcome =
         await (await _readySyncService(ref))?.syncDeltaOutcome() ??
         CloudSyncOutcome.unavailable;
+    ref.invalidate(lastCloudBackupProvider);
     final bool success = outcome == CloudSyncOutcome.synced;
     if (!success) {
       ref
@@ -344,6 +377,7 @@ final backupPlanningToCloudProvider = FutureProvider<bool>((ref) async {
         ) ??
         CloudSyncOutcome.unavailable;
     if (!owner.isCurrent) return false;
+    ref.invalidate(lastCloudBackupProvider);
     if (outcome != CloudSyncOutcome.synced) {
       ref
           .read(syncErrorMessageProvider.notifier)
@@ -472,6 +506,7 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
       ref.invalidate(goalProgressProvider);
       ref.invalidate(optimizationConfigProvider);
       ref.invalidate(cloudSyncPreferenceProvider);
+      ref.invalidate(lastCloudBackupProvider);
       ref.read(restoredSettingsRevisionProvider.notifier).bump();
       bool remindersComplete = false;
       try {

@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:fantastic_guacamole/data/services/backup_cipher.dart';
+import 'package:fantastic_guacamole/data/services/cloud_backup_status_store.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
@@ -567,6 +568,7 @@ class SyncService {
     required this.backup,
     required this.gateway,
     SecureStore? secureStore,
+    this.statusStore,
     this.expectedAccountId,
     this.currentAccountId,
     this.syncEnabled = LaunchContainment.publicCloudSyncEnabled,
@@ -578,6 +580,10 @@ class SyncService {
   final BackupService backup;
   final CloudBackupGateway gateway;
   final BackupCipher? _cipher;
+
+  /// Records the cloud revision this device last wrote, restored or matched.
+  /// Without it a full (v6) cloud backup is never replaced automatically.
+  final CloudBackupStatusStore? statusStore;
   final String? expectedAccountId;
   final String? Function()? currentAccountId;
   final bool syncEnabled;
@@ -637,6 +643,9 @@ class SyncService {
     if (!permitted()) return CloudSyncOutcome.disabled;
     final outcome = _syncOutcomeForWrite(written);
     if (outcome != CloudSyncOutcome.synced) return outcome;
+    // The server accepted this snapshot at this revision, so automatic backup
+    // may keep it current even if the readback below fails.
+    await _recordBackup(written.revision, DateTime.now());
     final verified = await gateway.downloadBackup();
     if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
     if (!permitted()) return CloudSyncOutcome.disabled;
@@ -675,6 +684,7 @@ class SyncService {
       return CloudRestoreOutcome.malformed;
     }
     bool legacyCleanupPending = false;
+    int? restoredRevision = read.revision;
     if (migrateLegacyPlaintext) {
       if (!_accountStillCurrent) return CloudRestoreOutcome.accountChanged;
       final int? expectedRevision = read.revision;
@@ -709,6 +719,7 @@ class SyncService {
         );
         return CloudRestoreOutcome.migrationFailed;
       }
+      restoredRevision = migration.revision;
       if (expectedRevision == 0) {
         final LegacyFullBackupCleanupStatus? cleanup =
             await _deleteLegacyFullBackup();
@@ -739,6 +750,8 @@ class SyncService {
         canContinue: () => _accountStillCurrent,
         expectedLocalGeneration: localGeneration,
       );
+      // Local data now matches this cloud revision.
+      await _recordBackup(restoredRevision, _snapshotTime(restored));
       return legacyCleanupPending
           ? CloudRestoreOutcome.restoredLegacyCleanupPending
           : CloudRestoreOutcome.restored;
@@ -847,6 +860,9 @@ class SyncService {
       final CloudBackupWriteResult uploaded = await gateway
           .compareAndSwapBackup(protectedLocal, expectedRevision: 0);
       if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+      if (uploaded.status == CloudBackupWriteStatus.written) {
+        await _recordBackup(uploaded.revision, DateTime.now());
+      }
       if (!backup.isLocalGenerationCurrent(localSnapshot.localGeneration)) {
         return CloudSyncOutcome.conflict;
       }
@@ -873,8 +889,10 @@ class SyncService {
     }
 
     // Legacy replay must never replace a full planning snapshot with a partial
-    // task merge. A new full snapshot requires a fresh explicit confirmation.
-    if (cloudBackup['version'] == '6.0.0') return CloudSyncOutcome.conflict;
+    // task merge. A full snapshot is only ever replaced by a full snapshot.
+    if (cloudBackup['version'] == '6.0.0') {
+      return _keepFullSnapshotCurrent(cloudBackup, expectedRevision);
+    }
     final Map<String, dynamic> merged = _mergeBackups(localBackup, cloudBackup);
     final Map<String, dynamic> protectedMerged = _cipher == null
         ? merged
@@ -890,6 +908,7 @@ class SyncService {
     if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
     final CloudSyncOutcome writeOutcome = _syncOutcomeForWrite(uploaded);
     if (writeOutcome != CloudSyncOutcome.synced) return writeOutcome;
+    await _recordBackup(uploaded.revision, DateTime.now());
     try {
       await backup.restoreFullBackup(
         merged,
@@ -902,6 +921,78 @@ class SyncService {
     } on BackupConcurrentMutationException {
       return CloudSyncOutcome.conflict;
     }
+  }
+
+  /// Keeps a full (v6) cloud snapshot current. [cloudBackup] has already been
+  /// decrypted with this device's key and validated. Uploads a new full
+  /// snapshot only when local data differs from it and the cloud copy is
+  /// still the revision this device last wrote, restored or matched. A cloud
+  /// copy changed by another device is never replaced automatically.
+  Future<CloudSyncOutcome> _keepFullSnapshotCurrent(
+    Map<String, dynamic> cloudBackup,
+    int revision,
+  ) async {
+    final BackupCipher? cipher = _cipher;
+    final CloudBackupStatusStore? status = statusStore;
+    if (cipher == null || status == null) return CloudSyncOutcome.conflict;
+    final VersionedBackupSnapshot snapshot = await backup
+        .createPlanningCloudBackup();
+    if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+    final CloudBackupStatus? known = status.read();
+    if (_sameSnapshotContent(snapshot.payload, cloudBackup)) {
+      if (known?.revision != revision) {
+        await _recordBackup(revision, _snapshotTime(cloudBackup));
+      }
+      return CloudSyncOutcome.synced;
+    }
+    if (known == null || known.revision != revision) {
+      return CloudSyncOutcome.conflict;
+    }
+    final Map<String, dynamic> encrypted = await cipher.encryptPayload(
+      snapshot.payload,
+    );
+    if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+    if (!syncEnabled) return CloudSyncOutcome.disabled;
+    if (!backup.isLocalGenerationCurrent(snapshot.localGeneration)) {
+      return CloudSyncOutcome.conflict;
+    }
+    final CloudBackupWriteResult written = await gateway.compareAndSwapBackup(
+      encrypted,
+      expectedRevision: revision,
+    );
+    if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+    final CloudSyncOutcome outcome = _syncOutcomeForWrite(written);
+    if (outcome != CloudSyncOutcome.synced) return outcome;
+    await _recordBackup(written.revision, DateTime.now());
+    return CloudSyncOutcome.synced;
+  }
+
+  /// Whether two full snapshots hold the same data, ignoring when each was
+  /// made.
+  bool _sameSnapshotContent(
+    Map<String, dynamic> local,
+    Map<String, dynamic> cloud,
+  ) {
+    final Object? normalizedLocal = jsonDecode(jsonEncode(local));
+    if (normalizedLocal is! Map<String, dynamic>) return false;
+    return _jsonValuesEqual(
+      <String, dynamic>{...normalizedLocal}..remove('timestamp'),
+      <String, dynamic>{...cloud}..remove('timestamp'),
+    );
+  }
+
+  DateTime? _snapshotTime(Map<String, dynamic> snapshot) {
+    final Object? timestamp = snapshot['timestamp'];
+    return timestamp is String ? DateTime.tryParse(timestamp) : null;
+  }
+
+  Future<void> _recordBackup(int? revision, DateTime? backedUpAt) async {
+    final CloudBackupStatusStore? status = statusStore;
+    if (status == null || revision == null || revision < 1) return;
+    if (!_accountStillCurrent) return;
+    await status.write(
+      CloudBackupStatus(revision: revision, backedUpAt: backedUpAt),
+    );
   }
 
   Future<bool> syncTasksOnly() async {

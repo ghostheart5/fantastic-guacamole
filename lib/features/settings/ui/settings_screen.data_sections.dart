@@ -302,6 +302,16 @@ class _CloudDataControlSection extends ConsumerWidget {
               );
             },
           ),
+          if (available && enabled)
+            _NeonStatusTile(
+              title: CloudBackupStatusCopy.of(context).lastBackupTitle,
+              subtitle: CloudBackupStatusCopy.of(context).lastBackupValue(
+                _formatBackupTime(
+                  context,
+                  ref.watch(lastCloudBackupProvider).asData?.value,
+                ),
+              ),
+            ),
           _NeonStatusTile(
             title: journeyText(
               context,
@@ -651,6 +661,40 @@ Future<void> _importBackupRecoveryKey(
       content: Text(BackupRecoveryKeyCopy.of(context).importOutcome(outcome)),
     ),
   );
+}
+
+/// Bilingual copy for the "Last backup" line next to the Cloud Backup toggle.
+final class CloudBackupStatusCopy {
+  const CloudBackupStatusCopy({required this.isSpanish});
+
+  final bool isSpanish;
+
+  static CloudBackupStatusCopy of(BuildContext context) =>
+      CloudBackupStatusCopy(
+        isSpanish: ChronoSparkLocalizations.of(context).isSpanish,
+      );
+
+  String _text(String english, String spanish) => isSpanish ? spanish : english;
+
+  String get lastBackupTitle =>
+      _text('Last backup', 'Última copia de seguridad');
+
+  /// [formattedTime] is the backup date and time in the reader's locale, or
+  /// null when this device has no record of a backup.
+  String lastBackupValue(String? formattedTime) =>
+      formattedTime ??
+      _text(
+        'No backup recorded on this device yet.',
+        'Este dispositivo aún no tiene registrada ninguna copia.',
+      );
+}
+
+String? _formatBackupTime(BuildContext context, DateTime? at) {
+  if (at == null) return null;
+  final DateTime local = at.toLocal();
+  final MaterialLocalizations formats = MaterialLocalizations.of(context);
+  return '${formats.formatMediumDate(local)} · '
+      '${formats.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
 }
 
 /// Bilingual copy for the backup recovery key flows.

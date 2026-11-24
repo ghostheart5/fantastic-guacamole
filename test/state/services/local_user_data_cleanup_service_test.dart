@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/repositories/note_repository.dart';
+import 'package:fantastic_guacamole/data/services/cloud_backup_status_store.dart';
 import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
@@ -262,6 +263,8 @@ void main() {
     await secureB.writeString('profile_entity_v1', 'generic-b');
     await preferencesA.save('behavior_state_v1', 'generic-a');
     await preferencesB.save('behavior_state_v1', 'generic-b');
+    // A stale cloud backup record must not survive the data it describes.
+    await preferencesB.save(CloudBackupStatusStore.storageKey, '{}');
     await sensitiveA.save('timeline_events_v1', 'generic-a');
     await sensitiveB.save('timeline_events_v1', 'generic-b');
 
@@ -313,6 +316,7 @@ void main() {
     expect(await secureB.readString('profile_entity_v1'), isNull);
     expect(preferencesA.load('behavior_state_v1'), 'generic-a');
     expect(preferencesB.load('behavior_state_v1'), isNull);
+    expect(preferencesB.load(CloudBackupStatusStore.storageKey), isNull);
     expect(sensitiveA.load('timeline_events_v1'), 'generic-a');
     expect(sensitiveB.load('timeline_events_v1'), isNull);
   });

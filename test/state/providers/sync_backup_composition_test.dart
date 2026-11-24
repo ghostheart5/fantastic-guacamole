@@ -140,11 +140,168 @@ void main() {
     backup: container.read(syncServiceProvider)!.backup,
     gateway: gateway,
     secureStore: container.read(secureStoreProvider),
+    statusStore: container.read(cloudBackupStatusStoreProvider),
     expectedAccountId: 'owner-a',
     currentAccountId: () =>
         container.read(accountStorageScopeProvider).rawUserId,
     syncEnabled: true,
     restoreEnabled: true,
+  );
+
+  Future<Map<String, dynamic>> decryptCloud(_PlanningGateway gateway) =>
+      BackupCipher(
+        container.read(secureStoreProvider),
+        accountId: 'owner-a',
+      ).decryptPayload(gateway.payload!);
+
+  Future<void> addGoal(String id) => container
+      .read(domainGoalRepositoryProvider)
+      .saveGoal(
+        GoalEntity(
+          id: id,
+          title: 'Goal $id',
+          createdAt: DateTime.utc(2026, 11, 1),
+        ),
+      );
+
+  test(
+    'automatic sync uploads a full snapshot after a local change when the cloud backup is full',
+    () async {
+      await _seed(container, 'a');
+      final gateway = _PlanningGateway();
+      final service = planningService(gateway);
+      expect(await service.backupPlanningToCloud(), CloudSyncOutcome.synced);
+      final revision = gateway.revision;
+      await addGoal('goal-new');
+      await container
+          .read(domainTaskRepositoryProvider)
+          .saveTask(
+            TaskEntity(
+              id: 'task-new',
+              title: 'New task',
+              createdAt: DateTime.utc(2026, 11, 1),
+            ),
+          );
+
+      expect(await service.syncDeltaOutcome(), CloudSyncOutcome.synced);
+
+      expect(gateway.revision, revision + 1);
+      final cloud = await decryptCloud(gateway);
+      expect(cloud['version'], '6.0.0');
+      expect(
+        (cloud['goals'] as List).map((goal) => (goal as Map)['id']),
+        containsAll(['goal-a', 'goal-new']),
+      );
+      expect(
+        (cloud['tasks'] as List).map((task) => (task as Map)['id']),
+        containsAll(['task-a', 'task-new']),
+      );
+      expect(cloud['timelineEvents'], hasLength(1));
+      final status = container.read(cloudBackupStatusStoreProvider)!.read()!;
+      expect(status.revision, gateway.revision);
+      expect(status.backedUpAt, isNotNull);
+      expect(
+        await container.read(lastCloudBackupProvider.future),
+        status.backedUpAt,
+      );
+      // A second device restoring the newest cloud copy gets the new items.
+      await container.read(domainGoalRepositoryProvider).saveGoals([]);
+      expect(await service.restoreFromCloud(), CloudRestoreOutcome.restored);
+      expect(
+        container
+            .read(domainGoalRepositoryProvider)
+            .getGoals()
+            .map((goal) => goal.id),
+        containsAll(['goal-a', 'goal-new']),
+      );
+    },
+  );
+
+  test('automatic sync uploads nothing when local data is unchanged', () async {
+    await _seed(container, 'a');
+    final gateway = _PlanningGateway();
+    final service = planningService(gateway);
+    expect(await service.backupPlanningToCloud(), CloudSyncOutcome.synced);
+    final uploaded = jsonEncode(gateway.payload);
+    final writes = gateway.writes;
+
+    expect(await service.syncDeltaOutcome(), CloudSyncOutcome.synced);
+    expect(await service.syncDeltaOutcome(), CloudSyncOutcome.synced);
+
+    expect(gateway.writes, writes);
+    expect(jsonEncode(gateway.payload), uploaded);
+  });
+
+  test(
+    'automatic sync never touches a full backup this device cannot decrypt',
+    () async {
+      await _seed(container, 'a');
+      final gateway = _PlanningGateway();
+      final service = planningService(gateway);
+      expect(await service.backupPlanningToCloud(), CloudSyncOutcome.synced);
+      final uploaded = jsonEncode(gateway.payload);
+      final revision = gateway.revision;
+      // The device now holds a different key than the one the backup uses.
+      await BackupCipher(
+        container.read(secureStoreProvider),
+        accountId: 'owner-a',
+      ).installVerifiedRecoveryKey(base64Encode(List<int>.filled(32, 7)));
+      await addGoal('goal-new');
+
+      expect(await service.syncDeltaOutcome(), isNot(CloudSyncOutcome.synced));
+
+      expect(jsonEncode(gateway.payload), uploaded);
+      expect(gateway.revision, revision);
+    },
+  );
+
+  test(
+    'a write from another device during upload is reported as a conflict',
+    () async {
+      await _seed(container, 'a');
+      final gateway = _PlanningGateway();
+      final service = planningService(gateway);
+      expect(await service.backupPlanningToCloud(), CloudSyncOutcome.synced);
+      await addGoal('goal-new');
+      final otherDevice = <String, dynamic>{...gateway.payload!};
+      gateway.beforeWrite = () {
+        gateway.beforeWrite = null;
+        gateway.payload = otherDevice;
+        gateway.revision++;
+      };
+
+      expect(await service.syncDeltaOutcome(), CloudSyncOutcome.conflict);
+
+      expect(identical(gateway.payload, otherDevice), isTrue);
+      expect(gateway.writes, 1);
+    },
+  );
+
+  test(
+    'a full backup replaced by another device is not overwritten later',
+    () async {
+      await _seed(container, 'a');
+      final gateway = _PlanningGateway();
+      final service = planningService(gateway);
+      expect(await service.backupPlanningToCloud(), CloudSyncOutcome.synced);
+      // Another device with the same key uploads a newer snapshot.
+      await addGoal('goal-other-device');
+      final otherSnapshot =
+          (await service.backup.createPlanningCloudBackup()).payload;
+      gateway.payload = await BackupCipher(
+        container.read(secureStoreProvider),
+        accountId: 'owner-a',
+      ).encryptPayload(otherSnapshot);
+      gateway.revision++;
+      final otherUpload = jsonEncode(gateway.payload);
+      final revision = gateway.revision;
+      await container.read(domainGoalRepositoryProvider).saveGoals([]);
+
+      expect(await service.syncDeltaOutcome(), CloudSyncOutcome.conflict);
+
+      expect(jsonEncode(gateway.payload), otherUpload);
+      expect(gateway.revision, revision);
+    },
   );
 
   test(
@@ -212,7 +369,8 @@ void main() {
       expect(await service.backupPlanningToCloud(), CloudSyncOutcome.synced);
       final uploaded = jsonEncode(gateway.payload);
       final revision = gateway.revision;
-      expect(await service.syncDeltaOutcome(), CloudSyncOutcome.conflict);
+      // Nothing changed locally, so automatic sync leaves the full snapshot.
+      expect(await service.syncDeltaOutcome(), CloudSyncOutcome.synced);
       expect(jsonEncode(gateway.payload), uploaded);
       expect(gateway.revision, revision);
       expect(await service.restoreFromCloud(), CloudRestoreOutcome.restored);
@@ -728,6 +886,7 @@ class _PlanningGateway implements CloudBackupGateway {
   bool corruptReadback = false;
   Future<void> Function()? beforeRead;
   void Function()? onRead;
+  void Function()? beforeWrite;
   @override
   Future<CloudBackupReadResult> downloadBackup() async {
     reads++;
@@ -746,6 +905,7 @@ class _PlanningGateway implements CloudBackupGateway {
     Map<String, dynamic> backup, {
     required int expectedRevision,
   }) async {
+    beforeWrite?.call();
     if (conflict || expectedRevision != revision) {
       return CloudBackupWriteResult.conflict(revision);
     }

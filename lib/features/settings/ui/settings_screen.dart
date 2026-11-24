@@ -38,8 +38,6 @@ import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/onboarding_preferences_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
-import 'package:fantastic_guacamole/data/services/sync_service.dart'
-    show RecoveryKeyImportOutcome;
 import 'package:fantastic_guacamole/state/providers/subscription_status_refresh_provider.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';

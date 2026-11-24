@@ -96,6 +96,24 @@ void main() {
     );
   });
 
+  test('last backup line shows the time or says none is recorded', () {
+    const CloudBackupStatusCopy en = CloudBackupStatusCopy(isSpanish: false);
+    const CloudBackupStatusCopy es = CloudBackupStatusCopy(isSpanish: true);
+
+    expect(en.lastBackupTitle, 'Last backup');
+    expect(es.lastBackupTitle, 'Última copia de seguridad');
+    expect(
+      en.lastBackupValue('Nov 20, 2026 · 9:30 AM'),
+      'Nov 20, 2026 · 9:30 AM',
+    );
+    expect(es.lastBackupValue('20 nov 2026 · 9:30'), '20 nov 2026 · 9:30');
+    expect(en.lastBackupValue(null), 'No backup recorded on this device yet.');
+    expect(
+      es.lastBackupValue(null),
+      'Este dispositivo aún no tiene registrada ninguna copia.',
+    );
+  });
+
   test('backup recovery key copy never claims a key that does not exist', () {
     const BackupRecoveryKeyCopy en = BackupRecoveryKeyCopy(isSpanish: false);
     const BackupRecoveryKeyCopy es = BackupRecoveryKeyCopy(isSpanish: true);

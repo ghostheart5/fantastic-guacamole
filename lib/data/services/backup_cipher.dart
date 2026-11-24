@@ -111,8 +111,10 @@ class BackupCipher {
   /// and comes back automatically if a later backup only opens with it.
   Future<void> installUnverifiedRecoveryKey(String recoveryKey) async {
     final String key = parseRecoveryKey(recoveryKey);
-    final String? previous = await loadExistingRecoveryKey();
     await _mutations.runExclusive(_keyMutationKey, () async {
+      // Read the key being replaced under the same lock that creates a first
+      // key, so a key made by a concurrent backup is never lost.
+      final String? previous = await loadExistingRecoveryKey();
       final String? heldRollback = await _secureStore.readString(
         _rollbackKeyName,
       );
@@ -160,6 +162,7 @@ class BackupCipher {
       );
     }
     final encrypt.Key key = await _loadKeyForDecryption();
+    final String usedKey = base64Encode(key.bytes);
     final String? rollback = await _secureStore.readString(_rollbackKeyName);
     if (rollback == null || rollback.trim().isEmpty) {
       return _decryptWith(key, payload);
@@ -176,13 +179,13 @@ class BackupCipher {
       } on Object {
         Error.throwWithStackTrace(error, stackTrace);
       }
-      await _mutations.runExclusive(_keyMutationKey, () async {
+      await _whileKeyUnchanged(usedKey, () async {
         await _secureStore.writeString(_keyName, rollback);
         await _secureStore.delete(_rollbackKeyName);
       });
       return restored;
     }
-    await _mutations.runExclusive(_keyMutationKey, () async {
+    await _whileKeyUnchanged(usedKey, () async {
       await _secureStore.delete(_rollbackKeyName);
     });
     return decrypted;
@@ -224,16 +227,39 @@ class BackupCipher {
     return tasks is List && tasks.every((Object? task) => task is Map);
   }
 
+  /// Runs [change] under the key lock only if the main key is still [usedKey],
+  /// so a key installed meanwhile is never overwritten or stripped of its
+  /// rollback by a decrypt that started earlier.
+  Future<void> _whileKeyUnchanged(
+    String usedKey,
+    Future<void> Function() change,
+  ) {
+    return _mutations.runExclusive(_keyMutationKey, () async {
+      final String? current = await _secureStore.readString(_keyName);
+      if (current == null || current.trim().isEmpty) return;
+      if (base64Encode(base64Decode(current)) != usedKey) return;
+      await change();
+    });
+  }
+
   Future<encrypt.Key> _loadOrCreateKey() async {
     final String? stored = await _readStoredKey();
     if (stored != null && stored.trim().isNotEmpty) {
       return encrypt.Key(base64Decode(stored));
     }
-    final Uint8List bytes = Uint8List.fromList(
-      List<int>.generate(32, (_) => Random.secure().nextInt(256)),
-    );
-    await _secureStore.writeString(_keyName, base64Encode(bytes));
-    return encrypt.Key(bytes);
+    // Create a first key under the same lock as key imports, re-checking in
+    // case an import or another backup installed one meanwhile.
+    return _mutations.runExclusive(_keyMutationKey, () async {
+      final String? installed = await _readStoredKey();
+      if (installed != null && installed.trim().isNotEmpty) {
+        return encrypt.Key(base64Decode(installed));
+      }
+      final Uint8List bytes = Uint8List.fromList(
+        List<int>.generate(32, (_) => Random.secure().nextInt(256)),
+      );
+      await _secureStore.writeString(_keyName, base64Encode(bytes));
+      return encrypt.Key(bytes);
+    });
   }
 
   Future<encrypt.Key> _loadKeyForDecryption() async {
