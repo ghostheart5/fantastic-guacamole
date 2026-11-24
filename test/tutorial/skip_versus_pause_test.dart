@@ -163,13 +163,13 @@ void main() {
   );
 
   test(
-    'a session pause hides the guide, writes nothing and ends on reload',
+    'a pause until reopened hides the guide, writes nothing and ends on reload',
     () async {
       final ProviderContainer first = _container();
       await first.read(adaptiveGuidanceProvider.future);
       await first
           .read(adaptiveGuidanceProvider.notifier)
-          .pauseCoreGuideForSession();
+          .pauseCoreGuideUntilReopened();
       final AdaptiveGuidanceState hidden = first
           .read(adaptiveGuidanceProvider)
           .requireValue;

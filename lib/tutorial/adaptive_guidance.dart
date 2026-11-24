@@ -69,7 +69,7 @@ class AdaptiveGuidanceState {
     this.laterLessons = const <GuidanceLessonId>{},
     this.replayLessons = const <GuidanceLessonId>{},
     this.expectedFirstRunCreatorTaskIds = const <String>{},
-    this.sessionPausedLessons = const <GuidanceLessonId>{},
+    this.untilReopenedLessons = const <GuidanceLessonId>{},
   });
 
   final Map<GuidanceMilestone, DateTime> milestones;
@@ -80,9 +80,9 @@ class AdaptiveGuidanceState {
   final Set<GuidanceLessonId> replayLessons;
   final Set<String> expectedFirstRunCreatorTaskIds;
 
-  /// Core lessons hidden for this app session only. Never stored, so the guide
+  /// Core lessons hidden until the app is next opened. Never stored, so the guide
   /// returns on the next launch.
-  final Set<GuidanceLessonId> sessionPausedLessons;
+  final Set<GuidanceLessonId> untilReopenedLessons;
 
   bool has(GuidanceMilestone milestone) => milestones.containsKey(milestone);
   int count(GuidanceMilestone milestone) => counts[milestone] ?? 0;
@@ -248,7 +248,7 @@ abstract final class GuidanceInterventionEngine {
     bool muted(GuidanceLessonId id) =>
         state.laterLessons.contains(id) ||
         state.skippedLessons.contains(id) ||
-        state.sessionPausedLessons.contains(id);
+        state.untilReopenedLessons.contains(id);
 
     GuidanceLessonId? withReceipt(GuidanceLessonId id) {
       if (id == GuidanceLessonId.reviewTimeline &&
@@ -523,7 +523,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
             milestone == GuidanceMilestone.firstTimelineReview
             ? const <String>{}
             : current.expectedFirstRunCreatorTaskIds,
-        sessionPausedLessons: current.sessionPausedLessons,
+        untilReopenedLessons: current.untilReopenedLessons,
       ),
     );
   }
@@ -577,7 +577,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
         laterLessons: current.laterLessons,
         replayLessons: current.replayLessons,
         expectedFirstRunCreatorTaskIds: expectedTaskIds,
-        sessionPausedLessons: current.sessionPausedLessons,
+        untilReopenedLessons: current.untilReopenedLessons,
       ),
     );
   }
@@ -619,7 +619,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
         },
         replayLessons: replay,
         expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
-        sessionPausedLessons: current.sessionPausedLessons,
+        untilReopenedLessons: current.untilReopenedLessons,
       ),
     );
   }
@@ -645,7 +645,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
         replayLessons: <GuidanceLessonId>{...current.replayLessons}
           ..remove(lesson),
         expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
-        sessionPausedLessons: current.sessionPausedLessons,
+        untilReopenedLessons: current.untilReopenedLessons,
       ),
     );
   }
@@ -678,7 +678,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
         laterLessons: current.laterLessons.difference(_replayableCoreLessons),
         replayLessons: current.replayLessons.difference(_replayableCoreLessons),
         expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
-        sessionPausedLessons: current.sessionPausedLessons,
+        untilReopenedLessons: current.untilReopenedLessons,
       ),
     );
   }
@@ -686,7 +686,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
   /// Hides the core lesson until the app is next opened, without writing
   /// anything. Used when an explicit choice must not be mistaken for the
   /// tutorial exercise.
-  Future<void> pauseCoreGuideForSession() async {
+  Future<void> pauseCoreGuideUntilReopened() async {
     final String? account = _activeScope;
     if (account == null) return;
     final AdaptiveGuidanceState current = await _current();
@@ -700,8 +700,8 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
         laterLessons: current.laterLessons,
         replayLessons: current.replayLessons,
         expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
-        sessionPausedLessons: <GuidanceLessonId>{
-          ...current.sessionPausedLessons,
+        untilReopenedLessons: <GuidanceLessonId>{
+          ...current.untilReopenedLessons,
           ..._replayableCoreLessons,
         },
       ),

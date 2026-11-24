@@ -34,10 +34,10 @@ Future<void> openCreatorForItem(
     final guidance = await ref.read(adaptiveGuidanceProvider.future);
     if (!current()) return;
     if (guidance.activeCoreLesson != null) {
-      // Session only: opening the form must not switch the guide off for good.
+      // Until the app reopens: opening the form must not switch the guide off for good.
       await ref
           .read(adaptiveGuidanceProvider.notifier)
-          .pauseCoreGuideForSession();
+          .pauseCoreGuideUntilReopened();
     }
     if (!context.mounted || !current()) return;
     ref.read(creatorHandshakeProvider.notifier).clearResult();
