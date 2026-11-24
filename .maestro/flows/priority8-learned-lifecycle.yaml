@@ -20,11 +20,6 @@ tags:
 # Planner-created task as the only open scheduled task in the journey.
 - runFlow:
     when:
-      visible: "Start here"
-    commands:
-      - tapOn: "Turn an intention into a path"
-- runFlow:
-    when:
       notVisible: "Add something"
     commands:
       - runFlow:

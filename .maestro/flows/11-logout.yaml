@@ -30,7 +30,7 @@ tags:
 - tapOn: "(?:Close Profile|Exit Tester Mode|Log Out)\\. .*"
 
 - extendedWaitUntil:
-    visible: "(?:CONTINUE TO (?:LOGIN|PROFILE)|ENTER SYSTEM|TESTER ACCESS.*TEST LOGIN|Open profile)"
+    visible: "(?:CONTINUE TO (?:LOGIN|PROFILE)|Sign in|TESTER ACCESS.*TEST LOGIN|Open profile)"
     timeout: 20000
 
 # Signing out must not leave the app surface reachable behind the gate.

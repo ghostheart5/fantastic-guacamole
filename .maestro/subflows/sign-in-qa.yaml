@@ -49,7 +49,7 @@ appId: com.ghostheart5.chronospark
 - extendedWaitUntil:
     visible: "Today"
     timeout: 30000
-- assertNotVisible: "ENTER SYSTEM"
+- assertNotVisible: "Sign in"
 - assertNotVisible: "Pause guide"
 
 # Authentication must reveal the usable Today action, not only a heading.

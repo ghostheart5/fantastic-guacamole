@@ -2,11 +2,6 @@ appId: com.ghostheart5.chronospark
 ---
 - runFlow:
     when:
-      visible: "Start here"
-    commands:
-      - tapOn: "Turn an intention into a path"
-- runFlow:
-    when:
       notVisible: "Add something"
     commands:
       - runFlow:

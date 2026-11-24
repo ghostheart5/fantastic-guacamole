@@ -43,5 +43,5 @@ tags:
 
 # Deletion must end the session, not just close the dialog.
 - extendedWaitUntil:
-    visible: "ENTER SYSTEM"
+    visible: "Sign in"
     timeout: 30000

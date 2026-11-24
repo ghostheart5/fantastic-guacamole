@@ -26,7 +26,7 @@ tags: [qa, auth]
 - tapOn: "Close Profile\\. Close this profile and keep its data on this device\\."
 - runFlow: ../subflows/skip-onboarding.yaml
 - extendedWaitUntil:
-    visible: "(?:CONTINUE TO (?:LOGIN|PROFILE)|ENTER SYSTEM|TESTER ACCESS.*TEST LOGIN|Open profile)"
+    visible: "(?:CONTINUE TO (?:LOGIN|PROFILE)|Sign in|TESTER ACCESS.*TEST LOGIN|Open profile)"
     timeout: 20000
 # The original session-teardown assertion is retained.
 - assertNotVisible: "Open navigation map"

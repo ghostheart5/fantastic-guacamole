@@ -22,7 +22,7 @@ tags:
 - inputText: "${MAESTRO_SIGNUP_PASSWORD}"
 
 - hideKeyboard
-- tapOn: "INITIALIZE PROFILE"
+- tapOn: "^Create account$"
 
 - extendedWaitUntil:
     visible: "^Today$"
