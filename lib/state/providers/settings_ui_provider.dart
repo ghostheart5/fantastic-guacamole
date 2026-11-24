@@ -185,12 +185,11 @@ class SettingsUiActions {
     return TelemetryConsentStore().save(accountId: accountId, consent: consent);
   }
 
-  Future<String> exportBackupRecoveryKey() {
-    return _backupCipher().exportRecoveryKey();
-  }
-
-  Future<void> importBackupRecoveryKey(String recoveryKey) {
-    return _backupCipher().importRecoveryKey(recoveryKey);
+  /// This device's backup recovery key, or null when it holds none. Never
+  /// creates a key. Importing a key is `backupRecoveryKeyImportProvider`,
+  /// which first proves the key against the cloud backup.
+  Future<String?> exportBackupRecoveryKey() {
+    return _backupCipher().loadExistingRecoveryKey();
   }
 
   BackupCipher _backupCipher() {

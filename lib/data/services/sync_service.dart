@@ -98,6 +98,49 @@ enum CloudSyncOutcome {
   uploadFailed,
 }
 
+/// Whether a recovery key opens the account's current cloud backup.
+enum CloudBackupKeyCheck {
+  /// The key decrypts the current cloud backup and it is a valid backup.
+  matches,
+
+  /// There is an encrypted cloud backup and the key does not open it.
+  doesNotMatch,
+
+  /// There is no encrypted cloud backup to test the key against.
+  noEncryptedCloudBackup,
+
+  /// No key was given and this device holds none for the account.
+  noKeyOnDevice,
+
+  /// The cloud backup could not be read, so nothing was proven.
+  unavailable,
+  ownerMismatch,
+  malformed,
+  accountChanged,
+}
+
+/// Result of installing a pasted recovery key.
+enum RecoveryKeyImportOutcome {
+  /// The key opened the current cloud backup and is now this device's key.
+  installed,
+
+  /// There was no encrypted cloud backup to test against. The key is now this
+  /// device's key and any previous key is kept until a backup opens.
+  installedUnverified,
+
+  /// The key does not open the current cloud backup. Nothing was changed.
+  doesNotMatch,
+
+  /// The pasted text is not a recovery key. Nothing was changed.
+  invalidFormat,
+
+  /// The cloud backup could not be checked. Nothing was changed.
+  cloudUnavailable,
+
+  /// The signed-in account changed. Nothing was changed.
+  accountChanged,
+}
+
 abstract class CloudBackupGateway {
   Future<bool> uploadBackup(Map<String, dynamic> backup);
   Future<CloudBackupReadResult> downloadBackup();
@@ -703,6 +746,82 @@ class SyncService {
       return CloudRestoreOutcome.accountChanged;
     } on BackupConcurrentMutationException {
       return CloudRestoreOutcome.conflict;
+    }
+  }
+
+  /// Downloads the current cloud backup and tests whether [recoveryKey] opens
+  /// it. Without [recoveryKey] it tests the key already on this device. Never
+  /// writes the key store, so it is safe to call for status displays.
+  Future<CloudBackupKeyCheck> checkCloudBackupKey({String? recoveryKey}) async {
+    final BackupCipher? cipher = _cipher;
+    if (cipher == null) return CloudBackupKeyCheck.unavailable;
+    if (!_accountStillCurrent) return CloudBackupKeyCheck.accountChanged;
+    final String? key = recoveryKey ?? await cipher.loadExistingRecoveryKey();
+    if (key == null) return CloudBackupKeyCheck.noKeyOnDevice;
+    final CloudBackupReadResult read = await gateway.downloadBackup();
+    if (!_accountStillCurrent) return CloudBackupKeyCheck.accountChanged;
+    switch (read.status) {
+      case CloudBackupReadStatus.found:
+        break;
+      case CloudBackupReadStatus.notFound:
+        return CloudBackupKeyCheck.noEncryptedCloudBackup;
+      case CloudBackupReadStatus.unavailable:
+        return CloudBackupKeyCheck.unavailable;
+      case CloudBackupReadStatus.ownerMismatch:
+        return CloudBackupKeyCheck.ownerMismatch;
+      case CloudBackupReadStatus.malformed:
+        return CloudBackupKeyCheck.malformed;
+    }
+    final Map<String, dynamic> payload = read.payload!;
+    if (cipher.isLegacyPlaintextBackup(payload)) {
+      return CloudBackupKeyCheck.noEncryptedCloudBackup;
+    }
+    if (!cipher.isEncryptedBackup(payload)) {
+      return CloudBackupKeyCheck.malformed;
+    }
+    try {
+      backup.validateFullBackup(
+        await cipher.decryptPayloadWithRecoveryKey(payload, key),
+      );
+      return CloudBackupKeyCheck.matches;
+    } on Object {
+      return CloudBackupKeyCheck.doesNotMatch;
+    }
+  }
+
+  /// Installs a pasted recovery key only when it is safe: after it opens the
+  /// current cloud backup, or, when there is no encrypted backup to test,
+  /// while keeping the previous key recoverable. A key that does not open the
+  /// backup, or a backup that cannot be checked, leaves the stored key as is.
+  Future<RecoveryKeyImportOutcome> importRecoveryKey(String recoveryKey) async {
+    final BackupCipher? cipher = _cipher;
+    if (cipher == null) return RecoveryKeyImportOutcome.cloudUnavailable;
+    final String key;
+    try {
+      key = BackupCipher.parseRecoveryKey(recoveryKey);
+    } on FormatException {
+      return RecoveryKeyImportOutcome.invalidFormat;
+    }
+    final CloudBackupKeyCheck check = await checkCloudBackupKey(
+      recoveryKey: key,
+    );
+    if (!_accountStillCurrent) return RecoveryKeyImportOutcome.accountChanged;
+    switch (check) {
+      case CloudBackupKeyCheck.matches:
+        await cipher.installVerifiedRecoveryKey(key);
+        return RecoveryKeyImportOutcome.installed;
+      case CloudBackupKeyCheck.noEncryptedCloudBackup:
+        await cipher.installUnverifiedRecoveryKey(key);
+        return RecoveryKeyImportOutcome.installedUnverified;
+      case CloudBackupKeyCheck.doesNotMatch:
+        return RecoveryKeyImportOutcome.doesNotMatch;
+      case CloudBackupKeyCheck.accountChanged:
+      case CloudBackupKeyCheck.ownerMismatch:
+        return RecoveryKeyImportOutcome.accountChanged;
+      case CloudBackupKeyCheck.unavailable:
+      case CloudBackupKeyCheck.malformed:
+      case CloudBackupKeyCheck.noKeyOnDevice:
+        return RecoveryKeyImportOutcome.cloudUnavailable;
     }
   }
 

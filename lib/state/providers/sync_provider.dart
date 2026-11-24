@@ -221,6 +221,29 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
   );
 });
 
+/// Installs a pasted backup recovery key only after it is proven against the
+/// account's current cloud backup (see [SyncService.importRecoveryKey]). When
+/// the backup cannot be reached the stored key is left unchanged.
+final backupRecoveryKeyImportProvider =
+    Provider<Future<RecoveryKeyImportOutcome> Function(String)>(
+      (ref) => (String recoveryKey) async {
+        final owner = AccountOperation.capture(ref);
+        if (!owner.isCurrent) return RecoveryKeyImportOutcome.accountChanged;
+        // The gateway depends on the Cloud Backup choice; wait for it so a
+        // still-loading preference is not mistaken for an unreachable cloud.
+        final SyncService? service;
+        try {
+          await owner.wait(ref.read(cloudSyncPreferenceProvider.future));
+          service = await _readySyncService(ref);
+        } on StaleAccountOperation {
+          return RecoveryKeyImportOutcome.accountChanged;
+        }
+        if (!owner.isCurrent) return RecoveryKeyImportOutcome.accountChanged;
+        if (service == null) return RecoveryKeyImportOutcome.cloudUnavailable;
+        return service.importRecoveryKey(recoveryKey);
+      },
+    );
+
 Future<SyncService?> _readySyncService(Ref ref) async {
   final service = ref.read(syncServiceProvider);
   if (service != null) return service;

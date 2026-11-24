@@ -140,11 +140,14 @@ void main() {
         );
         expect(tasks.values, isEmpty);
         // The recovery key stays in memory and is never printed or uploaded.
-        await BackupCipher(
-          replacementKeys,
-          accountId: createdId,
-        ).importRecoveryKey(
-          await BackupCipher(keys, accountId: createdId).exportRecoveryKey(),
+        expect(
+          await replacement.importRecoveryKey(
+            (await BackupCipher(
+              keys,
+              accountId: createdId,
+            ).loadExistingRecoveryKey())!,
+          ),
+          RecoveryKeyImportOutcome.installed,
         );
         expect(
           await replacement.restoreFromCloud(),

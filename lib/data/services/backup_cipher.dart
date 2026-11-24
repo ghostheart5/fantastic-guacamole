@@ -31,6 +31,7 @@ class BackupCipher {
   static const String _legacyClaimMutationKey =
       'chronospark-backup-legacy-key-claim';
   static const String _scopedKeyPrefix = 'cloud_backup_encryption_key_v2.';
+  static const String _rollbackSuffix = '.rollback';
   static const String _format = 'chronospark_backup_aes256_gcm_v2';
   static const String _legacyFormat = 'chronospark_backup_aes256_v1';
 
@@ -39,23 +40,27 @@ class BackupCipher {
   final String _keyName;
   final String? _accountDigest;
 
-  /// Returns a user-held recovery key that can be stored outside this device
-  /// and imported on a replacement device before restoring encrypted backups.
+  String get _rollbackKeyName => '$_keyName$_rollbackSuffix';
+  String get _keyMutationKey => 'chronospark-backup-key.$_keyName';
+
+  /// Returns this device's existing recovery key for the account, or null when
+  /// the device holds none. Never creates a key: a freshly generated key could
+  /// not decrypt any backup made elsewhere.
   ///
   /// Callers must never log this value. UI should present it once, behind an
   /// explicit confirmation, and ask the user to store it in a password manager.
-  Future<String> exportRecoveryKey() async {
-    final encrypt.Key key = await _loadOrCreateKey();
-    return base64Encode(key.bytes);
+  Future<String?> loadExistingRecoveryKey() async {
+    final String? stored = await _readStoredKey();
+    if (stored == null || stored.trim().isEmpty) return null;
+    return base64Encode(base64Decode(stored));
   }
 
-  /// Installs a user-held recovery key on this device. This enables decrypting
-  /// cloud backups created elsewhere without generating a new incompatible key.
-  Future<void> importRecoveryKey(String recoveryKey) async {
-    final String normalized = recoveryKey.trim();
+  /// Checks the format of a pasted recovery key and returns its canonical
+  /// form. Throws [FormatException] when it is not a base64 256-bit key.
+  static String parseRecoveryKey(String recoveryKey) {
     final List<int> decoded;
     try {
-      decoded = base64Decode(normalized);
+      decoded = base64Decode(recoveryKey.trim());
     } on FormatException {
       throw const FormatException('Backup recovery key is not valid base64.');
     }
@@ -64,7 +69,62 @@ class BackupCipher {
         'Backup recovery key must contain a 256-bit key.',
       );
     }
-    await _secureStore.writeString(_keyName, base64Encode(decoded));
+    return base64Encode(decoded);
+  }
+
+  /// Whether [payload] is an encrypted backup that a recovery key can be
+  /// tested against.
+  bool isEncryptedBackup(Map<String, dynamic> payload) {
+    final Object? format = payload['format'];
+    return (format == _format || format == _legacyFormat) &&
+        payload['iv'] is String &&
+        payload['ciphertext'] is String;
+  }
+
+  /// Decrypts [payload] with [recoveryKey] without reading or changing the
+  /// key stored on this device. Throws when the key does not open it.
+  Future<Map<String, dynamic>> decryptPayloadWithRecoveryKey(
+    Map<String, dynamic> payload,
+    String recoveryKey,
+  ) async {
+    if (!isEncryptedBackup(payload)) {
+      throw const FormatException('Cloud backup is not encrypted.');
+    }
+    return _decryptWith(
+      encrypt.Key(base64Decode(parseRecoveryKey(recoveryKey))),
+      payload,
+    );
+  }
+
+  /// Installs a recovery key that has already been proven to decrypt the
+  /// account's current cloud backup. Any rollback key is no longer needed.
+  Future<void> installVerifiedRecoveryKey(String recoveryKey) async {
+    final String key = parseRecoveryKey(recoveryKey);
+    await _mutations.runExclusive(_keyMutationKey, () async {
+      await _secureStore.writeString(_keyName, key);
+      await _secureStore.delete(_rollbackKeyName);
+    });
+  }
+
+  /// Installs a recovery key that could not be tested because there was no
+  /// encrypted cloud backup. The key it replaces is kept under a rollback name
+  /// and comes back automatically if a later backup only opens with it.
+  Future<void> installUnverifiedRecoveryKey(String recoveryKey) async {
+    final String key = parseRecoveryKey(recoveryKey);
+    final String? previous = await loadExistingRecoveryKey();
+    await _mutations.runExclusive(_keyMutationKey, () async {
+      final String? heldRollback = await _secureStore.readString(
+        _rollbackKeyName,
+      );
+      // Keep the oldest unproven key: it is the one most likely to open an
+      // existing backup.
+      if (previous != null &&
+          previous != key &&
+          (heldRollback == null || heldRollback.trim().isEmpty)) {
+        await _secureStore.writeString(_rollbackKeyName, previous);
+      }
+      await _secureStore.writeString(_keyName, key);
+    });
   }
 
   Future<Map<String, dynamic>> encryptPayload(
@@ -91,19 +151,48 @@ class BackupCipher {
   Future<Map<String, dynamic>> decryptPayload(
     Map<String, dynamic> payload,
   ) async {
-    final String? format = payload['format'] as String?;
     if (payload.isEmpty || isLegacyPlaintextBackup(payload)) {
       return payload;
     }
-    if ((format != _format && format != _legacyFormat) ||
-        payload['iv'] is! String ||
-        payload['ciphertext'] is! String) {
+    if (!isEncryptedBackup(payload)) {
       throw const FormatException(
         'Cloud backup is neither encrypted nor a supported legacy backup.',
       );
     }
     final encrypt.Key key = await _loadKeyForDecryption();
-    final bool legacy = format == _legacyFormat;
+    final String? rollback = await _secureStore.readString(_rollbackKeyName);
+    if (rollback == null || rollback.trim().isEmpty) {
+      return _decryptWith(key, payload);
+    }
+    final Map<String, dynamic> decrypted;
+    try {
+      decrypted = _decryptWith(key, payload);
+    } on Object catch (error, stackTrace) {
+      // The installed key was never proven. If the key it replaced opens this
+      // backup, put that key back; otherwise report the original failure.
+      final Map<String, dynamic> restored;
+      try {
+        restored = _decryptWith(encrypt.Key(base64Decode(rollback)), payload);
+      } on Object {
+        Error.throwWithStackTrace(error, stackTrace);
+      }
+      await _mutations.runExclusive(_keyMutationKey, () async {
+        await _secureStore.writeString(_keyName, rollback);
+        await _secureStore.delete(_rollbackKeyName);
+      });
+      return restored;
+    }
+    await _mutations.runExclusive(_keyMutationKey, () async {
+      await _secureStore.delete(_rollbackKeyName);
+    });
+    return decrypted;
+  }
+
+  Map<String, dynamic> _decryptWith(
+    encrypt.Key key,
+    Map<String, dynamic> payload,
+  ) {
+    final bool legacy = payload['format'] == _legacyFormat;
     final encrypt.Encrypter encrypter = encrypt.Encrypter(
       encrypt.AES(
         key,

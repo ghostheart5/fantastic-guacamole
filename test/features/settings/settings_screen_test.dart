@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart'
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/person_context_repository.dart';
+import 'package:fantastic_guacamole/data/services/sync_service.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
@@ -93,6 +94,56 @@ void main() {
       ),
       allOf(contains('sigue en curso'), contains('no se pudo guardar')),
     );
+  });
+
+  test('backup recovery key copy never claims a key that does not exist', () {
+    const BackupRecoveryKeyCopy en = BackupRecoveryKeyCopy(isSpanish: false);
+    const BackupRecoveryKeyCopy es = BackupRecoveryKeyCopy(isSpanish: true);
+
+    expect(en.noKeyTitle, 'No backup key on this device yet');
+    expect(
+      es.noKeyTitle,
+      'Todavía no hay una clave de respaldo en este dispositivo',
+    );
+    expect(en.noKeyBody, contains('Restore key'));
+    expect(es.noKeyBody, contains('Restaurar clave'));
+
+    expect(
+      en.importOutcome(RecoveryKeyImportOutcome.doesNotMatch),
+      'This key does not match your cloud backup. Your current key was not changed.',
+    );
+    expect(
+      es.importOutcome(RecoveryKeyImportOutcome.doesNotMatch),
+      'Esta clave no coincide con tu copia en la nube. Tu clave actual no se cambió.',
+    );
+    for (final RecoveryKeyImportOutcome refused in const [
+      RecoveryKeyImportOutcome.doesNotMatch,
+      RecoveryKeyImportOutcome.cloudUnavailable,
+      RecoveryKeyImportOutcome.accountChanged,
+    ]) {
+      expect(en.importOutcome(refused), contains('not changed'));
+      expect(es.importOutcome(refused), contains('no se cambió'));
+    }
+    expect(
+      en.importOutcome(RecoveryKeyImportOutcome.installedUnverified),
+      contains('previous key is kept'),
+    );
+    expect(
+      es.importOutcome(RecoveryKeyImportOutcome.installedUnverified),
+      contains('clave anterior se conserva'),
+    );
+    expect(
+      en.importOutcome(RecoveryKeyImportOutcome.invalidFormat),
+      'That recovery key is not valid.',
+    );
+    expect(
+      es.importOutcome(RecoveryKeyImportOutcome.invalidFormat),
+      'Esa clave de recuperación no es válida.',
+    );
+    for (final RecoveryKeyImportOutcome outcome
+        in RecoveryKeyImportOutcome.values) {
+      expect(en.importOutcome(outcome), isNot(es.importOutcome(outcome)));
+    }
   });
 
   ProviderContainer createContainer({

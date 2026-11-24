@@ -462,10 +462,27 @@ Future<void> _revealBackupRecoveryKey(
     return;
   }
 
-  final String key = await ref
+  final String? key = await ref
       .read(settingsUiActionsProvider)
       .exportBackupRecoveryKey();
   if (!context.mounted) {
+    return;
+  }
+  if (key == null) {
+    final BackupRecoveryKeyCopy copy = BackupRecoveryKeyCopy.of(context);
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: Text(copy.noKeyTitle),
+        content: Text(copy.noKeyBody),
+        actions: <Widget>[
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(journeyText(context, 'Done', 'Listo')),
+          ),
+        ],
+      ),
+    );
     return;
   }
   await showDialog<void>(
@@ -621,40 +638,70 @@ Future<void> _importBackupRecoveryKey(
     return;
   }
 
-  try {
-    await ref
-        .read(settingsUiActionsProvider)
-        .importBackupRecoveryKey(recoveryKey);
-    if (!context.mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          journeyText(
-            context,
-            'Recovery key saved. You can now restore your backup.',
-            'Clave de recuperación guardada. Ya puedes restaurar tu copia de seguridad.',
-          ),
-        ),
-      ),
-    );
-  } on FormatException {
-    if (!context.mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          journeyText(
-            context,
-            'That recovery key is not valid.',
-            'Esa clave de recuperación no es válida.',
-          ),
-        ),
-      ),
-    );
+  // The key is tested against the current cloud backup before it replaces
+  // the stored key; a key that does not open it changes nothing.
+  final RecoveryKeyImportOutcome outcome = await ref.read(
+    backupRecoveryKeyImportProvider,
+  )(recoveryKey);
+  if (!context.mounted) {
+    return;
   }
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(BackupRecoveryKeyCopy.of(context).importOutcome(outcome)),
+    ),
+  );
+}
+
+/// Bilingual copy for the backup recovery key flows.
+final class BackupRecoveryKeyCopy {
+  const BackupRecoveryKeyCopy({required this.isSpanish});
+
+  final bool isSpanish;
+
+  static BackupRecoveryKeyCopy of(BuildContext context) =>
+      BackupRecoveryKeyCopy(
+        isSpanish: ChronoSparkLocalizations.of(context).isSpanish,
+      );
+
+  String _text(String english, String spanish) => isSpanish ? spanish : english;
+
+  String get noKeyTitle => _text(
+    'No backup key on this device yet',
+    'Todavía no hay una clave de respaldo en este dispositivo',
+  );
+
+  String get noKeyBody => _text(
+    'If you backed up on another device, choose Restore key and paste the recovery key you saved there. Otherwise this device makes its key the first time it backs up.',
+    'Si hiciste una copia en otro dispositivo, elige Restaurar clave y pega la clave de recuperación que guardaste allí. Si no, este dispositivo creará su clave la primera vez que haga una copia.',
+  );
+
+  String importOutcome(RecoveryKeyImportOutcome outcome) => switch (outcome) {
+    RecoveryKeyImportOutcome.installed => _text(
+      'Recovery key saved. It opens your cloud backup, so you can restore it now.',
+      'Clave de recuperación guardada. Abre tu copia en la nube, así que ya puedes restaurarla.',
+    ),
+    RecoveryKeyImportOutcome.installedUnverified => _text(
+      'Recovery key saved. There is no cloud backup to check it against yet, so your previous key is kept until a backup opens.',
+      'Clave de recuperación guardada. Aún no hay una copia en la nube para comprobarla, así que tu clave anterior se conserva hasta que se abra una copia.',
+    ),
+    RecoveryKeyImportOutcome.doesNotMatch => _text(
+      'This key does not match your cloud backup. Your current key was not changed.',
+      'Esta clave no coincide con tu copia en la nube. Tu clave actual no se cambió.',
+    ),
+    RecoveryKeyImportOutcome.invalidFormat => _text(
+      'That recovery key is not valid.',
+      'Esa clave de recuperación no es válida.',
+    ),
+    RecoveryKeyImportOutcome.cloudUnavailable => _text(
+      'Could not check this key against your cloud backup. Your current key was not changed. Turn on Cloud Backup, check your connection, and try again.',
+      'No se pudo comprobar esta clave con tu copia en la nube. Tu clave actual no se cambió. Activa la copia en la nube, revisa tu conexión e inténtalo de nuevo.',
+    ),
+    RecoveryKeyImportOutcome.accountChanged => _text(
+      'Your account changed before the key could be checked. Your current key was not changed.',
+      'Tu cuenta cambió antes de poder comprobar la clave. Tu clave actual no se cambió.',
+    ),
+  };
 }
 
 class _AdaptiveGuidanceDebugSection extends ConsumerWidget {

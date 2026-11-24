@@ -20,13 +20,13 @@ void main() {
         ],
       },
     );
-    final String recoveryKey = await firstCipher.exportRecoveryKey();
+    final String recoveryKey = (await firstCipher.loadExistingRecoveryKey())!;
 
     final SecureStore secondDevice = SecureStore(
       backend: InMemorySecureStoreBackend(),
     );
     final BackupCipher secondCipher = BackupCipher(secondDevice);
-    await secondCipher.importRecoveryKey(recoveryKey);
+    await secondCipher.installVerifiedRecoveryKey(recoveryKey);
 
     final Map<String, dynamic> restored = await secondCipher.decryptPayload(
       encrypted,
@@ -40,31 +40,176 @@ void main() {
     );
   });
 
-  test('importRecoveryKey rejects invalid recovery keys', () async {
+  test(
+    'revealing the key never creates one on a device without a key',
+    () async {
+      final _RecordingBackend backend = _RecordingBackend();
+      final BackupCipher cipher = BackupCipher(
+        SecureStore(backend: backend),
+        accountId: 'account-a',
+      );
+
+      expect(await cipher.loadExistingRecoveryKey(), isNull);
+      expect(backend.writes, isEmpty);
+      expect(await backend.readAll(), isEmpty);
+    },
+  );
+
+  test('loadExistingRecoveryKey returns the key used for encryption', () async {
+    final BackupCipher cipher = BackupCipher(
+      SecureStore(backend: InMemorySecureStoreBackend()),
+      accountId: 'account-a',
+    );
+    final Map<String, dynamic> encrypted = await cipher.encryptPayload(
+      <String, dynamic>{'version': '3.0.0'},
+    );
+    final String key = (await cipher.loadExistingRecoveryKey())!;
+
+    expect(base64Decode(key), hasLength(32));
+    expect(
+      await cipher.decryptPayloadWithRecoveryKey(encrypted, key),
+      <String, dynamic>{'version': '3.0.0'},
+    );
+  });
+
+  test('parseRecoveryKey rejects invalid recovery keys', () async {
     final BackupCipher cipher = BackupCipher(
       SecureStore(backend: InMemorySecureStoreBackend()),
     );
 
-    await expectLater(
-      cipher.importRecoveryKey('not base64'),
+    expect(
+      () => BackupCipher.parseRecoveryKey('not base64'),
       throwsFormatException,
     );
-    await expectLater(cipher.importRecoveryKey('AA=='), throwsFormatException);
+    expect(() => BackupCipher.parseRecoveryKey('AA=='), throwsFormatException);
+    await expectLater(
+      cipher.installVerifiedRecoveryKey('AA=='),
+      throwsFormatException,
+    );
+    await expectLater(
+      cipher.installUnverifiedRecoveryKey('not base64'),
+      throwsFormatException,
+    );
+    expect(await cipher.loadExistingRecoveryKey(), isNull);
   });
+
+  test(
+    'a test decrypt with another key never changes the stored key',
+    () async {
+      final SecureStore store = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      final BackupCipher cipher = BackupCipher(store, accountId: 'account-a');
+      final Map<String, dynamic> encrypted = await cipher.encryptPayload(
+        <String, dynamic>{'version': '3.0.0'},
+      );
+      final Map<String, String> before = await store.readAll();
+
+      await expectLater(
+        cipher.decryptPayloadWithRecoveryKey(
+          encrypted,
+          base64Encode(List<int>.filled(32, 9)),
+        ),
+        throwsA(anything),
+      );
+
+      expect(await store.readAll(), before);
+    },
+  );
+
+  test('an unverified key keeps the previous key until a decrypt', () async {
+    final SecureStore store = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    final BackupCipher cipher = BackupCipher(store, accountId: 'account-a');
+    final Map<String, dynamic> oldBackup = await cipher.encryptPayload(
+      <String, dynamic>{'version': '3.0.0'},
+    );
+    final String previous = (await cipher.loadExistingRecoveryKey())!;
+    final String candidate = base64Encode(List<int>.filled(32, 9));
+    final String other = base64Encode(List<int>.filled(32, 4));
+
+    await cipher.installUnverifiedRecoveryKey(candidate);
+    // A second unproven key must not push the original out of the rollback.
+    await cipher.installUnverifiedRecoveryKey(other);
+    expect(await cipher.loadExistingRecoveryKey(), other);
+    expect((await store.readAll()).values, contains(previous));
+
+    expect(await cipher.decryptPayload(oldBackup), <String, dynamic>{
+      'version': '3.0.0',
+    });
+    expect(await cipher.loadExistingRecoveryKey(), previous);
+    expect((await store.readAll()).values.where((v) => v == other), isEmpty);
+  });
+
+  test('a decrypt with the new key retires the rollback key', () async {
+    final SecureStore store = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    final BackupCipher cipher = BackupCipher(store, accountId: 'account-a');
+    await cipher.encryptPayload(<String, dynamic>{'version': '3.0.0'});
+    final String previous = (await cipher.loadExistingRecoveryKey())!;
+    final String candidate = base64Encode(List<int>.filled(32, 9));
+
+    await cipher.installUnverifiedRecoveryKey(candidate);
+    final Map<String, dynamic> newBackup = await cipher.encryptPayload(
+      <String, dynamic>{'version': '6.0.0'},
+    );
+    await cipher.decryptPayload(newBackup);
+
+    expect(await cipher.loadExistingRecoveryKey(), candidate);
+    expect((await store.readAll()).values, isNot(contains(previous)));
+  });
+
+  test('a backup neither key opens still fails and changes nothing', () async {
+    final SecureStore store = SecureStore(
+      backend: InMemorySecureStoreBackend(),
+    );
+    final BackupCipher cipher = BackupCipher(store, accountId: 'account-a');
+    await cipher.encryptPayload(<String, dynamic>{'version': '3.0.0'});
+    await cipher.installUnverifiedRecoveryKey(
+      base64Encode(List<int>.filled(32, 9)),
+    );
+    final Map<String, String> before = await store.readAll();
+    final Map<String, dynamic> foreign = await BackupCipher(
+      SecureStore(backend: InMemorySecureStoreBackend()),
+    ).encryptPayload(<String, dynamic>{'version': '3.0.0'});
+
+    await expectLater(cipher.decryptPayload(foreign), throwsA(anything));
+    expect(await store.readAll(), before);
+  });
+
+  test(
+    'a verified key replaces the stored key and drops the rollback',
+    () async {
+      final SecureStore store = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      final BackupCipher cipher = BackupCipher(store, accountId: 'account-a');
+      await cipher.encryptPayload(<String, dynamic>{'version': '3.0.0'});
+      await cipher.installUnverifiedRecoveryKey(
+        base64Encode(List<int>.filled(32, 9)),
+      );
+      final String verified = base64Encode(List<int>.filled(32, 4));
+
+      await cipher.installVerifiedRecoveryKey(verified);
+
+      expect(await cipher.loadExistingRecoveryKey(), verified);
+      expect(await store.readAll(), hasLength(1));
+    },
+  );
 
   test('new account-scoped backup keys are isolated', () async {
     final SecureStore store = SecureStore(
       backend: InMemorySecureStoreBackend(),
     );
 
-    final String first = await BackupCipher(
-      store,
-      accountId: 'account-a',
-    ).exportRecoveryKey();
-    final String second = await BackupCipher(
-      store,
-      accountId: 'account-b',
-    ).exportRecoveryKey();
+    final String first = await _keyUsedForEncryption(
+      BackupCipher(store, accountId: 'account-a'),
+    );
+    final String second = await _keyUsedForEncryption(
+      BackupCipher(store, accountId: 'account-b'),
+    );
 
     expect(second, isNot(first));
   });
@@ -73,49 +218,49 @@ void main() {
     final SecureStore store = SecureStore(
       backend: InMemorySecureStoreBackend(),
     );
-    final String legacy = await BackupCipher(store).exportRecoveryKey();
+    final String legacy = await _keyUsedForEncryption(BackupCipher(store));
 
-    final String migrated = await BackupCipher(
+    final String? migrated = await BackupCipher(
       store,
       accountId: 'account-a',
-    ).exportRecoveryKey();
-    final String otherAccount = await BackupCipher(
+    ).loadExistingRecoveryKey();
+    final String? otherAccount = await BackupCipher(
       store,
       accountId: 'account-b',
-    ).exportRecoveryKey();
+    ).loadExistingRecoveryKey();
 
     expect(migrated, legacy);
-    expect(otherAccount, isNot(legacy));
-    expect((await store.readAll()).keys, hasLength(4));
+    expect(otherAccount, isNull);
+    // Legacy key, its owner, and account A's claimed copy; nothing for B.
+    expect((await store.readAll()).keys, hasLength(3));
   });
 
   test('concurrent accounts cannot both claim one legacy key', () async {
-    final _LegacyClaimBackend backend = _LegacyClaimBackend(
-      base64Encode(List<int>.filled(32, 7)),
-    );
+    final String legacy = base64Encode(List<int>.filled(32, 7));
+    final _LegacyClaimBackend backend = _LegacyClaimBackend(legacy);
     final SecureStore store = SecureStore(backend: backend);
     final KeyedMutationCoordinator coordinator = KeyedMutationCoordinator();
-    final Future<String> first = BackupCipher(
+    final Future<String?> first = BackupCipher(
       store,
       accountId: 'account-a',
       mutationCoordinator: coordinator,
-    ).exportRecoveryKey();
+    ).loadExistingRecoveryKey();
     await backend.firstOwnerRead;
-    final Future<String> second = BackupCipher(
+    final Future<String?> second = BackupCipher(
       store,
       accountId: 'account-b',
       mutationCoordinator: coordinator,
-    ).exportRecoveryKey();
+    ).loadExistingRecoveryKey();
     await pumpEventQueue();
     expect(backend.ownerReadCount, 1);
 
     backend.releaseOwnerReads();
-    final List<String> keys = await Future.wait(<Future<String>>[
+    final List<String?> keys = await Future.wait(<Future<String?>>[
       first,
       second,
     ]);
 
-    expect(keys[1], isNot(keys[0]));
+    expect(keys, <String?>[legacy, null]);
   });
 
   test('reports when an encrypted backup needs its recovery key', () async {
@@ -172,6 +317,16 @@ void main() {
   });
 }
 
+class _RecordingBackend extends InMemorySecureStoreBackend {
+  final List<String> writes = <String>[];
+
+  @override
+  Future<void> write({required String key, required String value}) {
+    writes.add(key);
+    return super.write(key: key, value: value);
+  }
+}
+
 class _LegacyClaimBackend implements SecureStoreBackend {
   _LegacyClaimBackend(String legacyKey) {
     _values['cloud_backup_encryption_key_v1'] = legacyKey;
@@ -212,4 +367,9 @@ class _LegacyClaimBackend implements SecureStoreBackend {
   @override
   Future<Map<String, String>> readAll() async =>
       Map<String, String>.unmodifiable(_values);
+}
+
+Future<String> _keyUsedForEncryption(BackupCipher cipher) async {
+  await cipher.encryptPayload(<String, dynamic>{'version': '3.0.0'});
+  return (await cipher.loadExistingRecoveryKey())!;
 }

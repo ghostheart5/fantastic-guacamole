@@ -1249,6 +1249,160 @@ void main() {
       );
     },
   );
+
+  group('recovery key check and import', () {
+    final String otherKey = base64Encode(List<int>.filled(32, 9));
+    late SecureStore originalKeys;
+    late BackupCipher originalCipher;
+
+    SyncService serviceWith(SecureStore keys, [CloudBackupGateway? cloud]) {
+      return SyncService(
+        backup: backupService,
+        gateway: cloud ?? gateway,
+        secureStore: keys,
+        syncEnabled: true,
+        restoreEnabled: true,
+      );
+    }
+
+    Future<String?> storedKey(SecureStore keys) =>
+        BackupCipher(keys).loadExistingRecoveryKey();
+
+    setUp(() async {
+      originalKeys = SecureStore(backend: InMemorySecureStoreBackend());
+      originalCipher = BackupCipher(originalKeys);
+      gateway.fullBackup = await originalCipher.encryptPayload(
+        _fullCloudBackup(
+          tasks: <Map<String, dynamic>>[
+            <String, dynamic>{
+              'id': 'key-check-task',
+              'title': 'Encrypted with the original key',
+              'createdAt': '2026-08-29T12:00:00.000Z',
+            },
+          ],
+        ),
+      );
+    });
+
+    test(
+      'checkCloudBackupKey reports whether a key opens the backup',
+      () async {
+        final SyncService service = serviceWith(originalKeys);
+
+        expect(
+          await service.checkCloudBackupKey(),
+          CloudBackupKeyCheck.matches,
+        );
+        expect(
+          await service.checkCloudBackupKey(recoveryKey: otherKey),
+          CloudBackupKeyCheck.doesNotMatch,
+        );
+        expect(
+          await serviceWith(
+            SecureStore(backend: InMemorySecureStoreBackend()),
+          ).checkCloudBackupKey(),
+          CloudBackupKeyCheck.noKeyOnDevice,
+        );
+        gateway.fullReadOverride = const CloudBackupReadResult.unavailable();
+        expect(
+          await service.checkCloudBackupKey(),
+          CloudBackupKeyCheck.unavailable,
+        );
+        gateway.fullReadOverride = const CloudBackupReadResult.notFound();
+        expect(
+          await service.checkCloudBackupKey(),
+          CloudBackupKeyCheck.noEncryptedCloudBackup,
+        );
+      },
+    );
+
+    test(
+      'a key that does not open the backup leaves the stored key unchanged',
+      () async {
+        final String? original = await storedKey(originalKeys);
+        final SyncService service = serviceWith(originalKeys);
+
+        expect(
+          await service.importRecoveryKey(otherKey),
+          RecoveryKeyImportOutcome.doesNotMatch,
+        );
+
+        expect(await storedKey(originalKeys), original);
+        expect(await service.restoreFromCloud(), CloudRestoreOutcome.restored);
+      },
+    );
+
+    test('a matching key is installed on a replacement device', () async {
+      final SecureStore replacementKeys = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      final SyncService replacement = serviceWith(replacementKeys);
+      expect(
+        await replacement.restoreFromCloud(),
+        CloudRestoreOutcome.recoveryKeyRequired,
+      );
+
+      expect(
+        await replacement.importRecoveryKey(
+          ' ${(await storedKey(originalKeys))!} ',
+        ),
+        RecoveryKeyImportOutcome.installed,
+      );
+
+      expect(await storedKey(replacementKeys), await storedKey(originalKeys));
+      expect(
+        await replacement.restoreFromCloud(),
+        CloudRestoreOutcome.restored,
+      );
+    });
+
+    test('an unreachable cloud backup refuses the import', () async {
+      final String? original = await storedKey(originalKeys);
+      gateway.fullReadOverride = const CloudBackupReadResult.unavailable();
+
+      expect(
+        await serviceWith(originalKeys).importRecoveryKey(otherKey),
+        RecoveryKeyImportOutcome.cloudUnavailable,
+      );
+      expect(await storedKey(originalKeys), original);
+    });
+
+    test('a malformed key is rejected without touching storage', () async {
+      final String? original = await storedKey(originalKeys);
+
+      expect(
+        await serviceWith(originalKeys).importRecoveryKey('not a key'),
+        RecoveryKeyImportOutcome.invalidFormat,
+      );
+      expect(
+        await serviceWith(originalKeys).importRecoveryKey('AA=='),
+        RecoveryKeyImportOutcome.invalidFormat,
+      );
+      expect(await storedKey(originalKeys), original);
+    });
+
+    test(
+      'with no cloud backup to test, the previous key stays recoverable',
+      () async {
+        final String? original = await storedKey(originalKeys);
+        final Map<String, dynamic>? oldBackup = gateway.fullBackup;
+        gateway.fullBackup = null;
+        final SyncService service = serviceWith(originalKeys);
+
+        expect(
+          await service.importRecoveryKey(otherKey),
+          RecoveryKeyImportOutcome.installedUnverified,
+        );
+        expect(await storedKey(originalKeys), otherKey);
+
+        // A backup made with the previous key appears (for example from the
+        // device that made it): it still opens, and the previous key returns.
+        gateway.fullBackup = oldBackup;
+        expect(await service.restoreFromCloud(), CloudRestoreOutcome.restored);
+        expect(await storedKey(originalKeys), original);
+      },
+    );
+  });
 }
 
 Map<String, dynamic> _fullCloudBackup({
