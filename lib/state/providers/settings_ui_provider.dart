@@ -185,12 +185,18 @@ class SettingsUiActions {
     return TelemetryConsentStore().save(accountId: accountId, consent: consent);
   }
 
-  Future<String> exportBackupRecoveryKey() {
-    return _backupCipher().exportRecoveryKey();
+  /// This device's backup recovery key, or null when it holds none. Never
+  /// creates a key. Importing a key is `backupRecoveryKeyImportProvider`,
+  /// which first proves the key against the cloud backup.
+  Future<String?> exportBackupRecoveryKey() {
+    return _backupCipher().loadExistingRecoveryKey();
   }
 
-  Future<void> importBackupRecoveryKey(String recoveryKey) {
-    return _backupCipher().importRecoveryKey(recoveryKey);
+  /// Creates this device's backup recovery key if it has none, and returns
+  /// it. Only for the explicit "create a new key" choice when turning on
+  /// Cloud Backup: a new key cannot open a backup made with another key.
+  Future<String> createBackupRecoveryKey() {
+    return _backupCipher().createRecoveryKeyIfMissing();
   }
 
   BackupCipher _backupCipher() {

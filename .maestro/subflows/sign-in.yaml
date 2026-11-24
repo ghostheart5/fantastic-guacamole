@@ -46,16 +46,17 @@ appId: com.ghostheart5.chronospark
 
 - runFlow:
     when:
-      visible: "ENTER SYSTEM"
+      visible:
+        id: "login-email-field"
     commands:
       - tapOn:
-          text: "Email address"
+          id: "login-email-field"
       - inputText: "${MAESTRO_TEST_EMAIL}"
       - tapOn:
-          text: "Password"
+          id: "login-password-field"
       - inputText: "${MAESTRO_TEST_PASSWORD}"
       - hideKeyboard
-      - tapOn: "ENTER SYSTEM"
+      - tapOn: "^Sign in$"
 
 - extendedWaitUntil:
     visible: "(?:Pause guide|Today)"

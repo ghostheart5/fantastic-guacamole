@@ -25,6 +25,21 @@ class _NexusHeader extends ConsumerWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
+              // The detailed review is pushed over Today, so it must offer a
+              // way back. Hidden if it were ever the only route.
+              if (Navigator.canPop(context)) ...<Widget>[
+                Tooltip(
+                  message: copy.back,
+                  child: _HeaderControl(
+                    key: const Key('nexus-detail-back'),
+                    semanticLabel: copy.back,
+                    accent: AppColors.neonCyan,
+                    onTap: () => Navigator.of(context).maybePop(),
+                    child: const Icon(Icons.arrow_back_rounded),
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,6 +285,7 @@ class _LoopAction extends StatelessWidget {
 
 class _HeaderControl extends StatelessWidget {
   const _HeaderControl({
+    super.key,
     required this.semanticLabel,
     required this.accent,
     required this.onTap,

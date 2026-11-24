@@ -496,7 +496,7 @@ class SettingsScreen extends ConsumerWidget {
                 initiallyExpanded: openContextFromNexus,
                 child: const Column(
                   children: <Widget>[
-                    _AdaptiveGuidanceSection(),
+                    AdaptiveGuidanceSettingsSection(),
                     SizedBox(height: 10),
                     _PersonContextSection(),
                     SizedBox(height: 10),

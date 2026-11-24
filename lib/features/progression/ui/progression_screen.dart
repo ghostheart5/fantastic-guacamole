@@ -247,6 +247,18 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
       );
     }
 
+    // Opened from Insights: Back returns there. Any other entry goes to Today.
+    final bool fromInsights =
+        ref.watch(activityOriginProvider) == AppView.trajectoryEngine;
+    final String backLabel = fromInsights
+        ? journeyText(context, 'Back to Insights', 'Volver a Perspectivas')
+        : journeyText(context, 'Back to Today', 'Volver a Hoy');
+    void goBack() => goToAppView(
+      context,
+      ref,
+      fromInsights ? AppView.trajectoryEngine : AppView.nexus,
+    );
+
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgProgressionAscension,
       child: Scaffold(
@@ -263,21 +275,12 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
                     Semantics(
                       container: true,
                       excludeSemantics: true,
-                      label: journeyText(
-                        context,
-                        'Back to Today',
-                        'Volver a Hoy',
-                      ),
+                      label: backLabel,
                       button: true,
-                      onTap: () => goToAppView(context, ref, AppView.nexus),
+                      onTap: goBack,
                       child: IconButton(
-                        tooltip: journeyText(
-                          context,
-                          'Back to Today',
-                          'Volver a Hoy',
-                        ),
-                        onPressed: () =>
-                            goToAppView(context, ref, AppView.nexus),
+                        tooltip: backLabel,
+                        onPressed: goBack,
                         constraints: const BoxConstraints.tightFor(
                           width: 48,
                           height: 48,

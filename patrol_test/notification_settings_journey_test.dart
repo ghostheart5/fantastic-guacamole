@@ -29,8 +29,10 @@ void main() {
     ($) async {
       final package = await PackageInfo.fromPlatform();
       expect(package.packageName, 'com.ghostheart5.chronospark.qa');
-      expect(package.version, '4.2.4-qa');
-      expect(package.buildNumber, '2026101201');
+      // The QA flavour appends -qa to the release version. Check that,
+      // not a version or build number that goes stale every release.
+      expect(package.version, matches(RegExp(r'^\d+\.\d+\.\d+-qa$')));
+      expect(package.buildNumber, matches(RegExp(r'^\d+$')));
       expect(Platform.isAndroid && kDebugMode && Env.isLocalMode, isTrue);
       expect(
         Env.cloudServicesEnabled ||

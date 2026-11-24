@@ -648,6 +648,85 @@ void main() {
       expect(result.status, CloudBackupWriteStatus.malformed);
       expect(backupRequests, 0);
     });
+
+    for (final scenario
+        in <
+          ({
+            String name,
+            int status,
+            String body,
+            CloudBackupDeleteStatus result,
+          })
+        >[
+          (
+            name: 'a deleted row',
+            status: 200,
+            body: '[{"revision":4}]',
+            result: CloudBackupDeleteStatus.deleted,
+          ),
+          (
+            name: 'no matching row',
+            status: 200,
+            body: '[]',
+            result: CloudBackupDeleteStatus.notDeleted,
+          ),
+          (
+            name: 'a refused delete',
+            status: 403,
+            body:
+                '{"code":"42501","message":"permission denied for table cloud_backup_snapshots"}',
+            result: CloudBackupDeleteStatus.notDeleted,
+          ),
+        ]) {
+      test(
+        'deletes only the owner row at the checked revision: ${scenario.name}',
+        () async {
+          final List<String> deletes = <String>[];
+          final MockClient httpClient = MockClient((
+            http.Request request,
+          ) async {
+            if (request.url.path.endsWith('/auth/v1/token')) {
+              return _authResponse();
+            }
+            if (request.url.path == '/rest/v1/cloud_backup_snapshots' &&
+                request.method == 'DELETE') {
+              deletes.add(request.url.query);
+              return http.Response(
+                scenario.body,
+                scenario.status,
+                headers: <String, String>{'content-type': 'application/json'},
+                request: request,
+              );
+            }
+            fail('Unexpected request: ${request.method} ${request.url}');
+          });
+          final sb.SupabaseClient client = _supabaseClient(httpClient);
+          await client.auth.signInWithPassword(
+            email: 'sync@chronospark.app',
+            password: 'correct-pass',
+          );
+
+          expect(
+            await SupabaseCasCloudBackupGateway(
+              client: client,
+              expectedUserId: 'user-1',
+            ).deleteBackup(expectedRevision: 4),
+            scenario.result,
+          );
+          expect(deletes, hasLength(1));
+          expect(deletes.single, contains('user_id=eq.user-1'));
+          expect(deletes.single, contains('revision=eq.4'));
+          expect(
+            await SupabaseCasCloudBackupGateway(
+              client: client,
+              expectedUserId: 'someone-else',
+            ).deleteBackup(expectedRevision: 4),
+            CloudBackupDeleteStatus.ownerMismatch,
+          );
+          expect(deletes, hasLength(1));
+        },
+      );
+    }
   });
 }
 

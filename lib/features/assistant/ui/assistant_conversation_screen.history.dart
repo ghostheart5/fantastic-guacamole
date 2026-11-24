@@ -33,10 +33,14 @@ extension _StoredChat on _AssistantConversationScreenState {
     final epoch = ++_historyEpoch;
     final repository = ref.read(assistantConversationHistoryRepositoryProvider);
     _updateHistory(() => _historyLoading = true);
+    AssistantConversationHistory? loaded;
     try {
       if (repository == null) throw StateError('chat_account_unavailable');
-      final saved = await repository.load();
+      final saved = await repository.load(
+        keep: ref.read(conversationExecutionRegistryProvider).isRunning,
+      );
       if (!mounted || epoch != _historyEpoch) return;
+      loaded = saved;
       _updateHistory(() {
         _history
           ..clear()
@@ -59,14 +63,19 @@ extension _StoredChat on _AssistantConversationScreenState {
         _updateHistory(() => _historyLoading = false);
       }
     }
+    if (loaded != null && mounted && epoch == _historyEpoch) {
+      await _resumePending(loaded);
+    }
   }
 
-  // Snapshot only published pairs and source consent. Never persist a request,
-  // quote, input draft, task attachment, or response that safety withheld.
-  void _persistChat() {
+  // Snapshot only published pairs and source consent. Never persist an input
+  // draft, task attachment, or response that safety withheld. The confirmed
+  // request whose reply this publishes is removed in the same write.
+  void _persistChat({String? completedRequestId}) {
     if (widget.surface != ConversationSurface.si ||
         !_historyReady ||
         _historyConflict) {
+      if (completedRequestId != null) _forgetPending(completedRequestId);
       return;
     }
     final repository = ref.read(assistantConversationHistoryRepositoryProvider);
@@ -77,25 +86,43 @@ extension _StoredChat on _AssistantConversationScreenState {
         .toList();
     final sources = _sources.toSet();
     _historyWriteTail = _historyWriteTail.then((_) async {
-      if (epoch != _historyEpoch || _historyConflict) return;
+      Future<void> clearCompleted() async {
+        if (completedRequestId == null) return;
+        try {
+          await repository.clearPending(
+            ConversationSurface.si,
+            requestId: completedRequestId,
+          );
+        } on Object {
+          // The registry still records the reply as shown while the app runs.
+        }
+      }
+
+      if (epoch != _historyEpoch || _historyConflict) {
+        await clearCompleted();
+        return;
+      }
       try {
         final revision = await repository.save(
           expectedRevision: _storedHistoryRevision,
           messages: messages,
           sources: sources,
+          completedRequestId: completedRequestId,
         );
         if (epoch != _historyEpoch) return;
         _storedHistoryRevision = revision;
         if (mounted) _updateHistory(() => _historySaveFailed = false);
       } on AssistantConversationRevisionConflict {
+        await clearCompleted();
         if (!mounted || epoch != _historyEpoch) return;
         _updateHistory(() {
           _historyConflict = true;
           _historySaveFailed = false;
         });
       } on Object {
-        if (!mounted || epoch != _historyEpoch) return;
         // A local write failure must never retry an already paid AI request.
+        await clearCompleted();
+        if (!mounted || epoch != _historyEpoch) return;
         _updateHistory(() => _historySaveFailed = true);
       }
     });
@@ -277,6 +304,14 @@ extension _StoredChat on _AssistantConversationScreenState {
             copy(
               'Chat keeps up to 40 recent messages on this device for this account; long messages may be shortened. It is excluded from planning backups and cloud sync. Signing out keeps this account’s saved history on the device; signing back into the same account restores access. Use Clear conversation or clear this account’s local data to delete it. The last 6 messages are included with your next AI request, even when saved planning sources are off. Copy conversation puts the visible text on your clipboard; you choose where to paste it.',
               'Chat conserva hasta 40 mensajes recientes en este dispositivo para esta cuenta; los mensajes largos pueden acortarse. No se incluyen en las copias de planificación ni se sincronizan con la nube. Al cerrar sesión, el historial guardado de esta cuenta permanece en el dispositivo; puedes volver a verlo al iniciar sesión en la misma cuenta. Usa Borrar conversación o limpia los datos locales de esta cuenta para eliminarlo. Los últimos 6 mensajes se incluyen en tu próxima solicitud de IA, incluso con las fuentes de planificación desactivadas. Copiar conversación pone el texto visible en el portapapeles; tú eliges dónde pegarlo.',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            key: const Key('conversation-pending-privacy'),
+            copy(
+              'While a question you paid for is being answered, it is also kept on this device so the reply can be collected if you leave. It is deleted when the reply is shown. If the reply cannot be collected, it is deleted about 5 minutes after you confirm the price, or when the answer ends if it is still being answered then. If the app is in the background or closed at that time, it is deleted the next time the app runs with this account.',
+              'Mientras se responde una pregunta que pagaste, también se guarda en este dispositivo para poder recibir la respuesta si sales. Se borra cuando se muestra la respuesta. Si la respuesta no se puede recuperar, se borra unos 5 minutos después de confirmar el precio o, si aún se está respondiendo, cuando termine. Si en ese momento la app está en segundo plano o cerrada, se borra la próxima vez que la app se use con esta cuenta.',
             ),
           ),
           Wrap(

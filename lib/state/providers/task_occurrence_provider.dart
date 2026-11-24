@@ -1,6 +1,7 @@
-import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/data/services/task_occurrence_cloud_replica.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -24,7 +25,15 @@ final taskOccurrenceCoordinatorProvider = Provider<TaskOccurrenceCoordinator>((
 
 final taskOccurrenceCloudReplicaProvider =
     Provider<TaskOccurrenceCloudReplica?>((Ref ref) {
-      if (!Env.enableCloudSync) {
+      if (!ref.watch(cloudSyncCapabilityProvider)) {
+        return null;
+      }
+      // Cloud transfer is opt-in per account. While the preference is off or
+      // still loading, no replica exists, so pending rows stay queued locally
+      // and upload only after the user turns Cloud Backup on.
+      final bool userEnabled =
+          ref.watch(cloudSyncPreferenceProvider).asData?.value ?? false;
+      if (!userEnabled) {
         return null;
       }
       final client = ref.watch(supabaseClientProvider);

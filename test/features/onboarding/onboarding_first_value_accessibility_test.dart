@@ -26,7 +26,7 @@ void main() {
         ),
       ];
 
-  testWidgets('Go to Today completes setup with the core guide paused', (
+  testWidgets('Go to Today completes setup with the core guide skipped', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{
@@ -59,7 +59,7 @@ void main() {
     final guidance = await container.read(adaptiveGuidanceProvider.future);
     expect(guidance.activeCoreLesson, isNull);
     expect(
-      guidance.laterLessons,
+      guidance.skippedLessons,
       containsAll([
         GuidanceLessonId.createFirstItem,
         GuidanceLessonId.scheduleFirstItem,

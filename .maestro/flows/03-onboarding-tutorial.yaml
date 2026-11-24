@@ -13,8 +13,8 @@ tags:
     timeout: 60000
 
 - assertVisible: "AXIOMARA"
-- assertVisible: "A human decision operating system"
-- assertVisible: "Decide with evidence. Act with control. Learn from reality. Axiomara keeps every recommendation inspectable and correctable."
+- assertVisible: "A little space to think"
+- assertVisible: "Put your thoughts into words, review your plans, or choose one small step. You decide what to save."
 - assertVisible: "^CONTINUE TO (?:LOGIN|PROFILE)$"
 
 - runFlow:
@@ -32,6 +32,6 @@ tags:
     commands:
       - tapOn: "^CONTINUE TO LOGIN$"
       - extendedWaitUntil:
-          visible: "ENTER SYSTEM"
+          visible: "Sign in"
           timeout: 10000
-- assertVisible: "(?:Create profile|Open profile|ENTER SYSTEM)"
+- assertVisible: "(?:Create profile|Open profile|Sign in)"

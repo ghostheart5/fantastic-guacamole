@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:fantastic_guacamole/data/repositories/assistant_conversation_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
@@ -6,6 +9,7 @@ import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/engine/assistant/axiomara_deterministic_router.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -140,6 +144,143 @@ final conversationServiceProvider = Provider<ConversationService>((ref) {
     },
   );
 });
+
+/// Paid executions outlive the screen that confirmed them. Leaving Chat or
+/// Choose a step disposes the screen, not this registry, so a returning screen
+/// joins the running request instead of sending it again. A new account or
+/// session starts an empty registry; its stored request is then re-sent with
+/// the same id, which the server answers from its reply cache.
+typedef ConversationPurgeTimer =
+    Timer Function(Duration delay, void Function() callback);
+
+/// Creates the purge timer outside any fake-time zone (a widget test's fake
+/// clock would otherwise report it as a leak when a test ends with a request
+/// in flight). The callback runs back in the zone that armed it. Disposing
+/// the registry cancels it.
+final conversationPurgeTimerProvider = Provider<ConversationPurgeTimer>(
+  (ref) => (delay, callback) {
+    // Guarded: a synchronous throw reaches the arming zone's error handler.
+    final guarded = Zone.current.bindCallbackGuarded(callback);
+    return Zone.root.createTimer(delay, guarded);
+  },
+);
+
+final conversationExecutionRegistryProvider =
+    Provider<ConversationExecutionRegistry>((ref) {
+      ref.watch(accountStorageScopeProvider.select((s) => s.v2Namespace));
+      ref.watch(authSessionBoundaryProvider.select((b) => b.generation));
+      final registry = ConversationExecutionRegistry(
+        createTimer: ref.read(conversationPurgeTimerProvider),
+        // Read when the timer fires: the repository is rebuilt on every auth
+        // event (a token refresh too), so a kept instance would go stale.
+        readStore: () =>
+            ref.read(assistantConversationHistoryRepositoryProvider),
+      );
+      // An account or generation change drops this registry and its timer.
+      ref.onDispose(registry.dispose);
+      return registry;
+    });
+
+final class ConversationExecutionRegistry {
+  ConversationExecutionRegistry({
+    ConversationPurgeTimer? createTimer,
+    AssistantConversationRepository? Function()? readStore,
+  }) : _createTimer = createTimer ?? Timer.new,
+       _readStore = readStore ?? (() => null);
+
+  final ConversationPurgeTimer _createTimer;
+  final AssistantConversationRepository? Function() _readStore;
+  final _running =
+      <String, ({Future<ConversationAnswer> future, bool failed})>{};
+  final _shown = <String>{};
+  Timer? _purgeTimer;
+  DateTime? _purgeAt;
+  bool _purgeWanted = false;
+  bool _disposed = false;
+
+  /// Removes a stored request's content once it can no longer be collected,
+  /// while the app keeps running and no screen is open. One timer, armed for
+  /// the earliest collect-by time; an earlier deadline replaces a later one.
+  /// A request still running or holding an unshown reply here is never
+  /// purged ([isRunning]). The current account's repository is read when
+  /// the timer fires; this registry is dropped on any account change.
+  void schedulePurge(DateTime at) {
+    if (_disposed) return;
+    _purgeWanted = true;
+    final armed = _purgeAt;
+    if (_purgeTimer?.isActive == true && armed != null && !at.isBefore(armed)) {
+      return;
+    }
+    _purgeTimer?.cancel();
+    _purgeAt = at;
+    final delay = at.difference(DateTime.now().toUtc());
+    _purgeTimer = _createTimer(
+      // A second of margin so the expiry check sees the deadline as passed.
+      (delay.isNegative ? Duration.zero : delay) + const Duration(seconds: 1),
+      () => unawaited(_runPurge()),
+    );
+  }
+
+  Future<void> _runPurge() async {
+    _purgeTimer = null;
+    _purgeAt = null;
+    if (_disposed) return;
+    try {
+      final store = _readStore();
+      if (store == null) return;
+      final next = await store.purgeExpiredPending(keep: isRunning);
+      if (next != null) schedulePurge(next);
+    } on Object {
+      // Account changed or storage failed: the next load or account opening
+      // purges instead.
+    }
+  }
+
+  void dispose() {
+    _disposed = true;
+    _purgeTimer?.cancel();
+    _purgeTimer = null;
+  }
+
+  /// Joins the running execution of this request, or starts one. A failed
+  /// attempt may be re-sent: the server never reserves the same id twice.
+  Future<ConversationAnswer> execute(
+    ConversationQuote quote,
+    ConversationService service,
+  ) {
+    final id = quote.packet.requestId;
+    final running = _running[id];
+    if (running != null && !running.failed) return running.future;
+    final future = service.execute(quote);
+    _running[id] = (future: future, failed: false);
+    // Also keeps an outcome nobody is waiting for from surfacing as an
+    // unhandled error after its screen closed.
+    unawaited(
+      future.then<void>(
+        (_) {},
+        onError: (Object _) {
+          if (identical(_running[id]?.future, future)) {
+            _running[id] = (future: future, failed: true);
+            // A run kept past its deadline may now be purged.
+            if (_purgeWanted) schedulePurge(DateTime.now().toUtc());
+          }
+        },
+      ),
+    );
+    return future;
+  }
+
+  /// The request's outcome reached the person; it is never shown again.
+  void finish(String requestId, {required bool shown}) {
+    _running.remove(requestId);
+    if (shown) _shown.add(requestId);
+  }
+
+  bool wasShown(String requestId) => _shown.contains(requestId);
+
+  /// Started in this session and not known to have failed.
+  bool isRunning(String requestId) => _running[requestId]?.failed == false;
+}
 
 final conversationPacketFactoryProvider = Provider<ConversationPacketFactory>(
   (ref) => ConversationPacketFactory(ref),

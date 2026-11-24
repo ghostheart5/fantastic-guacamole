@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/config/product_identity.dart';
 import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_content_contract.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/state/providers/onboarding_preferences_provider.dart';
@@ -155,9 +156,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       if (!showHelpfulChoice) {
         await ref.read(adaptiveGuidanceProvider.future);
         if (!canContinue()) return;
-        await ref
-            .read(adaptiveGuidanceProvider.notifier)
-            .later(GuidanceLessonId.createFirstItem);
+        await ref.read(adaptiveGuidanceProvider.notifier).skipCoreGuide();
         if (!canContinue()) return;
       }
 
@@ -186,6 +185,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             .stage(firstValueRequest);
       }
       if (!mounted) return;
+      if (!showHelpfulChoice) {
+        ScaffoldMessenger.maybeOf(context)
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              key: const Key('guide-skipped-snackbar'),
+              content: Text(
+                journeyText(
+                  context,
+                  'Guide is off. Turn it on anytime in Settings › Restart Adaptive Guide.',
+                  'La guía está desactivada. Actívala cuando quieras en Ajustes › Reiniciar la Guía Adaptativa.',
+                ),
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+      }
       final GoRouter? router = GoRouter.maybeOf(context);
       if (router != null) {
         context.go(

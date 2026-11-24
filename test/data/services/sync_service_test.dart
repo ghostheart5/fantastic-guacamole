@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_cipher.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
+import 'package:fantastic_guacamole/data/services/cloud_backup_status_store.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
@@ -1249,6 +1250,571 @@ void main() {
       );
     },
   );
+
+  group('recovery key check and import', () {
+    final String otherKey = base64Encode(List<int>.filled(32, 9));
+    late SecureStore originalKeys;
+    late BackupCipher originalCipher;
+
+    SyncService serviceWith(SecureStore keys, [CloudBackupGateway? cloud]) {
+      return SyncService(
+        backup: backupService,
+        gateway: cloud ?? gateway,
+        secureStore: keys,
+        syncEnabled: true,
+        restoreEnabled: true,
+      );
+    }
+
+    Future<String?> storedKey(SecureStore keys) =>
+        BackupCipher(keys).loadExistingRecoveryKey();
+
+    setUp(() async {
+      originalKeys = SecureStore(backend: InMemorySecureStoreBackend());
+      originalCipher = BackupCipher(originalKeys);
+      gateway.fullBackup = await originalCipher.encryptPayload(
+        _fullCloudBackup(
+          tasks: <Map<String, dynamic>>[
+            <String, dynamic>{
+              'id': 'key-check-task',
+              'title': 'Encrypted with the original key',
+              'createdAt': '2026-08-29T12:00:00.000Z',
+            },
+          ],
+        ),
+      );
+    });
+
+    test(
+      'checkCloudBackupKey reports whether a key opens the backup',
+      () async {
+        final SyncService service = serviceWith(originalKeys);
+
+        expect(
+          await service.checkCloudBackupKey(),
+          CloudBackupKeyCheck.matches,
+        );
+        expect(
+          await service.checkCloudBackupKey(recoveryKey: otherKey),
+          CloudBackupKeyCheck.doesNotMatch,
+        );
+        expect(
+          await serviceWith(
+            SecureStore(backend: InMemorySecureStoreBackend()),
+          ).checkCloudBackupKey(),
+          CloudBackupKeyCheck.noKeyOnDevice,
+        );
+        gateway.fullReadOverride = const CloudBackupReadResult.unavailable();
+        expect(
+          await service.checkCloudBackupKey(),
+          CloudBackupKeyCheck.unavailable,
+        );
+        gateway.fullReadOverride = const CloudBackupReadResult.notFound();
+        expect(
+          await service.checkCloudBackupKey(),
+          CloudBackupKeyCheck.noEncryptedCloudBackup,
+        );
+      },
+    );
+
+    test(
+      'a key that does not open the backup leaves the stored key unchanged',
+      () async {
+        final String? original = await storedKey(originalKeys);
+        final SyncService service = serviceWith(originalKeys);
+
+        expect(
+          await service.importRecoveryKey(otherKey),
+          RecoveryKeyImportOutcome.doesNotMatch,
+        );
+
+        expect(await storedKey(originalKeys), original);
+        expect(await service.restoreFromCloud(), CloudRestoreOutcome.restored);
+      },
+    );
+
+    test('a matching key is installed on a replacement device', () async {
+      final SecureStore replacementKeys = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      final SyncService replacement = serviceWith(replacementKeys);
+      expect(
+        await replacement.restoreFromCloud(),
+        CloudRestoreOutcome.recoveryKeyRequired,
+      );
+
+      expect(
+        await replacement.importRecoveryKey(
+          ' ${(await storedKey(originalKeys))!} ',
+        ),
+        RecoveryKeyImportOutcome.installed,
+      );
+
+      expect(await storedKey(replacementKeys), await storedKey(originalKeys));
+      expect(
+        await replacement.restoreFromCloud(),
+        CloudRestoreOutcome.restored,
+      );
+    });
+
+    test('an unreachable cloud backup refuses the import', () async {
+      final String? original = await storedKey(originalKeys);
+      gateway.fullReadOverride = const CloudBackupReadResult.unavailable();
+
+      expect(
+        await serviceWith(originalKeys).importRecoveryKey(otherKey),
+        RecoveryKeyImportOutcome.cloudUnavailable,
+      );
+      expect(await storedKey(originalKeys), original);
+    });
+
+    test('a malformed key is rejected without touching storage', () async {
+      final String? original = await storedKey(originalKeys);
+
+      expect(
+        await serviceWith(originalKeys).importRecoveryKey('not a key'),
+        RecoveryKeyImportOutcome.invalidFormat,
+      );
+      expect(
+        await serviceWith(originalKeys).importRecoveryKey('AA=='),
+        RecoveryKeyImportOutcome.invalidFormat,
+      );
+      expect(await storedKey(originalKeys), original);
+    });
+
+    test(
+      'with no cloud backup to test, the previous key stays recoverable',
+      () async {
+        final String? original = await storedKey(originalKeys);
+        final Map<String, dynamic>? oldBackup = gateway.fullBackup;
+        gateway.fullBackup = null;
+        final SyncService service = serviceWith(originalKeys);
+
+        expect(
+          await service.importRecoveryKey(otherKey),
+          RecoveryKeyImportOutcome.installedUnverified,
+        );
+        expect(await storedKey(originalKeys), otherKey);
+
+        // A backup made with the previous key appears (for example from the
+        // device that made it): it still opens, and the previous key returns.
+        gateway.fullBackup = oldBackup;
+        expect(await service.restoreFromCloud(), CloudRestoreOutcome.restored);
+        expect(await storedKey(originalKeys), original);
+      },
+    );
+
+    test(
+      'a correct key on a damaged backup is reported as damaged, not as a wrong key',
+      () async {
+        // Encrypted with the right key, but not a valid backup inside.
+        gateway.fullBackup = await originalCipher.encryptPayload(
+          <String, dynamic>{'version': '3.0.0'},
+        );
+        expect(
+          await serviceWith(originalKeys).checkCloudBackupKey(),
+          CloudBackupKeyCheck.unreadable,
+        );
+        expect(
+          await serviceWith(
+            originalKeys,
+          ).checkCloudBackupKey(recoveryKey: otherKey),
+          CloudBackupKeyCheck.doesNotMatch,
+        );
+
+        final SecureStore replacementKeys = SecureStore(
+          backend: InMemorySecureStoreBackend(),
+        );
+        expect(
+          await serviceWith(
+            replacementKeys,
+          ).importRecoveryKey((await storedKey(originalKeys))!),
+          RecoveryKeyImportOutcome.backupUnreadable,
+        );
+        expect(await storedKey(replacementKeys), isNull);
+      },
+    );
+
+    test('a cloud owner mismatch is reported as such on import', () async {
+      final String? original = await storedKey(originalKeys);
+      gateway.fullReadOverride = const CloudBackupReadResult.ownerMismatch();
+
+      expect(
+        await serviceWith(originalKeys).importRecoveryKey(otherKey),
+        RecoveryKeyImportOutcome.ownerMismatch,
+      );
+      expect(await storedKey(originalKeys), original);
+    });
+
+    test(
+      'a backup from a newer app version is reported as such, not as damaged',
+      () async {
+        gateway.fullBackup = await originalCipher
+            .encryptPayload(<String, dynamic>{
+              ..._fullCloudBackup(tasks: const <Map<String, dynamic>>[]),
+              'version': '7.0.0',
+            });
+        expect(
+          await serviceWith(originalKeys).checkCloudBackupKey(),
+          CloudBackupKeyCheck.newerVersion,
+        );
+        final SecureStore replacementKeys = SecureStore(
+          backend: InMemorySecureStoreBackend(),
+        );
+        expect(
+          await serviceWith(
+            replacementKeys,
+          ).importRecoveryKey((await storedKey(originalKeys))!),
+          RecoveryKeyImportOutcome.newerVersion,
+        );
+        expect(await storedKey(replacementKeys), isNull);
+
+        // A newer encryption format cannot be opened here at all.
+        gateway.fullBackup = <String, dynamic>{
+          'format': 'chronospark_backup_aes256_gcm_v3',
+          'iv': 'AAAA',
+          'ciphertext': 'AAAA',
+        };
+        expect(
+          await serviceWith(originalKeys).checkCloudBackupKey(),
+          CloudBackupKeyCheck.newerVersion,
+        );
+        // Content that no version could have written is still malformed.
+        gateway.fullBackup = <String, dynamic>{'unexpected': true};
+        expect(
+          await serviceWith(originalKeys).checkCloudBackupKey(),
+          CloudBackupKeyCheck.malformed,
+        );
+      },
+    );
+
+    test(
+      'a row the gateway cannot parse is reported as unreadable, not offline',
+      () async {
+        gateway.fullReadOverride = const CloudBackupReadResult.malformed();
+        expect(
+          await serviceWith(originalKeys).checkCloudBackupKey(),
+          CloudBackupKeyCheck.cloudBackupUnreadable,
+        );
+        expect(
+          await serviceWith(originalKeys).importRecoveryKey(otherKey),
+          RecoveryKeyImportOutcome.cloudBackupUnreadable,
+        );
+        // A junk row that only names a format is not a newer app's backup.
+        gateway.fullReadOverride = null;
+        gateway.fullBackup = <String, dynamic>{'format': 'something-else'};
+        expect(
+          await serviceWith(originalKeys).checkCloudBackupKey(),
+          CloudBackupKeyCheck.malformed,
+        );
+      },
+    );
+
+    test('finds whether an encrypted cloud backup exists, read-only', () async {
+      final SecureStore noKeys = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      final SyncService service = serviceWith(noKeys);
+      expect(
+        await service.findCloudBackup(),
+        CloudBackupPresence.encryptedBackup,
+      );
+      gateway.fullBackup = <String, dynamic>{
+        'format': 'chronospark_backup_aes256_gcm_v3',
+        'iv': 'AAAA',
+        'ciphertext': 'AAAA',
+      };
+      expect(
+        await service.findCloudBackup(),
+        CloudBackupPresence.encryptedBackup,
+      );
+      gateway.fullBackup = null;
+      expect(
+        await service.findCloudBackup(),
+        CloudBackupPresence.noEncryptedBackup,
+      );
+      gateway.fullReadOverride = const CloudBackupReadResult.unavailable();
+      expect(await service.findCloudBackup(), CloudBackupPresence.unknown);
+      gateway.fullReadOverride = const CloudBackupReadResult.malformed();
+      expect(
+        await service.findCloudBackup(),
+        CloudBackupPresence.cloudBackupUnreadable,
+      );
+      expect(await storedKey(noKeys), isNull);
+      expect(gateway.uploadBackupCalls, 0);
+    });
+  });
+
+  group('discarding a cloud backup this device cannot read', () {
+    final String deviceKey = base64Encode(List<int>.filled(32, 7));
+    late SecureStore originalKeys;
+    late SecureStore deviceKeys;
+    late CloudBackupStatusStore status;
+
+    SyncService serviceWith(SecureStore keys) => SyncService(
+      backup: backupService,
+      gateway: gateway,
+      secureStore: keys,
+      statusStore: status,
+      syncEnabled: true,
+      restoreEnabled: true,
+    );
+
+    setUp(() async {
+      originalKeys = SecureStore(backend: InMemorySecureStoreBackend());
+      gateway.fullBackup = await BackupCipher(
+        originalKeys,
+      ).encryptPayload(_fullCloudBackup(tasks: const <Map<String, dynamic>>[]));
+      gateway.revision = 3;
+      deviceKeys = SecureStore(backend: InMemorySecureStoreBackend());
+      await BackupCipher(deviceKeys).installVerifiedRecoveryKey(deviceKey);
+      status = CloudBackupStatusStore(prefs);
+      await status.write(const CloudBackupStatus(revision: 2));
+    });
+
+    test('a backup this device can read is never discarded', () async {
+      expect(
+        await serviceWith(originalKeys).discardUnreadableCloudBackup(),
+        CloudBackupDiscardOutcome.readable,
+      );
+      expect(gateway.deleteCalls, 0);
+      expect(gateway.fullBackup, isNotNull);
+    });
+
+    test(
+      'an unreadable backup is deleted at the revision read, and backup starts over',
+      () async {
+        final SyncService device = serviceWith(deviceKeys);
+
+        expect(
+          await device.discardUnreadableCloudBackup(),
+          CloudBackupDiscardOutcome.discarded,
+        );
+        expect(gateway.deletedRevisions, <int>[3]);
+        expect(gateway.fullBackup, isNull);
+        expect(status.read(), isNull);
+
+        expect(await device.syncDeltaOutcome(), CloudSyncOutcome.synced);
+        expect(gateway.revision, 1);
+        expect(await device.checkCloudBackupKey(), CloudBackupKeyCheck.matches);
+        expect(
+          await BackupCipher(deviceKeys).loadExistingRecoveryKey(),
+          deviceKey,
+        );
+      },
+    );
+
+    test('a backup replaced meanwhile is not deleted', () async {
+      gateway.beforeDelete = () async => gateway.revision = 4;
+
+      expect(
+        await serviceWith(deviceKeys).discardUnreadableCloudBackup(),
+        CloudBackupDiscardOutcome.changed,
+      );
+      expect(gateway.fullBackup, isNotNull);
+      expect(status.read()!.revision, 2);
+    });
+
+    test('a delete the server refuses changes nothing', () async {
+      gateway.refuseDelete = true;
+
+      expect(
+        await serviceWith(deviceKeys).discardUnreadableCloudBackup(),
+        CloudBackupDiscardOutcome.refused,
+      );
+      expect(gateway.fullBackup, isNotNull);
+      expect(status.read()!.revision, 2);
+      expect(
+        await BackupCipher(deviceKeys).loadExistingRecoveryKey(),
+        deviceKey,
+      );
+    });
+
+    test('needs a key on this device and a backup to discard', () async {
+      expect(
+        await serviceWith(
+          SecureStore(backend: InMemorySecureStoreBackend()),
+        ).discardUnreadableCloudBackup(),
+        CloudBackupDiscardOutcome.noKeyOnDevice,
+      );
+      gateway.fullReadOverride = const CloudBackupReadResult.unavailable();
+      expect(
+        await serviceWith(deviceKeys).discardUnreadableCloudBackup(),
+        CloudBackupDiscardOutcome.unavailable,
+      );
+      gateway.fullReadOverride = null;
+      gateway.fullBackup = null;
+      expect(
+        await serviceWith(deviceKeys).discardUnreadableCloudBackup(),
+        CloudBackupDiscardOutcome.nothingToDiscard,
+      );
+      expect(gateway.deleteCalls, 0);
+    });
+
+    test('a backup made by a newer app version is never discarded', () async {
+      // Readable by this device's key, but a version this build does not know.
+      final String? device = await BackupCipher(
+        deviceKeys,
+      ).loadExistingRecoveryKey();
+      expect(device, deviceKey);
+      gateway.fullBackup = await BackupCipher(deviceKeys)
+          .encryptPayload(<String, dynamic>{
+            ..._fullCloudBackup(tasks: const <Map<String, dynamic>>[]),
+            'version': '7.0.0',
+          });
+      expect(
+        await serviceWith(deviceKeys).discardUnreadableCloudBackup(),
+        CloudBackupDiscardOutcome.newerVersion,
+      );
+      // The same on the device whose key made it.
+      gateway.fullBackup = await BackupCipher(originalKeys)
+          .encryptPayload(<String, dynamic>{
+            ..._fullCloudBackup(tasks: const <Map<String, dynamic>>[]),
+            'version': '7.0.0',
+          });
+      expect(
+        await serviceWith(originalKeys).discardUnreadableCloudBackup(),
+        CloudBackupDiscardOutcome.newerVersion,
+      );
+      // A newer encryption format: nothing here can decide it is unreadable.
+      gateway.fullBackup = <String, dynamic>{
+        'format': 'chronospark_backup_aes256_gcm_v3',
+        'iv': 'AAAA',
+        'ciphertext': 'AAAA',
+      };
+      expect(
+        await serviceWith(deviceKeys).discardUnreadableCloudBackup(),
+        CloudBackupDiscardOutcome.newerVersion,
+      );
+      expect(gateway.deleteCalls, 0);
+      expect(gateway.fullBackup, isNotNull);
+    });
+  });
+
+  group('starting over when the saved key is lost', () {
+    late SecureStore originalKeys;
+    late SecureStore noKeys;
+    late CloudBackupStatusStore status;
+
+    SyncService serviceWith(SecureStore keys) => SyncService(
+      backup: backupService,
+      gateway: gateway,
+      secureStore: keys,
+      statusStore: status,
+      syncEnabled: true,
+      restoreEnabled: true,
+    );
+
+    setUp(() async {
+      originalKeys = SecureStore(backend: InMemorySecureStoreBackend());
+      gateway.fullBackup = await BackupCipher(
+        originalKeys,
+      ).encryptPayload(_fullCloudBackup(tasks: const <Map<String, dynamic>>[]));
+      gateway.revision = 5;
+      noKeys = SecureStore(backend: InMemorySecureStoreBackend());
+      status = CloudBackupStatusStore(prefs);
+      await status.write(const CloudBackupStatus(revision: 4));
+    });
+
+    test(
+      'a device with no key can discard a recognised encrypted backup',
+      () async {
+        // The ordinary discard still refuses without a key.
+        expect(
+          await serviceWith(noKeys).discardUnreadableCloudBackup(),
+          CloudBackupDiscardOutcome.noKeyOnDevice,
+        );
+        expect(gateway.deleteCalls, 0);
+
+        expect(
+          await serviceWith(noKeys).discardCloudBackupForLostKey(),
+          CloudBackupDiscardOutcome.discarded,
+        );
+        expect(gateway.deletedRevisions, <int>[5]);
+        expect(gateway.fullBackup, isNull);
+        expect(status.read(), isNull);
+        // The service never makes a key itself.
+        expect(await BackupCipher(noKeys).loadExistingRecoveryKey(), isNull);
+      },
+    );
+
+    test('a key that opens the backup means it is not lost', () async {
+      expect(
+        await serviceWith(originalKeys).discardCloudBackupForLostKey(),
+        CloudBackupDiscardOutcome.readable,
+      );
+      expect(gateway.deleteCalls, 0);
+    });
+
+    test('refuses anything but a recognised encrypted backup', () async {
+      final Map<String, dynamic> encrypted = gateway.fullBackup!;
+      final Map<CloudBackupReadResult?, CloudBackupDiscardOutcome> reads = {
+        const CloudBackupReadResult.unavailable():
+            CloudBackupDiscardOutcome.unavailable,
+        const CloudBackupReadResult.malformed():
+            CloudBackupDiscardOutcome.cloudBackupUnreadable,
+        const CloudBackupReadResult.ownerMismatch():
+            CloudBackupDiscardOutcome.ownerMismatch,
+        const CloudBackupReadResult.notFound():
+            CloudBackupDiscardOutcome.nothingToDiscard,
+      };
+      for (final MapEntry<CloudBackupReadResult?, CloudBackupDiscardOutcome>
+          read
+          in reads.entries) {
+        gateway.fullReadOverride = read.key;
+        expect(
+          await serviceWith(noKeys).discardCloudBackupForLostKey(),
+          read.value,
+        );
+      }
+      gateway.fullReadOverride = null;
+
+      // A newer app's encryption format.
+      gateway.fullBackup = <String, dynamic>{
+        'format': 'chronospark_backup_aes256_gcm_v3',
+        'iv': 'AAAA',
+        'ciphertext': 'AAAA',
+      };
+      expect(
+        await serviceWith(noKeys).discardCloudBackupForLostKey(),
+        CloudBackupDiscardOutcome.newerVersion,
+      );
+      // Content that is not an encrypted backup at all.
+      gateway.fullBackup = <String, dynamic>{'unexpected': true};
+      expect(
+        await serviceWith(noKeys).discardCloudBackupForLostKey(),
+        CloudBackupDiscardOutcome.changed,
+      );
+      // An older plaintext backup needs no key.
+      gateway.fullBackup = <String, dynamic>{
+        'version': '3.0.0',
+        'tasks': <dynamic>[],
+      };
+      expect(
+        await serviceWith(noKeys).discardCloudBackupForLostKey(),
+        CloudBackupDiscardOutcome.readable,
+      );
+      expect(gateway.deleteCalls, 0);
+
+      gateway.fullBackup = encrypted;
+      gateway.refuseDelete = true;
+      expect(
+        await serviceWith(noKeys).discardCloudBackupForLostKey(),
+        CloudBackupDiscardOutcome.refused,
+      );
+      expect(gateway.fullBackup, isNotNull);
+      expect(status.read()!.revision, 4);
+
+      gateway.refuseDelete = false;
+      gateway.beforeDelete = () async => gateway.revision = 6;
+      expect(
+        await serviceWith(noKeys).discardCloudBackupForLostKey(),
+        CloudBackupDiscardOutcome.changed,
+      );
+      expect(gateway.fullBackup, isNotNull);
+      expect(await BackupCipher(noKeys).loadExistingRecoveryKey(), isNull);
+    });
+  });
 }
 
 Map<String, dynamic> _fullCloudBackup({
@@ -1266,7 +1832,29 @@ Map<String, dynamic> _fullCloudBackup({
   };
 }
 
-class _MemoryCloudBackupGateway implements CloudBackupGateway {
+class _MemoryCloudBackupGateway
+    implements CloudBackupGateway, CloudBackupDiscard {
+  bool refuseDelete = false;
+  int deleteCalls = 0;
+  final List<int> deletedRevisions = <int>[];
+  Future<void> Function()? beforeDelete;
+
+  @override
+  Future<CloudBackupDeleteStatus> deleteBackup({
+    required int expectedRevision,
+  }) async {
+    await beforeDelete?.call();
+    deleteCalls += 1;
+    final int current = fullBackup == null ? 0 : (revision == 0 ? 1 : revision);
+    if (refuseDelete || fullBackup == null || current != expectedRevision) {
+      return CloudBackupDeleteStatus.notDeleted;
+    }
+    deletedRevisions.add(expectedRevision);
+    fullBackup = null;
+    revision = 0;
+    return CloudBackupDeleteStatus.deleted;
+  }
+
   Map<String, dynamic>? fullBackup;
   Map<String, dynamic>? tasksBackup;
   CloudBackupReadResult? fullReadOverride;

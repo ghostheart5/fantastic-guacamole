@@ -46,6 +46,7 @@ import 'package:fantastic_guacamole/system/notifications/notification_scheduler.
 import 'package:fantastic_guacamole/system/voice/audio_interruption_service.dart';
 import 'package:fantastic_guacamole/system/system_scheduler.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/ui/navigation/open_schedule.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
@@ -54,7 +55,6 @@ import 'package:fantastic_guacamole/ui/widgets/offline_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 part 'navigation_shell_destinations.dart';
 part 'navigation_shell_lifecycle.dart';
@@ -116,6 +116,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   Timer? _networkRetryDebounceTimer;
   final Set<int> _initializedTabIndexes = <int>{};
   bool _savingCurrentState = false;
+  // An Activity origin that already existed when this shell mounted belongs to
+  // an earlier shell (for example before sign-out) and must not be honoured.
+  bool _staleActivityOrigin = false;
   late final ProviderSubscription<_ReminderRecoveryOwner?>
   _reminderRecoverySubscription;
   _ReminderRecoveryOwner? _pendingReminderRecovery;
@@ -126,6 +129,14 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (ref.read(activityOriginProvider) != null) {
+      _staleActivityOrigin = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(activityOriginProvider.notifier).set(null);
+        _staleActivityOrigin = false;
+      });
+    }
     _systemScheduler = SystemScheduler()
       ..onSyncOfflineQueue = () {
         if (!mounted || !Env.enableCloudSync) {
@@ -158,6 +169,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       _,
       AppView next,
     ) {
+      if (next != AppView.progression) {
+        // Activity's origin only applies while Activity is showing.
+        ref.read(activityOriginProvider.notifier).set(null);
+      }
       if (_isPrimaryView(next)) {
         _initializedTabIndexes.add(_tabIndexForView(next));
         _runBackgroundTask(
@@ -246,8 +261,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   void didUpdateWidget(covariant NavigationShell oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (_isPrimaryView(oldWidget.initialView) &&
-        !_isPrimaryView(widget.initialView)) {
+    final bool oldWasActivityOverlay =
+        oldWidget.initialView == AppView.progression &&
+        _activityOriginIsPrimary;
+    if ((_isPrimaryView(oldWidget.initialView) || oldWasActivityOverlay) &&
+        !_isPrimaryView(widget.initialView) &&
+        _activityOverlayOrigin == null) {
       // The primary IndexedStack is removed while a secondary screen is open.
       // Its elements are no longer retained, so its initialization cache must
       // not cause stale inactive tabs to be remounted on the return build.
@@ -342,14 +361,24 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     }
   }
 
+  /// The primary view whose tab bar stays visible under Activity, or null when
+  /// Activity was opened any other way (or another view is showing).
+  AppView? get _activityOverlayOrigin {
+    if (widget.initialView != AppView.progression) return null;
+    return _activityOriginIsPrimary ? ref.read(activityOriginProvider) : null;
+  }
+
+  bool get _activityOriginIsPrimary {
+    final AppView? origin = ref.read(activityOriginProvider);
+    return !_staleActivityOrigin && origin != null && _isPrimaryView(origin);
+  }
+
   void _goToView(AppView view) {
     final String routePath = routePathForAppView(view);
     try {
-      final GoRouter router = GoRouter.of(context);
-      // Explicit Back/navigation must replace any callback or redirect stack,
-      // even when its reported URI already names the destination.
-      router.go(routePath);
-      return;
+      // Explicit Back/navigation and notification taps must replace any
+      // callback or redirect stack and close screens pushed above the shell.
+      if (goToAppRoutePath(context, routePath)) return;
     } on Object {
       // Widget tests and standalone shell previews may mount the shell without
       // a GoRouter. Only those previews use the compatibility provider.
@@ -360,8 +389,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   @override
   Widget build(BuildContext context) {
     final AppView view = widget.initialView;
-    final int tabIndex = _tabIndexForView(view);
-    if (_isPrimaryView(view)) {
+    ref.watch(activityOriginProvider);
+    final AppView? activityOrigin = _activityOverlayOrigin;
+    final int tabIndex = _tabIndexForView(activityOrigin ?? view);
+    if (_isPrimaryView(view) || activityOrigin != null) {
       _initializedTabIndexes.add(tabIndex);
     }
 
@@ -373,7 +404,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       AppView.smartPlanner => const SmartPlannerScreen(),
       AppView.profile => const ProfileScreen(),
       AppView.settings => const SettingsScreen(),
-      AppView.progression => const ProgressionScreen(),
+      AppView.progression =>
+        activityOrigin == null
+            ? const ProgressionScreen()
+            : _buildPrimaryShell(tabIndex, overlay: const ProgressionScreen()),
       AppView.creator => const CreatorScreen(),
       AppView.goals => const GoalsScreen(),
     };
@@ -387,7 +421,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         final AppView current = widget.initialView;
 
         if (current != AppView.nexus) {
-          _goToView(AppView.nexus);
+          _goToView(activityOrigin ?? AppView.nexus);
           return;
         }
 

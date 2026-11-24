@@ -460,7 +460,7 @@ class _PausedGuidance extends AdaptiveGuidanceNotifier {
     completedLessons: {},
   );
   @override
-  Future<void> later(GuidanceLessonId lesson) async {
+  Future<void> skipCoreGuide() async {
     started = true;
     await finish.future;
   }

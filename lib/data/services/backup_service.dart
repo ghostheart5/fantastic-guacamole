@@ -232,6 +232,17 @@ class BackupService {
     _validateFullBackup(backup);
   }
 
+  /// Whether [backup] names a version this build does not know, which is
+  /// what a newer app version would write. Such a backup is not damaged.
+  bool hasUnsupportedVersion(Map<String, dynamic> backup) {
+    final Object? raw = backup['version'];
+    if (raw is! String || raw.trim().isEmpty) return false;
+    final String version = raw.trim();
+    return version != _backupVersion &&
+        version != _planningCloudVersion &&
+        !_legacyBackupVersions.contains(version);
+  }
+
   BackupRestorePreview previewFullRestore(Map<String, dynamic> backup) {
     final _ValidatedFullBackup validated = _validateFullBackup(backup);
     final Map<String, dynamic> manifest = _strictStringKeyMap(

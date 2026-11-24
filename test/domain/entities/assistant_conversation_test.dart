@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -258,4 +259,91 @@ void main() {
       );
     },
   );
+
+  test(
+    'a stored pending request rebuilds the exact signed body or nothing',
+    () {
+      final original = PendingConversationRequest(
+        quote: ConversationQuote(
+          packet: packet(
+            history: [
+              {'role': 'user', 'content': 'Earlier question ñ'},
+              {'role': 'assistant', 'content': 'Earlier answer'},
+            ],
+            context: {
+              'tasks': [
+                {'title': 'Grocery list', 'energy': 1.0},
+              ],
+            },
+          ),
+          data: quoteData(),
+        ),
+        savedAt: DateTime.now(),
+      );
+      final json = jsonDecode(jsonEncode(original.toJson()));
+      final restored = PendingConversationRequest.fromJson(
+        ConversationSurface.planner,
+        json,
+      );
+      expect(
+        jsonEncode({
+          ...restored.quote.packet.toJson(),
+          'quote': restored.quote.data,
+        }),
+        jsonEncode({
+          ...original.quote.packet.toJson(),
+          'quote': original.quote.data,
+        }),
+      );
+      expect(restored.prompt, 'What time should I go to the store?');
+
+      final body = (json as Map)['body'] as String;
+      for (final changed in [
+        body.replaceFirst('"prompt":"', '"prompt": "'),
+        body.replaceFirst('store?', 'shop?').replaceFirst('"planner"', '"x"'),
+        body.replaceFirst('"maxTokens":1024', '"maxTokens":2048'),
+        '$body ',
+        'not json',
+      ]) {
+        expect(
+          () => PendingConversationRequest.fromJson(
+            ConversationSurface.planner,
+            {...json, 'body': changed},
+          ),
+          throwsA(anything),
+          reason: changed,
+        );
+      }
+      // The stored surface must be the one the body was signed for.
+      expect(
+        () => PendingConversationRequest.fromJson(ConversationSurface.si, json),
+        throwsA(isA<ConversationFailure>()),
+      );
+    },
+  );
+
+  test('a pending request is collectable only within the quote lifetime', () {
+    final saved = DateTime.utc(2026, 11, 23, 12);
+    PendingConversationRequest at(DateTime quoteExpiry) =>
+        PendingConversationRequest(
+          quote: ConversationQuote(
+            packet: packet(),
+            data: {
+              ...quoteData(),
+              'expiresAt': quoteExpiry.millisecondsSinceEpoch,
+            },
+          ),
+          savedAt: saved,
+        );
+    final normal = at(saved.add(const Duration(minutes: 4)));
+    expect(normal.collectBefore, saved.add(const Duration(minutes: 4)));
+    expect(normal.isExpired(saved.add(const Duration(minutes: 3))), isFalse);
+    expect(normal.isExpired(saved.add(const Duration(minutes: 4))), isTrue);
+    // A device clock behind the server never extends the window past 5 min.
+    final skewed = at(saved.add(const Duration(minutes: 30)));
+    expect(
+      skewed.collectBefore,
+      saved.add(PendingConversationRequest.lifetime),
+    );
+  });
 }

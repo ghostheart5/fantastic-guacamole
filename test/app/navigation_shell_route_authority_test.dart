@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fantastic_guacamole/features/goals/ui/goals_screen.dart';
 
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
+import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/app/router/app_router.dart';
@@ -20,6 +21,7 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/features/notes/ui/note_detail_screen.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
+import 'package:fantastic_guacamole/state/models/progression_state.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
@@ -38,6 +40,7 @@ import 'package:fantastic_guacamole/state/services/app_recovery_service.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
@@ -466,6 +469,155 @@ void main() {
     );
   }
 
+  for (final bool systemBack in <bool>[true, false]) {
+    testWidgets(
+      'Activity opened from Insights keeps the tab bar and goes back to Insights '
+      '(system: $systemBack)',
+      (WidgetTester tester) async {
+        final _RouteShellHarness harness = await _pumpRouteShell(
+          tester,
+          initialLocation: RoutePaths.trajectoryEngine,
+          reuseShellState: true,
+          surfaceSize: const Size(360, 772),
+          forceOnline: true,
+          extraOverrides: _loadedProgression,
+        );
+        await tester.pump();
+        await tester.pump();
+
+        harness.container
+            .read(trajectoryHorizonDaysProvider.notifier)
+            .select(30);
+        final Element insightsBefore = tester.element(
+          find.byType(TrajectoryEngineScreen),
+        );
+        final Finder patterns = find.byKey(const Key('insights-patterns'));
+        await tester.ensureVisible(patterns);
+        await tester.tap(patterns);
+        await tester.pump();
+        await tester.pump();
+        await tester.pump();
+
+        _expectRouterUri(harness, RoutePaths.progression);
+        expect(find.byType(ProgressionScreen), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey<String>('phone-bottom-navigation')),
+          findsOneWidget,
+        );
+
+        if (systemBack) {
+          await tester.binding.handlePopRoute();
+        } else {
+          await tester.tap(find.byTooltip('Back to Insights'));
+        }
+        await tester.pump();
+        await tester.pump();
+        await tester.pump();
+
+        _expectRouterUri(harness, RoutePaths.trajectoryEngine);
+        expect(find.byType(ProgressionScreen), findsNothing);
+        expect(find.byType(TrajectoryEngineScreen), findsOneWidget);
+        // The same Insights tab (and so its open panels and choices) returns.
+        expect(
+          tester.element(find.byType(TrajectoryEngineScreen)),
+          same(insightsBefore),
+        );
+        expect(harness.container.read(trajectoryHorizonDaysProvider), 30);
+        expect(harness.container.read(activityOriginProvider), isNull);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('a stale Activity origin from an unmounted shell is ignored', (
+    WidgetTester tester,
+  ) async {
+    final _RouteShellHarness first = await _pumpRouteShell(
+      tester,
+      initialLocation: RoutePaths.trajectoryEngine,
+      reuseShellState: true,
+      surfaceSize: const Size(360, 772),
+      forceOnline: true,
+      extraOverrides: _loadedProgression,
+    );
+    await tester.pump();
+    await tester.pump();
+    final Finder patterns = find.byKey(const Key('insights-patterns'));
+    await tester.ensureVisible(patterns);
+    await tester.tap(patterns);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    expect(
+      first.container.read(activityOriginProvider),
+      AppView.trajectoryEngine,
+    );
+
+    // Unmount the shell (as sign-out would) but keep the provider state, then
+    // enter Activity directly in a fresh router.
+    await tester.pumpWidget(const SizedBox.shrink());
+    final ProviderContainer kept = first.container;
+    final GoRouter router = GoRouter(
+      initialLocation: RoutePaths.progression,
+      routes: _sharedShellRoutes,
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: kept,
+        child: MaterialApp.router(
+          routerConfig: router,
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(ProgressionScreen), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('phone-bottom-navigation')),
+      findsNothing,
+    );
+    expect(kept.read(activityOriginProvider), isNull);
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump();
+    expect(router.routeInformationProvider.value.uri.path, RoutePaths.nexus);
+  });
+
+  testWidgets('Activity without an origin keeps its old Back to Today', (
+    WidgetTester tester,
+  ) async {
+    final _RouteShellHarness harness = await _pumpRouteShell(
+      tester,
+      initialLocation: RoutePaths.progression,
+      reuseShellState: true,
+      surfaceSize: const Size(360, 772),
+      forceOnline: true,
+      extraOverrides: _loadedProgression,
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(ProgressionScreen), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('phone-bottom-navigation')),
+      findsNothing,
+    );
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump();
+    _expectRouterUri(harness, RoutePaths.nexus);
+  });
+
   testWidgets('saved-tab restoration affects only the default Nexus launch', (
     WidgetTester tester,
   ) async {
@@ -657,6 +809,10 @@ void main() {
   );
 }
 
+final List<Override> _loadedProgression = <Override>[
+  progressionProvider.overrideWithValue(ProgressionState.initial()),
+];
+
 Future<_RouteShellHarness> _pumpRouteShell(
   WidgetTester tester, {
   String initialLocation = RoutePaths.nexus,
@@ -665,6 +821,7 @@ Future<_RouteShellHarness> _pumpRouteShell(
   bool forceOnline = false,
   bool memoryStorage = false,
   Locale locale = const Locale('en'),
+  List<Override> extraOverrides = const <Override>[],
 }) async {
   tester.platformDispatcher.views.first
     ..physicalSize = surfaceSize
@@ -698,6 +855,7 @@ Future<_RouteShellHarness> _pumpRouteShell(
         ),
       unreadNotificationsProvider.overrideWithValue(0),
       goalsProvider.overrideWith(_StaticGoals.new),
+      ...extraOverrides,
     ],
   );
 

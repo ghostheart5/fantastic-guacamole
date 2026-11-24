@@ -1,7 +1,7 @@
 part of 'navigation_shell.dart';
 
 extension _NavigationShellUi on _NavigationShellState {
-  Widget _buildTabbedBody(int tabIndex) {
+  Widget _buildTabbedBody(int tabIndex, {Widget? overlay}) {
     Widget tabAt(int index) {
       if (!_initializedTabIndexes.contains(index)) {
         return const SizedBox.shrink();
@@ -20,9 +20,23 @@ extension _NavigationShellUi on _NavigationShellState {
       );
     }
 
-    return IndexedStack(
-      index: tabIndex,
-      children: <Widget>[tabAt(0), tabAt(1), tabAt(2), tabAt(3)],
+    // The tabs stay mounted while an overlay (Activity opened from a tab) covers
+    // them, so the tab's own state is still there when Back returns to it.
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        Offstage(
+          offstage: overlay != null,
+          child: TickerMode(
+            enabled: overlay == null,
+            child: IndexedStack(
+              index: tabIndex,
+              children: <Widget>[tabAt(0), tabAt(1), tabAt(2), tabAt(3)],
+            ),
+          ),
+        ),
+        ?overlay,
+      ],
     );
   }
 
@@ -379,8 +393,8 @@ extension _NavigationShellUi on _NavigationShellState {
     );
   }
 
-  Widget _buildPrimaryShell(int tabIndex) {
-    final Widget tabbedBody = _buildTabbedBody(tabIndex);
+  Widget _buildPrimaryShell(int tabIndex, {Widget? overlay}) {
+    final Widget tabbedBody = _buildTabbedBody(tabIndex, overlay: overlay);
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         if (constraints.maxWidth < 600) {

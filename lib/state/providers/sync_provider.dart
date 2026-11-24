@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
+import 'package:fantastic_guacamole/data/services/cloud_backup_status_store.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/account_scoped_hive_storage.dart';
@@ -27,6 +28,43 @@ import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/services/offline_sync_queue_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+export 'package:fantastic_guacamole/data/services/sync_service.dart'
+    show
+        CloudBackupDiscardOutcome,
+        CloudBackupKeyCheck,
+        CloudBackupPresence,
+        RecoveryKeyImportOutcome;
+
+/// What the user should know about the full cloud backup after the last
+/// automatic sync. Shown as a calm status in Settings, not as a sync error.
+enum CloudBackupAttention {
+  none,
+
+  /// A full cloud backup exists that this device did not make or restore, so
+  /// automatic backup cannot keep it current until one confirmed full backup.
+  fullBackupNotLinked,
+
+  /// The full cloud backup changed on another device since this device last
+  /// backed up. Nothing was uploaded.
+  changedOnAnotherDevice,
+}
+
+final cloudBackupAttentionProvider =
+    NotifierProvider<CloudBackupAttentionNotifier, CloudBackupAttention>(
+      CloudBackupAttentionNotifier.new,
+    );
+
+class CloudBackupAttentionNotifier extends Notifier<CloudBackupAttention> {
+  @override
+  CloudBackupAttention build() {
+    // A status about one account's backup never carries over to another.
+    ref.watch(accountStorageScopeProvider);
+    return CloudBackupAttention.none;
+  }
+
+  void set(CloudBackupAttention value) => state = value;
+}
 
 /// User-safe sync failure state. Raw exceptions remain in the redacted logger
 /// and are never rendered by Nexus or settings surfaces.
@@ -184,7 +222,121 @@ OfflineSyncQueueService? _boundQueue(Ref ref) {
   return ref.watch(offlineSyncQueueProvider);
 }
 
+/// Per-account record of the last cloud backup this device wrote, restored or
+/// matched. Null while preferences load or when no account is signed in.
+final cloudBackupStatusStoreProvider = Provider<CloudBackupStatusStore?>((ref) {
+  final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
+    cloudBackupPreferencesProvider,
+  );
+  final scope = ref.watch(accountStorageScopeProvider);
+  if (!scope.isWritable) return null;
+  final legacyOwnership = ref.watch(accountLegacyOwnershipProvider);
+  return prefsAsync.whenOrNull(
+    data: (SharedPrefsStorage prefs) => CloudBackupStatusStore(
+      AccountScopedSharedPrefsStorage(
+        delegate: prefs,
+        scope: scope,
+        legacyOwnership: legacyOwnership,
+      ),
+    ),
+  );
+});
+
+/// When the cloud backup this device last wrote, restored or matched was
+/// made. Null when this device has no record of one.
+final lastCloudBackupProvider = FutureProvider<DateTime?>((ref) async {
+  await ref.watch(cloudBackupPreferencesProvider.future);
+  return ref.watch(cloudBackupStatusStoreProvider)?.read()?.backedUpAt;
+});
+
+/// Per-account record that the user confirmed saving the recovery key. Null
+/// while preferences load or when no account is signed in.
+final recoveryKeySavedStoreProvider = Provider<RecoveryKeySavedStore?>((ref) {
+  final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
+    cloudBackupPreferencesProvider,
+  );
+  final scope = ref.watch(accountStorageScopeProvider);
+  if (!scope.isWritable) return null;
+  final legacyOwnership = ref.watch(accountLegacyOwnershipProvider);
+  return prefsAsync.whenOrNull(
+    data: (SharedPrefsStorage prefs) => RecoveryKeySavedStore(
+      AccountScopedSharedPrefsStorage(
+        delegate: prefs,
+        scope: scope,
+        legacyOwnership: legacyOwnership,
+      ),
+    ),
+  );
+});
+
+/// Whether the user confirmed saving this account's recovery key. Cloud
+/// Backup is turned on, and a first full backup made, only after this.
+final recoveryKeySavedProvider =
+    AsyncNotifierProvider<RecoveryKeySavedNotifier, bool>(
+      RecoveryKeySavedNotifier.new,
+    );
+
+class RecoveryKeySavedNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async {
+    await ref.watch(cloudBackupPreferencesProvider.future);
+    return ref.watch(recoveryKeySavedStoreProvider)?.read() ?? false;
+  }
+
+  /// Remembers the confirmation for the account that is current now.
+  Future<void> markSaved() async {
+    final owner = AccountOperation.capture(ref);
+    try {
+      await owner.wait(ref.read(cloudBackupPreferencesProvider.future));
+    } on StaleAccountOperation {
+      return;
+    }
+    final RecoveryKeySavedStore? store = ref.read(
+      recoveryKeySavedStoreProvider,
+    );
+    if (store == null || !owner.isCurrent) return;
+    await store.markSaved();
+    if (owner.isCurrent) state = const AsyncData<bool>(true);
+  }
+}
+
+/// Whether this device holds a recovery key and whether it opens the current
+/// cloud backup. Null when Cloud Backup is off or unavailable. Read-only (see
+/// [SyncService.checkCloudBackupKey]); refreshed after every sync, backup,
+/// restore, key import and discard.
+final cloudBackupKeyStatusProvider = FutureProvider<CloudBackupKeyCheck?>((
+  ref,
+) async {
+  if (!ref.watch(cloudSyncCapabilityProvider)) return null;
+  if (!await ref.watch(cloudSyncPreferenceProvider.future)) return null;
+  await ref.watch(cloudBackupPreferencesProvider.future);
+  final SyncService? service = ref.watch(syncServiceProvider);
+  return service?.checkCloudBackupKey();
+});
+
 final syncServiceProvider = Provider<SyncService?>((ref) {
+  final bool userEnabled =
+      ref.watch(cloudSyncPreferenceProvider).asData?.value ?? false;
+  return _buildSyncService(
+    ref,
+    cloudReachable: userEnabled,
+    recordBackups: true,
+  );
+});
+
+/// A service used only for read-only key checks while the user is turning
+/// Cloud Backup on: checking a saved key and looking for an existing backup
+/// before a new key is made. It reaches the account's own cloud backup
+/// whether or not Cloud Backup is on yet, and is never used to upload.
+final cloudBackupKeyCheckServiceProvider = Provider<SyncService?>(
+  (ref) => _buildSyncService(ref, cloudReachable: true, recordBackups: false),
+);
+
+SyncService? _buildSyncService(
+  Ref ref, {
+  required bool cloudReachable,
+  required bool recordBackups,
+}) {
   final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
     cloudBackupPreferencesProvider,
   );
@@ -192,8 +344,6 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
   final supabaseClient = ref.watch(supabaseClientProvider);
   final scope = ref.watch(accountStorageScopeProvider);
   final legacyOwnership = ref.watch(accountLegacyOwnershipProvider);
-  final bool userEnabled =
-      ref.watch(cloudSyncPreferenceProvider).asData?.value ?? false;
   return prefsAsync.whenOrNull(
     data: (SharedPrefsStorage prefs) {
       if (backup == null) return null;
@@ -207,19 +357,191 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
         backup: backup,
         gateway: Env.isMockMode
             ? LocalTestCloudBackupGateway(scopedPrefs)
-            : (Env.enableCloudSync && userEnabled && supabaseClient != null)
+            : (Env.enableCloudSync && cloudReachable && supabaseClient != null)
             ? SupabaseCasCloudBackupGateway(
                 client: supabaseClient,
                 expectedUserId: scope.isWritable ? scope.rawUserId ?? '' : '',
               )
             : const UnavailableCloudBackupGateway(),
         secureStore: ref.read(secureStoreProvider),
+        statusStore: recordBackups
+            ? ref.watch(cloudBackupStatusStoreProvider)
+            : null,
         expectedAccountId: scope.isWritable ? scope.rawUserId : null,
         currentAccountId: () => supabaseClient?.auth.currentUser?.id,
       );
     },
   );
-});
+}
+
+Future<SyncService?> _readyKeyCheckService(Ref ref) async {
+  final service = ref.read(cloudBackupKeyCheckServiceProvider);
+  if (service != null) return service;
+  final owner = AccountOperation.capture(ref);
+  await owner.wait(ref.read(cloudBackupPreferencesProvider.future));
+  return ref.read(cloudBackupKeyCheckServiceProvider);
+}
+
+/// Checks a recovery key saved elsewhere while Cloud Backup is still off, as
+/// part of turning it on. Installs it only when safe (see
+/// [SyncService.importRecoveryKey]) and records it as saved. Never changes
+/// the Cloud Backup setting: the caller turns it on only after this accepts.
+final recoveryKeyRestoreBeforeEnablingProvider =
+    Provider<Future<RecoveryKeyImportOutcome> Function(String)>(
+      (ref) => (String recoveryKey) async {
+        final owner = AccountOperation.capture(ref);
+        if (!owner.isCurrent) return RecoveryKeyImportOutcome.accountChanged;
+        if (!ref.read(cloudSyncCapabilityProvider)) {
+          return RecoveryKeyImportOutcome.cloudUnavailable;
+        }
+        final SyncService? service;
+        try {
+          service = await _readyKeyCheckService(ref);
+        } on StaleAccountOperation {
+          return RecoveryKeyImportOutcome.accountChanged;
+        }
+        if (!owner.isCurrent) return RecoveryKeyImportOutcome.accountChanged;
+        if (service == null) return RecoveryKeyImportOutcome.cloudUnavailable;
+        final RecoveryKeyImportOutcome outcome = await service
+            .importRecoveryKey(recoveryKey);
+        if (!owner.isCurrent) return RecoveryKeyImportOutcome.accountChanged;
+        if (outcome == RecoveryKeyImportOutcome.installed ||
+            outcome == RecoveryKeyImportOutcome.installedUnverified) {
+          await ref.read(recoveryKeySavedProvider.notifier).markSaved();
+        }
+        ref.invalidate(cloudBackupKeyStatusProvider);
+        return outcome;
+      },
+    );
+
+/// For a user who says the saved key is lost: discards the account's
+/// encrypted cloud backup so backup can start over, even before Cloud Backup
+/// is on and with no key on this device (see
+/// [SyncService.discardCloudBackupForLostKey]). Never creates a key and never
+/// changes the Cloud Backup setting.
+final cloudBackupLostKeyDiscardProvider =
+    Provider<Future<CloudBackupDiscardOutcome> Function()>(
+      (ref) => () async {
+        final owner = AccountOperation.capture(ref);
+        if (!owner.isCurrent) return CloudBackupDiscardOutcome.accountChanged;
+        if (!ref.read(cloudSyncCapabilityProvider)) {
+          return CloudBackupDiscardOutcome.unavailable;
+        }
+        final SyncService? service;
+        try {
+          service = await _readyKeyCheckService(ref);
+        } on StaleAccountOperation {
+          return CloudBackupDiscardOutcome.accountChanged;
+        }
+        if (!owner.isCurrent) return CloudBackupDiscardOutcome.accountChanged;
+        if (service == null) return CloudBackupDiscardOutcome.unavailable;
+        final CloudBackupDiscardOutcome outcome = await service
+            .discardCloudBackupForLostKey();
+        if (!owner.isCurrent) return CloudBackupDiscardOutcome.accountChanged;
+        if (outcome == CloudBackupDiscardOutcome.discarded) {
+          // The discard went through the key-check service, which keeps no
+          // record; clear this account's record of the deleted backup too.
+          await ref.read(cloudBackupStatusStoreProvider)?.clear();
+          ref.invalidate(lastCloudBackupProvider);
+          ref
+              .read(cloudBackupAttentionProvider.notifier)
+              .set(CloudBackupAttention.none);
+        }
+        ref.invalidate(cloudBackupKeyStatusProvider);
+        return outcome;
+      },
+    );
+
+/// Read-only: whether the account already has an encrypted cloud backup.
+/// Asked before a new key is created, because a new key could never open it.
+final cloudBackupPresenceProvider =
+    Provider<Future<CloudBackupPresence> Function()>(
+      (ref) => () async {
+        final owner = AccountOperation.capture(ref);
+        if (!owner.isCurrent || !ref.read(cloudSyncCapabilityProvider)) {
+          return CloudBackupPresence.unknown;
+        }
+        final SyncService? service;
+        try {
+          service = await _readyKeyCheckService(ref);
+        } on StaleAccountOperation {
+          return CloudBackupPresence.unknown;
+        }
+        if (service == null || !owner.isCurrent) {
+          return CloudBackupPresence.unknown;
+        }
+        final CloudBackupPresence presence = await service.findCloudBackup();
+        return owner.isCurrent ? presence : CloudBackupPresence.unknown;
+      },
+    );
+
+/// Installs a pasted backup recovery key only after it is proven against the
+/// account's current cloud backup (see [SyncService.importRecoveryKey]). When
+/// the backup cannot be reached the stored key is left unchanged.
+final backupRecoveryKeyImportProvider =
+    Provider<Future<RecoveryKeyImportOutcome> Function(String)>(
+      (ref) => (String recoveryKey) async {
+        final owner = AccountOperation.capture(ref);
+        if (!owner.isCurrent) return RecoveryKeyImportOutcome.accountChanged;
+        // The gateway depends on the Cloud Backup choice; wait for it so a
+        // still-loading preference is not mistaken for an unreachable cloud.
+        final SyncService? service;
+        try {
+          if (!await owner.wait(ref.read(cloudSyncPreferenceProvider.future))) {
+            return RecoveryKeyImportOutcome.cloudBackupOff;
+          }
+          service = await _readySyncService(ref);
+        } on StaleAccountOperation {
+          return RecoveryKeyImportOutcome.accountChanged;
+        }
+        if (!owner.isCurrent) return RecoveryKeyImportOutcome.accountChanged;
+        if (service == null) return RecoveryKeyImportOutcome.cloudUnavailable;
+        final RecoveryKeyImportOutcome outcome = await service
+            .importRecoveryKey(recoveryKey);
+        if (!owner.isCurrent) return outcome;
+        if (outcome == RecoveryKeyImportOutcome.installed ||
+            outcome == RecoveryKeyImportOutcome.installedUnverified) {
+          // The user pasted this key from where they keep it.
+          await ref.read(recoveryKeySavedProvider.notifier).markSaved();
+        }
+        ref.invalidate(cloudBackupKeyStatusProvider);
+        return outcome;
+      },
+    );
+
+/// Discards a cloud backup this device cannot read so backup can start over
+/// (see [SyncService.discardUnreadableCloudBackup]). Works only once the
+/// server allows deleting one's own backup row.
+final cloudBackupDiscardProvider =
+    Provider<Future<CloudBackupDiscardOutcome> Function()>(
+      (ref) => () async {
+        final owner = AccountOperation.capture(ref);
+        if (!owner.isCurrent) return CloudBackupDiscardOutcome.accountChanged;
+        final SyncService? service;
+        try {
+          if (!ref.read(cloudSyncCapabilityProvider) ||
+              !await owner.wait(ref.read(cloudSyncPreferenceProvider.future))) {
+            return CloudBackupDiscardOutcome.unavailable;
+          }
+          service = await _readySyncService(ref);
+        } on StaleAccountOperation {
+          return CloudBackupDiscardOutcome.accountChanged;
+        }
+        if (!owner.isCurrent) return CloudBackupDiscardOutcome.accountChanged;
+        if (service == null) return CloudBackupDiscardOutcome.unavailable;
+        final CloudBackupDiscardOutcome outcome = await service
+            .discardUnreadableCloudBackup();
+        if (!owner.isCurrent) return CloudBackupDiscardOutcome.accountChanged;
+        if (outcome == CloudBackupDiscardOutcome.discarded) {
+          ref.invalidate(lastCloudBackupProvider);
+          ref
+              .read(cloudBackupAttentionProvider.notifier)
+              .set(CloudBackupAttention.none);
+        }
+        ref.invalidate(cloudBackupKeyStatusProvider);
+        return outcome;
+      },
+    );
 
 Future<SyncService?> _readySyncService(Ref ref) async {
   final service = ref.read(syncServiceProvider);
@@ -268,6 +590,22 @@ final syncToCloudProvider = FutureProvider<bool>((ref) async {
     final CloudSyncOutcome outcome =
         await (await _readySyncService(ref))?.syncDeltaOutcome() ??
         CloudSyncOutcome.unavailable;
+    ref.invalidate(lastCloudBackupProvider);
+    ref.invalidate(cloudBackupKeyStatusProvider);
+    final CloudBackupAttentionNotifier attention = ref.read(
+      cloudBackupAttentionProvider.notifier,
+    );
+    if (outcome == CloudSyncOutcome.fullBackupNotLinked) {
+      // Expected after an update or on a device that never backed up: a calm
+      // Settings status, not a sync error repeated on every run.
+      attention.set(CloudBackupAttention.fullBackupNotLinked);
+      return false;
+    }
+    if (outcome == CloudSyncOutcome.synced) {
+      attention.set(CloudBackupAttention.none);
+    } else if (outcome == CloudSyncOutcome.conflict) {
+      attention.set(CloudBackupAttention.changedOnAnotherDevice);
+    }
     final bool success = outcome == CloudSyncOutcome.synced;
     if (!success) {
       ref
@@ -321,6 +659,13 @@ final backupPlanningToCloudProvider = FutureProvider<bool>((ref) async {
         ) ??
         CloudSyncOutcome.unavailable;
     if (!owner.isCurrent) return false;
+    ref.invalidate(lastCloudBackupProvider);
+    ref.invalidate(cloudBackupKeyStatusProvider);
+    if (outcome == CloudSyncOutcome.synced) {
+      ref
+          .read(cloudBackupAttentionProvider.notifier)
+          .set(CloudBackupAttention.none);
+    }
     if (outcome != CloudSyncOutcome.synced) {
       ref
           .read(syncErrorMessageProvider.notifier)
@@ -449,6 +794,11 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
       ref.invalidate(goalProgressProvider);
       ref.invalidate(optimizationConfigProvider);
       ref.invalidate(cloudSyncPreferenceProvider);
+      ref.invalidate(lastCloudBackupProvider);
+      ref.invalidate(cloudBackupKeyStatusProvider);
+      ref
+          .read(cloudBackupAttentionProvider.notifier)
+          .set(CloudBackupAttention.none);
       ref.read(restoredSettingsRevisionProvider.notifier).bump();
       bool remindersComplete = false;
       try {
@@ -537,7 +887,9 @@ String _syncOutcomeMessage(CloudSyncOutcome outcome) {
     CloudSyncOutcome.recoveryKeyRequired =>
       'This cloud backup needs its recovery key before synchronization can continue.',
     CloudSyncOutcome.conflict =>
-      'The backup changed or requires an explicit full planning backup. Review local and cloud data before trying again.',
+      'The cloud backup changed since this device last backed up, usually on another device. Nothing was uploaded. Back up all planning data would replace that newer copy with this device\'s data.',
+    CloudSyncOutcome.fullBackupNotLinked =>
+      'Press Back up all planning data once to keep your full backup up to date automatically.',
     CloudSyncOutcome.unavailable =>
       'Cloud synchronization is temporarily unavailable. Local changes remain available.',
     CloudSyncOutcome.uploadFailed =>

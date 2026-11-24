@@ -682,8 +682,9 @@ String _assistantCapabilityLabel(
   };
 }
 
-class _AdaptiveGuidanceSection extends ConsumerWidget {
-  const _AdaptiveGuidanceSection();
+@visibleForTesting
+class AdaptiveGuidanceSettingsSection extends ConsumerWidget {
+  const AdaptiveGuidanceSettingsSection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -721,22 +722,43 @@ class _AdaptiveGuidanceSection extends ConsumerWidget {
           return Column(
             children: <Widget>[
               _NeonStatusTile(
-                title: state.coreComplete
-                    ? journeyText(
-                        context,
-                        'Contextual guidance active',
-                        'Orientación contextual activa',
-                      )
-                    : journeyText(
-                        context,
-                        'Learning the core workflow',
-                        'Aprendiendo el flujo principal',
-                      ),
-                subtitle: journeyText(
-                  context,
-                  '${state.milestones.length} real outcomes observed · ${state.skippedLessons.length} prompts muted',
-                  '${state.milestones.length} resultados reales observados · ${state.skippedLessons.length} avisos silenciados',
-                ),
+                title: switch (state.coreGuideStatus) {
+                  CoreGuideStatus.skipped => journeyText(
+                    context,
+                    'Guide skipped',
+                    'Guía omitida',
+                  ),
+                  CoreGuideStatus.paused => journeyText(
+                    context,
+                    'Guide paused',
+                    'Guía en pausa',
+                  ),
+                  _ =>
+                    state.coreComplete
+                        ? journeyText(
+                            context,
+                            'Contextual guidance active',
+                            'Orientación contextual activa',
+                          )
+                        : journeyText(
+                            context,
+                            'Learning the core workflow',
+                            'Aprendiendo el flujo principal',
+                          ),
+                },
+                subtitle: switch (state.coreGuideStatus) {
+                  CoreGuideStatus.skipped ||
+                  CoreGuideStatus.paused => journeyText(
+                    context,
+                    '${state.milestones.length} real outcomes observed · Restart the guide below to continue.',
+                    '${state.milestones.length} resultados reales observados · Reinicia la guía abajo para continuar.',
+                  ),
+                  _ => journeyText(
+                    context,
+                    '${state.milestones.length} real outcomes observed · ${state.skippedLessons.length} prompts muted',
+                    '${state.milestones.length} resultados reales observados · ${state.skippedLessons.length} avisos silenciados',
+                  ),
+                },
               ),
               _NeonNavTile(
                 title: journeyText(

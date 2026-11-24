@@ -57,8 +57,12 @@ class ReminderOrchestratorService {
   static const int goalReminderHour = 9;
 
   /// Older builds registered one shared 8 PM rhythm reminder under this id.
-  /// It is always cancelled now that each rhythm owns its own reminder.
+  /// [migrateLegacyHabitReminder] replaces it with per-rhythm times; until
+  /// then no other path may erase it (see [_keepsLegacyHabitReminder]).
   static const String _legacyHabitReminderId = 'habit_reminder_daily';
+  static const int _legacyReminderMinutes = 20 * 60;
+  static const String _legacyHabitMigrationDoneKey =
+      'legacy_habit_reminder_migrated';
   static const String _dailyPlanningReminderId = 'daily_planning_reminder';
 
   final SharedPrefsStore _preferences;
@@ -99,14 +103,27 @@ class ReminderOrchestratorService {
   Future<void> setHabitRemindersEnabled(bool enabled) async {
     await _preferences.save(_habitReminderEnabledKey, enabled.toString());
     if (!enabled) {
-      for (final String id in <String>{
-        _legacyHabitReminderId,
-        ..._trackedHabitReminderIds(),
-      }) {
-        await _notifications.cancel(id);
-      }
-      await _saveTrackedHabitReminderIds(<String>{});
+      await KeyedMutationCoordinator.shared.runExclusive<void>(
+        AccountDataRegistry.notificationMutationKeyForScope(
+          _accountScope ?? 'legacy',
+        ),
+        _cancelHabitReminders,
+      );
     }
+  }
+
+  /// Cancels every rhythm reminder. Turned off, the old shared reminder goes
+  /// too (the user's choice wins), but [_legacyIdToKeepTracked] keeps the
+  /// sign that this account had it for the migration.
+  Future<void> _cancelHabitReminders() async {
+    final bool keepLegacy = _keepsLegacyHabitReminder();
+    final bool trackLegacy = await _legacyIdToKeepTracked(keepLegacy);
+    for (final String id in _habitReminderIdsToCancel(keepLegacy)) {
+      await _notifications.cancel(id);
+    }
+    await _saveTrackedHabitReminderIds(<String>{
+      if (trackLegacy) _legacyHabitReminderId,
+    });
   }
 
   /// Registers each active goal's reminders: three days before, the day
@@ -183,13 +200,7 @@ class ReminderOrchestratorService {
           !habits.any(_wantsReminder)) {
         // The notification repository carries this account's cancellation
         // scope even when scheduling initialization was skipped.
-        for (final String id in <String>{
-          _legacyHabitReminderId,
-          ..._trackedHabitReminderIds(),
-        }) {
-          await _notifications.cancel(id);
-        }
-        await _saveTrackedHabitReminderIds(<String>{});
+        await _cancelHabitReminders();
         return;
       }
       final bool scheduled = await _scheduleHabits(
@@ -201,6 +212,107 @@ class ReminderOrchestratorService {
     },
   );
 
+  /// One-time upgrade step for the old shared 8 PM rhythm reminder. When this
+  /// account still has it, every active rhythm without its own time gets
+  /// 8 PM, saved through [save], and the old reminder is cancelled. Paused
+  /// rhythms and rhythms that already have a time are left alone. Returns the
+  /// rhythms to use from here on. Run it before the first reminder sync.
+  Future<List<HabitEntity>> migrateLegacyHabitReminder(
+    List<HabitEntity> habits, {
+    required Future<void> Function(List<HabitEntity> habits) save,
+    bool Function()? shouldContinue,
+  }) => KeyedMutationCoordinator.shared.runExclusive<List<HabitEntity>>(
+    AccountDataRegistry.notificationMutationKeyForScope(
+      _accountScope ?? 'legacy',
+    ),
+    () async {
+      if (shouldContinue?.call() == false) return habits;
+      if (_preferences.load(_legacyHabitMigrationDoneKey) == 'true') {
+        return habits;
+      }
+      if (!_isEnabled(_habitReminderEnabledKey, defaultValue: true)) {
+        return habits;
+      }
+      // Without a verified account the OS reminders cannot be read yet.
+      if (_accountScope == null) return habits;
+      final bool hadLegacy =
+          _trackedHabitReminderIds().contains(_legacyHabitReminderId) ||
+          await _legacyReminderIsPending();
+      if (shouldContinue?.call() == false) return habits;
+      if (!hadLegacy) {
+        await _preferences.save(_legacyHabitMigrationDoneKey, 'true');
+        return habits;
+      }
+      bool changed = false;
+      final List<HabitEntity> migrated = <HabitEntity>[
+        for (final HabitEntity habit in habits)
+          if (habit.active && habit.reminderMinutes == null)
+            () {
+              changed = true;
+              return habit.copyWith(reminderMinutes: _legacyReminderMinutes);
+            }()
+          else
+            habit,
+      ];
+      if (changed) await save(migrated);
+      if (shouldContinue?.call() == false) return migrated;
+      // Marked done only once the old reminder is really gone.
+      if (!await _scheduler.cancel(
+        _legacyHabitReminderId,
+        accountScope: _accountScope,
+      )) {
+        return migrated;
+      }
+      await _preferences.save(_legacyHabitMigrationDoneKey, 'true');
+      return migrated;
+    },
+  );
+
+  /// A failed read throws, so the migration is retried instead of skipped.
+  Future<bool> _legacyReminderIsPending() async =>
+      (await _scheduler.pendingIdsForAccount(
+        _accountScope!,
+      )).contains(_legacyHabitReminderId);
+
+  /// True until the one-time migration has run while rhythm reminders are on.
+  /// The old shared reminder is then this account's only sign that its
+  /// rhythms had a reminder, and it still fires at 8 PM, so every other path
+  /// leaves it registered and keeps its tracked id. Only the migration (or
+  /// the user turning rhythm reminders off) cancels it.
+  bool _keepsLegacyHabitReminder() =>
+      _preferences.load(_legacyHabitMigrationDoneKey) != 'true' &&
+      _isEnabled(_habitReminderEnabledKey, defaultValue: true);
+
+  /// Rhythm reminder ids a sync or reconcile may cancel.
+  Set<String> _habitReminderIdsToCancel(bool keepLegacy) => <String>{
+    if (!keepLegacy) _legacyHabitReminderId,
+    ..._trackedHabitReminderIds().where(
+      (String id) => !keepLegacy || id != _legacyHabitReminderId,
+    ),
+  };
+
+  /// Whether the old shared id must stay in the tracked ids after this run.
+  /// Kept as is while [keepLegacy]. Otherwise, before the migration has run,
+  /// it is recorded when this account still had the old reminder, so turning
+  /// rhythm reminders back on lets the migration find it. A failed OS read
+  /// records nothing: turning reminders off must still work.
+  Future<bool> _legacyIdToKeepTracked(bool keepLegacy) async {
+    final bool tracked = _trackedHabitReminderIds().contains(
+      _legacyHabitReminderId,
+    );
+    if (keepLegacy) return tracked;
+    if (_preferences.load(_legacyHabitMigrationDoneKey) == 'true') {
+      return false;
+    }
+    if (tracked) return true;
+    if (_accountScope == null) return false;
+    try {
+      return await _legacyReminderIsPending();
+    } on Object {
+      return false;
+    }
+  }
+
   static bool _wantsReminder(HabitEntity habit) =>
       habit.active && habit.reminderMinutes != null;
 
@@ -210,11 +322,11 @@ class ReminderOrchestratorService {
     List<HabitEntity> habits, {
     bool Function()? shouldContinue,
   }) async {
-    // Replace every earlier registration, including the old shared alarm.
-    for (final String id in <String>{
-      _legacyHabitReminderId,
-      ..._trackedHabitReminderIds(),
-    }) {
+    final bool keepLegacy = _keepsLegacyHabitReminder();
+    final bool trackLegacy = await _legacyIdToKeepTracked(keepLegacy);
+    // Replace every earlier registration, including the old shared alarm
+    // once the migration has run.
+    for (final String id in _habitReminderIdsToCancel(keepLegacy)) {
       if (!await _scheduler.cancel(id, accountScope: _accountScope)) {
         throw StateError('Previous rhythm reminder could not be cancelled.');
       }
@@ -223,9 +335,10 @@ class ReminderOrchestratorService {
         .where(_wantsReminder)
         .toList(growable: false);
     // Track before registering so an interrupted run can still be cancelled.
-    await _saveTrackedHabitReminderIds(
-      wanted.map((habit) => habitReminderId(habit.id)).toSet(),
-    );
+    await _saveTrackedHabitReminderIds(<String>{
+      ...wanted.map((habit) => habitReminderId(habit.id)),
+      if (trackLegacy) _legacyHabitReminderId,
+    });
     if (wanted.isEmpty) return true;
     if (shouldContinue?.call() == false) return false;
     final load = _loadHabitOccurrences;
@@ -375,6 +488,9 @@ class ReminderOrchestratorService {
       ),
       () async {
         if (!shouldContinue()) return false;
+        final keepLegacy = _keepsLegacyHabitReminder();
+        final trackLegacy = await _legacyIdToKeepTracked(keepLegacy);
+        if (!shouldContinue()) return false;
         final goalIds = {
           ..._trackedGoalReminderIds(),
           ...goals.map((g) => g.id),
@@ -382,8 +498,7 @@ class ReminderOrchestratorService {
         final ids = {
           // Fixed daily alarms must not wait behind large historical goal sets.
           _dailyPlanningReminderId,
-          _legacyHabitReminderId,
-          ..._trackedHabitReminderIds(),
+          ..._habitReminderIdsToCancel(keepLegacy),
           ...habits.map((habit) => habitReminderId(habit.id)),
           ...goalIds.expand(_goalSlotIds),
         };
@@ -486,7 +601,9 @@ class ReminderOrchestratorService {
             }
           }
         } else {
-          await _saveTrackedHabitReminderIds(<String>{});
+          await _saveTrackedHabitReminderIds(<String>{
+            if (trackLegacy) _legacyHabitReminderId,
+          });
         }
         if (prefs.dailyPlanningEnabled) {
           await daily(

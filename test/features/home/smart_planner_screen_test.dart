@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart'
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/services/ai/planner_explanation_service.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/repositories/person_context_repository.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_explanation_contract.dart';
@@ -1831,6 +1832,12 @@ ProviderContainer _container({
         LegacyScopeOwnership.provenNotOwned,
       ),
       sharedPrefsStoreProvider.overrideWithValue(resolvedStore),
+      // Choose a step reads its stored paid request on start. A platform
+      // secure-storage read never completes here and would hold the shared
+      // account storage lock for later tests.
+      secureStoreProvider.overrideWithValue(
+        SecureStore(backend: InMemorySecureStoreBackend()),
+      ),
       if (personContextRepository != null)
         personContextRepositoryProvider.overrideWithValue(
           personContextRepository,

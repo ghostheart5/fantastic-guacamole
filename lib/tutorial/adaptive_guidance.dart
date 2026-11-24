@@ -69,6 +69,7 @@ class AdaptiveGuidanceState {
     this.laterLessons = const <GuidanceLessonId>{},
     this.replayLessons = const <GuidanceLessonId>{},
     this.expectedFirstRunCreatorTaskIds = const <String>{},
+    this.untilReopenedLessons = const <GuidanceLessonId>{},
   });
 
   final Map<GuidanceMilestone, DateTime> milestones;
@@ -78,6 +79,10 @@ class AdaptiveGuidanceState {
   final Set<GuidanceLessonId> laterLessons;
   final Set<GuidanceLessonId> replayLessons;
   final Set<String> expectedFirstRunCreatorTaskIds;
+
+  /// Core lessons hidden until the app is next opened. Never stored, so the guide
+  /// returns on the next launch.
+  final Set<GuidanceLessonId> untilReopenedLessons;
 
   bool has(GuidanceMilestone milestone) => milestones.containsKey(milestone);
   int count(GuidanceMilestone milestone) => counts[milestone] ?? 0;
@@ -108,6 +113,19 @@ class AdaptiveGuidanceState {
   /// Whether first-run (or replayed) core guidance decides the next lesson.
   bool get coreGuidanceOwnsState =>
       replayLessons.any(_replayableCoreLessons.contains) || !coreComplete;
+
+  /// Whether the person explicitly skipped the first-run guide. A pause (the
+  /// stored `later` flags, which older versions also wrote for a skipped setup)
+  /// is reported separately by [coreGuideStatus].
+  bool get coreGuideSkipped =>
+      skippedLessons.any(_replayableCoreLessons.contains);
+
+  /// Plain description of the first-run guide for status displays.
+  CoreGuideStatus get coreGuideStatus {
+    if (!coreGuidanceOwnsState) return CoreGuideStatus.complete;
+    if (activeCoreLesson != null) return CoreGuideStatus.active;
+    return coreGuideSkipped ? CoreGuideStatus.skipped : CoreGuideStatus.paused;
+  }
 
   /// The core lesson currently shown, or null when core guidance is complete,
   /// paused, or muted. Creator and the overlay must agree on this value.
@@ -141,6 +159,8 @@ class AdaptiveGuidanceState {
     );
   }
 }
+
+enum CoreGuideStatus { active, paused, skipped, complete }
 
 /// Chooses one intervention from observed state. There is no ordered lesson
 /// catalog and no progress-card completion path.
@@ -226,7 +246,9 @@ abstract final class GuidanceInterventionEngine {
 
   static GuidanceLessonId? activeCoreLesson(AdaptiveGuidanceState state) {
     bool muted(GuidanceLessonId id) =>
-        state.laterLessons.contains(id) || state.skippedLessons.contains(id);
+        state.laterLessons.contains(id) ||
+        state.skippedLessons.contains(id) ||
+        state.untilReopenedLessons.contains(id);
 
     GuidanceLessonId? withReceipt(GuidanceLessonId id) {
       if (id == GuidanceLessonId.reviewTimeline &&
@@ -501,6 +523,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
             milestone == GuidanceMilestone.firstTimelineReview
             ? const <String>{}
             : current.expectedFirstRunCreatorTaskIds,
+        untilReopenedLessons: current.untilReopenedLessons,
       ),
     );
   }
@@ -554,6 +577,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
         laterLessons: current.laterLessons,
         replayLessons: current.replayLessons,
         expectedFirstRunCreatorTaskIds: expectedTaskIds,
+        untilReopenedLessons: current.untilReopenedLessons,
       ),
     );
   }
@@ -595,6 +619,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
         },
         replayLessons: replay,
         expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
+        untilReopenedLessons: current.untilReopenedLessons,
       ),
     );
   }
@@ -620,6 +645,65 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
         replayLessons: <GuidanceLessonId>{...current.replayLessons}
           ..remove(lesson),
         expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
+        untilReopenedLessons: current.untilReopenedLessons,
+      ),
+    );
+  }
+
+  /// An explicit "skip the walkthrough" for the whole first-run guide. It is
+  /// stored as a skip, not a pause, and Settings can restart it.
+  Future<void> skipCoreGuide() async {
+    final String? account = _activeScope;
+    if (account == null) return;
+    await record(GuidanceMilestone.guidanceDismissed);
+    if (_activeScope != account) return;
+    final AdaptiveGuidanceState current = await _current();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String prefix = _prefix(account);
+    for (final GuidanceLessonId id in _replayableCoreLessons) {
+      await prefs.setBool('$prefix.skip.${id.name}', true);
+      await prefs.remove('$prefix.later.${id.name}');
+      await prefs.remove('$prefix.replay.${id.name}');
+    }
+    if (!ref.mounted || _activeScope != account) return;
+    state = AsyncData(
+      AdaptiveGuidanceState(
+        milestones: current.milestones,
+        counts: current.counts,
+        skippedLessons: <GuidanceLessonId>{
+          ...current.skippedLessons,
+          ..._replayableCoreLessons,
+        },
+        completedLessons: current.completedLessons,
+        laterLessons: current.laterLessons.difference(_replayableCoreLessons),
+        replayLessons: current.replayLessons.difference(_replayableCoreLessons),
+        expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
+        untilReopenedLessons: current.untilReopenedLessons,
+      ),
+    );
+  }
+
+  /// Hides the core lesson until the app is next opened, without writing
+  /// anything. Used when an explicit choice must not be mistaken for the
+  /// tutorial exercise.
+  Future<void> pauseCoreGuideUntilReopened() async {
+    final String? account = _activeScope;
+    if (account == null) return;
+    final AdaptiveGuidanceState current = await _current();
+    if (!ref.mounted || _activeScope != account) return;
+    state = AsyncData(
+      AdaptiveGuidanceState(
+        milestones: current.milestones,
+        counts: current.counts,
+        skippedLessons: current.skippedLessons,
+        completedLessons: current.completedLessons,
+        laterLessons: current.laterLessons,
+        replayLessons: current.replayLessons,
+        expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
+        untilReopenedLessons: <GuidanceLessonId>{
+          ...current.untilReopenedLessons,
+          ..._replayableCoreLessons,
+        },
       ),
     );
   }

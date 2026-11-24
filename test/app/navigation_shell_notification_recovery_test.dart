@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/app/navigation_shell.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
@@ -263,10 +264,18 @@ class _Fixture {
       'daily_planning_reminder_time': '7:30',
       'goal_reminders_enabled': 'true',
       'habit_reminders_enabled': 'true',
+      // Past the one-time move off the old shared 8 PM rhythm reminder.
+      'legacy_habit_reminder_migrated': 'true',
       'scheduled_goal_reminder_ids': '["prior-goal"]',
     }.entries) {
       await scoped.save(entry.key, entry.value);
     }
+    // Account b is past the one-time move off the old 8 PM reminder too.
+    await AccountScopedSharedPrefsStore(
+      delegate: prefs,
+      scope: AccountStorageScope.authenticated('b'),
+      legacyOwnership: LegacyScopeOwnership.provenNotOwned,
+    ).save('legacy_habit_reminder_migrated', 'true');
     scheduler.seed('a');
     scheduler.seed('b');
     return fixture;

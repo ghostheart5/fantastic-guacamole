@@ -40,10 +40,63 @@ final class ConversationPacket {
       throw const ConversationFailure('invalid_request');
     }
   }
+
+  /// Rebuilds a confirmed request from its stored bytes. Anything that is not
+  /// exactly what [ConversationPacket.new] would have produced is rejected, so
+  /// a changed request can never be sent under the original signed id.
+  ConversationPacket.restore({
+    required this.surface,
+    required this.accountScope,
+    required this.requestId,
+    required String body,
+  }) : _bodyJson = body {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(body);
+    } on FormatException {
+      throw const ConversationFailure('invalid_request');
+    }
+    final prompt = decoded is Map ? decoded['prompt'] : null;
+    final history = decoded is Map ? decoded['history'] : null;
+    final context = decoded is Map ? decoded['context'] : null;
+    if (decoded is! Map<String, dynamic> ||
+        jsonEncode(decoded) != body ||
+        body.length > 30000 ||
+        accountScope.isEmpty ||
+        requestId.isEmpty ||
+        requestId.length > 128 ||
+        decoded.containsKey('requestId') ||
+        prompt is! String ||
+        prompt.isEmpty ||
+        prompt != prompt.trim() ||
+        prompt.length > 8000 ||
+        history is! List ||
+        history.length > 6 ||
+        history.any(
+          (turn) =>
+              turn is! Map ||
+              !{'user', 'assistant'}.contains(turn['role']) ||
+              turn['content'] is! String,
+        ) ||
+        context is! Map ||
+        context['surface'] != surface.name ||
+        decoded['personality'] !=
+            (surface == ConversationSurface.planner
+                ? 'planner'
+                : 'strategist') ||
+        decoded['maxTokens'] != 1024 ||
+        decoded['allowExternalAi'] != true) {
+      throw const ConversationFailure('invalid_request');
+    }
+  }
+
   final ConversationSurface surface;
   final String accountScope;
   final String requestId;
   final String _bodyJson;
+
+  /// The exact reviewed bytes, without the request id, for local recovery.
+  String get serializedBody => _bodyJson;
   Map<String, dynamic> toJson() => {
     ...jsonDecode(_bodyJson) as Map<String, dynamic>,
     'requestId': requestId,
@@ -119,6 +172,76 @@ final class ConversationQuote {
     data['expiresAt'] as int,
     isUtc: true,
   );
+}
+
+/// A confirmed paid request that may still be running when its screen closes.
+///
+/// It is kept in the account's Chat store only until its reply is shown or it
+/// can no longer be collected. The ai-proxy rejects a quote after its signed
+/// `expiresAt`, at most 5 minutes after it was issued
+/// (supabase/functions/_shared/ai_credit_quote.ts), before it looks up the
+/// 15 minute reply cache; so the quote, not the cache, bounds recovery.
+final class PendingConversationRequest {
+  PendingConversationRequest({required this.quote, required DateTime savedAt})
+    : savedAt = savedAt.toUtc();
+
+  /// Throws [FormatException] or [ConversationFailure] for anything that does
+  /// not rebuild the stored request exactly.
+  factory PendingConversationRequest.fromJson(
+    ConversationSurface surface,
+    Object? json,
+  ) {
+    if (json is! Map ||
+        json['version'] != 1 ||
+        json['requestId'] is! String ||
+        json['accountScope'] is! String ||
+        json['body'] is! String ||
+        json['quote'] is! Map ||
+        json['savedAt'] is! int) {
+      throw const FormatException('pending_request');
+    }
+    final packet = ConversationPacket.restore(
+      surface: surface,
+      accountScope: json['accountScope'] as String,
+      requestId: json['requestId'] as String,
+      body: json['body'] as String,
+    );
+    return PendingConversationRequest(
+      quote: ConversationQuote(
+        packet: packet,
+        data: Map<String, dynamic>.from(json['quote'] as Map),
+      ),
+      savedAt: DateTime.fromMillisecondsSinceEpoch(
+        json['savedAt'] as int,
+        isUtc: true,
+      ),
+    );
+  }
+
+  /// The longest lifetime the server gives a signed credit quote.
+  static const lifetime = Duration(minutes: 5);
+
+  final ConversationQuote quote;
+  final DateTime savedAt;
+  String get requestId => quote.packet.requestId;
+  ConversationSurface get surface => quote.packet.surface;
+  String get prompt => quote.packet.toJson()['prompt'] as String;
+
+  DateTime get collectBefore {
+    final cap = savedAt.add(lifetime);
+    return quote.expiresAt.isBefore(cap) ? quote.expiresAt : cap;
+  }
+
+  bool isExpired(DateTime now) => !collectBefore.isAfter(now.toUtc());
+
+  Map<String, Object?> toJson() => {
+    'version': 1,
+    'requestId': requestId,
+    'accountScope': quote.packet.accountScope,
+    'body': quote.packet.serializedBody,
+    'quote': quote.data,
+    'savedAt': savedAt.millisecondsSinceEpoch,
+  };
 }
 
 final class ConversationAnswer {

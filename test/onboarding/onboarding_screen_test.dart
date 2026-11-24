@@ -327,10 +327,12 @@ void main() {
       'onboarding-test-user',
     ).v2Namespace;
     expect(prefs.getBool('onboarding_profile_complete_v1.$namespace'), isTrue);
+    expect(find.byKey(const Key('guide-skipped-snackbar')), findsOneWidget);
+    expect(find.textContaining('Restart Adaptive Guide'), findsOneWidget);
     final guidance = await container.read(adaptiveGuidanceProvider.future);
     expect(guidance.activeCoreLesson, isNull);
     expect(
-      guidance.laterLessons,
+      guidance.skippedLessons,
       containsAll([
         GuidanceLessonId.createFirstItem,
         GuidanceLessonId.scheduleFirstItem,

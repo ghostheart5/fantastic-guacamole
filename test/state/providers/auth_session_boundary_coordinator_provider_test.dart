@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
@@ -13,7 +14,9 @@ import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart'
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
+import 'package:fantastic_guacamole/data/repositories/assistant_conversation_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/decision_outcome_repository.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/data/repositories/task_occurrence_repository.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
@@ -391,6 +394,58 @@ void main() {
     await initialized;
     expect(harness.boundary.isStorageReady, isTrue);
   });
+
+  test(
+    'opening account storage removes the content of a paid AI request past its collect-by time',
+    () async {
+      final harness = _BoundaryHarness(hasUnownedData: false);
+      addTearDown(harness.dispose);
+      final scope = AccountStorageScope.authenticated('account-a');
+      final chatStore = harness.secureStore.forAccount(scope);
+      final request = PendingConversationRequest(
+        quote: ConversationQuote(
+          packet: ConversationPacket(
+            surface: ConversationSurface.planner,
+            accountScope: scope.v2Namespace!,
+            prompt: 'Private planning question',
+            history: const [],
+            context: const {'language': 'en'},
+            requestId: 'expired-plan',
+          ),
+          data: {
+            'credits': 4,
+            'digest': 'd',
+            'proof': 'p',
+            'policy': 'v',
+            'expiresAt': DateTime.now().millisecondsSinceEpoch,
+          },
+        ),
+        savedAt: DateTime.now().subtract(const Duration(minutes: 10)),
+      );
+      await chatStore.writeString(
+        AssistantConversationRepository.storageKey,
+        jsonEncode({
+          'version': 1,
+          'revision': 0,
+          'messages': <Object?>[],
+          'sources': <Object?>[],
+          'pendingRequests': {'planner': request.toJson()},
+        }),
+      );
+
+      final initialized = harness.coordinator.initialize();
+      harness.auth.add(_user('account-a'));
+      await initialized;
+      expect(harness.boundary.isStorageReady, isTrue);
+      await harness.settle();
+
+      final stored = await chatStore.readString(
+        AssistantConversationRepository.storageKey,
+      );
+      expect(stored, isNot(contains('Private planning question')));
+      expect(stored, contains('"expired":true'));
+    },
+  );
 
   test('goal preparation failure keeps account storage locked', () async {
     final harness = _BoundaryHarness(

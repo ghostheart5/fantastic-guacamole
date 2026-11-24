@@ -11,7 +11,7 @@ tags:
 # tests authentication rather than re-testing onboarding.
 - runFlow: ../subflows/skip-onboarding.yaml
 
-- assertVisible: "ENTER SYSTEM"
+- assertVisible: "Sign in"
 - assertVisible: "Forgot Password?"
 
 - tapOn:
@@ -23,11 +23,11 @@ tags:
 - inputText: "${MAESTRO_TEST_PASSWORD}"
 
 - hideKeyboard
-- tapOn: "ENTER SYSTEM"
+- tapOn: "Sign in"
 
 # The gate renders from the auth-state stream, so admission is asynchronous.
 - extendedWaitUntil:
     visible: "^Today$"
     timeout: 20000
 
-- assertNotVisible: "ENTER SYSTEM"
+- assertNotVisible: "Sign in"

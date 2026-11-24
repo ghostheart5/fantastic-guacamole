@@ -27,11 +27,13 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
     final owner = AccountOperation.capture(ref);
     return runAccountStorageMutation(() async {
       owner.check();
-      final List<HabitEntity> habits = await ref
+      List<HabitEntity> habits = await ref
           .read(getHabitsUseCaseProvider)
           .call();
       owner.check();
       try {
+        habits = await _migrateLegacyReminder(habits, owner);
+        owner.check();
         await _syncReminders(habits);
       } on Object catch (error, stack) {
         Logger.errorCategory(
@@ -44,6 +46,21 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
       owner.check();
       return habits;
     });
+  }
+
+  /// Existing rhythms keep the old shared 8 PM reminder as their own time.
+  Future<List<HabitEntity>> _migrateLegacyReminder(
+    List<HabitEntity> habits,
+    AccountOperation owner,
+  ) {
+    final repository = ref.read(domainHabitRepositoryProvider);
+    return ref
+        .read(reminderOrchestratorServiceProvider)
+        .migrateLegacyHabitReminder(
+          habits,
+          save: repository.saveHabits,
+          shouldContinue: () => owner.isCurrent,
+        );
   }
 
   Future<void> _syncReminders(List<HabitEntity> habits) {

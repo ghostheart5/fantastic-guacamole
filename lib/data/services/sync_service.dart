@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:fantastic_guacamole/data/services/backup_cipher.dart';
+import 'package:fantastic_guacamole/data/services/cloud_backup_status_store.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
@@ -96,6 +97,153 @@ enum CloudSyncOutcome {
   malformed,
   ownerMismatch,
   uploadFailed,
+
+  /// A full cloud backup exists that this device has no record of making,
+  /// restoring or matching, and local data differs from it. Nothing was
+  /// uploaded: the device cannot tell its own older backup from a newer one
+  /// made elsewhere. One confirmed full backup links them again.
+  fullBackupNotLinked,
+}
+
+/// Whether a recovery key opens the account's current cloud backup.
+enum CloudBackupKeyCheck {
+  /// The key decrypts the current cloud backup and it is a valid backup.
+  matches,
+
+  /// There is an encrypted cloud backup and the key does not open it.
+  doesNotMatch,
+
+  /// The key opens the encrypted cloud backup, but what is inside is not a
+  /// valid backup: it is damaged and cannot be restored.
+  unreadable,
+
+  /// The backup was made by a newer app version (an unknown backup version or
+  /// encryption format). It is not damaged; this build cannot judge it.
+  newerVersion,
+
+  /// There is no encrypted cloud backup to test the key against.
+  noEncryptedCloudBackup,
+
+  /// No key was given and this device holds none for the account.
+  noKeyOnDevice,
+
+  /// The cloud backup could not be read, so nothing was proven.
+  unavailable,
+
+  /// The cloud returned a backup row it could not parse. Not a connection
+  /// problem, and not something that can be discarded safely.
+  cloudBackupUnreadable,
+  ownerMismatch,
+  malformed,
+  accountChanged,
+}
+
+/// Result of installing a pasted recovery key.
+enum RecoveryKeyImportOutcome {
+  /// The key opened the current cloud backup and is now this device's key.
+  installed,
+
+  /// There was no encrypted cloud backup to test against. The key is now this
+  /// device's key and any previous key is kept until a backup opens.
+  installedUnverified,
+
+  /// The key does not open the current cloud backup. Nothing was changed.
+  doesNotMatch,
+
+  /// The pasted text is not a recovery key. Nothing was changed.
+  invalidFormat,
+
+  /// The key opens the cloud backup, but the backup is damaged. Nothing was
+  /// changed.
+  backupUnreadable,
+
+  /// The backup was made by a newer app version. Nothing was changed.
+  newerVersion,
+
+  /// The cloud backup could not be checked. Nothing was changed.
+  cloudUnavailable,
+
+  /// The cloud returned a backup row it could not parse. Nothing was changed.
+  cloudBackupUnreadable,
+
+  /// Cloud Backup is turned off, so there is nothing to check the key
+  /// against. Nothing was changed.
+  cloudBackupOff,
+
+  /// The account signed in to the cloud is not the account this device's
+  /// data belongs to. Nothing was changed.
+  ownerMismatch,
+
+  /// The signed-in account changed. Nothing was changed.
+  accountChanged,
+}
+
+/// Result of deleting the account's cloud backup at a given revision.
+enum CloudBackupDeleteStatus {
+  /// The backup at that revision was deleted.
+  deleted,
+
+  /// Nothing was deleted: the backup changed, or the server refused.
+  notDeleted,
+  unavailable,
+  ownerMismatch,
+}
+
+/// Whether the account has an encrypted cloud backup, found without any key.
+enum CloudBackupPresence {
+  /// An encrypted backup (or one in a newer format) exists. Only the key it
+  /// was made with can open it.
+  encryptedBackup,
+
+  /// No backup, or only one that needs no key (an older plaintext backup, or
+  /// content no key could open).
+  noEncryptedBackup,
+
+  /// The cloud could not be reached, so nothing is known.
+  unknown,
+
+  /// The cloud returned a backup row it could not parse.
+  cloudBackupUnreadable,
+}
+
+/// A gateway that can delete the account's own cloud backup.
+abstract interface class CloudBackupDiscard {
+  /// Deletes this account's cloud backup only while it is still at
+  /// [expectedRevision]. Revision 0 is the older storage-object backup.
+  Future<CloudBackupDeleteStatus> deleteBackup({required int expectedRevision});
+}
+
+/// Result of discarding a cloud backup this device cannot read.
+enum CloudBackupDiscardOutcome {
+  /// The unreadable cloud backup was deleted. The next backup starts over
+  /// with this device's key.
+  discarded,
+
+  /// This device can read the cloud backup, so it was not deleted.
+  readable,
+
+  /// The backup was made by a newer app version, so this build cannot tell
+  /// whether it is readable. Nothing was deleted.
+  newerVersion,
+
+  /// There is no cloud backup to discard.
+  nothingToDiscard,
+
+  /// This device holds no recovery key, so starting over would leave the
+  /// next backup without a saved key. Nothing was deleted.
+  noKeyOnDevice,
+
+  /// The cloud backup changed after it was checked. Nothing was deleted.
+  changed,
+
+  /// The server did not allow the delete. Nothing was deleted.
+  refused,
+  unavailable,
+
+  /// The cloud returned a backup row it could not parse. Nothing was deleted.
+  cloudBackupUnreadable,
+  ownerMismatch,
+  accountChanged,
 }
 
 abstract class CloudBackupGateway {
@@ -112,7 +260,8 @@ abstract class CloudBackupGateway {
   }
 }
 
-class LocalTestCloudBackupGateway implements CloudBackupGateway {
+class LocalTestCloudBackupGateway
+    implements CloudBackupGateway, CloudBackupDiscard {
   LocalTestCloudBackupGateway(this._preferences);
 
   static const String _backupKey = 'local_test_cloud_backup';
@@ -179,6 +328,20 @@ class LocalTestCloudBackupGateway implements CloudBackupGateway {
     await _preferences.setJson(_backupKey, backup);
     await _preferences.setInt(_backupRevisionKey, nextRevision);
     return CloudBackupWriteResult.written(nextRevision);
+  }
+
+  @override
+  Future<CloudBackupDeleteStatus> deleteBackup({
+    required int expectedRevision,
+  }) async {
+    if (!_preferences.contains(_backupKey) ||
+        _preferences.getIntOrDefault(_backupRevisionKey, 1) !=
+            expectedRevision) {
+      return CloudBackupDeleteStatus.notDeleted;
+    }
+    await _preferences.remove(_backupKey);
+    await _preferences.remove(_backupRevisionKey);
+    return CloudBackupDeleteStatus.deleted;
   }
 
   @override
@@ -367,7 +530,7 @@ class SupabaseStorageCloudBackupGateway
 }
 
 class SupabaseCasCloudBackupGateway
-    implements CloudBackupGateway, LegacyFullBackupCleanup {
+    implements CloudBackupGateway, LegacyFullBackupCleanup, CloudBackupDiscard {
   SupabaseCasCloudBackupGateway({
     required sb.SupabaseClient client,
     required this.expectedUserId,
@@ -478,6 +641,49 @@ class SupabaseCasCloudBackupGateway
     }
   }
 
+  /// Deletes the caller's own snapshot row only at [expectedRevision]. The
+  /// server allows this only for the row's owner and refuses it while an
+  /// account deletion is in progress (migration
+  /// 20261123090000_cloud_backup_discard_own.sql). A refusal or a changed
+  /// revision deletes nothing and is reported as [CloudBackupDeleteStatus.notDeleted].
+  @override
+  Future<CloudBackupDeleteStatus> deleteBackup({
+    required int expectedRevision,
+  }) async {
+    if (!_hasExpectedUser) return CloudBackupDeleteStatus.ownerMismatch;
+    if (expectedRevision < 0) return CloudBackupDeleteStatus.notDeleted;
+    if (expectedRevision == 0) {
+      return switch (await _legacy.deleteLegacyFullBackup()) {
+        LegacyFullBackupCleanupStatus.removedOrAbsent =>
+          CloudBackupDeleteStatus.deleted,
+        LegacyFullBackupCleanupStatus.unavailable =>
+          CloudBackupDeleteStatus.unavailable,
+        LegacyFullBackupCleanupStatus.ownerMismatch =>
+          CloudBackupDeleteStatus.ownerMismatch,
+      };
+    }
+    try {
+      final List<dynamic> rows = await _client
+          .from(_table)
+          .delete()
+          .eq('user_id', expectedUserId)
+          .eq('revision', expectedRevision)
+          .select('revision');
+      return rows.length == 1
+          ? CloudBackupDeleteStatus.deleted
+          : CloudBackupDeleteStatus.notDeleted;
+    } on sb.PostgrestException {
+      // Includes "permission denied" before the delete policy is deployed.
+      return CloudBackupDeleteStatus.notDeleted;
+    } on Object {
+      Logger.errorCategory(
+        'Sync Errors',
+        'Supabase versioned cloud backup delete failed',
+      );
+      return CloudBackupDeleteStatus.unavailable;
+    }
+  }
+
   Future<CloudBackupWriteResult> _classifyWriteMiss() async {
     final CloudBackupReadResult current = await downloadBackup();
     return switch (current.status) {
@@ -524,6 +730,7 @@ class SyncService {
     required this.backup,
     required this.gateway,
     SecureStore? secureStore,
+    this.statusStore,
     this.expectedAccountId,
     this.currentAccountId,
     this.syncEnabled = LaunchContainment.publicCloudSyncEnabled,
@@ -535,6 +742,10 @@ class SyncService {
   final BackupService backup;
   final CloudBackupGateway gateway;
   final BackupCipher? _cipher;
+
+  /// Records the cloud revision this device last wrote, restored or matched.
+  /// Without it a full (v6) cloud backup is never replaced automatically.
+  final CloudBackupStatusStore? statusStore;
   final String? expectedAccountId;
   final String? Function()? currentAccountId;
   final bool syncEnabled;
@@ -594,6 +805,9 @@ class SyncService {
     if (!permitted()) return CloudSyncOutcome.disabled;
     final outcome = _syncOutcomeForWrite(written);
     if (outcome != CloudSyncOutcome.synced) return outcome;
+    // The server accepted this snapshot at this revision, so automatic backup
+    // may keep it current even if the readback below fails.
+    await _recordBackup(written.revision, DateTime.now());
     final verified = await gateway.downloadBackup();
     if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
     if (!permitted()) return CloudSyncOutcome.disabled;
@@ -632,6 +846,7 @@ class SyncService {
       return CloudRestoreOutcome.malformed;
     }
     bool legacyCleanupPending = false;
+    int? restoredRevision = read.revision;
     if (migrateLegacyPlaintext) {
       if (!_accountStillCurrent) return CloudRestoreOutcome.accountChanged;
       final int? expectedRevision = read.revision;
@@ -666,6 +881,7 @@ class SyncService {
         );
         return CloudRestoreOutcome.migrationFailed;
       }
+      restoredRevision = migration.revision;
       if (expectedRevision == 0) {
         final LegacyFullBackupCleanupStatus? cleanup =
             await _deleteLegacyFullBackup();
@@ -696,6 +912,8 @@ class SyncService {
         canContinue: () => _accountStillCurrent,
         expectedLocalGeneration: localGeneration,
       );
+      // Local data now matches this cloud revision.
+      await _recordBackup(restoredRevision, _snapshotTime(restored));
       return legacyCleanupPending
           ? CloudRestoreOutcome.restoredLegacyCleanupPending
           : CloudRestoreOutcome.restored;
@@ -704,6 +922,307 @@ class SyncService {
     } on BackupConcurrentMutationException {
       return CloudRestoreOutcome.conflict;
     }
+  }
+
+  /// Downloads the current cloud backup and tests whether [recoveryKey] opens
+  /// it. Without [recoveryKey] it tests the key already on this device. Never
+  /// writes the key store, so it is safe to call for status displays.
+  Future<CloudBackupKeyCheck> checkCloudBackupKey({String? recoveryKey}) async {
+    final BackupCipher? cipher = _cipher;
+    if (cipher == null) return CloudBackupKeyCheck.unavailable;
+    if (!_accountStillCurrent) return CloudBackupKeyCheck.accountChanged;
+    final String? key = recoveryKey ?? await cipher.loadExistingRecoveryKey();
+    if (key == null) return CloudBackupKeyCheck.noKeyOnDevice;
+    final CloudBackupReadResult read = await gateway.downloadBackup();
+    if (!_accountStillCurrent) return CloudBackupKeyCheck.accountChanged;
+    switch (read.status) {
+      case CloudBackupReadStatus.found:
+        break;
+      case CloudBackupReadStatus.notFound:
+        return CloudBackupKeyCheck.noEncryptedCloudBackup;
+      case CloudBackupReadStatus.unavailable:
+        return CloudBackupKeyCheck.unavailable;
+      case CloudBackupReadStatus.ownerMismatch:
+        return CloudBackupKeyCheck.ownerMismatch;
+      case CloudBackupReadStatus.malformed:
+        // The row itself could not be parsed: nothing about the key or the
+        // backup is known, and it could not be discarded safely either.
+        return CloudBackupKeyCheck.cloudBackupUnreadable;
+    }
+    final Map<String, dynamic> payload = read.payload!;
+    if (cipher.isLegacyPlaintextBackup(payload)) {
+      return backup.hasUnsupportedVersion(payload)
+          ? CloudBackupKeyCheck.newerVersion
+          : CloudBackupKeyCheck.noEncryptedCloudBackup;
+    }
+    if (cipher.hasUnknownFormat(payload)) {
+      return CloudBackupKeyCheck.newerVersion;
+    }
+    if (!cipher.isEncryptedBackup(payload)) {
+      return CloudBackupKeyCheck.malformed;
+    }
+    final Map<String, dynamic> decrypted;
+    try {
+      decrypted = await cipher.decryptPayloadWithRecoveryKey(payload, key);
+    } on Object {
+      return CloudBackupKeyCheck.doesNotMatch;
+    }
+    // The key is right. An unknown version inside was written by a newer
+    // app; any other validation failure means the backup is damaged.
+    if (backup.hasUnsupportedVersion(decrypted)) {
+      return CloudBackupKeyCheck.newerVersion;
+    }
+    try {
+      backup.validateFullBackup(decrypted);
+      return CloudBackupKeyCheck.matches;
+    } on Object {
+      return CloudBackupKeyCheck.unreadable;
+    }
+  }
+
+  /// Installs a pasted recovery key only when it is safe: after it opens the
+  /// current cloud backup, or, when there is no encrypted backup to test,
+  /// while keeping the previous key recoverable. A key that does not open the
+  /// backup, or a backup that cannot be checked, leaves the stored key as is.
+  Future<RecoveryKeyImportOutcome> importRecoveryKey(String recoveryKey) async {
+    final BackupCipher? cipher = _cipher;
+    if (cipher == null) return RecoveryKeyImportOutcome.cloudUnavailable;
+    final String key;
+    try {
+      key = BackupCipher.parseRecoveryKey(recoveryKey);
+    } on FormatException {
+      return RecoveryKeyImportOutcome.invalidFormat;
+    }
+    final CloudBackupKeyCheck check = await checkCloudBackupKey(
+      recoveryKey: key,
+    );
+    if (!_accountStillCurrent) return RecoveryKeyImportOutcome.accountChanged;
+    switch (check) {
+      case CloudBackupKeyCheck.matches:
+        await cipher.installVerifiedRecoveryKey(key);
+        return RecoveryKeyImportOutcome.installed;
+      case CloudBackupKeyCheck.noEncryptedCloudBackup:
+        await cipher.installUnverifiedRecoveryKey(key);
+        return RecoveryKeyImportOutcome.installedUnverified;
+      case CloudBackupKeyCheck.doesNotMatch:
+        return RecoveryKeyImportOutcome.doesNotMatch;
+      case CloudBackupKeyCheck.unreadable:
+        return RecoveryKeyImportOutcome.backupUnreadable;
+      case CloudBackupKeyCheck.newerVersion:
+        return RecoveryKeyImportOutcome.newerVersion;
+      case CloudBackupKeyCheck.ownerMismatch:
+        return RecoveryKeyImportOutcome.ownerMismatch;
+      case CloudBackupKeyCheck.accountChanged:
+        return RecoveryKeyImportOutcome.accountChanged;
+      case CloudBackupKeyCheck.cloudBackupUnreadable:
+        return RecoveryKeyImportOutcome.cloudBackupUnreadable;
+      case CloudBackupKeyCheck.unavailable:
+      case CloudBackupKeyCheck.malformed:
+      case CloudBackupKeyCheck.noKeyOnDevice:
+        return RecoveryKeyImportOutcome.cloudUnavailable;
+    }
+  }
+
+  /// Read-only: whether the account already has an encrypted cloud backup,
+  /// without needing or touching any key. Used before creating a new key, which
+  /// could never open such a backup.
+  Future<CloudBackupPresence> findCloudBackup() async {
+    final BackupCipher? cipher = _cipher;
+    if (cipher == null || !_accountStillCurrent) {
+      return CloudBackupPresence.unknown;
+    }
+    final CloudBackupReadResult read = await gateway.downloadBackup();
+    if (!_accountStillCurrent) return CloudBackupPresence.unknown;
+    switch (read.status) {
+      case CloudBackupReadStatus.notFound:
+        return CloudBackupPresence.noEncryptedBackup;
+      case CloudBackupReadStatus.malformed:
+        return CloudBackupPresence.cloudBackupUnreadable;
+      case CloudBackupReadStatus.unavailable:
+      case CloudBackupReadStatus.ownerMismatch:
+        return CloudBackupPresence.unknown;
+      case CloudBackupReadStatus.found:
+        break;
+    }
+    final Map<String, dynamic> payload = read.payload!;
+    return cipher.isEncryptedBackup(payload) || cipher.hasUnknownFormat(payload)
+        ? CloudBackupPresence.encryptedBackup
+        : CloudBackupPresence.noEncryptedBackup;
+  }
+
+  /// Deletes the account's cloud backup so backup can start over, but only
+  /// when this device holds a key and cannot read the backup with it (or with
+  /// a key kept for rollback). The delete is tied to the revision that was
+  /// checked, so a backup replaced meanwhile is never deleted. Afterwards the
+  /// record of the last backup is cleared so automatic backup starts cleanly.
+  Future<CloudBackupDiscardOutcome> discardUnreadableCloudBackup() async {
+    final BackupCipher? cipher = _cipher;
+    final CloudBackupGateway activeGateway = gateway;
+    if (cipher == null || activeGateway is! CloudBackupDiscard) {
+      return CloudBackupDiscardOutcome.unavailable;
+    }
+    if (!_accountStillCurrent) return CloudBackupDiscardOutcome.accountChanged;
+    if (await cipher.loadExistingRecoveryKey() == null) {
+      return CloudBackupDiscardOutcome.noKeyOnDevice;
+    }
+    final CloudBackupReadResult read = await activeGateway.downloadBackup();
+    if (!_accountStillCurrent) return CloudBackupDiscardOutcome.accountChanged;
+    final CloudBackupDiscardOutcome? readRefusal = _discardRefusalForRead(read);
+    if (readRefusal != null) return readRefusal;
+    final int revision = read.revision!;
+    final Map<String, dynamic> payload = read.payload!;
+    // A newer app version's backup is never judged unreadable here.
+    if (cipher.hasUnknownFormat(payload)) {
+      return CloudBackupDiscardOutcome.newerVersion;
+    }
+    final CloudBackupDiscardOutcome? openRefusal = await _refusalIfOpens(
+      cipher,
+      payload,
+      damagedMayBeDiscarded: true,
+    );
+    if (openRefusal != null) return openRefusal;
+    // Otherwise unreadable by this device: the only case that may be
+    // discarded.
+    return _deleteAtCheckedRevision(activeGateway, revision);
+  }
+
+  /// For a user who says the saved key is lost: deletes the account's
+  /// encrypted cloud backup even though this device holds no key, so backup
+  /// can start over with a new key. Kept separate from
+  /// [discardUnreadableCloudBackup], whose refusals are unchanged. Only a
+  /// recognised encrypted backup qualifies: never one in a newer app's format,
+  /// an older plaintext backup, unrecognised content, or when the cloud
+  /// cannot be read. If a key on this device opens the backup, the key is not
+  /// lost and nothing is deleted. Never creates a key itself.
+  Future<CloudBackupDiscardOutcome> discardCloudBackupForLostKey() async {
+    final BackupCipher? cipher = _cipher;
+    final CloudBackupGateway activeGateway = gateway;
+    if (cipher == null || activeGateway is! CloudBackupDiscard) {
+      return CloudBackupDiscardOutcome.unavailable;
+    }
+    if (!_accountStillCurrent) return CloudBackupDiscardOutcome.accountChanged;
+    final CloudBackupReadResult read = await activeGateway.downloadBackup();
+    if (!_accountStillCurrent) return CloudBackupDiscardOutcome.accountChanged;
+    final CloudBackupDiscardOutcome? readRefusal = _discardRefusalForRead(read);
+    if (readRefusal != null) return readRefusal;
+    final int revision = read.revision!;
+    final Map<String, dynamic> payload = read.payload!;
+    if (cipher.hasUnknownFormat(payload)) {
+      return CloudBackupDiscardOutcome.newerVersion;
+    }
+    if (cipher.isLegacyPlaintextBackup(payload)) {
+      return CloudBackupDiscardOutcome.readable;
+    }
+    if (!cipher.isEncryptedBackup(payload)) {
+      // Not what the user was shown (an encrypted backup): check again.
+      return CloudBackupDiscardOutcome.changed;
+    }
+    if (await cipher.loadExistingRecoveryKey() != null) {
+      final CloudBackupDiscardOutcome? openRefusal = await _refusalIfOpens(
+        cipher,
+        payload,
+        damagedMayBeDiscarded: false,
+      );
+      if (openRefusal != null) return openRefusal;
+    }
+    if (!_accountStillCurrent) return CloudBackupDiscardOutcome.accountChanged;
+    return _deleteAtCheckedRevision(activeGateway, revision);
+  }
+
+  /// Null when [read] found a backup with a trustworthy revision.
+  CloudBackupDiscardOutcome? _discardRefusalForRead(
+    CloudBackupReadResult read,
+  ) {
+    switch (read.status) {
+      case CloudBackupReadStatus.found:
+        final int? revision = read.revision;
+        return revision == null || revision < 0
+            ? CloudBackupDiscardOutcome.cloudBackupUnreadable
+            : null;
+      case CloudBackupReadStatus.notFound:
+        return CloudBackupDiscardOutcome.nothingToDiscard;
+      case CloudBackupReadStatus.ownerMismatch:
+        return CloudBackupDiscardOutcome.ownerMismatch;
+      case CloudBackupReadStatus.unavailable:
+        return CloudBackupDiscardOutcome.unavailable;
+      case CloudBackupReadStatus.malformed:
+        // Without a trustworthy revision the delete could not be tied to
+        // what was checked.
+        return CloudBackupDiscardOutcome.cloudBackupUnreadable;
+    }
+  }
+
+  /// A refusal when a key on this device (or kept for rollback) opens
+  /// [payload]: readable, or made by a newer version. A backup that opens but
+  /// fails validation is refused too unless [damagedMayBeDiscarded].
+  Future<CloudBackupDiscardOutcome?> _refusalIfOpens(
+    BackupCipher cipher,
+    Map<String, dynamic> payload, {
+    required bool damagedMayBeDiscarded,
+  }) async {
+    final Map<String, dynamic> opened;
+    try {
+      // decryptPayload also tries a key kept for rollback.
+      opened = await cipher.decryptPayload(payload);
+    } on Object {
+      return null;
+    }
+    if (backup.hasUnsupportedVersion(opened)) {
+      return CloudBackupDiscardOutcome.newerVersion;
+    }
+    try {
+      backup.validateFullBackup(opened);
+      return CloudBackupDiscardOutcome.readable;
+    } on Object {
+      // Opens but is damaged.
+      return damagedMayBeDiscarded ? null : CloudBackupDiscardOutcome.readable;
+    }
+  }
+
+  /// Deletes at [revision] and decides success by reading again.
+  Future<CloudBackupDiscardOutcome> _deleteAtCheckedRevision(
+    CloudBackupGateway activeGateway,
+    int revision,
+  ) async {
+    if (!_accountStillCurrent) return CloudBackupDiscardOutcome.accountChanged;
+    final CloudBackupDeleteStatus deleted =
+        await (activeGateway as CloudBackupDiscard).deleteBackup(
+          expectedRevision: revision,
+        );
+    if (!_accountStillCurrent) return CloudBackupDiscardOutcome.accountChanged;
+    switch (deleted) {
+      case CloudBackupDeleteStatus.deleted:
+      case CloudBackupDeleteStatus.notDeleted:
+        break;
+      case CloudBackupDeleteStatus.unavailable:
+        return CloudBackupDiscardOutcome.unavailable;
+      case CloudBackupDeleteStatus.ownerMismatch:
+        return CloudBackupDiscardOutcome.ownerMismatch;
+    }
+    // Read again rather than trust the delete: a server can report success
+    // for a delete its policy filtered out.
+    final CloudBackupReadResult after = await activeGateway.downloadBackup();
+    if (!_accountStillCurrent) return CloudBackupDiscardOutcome.accountChanged;
+    final bool gone =
+        after.status == CloudBackupReadStatus.notFound ||
+        (deleted == CloudBackupDeleteStatus.deleted &&
+            after.status == CloudBackupReadStatus.found &&
+            after.revision != revision);
+    if (gone) {
+      await statusStore?.clear();
+      return CloudBackupDiscardOutcome.discarded;
+    }
+    return switch (after.status) {
+      CloudBackupReadStatus.found =>
+        after.revision == revision
+            ? CloudBackupDiscardOutcome.refused
+            : CloudBackupDiscardOutcome.changed,
+      CloudBackupReadStatus.ownerMismatch =>
+        CloudBackupDiscardOutcome.ownerMismatch,
+      CloudBackupReadStatus.malformed =>
+        CloudBackupDiscardOutcome.cloudBackupUnreadable,
+      _ => CloudBackupDiscardOutcome.unavailable,
+    };
   }
 
   Future<bool> syncDelta() async {
@@ -728,6 +1247,9 @@ class SyncService {
       final CloudBackupWriteResult uploaded = await gateway
           .compareAndSwapBackup(protectedLocal, expectedRevision: 0);
       if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+      if (uploaded.status == CloudBackupWriteStatus.written) {
+        await _recordBackup(uploaded.revision, DateTime.now());
+      }
       if (!backup.isLocalGenerationCurrent(localSnapshot.localGeneration)) {
         return CloudSyncOutcome.conflict;
       }
@@ -754,8 +1276,10 @@ class SyncService {
     }
 
     // Legacy replay must never replace a full planning snapshot with a partial
-    // task merge. A new full snapshot requires a fresh explicit confirmation.
-    if (cloudBackup['version'] == '6.0.0') return CloudSyncOutcome.conflict;
+    // task merge. A full snapshot is only ever replaced by a full snapshot.
+    if (cloudBackup['version'] == '6.0.0') {
+      return _keepFullSnapshotCurrent(cloudBackup, expectedRevision);
+    }
     final Map<String, dynamic> merged = _mergeBackups(localBackup, cloudBackup);
     final Map<String, dynamic> protectedMerged = _cipher == null
         ? merged
@@ -771,6 +1295,7 @@ class SyncService {
     if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
     final CloudSyncOutcome writeOutcome = _syncOutcomeForWrite(uploaded);
     if (writeOutcome != CloudSyncOutcome.synced) return writeOutcome;
+    await _recordBackup(uploaded.revision, DateTime.now());
     try {
       await backup.restoreFullBackup(
         merged,
@@ -783,6 +1308,78 @@ class SyncService {
     } on BackupConcurrentMutationException {
       return CloudSyncOutcome.conflict;
     }
+  }
+
+  /// Keeps a full (v6) cloud snapshot current. [cloudBackup] has already been
+  /// decrypted with this device's key and validated. Uploads a new full
+  /// snapshot only when local data differs from it and the cloud copy is
+  /// still the revision this device last wrote, restored or matched. A cloud
+  /// copy changed by another device is never replaced automatically.
+  Future<CloudSyncOutcome> _keepFullSnapshotCurrent(
+    Map<String, dynamic> cloudBackup,
+    int revision,
+  ) async {
+    final BackupCipher? cipher = _cipher;
+    final CloudBackupStatusStore? status = statusStore;
+    if (cipher == null || status == null) return CloudSyncOutcome.conflict;
+    final VersionedBackupSnapshot snapshot = await backup
+        .createPlanningCloudBackup();
+    if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+    final CloudBackupStatus? known = status.read();
+    if (_sameSnapshotContent(snapshot.payload, cloudBackup)) {
+      if (known?.revision != revision) {
+        await _recordBackup(revision, _snapshotTime(cloudBackup));
+      }
+      return CloudSyncOutcome.synced;
+    }
+    if (known == null) return CloudSyncOutcome.fullBackupNotLinked;
+    // Another device replaced the backup since this device last saw it.
+    if (known.revision != revision) return CloudSyncOutcome.conflict;
+    final Map<String, dynamic> encrypted = await cipher.encryptPayload(
+      snapshot.payload,
+    );
+    if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+    if (!syncEnabled) return CloudSyncOutcome.disabled;
+    if (!backup.isLocalGenerationCurrent(snapshot.localGeneration)) {
+      return CloudSyncOutcome.conflict;
+    }
+    final CloudBackupWriteResult written = await gateway.compareAndSwapBackup(
+      encrypted,
+      expectedRevision: revision,
+    );
+    if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+    final CloudSyncOutcome outcome = _syncOutcomeForWrite(written);
+    if (outcome != CloudSyncOutcome.synced) return outcome;
+    await _recordBackup(written.revision, DateTime.now());
+    return CloudSyncOutcome.synced;
+  }
+
+  /// Whether two full snapshots hold the same data, ignoring when each was
+  /// made.
+  bool _sameSnapshotContent(
+    Map<String, dynamic> local,
+    Map<String, dynamic> cloud,
+  ) {
+    final Object? normalizedLocal = jsonDecode(jsonEncode(local));
+    if (normalizedLocal is! Map<String, dynamic>) return false;
+    return _jsonValuesEqual(
+      <String, dynamic>{...normalizedLocal}..remove('timestamp'),
+      <String, dynamic>{...cloud}..remove('timestamp'),
+    );
+  }
+
+  DateTime? _snapshotTime(Map<String, dynamic> snapshot) {
+    final Object? timestamp = snapshot['timestamp'];
+    return timestamp is String ? DateTime.tryParse(timestamp) : null;
+  }
+
+  Future<void> _recordBackup(int? revision, DateTime? backedUpAt) async {
+    final CloudBackupStatusStore? status = statusStore;
+    if (status == null || revision == null || revision < 1) return;
+    if (!_accountStillCurrent) return;
+    await status.write(
+      CloudBackupStatus(revision: revision, backedUpAt: backedUpAt),
+    );
   }
 
   Future<bool> syncTasksOnly() async {

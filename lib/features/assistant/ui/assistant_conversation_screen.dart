@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.da
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
+import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/domain/value_objects/ai_content_report_reason.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_input_consent.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
@@ -17,6 +18,7 @@ import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provid
 import 'package:fantastic_guacamole/state/providers/ai_content_report_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
@@ -29,6 +31,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'assistant_conversation_screen.history.dart';
+part 'assistant_conversation_screen.pending.dart';
 
 /// The conversational route is explicitly model-backed. Local tools remain an
 /// intentional user choice, never an invisible fallback for a failed request.
@@ -88,6 +91,7 @@ class _AssistantConversationScreenState
   bool _waitIndicatorDismissed = false;
   String? _error;
   ConversationQuote? _pending;
+  String? _recoveringRequestId;
   int _generation = 0;
   int _operation = 0;
   Timer? _paidWaitTimer;
@@ -138,6 +142,9 @@ class _AssistantConversationScreenState
         _input.text = request.prompt ?? '';
         _energy = request.energy;
       });
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_loadPlannerPending());
     });
   }
 
@@ -339,6 +346,8 @@ class _AssistantConversationScreenState
     });
     bool current() =>
         mounted && generation == _generation && operation == _operation;
+    ConversationQuote? executing;
+    final registry = ref.read(conversationExecutionRegistryProvider);
     try {
       if (!retry) {
         final scope = ref.read(accountStorageScopeProvider).v2Namespace;
@@ -460,6 +469,33 @@ class _AssistantConversationScreenState
           ),
         );
         if (!current() || !accepted) return;
+        // Store the confirmed request before sending it, so its reply can be
+        // collected if this screen closes. Without that, send nothing.
+        final repository = ref.read(
+          assistantConversationHistoryRepositoryProvider,
+        );
+        final record = PendingConversationRequest(
+          quote: quote,
+          savedAt: DateTime.now(),
+        );
+        final bool replacedUntold;
+        try {
+          if (repository == null) throw StateError('chat_account_unavailable');
+          replacedUntold = await repository.savePending(record);
+        } on Object {
+          throw const ConversationFailure('request_not_saved');
+        }
+        // Its content is removed once it can no longer be collected, even if
+        // no screen is open then.
+        registry.schedulePurge(record.collectBefore);
+        if (!mounted || !current()) return;
+        if (replacedUntold) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_pendingExpiredText(questionRestored: false)),
+            ),
+          );
+        }
         _pending = quote;
       }
       _paidWaitTimer = Timer(ref.read(conversationPaidWaitTimeoutProvider), () {
@@ -470,8 +506,11 @@ class _AssistantConversationScreenState
           _error = _failureText('request_timeout');
         });
       });
-      final answer = await service.execute(quote);
+      executing = quote;
+      // Joins a run that outlived an earlier screen instead of sending again.
+      final answer = await registry.execute(quote, service);
       if (!current()) return;
+      registry.finish(quote.packet.requestId, shown: true);
       final review = const AssistantSafetyPipeline().evaluate(
         AssistantSafetyReview(
           requestId: answer.requestId,
@@ -508,7 +547,7 @@ class _AssistantConversationScreenState
         _pending = null;
         _error = null;
       });
-      _persistChat();
+      _persistChat(completedRequestId: quote.packet.requestId);
       ref.invalidate(aiCreditWalletProvider);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _scroll.hasClients) {
@@ -541,8 +580,21 @@ class _AssistantConversationScreenState
         'empty_upstream_response',
       }.contains(error.code)) {
         _pending = null;
+        // A terminal answer ends the stored request; it is never re-sent.
+        if (executing != null) {
+          registry.finish(executing.packet.requestId, shown: true);
+          _forgetPending(executing.packet.requestId);
+        }
       }
-      _showFailure(_failureText(error.code));
+      final recovered =
+          executing != null &&
+          executing.packet.requestId == _recoveringRequestId;
+      _showFailure(
+        recovered &&
+                {'quote_expired', 'credit_quote_required'}.contains(error.code)
+            ? _pendingExpiredText(questionRestored: true)
+            : _failureText(error.code),
+      );
       ref.invalidate(aiCreditWalletProvider);
     } on Object {
       if (!current()) return;
@@ -559,6 +611,7 @@ class _AssistantConversationScreenState
         setState(() {
           _busy = false;
           _waitIndicatorDismissed = false;
+          _recoveringRequestId = null;
         });
       }
     }
@@ -592,8 +645,8 @@ class _AssistantConversationScreenState
       }
       _waitIndicatorDismissed = true;
       _error = copy(
-        'The paid request is still finishing safely. Its confirmed reply will appear here if it arrives. If the wait expires, you can leave or retry this same priced request without another charge.',
-        'La solicitud pagada sigue finalizando de forma segura. La respuesta confirmada aparecerá aquí si llega. Si vence la espera, puedes salir o reintentar esta misma solicitud con precio sin otro cobro.',
+        'The paid request is still finishing safely. Its confirmed reply will appear here when it arrives. If you leave, come back to this screen within a few minutes to collect it without another charge.',
+        'La solicitud pagada sigue finalizando de forma segura. La respuesta confirmada aparecerá aquí cuando llegue. Si sales, vuelve a esta pantalla en unos minutos para recibirla sin otro cobro.',
       );
     });
   }
@@ -614,6 +667,10 @@ class _AssistantConversationScreenState
     'quote_expired' || 'credit_quote_required' => copy(
       'The price expired. Start a new request to review a new quote.',
       'El precio caducó. Inicia otra solicitud para revisar una nueva cotización.',
+    ),
+    'request_not_saved' => copy(
+      'This request could not be saved on this device, so it was not sent. No credits were charged. Your question is retained; try again. If this keeps happening, open Chat and use Clear conversation, then try again.',
+      'No se pudo guardar esta solicitud en este dispositivo, así que no se envió. No se cobraron créditos. Tu pregunta se conserva; inténtalo de nuevo. Si sigue pasando, abre Chat y usa Borrar conversación; luego inténtalo de nuevo.',
     ),
     'quote_timeout' => copy(
       'The AI service took too long to provide a credit price. No paid request was confirmed. Your question is retained; start a new request to review a fresh quote.',
@@ -878,13 +935,16 @@ class _AssistantConversationScreenState
           _busy = false;
           _waitIndicatorDismissed = false;
           _error = null;
+          _recoveringRequestId = null;
         });
         _restartChat();
+        unawaited(_loadPlannerPending());
       }
     });
     ref.listen(authSessionBoundaryProvider, (previous, next) {
       if (previous != null && previous.generation != next.generation) {
         _restartChat();
+        unawaited(_loadPlannerPending());
       }
     });
     final consent = ref.watch(personalizationProfileProvider).externalAiAllowed;
@@ -1455,8 +1515,10 @@ class _AssistantConversationScreenState
                                 'Iniciar otra solicitud',
                               ),
                             );
-                            if (mounted && confirmed) {
+                            final abandoned = _pending?.packet.requestId;
+                            if (mounted && confirmed && abandoned != null) {
                               setState(() => _pending = null);
+                              _forgetPending(abandoned);
                             }
                           },
                           child: Text(

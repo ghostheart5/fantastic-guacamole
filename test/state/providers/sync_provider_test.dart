@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
@@ -10,8 +11,10 @@ import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
@@ -209,6 +212,248 @@ void main() {
   });
 
   test(
+    'an unlinked full backup is a calm status, not a repeating sync error',
+    () async {
+      final _FixedOutcomeSyncService service = _FixedOutcomeSyncService(
+        BackupService(
+          taskRepository: repository,
+          profileStorage: profileStorage,
+          prefs: prefs,
+        ),
+        gateway,
+      );
+      container.dispose();
+      container = ProviderContainer(
+        overrides: [
+          hiveStoreProvider.overrideWithValue(hiveStore),
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('test-user'),
+          ),
+          cloudSyncCapabilityProvider.overrideWithValue(true),
+          offlineSyncQueueProvider.overrideWithValue(
+            OfflineSyncQueueService(
+              HiveStorage<String>(HiveBoxes.offlineQueue, hive: hiveStore),
+              accountId: 'test-user',
+              enforceAccountBinding: true,
+            ),
+          ),
+          syncServiceProvider.overrideWithValue(service),
+        ],
+      );
+
+      Future<void> sync(CloudSyncOutcome outcome) async {
+        service.outcome = outcome;
+        container.invalidate(syncToCloudProvider);
+        await container.read(syncToCloudProvider.future);
+      }
+
+      await sync(CloudSyncOutcome.fullBackupNotLinked);
+      expect(container.read(syncErrorMessageProvider), isNull);
+      expect(
+        container.read(cloudBackupAttentionProvider),
+        CloudBackupAttention.fullBackupNotLinked,
+      );
+
+      await sync(CloudSyncOutcome.conflict);
+      expect(
+        container.read(syncErrorMessageProvider),
+        contains('replace that newer copy'),
+      );
+      expect(
+        container.read(cloudBackupAttentionProvider),
+        CloudBackupAttention.changedOnAnotherDevice,
+      );
+
+      await sync(CloudSyncOutcome.synced);
+      expect(container.read(syncErrorMessageProvider), isNull);
+      expect(
+        container.read(cloudBackupAttentionProvider),
+        CloudBackupAttention.none,
+      );
+    },
+  );
+
+  ProviderContainer keyContainer(
+    SyncService service, {
+    required bool cloudBackupOn,
+  }) {
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      'test-user',
+    );
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'cloud_sync_enabled_v1.${scope.v2Namespace}': cloudBackupOn,
+    });
+    container.dispose();
+    container = ProviderContainer(
+      overrides: [
+        hiveStoreProvider.overrideWithValue(hiveStore),
+        accountStorageScopeProvider.overrideWithValue(scope),
+        accountLegacyOwnershipProvider.overrideWithValue(
+          LegacyScopeOwnership.provenNotOwned,
+        ),
+        cloudSyncCapabilityProvider.overrideWithValue(true),
+        syncServiceProvider.overrideWithValue(service),
+        cloudBackupKeyCheckServiceProvider.overrideWithValue(service),
+      ],
+    );
+    return container;
+  }
+
+  test(
+    'a saved key is checked before Cloud Backup is on, and nothing turns it on',
+    () async {
+      final String key = base64Encode(List<int>.filled(32, 6));
+      final SecureStore keys = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      final SyncService service = SyncService(
+        backup: BackupService(
+          taskRepository: repository,
+          profileStorage: profileStorage,
+          prefs: prefs,
+        ),
+        gateway: gateway,
+        secureStore: keys,
+        expectedAccountId: 'test-user',
+        currentAccountId: () => 'test-user',
+        syncEnabled: true,
+        restoreEnabled: true,
+      );
+      final keysContainer = keyContainer(service, cloudBackupOn: false);
+
+      expect(
+        await keysContainer.read(cloudBackupPresenceProvider)(),
+        CloudBackupPresence.noEncryptedBackup,
+      );
+      expect(
+        await keysContainer.read(recoveryKeyRestoreBeforeEnablingProvider)(key),
+        RecoveryKeyImportOutcome.installedUnverified,
+      );
+      expect(await keysContainer.read(recoveryKeySavedProvider.future), isTrue);
+      expect(
+        await keysContainer.read(cloudSyncPreferenceProvider.future),
+        isFalse,
+      );
+      expect(gateway.uploadAttempts, 0);
+
+      gateway.readOverride = const CloudBackupReadResult.unavailable();
+      expect(
+        await keysContainer.read(cloudBackupPresenceProvider)(),
+        CloudBackupPresence.unknown,
+      );
+    },
+  );
+
+  test(
+    'restoring a key needs Cloud Backup on, and a restored key counts as saved',
+    () async {
+      final String key = base64Encode(List<int>.filled(32, 5));
+      final SyncService service = SyncService(
+        backup: BackupService(
+          taskRepository: repository,
+          profileStorage: profileStorage,
+          prefs: prefs,
+        ),
+        gateway: gateway,
+        secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+        expectedAccountId: 'test-user',
+        currentAccountId: () => 'test-user',
+        syncEnabled: true,
+        restoreEnabled: true,
+      );
+
+      var keys = keyContainer(service, cloudBackupOn: false);
+      expect(
+        await keys.read(backupRecoveryKeyImportProvider)(key),
+        RecoveryKeyImportOutcome.cloudBackupOff,
+      );
+      expect(await keys.read(recoveryKeySavedProvider.future), isFalse);
+      expect(await keys.read(cloudBackupKeyStatusProvider.future), isNull);
+
+      keys = keyContainer(service, cloudBackupOn: true);
+      expect(await keys.read(recoveryKeySavedProvider.future), isFalse);
+      expect(
+        await keys.read(cloudBackupKeyStatusProvider.future),
+        CloudBackupKeyCheck.noKeyOnDevice,
+      );
+      expect(
+        await keys.read(backupRecoveryKeyImportProvider)(key),
+        RecoveryKeyImportOutcome.installedUnverified,
+      );
+      expect(await keys.read(recoveryKeySavedProvider.future), isTrue);
+      expect(
+        await keys.read(cloudBackupKeyStatusProvider.future),
+        CloudBackupKeyCheck.noEncryptedCloudBackup,
+      );
+    },
+  );
+
+  test(
+    'a lost-key discard works before Cloud Backup is on and never turns it on',
+    () async {
+      final _DiscardingSyncService service = _DiscardingSyncService(
+        BackupService(
+          taskRepository: repository,
+          profileStorage: profileStorage,
+          prefs: prefs,
+        ),
+        gateway,
+      );
+      final keys = keyContainer(service, cloudBackupOn: false);
+      expect(
+        await keys.read(cloudBackupLostKeyDiscardProvider)(),
+        CloudBackupDiscardOutcome.discarded,
+      );
+      expect(service.lostKeyDiscards, 1);
+      expect(service.discards, 0);
+      expect(await keys.read(cloudSyncPreferenceProvider.future), isFalse);
+    },
+  );
+
+  test(
+    'discarding refreshes the key status and clears backup attention',
+    () async {
+      final _DiscardingSyncService service = _DiscardingSyncService(
+        BackupService(
+          taskRepository: repository,
+          profileStorage: profileStorage,
+          prefs: prefs,
+        ),
+        gateway,
+      );
+      var keys = keyContainer(service, cloudBackupOn: false);
+      expect(
+        await keys.read(cloudBackupDiscardProvider)(),
+        CloudBackupDiscardOutcome.unavailable,
+      );
+      expect(service.discards, 0);
+
+      keys = keyContainer(service, cloudBackupOn: true);
+      expect(
+        await keys.read(cloudBackupKeyStatusProvider.future),
+        CloudBackupKeyCheck.doesNotMatch,
+      );
+      keys
+          .read(cloudBackupAttentionProvider.notifier)
+          .set(CloudBackupAttention.changedOnAnotherDevice);
+
+      expect(
+        await keys.read(cloudBackupDiscardProvider)(),
+        CloudBackupDiscardOutcome.discarded,
+      );
+      expect(service.discards, 1);
+      expect(
+        await keys.read(cloudBackupKeyStatusProvider.future),
+        CloudBackupKeyCheck.noEncryptedCloudBackup,
+      );
+      expect(
+        keys.read(cloudBackupAttentionProvider),
+        CloudBackupAttention.none,
+      );
+    },
+  );
+
+  test(
     'replayOfflineQueueProvider replays queued sync action and clears queue on success',
     () async {
       gateway.uploadShouldAlwaysSucceed = true;
@@ -260,6 +505,58 @@ void main() {
       expect(queuedAfterReplay, 1);
     },
   );
+}
+
+class _FixedOutcomeSyncService extends SyncService {
+  _FixedOutcomeSyncService(BackupService backup, CloudBackupGateway gateway)
+    : super(
+        backup: backup,
+        gateway: gateway,
+        expectedAccountId: 'test-user',
+        currentAccountId: () => 'test-user',
+        syncEnabled: true,
+        restoreEnabled: true,
+      );
+
+  CloudSyncOutcome outcome = CloudSyncOutcome.synced;
+
+  @override
+  Future<CloudSyncOutcome> syncDeltaOutcome() async => outcome;
+}
+
+class _DiscardingSyncService extends SyncService {
+  _DiscardingSyncService(BackupService backup, CloudBackupGateway gateway)
+    : super(
+        backup: backup,
+        gateway: gateway,
+        expectedAccountId: 'test-user',
+        currentAccountId: () => 'test-user',
+        syncEnabled: true,
+        restoreEnabled: true,
+      );
+
+  int discards = 0;
+  CloudBackupKeyCheck check = CloudBackupKeyCheck.doesNotMatch;
+
+  @override
+  Future<CloudBackupKeyCheck> checkCloudBackupKey({
+    String? recoveryKey,
+  }) async => check;
+
+  int lostKeyDiscards = 0;
+
+  @override
+  Future<CloudBackupDiscardOutcome> discardCloudBackupForLostKey() async {
+    lostKeyDiscards += 1;
+    return CloudBackupDiscardOutcome.discarded;
+  }
+
+  @override
+  Future<CloudBackupDiscardOutcome> discardUnreadableCloudBackup() async {
+    discards += 1;
+    check = CloudBackupKeyCheck.noEncryptedCloudBackup;
+    return CloudBackupDiscardOutcome.discarded;
+  }
 }
 
 class _SequencedCloudBackupGateway implements CloudBackupGateway {

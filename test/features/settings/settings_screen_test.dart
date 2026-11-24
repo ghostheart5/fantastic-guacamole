@@ -9,6 +9,9 @@ import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart'
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/person_context_repository.dart';
+import 'package:fantastic_guacamole/data/services/sync_service.dart';
+import 'package:fantastic_guacamole/state/providers/sync_provider.dart'
+    show CloudBackupAttention;
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
@@ -93,6 +96,196 @@ void main() {
       ),
       allOf(contains('sigue en curso'), contains('no se pudo guardar')),
     );
+  });
+
+  test('last backup line is truthful in every backup state', () {
+    const CloudBackupStatusCopy en = CloudBackupStatusCopy(isSpanish: false);
+    const CloudBackupStatusCopy es = CloudBackupStatusCopy(isSpanish: true);
+
+    expect(en.lastBackupTitle, 'Last backup');
+    expect(es.lastBackupTitle, 'Última copia de seguridad');
+    // Automatic backups are partial only until a full backup exists.
+    expect(
+      en.recoveryCoverage,
+      allOf(
+        contains(
+          'automatic backups made before your first full backup, include only tasks, profile and settings',
+        ),
+        contains(
+          'After a full backup, automatic backups keep all of it up to date',
+        ),
+      ),
+    );
+    expect(
+      es.recoveryCoverage,
+      allOf(
+        contains(
+          'las automáticas hechas antes de tu primera copia completa, incluyen solo tareas, perfil y ajustes',
+        ),
+        contains('las copias automáticas lo mantienen todo al día'),
+      ),
+    );
+    expect(en.recoveryCoverage, isNot(contains('may only include')));
+    expect(
+      en.storageScopeOn,
+      'Encrypted backups go to your account: tasks, profile and settings until you make a full backup, then all planning data.',
+    );
+    expect(
+      es.storageScopeOn,
+      'Las copias cifradas se guardan en tu cuenta: tareas, perfil y ajustes hasta que hagas una copia completa, y después todos los datos de planificación.',
+    );
+    expect(
+      en.lastBackupValue('Nov 20, 2026 · 9:30 AM'),
+      'Nov 20, 2026 · 9:30 AM.',
+    );
+    expect(es.lastBackupValue('20 nov 2026 · 9:30'), '20 nov 2026 · 9:30.');
+    // No record here does not claim that nothing is in the cloud.
+    expect(
+      en.lastBackupValue(null),
+      'This device has not made or restored a cloud backup yet.',
+    );
+    expect(
+      es.lastBackupValue(null),
+      'Este dispositivo todavía no ha hecho ni restaurado una copia en la nube.',
+    );
+
+    const unlinked = CloudBackupAttention.fullBackupNotLinked;
+    expect(
+      en.lastBackupValue(null, attention: unlinked),
+      "A full backup is in the cloud, but this device did not make it. Press Back up all planning data once to keep it up to date automatically. If you use several devices, restore first: that button replaces the cloud copy with this device's data.",
+    );
+    expect(
+      es.lastBackupValue(null, attention: unlinked),
+      'Hay una copia completa en la nube, pero no la hizo este dispositivo. Pulsa Guardar todos los datos una vez para mantenerla al día automáticamente. Si usas varios dispositivos, restaura primero: ese botón reemplaza la copia en la nube con los datos de este dispositivo.',
+    );
+
+    const changed = CloudBackupAttention.changedOnAnotherDevice;
+    final String enChanged = en.lastBackupValue(
+      'Nov 20, 2026 · 9:30 AM',
+      attention: changed,
+    );
+    expect(enChanged, startsWith('Nov 20, 2026 · 9:30 AM. '));
+    expect(enChanged, contains('changed on another device'));
+    expect(enChanged, contains('Restore cloud backup'));
+    expect(
+      enChanged,
+      contains(
+        "Back up all planning data would replace the other device's newer copy",
+      ),
+    );
+    final String esChanged = es.lastBackupValue(
+      '20 nov 2026 · 9:30',
+      attention: changed,
+    );
+    expect(esChanged, startsWith('20 nov 2026 · 9:30. '));
+    expect(esChanged, contains('cambió en otro dispositivo'));
+    expect(esChanged, contains('Restaurar copia en la nube'));
+    expect(
+      esChanged,
+      contains(
+        'Guardar todos los datos reemplazaría la copia más reciente del otro dispositivo',
+      ),
+    );
+  });
+
+  test('backup recovery key copy never claims a key that does not exist', () {
+    const BackupRecoveryKeyCopy en = BackupRecoveryKeyCopy(isSpanish: false);
+    const BackupRecoveryKeyCopy es = BackupRecoveryKeyCopy(isSpanish: true);
+
+    expect(en.noKeyTitle, 'No backup key on this device yet');
+    expect(
+      es.noKeyTitle,
+      'Todavía no hay una clave de respaldo en este dispositivo',
+    );
+    expect(en.noKeyBody, contains('Restore key'));
+    expect(es.noKeyBody, contains('Restaurar clave'));
+
+    expect(
+      en.importOutcome(RecoveryKeyImportOutcome.doesNotMatch),
+      'This key does not match your cloud backup. Your current key was not changed.',
+    );
+    expect(
+      es.importOutcome(RecoveryKeyImportOutcome.doesNotMatch),
+      'Esta clave no coincide con tu copia en la nube. Tu clave actual no se cambió.',
+    );
+    for (final RecoveryKeyImportOutcome refused in const [
+      RecoveryKeyImportOutcome.doesNotMatch,
+      RecoveryKeyImportOutcome.backupUnreadable,
+      RecoveryKeyImportOutcome.cloudUnavailable,
+      RecoveryKeyImportOutcome.cloudBackupOff,
+      RecoveryKeyImportOutcome.ownerMismatch,
+      RecoveryKeyImportOutcome.accountChanged,
+    ]) {
+      expect(en.importOutcome(refused), contains('not changed'));
+      expect(es.importOutcome(refused), contains('no se cambió'));
+    }
+    // A right key on a damaged backup is not called a wrong key.
+    expect(
+      en.importOutcome(RecoveryKeyImportOutcome.backupUnreadable),
+      allOf(contains('damaged'), isNot(contains('does not match'))),
+    );
+    expect(
+      es.importOutcome(RecoveryKeyImportOutcome.backupUnreadable),
+      allOf(contains('dañada'), isNot(contains('no coincide'))),
+    );
+    // An owner mismatch is not described as an account change.
+    expect(
+      en.importOutcome(RecoveryKeyImportOutcome.ownerMismatch),
+      allOf(
+        contains('signed in to the cloud'),
+        isNot(contains('changed before')),
+      ),
+    );
+    expect(
+      es.importOutcome(RecoveryKeyImportOutcome.ownerMismatch),
+      contains('conectada a la nube'),
+    );
+    // Off or offline: the user is told plainly what to do first.
+    expect(
+      en.importOutcome(RecoveryKeyImportOutcome.cloudBackupOff),
+      startsWith('Turn on Cloud Backup first'),
+    );
+    expect(
+      es.importOutcome(RecoveryKeyImportOutcome.cloudBackupOff),
+      startsWith('Primero activa la copia en la nube'),
+    );
+    expect(
+      en.importOutcome(RecoveryKeyImportOutcome.cloudUnavailable),
+      contains('Get online'),
+    );
+    expect(
+      es.importOutcome(RecoveryKeyImportOutcome.cloudUnavailable),
+      contains('Conéctate a internet'),
+    );
+    // The confirmation before an import no longer promises a replacement.
+    for (final BackupRecoveryKeyCopy copy in const [en, es]) {
+      expect(copy.checkKeyTitle, isNot(contains('Replace')));
+      expect(copy.checkKeyAction, isNot(contains('Reemplazar')));
+    }
+    expect(en.checkKeyBody, contains('only if it opens the backup'));
+    expect(es.checkKeyBody, contains('solo si abre la copia'));
+    expect(en.checkKeyAction, 'Check and use key');
+    expect(es.checkKeyAction, 'Comprobar y usar clave');
+    expect(
+      en.importOutcome(RecoveryKeyImportOutcome.installedUnverified),
+      contains('previous key is kept'),
+    );
+    expect(
+      es.importOutcome(RecoveryKeyImportOutcome.installedUnverified),
+      contains('clave anterior se conserva'),
+    );
+    expect(
+      en.importOutcome(RecoveryKeyImportOutcome.invalidFormat),
+      'That recovery key is not valid.',
+    );
+    expect(
+      es.importOutcome(RecoveryKeyImportOutcome.invalidFormat),
+      'Esa clave de recuperación no es válida.',
+    );
+    for (final RecoveryKeyImportOutcome outcome
+        in RecoveryKeyImportOutcome.values) {
+      expect(en.importOutcome(outcome), isNot(es.importOutcome(outcome)));
+    }
   });
 
   ProviderContainer createContainer({

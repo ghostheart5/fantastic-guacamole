@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
+import 'package:fantastic_guacamole/data/services/backup_cipher.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -64,36 +65,36 @@ void main() {
       expect(external.calls, ['app-settings:', 'app-prefs:root']);
     });
   }
-  test('settings actions export and import the backup recovery key', () async {
-    final ProviderContainer source = ProviderContainer(
+  test('revealing the backup key never invents one', () async {
+    final SecureStore keys = SecureStore(backend: InMemorySecureStoreBackend());
+    final ProviderContainer container = ProviderContainer(
       overrides: [
-        secureStoreProvider.overrideWithValue(
-          SecureStore(backend: InMemorySecureStoreBackend()),
+        secureStoreProvider.overrideWithValue(keys),
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('account-a'),
         ),
       ],
     );
-    addTearDown(source.dispose);
+    addTearDown(container.dispose);
+    final SettingsUiActions actions = container.read(settingsUiActionsProvider);
 
-    final String recoveryKey = await source
-        .read(settingsUiActionsProvider)
-        .exportBackupRecoveryKey();
-    expect(base64Decode(recoveryKey), hasLength(32));
+    expect(await actions.exportBackupRecoveryKey(), isNull);
+    expect(await keys.readAll(), isEmpty);
 
-    final ProviderContainer destination = ProviderContainer(
-      overrides: [
-        secureStoreProvider.overrideWithValue(
-          SecureStore(backend: InMemorySecureStoreBackend()),
-        ),
-      ],
+    // The key the cloud backup path uses for this account is the one shown.
+    await BackupCipher(
+      keys,
+      accountId: 'account-a',
+    ).encryptPayload(<String, dynamic>{'version': '3.0.0'});
+    final String? shown = await actions.exportBackupRecoveryKey();
+    expect(base64Decode(shown!), hasLength(32));
+    expect(
+      shown,
+      await BackupCipher(
+        keys,
+        accountId: 'account-a',
+      ).loadExistingRecoveryKey(),
     );
-    addTearDown(destination.dispose);
-
-    final SettingsUiActions destinationActions = destination.read(
-      settingsUiActionsProvider,
-    );
-    await destinationActions.importBackupRecoveryKey(recoveryKey);
-
-    expect(await destinationActions.exportBackupRecoveryKey(), recoveryKey);
   });
 
   test('cloud sync legacy fallback is proven-owner read-only', () async {

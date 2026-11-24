@@ -1,4 +1,6 @@
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/task_occurrence_cloud_replica.dart';
 import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
@@ -35,6 +37,77 @@ void main() {
 
     expect(replica, isNull);
   });
+  group('cloud backup preference gate', () {
+    sb.User user(String id) => sb.User(
+      id: id,
+      appMetadata: const <String, dynamic>{},
+      userMetadata: null,
+      aud: 'authenticated',
+      createdAt: '2026-08-30T00:00:00.000Z',
+    );
+
+    ProviderContainer build(_PrefNotifier notifier) {
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          cloudSyncCapabilityProvider.overrideWithValue(true),
+          cloudSyncPreferenceProvider.overrideWith(() => notifier),
+          supabaseClientProvider.overrideWithValue(
+            _FakeSupabaseClient(_FakeGoTrueClient(user('account-a'))),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test('provides no replica while Cloud Backup is off', () async {
+      final ProviderContainer container = build(_PrefNotifier(false));
+      await container.read(cloudSyncPreferenceProvider.future);
+
+      expect(container.read(taskOccurrenceCloudReplicaProvider), isNull);
+    });
+
+    test('provides no replica while the preference is still loading', () {
+      final ProviderContainer container = build(_PrefNotifier(false));
+
+      expect(container.read(taskOccurrenceCloudReplicaProvider), isNull);
+    });
+
+    test(
+      'provides a replica once Cloud Backup is on and drops it again',
+      () async {
+        final ProviderContainer container = build(_PrefNotifier(false));
+        await container.read(cloudSyncPreferenceProvider.future);
+        expect(container.read(taskOccurrenceCloudReplicaProvider), isNull);
+
+        await container
+            .read(cloudSyncPreferenceProvider.notifier)
+            .setEnabled(true);
+        expect(
+          container.read(taskOccurrenceCloudReplicaProvider),
+          isA<SupabaseTaskOccurrenceCloudReplica>(),
+        );
+
+        await container
+            .read(cloudSyncPreferenceProvider.notifier)
+            .setEnabled(false);
+        expect(container.read(taskOccurrenceCloudReplicaProvider), isNull);
+      },
+    );
+  });
+}
+
+class _PrefNotifier extends CloudSyncPreferenceNotifier {
+  _PrefNotifier(this.initial);
+  final bool initial;
+
+  @override
+  Future<bool> build() async => initial;
+
+  @override
+  Future<void> setEnabled(bool enabled) async {
+    state = AsyncData<bool>(enabled);
+  }
 }
 
 class _FakeSupabaseClient implements sb.SupabaseClient {
