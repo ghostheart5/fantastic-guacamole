@@ -14,6 +14,7 @@ import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
@@ -50,10 +51,14 @@ ProviderContainer _setup(
   ConversationTransport transport,
   InMemorySecureStoreBackend backend, {
   Duration? paidWaitTimeout,
+  AccountStorageScope Function()? readScope,
+  Completer<void>? releaseGate,
 }) => ProviderContainer(
   overrides: [
     secureStoreProvider.overrideWithValue(SecureStore(backend: backend)),
-    accountStorageScopeProvider.overrideWith((ref) => _scope),
+    accountStorageScopeProvider.overrideWith(
+      (ref) => readScope?.call() ?? _scope,
+    ),
     authSessionBoundaryProvider.overrideWith(_Boundary.new),
     assistantConversationAvailableProvider.overrideWithValue(true),
     personalizationProfileProvider.overrideWith(_Consent.new),
@@ -80,8 +85,9 @@ ProviderContainer _setup(
       AssistantReleaseCapability.siConsoleV2,
       AssistantReleaseCapability.safetyCritic,
     ])
-      assistantReleaseDecisionProvider(capability).overrideWith(
-        (ref) async => AssistantReleaseDecision(
+      assistantReleaseDecisionProvider(capability).overrideWith((ref) async {
+        if (releaseGate != null) await releaseGate.future;
+        return AssistantReleaseDecision(
           enabled: true,
           shadowEvaluationEnabled: false,
           cohort: AssistantReleaseCohort.internal,
@@ -89,8 +95,8 @@ ProviderContainer _setup(
           accountDigest: 'test',
           capability: capability,
           configDigest: 'test',
-        ),
-      ),
+        );
+      }),
   ],
 );
 
@@ -443,6 +449,270 @@ void main() {
         find.textContaining('could not be restored on this device'),
         findsOneWidget,
       );
+      expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  /// Confirms one paid request in a container whose transport never answers,
+  /// then closes it, leaving the request stored as after an app restart.
+  Future<Map<String, dynamic>> leavePendingRequest(
+    WidgetTester tester,
+    InMemorySecureStoreBackend backend, {
+    ConversationSurface surface = ConversationSurface.si,
+  }) async {
+    final never = Completer<_Response>();
+    final paid = <Map<String, dynamic>>[];
+    final first = _setup((body) async {
+      if (body['quoteOnly'] == true) return _quote(body);
+      paid.add(body);
+      return never.future;
+    }, backend);
+    await _pumpScreen(tester, first, surface);
+    await _confirmPaidRequest(tester, 'Compare my two options.');
+    await tester.pumpWidget(const SizedBox.shrink());
+    first.dispose();
+    expect(paid, hasLength(1));
+    return paid.single;
+  }
+
+  testWidgets(
+    'an account change while recovery waits never sends the old account request',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      await leavePendingRequest(tester, backend);
+
+      final other = AccountStorageScope.authenticated('synthetic-other');
+      var active = _scope;
+      final gate = Completer<void>();
+      var transportCalls = 0;
+      final second = _setup(
+        (body) async {
+          transportCalls++;
+          throw StateError('Account A request must not be sent for B');
+        },
+        backend,
+        readScope: () => active,
+        releaseGate: gate,
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        second.dispose();
+      });
+      await _pumpScreen(tester, second, ConversationSurface.si);
+      // Recovery is now waiting for release decisions. Switch accounts.
+      active = other;
+      second.invalidate(accountStorageScopeProvider);
+      await tester.pump();
+      gate.complete();
+      await _settle(tester);
+
+      expect(transportCalls, 0);
+      // Account B sees nothing of A's request: no message, no retry offer,
+      // no question in the box.
+      expect(find.byKey(const Key('conversation-error')), findsNothing);
+      expect(find.text('Retry same request'), findsNothing);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('conversation-input')))
+            .controller!
+            .text,
+        isEmpty,
+      );
+      // Account A keeps its request for when it returns.
+      expect(await _storedChat(backend), contains('pendingRequests'));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'a recovered request answered with an expired price says so and restores the question',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      await leavePendingRequest(tester, backend);
+
+      var paid = 0;
+      final second = _setup((body) async {
+        paid++;
+        return (
+          status: 409,
+          data: <String, dynamic>{
+            'requestId': body['requestId'],
+            'error': 'credit_quote_required',
+          },
+        );
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        second.dispose();
+      });
+      await _pumpScreen(tester, second, ConversationSurface.si);
+      await _settle(tester);
+
+      expect(paid, 1);
+      expect(
+        find.textContaining('Your question is back in the box below'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('conversation-input')))
+            .controller!
+            .text,
+        'Compare my two options.',
+      );
+      expect(find.text('Retry same request'), findsNothing);
+      expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'a request is collected when the account becomes ready after the screen opens',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      await leavePendingRequest(tester, backend);
+
+      var active = const AccountStorageScope.signedOut();
+      var paid = 0;
+      final second = _setup(
+        (body) async {
+          paid++;
+          return _answer(body['requestId'], 'Collected once ready.');
+        },
+        backend,
+        readScope: () => active,
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        second.dispose();
+      });
+      await _pumpScreen(tester, second, ConversationSurface.si);
+      await _settle(tester);
+      expect(paid, 0);
+
+      active = _scope;
+      second.invalidate(accountStorageScopeProvider);
+      await tester.pump();
+      await _settle(tester);
+
+      expect(paid, 1);
+      expect(find.text('Collected once ready.'), findsOneWidget);
+      expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Choose a step stores, sends and collects a request even when saved Chat is damaged, leaving Chat data as it was',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      final store = SecureStore(backend: backend).forAccount(_scope);
+      final damagedChat = <String, dynamic>{
+        'version': 1,
+        'revision': 4,
+        'messages': [
+          {'role': 'user', 'content': 'Kept as it was.'},
+        ],
+        'sources': ['unknown'],
+      };
+      await store.writeString(
+        AssistantConversationRepository.storageKey,
+        jsonEncode(damagedChat),
+      );
+      final reply = Completer<_Response>();
+      final paid = <Map<String, dynamic>>[];
+      final container = _setup((body) async {
+        if (body['quoteOnly'] == true) return _quote(body);
+        paid.add(body);
+        return reply.future;
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pumpScreen(tester, container, ConversationSurface.planner);
+      await _confirmPaidRequest(tester, 'Compare my two options.');
+      expect(paid, hasLength(1));
+      expect(find.textContaining('could not be saved'), findsNothing);
+
+      await _leave(tester, container);
+      await _pumpScreen(tester, container, ConversationSurface.planner);
+      reply.complete(_answer(paid.single['requestId'], 'Planner reply.'));
+      await _settle(tester);
+
+      expect(find.text('Planner reply.'), findsOneWidget);
+      expect(paid, hasLength(1));
+      final stored =
+          jsonDecode((await _storedChat(backend))!) as Map<String, dynamic>;
+      expect(stored, damagedChat);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'a request purged when the account became ready is still reported, without its content',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      await leavePendingRequest(
+        tester,
+        backend,
+        surface: ConversationSurface.planner,
+      );
+      // Age the stored request past its collect-by time, then run the purge
+      // that account readiness runs.
+      final store = SecureStore(backend: backend).forAccount(_scope);
+      final envelope =
+          jsonDecode(
+                (await store.readString(
+                  AssistantConversationRepository.storageKey,
+                ))!,
+              )
+              as Map<String, dynamic>;
+      final planner =
+          (envelope['pendingRequests'] as Map<String, dynamic>)['planner']
+              as Map<String, dynamic>;
+      planner['savedAt'] = DateTime.now()
+          .subtract(const Duration(minutes: 10))
+          .millisecondsSinceEpoch;
+      await store.writeString(
+        AssistantConversationRepository.storageKey,
+        jsonEncode(envelope),
+      );
+      var transportCalls = 0;
+      final second = _setup((body) async {
+        transportCalls++;
+        throw StateError('An expired request must not be sent');
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        second.dispose();
+      });
+      await tester.runAsync(
+        () => second
+            .read(assistantConversationHistoryRepositoryProvider)!
+            .purgeExpiredPending(),
+      );
+      final purged = await _storedChat(backend);
+      expect(purged, isNot(contains('Compare my two options.')));
+      expect(purged, isNot(contains('"quote"')));
+      expect(purged, contains('"expired":true'));
+
+      await _pumpScreen(tester, second, ConversationSurface.planner);
+      await _settle(tester);
+      expect(transportCalls, 0);
+      expect(find.textContaining('can no longer be collected'), findsOneWidget);
+      expect(find.textContaining('back in the box'), findsNothing);
       expect(await _storedChat(backend), isNot(contains('pendingRequests')));
       expect(tester.takeException(), isNull);
     },

@@ -11,12 +11,21 @@ typedef _Envelope = ({
   Map<String, Object?> pending,
 });
 
+typedef _PendingView = ({
+  Map<ConversationSurface, PendingConversationRequest> pending,
+  Set<ConversationSurface> unreadable,
+  Map<ConversationSurface, String> expired,
+});
+
 /// Instances share the account mutation lock with account cleanup. A revision
 /// check prevents an older screen or a paid reply from reviving cleared history.
 ///
 /// A confirmed paid request is stored in the same account-scoped envelope, so
 /// account cleanup removes it and it can never reach another account. Writing
-/// or clearing it keeps the message revision unchanged.
+/// or clearing it keeps the message revision unchanged, and works on the raw
+/// envelope: damaged Chat data never blocks Choose a step and is never
+/// rewritten by it. Once a request can no longer be collected its body is
+/// replaced by a content-free marker so the person can still be told.
 class AssistantConversationRepository {
   AssistantConversationRepository(this._store, {required this._isCurrent});
 
@@ -31,20 +40,30 @@ class AssistantConversationRepository {
     if (!_isCurrent()) throw StateError('chat_account_changed');
   }
 
-  Future<_Envelope> _read() async {
+  /// The stored JSON object, or null when nothing is stored.
+  Future<Map<String, dynamic>?> _readRaw() async {
     _checkCurrent();
     final raw = await _store.readString(storageKey);
     _checkCurrent();
-    if (raw == null) {
+    if (raw == null) return null;
+    if (raw.length > maxEncodedLength) throw const FormatException('chat_size');
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('chat_envelope');
+    }
+    return decoded;
+  }
+
+  Future<_Envelope> _read() async => _parse(await _readRaw());
+
+  _Envelope _parse(Map<String, dynamic>? decoded) {
+    if (decoded == null) {
       return (
         history: AssistantConversationHistory(),
         pending: <String, Object?>{},
       );
     }
-    if (raw.length > maxEncodedLength) throw const FormatException('chat_size');
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map<String, dynamic> ||
-        decoded['version'] != 1 ||
+    if (decoded['version'] != 1 ||
         decoded['revision'] is! int ||
         (decoded['revision'] as int) < 0 ||
         decoded['messages'] is! List ||
@@ -78,42 +97,139 @@ class AssistantConversationRepository {
         throw const FormatException('chat_sources');
       }
     }
-    // Older envelopes have no pending requests. A damaged pending entry never
-    // hides saved Chat; it is reported so the screen can tell the person.
-    final storedPending = decoded['pendingRequests'];
-    final rawPending = <String, Object?>{};
-    final pending = <ConversationSurface, PendingConversationRequest>{};
-    final unreadable = <ConversationSurface>{};
-    if (storedPending is Map<String, dynamic>) {
-      rawPending.addAll(storedPending);
-      for (final surface in ConversationSurface.values) {
-        if (!storedPending.containsKey(surface.name)) continue;
-        try {
-          pending[surface] = PendingConversationRequest.fromJson(
-            surface,
-            storedPending[surface.name],
-          );
-        } on Object {
-          unreadable.add(surface);
-        }
-      }
-    } else if (decoded.containsKey('pendingRequests')) {
-      unreadable.addAll(ConversationSurface.values);
-    }
+    final view = _parsePending(decoded);
     return (
       history: AssistantConversationHistory(
         revision: decoded['revision'] as int,
         messages: messages,
         sources: sources,
-        pendingRequests: pending,
-        unreadablePendingRequests: unreadable,
+        pendingRequests: view.pending,
+        unreadablePendingRequests: view.unreadable,
+        expiredPendingRequests: view.expired,
       ),
-      pending: rawPending,
+      pending: _rawPending(decoded),
     );
   }
 
-  Future<AssistantConversationHistory> load() =>
-      runAccountStorageMutation(() async => (await _read()).history);
+  static Map<String, Object?> _rawPending(Map<String, dynamic>? decoded) {
+    final stored = decoded?['pendingRequests'];
+    return stored is Map<String, dynamic>
+        ? Map<String, Object?>.of(stored)
+        : <String, Object?>{};
+  }
+
+  // Older envelopes have no pending requests. A damaged entry never hides
+  // saved Chat; it is reported so the screen can tell the person.
+  static _PendingView _parsePending(Map<String, dynamic>? decoded) {
+    final pending = <ConversationSurface, PendingConversationRequest>{};
+    final unreadable = <ConversationSurface>{};
+    final expired = <ConversationSurface, String>{};
+    final stored = decoded?['pendingRequests'];
+    if (stored is Map<String, dynamic>) {
+      for (final surface in ConversationSurface.values) {
+        if (!stored.containsKey(surface.name)) continue;
+        final entry = stored[surface.name];
+        if (entry is Map && entry['expired'] == true) {
+          final id = entry['requestId'];
+          if (id is String) {
+            expired[surface] = id;
+          } else {
+            unreadable.add(surface);
+          }
+          continue;
+        }
+        try {
+          pending[surface] = PendingConversationRequest.fromJson(
+            surface,
+            entry,
+          );
+        } on Object {
+          unreadable.add(surface);
+        }
+      }
+    } else if (decoded != null && decoded.containsKey('pendingRequests')) {
+      unreadable.addAll(ConversationSurface.values);
+    }
+    return (pending: pending, unreadable: unreadable, expired: expired);
+  }
+
+  /// Replaces the body of every request that can no longer be collected, or
+  /// cannot be rebuilt, with a content-free marker. Requests still running in
+  /// the app ([keep]) are left alone. Never touches the Chat part.
+  Future<void> _purge(
+    Map<String, dynamic>? decoded,
+    bool Function(String requestId)? keep,
+  ) async {
+    if (decoded == null) return;
+    final stored = decoded['pendingRequests'];
+    if (stored is! Map<String, dynamic>) return;
+    final now = DateTime.now().toUtc();
+    final view = _parsePending(decoded);
+    final next = Map<String, Object?>.of(stored);
+    var changed = false;
+    for (final entry in view.pending.entries) {
+      if (!entry.value.isExpired(now) ||
+          keep?.call(entry.value.requestId) == true) {
+        continue;
+      }
+      next[entry.key.name] = {
+        'version': 1,
+        'expired': true,
+        'requestId': entry.value.requestId,
+      };
+      changed = true;
+    }
+    for (final surface in view.unreadable) {
+      final current = stored[surface.name];
+      if (current is Map &&
+          current.length == 2 &&
+          current['unreadable'] == true) {
+        continue;
+      }
+      next[surface.name] = {'version': 1, 'unreadable': true};
+      changed = true;
+    }
+    if (!changed) return;
+    await _writeRaw({...decoded, 'pendingRequests': next});
+  }
+
+  /// Loads Chat. Pending requests that can no longer be collected are
+  /// reported with their content, then reduced to markers in storage.
+  Future<AssistantConversationHistory> load({
+    bool Function(String requestId)? keep,
+  }) => runAccountStorageMutation(() async {
+    final decoded = await _readRaw();
+    final envelope = _parse(decoded);
+    await _purge(decoded, keep);
+    return envelope.history;
+  });
+
+  /// Pending requests only, readable even when the Chat part is damaged.
+  /// Messages and sources in the result are always empty.
+  Future<AssistantConversationHistory> loadPending({
+    bool Function(String requestId)? keep,
+  }) => runAccountStorageMutation(() async {
+    final decoded = await _readRaw();
+    final view = _parsePending(decoded);
+    await _purge(decoded, keep);
+    return AssistantConversationHistory(
+      pendingRequests: view.pending,
+      unreadablePendingRequests: view.unreadable,
+      expiredPendingRequests: view.expired,
+    );
+  });
+
+  /// Runs when the account's storage becomes ready, so a request body never
+  /// outlives its collect-by time just because no screen was opened.
+  Future<void> purgeExpiredPending() => runAccountStorageMutation(() async {
+    final Map<String, dynamic>? decoded;
+    try {
+      decoded = await _readRaw();
+    } on FormatException {
+      return;
+    }
+    await _purge(decoded, null);
+  });
 
   /// [completedRequestId] removes the Chat request whose reply these
   /// messages publish, in the same write.
@@ -155,33 +271,41 @@ class AssistantConversationRepository {
   });
 
   /// Stores a confirmed request before it is sent, replacing any earlier one
-  /// for the same surface.
+  /// for the same surface. Other stored data is kept exactly as it is, even
+  /// when the Chat part cannot be read.
   Future<void> savePending(PendingConversationRequest request) =>
       runAccountStorageMutation(() async {
-        final previous = await _read();
-        await _write(
-          previous.history.revision,
-          previous.history.messages,
-          previous.history.sources,
-          {...previous.pending, request.surface.name: request.toJson()},
-        );
+        final decoded =
+            await _readRaw() ??
+            <String, dynamic>{
+              'version': 1,
+              'revision': 0,
+              'messages': <Object?>[],
+              'sources': <Object?>[],
+            };
+        await _writeRaw({
+          ...decoded,
+          'pendingRequests': {
+            ..._rawPending(decoded),
+            request.surface.name: request.toJson(),
+          },
+        });
       });
 
-  /// Removes the surface's stored request when it is [requestId], or whatever
-  /// is stored there when [requestId] is null (an unreadable entry).
+  /// Removes the surface's stored request or marker when it is [requestId],
+  /// or whatever is stored there when [requestId] is null (an unreadable
+  /// entry). Other stored data is kept exactly as it is.
   Future<void> clearPending(
     ConversationSurface surface, {
     required String? requestId,
   }) => runAccountStorageMutation(() async {
-    final previous = await _read();
-    final pending = Map<String, Object?>.of(previous.pending);
+    final decoded = await _readRaw();
+    if (decoded == null) return;
+    final pending = _rawPending(decoded);
     if (!_removePending(pending, surface, requestId)) return;
-    await _write(
-      previous.history.revision,
-      previous.history.messages,
-      previous.history.sources,
-      pending,
-    );
+    final next = {...decoded}..remove('pendingRequests');
+    if (pending.isNotEmpty) next['pendingRequests'] = pending;
+    await _writeRaw(next);
   });
 
   static bool _removePending(
@@ -199,25 +323,29 @@ class AssistantConversationRepository {
     return true;
   }
 
+  Future<void> _writeRaw(Map<String, dynamic> envelope) async {
+    _checkCurrent();
+    final encoded = jsonEncode(envelope);
+    if (encoded.length > maxEncodedLength) {
+      throw const FormatException('chat_size');
+    }
+    await _store.writeString(storageKey, encoded);
+    _checkCurrent();
+  }
+
   Future<int> _write(
     int revision,
     List<Map<String, String>> messages,
     Set<SIV2Source> sources,
     Map<String, Object?> pending,
   ) async {
-    _checkCurrent();
-    final encoded = jsonEncode({
+    await _writeRaw({
       'version': 1,
       'revision': revision,
       'messages': messages,
       'sources': sources.map((s) => s.name).toList(),
       if (pending.isNotEmpty) 'pendingRequests': pending,
     });
-    if (encoded.length > maxEncodedLength) {
-      throw const FormatException('chat_size');
-    }
-    await _store.writeString(storageKey, encoded);
-    _checkCurrent();
     return revision;
   }
 
@@ -228,10 +356,9 @@ class AssistantConversationRepository {
     var revision = 0;
     var pending = <String, Object?>{};
     try {
-      final previous = await _read();
-      revision = previous.history.revision;
-      pending = Map<String, Object?>.of(previous.pending)
-        ..remove(ConversationSurface.si.name);
+      final decoded = await _readRaw();
+      pending = _rawPending(decoded)..remove(ConversationSurface.si.name);
+      revision = _parse(decoded).history.revision;
     } on FormatException {
       // Explicit clearing may replace corrupt data; loading never rewrites it.
     }

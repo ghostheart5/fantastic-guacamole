@@ -1,32 +1,40 @@
 part of 'assistant_conversation_screen.dart';
 
 /// A confirmed paid request that outlived its screen is collected here when
-/// the person comes back: joined if it is still running since the app started, or
-/// re-sent with the same id and signed quote, which the server answers from
+/// the person comes back: joined if it is still running since the app started,
+/// or re-sent with the same id and signed quote, which the server answers from
 /// its reply cache without a second reservation.
 extension _PendingRequest on _AssistantConversationScreenState {
-  String get _pendingExpiredText => copy(
-    'An earlier AI request was still finishing when you left, and its reply can no longer be collected. It may have used credits; check your balance. Your question is back in the box below; start a new request to ask again.',
-    'Una solicitud de IA anterior seguía en curso cuando saliste y ya no se puede recuperar su respuesta. Es posible que haya usado créditos; revisa tu saldo. Tu pregunta está de nuevo en el cuadro de abajo; inicia una solicitud nueva para preguntar otra vez.',
-  );
+  /// [questionRestored] is false when only a content-free marker was left.
+  String _pendingExpiredText({required bool questionRestored}) =>
+      questionRestored
+      ? copy(
+          'An earlier AI request was still finishing when you left, and its reply can no longer be collected. It may have used credits; check your balance. Your question is back in the box below; start a new request to ask again.',
+          'Una solicitud de IA anterior seguía en curso cuando saliste y ya no se puede recuperar su respuesta. Es posible que haya usado créditos; revisa tu saldo. Tu pregunta está de nuevo en el cuadro de abajo; inicia una solicitud nueva para preguntar otra vez.',
+        )
+      : copy(
+          'An earlier AI request was still finishing when you left, and its reply can no longer be collected. It may have used credits; check your balance. Start a new request to ask again.',
+          'Una solicitud de IA anterior seguía en curso cuando saliste y ya no se puede recuperar su respuesta. Es posible que haya usado créditos; revisa tu saldo. Inicia una solicitud nueva para preguntar otra vez.',
+        );
 
   String get _pendingUnreadableText => copy(
     'An earlier AI request could not be restored on this device, so it was not sent again. It may have used credits; check your balance. Start a new request to ask again.',
     'No se pudo restaurar en este dispositivo una solicitud de IA anterior, así que no se volvió a enviar. Es posible que haya usado créditos; revisa tu saldo. Inicia una solicitud nueva para preguntar otra vez.',
   );
 
-  /// Choose a step keeps no Chat history, so it reads only its stored request.
+  /// Choose a step keeps no Chat history, so it reads only its stored
+  /// request; damaged Chat data does not stop that.
   Future<void> _loadPlannerPending() async {
     if (widget.surface != ConversationSurface.planner) return;
     final repository = ref.read(assistantConversationHistoryRepositoryProvider);
     if (repository == null) return;
+    final registry = ref.read(conversationExecutionRegistryProvider);
     final generation = _generation;
     final AssistantConversationHistory saved;
     try {
-      saved = await repository.load();
+      saved = await repository.loadPending(keep: registry.isRunning);
     } on Object {
-      // Unreadable Chat storage: a new request cannot be stored either, so
-      // sending stays blocked with an explanation until Chat is cleared.
+      // Storage unreadable as a whole: a new request is refused with advice.
       return;
     }
     if (!mounted || generation != _generation) return;
@@ -36,10 +44,23 @@ extension _PendingRequest on _AssistantConversationScreenState {
   Future<void> _resumePending(AssistantConversationHistory saved) async {
     if (!mounted) return;
     final surface = widget.surface;
+    final generation = _generation;
+    final scope = ref.read(accountStorageScopeProvider).v2Namespace;
+    final authGeneration = ref.read(authSessionBoundaryProvider).generation;
+    bool sameAccount() =>
+        mounted &&
+        generation == _generation &&
+        ref.read(accountStorageScopeProvider).v2Namespace == scope &&
+        ref.read(authSessionBoundaryProvider).generation == authGeneration;
     final registry = ref.read(conversationExecutionRegistryProvider);
     final pending = saved.pendingRequests[surface];
     if (pending == null) {
-      if (saved.unreadablePendingRequests.contains(surface)) {
+      final expiredId = saved.expiredPendingRequests[surface];
+      if (expiredId != null) {
+        registry.finish(expiredId, shown: true);
+        _forgetPending(expiredId);
+        _showFailure(_pendingExpiredText(questionRestored: false));
+      } else if (saved.unreadablePendingRequests.contains(surface)) {
         _forgetPending(null);
         _showFailure(_pendingUnreadableText);
       }
@@ -50,22 +71,21 @@ extension _PendingRequest on _AssistantConversationScreenState {
       _forgetPending(id);
       return;
     }
-    if (pending.quote.packet.accountScope !=
-        ref.read(accountStorageScopeProvider).v2Namespace) {
+    if (scope == null || pending.quote.packet.accountScope != scope) {
       _forgetPending(id);
       _showFailure(_pendingUnreadableText);
       return;
     }
     if (_busy || _pending != null) return;
-    // A run still going since the app started is joined even after the quote's
-    // lifetime; it needs no new server call.
+    // A run still going since the app started is joined even after the
+    // quote's lifetime; it needs no new server call.
     if (pending.isExpired(DateTime.now()) && !registry.isRunning(id)) {
       registry.finish(id, shown: true);
       _forgetPending(id);
       _updateHistory(() {
         if (_input.text.trim().isEmpty) _input.text = pending.prompt;
       });
-      _showFailure(_pendingExpiredText);
+      _showFailure(_pendingExpiredText(questionRestored: true));
       return;
     }
     // After an app restart the release decisions may still be loading; a new
@@ -83,10 +103,14 @@ extension _PendingRequest on _AssistantConversationScreenState {
     } on Object {
       // The send below then fails closed and keeps Retry same request.
     }
-    if (!mounted || _busy || _pending != null) return;
+    // The account may have changed while waiting. That account's request
+    // stays in its own store and is never sent from here.
+    if (!sameAccount() || _busy || _pending != null) return;
     _updateHistory(() {
       _pending = pending.quote;
       _recoveringRequestId = id;
+      // Every outcome text says the question is kept; make that true.
+      if (_input.text.trim().isEmpty) _input.text = pending.prompt;
     });
     await _send(retry: true);
   }

@@ -12,6 +12,7 @@ import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_provider_fence.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
@@ -510,6 +511,18 @@ class AuthSessionBoundaryCoordinator {
     boundary.markStorageReady(generation, legacyOwnership: legacyOwnership);
     boundary.complete(generation);
     _ref.read(getTasksUseCaseProvider);
+    // A paid AI request kept for reply collection must not outlive its
+    // collect-by time just because Chat or Choose a step is not opened again.
+    final chat = _ref.read(assistantConversationHistoryRepositoryProvider);
+    if (chat != null) {
+      unawaited(
+        chat.purgeExpiredPending().then<void>(
+          (_) {},
+          onError: (Object error) =>
+              Logger.warn('Expired AI request purge did not complete.'),
+        ),
+      );
+    }
   }
 
   bool _isLatestAccount(int sequence, String accountId, int generation) {

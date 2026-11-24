@@ -145,6 +145,138 @@ void main() {
   );
 
   test(
+    'Choose a step requests are stored and read when the Chat part is damaged, without rewriting it',
+    () async {
+      final store = base.forAccount(AccountStorageScope.authenticated('a'));
+      final corrupt = jsonEncode({
+        'version': 1,
+        'revision': 1,
+        'messages': pair,
+        'sources': ['unknown'],
+      });
+      await store.writeString(
+        AssistantConversationRepository.storageKey,
+        corrupt,
+      );
+      await repository(
+        'a',
+      ).savePending(pendingFor(ConversationSurface.planner, 'plan-request'));
+      await expectLater(repository('a').load(), throwsFormatException);
+      final pendingOnly = await repository('a').loadPending();
+      expect(
+        pendingOnly.pendingRequests[ConversationSurface.planner]!.requestId,
+        'plan-request',
+      );
+      final stored =
+          jsonDecode(
+                (await store.readString(
+                  AssistantConversationRepository.storageKey,
+                ))!,
+              )
+              as Map<String, dynamic>;
+      expect({...stored}..remove('pendingRequests'), jsonDecode(corrupt));
+      await repository(
+        'a',
+      ).clearPending(ConversationSurface.planner, requestId: 'plan-request');
+      expect(
+        await store.readString(AssistantConversationRepository.storageKey),
+        corrupt,
+      );
+    },
+  );
+
+  test(
+    'requests past their collect-by time keep no content once purged, but are still reported',
+    () async {
+      final old = DateTime.now().subtract(const Duration(minutes: 10));
+      await repository(
+        'a',
+      ).save(expectedRevision: 0, messages: pair, sources: {});
+      await repository('a').savePending(
+        pendingFor(ConversationSurface.si, 'old-chat', savedAt: old),
+      );
+      await repository(
+        'a',
+      ).savePending(pendingFor(ConversationSurface.planner, 'live-plan'));
+      final store = base.forAccount(AccountStorageScope.authenticated('a'));
+      Future<String> raw() async =>
+          (await store.readString(AssistantConversationRepository.storageKey))!;
+
+      // A request still running in the app is left alone.
+      await repository('a').load(keep: (id) => id == 'old-chat');
+      expect(await raw(), contains('old-chat'));
+      expect(
+        RegExp('Compare my two options').allMatches(await raw()).length,
+        2,
+      );
+
+      // Loading reports the expired request with its content once, so the
+      // screen can restore the question, and leaves only a marker behind.
+      final loaded = await repository('a').load();
+      expect(
+        loaded.pendingRequests[ConversationSurface.si]!.requestId,
+        'old-chat',
+      );
+      expect(loaded.messages, pair);
+      final purged = await raw();
+      expect(
+        RegExp('Compare my two options').allMatches(purged).length,
+        1,
+        reason: 'Only the live Choose a step request keeps its content.',
+      );
+      final reloaded = await repository('a').load();
+      expect(reloaded.pendingRequests.keys, [ConversationSurface.planner]);
+      expect(reloaded.expiredPendingRequests, {
+        ConversationSurface.si: 'old-chat',
+      });
+      expect(reloaded.revision, loaded.revision);
+
+      // Account readiness purges without any screen, and is idempotent.
+      await repository('b').savePending(
+        pendingFor(ConversationSurface.planner, 'b-old', savedAt: old),
+      );
+      await repository('b').purgeExpiredPending();
+      await repository('b').purgeExpiredPending();
+      final b = await repository('b').loadPending();
+      expect(b.pendingRequests, isEmpty);
+      expect(b.expiredPendingRequests, {ConversationSurface.planner: 'b-old'});
+
+      // Telling the person removes the marker.
+      await repository(
+        'a',
+      ).clearPending(ConversationSurface.si, requestId: 'old-chat');
+      expect((await repository('a').load()).expiredPendingRequests, isEmpty);
+    },
+  );
+
+  test(
+    'an unreadable stored request is reduced to a content-free marker',
+    () async {
+      final store = base.forAccount(AccountStorageScope.authenticated('a'));
+      await store.writeString(
+        AssistantConversationRepository.storageKey,
+        jsonEncode({
+          'version': 1,
+          'revision': 0,
+          'messages': <Object?>[],
+          'sources': <Object?>[],
+          'pendingRequests': {
+            'planner': {'body': 'private words', 'requestId': 7},
+          },
+        }),
+      );
+      await repository('a').purgeExpiredPending();
+      final raw = await store.readString(
+        AssistantConversationRepository.storageKey,
+      );
+      expect(raw, isNot(contains('private words')));
+      expect((await repository('a').loadPending()).unreadablePendingRequests, {
+        ConversationSurface.planner,
+      });
+    },
+  );
+
+  test(
     'a queued account A operation is rejected after A to B to A generation change',
     () async {
       var generation = 1;
@@ -379,8 +511,9 @@ void main() {
 
 PendingConversationRequest pendingFor(
   ConversationSurface surface,
-  String requestId,
-) => PendingConversationRequest(
+  String requestId, {
+  DateTime? savedAt,
+}) => PendingConversationRequest(
   quote: ConversationQuote(
     packet: ConversationPacket(
       surface: surface,
@@ -400,7 +533,7 @@ PendingConversationRequest pendingFor(
           .millisecondsSinceEpoch,
     },
   ),
-  savedAt: DateTime.now(),
+  savedAt: savedAt ?? DateTime.now(),
 );
 
 class _DelayedChatBackend extends InMemorySecureStoreBackend {

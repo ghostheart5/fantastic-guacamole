@@ -71,7 +71,7 @@ const List<AccountDataDomain> accountDataDomains = <AccountDataDomain>[
     backupStatus: AccountDataBackupStatus.localOnly,
     storage: 'Account-scoped platform secure storage',
     notes:
-        'Recent published message pairs and source choices only. Explicit Chat copy export; excluded from planning backups and cloud sync.',
+        'Recent published message pairs and source choices. While a confirmed paid AI request (Chat or Choose a step) is being answered, its exact request and signed quote are kept for up to 5 minutes so the reply can be collected; after that only a content-free marker remains until the person is told. Explicit Chat copy export; excluded from planning backups and cloud sync.',
   ),
   AccountDataDomain(
     id: 'tasks',

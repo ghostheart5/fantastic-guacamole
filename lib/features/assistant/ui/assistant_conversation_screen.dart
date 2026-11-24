@@ -579,7 +579,7 @@ class _AssistantConversationScreenState
       _showFailure(
         recovered &&
                 {'quote_expired', 'credit_quote_required'}.contains(error.code)
-            ? _pendingExpiredText
+            ? _pendingExpiredText(questionRestored: true)
             : _failureText(error.code),
       );
       ref.invalidate(aiCreditWalletProvider);
@@ -656,8 +656,8 @@ class _AssistantConversationScreenState
       'El precio caducó. Inicia otra solicitud para revisar una nueva cotización.',
     ),
     'request_not_saved' => copy(
-      'This request could not be saved on this device, so it was not sent. No credits were charged. Your question is retained; try again.',
-      'No se pudo guardar esta solicitud en este dispositivo, así que no se envió. No se cobraron créditos. Tu pregunta se conserva; inténtalo de nuevo.',
+      'This request could not be saved on this device, so it was not sent. No credits were charged. Your question is retained; try again. If this keeps happening, open Chat and use Clear conversation, then try again.',
+      'No se pudo guardar esta solicitud en este dispositivo, así que no se envió. No se cobraron créditos. Tu pregunta se conserva; inténtalo de nuevo. Si sigue pasando, abre Chat y usa Borrar conversación; luego inténtalo de nuevo.',
     ),
     'quote_timeout' => copy(
       'The AI service took too long to provide a credit price. No paid request was confirmed. Your question is retained; start a new request to review a fresh quote.',

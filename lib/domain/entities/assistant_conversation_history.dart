@@ -17,12 +17,14 @@ class AssistantConversationHistory {
     Map<ConversationSurface, PendingConversationRequest> pendingRequests =
         const {},
     Set<ConversationSurface> unreadablePendingRequests = const {},
+    Map<ConversationSurface, String> expiredPendingRequests = const {},
   }) : messages = List.unmodifiable(
          messages.map(Map<String, String>.unmodifiable),
        ),
        sources = Set.unmodifiable(sources),
        pendingRequests = Map.unmodifiable(pendingRequests),
-       unreadablePendingRequests = Set.unmodifiable(unreadablePendingRequests);
+       unreadablePendingRequests = Set.unmodifiable(unreadablePendingRequests),
+       expiredPendingRequests = Map.unmodifiable(expiredPendingRequests);
 
   static const maxMessages = 40;
   final int revision;
@@ -32,4 +34,8 @@ class AssistantConversationHistory {
 
   /// Surfaces whose stored paid request cannot be rebuilt byte for byte.
   final Set<ConversationSurface> unreadablePendingRequests;
+
+  /// Request ids whose body was already removed because the reply could no
+  /// longer be collected; the person has not been told yet.
+  final Map<ConversationSurface, String> expiredPendingRequests;
 }

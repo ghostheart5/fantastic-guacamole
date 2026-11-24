@@ -36,7 +36,9 @@ extension _StoredChat on _AssistantConversationScreenState {
     AssistantConversationHistory? loaded;
     try {
       if (repository == null) throw StateError('chat_account_unavailable');
-      final saved = await repository.load();
+      final saved = await repository.load(
+        keep: ref.read(conversationExecutionRegistryProvider).isRunning,
+      );
       if (!mounted || epoch != _historyEpoch) return;
       loaded = saved;
       _updateHistory(() {
@@ -302,6 +304,14 @@ extension _StoredChat on _AssistantConversationScreenState {
             copy(
               'Chat keeps up to 40 recent messages on this device for this account; long messages may be shortened. It is excluded from planning backups and cloud sync. Signing out keeps this account’s saved history on the device; signing back into the same account restores access. Use Clear conversation or clear this account’s local data to delete it. The last 6 messages are included with your next AI request, even when saved planning sources are off. Copy conversation puts the visible text on your clipboard; you choose where to paste it.',
               'Chat conserva hasta 40 mensajes recientes en este dispositivo para esta cuenta; los mensajes largos pueden acortarse. No se incluyen en las copias de planificación ni se sincronizan con la nube. Al cerrar sesión, el historial guardado de esta cuenta permanece en el dispositivo; puedes volver a verlo al iniciar sesión en la misma cuenta. Usa Borrar conversación o limpia los datos locales de esta cuenta para eliminarlo. Los últimos 6 mensajes se incluyen en tu próxima solicitud de IA, incluso con las fuentes de planificación desactivadas. Copiar conversación pone el texto visible en el portapapeles; tú eliges dónde pegarlo.',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            key: const Key('conversation-pending-privacy'),
+            copy(
+              'While a question you paid for is being answered, it is also kept on this device for a few minutes so the reply can be collected if you leave.',
+              'Mientras se responde una pregunta que pagaste, también se guarda en este dispositivo unos minutos para poder recibir la respuesta si sales.',
             ),
           ),
           Wrap(
