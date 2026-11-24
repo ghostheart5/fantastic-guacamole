@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
@@ -304,16 +305,16 @@ class _Scheduler implements NotificationScheduler {
   }
 
   @override
-  Future<bool> schedule(
+  Future<NotificationScheduleResult> schedule(
     NotificationEntity notification, {
     String? accountScope,
   }) async {
     pending.add(notification.id);
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override
-  Future<bool> scheduleDailyAt({
+  Future<NotificationScheduleResult> scheduleDailyAt({
     required String id,
     required String title,
     required String body,
@@ -322,11 +323,11 @@ class _Scheduler implements NotificationScheduler {
     String? accountScope,
   }) async {
     pending.add(id);
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override
-  Future<bool> scheduleCadenceAt({
+  Future<NotificationScheduleResult> scheduleCadenceAt({
     required String id,
     required String title,
     required String body,
@@ -339,7 +340,7 @@ class _Scheduler implements NotificationScheduler {
         '${firstAt.minute.toString().padLeft(2, '0')}';
     log.add('cadence:$id@$time');
     pending.add(id);
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override

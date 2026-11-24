@@ -681,6 +681,9 @@ final class _MemoryPreferences implements SharedPrefsStore {
 
 final class _RecordingScheduler implements NotificationSchedulerPort {
   bool scheduleSucceeds = true;
+  NotificationScheduleResult get _result => scheduleSucceeds
+      ? NotificationScheduleResult.scheduled
+      : NotificationScheduleResult.failed;
   bool blockFirstGoalCancellation = false;
   final firstGoalCancellationEntered = Completer<void>();
   final releaseGoalCancellation = Completer<void>();
@@ -705,16 +708,16 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
   }
 
   @override
-  Future<bool> schedule(
+  Future<NotificationScheduleResult> schedule(
     NotificationEntity notification, {
     String? accountScope,
   }) async {
     schedules.add(notification);
-    return scheduleSucceeds;
+    return _result;
   }
 
   @override
-  Future<bool> scheduleDailyAt({
+  Future<NotificationScheduleResult> scheduleDailyAt({
     required String id,
     required String title,
     required String body,
@@ -735,11 +738,11 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
       entered.complete();
       await release.future;
     }
-    return scheduleSucceeds;
+    return _result;
   }
 
   @override
-  Future<bool> scheduleCadenceAt({
+  Future<NotificationScheduleResult> scheduleCadenceAt({
     required String id,
     required String title,
     required String body,
@@ -749,7 +752,7 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
   }) async {
     operations.add('cadence:$accountScope');
     cadenceSchedules++;
-    return scheduleSucceeds;
+    return _result;
   }
 
   @override

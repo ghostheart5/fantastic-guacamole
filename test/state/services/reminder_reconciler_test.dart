@@ -204,6 +204,88 @@ void main() {
     expect(fixture.scheduler.cancelled, isEmpty);
   });
 
+  for (final declined in [
+    NotificationScheduleResult.permissionDenied,
+    NotificationScheduleResult.unsupported,
+  ]) {
+    test('rhythm reminders the OS declines ($declined) are not a failure '
+        'and do not churn on every resume', () async {
+      final fixture = _Fixture();
+      fixture.scheduler.cadenceResult = declined;
+      final goals = [fixture.goal('trip')];
+      final habits = [fixture.habit('walk', minutes: 18 * 60)];
+      // Not complete: the rhythm still has no reminder.
+      expect(await fixture.reconcile(goals, habits), isFalse);
+      expect(fixture.scheduler.pending, {
+        'daily_planning_reminder',
+        'goal_reminder_trip_3d',
+        'goal_reminder_trip',
+        'goal_reminder_trip_due',
+      });
+      expect(fixture.service.lastHabitReminderResult.value, declined);
+
+      for (var resume = 0; resume < 2; resume++) {
+        fixture.scheduler.clearLog();
+        expect(await fixture.reconcile(goals, habits), isFalse);
+        expect(fixture.scheduler.cancelled, isEmpty);
+        expect(fixture.scheduler.registered, isEmpty);
+      }
+      expect(
+        RuntimeDiagnostics.events.value.where(
+          (event) => event.category == 'reminders.reconcile_incomplete',
+        ),
+        isEmpty,
+      );
+      expect(fixture.service.lastHabitReminderResult.value, declined);
+    });
+  }
+
+  test(
+    'an outdated rhythm reminder the OS still holds is cleared once',
+    () async {
+      final fixture = _Fixture();
+      final walk = fixture.habit('walk', minutes: 18 * 60);
+      expect(await fixture.reconcile([], [walk]), isTrue);
+
+      // The time changes while the OS no longer accepts the reminder.
+      fixture.scheduler.cadenceResult =
+          NotificationScheduleResult.permissionDenied;
+      final moved = walk.copyWith(reminderMinutes: 19 * 60);
+      fixture.scheduler.clearLog();
+      expect(await fixture.reconcile([], [moved]), isFalse);
+      expect(fixture.scheduler.cancelled, ['habit_reminder_walk']);
+
+      fixture.scheduler.clearLog();
+      expect(await fixture.reconcile([], [moved]), isFalse);
+      expect(fixture.scheduler.cancelled, isEmpty);
+      expect(
+        RuntimeDiagnostics.events.value.where(
+          (event) => event.category == 'reminders.reconcile_incomplete',
+        ),
+        isEmpty,
+      );
+    },
+  );
+
+  test('a failing rhythm registration is still reported', () async {
+    final fixture = _Fixture();
+    fixture.scheduler.cadenceResult = NotificationScheduleResult.failed;
+    expect(
+      await Logger.withMutedErrors(
+        () => fixture.reconcile([], [fixture.habit('walk', minutes: 600)]),
+      ),
+      isFalse,
+    );
+    final coded = RuntimeDiagnostics.events.value
+        .where((event) => event.category == 'reminders.reconcile_incomplete')
+        .toList();
+    expect(coded.single.data['groups'], 'habits');
+    expect(
+      fixture.service.lastHabitReminderResult.value,
+      NotificationScheduleResult.failed,
+    );
+  });
+
   test('goal sync waits for the reminder lock', () async {
     final fixture = _Fixture();
     final entered = Completer<void>();
@@ -276,27 +358,31 @@ class _Scheduler implements NotificationSchedulerPort {
   final Map<String, (int, int)> cadenceTimes = <String, (int, int)>{};
   String? throwOn;
 
+  /// What the OS answers for rhythm reminders; only scheduled registers.
+  NotificationScheduleResult cadenceResult =
+      NotificationScheduleResult.scheduled;
+
   void clearLog() {
     registered.clear();
     cancelled.clear();
   }
 
-  bool _register(String id, String? accountScope) {
+  NotificationScheduleResult _register(String id, String? accountScope) {
     expect(accountScope, _scope);
     if (id == throwOn) throw StateError('Fixture OS registration failed');
     registered.add(id);
     pending.add(id);
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override
-  Future<bool> schedule(
+  Future<NotificationScheduleResult> schedule(
     NotificationEntity notification, {
     String? accountScope,
   }) async => _register(notification.id, accountScope);
 
   @override
-  Future<bool> scheduleDailyAt({
+  Future<NotificationScheduleResult> scheduleDailyAt({
     required String id,
     required String title,
     required String body,
@@ -306,7 +392,7 @@ class _Scheduler implements NotificationSchedulerPort {
   }) async => _register(id, accountScope);
 
   @override
-  Future<bool> scheduleCadenceAt({
+  Future<NotificationScheduleResult> scheduleCadenceAt({
     required String id,
     required String title,
     required String body,
@@ -314,6 +400,10 @@ class _Scheduler implements NotificationSchedulerPort {
     required DateTime firstAt,
     String? accountScope,
   }) async {
+    if (cadenceResult != NotificationScheduleResult.scheduled) {
+      expect(accountScope, _scope);
+      return cadenceResult;
+    }
     final ok = _register(id, accountScope);
     cadenceTimes[id] = (firstAt.hour, firstAt.minute);
     return ok;

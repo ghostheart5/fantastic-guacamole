@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -140,7 +141,7 @@ void main() {
           firstAt: DateTime(2099),
           accountScope: 'owner-a',
         ),
-        isFalse,
+        NotificationScheduleResult.unsupported,
       );
       expect(calls, isEmpty);
     },
@@ -159,7 +160,7 @@ void main() {
             firstAt: firstAt,
             accountScope: 'owner-a',
           ),
-          isTrue,
+          NotificationScheduleResult.scheduled,
         );
         final args = calls.single.arguments as Map;
         expect(calls.single.method, 'zonedSchedule');
@@ -217,7 +218,7 @@ void main() {
           firstAt: DateTime(2000),
           accountScope: 'owner-a',
         ),
-        isFalse,
+        NotificationScheduleResult.failed,
       );
       expect(calls, isEmpty);
       permission = false;
@@ -232,7 +233,7 @@ void main() {
           firstAt: DateTime(2099),
           accountScope: 'owner-a',
         ),
-        isFalse,
+        NotificationScheduleResult.permissionDenied,
       );
       expect(calls, isEmpty);
     },

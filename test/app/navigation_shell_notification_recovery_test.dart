@@ -13,6 +13,7 @@ import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -483,7 +484,7 @@ class _Scheduler implements NotificationScheduler {
   Future<bool> cancelAll() async =>
       throw StateError('Global cancellation forbidden');
   @override
-  Future<bool> scheduleDailyAt({
+  Future<NotificationScheduleResult> scheduleDailyAt({
     required String id,
     required String title,
     required String body,
@@ -494,7 +495,7 @@ class _Scheduler implements NotificationScheduler {
     scheduled.add((id: id, time: (hour, minute), cadence: null));
     pending.add('$accountScope:$id');
     dailyTimes['$accountScope:$id'] = (hour, minute);
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override
@@ -530,17 +531,17 @@ class _Scheduler implements NotificationScheduler {
   }
 
   @override
-  Future<bool> schedule(
+  Future<NotificationScheduleResult> schedule(
     NotificationEntity notification, {
     String? accountScope,
   }) async {
     scheduled.add((id: notification.id, time: null, cadence: null));
     pending.add('$accountScope:${notification.id}');
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override
-  Future<bool> scheduleCadenceAt({
+  Future<NotificationScheduleResult> scheduleCadenceAt({
     required String id,
     required String title,
     required String body,
@@ -554,7 +555,7 @@ class _Scheduler implements NotificationScheduler {
       cadence: cadence,
     ));
     pending.add('$accountScope:$id');
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override

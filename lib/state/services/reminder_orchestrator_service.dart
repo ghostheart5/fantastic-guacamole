@@ -15,6 +15,7 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 part 'reminder_orchestrator_service.reconcile.dart';
@@ -81,6 +82,15 @@ class ReminderOrchestratorService {
   final Future<List<TaskEntity>> Function()? _loadGoalTasks;
   final DateTime Function() _now;
   final String Function() _timeZoneName;
+  final ValueNotifier<NotificationScheduleResult?> _lastHabitReminderResult =
+      ValueNotifier<NotificationScheduleResult?>(null);
+
+  /// How the latest rhythm reminder sync or reconcile ended for this
+  /// account: [NotificationScheduleResult.scheduled] when every wanted rhythm
+  /// reminder is registered (or none is wanted), the reason none could be
+  /// registered, or [NotificationScheduleResult.failed]. Null until one ran.
+  ValueListenable<NotificationScheduleResult?> get lastHabitReminderResult =>
+      _lastHabitReminderResult;
 
   static String _deviceTimeZoneName() {
     try {
@@ -248,14 +258,25 @@ class ReminderOrchestratorService {
         // The notification repository carries this account's cancellation
         // scope even when scheduling initialization was skipped.
         await _cancelHabitReminders();
+        _lastHabitReminderResult.value = NotificationScheduleResult.scheduled;
         return;
       }
-      final bool scheduled = await _scheduleHabits(
-        habits,
-        shouldContinue: shouldContinue,
-      );
-      if (shouldContinue?.call() == false) return;
-      if (!scheduled) throw StateError('Rhythm reminder could not update.');
+      final NotificationScheduleResult? result;
+      try {
+        result = await _scheduleHabits(habits, shouldContinue: shouldContinue);
+      } on Object {
+        if (shouldContinue?.call() != false) {
+          _lastHabitReminderResult.value = NotificationScheduleResult.failed;
+        }
+        rethrow;
+      }
+      if (result == null || shouldContinue?.call() == false) return;
+      _lastHabitReminderResult.value = result;
+      // Missing permission or an unsupported platform is a known state for
+      // the caller to explain, not a failed update.
+      if (result == NotificationScheduleResult.failed) {
+        throw StateError('Rhythm reminder could not update.');
+      }
     },
   );
 
@@ -365,7 +386,9 @@ class ReminderOrchestratorService {
 
   String habitReminderId(String habitId) => 'habit_reminder_$habitId';
 
-  Future<bool> _scheduleHabits(
+  /// How registering every wanted rhythm reminder went, or null when the
+  /// account changed part way.
+  Future<NotificationScheduleResult?> _scheduleHabits(
     List<HabitEntity> habits, {
     bool Function()? shouldContinue,
   }) async {
@@ -391,31 +414,48 @@ class ReminderOrchestratorService {
       ...wanted.map((habit) => habitReminderId(habit.id)),
       if (trackLegacy) _legacyHabitReminderId,
     });
-    if (wanted.isEmpty) return true;
-    if (shouldContinue?.call() == false) return false;
+    if (wanted.isEmpty) return NotificationScheduleResult.scheduled;
+    if (shouldContinue?.call() == false) return null;
     final load = _loadHabitOccurrences;
     if (load == null) {
       throw StateError('Rhythm reminder outcome storage is unavailable.');
     }
     final outcomes = await load();
-    if (shouldContinue?.call() == false) return false;
+    if (shouldContinue?.call() == false) return null;
     final DateTime now = _now().toLocal();
-    bool complete = true;
+    NotificationScheduleResult result = NotificationScheduleResult.scheduled;
     final List<_PlannedReminder> registered = <_PlannedReminder>[];
     for (final HabitEntity habit in wanted) {
       if (shouldContinue?.call() == false) {
         for (final _PlannedReminder item in registered) {
           await _scheduler.cancel(item.id, accountScope: _accountScope);
         }
-        return false;
+        return null;
       }
       final _PlannedReminder item = _habitReminder(habit, outcomes, now);
-      final bool scheduled = await _registerPlanned(item);
-      if (scheduled) registered.add(item);
-      complete = scheduled && complete;
+      final NotificationScheduleResult scheduled = await _registerPlanned(item);
+      if (scheduled == NotificationScheduleResult.scheduled) {
+        registered.add(item);
+      }
+      result = _worseResult(result, scheduled);
     }
     await _rememberFingerprints(registered);
-    return complete;
+    return result;
+  }
+
+  /// The more telling of two results: a failure first, then missing
+  /// permission (the user can fix it), then an unsupported platform.
+  static NotificationScheduleResult _worseResult(
+    NotificationScheduleResult a,
+    NotificationScheduleResult b,
+  ) {
+    int rank(NotificationScheduleResult value) => switch (value) {
+      NotificationScheduleResult.scheduled => 0,
+      NotificationScheduleResult.unsupported => 1,
+      NotificationScheduleResult.permissionDenied => 2,
+      NotificationScheduleResult.failed => 3,
+    };
+    return rank(b) > rank(a) ? b : a;
   }
 
   /// First fire for [habit]: its reminder time in the current period (today,
@@ -494,7 +534,9 @@ class ReminderOrchestratorService {
 
         final (int hour, int minute) = _dailyPlanningTime();
         final _PlannedReminder item = _dailyPlanningReminder(hour, minute);
-        final bool scheduled = await _registerPlanned(item);
+        final bool scheduled =
+            await _registerPlanned(item) ==
+            NotificationScheduleResult.scheduled;
         if (shouldContinue?.call() == false) {
           await _scheduler.cancel(
             _dailyPlanningReminderId,
@@ -654,7 +696,7 @@ class ReminderOrchestratorService {
       );
       return false;
     }
-    return _scheduler.schedule(
+    final NotificationScheduleResult result = await _scheduler.schedule(
       NotificationEntity(
         id: slot.id,
         title: slot.title,
@@ -663,6 +705,7 @@ class ReminderOrchestratorService {
       ),
       accountScope: _accountScope,
     );
+    return result == NotificationScheduleResult.scheduled;
   }
 
   Future<void> _cancelGoalSlot(String id) async {

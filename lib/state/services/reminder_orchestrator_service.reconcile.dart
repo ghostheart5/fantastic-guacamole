@@ -110,20 +110,14 @@ class _ReminderGroup {
   /// Registered ids that are not wanted but must not be cancelled.
   final bool Function(String id, _StoredFingerprint? stored)? keep;
 
-  /// Saves the group's own bookkeeping once it has been applied.
-  final Future<void> Function(_GroupOutcome outcome)? commit;
-}
-
-enum _GroupOutcome {
-  /// Every wanted reminder is registered and nothing stale is left.
-  complete,
-
-  /// Notifications are not allowed: stale reminders are cleared, nothing new
-  /// can be registered. Not a failure.
-  notAllowed,
-
-  /// Something could not be registered or cancelled.
-  failed,
+  /// Saves the group's own bookkeeping once it has been applied, given how
+  /// that went: [NotificationScheduleResult.scheduled] when every wanted
+  /// reminder is registered and nothing stale is left;
+  /// [NotificationScheduleResult.permissionDenied] or
+  /// [NotificationScheduleResult.unsupported] when some could not be
+  /// registered for that known reason (not a failure); otherwise
+  /// [NotificationScheduleResult.failed].
+  final Future<void> Function(NotificationScheduleResult outcome)? commit;
 }
 
 /// Shared state of one reconcile run.
@@ -202,6 +196,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
     if (!shouldContinue()) return false;
     bool complete = true;
     final List<String> failed = <String>[];
+    NotificationScheduleResult? habitOutcome;
     for (final (String name, Future<_ReminderGroup> Function() plan)
         in _reminderGroups(
           goals: goals,
@@ -211,7 +206,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
           trackLegacy: trackLegacy,
         )) {
       if (!shouldContinue()) return _abandon(run);
-      _GroupOutcome outcome;
+      NotificationScheduleResult outcome;
       _ReminderGroup? group;
       try {
         group = await plan();
@@ -219,24 +214,26 @@ extension _ReminderReconciler on ReminderOrchestratorService {
       } on _ReconcileAbandoned {
         return _abandon(run);
       } on Object {
-        outcome = _GroupOutcome.failed;
+        outcome = NotificationScheduleResult.failed;
       }
       if (!shouldContinue()) return _abandon(run);
       try {
         await group?.commit?.call(outcome);
       } on Object {
-        outcome = _GroupOutcome.failed;
+        outcome = NotificationScheduleResult.failed;
       }
-      if (outcome != _GroupOutcome.complete) complete = false;
-      if (outcome == _GroupOutcome.failed) failed.add(name);
+      if (outcome != NotificationScheduleResult.scheduled) complete = false;
+      if (outcome == NotificationScheduleResult.failed) failed.add(name);
+      if (name == 'habits') habitOutcome = outcome;
     }
     if (!shouldContinue()) return _abandon(run);
     await _saveFingerprints(run.fingerprints);
     if (failed.isNotEmpty) _recordIncomplete(failed);
+    if (habitOutcome != null) _lastHabitReminderResult.value = habitOutcome;
     return complete;
   }
 
-  Future<_GroupOutcome> _applyGroup(
+  Future<NotificationScheduleResult> _applyGroup(
     _ReminderGroup group,
     _ReconcileRun run,
   ) async {
@@ -247,6 +244,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
     };
     bool kept(String id) => group.keep?.call(id, fingerprints[id]) ?? false;
     bool ok = true;
+    NotificationScheduleResult? declined;
 
     if (!run.permissionGranted) {
       // Nothing can be registered, and the OS list may read as empty. Clear
@@ -261,10 +259,10 @@ extension _ReminderReconciler on ReminderOrchestratorService {
           ok = false;
         }
       }
-      if (!ok) return _GroupOutcome.failed;
+      if (!ok) return NotificationScheduleResult.failed;
       return wantedIds.isEmpty
-          ? _GroupOutcome.complete
-          : _GroupOutcome.notAllowed;
+          ? NotificationScheduleResult.scheduled
+          : NotificationScheduleResult.permissionDenied;
     }
 
     final Set<String> registered = <String>{
@@ -280,12 +278,13 @@ extension _ReminderReconciler on ReminderOrchestratorService {
           fingerprints[item.id]?.hash == fingerprint) {
         continue;
       }
-      bool scheduled;
+      NotificationScheduleResult result;
       try {
-        scheduled = await _registerPlanned(item);
+        result = await _registerPlanned(item);
       } on Object {
-        scheduled = false;
+        result = NotificationScheduleResult.failed;
       }
+      final bool scheduled = result == NotificationScheduleResult.scheduled;
       if (scheduled) run.registered.add(item.id);
       _checkCurrent(run);
       if (scheduled) {
@@ -295,11 +294,22 @@ extension _ReminderReconciler on ReminderOrchestratorService {
         );
         continue;
       }
-      ok = false;
       fingerprints.remove(item.id);
+      final bool knownReason = result != NotificationScheduleResult.failed;
+      if (knownReason) {
+        // Missing permission or an unsupported platform is not a failure.
+        declined = declined == null
+            ? result
+            : ReminderOrchestratorService._worseResult(declined, result);
+      } else {
+        ok = false;
+      }
       // Same id, so there is no newer registration to keep: the one left
-      // behind carries outdated content.
-      if (registered.contains(item.id)) {
+      // behind carries outdated content. For a known reason only clear what
+      // the OS really holds, so every resume does not cancel it again.
+      if (knownReason
+          ? pending?.contains(item.id) == true
+          : registered.contains(item.id)) {
         try {
           await _scheduler.cancel(item.id, accountScope: _accountScope);
         } on Object {
@@ -327,7 +337,8 @@ extension _ReminderReconciler on ReminderOrchestratorService {
             !run.registered.contains(id),
       );
     }
-    return ok ? _GroupOutcome.complete : _GroupOutcome.failed;
+    if (!ok) return NotificationScheduleResult.failed;
+    return declined ?? NotificationScheduleResult.scheduled;
   }
 
   void _checkCurrent(_ReconcileRun run) {
@@ -352,7 +363,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
     }
   }
 
-  Future<bool> _registerPlanned(_PlannedReminder item) {
+  Future<NotificationScheduleResult> _registerPlanned(_PlannedReminder item) {
     return switch (item.repeat) {
       _Repeat.once => _scheduler.schedule(
         NotificationEntity(
@@ -452,12 +463,13 @@ extension _ReminderReconciler on ReminderOrchestratorService {
       },
       // The old shared reminder stays until its one-time migration has run.
       keep: (String id, _) => keepLegacy && id == legacy,
-      commit: (_GroupOutcome outcome) => _saveTrackedHabitReminderIds(<String>{
-        if (outcome == _GroupOutcome.failed)
-          ...previous.where((String id) => id != legacy),
-        ...wanted.map((HabitEntity habit) => habitReminderId(habit.id)),
-        if (trackLegacy) legacy,
-      }),
+      commit: (NotificationScheduleResult outcome) =>
+          _saveTrackedHabitReminderIds(<String>{
+            if (outcome == NotificationScheduleResult.failed)
+              ...previous.where((String id) => id != legacy),
+            ...wanted.map((HabitEntity habit) => habitReminderId(habit.id)),
+            if (trackLegacy) legacy,
+          }),
     );
   }
 
@@ -521,10 +533,10 @@ extension _ReminderReconciler on ReminderOrchestratorService {
             !at.isAfter(now) &&
             activeSlotIds.contains(id);
       },
-      commit: (_GroupOutcome outcome) async {
+      commit: (NotificationScheduleResult outcome) async {
         // Keep cancellation candidates while anything is left to retry.
         await _saveTrackedGoalReminderIds(
-          outcome == _GroupOutcome.complete
+          outcome == NotificationScheduleResult.scheduled
               ? withReminders
               : <String>{...previous, ...goals.map((goal) => goal.id)},
         );

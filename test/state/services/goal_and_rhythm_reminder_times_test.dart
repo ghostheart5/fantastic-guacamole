@@ -260,16 +260,16 @@ class _Scheduler implements NotificationSchedulerPort {
   final cancelled = <String>[];
   final cadences = <String, DateTime>{};
   @override
-  Future<bool> schedule(
+  Future<NotificationScheduleResult> schedule(
     NotificationEntity notification, {
     String? accountScope,
   }) async {
     scheduled.add(notification.id);
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override
-  Future<bool> scheduleCadenceAt({
+  Future<NotificationScheduleResult> scheduleCadenceAt({
     required String id,
     required String title,
     required String body,
@@ -278,7 +278,7 @@ class _Scheduler implements NotificationSchedulerPort {
     String? accountScope,
   }) async {
     cadences[id] = firstAt;
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override
@@ -288,14 +288,14 @@ class _Scheduler implements NotificationSchedulerPort {
   }
 
   @override
-  Future<bool> scheduleDailyAt({
+  Future<NotificationScheduleResult> scheduleDailyAt({
     required String id,
     required String title,
     required String body,
     required int hour,
     required int minute,
     String? accountScope,
-  }) async => true;
+  }) async => NotificationScheduleResult.scheduled;
   @override
   Future<List<String>> pendingIdsForAccount(String accountScope) async =>
       const <String>[];

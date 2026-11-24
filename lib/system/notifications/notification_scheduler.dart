@@ -300,7 +300,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
   }
 
   @override
-  Future<bool> schedule(
+  Future<NotificationScheduleResult> schedule(
     NotificationEntity notification, {
     String? accountScope,
   }) async {
@@ -309,7 +309,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
       // transient toasts) are persisted for the in-app notification list but
       // must never reach the OS. Without this guard every task interaction
       // posted a real system notification one second later.
-      return false;
+      return NotificationScheduleResult.unsupported;
     }
     if (!_initialized) {
       Logger.warn(
@@ -318,7 +318,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
       RuntimeDiagnostics.record(
         'Skipped notification schedule because scheduler is not initialized.',
       );
-      return false;
+      return NotificationScheduleResult.unsupported;
     }
     if (!_permissionGranted) {
       Logger.log(
@@ -328,13 +328,13 @@ class NotificationScheduler implements NotificationSchedulerPort {
       RuntimeDiagnostics.record(
         'Skipped notification schedule because permission is not granted.',
       );
-      return false;
+      return NotificationScheduleResult.permissionDenied;
     }
     final scheduledTz = tz.TZDateTime.from(notification.scheduledAt, tz.local);
     if (scheduledTz.isBefore(tz.TZDateTime.now(tz.local))) {
       Logger.log('Notifications', 'Skipped schedule for past time.');
       RuntimeDiagnostics.record('Skipped notification schedule for past time.');
-      return false;
+      return NotificationScheduleResult.failed;
     }
     await _plugin.zonedSchedule(
       id: _notificationId(_platformKey(notification.id, accountScope)),
@@ -348,7 +348,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
           ? notification.id
           : accountPayload(accountScope, notification.id),
     );
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   /// The actual first-date calculation used by daily reminder registration.
@@ -382,7 +382,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
   }
 
   @override
-  Future<bool> scheduleDailyAt({
+  Future<NotificationScheduleResult> scheduleDailyAt({
     required String id,
     required String title,
     required String body,
@@ -398,7 +398,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
       RuntimeDiagnostics.record(
         'Skipped daily notification schedule: scheduler not initialized.',
       );
-      return false;
+      return NotificationScheduleResult.unsupported;
     }
     if (!_permissionGranted) {
       Logger.log(
@@ -408,7 +408,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
       RuntimeDiagnostics.record(
         'Skipped daily notification schedule: permission not granted.',
       );
-      return false;
+      return NotificationScheduleResult.permissionDenied;
     }
     final scheduled = nextDailyScheduledTime(
       now: tz.TZDateTime.now(tz.local),
@@ -433,11 +433,11 @@ class NotificationScheduler implements NotificationSchedulerPort {
               dailyMinute: minute,
             ),
     );
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override
-  Future<bool> scheduleCadenceAt({
+  Future<NotificationScheduleResult> scheduleCadenceAt({
     required String id,
     required String title,
     required String body,
@@ -450,9 +450,10 @@ class NotificationScheduler implements NotificationSchedulerPort {
     // cannot safely suppress a completed current period.
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       Logger.warn('Rhythm cadence reminders are unsupported on this platform.');
-      return false;
+      return NotificationScheduleResult.unsupported;
     }
-    if (!_initialized || !_permissionGranted) return false;
+    if (!_initialized) return NotificationScheduleResult.unsupported;
+    if (!_permissionGranted) return NotificationScheduleResult.permissionDenied;
     final local = firstAt.toLocal();
     final scheduled = tz.TZDateTime(
       tz.local,
@@ -462,7 +463,9 @@ class NotificationScheduler implements NotificationSchedulerPort {
       local.hour,
       local.minute,
     );
-    if (!scheduled.isAfter(tz.TZDateTime.now(tz.local))) return false;
+    if (!scheduled.isAfter(tz.TZDateTime.now(tz.local))) {
+      return NotificationScheduleResult.failed;
+    }
     final match = switch (cadence) {
       HabitCadence.daily => DateTimeComponents.time,
       HabitCadence.weekly => DateTimeComponents.dayOfWeekAndTime,
@@ -493,7 +496,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
       matchDateTimeComponents: match,
       payload: payload,
     );
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override

@@ -615,14 +615,14 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
   bool clearedTappedPayload = false;
 
   @override
-  Future<bool> scheduleCadenceAt({
+  Future<NotificationScheduleResult> scheduleCadenceAt({
     required String id,
     required String title,
     required String body,
     required HabitCadence cadence,
     required DateTime firstAt,
     String? accountScope,
-  }) async => true;
+  }) async => NotificationScheduleResult.scheduled;
 
   @override
   Future<bool> cancel(String id, {String? accountScope}) async {
@@ -646,18 +646,18 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
   Future<bool> requestPermissions() async => true;
 
   @override
-  Future<bool> schedule(
+  Future<NotificationScheduleResult> schedule(
     NotificationEntity notification, {
     String? accountScope,
-  }) async => true;
+  }) async => NotificationScheduleResult.scheduled;
 
   @override
-  Future<bool> scheduleDailyAt({
+  Future<NotificationScheduleResult> scheduleDailyAt({
     required String id,
     required String title,
     required String body,
     required int hour,
     required int minute,
     String? accountScope,
-  }) async => true;
+  }) async => NotificationScheduleResult.scheduled;
 }

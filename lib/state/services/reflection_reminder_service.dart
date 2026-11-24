@@ -80,7 +80,7 @@ class ReflectionReminderService {
           return false;
         }
 
-        final scheduled = await _scheduler.scheduleDailyAt(
+        final result = await _scheduler.scheduleDailyAt(
           id: notificationId,
           title: 'Daily Reflection',
           body:
@@ -89,6 +89,7 @@ class ReflectionReminderService {
           minute: time.minute,
           accountScope: _accountScope,
         );
+        final scheduled = result == NotificationScheduleResult.scheduled;
         await _preferences.save(enabledKey, scheduled.toString());
         if (!scheduled) {
           await _scheduler.cancel(notificationId, accountScope: _accountScope);
@@ -99,7 +100,7 @@ class ReflectionReminderService {
   Future<bool> setTime({required TimeOfDay time}) => _mutate(() async {
     await _preferences.save(timeKey, '${time.hour}:${time.minute}');
     if (!loadPrefs().enabled) return true;
-    final scheduled = await _scheduler.scheduleDailyAt(
+    final result = await _scheduler.scheduleDailyAt(
       id: notificationId,
       title: 'Daily Reflection',
       body: 'Take 3 minutes to review your day and set intent for tomorrow.',
@@ -107,6 +108,7 @@ class ReflectionReminderService {
       minute: time.minute,
       accountScope: _accountScope,
     );
+    final scheduled = result == NotificationScheduleResult.scheduled;
     if (!scheduled) {
       await _preferences.save(enabledKey, 'false');
       await _scheduler.cancel(notificationId, accountScope: _accountScope);
@@ -148,7 +150,7 @@ class ReflectionReminderService {
       if (!shouldContinue()) return false;
       if (!prefs.enabled) return true;
       if (!permissionGranted) return false;
-      final scheduled = await _scheduler.scheduleDailyAt(
+      final result = await _scheduler.scheduleDailyAt(
         id: notificationId,
         title: 'Daily Reflection',
         body: 'Take 3 minutes to review your day and set intent for tomorrow.',
@@ -156,6 +158,7 @@ class ReflectionReminderService {
         minute: prefs.time.minute,
         accountScope: _accountScope,
       );
+      final scheduled = result == NotificationScheduleResult.scheduled;
       if (!shouldContinue()) {
         await _scheduler.cancel(notificationId, accountScope: _accountScope);
         return false;

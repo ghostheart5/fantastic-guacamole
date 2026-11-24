@@ -1,6 +1,23 @@
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 
+/// What happened when a reminder was handed to the host platform.
+enum NotificationScheduleResult {
+  /// The OS accepted the registration.
+  scheduled,
+
+  /// Notifications are not allowed for this app. Nothing was registered;
+  /// a known state the user can fix, not an error.
+  permissionDenied,
+
+  /// This platform, this kind of entry, or a scheduler that has not been
+  /// initialised cannot register it. Nothing was registered; not an error.
+  unsupported,
+
+  /// The registration should have worked but did not.
+  failed,
+}
+
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Notifications
 ///
 /// Domain-facing boundary for scheduling notifications on a host platform.
@@ -10,12 +27,12 @@ import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 abstract interface class NotificationSchedulerPort {
   Future<bool> requestPermissions();
 
-  Future<bool> schedule(
+  Future<NotificationScheduleResult> schedule(
     NotificationEntity notification, {
     String? accountScope,
   });
 
-  Future<bool> scheduleDailyAt({
+  Future<NotificationScheduleResult> scheduleDailyAt({
     required String id,
     required String title,
     required String body,
@@ -26,7 +43,7 @@ abstract interface class NotificationSchedulerPort {
 
   /// Register a calendar recurrence whose first eligible fire is [firstAt].
   /// Unsupported platforms must reject this rather than drop the lower bound.
-  Future<bool> scheduleCadenceAt({
+  Future<NotificationScheduleResult> scheduleCadenceAt({
     required String id,
     required String title,
     required String body,
