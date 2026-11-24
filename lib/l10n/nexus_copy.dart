@@ -20,6 +20,7 @@ class NexusCopy {
   String get logicCore => isSpanish ? 'Espacio para pensar' : 'Space to think';
   String get openNotifications =>
       isSpanish ? 'Abrir notificaciones' : 'Open notifications';
+  String get back => isSpanish ? 'Atrás' : 'Back';
   String get logOut => isSpanish ? 'Cerrar sesión' : 'Log out';
   String get logOutFailed => isSpanish
       ? 'No se pudo cerrar la sesión. Inténtalo de nuevo.'

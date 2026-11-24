@@ -46,6 +46,7 @@ import 'package:fantastic_guacamole/system/notifications/notification_scheduler.
 import 'package:fantastic_guacamole/system/voice/audio_interruption_service.dart';
 import 'package:fantastic_guacamole/system/system_scheduler.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/ui/navigation/open_schedule.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
@@ -54,7 +55,6 @@ import 'package:fantastic_guacamole/ui/widgets/offline_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 part 'navigation_shell_destinations.dart';
 part 'navigation_shell_lifecycle.dart';
@@ -345,11 +345,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   void _goToView(AppView view) {
     final String routePath = routePathForAppView(view);
     try {
-      final GoRouter router = GoRouter.of(context);
-      // Explicit Back/navigation must replace any callback or redirect stack,
-      // even when its reported URI already names the destination.
-      router.go(routePath);
-      return;
+      // Explicit Back/navigation and notification taps must replace any
+      // callback or redirect stack and close screens pushed above the shell.
+      if (goToAppRoutePath(context, routePath)) return;
     } on Object {
       // Widget tests and standalone shell previews may mount the shell without
       // a GoRouter. Only those previews use the compatibility provider.
