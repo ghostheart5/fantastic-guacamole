@@ -6,6 +6,13 @@
 // document split, a flow that forgets its appId, or a runFlow pointing at a
 // subflow that does not exist.
 //
+// It also checks that the text a flow waits for or taps is still a string
+// literal in lib/. Limits: this proves the string exists somewhere in the app,
+// not that the screen the flow is on renders it (a label such as "Sign in" is
+// also used elsewhere). Text built from several literals, or by adjacent
+// literal concatenation, has to be listed in composedLabels with its builder.
+// Spanish copy and `id:` selectors are not checked.
+//
 // Run with: dart run tool/validate_maestro_flows.dart
 import 'dart:io';
 
@@ -32,7 +39,7 @@ void main() {
   }
 
   final List<String> problems = <String>[];
-  final String appCorpus = loadAppTextCorpus(Directory('lib'));
+  final AppText appText = AppText.load(Directory('lib'));
   final Set<String> typedText = <String>{};
   for (final File file in files) {
     try {
@@ -104,11 +111,17 @@ void main() {
     // Text the flow waits for or taps has to still exist in the app.
     for (final String stale in staleTextFragments(
       commands,
-      appCorpus,
+      appText,
       typedText: typedText,
     )) {
       problems.add('$relative: asserts text not found in lib/ — "$stale"');
     }
+  }
+
+  for (final String label in staleComposedLabels(appText)) {
+    problems.add(
+      'composedLabels: the code that builds "$label" is no longer in lib/',
+    );
   }
 
   if (problems.isNotEmpty) {
@@ -122,56 +135,231 @@ void main() {
   stdout.writeln('Validated ${files.length} Maestro files. No issues found.');
 }
 
-/// Lower-cased text of every Dart file under [libDir], with string escapes
-/// undone and whitespace collapsed, so literals can be searched for.
-String loadAppTextCorpus(Directory libDir) {
-  final StringBuffer buffer = StringBuffer();
-  for (final FileSystemEntity entity in libDir.listSync(recursive: true)) {
-    if (entity is File && entity.path.endsWith('.dart')) {
-      buffer.writeln(entity.readAsStringSync());
-    }
-  }
-  return _normalizeText(
-    buffer.toString().replaceAll(r"'", "'").replaceAll(r'\"', '"'),
-  );
+/// The text of lib/: [pieces] are the contents of its Dart string literals
+/// (comments are skipped, interpolations split a literal in two, escapes are
+/// undone, case and whitespace are normalized) and [raw] is the lower-cased
+/// source, used only to confirm that an allowlisted builder still exists.
+class AppText {
+  AppText(Iterable<String> sources)
+    : raw = sources.join('\n').toLowerCase(),
+      pieces = <String>{for (final String s in sources) ...literalPieces(s)};
+
+  factory AppText.load(Directory libDir) => AppText(<String>[
+    for (final FileSystemEntity e in libDir.listSync(recursive: true))
+      if (e is File && e.path.endsWith('.dart')) e.readAsStringSync(),
+  ]);
+
+  final String raw;
+  final Set<String> pieces;
 }
 
-String _normalizeText(String text) =>
-    text.replaceAll('’', "'").replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+// Comments first, so a quote inside a comment never opens a string. Groups:
+// 1 and 2 triple-quoted, 3 and 4 single-line. `${...}` is consumed whole so a
+// quote inside an interpolation does not end the literal.
+final RegExp _dartToken = RegExp(
+  r'//[^\n]*|/\*[\s\S]*?\*/|'
+  r"'''([\s\S]*?)'''|"
+  r'"""([\s\S]*?)"""|'
+  r"'((?:[^'\\\n$]|\\.|\$\{[^}]*\}|\$)*)'|"
+  r'"((?:[^"\\\n$]|\\.|\$\{[^}]*\}|\$)*)"',
+);
+final RegExp _interpolation = RegExp(
+  r'(?<!\\)\$\{[^}]*\}|(?<!\\)\$[A-Za-z_]\w*',
+);
 
-/// Returns the literal fragments, in the flow command list [commands], that
-/// are visible-text selectors but do not appear anywhere in [corpus].
+/// The normalized contents of every string literal in Dart [source].
+Iterable<String> literalPieces(String source) sync* {
+  for (final RegExpMatch m in _dartToken.allMatches(source)) {
+    final String? content =
+        m.group(1) ?? m.group(2) ?? m.group(3) ?? m.group(4);
+    if (content == null) {
+      continue;
+    }
+    for (final String part in content.split(_interpolation)) {
+      final String piece = normalizeText(_unescape(part));
+      if (piece.isNotEmpty) {
+        yield piece;
+      }
+    }
+  }
+}
+
+String _unescape(String text) => text.replaceAllMapped(
+  RegExp(r'\\(u\{[0-9a-fA-F]+\}|u[0-9a-fA-F]{4}|.)', dotAll: true),
+  (Match m) {
+    final String code = m[1]!;
+    if (code.startsWith('u')) {
+      final String hex = code.replaceAll(RegExp(r'[u{}]'), '');
+      return String.fromCharCode(int.parse(hex, radix: 16));
+    }
+    return code == 'n' || code == 't' ? ' ' : code;
+  },
+);
+
+/// Lower-cases, folds typographic apostrophes, collapses whitespace and drops
+/// trailing full stops, so two spellings of the same label compare equal.
+String normalizeText(String text) => text
+    .replaceAll('’', "'")
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .toLowerCase()
+    .trim()
+    .replaceAll(RegExp(r'[.:]+$'), '')
+    .trim();
+
+/// Returns the selectors' phrases, in the flow command list [commands], that
+/// are visible-text selectors the app does not render.
 ///
-/// Selectors are regular expressions in Maestro, so each one is split on regex
-/// syntax and every remaining run of at least four characters is checked.
-/// Selectors that use `id:` and `${...}` variables are not text and are skipped.
+/// Each selector is expanded into the phrases it can match (`(?:a|b)` gives
+/// two, `.*` and newlines split a phrase into parts). A phrase with no
+/// wildcard must equal one whole string literal in lib/; the parts of a
+/// phrase with wildcards must each sit inside one string literal. Selectors
+/// that use `id:` and `${...}` variables are not text and are skipped.
 List<String> staleTextFragments(
   dynamic commands,
-  String corpus, {
+  AppText app, {
   Set<String> typedText = const <String>{},
 }) {
+  final Set<String> typed = <String>{
+    for (final String t in typedText) ...<String>[
+      normalizeText(t),
+      ...t.split(RegExp(r'\.\s|\n')).map(normalizeText),
+    ],
+  }..removeWhere((String t) => t.length < 3);
   final Set<String> stale = <String>{};
   for (final String selector in _textSelectors(commands)) {
-    for (final String fragment in _literalFragments(selector)) {
-      // Text the flows type themselves (task titles, sentinels) is data, not
-      // app copy: remove it and check what is left.
-      String rest = _normalizeText(fragment);
-      for (final String typed in typedText) {
-        for (final String part in _literalFragments(typed)) {
-          rest = rest.replaceAll(_normalizeText(part), '|');
-        }
+    for (final String alternative in _expandSelector(selector)) {
+      String text = alternative.toLowerCase().replaceAll('’', "'");
+      for (final String t in typed) {
+        text = text.replaceAll(t, _wild);
       }
-      for (final String piece in rest.split('|')) {
-        final String text = piece.trim();
-        if (text.length >= 4 &&
-            !composedLabels.contains(text) &&
-            !corpus.contains(text)) {
-          stale.add(fragment);
+      text = text
+          .replaceAll('\n', _wild)
+          .replaceAll('. ', '.$_wild')
+          .replaceAll(': ', ':$_wild');
+      final List<String> parts = text
+          .split(_wild)
+          .map(normalizeText)
+          .where((String p) => p.length >= 4)
+          .toList();
+      final bool whole = !text.contains(_wild);
+      for (final String part in parts) {
+        final bool found =
+            platformLabels.contains(part) ||
+            composedLabels.keys.any(part.contains) ||
+            (whole
+                ? app.pieces.contains(part)
+                : app.pieces.any((String p) => p.contains(part)));
+        if (!found) {
+          stale.add(whole ? alternative : part);
         }
       }
     }
   }
   return stale.toList()..sort();
+}
+
+/// Allowlist entries whose builder text is no longer anywhere in lib/.
+List<String> staleComposedLabels(AppText app) => <String>[
+  for (final MapEntry<String, String> e in composedLabels.entries)
+    if (!app.raw.contains(e.value)) e.key,
+]..sort();
+
+const String _wild = '\u0000';
+
+/// Expands the regular expression [selector] into the phrases it can match.
+/// Unknown constructs become a wildcard. A trailing `?` after a plain
+/// character is kept as text ("Forgot Password?").
+List<String> _expandSelector(String selector) => _Expander(
+  selector.replaceAll(RegExp(r'\$\{[^}]*\}'), _wild),
+).alternatives();
+
+class _Expander {
+  _Expander(this.source);
+
+  final String source;
+  int i = 0;
+
+  List<String> alternatives() {
+    final List<String> out = sequence();
+    while (i < source.length && source[i] == '|') {
+      i++;
+      out.addAll(sequence());
+    }
+    return out;
+  }
+
+  List<String> sequence() {
+    List<String> acc = <String>[''];
+    while (i < source.length && source[i] != '|' && source[i] != ')') {
+      final String c = source[i];
+      List<String> item;
+      bool literal = false;
+      if (c == '(') {
+        i++;
+        if (source.startsWith('?:', i)) {
+          i += 2;
+          item = alternatives();
+        } else if (source.startsWith('?', i)) {
+          i = source.indexOf(')', i) + 1; // flag group such as (?s)
+          continue;
+        } else {
+          item = alternatives();
+        }
+        i++; // the closing parenthesis
+      } else if (c == '[') {
+        while (i < source.length && source[i] != ']') {
+          i += source[i] == r'\' ? 2 : 1;
+        }
+        i++;
+        item = <String>[_wild];
+      } else if (c == r'\') {
+        final String n = i + 1 < source.length ? source[i + 1] : '';
+        i += 2;
+        item = <String>[
+          switch (n) {
+            's' => ' ',
+            'n' => '\n',
+            'd' || 'w' || 'S' => _wild,
+            _ => n,
+          },
+        ];
+      } else if (c == '^' || c == r'$') {
+        i++;
+        item = <String>[''];
+      } else if (c == '.') {
+        i++;
+        item = <String>[_wild];
+      } else {
+        i++;
+        item = <String>[c];
+        literal = true;
+      }
+      if (i < source.length) {
+        final String q = source[i];
+        if ((q == '?' && literal && i == source.length - 1) == false &&
+            (q == '?' || q == '*')) {
+          i++;
+          // An optional group is dropped, so only its fixed skeleton is
+          // checked; an optional single character is kept.
+          if (!literal && !(item.length == 1 && item.first == _wild)) {
+            item = <String>[''];
+          }
+        } else if (q == '+') {
+          i++;
+        } else if (q == '{') {
+          i = source.indexOf('}', i) + 1;
+        }
+        if (i < source.length && source[i] == '?' && q != '?') {
+          i++; // lazy quantifier
+        }
+      }
+      acc = <String>[
+        for (final String a in acc)
+          for (final String b in item) '$a$b',
+      ].take(256).toList();
+    }
+    return acc;
+  }
 }
 
 /// Every `inputText` and `env:` value in [node], however deeply nested. These
@@ -195,38 +383,30 @@ Iterable<String> inputTexts(dynamic node) sync* {
   }
 }
 
-Iterable<String> _literalFragments(String selector) sync* {
-  final String stripped = selector
-      .replaceAll(RegExp(r'\$\{[^}]*\}'), '|')
-      .replaceAll(RegExp(r'\(\?[a-z:]*\)?'), '|')
-      .replaceAll(r'\.', '\u0001')
-      .replaceAll(RegExp(r'\\[a-zA-Z"]'), '|')
-      .replaceAll(RegExp(r'\.[*+?]?'), '|')
-      .replaceAll(RegExp(r'[\^$()\[\]{}|*+?\\]'), '|')
-      .replaceAll('\u0001', '.');
-  // Accessibility labels join several strings with newlines, full stops or
-  // colons, and the app builds them from separate literals.
-  final RegExp boundary = RegExp(r'[|\n]|\.\s|\.$|:\s');
-  for (final String part in stripped.split(boundary)) {
-    final String fragment = part.trim().replaceAll(RegExp(r'\.+$'), '');
-    if (fragment.length >= 4) {
-      yield fragment;
-    }
-  }
-}
+/// Buttons drawn by Android itself (keyboard action, date dialog), not by lib/.
+const Set<String> platformLabels = <String>{'enter'};
 
-/// Labels the app assembles at run time (for example `Save ${kind}`), so the
-/// full text is not a literal in lib/. Each was checked against its builder.
-const Set<String> composedLabels = <String>{
-  'save goal',
-  'save habit',
-  'save task',
-  '1 time per day',
-  'completed this day',
-  'skip this day',
-  '1 change saved',
-  'task lifecycle',
-  'completed outcome',
+/// Labels the app assembles at run time, so the full text is not a string
+/// literal in lib/. Each entry maps the phrase a flow uses to a lower-cased
+/// piece of the code that builds it; the check fails if that code disappears.
+const Map<String, String> composedLabels = <String, String>{
+  // lib/l10n/creator_copy.dart: 'Save ${kind(name).toLowerCase()}'.
+  'save goal': r"'save ${kind(name).tolowercase()}'",
+  'save habit': r"'save ${kind(name).tolowercase()}'",
+  'save task': r"'save ${kind(name).tolowercase()}'",
+  // lib/l10n/creator_copy.dart: '$count time(s) per $period'.
+  '1 time per day': r"'time' : 'times'} per $period",
+  // lib/features/creator/ui/daily_rhythms_screen.dart: 'Completed this $period'.
+  'completed this day': r"${es ? 'en este' : 'this'} $period",
+  // lib/features/creator/ui/daily_rhythms_screen.dart: 'Skip this $period'.
+  'skip this day': r"'skip this $period'",
+  // lib/l10n/creator_copy.dart changeCount: '$count change(s) saved.'.
+  '1 change saved': r"'change' : 'changes'} ${undone ? 'undone' : 'saved'}",
+  // lib/state/providers/task_provider.dart surface 'task_lifecycle', title
+  // cased by _learningLabel in settings_screen.planning_sections.dart.
+  'task lifecycle': "surface: 'task_lifecycle'",
+  // lib/domain/usecases/apply_learning_feedback.dart: 'the ${kind.name} outcome'.
+  'completed outcome': r'the ${kind.name} outcome',
 };
 
 /// Only positive selectors (things the flow waits for or taps) are checked.
