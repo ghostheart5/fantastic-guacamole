@@ -1,0 +1,639 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/repositories/assistant_conversation_repository.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
+import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/state/models/personalization_models.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
+import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
+import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
+import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
+import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+typedef _Response = ({int status, Map<String, dynamic> data});
+
+final _scope = AccountStorageScope.authenticated('synthetic-pending');
+final _records = [
+  TaskEntity(
+    id: 'grocery',
+    title: 'Grocery list',
+    description: 'Milk, rice and vegetables for dinner.',
+    estimatedDuration: const Duration(minutes: 45),
+  ),
+];
+final _gateway = SIV2ReadGateway(
+  accountScopeId: _scope.v2Namespace!,
+  readTasks: () async => _records,
+  readGoals: () async => [],
+  readMilestones: () async => [],
+  readTimeline: () async => [],
+);
+
+ProviderContainer _setup(
+  ConversationTransport transport,
+  InMemorySecureStoreBackend backend, {
+  Duration? paidWaitTimeout,
+}) => ProviderContainer(
+  overrides: [
+    secureStoreProvider.overrideWithValue(SecureStore(backend: backend)),
+    accountStorageScopeProvider.overrideWith((ref) => _scope),
+    authSessionBoundaryProvider.overrideWith(_Boundary.new),
+    assistantConversationAvailableProvider.overrideWithValue(true),
+    personalizationProfileProvider.overrideWith(_Consent.new),
+    conversationTransportProvider.overrideWithValue(transport),
+    if (paidWaitTimeout != null)
+      conversationPaidWaitTimeoutProvider.overrideWithValue(paidWaitTimeout),
+    siV2ReadGatewayProvider.overrideWithValue(_gateway),
+    siV2PersonContextRevisionProvider.overrideWithValue('fixture-revision'),
+    siV2EvidenceSnapshotProvider.overrideWith(
+      (ref) => _gateway.read(observedAt: DateTime.now()),
+    ),
+    domainTaskRepositoryProvider.overrideWithValue(_Tasks()),
+    selectedPlanningNoteProvider.overrideWith(
+      (ref) async => NoteEntity(
+        id: 'list-note',
+        title: 'Dinner shopping',
+        body: 'Check the pantry before buying rice.',
+        createdAt: DateTime(2026, 9, 16),
+        taskId: 'grocery',
+      ),
+    ),
+    for (final capability in [
+      AssistantReleaseCapability.smartPlannerV2,
+      AssistantReleaseCapability.siConsoleV2,
+      AssistantReleaseCapability.safetyCritic,
+    ])
+      assistantReleaseDecisionProvider(capability).overrideWith(
+        (ref) async => AssistantReleaseDecision(
+          enabled: true,
+          shadowEvaluationEnabled: false,
+          cohort: AssistantReleaseCohort.internal,
+          reasonCode: 'synthetic-test',
+          accountDigest: 'test',
+          capability: capability,
+          configDigest: 'test',
+        ),
+      ),
+  ],
+);
+
+_Response _quote(
+  Map<String, dynamic> body, {
+  Duration valid = const Duration(minutes: 5),
+}) => (
+  status: 200,
+  data: <String, dynamic>{
+    'requestId': body['requestId'],
+    'quote': <String, dynamic>{
+      'credits': 4,
+      'digest': 'fixture',
+      'proof': 'fixture',
+      'policy': 'fixture',
+      'expiresAt': DateTime.now().add(valid).millisecondsSinceEpoch,
+    },
+  },
+);
+
+_Response _answer(Object? requestId, String text) => (
+  status: 200,
+  data: <String, dynamic>{
+    'requestId': requestId,
+    'message': text,
+    'creditsCharged': 4,
+    'remainingCredits': 20,
+    'model': 'transport-fixture',
+  },
+);
+
+Future<void> _pumpScreen(
+  WidgetTester tester,
+  ProviderContainer container,
+  ConversationSurface surface, {
+  String language = 'en',
+}) async {
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        locale: Locale(language),
+        supportedLocales: ChronoSparkLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          ChronoSparkLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
+        home: AssistantConversationScreen(
+          surface: surface,
+          onLocalTools: () {},
+        ),
+      ),
+    ),
+  );
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
+/// Leaving replaces the conversation with another screen, as the navigation
+/// shell does for Settings, the creator or any non-tab view.
+Future<void> _leave(WidgetTester tester, ProviderContainer container) async {
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: const MaterialApp(home: Scaffold(body: Text('Settings'))),
+    ),
+  );
+  await tester.pump();
+}
+
+Future<void> _waitFor(WidgetTester tester, Finder finder) async {
+  for (var attempt = 0; attempt < 30; attempt++) {
+    await tester.pump(const Duration(milliseconds: 100));
+    if (finder.evaluate().isNotEmpty) {
+      await tester.pump(const Duration(milliseconds: 300));
+      return;
+    }
+  }
+  expect(finder, findsOneWidget);
+}
+
+Future<void> _confirmPaidRequest(WidgetTester tester, String prompt) async {
+  final input = find.byKey(const Key('conversation-input'));
+  for (var i = 0; i < 40; i++) {
+    if (input.evaluate().length == 1 &&
+        tester.widget<TextField>(input).enabled == true) {
+      break;
+    }
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+  await tester.enterText(input, prompt);
+  await tester.tap(find.byTooltip('Send to AI'));
+  for (var attempt = 0; attempt < 30; attempt++) {
+    await tester.pump(const Duration(milliseconds: 100));
+    if (find.text('Review AI price').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Review AI price'));
+    }
+    if (find.text('Get credit price').evaluate().isNotEmpty) break;
+  }
+  await _waitFor(tester, find.text('Get credit price'));
+  await tester.tap(find.text('Get credit price'));
+  await _waitFor(tester, find.text('Use 4 credits'));
+  await tester.tap(find.text('Use 4 credits'));
+  // Let the confirmation dialog finish closing before anything else.
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
+Future<String?> _storedChat(InMemorySecureStoreBackend backend) => SecureStore(
+  backend: backend,
+).forAccount(_scope).readString(AssistantConversationRepository.storageKey);
+
+Future<void> _settle(WidgetTester tester) async {
+  await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+  await tester.pumpAndSettle();
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final surface in ConversationSurface.values) {
+    testWidgets(
+      '${surface.name}: a confirmed paid request survives leaving the screen and its reply appears once',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final backend = InMemorySecureStoreBackend();
+        final reply = Completer<_Response>();
+        final paid = <Map<String, dynamic>>[];
+        var quotes = 0;
+        final container = _setup((body) async {
+          if (body['quoteOnly'] == true) {
+            quotes++;
+            return _quote(body);
+          }
+          paid.add(body);
+          return reply.future;
+        }, backend);
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+
+        await _pumpScreen(tester, container, surface);
+        await _confirmPaidRequest(tester, 'Compare my two options.');
+        expect(find.text('Preparing your response…'), findsOneWidget);
+        expect(paid, hasLength(1));
+
+        await _leave(tester, container);
+        expect(find.text('Settings'), findsOneWidget);
+        await _pumpScreen(tester, container, surface);
+
+        reply.complete(
+          _answer(paid.single['requestId'], 'The recovered paid reply.'),
+        );
+        await _settle(tester);
+
+        expect(find.text('The recovered paid reply.'), findsOneWidget);
+        expect(paid, hasLength(1), reason: 'Exactly one reservation request');
+        expect(quotes, 1);
+        expect(find.text('Retry same request'), findsNothing);
+        final stored = await _storedChat(backend);
+        expect(stored, isNot(contains('pendingRequests')));
+        if (surface == ConversationSurface.si) {
+          expect(stored, contains('The recovered paid reply.'));
+        }
+
+        // Returning again must not show or request the same reply again.
+        await _leave(tester, container);
+        await _pumpScreen(tester, container, surface);
+        await _settle(tester);
+        expect(
+          find.text('The recovered paid reply.'),
+          surface == ConversationSurface.si ? findsOneWidget : findsNothing,
+        );
+        expect(paid, hasLength(1));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'after an app restart the same signed request is re-sent byte for byte and its cached reply shown once',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      final never = Completer<_Response>();
+      final firstPaid = <Map<String, dynamic>>[];
+      final first = _setup((body) async {
+        if (body['quoteOnly'] == true) return _quote(body);
+        firstPaid.add(body);
+        return never.future;
+      }, backend);
+      await _pumpScreen(tester, first, ConversationSurface.si);
+      await _confirmPaidRequest(tester, 'Compare my two options.');
+      expect(firstPaid, hasLength(1));
+      await tester.pumpWidget(const SizedBox.shrink());
+      first.dispose();
+
+      final secondPaid = <Map<String, dynamic>>[];
+      var secondQuotes = 0;
+      final second = _setup((body) async {
+        if (body['quoteOnly'] == true) {
+          secondQuotes++;
+          return _quote(body);
+        }
+        secondPaid.add(body);
+        return _answer(body['requestId'], 'The cached paid reply.');
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        second.dispose();
+      });
+      await _pumpScreen(tester, second, ConversationSurface.si);
+      await _settle(tester);
+
+      expect(secondQuotes, 0);
+      expect(secondPaid, hasLength(1));
+      expect(jsonEncode(secondPaid.single), jsonEncode(firstPaid.single));
+      expect(find.text('The cached paid reply.'), findsOneWidget);
+      expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final language in ['en', 'es']) {
+    testWidgets(
+      '$language: a pending request older than the price lifetime is not re-sent and the user is told',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final backend = InMemorySecureStoreBackend();
+        final never = Completer<_Response>();
+        final first = _setup((body) async {
+          if (body['quoteOnly'] == true) {
+            return _quote(body, valid: const Duration(seconds: 1));
+          }
+          return never.future;
+        }, backend);
+        await _pumpScreen(
+          tester,
+          first,
+          ConversationSurface.si,
+          language: language,
+        );
+        // Labels are English in the confirmation flow only for 'en'.
+        if (language == 'en') {
+          await _confirmPaidRequest(tester, 'Compare my two options.');
+        } else {
+          await _confirmPaidRequestSpanish(tester, 'Compara mis dos opciones.');
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        first.dispose();
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 1500)),
+        );
+
+        var transportCalls = 0;
+        final second = _setup((body) async {
+          transportCalls++;
+          throw StateError('An expired request must not be sent');
+        }, backend);
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          second.dispose();
+        });
+        await _pumpScreen(
+          tester,
+          second,
+          ConversationSurface.si,
+          language: language,
+        );
+        await _settle(tester);
+
+        expect(transportCalls, 0);
+        expect(
+          find.textContaining(
+            language == 'en'
+                ? 'its reply can no longer be collected'
+                : 'ya no se puede recuperar su respuesta',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<TextField>(find.byKey(const Key('conversation-input')))
+              .controller!
+              .text,
+          language == 'en'
+              ? 'Compare my two options.'
+              : 'Compara mis dos opciones.',
+        );
+        expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'a pending request that cannot be rebuilt exactly is never re-sent',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      final never = Completer<_Response>();
+      final first = _setup((body) async {
+        if (body['quoteOnly'] == true) return _quote(body);
+        return never.future;
+      }, backend);
+      await _pumpScreen(tester, first, ConversationSurface.si);
+      await _confirmPaidRequest(tester, 'Compare my two options.');
+      await tester.pumpWidget(const SizedBox.shrink());
+      first.dispose();
+
+      final raw = await _storedChat(backend);
+      expect(raw, contains('pendingRequests'));
+      final envelope = jsonDecode(raw!) as Map<String, dynamic>;
+      final pending =
+          (envelope['pendingRequests'] as Map<String, dynamic>)['si']
+              as Map<String, dynamic>;
+      // A body changed by a single space is a different request.
+      pending['body'] = (pending['body'] as String).replaceFirst(
+        '"prompt":"',
+        '"prompt": "',
+      );
+      await SecureStore(backend: backend)
+          .forAccount(_scope)
+          .writeString(
+            AssistantConversationRepository.storageKey,
+            jsonEncode(envelope),
+          );
+
+      var transportCalls = 0;
+      final second = _setup((body) async {
+        transportCalls++;
+        throw StateError('A changed request must not be sent');
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        second.dispose();
+      });
+      await _pumpScreen(tester, second, ConversationSurface.si);
+      await _settle(tester);
+
+      expect(transportCalls, 0);
+      expect(
+        find.textContaining('could not be restored on this device'),
+        findsOneWidget,
+      );
+      expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'a confirmed request that cannot be stored first is not sent or charged',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var paid = 0;
+      final container = _setup((body) async {
+        if (body['quoteOnly'] == true) return _quote(body);
+        paid++;
+        return _answer(body['requestId'], 'Must not be requested.');
+      }, _ReadOnlyChatBackend());
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await _confirmPaidRequest(tester, 'Compare my two options.');
+      await _settle(tester);
+      expect(paid, 0);
+      expect(
+        find.textContaining('could not be saved on this device'),
+        findsOneWidget,
+      );
+      expect(find.text('Retry same request'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('a terminal server answer on return clears the pending request', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final backend = InMemorySecureStoreBackend();
+    final never = Completer<_Response>();
+    final first = _setup((body) async {
+      if (body['quoteOnly'] == true) return _quote(body);
+      return never.future;
+    }, backend);
+    await _pumpScreen(tester, first, ConversationSurface.si);
+    await _confirmPaidRequest(tester, 'Compare my two options.');
+    await tester.pumpWidget(const SizedBox.shrink());
+    first.dispose();
+
+    var paid = 0;
+    final second = _setup((body) async {
+      paid++;
+      return (
+        status: 409,
+        data: <String, dynamic>{
+          'requestId': body['requestId'],
+          'error': 'request_refunded',
+        },
+      );
+    }, backend);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      second.dispose();
+    });
+    await _pumpScreen(tester, second, ConversationSurface.si);
+    await _settle(tester);
+
+    expect(paid, 1);
+    expect(find.textContaining('credits were refunded'), findsOneWidget);
+    expect(find.text('Retry same request'), findsNothing);
+    expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'starting another request abandons the pending one so it is never re-sent',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      final never = Completer<_Response>();
+      final container = _setup(
+        (body) async {
+          if (body['quoteOnly'] == true) return _quote(body);
+          return never.future;
+        },
+        backend,
+        paidWaitTimeout: const Duration(milliseconds: 100),
+      );
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await _confirmPaidRequest(tester, 'Compare my two options.');
+      await tester.pump(const Duration(milliseconds: 150));
+      final another = find.text('Start another request');
+      await tester.scrollUntilVisible(
+        another,
+        120,
+        scrollable: find.byType(Scrollable).first,
+        maxScrolls: 20,
+      );
+      await tester.tap(another);
+      await _waitFor(tester, find.text('Start new request'));
+      await tester.tap(find.text('Start new request'));
+      await _settle(tester);
+      expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+
+      var transportCalls = 0;
+      final second = _setup((body) async {
+        transportCalls++;
+        throw StateError('An abandoned request must not be sent');
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        second.dispose();
+      });
+      await _pumpScreen(tester, second, ConversationSurface.si);
+      await _settle(tester);
+      expect(transportCalls, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+}
+
+class _ReadOnlyChatBackend extends InMemorySecureStoreBackend {
+  @override
+  Future<void> write({required String key, required String value}) async {
+    if (key.startsWith(AssistantConversationRepository.storageKey)) {
+      throw StateError('synthetic_local_write_failure');
+    }
+    return super.write(key: key, value: value);
+  }
+}
+
+Future<void> _confirmPaidRequestSpanish(
+  WidgetTester tester,
+  String prompt,
+) async {
+  final input = find.byKey(const Key('conversation-input'));
+  for (var i = 0; i < 40; i++) {
+    if (input.evaluate().length == 1 &&
+        tester.widget<TextField>(input).enabled == true) {
+      break;
+    }
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+  await tester.enterText(input, prompt);
+  await tester.tap(find.byTooltip('Enviar a IA'));
+  for (var attempt = 0; attempt < 30; attempt++) {
+    await tester.pump(const Duration(milliseconds: 100));
+    if (find.text('Revisar precio de IA').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Revisar precio de IA'));
+    }
+    if (find.text('Consultar precio').evaluate().isNotEmpty) break;
+  }
+  await _waitFor(tester, find.text('Consultar precio'));
+  await tester.tap(find.text('Consultar precio'));
+  await _waitFor(tester, find.text('Usar 4 créditos'));
+  await tester.tap(find.text('Usar 4 créditos'));
+  // Let the confirmation dialog finish closing before anything else.
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
+class _Consent extends PersonalizationProfileController {
+  @override
+  PersonalizationProfile build() =>
+      const PersonalizationProfile(externalAiAllowed: true);
+}
+
+class _Boundary extends AuthSessionBoundaryNotifier {
+  @override
+  AuthSessionBoundary build() => const AuthSessionBoundary(
+    generation: 1,
+    userId: 'synthetic-pending',
+    isTransitioning: false,
+    isStorageReady: true,
+  );
+}
+
+class _Tasks implements ITaskRepository {
+  @override
+  Future<List<TaskEntity>> getAllTasks() async => _records;
+  @override
+  Future<TaskEntity?> getTaskById(String id) async =>
+      _records.where((t) => t.id == id).firstOrNull;
+  @override
+  Future<void> saveTask(TaskEntity task) =>
+      throw StateError('Conversation must not mutate tasks');
+  @override
+  Future<void> deleteTask(String id) =>
+      throw StateError('Conversation must not mutate tasks');
+}

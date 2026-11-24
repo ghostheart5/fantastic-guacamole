@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
@@ -140,6 +142,61 @@ final conversationServiceProvider = Provider<ConversationService>((ref) {
     },
   );
 });
+
+/// Paid executions outlive the screen that confirmed them. Leaving Chat or
+/// Choose a step disposes the screen, not this registry, so a returning screen
+/// joins the running request instead of sending it again. A new account or
+/// session starts an empty registry; its stored request is then re-sent with
+/// the same id, which the server answers from its reply cache.
+final conversationExecutionRegistryProvider =
+    Provider<ConversationExecutionRegistry>((ref) {
+      ref.watch(accountStorageScopeProvider.select((s) => s.v2Namespace));
+      ref.watch(authSessionBoundaryProvider.select((b) => b.generation));
+      return ConversationExecutionRegistry();
+    });
+
+final class ConversationExecutionRegistry {
+  final _running =
+      <String, ({Future<ConversationAnswer> future, bool failed})>{};
+  final _shown = <String>{};
+
+  /// Joins the running execution of this request, or starts one. A failed
+  /// attempt may be re-sent: the server never reserves the same id twice.
+  Future<ConversationAnswer> execute(
+    ConversationQuote quote,
+    ConversationService service,
+  ) {
+    final id = quote.packet.requestId;
+    final running = _running[id];
+    if (running != null && !running.failed) return running.future;
+    final future = service.execute(quote);
+    _running[id] = (future: future, failed: false);
+    // Also keeps an outcome nobody is waiting for from surfacing as an
+    // unhandled error after its screen closed.
+    unawaited(
+      future.then<void>(
+        (_) {},
+        onError: (Object _) {
+          if (identical(_running[id]?.future, future)) {
+            _running[id] = (future: future, failed: true);
+          }
+        },
+      ),
+    );
+    return future;
+  }
+
+  /// The request's outcome reached the person; it is never shown again.
+  void finish(String requestId, {required bool shown}) {
+    _running.remove(requestId);
+    if (shown) _shown.add(requestId);
+  }
+
+  bool wasShown(String requestId) => _shown.contains(requestId);
+
+  /// Started in this session and not known to have failed.
+  bool isRunning(String requestId) => _running[requestId]?.failed == false;
+}
 
 final conversationPacketFactoryProvider = Provider<ConversationPacketFactory>(
   (ref) => ConversationPacketFactory(ref),

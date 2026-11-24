@@ -33,10 +33,12 @@ extension _StoredChat on _AssistantConversationScreenState {
     final epoch = ++_historyEpoch;
     final repository = ref.read(assistantConversationHistoryRepositoryProvider);
     _updateHistory(() => _historyLoading = true);
+    AssistantConversationHistory? loaded;
     try {
       if (repository == null) throw StateError('chat_account_unavailable');
       final saved = await repository.load();
       if (!mounted || epoch != _historyEpoch) return;
+      loaded = saved;
       _updateHistory(() {
         _history
           ..clear()
@@ -59,14 +61,19 @@ extension _StoredChat on _AssistantConversationScreenState {
         _updateHistory(() => _historyLoading = false);
       }
     }
+    if (loaded != null && mounted && epoch == _historyEpoch) {
+      await _resumePending(loaded);
+    }
   }
 
-  // Snapshot only published pairs and source consent. Never persist a request,
-  // quote, input draft, task attachment, or response that safety withheld.
-  void _persistChat() {
+  // Snapshot only published pairs and source consent. Never persist an input
+  // draft, task attachment, or response that safety withheld. The confirmed
+  // request whose reply this publishes is removed in the same write.
+  void _persistChat({String? completedRequestId}) {
     if (widget.surface != ConversationSurface.si ||
         !_historyReady ||
         _historyConflict) {
+      if (completedRequestId != null) _forgetPending(completedRequestId);
       return;
     }
     final repository = ref.read(assistantConversationHistoryRepositoryProvider);
@@ -77,25 +84,43 @@ extension _StoredChat on _AssistantConversationScreenState {
         .toList();
     final sources = _sources.toSet();
     _historyWriteTail = _historyWriteTail.then((_) async {
-      if (epoch != _historyEpoch || _historyConflict) return;
+      Future<void> clearCompleted() async {
+        if (completedRequestId == null) return;
+        try {
+          await repository.clearPending(
+            ConversationSurface.si,
+            requestId: completedRequestId,
+          );
+        } on Object {
+          // The registry still records the reply as shown while the app runs.
+        }
+      }
+
+      if (epoch != _historyEpoch || _historyConflict) {
+        await clearCompleted();
+        return;
+      }
       try {
         final revision = await repository.save(
           expectedRevision: _storedHistoryRevision,
           messages: messages,
           sources: sources,
+          completedRequestId: completedRequestId,
         );
         if (epoch != _historyEpoch) return;
         _storedHistoryRevision = revision;
         if (mounted) _updateHistory(() => _historySaveFailed = false);
       } on AssistantConversationRevisionConflict {
+        await clearCompleted();
         if (!mounted || epoch != _historyEpoch) return;
         _updateHistory(() {
           _historyConflict = true;
           _historySaveFailed = false;
         });
       } on Object {
-        if (!mounted || epoch != _historyEpoch) return;
         // A local write failure must never retry an already paid AI request.
+        await clearCompleted();
+        if (!mounted || epoch != _historyEpoch) return;
         _updateHistory(() => _historySaveFailed = true);
       }
     });

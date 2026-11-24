@@ -940,6 +940,9 @@ void main() {
             );
           }
           paidCalls++;
+          // The confirmed request is stored before sending; the Chat write
+          // that publishes this reply is the one that fails.
+          backend.failWrites = !conflictingClear;
           if (conflictingClear) {
             await container
                 .read(assistantConversationHistoryRepositoryProvider)!
@@ -973,7 +976,6 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        backend.failWrites = !conflictingClear;
         await enterChatText(tester, 'Suggest a quiet break after work.');
         await tester.tap(find.byTooltip('Send to AI'));
         for (
