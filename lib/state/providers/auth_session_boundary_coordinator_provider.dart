@@ -521,7 +521,7 @@ class AuthSessionBoundaryCoordinator {
         chat.purgeExpiredPending().then<void>(
           // A request still collectable is purged at its collect-by time.
           (next) {
-            if (next != null) registry.schedulePurge(next, chat);
+            if (next != null) registry.schedulePurge(next);
           },
           onError: (Object error) =>
               Logger.warn('Expired AI request purge did not complete.'),

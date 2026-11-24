@@ -677,11 +677,24 @@ void main() {
         },
         backend,
         fakeClockPurgeTimer: true,
+        // A fresh scope object for the same account on every rebuild, as a
+        // token refresh produces.
+        readScope: () => AccountStorageScope.authenticated('synthetic-pending'),
       );
       await _pumpScreen(tester, container, ConversationSurface.si);
       await _confirmPaidRequest(tester, 'Compare my two options.');
       await _leave(tester, container);
       expect(await _storedChat(backend), contains('Compare my two options.'));
+      // A same-account auth event between arming and firing rebuilds the
+      // scope and the Chat repository; the purge must still work.
+      container.invalidate(accountStorageScopeProvider);
+      // Something reads the repository again, as screens and account
+      // opening do, so a new instance replaces the one armed with.
+      expect(
+        container.read(assistantConversationHistoryRepositoryProvider),
+        isNotNull,
+      );
+      await tester.pump();
 
       // The collect-by time passes on the real clock and the timer fires.
       await tester.runAsync(

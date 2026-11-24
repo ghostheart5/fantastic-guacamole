@@ -55,14 +55,9 @@ extension _PendingRequest on _AssistantConversationScreenState {
     final registry = ref.read(conversationExecutionRegistryProvider);
     // Any stored request still collectable, on either surface, has its
     // content removed at its collect-by time even if no screen is open then.
-    final store = ref.read(assistantConversationHistoryRepositoryProvider);
     final now = DateTime.now();
-    if (store != null) {
-      for (final stored in saved.pendingRequests.values) {
-        if (!stored.isExpired(now)) {
-          registry.schedulePurge(stored.collectBefore, store);
-        }
-      }
+    for (final stored in saved.pendingRequests.values) {
+      if (!stored.isExpired(now)) registry.schedulePurge(stored.collectBefore);
     }
     final pending = saved.pendingRequests[surface];
     if (pending == null) {

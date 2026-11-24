@@ -487,7 +487,7 @@ class _AssistantConversationScreenState
         }
         // Its content is removed once it can no longer be collected, even if
         // no screen is open then.
-        registry.schedulePurge(record.collectBefore, repository);
+        registry.schedulePurge(record.collectBefore);
         if (!mounted || !current()) return;
         if (replacedUntold) {
           ScaffoldMessenger.of(context).showSnackBar(

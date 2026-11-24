@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/engine/assistant/axiomara_deterministic_router.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -158,8 +159,9 @@ typedef ConversationPurgeTimer =
 /// the registry cancels it.
 final conversationPurgeTimerProvider = Provider<ConversationPurgeTimer>(
   (ref) => (delay, callback) {
-    final zone = Zone.current;
-    return Zone.root.createTimer(delay, () => zone.run(callback));
+    // Guarded: a synchronous throw reaches the arming zone's error handler.
+    final guarded = Zone.current.bindCallbackGuarded(callback);
+    return Zone.root.createTimer(delay, guarded);
   },
 );
 
@@ -169,6 +171,10 @@ final conversationExecutionRegistryProvider =
       ref.watch(authSessionBoundaryProvider.select((b) => b.generation));
       final registry = ConversationExecutionRegistry(
         createTimer: ref.read(conversationPurgeTimerProvider),
+        // Read when the timer fires: the repository is rebuilt on every auth
+        // event (a token refresh too), so a kept instance would go stale.
+        readStore: () =>
+            ref.read(assistantConversationHistoryRepositoryProvider),
       );
       // An account or generation change drops this registry and its timer.
       ref.onDispose(registry.dispose);
@@ -176,26 +182,31 @@ final conversationExecutionRegistryProvider =
     });
 
 final class ConversationExecutionRegistry {
-  ConversationExecutionRegistry({ConversationPurgeTimer? createTimer})
-    : _createTimer = createTimer ?? Timer.new;
+  ConversationExecutionRegistry({
+    ConversationPurgeTimer? createTimer,
+    AssistantConversationRepository? Function()? readStore,
+  }) : _createTimer = createTimer ?? Timer.new,
+       _readStore = readStore ?? (() => null);
 
   final ConversationPurgeTimer _createTimer;
+  final AssistantConversationRepository? Function() _readStore;
   final _running =
       <String, ({Future<ConversationAnswer> future, bool failed})>{};
   final _shown = <String>{};
   Timer? _purgeTimer;
   DateTime? _purgeAt;
-  AssistantConversationRepository? _purgeStore;
+  bool _purgeWanted = false;
   bool _disposed = false;
 
   /// Removes a stored request's content once it can no longer be collected,
   /// while the app keeps running and no screen is open. One timer, armed for
   /// the earliest collect-by time; an earlier deadline replaces a later one.
   /// A request still running or holding an unshown reply here is never
-  /// purged ([isRunning]); the repository re-checks the account.
-  void schedulePurge(DateTime at, AssistantConversationRepository store) {
+  /// purged ([isRunning]). The current account's repository is read when
+  /// the timer fires; this registry is dropped on any account change.
+  void schedulePurge(DateTime at) {
     if (_disposed) return;
-    _purgeStore = store;
+    _purgeWanted = true;
     final armed = _purgeAt;
     if (_purgeTimer?.isActive == true && armed != null && !at.isBefore(armed)) {
       return;
@@ -213,11 +224,12 @@ final class ConversationExecutionRegistry {
   Future<void> _runPurge() async {
     _purgeTimer = null;
     _purgeAt = null;
-    final store = _purgeStore;
-    if (store == null || _disposed) return;
+    if (_disposed) return;
     try {
+      final store = _readStore();
+      if (store == null) return;
       final next = await store.purgeExpiredPending(keep: isRunning);
-      if (next != null) schedulePurge(next, store);
+      if (next != null) schedulePurge(next);
     } on Object {
       // Account changed or storage failed: the next load or account opening
       // purges instead.
@@ -250,8 +262,7 @@ final class ConversationExecutionRegistry {
           if (identical(_running[id]?.future, future)) {
             _running[id] = (future: future, failed: true);
             // A run kept past its deadline may now be purged.
-            final store = _purgeStore;
-            if (store != null) schedulePurge(DateTime.now().toUtc(), store);
+            if (_purgeWanted) schedulePurge(DateTime.now().toUtc());
           }
         },
       ),
