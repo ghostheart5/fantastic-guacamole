@@ -243,8 +243,11 @@ class _TrajectoryEngineScreenState
                   const SizedBox(height: 20),
                   OutlinedButton.icon(
                     key: const Key('insights-patterns'),
-                    onPressed: () =>
-                        goToAppView(context, ref, AppView.progression),
+                    onPressed: () => openActivityFrom(
+                      context,
+                      ref,
+                      AppView.trajectoryEngine,
+                    ),
                     icon: const Icon(Icons.insights_outlined),
                     label: Text(
                       journeyText(

@@ -158,6 +158,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       _,
       AppView next,
     ) {
+      if (next != AppView.progression) {
+        // Activity's origin only applies while Activity is showing.
+        ref.read(activityOriginProvider.notifier).set(null);
+      }
       if (_isPrimaryView(next)) {
         _initializedTabIndexes.add(_tabIndexForView(next));
         _runBackgroundTask(
@@ -247,7 +251,8 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     super.didUpdateWidget(oldWidget);
 
     if (_isPrimaryView(oldWidget.initialView) &&
-        !_isPrimaryView(widget.initialView)) {
+        !_isPrimaryView(widget.initialView) &&
+        _activityOverlayOrigin == null) {
       // The primary IndexedStack is removed while a secondary screen is open.
       // Its elements are no longer retained, so its initialization cache must
       // not cause stale inactive tabs to be remounted on the return build.
@@ -342,6 +347,14 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     }
   }
 
+  /// The primary view whose tab bar stays visible under Activity, or null when
+  /// Activity was opened any other way (or another view is showing).
+  AppView? get _activityOverlayOrigin {
+    if (widget.initialView != AppView.progression) return null;
+    final AppView? origin = ref.read(activityOriginProvider);
+    return origin != null && _isPrimaryView(origin) ? origin : null;
+  }
+
   void _goToView(AppView view) {
     final String routePath = routePathForAppView(view);
     try {
@@ -358,8 +371,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   @override
   Widget build(BuildContext context) {
     final AppView view = widget.initialView;
-    final int tabIndex = _tabIndexForView(view);
-    if (_isPrimaryView(view)) {
+    ref.watch(activityOriginProvider);
+    final AppView? activityOrigin = _activityOverlayOrigin;
+    final int tabIndex = _tabIndexForView(activityOrigin ?? view);
+    if (_isPrimaryView(view) || activityOrigin != null) {
       _initializedTabIndexes.add(tabIndex);
     }
 
@@ -371,7 +386,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       AppView.smartPlanner => const SmartPlannerScreen(),
       AppView.profile => const ProfileScreen(),
       AppView.settings => const SettingsScreen(),
-      AppView.progression => const ProgressionScreen(),
+      AppView.progression =>
+        activityOrigin == null
+            ? const ProgressionScreen()
+            : _buildPrimaryShell(tabIndex, overlay: const ProgressionScreen()),
       AppView.creator => const CreatorScreen(),
       AppView.goals => const GoalsScreen(),
     };
@@ -385,7 +403,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         final AppView current = widget.initialView;
 
         if (current != AppView.nexus) {
-          _goToView(AppView.nexus);
+          _goToView(activityOrigin ?? AppView.nexus);
           return;
         }
 

@@ -46,3 +46,28 @@ void goToAppView(BuildContext context, WidgetRef ref, AppView view) {
   }
   ref.read(appFlowProvider.notifier).show(view);
 }
+
+/// The primary view Activity was opened from, or null when it was opened any
+/// other way (tools list, profile, deep link, redirect).
+///
+/// While set, the shell keeps that view's tab bar visible with Activity shown
+/// over it, and Back returns to that view. The shell clears it as soon as the
+/// person is anywhere other than Activity.
+final activityOriginProvider =
+    NotifierProvider<ActivityOriginController, AppView?>(
+      ActivityOriginController.new,
+    );
+
+class ActivityOriginController extends Notifier<AppView?> {
+  @override
+  AppView? build() => null;
+
+  void set(AppView? origin) => state = origin;
+}
+
+/// Opens Activity from the primary view [origin] so that view's navigation
+/// stays visible and Back returns to it.
+void openActivityFrom(BuildContext context, WidgetRef ref, AppView origin) {
+  ref.read(activityOriginProvider.notifier).set(origin);
+  goToAppView(context, ref, AppView.progression);
+}
