@@ -23,6 +23,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Re-reads the device time zone. Overridable so tests never touch the real
+/// platform channel.
+final localTimezoneRefresherProvider = Provider<Future<void> Function()>(
+  (Ref ref) => refreshLocalTimezone,
+);
+
 class SettingsUiActions {
   SettingsUiActions(this._ref);
 
@@ -110,7 +116,7 @@ class SettingsUiActions {
 
   Future<void> _reconcileReminders(AccountOperation owner) async {
     owner.check();
-    await owner.wait(refreshLocalTimezone());
+    await owner.wait(_ref.read(localTimezoneRefresherProvider)());
     final scheduler = _ref.read(notificationSchedulerProvider);
     final granted = await owner.wait(scheduler.init(requestPermissions: false));
     final goals = _ref.read(getGoalsUseCaseProvider).call();

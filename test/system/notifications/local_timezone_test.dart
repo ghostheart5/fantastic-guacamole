@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/system/notifications/local_timezone.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
@@ -8,6 +11,8 @@ import 'package:timezone/timezone.dart' as tz;
 void main() {
   setUpAll(tzdata.initializeTimeZones);
   setUp(() {
+    Logger.errorOutputEnabled = false;
+    addTearDown(() => Logger.errorOutputEnabled = true);
     tz.setLocalLocation(tz.getLocation('Etc/UTC'));
     RuntimeDiagnostics.events.value = const <RuntimeDiagnosticEvent>[];
   });
@@ -97,5 +102,14 @@ void main() {
       shouldApply: () => false,
     );
     expect(tz.local.name, 'Etc/UTC');
+  });
+
+  test('a lookup that never answers falls back instead of hanging', () async {
+    await refreshLocalTimezone(
+      readName: () => Completer<String>().future,
+      readOffset: () => const Duration(hours: 4),
+      lookupTimeout: const Duration(milliseconds: 20),
+    );
+    expect(tz.local.name, 'Fixed/UTC+04:00');
   });
 }

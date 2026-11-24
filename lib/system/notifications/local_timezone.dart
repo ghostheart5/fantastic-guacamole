@@ -22,15 +22,19 @@ Duration _readDeviceOffset() => DateTime.now().timeZoneOffset;
 /// fixed-offset zone built from the device's current offset is used instead of
 /// silently staying on UTC, and one coded diagnostic is recorded.
 ///
+/// A lookup that takes longer than [lookupTimeout] is treated as a failure, so
+/// a stuck platform call can never hold up rebuilding reminders.
+///
 /// [shouldApply] lets a caller skip the change when its work was cancelled
 /// while the lookup was in flight.
 Future<void> refreshLocalTimezone({
   LocalTimezoneNameReader readName = _readDeviceTimezoneName,
   DeviceOffsetReader readOffset = _readDeviceOffset,
   bool Function()? shouldApply,
+  Duration lookupTimeout = const Duration(seconds: 3),
 }) async {
   try {
-    final String name = await readName();
+    final String name = await readName().timeout(lookupTimeout);
     if (shouldApply != null && !shouldApply()) return;
     final tz.Location location = tz.getLocation(name);
     tz.setLocalLocation(location);

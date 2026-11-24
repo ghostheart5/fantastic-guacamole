@@ -18,14 +18,42 @@ import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
+import 'package:fantastic_guacamole/system/notifications/local_timezone.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 void main() {
+  testWidgets('each reminder reconcile re-reads the device time zone', (
+    tester,
+  ) async {
+    tzdata.initializeTimeZones();
+    addTearDown(() => tz.setLocalLocation(tz.getLocation('Etc/UTC')));
+    var lookups = 0;
+    String zoneFor(int n) => n.isOdd ? 'America/Chicago' : 'Europe/Paris';
+    final fixture = await _Fixture.create(
+      timezoneRefresher: () =>
+          refreshLocalTimezone(readName: () async => zoneFor(++lookups)),
+    );
+    await fixture.mount(tester);
+    final actions = fixture.container.read(settingsUiActionsProvider);
+    final before = lookups;
+    await actions.refreshNotificationPermissionAndReminders();
+    expect(lookups, before + 1);
+    expect(tz.local.name, zoneFor(lookups));
+    final firstZone = tz.local.name;
+    await actions.refreshNotificationPermissionAndReminders();
+    expect(lookups, before + 2);
+    expect(tz.local.name, zoneFor(lookups));
+    expect(tz.local.name, isNot(firstZone));
+  });
+
   testWidgets(
     'cold mounted shell reconciles revoked reminders without resume',
     (tester) async {
@@ -230,6 +258,7 @@ class _Fixture {
   static Future<_Fixture> create({
     bool ready = true,
     bool granted = false,
+    Future<void> Function()? timezoneRefresher,
   }) async {
     final scheduler = _Scheduler()..granted = granted;
     final prefs = _MemoryPreferences();
@@ -246,6 +275,10 @@ class _Fixture {
           SecureStore(backend: InMemorySecureStoreBackend()),
         ),
         notificationSchedulerProvider.overrideWithValue(scheduler),
+        localTimezoneRefresherProvider.overrideWithValue(
+          timezoneRefresher ??
+              () => refreshLocalTimezone(readName: () async => 'Etc/UTC'),
+        ),
         domainGoalRepositoryProvider.overrideWithValue(_Goals()),
         domainHabitRepositoryProvider.overrideWithValue(_Habits()),
         getTasksUseCaseProvider.overrideWithValue(GetTasks(_Tasks())),
