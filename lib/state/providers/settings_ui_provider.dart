@@ -16,6 +16,7 @@ import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
 import 'package:fantastic_guacamole/system/location/location_service.dart';
+import 'package:fantastic_guacamole/system/notifications/local_timezone.dart';
 import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -109,6 +110,7 @@ class SettingsUiActions {
 
   Future<void> _reconcileReminders(AccountOperation owner) async {
     owner.check();
+    await owner.wait(refreshLocalTimezone());
     final scheduler = _ref.read(notificationSchedulerProvider);
     final granted = await owner.wait(scheduler.init(requestPermissions: false));
     final goals = _ref.read(getGoalsUseCaseProvider).call();
