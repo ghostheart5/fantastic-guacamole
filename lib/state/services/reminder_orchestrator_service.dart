@@ -1,7 +1,10 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
@@ -12,6 +15,9 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
+import 'package:timezone/timezone.dart' as tz;
+
+part 'reminder_orchestrator_service.reconcile.dart';
 
 class ReminderOrchestratorPrefs {
   const ReminderOrchestratorPrefs({
@@ -38,7 +44,9 @@ class ReminderOrchestratorService {
     this._loadHabitOccurrences,
     this._loadGoalTasks,
     DateTime Function()? now,
-  }) : _now = now ?? DateTime.now;
+    String Function()? timeZoneName,
+  }) : _now = now ?? DateTime.now,
+       _timeZoneName = timeZoneName ?? _deviceTimeZoneName;
 
   static const String _goalReminderEnabledKey = 'goal_reminders_enabled';
   static const String _habitReminderEnabledKey = 'habit_reminders_enabled';
@@ -72,6 +80,15 @@ class ReminderOrchestratorService {
   final Future<List<HabitOccurrenceEntity>> Function()? _loadHabitOccurrences;
   final Future<List<TaskEntity>> Function()? _loadGoalTasks;
   final DateTime Function() _now;
+  final String Function() _timeZoneName;
+
+  static String _deviceTimeZoneName() {
+    try {
+      return tz.local.name;
+    } on Object {
+      return '';
+    }
+  }
 
   ReminderOrchestratorPrefs loadPrefs() {
     final (int hour, int minute) = _dailyPlanningTime();
@@ -96,7 +113,12 @@ class ReminderOrchestratorService {
   Future<void> setGoalRemindersEnabled(bool enabled) async {
     await _preferences.save(_goalReminderEnabledKey, enabled.toString());
     if (!enabled) {
-      await _cancelTrackedGoalReminders();
+      await KeyedMutationCoordinator.shared.runExclusive<void>(
+        AccountDataRegistry.notificationMutationKeyForScope(
+          _accountScope ?? 'legacy',
+        ),
+        _cancelTrackedGoalReminders,
+      );
     }
   }
 
@@ -118,7 +140,9 @@ class ReminderOrchestratorService {
   Future<void> _cancelHabitReminders() async {
     final bool keepLegacy = _keepsLegacyHabitReminder();
     final bool trackLegacy = await _legacyIdToKeepTracked(keepLegacy);
-    for (final String id in _habitReminderIdsToCancel(keepLegacy)) {
+    final Set<String> ids = _habitReminderIdsToCancel(keepLegacy);
+    await _forgetFingerprints(ids);
+    for (final String id in ids) {
       await _notifications.cancel(id);
     }
     await _saveTrackedHabitReminderIds(<String>{
@@ -130,6 +154,16 @@ class ReminderOrchestratorService {
   /// before and the morning of its target date (all at [goalReminderHour]),
   /// plus one "almost there" nudge once most of its linked steps are done.
   Future<void> syncGoalReminders(
+    List<GoalEntity> goals, {
+    bool Function()? shouldContinue,
+  }) => KeyedMutationCoordinator.shared.runExclusive<void>(
+    AccountDataRegistry.notificationMutationKeyForScope(
+      _accountScope ?? 'legacy',
+    ),
+    () => _syncGoalReminders(goals, shouldContinue: shouldContinue),
+  );
+
+  Future<void> _syncGoalReminders(
     List<GoalEntity> goals, {
     bool Function()? shouldContinue,
   }) async {
@@ -146,6 +180,16 @@ class ReminderOrchestratorService {
     final Map<String, DateTime> previousNudges = _goalCloseNudges();
     final Map<String, DateTime> nextNudges = <String, DateTime>{};
     final Set<String> scheduledIds = <String>{};
+    // Everything below may change these registrations; the reconciler only
+    // trusts what is recorded again once registered.
+    await _forgetFingerprints(<String>{
+      for (final String id in <String>{
+        ...previousIds,
+        ...goals.map((GoalEntity goal) => goal.id),
+      })
+        ..._goalSlotIds(id),
+    });
+    final List<_PlannedReminder> registered = <_PlannedReminder>[];
     for (final GoalEntity goal in goals) {
       if (shouldContinue?.call() == false) return;
       if (goal.isCompleted) continue;
@@ -159,7 +203,9 @@ class ReminderOrchestratorService {
       );
       for (final GoalReminderSlot slot in slots) {
         if (shouldContinue?.call() == false) return;
-        await _scheduleGoalSlot(slot);
+        if (await _scheduleGoalSlot(slot)) {
+          registered.add(_goalReminder(slot));
+        }
       }
       if (previousIds.contains(goal.id)) {
         final Set<String> wanted = slots.map((slot) => slot.id).toSet();
@@ -183,6 +229,7 @@ class ReminderOrchestratorService {
     if (shouldContinue?.call() == false) return;
     await _saveTrackedGoalReminderIds(scheduledIds);
     await _saveGoalCloseNudges(nextNudges);
+    await _rememberFingerprints(registered);
   }
 
   /// Gives every active rhythm that has its own reminder time a repeating
@@ -324,16 +371,21 @@ class ReminderOrchestratorService {
   }) async {
     final bool keepLegacy = _keepsLegacyHabitReminder();
     final bool trackLegacy = await _legacyIdToKeepTracked(keepLegacy);
+    final Set<String> previous = _habitReminderIdsToCancel(keepLegacy);
+    final List<HabitEntity> wanted = habits
+        .where(_wantsReminder)
+        .toList(growable: false);
+    await _forgetFingerprints(<String>{
+      ...previous,
+      ...wanted.map((habit) => habitReminderId(habit.id)),
+    });
     // Replace every earlier registration, including the old shared alarm
     // once the migration has run.
-    for (final String id in _habitReminderIdsToCancel(keepLegacy)) {
+    for (final String id in previous) {
       if (!await _scheduler.cancel(id, accountScope: _accountScope)) {
         throw StateError('Previous rhythm reminder could not be cancelled.');
       }
     }
-    final List<HabitEntity> wanted = habits
-        .where(_wantsReminder)
-        .toList(growable: false);
     // Track before registering so an interrupted run can still be cancelled.
     await _saveTrackedHabitReminderIds(<String>{
       ...wanted.map((habit) => habitReminderId(habit.id)),
@@ -349,26 +401,20 @@ class ReminderOrchestratorService {
     if (shouldContinue?.call() == false) return false;
     final DateTime now = _now().toLocal();
     bool complete = true;
-    final List<String> registered = <String>[];
+    final List<_PlannedReminder> registered = <_PlannedReminder>[];
     for (final HabitEntity habit in wanted) {
       if (shouldContinue?.call() == false) {
-        for (final String id in registered) {
-          await _scheduler.cancel(id, accountScope: _accountScope);
+        for (final _PlannedReminder item in registered) {
+          await _scheduler.cancel(item.id, accountScope: _accountScope);
         }
         return false;
       }
-      final String id = habitReminderId(habit.id);
-      final bool scheduled = await _scheduler.scheduleCadenceAt(
-        id: id,
-        title: habit.title,
-        body: 'Time for "${habit.title}". Tap to check in.',
-        cadence: habit.cadence,
-        firstAt: nextHabitReminderAt(habit, outcomes, now),
-        accountScope: _accountScope,
-      );
-      if (scheduled) registered.add(id);
+      final _PlannedReminder item = _habitReminder(habit, outcomes, now);
+      final bool scheduled = await _registerPlanned(item);
+      if (scheduled) registered.add(item);
       complete = scheduled && complete;
     }
+    await _rememberFingerprints(registered);
     return complete;
   }
 
@@ -440,26 +486,23 @@ class ReminderOrchestratorService {
       ),
       () async {
         if (shouldContinue?.call() == false) return;
+        await _forgetFingerprints(const <String>[_dailyPlanningReminderId]);
         if (!_isEnabled(_dailyPlanningEnabledKey, defaultValue: true)) {
           await _notifications.cancel(_dailyPlanningReminderId);
           return;
         }
 
         final (int hour, int minute) = _dailyPlanningTime();
-        await _scheduler.scheduleDailyAt(
-          id: _dailyPlanningReminderId,
-          title: 'Daily Planning Reminder',
-          body: 'Open Axiomara and choose one manageable next step.',
-          hour: hour,
-          minute: minute,
-          accountScope: _accountScope,
-        );
+        final _PlannedReminder item = _dailyPlanningReminder(hour, minute);
+        final bool scheduled = await _registerPlanned(item);
         if (shouldContinue?.call() == false) {
           await _scheduler.cancel(
             _dailyPlanningReminderId,
             accountScope: _accountScope,
           );
+          return;
         }
+        if (scheduled) await _rememberFingerprints(<_PlannedReminder>[item]);
       },
     );
   }
@@ -474,8 +517,10 @@ class ReminderOrchestratorService {
     await ensureDailyPlanningReminder();
   }
 
-  /// Reconcile only this account's OS reminders after preferences are replaced.
-  /// Keep local goal/habit content; neither is part of the cloud backup.
+  /// Brings this account's OS reminders in line with its goals, rhythms and
+  /// preferences, changing only what differs (see [_ReminderReconciler]).
+  /// Runs on resume and after preferences are restored. Keep local
+  /// goal/habit content; neither is part of the cloud backup.
   Future<bool> reconcileAfterRestore({
     required List<GoalEntity> goals,
     required List<HabitEntity> habits,
@@ -486,145 +531,12 @@ class ReminderOrchestratorService {
       AccountDataRegistry.notificationMutationKeyForScope(
         _accountScope ?? 'legacy',
       ),
-      () async {
-        if (!shouldContinue()) return false;
-        final keepLegacy = _keepsLegacyHabitReminder();
-        final trackLegacy = await _legacyIdToKeepTracked(keepLegacy);
-        if (!shouldContinue()) return false;
-        final goalIds = {
-          ..._trackedGoalReminderIds(),
-          ...goals.map((g) => g.id),
-        };
-        final ids = {
-          // Fixed daily alarms must not wait behind large historical goal sets.
-          _dailyPlanningReminderId,
-          ..._habitReminderIdsToCancel(keepLegacy),
-          ...habits.map((habit) => habitReminderId(habit.id)),
-          ...goalIds.expand(_goalSlotIds),
-        };
-        bool complete = true;
-        // Cancel stale times and disabled reminders even without OS permission.
-        for (final id in ids) {
-          if (!shouldContinue()) return false;
-          final cancelled = await _scheduler.cancel(
-            id,
-            accountScope: _accountScope,
-          );
-          complete = cancelled && complete;
-        }
-        if (!shouldContinue()) return false;
-        final prefs = loadPrefs();
-        final scheduledGoals = <String>{};
-        final nextNudges = <String, DateTime>{};
-        if (prefs.goalRemindersEnabled) {
-          // Without permission nothing is registered, so skip the task read.
-          final progress = permissionGranted ? await _goalProgress() : null;
-          if (!shouldContinue()) return false;
-          final now = _now();
-          final previousNudges = _goalCloseNudges();
-          for (final goal in goals) {
-            if (!shouldContinue()) return false;
-            if (goal.isCompleted) continue;
-            final slots = goalReminderSlots(
-              goal,
-              progress: progress?[goal.id] ?? const GoalProgressView.empty(),
-              progressKnown: progress != null,
-              now: now,
-              previousNudges: previousNudges,
-              nextNudges: nextNudges,
-            );
-            if (slots.isEmpty) continue;
-            if (!permissionGranted) {
-              complete = false;
-              continue;
-            }
-            var goalScheduled = false;
-            for (final slot in slots) {
-              final scheduled = await _scheduler.schedule(
-                NotificationEntity(
-                  id: slot.id,
-                  title: slot.title,
-                  message: slot.body,
-                  scheduledAt: slot.at,
-                ),
-                accountScope: _accountScope,
-              );
-              complete = scheduled && complete;
-              goalScheduled = scheduled || goalScheduled;
-              if (!shouldContinue()) {
-                for (final id in ids) {
-                  await _scheduler.cancel(id, accountScope: _accountScope);
-                }
-                return false;
-              }
-            }
-            if (goalScheduled) scheduledGoals.add(goal.id);
-          }
-        }
-        Future<void> daily(
-          String id,
-          String title,
-          String body,
-          int hour,
-          int minute,
-        ) async {
-          if (!shouldContinue()) return;
-          if (!permissionGranted) {
-            complete = false;
-            return;
-          }
-          final scheduled = await _scheduler.scheduleDailyAt(
-            id: id,
-            title: title,
-            body: body,
-            hour: hour,
-            minute: minute,
-            accountScope: _accountScope,
-          );
-          complete = scheduled && complete;
-        }
-
-        if (prefs.habitRemindersEnabled && habits.any(_wantsReminder)) {
-          if (!permissionGranted || !complete) {
-            complete = false;
-          } else {
-            try {
-              final scheduled = await _scheduleHabits(
-                habits,
-                shouldContinue: shouldContinue,
-              );
-              complete = scheduled && complete;
-            } on Object {
-              // Stale alarms were cancelled. Failed outcome reads must never
-              // become a daily fallback for a completed cadence period.
-              complete = false;
-            }
-          }
-        } else {
-          await _saveTrackedHabitReminderIds(<String>{
-            if (trackLegacy) _legacyHabitReminderId,
-          });
-        }
-        if (prefs.dailyPlanningEnabled) {
-          await daily(
-            _dailyPlanningReminderId,
-            'Daily Planning Reminder',
-            'Open Axiomara and choose one manageable next step.',
-            prefs.dailyPlanningHour,
-            prefs.dailyPlanningMinute,
-          );
-        }
-        if (!shouldContinue()) {
-          for (final id in ids) {
-            await _scheduler.cancel(id, accountScope: _accountScope);
-          }
-          return false;
-        }
-        // Retain cancellation candidates if an OS cancellation failed.
-        await _saveTrackedGoalReminderIds(complete ? scheduledGoals : goalIds);
-        await _saveGoalCloseNudges(nextNudges);
-        return complete;
-      },
+      () => _reconcile(
+        goals: goals,
+        habits: habits,
+        permissionGranted: permissionGranted,
+        shouldContinue: shouldContinue,
+      ),
     );
   }
 
@@ -730,7 +642,9 @@ class ReminderOrchestratorService {
       !id.endsWith('_due') &&
       !id.endsWith('_close');
 
-  Future<void> _scheduleGoalSlot(GoalReminderSlot slot) async {
+  /// True only when the OS confirmed the registration. The listed slot goes
+  /// through the notification list, which does not report the outcome.
+  Future<bool> _scheduleGoalSlot(GoalReminderSlot slot) async {
     if (_isListedGoalSlot(slot.id)) {
       await _notifications.schedule(
         id: slot.id,
@@ -738,9 +652,9 @@ class ReminderOrchestratorService {
         body: slot.body,
         at: slot.at,
       );
-      return;
+      return false;
     }
-    await _scheduler.schedule(
+    return _scheduler.schedule(
       NotificationEntity(
         id: slot.id,
         title: slot.title,
@@ -872,6 +786,10 @@ class ReminderOrchestratorService {
   Future<void> _cancelTrackedGoalReminders({
     bool Function()? shouldContinue,
   }) async {
+    await _forgetFingerprints(<String>{
+      for (final String goalId in _trackedGoalReminderIds())
+        ..._goalSlotIds(goalId),
+    });
     for (final String goalId in _trackedGoalReminderIds()) {
       for (final String id in _goalSlotIds(goalId)) {
         if (shouldContinue?.call() == false) return;

@@ -258,6 +258,7 @@ abstract final class AccountDataRegistry {
     'daily_planning_reminder_enabled',
     'daily_planning_reminder_time',
     'scheduled_goal_reminder_ids',
+    'reminder_fingerprints_v1',
   };
 
   static const Set<String> legacyAccountHiveBoxes = <String>{

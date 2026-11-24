@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/repositories/notifications_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -34,7 +35,9 @@ void main() {
           await prefs.save(key, 'false');
         }
         await prefs.save('scheduled_goal_reminder_ids', '["old-goal"]');
-        final scheduler = _RecordingScheduler();
+        // Registered before the restore turned them off.
+        final scheduler = _RecordingScheduler()
+          ..pending.addAll(['habit_reminder_daily', 'daily_planning_reminder']);
         final reflection = ReflectionReminderService(
           preferences: prefs,
           scheduler: scheduler,
@@ -258,11 +261,13 @@ void main() {
         accountScope: 'restore-scope',
       );
       expect(
-        await service.reconcileAfterRestore(
-          goals: [],
-          habits: [],
-          permissionGranted: true,
-          shouldContinue: () => true,
+        await Logger.withMutedErrors(
+          () => service.reconcileAfterRestore(
+            goals: [],
+            habits: [],
+            permissionGranted: true,
+            shouldContinue: () => true,
+          ),
         ),
         isFalse,
       );
@@ -689,6 +694,7 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
   final ValueNotifier<bool?> permissionSignal = ValueNotifier<bool?>(true);
   final List<_DailySchedule> dailySchedules = <_DailySchedule>[];
   final List<String> cancelled = <String>[];
+  final Set<String> pending = <String>{};
   int permissionRequests = 0;
   int clearTappedPayloadCalls = 0;
 
@@ -761,7 +767,7 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
 
   @override
   Future<List<String>> pendingIdsForAccount(String accountScope) async =>
-      const <String>[];
+      pending.toList();
 
   @override
   Future<bool> cancelAll() async {
