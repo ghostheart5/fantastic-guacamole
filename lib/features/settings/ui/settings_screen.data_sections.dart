@@ -304,12 +304,14 @@ class _CloudDataControlSection extends ConsumerWidget {
           ),
           if (available && enabled)
             _NeonStatusTile(
+              subtitleMaxLines: null,
               title: CloudBackupStatusCopy.of(context).lastBackupTitle,
               subtitle: CloudBackupStatusCopy.of(context).lastBackupValue(
                 _formatBackupTime(
                   context,
                   ref.watch(lastCloudBackupProvider).asData?.value,
                 ),
+                attention: ref.watch(cloudBackupAttentionProvider),
               ),
             ),
           _NeonStatusTile(
@@ -680,13 +682,34 @@ final class CloudBackupStatusCopy {
       _text('Last backup', 'Última copia de seguridad');
 
   /// [formattedTime] is the backup date and time in the reader's locale, or
-  /// null when this device has no record of a backup.
-  String lastBackupValue(String? formattedTime) =>
-      formattedTime ??
-      _text(
-        'No backup recorded on this device yet.',
-        'Este dispositivo aún no tiene registrada ninguna copia.',
+  /// null when this device has no record of a backup. [attention] comes from
+  /// the last automatic sync.
+  String lastBackupValue(
+    String? formattedTime, {
+    CloudBackupAttention attention = CloudBackupAttention.none,
+  }) {
+    final String? note = switch (attention) {
+      CloudBackupAttention.none => null,
+      CloudBackupAttention.fullBackupNotLinked => _text(
+        'A full backup is in the cloud, but this device did not make it. Press Back up all planning data once to keep it up to date automatically.',
+        'Hay una copia completa en la nube, pero no la hizo este dispositivo. Pulsa Guardar todos los datos una vez para mantenerla al día automáticamente.',
+      ),
+      CloudBackupAttention.changedOnAnotherDevice => _text(
+        'Your cloud backup changed on another device, so nothing was uploaded from here. To get those changes, choose Restore cloud backup. Back up all planning data would replace the other device\'s newer copy with this device\'s data.',
+        'Tu copia en la nube cambió en otro dispositivo, así que no se subió nada desde aquí. Para obtener esos cambios, elige Restaurar copia en la nube. Guardar todos los datos reemplazaría la copia más reciente del otro dispositivo con los datos de este.',
+      ),
+    };
+    if (formattedTime == null && note == null) {
+      return _text(
+        'This device has not made or restored a cloud backup yet.',
+        'Este dispositivo todavía no ha hecho ni restaurado una copia en la nube.',
       );
+    }
+    return <String?>[
+      if (formattedTime != null) '$formattedTime.',
+      note,
+    ].whereType<String>().join(' ');
+  }
 }
 
 String? _formatBackupTime(BuildContext context, DateTime? at) {

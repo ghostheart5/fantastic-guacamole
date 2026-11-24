@@ -165,6 +165,45 @@ void main() {
       );
 
   test(
+    'a full backup this device has no record of is left alone with its own outcome',
+    () async {
+      await _seed(container, 'a');
+      final gateway = _PlanningGateway();
+      // A full backup made before this device kept records (an app update),
+      // or by another device sharing the key.
+      expect(
+        await SyncService(
+          backup: container.read(syncServiceProvider)!.backup,
+          gateway: gateway,
+          secureStore: container.read(secureStoreProvider),
+          expectedAccountId: 'owner-a',
+          currentAccountId: () =>
+              container.read(accountStorageScopeProvider).rawUserId,
+          syncEnabled: true,
+          restoreEnabled: true,
+        ).backupPlanningToCloud(),
+        CloudSyncOutcome.synced,
+      );
+      final store = container.read(cloudBackupStatusStoreProvider)!;
+      expect(store.read(), isNull);
+      final uploaded = jsonEncode(gateway.payload);
+      final revision = gateway.revision;
+      final writes = gateway.writes;
+      await addGoal('goal-new');
+
+      expect(
+        await planningService(gateway).syncDeltaOutcome(),
+        CloudSyncOutcome.fullBackupNotLinked,
+      );
+
+      expect(gateway.writes, writes);
+      expect(gateway.revision, revision);
+      expect(jsonEncode(gateway.payload), uploaded);
+      expect(store.read(), isNull);
+    },
+  );
+
+  test(
     'automatic sync uploads a full snapshot after a local change when the cloud backup is full',
     () async {
       await _seed(container, 'a');

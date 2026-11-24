@@ -97,6 +97,12 @@ enum CloudSyncOutcome {
   malformed,
   ownerMismatch,
   uploadFailed,
+
+  /// A full cloud backup exists that this device has no record of making,
+  /// restoring or matching, and local data differs from it. Nothing was
+  /// uploaded: the device cannot tell its own older backup from a newer one
+  /// made elsewhere. One confirmed full backup links them again.
+  fullBackupNotLinked,
 }
 
 /// Whether a recovery key opens the account's current cloud backup.
@@ -945,9 +951,9 @@ class SyncService {
       }
       return CloudSyncOutcome.synced;
     }
-    if (known == null || known.revision != revision) {
-      return CloudSyncOutcome.conflict;
-    }
+    if (known == null) return CloudSyncOutcome.fullBackupNotLinked;
+    // Another device replaced the backup since this device last saw it.
+    if (known.revision != revision) return CloudSyncOutcome.conflict;
     final Map<String, dynamic> encrypted = await cipher.encryptPayload(
       snapshot.payload,
     );

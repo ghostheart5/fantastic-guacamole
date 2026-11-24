@@ -10,6 +10,8 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/person_context_repository.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
+import 'package:fantastic_guacamole/state/providers/sync_provider.dart'
+    show CloudBackupAttention;
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
@@ -96,7 +98,7 @@ void main() {
     );
   });
 
-  test('last backup line shows the time or says none is recorded', () {
+  test('last backup line is truthful in every backup state', () {
     const CloudBackupStatusCopy en = CloudBackupStatusCopy(isSpanish: false);
     const CloudBackupStatusCopy es = CloudBackupStatusCopy(isSpanish: true);
 
@@ -104,13 +106,55 @@ void main() {
     expect(es.lastBackupTitle, 'Última copia de seguridad');
     expect(
       en.lastBackupValue('Nov 20, 2026 · 9:30 AM'),
-      'Nov 20, 2026 · 9:30 AM',
+      'Nov 20, 2026 · 9:30 AM.',
     );
-    expect(es.lastBackupValue('20 nov 2026 · 9:30'), '20 nov 2026 · 9:30');
-    expect(en.lastBackupValue(null), 'No backup recorded on this device yet.');
+    expect(es.lastBackupValue('20 nov 2026 · 9:30'), '20 nov 2026 · 9:30.');
+    // No record here does not claim that nothing is in the cloud.
+    expect(
+      en.lastBackupValue(null),
+      'This device has not made or restored a cloud backup yet.',
+    );
     expect(
       es.lastBackupValue(null),
-      'Este dispositivo aún no tiene registrada ninguna copia.',
+      'Este dispositivo todavía no ha hecho ni restaurado una copia en la nube.',
+    );
+
+    const unlinked = CloudBackupAttention.fullBackupNotLinked;
+    expect(
+      en.lastBackupValue(null, attention: unlinked),
+      'A full backup is in the cloud, but this device did not make it. Press Back up all planning data once to keep it up to date automatically.',
+    );
+    expect(
+      es.lastBackupValue(null, attention: unlinked),
+      'Hay una copia completa en la nube, pero no la hizo este dispositivo. Pulsa Guardar todos los datos una vez para mantenerla al día automáticamente.',
+    );
+
+    const changed = CloudBackupAttention.changedOnAnotherDevice;
+    final String enChanged = en.lastBackupValue(
+      'Nov 20, 2026 · 9:30 AM',
+      attention: changed,
+    );
+    expect(enChanged, startsWith('Nov 20, 2026 · 9:30 AM. '));
+    expect(enChanged, contains('changed on another device'));
+    expect(enChanged, contains('Restore cloud backup'));
+    expect(
+      enChanged,
+      contains(
+        "Back up all planning data would replace the other device's newer copy",
+      ),
+    );
+    final String esChanged = es.lastBackupValue(
+      '20 nov 2026 · 9:30',
+      attention: changed,
+    );
+    expect(esChanged, startsWith('20 nov 2026 · 9:30. '));
+    expect(esChanged, contains('cambió en otro dispositivo'));
+    expect(esChanged, contains('Restaurar copia en la nube'));
+    expect(
+      esChanged,
+      contains(
+        'Guardar todos los datos reemplazaría la copia más reciente del otro dispositivo',
+      ),
     );
   });
 

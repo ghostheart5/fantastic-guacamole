@@ -209,6 +209,68 @@ void main() {
   });
 
   test(
+    'an unlinked full backup is a calm status, not a repeating sync error',
+    () async {
+      final _FixedOutcomeSyncService service = _FixedOutcomeSyncService(
+        BackupService(
+          taskRepository: repository,
+          profileStorage: profileStorage,
+          prefs: prefs,
+        ),
+        gateway,
+      );
+      container.dispose();
+      container = ProviderContainer(
+        overrides: [
+          hiveStoreProvider.overrideWithValue(hiveStore),
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('test-user'),
+          ),
+          cloudSyncCapabilityProvider.overrideWithValue(true),
+          offlineSyncQueueProvider.overrideWithValue(
+            OfflineSyncQueueService(
+              HiveStorage<String>(HiveBoxes.offlineQueue, hive: hiveStore),
+              accountId: 'test-user',
+              enforceAccountBinding: true,
+            ),
+          ),
+          syncServiceProvider.overrideWithValue(service),
+        ],
+      );
+
+      Future<void> sync(CloudSyncOutcome outcome) async {
+        service.outcome = outcome;
+        container.invalidate(syncToCloudProvider);
+        await container.read(syncToCloudProvider.future);
+      }
+
+      await sync(CloudSyncOutcome.fullBackupNotLinked);
+      expect(container.read(syncErrorMessageProvider), isNull);
+      expect(
+        container.read(cloudBackupAttentionProvider),
+        CloudBackupAttention.fullBackupNotLinked,
+      );
+
+      await sync(CloudSyncOutcome.conflict);
+      expect(
+        container.read(syncErrorMessageProvider),
+        contains('replace that newer copy'),
+      );
+      expect(
+        container.read(cloudBackupAttentionProvider),
+        CloudBackupAttention.changedOnAnotherDevice,
+      );
+
+      await sync(CloudSyncOutcome.synced);
+      expect(container.read(syncErrorMessageProvider), isNull);
+      expect(
+        container.read(cloudBackupAttentionProvider),
+        CloudBackupAttention.none,
+      );
+    },
+  );
+
+  test(
     'replayOfflineQueueProvider replays queued sync action and clears queue on success',
     () async {
       gateway.uploadShouldAlwaysSucceed = true;
@@ -260,6 +322,23 @@ void main() {
       expect(queuedAfterReplay, 1);
     },
   );
+}
+
+class _FixedOutcomeSyncService extends SyncService {
+  _FixedOutcomeSyncService(BackupService backup, CloudBackupGateway gateway)
+    : super(
+        backup: backup,
+        gateway: gateway,
+        expectedAccountId: 'test-user',
+        currentAccountId: () => 'test-user',
+        syncEnabled: true,
+        restoreEnabled: true,
+      );
+
+  CloudSyncOutcome outcome = CloudSyncOutcome.synced;
+
+  @override
+  Future<CloudSyncOutcome> syncDeltaOutcome() async => outcome;
 }
 
 class _SequencedCloudBackupGateway implements CloudBackupGateway {

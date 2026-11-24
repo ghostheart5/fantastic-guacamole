@@ -32,6 +32,36 @@ import 'package:shared_preferences/shared_preferences.dart';
 export 'package:fantastic_guacamole/data/services/sync_service.dart'
     show CloudBackupKeyCheck, RecoveryKeyImportOutcome;
 
+/// What the user should know about the full cloud backup after the last
+/// automatic sync. Shown as a calm status in Settings, not as a sync error.
+enum CloudBackupAttention {
+  none,
+
+  /// A full cloud backup exists that this device did not make or restore, so
+  /// automatic backup cannot keep it current until one confirmed full backup.
+  fullBackupNotLinked,
+
+  /// The full cloud backup changed on another device since this device last
+  /// backed up. Nothing was uploaded.
+  changedOnAnotherDevice,
+}
+
+final cloudBackupAttentionProvider =
+    NotifierProvider<CloudBackupAttentionNotifier, CloudBackupAttention>(
+      CloudBackupAttentionNotifier.new,
+    );
+
+class CloudBackupAttentionNotifier extends Notifier<CloudBackupAttention> {
+  @override
+  CloudBackupAttention build() {
+    // A status about one account's backup never carries over to another.
+    ref.watch(accountStorageScopeProvider);
+    return CloudBackupAttention.none;
+  }
+
+  void set(CloudBackupAttention value) => state = value;
+}
+
 /// User-safe sync failure state. Raw exceptions remain in the redacted logger
 /// and are never rendered by Nexus or settings surfaces.
 final syncErrorMessageProvider =
@@ -324,6 +354,20 @@ final syncToCloudProvider = FutureProvider<bool>((ref) async {
         await (await _readySyncService(ref))?.syncDeltaOutcome() ??
         CloudSyncOutcome.unavailable;
     ref.invalidate(lastCloudBackupProvider);
+    final CloudBackupAttentionNotifier attention = ref.read(
+      cloudBackupAttentionProvider.notifier,
+    );
+    if (outcome == CloudSyncOutcome.fullBackupNotLinked) {
+      // Expected after an update or on a device that never backed up: a calm
+      // Settings status, not a sync error repeated on every run.
+      attention.set(CloudBackupAttention.fullBackupNotLinked);
+      return false;
+    }
+    if (outcome == CloudSyncOutcome.synced) {
+      attention.set(CloudBackupAttention.none);
+    } else if (outcome == CloudSyncOutcome.conflict) {
+      attention.set(CloudBackupAttention.changedOnAnotherDevice);
+    }
     final bool success = outcome == CloudSyncOutcome.synced;
     if (!success) {
       ref
@@ -378,6 +422,11 @@ final backupPlanningToCloudProvider = FutureProvider<bool>((ref) async {
         CloudSyncOutcome.unavailable;
     if (!owner.isCurrent) return false;
     ref.invalidate(lastCloudBackupProvider);
+    if (outcome == CloudSyncOutcome.synced) {
+      ref
+          .read(cloudBackupAttentionProvider.notifier)
+          .set(CloudBackupAttention.none);
+    }
     if (outcome != CloudSyncOutcome.synced) {
       ref
           .read(syncErrorMessageProvider.notifier)
@@ -507,6 +556,9 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
       ref.invalidate(optimizationConfigProvider);
       ref.invalidate(cloudSyncPreferenceProvider);
       ref.invalidate(lastCloudBackupProvider);
+      ref
+          .read(cloudBackupAttentionProvider.notifier)
+          .set(CloudBackupAttention.none);
       ref.read(restoredSettingsRevisionProvider.notifier).bump();
       bool remindersComplete = false;
       try {
@@ -595,7 +647,9 @@ String _syncOutcomeMessage(CloudSyncOutcome outcome) {
     CloudSyncOutcome.recoveryKeyRequired =>
       'This cloud backup needs its recovery key before synchronization can continue.',
     CloudSyncOutcome.conflict =>
-      'The backup changed or requires an explicit full planning backup. Review local and cloud data before trying again.',
+      'The cloud backup changed since this device last backed up, usually on another device. Nothing was uploaded. Back up all planning data would replace that newer copy with this device\'s data.',
+    CloudSyncOutcome.fullBackupNotLinked =>
+      'Press Back up all planning data once to keep your full backup up to date automatically.',
     CloudSyncOutcome.unavailable =>
       'Cloud synchronization is temporarily unavailable. Local changes remain available.',
     CloudSyncOutcome.uploadFailed =>
