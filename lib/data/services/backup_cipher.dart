@@ -55,6 +55,14 @@ class BackupCipher {
     return base64Encode(base64Decode(stored));
   }
 
+  /// Returns this device's recovery key for the account, creating one only
+  /// when the device holds none. Called only by the explicit "create a new
+  /// key" choice when turning on Cloud Backup, so that the key is shown and
+  /// saved before anything is encrypted with it. Never log the result.
+  Future<String> createRecoveryKeyIfMissing() async {
+    return base64Encode((await _loadOrCreateKey()).bytes);
+  }
+
   /// Checks the format of a pasted recovery key and returns its canonical
   /// form. Throws [FormatException] when it is not a base64 256-bit key.
   static String parseRecoveryKey(String recoveryKey) {

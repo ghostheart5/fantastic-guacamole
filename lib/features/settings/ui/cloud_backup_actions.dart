@@ -6,8 +6,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class CloudBackupActions extends ConsumerStatefulWidget {
-  const CloudBackupActions({super.key, required this.enabled});
+  const CloudBackupActions({
+    super.key,
+    required this.enabled,
+    this.beforeFullBackup,
+  });
   final bool enabled;
+
+  /// Runs before a full backup is offered, for example the recovery key
+  /// step. The backup goes ahead only when it returns true.
+  final Future<bool> Function()? beforeFullBackup;
 
   @override
   ConsumerState<CloudBackupActions> createState() => CloudBackupActionsState();
@@ -32,6 +40,15 @@ class CloudBackupActionsState extends ConsumerState<CloudBackupActions> {
       _message = null;
     });
     try {
+      final Future<bool> Function()? beforeFullBackup = widget.beforeFullBackup;
+      if (!restore && beforeFullBackup != null) {
+        if (!await beforeFullBackup() || !mounted) {
+          return;
+        }
+      }
+      if (!mounted) {
+        return;
+      }
       {
         final confirmed = await showDialog<bool>(
           context: context,

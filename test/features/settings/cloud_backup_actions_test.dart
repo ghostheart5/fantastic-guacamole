@@ -255,4 +255,58 @@ void main() {
     expect(restores, 0);
     expect(find.text('Cloud backup restored.'), findsNothing);
   });
+
+  for (final bool keySaved in <bool>[false, true]) {
+    testWidgets(
+      'a full backup waits for the recovery key step (saved=$keySaved)',
+      (tester) async {
+        var uploads = 0;
+        var keySteps = 0;
+        final container = ProviderContainer(
+          overrides: [
+            accountStorageScopeProvider.overrideWithValue(
+              AccountStorageScope.authenticated('key-step-owner'),
+            ),
+            backupPlanningToCloudProvider.overrideWith((ref) async {
+              uploads++;
+              return true;
+            }),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: Scaffold(
+                body: CloudBackupActions(
+                  enabled: true,
+                  beforeFullBackup: () async {
+                    keySteps++;
+                    return keySaved;
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Back up all planning data'));
+        await tester.pumpAndSettle();
+        expect(keySteps, 1);
+        if (!keySaved) {
+          expect(find.text('Save planning backup'), findsNothing);
+          expect(uploads, 0);
+          return;
+        }
+        await tester.tap(find.text('Save planning backup'));
+        await tester.pumpAndSettle();
+        expect(uploads, 1);
+        // Restore never asks for the key step.
+        await tester.tap(find.text('Restore cloud backup'));
+        await tester.pumpAndSettle();
+        expect(keySteps, 1);
+      },
+    );
+  }
 }

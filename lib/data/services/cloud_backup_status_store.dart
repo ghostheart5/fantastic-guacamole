@@ -38,4 +38,24 @@ class CloudBackupStatusStore {
         'backedUpAt': status.backedUpAt!.toUtc().toIso8601String(),
     });
   }
+
+  /// Forgets the last backup, for example after the cloud backup was
+  /// discarded, so the next automatic backup starts a new one.
+  Future<void> clear() => _prefs.remove(storageKey);
+}
+
+/// Per-account record that the user confirmed saving the backup recovery key
+/// (or restored it from where they saved it). The storage passed in must
+/// already be scoped to the account.
+class RecoveryKeySavedStore {
+  RecoveryKeySavedStore(this._prefs);
+
+  static const String storageKey = 'cloud_backup_recovery_key_saved_v1';
+
+  final SharedPrefsStorage _prefs;
+
+  /// False when nothing is stored or the stored value is not a boolean.
+  bool read() => _prefs.get(storageKey) == true;
+
+  Future<void> markSaved() => _prefs.setBool(storageKey, true);
 }

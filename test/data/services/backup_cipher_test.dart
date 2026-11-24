@@ -55,6 +55,28 @@ void main() {
     },
   );
 
+  test(
+    'an explicitly created key is made once, kept, and used for encryption',
+    () async {
+      final BackupCipher cipher = BackupCipher(
+        SecureStore(backend: InMemorySecureStoreBackend()),
+        accountId: 'account-a',
+      );
+
+      final String created = await cipher.createRecoveryKeyIfMissing();
+      expect(base64Decode(created), hasLength(32));
+      expect(await cipher.createRecoveryKeyIfMissing(), created);
+      expect(await cipher.loadExistingRecoveryKey(), created);
+      final Map<String, dynamic> encrypted = await cipher.encryptPayload(
+        <String, dynamic>{'version': '3.0.0'},
+      );
+      expect(
+        await cipher.decryptPayloadWithRecoveryKey(encrypted, created),
+        <String, dynamic>{'version': '3.0.0'},
+      );
+    },
+  );
+
   test('loadExistingRecoveryKey returns the key used for encryption', () async {
     final BackupCipher cipher = BackupCipher(
       SecureStore(backend: InMemorySecureStoreBackend()),

@@ -192,6 +192,13 @@ class SettingsUiActions {
     return _backupCipher().loadExistingRecoveryKey();
   }
 
+  /// Creates this device's backup recovery key if it has none, and returns
+  /// it. Only for the explicit "create a new key" choice when turning on
+  /// Cloud Backup: a new key cannot open a backup made with another key.
+  Future<String> createBackupRecoveryKey() {
+    return _backupCipher().createRecoveryKeyIfMissing();
+  }
+
   BackupCipher _backupCipher() {
     final scope = _ref.read(accountStorageScopeProvider);
     return BackupCipher(

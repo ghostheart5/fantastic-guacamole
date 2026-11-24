@@ -58,4 +58,38 @@ void main() {
     expect(store.read()!.revision, 2);
     expect(store.read()!.backedUpAt, isNull);
   });
+
+  test('clearing forgets only this account record', () async {
+    final SharedPrefsStorage storage = await prefs();
+    final CloudBackupStatusStore a = CloudBackupStatusStore(
+      scoped(storage, 'account-a'),
+    );
+    final CloudBackupStatusStore b = CloudBackupStatusStore(
+      scoped(storage, 'account-b'),
+    );
+    await a.write(const CloudBackupStatus(revision: 3));
+    await b.write(const CloudBackupStatus(revision: 5));
+
+    await a.clear();
+
+    expect(a.read(), isNull);
+    expect(b.read()!.revision, 5);
+  });
+
+  test('the recovery key confirmation is remembered per account', () async {
+    final SharedPrefsStorage storage = await prefs();
+    final AccountScopedSharedPrefsStorage accountPrefs = scoped(
+      storage,
+      'account-a',
+    );
+    final RecoveryKeySavedStore a = RecoveryKeySavedStore(accountPrefs);
+    expect(a.read(), isFalse);
+
+    await accountPrefs.setString(RecoveryKeySavedStore.storageKey, 'yes');
+    expect(a.read(), isFalse, reason: 'a non-boolean value is not a "yes"');
+
+    await a.markSaved();
+    expect(a.read(), isTrue);
+    expect(RecoveryKeySavedStore(scoped(storage, 'account-b')).read(), isFalse);
+  });
 }
