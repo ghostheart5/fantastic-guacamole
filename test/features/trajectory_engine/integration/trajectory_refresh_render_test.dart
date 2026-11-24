@@ -192,6 +192,42 @@ Future<void> _chooseDelay(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('time range copy says it changes certainty, not the projection', (
+    tester,
+  ) async {
+    await _open(tester);
+    final texts = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((t) => t.data ?? t.textSpan?.toPlainText() ?? '')
+        .toList();
+    expect(texts.any((t) => t.contains('across the next')), isFalse);
+    expect(texts.any((t) => t.contains('active commitment')), isTrue);
+
+    await tester.tap(find.text('How this helps you'));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.textContaining('not the projected numbers'), findsOneWidget);
+    expect(
+      find.textContaining('and a time range (7, 30 or 90 days) to see'),
+      findsNothing,
+    );
+
+    final title = _ready().comparison!.outcomes.first.intervention.title;
+    await tester.scrollUntilVisible(
+      find.text(title).first.hitTestable(),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text(title).first.hitTestable());
+    await tester.pump(const Duration(seconds: 1));
+    await tester.scrollUntilVisible(
+      find.textContaining('This path projects').first,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.textContaining('Over 7 days'), findsNothing);
+    expect(find.textContaining('range only changes how wide'), findsWidgets);
+  });
+
   testWidgets(
     'forecast review opens actual Schedule and Back retains Insights preview',
     (tester) async {

@@ -207,8 +207,8 @@ class _TrajectoryEngineScreenState
                           ),
                           journeyText(
                             context,
-                            'Pick a path and a time range (7, 30 or 90 days) to see how much you might get done and how much pressure you might feel. \u201cRecommended adjustment\u201d marks the path that looks best right now.',
-                            'Elige un camino y un periodo (7, 30 o 90 días) para ver cuánto podrías lograr y cuánta presión podrías sentir. \u201cAjuste recomendado\u201d marca el camino que mejor se ve ahora.',
+                            'Pick a path to see how much you might get done and how much pressure you might feel. The time range (7, 30 or 90 days) changes how wide the uncertainty is, not the projected numbers: further ahead means less certain.\u201cRecommended adjustment\u201d marks the path that looks best right now.',
+                            'Elige un camino para ver cuánto podrías lograr y cuánta presión podrías sentir. El periodo (7, 30 o 90 días) cambia lo amplia que es la incertidumbre, no los números proyectados: cuanto más lejos, menos seguro.\u201cAjuste recomendado\u201d marca el camino que mejor se ve ahora.',
                           ),
                           journeyText(
                             context,

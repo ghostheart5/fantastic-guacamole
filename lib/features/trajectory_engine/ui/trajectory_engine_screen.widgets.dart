@@ -489,12 +489,14 @@ String _conciseOutcomeSummary({
     final String spanishPressure = pressureDelta == 0
         ? 'la presión estable'
         : 'la presión ${pressureDelta > 0 ? 'subiendo' : 'bajando'} ${pressureDelta.abs()} puntos';
-    return 'Durante ${outcome.intervention.horizon.inDays} días, este camino proyecta '
-        '$spanishMomentum y $spanishPressure. Abre el informe completo para revisar '
+    return 'Este camino proyecta $spanishMomentum y $spanishPressure. '
+        'El periodo de ${outcome.intervention.horizon.inDays} días solo cambia '
+        'lo amplia que es la incertidumbre. Abre el informe completo para revisar '
         'la incertidumbre y los datos de apoyo.';
   }
-  return 'Over ${outcome.intervention.horizon.inDays} days, this path projects '
-      '$momentumChange and $pressureChange. Open the full report for uncertainty '
+  return 'This path projects $momentumChange and $pressureChange. '
+      'The ${outcome.intervention.horizon.inDays}-day range only changes how wide '
+      'the uncertainty is. Open the full report for uncertainty '
       'and supporting evidence.';
 }
 

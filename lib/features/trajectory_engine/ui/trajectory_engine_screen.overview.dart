@@ -67,8 +67,8 @@ class _TrajectoryOverviewCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       isSpanish
-                          ? '${baseline.tasks.length} ${baseline.tasks.length == 1 ? 'compromiso activo' : 'compromisos activos'} durante los próximos $horizonDays días.'
-                          : '${baseline.tasks.length} active commitment${baseline.tasks.length == 1 ? '' : 's'} across the next $horizonDays days.',
+                          ? '${baseline.tasks.length} ${baseline.tasks.length == 1 ? 'compromiso activo' : 'compromisos activos'} en tu plan ahora.'
+                          : '${baseline.tasks.length} active commitment${baseline.tasks.length == 1 ? '' : 's'} in your plan right now.',
                       style: const TextStyle(
                         color: Color(0xFFD8E2FF),
                         fontSize: 12,
