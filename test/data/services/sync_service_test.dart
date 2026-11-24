@@ -1445,6 +1445,90 @@ void main() {
       );
       expect(await storedKey(originalKeys), original);
     });
+
+    test(
+      'a backup from a newer app version is reported as such, not as damaged',
+      () async {
+        gateway.fullBackup = await originalCipher
+            .encryptPayload(<String, dynamic>{
+              ..._fullCloudBackup(tasks: const <Map<String, dynamic>>[]),
+              'version': '7.0.0',
+            });
+        expect(
+          await serviceWith(originalKeys).checkCloudBackupKey(),
+          CloudBackupKeyCheck.newerVersion,
+        );
+        final SecureStore replacementKeys = SecureStore(
+          backend: InMemorySecureStoreBackend(),
+        );
+        expect(
+          await serviceWith(
+            replacementKeys,
+          ).importRecoveryKey((await storedKey(originalKeys))!),
+          RecoveryKeyImportOutcome.newerVersion,
+        );
+        expect(await storedKey(replacementKeys), isNull);
+
+        // A newer encryption format cannot be opened here at all.
+        gateway.fullBackup = <String, dynamic>{
+          'format': 'chronospark_backup_aes256_gcm_v3',
+          'iv': 'AAAA',
+          'ciphertext': 'AAAA',
+        };
+        expect(
+          await serviceWith(originalKeys).checkCloudBackupKey(),
+          CloudBackupKeyCheck.newerVersion,
+        );
+        // Content that no version could have written is still malformed.
+        gateway.fullBackup = <String, dynamic>{'unexpected': true};
+        expect(
+          await serviceWith(originalKeys).checkCloudBackupKey(),
+          CloudBackupKeyCheck.malformed,
+        );
+      },
+    );
+
+    test(
+      'a row the gateway cannot parse is reported as not checkable',
+      () async {
+        gateway.fullReadOverride = const CloudBackupReadResult.malformed();
+        expect(
+          await serviceWith(originalKeys).checkCloudBackupKey(),
+          CloudBackupKeyCheck.unavailable,
+        );
+      },
+    );
+
+    test('finds whether an encrypted cloud backup exists, read-only', () async {
+      final SecureStore noKeys = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      final SyncService service = serviceWith(noKeys);
+      expect(
+        await service.findCloudBackup(),
+        CloudBackupPresence.encryptedBackup,
+      );
+      gateway.fullBackup = <String, dynamic>{
+        'format': 'chronospark_backup_aes256_gcm_v3',
+        'iv': 'AAAA',
+        'ciphertext': 'AAAA',
+      };
+      expect(
+        await service.findCloudBackup(),
+        CloudBackupPresence.encryptedBackup,
+      );
+      gateway.fullBackup = null;
+      expect(
+        await service.findCloudBackup(),
+        CloudBackupPresence.noEncryptedBackup,
+      );
+      gateway.fullReadOverride = const CloudBackupReadResult.unavailable();
+      expect(await service.findCloudBackup(), CloudBackupPresence.unknown);
+      gateway.fullReadOverride = const CloudBackupReadResult.malformed();
+      expect(await service.findCloudBackup(), CloudBackupPresence.unknown);
+      expect(await storedKey(noKeys), isNull);
+      expect(gateway.uploadBackupCalls, 0);
+    });
   });
 
   group('discarding a cloud backup this device cannot read', () {
@@ -1551,6 +1635,45 @@ void main() {
         CloudBackupDiscardOutcome.nothingToDiscard,
       );
       expect(gateway.deleteCalls, 0);
+    });
+
+    test('a backup made by a newer app version is never discarded', () async {
+      // Readable by this device's key, but a version this build does not know.
+      final String? device = await BackupCipher(
+        deviceKeys,
+      ).loadExistingRecoveryKey();
+      expect(device, deviceKey);
+      gateway.fullBackup = await BackupCipher(deviceKeys)
+          .encryptPayload(<String, dynamic>{
+            ..._fullCloudBackup(tasks: const <Map<String, dynamic>>[]),
+            'version': '7.0.0',
+          });
+      expect(
+        await serviceWith(deviceKeys).discardUnreadableCloudBackup(),
+        CloudBackupDiscardOutcome.newerVersion,
+      );
+      // The same on the device whose key made it.
+      gateway.fullBackup = await BackupCipher(originalKeys)
+          .encryptPayload(<String, dynamic>{
+            ..._fullCloudBackup(tasks: const <Map<String, dynamic>>[]),
+            'version': '7.0.0',
+          });
+      expect(
+        await serviceWith(originalKeys).discardUnreadableCloudBackup(),
+        CloudBackupDiscardOutcome.newerVersion,
+      );
+      // A newer encryption format: nothing here can decide it is unreadable.
+      gateway.fullBackup = <String, dynamic>{
+        'format': 'chronospark_backup_aes256_gcm_v3',
+        'iv': 'AAAA',
+        'ciphertext': 'AAAA',
+      };
+      expect(
+        await serviceWith(deviceKeys).discardUnreadableCloudBackup(),
+        CloudBackupDiscardOutcome.newerVersion,
+      );
+      expect(gateway.deleteCalls, 0);
+      expect(gateway.fullBackup, isNotNull);
     });
   });
 }

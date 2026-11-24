@@ -89,6 +89,16 @@ class BackupCipher {
         payload['ciphertext'] is String;
   }
 
+  /// Whether [payload] is a backup envelope in a format this build does not
+  /// know, as a newer app version could write. It cannot be judged here.
+  bool hasUnknownFormat(Map<String, dynamic> payload) {
+    final Object? format = payload['format'];
+    return format is String &&
+        format.trim().isNotEmpty &&
+        format != _format &&
+        format != _legacyFormat;
+  }
+
   /// Decrypts [payload] with [recoveryKey] without reading or changing the
   /// key stored on this device. Throws when the key does not open it.
   Future<Map<String, dynamic>> decryptPayloadWithRecoveryKey(

@@ -117,6 +117,10 @@ enum CloudBackupKeyCheck {
   /// valid backup: it is damaged and cannot be restored.
   unreadable,
 
+  /// The backup was made by a newer app version (an unknown backup version or
+  /// encryption format). It is not damaged; this build cannot judge it.
+  newerVersion,
+
   /// There is no encrypted cloud backup to test the key against.
   noEncryptedCloudBackup,
 
@@ -149,6 +153,9 @@ enum RecoveryKeyImportOutcome {
   /// changed.
   backupUnreadable,
 
+  /// The backup was made by a newer app version. Nothing was changed.
+  newerVersion,
+
   /// The cloud backup could not be checked. Nothing was changed.
   cloudUnavailable,
 
@@ -175,6 +182,20 @@ enum CloudBackupDeleteStatus {
   ownerMismatch,
 }
 
+/// Whether the account has an encrypted cloud backup, found without any key.
+enum CloudBackupPresence {
+  /// An encrypted backup (or one in a newer format) exists. Only the key it
+  /// was made with can open it.
+  encryptedBackup,
+
+  /// No backup, or only one that needs no key (an older plaintext backup, or
+  /// content no key could open).
+  noEncryptedBackup,
+
+  /// The cloud could not be read, so nothing is known.
+  unknown,
+}
+
 /// A gateway that can delete the account's own cloud backup.
 abstract interface class CloudBackupDiscard {
   /// Deletes this account's cloud backup only while it is still at
@@ -190,6 +211,10 @@ enum CloudBackupDiscardOutcome {
 
   /// This device can read the cloud backup, so it was not deleted.
   readable,
+
+  /// The backup was made by a newer app version, so this build cannot tell
+  /// whether it is readable. Nothing was deleted.
+  newerVersion,
 
   /// There is no cloud backup to discard.
   nothingToDiscard,
@@ -907,11 +932,18 @@ class SyncService {
       case CloudBackupReadStatus.ownerMismatch:
         return CloudBackupKeyCheck.ownerMismatch;
       case CloudBackupReadStatus.malformed:
-        return CloudBackupKeyCheck.malformed;
+        // The row itself could not be parsed: nothing about the key or the
+        // backup is known, and it could not be discarded safely either.
+        return CloudBackupKeyCheck.unavailable;
     }
     final Map<String, dynamic> payload = read.payload!;
     if (cipher.isLegacyPlaintextBackup(payload)) {
-      return CloudBackupKeyCheck.noEncryptedCloudBackup;
+      return backup.hasUnsupportedVersion(payload)
+          ? CloudBackupKeyCheck.newerVersion
+          : CloudBackupKeyCheck.noEncryptedCloudBackup;
+    }
+    if (cipher.hasUnknownFormat(payload)) {
+      return CloudBackupKeyCheck.newerVersion;
     }
     if (!cipher.isEncryptedBackup(payload)) {
       return CloudBackupKeyCheck.malformed;
@@ -922,7 +954,11 @@ class SyncService {
     } on Object {
       return CloudBackupKeyCheck.doesNotMatch;
     }
-    // The key is right; a backup that then fails validation is damaged.
+    // The key is right. An unknown version inside was written by a newer
+    // app; any other validation failure means the backup is damaged.
+    if (backup.hasUnsupportedVersion(decrypted)) {
+      return CloudBackupKeyCheck.newerVersion;
+    }
     try {
       backup.validateFullBackup(decrypted);
       return CloudBackupKeyCheck.matches;
@@ -959,6 +995,8 @@ class SyncService {
         return RecoveryKeyImportOutcome.doesNotMatch;
       case CloudBackupKeyCheck.unreadable:
         return RecoveryKeyImportOutcome.backupUnreadable;
+      case CloudBackupKeyCheck.newerVersion:
+        return RecoveryKeyImportOutcome.newerVersion;
       case CloudBackupKeyCheck.ownerMismatch:
         return RecoveryKeyImportOutcome.ownerMismatch;
       case CloudBackupKeyCheck.accountChanged:
@@ -968,6 +1006,32 @@ class SyncService {
       case CloudBackupKeyCheck.noKeyOnDevice:
         return RecoveryKeyImportOutcome.cloudUnavailable;
     }
+  }
+
+  /// Read-only: whether the account already has an encrypted cloud backup,
+  /// without needing or touching any key. Used before creating a new key, which
+  /// could never open such a backup.
+  Future<CloudBackupPresence> findCloudBackup() async {
+    final BackupCipher? cipher = _cipher;
+    if (cipher == null || !_accountStillCurrent) {
+      return CloudBackupPresence.unknown;
+    }
+    final CloudBackupReadResult read = await gateway.downloadBackup();
+    if (!_accountStillCurrent) return CloudBackupPresence.unknown;
+    switch (read.status) {
+      case CloudBackupReadStatus.notFound:
+        return CloudBackupPresence.noEncryptedBackup;
+      case CloudBackupReadStatus.unavailable:
+      case CloudBackupReadStatus.malformed:
+      case CloudBackupReadStatus.ownerMismatch:
+        return CloudBackupPresence.unknown;
+      case CloudBackupReadStatus.found:
+        break;
+    }
+    final Map<String, dynamic> payload = read.payload!;
+    return cipher.isEncryptedBackup(payload) || cipher.hasUnknownFormat(payload)
+        ? CloudBackupPresence.encryptedBackup
+        : CloudBackupPresence.noEncryptedBackup;
   }
 
   /// Deletes the account's cloud backup so backup can start over, but only
@@ -1004,13 +1068,31 @@ class SyncService {
     if (revision == null || revision < 0) {
       return CloudBackupDiscardOutcome.unavailable;
     }
+    final Map<String, dynamic> payload = read.payload!;
+    // A newer app version's backup is never judged unreadable here.
+    if (cipher.hasUnknownFormat(payload)) {
+      return CloudBackupDiscardOutcome.newerVersion;
+    }
+    Map<String, dynamic>? opened;
     try {
       // decryptPayload also tries a key kept for rollback.
-      backup.validateFullBackup(await cipher.decryptPayload(read.payload!));
-      return CloudBackupDiscardOutcome.readable;
+      opened = await cipher.decryptPayload(payload);
     } on Object {
-      // Unreadable by this device: the only case that may be discarded.
+      opened = null;
     }
+    if (opened != null) {
+      if (backup.hasUnsupportedVersion(opened)) {
+        return CloudBackupDiscardOutcome.newerVersion;
+      }
+      try {
+        backup.validateFullBackup(opened);
+        return CloudBackupDiscardOutcome.readable;
+      } on Object {
+        // Opens but is damaged: may be discarded.
+      }
+    }
+    // Otherwise unreadable by this device: the only case that may be
+    // discarded.
     if (!_accountStillCurrent) return CloudBackupDiscardOutcome.accountChanged;
     final CloudBackupDeleteStatus deleted =
         await (activeGateway as CloudBackupDiscard).deleteBackup(

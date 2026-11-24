@@ -33,6 +33,7 @@ export 'package:fantastic_guacamole/data/services/sync_service.dart'
     show
         CloudBackupDiscardOutcome,
         CloudBackupKeyCheck,
+        CloudBackupPresence,
         RecoveryKeyImportOutcome;
 
 /// What the user should know about the full cloud backup after the last
@@ -314,6 +315,28 @@ final cloudBackupKeyStatusProvider = FutureProvider<CloudBackupKeyCheck?>((
 });
 
 final syncServiceProvider = Provider<SyncService?>((ref) {
+  final bool userEnabled =
+      ref.watch(cloudSyncPreferenceProvider).asData?.value ?? false;
+  return _buildSyncService(
+    ref,
+    cloudReachable: userEnabled,
+    recordBackups: true,
+  );
+});
+
+/// A service used only for read-only key checks while the user is turning
+/// Cloud Backup on: checking a saved key and looking for an existing backup
+/// before a new key is made. It reaches the account's own cloud backup
+/// whether or not Cloud Backup is on yet, and is never used to upload.
+final cloudBackupKeyCheckServiceProvider = Provider<SyncService?>(
+  (ref) => _buildSyncService(ref, cloudReachable: true, recordBackups: false),
+);
+
+SyncService? _buildSyncService(
+  Ref ref, {
+  required bool cloudReachable,
+  required bool recordBackups,
+}) {
   final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
     cloudBackupPreferencesProvider,
   );
@@ -321,8 +344,6 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
   final supabaseClient = ref.watch(supabaseClientProvider);
   final scope = ref.watch(accountStorageScopeProvider);
   final legacyOwnership = ref.watch(accountLegacyOwnershipProvider);
-  final bool userEnabled =
-      ref.watch(cloudSyncPreferenceProvider).asData?.value ?? false;
   return prefsAsync.whenOrNull(
     data: (SharedPrefsStorage prefs) {
       if (backup == null) return null;
@@ -336,20 +357,85 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
         backup: backup,
         gateway: Env.isMockMode
             ? LocalTestCloudBackupGateway(scopedPrefs)
-            : (Env.enableCloudSync && userEnabled && supabaseClient != null)
+            : (Env.enableCloudSync && cloudReachable && supabaseClient != null)
             ? SupabaseCasCloudBackupGateway(
                 client: supabaseClient,
                 expectedUserId: scope.isWritable ? scope.rawUserId ?? '' : '',
               )
             : const UnavailableCloudBackupGateway(),
         secureStore: ref.read(secureStoreProvider),
-        statusStore: ref.watch(cloudBackupStatusStoreProvider),
+        statusStore: recordBackups
+            ? ref.watch(cloudBackupStatusStoreProvider)
+            : null,
         expectedAccountId: scope.isWritable ? scope.rawUserId : null,
         currentAccountId: () => supabaseClient?.auth.currentUser?.id,
       );
     },
   );
-});
+}
+
+Future<SyncService?> _readyKeyCheckService(Ref ref) async {
+  final service = ref.read(cloudBackupKeyCheckServiceProvider);
+  if (service != null) return service;
+  final owner = AccountOperation.capture(ref);
+  await owner.wait(ref.read(cloudBackupPreferencesProvider.future));
+  return ref.read(cloudBackupKeyCheckServiceProvider);
+}
+
+/// Checks a recovery key saved elsewhere while Cloud Backup is still off, as
+/// part of turning it on. Installs it only when safe (see
+/// [SyncService.importRecoveryKey]) and records it as saved. Never changes
+/// the Cloud Backup setting: the caller turns it on only after this accepts.
+final recoveryKeyRestoreBeforeEnablingProvider =
+    Provider<Future<RecoveryKeyImportOutcome> Function(String)>(
+      (ref) => (String recoveryKey) async {
+        final owner = AccountOperation.capture(ref);
+        if (!owner.isCurrent) return RecoveryKeyImportOutcome.accountChanged;
+        if (!ref.read(cloudSyncCapabilityProvider)) {
+          return RecoveryKeyImportOutcome.cloudUnavailable;
+        }
+        final SyncService? service;
+        try {
+          service = await _readyKeyCheckService(ref);
+        } on StaleAccountOperation {
+          return RecoveryKeyImportOutcome.accountChanged;
+        }
+        if (!owner.isCurrent) return RecoveryKeyImportOutcome.accountChanged;
+        if (service == null) return RecoveryKeyImportOutcome.cloudUnavailable;
+        final RecoveryKeyImportOutcome outcome = await service
+            .importRecoveryKey(recoveryKey);
+        if (!owner.isCurrent) return RecoveryKeyImportOutcome.accountChanged;
+        if (outcome == RecoveryKeyImportOutcome.installed ||
+            outcome == RecoveryKeyImportOutcome.installedUnverified) {
+          await ref.read(recoveryKeySavedProvider.notifier).markSaved();
+        }
+        ref.invalidate(cloudBackupKeyStatusProvider);
+        return outcome;
+      },
+    );
+
+/// Read-only: whether the account already has an encrypted cloud backup.
+/// Asked before a new key is created, because a new key could never open it.
+final cloudBackupPresenceProvider =
+    Provider<Future<CloudBackupPresence> Function()>(
+      (ref) => () async {
+        final owner = AccountOperation.capture(ref);
+        if (!owner.isCurrent || !ref.read(cloudSyncCapabilityProvider)) {
+          return CloudBackupPresence.unknown;
+        }
+        final SyncService? service;
+        try {
+          service = await _readyKeyCheckService(ref);
+        } on StaleAccountOperation {
+          return CloudBackupPresence.unknown;
+        }
+        if (service == null || !owner.isCurrent) {
+          return CloudBackupPresence.unknown;
+        }
+        final CloudBackupPresence presence = await service.findCloudBackup();
+        return owner.isCurrent ? presence : CloudBackupPresence.unknown;
+      },
+    );
 
 /// Installs a pasted backup recovery key only after it is proven against the
 /// account's current cloud backup (see [SyncService.importRecoveryKey]). When

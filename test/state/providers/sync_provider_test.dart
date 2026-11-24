@@ -14,6 +14,7 @@ import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
@@ -292,10 +293,56 @@ void main() {
         ),
         cloudSyncCapabilityProvider.overrideWithValue(true),
         syncServiceProvider.overrideWithValue(service),
+        cloudBackupKeyCheckServiceProvider.overrideWithValue(service),
       ],
     );
     return container;
   }
+
+  test(
+    'a saved key is checked before Cloud Backup is on, and nothing turns it on',
+    () async {
+      final String key = base64Encode(List<int>.filled(32, 6));
+      final SecureStore keys = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      final SyncService service = SyncService(
+        backup: BackupService(
+          taskRepository: repository,
+          profileStorage: profileStorage,
+          prefs: prefs,
+        ),
+        gateway: gateway,
+        secureStore: keys,
+        expectedAccountId: 'test-user',
+        currentAccountId: () => 'test-user',
+        syncEnabled: true,
+        restoreEnabled: true,
+      );
+      final keysContainer = keyContainer(service, cloudBackupOn: false);
+
+      expect(
+        await keysContainer.read(cloudBackupPresenceProvider)(),
+        CloudBackupPresence.noEncryptedBackup,
+      );
+      expect(
+        await keysContainer.read(recoveryKeyRestoreBeforeEnablingProvider)(key),
+        RecoveryKeyImportOutcome.installedUnverified,
+      );
+      expect(await keysContainer.read(recoveryKeySavedProvider.future), isTrue);
+      expect(
+        await keysContainer.read(cloudSyncPreferenceProvider.future),
+        isFalse,
+      );
+      expect(gateway.uploadAttempts, 0);
+
+      gateway.readOverride = const CloudBackupReadResult.unavailable();
+      expect(
+        await keysContainer.read(cloudBackupPresenceProvider)(),
+        CloudBackupPresence.unknown,
+      );
+    },
+  );
 
   test(
     'restoring a key needs Cloud Backup on, and a restored key counts as saved',

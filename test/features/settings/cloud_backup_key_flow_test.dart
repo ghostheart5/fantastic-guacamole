@@ -26,6 +26,8 @@ void main() {
     bool keySaved = false,
     CloudBackupDiscardOutcome discardOutcome =
         CloudBackupDiscardOutcome.discarded,
+    CloudBackupPresence presence = CloudBackupPresence.noEncryptedBackup,
+    bool importThrows = false,
     _Calls? calls,
   }) {
     final _Calls record = calls ?? _Calls();
@@ -46,6 +48,21 @@ void main() {
         backupRecoveryKeyImportProvider.overrideWithValue((String key) async {
           record.imports.add(key);
           return importOutcome;
+        }),
+        recoveryKeyRestoreBeforeEnablingProvider.overrideWithValue((
+          String key,
+        ) async {
+          // Cloud Backup must still be off while the key is checked.
+          record.preferenceAtRestore.add(
+            record.preferenceWrites.isNotEmpty && record.preferenceWrites.last,
+          );
+          record.restores.add(key);
+          if (importThrows) throw StateError('secure storage failed');
+          return importOutcome;
+        }),
+        cloudBackupPresenceProvider.overrideWithValue(() async {
+          record.presenceChecks += 1;
+          return presence;
         }),
         cloudBackupKeyStatusProvider.overrideWith((Ref ref) async => keyStatus),
         cloudBackupDiscardProvider.overrideWithValue(() async {
@@ -167,11 +184,122 @@ void main() {
         expect(find.text(copy.noKeyTitle), findsOneWidget);
         expect(calls.createdKeys, 0);
         await tapText(tester, copy.createNewKey);
+        expect(calls.presenceChecks, 1);
         expect(calls.createdKeys, 1);
         await tapText(tester, copy.showKey);
         expect(find.text(deviceKey), findsOneWidget);
         await tapText(tester, copy.savedIt);
         expect(calls.preferenceWrites, <bool>[true]);
+      },
+    );
+
+    testWidgets(
+      'a new key is refused when the account already has an encrypted backup ($lang)',
+      (tester) async {
+        final calls = _Calls();
+        final container = containerFor(
+          calls: calls,
+          presence: CloudBackupPresence.encryptedBackup,
+        );
+        await mount(
+          tester,
+          container,
+          const CloudBackupToggle(available: true),
+          spanish: spanish,
+        );
+
+        await tester.tap(find.byType(Switch));
+        await tester.pumpAndSettle();
+        await tapText(tester, copy.createNewKey);
+        expect(calls.createdKeys, 0);
+        expect(find.text(copy.backupExistsTitle), findsOneWidget);
+        expect(find.text(copy.backupExistsBody), findsOneWidget);
+        // The only way forward is the saved key.
+        await tapText(tester, copy.useSavedKey);
+        expect(
+          find.byKey(const Key('backup-recovery-key-input')),
+          findsOneWidget,
+        );
+        await tapText(tester, cancel);
+        expect(calls.createdKeys, 0);
+        expect(calls.preferenceWrites, isEmpty);
+      },
+    );
+
+    testWidgets('no new key is made when the cloud cannot be checked ($lang)', (
+      tester,
+    ) async {
+      final calls = _Calls();
+      final container = containerFor(
+        calls: calls,
+        presence: CloudBackupPresence.unknown,
+      );
+      await mount(
+        tester,
+        container,
+        const CloudBackupToggle(available: true),
+        spanish: spanish,
+      );
+
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+      await tapText(tester, copy.createNewKey);
+      expect(calls.createdKeys, 0);
+      expect(find.text(copy.cannotCheckForBackup), findsOneWidget);
+      expect(calls.preferenceWrites, isEmpty);
+    });
+
+    testWidgets('a failing key check leaves Cloud Backup off ($lang)', (
+      tester,
+    ) async {
+      final calls = _Calls();
+      final container = containerFor(calls: calls, importThrows: true);
+      await mount(
+        tester,
+        container,
+        const CloudBackupToggle(available: true),
+        spanish: spanish,
+      );
+
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+      await tapText(tester, copy.useSavedKey);
+      await tester.enterText(
+        find.byKey(const Key('backup-recovery-key-input')),
+        deviceKey,
+      );
+      await tapText(tester, spanish ? 'Continuar' : 'Continue');
+      expect(calls.restores, <String>[deviceKey]);
+      expect(calls.preferenceWrites, isEmpty);
+      expect(
+        find.text(
+          copy.importOutcome(RecoveryKeyImportOutcome.cloudUnavailable),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'a backup from a newer app version is never offered for discard ($lang)',
+      (tester) async {
+        final statusCopy = CloudBackupKeyStatusCopy(isSpanish: spanish);
+        final container = containerFor(
+          existingKey: deviceKey,
+          keyStatus: CloudBackupKeyCheck.newerVersion,
+          keySaved: true,
+        );
+        await mount(
+          tester,
+          container,
+          const CloudBackupKeyStatus(),
+          spanish: spanish,
+        );
+        expect(
+          find.text(statusCopy.status(CloudBackupKeyCheck.newerVersion)),
+          findsOneWidget,
+        );
+        expect(find.text(discardCopy.actionTitle), findsNothing);
       },
     );
 
@@ -204,12 +332,13 @@ void main() {
           );
           await tapText(tester, spanish ? 'Continuar' : 'Continue');
 
-          expect(calls.imports, <String>[deviceKey]);
+          expect(calls.restores, <String>[deviceKey]);
+          // The key was checked with Cloud Backup still off, and it is
+          // turned on only after the key was accepted.
+          expect(calls.preferenceAtRestore, <bool>[false]);
+          expect(calls.imports, isEmpty);
           expect(calls.createdKeys, 0);
-          expect(
-            calls.preferenceWrites,
-            matches ? <bool>[true] : <bool>[true, false],
-          );
+          expect(calls.preferenceWrites, matches ? <bool>[true] : isEmpty);
           expect(
             find.text(
               copy.importOutcome(
@@ -391,6 +520,33 @@ void main() {
       es.status(CloudBackupKeyCheck.doesNotMatch),
       contains('no abre tu copia en la nube'),
     );
+    // A newer app's backup is never called damaged and never offers discard.
+    expect(
+      en.status(CloudBackupKeyCheck.newerVersion),
+      allOf(contains('newer version'), isNot(contains('damaged'))),
+    );
+    expect(
+      en.status(CloudBackupKeyCheck.newerVersion),
+      isNot(contains('discard')),
+    );
+    expect(
+      es.status(CloudBackupKeyCheck.newerVersion),
+      allOf(contains('versión más nueva'), isNot(contains('dañada'))),
+    );
+    const kEn = BackupRecoveryKeyCopy(isSpanish: false);
+    const kEs = BackupRecoveryKeyCopy(isSpanish: true);
+    expect(
+      kEn.importOutcome(RecoveryKeyImportOutcome.newerVersion),
+      allOf(contains('newer version'), contains('not changed')),
+    );
+    expect(
+      kEs.importOutcome(RecoveryKeyImportOutcome.newerVersion),
+      allOf(contains('versión más nueva'), contains('no se cambió')),
+    );
+    expect(kEn.backupExistsBody, contains('Use my saved key'));
+    expect(kEs.backupExistsBody, contains('Usar mi clave guardada'));
+    expect(kEn.cannotCheckForBackup, contains('online'));
+    expect(kEs.cannotCheckForBackup, contains('conexión'));
     expect(en.status(CloudBackupKeyCheck.unreadable), contains('damaged'));
     expect(es.status(CloudBackupKeyCheck.unreadable), contains('dañada'));
     // No key: nothing to confirm, so no "tap to save" note.
@@ -424,6 +580,9 @@ void main() {
 class _Calls {
   final List<bool> preferenceWrites = <bool>[];
   final List<String> imports = <String>[];
+  final List<String> restores = <String>[];
+  final List<bool> preferenceAtRestore = <bool>[];
+  int presenceChecks = 0;
   int createdKeys = 0;
   int discards = 0;
 }

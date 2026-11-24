@@ -667,8 +667,8 @@ enum _RecoveryKeyStepResult {
   cancelled,
 }
 
-/// Whether the account and sign-in session are still the ones a dialog flow
-/// started with.
+/// Whether the signed-in account is still the one a dialog flow started
+/// with.
 bool Function() _accountLease(WidgetRef ref) {
   final String? namespace = ref.read(accountStorageScopeProvider).v2Namespace;
   final int generation = ref.read(authSessionBoundaryProvider).generation;
@@ -680,9 +680,9 @@ bool Function() _accountLease(WidgetRef ref) {
 /// Makes saving the recovery key part of turning on Cloud Backup (and of a
 /// first full backup). Shows this device's key with a copy action and asks
 /// for an explicit "I have saved it". A device without a key either restores
-/// one saved elsewhere or, only when the user asks, creates a new one.
-/// With [turningOn], Cloud Backup is switched on only for the restore check
-/// and switched back off if the key is not accepted.
+/// one saved elsewhere or, only when the user asks and the account has no
+/// encrypted cloud backup, creates a new one. With [turningOn], Cloud Backup
+/// is switched on only at the end, after the key is saved or accepted.
 Future<_RecoveryKeyStepResult> _runRecoveryKeyStep(
   BuildContext context,
   WidgetRef ref, {
@@ -721,7 +721,57 @@ Future<_RecoveryKeyStepResult> _runRecoveryKeyStep(
     if (!context.mounted || choice == null || !sameAccount()) {
       return _RecoveryKeyStepResult.cancelled;
     }
-    if (choice == 'restore') {
+    if (choice == 'create') {
+      // A new key could never open a backup made with another key, so look
+      // first (read-only) and refuse when one exists or cannot be checked.
+      final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+      CloudBackupPresence presence;
+      try {
+        presence = await ref.read(cloudBackupPresenceProvider)();
+      } on Object {
+        presence = CloudBackupPresence.unknown;
+      }
+      if (!context.mounted || !sameAccount()) {
+        return _RecoveryKeyStepResult.cancelled;
+      }
+      if (presence == CloudBackupPresence.unknown) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(copy.cannotCheckForBackup)),
+        );
+        return _RecoveryKeyStepResult.cancelled;
+      }
+      if (presence == CloudBackupPresence.encryptedBackup) {
+        final bool useSaved =
+            await showDialog<bool>(
+              context: context,
+              builder: (BuildContext dialogContext) => AlertDialog(
+                scrollable: true,
+                title: Text(copy.backupExistsTitle),
+                content: Text(copy.backupExistsBody),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(false),
+                    child: Text(journeyText(context, 'Cancel', 'Cancelar')),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(true),
+                    child: Text(copy.useSavedKey),
+                  ),
+                ],
+              ),
+            ) ??
+            false;
+        if (!useSaved || !context.mounted || !sameAccount()) {
+          return _RecoveryKeyStepResult.cancelled;
+        }
+        return _restoreSavedKeyStep(
+          context,
+          ref,
+          turningOn: turningOn,
+          sameAccount: sameAccount,
+        );
+      }
+    } else {
       return _restoreSavedKeyStep(
         context,
         ref,
@@ -767,8 +817,9 @@ Future<_RecoveryKeyStepResult> _runRecoveryKeyStep(
   return _RecoveryKeyStepResult.saved;
 }
 
-/// Restores a key saved on another device. The key is asked for while Cloud
-/// Backup is still off, so nothing is backed up while the user fetches it.
+/// Restores a key saved on another device. The key is checked against the
+/// cloud backup without turning Cloud Backup on; it is turned on only after
+/// the key was accepted and recorded as saved. Any failure leaves it off.
 Future<_RecoveryKeyStepResult> _restoreSavedKeyStep(
   BuildContext context,
   WidgetRef ref, {
@@ -784,21 +835,21 @@ Future<_RecoveryKeyStepResult> _restoreSavedKeyStep(
   final CloudSyncPreferenceNotifier preference = ref.read(
     cloudSyncPreferenceProvider.notifier,
   );
-  // The key can only be checked against the cloud with Cloud Backup on.
-  if (turningOn) await preference.setEnabled(true);
-  final RecoveryKeyImportOutcome outcome = await ref.read(
-    backupRecoveryKeyImportProvider,
-  )(recoveryKey);
+  RecoveryKeyImportOutcome outcome;
+  try {
+    outcome = await ref.read(recoveryKeyRestoreBeforeEnablingProvider)(
+      recoveryKey,
+    );
+  } on Object {
+    outcome = RecoveryKeyImportOutcome.cloudUnavailable;
+  }
   final bool restored =
       outcome == RecoveryKeyImportOutcome.installed ||
       outcome == RecoveryKeyImportOutcome.installedUnverified;
-  if (turningOn && !restored && sameAccount()) {
-    await preference.setEnabled(false);
-  }
   messenger.showSnackBar(SnackBar(content: Text(copy.importOutcome(outcome))));
-  return restored
-      ? _RecoveryKeyStepResult.restored
-      : _RecoveryKeyStepResult.cancelled;
+  if (!restored || !sameAccount()) return _RecoveryKeyStepResult.cancelled;
+  if (turningOn) await preference.setEnabled(true);
+  return _RecoveryKeyStepResult.restored;
 }
 
 /// Before a full backup: true when the key is already confirmed as saved,
@@ -1135,6 +1186,21 @@ final class BackupRecoveryKeyCopy {
     'Axiomara primero comprueba la clave con tu copia en la nube. Se convierte en la clave de este dispositivo solo si abre la copia, o si aún no hay copia; en ese caso, tu clave actual se conserva como respaldo. Si no abre la copia, no cambia nada.',
   );
 
+  String get backupExistsTitle => _text(
+    'This account already has a cloud backup',
+    'Esta cuenta ya tiene una copia en la nube',
+  );
+
+  String get backupExistsBody => _text(
+    'Only the recovery key it was made with can open it, and a new key never could. Choose Use my saved key and paste the key you saved on the device that made it. No new key was created.',
+    'Solo la clave de recuperación con la que se hizo puede abrirla, y una clave nueva nunca podría. Elige Usar mi clave guardada y pega la clave que guardaste en el dispositivo que la hizo. No se creó ninguna clave nueva.',
+  );
+
+  String get cannotCheckForBackup => _text(
+    'Could not check whether this account already has a cloud backup, so no new key was created. Try again when you are online.',
+    'No se pudo comprobar si esta cuenta ya tiene una copia en la nube, así que no se creó ninguna clave nueva. Inténtalo de nuevo cuando tengas conexión.',
+  );
+
   String get checkKeyAction =>
       _text('Check and use key', 'Comprobar y usar clave');
 
@@ -1158,6 +1224,10 @@ final class BackupRecoveryKeyCopy {
     RecoveryKeyImportOutcome.backupUnreadable => _text(
       'This key opens your cloud backup, but the backup is damaged and cannot be restored. Your current key was not changed.',
       'Esta clave abre tu copia en la nube, pero la copia está dañada y no se puede restaurar. Tu clave actual no se cambió.',
+    ),
+    RecoveryKeyImportOutcome.newerVersion => _text(
+      'Your cloud backup was made by a newer version of Axiomara. Update the app on this device, then try again. Your current key was not changed.',
+      'Tu copia en la nube la hizo una versión más nueva de Axiomara. Actualiza la aplicación en este dispositivo y vuelve a intentarlo. Tu clave actual no se cambió.',
     ),
     RecoveryKeyImportOutcome.cloudUnavailable => _text(
       'Could not reach your cloud backup to check this key. Get online and try again. Your current key was not changed.',
@@ -1226,6 +1296,10 @@ final class CloudBackupKeyStatusCopy {
       CloudBackupKeyCheck.unreadable => _text(
         'This device\'s key opens your cloud backup, but the backup is damaged and cannot be restored. You can discard it and start over.',
         'La clave de este dispositivo abre tu copia en la nube, pero la copia está dañada y no se puede restaurar. Puedes descartarla y empezar de nuevo.',
+      ),
+      CloudBackupKeyCheck.newerVersion => _text(
+        'Your cloud backup was made by a newer version of Axiomara, so this device cannot read it yet. Update Axiomara on this device.',
+        'Tu copia en la nube la hizo una versión más nueva de Axiomara, así que este dispositivo aún no puede leerla. Actualiza Axiomara en este dispositivo.',
       ),
       CloudBackupKeyCheck.malformed => _text(
         'Your cloud backup could not be read. You can discard it and start over.',
@@ -1308,6 +1382,10 @@ final class CloudBackupDiscardCopy {
     CloudBackupDiscardOutcome.readable => _text(
       'This device can open the cloud backup now, so nothing was deleted.',
       'Este dispositivo ya puede abrir la copia en la nube, así que no se borró nada.',
+    ),
+    CloudBackupDiscardOutcome.newerVersion => _text(
+      'Your cloud backup was made by a newer version of Axiomara, so nothing was deleted. Update Axiomara on this device.',
+      'Tu copia en la nube la hizo una versión más nueva de Axiomara, así que no se borró nada. Actualiza Axiomara en este dispositivo.',
     ),
     CloudBackupDiscardOutcome.nothingToDiscard => _text(
       'There is no cloud backup to discard.',
