@@ -116,6 +116,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   Timer? _networkRetryDebounceTimer;
   final Set<int> _initializedTabIndexes = <int>{};
   bool _savingCurrentState = false;
+  // An Activity origin that already existed when this shell mounted belongs to
+  // an earlier shell (for example before sign-out) and must not be honoured.
+  bool _staleActivityOrigin = false;
   late final ProviderSubscription<_ReminderRecoveryOwner?>
   _reminderRecoverySubscription;
   _ReminderRecoveryOwner? _pendingReminderRecovery;
@@ -126,6 +129,14 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (ref.read(activityOriginProvider) != null) {
+      _staleActivityOrigin = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(activityOriginProvider.notifier).set(null);
+        _staleActivityOrigin = false;
+      });
+    }
     _systemScheduler = SystemScheduler()
       ..onSyncOfflineQueue = () {
         if (!mounted || !Env.enableCloudSync) {
@@ -250,7 +261,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   void didUpdateWidget(covariant NavigationShell oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (_isPrimaryView(oldWidget.initialView) &&
+    final bool oldWasActivityOverlay =
+        oldWidget.initialView == AppView.progression &&
+        _activityOriginIsPrimary;
+    if ((_isPrimaryView(oldWidget.initialView) || oldWasActivityOverlay) &&
         !_isPrimaryView(widget.initialView) &&
         _activityOverlayOrigin == null) {
       // The primary IndexedStack is removed while a secondary screen is open.
@@ -351,8 +365,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   /// Activity was opened any other way (or another view is showing).
   AppView? get _activityOverlayOrigin {
     if (widget.initialView != AppView.progression) return null;
+    return _activityOriginIsPrimary ? ref.read(activityOriginProvider) : null;
+  }
+
+  bool get _activityOriginIsPrimary {
     final AppView? origin = ref.read(activityOriginProvider);
-    return origin != null && _isPrimaryView(origin) ? origin : null;
+    return !_staleActivityOrigin && origin != null && _isPrimaryView(origin);
   }
 
   void _goToView(AppView view) {

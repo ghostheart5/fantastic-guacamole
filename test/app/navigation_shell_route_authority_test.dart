@@ -529,6 +529,70 @@ void main() {
     );
   }
 
+  testWidgets('a stale Activity origin from an unmounted shell is ignored', (
+    WidgetTester tester,
+  ) async {
+    final _RouteShellHarness first = await _pumpRouteShell(
+      tester,
+      initialLocation: RoutePaths.trajectoryEngine,
+      reuseShellState: true,
+      surfaceSize: const Size(360, 772),
+      forceOnline: true,
+      extraOverrides: _loadedProgression,
+    );
+    await tester.pump();
+    await tester.pump();
+    final Finder patterns = find.byKey(const Key('insights-patterns'));
+    await tester.ensureVisible(patterns);
+    await tester.tap(patterns);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    expect(
+      first.container.read(activityOriginProvider),
+      AppView.trajectoryEngine,
+    );
+
+    // Unmount the shell (as sign-out would) but keep the provider state, then
+    // enter Activity directly in a fresh router.
+    await tester.pumpWidget(const SizedBox.shrink());
+    final ProviderContainer kept = first.container;
+    final GoRouter router = GoRouter(
+      initialLocation: RoutePaths.progression,
+      routes: _sharedShellRoutes,
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: kept,
+        child: MaterialApp.router(
+          routerConfig: router,
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(ProgressionScreen), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('phone-bottom-navigation')),
+      findsNothing,
+    );
+    expect(kept.read(activityOriginProvider), isNull);
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump();
+    expect(router.routeInformationProvider.value.uri.path, RoutePaths.nexus);
+  });
+
   testWidgets('Activity without an origin keeps its old Back to Today', (
     WidgetTester tester,
   ) async {
