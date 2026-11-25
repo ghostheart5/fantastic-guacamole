@@ -111,8 +111,11 @@ class AssistantConversationRepository {
         sources: sources,
         // Chats stored by an older version have no marker. Their selection,
         // even an empty one, is kept as chosen: an empty one may have been
-        // an explicit "just this chat" and is never widened silently.
-        sourcesChosen: chosen as bool? ?? true,
+        // an explicit "just this chat" and is never widened silently. An
+        // older save or Clear never wrote revision 0, so revision 0 with no
+        // messages was written only to hold a Choose a step request: no choice.
+        sourcesChosen:
+            chosen as bool? ?? !(decoded['revision'] == 0 && messages.isEmpty),
         scopeExplained: explained == true,
         pendingRequests: view.pending,
         unreadablePendingRequests: view.unreadable,

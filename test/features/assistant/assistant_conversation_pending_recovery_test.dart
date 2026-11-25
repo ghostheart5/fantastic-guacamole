@@ -192,16 +192,12 @@ Future<void> _confirmPaidRequest(WidgetTester tester, String prompt) async {
     await tester.pump(const Duration(milliseconds: 50));
   }
   await tester.enterText(input, prompt);
-  await tester.tap(find.byTooltip('Send to AI'));
-  for (var attempt = 0; attempt < 30; attempt++) {
-    await tester.pump(const Duration(milliseconds: 100));
-    if (find.text('Review AI price').evaluate().isNotEmpty) {
-      await tester.tap(find.text('Review AI price'));
-    }
-    if (find.text('Get credit price').evaluate().isNotEmpty) break;
-  }
-  await _waitFor(tester, find.text('Get credit price'));
-  await tester.tap(find.text('Get credit price'));
+  // Tapping send confirms the price on the button; the first message shows
+  // the full preview, and the fixture's price (4) differs from the button's
+  // (5), so it is confirmed too.
+  await tester.tap(find.byKey(const Key('conversation-send')));
+  await _waitFor(tester, find.text('Send'));
+  await tester.tap(find.text('Send'));
   await _waitFor(tester, find.text('Use 4 credits'));
   await tester.tap(find.text('Use 4 credits'));
   // Let the confirmation dialog finish closing before anything else.
@@ -1016,16 +1012,9 @@ Future<void> _confirmPaidRequestSpanish(
     await tester.pump(const Duration(milliseconds: 50));
   }
   await tester.enterText(input, prompt);
-  await tester.tap(find.byTooltip('Enviar a IA'));
-  for (var attempt = 0; attempt < 30; attempt++) {
-    await tester.pump(const Duration(milliseconds: 100));
-    if (find.text('Revisar precio de IA').evaluate().isNotEmpty) {
-      await tester.tap(find.text('Revisar precio de IA'));
-    }
-    if (find.text('Consultar precio').evaluate().isNotEmpty) break;
-  }
-  await _waitFor(tester, find.text('Consultar precio'));
-  await tester.tap(find.text('Consultar precio'));
+  await tester.tap(find.byKey(const Key('conversation-send')));
+  await _waitFor(tester, find.text('Enviar'));
+  await tester.tap(find.text('Enviar'));
   await _waitFor(tester, find.text('Usar 4 créditos'));
   await tester.tap(find.text('Usar 4 créditos'));
   // Let the confirmation dialog finish closing before anything else.

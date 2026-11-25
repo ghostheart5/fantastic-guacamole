@@ -53,7 +53,7 @@ const _myPlan = Key('conversation-scope-my-plan');
 const _chatOnly = Key('conversation-scope-chat-only');
 const _notice = Key('conversation-scope-notice');
 const _noticeText =
-    'AI chat now uses your plan (tasks, goals and schedule) so replies fit your day. Before anything is sent you see exactly what goes. Choose Just this chat to send none of it.';
+    'AI chat now uses your plan (tasks, goals, milestones and schedule) so replies fit your day. See what is sent shows exactly what goes, and it opens by itself before your first message and whenever this choice changes. Choose Just this chat to send none of it.';
 
 ProviderContainer _setup(
   List<Map<String, dynamic>> sent,
@@ -171,22 +171,10 @@ bool _selected(WidgetTester tester, Key key) =>
 /// the information included. Asking for the price sends the packet once.
 Future<String> _reviewAndAskPrice(WidgetTester tester, String prompt) async {
   await tester.enterText(find.byKey(const Key('conversation-input')), prompt);
-  await tester.tap(find.byTooltip('Send to AI'));
-  await _waitFor(
-    tester,
-    find.byWidgetPredicate(
-      (widget) =>
-          widget is Text &&
-          (widget.data == 'Free on-device option' ||
-              widget.data == 'Review what AI will receive'),
-    ),
-  );
-  if (find.text('Review AI price').evaluate().isNotEmpty) {
-    await tester.tap(find.text('Review AI price'));
-  }
-  await _waitFor(tester, find.text('Get credit price'));
-  await tester.tap(find.text('Included app context'));
-  await tester.pump(const Duration(milliseconds: 300));
+  await tester.tap(find.byKey(const Key('conversation-send')));
+  // The first message opens the full preview by itself, records visible
+  // without another tap.
+  await _waitFor(tester, find.text('Review what AI will receive'));
   final preview = tester
       .widgetList<SelectableText>(
         find.descendant(
@@ -196,7 +184,7 @@ Future<String> _reviewAndAskPrice(WidgetTester tester, String prompt) async {
       )
       .map((widget) => widget.data ?? widget.textSpan!.toPlainText())
       .join('\n');
-  await tester.tap(find.text('Get credit price'));
+  await tester.tap(find.text('Send'));
   for (var i = 0; i < 10; i++) {
     await tester.pump(const Duration(milliseconds: 50));
   }
@@ -514,6 +502,12 @@ void main() {
       container.invalidate(accountStorageScopeProvider);
       await tester.pumpAndSettle();
       expect(find.text('Retry loading chat'), findsOneWidget);
+      // A chat that did not load claims no saved choice.
+      expect(
+        find.text('Planning sources: shown once the saved chat loads.'),
+        findsOneWidget,
+      );
+      expect(find.text('Saved planning sources: off.'), findsNothing);
       final privacy = find.text('Chat history & privacy');
       await tester.scrollUntilVisible(
         privacy,
@@ -584,7 +578,7 @@ void main() {
         expect(
           find.text(
             spanish
-                ? 'El chat con IA ahora usa tu plan (tareas, metas y agenda) para que las respuestas se ajusten a tu día. Antes de enviar algo verás exactamente qué se envía. Elige Solo esta conversación para no enviar nada de tu plan.'
+                ? 'El chat con IA ahora usa tu plan (tareas, metas, hitos y agenda) para que las respuestas se ajusten a tu día. Ver qué se envía muestra exactamente qué se envía, y se abre solo antes de tu primer mensaje y cada vez que cambia esta elección. Elige Solo esta conversación para no enviar nada de tu plan.'
                 : _noticeText,
           ),
           findsOneWidget,

@@ -648,6 +648,32 @@ void main() {
         );
       },
     );
+
+    test(
+      'a record an earlier build wrote only for a Choose a step request keeps My plan',
+      () async {
+        // Neither an earlier save nor an earlier Clear writes revision 0, so
+        // this record holds no Chat choice: only the planner request.
+        await writeRaw('a', {
+          'version': 1,
+          'revision': 0,
+          'messages': <Object?>[],
+          'sources': <String>[],
+          'pendingRequests': {
+            'planner': pendingFor(
+              ConversationSurface.planner,
+              'planner-1',
+            ).toJson(),
+          },
+        });
+        final loaded = await repository('a').load();
+        expect(loaded.sourcesChosen, isFalse);
+        expect(
+          loaded.pendingRequests[ConversationSurface.planner]?.requestId,
+          'planner-1',
+        );
+      },
+    );
   });
 }
 

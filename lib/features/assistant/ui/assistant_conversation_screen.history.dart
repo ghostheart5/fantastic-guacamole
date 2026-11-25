@@ -243,8 +243,13 @@ extension _StoredChat on _AssistantConversationScreenState {
       ),
       Text(
         // Only a choice the person made is called saved; the default is
-        // named as the default.
-        !_sourcesChosen && _sources.isNotEmpty
+        // named as the default; before the chat loads, nothing is claimed.
+        !_historyReady
+            ? copy(
+                'Planning sources: shown once the saved chat loads.',
+                'Fuentes de planificación: se muestran cuando se cargue la conversación guardada.',
+              )
+            : !_sourcesChosen && _sources.isNotEmpty
             ? copy(
                 'Planning sources: My plan (${_sources.map(_sourceLabel).join(', ')}), the default.',
                 'Fuentes de planificación: Mi plan (${_sources.map(_sourceLabel).join(', ')}), la opción predeterminada.',

@@ -1680,15 +1680,15 @@ void main() {
         expect(find.text('Permitir asistencia de IA externa'), findsNothing);
         final Finder explanation = find.text(
           spanish
-              ? 'Qué se envía: tu pregunta, hasta seis mensajes recientes de esta conversación y la información que se muestra en la vista previa antes de enviar.\n'
-                    'Quién lo recibe: Axiomara, para calcular el precio. Si confirmas el precio, Axiomara lo envía a Anthropic, el proveedor de IA, para obtener la respuesta.\n'
+              ? 'Qué se envía: tu pregunta, hasta seis mensajes recientes de esta conversación y la información que eliges encima del cuadro de mensaje. La vista previa completa de exactamente qué se envía está a un toque (Ver qué se envía); se abre sola antes de tu primer mensaje después de abrir la app y cada vez que cambias esa elección.\n'
+                    'Quién lo recibe: cuando tocas enviar, Axiomara lo recibe para comprobar el precio y luego lo envía a Anthropic, el proveedor de IA, para obtener la respuesta.\n'
                     'Cuánto tiempo se guarda: Anthropic normalmente lo conserva hasta 30 días.\n'
-                    'Cuánto cuesta: cada mensaje muestra su precio en créditos antes de enviarlo a Anthropic. No se cobra nada hasta que confirmes ese precio.\n'
+                    'Cuánto cuesta: el botón de enviar muestra el precio en créditos, por ejemplo Enviar · 5 créditos. Tocar enviar confirma ese precio. Si el precio comprobado es distinto, se te pregunta antes de que algo llegue a Anthropic y no se cobra nada si no lo confirmas.\n'
                     'También en Elegir un paso: donde se ofrece, el botón opcional Explicar este plan envía el plan que ves en pantalla a Axiomara para mostrarte su precio en créditos, y a Anthropic solo después de que confirmes ese precio.'
-              : 'What is sent: your question, up to six recent messages from this conversation, and the information shown in the preview before you send.\n'
-                    'Who receives it: Axiomara, to work out the price. If you confirm the price, Axiomara sends it to Anthropic, the AI provider, for a reply.\n'
+              : 'What is sent: your question, up to six recent messages from this conversation, and the information you choose above the message box. The full preview of exactly what is sent is one tap away (See what is sent); it opens by itself before your first message after the app opens and whenever that choice changes.\n'
+                    'Who receives it: when you tap send, Axiomara receives it to check the price, then sends it to Anthropic, the AI provider, for a reply.\n'
                     'How long it is kept: Anthropic normally keeps it for up to 30 days.\n'
-                    'What it costs: each message shows its price in credits before it is sent to Anthropic. Nothing is charged until you confirm that price.\n'
+                    'What it costs: the send button shows the price in credits, for example Send · 5 credits. Tapping send confirms that price. If the checked price is different, you are asked before anything reaches Anthropic, and nothing is charged unless you confirm it.\n'
                     'Also on Choose a step: where it is offered, the optional Explain this plan button sends the plan shown on screen to Axiomara to show you its price in credits, and to Anthropic only after you confirm that price.',
         );
         expect(explanation, findsOneWidget);

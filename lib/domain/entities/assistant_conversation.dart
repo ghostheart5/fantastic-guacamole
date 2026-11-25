@@ -4,6 +4,13 @@ import 'dart:math';
 
 enum ConversationSurface { planner, si }
 
+/// The price, in credits, of one AI chat message as the server prices it
+/// today: every request reaches MAX_CUSTOMER_CREDITS_PER_QUESTION in
+/// supabase/functions/_shared/ai_credit_quote.ts. The send button shows it,
+/// and tapping send confirms it. The signed quote is still compared with it;
+/// a different price is asked about before anything is charged.
+const conversationMessageCredits = 5;
+
 /// An immutable, reviewable request. Quote and execution serialize the same
 /// bytes even if the user edits records while the confirmation dialog is open.
 final class ConversationPacket {

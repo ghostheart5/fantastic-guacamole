@@ -1,10 +1,12 @@
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:flutter/material.dart';
 
 /// What turning on AI chat means, in plain words. Chat's consent sheet and the
-/// Settings switch show the same text. The facts match the per-request review
-/// in the conversation screen: the provider, retention and that every message
-/// shows its credit price before it reaches Anthropic or is charged.
+/// Settings switch show the same text. The facts match the conversation
+/// screen: the price is on the send button and tapping send confirms it, a
+/// different checked price is asked about first, and the full preview opens
+/// by itself the first time and whenever the selected information changes.
 class AiChatDisclosure {
   const AiChatDisclosure({required this.spanish});
 
@@ -15,13 +17,13 @@ class AiChatDisclosure {
   String get featureName => _copy('AI chat', 'Chat con IA');
 
   String get whatIsSent => _copy(
-    'What is sent: your question, up to six recent messages from this conversation, and the information shown in the preview before you send.',
-    'Qué se envía: tu pregunta, hasta seis mensajes recientes de esta conversación y la información que se muestra en la vista previa antes de enviar.',
+    'What is sent: your question, up to six recent messages from this conversation, and the information you choose above the message box. The full preview of exactly what is sent is one tap away (See what is sent); it opens by itself before your first message after the app opens and whenever that choice changes.',
+    'Qué se envía: tu pregunta, hasta seis mensajes recientes de esta conversación y la información que eliges encima del cuadro de mensaje. La vista previa completa de exactamente qué se envía está a un toque (Ver qué se envía); se abre sola antes de tu primer mensaje después de abrir la app y cada vez que cambias esa elección.',
   );
 
   String get toWhom => _copy(
-    'Who receives it: Axiomara, to work out the price. If you confirm the price, Axiomara sends it to Anthropic, the AI provider, for a reply.',
-    'Quién lo recibe: Axiomara, para calcular el precio. Si confirmas el precio, Axiomara lo envía a Anthropic, el proveedor de IA, para obtener la respuesta.',
+    'Who receives it: when you tap send, Axiomara receives it to check the price, then sends it to Anthropic, the AI provider, for a reply.',
+    'Quién lo recibe: cuando tocas enviar, Axiomara lo recibe para comprobar el precio y luego lo envía a Anthropic, el proveedor de IA, para obtener la respuesta.',
   );
 
   String get howLong => _copy(
@@ -29,11 +31,12 @@ class AiChatDisclosure {
     'Cuánto tiempo se guarda: Anthropic normalmente lo conserva hasta 30 días.',
   );
 
-  // The question goes to Axiomara to get the price, so the price is shown
-  // before anything reaches Anthropic, not before anything is sent.
+  // The price is on the send button. Tapping send confirms it and sends the
+  // question to Axiomara to check it; Anthropic receives it only at the shown
+  // price or after a different price is confirmed.
   String get cost => _copy(
-    'What it costs: each message shows its price in credits before it is sent to Anthropic. Nothing is charged until you confirm that price.',
-    'Cuánto cuesta: cada mensaje muestra su precio en créditos antes de enviarlo a Anthropic. No se cobra nada hasta que confirmes ese precio.',
+    'What it costs: the send button shows the price in credits, for example Send · $conversationMessageCredits credits. Tapping send confirms that price. If the checked price is different, you are asked before anything reaches Anthropic, and nothing is charged unless you confirm it.',
+    'Cuánto cuesta: el botón de enviar muestra el precio en créditos, por ejemplo Enviar · $conversationMessageCredits créditos. Tocar enviar confirma ese precio. Si el precio comprobado es distinto, se te pregunta antes de que algo llegue a Anthropic y no se cobra nada si no lo confirmas.',
   );
 
   // The same preference also allows Choose a step's optional plan

@@ -11,8 +11,8 @@ const _myPlanSources = <SIV2Source>{
 };
 
 /// The information Chat uses: a row of choices above the input and a one-time
-/// line explaining the default. Every request still shows exactly what it
-/// carries in the review before anything is sent.
+/// line explaining the default. The full preview of what a request carries
+/// opens by itself when this choice changes (see the send part).
 extension _ConversationScope on _AssistantConversationScreenState {
   /// The choice saved with the chat, or the plan when the person never chose.
   /// Call inside a rebuild.
@@ -70,8 +70,8 @@ extension _ConversationScope on _AssistantConversationScreenState {
       padding: const EdgeInsets.only(top: 8),
       child: Text(
         copy(
-          'AI chat now uses your plan (tasks, goals and schedule) so replies fit your day. Before anything is sent you see exactly what goes. Choose Just this chat to send none of it.',
-          'El chat con IA ahora usa tu plan (tareas, metas y agenda) para que las respuestas se ajusten a tu día. Antes de enviar algo verás exactamente qué se envía. Elige Solo esta conversación para no enviar nada de tu plan.',
+          'AI chat now uses your plan (tasks, goals, milestones and schedule) so replies fit your day. See what is sent shows exactly what goes, and it opens by itself before your first message and whenever this choice changes. Choose Just this chat to send none of it.',
+          'El chat con IA ahora usa tu plan (tareas, metas, hitos y agenda) para que las respuestas se ajusten a tu día. Ver qué se envía muestra exactamente qué se envía, y se abre solo antes de tu primer mensaje y cada vez que cambia esta elección. Elige Solo esta conversación para no enviar nada de tu plan.',
         ),
         style: const TextStyle(color: Colors.cyanAccent),
       ),

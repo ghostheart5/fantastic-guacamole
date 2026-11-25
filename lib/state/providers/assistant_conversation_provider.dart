@@ -319,6 +319,29 @@ final class ConversationExecutionRegistry {
   bool isRunning(String requestId) => _running[requestId]?.failed == false;
 }
 
+/// The information selection whose full preview the person has already
+/// accepted, per surface, for this account while the app runs. Sending with
+/// the same selection skips the automatic preview; a new app run, a new
+/// account or session, or a changed selection shows it again. Kept in memory
+/// only: nothing is stored.
+final conversationPreviewMemoryProvider = Provider<ConversationPreviewMemory>((
+  ref,
+) {
+  ref.watch(accountStorageScopeProvider.select((s) => s.v2Namespace));
+  ref.watch(authSessionBoundaryProvider.select((b) => b.generation));
+  return ConversationPreviewMemory();
+});
+
+final class ConversationPreviewMemory {
+  final _accepted = <ConversationSurface, String>{};
+
+  bool hasAccepted(ConversationSurface surface, String selection) =>
+      _accepted[surface] == selection;
+
+  void accept(ConversationSurface surface, String selection) =>
+      _accepted[surface] = selection;
+}
+
 final conversationPacketFactoryProvider = Provider<ConversationPacketFactory>(
   (ref) => ConversationPacketFactory(ref),
 );

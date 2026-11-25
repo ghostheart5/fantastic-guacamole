@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_history.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/ai_chat_consent.dart';
@@ -37,10 +38,7 @@ part 'assistant_conversation_screen.history.dart';
 part 'assistant_conversation_screen.options.dart';
 part 'assistant_conversation_screen.pending.dart';
 part 'assistant_conversation_screen.scope.dart';
-
-/// The conversational route is explicitly model-backed. Local tools remain an
-/// intentional user choice, never an invisible fallback for a failed request.
-enum _LocalRouteChoice { freeTools, aiPrice }
+part 'assistant_conversation_screen.send.dart';
 
 /// The artwork stays dark in both form modes. Only body text/list chrome gets
 /// contrast colors here; fields and dropdown menus keep the selected app theme.
@@ -115,6 +113,9 @@ class _AssistantConversationScreenState
   bool _sourcesChosen = false;
   bool _scopeExplained = false;
   bool _scopeNoticeVisible = false;
+  // The on-device suggestion for the current draft (see the send part).
+  bool _freeSuggested = false;
+  int _suggestionCheck = 0;
   bool _historyLoading = true;
   bool _historyReady = false;
   bool _historySaveFailed = false;
@@ -132,6 +133,7 @@ class _AssistantConversationScreenState
   @override
   void initState() {
     super.initState();
+    _input.addListener(_onDraftChanged);
     if (widget.surface == ConversationSurface.si) {
       _sources = <SIV2Source>{};
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -199,7 +201,9 @@ class _AssistantConversationScreenState
         }
       });
     }
-    _input.dispose();
+    _input
+      ..removeListener(_onDraftChanged)
+      ..dispose();
     _filter.dispose();
     _scenario.dispose();
     _scroll.dispose();
@@ -243,55 +247,23 @@ class _AssistantConversationScreenState
     }
   }
 
-  Future<_LocalRouteChoice?> _chooseFreeRoute() async {
-    try {
-      return await showDialog<_LocalRouteChoice>(
-        context: context,
-        builder: (ctx) {
-          _dialogContext = ctx;
-          _dialogRoute = ModalRoute.of(ctx);
-          return AlertDialog(
-            title: Text(copy('Free on-device option', 'Opción local gratis')),
-            content: Text(
-              copy(
-                'This looks like a question the on-device tools can handle. You can carry your draft there for free, or continue to review the AI credit price. Nothing has been sent or charged.',
-                'Parece una pregunta que las herramientas locales pueden atender. Puedes llevar allí tu borrador gratis o continuar para revisar el precio en créditos de IA. No se ha enviado ni cobrado nada.',
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(copy('Cancel', 'Cancelar')),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, _LocalRouteChoice.aiPrice),
-                child: Text(copy('Review AI price', 'Revisar precio de IA')),
-              ),
-              FilledButton(
-                onPressed: () =>
-                    Navigator.pop(ctx, _LocalRouteChoice.freeTools),
-                child: Text(copy('Use free tools', 'Usar herramientas gratis')),
-              ),
-            ],
-          );
-        },
-      );
-    } finally {
-      _dialogContext = null;
-      _dialogRoute = null;
-    }
-  }
-
-  Future<void> _send({bool retry = false}) async {
+  /// Tapping send confirms the price shown on the button. [showPreview]
+  /// opens the full preview even when this selection was already previewed.
+  Future<void> _send({bool retry = false, bool showPreview = false}) async {
     if (_busy) return;
     if (!retry && _input.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            copy(
-              'Type a question first, then tap send.',
-              'Escribe una pregunta primero y luego toca enviar.',
-            ),
+            showPreview
+                ? copy(
+                    'Type a question first to see exactly what would be sent with it.',
+                    'Escribe una pregunta primero para ver exactamente qué se enviaría con ella.',
+                  )
+                : copy(
+                    'Type a question first, then tap send.',
+                    'Escribe una pregunta primero y luego toca enviar.',
+                  ),
           ),
         ),
       );
@@ -337,48 +309,6 @@ class _AssistantConversationScreenState
     ConversationQuote? executing;
     final registry = ref.read(conversationExecutionRegistryProvider);
     try {
-      if (!retry) {
-        final scope = ref.read(accountStorageScopeProvider).v2Namespace;
-        final authGeneration = ref.read(authSessionBoundaryProvider).generation;
-        if (scope == null) {
-          throw const ConversationFailure('authentication_required');
-        }
-        final decision = await ref
-            .read(axiomaraRouterProvider)
-            .route(
-              accountScopeId: scope,
-              input: prompt,
-              externalAiAllowed: ref
-                  .read(personalizationProfileProvider)
-                  .externalAiAllowed,
-            );
-        if (!current() ||
-            ref.read(accountStorageScopeProvider).v2Namespace != scope ||
-            ref.read(authSessionBoundaryProvider).generation !=
-                authGeneration) {
-          return;
-        }
-        if (decision.route == AxiomaraRoute.local ||
-            decision.route == AxiomaraRoute.si) {
-          final choice = await _chooseFreeRoute();
-          if (!current() ||
-              ref.read(accountStorageScopeProvider).v2Namespace != scope ||
-              ref.read(authSessionBoundaryProvider).generation !=
-                  authGeneration) {
-            return;
-          }
-          if (choice == null) return;
-          if (choice == _LocalRouteChoice.freeTools) {
-            final handoff = widget.onLocalToolsWithDraft;
-            if (handoff == null) {
-              widget.onLocalTools();
-            } else {
-              handoff(prompt);
-            }
-            return;
-          }
-        }
-      }
       final service = ref.read(conversationServiceProvider);
       var quote = retry ? _pending : null;
       if (quote == null) {
@@ -411,31 +341,18 @@ class _AssistantConversationScreenState
           }
           return;
         }
-        final proceed = await _confirm(
-          title: copy(
-            'Review what AI will receive',
-            'Revisa lo que recibirá la IA',
-          ),
-          content: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                copy(
-                  'Your question, up to six recent messages, and the app context below go to Axiomara for a credit quote. If you confirm the price, they go to Anthropic for a response. Anthropic normally retains API content for up to 30 days. This does not save or change your tasks.',
-                  'Tu pregunta, hasta seis mensajes recientes y el contexto de abajo se envían a Axiomara para cotizar créditos. Si confirmas el precio, se envían a Anthropic para responder. Anthropic normalmente conserva el contenido de la API hasta 30 días. Esto no guarda ni modifica tus tareas.',
-                ),
-              ),
-              const SizedBox(height: 12),
-              SelectableText(prompt),
-              ExpansionTile(
-                title: Text(copy('Included app context', 'Contexto incluido')),
-                children: [SelectableText(_contextPreview(packet))],
-              ),
-            ],
-          ),
-          action: copy('Get credit price', 'Consultar precio'),
-        );
-        if (!current() || !proceed) return;
+        // The full preview opens by itself the first time and whenever the
+        // selected information changes; nothing is sent before it is
+        // accepted.
+        final previews = ref.read(conversationPreviewMemoryProvider);
+        final selection = _selectionKey(packet);
+        if (showPreview || !previews.hasAccepted(widget.surface, selection)) {
+          final proceed = await _reviewWhatIsSent(prompt, packet);
+          if (!current() || !proceed) return;
+          previews.accept(widget.surface, selection);
+        }
+        // Tapping send confirmed the price on the button. The signed quote
+        // is fetched now; a different price is asked about before charging.
         quote = await service
             .quote(packet)
             .timeout(
@@ -443,20 +360,10 @@ class _AssistantConversationScreenState
               onTimeout: () => throw const ConversationFailure('quote_timeout'),
             );
         if (!current()) return;
-        final accepted = await _confirm(
-          title: copy('Confirm AI request', 'Confirmar solicitud de IA'),
-          content: Text(
-            copy(
-              'This reply costs ${quote.credits} credits. Nothing will be scheduled or marked complete. Send this request?',
-              'Esta respuesta cuesta ${quote.credits} créditos. No se programará ni se marcará nada como completado. ¿Enviar esta solicitud?',
-            ),
-          ),
-          action: copy(
-            'Use ${quote.credits} credits',
-            'Usar ${quote.credits} créditos',
-          ),
-        );
-        if (!current() || !accepted) return;
+        if (quote.credits != conversationMessageCredits) {
+          final accepted = await _confirmChangedPrice(quote.credits);
+          if (!current() || !accepted) return;
+        }
         // Store the confirmed request before sending it, so its reply can be
         // collected if this screen closes. Without that, send nothing.
         final repository = ref.read(
@@ -626,8 +533,8 @@ class _AssistantConversationScreenState
         _operation++;
         _busy = false;
         _error = copy(
-          'Stopped waiting before a paid request was confirmed. Your question is retained.',
-          'Se detuvo la espera antes de confirmar una solicitud de pago. Tu pregunta se conserva.',
+          'Stopped before the request was sent for a reply. Nothing was charged. Your question is retained.',
+          'Se detuvo antes de enviar la solicitud para obtener una respuesta. No se cobró nada. Tu pregunta se conserva.',
         );
         return;
       }
@@ -1040,101 +947,105 @@ class _AssistantConversationScreenState
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: _scopeChips(enabled: enabled),
               ),
+            // A suggestion only: sending stays available either way.
+            if (consent && enabled && _freeSuggested) _freeSuggestion(),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: TextField(
-                      key: const Key('conversation-input'),
-                      controller: _input,
-                      enabled: enabled,
-                      readOnly: listening,
-                      minLines: 1,
-                      maxLines: 5,
-                      maxLength: 4000,
-                      decoration: InputDecoration(
-                        counterStyle: const TextStyle(color: Colors.white70),
-                        labelText: consent
-                            ? copy(
-                                'Your question or follow-up',
-                                'Tu pregunta o continuación',
-                              )
-                            : copy(
-                                'Turn on AI chat to type',
-                                'Activa el chat con IA para escribir',
-                              ),
-                        border: const OutlineInputBorder(),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          key: const Key('conversation-input'),
+                          controller: _input,
+                          enabled: enabled,
+                          readOnly: listening,
+                          minLines: 1,
+                          maxLines: 5,
+                          maxLength: 4000,
+                          decoration: InputDecoration(
+                            counterStyle: const TextStyle(
+                              color: Colors.white70,
+                            ),
+                            labelText: consent
+                                ? copy(
+                                    'Your question or follow-up',
+                                    'Tu pregunta o continuación',
+                                  )
+                                : copy(
+                                    'Turn on AI chat to type',
+                                    'Activa el chat con IA para escribir',
+                                  ),
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
                       ),
-                    ),
+                      if (ref.watch(voiceInputEnabledProvider)) ...[
+                        const SizedBox(width: 8),
+                        IconButton(
+                          color: Colors.cyanAccent,
+                          disabledColor: Colors.white38,
+                          tooltip: copy(
+                            listening
+                                ? 'Stop voice input'
+                                : 'Start voice input',
+                            listening
+                                ? 'Detener entrada de voz'
+                                : 'Iniciar entrada de voz',
+                          ),
+                          onPressed: !enabled && !listening
+                              ? null
+                              : () async {
+                                  if (listening) {
+                                    await ref
+                                        .read(voiceControllerProvider.notifier)
+                                        .stopListening();
+                                    return;
+                                  }
+                                  final VoiceController voiceController = ref
+                                      .read(voiceControllerProvider.notifier);
+                                  _dictationDraftBase = _input.text;
+                                  final int revision =
+                                      voiceController.lifecycleRevision;
+                                  final int activation = _voiceActivation;
+                                  await startVoiceInputWithConsent(
+                                    context: context,
+                                    onStart: () =>
+                                        voiceController.startListening(
+                                          localeId: Localizations.localeOf(
+                                            context,
+                                          ).toLanguageTag(),
+                                        ),
+                                    consentStore: ref.read(
+                                      voiceInputConsentStoreProvider,
+                                    ),
+                                    isCurrentRequest: () =>
+                                        mounted &&
+                                        widget.isActive &&
+                                        activation == _voiceActivation &&
+                                        voiceController.lifecycleRevision ==
+                                            revision,
+                                  );
+                                },
+                          icon: Icon(
+                            listening
+                                ? Icons.mic_rounded
+                                : Icons.mic_none_rounded,
+                          ),
+                        ),
+                      ],
+                      if (!consent) ...[
+                        const SizedBox(width: 8),
+                        _offSendButton(listening: listening),
+                      ],
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  if (ref.watch(voiceInputEnabledProvider)) ...[
-                    IconButton(
-                      color: Colors.cyanAccent,
-                      disabledColor: Colors.white38,
-                      tooltip: copy(
-                        listening ? 'Stop voice input' : 'Start voice input',
-                        listening
-                            ? 'Detener entrada de voz'
-                            : 'Iniciar entrada de voz',
-                      ),
-                      onPressed: !enabled && !listening
-                          ? null
-                          : () async {
-                              if (listening) {
-                                await ref
-                                    .read(voiceControllerProvider.notifier)
-                                    .stopListening();
-                                return;
-                              }
-                              final VoiceController voiceController = ref.read(
-                                voiceControllerProvider.notifier,
-                              );
-                              _dictationDraftBase = _input.text;
-                              final int revision =
-                                  voiceController.lifecycleRevision;
-                              final int activation = _voiceActivation;
-                              await startVoiceInputWithConsent(
-                                context: context,
-                                onStart: () => voiceController.startListening(
-                                  localeId: Localizations.localeOf(
-                                    context,
-                                  ).toLanguageTag(),
-                                ),
-                                consentStore: ref.read(
-                                  voiceInputConsentStoreProvider,
-                                ),
-                                isCurrentRequest: () =>
-                                    mounted &&
-                                    widget.isActive &&
-                                    activation == _voiceActivation &&
-                                    voiceController.lifecycleRevision ==
-                                        revision,
-                              );
-                            },
-                      icon: Icon(
-                        listening ? Icons.mic_rounded : Icons.mic_none_rounded,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                  IconButton(
-                    color: consent ? Colors.cyanAccent : Colors.white38,
-                    disabledColor: Colors.white38,
-                    tooltip: copy('Send to AI', 'Enviar a IA'),
-                    // With AI chat off, the button stays tappable and offers
-                    // the consent sheet rather than silently doing nothing.
-                    onPressed: listening
-                        ? null
-                        : enabled
-                        ? () => _send()
-                        : !consent && widget.isActive && !_busy
-                        ? _turnOnAiChat
-                        : null,
-                    icon: const Icon(Icons.send_rounded),
-                  ),
+                  if (consent)
+                    _sendControls(enabled: enabled, listening: listening),
                 ],
               ),
             ),

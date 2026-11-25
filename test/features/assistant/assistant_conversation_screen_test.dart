@@ -415,12 +415,13 @@ void main() {
     final input = find.byKey(const Key('conversation-input'));
     expect(tester.widget<TextField>(input).enabled, isFalse);
     final send = tester.widget<IconButton>(
-      find.byWidgetPredicate(
-        (widget) => widget is IconButton && widget.tooltip == 'Send to AI',
-      ),
+      find.byKey(const Key('conversation-send')),
     );
     expect(send.onPressed, isNotNull);
-    await tester.tap(find.byTooltip('Send to AI'));
+    // Nothing can be sent yet, so no price and no preview are offered.
+    expect(find.text('Send · 5 credits'), findsNothing);
+    expect(find.byKey(const Key('conversation-preview')), findsNothing);
+    await tester.tap(find.byKey(const Key('conversation-send')));
     await tester.pumpAndSettle();
     expect(find.text('Turn on AI chat?'), findsOneWidget);
     await tester.tap(find.byKey(const Key('ai-chat-consent-decline')));
@@ -502,17 +503,17 @@ void main() {
         for (final line
             in es
                 ? [
-                    'Qué se envía: tu pregunta, hasta seis mensajes recientes de esta conversación y la información que se muestra en la vista previa antes de enviar.',
-                    'Quién lo recibe: Axiomara, para calcular el precio. Si confirmas el precio, Axiomara lo envía a Anthropic, el proveedor de IA, para obtener la respuesta.',
+                    'Qué se envía: tu pregunta, hasta seis mensajes recientes de esta conversación y la información que eliges encima del cuadro de mensaje. La vista previa completa de exactamente qué se envía está a un toque (Ver qué se envía); se abre sola antes de tu primer mensaje después de abrir la app y cada vez que cambias esa elección.',
+                    'Quién lo recibe: cuando tocas enviar, Axiomara lo recibe para comprobar el precio y luego lo envía a Anthropic, el proveedor de IA, para obtener la respuesta.',
                     'Cuánto tiempo se guarda: Anthropic normalmente lo conserva hasta 30 días.',
-                    'Cuánto cuesta: cada mensaje muestra su precio en créditos antes de enviarlo a Anthropic. No se cobra nada hasta que confirmes ese precio.',
+                    'Cuánto cuesta: el botón de enviar muestra el precio en créditos, por ejemplo Enviar · 5 créditos. Tocar enviar confirma ese precio. Si el precio comprobado es distinto, se te pregunta antes de que algo llegue a Anthropic y no se cobra nada si no lo confirmas.',
                     'También en Elegir un paso: donde se ofrece, el botón opcional Explicar este plan envía el plan que ves en pantalla a Axiomara para mostrarte su precio en créditos, y a Anthropic solo después de que confirmes ese precio.',
                   ]
                 : [
-                    'What is sent: your question, up to six recent messages from this conversation, and the information shown in the preview before you send.',
-                    'Who receives it: Axiomara, to work out the price. If you confirm the price, Axiomara sends it to Anthropic, the AI provider, for a reply.',
+                    'What is sent: your question, up to six recent messages from this conversation, and the information you choose above the message box. The full preview of exactly what is sent is one tap away (See what is sent); it opens by itself before your first message after the app opens and whenever that choice changes.',
+                    'Who receives it: when you tap send, Axiomara receives it to check the price, then sends it to Anthropic, the AI provider, for a reply.',
                     'How long it is kept: Anthropic normally keeps it for up to 30 days.',
-                    'What it costs: each message shows its price in credits before it is sent to Anthropic. Nothing is charged until you confirm that price.',
+                    'What it costs: the send button shows the price in credits, for example Send · 5 credits. Tapping send confirms that price. If the checked price is different, you are asked before anything reaches Anthropic, and nothing is charged unless you confirm it.',
                     'Also on Choose a step: where it is offered, the optional Explain this plan button sends the plan shown on screen to Axiomara to show you its price in credits, and to Anthropic only after you confirm that price.',
                   ]) {
           expect(find.text(line), findsOneWidget);
@@ -765,14 +766,10 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find
-            .byTooltip(language == 'es' ? 'Enviar a IA' : 'Send to AI')
-            .hitTestable(),
+        find.byKey(const Key('conversation-send')).hitTestable(),
         findsOneWidget,
       );
-      await tester.tap(
-        find.byTooltip(language == 'es' ? 'Enviar a IA' : 'Send to AI'),
-      );
+      await tester.tap(find.byKey(const Key('conversation-send')));
       await tester.pumpAndSettle();
       expect(
         find.text(
@@ -808,7 +805,7 @@ void main() {
     });
     await pumpConversationScreen(tester, container);
     expect(find.byKey(const Key('conversation-ai-off-notice')), findsNothing);
-    await tester.tap(find.byTooltip('Send to AI'));
+    await tester.tap(find.byKey(const Key('conversation-send')));
     await tester.pump();
     expect(find.text('Type a question first, then tap send.'), findsOneWidget);
     expect(requests, 0);
@@ -887,14 +884,13 @@ void main() {
           (widget) => widget is IconButton && widget.tooltip == tooltip,
         ),
       );
-      expect(button('Send to AI').onPressed, isNull);
+      ButtonStyleButton send() => tester.widget<ButtonStyleButton>(
+        find.byKey(const Key('conversation-send')),
+      );
+      expect(send().onPressed, isNull);
       expect(button('Start voice input').onPressed, isNull);
       expect(find.text('Loading saved chat…'), findsOneWidget);
-      await tester.tap(
-        find.byWidgetPredicate(
-          (widget) => widget is IconButton && widget.tooltip == 'Send to AI',
-        ),
-      );
+      await tester.tap(find.byKey(const Key('conversation-send')));
       await tester.tap(
         find.byWidgetPredicate(
           (widget) =>
@@ -905,7 +901,7 @@ void main() {
       expect(voice.starts, 0);
       backend.release.complete();
       await waitForChatReady(tester);
-      expect(button('Send to AI').onPressed, isNotNull);
+      expect(send().onPressed, isNotNull);
       expect(button('Start voice input').onPressed, isNotNull);
       await enterChatText(
         tester,
@@ -1286,19 +1282,12 @@ void main() {
         );
         await tester.pumpAndSettle();
         await enterChatText(tester, 'Suggest a quiet break after work.');
-        await tester.tap(find.byTooltip('Send to AI'));
-        for (
-          var i = 0;
-          i < 20 && find.text('Get credit price').evaluate().isEmpty;
-          i++
-        ) {
+        await tester.tap(find.byKey(const Key('conversation-send')));
+        for (var i = 0; i < 20 && find.text('Send').evaluate().isEmpty; i++) {
           await tester.pump(const Duration(milliseconds: 100));
-          if (find.text('Review AI price').evaluate().isNotEmpty) {
-            await tester.tap(find.text('Review AI price'));
-          }
         }
-        expect(find.text('Get credit price'), findsOneWidget);
-        await tester.tap(find.text('Get credit price'));
+        expect(find.text('Send'), findsOneWidget);
+        await tester.tap(find.text('Send'));
         for (
           var i = 0;
           i < 20 && find.text('Use 4 credits').evaluate().isEmpty;
@@ -1901,30 +1890,11 @@ void main() {
       final input = find.byKey(const Key('conversation-input'));
       await tester.ensureVisible(input);
       await enterChatText(tester, '/tasks explain a fictional example');
-      final send = find.byTooltip('Send to AI');
+      final send = find.byKey(const Key('conversation-send'));
       await tester.ensureVisible(send);
       await tester.tap(send);
-      // Routing may offer local help before the disclosure; neither choice
-      // should override the explicit chat-only source selection.
-      await waitFor(
-        tester,
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is Text &&
-              (widget.data == 'Free on-device option' ||
-                  widget.data == 'Review what AI will receive'),
-        ),
-      );
-      if (find.text('Review AI price').evaluate().isNotEmpty) {
-        await tester.tap(find.text('Review AI price'));
-      }
-      await waitFor(tester, find.text('Get credit price'));
-      final includedContext = find.text('Included app context');
-      await tester.ensureVisible(includedContext);
-      await tester.tap(includedContext);
-      // The focused prompt can keep its cursor animation alive. Wait for
-      // disclosure content rather than waiting for every animation to stop.
-      await tester.pump(const Duration(milliseconds: 300));
+      // The first message opens the full preview, context shown directly.
+      await waitFor(tester, find.text('Review what AI will receive'));
       await waitFor(
         tester,
         find.byWidgetPredicate(
@@ -2011,7 +1981,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('local question offers free tools and preserves the draft', (
+  testWidgets('local question suggests free tools and preserves the draft', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(412, 915));
@@ -2041,19 +2011,19 @@ void main() {
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, 'What are my tasks?');
-    await tester.tap(find.byTooltip('Send to AI'));
-    await waitFor(tester, find.text('Use free tools'));
+    // A suggestion above the input, not a dialog: nothing is sent to show it.
+    await waitFor(tester, find.text('Answer free on this device'));
     expect(transportCalls, 0);
-    expect(find.text('Get credit price'), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
 
-    await tester.tap(find.text('Use free tools'));
+    await tester.tap(find.text('Answer free on this device'));
     await tester.pumpAndSettle();
     expect(handoffDraft, 'What are my tasks?');
     expect(transportCalls, 0);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Spanish local question offers free tools without a quote', (
+  testWidgets('Spanish local question suggests free tools without a quote', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(412, 915));
@@ -2089,18 +2059,15 @@ void main() {
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, '¿Cuáles son mis tareas?');
-    await tester.tap(find.byTooltip('Enviar a IA'));
-    await waitFor(tester, find.text('Usar herramientas gratis'));
+    await waitFor(tester, find.text('Responder gratis en este dispositivo'));
     expect(transportCalls, 0);
-    await tester.tap(find.text('Usar herramientas gratis'));
+    await tester.tap(find.text('Responder gratis en este dispositivo'));
     await tester.pumpAndSettle();
     expect(handoffDraft, '¿Cuáles son mis tareas?');
     expect(transportCalls, 0);
   });
 
-  testWidgets('local suggestion can still enter the existing paid quote flow', (
-    tester,
-  ) async {
+  testWidgets('local suggestion never blocks the paid flow', (tester) async {
     await tester.binding.setSurfaceSize(const Size(412, 915));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     var transportCalls = 0;
@@ -2126,10 +2093,11 @@ void main() {
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, 'What are my tasks?');
-    await tester.tap(find.byTooltip('Send to AI'));
-    await waitFor(tester, find.text('Review AI price'));
-    await tester.tap(find.text('Review AI price'));
-    await waitFor(tester, find.text('Get credit price'));
+    await waitFor(tester, find.text('Answer free on this device'));
+    // Ignoring the suggestion: send goes straight to the paid flow.
+    await tester.tap(find.byKey(const Key('conversation-send')));
+    await waitFor(tester, find.text('Send'));
+    expect(find.text('Review what AI will receive'), findsOneWidget);
     expect(transportCalls, 0);
     expect(tester.takeException(), isNull);
   });
@@ -2193,9 +2161,9 @@ void main() {
         );
         await tester.pumpAndSettle();
         await enterChatText(tester, 'Keep this question for a safe retry.');
-        await tester.tap(find.byTooltip('Send to AI'));
-        await waitFor(tester, find.text('Get credit price'));
-        await tester.tap(find.text('Get credit price'));
+        await tester.tap(find.byKey(const Key('conversation-send')));
+        await waitFor(tester, find.text('Send'));
+        await tester.tap(find.text('Send'));
         await waitFor(tester, find.text('Use 4 credits'));
         await tester.tap(find.text('Use 4 credits'));
         await tester.pumpAndSettle();
@@ -2290,9 +2258,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       await enterChatText(tester, 'Keep this question for a fresh request.');
-      await tester.tap(find.byTooltip('Send to AI'));
-      await waitFor(tester, find.text('Get credit price'));
-      await tester.tap(find.text('Get credit price'));
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await waitFor(tester, find.text('Send'));
+      await tester.tap(find.text('Send'));
       await waitFor(tester, find.text('Use 4 credits'));
       await tester.tap(find.text('Use 4 credits'));
       await tester.pumpAndSettle();
@@ -2363,10 +2331,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: 'initial Spanish layout');
       await enterChatText(tester, 'Conserva esta pregunta para reintentar.');
-      await tester.tap(find.byTooltip('Enviar a IA'));
-      await waitFor(tester, find.text('Consultar precio'));
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await waitFor(tester, find.text('Enviar'));
       expect(tester.takeException(), isNull, reason: 'disclosure dialog');
-      await tester.tap(find.text('Consultar precio'));
+      await tester.tap(find.text('Enviar'));
       await waitFor(tester, find.text('Usar 4 créditos'));
       expect(tester.takeException(), isNull, reason: 'price dialog');
       await tester.tap(find.text('Usar 4 créditos'));
@@ -2429,9 +2397,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       await enterChatText(tester, 'Conserva esta pregunta.');
-      await tester.tap(find.byTooltip('Enviar a IA'));
-      await waitFor(tester, find.text('Consultar precio'));
-      await tester.tap(find.text('Consultar precio'));
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await waitFor(tester, find.text('Enviar'));
+      await tester.tap(find.text('Enviar'));
       await waitFor(tester, find.text('Usar 4 créditos'));
       await tester.tap(find.text('Usar 4 créditos'));
       await tester.pumpAndSettle();
@@ -2611,8 +2579,8 @@ void main() {
         expect(tester.widget<TextField>(input).readOnly, isTrue);
         expect(
           tester
-              .widget<IconButton>(
-                find.widgetWithIcon(IconButton, Icons.send_rounded),
+              .widget<ButtonStyleButton>(
+                find.byKey(const Key('conversation-send')),
               )
               .onPressed,
           isNull,
@@ -2695,14 +2663,14 @@ void main() {
           );
         }
         await enterChatText(tester, 'What time should I go to the store?');
-        await tester.tap(find.byTooltip('Send to AI'));
-        await waitFor(tester, find.text('Get credit price'));
+        await tester.tap(find.byKey(const Key('conversation-send')));
+        await waitFor(tester, find.text('Send'));
         expect(
           sent,
           isEmpty,
           reason: 'Even the backend quote waits for disclosure consent.',
         );
-        await tester.tap(find.text('Get credit price'));
+        await tester.tap(find.text('Send'));
         await waitFor(tester, find.text('Use 4 credits'));
         expect(sent, hasLength(1));
         if (surface == ConversationSurface.planner) {
@@ -2728,10 +2696,10 @@ void main() {
           tester,
           'Between 5 pm and 7 pm. The trip takes 45 minutes.',
         );
-        await tester.tap(find.byTooltip('Send to AI'));
-        await waitFor(tester, find.text('Get credit price'));
-        await tester.tap(find.text('Get credit price'));
+        // Same selection as the first message: no preview this time.
+        await tester.tap(find.byKey(const Key('conversation-send')));
         await waitFor(tester, find.text('Use 4 credits'));
+        expect(find.text('Review what AI will receive'), findsNothing);
         expect(sent.last['history'], [
           {'role': 'user', 'content': 'What time should I go to the store?'},
           {
@@ -2821,16 +2789,16 @@ void main() {
         await tester.pumpAndSettle();
 
         await enterChatText(tester, 'I want to kill myself');
-        await tester.tap(find.byTooltip('Send to AI'));
+        await tester.tap(find.byKey(const Key('conversation-send')));
         await waitFor(tester, find.byKey(const Key('safety-pause')));
         await tester.tap(find.byKey(const Key('safety-pause')));
         await tester.pumpAndSettle();
         expect(guidance.recorded, isEmpty);
 
         await enterChatText(tester, 'What time should I go to the store?');
-        await tester.tap(find.byTooltip('Send to AI'));
-        await waitFor(tester, find.text('Get credit price'));
-        await tester.tap(find.text('Get credit price'));
+        await tester.tap(find.byKey(const Key('conversation-send')));
+        await waitFor(tester, find.text('Send'));
+        await tester.tap(find.text('Send'));
         await waitFor(tester, find.text('Use 4 credits'));
         await tester.tap(find.text('Cancel'));
         await tester.pumpAndSettle();
@@ -2838,9 +2806,7 @@ void main() {
         expect(guidance.recorded, isEmpty);
 
         await enterChatText(tester, 'What time should I go to the store?');
-        await tester.tap(find.byTooltip('Send to AI'));
-        await waitFor(tester, find.text('Get credit price'));
-        await tester.tap(find.text('Get credit price'));
+        await tester.tap(find.byKey(const Key('conversation-send')));
         await waitFor(tester, find.text('Use 4 credits'));
         await tester.tap(find.text('Use 4 credits'));
         await tester.pumpAndSettle();
@@ -3056,9 +3022,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, 'Compare the grocery timing.');
-    await tester.tap(find.byTooltip('Send to AI'));
-    await waitFor(tester, find.text('Get credit price'));
-    await tester.tap(find.text('Get credit price'));
+    await tester.tap(find.byKey(const Key('conversation-send')));
+    await waitFor(tester, find.text('Send'));
+    await tester.tap(find.text('Send'));
     await waitFor(tester, find.text('Use 4 credits'));
     await tester.tap(find.text('Use 4 credits'));
     await tester.pumpAndSettle();
@@ -3117,9 +3083,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       await enterChatText(tester, 'Compare my two options.');
-      await tester.tap(find.byTooltip('Send to AI'));
-      await waitFor(tester, find.text('Get credit price'));
-      await tester.tap(find.text('Get credit price'));
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await waitFor(tester, find.text('Send'));
+      await tester.tap(find.text('Send'));
       await waitFor(tester, find.text('Use 4 credits'));
       await tester.tap(find.text('Use 4 credits'));
       await tester.pump();
@@ -3183,9 +3149,9 @@ void main() {
         tester,
         'Keep this question while the quote times out.',
       );
-      await tester.tap(find.byTooltip('Send to AI'));
-      await waitFor(tester, find.text('Get credit price'));
-      await tester.tap(find.text('Get credit price'));
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await waitFor(tester, find.text('Send'));
+      await tester.tap(find.text('Send'));
       await tester.pump(const Duration(milliseconds: 101));
       await tester.pump();
 
@@ -3196,11 +3162,8 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(
-        find.textContaining('No paid request was confirmed'),
-        findsOneWidget,
-      );
-      expect(find.textContaining('fresh quote'), findsOneWidget);
+      expect(find.textContaining('nothing was charged'), findsOneWidget);
+      expect(find.textContaining('tap send to try again'), findsOneWidget);
       expect(find.text('Retry same request'), findsNothing);
       expect(
         tester
@@ -3259,9 +3222,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, 'Compare my two options.');
-    await tester.tap(find.byTooltip('Send to AI'));
-    await waitFor(tester, find.text('Get credit price'));
-    await tester.tap(find.text('Get credit price'));
+    await tester.tap(find.byKey(const Key('conversation-send')));
+    await waitFor(tester, find.text('Send'));
+    await tester.tap(find.text('Send'));
     await waitFor(tester, find.text('Use 4 credits'));
     await tester.tap(find.text('Use 4 credits'));
     await tester.pump();
@@ -3347,9 +3310,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, 'Compare my two options.');
-    await tester.tap(find.byTooltip('Send to AI'));
-    await waitFor(tester, find.text('Get credit price'));
-    await tester.tap(find.text('Get credit price'));
+    await tester.tap(find.byKey(const Key('conversation-send')));
+    await waitFor(tester, find.text('Send'));
+    await tester.tap(find.text('Send'));
     await waitFor(tester, find.text('Use 4 credits'));
     await tester.tap(find.text('Use 4 credits'));
     await tester.pump();
@@ -3518,9 +3481,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       await enterChatText(tester, 'Private account A question.');
-      await tester.tap(find.byTooltip('Send to AI'));
-      await waitFor(tester, find.text('Get credit price'));
-      await tester.tap(find.text('Get credit price'));
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await waitFor(tester, find.text('Send'));
+      await tester.tap(find.text('Send'));
       await waitFor(tester, find.text('Use 4 credits'));
       await tester.tap(find.text('Use 4 credits'));
       await tester.pump();
@@ -3584,14 +3547,14 @@ void main() {
       expect(find.byType(Slider), findsNothing);
       expect(find.text('Not set'), findsWidgets);
       await enterChatText(tester, 'Private grocery question');
-      await tester.tap(find.byTooltip('Send to AI'));
-      await waitFor(tester, find.text('Get credit price'));
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await waitFor(tester, find.text('Send'));
       currentScope = AccountStorageScope.authenticated(
         'different-review-account',
       );
       container.invalidate(accountStorageScopeProvider);
       await tester.pumpAndSettle();
-      expect(find.text('Get credit price'), findsNothing);
+      expect(find.text('Send'), findsNothing);
       expect(find.text('Private grocery question'), findsNothing);
       expect(
         tester
@@ -3605,7 +3568,9 @@ void main() {
     },
   );
 
-  testWidgets('account change cancels a free-route handoff', (tester) async {
+  testWidgets('account change removes the free-route suggestion', (
+    tester,
+  ) async {
     var currentScope = scope;
     var transportCalls = 0;
     String? handoffDraft;
@@ -3631,13 +3596,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, 'What are my tasks?');
-    await tester.tap(find.byTooltip('Send to AI'));
-    await waitFor(tester, find.text('Use free tools'));
+    await waitFor(tester, find.text('Answer free on this device'));
 
     currentScope = AccountStorageScope.authenticated('different-local-account');
     container.invalidate(accountStorageScopeProvider);
     await tester.pumpAndSettle();
-    expect(find.text('Use free tools'), findsNothing);
+    expect(find.text('Answer free on this device'), findsNothing);
     expect(
       tester
           .widget<TextField>(find.byKey(const Key('conversation-input')))
@@ -3680,12 +3644,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, 'Private review question');
-    await tester.tap(find.byTooltip('Send to AI'));
-    await waitFor(tester, find.text('Get credit price'));
+    await tester.tap(find.byKey(const Key('conversation-send')));
+    await waitFor(tester, find.text('Send'));
     visible.value = false;
     await tester.pumpAndSettle();
     expect(find.text('Private review question'), findsNothing);
-    expect(find.text('Get credit price'), findsNothing);
+    expect(find.text('Send'), findsNothing);
     expect(find.text('Different account screen'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

@@ -25,8 +25,8 @@ extension _ConversationCopy on _AssistantConversationScreenState {
       'No se pudo guardar esta solicitud en este dispositivo, así que no se envió. No se cobraron créditos. Tu pregunta se conserva; inténtalo de nuevo. Si sigue pasando, abre Chat y usa Borrar conversación; luego inténtalo de nuevo.',
     ),
     'quote_timeout' => copy(
-      'The AI service took too long to provide a credit price. No paid request was confirmed. Your question is retained; start a new request to review a fresh quote.',
-      'El servicio de IA tardó demasiado en proporcionar un precio en créditos. No se confirmó ninguna solicitud de pago. Tu pregunta se conserva; inicia una solicitud nueva para revisar una cotización nueva.',
+      'The AI service took too long to check the credit price. Nothing was sent for a reply and nothing was charged. Your question is retained; tap send to try again.',
+      'El servicio de IA tardó demasiado en comprobar el precio en créditos. No se envió nada para responder y no se cobró nada. Tu pregunta se conserva; toca enviar para intentarlo de nuevo.',
     ),
     'request_timeout' => copy(
       'The AI service took too long to confirm a reply. Your question and the same priced request are retained. Retry the same request to avoid a second charge.',
