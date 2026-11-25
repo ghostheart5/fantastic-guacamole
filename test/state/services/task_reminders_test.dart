@@ -426,6 +426,22 @@ void main() {
       );
     });
 
+    test('a task saved while notifications are off is reminded at its time '
+        'when they return after its lead moment', () async {
+      final fixture = _Fixture();
+      await fixture.service.setTaskReminderLeadMinutes(15);
+      fixture.now = fixture.now.add(const Duration(minutes: 1));
+      final DateTime start = fixture.now.add(const Duration(minutes: 30));
+      fixture.tasks = [_task('a', scheduledFor: start)];
+      expect(await fixture.sync(permission: false), isFalse);
+      expect(fixture.scheduler.registered, isEmpty);
+
+      fixture.now = fixture.now.add(const Duration(minutes: 20));
+      expect(await fixture.sync(), isTrue);
+      expect(fixture.scheduler.registered, ['task_reminder_start_a']);
+      expect(fixture.scheduler.times['task_reminder_start_a'], start);
+    });
+
     test('moving a task moves its reminder', () async {
       final fixture = _Fixture();
       final task = fixture.dated('a', hours: 2);

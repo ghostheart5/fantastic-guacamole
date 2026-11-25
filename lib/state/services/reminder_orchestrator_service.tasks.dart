@@ -328,12 +328,18 @@ extension _TaskReminders on ReminderOrchestratorService {
       // OS to deliver it; it goes away on its own once it has fired. One the
       // OS no longer holds was delivered: cancelling it would only take it
       // out of the tray, so it stays there while its task is open. So does
-      // one with no registration on record when the OS list is unknown: its
-      // record is dropped only once it was delivered or cancelled. A finished
-      // or removed task loses both at once.
+      // one no longer wanted with no registration on record when the OS list
+      // is unknown: its record is dropped only once it was delivered or
+      // cancelled. A wanted one is never kept here, so while notifications
+      // are off one never registered is still cleared once (and their return
+      // counts as a rule change). A finished or removed task loses both at
+      // once.
       keep: (String id, _StoredFingerprint? stored, {required bool? held}) {
         if (!openIds.contains(id)) return false;
-        if (held == false || (held == null && stored == null)) return true;
+        if (held == false) return true;
+        if (held == null && stored == null && !wantedIds.contains(id)) {
+          return true;
+        }
         final DateTime? at = stored?.onceAt;
         return tasksOn && at != null && !at.isAfter(now);
       },
