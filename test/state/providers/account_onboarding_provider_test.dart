@@ -211,6 +211,32 @@ void main() {
     },
   );
 
+  test('account A complete and account B not complete stay separate', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'onboarding_profile_complete_v1.'
+              '${AccountStorageScope.authenticated('account-a').v2Namespace}':
+          true,
+    });
+    Future<bool> readFor(String account) async {
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated(account),
+          ),
+          accountLegacyOwnershipProvider.overrideWithValue(
+            LegacyScopeOwnership.ambiguous,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container.read(accountOnboardingCompleteProvider.future);
+    }
+
+    expect(await readFor('account-a'), isTrue);
+    expect(await readFor('account-b'), isFalse);
+    expect(await readFor('account-a'), isTrue);
+  });
+
   test('completion persists within the active account only', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final ProviderContainer container = ProviderContainer(

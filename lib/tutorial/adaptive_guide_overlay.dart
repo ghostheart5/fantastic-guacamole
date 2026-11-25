@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/app/router/route_guards.dart'
+    show onboardingCompleteGuardProvider;
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
@@ -51,7 +53,10 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final bool onboardingComplete = ref.watch(onboardingCompleteProvider);
+    // The same per-account answer the router uses. The device-wide flag is
+    // not a runtime decision: a content-version bump or a failed preferences
+    // read must not silently turn the guide off for a signed-in account.
+    final bool onboardingComplete = ref.watch(onboardingCompleteGuardProvider);
     final bool interactionPaused = ref.watch(tutorialInteractionPausedProvider);
     final auth = ref.watch(authUserProvider).asData?.value;
     final AuthSessionBoundary boundary = ref.watch(authSessionBoundaryProvider);

@@ -1,12 +1,9 @@
 part of 'app_bootstrap.dart';
 
-Future<void> persistOnboardingReplayRequired({
-  required Future<void> Function() markOnboardingIncomplete,
-  required Future<void> Function() storeContentVersion,
-}) async {
-  await markOnboardingIncomplete();
-  await storeContentVersion();
-}
+@visibleForTesting
+Future<PrefsLoadResult> loadStartupPrefsForTest(
+  StartupCancellationToken cancellationToken,
+) => _loadPrefsSafe(cancellationToken);
 
 Future<PrefsLoadResult> _loadPrefsSafe(
   StartupCancellationToken cancellationToken,
@@ -65,14 +62,13 @@ Future<PrefsLoadResult> _loadPrefsSafe(
         OnboardingContentContract.currentVersion;
 
     if (storedOnboardingVersion < currentOnboardingVersion) {
-      hasOnboarded = false;
-      await persistOnboardingReplayRequired(
-        markOnboardingIncomplete: () =>
-            prefs.setBool(onboardingCompleteStorageKey, false),
-        storeContentVersion: () => prefs.setInt(
-          onboardingContentVersionStorageKey,
-          currentOnboardingVersion,
-        ),
+      // A content bump never sends a finished account back through setup or
+      // turns the guide off: completion is the per-account answer, and the
+      // device flag above must stay as it was so an existing install can still
+      // migrate to its account. Only the stored version moves forward.
+      await prefs.setInt(
+        onboardingContentVersionStorageKey,
+        currentOnboardingVersion,
       );
       if (cancellationToken.isCancelled) {
         return _cancelledPrefsLoadResult;
@@ -80,11 +76,11 @@ Future<PrefsLoadResult> _loadPrefsSafe(
       Logger.log(
         'Startup',
         'Onboarding content version updated '
-            '($storedOnboardingVersion -> $currentOnboardingVersion); replay required.',
+            '($storedOnboardingVersion -> $currentOnboardingVersion).',
       );
       RuntimeDiagnostics.record(
         'Onboarding content version updated '
-        '($storedOnboardingVersion -> $currentOnboardingVersion); replay required.',
+        '($storedOnboardingVersion -> $currentOnboardingVersion).',
       );
     }
 

@@ -19,6 +19,7 @@ import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
+import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
@@ -555,7 +556,7 @@ ProviderContainer _container(
         taskActionsProvider.overrideWith((ref) => _GuideTaskActions(ref, repo)),
       ],
       if (overlay) ...[
-        onboardingCompleteProvider.overrideWith(_OnboardingDone.new),
+        accountOnboardingCompleteProvider.overrideWith(_OnboardingDone.new),
         authUserProvider.overrideWith(
           (Ref ref) => Stream<User?>.value(
             const User(
@@ -619,7 +620,7 @@ class _GuideTaskActions extends TaskActions {
   }
 }
 
-class _OnboardingDone extends OnboardingCompleteNotifier {
+class _OnboardingDone extends AccountOnboardingCompleteNotifier {
   @override
   bool build() => true;
 }

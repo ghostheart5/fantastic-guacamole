@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
+import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
@@ -50,8 +51,8 @@ void main() {
           await tester.pumpWidget(
             ProviderScope(
               overrides: [
-                onboardingCompleteProvider.overrideWith(
-                  _OnboardingComplete.new,
+                accountOnboardingCompleteProvider.overrideWith(
+                  () => _FixedAccountOnboarding(true),
                 ),
                 authUserProvider.overrideWith(
                   (ref) => Stream<User?>.value(
@@ -156,6 +157,89 @@ void main() {
     }
   }
 
+  for (final bool accountComplete in <bool>[true, false]) {
+    testWidgets(
+      'guide overlay follows the account setup answer, not the device flag '
+      '(account complete=$accountComplete)',
+      (WidgetTester tester) async {
+        final GoRouter router = GoRouter(
+          initialLocation: RoutePaths.creator,
+          routes: <RouteBase>[
+            GoRoute(
+              path: RoutePaths.creator,
+              builder: (BuildContext context, GoRouterState state) =>
+                  const Scaffold(body: SizedBox.expand()),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              // The device-wide flag is the opposite of the account answer.
+              onboardingCompleteProvider.overrideWith(
+                accountComplete
+                    ? _OnboardingIncomplete.new
+                    : _OnboardingComplete.new,
+              ),
+              accountOnboardingCompleteProvider.overrideWith(
+                () => _FixedAccountOnboarding(accountComplete),
+              ),
+              authUserProvider.overrideWith(
+                (ref) => Stream<User?>.value(
+                  const User(
+                    id: 'account-a',
+                    email: 'account-a@example.test',
+                    emailVerified: true,
+                  ),
+                ),
+              ),
+              authSessionBoundaryProvider.overrideWith(
+                () => _FixedBoundary(
+                  const AuthSessionBoundary(
+                    generation: 1,
+                    userId: 'account-a',
+                    isTransitioning: false,
+                    isStorageReady: true,
+                  ),
+                ),
+              ),
+              adaptiveGuidanceProvider.overrideWith(
+                _TimelineReviewGuidance.new,
+              ),
+              dailyDecisionIntelligenceProvider.overrideWith(
+                (ref) => _decision,
+              ),
+              firstRunTutorialTaskProvider.overrideWith(
+                (ref, taskId) async => null,
+              ),
+            ],
+            child: MaterialApp.router(
+              routerConfig: router,
+              builder: (context, child) => Stack(
+                children: [
+                  ?child,
+                  ListenableBuilder(
+                    listenable: router.routerDelegate,
+                    builder: (context, child) =>
+                        AdaptiveGuideOverlay(router: router),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+        expect(
+          find.text('Find your saved task'),
+          accountComplete ? findsOneWidget : findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('accessible review guide action opens the real Timeline route', (
     WidgetTester tester,
   ) async {
@@ -185,7 +269,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          onboardingCompleteProvider.overrideWith(_OnboardingComplete.new),
+          accountOnboardingCompleteProvider.overrideWith(
+            () => _FixedAccountOnboarding(true),
+          ),
           authUserProvider.overrideWith(
             (ref) => Stream<User?>.value(
               const User(
@@ -273,7 +359,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            onboardingCompleteProvider.overrideWith(_OnboardingComplete.new),
+            accountOnboardingCompleteProvider.overrideWith(
+              () => _FixedAccountOnboarding(true),
+            ),
             authUserProvider.overrideWith(
               (Ref ref) => Stream<User?>.value(
                 const User(
@@ -408,7 +496,9 @@ Future<void> _expectDecisionProviderNotRead(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        onboardingCompleteProvider.overrideWith(_OnboardingComplete.new),
+        accountOnboardingCompleteProvider.overrideWith(
+          () => _FixedAccountOnboarding(true),
+        ),
         authUserProvider.overrideWith((Ref ref) => Stream<User?>.value(user)),
         authSessionBoundaryProvider.overrideWith(
           () => _FixedBoundary(boundary),
@@ -466,6 +556,20 @@ class _CreditGuideState extends AdaptiveGuidanceNotifier {
 class _OnboardingComplete extends OnboardingCompleteNotifier {
   @override
   bool build() => true;
+}
+
+class _OnboardingIncomplete extends OnboardingCompleteNotifier {
+  @override
+  bool build() => false;
+}
+
+class _FixedAccountOnboarding extends AccountOnboardingCompleteNotifier {
+  _FixedAccountOnboarding(this.value);
+
+  final bool value;
+
+  @override
+  bool build() => value;
 }
 
 class _FixedBoundary extends AuthSessionBoundaryNotifier {

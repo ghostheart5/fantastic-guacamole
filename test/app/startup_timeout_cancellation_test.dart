@@ -461,27 +461,6 @@ void main() {
     expect(coreCalls, 2);
   });
 
-  test(
-    'onboarding replay migration finishes its fail-safe write pair',
-    () async {
-      final StartupCancellationToken token = StartupCancellationToken();
-      final List<String> writes = <String>[];
-
-      await persistOnboardingReplayRequired(
-        markOnboardingIncomplete: () async {
-          writes.add('incomplete');
-          token.cancel();
-        },
-        storeContentVersion: () async {
-          writes.add('content_version');
-        },
-      );
-
-      expect(token.isCancelled, isTrue);
-      expect(writes, <String>['incomplete', 'content_version']);
-    },
-  );
-
   test('Supabase initialization waits for the underlying operation', () async {
     final Completer<void> releaseInitialization = Completer<void>();
     bool completed = false;
