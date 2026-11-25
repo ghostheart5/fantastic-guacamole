@@ -94,6 +94,19 @@ class AdaptiveGuidanceState {
     (GuidanceMilestone milestone) => _lessonCompletedBy(milestone) == lesson,
   );
 
+  /// How many different things the person has done here, for the Settings
+  /// status. Dismissing a hint, restarting the guide and arriving as a
+  /// returning account are recorded too, but are not actions.
+  int get recordedActionCount => milestones.keys
+      .where(
+        (GuidanceMilestone milestone) => !const <GuidanceMilestone>{
+          GuidanceMilestone.guidanceDismissed,
+          GuidanceMilestone.returningAccount,
+          GuidanceMilestone.replayed,
+        }.contains(milestone),
+      )
+      .length;
+
   bool matchesExpectedFirstRunCreatorTask(String taskId) {
     return expectedFirstRunCreatorTaskIds.contains(taskId.trim());
   }
@@ -709,7 +722,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
         await prefs.remove('${_prefix(account)}.replay.${id.name}');
       }
     }
-    if (_activeScope != account) return;
+    if (!ref.mounted || _activeScope != account) return;
     state = AsyncData(
       AdaptiveGuidanceState(
         milestones: current.milestones,
@@ -772,6 +785,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     await prefs.setBool('${_prefix(account)}.skip.${lesson.name}', true);
     await prefs.remove('${_prefix(account)}.later.${lesson.name}');
     await prefs.remove('${_prefix(account)}.replay.${lesson.name}');
+    if (!ref.mounted || _activeScope != account) return;
     state = AsyncData(
       AdaptiveGuidanceState(
         milestones: current.milestones,
@@ -897,9 +911,8 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     );
   }
 
-  Future<void> restartLessons() => _restartLessons(replayCore: true);
-
-  Future<void> _restartLessons({required bool replayCore}) async {
+  /// The Settings restart: the first-run guide plays again from its start.
+  Future<void> restartLessons() async {
     final String? account = _activeScope;
     if (account == null) return;
     final AdaptiveGuidanceState current = await _current();
@@ -909,7 +922,7 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     for (final GuidanceLessonId id in GuidanceLessonId.values) {
       await prefs.remove('$prefix.complete.${id.name}');
       await prefs.remove('$prefix.later.${id.name}');
-      if (replayCore && _replayableCoreLessons.contains(id)) {
+      if (_replayableCoreLessons.contains(id)) {
         // An explicit restart is a new choice to revisit core guidance.
         await prefs.remove('$prefix.skip.${id.name}');
         await prefs.setBool('$prefix.replay.${id.name}', true);
@@ -919,18 +932,17 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
       await prefs.remove('$prefix.$_skipStepKey.${id.name}');
     }
     await prefs.remove('$prefix.$_expectedCreatorTaskIdsKey');
+    if (!ref.mounted || _activeScope != account) return;
     state = AsyncData(
       AdaptiveGuidanceState(
         milestones: current.milestones,
         counts: current.counts,
-        skippedLessons: replayCore
-            ? current.skippedLessons.difference(_replayableCoreLessons)
-            : current.skippedLessons,
+        skippedLessons: current.skippedLessons.difference(
+          _replayableCoreLessons,
+        ),
         completedLessons: _lessonsCompletedBy(current.milestones.keys),
         laterLessons: const <GuidanceLessonId>{},
-        replayLessons: replayCore
-            ? _replayableCoreLessons
-            : const <GuidanceLessonId>{},
+        replayLessons: _replayableCoreLessons,
         expectedFirstRunCreatorTaskIds: const <String>{},
       ),
     );

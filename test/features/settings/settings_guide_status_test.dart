@@ -196,6 +196,53 @@ void main() {
       expect(find.textContaining('real outcomes'), findsNothing);
       expect(find.textContaining('resultados reales'), findsNothing);
     });
+
+    testWidgets('${es ? 'Spanish' : 'English'} count leaves out dismissing a '
+        'hint, a restart and a returning account', (WidgetTester tester) async {
+      // A returning account that only dismissed a hint and restarted the
+      // guide has done nothing here yet.
+      await _pump(tester, <String, Object>{
+        for (final String id in <String>[
+          'returningAccount',
+          'guidanceDismissed',
+          'replayed',
+        ]) ...<String, Object>{
+          '$prefix.$namespace.$id.at': 1755475200000,
+          '$prefix.$namespace.$id.count': 1,
+        },
+      }, es: es);
+      expect(
+        find.text(es ? 'Guía terminada' : 'Guide finished'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          es
+              ? '0 acciones registradas · 0 tarjetas de ayuda ocultas'
+              : '0 actions recorded · 0 help cards hidden',
+        ),
+        findsOneWidget,
+      );
+
+      await _pump(tester, <String, Object>{
+        for (final String id in <String>[
+          'returningAccount',
+          'guidanceDismissed',
+          'firstHabitCheckIn',
+        ]) ...<String, Object>{
+          '$prefix.$namespace.$id.at': 1755475200000,
+          '$prefix.$namespace.$id.count': 1,
+        },
+      }, es: es);
+      expect(
+        find.text(
+          es
+              ? '1 acción registrada · 0 tarjetas de ayuda ocultas'
+              : '1 action recorded · 0 help cards hidden',
+        ),
+        findsOneWidget,
+      );
+    });
   }
 }
 

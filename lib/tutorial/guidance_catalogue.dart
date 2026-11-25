@@ -399,13 +399,6 @@ abstract final class GuidanceCatalogue {
     timelineRecovery,
   ];
 
-  static GuidanceHint? forLesson(GuidanceLessonId id) {
-    for (final GuidanceHint hint in hints) {
-      if (hint.id == id) return hint;
-    }
-    return null;
-  }
-
   /// The hint about the screen or area at [place], if it has one.
   static GuidanceHint? forPlace(String place) {
     for (final GuidanceHint hint in hints) {

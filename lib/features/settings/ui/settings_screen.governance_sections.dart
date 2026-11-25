@@ -767,10 +767,10 @@ class AdaptiveGuidanceSettingsSection extends ConsumerWidget {
                 },
                 subtitle: switch (state.coreGuideStatus) {
                   CoreGuideStatus.skipped || CoreGuideStatus.paused =>
-                    '${_actionsRecorded(context, state.milestones.length)} · '
+                    '${_actionsRecorded(context, state.recordedActionCount)} · '
                         '${journeyText(context, 'Restart the guide below to continue.', 'Reinicia la guía abajo para continuar.')}',
                   _ =>
-                    '${_actionsRecorded(context, state.milestones.length)} · '
+                    '${_actionsRecorded(context, state.recordedActionCount)} · '
                         '${_helpCardsHidden(context, state.skippedLessons.length)}',
                 },
               ),

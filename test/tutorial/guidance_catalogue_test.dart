@@ -305,12 +305,6 @@ void main() {
       );
     });
 
-    test('each lesson finds its own hint', () {
-      for (final GuidanceHint hint in GuidanceCatalogue.hints) {
-        expect(GuidanceCatalogue.forLesson(hint.id), same(hint));
-      }
-    });
-
     test('the personalization strings of the removed setup step are gone', () {
       final Set<String> names = ChronoSparkString.values
           .map((ChronoSparkString key) => key.name)
