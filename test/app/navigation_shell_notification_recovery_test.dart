@@ -128,6 +128,23 @@ void main() {
     fixture.expectPreferencesPreserved();
   });
 
+  testWidgets('resume refreshes the time-dependent unread count', (
+    tester,
+  ) async {
+    var builds = 0;
+    final fixture = await _Fixture.create(
+      granted: true,
+      onUnreadBuild: () => builds++,
+    );
+    fixture.container.listen<int>(unreadNotificationsProvider, (_, _) {});
+    await fixture.mount(tester);
+    final before = builds;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await _flush(tester);
+    expect(builds, greaterThan(before));
+  });
+
   testWidgets('resume preserves the matching account reflection registration', (
     tester,
   ) async {
@@ -262,6 +279,7 @@ class _Fixture {
     bool ready = true,
     bool granted = false,
     Future<void> Function()? timezoneRefresher,
+    void Function()? onUnreadBuild,
   }) async {
     final scheduler = _Scheduler()..granted = granted;
     final prefs = _MemoryPreferences();
@@ -285,7 +303,10 @@ class _Fixture {
         domainGoalRepositoryProvider.overrideWithValue(_Goals()),
         domainHabitRepositoryProvider.overrideWithValue(_Habits()),
         getTasksUseCaseProvider.overrideWithValue(GetTasks(_Tasks())),
-        unreadNotificationsProvider.overrideWithValue(0),
+        unreadNotificationsProvider.overrideWith((ref) {
+          onUnreadBuild?.call();
+          return 0;
+        }),
         goalsProvider.overrideWith(_StaticGoals.new),
       ],
     );

@@ -153,6 +153,8 @@ class SettingsUiActions {
       ),
     );
     _ref.invalidate(automationNotificationsProvider);
+    // Reminders that came due while away count as new activity now.
+    _ref.invalidate(unreadNotificationsProvider);
     return planned && reflected;
   }
 
