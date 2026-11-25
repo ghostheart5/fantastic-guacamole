@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/features/creator/ui/creator_reminder_permission.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_flow.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
@@ -481,12 +482,13 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   Future<void> _confirmCreatorAndOpenTimeline(BuildContext context) async {
     if (_completingCreator) return;
     final CreatorHandshakeState pending = ref.read(creatorHandshakeProvider);
-    final bool hasSchedule =
-        pending.preview?.selectedOperations.any(
-          (CreatorMutationOperation operation) =>
-              operation.task.scheduledFor != null,
-        ) ??
-        false;
+    final List<CreatorMutationOperation> saving =
+        pending.preview?.selectedOperations.toList() ??
+        const <CreatorMutationOperation>[];
+    final bool hasSchedule = saving.any(
+      (CreatorMutationOperation operation) =>
+          operation.task.scheduledFor != null,
+    );
     setState(() => _completingCreator = true);
     try {
       // confirm() records the Creator receipt for Timeline review itself, so
@@ -496,7 +498,15 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
           .confirm();
       if (result.receipt == null || !mounted) return;
       _resetCreatorGuide();
-      if (hasSchedule && context.mounted) {
+      // Saved: ask for notifications now, in context (the step card is
+      // hidden while the question is open), then open My plan whatever the
+      // answer. The question opens in the app's navigator, under this card.
+      await askForGuidedFirstTaskReminders(
+        widget.router.routerDelegate.navigatorKey.currentContext ?? context,
+        ref,
+        saving,
+      );
+      if (hasSchedule && mounted && context.mounted) {
         widget.router.go(RoutePaths.timeline);
       }
     } finally {

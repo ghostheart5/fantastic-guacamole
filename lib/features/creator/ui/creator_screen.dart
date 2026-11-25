@@ -153,7 +153,17 @@ class CreatorScreen extends ConsumerWidget {
                                   .read(creatorDraftPreviewProvider.notifier)
                                   .clear();
                               if (completesGuidedSetup) {
-                                goToAppView(context, ref, AppView.timeline);
+                                // The guided first task always has a time:
+                                // ask now, in context, then open My plan
+                                // whatever the answer.
+                                await askForGuidedFirstTaskReminders(
+                                  context,
+                                  ref,
+                                  saving,
+                                );
+                                if (context.mounted) {
+                                  goToAppView(context, ref, AppView.timeline);
+                                }
                                 return;
                               }
                               ScaffoldMessenger.of(context)
