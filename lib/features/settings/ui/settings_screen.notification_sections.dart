@@ -30,15 +30,15 @@ class _NotificationSettingsAreaState
   }
 
   Future<void> _toggle(bool value) async {
+    if (!mounted) return;
     setState(() {
       _remindersOn = value;
       _saving = true;
     });
+    final SettingsUiActions actions = ref.read(settingsUiActionsProvider);
     bool applied;
     try {
-      applied = await ref
-          .read(settingsUiActionsProvider)
-          .setRemindersEnabled(value);
+      applied = await actions.setRemindersEnabled(value);
     } on Object catch (error) {
       Logger.warn('Main reminder switch could not be applied ($error).');
       applied = false;
@@ -65,7 +65,10 @@ class _NotificationSettingsAreaState
           ),
           action: SnackBarAction(
             label: journeyText(context, 'Try again', 'Intentar de nuevo'),
-            onPressed: () => unawaited(_toggle(value)),
+            // After Settings closes, retry without the screen.
+            onPressed: () => unawaited(
+              mounted ? _toggle(value) : _retryDetached(actions, value),
+            ),
           ),
         ),
       );
@@ -74,6 +77,17 @@ class _NotificationSettingsAreaState
     if (!value) return;
     // Turned back on: ask in context if notifications are off.
     await ensureNotificationPermission(context, ref);
+  }
+
+  static Future<void> _retryDetached(
+    SettingsUiActions actions,
+    bool value,
+  ) async {
+    try {
+      await actions.setRemindersEnabled(value);
+    } on Object catch (error) {
+      Logger.warn('Main reminder switch retry could not be applied ($error).');
+    }
   }
 
   @override
@@ -749,8 +763,8 @@ class _ReminderAutomationSectionState
             ),
             subtitle: journeyText(
               context,
-              'At 9 AM three days before, the day before, and the morning a goal is due. Plus one "almost there" reminder when most of its steps are done.',
-              'A las 9:00 tres días antes, el día anterior y la mañana en que vence la meta. Además, un aviso de "ya casi" cuando la mayoría de sus pasos estén hechos.',
+              'At 9 AM three days before, the day before, and the morning a goal is due. A goal due today that you add after 9 AM gets one reminder at 6 PM instead. With Overdue nudges on, one more at 9 AM the day after, if it is still open. Plus one "almost there" reminder when most of its steps are done.',
+              'A las 9:00 tres días antes, el día anterior y la mañana en que vence la meta. Si añades después de las 9:00 una meta que vence hoy, recibes un aviso a las 18:00. Con Avisos de vencidos activado, otro a las 9:00 del día siguiente si sigue pendiente. Además, un aviso de "ya casi" cuando la mayoría de sus pasos estén hechos.',
             ),
           ),
           _NeonToggleTile(
@@ -770,8 +784,8 @@ class _ReminderAutomationSectionState
             ),
             subtitle: journeyText(
               context,
-              'Each habit reminds you at the time you set with Set reminder on that habit: daily, Mondays, or the first of each month. Habits without a time stay quiet. Completed or skipped periods wait until the next period.',
-              'Cada hábito te avisa a la hora que le pongas con Poner recordatorio: cada día, los lunes o el primer día del mes. Los hábitos sin hora no avisan. Los períodos completados u omitidos esperan hasta el siguiente período.',
+              'Each habit reminds you at the time you set when you create it, or later with Set reminder: daily, on the days of the week you chose (Monday if none), or on the day of the month you chose (the 1st if none). Habits without a time stay quiet. Completed or skipped periods wait until the next period.',
+              'Cada hábito te avisa a la hora que le pongas al crearlo, o después con Poner recordatorio: cada día, los días de la semana que elijas (el lunes si no eliges ninguno) o el día del mes que elijas (el día 1 si no eliges ninguno). Los hábitos sin hora no avisan. Los períodos completados u omitidos esperan hasta el siguiente período.',
             ),
           ),
           _NeonToggleTile(

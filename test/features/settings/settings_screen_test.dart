@@ -788,6 +788,55 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('the habit and goal rules describe chosen days and the '
+        'evening reminder (es=$es)', (tester) async {
+      await openNotifications(tester, es: es);
+      final Finder habitRule = find.textContaining(
+        es
+            ? 'los días de la semana que elijas (el lunes si no eliges ninguno)'
+            : 'on the days of the week you chose (Monday if none)',
+      );
+      await tester.scrollUntilVisible(
+        habitRule,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(habitRule, findsOneWidget);
+      expect(
+        find.textContaining(
+          es
+              ? 'el día del mes que elijas (el día 1 si no eliges ninguno)'
+              : 'on the day of the month you chose (the 1st if none)',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(es ? 'al crearlo' : 'when you create it'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(es ? 'los lunes o el primer' : 'Mondays, or the'),
+        findsNothing,
+      );
+      expect(
+        find.textContaining(
+          es
+              ? 'recibes un aviso a las 18:00'
+              : 'gets one reminder at 6 PM instead',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(
+          es
+              ? 'Con Avisos de vencidos activado, otro a las 9:00'
+              : 'With Overdue nudges on, one more at 9 AM',
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('lead time, overdue nudges and quiet hours save the choice '
         '(es=$es)', (tester) async {
       final container = await openNotifications(tester, es: es);
@@ -895,6 +944,54 @@ void main() {
       expect(actions.mainSwitchWrites, [false, false]);
     });
   }
+
+  testWidgets('try again still applies the switch after leaving Settings', (
+    tester,
+  ) async {
+    final container = await openNotifications(
+      tester,
+      arrange: (actions) => actions.mainSwitchApplies = false,
+    );
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('reminders-main-toggle')),
+        matching: find.byType(Switch),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    final actions =
+        container.read(settingsUiActionsProvider) as _FakeSettingsUiActions;
+    actions.mainSwitchApplies = true;
+    // Leave Settings while the message is still showing: the same app keeps
+    // its messenger, so the message moves to the new screen.
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          locale: const Locale('en'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const Scaffold(body: SizedBox.shrink()),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 750));
+    expect(find.byType(SettingsScreen), findsNothing);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SnackBar),
+        matching: find.text('Try again'),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(actions.mainSwitchWrites, [false, false]);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('quiet hours with the same start and end show as off', (
     tester,
