@@ -30,7 +30,7 @@ void main() {
   });
 
   test(
-    'preinit does not claim; concurrent and repeated consumers query the stable intent once',
+    'a consumer that arrives before init waits for it; concurrent and repeated consumers query the stable intent once',
     () async {
       var queries = 0;
       final entered = Completer<void>();
@@ -49,10 +49,15 @@ void main() {
         }
         return null;
       });
-      expect(await scheduler.consumeLaunchPayload(), isNull);
-      expect(queries, 0);
-      await scheduler.init(requestPermissions: false);
+      // A cold-start tap: the shell mounts before startup init has finished.
+      // The read waits for init rather than dropping the tap.
+      bool settled = false;
       final first = scheduler.consumeLaunchPayload();
+      unawaited(first.then((_) => settled = true));
+      await pumpEventQueue();
+      expect(queries, 0);
+      expect(settled, isFalse);
+      await scheduler.init(requestPermissions: false);
       await entered.future;
       expect(await scheduler.consumeLaunchPayload(), isNull);
       response.complete(stableNativeResponse);
@@ -97,6 +102,17 @@ void main() {
       expect(queries, 1);
     },
   );
+
+  test('a held launch is handed out once and cleared for tests', () {
+    expect(scheduler.takeHeldLaunchPayload(), isNull);
+    scheduler.holdLaunchPayload(payload);
+    expect(scheduler.hasHeldLaunchPayload, isTrue);
+    expect(scheduler.takeHeldLaunchPayload(), payload);
+    expect(scheduler.takeHeldLaunchPayload(), isNull);
+    scheduler.holdLaunchPayload(payload);
+    scheduler.resetLaunchConsumptionForTesting();
+    expect(scheduler.hasHeldLaunchPayload, isFalse);
+  });
 
   test('an uncertain native read is not retried automatically', () async {
     var queries = 0;

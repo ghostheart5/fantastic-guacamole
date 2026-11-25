@@ -465,7 +465,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
     final ReminderOrchestratorPrefs prefs = loadPrefs();
     return _ReminderGroup(
       owns: (String id) =>
-          id == ReminderOrchestratorService._dailyPlanningReminderId,
+          id == ReminderOrchestratorService.dailyPlanningReminderId,
       wanted: <_PlannedReminder>[
         if (prefs.remindersEnabled && prefs.dailyPlanningEnabled)
           _dailyPlanningReminder(
@@ -474,7 +474,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
           ),
       ],
       couldOwn: const <String>{
-        ReminderOrchestratorService._dailyPlanningReminderId,
+        ReminderOrchestratorService.dailyPlanningReminderId,
       },
     );
   }
@@ -621,14 +621,16 @@ extension _ReminderReconciler on ReminderOrchestratorService {
     );
   }
 
-  _PlannedReminder _dailyPlanningReminder(int hour, int minute) =>
-      _PlannedReminder.daily(
-        id: ReminderOrchestratorService._dailyPlanningReminderId,
-        title: 'Daily Planning Reminder',
-        body: 'Open Axiomara and choose one manageable next step.',
-        hour: hour,
-        minute: minute,
-      );
+  _PlannedReminder _dailyPlanningReminder(int hour, int minute) {
+    final _ReminderCopy copy = _ReminderCopy(_isSpanish());
+    return _PlannedReminder.daily(
+      id: ReminderOrchestratorService.dailyPlanningReminderId,
+      title: copy.dailyPlanningTitle,
+      body: copy.dailyPlanningBody,
+      hour: hour,
+      minute: minute,
+    );
+  }
 
   /// Goal reminder times are picked by the app, so quiet hours move them.
   _PlannedReminder _goalReminder(GoalReminderSlot slot) =>

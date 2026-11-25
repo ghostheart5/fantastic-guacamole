@@ -11,9 +11,14 @@ import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/features/creator/ui/daily_rhythms_screen.dart';
 import 'package:fantastic_guacamole/features/creator/ui/record_library_screen.dart';
+import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/rhythm_planning_provider.dart';
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -65,7 +70,13 @@ void main() {
   );
   tearDown(() => NotificationScheduler.tappedPayloadListenable.value = null);
 
-  Future<ProviderContainer> pumpShell(WidgetTester tester) async {
+  // With accountReady false the account stays mid-switch (account storage not
+  // writable yet) until the test completes this generation.
+  late int fencedGeneration;
+  Future<ProviderContainer> pumpShell(
+    WidgetTester tester, {
+    bool accountReady = true,
+  }) async {
     tester.platformDispatcher.views.first
       ..physicalSize = const Size(1200, 2400)
       ..devicePixelRatio = 1.0;
@@ -77,10 +88,13 @@ void main() {
 
     final ProviderContainer container = ProviderContainer(
       overrides: [
-        accountStorageScopeProvider.overrideWithValue(
-          AccountStorageScope.authenticated(
-            'notification-routing-test-account',
-          ),
+        // As in the app, account storage is not writable mid-switch.
+        accountStorageScopeProvider.overrideWith(
+          (ref) => ref.watch(authSessionBoundaryProvider).isTransitioning
+              ? const AccountStorageScope.unsafe()
+              : AccountStorageScope.authenticated(
+                  'notification-routing-test-account',
+                ),
         ),
         accountLegacyOwnershipProvider.overrideWithValue(
           LegacyScopeOwnership.provenNotOwned,
@@ -99,14 +113,22 @@ void main() {
         timelineProvider.overrideWith(_StaticTimeline.new),
         timelinePersistenceCorruptedProvider.overrideWithValue(false),
         allTasksProvider.overrideWith((ref) async => const <Task>[]),
+        // Its one-minute refresh timer outlives a test whose account becomes
+        // ready after mount.
+        planningPeriodClockProvider.overrideWithValue(DateTime(2026, 11, 13)),
+        // Habit reminders open the check-in list, which reads these.
+        habitsProvider.overrideWith(_StaticHabits.new),
+        habitOccurrencesProvider.overrideWith(
+          (ref) async => const <HabitOccurrenceEntity>[],
+        ),
       ],
     );
     final boundary = container.read(authSessionBoundaryProvider.notifier);
-    final generation = boundary.begin(
+    fencedGeneration = boundary.begin(
       userId: 'notification-routing-test-account',
       isTransitioning: true,
     );
-    boundary.complete(generation);
+    if (accountReady) boundary.complete(fencedGeneration);
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
@@ -132,8 +154,13 @@ void main() {
   // every real tap fell through to the default surface.
   for (final (String payload, AppView expected) in <(String, AppView)>[
     ('goal_reminder_abc123', AppView.goals),
+    ('goal_reminder_abc123_due', AppView.goals),
+    // A goal that no longer exists still lands on Goals, without an error.
+    ('goal_reminder_deleted_overdue', AppView.goals),
     ('daily_planning_reminder', AppView.smartPlanner),
-    ('habit_reminder_daily', AppView.creator),
+    // Tasks have no single-task screen; My plan lists them.
+    ('task_reminder_start_t1', AppView.timeline),
+    ('task_reminder_overdue_deleted', AppView.timeline),
     ('streak_break_recovery_xyz', AppView.progression),
   ]) {
     testWidgets('tapping "$payload" routes to $expected', (
@@ -145,8 +172,113 @@ void main() {
       await tester.pump();
 
       expect(container.read(appFlowProvider), expected);
+      expect(tester.takeException(), isNull);
     });
   }
+
+  for (final String payload in <String>[
+    'habit_reminder_walk',
+    'habit_reminder_walk_wd3',
+    'habit_reminder_daily',
+    'habit_reminder_deleted-habit',
+  ]) {
+    testWidgets('tapping "$payload" opens the habit check-in list', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+      // A screen opened earlier must not cover the check-in list.
+      unawaited(
+        Navigator.of(tester.element(find.byType(NavigationShell))).push<void>(
+          MaterialPageRoute<void>(builder: (_) => const Text('Earlier screen')),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      NotificationScheduler.tappedPayloadListenable.value = payload;
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(DailyRhythmsScreen), findsOneWidget);
+      expect(find.text('Earlier screen'), findsNothing);
+      expect(
+        ModalRoute.of(
+          tester.element(find.byType(DailyRhythmsScreen)),
+        )!.isCurrent,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  String goalPayload(String account) => jsonEncode(<String, Object>{
+    'v': 1,
+    'accountScope': AccountDataRegistry.accountDigest(account),
+    'notificationId': 'goal_reminder_g1_due',
+  });
+
+  testWidgets('a cold launch waits until the account is ready, then routes '
+      'once', (tester) async {
+    launchPayload = goalPayload('notification-routing-test-account');
+    final container = await pumpShell(tester, accountReady: false);
+    await tester.pump(const Duration(seconds: 1));
+    // Account storage is not usable yet: held, not dropped.
+    expect(container.read(appFlowProvider), AppView.nexus);
+
+    container
+        .read(authSessionBoundaryProvider.notifier)
+        .complete(fencedGeneration);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(container.read(appFlowProvider), AppView.goals);
+
+    // Never twice: later account changes and remounts do not replay it.
+    container.read(appFlowProvider.notifier).toNexus();
+    final boundary = container.read(authSessionBoundaryProvider.notifier);
+    boundary.complete(
+      boundary.begin(
+        userId: 'notification-routing-test-account',
+        isTransitioning: true,
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+    expect(container.read(appFlowProvider), AppView.nexus);
+    expect(NotificationScheduler().hasHeldLaunchPayload, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a held cold launch for another account is never routed', (
+    tester,
+  ) async {
+    launchPayload = goalPayload('another-account');
+    final container = await pumpShell(tester, accountReady: false);
+    await tester.pump(const Duration(seconds: 1));
+    container
+        .read(authSessionBoundaryProvider.notifier)
+        .complete(fencedGeneration);
+    await tester.pump(const Duration(seconds: 1));
+    expect(container.read(appFlowProvider), AppView.nexus);
+    expect(NotificationScheduler().hasHeldLaunchPayload, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('changing the device language registers reminders again', (
+    tester,
+  ) async {
+    await pumpShell(tester);
+    await tester.pump(const Duration(milliseconds: 1));
+    final int before = _reminderRefreshes;
+
+    tester.platformDispatcher.localesTestValue = const [Locale('es')];
+    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+
+    expect(_reminderRefreshes, before + 1);
+    expect(tester.takeException(), isNull);
+  });
 
   String reflectionPayload(String account) => jsonEncode(<String, Object>{
     'v': 1,
@@ -244,9 +376,9 @@ void main() {
     final ProviderContainer container = await pumpShell(tester);
 
     NotificationScheduler.tappedPayloadListenable.value =
-        'habit_reminder_daily';
+        'goal_reminder_abc123';
     await tester.pump();
-    expect(container.read(appFlowProvider), AppView.creator);
+    expect(container.read(appFlowProvider), AppView.goals);
     expect(NotificationScheduler.tappedPayloadListenable.value, isNull);
 
     // Navigating away must stick: a stale payload should not drag the user
@@ -268,10 +400,19 @@ class _StaticTimeline extends TimelineNotifier {
   List<TimelineEventEntity> build() => const <TimelineEventEntity>[];
 }
 
+class _StaticHabits extends HabitsNotifier {
+  @override
+  Future<List<HabitEntity>> build() async => const <HabitEntity>[];
+}
+
+int _reminderRefreshes = 0;
+
 // Reminder recovery has its own integration suite. Navigation retains the real
 // shell dispatch while isolating unrelated reminder repositories/platform I/O.
 class _RoutingSettingsActions extends SettingsUiActions {
   _RoutingSettingsActions(super.ref);
   @override
-  Future<void> refreshNotificationPermissionAndReminders() async {}
+  Future<void> refreshNotificationPermissionAndReminders() async {
+    _reminderRefreshes++;
+  }
 }

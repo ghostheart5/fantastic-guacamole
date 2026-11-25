@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
@@ -18,15 +19,32 @@ class NotificationScheduler implements NotificationSchedulerPort {
 
   final FlutterLocalNotificationsPlugin _plugin;
   bool _initialized = false;
+  final Completer<void> _initializedOnce = Completer<void>();
   bool _launchPayloadClaimed = false;
+  String? _heldLaunchPayload;
 
   /// Test isolation only. Release builds cannot rearm a consumed launch.
   @visibleForTesting
   void resetLaunchConsumptionForTesting() {
     assert(() {
       _launchPayloadClaimed = false;
+      _heldLaunchPayload = null;
       return true;
     }());
+  }
+
+  /// Keeps a claimed launch payload until the app can route it (the account
+  /// it belongs to is ready). Held for the process, so a shell that mounts
+  /// later still finds it.
+  void holdLaunchPayload(String payload) => _heldLaunchPayload = payload;
+
+  bool get hasHeldLaunchPayload => _heldLaunchPayload != null;
+
+  /// The held launch payload, handed out once.
+  String? takeHeldLaunchPayload() {
+    final String? payload = _heldLaunchPayload;
+    _heldLaunchPayload = null;
+    return payload;
   }
 
   /// Whether [init] has set up the plugin in this process. Until then
@@ -142,9 +160,14 @@ class NotificationScheduler implements NotificationSchedulerPort {
   /// tap. Queries the retained native launch intent at most once per process,
   /// including ordinary launches and failed reads, so remounts cannot replay it.
   /// Foreground notification callbacks remain independent.
+  ///
+  /// Startup does not wait for [init], so a shell can ask first: the read then
+  /// waits for [init] instead of dropping a cold-start tap.
   Future<String?> consumeLaunchPayload() async {
-    if (!_initialized || _launchPayloadClaimed) {
-      return null;
+    if (_launchPayloadClaimed) return null;
+    if (!_initialized) {
+      await _initializedOnce.future;
+      if (_launchPayloadClaimed) return null;
     }
     // Android retains the Activity intent. Claim before awaiting so concurrent
     // shell mounts cannot replay it. Real foreground taps use the listener.
@@ -216,6 +239,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
       onDidReceiveNotificationResponse: _handleNotificationResponse,
     );
     _initialized = true;
+    if (!_initializedOnce.isCompleted) _initializedOnce.complete();
 
     final AndroidFlutterLocalNotificationsPlugin? androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<

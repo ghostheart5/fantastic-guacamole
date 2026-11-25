@@ -11,22 +11,34 @@ extension _NavigationShellNotificationRouting on _NavigationShellState {
     _routeNotificationPayload(payload);
   }
 
-  /// Routes a cold launch that came from a notification tap.
+  /// Claims a cold launch that came from a notification tap and holds it
+  /// until this account is ready (see [_routeHeldLaunchPayload]). A shell
+  /// that mounts after the claim picks up a payload still held.
   Future<void> _handleNotificationLaunch() async {
-    final String? payload = await NotificationScheduler()
-        .consumeLaunchPayload();
-    if (payload == null || !mounted) {
-      return;
-    }
-    _routeNotificationPayload(payload);
+    final NotificationScheduler scheduler = NotificationScheduler();
+    final String? payload = await scheduler.consumeLaunchPayload();
+    if (payload != null) scheduler.holdLaunchPayload(payload);
+    _routeHeldLaunchPayload();
   }
 
-  /// Maps a notification payload (the domain notification id) to a screen.
-  ///
-  /// Ids are namespaced by the services that create them; anything
-  /// unrecognised falls back to the notifications list rather than being
-  /// dropped, which is what happened before — no response handler existed at
-  /// all, so a tap only ever opened the app on whatever tab it was last on.
+  /// Routes the held cold-launch payload once, when account storage is ready
+  /// for the signed-in account. Until then it stays held, rather than being
+  /// dropped by the account check in [_routeNotificationPayload]; that check
+  /// then drops a payload that belongs to another account.
+  void _routeHeldLaunchPayload() {
+    if (!mounted || !NotificationScheduler().hasHeldLaunchPayload) return;
+    _runBackgroundTask('held notification launch routing', () async {
+      // Readiness can change during a frame; navigate on the next event turn.
+      await Future<void>.delayed(Duration.zero);
+      if (!mounted || ref.read(_reminderRecoveryOwnerProvider) == null) return;
+      final String? payload = NotificationScheduler().takeHeldLaunchPayload();
+      if (payload != null) _routeNotificationPayload(payload);
+    });
+  }
+
+  /// Maps a notification payload (the domain notification id) to a screen
+  /// (see [notificationDestinationFor]). Anything unrecognised falls back to
+  /// a tab rather than being dropped.
   void _routeNotificationPayload(String payload) {
     String logicalPayload = payload;
     final ({String accountScope, String notificationId})? scoped =
@@ -43,33 +55,28 @@ extension _NavigationShellNotificationRouting on _NavigationShellState {
       return;
     }
 
-    if (logicalPayload.startsWith('goal_reminder_')) {
-      _goToView(AppView.goals);
-      return;
+    switch (notificationDestinationFor(logicalPayload)) {
+      case NotificationDestination.habitCheckIns:
+        if (!_canPushFromNotification()) return;
+        // Close anything pushed earlier so the list is what shows.
+        popToFirstRoute(context);
+        unawaited(
+          Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(builder: (_) => const DailyRhythmsScreen()),
+          ),
+        );
+      case NotificationDestination.reflectionSchedule:
+        if (!_canPushFromNotification()) return;
+        unawaited(openSchedule(context));
+      case final NotificationDestination destination:
+        _goToView(destination.view!);
     }
-    if (logicalPayload.startsWith('daily_planning_reminder')) {
-      _goToView(AppView.smartPlanner);
-      return;
-    }
-    if (logicalPayload.startsWith('habit_reminder')) {
-      _goToView(AppView.creator);
-      return;
-    }
-    if (logicalPayload.startsWith('reflection_reminder')) {
-      if (!_canOpenReflectionSchedule()) return;
-      unawaited(openSchedule(context));
-      return;
-    }
-    if (logicalPayload.startsWith('streak_break_recovery_')) {
-      _goToView(AppView.progression);
-      return;
-    }
-    _goToView(AppView.timeline);
   }
 
-  // External taps can arrive while a mounted shell is being redirected. Recheck
-  // current admission after the cold-launch await and immediately before push.
-  bool _canOpenReflectionSchedule() {
+  // External taps can arrive while a mounted shell is being redirected. A
+  // pushed screen skips the router's guards, so recheck current admission
+  // after the cold-launch await and immediately before push.
+  bool _canPushFromNotification() {
     final scope = ref.read(accountStorageScopeProvider);
     final boundary = ref.read(authSessionBoundaryProvider);
     final recovery = ref.read(passwordRecoveryStateProvider).asData?.value;

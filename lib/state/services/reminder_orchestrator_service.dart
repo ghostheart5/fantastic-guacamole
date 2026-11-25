@@ -14,10 +14,12 @@ import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
+import 'package:fantastic_guacamole/l10n/app_language.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+part 'reminder_orchestrator_service.copy.dart';
 part 'reminder_orchestrator_service.habits.dart';
 part 'reminder_orchestrator_service.quiet_hours.dart';
 part 'reminder_orchestrator_service.reconcile.dart';
@@ -75,7 +77,7 @@ class ReminderOrchestratorService {
     bool Function()? isSpanish,
   }) : _now = now ?? DateTime.now,
        _timeZoneName = timeZoneName ?? _deviceTimeZoneName,
-       _isSpanish = isSpanish ?? _deviceIsSpanish;
+       _isSpanish = isSpanish ?? appLanguageIsSpanish;
 
   /// The main reminder switch; missing means on, as before it existed.
   static const String remindersEnabledKey = 'reminders_enabled';
@@ -122,7 +124,21 @@ class ReminderOrchestratorService {
   static const int _legacyReminderMinutes = 20 * 60;
   static const String _legacyHabitMigrationDoneKey =
       'legacy_habit_reminder_migrated';
-  static const String _dailyPlanningReminderId = 'daily_planning_reminder';
+  static const String dailyPlanningReminderId = 'daily_planning_reminder';
+
+  /// Every goal reminder id: this, the goal id and, for all but the
+  /// day-before reminder, a slot suffix (see [_goalSlotIds]).
+  static const String goalReminderPrefix = 'goal_reminder_';
+
+  /// Every rhythm reminder id, including the old shared one: this, the habit
+  /// id and, for a chosen weekday, `_wd<1-7>`.
+  static const String habitReminderPrefix = 'habit_reminder_';
+
+  static bool ownsGoalReminderId(String id) =>
+      id.startsWith(goalReminderPrefix);
+
+  static bool ownsHabitReminderId(String id) =>
+      id.startsWith(habitReminderPrefix);
 
   final SharedPrefsStore _preferences;
   final NotificationsService _notifications;
@@ -137,7 +153,10 @@ class ReminderOrchestratorService {
   final DateTime Function() _now;
   final String Function() _timeZoneName;
 
-  /// Whether reminder text is written in Spanish (the app language).
+  /// Whether reminder text is written in Spanish: asked each time reminders
+  /// are planned, so they follow the app language (see
+  /// [appLanguageIsSpanish]). Changing it changes the fingerprints, so the
+  /// next update replaces every registration.
   final bool Function() _isSpanish;
   final ValueNotifier<NotificationScheduleResult?> _lastHabitReminderResult =
       ValueNotifier<NotificationScheduleResult?>(null);
@@ -164,21 +183,6 @@ class ReminderOrchestratorService {
     } on Object {
       return '';
     }
-  }
-
-  /// The app follows the device language among English and Spanish, so the
-  /// first of those two in the device list decides.
-  static bool _deviceIsSpanish() {
-    try {
-      for (final locale in PlatformDispatcher.instance.locales) {
-        final String code = locale.languageCode.toLowerCase();
-        if (code == 'es') return true;
-        if (code == 'en') return false;
-      }
-    } on Object {
-      // No platform locale: English, the app's fallback.
-    }
-    return false;
   }
 
   ReminderOrchestratorPrefs loadPrefs() {
@@ -610,11 +614,11 @@ class ReminderOrchestratorService {
   static bool _wantsReminder(HabitEntity habit) =>
       habit.active && habit.reminderMinutes != null;
 
-  String habitReminderId(String habitId) => 'habit_reminder_$habitId';
+  String habitReminderId(String habitId) => '$habitReminderPrefix$habitId';
 
   /// The alarm for one chosen weekday (1 = Monday) of a weekly habit.
   String habitWeekdayReminderId(String habitId, int weekday) =>
-      'habit_reminder_${habitId}_wd$weekday';
+      '$habitReminderPrefix${habitId}_wd$weekday';
 
   /// How registering every wanted rhythm reminder went, or null when the
   /// account changed part way.
@@ -721,10 +725,10 @@ class ReminderOrchestratorService {
           ),
           () async {
             if (shouldContinue?.call() == false) return null;
-            await _forgetFingerprints(const <String>[_dailyPlanningReminderId]);
+            await _forgetFingerprints(const <String>[dailyPlanningReminderId]);
             if (!_isEnabled(_dailyPlanningEnabledKey, defaultValue: true) ||
                 !_remindersOn()) {
-              await _notifications.cancel(_dailyPlanningReminderId);
+              await _notifications.cancel(dailyPlanningReminderId);
               return NotificationScheduleResult.scheduled;
             }
 
@@ -735,7 +739,7 @@ class ReminderOrchestratorService {
             );
             if (shouldContinue?.call() == false) {
               await _scheduler.cancel(
-                _dailyPlanningReminderId,
+                dailyPlanningReminderId,
                 accountScope: _accountScope,
               );
               return null;
@@ -801,7 +805,7 @@ class ReminderOrchestratorService {
     final String title = goal.title;
     final int total = progress.totalCount;
     final int done = progress.completedCount;
-    final String steps = total > 0 ? ' $done of $total steps done.' : '';
+    final _ReminderCopy copy = _ReminderCopy(_isSpanish());
     final DateTime today = DateTime(now.year, now.month, now.day);
 
     final DateTime? target = goal.targetDate;
@@ -811,12 +815,11 @@ class ReminderOrchestratorService {
       dueDay = day;
       DateTime morning(int daysBefore) =>
           DateTime(day.year, day.month, day.day - daysBefore, goalReminderHour);
-      for (final (String id, int daysBefore, String heading, String phrase)
-          in <(String, int, String, String)>[
-            ('${base}_3d', 3, 'Goal coming up', 'is due in 3 days'),
-            (base, 1, 'Goal due tomorrow', 'is due tomorrow'),
-            ('${base}_due', 0, 'Goal due today', 'is due today'),
-          ]) {
+      for (final (String id, int daysBefore) in <(String, int)>[
+        ('${base}_3d', 3),
+        (base, 1),
+        ('${base}_due', 0),
+      ]) {
         final DateTime? at = daysBefore == 0
             ? _dueTodayAt(
                 goal.id,
@@ -830,23 +833,19 @@ class ReminderOrchestratorService {
         slots.add(
           GoalReminderSlot(
             id: id,
-            title: heading,
-            body: '"$title" $phrase.$steps',
+            title: copy.goalDeadlineTitle(daysBefore),
+            body: copy.goalDeadlineBody(title, daysBefore, done, total),
             at: at,
           ),
         );
       }
       final DateTime overdueAt = morning(-1);
       if (overdueNudges && overdueAt.isAfter(now)) {
-        final bool spanish = _isSpanish();
         slots.add(
           GoalReminderSlot(
             id: '${base}_overdue',
-            title: spanish ? 'Meta vencida' : 'Goal overdue',
-            body: spanish
-                ? '«$title» venció ayer y sigue pendiente.'
-                      '${total > 0 ? ' $done de $total pasos hechos.' : ''}'
-                : '"$title" was due yesterday and is still open.$steps',
+            title: copy.goalOverdueTitle,
+            body: copy.goalOverdueBody(title, done, total),
             at: overdueAt,
           ),
         );
@@ -868,7 +867,7 @@ class ReminderOrchestratorService {
       if (earlier != null) {
         nextNudges[goal.id] = earlier;
         if (earlier.isAfter(now) && !deadlineSoon) {
-          slots.add(_closeSlot(base, title, remaining, earlier));
+          slots.add(_closeSlot(copy, base, title, remaining, earlier));
         }
       }
     } else if (close && !deadlineSoon) {
@@ -879,7 +878,9 @@ class ReminderOrchestratorService {
               : DateTime(now.year, now.month, now.day + 1, goalReminderHour));
       nextNudges[goal.id] = at;
       // A nudge whose time has passed already fired; it does not repeat.
-      if (at.isAfter(now)) slots.add(_closeSlot(base, title, remaining, at));
+      if (at.isAfter(now)) {
+        slots.add(_closeSlot(copy, base, title, remaining, at));
+      }
     }
     return slots;
   }
@@ -929,18 +930,15 @@ class ReminderOrchestratorService {
   }
 
   GoalReminderSlot _closeSlot(
+    _ReminderCopy copy,
     String base,
     String title,
     int remaining,
     DateTime at,
   ) => GoalReminderSlot(
     id: '${base}_close',
-    title: 'Almost there',
-    body: remaining <= 0
-        ? 'Every step for "$title" is done. Mark the goal complete when you are ready.'
-        : remaining == 1
-        ? 'One step left on "$title".'
-        : '$remaining steps left on "$title". You are close.',
+    title: copy.goalCloseTitle,
+    body: copy.goalCloseBody(title, remaining),
     at: at,
   );
 
@@ -1016,7 +1014,7 @@ class ReminderOrchestratorService {
     return raw == 'true';
   }
 
-  String _goalReminderId(String goalId) => 'goal_reminder_$goalId';
+  String _goalReminderId(String goalId) => '$goalReminderPrefix$goalId';
 
   /// Every reminder id a goal can own. The bare id is the day-before slot, so
   /// it also replaces the single midnight reminder older builds registered.

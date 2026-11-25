@@ -186,6 +186,47 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+  // Records written in English before the app switched to Spanish are
+  // translated with the text the app generates today.
+  for (final (rawTitle, rawMessage, title, message) in [
+    (
+      'Goal due tomorrow',
+      '"Trip" is due tomorrow. 1 of 3 steps done.',
+      'Meta para mañana',
+      '«Trip» vence mañana. 1 de 3 pasos hechos.',
+    ),
+    (
+      'Goal due tomorrow',
+      '"Trip" is due tomorrow.',
+      'Meta para mañana',
+      '«Trip» vence mañana.',
+    ),
+    (
+      'Task Skipped',
+      'Stretch skipped. SI will adapt the next pick.',
+      'Tarea omitida',
+      'Stretch se omitió. SI adaptará la próxima elección.',
+    ),
+  ]) {
+    testWidgets('an English "$rawMessage" record reads in Spanish', (
+      tester,
+    ) async {
+      await pumpNotifications(tester, <NotificationEntity>[
+        NotificationEntity(
+          id: 'notification-es',
+          title: rawTitle,
+          message: rawMessage,
+          scheduledAt: DateTime.utc(2026, 8, 6, 22),
+          isEnabled: false,
+        ),
+      ], locale: const Locale('es'));
+
+      expect(find.text(title), findsOneWidget);
+      expect(find.text(message), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   NotificationEntity goalDueTomorrow({
     NotificationScheduleResult? result,
     bool enabled = true,
@@ -381,8 +422,8 @@ void main() {
     (
       const Locale('es'),
       'Hora prevista ·',
-      'Recordatorio, hora prevista: Goal due tomorrow',
-      'Recordatorio programado: Goal due tomorrow',
+      'Recordatorio, hora prevista: Meta para mañana',
+      'Recordatorio programado: Meta para mañana',
     ),
   ]) {
     testWidgets(

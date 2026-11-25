@@ -115,6 +115,7 @@ extension _HabitReminderPlanner on ReminderOrchestratorService {
       (HabitOccurrenceEntity value) =>
           value.habitId == habit.id && value.occurrenceKey == period,
     );
+    final _ReminderCopy copy = _ReminderCopy(_isSpanish());
     _PlannedReminder planned(String id, int? weekday) {
       final DateTime firstAt = _nextHabitReminderAt(
         habit,
@@ -125,7 +126,7 @@ extension _HabitReminderPlanner on ReminderOrchestratorService {
       return _PlannedReminder.cadence(
         id: id,
         title: habit.title,
-        body: 'Time for "${habit.title}". Tap to check in.',
+        body: copy.habitBody(habit.title),
         cadence: habit.cadence,
         firstAt: firstAt,
         skippedPeriod: checkedIn ? period : '',

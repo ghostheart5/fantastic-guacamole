@@ -419,6 +419,7 @@ String _localizedTitle(String raw, bool es) {
   if (!es) return raw.capitalize;
   return switch (raw.trim().toLowerCase()) {
     'goal reminder' => 'Recordatorio de meta',
+    'goal due tomorrow' => 'Meta para mañana',
     'decision alert' => 'Decisión actual',
     'completion' => 'Finalización',
     'task skipped' => 'Tarea omitida',
@@ -427,8 +428,22 @@ String _localizedTitle(String raw, bool es) {
   };
 }
 
+/// The day-before goal reminder, the only goal reminder kept in this list.
+/// New ones are written in the app language; this covers English records
+/// saved before a switch to Spanish.
+final RegExp _goalDueTomorrowMessage = RegExp(
+  r'^"(.*)" is due tomorrow\.(?: (\d+) of (\d+) steps done\.)?$',
+);
+
 String _localizedMessage(String raw, bool es) {
   if (!es) return raw;
+  final RegExpMatch? goalDue = _goalDueTomorrowMessage.firstMatch(raw);
+  if (goalDue != null) {
+    final String steps = goalDue.group(2) == null
+        ? ''
+        : ' ${goalDue.group(2)} de ${goalDue.group(3)} pasos hechos.';
+    return '«${goalDue.group(1)}» vence mañana.$steps';
+  }
   return raw
       .replaceFirst('Target date is near for', 'Se acerca la fecha de')
       .replaceFirst('Selected ', 'Se seleccionó ')
@@ -443,6 +458,10 @@ String _localizedMessage(String raw, bool es) {
       .replaceFirst(
         ' skipped and adaptation triggered.',
         ' se omitió y se actualizó la adaptación.',
+      )
+      .replaceFirst(
+        ' skipped. SI will adapt the next pick.',
+        ' se omitió. SI adaptará la próxima elección.',
       )
       .replaceFirst('" is complete.', '" se cumplió.');
 }
