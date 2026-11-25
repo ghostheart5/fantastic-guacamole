@@ -20,7 +20,9 @@ import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.da
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
+import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -97,6 +99,8 @@ void main() {
             habitOccurrenceCoordinatorProvider.overrideWithValue(coordinator),
             decisionOutcomeRepositoryProvider.overrideWithValue(null),
             reminderOrchestratorServiceProvider.overrideWithValue(service),
+            // Set up and allowed, so the habits build registers too.
+            notificationSchedulerProvider.overrideWithValue(_ReadyScheduler()),
           ],
         );
         addTearDown(container.dispose);
@@ -490,6 +494,17 @@ class _Preferences implements SharedPrefsStore {
   Future<void> clear() async {
     values.clear();
   }
+}
+
+/// The app's scheduler, set up and allowed; reminders go through the
+/// orchestrator's own fake port.
+class _ReadyScheduler implements NotificationScheduler {
+  @override
+  bool get isInitialized => true;
+  @override
+  Future<bool> init({bool requestPermissions = false}) async => true;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _CadenceSchedule {

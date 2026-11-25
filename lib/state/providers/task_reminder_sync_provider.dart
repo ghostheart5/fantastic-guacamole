@@ -113,6 +113,15 @@ bool notificationSchedulerReady(Ref ref) {
   }
 }
 
+/// The notification permission, read without showing the system dialog, or
+/// null while the scheduler is not set up (see [notificationSchedulerReady]).
+Future<bool?> notificationPermissionIfReady(Ref ref) async {
+  if (!notificationSchedulerReady(ref)) return null;
+  return ref
+      .read(notificationSchedulerProvider)
+      .init(requestPermissions: false);
+}
+
 /// The one place every task write passes through: create, edit, reschedule,
 /// complete, skip, delete, the Creator's direct save, a repeating task's
 /// successor and restore all reach the store through this wrapper, which

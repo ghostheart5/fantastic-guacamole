@@ -548,6 +548,46 @@ class ReminderOrchestratorService {
     },
   );
 
+  /// Brings only the rhythm reminders in line with [habits], changing what
+  /// differs, the way [reconcileAfterRestore] does for every group: a
+  /// matching registration is left alone, so a reminder already shown stays
+  /// in the tray. Updates [lastHabitReminderResult]. Returns whether every
+  /// wanted rhythm reminder is registered. Run [migrateLegacyHabitReminder]
+  /// first; until it has run the old shared reminder is kept.
+  Future<bool> syncHabitReminderGroup({
+    required List<HabitEntity> habits,
+    required bool permissionGranted,
+    required bool Function() shouldContinue,
+  }) {
+    return KeyedMutationCoordinator.shared.runExclusive<bool>(
+      AccountDataRegistry.notificationMutationKeyForScope(
+        _accountScope ?? 'legacy',
+      ),
+      () async {
+        if (!shouldContinue()) return false;
+        final bool keepLegacy = _keepsLegacyHabitReminder();
+        final bool trackLegacy = await _legacyIdToKeepTracked(keepLegacy);
+        if (!shouldContinue()) return false;
+        return _runGroups(
+          <(String, Future<_ReminderGroup> Function())>[
+            (
+              'habits',
+              () => _planHabitGroup(
+                habits,
+                permissionGranted: permissionGranted,
+                keepLegacy: keepLegacy,
+                trackLegacy: trackLegacy,
+              ),
+            ),
+          ],
+          permissionGranted: permissionGranted,
+          shouldContinue: shouldContinue,
+          everyGroup: false,
+        );
+      },
+    );
+  }
+
   /// One-time upgrade step for the old shared 8 PM rhythm reminder. When this
   /// account still has it, every active rhythm without its own time gets
   /// 8 PM, saved through [save], and the old reminder is cancelled. Paused
@@ -757,38 +797,47 @@ class ReminderOrchestratorService {
   }) {
     // Share the notification repository's lock so account cleanup and a new
     // session's schedule cannot overtake an in-flight OS scheduling request.
-    return KeyedMutationCoordinator.shared
-        .runExclusive<NotificationScheduleResult?>(
-          AccountDataRegistry.notificationMutationKeyForScope(
-            _accountScope ?? 'legacy',
-          ),
-          () async {
-            if (shouldContinue?.call() == false) return null;
-            await _forgetFingerprints(const <String>[dailyPlanningReminderId]);
-            if (!_isEnabled(_dailyPlanningEnabledKey, defaultValue: true) ||
-                !_remindersOn()) {
-              await _notifications.cancel(dailyPlanningReminderId);
-              return NotificationScheduleResult.scheduled;
-            }
+    return KeyedMutationCoordinator.shared.runExclusive<
+      NotificationScheduleResult?
+    >(
+      AccountDataRegistry.notificationMutationKeyForScope(
+        _accountScope ?? 'legacy',
+      ),
+      () async {
+        if (shouldContinue?.call() == false) return null;
+        if (!_isEnabled(_dailyPlanningEnabledKey, defaultValue: true) ||
+            !_remindersOn()) {
+          await _forgetFingerprints(const <String>[dailyPlanningReminderId]);
+          await _notifications.cancel(dailyPlanningReminderId);
+          return NotificationScheduleResult.scheduled;
+        }
 
-            final (int hour, int minute) = _dailyPlanningTime();
-            final _PlannedReminder item = _dailyPlanningReminder(hour, minute);
-            final NotificationScheduleResult result = await _registerPlanned(
-              item,
-            );
-            if (shouldContinue?.call() == false) {
-              await _scheduler.cancel(
-                dailyPlanningReminderId,
-                accountScope: _accountScope,
-              );
-              return null;
-            }
-            if (result == NotificationScheduleResult.scheduled) {
-              await _rememberFingerprints(<_PlannedReminder>[item]);
-            }
-            return result;
-          },
-        );
+        final (int hour, int minute) = _dailyPlanningTime();
+        final _PlannedReminder item = _dailyPlanningReminder(hour, minute);
+        // Already registered as wanted: registering again would move an
+        // alarm still waiting in its window to tomorrow.
+        if (_loadFingerprints()[dailyPlanningReminderId]?.hash ==
+                item.fingerprint(_timeZoneName()) &&
+            (await _readPendingIds())?.contains(dailyPlanningReminderId) ==
+                true) {
+          return NotificationScheduleResult.scheduled;
+        }
+        if (shouldContinue?.call() == false) return null;
+        await _forgetFingerprints(const <String>[dailyPlanningReminderId]);
+        final NotificationScheduleResult result = await _registerPlanned(item);
+        if (shouldContinue?.call() == false) {
+          await _scheduler.cancel(
+            dailyPlanningReminderId,
+            accountScope: _accountScope,
+          );
+          return null;
+        }
+        if (result == NotificationScheduleResult.scheduled) {
+          await _rememberFingerprints(<_PlannedReminder>[item]);
+        }
+        return result;
+      },
+    );
   }
 
   Future<NotificationScheduleResult> setDailyPlanningReminder({

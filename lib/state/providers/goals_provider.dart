@@ -14,6 +14,7 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/signals_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_reminder_sync_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
@@ -76,8 +77,14 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     unawaited(
       Future<void>(() async {
         await _auxiliary(operation, 'reminders', () async {
-          await reminders.syncGoalReminders(
-            goals,
+          // Every cold start rebuilds this list. Only what differs changes,
+          // so a reminder already shown stays in the tray. Until the
+          // scheduler is set up the next full reconcile does this.
+          final bool? granted = await notificationPermissionIfReady(ref);
+          if (granted == null || !operation.isCurrent(ref)) return;
+          await reminders.syncGoalReminderGroup(
+            goals: goals,
+            permissionGranted: granted,
             shouldContinue: () => operation.isCurrent(ref),
           );
           if (!operation.isCurrent(ref)) return;

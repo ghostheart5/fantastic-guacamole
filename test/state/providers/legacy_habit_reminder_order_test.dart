@@ -290,6 +290,9 @@ class _Scheduler implements NotificationScheduler {
 
   @override
   ValueListenable<bool?> get permissionStatusListenable => _permission;
+  // Set up, as startup does outside mock mode.
+  @override
+  bool get isInitialized => true;
   @override
   Future<bool> init({bool requestPermissions = false}) async => true;
   @override
