@@ -181,6 +181,23 @@ void main() {
     });
   }
 
+  testWidgets('a disposed shell stops listening for notification taps', (
+    tester,
+  ) async {
+    await pumpShell(tester);
+    // ignore: invalid_use_of_protected_member
+    expect(NotificationScheduler.tappedPayloadListenable.hasListeners, isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    // ignore: invalid_use_of_protected_member
+    expect(NotificationScheduler.tappedPayloadListenable.hasListeners, isFalse);
+    expect(
+      // ignore: invalid_use_of_protected_member
+      NotificationScheduler.heldLaunchPayloadListenable.hasListeners,
+      isFalse,
+    );
+  });
+
   for (final String payload in <String>[
     'habit_reminder_walk',
     'habit_reminder_walk_wd3',

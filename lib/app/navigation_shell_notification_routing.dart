@@ -2,7 +2,7 @@ part of 'navigation_shell.dart';
 
 extension _NavigationShellNotificationRouting on _NavigationShellState {
   /// Routes a notification tap that arrived while the app was running.
-  void _onNotificationTapped() {
+  void _routeTappedNotification() {
     final String? payload = NotificationScheduler.tappedPayloadListenable.value;
     if (payload == null || !mounted) {
       return;

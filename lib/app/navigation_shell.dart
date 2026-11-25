@@ -343,8 +343,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     }
   }
 
-  // A class method (not the extension's), so add and remove get equal tear-offs.
+  // Class methods (not the extension's), so add and remove get equal tear-offs.
   void _onHeldLaunchPayload() => _routeHeldLaunchPayload();
+  void _onNotificationTapped() => _routeTappedNotification();
 
   @override
   void didChangeLocales(List<Locale>? locales) {
