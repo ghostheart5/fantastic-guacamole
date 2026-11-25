@@ -128,12 +128,17 @@ class _ReconcileRun {
     required this.fingerprints,
     required this.zone,
     required this.shouldContinue,
+    required this.clearedWhileOff,
   });
 
   /// This account's registered OS ids, or null when they could not be read.
   final Set<String>? pending;
   final bool permissionGranted;
   final Map<String, _StoredFingerprint> fingerprints;
+
+  /// Ids already cancelled while notifications were not allowed, so later
+  /// runs in that state do not cancel them again. Empty once allowed.
+  final Set<String> clearedWhileOff;
   final String zone;
   final bool Function() shouldContinue;
 
@@ -148,6 +153,7 @@ class _ReconcileAbandoned implements Exception {
 
 extension _ReminderReconciler on ReminderOrchestratorService {
   static const String _fingerprintsKey = 'reminder_fingerprints_v1';
+  static const String _clearedWhileOffKey = 'reminders_cleared_while_off_v1';
 
   /// Every producer of reminders, planned and applied one after another.
   /// Fixed daily reminders go first so they never wait behind a long goal
@@ -192,6 +198,8 @@ extension _ReminderReconciler on ReminderOrchestratorService {
       fingerprints: _loadFingerprints(),
       zone: _timeZoneName(),
       shouldContinue: shouldContinue,
+      // Once notifications are allowed again, everything is registered anew.
+      clearedWhileOff: permissionGranted ? <String>{} : _loadClearedWhileOff(),
     );
     if (!shouldContinue()) return false;
     bool complete = true;
@@ -228,6 +236,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
     }
     if (!shouldContinue()) return _abandon(run);
     await _saveFingerprints(run.fingerprints);
+    await _saveClearedWhileOff(run.clearedWhileOff);
     if (failed.isNotEmpty) _recordIncomplete(failed);
     if (habitOutcome != null) _lastHabitReminderResult.value = habitOutcome;
     return complete;
@@ -249,12 +258,16 @@ extension _ReminderReconciler on ReminderOrchestratorService {
     if (!run.permissionGranted) {
       // Nothing can be registered, and the OS list may read as empty. Clear
       // every reminder this group may own so none fires with outdated
-      // content once notifications are allowed again.
+      // content once notifications are allowed again. Each id is cleared
+      // once: later runs skip it unless something registered it since.
+      final Set<String> cleared = run.clearedWhileOff;
       for (final String id in <String>{...group.couldOwn, ...wantedIds}) {
         if (kept(id)) continue;
+        if (cleared.contains(id) && !fingerprints.containsKey(id)) continue;
         _checkCurrent(run);
         if (await _scheduler.cancel(id, accountScope: _accountScope)) {
           fingerprints.remove(id);
+          cleared.add(id);
         } else {
           ok = false;
         }
@@ -294,7 +307,8 @@ extension _ReminderReconciler on ReminderOrchestratorService {
         );
         continue;
       }
-      fingerprints.remove(item.id);
+      // A fingerprint means this id was registered and not known to be gone.
+      final bool wasRegistered = fingerprints.remove(item.id) != null;
       final bool knownReason = result != NotificationScheduleResult.failed;
       if (knownReason) {
         // Missing permission or an unsupported platform is not a failure.
@@ -306,10 +320,12 @@ extension _ReminderReconciler on ReminderOrchestratorService {
       }
       // Same id, so there is no newer registration to keep: the one left
       // behind carries outdated content. For a known reason only clear what
-      // the OS really holds, so every resume does not cancel it again.
-      if (knownReason
-          ? pending?.contains(item.id) == true
-          : registered.contains(item.id)) {
+      // the OS really holds (or, when its list cannot be read, what this
+      // account last registered), so every resume does not cancel it again.
+      final bool held = pending != null
+          ? pending.contains(item.id)
+          : wasRegistered;
+      if (knownReason ? held : registered.contains(item.id)) {
         try {
           await _scheduler.cancel(item.id, accountScope: _accountScope);
         } on Object {
@@ -625,14 +641,49 @@ extension _ReminderReconciler on ReminderOrchestratorService {
   }
 
   /// Forgets what is known about [ids]; the next reconcile registers them
-  /// again unless the OS list and the content both match.
+  /// again unless the OS list and the content both match, and cancels them
+  /// again while notifications are not allowed (another path may have
+  /// registered them meanwhile).
   Future<void> _forgetFingerprints(Iterable<String> ids) async {
     final Map<String, _StoredFingerprint> values = _loadFingerprints();
+    final Set<String> cleared = _loadClearedWhileOff();
     final int before = values.length;
+    final int clearedBefore = cleared.length;
     for (final String id in ids) {
       values.remove(id);
+      cleared.remove(id);
     }
     if (values.length != before) await _saveFingerprints(values);
+    if (cleared.length != clearedBefore) await _saveClearedWhileOff(cleared);
+  }
+
+  Set<String> _loadClearedWhileOff() {
+    final String? encoded = _preferences.load(_clearedWhileOffKey);
+    if (encoded == null || encoded.isEmpty) return <String>{};
+    try {
+      final Object? decoded = jsonDecode(encoded);
+      if (decoded is! List) return <String>{};
+      return decoded
+          .whereType<String>()
+          .where((String id) => id.isNotEmpty)
+          .toSet();
+    } on FormatException {
+      // Unreadable: every id is cancelled once more, which is safe.
+      return <String>{};
+    }
+  }
+
+  Future<void> _saveClearedWhileOff(Set<String> ids) async {
+    if (ids.isEmpty) {
+      if (_preferences.load(_clearedWhileOffKey) != null) {
+        await _preferences.delete(_clearedWhileOffKey);
+      }
+      return;
+    }
+    await _preferences.save(
+      _clearedWhileOffKey,
+      jsonEncode(ids.toList()..sort()),
+    );
   }
 
   /// Records [items] as registered by a path outside the reconciler.

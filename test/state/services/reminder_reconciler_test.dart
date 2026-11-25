@@ -267,6 +267,106 @@ void main() {
     },
   );
 
+  test('without permission each reminder is cleared once, not on every '
+      'resume, and all come back when permission returns', () async {
+    final fixture = _Fixture();
+    final goals = [fixture.goal('trip')];
+    final habits = [fixture.habit('walk', minutes: 18 * 60)];
+    const everything = <String>[
+      'daily_planning_reminder',
+      'habit_reminder_walk',
+      'goal_reminder_trip_3d',
+      'goal_reminder_trip',
+      'goal_reminder_trip_due',
+    ];
+    expect(await fixture.reconcile(goals, habits), isTrue);
+
+    fixture.scheduler.clearLog();
+    expect(await fixture.reconcile(goals, habits, permission: false), isFalse);
+    expect(fixture.scheduler.cancelled, containsAll(everything));
+    expect(fixture.scheduler.pending, isEmpty);
+    expect(fixture.scheduler.registered, isEmpty);
+
+    for (var resume = 0; resume < 2; resume++) {
+      fixture.scheduler.clearLog();
+      expect(
+        await fixture.reconcile(goals, habits, permission: false),
+        isFalse,
+      );
+      expect(fixture.scheduler.cancelled, isEmpty, reason: 'resume $resume');
+      expect(fixture.scheduler.registered, isEmpty);
+    }
+    expect(
+      RuntimeDiagnostics.events.value.where(
+        (event) => event.category == 'reminders.reconcile_incomplete',
+      ),
+      isEmpty,
+    );
+    expect(
+      fixture.service.lastHabitReminderResult.value,
+      NotificationScheduleResult.permissionDenied,
+    );
+
+    // Permission returns: everything is registered again, nothing cancelled.
+    fixture.scheduler.clearLog();
+    expect(await fixture.reconcile(goals, habits), isTrue);
+    expect(fixture.scheduler.registered, unorderedEquals(everything));
+    expect(fixture.scheduler.cancelled, isEmpty);
+    expect(
+      fixture.preferences.values.containsKey('reminders_cleared_while_off_v1'),
+      isFalse,
+    );
+  });
+
+  test('without permission a newly added goal is cleared once', () async {
+    final fixture = _Fixture();
+    await fixture.reconcile([fixture.goal('trip')], [], permission: false);
+    fixture.scheduler.clearLog();
+    final goals = [fixture.goal('trip'), fixture.goal('move')];
+    expect(await fixture.reconcile(goals, [], permission: false), isFalse);
+    expect(fixture.scheduler.cancelled, isNotEmpty);
+    expect(fixture.scheduler.cancelled, everyElement(contains('_move')));
+    fixture.scheduler.clearLog();
+    expect(await fixture.reconcile(goals, [], permission: false), isFalse);
+    expect(fixture.scheduler.cancelled, isEmpty);
+  });
+
+  test('a reminder another path registered while permission was off is '
+      'cleared again', () async {
+    final fixture = _Fixture();
+    final habits = [fixture.habit('walk', minutes: 18 * 60)];
+    await fixture.reconcile([], habits, permission: false);
+    await fixture.service.syncHabitReminders(habits);
+    expect(fixture.scheduler.pending, contains('habit_reminder_walk'));
+    fixture.scheduler.clearLog();
+    await fixture.reconcile([], habits, permission: false);
+    expect(fixture.scheduler.cancelled, contains('habit_reminder_walk'));
+    expect(fixture.scheduler.pending, isNot(contains('habit_reminder_walk')));
+  });
+
+  test(
+    'a declined reminder is cleared once when the OS list is unreadable',
+    () async {
+      final fixture = _Fixture();
+      final walk = fixture.habit('walk', minutes: 18 * 60);
+      expect(await fixture.reconcile([], [walk]), isTrue);
+      fixture.scheduler
+        ..pendingThrows = true
+        ..cadenceResult = NotificationScheduleResult.permissionDenied
+        ..clearLog();
+      final moved = walk.copyWith(reminderMinutes: 19 * 60);
+      expect(await fixture.reconcile([], [moved]), isFalse);
+      expect(fixture.scheduler.cancelled, contains('habit_reminder_walk'));
+      expect(fixture.scheduler.pending, isNot(contains('habit_reminder_walk')));
+      fixture.scheduler.clearLog();
+      expect(await fixture.reconcile([], [moved]), isFalse);
+      expect(
+        fixture.scheduler.cancelled,
+        isNot(contains('habit_reminder_walk')),
+      );
+    },
+  );
+
   test('a failing rhythm registration is still reported', () async {
     final fixture = _Fixture();
     fixture.scheduler.cadenceResult = NotificationScheduleResult.failed;
@@ -328,13 +428,16 @@ class _Fixture {
     timeZoneName: () => zone,
   );
 
-  Future<bool> reconcile(List<GoalEntity> goals, List<HabitEntity> habits) =>
-      service.reconcileAfterRestore(
-        goals: goals,
-        habits: habits,
-        permissionGranted: true,
-        shouldContinue: () => true,
-      );
+  Future<bool> reconcile(
+    List<GoalEntity> goals,
+    List<HabitEntity> habits, {
+    bool permission = true,
+  }) => service.reconcileAfterRestore(
+    goals: goals,
+    habits: habits,
+    permissionGranted: permission,
+    shouldContinue: () => true,
+  );
 
   GoalEntity goal(String id) => GoalEntity(
     id: id,
@@ -417,9 +520,13 @@ class _Scheduler implements NotificationSchedulerPort {
     return true;
   }
 
+  /// Makes the OS list unreadable.
+  bool pendingThrows = false;
+
   @override
   Future<List<String>> pendingIdsForAccount(String accountScope) async {
     expect(accountScope, _scope);
+    if (pendingThrows) throw StateError('Fixture OS list unreadable');
     return pending.toList();
   }
 
