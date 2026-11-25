@@ -27,7 +27,7 @@ These changes are not yet released or verified on a device.
 - Settings has one Notifications area: a main switch, how early task reminders come, quiet hours, and a line that says whether reminders can arrive on this device.
 - The app asks for notification permission at the moment you set something that needs a reminder, and explains what to do if notifications are off.
 - The in-app reminder list shows what the phone actually accepted, with the right time for habits on any chosen day.
-- Reminders are updated by changing only what is different, instead of cancelling and setting them all again. A reminder already shown stays in the notification tray when the app restarts.
+- When the app starts or comes back to the front, reminders are updated by changing only what is different, instead of cancelling and setting them all again. A reminder already shown stays in the notification tray when the app restarts. Saving a goal or checking in a habit still sets that kind of reminder again.
 - Reminder times follow a change of time zone.
 - Changing how early task reminders come, or turning reminders back on, no longer drops a task reminder that is still to come.
 - Tapping a reminder opens the screen it is about.
