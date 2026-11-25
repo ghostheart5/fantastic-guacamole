@@ -15,7 +15,8 @@ class _PlannedReminder {
        hour = 0,
        minute = 0,
        cadence = null,
-       skippedPeriod = '';
+       skippedPeriod = '',
+       day = '';
 
   _PlannedReminder.daily({
     required this.id,
@@ -26,7 +27,8 @@ class _PlannedReminder {
   }) : repeat = _Repeat.daily,
        at = DateTime(0),
        cadence = null,
-       skippedPeriod = '';
+       skippedPeriod = '',
+       day = '';
 
   _PlannedReminder.cadence({
     required this.id,
@@ -35,6 +37,7 @@ class _PlannedReminder {
     required HabitCadence this.cadence,
     required DateTime firstAt,
     required this.skippedPeriod,
+    this.day = '',
   }) : repeat = _Repeat.cadence,
        at = firstAt,
        hour = firstAt.hour,
@@ -57,13 +60,18 @@ class _PlannedReminder {
   /// registration whose alarm may still be waiting to fire.
   final String skippedPeriod;
 
+  /// The chosen day a cadence reminder repeats on, when it is not implied by
+  /// its id, or empty. Left out of the fingerprint when empty.
+  final String day;
+
   /// Changes whenever the time, repeat rule, text or time zone changes.
   String fingerprint(String zone) {
     final String rule = switch (repeat) {
       _Repeat.once => 'once|${at.toIso8601String()}',
       _Repeat.daily => 'daily|$hour:$minute',
       _Repeat.cadence =>
-        'cadence|${cadence!.name}|$hour:$minute|$skippedPeriod',
+        'cadence|${cadence!.name}|$hour:$minute|$skippedPeriod'
+            '${day.isEmpty ? '' : '|$day'}',
     };
     return sha256
         .convert(utf8.encode(jsonEncode(<String>[zone, rule, title, body])))
@@ -493,12 +501,13 @@ extension _ReminderReconciler on ReminderOrchestratorService {
       owns: (String id) => id.startsWith('habit_reminder_'),
       wanted: <_PlannedReminder>[
         for (final HabitEntity habit in wanted)
-          _habitReminder(habit, outcomes, now),
+          ..._habitReminders(habit, outcomes, now),
       ],
       tracked: previous,
       couldOwn: <String>{
         ..._habitReminderIdsToCancel(keepLegacy),
-        ...habits.map((HabitEntity habit) => habitReminderId(habit.id)),
+        for (final HabitEntity habit in habits)
+          ..._habitReminderIdsOwnedBy(habit.id),
       },
       // The old shared reminder stays until its one-time migration has run.
       keep: (String id, _) => keepLegacy && id == legacy,
@@ -506,7 +515,8 @@ extension _ReminderReconciler on ReminderOrchestratorService {
           _saveTrackedHabitReminderIds(<String>{
             if (outcome == NotificationScheduleResult.failed)
               ...previous.where((String id) => id != legacy),
-            ...wanted.map((HabitEntity habit) => habitReminderId(habit.id)),
+            for (final HabitEntity habit in wanted)
+              ..._habitReminderIdsFor(habit),
             if (trackLegacy) legacy,
           }),
     );
@@ -608,30 +618,6 @@ extension _ReminderReconciler on ReminderOrchestratorService {
         hour: hour,
         minute: minute,
       );
-
-  _PlannedReminder _habitReminder(
-    HabitEntity habit,
-    List<HabitOccurrenceEntity> outcomes,
-    DateTime now,
-  ) {
-    final String period = RhythmPlanningContext.occurrenceKey(habit, now);
-    final bool checkedIn = outcomes.any(
-      (HabitOccurrenceEntity value) =>
-          value.habitId == habit.id && value.occurrenceKey == period,
-    );
-    return _PlannedReminder.cadence(
-      id: habitReminderId(habit.id),
-      title: habit.title,
-      body: 'Time for "${habit.title}". Tap to check in.',
-      cadence: habit.cadence,
-      firstAt: ReminderOrchestratorService.nextHabitReminderAt(
-        habit,
-        outcomes,
-        now,
-      ),
-      skippedPeriod: checkedIn ? period : '',
-    );
-  }
 
   _PlannedReminder _goalReminder(GoalReminderSlot slot) =>
       _PlannedReminder.once(

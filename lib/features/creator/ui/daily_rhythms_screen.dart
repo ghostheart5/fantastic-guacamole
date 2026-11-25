@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/planning/habit_reminder_days.dart';
 import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
+import 'package:fantastic_guacamole/features/creator/widgets/habit_reminder_day_pickers.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_flow.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
@@ -281,19 +283,68 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     final String time = MaterialLocalizations.of(
       context,
     ).formatTimeOfDay(TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60));
-    final String when = switch (habit.cadence) {
-      HabitCadence.daily => _t('every day', 'cada día'),
-      HabitCadence.weekly => _t('every Monday', 'cada lunes'),
-      HabitCadence.monthly => _t(
-        'on the 1st of each month',
-        'el día 1 de cada mes',
-      ),
-    };
+    final String when = HabitReminderDays.describe(
+      cadence: habit.cadence,
+      weekdays: habit.reminderWeekdays,
+      dayOfMonth: habit.reminderDayOfMonth,
+      spanish: _spanish,
+    );
     return _t('Reminder: $time $when', 'Recordatorio: $time $when');
+  }
+
+  bool get _spanish => Localizations.localeOf(context).languageCode == 'es';
+
+  /// Asks which weekdays (weekly) or which day of the month (monthly) the
+  /// reminder arrives on. Null when cancelled.
+  Future<({List<int>? weekdays, int? dayOfMonth})?> _pickReminderDays(
+    HabitEntity habit,
+  ) async {
+    List<int>? weekdays = habit.reminderWeekdays;
+    int? day = habit.reminderDayOfMonth;
+    final bool weekly = habit.cadence == HabitCadence.weekly;
+    final bool? saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, update) => AlertDialog(
+          title: Text(
+            weekly
+                ? _t('Remind me on', 'Recordarme los')
+                : _t('Remind me on the', 'Recordarme el'),
+          ),
+          content: weekly
+              ? HabitWeekdayChooser(
+                  selected: weekdays,
+                  spanish: _spanish,
+                  onChanged: (value) => update(() => weekdays = value),
+                )
+              : HabitMonthDayChooser(
+                  selected: day,
+                  spanish: _spanish,
+                  onChanged: (value) => update(() => day = value),
+                ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(_t('Cancel', 'Cancelar')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(_t('Save', 'Guardar')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (saved != true) return null;
+    return weekly
+        ? (weekdays: weekdays ?? const <int>[DateTime.monday], dayOfMonth: null)
+        : (weekdays: null, dayOfMonth: day ?? 1);
   }
 
   Future<void> _editReminder(String owner, HabitEntity habit) async {
     final int? current = habit.reminderMinutes;
+    // Weekly and monthly reminders also say which days they arrive on.
+    final bool hasDays = habit.cadence != HabitCadence.daily;
     if (current != null) {
       final String? choice = await showDialog<String>(
         context: context,
@@ -305,6 +356,15 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
               onPressed: () => Navigator.pop(dialogContext, 'remove'),
               child: Text(_t('Turn off', 'Desactivar')),
             ),
+            if (hasDays)
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, 'days'),
+                child: Text(
+                  habit.cadence == HabitCadence.weekly
+                      ? _t('Change days', 'Cambiar días')
+                      : _t('Change day', 'Cambiar día'),
+                ),
+              ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, 'change'),
               child: Text(_t('Change time', 'Cambiar hora')),
@@ -320,6 +380,25 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
         });
         return;
       }
+      if (choice == 'days') {
+        final days = await _pickReminderDays(habit);
+        if (days == null || !_sameAccount(owner)) return;
+        await _run(owner, habit, (notifier) async {
+          await notifier.setReminderTime(
+            habit.id,
+            current,
+            weekdays: days.weekdays,
+            dayOfMonth: days.dayOfMonth,
+          );
+          return _reminderLabel(
+            habit.copyWith(
+              reminderWeekdays: days.weekdays,
+              reminderDayOfMonth: days.dayOfMonth,
+            ),
+          );
+        });
+        return;
+      }
     }
     if (!mounted) return;
     final TimeOfDay? picked = await showTimePicker(
@@ -330,13 +409,26 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
           : TimeOfDay(hour: current ~/ 60, minute: current % 60),
     );
     if (picked == null || !_sameAccount(owner)) return;
+    // A new weekly or monthly reminder asks for its days right away.
+    final days = current == null && hasDays
+        ? await _pickReminderDays(habit)
+        : null;
+    if ((current == null && hasDays && days == null) || !_sameAccount(owner)) {
+      return;
+    }
     final bool saved = await _run(owner, habit, (notifier) async {
       await notifier.setReminderTime(
         habit.id,
         picked.hour * 60 + picked.minute,
+        weekdays: days?.weekdays,
+        dayOfMonth: days?.dayOfMonth,
       );
       return _reminderLabel(
-        habit.copyWith(reminderMinutes: picked.hour * 60 + picked.minute),
+        habit.copyWith(
+          reminderMinutes: picked.hour * 60 + picked.minute,
+          reminderWeekdays: days?.weekdays,
+          reminderDayOfMonth: days?.dayOfMonth,
+        ),
       );
     });
     // The person just asked for a reminder and it is saved: the moment to

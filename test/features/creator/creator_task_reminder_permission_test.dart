@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_reminder_permission.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
@@ -27,10 +28,26 @@ void main() {
         ),
       );
 
-  ReminderOrchestratorPrefs prefs({required bool tasks}) =>
+  CreatorMutationOperation habit({int? minutes}) => CreatorMutationOperation(
+    operationId: 'op-habit',
+    kind: CreatorMutationKind.createHabit,
+    label: 'Habit',
+    habit: CreatorHabitMutation(
+      habitId: 'h',
+      title: 'Evening walk',
+      description: null,
+      createdAt: now,
+      cadence: HabitCadence.weekly,
+      targetCount: 1,
+      reminderMinutes: minutes,
+      reminderWeekdays: minutes == null ? null : const <int>[3],
+    ),
+  );
+
+  ReminderOrchestratorPrefs prefs({required bool tasks, bool habits = true}) =>
       ReminderOrchestratorPrefs(
         goalRemindersEnabled: true,
-        habitRemindersEnabled: true,
+        habitRemindersEnabled: habits,
         dailyPlanningEnabled: true,
         dailyPlanningHour: 7,
         dailyPlanningMinute: 30,
@@ -73,6 +90,32 @@ void main() {
       creatorSaveCanRemind(
         [task(scheduledFor: now.add(const Duration(hours: 1)))],
         prefs(tasks: false),
+        now: now,
+      ),
+      isFalse,
+    );
+  });
+
+  test('a habit saved with a reminder time can remind', () {
+    expect(
+      creatorSaveCanRemind(
+        [habit(minutes: 8 * 60)],
+        prefs(tasks: false),
+        now: now,
+      ),
+      isTrue,
+    );
+  });
+
+  test('a habit saved for any time, or habit reminders off, does not', () {
+    expect(
+      creatorSaveCanRemind([habit()], prefs(tasks: true), now: now),
+      isFalse,
+    );
+    expect(
+      creatorSaveCanRemind(
+        [habit(minutes: 8 * 60)],
+        prefs(tasks: true, habits: false),
         now: now,
       ),
       isFalse,

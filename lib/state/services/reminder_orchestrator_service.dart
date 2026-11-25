@@ -18,6 +18,7 @@ import 'package:fantastic_guacamole/state/services/notifications_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+part 'reminder_orchestrator_service.habits.dart';
 part 'reminder_orchestrator_service.reconcile.dart';
 part 'reminder_orchestrator_service.tasks.dart';
 
@@ -546,6 +547,10 @@ class ReminderOrchestratorService {
 
   String habitReminderId(String habitId) => 'habit_reminder_$habitId';
 
+  /// The alarm for one chosen weekday (1 = Monday) of a weekly habit.
+  String habitWeekdayReminderId(String habitId, int weekday) =>
+      'habit_reminder_${habitId}_wd$weekday';
+
   /// How registering every wanted rhythm reminder went, or null when the
   /// account changed part way.
   Future<NotificationScheduleResult?> _scheduleHabits(
@@ -558,10 +563,10 @@ class ReminderOrchestratorService {
     final List<HabitEntity> wanted = habits
         .where(_wantsReminder)
         .toList(growable: false);
-    await _forgetFingerprints(<String>{
-      ...previous,
-      ...wanted.map((habit) => habitReminderId(habit.id)),
-    });
+    final Set<String> wantedIds = <String>{
+      for (final HabitEntity habit in wanted) ..._habitReminderIdsFor(habit),
+    };
+    await _forgetFingerprints(<String>{...previous, ...wantedIds});
     // Replace every earlier registration, including the old shared alarm
     // once the migration has run.
     for (final String id in previous) {
@@ -571,7 +576,7 @@ class ReminderOrchestratorService {
     }
     // Track before registering so an interrupted run can still be cancelled.
     await _saveTrackedHabitReminderIds(<String>{
-      ...wanted.map((habit) => habitReminderId(habit.id)),
+      ...wantedIds,
       if (trackLegacy) _legacyHabitReminderId,
     });
     if (wanted.isEmpty) return NotificationScheduleResult.scheduled;
@@ -592,12 +597,19 @@ class ReminderOrchestratorService {
         }
         return null;
       }
-      final _PlannedReminder item = _habitReminder(habit, outcomes, now);
-      final NotificationScheduleResult scheduled = await _registerPlanned(item);
-      if (scheduled == NotificationScheduleResult.scheduled) {
-        registered.add(item);
+      for (final _PlannedReminder item in _habitReminders(
+        habit,
+        outcomes,
+        now,
+      )) {
+        final NotificationScheduleResult scheduled = await _registerPlanned(
+          item,
+        );
+        if (scheduled == NotificationScheduleResult.scheduled) {
+          registered.add(item);
+        }
+        result = _worseResult(result, scheduled);
       }
-      result = _worseResult(result, scheduled);
     }
     await _rememberFingerprints(registered);
     return result;
@@ -619,63 +631,15 @@ class ReminderOrchestratorService {
   }
 
   /// First fire for [habit]: its reminder time in the current period (today,
-  /// this week's Monday, or this month's 1st), or the next period's when that
-  /// time has passed or the current period is already checked in.
+  /// this week's [weekday] (Monday when not given), or this month's chosen
+  /// day, the 1st by default), or the next period's when that time has
+  /// passed or the current period is already checked in.
   static DateTime nextHabitReminderAt(
     HabitEntity habit,
     List<HabitOccurrenceEntity> outcomes,
-    DateTime now,
-  ) {
-    final int hour = habit.reminderHour ?? 20;
-    final int minute = habit.reminderMinute ?? 0;
-    final String key = RhythmPlanningContext.occurrenceKey(habit, now);
-    final bool terminal = outcomes.any(
-      (value) => value.habitId == habit.id && value.occurrenceKey == key,
-    );
-    DateTime boundary = switch (habit.cadence) {
-      HabitCadence.daily => DateTime(
-        now.year,
-        now.month,
-        now.day,
-        hour,
-        minute,
-      ),
-      HabitCadence.weekly => DateTime(
-        now.year,
-        now.month,
-        now.day - (now.weekday - DateTime.monday),
-        hour,
-        minute,
-      ),
-      HabitCadence.monthly => DateTime(now.year, now.month, 1, hour, minute),
-    };
-    if (terminal || !boundary.isAfter(now)) {
-      boundary = switch (habit.cadence) {
-        HabitCadence.daily => DateTime(
-          boundary.year,
-          boundary.month,
-          boundary.day + 1,
-          hour,
-          minute,
-        ),
-        HabitCadence.weekly => DateTime(
-          boundary.year,
-          boundary.month,
-          boundary.day + 7,
-          hour,
-          minute,
-        ),
-        HabitCadence.monthly => DateTime(
-          boundary.year,
-          boundary.month + 1,
-          1,
-          hour,
-          minute,
-        ),
-      };
-    }
-    return boundary;
-  }
+    DateTime now, {
+    int? weekday,
+  }) => _nextHabitReminderAt(habit, outcomes, now, weekday);
 
   /// How registering the daily planning reminder went. Also
   /// [NotificationScheduleResult.scheduled] when it is off (nothing is left

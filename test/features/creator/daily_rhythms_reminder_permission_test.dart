@@ -87,16 +87,103 @@ void main() {
       },
     );
   }
+
+  testWidgets('a weekly habit reminder asks which days and the card states '
+      'them', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(500, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final habits = _Habits(cadence: HabitCadence.weekly);
+    late PermissionFixture fixture;
+    fixture = PermissionFixture(
+      overrides: [
+        domainHabitRepositoryProvider.overrideWithValue(habits),
+        habitOccurrencesProvider.overrideWith(
+          (ref) async => const <HabitOccurrenceEntity>[],
+        ),
+        secureStoreProvider.overrideWithValue(
+          SecureStore(backend: InMemorySecureStoreBackend()),
+        ),
+        reminderOrchestratorServiceProvider.overrideWith(
+          (ref) => ReminderOrchestratorService(
+            preferences: ref.watch(accountSharedPrefsStoreProvider),
+            notifications: NotificationsService(_Notifications()),
+            scheduler: fixture.scheduler,
+            accountScope: 'qa',
+            loadHabitOccurrences: () async => const <HabitOccurrenceEntity>[],
+            timeZoneName: () => 'Etc/UTC',
+          ),
+        ),
+      ],
+    );
+    fixture.scheduler.granted = true;
+    await tester.pumpWidget(
+      fixture.app(
+        Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: const DailyRhythmsScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Future<void> openReminder(String label) async {
+      if (find.text(label).hitTestable().evaluate().isEmpty) {
+        await tester.tap(find.text('Habit options'));
+        await tester.pumpAndSettle();
+      }
+      await tester.ensureVisible(find.text(label));
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+    }
+
+    await openReminder('Set reminder');
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    // Monday is chosen to start with; swap it for Wednesday and Friday.
+    for (final day in [3, 1, 5]) {
+      await tester.tap(
+        find.byKey(ValueKey<String>('habit-reminder-weekday-$day')),
+      );
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(habits.saved.single.reminderMinutes, 17 * 60);
+    expect(habits.saved.single.reminderWeekdays, [3, 5]);
+    String cardLabel() => tester
+        .widget<Text>(find.byKey(const ValueKey('rhythm-reminder-label-walk')))
+        .data!;
+    expect(cardLabel(), 'Reminder: 5:00 PM every Wednesday and Friday');
+
+    // The days can be changed later without touching the time.
+    await openReminder('Reminder');
+    await tester.tap(find.text('Change days'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('habit-reminder-weekday-3')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(habits.saved.single.reminderWeekdays, [5]);
+    expect(habits.saved.single.reminderMinutes, 17 * 60);
+    expect(cardLabel(), 'Reminder: 5:00 PM every Friday');
+  });
 }
 
 class _Habits implements IHabitRepository {
-  List<HabitEntity> saved = <HabitEntity>[
-    HabitEntity(
-      id: 'walk',
-      title: 'Evening walk',
-      createdAt: DateTime(2026, 9, 1),
-    ),
-  ];
+  _Habits({HabitCadence cadence = HabitCadence.daily})
+    : saved = <HabitEntity>[
+        HabitEntity(
+          id: 'walk',
+          title: 'Evening walk',
+          createdAt: DateTime(2026, 9, 1),
+          cadence: cadence,
+        ),
+      ];
+
+  List<HabitEntity> saved;
 
   @override
   Future<List<HabitEntity>> getHabits() async => List.of(saved);

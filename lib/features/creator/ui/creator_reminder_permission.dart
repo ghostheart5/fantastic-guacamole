@@ -6,9 +6,10 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Whether anything the Creator just saved can send a reminder: a goal with
-/// a target date while goal reminders are on, or a task whose start time or
-/// deadline gets a reminder while task reminders are on. Add each new kind
-/// of item that gets a reminder here.
+/// a target date while goal reminders are on, a habit given a reminder time
+/// while habit reminders are on, or a task whose start time or deadline gets
+/// a reminder while task reminders are on. Add each new kind of item that
+/// gets a reminder here.
 bool creatorSaveCanRemind(
   Iterable<CreatorMutationOperation> saved,
   ReminderOrchestratorPrefs prefs, {
@@ -16,6 +17,8 @@ bool creatorSaveCanRemind(
 }) => saved.any(
   (CreatorMutationOperation operation) =>
       (prefs.goalRemindersEnabled && operation.goal?.targetDate != null) ||
+      (prefs.habitRemindersEnabled &&
+          operation.habit?.reminderMinutes != null) ||
       switch (operation.taskMutation) {
         final CreatorTaskMutation task => TaskReminderPlanner.wouldRemind(
           scheduledFor: task.scheduledFor,

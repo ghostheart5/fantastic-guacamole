@@ -469,6 +469,23 @@ void main() {
       expect(scheduler.cancelled, contains('task_reminder_due_a'));
       expect(scheduler.cancelled, isNot(contains('other_reminder')));
     });
+
+    test(
+      'sign-out also cancels the weekday habit alarms the OS holds',
+      () async {
+        final scheduler = _Scheduler(
+          scope: AccountDataRegistry.accountDigest('account-a'),
+        )..pending.addAll(<String>['habit_reminder_walk_wd3']);
+        final repository = NotificationsRepository(
+          scheduler,
+          SecureStore(backend: InMemorySecureStoreBackend()),
+          accountId: 'account-a',
+        );
+
+        await repository.cancelAccountSchedules();
+        expect(scheduler.cancelled, contains('habit_reminder_walk_wd3'));
+      },
+    );
   });
 }
 

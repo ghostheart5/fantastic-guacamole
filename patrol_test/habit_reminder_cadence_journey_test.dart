@@ -690,6 +690,16 @@ void main() {
             'The ordinary time picker must open from Set reminder.',
           );
           await $(ok.hitTestable()).tap();
+          if (cadence != HabitCadence.daily) {
+            // Weekly and monthly reminders then ask for their days; keep the
+            // preselected Monday or 1st.
+            final save = find.widgetWithText(FilledButton, 'Save');
+            await waitRead(
+              () async => save.hitTestable().evaluate().isNotEmpty,
+              'A new weekly or monthly reminder must ask for its days.',
+            );
+            await $(save.hitTestable()).tap();
+          }
           await waitRead(
             () async =>
                 (await habitRepo.getHabits())

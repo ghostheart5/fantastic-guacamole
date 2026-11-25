@@ -140,6 +140,9 @@ final class CreatorHabitMutation extends CreatorEntityMutation {
     required this.createdAt,
     required this.cadence,
     required this.targetCount,
+    this.reminderMinutes,
+    this.reminderWeekdays,
+    this.reminderDayOfMonth,
   });
 
   final String habitId;
@@ -151,6 +154,15 @@ final class CreatorHabitMutation extends CreatorEntityMutation {
   final DateTime createdAt;
   final HabitCadence cadence;
   final int targetCount;
+
+  /// The habit's reminder time (minutes after midnight), or null for none.
+  final int? reminderMinutes;
+
+  /// Chosen weekdays of a weekly habit's reminder; null means Monday.
+  final List<int>? reminderWeekdays;
+
+  /// Chosen day of a monthly habit's reminder; null means the 1st.
+  final int? reminderDayOfMonth;
 
   @override
   CreatorEntityKind get entityKind => CreatorEntityKind.habit;
@@ -164,6 +176,10 @@ final class CreatorHabitMutation extends CreatorEntityMutation {
     'createdAt': createdAt.toUtc().toIso8601String(),
     'description': description,
     'habitId': habitId,
+    // Only when set, so a habit without a reminder keeps its earlier digest.
+    if (reminderDayOfMonth != null) 'reminderDayOfMonth': reminderDayOfMonth,
+    if (reminderMinutes != null) 'reminderMinutes': reminderMinutes,
+    if (reminderWeekdays != null) 'reminderWeekdays': reminderWeekdays,
     'targetCount': targetCount,
     'title': title,
   };

@@ -229,14 +229,18 @@ void main() {
           'daily_planning_reminder',
           'habit_reminder_daily',
           'habit_reminder_owned-habit',
+          // One alarm per weekday a weekly habit can choose.
+          for (var weekday = 1; weekday <= 7; weekday++)
+            'habit_reminder_owned-habit_wd$weekday',
           for (final id in ['legacy-tracked', ...goals.map((goal) => goal.id)])
             for (final suffix in ['', '_3d', '_due', '_close', '_overdue'])
               'goal_reminder_$id$suffix',
         ]),
       );
-      // Fixed reminders, the rhythm's own id, and every one of the five
-      // slots a goal can own, including the morning-after overdue nudge.
-      expect(scheduler.cancelled.toSet().length, 3 + 696 * 5);
+      // Fixed reminders, the rhythm's own id and its seven weekday ids, and
+      // every one of the five slots a goal can own, including the
+      // morning-after overdue nudge.
+      expect(scheduler.cancelled.toSet().length, 3 + 7 + 696 * 5);
       expect(
         scheduler.operations.every((op) => op == 'cancel:$account'),
         isTrue,

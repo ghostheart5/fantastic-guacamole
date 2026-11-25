@@ -1023,6 +1023,82 @@ void main() {
   });
 
   test(
+    'a habit saved with a reminder keeps its time and chosen days',
+    () async {
+      final _Harness harness = _Harness();
+      addTearDown(harness.dispose);
+
+      await harness.notifier.stage(
+        data: const CreatorFormData(
+          title: 'Long run',
+          type: 'Habit',
+          priority: 3,
+          recurrenceRule: RecurrenceRule.weekly,
+          habitReminderMinutes: 7 * 60 + 30,
+          habitReminderWeekdays: <int>[6, 3],
+          // Not a monthly habit, so this is not kept.
+          habitReminderDayOfMonth: 12,
+        ),
+      );
+      final CreatorHabitMutation staged =
+          harness.state.preview!.operations.single.habit!;
+      expect(staged.reminderMinutes, 450);
+      expect(staged.reminderWeekdays, <int>[3, 6]);
+      expect(staged.reminderDayOfMonth, isNull);
+      await harness.notifier.confirm();
+      final HabitEntity saved = harness.habitRepository.habits.single;
+      expect(saved.reminderMinutes, 450);
+      expect(saved.reminderWeekdays, <int>[3, 6]);
+      expect(saved.reminderDayOfMonth, isNull);
+      // Still recognised as the item this preview created.
+      expect(
+        (await harness.notifier.undo()).phase,
+        CreatorHandshakePhase.undone,
+      );
+      expect(harness.habitRepository.habits, isEmpty);
+
+      harness.notifier.clearResult();
+      await harness.notifier.stage(
+        data: const CreatorFormData(
+          title: 'Pay rent',
+          type: 'Habit',
+          priority: 3,
+          habitCadence: HabitCadence.monthly,
+          habitReminderMinutes: 9 * 60,
+          habitReminderDayOfMonth: HabitEntity.lastDayOfMonth,
+        ),
+      );
+      await harness.notifier.confirm();
+      final HabitEntity monthly = harness.habitRepository.habits.single;
+      expect(monthly.reminderMinutes, 540);
+      expect(monthly.reminderDayOfMonth, HabitEntity.lastDayOfMonth);
+      expect(monthly.reminderWeekdays, isNull);
+    },
+  );
+
+  test('"Any time" saves a habit without a reminder or days', () async {
+    final _Harness harness = _Harness();
+    addTearDown(harness.dispose);
+    await harness.notifier.stage(
+      data: const CreatorFormData(
+        title: 'Read',
+        type: 'Habit',
+        priority: 3,
+        recurrenceRule: RecurrenceRule.weekly,
+        habitReminderWeekdays: <int>[2],
+      ),
+    );
+    final CreatorHabitMutation staged =
+        harness.state.preview!.operations.single.habit!;
+    expect(staged.toCanonicalJson().containsKey('reminderMinutes'), isFalse);
+    expect(staged.toCanonicalJson().containsKey('reminderWeekdays'), isFalse);
+    await harness.notifier.confirm();
+    final HabitEntity saved = harness.habitRepository.habits.single;
+    expect(saved.reminderMinutes, isNull);
+    expect(saved.reminderWeekdays, isNull);
+  });
+
+  test(
     'domain revision detects Goal, Daily Rhythm, and Note changes',
     () async {
       Future<void> expectStaleAfter(
