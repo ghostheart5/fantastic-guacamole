@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dar
 
 import 'dart:async';
 
+import 'package:fantastic_guacamole/features/assistant/ui/ai_chat_consent.dart';
 import 'package:fantastic_guacamole/features/help/ui/help_screen.dart';
 import 'package:fantastic_guacamole/features/settings/ui/cloud_backup_actions.dart';
 

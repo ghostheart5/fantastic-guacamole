@@ -26,6 +26,7 @@ import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
@@ -310,6 +311,7 @@ void main() {
     AiCreditWallet? wallet,
     bool? notificationPermission = true,
     bool noTasks = false,
+    bool externalAiAvailable = false,
   }) {
     final AccountStorageScope resolvedScope =
         accountScope ??
@@ -334,6 +336,11 @@ void main() {
           ),
         if (guideReady)
           adaptiveGuidanceProvider.overrideWith(_CopyGuidance.new),
+        // A public build with AI chat: no internal test cohort.
+        if (externalAiAvailable) ...[
+          externalAiAvailableProvider.overrideWithValue(true),
+          internalCreditTestEnabledProvider.overrideWithValue(false),
+        ],
         if (authService != null)
           authServiceProvider.overrideWithValue(authService),
         accountStorageScopeProvider.overrideWithValue(resolvedScope),
@@ -1628,6 +1635,72 @@ void main() {
     );
     expect(find.text('Allow external AI assistance'), findsNothing);
   });
+
+  for (final bool spanish in <bool>[false, true]) {
+    testWidgets(
+      '${spanish ? 'Spanish' : 'English'} public build explains AI chat next to its switch',
+      (WidgetTester tester) async {
+        useTallSurface(tester);
+        final ProviderContainer container = createContainer(
+          externalAiAvailable: true,
+        );
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              locale: Locale(spanish ? 'es' : 'en'),
+              supportedLocales: ChronoSparkLocalizations.supportedLocales,
+              localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+                ChronoSparkLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: const SettingsScreen(),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.tap(
+          find.text(
+            spanish ? 'Planificación y orientación' : 'Planning & guidance',
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+        final Finder toggle = find.text(
+          spanish ? 'Permitir el chat con IA' : 'Allow AI chat',
+        );
+        await tester.scrollUntilVisible(
+          toggle,
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(toggle, findsOneWidget);
+        expect(find.text('Allow external AI assistance'), findsNothing);
+        expect(find.text('Permitir asistencia de IA externa'), findsNothing);
+        final Finder explanation = find.text(
+          spanish
+              ? 'Qué se envía: tu pregunta, hasta seis mensajes recientes de esta conversación y la información que se muestra en la vista previa antes de enviar.\n'
+                    'Quién lo recibe: Axiomara, para calcular el precio. Si confirmas el precio, Axiomara lo envía a Anthropic, el proveedor de IA, para obtener la respuesta.\n'
+                    'Cuánto tiempo se guarda: Anthropic normalmente lo conserva hasta 30 días.\n'
+                    'Cuánto cuesta: cada mensaje muestra su precio en créditos antes de enviar nada. No se cobra nada hasta que confirmes ese precio.'
+              : 'What is sent: your question, up to six recent messages from this conversation, and the information shown in the preview before you send.\n'
+                    'Who receives it: Axiomara, to work out the price. If you confirm the price, Axiomara sends it to Anthropic, the AI provider, for a reply.\n'
+                    'How long it is kept: Anthropic normally keeps it for up to 30 days.\n'
+                    'What it costs: each message shows its price in credits before anything is sent. Nothing is charged until you confirm that price.',
+        );
+        expect(explanation, findsOneWidget);
+        expect(find.text(spanish ? 'Chat con IA' : 'AI chat'), findsOneWidget);
+        // The explanation sits directly beside the switch it describes.
+        expect(
+          (tester.getTopLeft(toggle).dy - tester.getBottomLeft(explanation).dy)
+              .abs(),
+          lessThan(48),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('Spanish expanded settings keep release controls localized', (
     WidgetTester tester,

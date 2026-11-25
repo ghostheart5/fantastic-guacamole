@@ -161,28 +161,24 @@ class _PersonalizationSection extends ConsumerWidget {
             onChanged: (bool value) =>
                 _save(context, ref, profile.copyWith(useMemoryContext: value)),
           ),
-          if (ref.watch(internalCreditTestEnabledProvider))
+          // The same explanation as Chat's consent sheet, beside the switch
+          // for everyone who can see it.
+          if (ref.watch(externalAiAvailableProvider)) ...[
             _NeonStatusTile(
-              title: isSpanish
-                  ? 'IA externa y créditos'
-                  : 'External AI and credits',
-              subtitle: isSpanish
-                  ? 'Las conversaciones de Elegir un paso y SI pueden enviar tu pregunta, mensajes recientes y el contexto revisado a Anthropic por medio de Axiomara después de que confirmes. Cada solicitud muestra su precio en créditos. Las pruebas ficticias de abajo son independientes. Se aplican las políticas de retención y seguridad del proveedor; las herramientas locales siguen siendo gratuitas.'
-                  : 'Planner and SI conversations can send your question, recent messages and reviewed context to Anthropic through Axiomara after confirmation. Each request shows its credit price. The fictional tests below are separate. Provider retention and safety policies apply; on-device tools remain free.',
+              title: AiChatDisclosure(spanish: isSpanish).featureName,
+              subtitle: AiChatDisclosure(spanish: isSpanish).summary,
+              subtitleMaxLines: null,
             ),
-          if (ref.watch(externalAiAvailableProvider))
             _NeonToggleTile(
-              title: isSpanish
-                  ? 'Permitir asistencia de IA externa'
-                  : 'Allow external AI assistance',
+              title: isSpanish ? 'Permitir el chat con IA' : 'Allow AI chat',
               value: profile.externalAiAllowed,
               onChanged: (bool value) => _save(
                 context,
                 ref,
                 profile.copyWith(externalAiAllowed: value),
               ),
-            )
-          else
+            ),
+          ] else
             _NeonStatusTile(
               title: isSpanish
                   ? 'Asistencia de IA externa'

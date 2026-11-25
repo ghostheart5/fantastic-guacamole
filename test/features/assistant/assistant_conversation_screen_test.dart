@@ -1,6 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/data/repositories/assistant_conversation_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
@@ -86,9 +90,17 @@ ProviderContainer setup(
   SecureStoreBackend? historyBackend,
   bool externalAiAllowed = true,
   AdaptiveGuidanceNotifier? guidance,
+  MemoryPrefs? preferences,
 }) => ProviderContainer(
   overrides: [
     if (guidance != null) adaptiveGuidanceProvider.overrideWith(() => guidance),
+    // With [preferences], the real account-scoped preference store is used.
+    if (preferences != null) ...[
+      sharedPrefsStoreProvider.overrideWithValue(preferences),
+      accountLegacyOwnershipProvider.overrideWithValue(
+        LegacyScopeOwnership.provenNotOwned,
+      ),
+    ],
     secureStoreProvider.overrideWithValue(
       SecureStore(backend: historyBackend ?? InMemorySecureStoreBackend()),
     ),
@@ -101,9 +113,10 @@ ProviderContainer setup(
     ),
     if (!conversationAvailable)
       siV2AvailabilityProvider.overrideWith((ref) async => true),
-    personalizationProfileProvider.overrideWith(
-      externalAiAllowed ? _Consent.new : _NoConsent.new,
-    ),
+    if (preferences == null)
+      personalizationProfileProvider.overrideWith(
+        externalAiAllowed ? _Consent.new : _NoConsent.new,
+      ),
     conversationTransportProvider.overrideWithValue(transport),
     if (requestTimeout != null)
       conversationRequestTimeoutProvider.overrideWithValue(requestTimeout),
@@ -366,14 +379,73 @@ void main() {
     }
   }
 
-  testWidgets(
-    'AI off shows a pinned notice and send explains how to turn it on',
-    (tester) async {
-      var requests = 0;
-      final container = setup((_) async {
-        requests++;
-        throw StateError('AI-off chat must not request paid AI');
-      }, externalAiAllowed: false);
+  testWidgets('AI off shows a pinned notice and send opens the consent sheet', (
+    tester,
+  ) async {
+    var requests = 0;
+    final container = setup((_) async {
+      requests++;
+      throw StateError('AI-off chat must not request paid AI');
+    }, externalAiAllowed: false);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('conversation-ai-off-notice')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(find.text('AI chat is off'), findsOneWidget);
+    expect(find.text('Turn on AI chat to type'), findsOneWidget);
+    // The old instruction named a Settings path that is not on screen.
+    expect(find.textContaining('Personalization'), findsNothing);
+    expect(find.textContaining('Allow external AI'), findsNothing);
+    final input = find.byKey(const Key('conversation-input'));
+    expect(tester.widget<TextField>(input).enabled, isFalse);
+    final send = tester.widget<IconButton>(
+      find.byWidgetPredicate(
+        (widget) => widget is IconButton && widget.tooltip == 'Send to AI',
+      ),
+    );
+    expect(send.onPressed, isNotNull);
+    await tester.tap(find.byTooltip('Send to AI'));
+    await tester.pumpAndSettle();
+    expect(find.text('Turn on AI chat?'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('ai-chat-consent-decline')));
+    await tester.pumpAndSettle();
+    expect(find.text('Turn on AI chat?'), findsNothing);
+    expect(requests, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final language in ['en', 'es']) {
+    final es = language == 'es';
+    Future<ProviderContainer> pumpConsentChat(
+      WidgetTester tester,
+      MemoryPrefs preferences, {
+      AccountStorageScope Function()? readScope,
+      void Function()? onRequest,
+    }) async {
+      final container = setup(
+        (_) async {
+          onRequest?.call();
+          throw StateError('Consent must not send anything');
+        },
+        preferences: preferences,
+        readScope: readScope,
+      );
       addTearDown(() async {
         await tester.pumpWidget(const SizedBox.shrink());
         container.dispose();
@@ -382,6 +454,12 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
+            locale: Locale(language),
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              ChronoSparkLocalizations.delegate,
+              ...GlobalMaterialLocalizations.delegates,
+            ],
             home: AssistantConversationScreen(
               surface: ConversationSurface.si,
               onLocalTools: () {},
@@ -390,31 +468,182 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      return container;
+    }
+
+    Future<void> openConsentSheet(WidgetTester tester) async {
+      final turnOn = find.byKey(const Key('conversation-ai-off-turn-on'));
+      expect(turnOn.hitTestable(), findsOneWidget);
       expect(
-        find.byKey(const Key('conversation-ai-off-notice')).hitTestable(),
+        find.text(es ? 'Activar el chat con IA' : 'Turn on AI chat'),
         findsOneWidget,
       );
-      expect(find.text('AI chat is off'), findsOneWidget);
-      expect(find.text('Turn on AI in Settings to type'), findsOneWidget);
-      final input = find.byKey(const Key('conversation-input'));
-      expect(tester.widget<TextField>(input).enabled, isFalse);
-      final send = tester.widget<IconButton>(
-        find.byWidgetPredicate(
-          (widget) => widget is IconButton && widget.tooltip == 'Send to AI',
-        ),
+      await tester.tap(turnOn);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(es ? '¿Activar el chat con IA?' : 'Turn on AI chat?'),
+        findsOneWidget,
       );
-      expect(send.onPressed, isNotNull);
-      await tester.tap(find.byTooltip('Send to AI'));
+    }
+
+    String? storedProfile(MemoryPrefs preferences, String account) =>
+        AccountScopedSharedPrefsStore(
+          delegate: preferences,
+          scope: AccountStorageScope.authenticated(account),
+          legacyOwnership: LegacyScopeOwnership.provenNotOwned,
+        ).load(personalizationProfileStorageKey);
+
+    testWidgets(
+      '$language consent sheet says what is sent, to whom, how long and the cost',
+      (tester) async {
+        final preferences = MemoryPrefs();
+        await pumpConsentChat(tester, preferences);
+        await openConsentSheet(tester);
+        for (final line
+            in es
+                ? [
+                    'Qué se envía: tu pregunta, hasta seis mensajes recientes de esta conversación y la información que se muestra en la vista previa antes de enviar.',
+                    'Quién lo recibe: Axiomara, para calcular el precio. Si confirmas el precio, Axiomara lo envía a Anthropic, el proveedor de IA, para obtener la respuesta.',
+                    'Cuánto tiempo se guarda: Anthropic normalmente lo conserva hasta 30 días.',
+                    'Cuánto cuesta: cada mensaje muestra su precio en créditos antes de enviar nada. No se cobra nada hasta que confirmes ese precio.',
+                  ]
+                : [
+                    'What is sent: your question, up to six recent messages from this conversation, and the information shown in the preview before you send.',
+                    'Who receives it: Axiomara, to work out the price. If you confirm the price, Axiomara sends it to Anthropic, the AI provider, for a reply.',
+                    'How long it is kept: Anthropic normally keeps it for up to 30 days.',
+                    'What it costs: each message shows its price in credits before anything is sent. Nothing is charged until you confirm that price.',
+                  ]) {
+          expect(find.text(line), findsOneWidget);
+        }
+        expect(
+          find.byKey(const Key('ai-chat-consent-allow')).hitTestable(),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('ai-chat-consent-decline')).hitTestable(),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      '$language allowing AI chat saves consent for this account only and enables typing',
+      (tester) async {
+        final preferences = MemoryPrefs();
+        var requests = 0;
+        final container = await pumpConsentChat(
+          tester,
+          preferences,
+          onRequest: () => requests++,
+        );
+        final input = find.byKey(const Key('conversation-input'));
+        expect(tester.widget<TextField>(input).enabled, isFalse);
+        await openConsentSheet(tester);
+        await tester.tap(find.byKey(const Key('ai-chat-consent-allow')));
+        await tester.pumpAndSettle();
+        await waitForChatReady(tester);
+        expect(
+          container.read(personalizationProfileProvider).externalAiAllowed,
+          isTrue,
+        );
+        final saved = storedProfile(preferences, 'synthetic-review');
+        expect(saved, isNotNull);
+        expect(
+          PersonalizationProfile.fromJson(
+            jsonDecode(saved!) as Map<String, dynamic>,
+          ).externalAiAllowed,
+          isTrue,
+        );
+        expect(storedProfile(preferences, 'another-account'), isNull);
+        // Still in Chat, ready to type; nothing was sent.
+        expect(find.byType(AssistantConversationScreen), findsOneWidget);
+        expect(
+          find.byKey(const Key('conversation-ai-off-notice')),
+          findsNothing,
+        );
+        expect(tester.widget<TextField>(input).enabled, isTrue);
+        expect(requests, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('$language not now leaves AI chat off and saves nothing', (
+      tester,
+    ) async {
+      final preferences = MemoryPrefs();
+      var requests = 0;
+      final container = await pumpConsentChat(
+        tester,
+        preferences,
+        onRequest: () => requests++,
+      );
+      await openConsentSheet(tester);
+      expect(find.text(es ? 'Ahora no' : 'Not now'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('ai-chat-consent-decline')));
       await tester.pumpAndSettle();
-      expect(find.text('Turn on AI chat first'), findsOneWidget);
-      expect(find.text('Open settings'), findsOneWidget);
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-      expect(find.text('Turn on AI chat first'), findsNothing);
+      expect(
+        container.read(personalizationProfileProvider).externalAiAllowed,
+        isFalse,
+      );
+      expect(preferences.values, isEmpty);
+      expect(
+        find.byKey(const Key('conversation-ai-off-notice')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('conversation-input')))
+            .enabled,
+        isFalse,
+      );
       expect(requests, 0);
       expect(tester.takeException(), isNull);
-    },
-  );
+    });
+  }
+
+  testWidgets('an account change closes the consent sheet and saves nothing', (
+    tester,
+  ) async {
+    final preferences = MemoryPrefs();
+    var currentScope = scope;
+    final container = setup(
+      (_) async => throw StateError('Consent must not send anything'),
+      preferences: preferences,
+      readScope: () => currentScope,
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('conversation-ai-off-turn-on')));
+    await tester.pumpAndSettle();
+    expect(find.text('Turn on AI chat?'), findsOneWidget);
+    currentScope = AccountStorageScope.authenticated(
+      'different-review-account',
+    );
+    container.invalidate(accountStorageScopeProvider);
+    await tester.pumpAndSettle();
+    expect(find.text('Turn on AI chat?'), findsNothing);
+    expect(
+      container.read(personalizationProfileProvider).externalAiAllowed,
+      isFalse,
+    );
+    expect(preferences.values, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final language in ['en', 'es']) {
     testWidgets('$language AI-off chat fits 320x640 at 200 percent text', (
@@ -478,12 +707,20 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.text(
-          language == 'es'
-              ? 'Primero activa el chat con IA'
-              : 'Turn on AI chat first',
+          language == 'es' ? '¿Activar el chat con IA?' : 'Turn on AI chat?',
         ),
         findsOneWidget,
       );
+      expect(tester.takeException(), isNull);
+      // Both choices stay reachable and at least 48dp tall at large text.
+      for (final key in ['ai-chat-consent-allow', 'ai-chat-consent-decline']) {
+        final button = find.byKey(Key(key));
+        await tester.ensureVisible(button);
+        await tester.pumpAndSettle();
+        expect(button.hitTestable(), findsOneWidget);
+        expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+        expect(tester.getRect(button).right, lessThanOrEqualTo(320));
+      }
       expect(tester.takeException(), isNull);
     });
   }
@@ -3415,6 +3652,23 @@ class _Consent extends PersonalizationProfileController {
 class _NoConsent extends PersonalizationProfileController {
   @override
   PersonalizationProfile build() => const PersonalizationProfile();
+}
+
+/// In-memory device preferences under the real account-scoped store.
+class MemoryPrefs implements SharedPrefsStore, EnumerableSharedPrefsStore {
+  final Map<String, String> values = {};
+  @override
+  Future<void> init() async {}
+  @override
+  String? load(String key) => values[key];
+  @override
+  Future<void> save(String key, String value) async => values[key] = value;
+  @override
+  Future<void> delete(String key) async => values.remove(key);
+  @override
+  Future<void> clear() async => values.clear();
+  @override
+  Future<Set<String>> keys() async => values.keys.toSet();
 }
 
 class _GatedChatReadBackend extends InMemorySecureStoreBackend {
