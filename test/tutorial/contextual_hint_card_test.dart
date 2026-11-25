@@ -161,7 +161,8 @@ void main() {
     await _pumpApp(tester, _Page(), restart: 1);
     expect(find.byKey(_card), findsNothing);
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    // Seen, not muted: the Settings "prompts muted" count is unchanged.
+    // Seen, not hidden with "Not now": the Settings "help cards hidden"
+    // count is unchanged.
     expect(prefs.getBool('$_prefix.skip.siConsole'), isNull);
   });
 

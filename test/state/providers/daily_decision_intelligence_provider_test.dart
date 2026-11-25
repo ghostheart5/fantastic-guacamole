@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
@@ -27,37 +29,81 @@ void main() {
     },
   );
 
-  group('hasPlanWarning says whether the plan has a real warning', () {
+  group('planWarning says why the plan has a real warning', () {
     test('no warning when nothing constrains the plan', () async {
       final DailyDecisionIntelligence result = await _read();
       expect(result.warning, startsWith('No material constraint'));
+      expect(result.planWarning, isNull);
       expect(result.hasPlanWarning, isFalse);
     });
 
     test('a warning from the decision', () async {
       final DailyDecisionIntelligence result = await _read(
         warnings: const <String>['One deadline is overdue.'],
+        skippedToday: 2,
       );
       expect(result.warning, 'One deadline is overdue.');
+      expect(result.planWarning, PlanWarningKind.decision);
       expect(result.hasPlanWarning, isTrue);
     });
 
     test('time and load in conflict', () async {
       final DailyDecisionIntelligence result = await _read(pressure: 80);
-      expect(result.hasPlanWarning, isTrue);
+      expect(result.planWarning, PlanWarningKind.overload);
     });
 
     test('tasks moved or skipped today', () async {
       final DailyDecisionIntelligence result = await _read(skippedToday: 2);
-      expect(result.hasPlanWarning, isTrue);
+      expect(result.planWarning, PlanWarningKind.deferrals);
+    });
+
+    test('no plan warning while evidence is loading, even with tasks moved '
+        'or skipped today', () async {
+      final DailyDecisionIntelligence result = await _read(
+        skippedToday: 2,
+        pressure: 80,
+        evidence: _Evidence.loading,
+      );
+      expect(result.warning, contains('still loading'));
+      expect(result.planWarning, isNull);
+      expect(result.hasPlanWarning, isFalse);
+    });
+
+    test('no plan warning when evidence failed, even with tasks moved or '
+        'skipped today', () async {
+      final DailyDecisionIntelligence result = await _read(
+        skippedToday: 2,
+        pressure: 80,
+        evidence: _Evidence.failed,
+      );
+      expect(result.warning, contains('unavailable'));
+      expect(result.planWarning, isNull);
+      expect(result.hasPlanWarning, isFalse);
     });
   });
+
+  test(
+    'replanType carries the kind of the first replanning suggestion',
+    () async {
+      expect(
+        (await _read(skippedToday: 1)).replanType,
+        AdaptiveReplanningType.missedCommitment,
+      );
+      expect(
+        (await _read(pressure: 80)).replanType,
+        AdaptiveReplanningType.overloadedDay,
+      );
+    },
+  );
 }
+
+enum _Evidence { ready, loading, failed }
 
 Future<DailyDecisionIntelligence> _read({
   List<String> warnings = const <String>[],
   int pressure = 54,
   int skippedToday = 0,
+  _Evidence evidence = _Evidence.ready,
 }) async {
   final DateTime now = DateTime.now().toUtc();
   final OperatingSnapshot snapshot = OperatingSnapshot(
@@ -131,9 +177,6 @@ Future<DailyDecisionIntelligence> _read({
           completedToday: 2,
         ),
       ),
-      adaptiveReplanningProvider.overrideWithValue(
-        const <AdaptiveReplanningScenario>[],
-      ),
       executionSignalsProvider.overrideWithValue(
         ExecutionSignals(
           createdToday: 1,
@@ -168,12 +211,29 @@ Future<DailyDecisionIntelligence> _read({
         ),
       ),
       decisionIntelligenceProvider.overrideWith(
-        (Ref ref) async => intelligence,
+        (Ref ref) => switch (evidence) {
+          _Evidence.ready => Future<DecisionIntelligence>.value(intelligence),
+          // Never completes: the evidence stays loading.
+          _Evidence.loading => Completer<DecisionIntelligence>().future,
+          _Evidence.failed => Future<DecisionIntelligence>.error(
+            StateError('evidence failed'),
+          ),
+        },
       ),
     ],
   );
   addTearDown(container.dispose);
 
-  await container.read(decisionIntelligenceProvider.future);
+  switch (evidence) {
+    case _Evidence.ready:
+      await container.read(decisionIntelligenceProvider.future);
+    case _Evidence.loading:
+      container.read(decisionIntelligenceProvider);
+    case _Evidence.failed:
+      await expectLater(
+        container.read(decisionIntelligenceProvider.future),
+        throwsStateError,
+      );
+  }
   return container.read(dailyDecisionIntelligenceProvider);
 }

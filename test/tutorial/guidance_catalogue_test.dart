@@ -1,8 +1,10 @@
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
 import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Every contextual hint lives in one catalogue; the four hints for habits,
@@ -85,23 +87,50 @@ void main() {
           'lo que podría moverse. Escribe una pregunta para recibir una '
           'sugerencia.',
         );
-        // Today's suggested change is named in both languages; the engine's
-        // English sentence is not copied into the hint.
-        final GuidanceText? change = at(
-          RoutePaths.smartPlanner,
-          _decisionWith(replanAction: 'Move Task A to 3 pm.'),
-        );
-        expect(
-          change?.en,
-          'Your plan has a suggested change for today. Ask about it, or type '
-          'another question to get a suggestion.',
-        );
-        expect(
-          change?.es,
-          'Tu plan tiene un cambio sugerido para hoy. Pregunta por él o '
-          'escribe otra pregunta para recibir una sugerencia.',
-        );
-        expect(change?.en, isNot(contains('Task A')));
+        // The kind of today's replanning suggestion says what it is about,
+        // in both languages; the engine's English sentence is never copied.
+        final Map<AdaptiveReplanningType, (String, String)> byType =
+            <AdaptiveReplanningType, (String, String)>{
+              AdaptiveReplanningType.missedCommitment: (
+                'You moved or skipped a task today. Try asking how to turn it '
+                    'into one small step you can finish.',
+                'Hoy moviste u omitiste una tarea. Prueba a preguntar cómo '
+                    'convertirla en un paso pequeño que puedas terminar.',
+              ),
+              AdaptiveReplanningType.overloadedDay: (
+                'Today looks too full. Try asking which task you could move '
+                    'to make room.',
+                'Hoy parece demasiado lleno. Prueba a preguntar qué tarea '
+                    'podrías mover para hacer espacio.',
+              ),
+              AdaptiveReplanningType.lowEnergy: (
+                'Your energy is low today. Try asking for the smallest useful '
+                    'step.',
+                'Hoy tienes poca energía. Prueba a pedir el paso útil más '
+                    'pequeño.',
+              ),
+              AdaptiveReplanningType.momentumRecovery: (
+                'Your recent progress is slow. Try asking which open task to '
+                    'finish first.',
+                'Tu avance reciente es lento. Prueba a preguntar qué tarea '
+                    'abierta terminar primero.',
+              ),
+            };
+        for (final AdaptiveReplanningType type
+            in AdaptiveReplanningType.values) {
+          final GuidanceText? change = at(
+            RoutePaths.smartPlanner,
+            _decisionWith(
+              replanType: type,
+              replanAction: 'Move Task A to 3 pm.',
+            ),
+          );
+          final (String, String)? expected = byType[type];
+          // "Keep going" suggests no change, so the plain text stays.
+          expect(change?.en, expected?.$1 ?? plain?.en, reason: type.name);
+          expect(change?.es, expected?.$2 ?? plain?.es, reason: type.name);
+          expect(change?.en, isNot(contains('Task A')));
+        }
       });
 
       test('Today', () {
@@ -133,25 +162,43 @@ void main() {
           expect(calm?.en, GuidanceCatalogue.siConsole.body.en);
           expect(calm?.es, GuidanceCatalogue.siConsole.body.es);
         }
-        // A plan warning adds one plain line in both languages, and never
-        // the engine's own sentence.
-        final GuidanceText? warned = at(
-          RoutePaths.siConsole,
-          _decisionWith(
-            warning: 'No material constraint, but recent deferrals pile up.',
-            hasPlanWarning: true,
-          ),
-        );
-        expect(
-          warned?.en,
-          'Your plan has a warning today. '
-          '${GuidanceCatalogue.siConsole.body.en}',
-        );
-        expect(
-          warned?.es,
-          'Tu plan tiene un aviso hoy. ${GuidanceCatalogue.siConsole.body.es}',
-        );
-        expect(warned?.en, isNot(contains('deferrals')));
+        // A plan warning adds one plain line in both languages that says
+        // what it is about, and never the engine's own sentence.
+        final Map<PlanWarningKind, (String, String)> leads =
+            <PlanWarningKind, (String, String)>{
+              PlanWarningKind.decision: (
+                "Today's plan has a warning, and you can ask about it here.",
+                'El plan de hoy tiene un aviso y puedes preguntar por él aquí.',
+              ),
+              PlanWarningKind.deferrals: (
+                'You moved or skipped more than one task today.',
+                'Hoy moviste u omitiste más de una tarea.',
+              ),
+              PlanWarningKind.overload: (
+                'Today has more work than time.',
+                'Hoy tienes más trabajo que tiempo.',
+              ),
+            };
+        for (final PlanWarningKind kind in PlanWarningKind.values) {
+          final GuidanceText? warned = at(
+            RoutePaths.siConsole,
+            _decisionWith(
+              warning: 'No material constraint, but recent deferrals pile up.',
+              planWarning: kind,
+            ),
+          );
+          expect(
+            warned?.en,
+            '${leads[kind]!.$1} ${GuidanceCatalogue.siConsole.body.en}',
+            reason: kind.name,
+          );
+          expect(
+            warned?.es,
+            '${leads[kind]!.$2} ${GuidanceCatalogue.siConsole.body.es}',
+            reason: kind.name,
+          );
+          expect(warned?.en, isNot(contains('pile up')));
+        }
         expect(
           GuidanceCatalogue.siConsole.body.en,
           startsWith(
@@ -180,7 +227,41 @@ void main() {
       });
     });
 
-    test('hint wording names each screen as the screen names itself', () {
+    test('guidance sending someone to a screen names it as the control they '
+        'tap does (the navigation label)', () {
+      const ChronoSparkLocalizations en = ChronoSparkLocalizations(
+        Locale('en'),
+      );
+      const ChronoSparkLocalizations es = ChronoSparkLocalizations(
+        Locale('es'),
+      );
+      // Step 2 of the first-run guide sends the person to /timeline, whose
+      // navigation label is My plan.
+      final GuidanceLesson? step2 =
+          AdaptiveGuidanceState(
+            milestones: <GuidanceMilestone, DateTime>{
+              GuidanceMilestone.firstItem: coreDoneAt,
+              GuidanceMilestone.firstSchedule: coreDoneAt,
+            },
+            counts: const <GuidanceMilestone, int>{},
+            skippedLessons: const <GuidanceLessonId>{},
+            completedLessons: const <GuidanceLessonId>{},
+            expectedFirstRunCreatorTaskIds: const <String>{'task'},
+          ).nextIntervention(
+            currentRoute: RoutePaths.nexus,
+            decision: _decision,
+            now: later,
+          );
+      expect(step2?.id, GuidanceLessonId.reviewTimeline);
+      expect(step2?.route, RoutePaths.timeline);
+      final String label = step2!.actionLabel;
+      expect(en.guideAction(step2.id.name, label), 'Open My plan');
+      expect(es.guideAction(step2.id.name, label), 'Abrir Mi plan');
+      expect(en.text(ChronoSparkString.timeline), 'My plan');
+      expect(es.text(ChronoSparkString.timeline), 'Mi plan');
+    });
+
+    test('hint wording names each screen as its navigation label does', () {
       expect(GuidanceCatalogue.siConsole.action?.label.en, 'Ask in Chat');
       expect(GuidanceCatalogue.siConsole.action?.label.es, 'Preguntar en Chat');
       expect(
@@ -443,14 +524,16 @@ const DailyDecisionIntelligence _decision = DailyDecisionIntelligence(
 DailyDecisionIntelligence _decisionWith({
   String? replanAction,
   String? warning,
-  bool hasPlanWarning = false,
+  PlanWarningKind? planWarning,
+  AdaptiveReplanningType? replanType,
 }) => DailyDecisionIntelligence(
   primaryAction: _decision.primaryAction,
   momentum: _decision.momentum,
   trajectory: _decision.trajectory,
   energy: _decision.energy,
   warning: warning ?? _decision.warning,
-  hasPlanWarning: hasPlanWarning,
+  planWarning: planWarning,
+  replanType: replanType,
   recovery: _decision.recovery,
   recommendedAction: _decision.recommendedAction,
   rationale: _decision.rationale,

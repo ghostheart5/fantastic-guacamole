@@ -514,6 +514,8 @@ void main() {
     await _pumpCreatorWithGuide(tester, container);
     expect(container.read(creatorHandshakeProvider).isReviewing, isTrue);
     expect(find.text('Confirm your task'), findsOneWidget);
+    // It sends the person to /timeline, named as its navigation label is.
+    expect(find.text('Confirm and open My plan'), findsOneWidget);
 
     await tester.tap(find.text('Skip this step'));
     for (int i = 0; i < 3; i++) {

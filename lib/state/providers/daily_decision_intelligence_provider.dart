@@ -20,7 +20,8 @@ class DailyDecisionIntelligence {
     required this.evidence,
     required this.confidence,
     required this.observedOutcomes,
-    this.hasPlanWarning = false,
+    this.planWarning,
+    this.replanType,
     this.replanTitle,
     this.replanAction,
   });
@@ -38,12 +39,30 @@ class DailyDecisionIntelligence {
   final double confidence;
   final int observedOutcomes;
 
-  /// Whether [warning] reports something that constrains today's plan (a
-  /// decision warning, repeated deferrals, or time and load in conflict),
-  /// rather than that nothing does or that the evidence is not ready.
-  final bool hasPlanWarning;
+  /// What [warning] reports when something constrains today's plan; null
+  /// when nothing does or the evidence is not ready.
+  final PlanWarningKind? planWarning;
+
+  /// Whether [warning] reports something that constrains today's plan.
+  bool get hasPlanWarning => planWarning != null;
+
+  /// The kind of today's first replanning suggestion, if any.
+  final AdaptiveReplanningType? replanType;
   final String? replanTitle;
   final String? replanAction;
+}
+
+/// Why today's plan has a warning, in the order [DailyDecisionIntelligence]
+/// picks its warning text.
+enum PlanWarningKind {
+  /// The current decision carries its own warning.
+  decision,
+
+  /// More than one task was moved or skipped today.
+  deferrals,
+
+  /// Available time and current load are in conflict.
+  overload,
 }
 
 final dailyDecisionIntelligenceProvider = Provider<DailyDecisionIntelligence>((
@@ -81,11 +100,15 @@ final dailyDecisionIntelligenceProvider = Provider<DailyDecisionIntelligence>((
 
   final bool evidenceReady =
       !intelligenceAsync.hasError && !intelligenceAsync.isLoading;
-  final bool hasPlanWarning =
-      evidenceReady &&
-      (decision?.warnings.isNotEmpty == true ||
-          execution.hasDeferralPressure ||
-          momentum.pressurePercent >= 75);
+  final PlanWarningKind? planWarning = !evidenceReady
+      ? null
+      : decision?.warnings.isNotEmpty == true
+      ? PlanWarningKind.decision
+      : execution.hasDeferralPressure
+      ? PlanWarningKind.deferrals
+      : momentum.pressurePercent >= 75
+      ? PlanWarningKind.overload
+      : null;
   final String warning = intelligenceAsync.hasError
       ? 'Decision evidence is unavailable. Axiomara is not treating missing data as a clear plan.'
       : intelligenceAsync.isLoading
@@ -128,7 +151,7 @@ final dailyDecisionIntelligenceProvider = Provider<DailyDecisionIntelligence>((
         ? '${momentum.energyPercent}% energy'
         : 'Energy not checked',
     warning: warning,
-    hasPlanWarning: hasPlanWarning,
+    planWarning: planWarning,
     recovery: recovery,
     recommendedAction: recommendedAction,
     rationale:
@@ -140,6 +163,7 @@ final dailyDecisionIntelligenceProvider = Provider<DailyDecisionIntelligence>((
     evidence: evidence,
     confidence: confidence,
     observedOutcomes: execution.actioned7d,
+    replanType: replan?.type,
     replanTitle: replan?.title,
     replanAction: replan?.immediateAction,
   );

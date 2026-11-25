@@ -314,7 +314,7 @@ void main() {
       expect(operation.task.priority, 3);
       expect(operation.task.scheduledFor, isNotNull);
       expect(operation.task.scheduledFor!.isAfter(DateTime.now()), isFalse);
-      await tap(find.text('Confirm and open Schedule'));
+      await tap(find.text('Confirm and open My plan'));
       await waitRead(
         () async =>
             (await repo.getAllTasks())

@@ -1,4 +1,6 @@
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
+import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
 import 'package:flutter/foundation.dart';
 
 enum GuidanceLessonId {
@@ -151,17 +153,48 @@ abstract final class GuidanceCatalogue {
     }),
   );
 
-  /// The Choose a step text when today's plan has a suggested change.
-  static const GuidanceText smartPlannerSuggestedChange = GuidanceText(
-    'Your plan has a suggested change for today. Ask about it, or type another question to get a suggestion.',
-    'Tu plan tiene un cambio sugerido para hoy. Pregunta por él o escribe otra pregunta para recibir una sugerencia.',
-  );
+  /// The Choose a step text for the kind of today's replanning suggestion:
+  /// what it is about and a question to try. Null when it suggests no change
+  /// (keep going), so the plain text stays.
+  static GuidanceText? smartPlannerFor(
+    AdaptiveReplanningType type,
+  ) => switch (type) {
+    AdaptiveReplanningType.missedCommitment => const GuidanceText(
+      'You moved or skipped a task today. Try asking how to turn it into one small step you can finish.',
+      'Hoy moviste u omitiste una tarea. Prueba a preguntar cómo convertirla en un paso pequeño que puedas terminar.',
+    ),
+    AdaptiveReplanningType.overloadedDay => const GuidanceText(
+      'Today looks too full. Try asking which task you could move to make room.',
+      'Hoy parece demasiado lleno. Prueba a preguntar qué tarea podrías mover para hacer espacio.',
+    ),
+    AdaptiveReplanningType.lowEnergy => const GuidanceText(
+      'Your energy is low today. Try asking for the smallest useful step.',
+      'Hoy tienes poca energía. Prueba a pedir el paso útil más pequeño.',
+    ),
+    AdaptiveReplanningType.momentumRecovery => const GuidanceText(
+      'Your recent progress is slow. Try asking which open task to finish first.',
+      'Tu avance reciente es lento. Prueba a preguntar qué tarea abierta terminar primero.',
+    ),
+    AdaptiveReplanningType.courseProtection => null,
+  };
 
-  /// Starts the Chat text when today's plan has a warning.
-  static const GuidanceText planWarningLead = GuidanceText(
-    'Your plan has a warning today.',
-    'Tu plan tiene un aviso hoy.',
-  );
+  /// Starts the Chat text when today's plan has a warning, saying what it
+  /// is about. The warning text itself is not shown on another screen, so
+  /// the line does not send the person anywhere else.
+  static GuidanceText planWarningLead(PlanWarningKind kind) => switch (kind) {
+    PlanWarningKind.decision => const GuidanceText(
+      "Today's plan has a warning, and you can ask about it here.",
+      'El plan de hoy tiene un aviso y puedes preguntar por él aquí.',
+    ),
+    PlanWarningKind.deferrals => const GuidanceText(
+      'You moved or skipped more than one task today.',
+      'Hoy moviste u omitiste más de una tarea.',
+    ),
+    PlanWarningKind.overload => const GuidanceText(
+      'Today has more work than time.',
+      'Hoy tienes más trabajo que tiempo.',
+    ),
+  };
 
   static const GuidanceHint smartPlanner = GuidanceHint(
     id: GuidanceLessonId.smartPlanner,

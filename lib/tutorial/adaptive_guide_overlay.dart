@@ -726,15 +726,15 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         title: _copy(l10n, 'Confirm your task', 'Confirma tu tarea'),
         body: _copy(
           l10n,
-          'Confirm once. Axiomara saves your task and opens Schedule so you can see where it is.',
-          'Confirma una vez. Axiomara guarda tu tarea y abre la agenda para que veas dónde quedó.',
+          'Confirm once. Axiomara saves your task and opens My plan so you can see where it is.',
+          'Confirma una vez. Axiomara guarda tu tarea y abre Mi plan para que veas dónde quedó.',
         ),
         action: _completingCreator
             ? _copy(l10n, 'Saving', 'Guardando')
             : _copy(
                 l10n,
-                'Confirm and open Schedule',
-                'Confirmar y abrir agenda',
+                'Confirm and open My plan',
+                'Confirmar y abrir Mi plan',
               ),
       ),
     };

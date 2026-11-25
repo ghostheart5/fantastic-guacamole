@@ -149,6 +149,26 @@ void main() {
         findsOneWidget,
       );
 
+      await _pump(tester, <String, Object>{
+        for (final String id in <String>[
+          'firstItem',
+          'firstSchedule',
+        ]) ...<String, Object>{
+          '$prefix.$namespace.$id.at': 1755475200000,
+          '$prefix.$namespace.$id.count': 1,
+        },
+        for (final String id in <String>['nexus', 'goals', 'habits'])
+          '$prefix.$namespace.skip.$id': true,
+      }, es: es);
+      expect(
+        find.text(
+          es
+              ? '2 acciones registradas · 3 tarjetas de ayuda ocultas'
+              : '2 actions recorded · 3 help cards hidden',
+        ),
+        findsOneWidget,
+      );
+
       await _pump(tester, skipped, es: es);
       expect(
         find.text(

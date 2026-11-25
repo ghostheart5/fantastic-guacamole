@@ -111,7 +111,7 @@ class ChronoSparkLocalizations {
     return switch (id) {
       'createFirstItem' => 'Añadir una tarea',
       'scheduleFirstItem' => 'Elegir fecha y hora',
-      'reviewTimeline' => 'Abrir agenda',
+      'reviewTimeline' => 'Abrir Mi plan',
       _ => fallback,
     };
   }

@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
+import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
 import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
 import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
 import 'package:flutter/foundation.dart';
@@ -333,7 +334,7 @@ abstract final class GuidanceInterventionEngine {
         body:
             'Open the task you just saved in your schedule. Check its date and details.',
         route: RoutePaths.timeline,
-        actionLabel: 'Open schedule',
+        actionLabel: 'Open My plan',
       ),
       _ => throw ArgumentError(
         'Only core lessons can be replayed as first-run guidance.',
@@ -350,12 +351,14 @@ abstract final class GuidanceInterventionEngine {
     DailyDecisionIntelligence decision, [
     String? route,
   ]) {
+    final AdaptiveReplanningType? replan = decision.replanType;
+    final PlanWarningKind? warning = decision.planWarning;
     final GuidanceText body = switch (hint.id) {
-      GuidanceLessonId.smartPlanner when decision.replanAction != null =>
-        GuidanceCatalogue.smartPlannerSuggestedChange,
-      GuidanceLessonId.siConsole when decision.hasPlanWarning => GuidanceText(
-        '${GuidanceCatalogue.planWarningLead.en} ${hint.body.en}',
-        '${GuidanceCatalogue.planWarningLead.es} ${hint.body.es}',
+      GuidanceLessonId.smartPlanner when replan != null =>
+        GuidanceCatalogue.smartPlannerFor(replan) ?? hint.body,
+      GuidanceLessonId.siConsole when warning != null => GuidanceText(
+        '${GuidanceCatalogue.planWarningLead(warning).en} ${hint.body.en}',
+        '${GuidanceCatalogue.planWarningLead(warning).es} ${hint.body.es}',
       ),
       _ => hint.body,
     };

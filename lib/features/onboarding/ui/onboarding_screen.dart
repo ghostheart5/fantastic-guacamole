@@ -194,8 +194,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
               content: Text(
                 journeyText(
                   context,
-                  'Guide skipped. Some pages still show a short Help with this page card once. Restart the guide anytime in Settings › Restart Adaptive Guide.',
-                  'Guía omitida. Algunas páginas aún muestran una vez una tarjeta breve de Ayuda con esta página. Reinicia la guía cuando quieras en Ajustes › Reiniciar la Guía Adaptativa.',
+                  'Guide skipped. Some pages still show a short “Help with this page” card once. Restart the guide anytime in Settings › Restart Adaptive Guide.',
+                  'Guía omitida. Algunas páginas aún muestran una vez una breve tarjeta “Ayuda con esta página”. Reinicia la guía cuando quieras en Ajustes › Reiniciar la Guía Adaptativa.',
                 ),
               ),
               behavior: SnackBarBehavior.floating,
