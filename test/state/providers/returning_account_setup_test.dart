@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
+import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -24,9 +25,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
-/// A returning account on a new install: no setup or guidance state on this
-/// device, but the account's own records are here (restored or already
-/// stored). It must not be sent through setup and the first-run guide again.
+/// A returning account on a new install. What runs in the app today: an
+/// account whose records are already on the device when it becomes ready
+/// skips setup and the guide; after setup, a restore from Settings ends the
+/// first-run guide. A fresh install with empty stores still shows setup
+/// once, since nothing can restore before setup is done.
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
 
@@ -47,7 +50,7 @@ void main() {
     expect(guide.has(GuidanceMilestone.firstTimelineReview), isTrue);
     expect(guide.has(GuidanceMilestone.replayed), isFalse);
     // A returning account did not just finish the guide: no quiet day.
-    expect(guide.isInPostCoreQuietPeriod(DateTime.now()), isFalse);
+    expect(guide.isInPostCoreQuietPeriod(_now), isFalse);
     final GuidanceLesson? hint = guide.nextIntervention(
       currentRoute: RoutePaths.nexus,
       decision: _decision,
@@ -105,7 +108,8 @@ void main() {
   });
 
   test(
-    'a restore that arrives after sign-in ends setup without a replay',
+    'defensive: a restore while setup is unanswered (a state the router does '
+    'not allow today) ends setup without a replay',
     () async {
       final _Records records = _Records();
       final _Harness app = _Harness(<String, _Records>{'returning': records});
@@ -185,6 +189,135 @@ void main() {
     );
   });
 
+  for (final bool finished in <bool>[true, false]) {
+    test('after setup, a restore from Settings ends the first-run guide '
+        '(finished task: $finished)', () async {
+      final _Records records = _Records();
+      final _Harness app = _Harness(
+        <String, _Records>{'returning': records},
+        prefs: <String, Object>{_setupKey('returning'): true},
+      );
+      expect(await app.setupComplete(), isTrue);
+      expect(
+        (await app.guide()).activeCoreLesson,
+        GuidanceLessonId.createFirstItem,
+      );
+
+      app.restoreFills(
+        records,
+        tasks: <TaskEntity>[_task('restored', completed: finished)],
+      );
+      expect(await app.container.read(restoreFromCloudProvider.future), isTrue);
+
+      expect(
+        app.container.read(accountOnboardingCompleteProvider).value,
+        isTrue,
+      );
+      expect(await app.storedSetup('returning'), isTrue);
+      final AdaptiveGuidanceState guide = await app.guide();
+      expect(guide.activeCoreLesson, isNull);
+      expect(guide.coreGuideStatus, CoreGuideStatus.complete);
+      expect(guide.replayLessons, isEmpty);
+      expect(guide.has(GuidanceMilestone.firstTimelineReview), finished);
+    });
+  }
+
+  for (final bool byReceipt in <bool>[false, true]) {
+    test(
+      'restore does not end a guide that the account advanced on this '
+      'install (by ${byReceipt ? 'a guided task receipt' : 'a first task'})',
+      () async {
+        final _Records records = _Records();
+        final _Harness app = _Harness(
+          <String, _Records>{'returning': records},
+          prefs: <String, Object>{_setupKey('returning'): true},
+        );
+        await app.guide();
+        final AdaptiveGuidanceNotifier guidance = app.container.read(
+          adaptiveGuidanceProvider.notifier,
+        );
+        if (byReceipt) {
+          await guidance.recordCreatorHandshakeReceipt(_receipt('returning'));
+        } else {
+          await guidance.record(GuidanceMilestone.firstItem);
+        }
+
+        app.restoreFills(
+          records,
+          tasks: <TaskEntity>[_task('restored', completed: true)],
+        );
+        expect(
+          await app.container.read(restoreFromCloudProvider.future),
+          isTrue,
+        );
+
+        final AdaptiveGuidanceState guide = await app.guide();
+        expect(guide.activeCoreLesson, isNotNull);
+        expect(guide.has(GuidanceMilestone.returningAccount), isFalse);
+        expect(guide.has(GuidanceMilestone.firstTimelineReview), isFalse);
+      },
+    );
+  }
+
+  test('setup submitted with skip guide while the record read is pending '
+      'keeps skipped status', () async {
+    final Completer<void> slowRead = Completer<void>();
+    final _Harness app = _Harness(<String, _Records>{
+      'returning': _Records(
+        habits: <HabitEntity>[_habit()],
+        habitsGate: slowRead,
+      ),
+    });
+    await app.container.read(accountOnboardingCompleteProvider.future);
+    await pumpEventQueue();
+    // As the setup screen does for "Go to Today": skip the guide, then
+    // complete setup.
+    await app.container.read(adaptiveGuidanceProvider.notifier).skipCoreGuide();
+    await app.container
+        .read(accountOnboardingCompleteProvider.notifier)
+        .complete();
+    slowRead.complete();
+    await pumpEventQueue();
+
+    final AdaptiveGuidanceState guide = await app.guide();
+    expect(guide.coreGuideStatus, CoreGuideStatus.skipped);
+    expect(guide.has(GuidanceMilestone.returningAccount), isFalse);
+    expect(await app.storedSetup('returning'), isTrue);
+  });
+
+  test('an ownership refresh during adoption writes the marker once', () async {
+    final Completer<void> slowRead = Completer<void>();
+    final _Harness app = _Harness(<String, _Records>{
+      'returning': _Records(tasks: <TaskEntity>[_task('a')], gate: slowRead),
+    });
+    await app.container.read(accountOnboardingCompleteProvider.future);
+    await pumpEventQueue();
+    // Same account, same generation: the setup answer is read again.
+    app.refreshOwnership();
+    await app.container.read(accountOnboardingCompleteProvider.future);
+    await pumpEventQueue();
+    slowRead.complete();
+    await pumpEventQueue();
+
+    expect(app.container.read(accountOnboardingCompleteProvider).value, isTrue);
+    expect(app.clockReads, 1);
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String prefix =
+        'adaptive_guidance_v3.'
+        '${AccountStorageScope.authenticated('returning').v2Namespace}';
+    expect(
+      prefs.getInt('$prefix.returningAccount.at'),
+      _now.add(const Duration(minutes: 1)).millisecondsSinceEpoch,
+    );
+    expect(prefs.getInt('$prefix.returningAccount.count'), 1);
+    expect(
+      (await app.guide())
+          .milestones[GuidanceMilestone.returningAccount]
+          ?.millisecondsSinceEpoch,
+      prefs.getInt('$prefix.returningAccount.at'),
+    );
+  });
+
   test('an explicit skip or pause of the guide stays as it was', () async {
     final _Records records = _Records();
     final _Harness app = _Harness(
@@ -251,7 +384,7 @@ void main() {
   test('guidance stored by older versions loads unchanged', () async {
     final String prefix =
         'adaptive_guidance_v3.${AccountStorageScope.authenticated('older').v2Namespace}';
-    final int at = DateTime.now().millisecondsSinceEpoch;
+    final int at = _now.millisecondsSinceEpoch;
     final _Harness app = _Harness(
       <String, _Records>{'older': _Records()},
       prefs: <String, Object>{
@@ -264,8 +397,26 @@ void main() {
     final AdaptiveGuidanceState guide = await app.guide();
     expect(guide.coreComplete, isTrue);
     expect(guide.has(GuidanceMilestone.returningAccount), isFalse);
-    expect(guide.isInPostCoreQuietPeriod(DateTime.now()), isTrue);
+    expect(
+      guide.isInPostCoreQuietPeriod(_now.add(const Duration(hours: 1))),
+      isTrue,
+    );
   });
+}
+
+final DateTime _now = DateTime.utc(2026, 11, 25, 9);
+
+CreatorHandshakeReceipt _receipt(String account) {
+  return CreatorHandshakeReceipt(
+    proposalId: 'proposal-1',
+    accountScopeId: AccountStorageScope.authenticated(account).v2Namespace!,
+    confirmationTokenId: 'token-1',
+    appliedOperationIds: const <String>['operation-1'],
+    taskIds: const <String>['guided-task'],
+    appliedAt: _now,
+    undoExpiresAt: _now.add(const Duration(minutes: 10)),
+    resultingDomainRevision: 'revision-1',
+  );
 }
 
 String _setupKey(String account) =>
@@ -287,9 +438,13 @@ class _Harness {
           () => _ScopeNotifier(account ?? records.keys.first),
         ),
         accountStorageScopeProvider.overrideWith((ref) => ref.watch(_scope)),
-        accountLegacyOwnershipProvider.overrideWithValue(
-          LegacyScopeOwnership.ambiguous,
+        accountLegacyOwnershipProvider.overrideWith(
+          (ref) => ref.watch(_ownership),
         ),
+        adaptiveGuidanceClockProvider.overrideWithValue(() {
+          clockReads++;
+          return _now.add(Duration(minutes: clockReads));
+        }),
         domainTaskRepositoryProvider.overrideWith(recordsOf),
         domainHabitRepositoryProvider.overrideWith(recordsOf),
         domainGoalRepositoryProvider.overrideWith(recordsOf),
@@ -307,6 +462,9 @@ class _Harness {
 
   late final ProviderContainer container;
   final _RestoreService _restore = _RestoreService();
+  int clockReads = 0;
+
+  void refreshOwnership() => container.read(_ownership.notifier).refresh();
 
   /// The setup answer once the account's records have been checked. The
   /// check runs after the first answer, so it never delays the router.
@@ -328,6 +486,18 @@ class _Harness {
   void restoreFills(_Records records, {required List<TaskEntity> tasks}) {
     _restore.onRestore = () => records.tasks.addAll(tasks);
   }
+}
+
+final NotifierProvider<_OwnershipNotifier, LegacyScopeOwnership> _ownership =
+    NotifierProvider<_OwnershipNotifier, LegacyScopeOwnership>(
+      _OwnershipNotifier.new,
+    );
+
+class _OwnershipNotifier extends Notifier<LegacyScopeOwnership> {
+  @override
+  LegacyScopeOwnership build() => LegacyScopeOwnership.ambiguous;
+
+  void refresh() => state = LegacyScopeOwnership.provenNotOwned;
 }
 
 final NotifierProvider<_ScopeNotifier, AccountStorageScope> _scope =
@@ -352,12 +522,14 @@ class _Records implements ITaskRepository, IHabitRepository, IGoalRepository {
     this.habits = const <HabitEntity>[],
     this.goals = const <GoalEntity>[],
     this.gate,
+    this.habitsGate,
   }) : tasks = tasks ?? <TaskEntity>[];
 
   final List<TaskEntity> tasks;
   final List<HabitEntity> habits;
   final List<GoalEntity> goals;
   final Completer<void>? gate;
+  final Completer<void>? habitsGate;
 
   @override
   Future<List<TaskEntity>> getAllTasks() async {
@@ -376,7 +548,10 @@ class _Records implements ITaskRepository, IHabitRepository, IGoalRepository {
   Future<void> deleteTask(String id) async {}
 
   @override
-  Future<List<HabitEntity>> getHabits() async => habits;
+  Future<List<HabitEntity>> getHabits() async {
+    await habitsGate?.future;
+    return habits;
+  }
 
   @override
   Future<void> saveHabits(List<HabitEntity> habits) async {}

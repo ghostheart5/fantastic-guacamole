@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -90,8 +91,14 @@ class AccountOnboardingCompleteNotifier extends AsyncNotifier<bool> {
       if (owner.isCurrent) {
         await _adoptReturningAccount(owner, account, complete);
       }
-    } on Object {
+    } on Object catch (error, stackTrace) {
       // Nothing was decided; the next account-ready read or restore retries.
+      Logger.errorCategory(
+        'onboarding',
+        'Returning account setup state was not inferred',
+        error,
+        stackTrace,
+      );
     }
   }
 
@@ -117,7 +124,8 @@ class AccountOnboardingCompleteNotifier extends AsyncNotifier<bool> {
     bool complete,
   ) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    if (!owner.isCurrent || prefs.getBool(_key(account)) == false) return;
+    final bool? answer = prefs.getBool(_key(account));
+    if (!owner.isCurrent || answer == false) return;
     final _AccountRecords? records = await _readRecords();
     if (!owner.isCurrent || records == null || !records.any) return;
     await ref
@@ -125,6 +133,9 @@ class AccountOnboardingCompleteNotifier extends AsyncNotifier<bool> {
         .adoptReturningAccount(
           account: account,
           hasCompletedTasks: records.hasCompletedTasks,
+          // Once setup was done on this install, the person may have moved
+          // the guide on by their own actions; that progress is kept.
+          keepProgressMadeHere: answer == true || complete,
           shouldContinue: () => owner.isCurrent,
         );
     // Setup is recorded after the guide, so an interrupted write is retried.
@@ -153,7 +164,13 @@ class AccountOnboardingCompleteNotifier extends AsyncNotifier<bool> {
         any: any,
         hasCompletedTasks: tasks.any((TaskEntity task) => task.isCompleted),
       );
-    } on Object {
+    } on Object catch (error, stackTrace) {
+      Logger.errorCategory(
+        'onboarding',
+        'Account records could not be read for setup',
+        error,
+        stackTrace,
+      );
       return null;
     }
   }

@@ -49,6 +49,11 @@ final adaptiveGuidanceProvider =
       AdaptiveGuidanceNotifier.new,
     );
 
+/// When a returning account's guide state is inferred. Tests replace it.
+final adaptiveGuidanceClockProvider = Provider<DateTime Function()>(
+  (Ref ref) => DateTime.now,
+);
+
 @immutable
 class AdaptiveGuidanceState {
   const AdaptiveGuidanceState({
@@ -551,73 +556,87 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
   /// which has no first-run guide state for it: the guide counts as done,
   /// recorded once. The schedule review is inferred only from a finished
   /// task. An explicit skip, pause, step skip or restart is kept as it is.
-  /// Screen hints are not affected and still appear once each.
+  /// With [keepProgressMadeHere] (after a restore, when setup was already
+  /// done on this install) a guide the person advanced here by their own
+  /// actions (a first task or time, or a task saved by the guide) is kept
+  /// too. Screen hints are not affected and still appear once each.
   Future<void> adoptReturningAccount({
     required String account,
     required bool hasCompletedTasks,
+    required bool keepProgressMadeHere,
     required bool Function() shouldContinue,
   }) async {
     bool stillCurrent() =>
         ref.mounted && _activeScope == account && shouldContinue();
     if (!stillCurrent()) return;
-    final AdaptiveGuidanceState current = await _current();
-    if (!stillCurrent() ||
-        current.coreComplete ||
-        _replayableCoreLessons.any(
-          (GuidanceLessonId id) =>
-              current.skippedLessons.contains(id) ||
-              current.laterLessons.contains(id) ||
-              current.replayLessons.contains(id) ||
-              current.skippedCoreSteps.contains(id),
-        )) {
-      return;
-    }
+    await _current();
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     if (!stillCurrent()) return;
+    // Checked and committed with no wait in between, against the state at
+    // that moment: a skip, pause, milestone or a second adoption that landed
+    // during the waits above is kept, and the marker is written only once.
+    final AdaptiveGuidanceState? latest = state.asData?.value;
+    if (latest == null ||
+        latest.coreComplete ||
+        _replayableCoreLessons.any(
+          (GuidanceLessonId id) =>
+              latest.skippedLessons.contains(id) ||
+              latest.laterLessons.contains(id) ||
+              latest.replayLessons.contains(id) ||
+              latest.skippedCoreSteps.contains(id),
+        ) ||
+        (keepProgressMadeHere &&
+            (latest.has(GuidanceMilestone.firstItem) ||
+                latest.has(GuidanceMilestone.firstSchedule) ||
+                latest.expectedFirstRunCreatorTaskIds.isNotEmpty))) {
+      return;
+    }
     final String prefix = _prefix(account);
-    final DateTime observedAt = DateTime.now();
+    final DateTime observedAt = ref.read(adaptiveGuidanceClockProvider)();
     final Map<GuidanceMilestone, DateTime> milestones =
-        <GuidanceMilestone, DateTime>{...current.milestones};
+        <GuidanceMilestone, DateTime>{...latest.milestones};
     final Map<GuidanceMilestone, int> counts = <GuidanceMilestone, int>{
-      ...current.counts,
+      ...latest.counts,
     };
-    // The marker goes last, so an interrupted write is tried again.
+    final List<Future<bool>> writes = <Future<bool>>[];
+    // The marker is written last, so an interrupted write is tried again.
     for (final GuidanceMilestone milestone in <GuidanceMilestone>[
       if (hasCompletedTasks) GuidanceMilestone.firstTimelineReview,
       GuidanceMilestone.returningAccount,
     ]) {
       if (milestones.containsKey(milestone)) continue;
       milestones[milestone] = observedAt;
-      counts[milestone] = current.count(milestone) == 0
+      counts[milestone] = latest.count(milestone) == 0
           ? 1
-          : current.count(milestone);
-      await prefs.setInt(
-        '$prefix.${milestone.name}.at',
-        observedAt.millisecondsSinceEpoch,
-      );
-      await prefs.setInt('$prefix.${milestone.name}.count', counts[milestone]!);
+          : latest.count(milestone);
       final GuidanceLessonId? lesson = _lessonCompletedBy(milestone);
-      if (lesson != null) {
-        await prefs.setBool('$prefix.complete.${lesson.name}', true);
-      }
+      writes.addAll(<Future<bool>>[
+        if (lesson != null)
+          prefs.setBool('$prefix.complete.${lesson.name}', true),
+        prefs.remove('$prefix.$_expectedCreatorTaskIdsKey'),
+        prefs.setInt('$prefix.${milestone.name}.count', counts[milestone]!),
+        prefs.setInt(
+          '$prefix.${milestone.name}.at',
+          observedAt.millisecondsSinceEpoch,
+        ),
+      ]);
     }
-    await prefs.remove('$prefix.$_expectedCreatorTaskIdsKey');
-    if (!stillCurrent()) return;
     state = AsyncData(
       AdaptiveGuidanceState(
         milestones: milestones,
         counts: counts,
-        skippedLessons: current.skippedLessons,
+        skippedLessons: latest.skippedLessons,
         completedLessons: <GuidanceLessonId>{
-          ...current.completedLessons,
+          ...latest.completedLessons,
           ..._lessonsCompletedBy(milestones.keys),
         },
-        laterLessons: current.laterLessons,
-        replayLessons: current.replayLessons,
-        untilReopenedLessons: current.untilReopenedLessons,
-        skippedCoreSteps: current.skippedCoreSteps,
+        laterLessons: latest.laterLessons,
+        replayLessons: latest.replayLessons,
+        untilReopenedLessons: latest.untilReopenedLessons,
+        skippedCoreSteps: latest.skippedCoreSteps,
       ),
     );
+    await Future.wait(writes);
   }
 
   Future<void> recordCreatorHandshakeReceipt(
