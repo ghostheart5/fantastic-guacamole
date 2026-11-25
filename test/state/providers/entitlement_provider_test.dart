@@ -334,6 +334,36 @@ void main() {
       );
       expect(await harness.readOwner(), isNull);
     });
+
+    test(
+      'an entitlement refresh forgets the AI chat balance it may have changed',
+      () async {
+        final _Harness harness = await _Harness.create(
+          subscription: const SubscriptionState(
+            isActive: true,
+            status: 'active',
+            source: 'supabase_authority',
+          ),
+          owner: 'user-a',
+          user: _user('user-a'),
+        );
+        final String account = harness.container
+            .read(accountStorageScopeProvider)
+            .v2Namespace!;
+        final known = harness.container.read(
+          aiCreditKnownBalanceProvider.notifier,
+        );
+        known.enterPaid(account, 'request', firstAttempt: true);
+        known.reportAnswer(account, 'request', 20);
+        expect(harness.container.read(aiCreditKnownBalanceProvider), 20);
+
+        await harness.container.read(entitlementAuthorityRefreshProvider)(
+          force: true,
+        );
+
+        expect(harness.container.read(aiCreditKnownBalanceProvider), isNull);
+      },
+    );
   });
 
   group('entitlement is account safe', () {

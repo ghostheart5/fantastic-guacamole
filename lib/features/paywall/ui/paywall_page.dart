@@ -579,6 +579,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       }
       ref.invalidate(paywallSubscriptionProvider);
       ref.invalidate(aiCreditWalletProvider);
+      ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
       if (!mounted) {
         return;
       }
@@ -666,6 +667,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       }
       ref.invalidate(paywallSubscriptionProvider);
       ref.invalidate(aiCreditWalletProvider);
+      ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
       if (!mounted) {
         return;
       }
@@ -730,7 +732,10 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
   }) {
     if (config) ref.invalidate(paywallConfigProvider);
     if (subscription) ref.invalidate(paywallSubscriptionProvider);
-    if (wallet) ref.invalidate(aiCreditWalletProvider);
+    if (wallet) {
+      ref.invalidate(aiCreditWalletProvider);
+      ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
+    }
   }
 
   Future<void> _manageSubscription() async {
@@ -796,6 +801,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       );
       if (outcome.status == 'credits_added') {
         ref.invalidate(aiCreditWalletProvider);
+        ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
       }
     });
     ref.listen<AsyncValue<AiCreditWallet>>(aiCreditWalletProvider, (

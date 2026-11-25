@@ -518,15 +518,94 @@ void main() {
         walletRow: (_) async => {'balance': 42},
       );
       addTearDown(container.dispose);
+      final account = _scope.v2Namespace!;
       final known = container.read(aiCreditKnownBalanceProvider.notifier);
+      int? shown() => container.read(aiCreditKnownBalanceProvider);
+      known.enterPaid(account, 'a', firstAttempt: true);
       final token = known.beginRead();
-      known.reportAnswer(_scope.v2Namespace!, 20);
-      known.reportWallet(_scope.v2Namespace, token, 42);
-      expect(container.read(aiCreditKnownBalanceProvider), 20);
+      known.reportAnswer(account, 'a', 20);
+      known.reportWallet(account, token, 42);
+      expect(shown(), 20);
       known.reportWallet('someone-else', known.beginRead(), 9);
-      expect(container.read(aiCreditKnownBalanceProvider), 20);
-      known.reportWallet(_scope.v2Namespace, known.beginRead(), 18);
-      expect(container.read(aiCreditKnownBalanceProvider), 18);
+      expect(shown(), 20);
+      known.reportWallet(account, known.beginRead(), 18);
+      expect(shown(), 18);
+    },
+  );
+
+  testWidgets(
+    'an answer never replaces a newer figure: a wallet read, a purchase or an overlapping answer since its request was sent',
+    (tester) async {
+      final container = _setup(_Server(), InMemorySecureStoreBackend());
+      addTearDown(container.dispose);
+      final account = _scope.v2Namespace!;
+      final known = container.read(aiCreditKnownBalanceProvider.notifier);
+      int? shown() => container.read(aiCreditKnownBalanceProvider);
+
+      // A wallet read reported after the request was sent.
+      known.enterPaid(account, 'wallet-first', firstAttempt: true);
+      known.reportWallet(account, known.beginRead(), 120);
+      known.reportAnswer(account, 'wallet-first', 20);
+      expect(shown(), isNull);
+
+      // A purchase (or entitlement refresh) while it was running.
+      known.reportWallet(account, known.beginRead(), 50);
+      known.enterPaid(account, 'purchase-during', firstAttempt: true);
+      known.walletChanged();
+      known.reportAnswer(account, 'purchase-during', 45);
+      expect(shown(), isNull);
+
+      // Chat and Choose a step overlap: either answer may carry the older
+      // figure (reservation order is not known here), so neither is shown.
+      known.reportWallet(account, known.beginRead(), 50);
+      known.enterPaid(account, 'chat', firstAttempt: true);
+      known.enterPaid(account, 'choose-a-step', firstAttempt: true);
+      known.reportAnswer(account, 'choose-a-step', 45);
+      expect(shown(), isNull);
+      known.reportAnswer(account, 'chat', 40);
+      expect(shown(), isNull);
+      // The next request on its own shows its figure again.
+      known.enterPaid(account, 'next', firstAttempt: true);
+      known.reportAnswer(account, 'next', 35);
+      expect(shown(), 35);
+
+      // A request with no mark in this run (recovered from an earlier run).
+      known.reportWallet(account, known.beginRead(), 50);
+      known.reportAnswer(account, 'earlier-run', 20);
+      expect(shown(), isNull);
+
+      // Its own retry after its own uncertain failure is not "newer".
+      known.reportWallet(account, known.beginRead(), 50);
+      known.enterPaid(account, 'retried', firstAttempt: true);
+      known.forget(account, 'retried');
+      known.enterPaid(account, 'retried', firstAttempt: false);
+      known.reportAnswer(account, 'retried', 45);
+      expect(shown(), 45);
+    },
+  );
+
+  testWidgets(
+    'a purchase or entitlement refresh elsewhere hides the Chat balance',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final container = _setup(_Server(), InMemorySecureStoreBackend());
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container);
+      await _ask(tester, 'When should I do the Grocery list?', 'en');
+      expect(_balanceText(tester), 'Your balance: 20 credits');
+      // What entitlement refreshes, restores and purchase completions call
+      // next to invalidating the wallet (the entitlement refresh itself is
+      // covered in entitlement_provider_test.dart).
+      container.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
+      await tester.pump();
+      expect(_balanceText(tester), isNull);
+      // The reply's own historical figure stays.
+      expect(_receipts(tester).single, contains('20 left after this reply'));
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -584,6 +663,8 @@ void main() {
         await tester.tap(button);
         await tester.pumpAndSettle();
         expect(find.text('Synthetic plans and credits'), findsOneWidget);
+        // A purchase may follow: the figure from before it is not kept.
+        expect(container.read(aiCreditKnownBalanceProvider), isNull);
         expect(tester.takeException(), isNull);
       },
     );

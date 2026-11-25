@@ -18,6 +18,7 @@ import 'package:fantastic_guacamole/state/providers/assistant_conversation_histo
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
@@ -1467,6 +1468,128 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  /// A confirmed request left in storage by an earlier app run.
+  Future<ConversationPacket> storeEarlierRunRequest(
+    InMemorySecureStoreBackend backend,
+    ConversationSurface surface,
+  ) async {
+    final packet = ConversationPacket(
+      surface: surface,
+      accountScope: _scope.v2Namespace!,
+      prompt: 'Compare my two options.',
+      history: const [],
+      context: {
+        'language': 'en',
+        'selectedSources': <String>[],
+        'contextScope': 'chatOnly',
+        'tasks': <Object?>[],
+      },
+    );
+    await AssistantConversationRepository(
+      SecureStore(backend: backend).forAccount(_scope),
+      isCurrent: () => true,
+    ).savePending(
+      PendingConversationRequest(
+        quote: ConversationQuote(
+          packet: packet,
+          data: Map<String, dynamic>.from(
+            _quote({'requestId': packet.requestId}).data['quote'] as Map,
+          ),
+        ),
+        savedAt: DateTime.now(),
+      ),
+    );
+    return packet;
+  }
+
+  testWidgets(
+    'a recovered cached reply after a newer wallet read does not show the older balance',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      final packet = await storeEarlierRunRequest(
+        backend,
+        ConversationSurface.si,
+      );
+      final paid = <Map<String, dynamic>>[];
+      final container = _setup((body) async {
+        if (body['quoteOnly'] == true) return _quote(body);
+        paid.add(body);
+        // The server's cached reply from the original reservation: 20 left
+        // then.
+        return _answer(body['requestId'], 'The earlier paid reply.');
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      // After the restart the person bought credits; Plans read the wallet.
+      final known = container.read(aiCreditKnownBalanceProvider.notifier);
+      known.reportWallet(_scope.v2Namespace, known.beginRead(), 120);
+      expect(container.read(aiCreditKnownBalanceProvider), 120);
+
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await _settle(tester);
+      expect(paid.single['requestId'], packet.requestId);
+      expect(find.text('The earlier paid reply.'), findsOneWidget);
+      // The reply keeps its own figure; the header shows no balance rather
+      // than the older one.
+      expect(
+        find.textContaining('20 left after this reply', skipOffstage: false),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('conversation-balance'), skipOffstage: false),
+        findsNothing,
+      );
+      expect(container.read(aiCreditKnownBalanceProvider), isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final surface in ConversationSurface.values) {
+    testWidgets(
+      '${surface.name}: a recovered request refused with unauthorized does not say nothing was charged',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final backend = InMemorySecureStoreBackend();
+        await storeEarlierRunRequest(backend, surface);
+        final paid = <Map<String, dynamic>>[];
+        final container = _setup((body) async {
+          if (body['quoteOnly'] == true) return _quote(body);
+          paid.add(body);
+          return (
+            status: 401,
+            data: <String, dynamic>{'error': 'unauthorized'},
+          );
+        }, backend);
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await _pumpScreen(tester, container, surface);
+        await _settle(tester);
+        expect(paid, hasLength(1));
+        final error = tester
+            .widget<Text>(
+              find.descendant(
+                of: find.byKey(const Key('conversation-error')),
+                matching: find.byType(Text),
+              ),
+            )
+            .data!;
+        expect(error, startsWith('Your sign-in needs renewing'));
+        expect(error, contains('This request may already have been sent'));
+        expect(error, contains('Check your balance before asking again.'));
+        expect(error, isNot(contains('Nothing was charged')));
+        expect(error, isNot(contains('No credits were charged')));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 enum _Hold { read, write }

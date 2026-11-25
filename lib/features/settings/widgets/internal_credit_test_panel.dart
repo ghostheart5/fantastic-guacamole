@@ -169,7 +169,12 @@ class InternalCreditTestPanel extends ConsumerWidget {
               TextButton(
                 onPressed: state.busy
                     ? null
-                    : () => ref.invalidate(aiCreditWalletProvider),
+                    : () {
+                        ref.invalidate(aiCreditWalletProvider);
+                        ref
+                            .read(aiCreditKnownBalanceProvider.notifier)
+                            .walletChanged();
+                      },
                 child: Text(
                   journeyText(
                     context,

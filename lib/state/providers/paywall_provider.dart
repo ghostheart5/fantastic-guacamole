@@ -104,20 +104,31 @@ Future<AiCreditWallet> loadServerAiCreditWallet(
 
 int _aiCreditBalanceClock = 0;
 
-/// The AI credit balance the server last reported for the current account
-/// while the app runs: from an AI chat answer, or from a server wallet read
-/// that something else made (Settings, Plans and credits). Kept in memory
-/// only. Watching it never contacts the server, so AI chat can show a
-/// balance without causing a wallet read. Empty after any account or
-/// sign-in change, and cleared by the account fence.
+/// The current AI credit balance of the signed-in account, as far as this
+/// app run knows it, or null when it cannot know it. Kept in memory only.
+/// Watching it never contacts the server, so AI chat can show a balance
+/// without causing a wallet read.
+///
+/// Sources: a server wallet read something else made (Settings, Plans and
+/// credits), and an AI chat answer. An answer's figure is the balance when
+/// its request was reserved, so it is used only for a request that entered
+/// the paid step in this run with nothing reported or forgotten since
+/// ([enterPaid]); otherwise the balance is forgotten. Anything that may
+/// change the wallet away from AI chat (a purchase, a restore, an
+/// entitlement refresh, a test charge) calls [walletChanged]. Empty after
+/// any account or sign-in change, and cleared by the account fence.
 final aiCreditKnownBalanceProvider =
     NotifierProvider<AiCreditKnownBalance, int?>(AiCreditKnownBalance.new);
 
 class AiCreditKnownBalance extends Notifier<int?> {
   String? _account;
-  // Changes whenever the value does; a wallet read that began before an
-  // answer reported a balance is older than it and is ignored.
+  // Changes whenever the value is set or forgotten. A wallet read or an
+  // answer whose request began before the latest change is ignored.
   int _version = 0;
+  // Per request id: the version when it entered the paid step in this run.
+  final _paidSince = <String, int>{};
+  // Requests handed on for a reply whose answer has not arrived yet.
+  final _inFlight = <String>{};
 
   @override
   int? build() {
@@ -126,24 +137,64 @@ class AiCreditKnownBalance extends Notifier<int?> {
     );
     ref.watch(authSessionBoundaryProvider.select((b) => b.generation));
     _version = ++_aiCreditBalanceClock;
+    _paidSince.clear();
+    _inFlight.clear();
     return null;
   }
 
   /// Marks the start of a server wallet read.
   int beginRead() => _version;
 
-  /// A balance an AI chat answer for [account] reported.
-  void reportAnswer(String account, int balance) {
-    if (account != _account || balance < 0) return;
+  /// A request for [account] is handed on for a reply. Only its first
+  /// attempt in this run marks when it entered the paid step: a retry keeps
+  /// that mark, and a request recovered from an earlier run has none.
+  void enterPaid(
+    String account,
+    String requestId, {
+    required bool firstAttempt,
+  }) {
+    if (account != _account) return;
+    if (firstAttempt) _paidSince.putIfAbsent(requestId, () => _version);
+    _inFlight.add(requestId);
+  }
+
+  /// A balance the answer to [requestId] reported. Used only when nothing
+  /// was reported or forgotten since that request entered the paid step and
+  /// no other request is still waiting for its answer (whose reservation
+  /// may be newer); otherwise the balance is forgotten.
+  void reportAnswer(String account, String requestId, int balance) {
+    if (account != _account) return;
+    _inFlight.remove(requestId);
+    final since = _paidSince[requestId];
+    if (since == null ||
+        since != _version ||
+        _inFlight.isNotEmpty ||
+        balance < 0) {
+      _forget(requestId);
+      return;
+    }
     _version = ++_aiCreditBalanceClock;
+    _paidSince[requestId] = _version;
     state = balance;
   }
 
-  /// A paid request for [account] may have changed the balance without
-  /// saying what it is now: show none until the server reports one.
-  void forget(String account) {
+  /// The request [requestId] for [account] may have changed the balance
+  /// without saying what it is now: show none until it is known again.
+  void forget(String account, String requestId) {
     if (account != _account) return;
+    _inFlight.remove(requestId);
+    _forget(requestId);
+  }
+
+  /// The wallet may have changed away from AI chat.
+  void walletChanged() => _forget(null);
+
+  void _forget(String? requestId) {
     _version = ++_aiCreditBalanceClock;
+    // This request's own outcome is not a change it has to be older than.
+    if (requestId != null && _paidSince.containsKey(requestId)) {
+      _paidSince[requestId] = _version;
+    }
     state = null;
   }
 

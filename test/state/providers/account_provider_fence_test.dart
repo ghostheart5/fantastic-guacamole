@@ -27,9 +27,9 @@ void main() {
       overrides: [accountStorageScopeProvider.overrideWithValue(account)],
     );
     addTearDown(container.dispose);
-    container
-        .read(aiCreditKnownBalanceProvider.notifier)
-        .reportAnswer(account.v2Namespace!, 15);
+    container.read(aiCreditKnownBalanceProvider.notifier)
+      ..enterPaid(account.v2Namespace!, 'request', firstAttempt: true)
+      ..reportAnswer(account.v2Namespace!, 'request', 15);
     expect(container.read(aiCreditKnownBalanceProvider), 15);
     container.read(_accountTransitionProvider);
     expect(container.read(aiCreditKnownBalanceProvider), isNull);

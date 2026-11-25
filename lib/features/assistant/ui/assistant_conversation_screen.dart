@@ -462,6 +462,16 @@ class _AssistantConversationScreenState
         });
       });
       executing = quote;
+      // Its answer's balance may replace the one shown only if nothing
+      // changes from its first attempt in this run until it arrives (a retry
+      // keeps that mark; a request recovered from an earlier run has none).
+      ref
+          .read(aiCreditKnownBalanceProvider.notifier)
+          .enterPaid(
+            quote.packet.accountScope,
+            quote.packet.requestId,
+            firstAttempt: !retry,
+          );
       // Joins a run that outlived an earlier screen instead of sending again.
       final answer = await registry.execute(quote, service);
       if (!current()) return;

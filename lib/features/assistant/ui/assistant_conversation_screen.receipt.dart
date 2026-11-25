@@ -109,9 +109,11 @@ extension _ReplyReceipt on _AssistantConversationScreenState {
   }) {
     final known = ref.read(aiCreditKnownBalanceProvider.notifier);
     if (reported != null) {
-      known.reportAnswer(packet.accountScope, reported);
+      // Kept only if nothing changed since this request entered the paid
+      // step in this run; a recovered request's figure stays in its footer.
+      known.reportAnswer(packet.accountScope, packet.requestId, reported);
     } else if (sentForReply) {
-      known.forget(packet.accountScope);
+      known.forget(packet.accountScope, packet.requestId);
     }
   }
 
@@ -139,11 +141,13 @@ extension _ReplyReceipt on _AssistantConversationScreenState {
               ));
   }
 
-  /// Opens the existing plans and credits screen. The wallet that screen
-  /// reads updates the balance shown here, so a purchase shows.
+  /// Opens the existing plans and credits screen. A purchase may follow, so
+  /// the balance shown here is forgotten now; a wallet read made there, or
+  /// later, reports the new one.
   void _openCredits() {
     final router = GoRouter.maybeOf(context);
     if (router == null) return;
+    ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
     unawaited(router.push<void>(ref.read(routeSurfaceProvider).paywall));
   }
 

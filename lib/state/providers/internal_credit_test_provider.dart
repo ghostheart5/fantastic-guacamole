@@ -186,6 +186,7 @@ class InternalCreditTestController extends Notifier<InternalCreditTestState> {
       return;
     }
     ref.invalidate(aiCreditWalletProvider);
+    ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
     if (generation != _generation) return;
     state = InternalCreditTestState(
       message: message,

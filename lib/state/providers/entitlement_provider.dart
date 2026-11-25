@@ -77,6 +77,7 @@ final entitlementAuthorityRefreshProvider =
         ref.invalidate(paywallSubscriptionProvider);
         ref.invalidate(paywallConfigProvider);
         ref.invalidate(aiCreditWalletProvider);
+        ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
         await ref.read(entitlementProvider.future);
       };
     });
@@ -299,6 +300,7 @@ class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
     ref.invalidate(paywallSubscriptionProvider);
     ref.invalidate(paywallConfigProvider);
     ref.invalidate(aiCreditWalletProvider);
+    ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
   }
 
   bool _scopeStillMatches(String userId) {

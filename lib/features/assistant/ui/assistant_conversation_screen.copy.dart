@@ -76,11 +76,11 @@ extension _ConversationCopy on _AssistantConversationScreenState {
         'El chat con IA no está disponible para esta cuenta en este momento.',
       ),
       _ => copy(
-        'The AI service could not complete this retry.',
-        'El servicio de IA no pudo completar este reintento.',
+        'The AI service could not complete this request.',
+        'El servicio de IA no pudo completar esta solicitud.',
       ),
     };
-    return '$reason ${copy('This request was already sent once, so it may have used credits. Check your balance before asking again. Your question is kept.', 'Esta solicitud ya se envió una vez, así que es posible que haya usado créditos. Revisa tu saldo antes de volver a preguntar. Tu pregunta se conserva.')}';
+    return '$reason ${copy('This request may already have been sent, so it may have used credits. Check your balance before asking again. Your question is kept.', 'Puede que esta solicitud ya se haya enviado, así que es posible que haya usado créditos. Revisa tu saldo antes de volver a preguntar. Tu pregunta se conserva.')}';
   }
 
   String _firstAttemptFailureText(
