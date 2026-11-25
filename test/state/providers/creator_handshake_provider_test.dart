@@ -28,10 +28,19 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
+import 'package:fantastic_guacamole/state/providers/service_providers.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_reminder_sync_provider.dart';
+import 'package:fantastic_guacamole/state/services/notifications_service.dart';
+import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'task_reminder_test_support.dart';
 
 void main() {
   setUp(() {
@@ -623,6 +632,51 @@ void main() {
     },
   );
 
+  test('a confirmed dated task registers its reminder', () async {
+    final scheduler = RecordingTaskScheduler();
+    final DateTime now = DateTime.utc(2026, 8, 20, 18);
+    late final _Harness harness;
+    harness = _Harness(
+      now: now,
+      writeThroughTaskStore: true,
+      extraOverrides: [
+        notificationSchedulerProvider.overrideWithValue(scheduler),
+        localTimezoneRefresherProvider.overrideWithValue(() async {}),
+        reminderOrchestratorServiceProvider.overrideWith(
+          (ref) => ReminderOrchestratorService(
+            preferences: MemoryReminderPrefs(),
+            notifications: NotificationsService(NoNotificationList()),
+            scheduler: scheduler,
+            accountScope: testReminderScope,
+            loadTasks: () => harness.repository.getAllTasks(),
+            now: () => now,
+            isSpanish: () => false,
+          ),
+        ),
+      ],
+    );
+    addTearDown(harness.dispose);
+
+    await harness.notifier.stage(
+      data: CreatorFormData(
+        title: 'Call the clinic',
+        type: 'Task',
+        priority: 3,
+        scheduledFor: now.add(const Duration(hours: 2)),
+      ),
+    );
+    final CreatorHandshakeState result = await harness.notifier.confirm();
+    await harness.container.read(taskReminderSyncProvider).idle;
+
+    expect(result.phase, CreatorHandshakePhase.applied);
+    final String taskId = harness.repository.activeTasks.single.id;
+    expect(scheduler.registered, ['task_reminder_start_$taskId']);
+    expect(
+      scheduler.times['task_reminder_start_$taskId'],
+      now.add(const Duration(hours: 2)),
+    );
+  });
+
   test('confirmed scheduled task records first-run milestones', () async {
     final _Harness harness = _Harness();
     addTearDown(harness.dispose);
@@ -1120,6 +1174,8 @@ class _Harness {
     ITimelineRepository? timelineRepository,
     SecureStore? store,
     DateTime? now,
+    bool writeThroughTaskStore = false,
+    List<Override> extraOverrides = const <Override>[],
   }) : repository = repository ?? _MemoryTaskRepository(),
        goalRepository = goalRepository ?? _MemoryGoalRepository(),
        habitRepository = habitRepository ?? _MemoryHabitRepository(),
@@ -1129,7 +1185,12 @@ class _Harness {
     container = ProviderContainer(
       overrides: [
         accountStorageScopeProvider.overrideWithValue(_testAccountScope),
-        domainTaskRepositoryProvider.overrideWithValue(this.repository),
+        // The real write path wraps the task store, as in the app.
+        if (writeThroughTaskStore)
+          taskStoreProvider.overrideWithValue(this.repository)
+        else
+          domainTaskRepositoryProvider.overrideWithValue(this.repository),
+        ...extraOverrides,
         domainGoalRepositoryProvider.overrideWithValue(this.goalRepository),
         domainHabitRepositoryProvider.overrideWithValue(this.habitRepository),
         domainNoteRepositoryProvider.overrideWithValue(this.noteRepository),

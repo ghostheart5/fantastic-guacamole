@@ -266,8 +266,8 @@ class NotificationsRepository implements INotificationRepository {
     });
   }
 
-  /// Rhythm reminders and the extra goal reminder slots are registered
-  /// straight with the OS, so read them back from the platform for cleanup.
+  /// Rhythm, task and the extra goal reminder slots are registered straight
+  /// with the OS, so read them back from the platform for cleanup.
   Future<List<String>> _pendingRhythmReminderIds() async {
     final String? scope = _accountScope;
     if (scope == null) return const <String>[];
@@ -276,7 +276,8 @@ class NotificationsRepository implements INotificationRepository {
           .where(
             (String id) =>
                 id.startsWith('habit_reminder_') ||
-                id.startsWith('goal_reminder_'),
+                id.startsWith('goal_reminder_') ||
+                id.startsWith('task_reminder_'),
           )
           .toList(growable: false);
     } catch (error) {

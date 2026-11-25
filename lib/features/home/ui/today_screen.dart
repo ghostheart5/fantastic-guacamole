@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/features/creator/ui/daily_rhythms_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_notice.dart';
+import 'package:fantastic_guacamole/features/permissions/task_reminder_permission.dart';
 import 'package:fantastic_guacamole/features/tasks/widgets/task_edit_dialog.dart';
 import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -481,6 +482,15 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
           ),
         );
       }
+      return;
     }
+    if (!mounted || !_sameAccount(generation, namespace)) return;
+    // Saved first; then ask in context when the task now has a reminder.
+    await askForRemindersAfterTaskSave(
+      context,
+      ref,
+      scheduledFor: draft.scheduledFor,
+      dueDate: draft.dueDate,
+    );
   }
 }

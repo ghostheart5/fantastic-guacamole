@@ -645,6 +645,65 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final es in [false, true]) {
+    testWidgets('the task reminder switch saves the choice (es=$es)', (
+      tester,
+    ) async {
+      useTallSurface(tester);
+      final container = createContainer();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: Locale(es ? 'es' : 'en'),
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const SettingsScreen(),
+          ),
+        ),
+      );
+      addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+      await tester.pump(const Duration(milliseconds: 200));
+      await invokeNavTile(
+        tester,
+        es ? 'Planificación y orientación' : 'Planning & guidance',
+      );
+      final title = find.text(
+        es ? 'Recordatorios de tareas' : 'Task Reminders',
+      );
+      await tester.scrollUntilVisible(
+        title,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(
+        find.textContaining(
+          es
+              ? 'Solo se programan las 20 siguientes a la vez.'
+              : 'Only the next 20 are set at once.',
+        ),
+        findsOneWidget,
+      );
+      final Finder toggle = find.descendant(
+        of: find.byKey(const Key('task-reminders-toggle')),
+        matching: find.byType(Switch),
+      );
+      expect(tester.widget<Switch>(toggle).value, isTrue);
+      await tester.tap(toggle);
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final actions =
+          container.read(settingsUiActionsProvider) as _FakeSettingsUiActions;
+      expect(actions.taskReminderWrites, [false]);
+      expect(tester.widget<Switch>(toggle).value, isFalse);
+    });
+  }
+
   for (final dark in [true, false]) {
     testWidgets(
       'Reflection picker follows dark forms=$dark and Cancel preserves time',
@@ -1966,6 +2025,12 @@ class _FakeSettingsUiActions extends SettingsUiActions {
   );
   int advancedLoads = 0;
   int reflectionTimeWrites = 0;
+  final List<bool> taskReminderWrites = <bool>[];
+
+  @override
+  Future<void> setTaskRemindersEnabled(bool enabled) async {
+    taskReminderWrites.add(enabled);
+  }
 
   @override
   ReminderOrchestratorPrefs loadAdvancedReminderPrefs() {

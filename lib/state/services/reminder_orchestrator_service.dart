@@ -19,6 +19,7 @@ import 'package:flutter/foundation.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 part 'reminder_orchestrator_service.reconcile.dart';
+part 'reminder_orchestrator_service.tasks.dart';
 
 class ReminderOrchestratorPrefs {
   const ReminderOrchestratorPrefs({
@@ -27,6 +28,9 @@ class ReminderOrchestratorPrefs {
     required this.dailyPlanningEnabled,
     required this.dailyPlanningHour,
     required this.dailyPlanningMinute,
+    this.taskRemindersEnabled = false,
+    this.taskOverdueNudgesEnabled = false,
+    this.taskReminderLeadMinutes = 0,
   });
 
   final bool goalRemindersEnabled;
@@ -34,6 +38,16 @@ class ReminderOrchestratorPrefs {
   final bool dailyPlanningEnabled;
   final int dailyPlanningHour;
   final int dailyPlanningMinute;
+
+  /// Stored default is on; see [ReminderOrchestratorService.loadPrefs].
+  final bool taskRemindersEnabled;
+
+  /// One "still open" nudge the morning after a task's deadline. Off unless
+  /// the person turns it on.
+  final bool taskOverdueNudgesEnabled;
+
+  /// Minutes before a task's start or due time its reminder arrives.
+  final int taskReminderLeadMinutes;
 }
 
 class ReminderOrchestratorService {
@@ -44,13 +58,21 @@ class ReminderOrchestratorService {
     required this._accountScope,
     this._loadHabitOccurrences,
     this._loadGoalTasks,
+    this._loadTasks,
     DateTime Function()? now,
     String Function()? timeZoneName,
+    bool Function()? isSpanish,
   }) : _now = now ?? DateTime.now,
-       _timeZoneName = timeZoneName ?? _deviceTimeZoneName;
+       _timeZoneName = timeZoneName ?? _deviceTimeZoneName,
+       _isSpanish = isSpanish ?? _deviceIsSpanish;
 
   static const String _goalReminderEnabledKey = 'goal_reminders_enabled';
   static const String _habitReminderEnabledKey = 'habit_reminders_enabled';
+  static const String _taskReminderEnabledKey = 'task_reminders_enabled';
+  static const String _taskOverdueNudgesKey = 'task_overdue_nudges_enabled';
+  static const String _taskReminderLeadKey = 'task_reminder_lead_minutes';
+  static const String _scheduledTaskReminderIdsKey =
+      'scheduled_task_reminder_ids';
   static const String _dailyPlanningEnabledKey =
       'daily_planning_reminder_enabled';
   static const String _dailyPlanningTimeKey = 'daily_planning_reminder_time';
@@ -80,8 +102,15 @@ class ReminderOrchestratorService {
   final String? _accountScope;
   final Future<List<HabitOccurrenceEntity>> Function()? _loadHabitOccurrences;
   final Future<List<TaskEntity>> Function()? _loadGoalTasks;
+
+  /// Every task of this account, for task reminders. Without it the task
+  /// group is left out of reconciles.
+  final Future<List<TaskEntity>> Function()? _loadTasks;
   final DateTime Function() _now;
   final String Function() _timeZoneName;
+
+  /// Whether reminder text is written in Spanish (the app language).
+  final bool Function() _isSpanish;
   final ValueNotifier<NotificationScheduleResult?> _lastHabitReminderResult =
       ValueNotifier<NotificationScheduleResult?>(null);
 
@@ -98,6 +127,21 @@ class ReminderOrchestratorService {
     } on Object {
       return '';
     }
+  }
+
+  /// The app follows the device language among English and Spanish, so the
+  /// first of those two in the device list decides.
+  static bool _deviceIsSpanish() {
+    try {
+      for (final locale in PlatformDispatcher.instance.locales) {
+        final String code = locale.languageCode.toLowerCase();
+        if (code == 'es') return true;
+        if (code == 'en') return false;
+      }
+    } on Object {
+      // No platform locale: English, the app's fallback.
+    }
+    return false;
   }
 
   ReminderOrchestratorPrefs loadPrefs() {
@@ -117,6 +161,55 @@ class ReminderOrchestratorService {
       ),
       dailyPlanningHour: hour,
       dailyPlanningMinute: minute,
+      taskRemindersEnabled: _isEnabled(
+        _taskReminderEnabledKey,
+        defaultValue: true,
+      ),
+      taskOverdueNudgesEnabled: _isEnabled(
+        _taskOverdueNudgesKey,
+        defaultValue: false,
+      ),
+      taskReminderLeadMinutes: _taskReminderLeadMinutes(),
+    );
+  }
+
+  /// Off cancels every task reminder right away; on is applied by the next
+  /// reconcile (the caller runs one).
+  Future<void> setTaskRemindersEnabled(bool enabled) async {
+    await _preferences.save(_taskReminderEnabledKey, enabled.toString());
+    if (!enabled) {
+      await KeyedMutationCoordinator.shared.runExclusive<void>(
+        AccountDataRegistry.notificationMutationKeyForScope(
+          _accountScope ?? 'legacy',
+        ),
+        _cancelTaskReminders,
+      );
+    }
+  }
+
+  /// Brings only the task reminders in line with the stored tasks, the same
+  /// way [reconcileAfterRestore] does for every group. Every task write ends
+  /// here (see the task reminder sync provider).
+  Future<bool> syncTaskReminders({
+    required bool permissionGranted,
+    required bool Function() shouldContinue,
+  }) {
+    return KeyedMutationCoordinator.shared.runExclusive<bool>(
+      AccountDataRegistry.notificationMutationKeyForScope(
+        _accountScope ?? 'legacy',
+      ),
+      () async {
+        final load = _loadTasks;
+        if (load == null || !shouldContinue()) return false;
+        return _runGroups(
+          <(String, Future<_ReminderGroup> Function())>[
+            ('tasks', () => _planTaskGroup(load)),
+          ],
+          permissionGranted: permissionGranted,
+          shouldContinue: shouldContinue,
+          everyGroup: false,
+        );
+      },
     );
   }
 

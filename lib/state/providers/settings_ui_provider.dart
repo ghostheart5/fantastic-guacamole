@@ -109,6 +109,14 @@ class SettingsUiActions {
     if (enabled) await _reconcileReminders(owner);
   }
 
+  Future<void> setTaskRemindersEnabled(bool enabled) async {
+    final owner = AccountOperation.capture(_ref);
+    owner.check();
+    final reminders = _ref.read(reminderOrchestratorServiceProvider);
+    await owner.wait(reminders.setTaskRemindersEnabled(enabled));
+    if (enabled) await _reconcileReminders(owner);
+  }
+
   Future<void> refreshNotificationPermissionAndReminders() async {
     final owner = AccountOperation.capture(_ref);
     if (!owner.isCurrent) return;

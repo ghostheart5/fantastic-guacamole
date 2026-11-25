@@ -86,6 +86,7 @@ class NotificationPermissionController
     return prefs.goalRemindersEnabled ||
         prefs.habitRemindersEnabled ||
         prefs.dailyPlanningEnabled ||
+        prefs.taskRemindersEnabled ||
         actions.loadReflectionReminderPrefs().enabled;
   }
 

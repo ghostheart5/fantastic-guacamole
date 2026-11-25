@@ -176,6 +176,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
       ),
     ),
     ('goals', () => _planGoalGroup(goals, permissionGranted)),
+    if (_loadTasks case final load?) ('tasks', () => _planTaskGroup(load)),
   ];
 
   /// Applies only the difference between what each group wants and what is
@@ -192,6 +193,29 @@ extension _ReminderReconciler on ReminderOrchestratorService {
     final bool keepLegacy = _keepsLegacyHabitReminder();
     final bool trackLegacy = await _legacyIdToKeepTracked(keepLegacy);
     if (!shouldContinue()) return false;
+    return _runGroups(
+      _reminderGroups(
+        goals: goals,
+        habits: habits,
+        permissionGranted: permissionGranted,
+        keepLegacy: keepLegacy,
+        trackLegacy: trackLegacy,
+      ),
+      permissionGranted: permissionGranted,
+      shouldContinue: shouldContinue,
+      everyGroup: true,
+    );
+  }
+
+  /// Plans and applies [groups] one after another. [everyGroup] is false
+  /// when only some producers run: the record of what was cleared while
+  /// notifications were off then keeps the other groups' ids.
+  Future<bool> _runGroups(
+    List<(String, Future<_ReminderGroup> Function())> groups, {
+    required bool permissionGranted,
+    required bool Function() shouldContinue,
+    required bool everyGroup,
+  }) async {
     final _ReconcileRun run = _ReconcileRun(
       pending: permissionGranted ? await _readPendingIds() : null,
       permissionGranted: permissionGranted,
@@ -199,20 +223,16 @@ extension _ReminderReconciler on ReminderOrchestratorService {
       zone: _timeZoneName(),
       shouldContinue: shouldContinue,
       // Once notifications are allowed again, everything is registered anew.
-      clearedWhileOff: permissionGranted ? <String>{} : _loadClearedWhileOff(),
+      clearedWhileOff: permissionGranted && everyGroup
+          ? <String>{}
+          : _loadClearedWhileOff(),
     );
     if (!shouldContinue()) return false;
     bool complete = true;
     final List<String> failed = <String>[];
     NotificationScheduleResult? habitOutcome;
     for (final (String name, Future<_ReminderGroup> Function() plan)
-        in _reminderGroups(
-          goals: goals,
-          habits: habits,
-          permissionGranted: permissionGranted,
-          keepLegacy: keepLegacy,
-          trackLegacy: trackLegacy,
-        )) {
+        in groups) {
       if (!shouldContinue()) return _abandon(run);
       NotificationScheduleResult outcome;
       _ReminderGroup? group;
@@ -225,6 +245,9 @@ extension _ReminderReconciler on ReminderOrchestratorService {
         outcome = NotificationScheduleResult.failed;
       }
       if (!shouldContinue()) return _abandon(run);
+      if (permissionGranted && group != null) {
+        run.clearedWhileOff.removeWhere(group.owns);
+      }
       try {
         await group?.commit?.call(outcome);
       } on Object {

@@ -260,6 +260,12 @@ abstract final class AccountDataRegistry {
     'scheduled_goal_reminder_ids',
     'reminder_fingerprints_v1',
     'reminders_cleared_while_off_v1',
+    // Task reminders: the switch, overdue nudges, lead time and the ids the
+    // reconciler last registered.
+    'task_reminders_enabled',
+    'task_overdue_nudges_enabled',
+    'task_reminder_lead_minutes',
+    'scheduled_task_reminder_ids',
     // The account's answer to the in-context notification permission request
     // and whether it closed the "notifications are off" notice.
     'notification_permission_refusal_v1',

@@ -181,6 +181,7 @@ class _ReminderAutomationSectionState
     extends ConsumerState<_ReminderAutomationSection> {
   bool _goalEnabled = true;
   bool _habitEnabled = true;
+  bool _taskEnabled = true;
   bool _dailyPlanningEnabled = true;
   TimeOfDay _dailyPlanningTime = const TimeOfDay(hour: 7, minute: 30);
 
@@ -197,6 +198,7 @@ class _ReminderAutomationSectionState
     setState(() {
       _goalEnabled = prefs.goalRemindersEnabled;
       _habitEnabled = prefs.habitRemindersEnabled;
+      _taskEnabled = prefs.taskRemindersEnabled;
       _dailyPlanningEnabled = prefs.dailyPlanningEnabled;
       _dailyPlanningTime = TimeOfDay(
         hour: prefs.dailyPlanningHour,
@@ -215,6 +217,12 @@ class _ReminderAutomationSectionState
     await ref.read(settingsUiActionsProvider).setHabitRemindersEnabled(value);
     if (!mounted) return;
     setState(() => _habitEnabled = value);
+  }
+
+  Future<void> _toggleTask(bool value) async {
+    await ref.read(settingsUiActionsProvider).setTaskRemindersEnabled(value);
+    if (!mounted) return;
+    setState(() => _taskEnabled = value);
   }
 
   Future<void> _toggleDailyPlanning(bool value) async {
@@ -321,6 +329,28 @@ class _ReminderAutomationSectionState
               context,
               'Each habit reminds you at the time you set with Set reminder on that habit: daily, Mondays, or the first of each month. Habits without a time stay quiet. Completed or skipped periods wait until the next period.',
               'Cada hábito te avisa a la hora que le pongas con Poner recordatorio: cada día, los lunes o el primer día del mes. Los hábitos sin hora no avisan. Los períodos completados u omitidos esperan hasta el siguiente período.',
+            ),
+          ),
+          _NeonToggleTile(
+            key: const Key('task-reminders-toggle'),
+            title: journeyText(
+              context,
+              'Task Reminders',
+              'Recordatorios de tareas',
+            ),
+            value: _taskEnabled,
+            onChanged: _toggleTask,
+          ),
+          _NeonStatusTile(
+            title: journeyText(
+              context,
+              'Task Reminder Rule',
+              'Regla de recordatorios de tareas',
+            ),
+            subtitle: journeyText(
+              context,
+              'At a task\'s start time. Without one, when it is due: at its time, or at 9 AM when the deadline has no time. Finished tasks stay quiet. Only the next 20 are set at once.',
+              'A la hora de inicio de la tarea. Si no tiene, cuando vence: a su hora, o a las 9:00 si la fecha límite no tiene hora. Las tareas terminadas no avisan. Solo se programan las 20 siguientes a la vez.',
             ),
           ),
           _NeonToggleTile(

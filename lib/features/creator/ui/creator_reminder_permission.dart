@@ -5,15 +5,26 @@ import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Whether anything the Creator just saved can send a reminder. Today: a
-/// goal with a target date while goal reminders are on. Add each new kind of
-/// item that gets a reminder here.
+/// Whether anything the Creator just saved can send a reminder: a goal with
+/// a target date while goal reminders are on, or a task whose start time or
+/// deadline gets a reminder while task reminders are on. Add each new kind
+/// of item that gets a reminder here.
 bool creatorSaveCanRemind(
   Iterable<CreatorMutationOperation> saved,
-  ReminderOrchestratorPrefs prefs,
-) => saved.any(
+  ReminderOrchestratorPrefs prefs, {
+  DateTime? now,
+}) => saved.any(
   (CreatorMutationOperation operation) =>
-      prefs.goalRemindersEnabled && operation.goal?.targetDate != null,
+      (prefs.goalRemindersEnabled && operation.goal?.targetDate != null) ||
+      switch (operation.taskMutation) {
+        final CreatorTaskMutation task => TaskReminderPlanner.wouldRemind(
+          scheduledFor: task.scheduledFor,
+          dueDate: task.dueDate,
+          prefs: prefs,
+          now: now ?? DateTime.now(),
+        ),
+        null => false,
+      },
 );
 
 /// Called after the Creator has saved [saved]: asks once, in context, for
