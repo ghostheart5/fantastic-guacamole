@@ -128,6 +128,7 @@ void invalidateAccountOwnedProviders(Ref ref) {
   ref.invalidate(paywallPromptProvider);
   ref.invalidate(entitlementProvider);
   ref.invalidate(aiCreditWalletProvider);
+  ref.invalidate(aiCreditKnownBalanceProvider);
 
   ref.invalidate(syncErrorMessageProvider);
   ref.invalidate(cloudRestoreWarningsProvider);

@@ -10,7 +10,6 @@ import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
-import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
@@ -64,17 +63,28 @@ Map<String, dynamic> _quote(Map<String, dynamic> body) => {
     'digest': 'fixture',
     'proof': 'fixture',
     'policy': 'fixture',
-    'expiresAt': DateTime.now()
-        .add(const Duration(minutes: 5))
-        .millisecondsSinceEpoch,
+    // A fixed time far ahead: the price never expires during a test.
+    'expiresAt': _quoteExpiry.millisecondsSinceEpoch,
   },
 };
+final _quoteExpiry = DateTime.utc(2100);
 
 class _Server {
-  _Server({this.balance = 25, this.quoteFailure, this.paidFailure});
+  _Server({
+    this.balance = 25,
+    this.quoteFailure,
+    this.paidFailure,
+    List<Object>? paidScript,
+    this.message,
+  }) : paidScript = paidScript ?? [];
   int balance;
   final _Response? quoteFailure;
   final _Response? paidFailure;
+
+  /// Answers for the next paid calls, in order: a response, or an error the
+  /// transport throws. Normal replies follow once it is used up.
+  final List<Object> paidScript;
+  final String? message;
   int quotes = 0;
   final paid = <Map<String, dynamic>>[];
 
@@ -84,6 +94,11 @@ class _Server {
       return quoteFailure ?? (status: 200, data: _quote(body));
     }
     paid.add(body);
+    if (paidScript.isNotEmpty) {
+      final next = paidScript.removeAt(0);
+      if (next is _Response) return next;
+      throw next as Error;
+    }
     if (paidFailure case final _Response failure) return failure;
     if (balance < conversationMessageCredits) {
       return (
@@ -100,7 +115,7 @@ class _Server {
       status: 200,
       data: <String, dynamic>{
         'requestId': body['requestId'],
-        'message': 'Reply ${paid.length}.',
+        'message': message ?? 'Reply ${paid.length}.',
         'creditsCharged': conversationMessageCredits,
         'remainingCredits': balance,
         'model': 'transport-fixture',
@@ -114,11 +129,14 @@ ProviderContainer _setup(
   InMemorySecureStoreBackend backend, {
   bool purchasing = true,
   NetworkInterfaceAvailability? network,
-  Future<AiCreditWallet> Function()? wallet,
+  Future<Map<String, dynamic>> Function(String? account)? walletRow,
+  AccountStorageScope Function()? readScope,
 }) => ProviderContainer(
   overrides: [
     secureStoreProvider.overrideWithValue(SecureStore(backend: backend)),
-    accountStorageScopeProvider.overrideWith((ref) => _scope),
+    accountStorageScopeProvider.overrideWith(
+      (ref) => readScope?.call() ?? _scope,
+    ),
     authSessionBoundaryProvider.overrideWith(_Boundary.new),
     assistantConversationAvailableProvider.overrideWithValue(true),
     personalizationProfileProvider.overrideWith(_Consent.new),
@@ -128,10 +146,12 @@ ProviderContainer _setup(
       networkStatusProvider.overrideWith(
         (ref) => Stream.value(NetworkStatus(interfaceAvailability: network)),
       ),
-    if (wallet != null) ...[
-      aiCreditWalletFromServerProvider.overrideWithValue(true),
-      aiCreditWalletProvider.overrideWith((ref) => wallet()),
-    ],
+    // The server wallet path with only the network read replaced.
+    if (walletRow != null)
+      aiCreditWalletProvider.overrideWith((ref) {
+        final account = ref.watch(accountStorageScopeProvider).v2Namespace;
+        return loadServerAiCreditWallet(ref, () => walletRow(account));
+      }),
     siV2ReadGatewayProvider.overrideWith(
       (ref) => _gatewayFor(ref.watch(accountStorageScopeProvider).v2Namespace),
     ),
@@ -281,8 +301,8 @@ void main() {
         expect(server.paid, hasLength(1));
         expect(_receipts(tester), [
           es
-              ? 'Usó: tu pregunta, 1 tarea · Costo: 5 créditos · Quedan 20 créditos'
-              : 'Used: your question, 1 task · Cost: 5 credits · 20 credits left',
+              ? 'Usó: tu pregunta, 1 tarea · Costo: 5 créditos · Quedan 20 después de esta respuesta'
+              : 'Used: your question, 1 task · Cost: 5 credits · 20 left after this reply',
         ]);
         expect(
           _balanceText(tester),
@@ -295,9 +315,17 @@ void main() {
         expect(
           _receipts(tester).last,
           es
-              ? 'Usó: tu pregunta, 1 tarea, 2 mensajes anteriores · Costo: 5 créditos · Quedan 15 créditos'
-              : 'Used: your question, 1 task, 2 earlier messages · Cost: 5 credits · 15 credits left',
+              ? 'Usó: tu pregunta, 1 tarea, 2 mensajes anteriores · Costo: 5 créditos · Quedan 15 después de esta respuesta'
+              : 'Used: your question, 1 task, 2 earlier messages · Cost: 5 credits · 15 left after this reply',
         );
+        // The receipt stays on this device: the earlier messages sent with
+        // the second question carry only who said what.
+        final sentHistory = server.paid.last['history'] as List;
+        expect(sentHistory, hasLength(2));
+        for (final turn in sentHistory) {
+          expect((turn as Map).keys.toSet(), {'role', 'content'});
+        }
+        expect(server.paid.last.toString(), isNot(contains('creditsCharged')));
         expect(
           _balanceText(tester),
           es ? 'Tu saldo: 15 créditos' : 'Your balance: 15 credits',
@@ -312,7 +340,7 @@ void main() {
         expect(_receipts(tester), hasLength(2));
         expect(
           _receipts(tester).last,
-          contains(es ? 'Quedan 15' : '15 credits left'),
+          contains(es ? 'Quedan 15' : '15 left after this reply'),
         );
         expect(tester.takeException(), isNull);
       },
@@ -354,6 +382,9 @@ void main() {
             _quote({'requestId': packet.requestId})['quote'] as Map,
           ),
         ),
+        // Recovery compares this with the device clock (there is no
+        // injectable clock), so it must be the current time; the price's
+        // expiry above is a fixed time.
         savedAt: DateTime.now(),
       ),
     );
@@ -368,7 +399,7 @@ void main() {
     expect(server.paid.single['requestId'], packet.requestId);
     expect(
       _receipts(tester).single,
-      'Used: your question, 2 goals, 2 earlier messages · Cost: 5 credits · 7 credits left',
+      'Used: your question, 2 goals, 2 earlier messages · Cost: 5 credits · 7 left after this reply',
     );
     expect(tester.takeException(), isNull);
   });
@@ -379,34 +410,125 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(412, 915));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     var walletReads = 0;
+    final server = _Server(balance: 42);
     final container = _setup(
-      _Server(balance: 40),
+      server,
       InMemorySecureStoreBackend(),
-      wallet: () async {
+      walletRow: (_) async {
         walletReads++;
-        return AiCreditWallet(
-          balance: 42,
-          tier: 'free',
-          allowance: 50,
-          resetAt: DateTime(2026, 12),
-          updatedAt: DateTime(2026, 11),
-        );
+        return {'balance': server.balance};
       },
     );
     addTearDown(() async {
       await tester.pumpWidget(const SizedBox.shrink());
       container.dispose();
     });
-    // Loaded earlier elsewhere in the app (Settings, for example).
+    // Read earlier elsewhere in the app (Settings, for example), which keeps
+    // watching it.
+    container.listen(aiCreditWalletProvider, (_, _) {});
     await container.read(aiCreditWalletProvider.future);
     await _pump(tester, container);
     expect(_balanceText(tester), 'Your balance: 42 credits');
+    expect(walletReads, 1, reason: 'Opening Chat reads nothing');
     await _ask(tester, 'When should I do the Grocery list?', 'en');
-    // The reply's own figure replaces it; the wallet is not read again.
-    expect(_balanceText(tester), 'Your balance: 35 credits');
-    expect(walletReads, 1);
+    // The reply's own figure replaces it (Settings' refresh agrees).
+    expect(_balanceText(tester), 'Your balance: 37 credits');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'reopening Chat after a reply, with a previously loaded wallet, makes no wallet read',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var walletReads = 0;
+      final server = _Server(balance: 40);
+      final container = _setup(
+        server,
+        InMemorySecureStoreBackend(),
+        walletRow: (_) async {
+          walletReads++;
+          return {'balance': server.balance};
+        },
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      // Settings read the wallet once and has since closed.
+      await container.read(aiCreditWalletProvider.future);
+      expect(walletReads, 1);
+      await _pump(tester, container);
+      await _ask(tester, 'When should I do the Grocery list?', 'en');
+      // The reply marked the wallet for a fresh read where it is next needed.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _pump(tester, container);
+      await _settle(tester);
+      expect(_balanceText(tester), 'Your balance: 35 credits');
+      expect(walletReads, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'after an account switch the Chat header shows no balance until the new account\'s wallet resolves',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var current = _scope;
+      final other = AccountStorageScope.authenticated('synthetic-other');
+      final newWallet = Completer<Map<String, dynamic>>();
+      final container = _setup(
+        _Server(balance: 40),
+        InMemorySecureStoreBackend(),
+        readScope: () => current,
+        walletRow: (account) async =>
+            account == other.v2Namespace ? newWallet.future : {'balance': 42},
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      // Settings is open beside Chat and keeps the wallet loaded.
+      container.listen(aiCreditWalletProvider, (_, _) {});
+      await container.read(aiCreditWalletProvider.future);
+      await _pump(tester, container);
+      expect(_balanceText(tester), 'Your balance: 42 credits');
+
+      current = other;
+      container.invalidate(accountStorageScopeProvider);
+      // Every frame from the switch on: nothing from the first account.
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(_balanceText(tester), isNull, reason: 'frame $i');
+      }
+      newWallet.complete({'balance': 7});
+      await _settle(tester);
+      expect(_balanceText(tester), 'Your balance: 7 credits');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'a wallet read that began before a reply never replaces its newer balance',
+    (tester) async {
+      final container = _setup(
+        _Server(),
+        InMemorySecureStoreBackend(),
+        walletRow: (_) async => {'balance': 42},
+      );
+      addTearDown(container.dispose);
+      final known = container.read(aiCreditKnownBalanceProvider.notifier);
+      final token = known.beginRead();
+      known.reportAnswer(_scope.v2Namespace!, 20);
+      known.reportWallet(_scope.v2Namespace, token, 42);
+      expect(container.read(aiCreditKnownBalanceProvider), 20);
+      known.reportWallet('someone-else', known.beginRead(), 9);
+      expect(container.read(aiCreditKnownBalanceProvider), 20);
+      known.reportWallet(_scope.v2Namespace, known.beginRead(), 18);
+      expect(container.read(aiCreditKnownBalanceProvider), 18);
+    },
+  );
 
   for (final language in ['en', 'es']) {
     final es = language == 'es';
@@ -665,6 +787,152 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'a reply this device withholds says its credits were used and what is left',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      // Only a claim the assistant cannot make, so nothing is left to show.
+      final server = _Server(message: 'I have scheduled your Grocery list.');
+      final container = _setup(server, InMemorySecureStoreBackend());
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container);
+      await _ask(tester, 'When should I do the Grocery list?', 'en');
+      expect(server.paid, hasLength(1));
+      expect(find.textContaining('I have scheduled'), findsNothing);
+      final message = _errorText(tester);
+      expect(message, contains('did not pass the response check'));
+      expect(message, contains('This message used its credits.'));
+      expect(message, contains('Credits left: 20.'));
+      expect(message, isNot(contains('charged')));
+      expect(_balanceText(tester), 'Your balance: 20 credits');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'after a paid-step failure with no figure the balance is hidden and the message asks to check it',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final server = _Server();
+      final container = _setup(server, InMemorySecureStoreBackend());
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container);
+      await _ask(tester, 'When should I do the Grocery list?', 'en');
+      expect(_balanceText(tester), 'Your balance: 20 credits');
+      server.paidScript.add((
+        status: 500,
+        data: <String, dynamic>{'error': 'credit_settlement_failed'},
+      ));
+      await _ask(tester, 'And after that?', 'en');
+      expect(server.paid, hasLength(2));
+      expect(_balanceText(tester), isNull);
+      final message = _errorText(tester);
+      expect(message, contains('it may have used credits'));
+      expect(message, contains('Check your balance before asking again.'));
+      expect(message, isNot(contains('nothing was charged')));
+      expect(message, isNot(contains('You can try again')));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final language in ['en', 'es']) {
+    final es = language == 'es';
+    testWidgets(
+      '$language: Retry same request after the price expired does not say nothing was charged',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final server = _Server(
+          paidScript: [
+            // The first attempt reached the server, then the connection
+            // dropped before its answer.
+            StateError('connection dropped'),
+            // By the retry the signed price had expired.
+            (
+              status: 409,
+              data: <String, dynamic>{'error': 'credit_quote_required'},
+            ),
+          ],
+        );
+        final container = _setup(server, InMemorySecureStoreBackend());
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await _pump(tester, container, language: language);
+        await _ask(tester, 'When should I do the Grocery list?', language);
+        final retry = find.text(
+          es ? 'Reintentar la misma solicitud' : 'Retry same request',
+        );
+        await tester.ensureVisible(retry);
+        await tester.tap(retry);
+        await _settle(tester);
+        expect(server.paid, hasLength(2));
+        expect(
+          server.paid.map((body) => body['requestId']).toSet(),
+          hasLength(1),
+        );
+        final message = _errorText(tester);
+        for (final claim
+            in es
+                ? ['No se cobraron', 'no se cobró', 'No se cobró']
+                : [
+                    'No credits were charged',
+                    'nothing was charged',
+                    'Nothing was charged',
+                  ]) {
+          expect(message, isNot(contains(claim)));
+        }
+        expect(
+          message,
+          contains(
+            es
+                ? 'es posible que haya usado créditos. Revisa tu saldo antes de volver a preguntar.'
+                : 'it may have used credits. Check your balance before asking again.',
+          ),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'a sign-in refusal on Retry same request does not say nothing was charged',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final server = _Server(
+        paidScript: [
+          StateError('connection dropped'),
+          (status: 401, data: <String, dynamic>{'error': 'unauthorized'}),
+        ],
+      );
+      final container = _setup(server, InMemorySecureStoreBackend());
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container);
+      await _ask(tester, 'When should I do the Grocery list?', 'en');
+      await tester.ensureVisible(find.text('Retry same request'));
+      await tester.tap(find.text('Retry same request'));
+      await _settle(tester);
+      final message = _errorText(tester);
+      expect(message, startsWith('Your sign-in needs renewing'));
+      expect(message, isNot(contains('Nothing was charged')));
+      expect(message, contains('may have used credits'));
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('credits owed from a refunded purchase have their own message', (
     tester,

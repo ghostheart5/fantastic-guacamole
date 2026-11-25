@@ -102,10 +102,6 @@ class _AssistantConversationScreenState
   String? _error;
   // The error is about running out of credits: Get credits is offered.
   bool _outOfCredits = false;
-  // The latest balance a server answer reported here (see the receipt part).
-  int? _reportedBalance;
-  // A request since the wallet was loaded may have changed the balance.
-  bool _walletUntrusted = false;
   ConversationQuote? _pending;
   // The operation whose confirmed request has started its storage write:
   // from then on it is sent (see _send), so Stop waiting no longer withdraws
@@ -482,7 +478,6 @@ class _AssistantConversationScreenState
             ConversationReplyReceipt.turnKey: receipt.encode(),
           },
         ]);
-        _reportedBalance = answer.remainingCredits;
         if (widget.surface == ConversationSurface.si &&
             _history.length > AssistantConversationHistory.maxMessages) {
           _history.removeRange(
@@ -495,7 +490,8 @@ class _AssistantConversationScreenState
         _error = null;
       });
       _persistChat(completedRequestId: quote.packet.requestId);
-      _refreshWalletLater();
+      _noteBalance(quote.packet, answer.remainingCredits, sentForReply: true);
+      ref.invalidate(aiCreditWalletProvider);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _scroll.hasClients) {
           unawaited(
@@ -536,10 +532,13 @@ class _AssistantConversationScreenState
       final recovered =
           executing != null &&
           executing.packet.requestId == _recoveringRequestId;
-      _noteFailureBalance(
-        error.remainingCredits,
-        sentForReply: executing != null,
-      );
+      if (executing != null) {
+        _noteBalance(
+          executing.packet,
+          error.remainingCredits,
+          sentForReply: true,
+        );
+      }
       final outOfCredits = {
         'insufficient_credits',
         'credits_exhausted',
@@ -553,14 +552,21 @@ class _AssistantConversationScreenState
                 balance: error.remainingCredits,
                 needed: executing?.credits ?? conversationMessageCredits,
               )
-            : _failureText(error.code, balance: error.remainingCredits),
+            : _failureText(
+                error.code,
+                balance: error.remainingCredits,
+                sentForReply: executing != null,
+                // A stored or retried request may have been handed to the
+                // server before this attempt, so its charge is unknown.
+                priorAttempt: retry && executing != null,
+              ),
         outOfCredits: outOfCredits,
       );
-      _refreshWalletLater();
+      ref.invalidate(aiCreditWalletProvider);
     } on Object {
       if (!current()) return;
       if (executing != null) {
-        _noteFailureBalance(null, sentForReply: true);
+        _noteBalance(executing.packet, null, sentForReply: true);
       }
       _showFailure(
         executing == null
@@ -727,8 +733,6 @@ class _AssistantConversationScreenState
           _waitIndicatorDismissed = false;
           _error = null;
           _outOfCredits = false;
-          _reportedBalance = null;
-          _walletUntrusted = false;
           _recoveringRequestId = null;
         });
         _restartChat();

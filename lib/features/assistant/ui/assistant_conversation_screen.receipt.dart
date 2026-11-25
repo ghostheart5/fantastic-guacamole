@@ -3,9 +3,8 @@ part of 'assistant_conversation_screen.dart';
 /// What a reply used and cost, the balance in the header, and the ways out of
 /// running out of credits or being offline. Only values the app really has
 /// are shown: the counts come from the packet sent for the reply, the
-/// credits from the server's answer, and the balance from the latest answer
-/// or from the credit wallet the app already loaded. Nothing is fetched just
-/// to show a balance.
+/// credits from the server's answer, and the balance from
+/// [aiCreditKnownBalanceProvider]. Nothing is fetched to show a balance.
 extension _ReplyReceipt on _AssistantConversationScreenState {
   String _countLabel(
     int count,
@@ -60,10 +59,11 @@ extension _ReplyReceipt on _AssistantConversationScreenState {
       'crédito',
       'créditos',
     );
+    // The balance at the time of this reply, not necessarily now.
     final left = receipt.remainingCredits;
     return copy(
-      'Used: $used · Cost: $cost · ${left == 1 ? '1 credit left' : '$left credits left'}',
-      'Usó: $used · Costo: $cost · ${left == 1 ? 'Queda 1 crédito' : 'Quedan $left créditos'}',
+      'Used: $used · Cost: $cost · $left left after this reply',
+      'Usó: $used · Costo: $cost · ${left == 1 ? 'Queda 1' : 'Quedan $left'} después de esta respuesta',
     );
   }
 
@@ -83,21 +83,11 @@ extension _ReplyReceipt on _AssistantConversationScreenState {
     );
   }
 
-  /// The latest balance the server reported to this screen, otherwise the
-  /// server wallet when the app has already loaded it. The wallet is only
-  /// watched when it already exists, so opening Chat never loads it.
-  int? _knownBalance() {
-    if (_reportedBalance case final int balance) return balance;
-    if (_walletUntrusted ||
-        !ref.watch(aiCreditWalletFromServerProvider) ||
-        !ref.exists(aiCreditWalletProvider)) {
-      return null;
-    }
-    return ref.watch(aiCreditWalletProvider).asData?.value.balance;
-  }
-
+  /// The balance the server last reported for this account while the app
+  /// runs (an AI chat answer, or a wallet read made elsewhere). Watching it
+  /// never reads the wallet, and it is empty after an account change.
   Widget _balanceLine() {
-    final balance = _knownBalance();
+    final balance = ref.watch(aiCreditKnownBalanceProvider);
     if (balance == null) return const SizedBox.shrink();
     return Text(
       copy(
@@ -109,30 +99,20 @@ extension _ReplyReceipt on _AssistantConversationScreenState {
     );
   }
 
-  /// The charge state changed or is unknown: the app's wallet is refreshed
-  /// after this frame, once this screen has stopped watching it, so the
-  /// refresh is read where it is next needed instead of fetched for Chat.
-  void _refreshWalletLater() {
-    final container = ProviderScope.containerOf(context, listen: false);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      try {
-        container.invalidate(aiCreditWalletProvider);
-      } on Object {
-        // The app is closing; the wallet is read fresh next time.
-      }
-    });
-  }
-
-  /// Applies what a failed request says about the balance: the figure the
-  /// server sent, or, when the request was sent for a reply without one, no
-  /// figure until a reply or the wallet confirms it again.
-  void _noteFailureBalance(int? reported, {required bool sentForReply}) {
+  /// Records what an answer for [packet] said about the balance: the figure
+  /// the server sent, or, when the request was sent for a reply without one,
+  /// no figure until the server reports one again.
+  void _noteBalance(
+    ConversationPacket packet,
+    int? reported, {
+    required bool sentForReply,
+  }) {
+    final known = ref.read(aiCreditKnownBalanceProvider.notifier);
     if (reported != null) {
-      _reportedBalance = reported;
-      return;
+      known.reportAnswer(packet.accountScope, reported);
+    } else if (sentForReply) {
+      known.forget(packet.accountScope);
     }
-    if (sentForReply) _reportedBalance = null;
-    _walletUntrusted = true;
   }
 
   bool get _canBuyCredits => ref.read(subscriptionPurchasingEnabledProvider);
@@ -159,20 +139,12 @@ extension _ReplyReceipt on _AssistantConversationScreenState {
               ));
   }
 
-  /// Opens the existing plans and credits screen. The balance shown here is
-  /// then taken from the wallet that screen loads, so a purchase shows.
+  /// Opens the existing plans and credits screen. The wallet that screen
+  /// reads updates the balance shown here, so a purchase shows.
   void _openCredits() {
     final router = GoRouter.maybeOf(context);
     if (router == null) return;
-    _rebuild(() {
-      _reportedBalance = null;
-      _walletUntrusted = false;
-    });
-    unawaited(
-      router.push<void>(ref.read(routeSurfaceProvider).paywall).then((_) {
-        if (mounted) _rebuild(() {});
-      }),
-    );
+    unawaited(router.push<void>(ref.read(routeSurfaceProvider).paywall));
   }
 
   Widget _getCreditsAction() => Padding(

@@ -13,8 +13,6 @@ extension _StoredChat on _AssistantConversationScreenState {
       _waitIndicatorDismissed = false;
       _error = null;
       _outOfCredits = false;
-      _reportedBalance = null;
-      _walletUntrusted = false;
       _filter.clear();
       _scenario.clear();
       _intent = SIV2Intent.answer;

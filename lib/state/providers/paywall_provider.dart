@@ -26,6 +26,7 @@ import 'package:fantastic_guacamole/domain/usecases/start_subscription.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
 import 'package:fantastic_guacamole/state/services/credit_service.dart';
@@ -73,13 +74,91 @@ final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
     if (client?.auth.currentUser == null) {
       throw StateError('An authenticated session is required for AI credits.');
     }
-    final row = Map<String, dynamic>.from(
-      await client!.rpc<Map<String, dynamic>>('get_credit_wallet_v2'),
+    return loadServerAiCreditWallet(
+      ref,
+      () => client!.rpc<Map<String, dynamic>>('get_credit_wallet_v2'),
     );
-    return serverAiCreditWallet(row);
   }
   return ref.read(creditServiceProvider).loadWallet(premium: premium);
 });
+
+/// Reads the server wallet with [readRow] and tells [aiCreditKnownBalanceProvider]
+/// its balance, unless an AI chat answer reported a newer one meanwhile or
+/// the account changed.
+Future<AiCreditWallet> loadServerAiCreditWallet(
+  Ref ref,
+  Future<Map<String, dynamic>> Function() readRow,
+) async {
+  final account = ref.read(accountStorageScopeProvider).v2Namespace;
+  final token = ref.read(aiCreditKnownBalanceProvider.notifier).beginRead();
+  final wallet = serverAiCreditWallet(
+    Map<String, dynamic>.from(await readRow()),
+  );
+  if (ref.mounted) {
+    ref
+        .read(aiCreditKnownBalanceProvider.notifier)
+        .reportWallet(account, token, wallet.balance);
+  }
+  return wallet;
+}
+
+int _aiCreditBalanceClock = 0;
+
+/// The AI credit balance the server last reported for the current account
+/// while the app runs: from an AI chat answer, or from a server wallet read
+/// that something else made (Settings, Plans and credits). Kept in memory
+/// only. Watching it never contacts the server, so AI chat can show a
+/// balance without causing a wallet read. Empty after any account or
+/// sign-in change, and cleared by the account fence.
+final aiCreditKnownBalanceProvider =
+    NotifierProvider<AiCreditKnownBalance, int?>(AiCreditKnownBalance.new);
+
+class AiCreditKnownBalance extends Notifier<int?> {
+  String? _account;
+  // Changes whenever the value does; a wallet read that began before an
+  // answer reported a balance is older than it and is ignored.
+  int _version = 0;
+
+  @override
+  int? build() {
+    _account = ref.watch(
+      accountStorageScopeProvider.select((scope) => scope.v2Namespace),
+    );
+    ref.watch(authSessionBoundaryProvider.select((b) => b.generation));
+    _version = ++_aiCreditBalanceClock;
+    return null;
+  }
+
+  /// Marks the start of a server wallet read.
+  int beginRead() => _version;
+
+  /// A balance an AI chat answer for [account] reported.
+  void reportAnswer(String account, int balance) {
+    if (account != _account || balance < 0) return;
+    _version = ++_aiCreditBalanceClock;
+    state = balance;
+  }
+
+  /// A paid request for [account] may have changed the balance without
+  /// saying what it is now: show none until the server reports one.
+  void forget(String account) {
+    if (account != _account) return;
+    _version = ++_aiCreditBalanceClock;
+    state = null;
+  }
+
+  /// A server wallet read for [account] that began at [token] finished.
+  void reportWallet(String? account, int token, int balance) {
+    if (account == null ||
+        account != _account ||
+        token != _version ||
+        balance < 0) {
+      return;
+    }
+    _version = ++_aiCreditBalanceClock;
+    state = balance;
+  }
+}
 
 AiCreditWallet serverAiCreditWallet(Map<String, dynamic> row) {
   final DateTime now = DateTime.now();

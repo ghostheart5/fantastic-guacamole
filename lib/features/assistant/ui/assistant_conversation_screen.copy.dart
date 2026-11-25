@@ -1,10 +1,93 @@
 part of 'assistant_conversation_screen.dart';
 
+/// Answers in which the server speaks for the request id itself, after its
+/// own record of every attempt: a denied reservation (kept with its reason
+/// for a repeat of the same id), a refund, an already completed request, or
+/// a charged reply this device withheld. Their charge statements hold even
+/// when an earlier attempt of the same request was sent. Anything else (a
+/// check before the reservation, or an error raised on this device) says
+/// nothing about an earlier attempt.
+const _answersForThisRequest = <String>{
+  'insufficient_credits',
+  'credits_exhausted',
+  'daily_budget_exceeded',
+  'provider_cost_budget_exceeded',
+  'refunded_credits_outstanding',
+  'request_completed',
+  'request_refunded',
+  'unsafe_upstream_response',
+  'inconsistent_upstream_response',
+  'upstream_ai_error',
+  'truncated_upstream_response',
+  'invalid_upstream_response',
+  'empty_upstream_response',
+  'response_withheld',
+};
+
 /// Words shown by the conversation: failure messages, the preview of the
 /// information a request carries, and the option labels.
 extension _ConversationCopy on _AssistantConversationScreenState {
   /// [balance] is the balance the server sent with this answer, if any.
-  String _failureText(String code, {int? balance}) => switch (code) {
+  /// [sentForReply]: the request reached the paid step (it was confirmed
+  /// and handed to the service for a reply), so a failure the service did
+  /// not account for may have used credits. [priorAttempt]: this request was
+  /// stored or retried, so an earlier attempt may already have been charged;
+  /// only answers in which the server speaks for this request id may then say
+  /// what was charged.
+  String _failureText(
+    String code, {
+    int? balance,
+    bool sentForReply = false,
+    bool priorAttempt = false,
+  }) => priorAttempt && !_answersForThisRequest.contains(code)
+      ? _priorAttemptText(code)
+      : _firstAttemptFailureText(
+          code,
+          balance: balance,
+          sentForReply: sentForReply,
+        );
+
+  /// Shown when a stored or retried request fails without the server saying
+  /// what happened to its charge.
+  String _priorAttemptText(String code) {
+    final reason = switch (code) {
+      'quote_expired' || 'credit_quote_required' => copy(
+        'The price for this request expired, so it cannot be retried.',
+        'El precio de esta solicitud caducó, así que no se puede reintentar.',
+      ),
+      'unauthorized' || 'authentication_required' => copy(
+        'Your sign-in needs renewing before AI chat can answer.',
+        'Debes renovar tu inicio de sesión para que el chat con IA responda.',
+      ),
+      'rate_limit_exceeded' => copy(
+        'Too many AI requests arrived at once.',
+        'Llegaron demasiadas solicitudes de IA al mismo tiempo.',
+      ),
+      'authorization_changed' => copy(
+        'Your account or AI consent changed, so this request was stopped.',
+        'Cambió tu cuenta o consentimiento de IA, así que se detuvo esta solicitud.',
+      ),
+      'request_too_large' => copy(
+        'This request is too large to send.',
+        'Esta solicitud es demasiado grande para enviarla.',
+      ),
+      'internal_ai_access_required' || 'external_ai_disabled' => copy(
+        'AI chat is not available for this account right now.',
+        'El chat con IA no está disponible para esta cuenta en este momento.',
+      ),
+      _ => copy(
+        'The AI service could not complete this retry.',
+        'El servicio de IA no pudo completar este reintento.',
+      ),
+    };
+    return '$reason ${copy('This request was already sent once, so it may have used credits. Check your balance before asking again. Your question is kept.', 'Esta solicitud ya se envió una vez, así que es posible que haya usado créditos. Revisa tu saldo antes de volver a preguntar. Tu pregunta se conserva.')}';
+  }
+
+  String _firstAttemptFailureText(
+    String code, {
+    int? balance,
+    required bool sentForReply,
+  }) => switch (code) {
     'timing_context_missing' => copy(
       'I need one scheduled task and its local date to check this store-closing question. No credits were charged. Schedule or select the task, update the app if needed, then tap send to ask again as a new message.',
       'Necesito una tarea programada y su fecha local para comprobar esta pregunta sobre el cierre de la tienda. No se cobraron créditos de IA. Programa o selecciona la tarea, actualiza la app si hace falta y luego toca enviar para preguntar de nuevo como un mensaje nuevo.',
@@ -71,9 +154,10 @@ extension _ConversationCopy on _AssistantConversationScreenState {
       'This AI request was denied before processing. No credits were charged. Your question is retained; start a new request or retry after the account limit changes.',
       'Esta solicitud de IA fue rechazada antes de procesarse. No se cobraron créditos. Tu pregunta se conserva; inicia una solicitud nueva o reintenta cuando cambie el límite de la cuenta.',
     ),
+    // Also raised after the service answered, so the charge is not known.
     'authorization_changed' => copy(
-      'Your account or AI consent changed. This request was stopped.',
-      'Cambió tu cuenta o consentimiento de IA. Se detuvo esta solicitud.',
+      'Your account or AI consent changed. This request was stopped.${sentForReply ? ' It may have used credits; check your balance before asking again.' : ''}',
+      'Cambió tu cuenta o consentimiento de IA. Se detuvo esta solicitud.${sentForReply ? ' Es posible que haya usado créditos; revisa tu saldo antes de volver a preguntar.' : ''}',
     ),
     'request_refunded' ||
     'unsafe_upstream_response' ||
@@ -91,9 +175,16 @@ extension _ConversationCopy on _AssistantConversationScreenState {
       'The reply did not pass the response check, so it is not shown. It has not been replaced with a stock answer. This message used its credits.${balance == null ? '' : ' Credits left: $balance.'}',
       'La respuesta no superó la comprobación, así que no se muestra. No se sustituyó por una respuesta prefabricada. Este mensaje usó sus créditos.${balance == null ? '' : ' Créditos restantes: $balance.'}',
     ),
+    // Codes such as credit_settlement_failed, release_unavailable or
+    // unconfirmed_result can follow a charged reply.
+    _ when sentForReply => copy(
+      'The AI service could not complete this request, and it may have used credits. Check your balance before asking again. Your question is kept.',
+      'El servicio de IA no pudo completar esta solicitud y es posible que haya usado créditos. Revisa tu saldo antes de volver a preguntar. Tu pregunta se conserva.',
+    ),
+    // Only the price was asked for: that never charges.
     _ => copy(
-      'The AI service could not complete this request. Your question is retained. You can try again.',
-      'El servicio de IA no pudo completar esta solicitud. Tu pregunta se conserva. Puedes intentarlo de nuevo.',
+      'The AI service could not complete this request. Nothing was sent for a reply and nothing was charged. Your question is kept; you can try again.',
+      'El servicio de IA no pudo completar esta solicitud. No se envió nada para responder y no se cobró nada. Tu pregunta se conserva; puedes intentarlo de nuevo.',
     ),
   };
 
