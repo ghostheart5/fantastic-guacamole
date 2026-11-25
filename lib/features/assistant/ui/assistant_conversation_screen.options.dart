@@ -157,16 +157,11 @@ extension _ConversationOptions on _AssistantConversationScreenState {
                     selected: _sources.contains(s),
                     onSelected: !enabled
                         ? null
-                        : (selected) {
-                            _rebuild(() {
-                              if (selected) {
-                                _sources = {..._sources, s};
-                              } else {
-                                _sources = {..._sources}..remove(s);
-                              }
-                            });
-                            _persistChat();
-                          },
+                        : (selected) => _chooseSources(
+                            selected
+                                ? {..._sources, s}
+                                : ({..._sources}..remove(s)),
+                          ),
                   ),
                 )
                 .toList(),
@@ -176,12 +171,11 @@ extension _ConversationOptions on _AssistantConversationScreenState {
                 ? null
                 : () {
                     _rebuild(() {
-                      _sources = <SIV2Source>{};
                       _attachedTaskId = null;
                       _energy = null;
                       _pending = null;
                     });
-                    _persistChat();
+                    _chooseSources(<SIV2Source>{});
                   },
             child: Text(
               copy('Use just this chat', 'Usar solo esta conversación'),

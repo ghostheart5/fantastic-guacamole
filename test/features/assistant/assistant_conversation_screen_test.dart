@@ -1810,13 +1810,12 @@ void main() {
         tester,
         find.byKey(const Key('conversation-advanced')),
       );
+      // A new chat uses the plan, so the reset below turns sources off.
       final tasks = find.widgetWithText(FilterChip, 'Tasks');
-      expect(tester.widget<FilterChip>(tasks).selected, isFalse);
-      await tapRevealedChatControl(tester, tasks);
       expect(
         tester.widget<FilterChip>(tasks).selected,
         isTrue,
-        reason: 'Reset must turn off a source that this test actually enabled.',
+        reason: 'Reset must turn off a source that is actually in use.',
       );
       final chatOnly = find.widgetWithText(TextButton, 'Use just this chat');
       await tapRevealedChatControl(tester, chatOnly);
@@ -3376,11 +3375,12 @@ void main() {
     );
     await tester.tap(advanced);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(
+    // The information row above the input shortens the list; reveal the
+    // field fully before tapping it.
+    await tapRevealedChatControl(
+      tester,
       find.byType(DropdownButtonFormField<SIV2Intent>),
     );
-    await tester.tap(find.byType(DropdownButtonFormField<SIV2Intent>));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Forecast').last);
     await tester.pumpAndSettle();
     final filter = find.byKey(const Key('conversation-entity-filter'));

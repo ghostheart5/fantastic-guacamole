@@ -514,6 +514,119 @@ void main() {
       expect((await reentered.load()).sources, {SIV2Source.goals});
     },
   );
+
+  group('information scope choice', () {
+    Future<void> writeRaw(String account, Map<String, Object?> envelope) => base
+        .forAccount(AccountStorageScope.authenticated(account))
+        .writeString(
+          AssistantConversationRepository.storageKey,
+          jsonEncode(envelope),
+        );
+
+    test(
+      'a new account has made no choice and has not seen the explanation',
+      () async {
+        final fresh = await repository('a').load();
+        expect(fresh.sourcesChosen, isFalse);
+        expect(fresh.scopeExplained, isFalse);
+      },
+    );
+
+    test(
+      'older saved chats: only a non-empty selection counts as a choice',
+      () async {
+        await writeRaw('a', {
+          'version': 1,
+          'revision': 3,
+          'messages': pair,
+          'sources': <String>[],
+        });
+        await writeRaw('b', {
+          'version': 1,
+          'revision': 3,
+          'messages': pair,
+          'sources': ['goals'],
+        });
+        final a = await repository('a').load();
+        expect(a.sourcesChosen, isFalse);
+        expect(a.messages, pair);
+        final b = await repository('b').load();
+        expect(b.sourcesChosen, isTrue);
+        expect(b.sources, {SIV2Source.goals});
+      },
+    );
+
+    test('save records whether the selection was chosen', () async {
+      final revision = await repository('a').save(
+        expectedRevision: 0,
+        messages: pair,
+        sources: SIV2Source.values.toSet(),
+        sourcesChosen: false,
+      );
+      expect((await repository('a').load()).sourcesChosen, isFalse);
+      await repository('a').save(
+        expectedRevision: revision,
+        messages: pair,
+        sources: {},
+        sourcesChosen: true,
+      );
+      final chosen = await repository('a').load();
+      expect(chosen.sourcesChosen, isTrue);
+      expect(chosen.sources, isEmpty);
+    });
+
+    test('a malformed choice marker is reported, not guessed', () async {
+      await writeRaw('a', {
+        'version': 1,
+        'revision': 1,
+        'messages': pair,
+        'sources': <String>[],
+        'sourcesChosen': 'yes',
+      });
+      await expectLater(repository('a').load(), throwsFormatException);
+    });
+
+    test(
+      'the explanation stays seen across saves and clear, never touching chat or a pending request',
+      () async {
+        final revision = await repository(
+          'a',
+        ).save(expectedRevision: 0, messages: pair, sources: {});
+        await repository(
+          'a',
+        ).savePending(pendingFor(ConversationSurface.planner, 'planner-1'));
+        await repository('a').markScopeExplained();
+        final marked = await repository('a').load();
+        expect(marked.scopeExplained, isTrue);
+        expect(marked.revision, revision);
+        expect(marked.messages, pair);
+        expect(marked.sourcesChosen, isTrue);
+        expect(
+          marked.pendingRequests[ConversationSurface.planner]?.requestId,
+          'planner-1',
+        );
+        await repository(
+          'a',
+        ).save(expectedRevision: revision, messages: pair, sources: {});
+        expect((await repository('a').load()).scopeExplained, isTrue);
+        await repository('a').clear();
+        final cleared = await repository('a').load();
+        expect(cleared.scopeExplained, isTrue);
+        expect(cleared.sourcesChosen, isFalse);
+        expect(cleared.messages, isEmpty);
+        expect((await repository('b').load()).scopeExplained, isFalse);
+      },
+    );
+
+    test('marking the explanation on a new account creates no chat', () async {
+      await repository('a').markScopeExplained();
+      final loaded = await repository('a').load();
+      expect(loaded.scopeExplained, isTrue);
+      expect(loaded.revision, 0);
+      expect(loaded.messages, isEmpty);
+      expect(loaded.sourcesChosen, isFalse);
+    });
+  });
 }
 
 PendingConversationRequest pendingFor(

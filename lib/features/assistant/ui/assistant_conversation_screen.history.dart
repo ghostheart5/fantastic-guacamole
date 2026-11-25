@@ -16,7 +16,10 @@ extension _StoredChat on _AssistantConversationScreenState {
       _scenario.clear();
       _intent = SIV2Intent.answer;
       _range = SIV2TimeRange.all;
+      // Nothing until this account's saved choice or default has loaded.
       _sources = <SIV2Source>{};
+      _sourcesChosen = false;
+      _scopeNoticeVisible = false;
       _attachedTaskId = null;
       _energy = null;
       _historyReady = false;
@@ -45,7 +48,7 @@ extension _StoredChat on _AssistantConversationScreenState {
         _history
           ..clear()
           ..addAll(saved.messages);
-        _sources = saved.sources.toSet();
+        _applySavedScope(saved);
         _storedHistoryRevision = saved.revision;
         _historyReady = true;
         _historySaveFailed = false;
@@ -57,6 +60,8 @@ extension _StoredChat on _AssistantConversationScreenState {
       _updateHistory(() {
         _historyReady = false;
         _sources = <SIV2Source>{};
+        _sourcesChosen = false;
+        _scopeNoticeVisible = false;
       });
     } finally {
       if (mounted && epoch == _historyEpoch) {
@@ -85,6 +90,7 @@ extension _StoredChat on _AssistantConversationScreenState {
         .map((turn) => Map<String, String>.of(turn))
         .toList();
     final sources = _sources.toSet();
+    final sourcesChosen = _sourcesChosen;
     _historyWriteTail = _historyWriteTail.then((_) async {
       Future<void> clearCompleted() async {
         if (completedRequestId == null) return;
@@ -107,6 +113,7 @@ extension _StoredChat on _AssistantConversationScreenState {
           expectedRevision: _storedHistoryRevision,
           messages: messages,
           sources: sources,
+          sourcesChosen: sourcesChosen,
           completedRequestId: completedRequestId,
         );
         if (epoch != _historyEpoch) return;
@@ -138,8 +145,8 @@ extension _StoredChat on _AssistantConversationScreenState {
         title: Text(copy('Clear conversation?', '¿Borrar la conversación?')),
         content: Text(
           copy(
-            'Delete this Chat history from this account on this device and turn saved planning sources off? This cannot be undone. Tasks, goals, and habits stay saved.',
-            '¿Borrar el historial de Chat de esta cuenta en este dispositivo y desactivar las fuentes de planificación? No se puede deshacer. Se conservan las tareas, metas y hábitos.',
+            'Delete this Chat history from this account on this device? AI chat goes back to using My plan. This cannot be undone. Tasks, goals, and habits stay saved.',
+            '¿Borrar el historial de Chat de esta cuenta en este dispositivo? El chat con IA vuelve a usar Mi plan. No se puede deshacer. Se conservan las tareas, metas y hábitos.',
           ),
         ),
         actions: [
@@ -166,7 +173,7 @@ extension _StoredChat on _AssistantConversationScreenState {
       if (!mounted || clearEpoch != _historyEpoch) return;
       _updateHistory(() {
         _history.clear();
-        _sources = <SIV2Source>{};
+        _applyDefaultScope();
         _input.clear();
         _pending = null;
         _filter.clear();

@@ -36,6 +36,7 @@ part 'assistant_conversation_screen.copy.dart';
 part 'assistant_conversation_screen.history.dart';
 part 'assistant_conversation_screen.options.dart';
 part 'assistant_conversation_screen.pending.dart';
+part 'assistant_conversation_screen.scope.dart';
 
 /// The conversational route is explicitly model-backed. Local tools remain an
 /// intentional user choice, never an invisible fallback for a failed request.
@@ -109,6 +110,11 @@ class _AssistantConversationScreenState
   SIV2Intent _intent = SIV2Intent.answer;
   SIV2TimeRange _range = SIV2TimeRange.all;
   Set<SIV2Source> _sources = SIV2Source.values.toSet();
+  // Chat only: whether [_sources] is the person's own choice, and the
+  // one-time explanation of the default (see the scope part).
+  bool _sourcesChosen = false;
+  bool _scopeExplained = false;
+  bool _scopeNoticeVisible = false;
   bool _historyLoading = true;
   bool _historyReady = false;
   bool _historySaveFailed = false;
@@ -316,6 +322,15 @@ class _AssistantConversationScreenState
       _busy = true;
       _waitIndicatorDismissed = false;
       _error = null;
+      // The one-time line has done its job once a request starts.
+      _scopeNoticeVisible = false;
+    });
+    // Keep the wait indicator and its Stop waiting button in view; the
+    // information row above the input leaves less room for the list.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scroll.hasClients) {
+        _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      }
     });
     bool current() =>
         mounted && generation == _generation && operation == _operation;
@@ -864,6 +879,8 @@ class _AssistantConversationScreenState
                       'Cuenta qué te preocupa o pregunta sobre un plan. Las respuestas usan esta conversación y la información que apruebes. Puedes corregirlas. Las sugerencias no cambian elementos guardados.',
                     ),
                   ),
+                  if (!planner && consent && _scopeNoticeVisible)
+                    _scopeNotice(),
                   if (!planner) _chatHistoryControls(),
                   ..._conversationOptions(
                     planner: planner,
@@ -1018,6 +1035,11 @@ class _AssistantConversationScreenState
                 ],
               ),
             ),
+            if (!planner && _historyReady)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: _scopeChips(enabled: enabled),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: Row(

@@ -97,12 +97,22 @@ class AssistantConversationRepository {
         throw const FormatException('chat_sources');
       }
     }
+    final chosen = decoded['sourcesChosen'];
+    final explained = decoded['scopeExplained'];
+    if ((chosen != null && chosen is! bool) ||
+        (explained != null && explained is! bool)) {
+      throw const FormatException('chat_sources');
+    }
     final view = _parsePending(decoded);
     return (
       history: AssistantConversationHistory(
         revision: decoded['revision'] as int,
         messages: messages,
         sources: sources,
+        // Older chats have no marker. Their default was no sources, so only
+        // a non-empty selection can have been the person's own choice.
+        sourcesChosen: chosen as bool? ?? sources.isNotEmpty,
+        scopeExplained: explained == true,
         pendingRequests: view.pending,
         unreadablePendingRequests: view.unreadable,
         expiredPendingRequests: view.expired,
@@ -243,11 +253,13 @@ class AssistantConversationRepository {
   });
 
   /// [completedRequestId] removes the Chat request whose reply these
-  /// messages publish, in the same write.
+  /// messages publish, in the same write. [sourcesChosen] is false when
+  /// [sources] is Chat's default rather than the person's own choice.
   Future<int> save({
     required int expectedRevision,
     required List<Map<String, String>> messages,
     required Set<SIV2Source> sources,
+    bool sourcesChosen = true,
     String? completedRequestId,
   }) => runAccountStorageMutation(() async {
     final previous = await _read();
@@ -278,7 +290,29 @@ class AssistantConversationRepository {
     if (completedRequestId != null) {
       _removePending(pending, ConversationSurface.si, completedRequestId);
     }
-    return _write(previous.history.revision + 1, safe, sources, pending);
+    return _write(
+      previous.history.revision + 1,
+      safe,
+      sources,
+      pending,
+      sourcesChosen: sourcesChosen,
+      scopeExplained: previous.history.scopeExplained,
+    );
+  });
+
+  /// Records that this account was shown why Chat uses the plan by default.
+  /// Everything else stored is kept exactly as it is, revision included.
+  Future<void> markScopeExplained() => runAccountStorageMutation(() async {
+    final decoded =
+        await _readRaw() ??
+        <String, dynamic>{
+          'version': 1,
+          'revision': 0,
+          'messages': <Object?>[],
+          'sources': <Object?>[],
+        };
+    if (decoded['scopeExplained'] == true) return;
+    await _writeRaw({...decoded, 'scopeExplained': true});
   });
 
   /// Stores a confirmed request before it is sent, replacing any earlier one
@@ -356,27 +390,34 @@ class AssistantConversationRepository {
     int revision,
     List<Map<String, String>> messages,
     Set<SIV2Source> sources,
-    Map<String, Object?> pending,
-  ) async {
+    Map<String, Object?> pending, {
+    required bool sourcesChosen,
+    required bool scopeExplained,
+  }) async {
     await _writeRaw({
       'version': 1,
       'revision': revision,
       'messages': messages,
       'sources': sources.map((s) => s.name).toList(),
+      'sourcesChosen': sourcesChosen,
+      if (scopeExplained) 'scopeExplained': true,
       if (pending.isNotEmpty) 'pendingRequests': pending,
     });
     return revision;
   }
 
   /// Clears Chat and its stored request. A request still running on another
-  /// surface (Choose a step) is kept so its reply is not lost.
+  /// surface (Choose a step) is kept so its reply is not lost. Chat goes back
+  /// to its default information; the explanation of it stays seen.
   Future<int> clear() => runAccountStorageMutation(() async {
     _checkCurrent();
     var revision = 0;
     var pending = <String, Object?>{};
+    var scopeExplained = false;
     try {
       final decoded = await _readRaw();
       pending = _rawPending(decoded)..remove(ConversationSurface.si.name);
+      scopeExplained = decoded?['scopeExplained'] == true;
       revision = _parse(decoded).history.revision;
     } on FormatException {
       // Explicit clearing may replace corrupt data; loading never rewrites it.
@@ -388,6 +429,8 @@ class AssistantConversationRepository {
       const [],
       const {},
       pending,
+      sourcesChosen: false,
+      scopeExplained: scopeExplained,
     );
   });
 }

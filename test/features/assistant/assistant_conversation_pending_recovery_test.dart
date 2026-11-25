@@ -273,10 +273,18 @@ void main() {
         await _leave(tester, container);
         await _pumpScreen(tester, container, surface);
         await _settle(tester);
-        expect(
-          find.text('The recovered paid reply.'),
-          surface == ConversationSurface.si ? findsOneWidget : findsNothing,
-        );
+        final recovered = find.text('The recovered paid reply.');
+        if (surface == ConversationSurface.si) {
+          // Saved Chat reopens at the top; the reply is further down.
+          await tester.scrollUntilVisible(
+            recovered,
+            200,
+            scrollable: find.byType(Scrollable).first,
+          );
+          expect(recovered, findsOneWidget);
+        } else {
+          expect(recovered, findsNothing);
+        }
         expect(paid, hasLength(1));
         expect(tester.takeException(), isNull);
       },
@@ -881,6 +889,10 @@ void main() {
         scrollable: find.byType(Scrollable).first,
         maxScrolls: 20,
       );
+      // Built is not the same as on screen; the information row above the
+      // input sits right below the list.
+      await tester.ensureVisible(another);
+      await tester.pump();
       await tester.tap(another);
       await _waitFor(tester, find.text('Start new request'));
       await tester.tap(find.text('Start new request'));
