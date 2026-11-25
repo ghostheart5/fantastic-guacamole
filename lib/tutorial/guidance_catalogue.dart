@@ -260,9 +260,9 @@ abstract final class GuidanceCatalogue {
     title: GuidanceText('Ask what is missing', 'Pregunta qué falta'),
     body: GuidanceText(
       'Ask what is missing from your plan, or what would change the suggestion. '
-          'On this device · free uses no credits; questions to cloud AI show their price, up to 5 credits, before you confirm. Eligible free plans include 20 credits per month without rollover; check Settings for your allowance and reset date.',
+          'The free assistant, "On this device · free", uses no credits; questions to cloud AI show their price, up to 5 credits, before you confirm. Eligible free plans include 20 credits per month without rollover; check Settings for your allowance and reset date.',
       'Pregunta qué falta en tu plan o qué cambiaría la sugerencia. '
-          'En este dispositivo · gratis no usa créditos; las preguntas a la IA en la nube muestran su precio, de hasta 5 créditos, antes de confirmar. Los planes gratuitos elegibles incluyen 20 créditos al mes sin acumulación; consulta tu asignación y fecha de renovación en Ajustes.',
+          'El asistente gratis, «En este dispositivo · gratis», no usa créditos; las preguntas a la IA en la nube muestran su precio, de hasta 5 créditos, antes de confirmar. Los planes gratuitos elegibles incluyen 20 créditos al mes sin acumulación; consulta tu asignación y fecha de renovación en Ajustes.',
     ),
     action: GuidanceAction(
       GuidanceActionKind.openScreen,

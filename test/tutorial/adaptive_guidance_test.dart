@@ -44,8 +44,8 @@ void main() {
           body,
           contains(
             language == 'es'
-                ? 'En este dispositivo · gratis no usa créditos'
-                : 'On this device · free uses no credits',
+                ? 'El asistente gratis, «En este dispositivo · gratis», no usa créditos'
+                : 'The free assistant, "On this device · free", uses no credits',
           ),
         );
         expect(

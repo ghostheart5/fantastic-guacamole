@@ -242,6 +242,22 @@ class _AssistantConversationScreenState
 
   int _gateEpoch = 0;
 
+  /// After a sign-in change that kept the account, a request held while the
+  /// free assistant was shown is collected again by itself.
+  void _resumeHeld(int generation, int operation) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _generation || operation != _operation) {
+        return;
+      }
+      _rebuild(() {
+        _busy = false;
+        _pending = null;
+        _recoveringRequestId = null;
+      });
+      unawaited(_loadPlannerPending());
+    });
+  }
+
   /// Wakes anything waiting to be shown; an account or sign-in change makes
   /// it drop what it was going to show.
   void _releaseGate() {
@@ -546,23 +562,31 @@ class _AssistantConversationScreenState
       // Its answer's balance may replace the one shown only if nothing
       // changes from its first attempt in this run until it arrives (a retry
       // keeps that mark; a request recovered from an earlier run has none).
-      ref
-          .read(aiCreditKnownBalanceProvider.notifier)
-          .enterPaid(
-            quote.packet.accountScope,
-            quote.packet.requestId,
-            firstAttempt: !retry,
-          );
+      final knownBalance = ref.read(aiCreditKnownBalanceProvider.notifier)
+        ..enterPaid(
+          quote.packet.accountScope,
+          quote.packet.requestId,
+          firstAttempt: !retry,
+        );
       // Joins a run that outlived an earlier screen instead of sending again.
       final answer = await registry.execute(quote, service);
-      if (!current()) return;
+      if (!current()) {
+        // A recovered run's answer was already complete: a screen that went
+        // away before using it must not leave it counted as running.
+        knownBalance.release(quote.packet.requestId);
+        return;
+      }
       if (widget.surface == ConversationSurface.planner && widget.hidden) {
         // Choose a step keeps no history: the reply is marked shown, and its
         // stored request forgotten, only once the person is shown it. If this
         // screen goes away first, the next one collects the same reply.
         _paidWaitTimer?.cancel();
+        knownBalance.release(quote.packet.requestId);
         _reportWhileHidden();
-        if (!await _whenShown() || !current()) return;
+        if (!await _whenShown() || !current()) {
+          _resumeHeld(generation, operation);
+          return;
+        }
       }
       registry.finish(quote.packet.requestId, shown: true);
       final review = const AssistantSafetyPipeline().evaluate(
@@ -607,7 +631,9 @@ class _AssistantConversationScreenState
             _history.length - AssistantConversationHistory.maxMessages,
           );
         }
-        _input.clear();
+        // Text carried in from the free planner is not the question just
+        // answered; keep it.
+        if (_input.text.trim() == prompt) _input.clear();
         _pending = null;
         _error = null;
       });
@@ -645,6 +671,17 @@ class _AssistantConversationScreenState
         'invalid_upstream_response',
         'empty_upstream_response',
       }.contains(error.code)) {
+        if (error.code == 'request_completed' &&
+            executing != null &&
+            widget.surface == ConversationSurface.planner &&
+            widget.hidden) {
+          // Its text is seen before its stored request is forgotten.
+          _reportWhileHidden();
+          if (!await _whenShown() || !current()) {
+            _resumeHeld(generation, operation);
+            return;
+          }
+        }
         _pending = null;
         // A terminal answer ends the stored request; it is never re-sent.
         if (executing != null) {
