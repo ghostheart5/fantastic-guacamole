@@ -21,8 +21,10 @@ import 'package:fantastic_guacamole/state/providers/ai_content_report_provider.d
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
+import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
@@ -94,6 +96,8 @@ class _AssistantConversationScreenState
   bool _waitIndicatorDismissed = false;
   String? _error;
   ConversationQuote? _pending;
+  // A confirmed request is being written to storage before it is sent.
+  bool _storing = false;
   String? _recoveringRequestId;
   int _generation = 0;
   int _operation = 0;
@@ -221,12 +225,12 @@ class _AssistantConversationScreenState
             builder: (ctx) {
               _dialogContext = ctx;
               _dialogRoute = ModalRoute.of(ctx);
+              // Title and content scroll together and the choices stay in
+              // view, so a long title at large text cannot push them off.
               return AlertDialog(
+                scrollable: true,
                 title: Text(title),
-                content: SizedBox(
-                  width: 520,
-                  child: SingleChildScrollView(child: content),
-                ),
+                content: SizedBox(width: 520, child: content),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
@@ -373,16 +377,41 @@ class _AssistantConversationScreenState
           quote: quote,
           savedAt: DateTime.now(),
         );
+        // Stop waiting tapped while storing: same account, a later operation
+        // (only sending and Stop waiting change it), even if the screen has
+        // closed since. Leaving without tapping it keeps the Phase 1 design:
+        // the stored request is collected on return.
+        bool stoppedWhileStoring() =>
+            generation == _generation && operation != _operation;
         final bool replacedUntold;
+        _storing = true;
         try {
           if (repository == null) throw StateError('chat_account_unavailable');
           replacedUntold = await repository.savePending(record);
         } on Object {
+          if (stoppedWhileStoring()) {
+            // Nothing was stored, so nothing can be sent or charged.
+            if (mounted) _showFailure(_stoppedBeforeSendingText);
+            return;
+          }
           throw const ConversationFailure('request_not_saved');
+        } finally {
+          _storing = false;
         }
         // Its content is removed once it can no longer be collected, even if
         // no screen is open then.
         registry.schedulePurge(record.collectBefore);
+        if (stoppedWhileStoring()) {
+          await _withdrawStoppedRequest(
+            record,
+            registry: registry,
+            removeStored: () => repository.clearPending(
+              record.surface,
+              requestId: record.requestId,
+            ),
+          );
+          return;
+        }
         if (!mounted || !current()) return;
         if (replacedUntold) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -494,10 +523,16 @@ class _AssistantConversationScreenState
     } on Object {
       if (!current()) return;
       _showFailure(
-        copy(
-          'The AI service did not confirm a reply. Your question is retained. If you already confirmed payment, retry the same request to avoid a second charge.',
-          'El servicio de IA no confirmó una respuesta. Tu pregunta se conserva. Si ya confirmaste el pago, reintenta la misma solicitud para evitar otro cobro.',
-        ),
+        executing == null
+            // Nothing was handed on for a reply, so nothing was charged.
+            ? copy(
+                'The AI service could not be reached. Nothing was sent for a reply and nothing was charged. Your question is retained; tap send to try again.',
+                'No se pudo contactar con el servicio de IA. No se envió nada para responder y no se cobró nada. Tu pregunta se conserva; toca enviar para intentarlo de nuevo.',
+              )
+            : copy(
+                'The AI service did not confirm a reply. Your question is retained. If you already confirmed payment, retry the same request to avoid a second charge.',
+                'El servicio de IA no confirmó una respuesta. Tu pregunta se conserva. Si ya confirmaste el pago, reintenta la misma solicitud para evitar otro cobro.',
+              ),
       );
     } finally {
       _paidWaitTimer?.cancel();
@@ -532,10 +567,14 @@ class _AssistantConversationScreenState
       if (_pending == null) {
         _operation++;
         _busy = false;
-        _error = copy(
-          'Stopped before the request was sent for a reply. Nothing was charged. Your question is retained.',
-          'Se detuvo antes de enviar la solicitud para obtener una respuesta. No se cobró nada. Tu pregunta se conserva.',
-        );
+        // While the confirmed request is being stored the outcome is not yet
+        // known; the send step reports it once storing ends.
+        _error = _storing
+            ? copy(
+                'Stopping. Making sure this request is not sent…',
+                'Deteniendo. Asegurándonos de que esta solicitud no se envíe…',
+              )
+            : _stoppedBeforeSendingText;
         return;
       }
       _waitIndicatorDismissed = true;
@@ -942,113 +981,129 @@ class _AssistantConversationScreenState
                 ],
               ),
             ),
-            if (!planner && _historyReady)
+            _boundedBottom([
+              if (!planner && _historyReady)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: _scopeChips(enabled: enabled),
+                ),
+              if (planner && consent)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: _plannerScopeLine(),
+                ),
+              // A suggestion only: sending stays available either way.
+              if (consent && enabled && _freeSuggested) _freeSuggestion(),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: _scopeChips(enabled: enabled),
-              ),
-            // A suggestion only: sending stays available either way.
-            if (consent && enabled && _freeSuggested) _freeSuggestion(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          key: const Key('conversation-input'),
-                          controller: _input,
-                          enabled: enabled,
-                          readOnly: listening,
-                          minLines: 1,
-                          maxLines: 5,
-                          maxLength: 4000,
-                          decoration: InputDecoration(
-                            counterStyle: const TextStyle(
-                              color: Colors.white70,
-                            ),
-                            labelText: consent
-                                ? copy(
-                                    'Your question or follow-up',
-                                    'Tu pregunta o continuación',
-                                  )
-                                : copy(
-                                    'Turn on AI chat to type',
-                                    'Activa el chat con IA para escribir',
-                                  ),
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      if (ref.watch(voiceInputEnabledProvider)) ...[
-                        const SizedBox(width: 8),
-                        IconButton(
-                          color: Colors.cyanAccent,
-                          disabledColor: Colors.white38,
-                          tooltip: copy(
-                            listening
-                                ? 'Stop voice input'
-                                : 'Start voice input',
-                            listening
-                                ? 'Detener entrada de voz'
-                                : 'Iniciar entrada de voz',
-                          ),
-                          onPressed: !enabled && !listening
-                              ? null
-                              : () async {
-                                  if (listening) {
-                                    await ref
-                                        .read(voiceControllerProvider.notifier)
-                                        .stopListening();
-                                    return;
-                                  }
-                                  final VoiceController voiceController = ref
-                                      .read(voiceControllerProvider.notifier);
-                                  _dictationDraftBase = _input.text;
-                                  final int revision =
-                                      voiceController.lifecycleRevision;
-                                  final int activation = _voiceActivation;
-                                  await startVoiceInputWithConsent(
-                                    context: context,
-                                    onStart: () =>
-                                        voiceController.startListening(
-                                          localeId: Localizations.localeOf(
-                                            context,
-                                          ).toLanguageTag(),
-                                        ),
-                                    consentStore: ref.read(
-                                      voiceInputConsentStoreProvider,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            key: const Key('conversation-input'),
+                            controller: _input,
+                            enabled: enabled,
+                            readOnly: listening,
+                            minLines: 1,
+                            maxLines: 5,
+                            maxLength: 4000,
+                            decoration: InputDecoration(
+                              counterStyle: const TextStyle(
+                                color: Colors.white70,
+                              ),
+                              labelText: consent
+                                  ? copy(
+                                      'Your question or follow-up',
+                                      'Tu pregunta o continuación',
+                                    )
+                                  : copy(
+                                      'Turn on AI chat to type',
+                                      'Activa el chat con IA para escribir',
                                     ),
-                                    isCurrentRequest: () =>
-                                        mounted &&
-                                        widget.isActive &&
-                                        activation == _voiceActivation &&
-                                        voiceController.lifecycleRevision ==
-                                            revision,
-                                  );
-                                },
-                          icon: Icon(
-                            listening
-                                ? Icons.mic_rounded
-                                : Icons.mic_none_rounded,
+                              border: const OutlineInputBorder(),
+                            ),
                           ),
                         ),
+                        if (ref.watch(voiceInputEnabledProvider)) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            color: Colors.cyanAccent,
+                            disabledColor: Colors.white38,
+                            tooltip: copy(
+                              listening
+                                  ? 'Stop voice input'
+                                  : 'Start voice input',
+                              listening
+                                  ? 'Detener entrada de voz'
+                                  : 'Iniciar entrada de voz',
+                            ),
+                            onPressed: !enabled && !listening
+                                ? null
+                                : () async {
+                                    if (listening) {
+                                      await ref
+                                          .read(
+                                            voiceControllerProvider.notifier,
+                                          )
+                                          .stopListening();
+                                      return;
+                                    }
+                                    final VoiceController voiceController = ref
+                                        .read(voiceControllerProvider.notifier);
+                                    _dictationDraftBase = _input.text;
+                                    final int revision =
+                                        voiceController.lifecycleRevision;
+                                    final int activation = _voiceActivation;
+                                    await startVoiceInputWithConsent(
+                                      context: context,
+                                      onStart: () =>
+                                          voiceController.startListening(
+                                            localeId: Localizations.localeOf(
+                                              context,
+                                            ).toLanguageTag(),
+                                          ),
+                                      consentStore: ref.read(
+                                        voiceInputConsentStoreProvider,
+                                      ),
+                                      isCurrentRequest: () =>
+                                          mounted &&
+                                          widget.isActive &&
+                                          activation == _voiceActivation &&
+                                          voiceController.lifecycleRevision ==
+                                              revision,
+                                    );
+                                  },
+                            icon: Icon(
+                              listening
+                                  ? Icons.mic_rounded
+                                  : Icons.mic_none_rounded,
+                            ),
+                          ),
+                        ],
+                        if (consent && _largeText) ...[
+                          const SizedBox(width: 4),
+                          _previewIconButton(
+                            enabled: enabled,
+                            listening: listening,
+                          ),
+                        ],
+                        if (!consent) ...[
+                          const SizedBox(width: 8),
+                          _offSendButton(listening: listening),
+                        ],
                       ],
-                      if (!consent) ...[
-                        const SizedBox(width: 8),
-                        _offSendButton(listening: listening),
-                      ],
-                    ],
-                  ),
-                  if (consent)
-                    _sendControls(enabled: enabled, listening: listening),
-                ],
+                    ),
+                    if (consent)
+                      _sendControls(enabled: enabled, listening: listening),
+                  ],
+                ),
               ),
-            ),
+            ]),
           ],
         ),
       ),

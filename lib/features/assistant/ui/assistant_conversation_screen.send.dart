@@ -26,11 +26,56 @@ extension _OneStepSend on _AssistantConversationScreenState {
       _scenario.text.trim(),
       _attachedTaskId,
       _attachedTaskOnly,
-      _energy != null,
       context['contextScope'],
+      // Values, not just presence: a different note, energy or emotional
+      // state is different information.
+      context['reportedEnergy'],
+      context['reportedEmotion'],
       context['selectedNoteId'],
-      context['reportedEmotion'] != null,
+      context['explicitlyAttachedNote'],
     ]);
+  }
+
+  /// Choose a step has no choice row: this read-only line names what its
+  /// requests carry, matching ConversationPacketFactory.build.
+  Widget _plannerScopeLine() {
+    final taskOnly = _attachedTaskId != null && _attachedTaskOnly;
+    final note = taskOnly
+        ? null
+        : ref.watch(selectedPlanningNoteProvider).asData?.value;
+    final human = ref.watch(consentedHumanContextProvider);
+    final emotion = !taskOnly && human.emotionAllowed ? human.emotion : null;
+    final energy = human.authorizeReportedEnergy(_energy);
+    final parts = <String>[
+      taskOnly
+          ? copy('only the task you attached', 'solo la tarea que adjuntaste')
+          : copy(
+              'tasks, goals, milestones and schedule picked for your question',
+              'tareas, metas, hitos y agenda elegidos para tu pregunta',
+            ),
+      if (!taskOnly && _attachedTaskId != null)
+        copy('the task you attached', 'la tarea que adjuntaste'),
+      if (note != null)
+        copy('your note “${note.title}”', 'tu nota «${note.title}»'),
+      if (energy != null)
+        copy(
+          'your energy (${(energy * 100).round()}%)',
+          'tu energía (${(energy * 100).round()}%)',
+        ),
+      if (emotion != null)
+        copy(
+          'your emotional state (${emotion.name})',
+          'tu estado emocional (${emotion.name})',
+        ),
+    ];
+    return Text(
+      key: const Key('conversation-planner-scope'),
+      copy(
+        'AI chat uses: ${parts.join('; ')}.',
+        'El chat con IA usa: ${parts.join('; ')}.',
+      ),
+      style: const TextStyle(color: Colors.white70),
+    );
   }
 
   /// The full preview: the question, the recent messages and every record
@@ -75,10 +120,18 @@ extension _OneStepSend on _AssistantConversationScreenState {
           ),
           SelectableText(_contextPreview(packet)),
           const SizedBox(height: 12),
+          Text(copy('Also sent', 'También se envía'), style: heading),
+          SelectableText(
+            copy(
+              'With these: identifiers for the records and the links between them (such as a task’s goal), completion flags and record types, which records matter most for your question, which sources could not be read, a version marker for your plan data, your local date and time, time zone and language.',
+              'Junto con esto: identificadores de los registros y los vínculos entre ellos (como la meta de una tarea), marcas de completado y tipos de registro, qué registros importan más para tu pregunta, qué fuentes no se pudieron leer, un marcador de versión de tus datos de plan, tu fecha y hora local, zona horaria e idioma.',
+            ),
+          ),
+          const SizedBox(height: 12),
           Text(
             copy(
-              'This review opens by itself before your first message and whenever the information used changes. See what is sent shows it at any time.',
-              'Esta revisión se abre sola antes de tu primer mensaje y cada vez que cambia la información que se usa. Ver qué se envía la muestra en cualquier momento.',
+              'This review opens by itself before your first message after the app opens and whenever the information used changes. Once you have typed a question, See what is sent by the message box shows it whenever sending is available.',
+              'Esta revisión se abre sola antes de tu primer mensaje después de abrir la app y cada vez que cambia la información que se usa. Cuando hayas escrito una pregunta, Ver qué se envía, junto al cuadro de mensaje, la muestra siempre que se pueda enviar.',
             ),
           ),
         ],
@@ -165,39 +218,44 @@ extension _OneStepSend on _AssistantConversationScreenState {
     ),
   );
 
-  /// With AI chat on: the paid send, labelled with its price, and the
-  /// preview. At large text the preview is an icon with the same name and
-  /// the send icon is left out, so both stay on one row.
+  bool get _largeText => MediaQuery.textScalerOf(context).scale(14) > 21;
+
+  String get _previewLabel => copy('See what is sent', 'Ver qué se envía');
+
+  VoidCallback? _onPreview({required bool enabled, required bool listening}) =>
+      enabled && !listening ? () => _send(showPreview: true) : null;
+
+  /// At large text the preview is an icon with the same name, placed next to
+  /// the input so the send button gets the full width.
+  Widget _previewIconButton({required bool enabled, required bool listening}) =>
+      IconButton(
+        key: const Key('conversation-preview'),
+        color: Colors.cyanAccent,
+        disabledColor: Colors.white38,
+        tooltip: _previewLabel,
+        onPressed: _onPreview(enabled: enabled, listening: listening),
+        icon: const Icon(Icons.visibility_outlined),
+      );
+
+  /// With AI chat on: the paid send, labelled with its price, and (at
+  /// regular text size) the preview beside it. At large text the send icon
+  /// is left out so the label wraps less.
   Widget _sendControls({required bool enabled, required bool listening}) {
     final onSend = enabled && !listening ? () => _send() : null;
-    final onPreview = enabled && !listening
-        ? () => _send(showPreview: true)
-        : null;
-    final previewLabel = copy('See what is sent', 'Ver qué se envía');
+    final onPreview = _onPreview(enabled: enabled, listening: listening);
+    final previewLabel = _previewLabel;
     const sendStyle = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(Size(48, 48)),
     );
-    if (MediaQuery.textScalerOf(context).scale(14) > 21) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          IconButton(
-            key: const Key('conversation-preview'),
-            color: Colors.cyanAccent,
-            tooltip: previewLabel,
-            onPressed: onPreview,
-            icon: const Icon(Icons.visibility_outlined),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: FilledButton(
-              key: const Key('conversation-send'),
-              style: sendStyle,
-              onPressed: onSend,
-              child: Text(_sendLabel, textAlign: TextAlign.center),
-            ),
-          ),
-        ],
+    if (_largeText) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: FilledButton(
+          key: const Key('conversation-send'),
+          style: sendStyle,
+          onPressed: onSend,
+          child: Text(_sendLabel, textAlign: TextAlign.center),
+        ),
       );
     }
     return Wrap(
@@ -223,6 +281,27 @@ extension _OneStepSend on _AssistantConversationScreenState {
           label: Text(_sendLabel),
         ),
       ],
+    );
+  }
+
+  /// The controls below the conversation. At large text they take at most
+  /// half of the visible height and scroll, anchored at the bottom so
+  /// the input and send stay in view, leaving the conversation room.
+  Widget _boundedBottom(List<Widget> children) {
+    final column = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: children,
+    );
+    if (!_largeText) return column;
+    final media = MediaQuery.of(context);
+    final visible =
+        media.size.height - media.viewInsets.bottom - media.padding.vertical;
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: visible * 0.5 < 160 ? 160 : visible * 0.5,
+      ),
+      child: SingleChildScrollView(reverse: true, child: column),
     );
   }
 

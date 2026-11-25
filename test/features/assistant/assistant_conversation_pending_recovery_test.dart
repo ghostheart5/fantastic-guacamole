@@ -106,12 +106,13 @@ ProviderContainer _setup(
 _Response _quote(
   Map<String, dynamic> body, {
   Duration valid = const Duration(minutes: 5),
+  int credits = 4,
 }) => (
   status: 200,
   data: <String, dynamic>{
     'requestId': body['requestId'],
     'quote': <String, dynamic>{
-      'credits': 4,
+      'credits': credits,
       'digest': 'fixture',
       'proof': 'fixture',
       'policy': 'fixture',
@@ -120,12 +121,12 @@ _Response _quote(
   },
 );
 
-_Response _answer(Object? requestId, String text) => (
+_Response _answer(Object? requestId, String text, {int credits = 4}) => (
   status: 200,
   data: <String, dynamic>{
     'requestId': requestId,
     'message': text,
-    'creditsCharged': 4,
+    'creditsCharged': credits,
     'remainingCredits': 20,
     'model': 'transport-fixture',
   },
@@ -987,6 +988,230 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  /// Sends a first message at the button's price and accepts its preview,
+  /// so the next message on the same selection is one tap.
+  Future<void> firstMessage(WidgetTester tester) async {
+    final input = find.byKey(const Key('conversation-input'));
+    await tester.enterText(input, 'First question.');
+    await tester.tap(find.byKey(const Key('conversation-send')));
+    await _waitFor(tester, find.text('Send'));
+    await tester.tap(find.text('Send'));
+    await _waitFor(tester, find.text('First reply.'));
+  }
+
+  testWidgets(
+    'a one-tap message at the shown price survives an app restart and is re-sent byte for byte once',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      final never = Completer<_Response>();
+      final firstPaid = <Map<String, dynamic>>[];
+      final first = _setup((body) async {
+        if (body['quoteOnly'] == true) return _quote(body, credits: 5);
+        firstPaid.add(body);
+        if (firstPaid.length == 1) {
+          return _answer(body['requestId'], 'First reply.', credits: 5);
+        }
+        return never.future;
+      }, backend);
+      await _pumpScreen(tester, first, ConversationSurface.si);
+      await firstMessage(tester);
+
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Compare my two options.',
+      );
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      // One tap: no preview and no price dialog.
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(firstPaid, hasLength(2));
+      await tester.pumpWidget(const SizedBox.shrink());
+      first.dispose();
+
+      final secondPaid = <Map<String, dynamic>>[];
+      var secondQuotes = 0;
+      final second = _setup((body) async {
+        if (body['quoteOnly'] == true) {
+          secondQuotes++;
+          return _quote(body, credits: 5);
+        }
+        secondPaid.add(body);
+        return _answer(body['requestId'], 'The one-tap reply.', credits: 5);
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        second.dispose();
+      });
+      await _pumpScreen(tester, second, ConversationSurface.si);
+      await _settle(tester);
+
+      expect(secondQuotes, 0);
+      expect(secondPaid, hasLength(1));
+      expect(secondPaid.single['requestId'], firstPaid.last['requestId']);
+      expect(jsonEncode(secondPaid.single), jsonEncode(firstPaid.last));
+      expect(find.text('The one-tap reply.'), findsOneWidget);
+      expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final failRemoval in [false, true]) {
+    testWidgets(
+      'stop waiting while the confirmed request is being stored ${failRemoval ? 'says it may still be charged when it cannot be removed' : 'removes it, never sends it and says nothing was charged'}',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final backend = _GatedWriteBackend()..failRemoval = failRemoval;
+        final paid = <Map<String, dynamic>>[];
+        final container = _setup((body) async {
+          if (body['quoteOnly'] == true) return _quote(body, credits: 5);
+          paid.add(body);
+          return _answer(body['requestId'], 'Must not be sent.', credits: 5);
+        }, backend);
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await _pumpScreen(tester, container, ConversationSurface.si);
+        await tester.enterText(
+          find.byKey(const Key('conversation-input')),
+          'Compare my two options.',
+        );
+        await tester.tap(find.byKey(const Key('conversation-send')));
+        await _waitFor(tester, find.text('Send'));
+        backend.armed = true;
+        await tester.tap(find.text('Send'));
+        for (var i = 0; i < 30 && backend.held == null; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        expect(backend.held, isNotNull, reason: 'The request is being stored');
+        // Never leave the app-wide storage queue blocked for later tests.
+        addTearDown(() {
+          if (!backend.held!.isCompleted) backend.held!.complete();
+        });
+        // Let the preview finish closing.
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+
+        final stop = find.byKey(const Key('conversation-stop-waiting'));
+        await tester.ensureVisible(stop);
+        await tester.tap(stop);
+        await tester.pump();
+        expect(
+          find.text('Stopping. Making sure this request is not sent…'),
+          findsOneWidget,
+        );
+        expect(find.textContaining('Nothing was charged'), findsNothing);
+
+        backend.held!.complete();
+        await _settle(tester);
+        expect(paid, isEmpty);
+        if (failRemoval) {
+          expect(
+            find.textContaining('It may still be sent and charged once later'),
+            findsOneWidget,
+          );
+          expect(find.textContaining('Nothing was charged'), findsNothing);
+        } else {
+          expect(
+            find.text(
+              'Stopped before the request was sent for a reply. Nothing was charged. Your question is retained.',
+            ),
+            findsOneWidget,
+          );
+          expect(
+            await _storedChat(backend),
+            isNot(contains('pendingRequests')),
+          );
+        }
+
+        // Coming back in this app run never sends it.
+        await _leave(tester, container);
+        await _pumpScreen(tester, container, ConversationSurface.si);
+        await _settle(tester);
+        expect(paid, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'stop waiting before the request is stored stores nothing and sends nothing',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      final quote = Completer<_Response>();
+      final paid = <Map<String, dynamic>>[];
+      Map<String, dynamic>? quoted;
+      final container = _setup((body) async {
+        if (body['quoteOnly'] == true) {
+          quoted = body;
+          return quote.future;
+        }
+        paid.add(body);
+        return _answer(body['requestId'], 'Must not be sent.', credits: 5);
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Compare my two options.',
+      );
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await _waitFor(tester, find.text('Send'));
+      await tester.tap(find.text('Send'));
+      await tester.pump(const Duration(milliseconds: 100));
+      final stop = find.byKey(const Key('conversation-stop-waiting'));
+      await tester.ensureVisible(stop);
+      await tester.tap(stop);
+      await tester.pump();
+      expect(find.textContaining('Nothing was charged'), findsOneWidget);
+      // The price arrives after stopping: nothing is stored or sent.
+      expect(quoted, isNotNull);
+      quote.complete(_quote(quoted!, credits: 5));
+      await _settle(tester);
+      expect(paid, isEmpty);
+      expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+      expect(tester.takeException(), isNull);
+    },
+  );
+}
+
+/// Holds the next Chat-store write (the confirmed request being stored) until
+/// released; with [failRemoval] the write after it (its removal) fails.
+class _GatedWriteBackend extends InMemorySecureStoreBackend {
+  bool armed = false;
+  bool failRemoval = false;
+  bool _failNext = false;
+  Completer<void>? held;
+
+  @override
+  Future<void> write({required String key, required String value}) async {
+    if (key.startsWith(AssistantConversationRepository.storageKey)) {
+      if (armed) {
+        armed = false;
+        held = Completer<void>();
+        await held!.future;
+        _failNext = failRemoval;
+        return super.write(key: key, value: value);
+      }
+      if (_failNext) {
+        _failNext = false;
+        throw StateError('synthetic_removal_failure');
+      }
+    }
+    return super.write(key: key, value: value);
+  }
 }
 
 class _ReadOnlyChatBackend extends InMemorySecureStoreBackend {

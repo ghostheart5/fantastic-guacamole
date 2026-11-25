@@ -32,18 +32,18 @@ void main() {
           'even when saved planning sources are off',
           'A new AI chat starts with your plan (tasks, goals, milestones and schedule) selected as the information it may use.',
           'choose Just this chat to send nothing from your plan',
-          'The kinds of information that will be used are shown above the message box before you send.',
-          'The full preview of exactly what will be sent (your question, the recent messages and the plan records) is one tap away at any time',
-          'it opens by itself before your first message after the app opens and whenever you change the selection',
+          'The kinds of information that will be used are shown above the message box before you send, in Chat and in Choose a step.',
+          'Once you have typed a question, a button by the message box opens the full preview of what will be sent (your question, the recent messages, the plan records and other selected details, and a list of the technical details that go with them) whenever sending is available',
+          'the preview also opens by itself before your first message after the app opens and whenever the information used changes',
           'Nothing is sent, including the request for a price, until you tap send',
           'tapping send confirms the price shown on it',
           'you are asked again before anything is charged',
-          'until its reply is collected, a request you confirmed (its question, recent messages and plan records) and its signed credit price',
+          'until its reply is collected, a request you confirmed in Chat or Choose a step (its question, recent messages, plan records and the other details shown in its preview, such as a title filter, scenario, mode and date range, and on Choose a step an attached note, energy and emotional state) and its signed credit price',
           "the request's content is removed and only its identifier remains",
           'Unsent drafts and voice recordings are not part of this history.',
           'Chats saved before this version keep the selection they had.',
           'whether you have seen the note explaining the default',
-          'Choose a step keeps a separate conversation only while its screen is open',
+          'Choose a step keeps a separate conversation only while its screen is open; a request you confirmed there is kept on this device as described above until its reply is collected, even after the screen closes.',
         ]) {
           expect(source, contains(phrase), reason: path);
         }
@@ -51,6 +51,8 @@ void main() {
           'every request shows what will be sent before anything is sent',
           'your plan (tasks, goals and schedule)',
           'credit quotes are not part of this history',
+          'exactly what will be sent',
+          'one tap away at any time',
         ]) {
           expect(source, isNot(contains(retired)), reason: path);
         }

@@ -40,8 +40,8 @@ final _records = [
     estimatedDuration: const Duration(minutes: 45),
   ),
 ];
-final _gateway = SIV2ReadGateway(
-  accountScopeId: _scope.v2Namespace!,
+SIV2ReadGateway _gatewayFor(String? scope) => SIV2ReadGateway(
+  accountScopeId: scope!,
   readTasks: () async => _records,
   readGoals: () async => [],
   readMilestones: () async => [],
@@ -53,14 +53,18 @@ const _preview = Key('conversation-preview');
 const _suggestion = Key('conversation-free-suggestion');
 
 class _Server {
-  _Server({this.credits = conversationMessageCredits});
+  _Server({this.credits = conversationMessageCredits, this.quoteError});
   final int credits;
+  final String? quoteError;
   int quotes = 0;
   final paid = <Map<String, dynamic>>[];
 
   Future<_Response> call(Map<String, dynamic> body) async {
     if (body['quoteOnly'] == true) {
       quotes++;
+      if (quoteError case final String error) {
+        return (status: 429, data: <String, dynamic>{'error': error});
+      }
       return (
         status: 200,
         data: <String, dynamic>{
@@ -91,48 +95,58 @@ class _Server {
   }
 }
 
-ProviderContainer _setup(_Server server, InMemorySecureStoreBackend backend) =>
-    ProviderContainer(
-      overrides: [
-        secureStoreProvider.overrideWithValue(SecureStore(backend: backend)),
-        accountStorageScopeProvider.overrideWith((ref) => _scope),
-        authSessionBoundaryProvider.overrideWith(_Boundary.new),
-        assistantConversationAvailableProvider.overrideWithValue(true),
-        personalizationProfileProvider.overrideWith(_Consent.new),
-        conversationTransportProvider.overrideWithValue(server.call),
-        siV2ReadGatewayProvider.overrideWithValue(_gateway),
-        siV2PersonContextRevisionProvider.overrideWithValue('fixture'),
-        siV2EvidenceSnapshotProvider.overrideWith(
-          (ref) => _gateway.read(observedAt: DateTime.now()),
+NoteEntity _note = _dinnerNote;
+final _dinnerNote = NoteEntity(
+  id: 'list-note',
+  title: 'Dinner shopping',
+  body: 'Check the pantry before buying rice.',
+  createdAt: DateTime(2026, 9, 16),
+  taskId: 'grocery',
+);
+
+ProviderContainer _setup(
+  _Server server,
+  InMemorySecureStoreBackend backend, {
+  AccountStorageScope Function()? readScope,
+}) => ProviderContainer(
+  overrides: [
+    secureStoreProvider.overrideWithValue(SecureStore(backend: backend)),
+    accountStorageScopeProvider.overrideWith(
+      (ref) => readScope?.call() ?? _scope,
+    ),
+    authSessionBoundaryProvider.overrideWith(_Boundary.new),
+    assistantConversationAvailableProvider.overrideWithValue(true),
+    personalizationProfileProvider.overrideWith(_Consent.new),
+    conversationTransportProvider.overrideWithValue(server.call),
+    siV2ReadGatewayProvider.overrideWith(
+      (ref) => _gatewayFor(ref.watch(accountStorageScopeProvider).v2Namespace),
+    ),
+    siV2PersonContextRevisionProvider.overrideWithValue('fixture'),
+    siV2EvidenceSnapshotProvider.overrideWith(
+      (ref) => _gatewayFor(
+        ref.watch(accountStorageScopeProvider).v2Namespace,
+      ).read(observedAt: DateTime.now()),
+    ),
+    domainTaskRepositoryProvider.overrideWithValue(_Tasks()),
+    selectedPlanningNoteProvider.overrideWith((ref) async => _note),
+    for (final capability in [
+      AssistantReleaseCapability.smartPlannerV2,
+      AssistantReleaseCapability.siConsoleV2,
+      AssistantReleaseCapability.safetyCritic,
+    ])
+      assistantReleaseDecisionProvider(capability).overrideWith(
+        (ref) async => AssistantReleaseDecision(
+          enabled: true,
+          shadowEvaluationEnabled: false,
+          cohort: AssistantReleaseCohort.internal,
+          reasonCode: 'synthetic-test',
+          accountDigest: 'test',
+          capability: capability,
+          configDigest: 'test',
         ),
-        domainTaskRepositoryProvider.overrideWithValue(_Tasks()),
-        selectedPlanningNoteProvider.overrideWith(
-          (ref) async => NoteEntity(
-            id: 'list-note',
-            title: 'Dinner shopping',
-            body: 'Check the pantry before buying rice.',
-            createdAt: DateTime(2026, 9, 16),
-            taskId: 'grocery',
-          ),
-        ),
-        for (final capability in [
-          AssistantReleaseCapability.smartPlannerV2,
-          AssistantReleaseCapability.siConsoleV2,
-          AssistantReleaseCapability.safetyCritic,
-        ])
-          assistantReleaseDecisionProvider(capability).overrideWith(
-            (ref) async => AssistantReleaseDecision(
-              enabled: true,
-              shadowEvaluationEnabled: false,
-              cohort: AssistantReleaseCohort.internal,
-              reasonCode: 'synthetic-test',
-              accountDigest: 'test',
-              capability: capability,
-              configDigest: 'test',
-            ),
-          ),
-      ],
-    );
+      ),
+  ],
+);
 
 Future<void> _pump(
   WidgetTester tester,
@@ -140,6 +154,7 @@ Future<void> _pump(
   String language = 'en',
   ConversationSurface surface = ConversationSurface.si,
   ValueChanged<String>? onDraft,
+  double textScale = 1,
 }) async {
   await tester.pumpWidget(
     UncontrolledProviderScope(
@@ -151,6 +166,12 @@ Future<void> _pump(
           ChronoSparkLocalizations.delegate,
           ...GlobalMaterialLocalizations.delegates,
         ],
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         home: AssistantConversationScreen(
           surface: surface,
           onLocalTools: () {},
@@ -468,6 +489,160 @@ void main() {
       },
     );
   }
+
+  for (final language in ['en', 'es']) {
+    testWidgets(
+      '$language: at 320x640 and 200 percent text, send, preview and an error stay reachable',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(320, 640));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final server = _Server(quoteError: 'rate_limit_exceeded');
+        final container = _setup(server, InMemorySecureStoreBackend());
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await _pump(tester, container, language: language, textScale: 2);
+        await tester.enterText(
+          find.byKey(const Key('conversation-input')),
+          'Compare my two options.',
+        );
+        await _settle(tester);
+        expect(tester.takeException(), isNull);
+        expect(find.byKey(_send).hitTestable(), findsOneWidget);
+        expect(find.byKey(_preview).hitTestable(), findsOneWidget);
+        expect(tester.getSize(find.byKey(_send)).height, greaterThan(47));
+        expect(tester.getSize(find.byKey(_preview)).height, greaterThan(47));
+
+        await tester.tap(find.byKey(_send));
+        await _settle(tester);
+        final accept = find.text(language == 'es' ? 'Enviar' : 'Send');
+        await tester.ensureVisible(accept);
+        await tester.pump();
+        await tester.tap(accept);
+        await _settle(tester);
+        expect(server.quotes, 1);
+        final error = find.byKey(const Key('conversation-error'));
+        expect(error, findsOneWidget);
+        // The list scrolls to the error; its end is on screen above the
+        // controls (the message is taller than the space at this size).
+        expect(error.hitTestable(at: const Alignment(0, 0.8)), findsOneWidget);
+        expect(find.byKey(_send).hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('the preview opens again after an account change', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var current = _scope;
+    final server = _Server();
+    final container = _setup(
+      server,
+      InMemorySecureStoreBackend(),
+      readScope: () => current,
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await _pump(tester, container);
+    await _tapSend(tester, 'First question.');
+    await _acceptPreview(tester);
+    await _tapSend(tester, 'Second question.');
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(server.paid, hasLength(2));
+
+    Future<void> switchTo(AccountStorageScope scope) async {
+      current = scope;
+      container.invalidate(accountStorageScopeProvider);
+      await _settle(tester);
+    }
+
+    await switchTo(AccountStorageScope.authenticated('synthetic-other'));
+    await switchTo(_scope);
+    await _tapSend(tester, 'Third question.');
+    expect(_previewDialog, findsOneWidget);
+    expect(server.quotes, 2, reason: 'Nothing is sent before the preview');
+    await _acceptPreview(tester);
+    expect(server.paid, hasLength(3));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'Choose a step names what it uses above the input and a changed note reopens the preview',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() {
+        _note = _dinnerNote;
+        return tester.binding.setSurfaceSize(null);
+      });
+      final server = _Server();
+      final container = _setup(server, InMemorySecureStoreBackend());
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container, surface: ConversationSurface.planner);
+      final line = find.byKey(const Key('conversation-planner-scope'));
+      expect(
+        tester.widget<Text>(line).data,
+        'AI chat uses: tasks, goals, milestones and schedule picked for your question; your note “Dinner shopping”.',
+      );
+      await _tapSend(tester, 'Compare my two options.');
+      expect(_dialogText(tester), contains('Dinner shopping'));
+      await _acceptPreview(tester);
+      await _tapSend(tester, 'And the second?');
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(server.paid, hasLength(2));
+
+      // A different note, chosen on another screen, is new information.
+      _note = NoteEntity(
+        id: 'list-note',
+        title: 'Weekend errands',
+        body: 'Post office before noon.',
+        createdAt: DateTime(2026, 9, 17),
+        taskId: 'grocery',
+      );
+      container.invalidate(selectedPlanningNoteProvider);
+      await _settle(tester);
+      expect(
+        tester.widget<Text>(line).data,
+        contains('your note “Weekend errands”'),
+      );
+      await _tapSend(tester, 'And now?');
+      expect(_previewDialog, findsOneWidget);
+      expect(_dialogText(tester), contains('Post office before noon.'));
+      expect(server.quotes, 2);
+      await _acceptPreview(tester);
+      expect(server.paid, hasLength(3));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('the preview lists the technical details sent with records', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final container = _setup(_Server(), InMemorySecureStoreBackend());
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await _pump(tester, container);
+    await _tapSend(tester, 'When should I do the Grocery list?');
+    expect(find.text('Also sent'), findsOneWidget);
+    expect(
+      _dialogText(tester),
+      contains('your local date and time, time zone and language'),
+    );
+    await tester.tap(find.text('Cancel'));
+    await _settle(tester);
+  });
 }
 
 class _Consent extends PersonalizationProfileController {

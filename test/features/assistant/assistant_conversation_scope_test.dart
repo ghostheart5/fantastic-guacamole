@@ -53,7 +53,7 @@ const _myPlan = Key('conversation-scope-my-plan');
 const _chatOnly = Key('conversation-scope-chat-only');
 const _notice = Key('conversation-scope-notice');
 const _noticeText =
-    'AI chat now uses your plan (tasks, goals, milestones and schedule) so replies fit your day. See what is sent shows exactly what goes, and it opens by itself before your first message and whenever this choice changes. Choose Just this chat to send none of it.';
+    'AI chat now uses your plan (tasks, goals, milestones and schedule) so replies fit your day. See what is sent shows what goes, and it opens by itself before your first message each time the app opens and whenever this choice changes. Choose Just this chat to send none of it.';
 
 ProviderContainer _setup(
   List<Map<String, dynamic>> sent,
@@ -578,7 +578,7 @@ void main() {
         expect(
           find.text(
             spanish
-                ? 'El chat con IA ahora usa tu plan (tareas, metas, hitos y agenda) para que las respuestas se ajusten a tu día. Ver qué se envía muestra exactamente qué se envía, y se abre solo antes de tu primer mensaje y cada vez que cambia esta elección. Elige Solo esta conversación para no enviar nada de tu plan.'
+                ? 'El chat con IA ahora usa tu plan (tareas, metas, hitos y agenda) para que las respuestas se ajusten a tu día. Ver qué se envía muestra lo que se envía, y se abre solo antes de tu primer mensaje cada vez que abres la app y cada vez que cambia esta elección. Elige Solo esta conversación para no enviar nada de tu plan.'
                 : _noticeText,
           ),
           findsOneWidget,

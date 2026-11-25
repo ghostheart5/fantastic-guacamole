@@ -70,8 +70,8 @@ extension _ConversationScope on _AssistantConversationScreenState {
       padding: const EdgeInsets.only(top: 8),
       child: Text(
         copy(
-          'AI chat now uses your plan (tasks, goals, milestones and schedule) so replies fit your day. See what is sent shows exactly what goes, and it opens by itself before your first message and whenever this choice changes. Choose Just this chat to send none of it.',
-          'El chat con IA ahora usa tu plan (tareas, metas, hitos y agenda) para que las respuestas se ajusten a tu día. Ver qué se envía muestra exactamente qué se envía, y se abre solo antes de tu primer mensaje y cada vez que cambia esta elección. Elige Solo esta conversación para no enviar nada de tu plan.',
+          'AI chat now uses your plan (tasks, goals, milestones and schedule) so replies fit your day. See what is sent shows what goes, and it opens by itself before your first message each time the app opens and whenever this choice changes. Choose Just this chat to send none of it.',
+          'El chat con IA ahora usa tu plan (tareas, metas, hitos y agenda) para que las respuestas se ajusten a tu día. Ver qué se envía muestra lo que se envía, y se abre solo antes de tu primer mensaje cada vez que abres la app y cada vez que cambia esta elección. Elige Solo esta conversación para no enviar nada de tu plan.',
         ),
         style: const TextStyle(color: Colors.cyanAccent),
       ),

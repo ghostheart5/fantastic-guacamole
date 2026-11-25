@@ -17,8 +17,8 @@ class AiChatDisclosure {
   String get featureName => _copy('AI chat', 'Chat con IA');
 
   String get whatIsSent => _copy(
-    'What is sent: your question, up to six recent messages from this conversation, and the information you choose above the message box. The full preview of exactly what is sent is one tap away (See what is sent); it opens by itself before your first message after the app opens and whenever that choice changes.',
-    'Qué se envía: tu pregunta, hasta seis mensajes recientes de esta conversación y la información que eliges encima del cuadro de mensaje. La vista previa completa de exactamente qué se envía está a un toque (Ver qué se envía); se abre sola antes de tu primer mensaje después de abrir la app y cada vez que cambias esa elección.',
+    'What is sent: your question, up to six recent messages from this conversation, and the information listed above the message box. Once you have typed a question, See what is sent by the message box shows the full preview of what goes whenever sending is available; it also opens by itself before your first message after the app opens and whenever that information changes.',
+    'Qué se envía: tu pregunta, hasta seis mensajes recientes de esta conversación y la información que aparece encima del cuadro de mensaje. Cuando hayas escrito una pregunta, Ver qué se envía, junto al cuadro de mensaje, muestra la vista previa completa de lo que se envía siempre que se pueda enviar; también se abre sola antes de tu primer mensaje después de abrir la app y cada vez que cambia esa información.',
   );
 
   String get toWhom => _copy(
