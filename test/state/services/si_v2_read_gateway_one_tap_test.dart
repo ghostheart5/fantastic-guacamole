@@ -3,7 +3,9 @@ import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
+import 'package:fantastic_guacamole/domain/entities/si_one_tap_question.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -416,4 +418,84 @@ void main() {
     expect(byId['e']!.trackedSince, now.subtract(const Duration(days: 4)));
     expect(byId['p']!.trackedSince, now.subtract(const Duration(days: 90)));
   });
+
+  test(
+    'a habit edited 4 days ago is not credited with the days before',
+    () async {
+      final DateTime editedAt = now.subtract(const Duration(days: 4));
+      // Checked in every day for 10 days under the old frequency (revision 0)...
+      final HabitEntity before = HabitEntity(
+        id: 'e',
+        title: 'Edited',
+        createdAt: now.subtract(const Duration(days: 90)),
+      );
+      // ...then edited: revision 1 starts 4 days ago, with no check-in since.
+      final HabitEntity edited = before.copyWith(
+        frequencyRevision: 1,
+        frequencyStartedAt: editedAt,
+      );
+      final SIV2EvidenceSnapshot s = await gateway(
+        habits: <HabitEntity>[edited],
+        occurrences: <HabitOccurrenceEntity>[
+          for (int i = 5; i < 12; i++)
+            checkIn(before, now.subtract(Duration(days: i))),
+        ],
+      ).read(observedAt: now, includeActivity: true);
+      final SIV2HabitEvidence habit = s.habits.single;
+      // The raw 14 day count (the paid packet's label) keeps earlier
+      // check-ins; the one the answer judges does not.
+      expect(habit.checkInsInWindow, 7);
+      expect(habit.checkInsSinceTracked, 0);
+      expect(habit.currentStreak, 0);
+      expect(habit.checkedInThisPeriod, isFalse);
+      // A check-in under the new frequency is counted, and only that one.
+      final SIV2EvidenceSnapshot after = await gateway(
+        habits: <HabitEntity>[edited],
+        occurrences: <HabitOccurrenceEntity>[
+          for (int i = 5; i < 12; i++)
+            checkIn(before, now.subtract(Duration(days: i))),
+          checkIn(edited, now.subtract(const Duration(days: 1))),
+        ],
+      ).read(observedAt: now, includeActivity: true);
+      expect(after.habits.single.checkInsInWindow, 8);
+      expect(after.habits.single.checkInsSinceTracked, 1);
+      expect(after.habits.single.currentStreak, 1);
+    },
+  );
+
+  test(
+    'a whole-day deadline saved at local midnight reaches the answer',
+    () async {
+      // Saved the way Creator saves it: local midnight. Whatever the machine's
+      // zone, the stored calendar day is the day the answer reads.
+      final SIV2EvidenceSnapshot s = await gateway(
+        tasks: <TaskEntity>[
+          TaskEntity(
+            id: 'rent',
+            title: 'Pay rent',
+            createdAt: now,
+            dueDate: DateTime(2026, 8, 20),
+          ),
+        ],
+      ).read(observedAt: now, includeActivity: true);
+      const SIOneTapEngine engine = SIOneTapEngine();
+      String plan(DateTime at) => engine
+          .answer(
+            question: SIOneTapQuestion.planMyDay,
+            snapshot: s,
+            now: at,
+            isSpanish: false,
+          )
+          .response
+          .directAnswer;
+      expect(
+        plan(DateTime(2026, 8, 20, 23, 59)),
+        '1 task needs you today: 0 overdue and 1 due or planned for today.',
+      );
+      expect(
+        plan(DateTime(2026, 8, 21)),
+        '1 task needs you today: 1 overdue and 0 due or planned for today.',
+      );
+    },
+  );
 }

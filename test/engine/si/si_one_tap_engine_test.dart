@@ -1,7 +1,7 @@
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_one_tap_question.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
-import 'package:fantastic_guacamole/engine/si/si_one_tap_engine.dart';
+import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -681,7 +681,7 @@ void main() {
     expect(text, isNot(contains('Wednesday')));
     expect(
       a.response.directAnswer,
-      '5 of 5 finished tasks were marked done in the morning.',
+      '5 of 5 finished tasks were marked done in the morning (6:00 to 11:59).',
     );
     expect(
       a.response.missingInformation.join(' '),
@@ -770,7 +770,7 @@ void main() {
     );
     expect(
       a.response.recommendation,
-      'The records show the most check-ins on "Walk" (9 of 14) and the fewest on "Read" (3 of 14). Whether and how to change a habit is up to you. Nothing was changed.',
+      'The records show the highest share of check-ins on "Walk" (9 of 14) and the lowest on "Read" (3 of 14). Whether and how to change a habit is up to you. Nothing was changed.',
     );
   });
 
@@ -879,12 +879,12 @@ void main() {
         'Meta "Launch the app": 2 de 3 tareas vinculadas están hechas y 1 de 2 hitos. || Da el siguiente paso en "Draft the plan" (sin fecha). No se cambió nada.',
       ],
       SIOneTapQuestion.improveRoutine: <String>[
-        'You have 2 habits. Over the last 14 days, 2 have a check-in and 0 have none. || The records show the most check-ins on "Walk" (12 of 14) and the fewest on "Read" (3 of 14). Whether and how to change a habit is up to you. Nothing was changed.',
-        'Tienes 2 hábitos. En los últimos 14 días, 2 tienen registros y 0 no tienen. || Los registros muestran la mayor cantidad en "Walk" (12 de 14) y la menor en "Read" (3 de 14). Si cambiar un hábito y cómo, lo decides tú. No se cambió nada.',
+        'You have 2 habits. Over the last 14 days, 2 have a check-in and 0 have none. || The records show the highest share of check-ins on "Walk" (12 of 14) and the lowest on "Read" (3 of 14). Whether and how to change a habit is up to you. Nothing was changed.',
+        'Tienes 2 hábitos. En los últimos 14 días, 2 tienen registros y 0 no tienen. || Los registros muestran la mayor proporción de registros en "Walk" (12 de 14) y la menor en "Read" (3 de 14). Si cambiar un hábito y cómo, lo decides tú. No se cambió nada.',
       ],
       SIOneTapQuestion.explainPatterns: <String>[
-        '5 of 5 finished tasks were marked done in the afternoon. || Use this as a hint when you plan, and keep tracking. Nothing was changed.',
-        '5 de 5 tareas terminadas se marcaron como hechas por la tarde. || Úsalo como pista al planear y sigue registrando. No se cambió nada.',
+        '5 of 5 finished tasks were marked done in the afternoon (12:00 to 16:59). || Use this as a hint when you plan, and keep tracking. Nothing was changed.',
+        '5 de 5 tareas terminadas se marcaron como hechas por la tarde (de 12:00 a 16:59). || Úsalo como pista al planear y sigue registrando. No se cambió nada.',
       ],
       SIOneTapQuestion.getBackOnTrack: <String>[
         'You are not behind on anything I can read: no task is overdue, no goal is past its date and no habit has gone quiet. || There is nothing to catch up on. Keep going at your own pace. Nothing was changed.',
@@ -892,7 +892,7 @@ void main() {
       ],
       SIOneTapQuestion.reviewWeek: <String>[
         'This week, 3 tasks were finished and 1 skipped: more than the week before (2). || Nothing is overdue. Next week has 2 items with a date. Nothing was changed.',
-        'Esta semana se terminaron 3 tareas y se omitieron 1: más que la semana anterior (2). || No hay nada vencido. La próxima semana tiene 2 elementos con fecha. No se cambió nada.',
+        'Esta semana se terminaron 3 tareas y se omitió 1: más que la semana anterior (2). || No hay nada vencido. La próxima semana tiene 2 elementos con fecha. No se cambió nada.',
       ],
     };
     for (final MapEntry<SIOneTapQuestion, List<String>> e in expected.entries) {
@@ -940,5 +940,237 @@ void main() {
       a.response.directAnswer,
       'This week, 1 task was finished and 0 skipped: fewer than the week before (2).',
     );
+  });
+
+  // ---- calendar days, not 24 hour blocks (daylight saving) ----------------
+  group('calendar day arithmetic', () {
+    test('days between are counted on calendar fields', () {
+      // US spring-forward and fall-back, and the European ones. In a zone
+      // that changes its clocks the local difference of these midnights is 23
+      // or 25 hours; as calendar days it is always 1.
+      for (final List<int> d in <List<int>>[
+        <int>[2026, 3, 8],
+        <int>[2026, 3, 29],
+        <int>[2026, 10, 25],
+        <int>[2026, 11, 1],
+      ]) {
+        expect(
+          oneTapDaysBetween(
+            DateTime(d[0], d[1], d[2]),
+            DateTime(d[0], d[1], d[2] + 1),
+          ),
+          1,
+          reason: '${d[0]}-${d[1]}-${d[2]} local',
+        );
+        expect(
+          oneTapDaysBetween(
+            DateTime.utc(d[0], d[1], d[2]),
+            DateTime.utc(d[0], d[1], d[2] + 1),
+          ),
+          1,
+          reason: '${d[0]}-${d[1]}-${d[2]} utc',
+        );
+      }
+      expect(oneTapDaysBetween(DateTime(2026, 3, 9), DateTime(2026, 3, 7)), -2);
+      expect(
+        oneTapDaysBetween(DateTime(2026, 2, 27, 23, 59), DateTime(2026, 3, 1)),
+        2,
+      );
+      // Time of day does not matter.
+      expect(
+        oneTapDaysBetween(DateTime(2026, 3, 8, 23, 59), DateTime(2026, 3, 9)),
+        1,
+      );
+    });
+
+    test('windows are built from calendar fields at midnight', () {
+      for (final DateTime start in <DateTime>[
+        DateTime(2026, 3, 7),
+        DateTime(2026, 10, 24),
+        DateTime(2026, 10, 31),
+      ]) {
+        for (int n = -14; n <= 14; n++) {
+          final DateTime day = oneTapAddDays(start, n);
+          expect(day.hour, 0, reason: '$start + $n');
+          expect(day.minute, 0);
+          expect(oneTapDaysBetween(start, day), n, reason: '$start + $n');
+        }
+      }
+    });
+
+    test('a task due tomorrow reads tomorrow on a clock-change day', () {
+      final SIOneTapAnswer a = ask(
+        SIOneTapQuestion.planMyDay,
+        snapshot(
+          tasks: <SIV2TaskEvidence>[
+            wholeDayTask('t', 'Tomorrow thing', DateTime(2026, 3, 9)),
+            wholeDayTask('l', 'Late thing', DateTime(2026, 3, 7)),
+          ],
+        ),
+        at: DateTime(2026, 3, 8, 12),
+      );
+      expect(
+        a.response.observedFacts.map((f) => f.text),
+        contains('"Late thing" · overdue by 1 day · priority 3/5'),
+      );
+      expect(a.response.directAnswer, contains('1 overdue and 0 due'));
+      final SIOneTapAnswer b = ask(
+        SIOneTapQuestion.planMyDay,
+        snapshot(
+          tasks: <SIV2TaskEvidence>[
+            wholeDayTask('l', 'Late thing', DateTime(2026, 3, 7)),
+          ],
+        ),
+        at: DateTime(2026, 3, 9, 12),
+      );
+      expect(
+        b.response.observedFacts.map((f) => f.text),
+        contains('"Late thing" · overdue by 2 days · priority 3/5'),
+      );
+    });
+
+    test('a goal reads its days across a fall-back', () {
+      final SIOneTapAnswer a = ask(
+        SIOneTapQuestion.reachGoal,
+        snapshot(
+          goals: <SIV2GoalEvidence>[
+            SIV2GoalEvidence(
+              id: 'g',
+              title: 'Trip',
+              createdAt: DateTime(2026, 7, 1),
+              targetDate: DateTime.utc(2026, 11, 1),
+              targetDay: DateTime(2026, 11, 2),
+            ),
+          ],
+        ),
+        goalId: 'g',
+        at: DateTime(2026, 10, 24, 12),
+      );
+      expect(
+        a.response.observedFacts.first.text,
+        'The target date is Nov 2, in 9 days.',
+      );
+    });
+  });
+
+  test('a timeline item dated for today stays for the whole day', () {
+    final SIOneTapAnswer a = ask(
+      SIOneTapQuestion.whatsComingUp,
+      snapshot(
+        tasks: <SIV2TaskEvidence>[task('u', 'Undated')],
+        timeline: <SIV2TimelineEvidence>[
+          SIV2TimelineEvidence(
+            id: 'e',
+            title: 'Dentist',
+            timestamp: DateTime(2026, 8, 1),
+            type: 'deadline',
+            status: 'planned',
+            dueAt: DateTime(2026, 8, 20),
+          ),
+        ],
+      ),
+      at: DateTime(2026, 8, 20, 15),
+    );
+    expect(a.response.directAnswer, startsWith('1 item is coming up'));
+  });
+
+  test('fewer than five finished tasks claim no pattern at all', () {
+    final SIOneTapAnswer a = ask(
+      SIOneTapQuestion.explainPatterns,
+      snapshot(
+        recent: <SIV2RecentTaskEvidence>[
+          doneOn('a', DateTime(2026, 8, 18, 9)),
+          doneOn('b', DateTime(2026, 8, 17, 9)),
+          for (int i = 0; i < 4; i++)
+            recentTask('s$i', i + 1, outcome: SIV2RecentTaskOutcome.skipped),
+        ],
+      ),
+    );
+    expect(a.response.directAnswer, contains('too little history'));
+    expect(everything(a), isNot(contains('standout')));
+    expect(
+      a.response.missingInformation.join(' '),
+      contains('Only 2 finished tasks'),
+    );
+  });
+
+  test('the early hours are not called morning', () {
+    final SIOneTapAnswer a = ask(
+      SIOneTapQuestion.explainPatterns,
+      snapshot(
+        recent: <SIV2RecentTaskEvidence>[
+          doneOn('a', DateTime(2026, 8, 18, 0, 30)),
+          doneOn('b', DateTime(2026, 8, 17, 1)),
+          doneOn('c', DateTime(2026, 8, 16, 2)),
+          doneOn('d', DateTime(2026, 8, 15, 3)),
+          doneOn('e', DateTime(2026, 8, 14, 13)),
+        ],
+      ),
+    );
+    expect(
+      a.response.directAnswer,
+      '4 of 5 finished tasks were marked done in the night (midnight to 5:59).',
+    );
+  });
+
+  // ---- Spanish fact lines -------------------------------------------------
+  test('Spanish fact lines are pinned', () {
+    List<String> facts(SIOneTapQuestion q, SIV2EvidenceSnapshot s) => ask(
+      q,
+      s,
+      es: true,
+      goalId: 'g1',
+    ).response.observedFacts.map((f) => f.text).toList();
+
+    expect(facts(SIOneTapQuestion.planMyDay, typical), <String>[
+      '0 tareas abiertas están vencidas y 1 es para hoy.',
+      '"Write report" · vence hoy · prioridad 4/5',
+      '1 hábito diario no tiene registro hoy todavía.',
+    ]);
+    expect(facts(SIOneTapQuestion.fallingBehind, behind), <String>[
+      '2 tareas abiertas están vencidas.',
+      '"File taxes" · vencida hace 9 días',
+      '"Renew passport" · vencida hace 2 días',
+      'La meta "Get fit" pasó su fecha objetivo (15 ago) y sigue activa.',
+      'El hábito "Stretch" no tiene registros en los últimos 14 días.',
+    ]);
+    expect(facts(SIOneTapQuestion.reviewWeek, typical), <String>[
+      'En los últimos 7 días se terminaron 3 tareas y se omitió 1.',
+      'En los 7 días anteriores se terminaron 2 tareas.',
+      '15 registros de hábitos en los últimos 14 días en 2 hábitos.',
+      '0 tareas abiertas están vencidas y 2 son para los próximos 7 días.',
+    ]);
+    expect(facts(SIOneTapQuestion.improveRoutine, typical), <String>[
+      '"Walk" · diario · registrado 12 de los últimos 14 días · racha 4',
+      '"Read" · diario · registrado 3 de los últimos 14 días · racha 0',
+    ]);
+  });
+
+  test('the older engine agrees with itself about a whole-day deadline', () {
+    final SIV2EvidenceSnapshot s = snapshot(
+      tasks: <SIV2TaskEvidence>[wholeDayTask('d', 'Pay rent', aug20)],
+    );
+    String run(DateTime at) => const SIV2Engine()
+        .analyze(
+          query: SIV2Query(
+            rawText: 'What is most urgent?',
+            intent: SIV2Intent.answer,
+            sources: <SIV2Source>{SIV2Source.tasks},
+            timeRange: SIV2TimeRange.all,
+          ),
+          snapshot: s,
+          now: at,
+        )
+        .toPlainText();
+    final String onTheDay = run(DateTime(2026, 8, 20, 23, 59));
+    expect(onTheDay, contains('recorded date 2026-08-20'));
+    expect(onTheDay, isNot(contains('now past')));
+    expect(
+      onTheDay,
+      contains('0 matched tasks are past the recorded due date'),
+    );
+    final String after = run(DateTime(2026, 8, 21));
+    expect(after, contains('recorded date 2026-08-20, now past'));
+    expect(after, contains('1 matched task is past the recorded due date'));
   });
 }

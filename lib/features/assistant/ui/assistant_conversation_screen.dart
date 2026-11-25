@@ -86,6 +86,7 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
     this.isActive = true,
     this.incomingDraft = '',
     this.incomingDraftRevision = 0,
+    this.incomingDraftIsSuggestion = false,
     this.hidden = false,
     this.onUpdateWhileHidden,
     this.onQuickQuestion,
@@ -100,6 +101,11 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
   /// chat. A new [incomingDraftRevision] makes this screen take the text.
   final String incomingDraft;
   final int incomingDraftRevision;
+
+  /// The incoming text is a suggested question, not the person's own words: it
+  /// never replaces a message already typed here (the person is told), and
+  /// fills the box only when it is empty.
+  final bool incomingDraftIsSuggestion;
 
   /// The free assistant is shown in front of this screen. A reply, a failure
   /// or a collected request that arrives meanwhile is reported through
@@ -218,10 +224,32 @@ class _AssistantConversationScreenState
       _shownGate = null;
     }
     if (oldWidget.incomingDraftRevision != widget.incomingDraftRevision) {
-      _input.value = TextEditingValue(
-        text: widget.incomingDraft,
-        selection: TextSelection.collapsed(offset: widget.incomingDraft.length),
-      );
+      final String typed = _input.text.trim();
+      if (widget.incomingDraftIsSuggestion && typed.isNotEmpty) {
+        // A typed message is never replaced by a suggestion. Said only when
+        // the suggestion is something else.
+        if (typed != widget.incomingDraft.trim()) {
+          final String line = copy(
+            'Your message was kept. The question was not added.',
+            'Se conservó tu mensaje. La pregunta no se añadió.',
+          );
+          // Not while the tree is being built.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              ScaffoldMessenger.maybeOf(
+                context,
+              )?.showSnackBar(SnackBar(content: Text(line)));
+            }
+          });
+        }
+      } else {
+        _input.value = TextEditingValue(
+          text: widget.incomingDraft,
+          selection: TextSelection.collapsed(
+            offset: widget.incomingDraft.length,
+          ),
+        );
+      }
     }
     if (oldWidget.isActive && !widget.isActive) {
       _voiceActivation++;
@@ -971,12 +999,15 @@ class _AssistantConversationScreenState
         !_busy &&
         _pending == null &&
         (planner || (_historyReady && !_historyLoading && !_historyConflict));
-    if (_reportedBusy != _busy) {
-      _reportedBusy = _busy;
+    // A stored request being collected counts as sending: it must not be cut
+    // across by a question from Today.
+    final bool sending = _busy || _pending != null;
+    if (_reportedBusy != sending) {
+      _reportedBusy = sending;
       final ValueChanged<bool>? report = widget.onBusyChanged;
       if (report != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) report(_busy);
+          if (mounted) report(sending);
         });
       }
     }

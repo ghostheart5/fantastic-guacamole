@@ -275,18 +275,28 @@ final class SIV2HabitEvidence {
     required this.cadence,
     required this.targetCount,
     required this.checkInsInWindow,
+    int? checkInsSinceTracked,
     required this.currentStreak,
     required this.checkedInThisPeriod,
     this.windowDays = 14,
     DateTime? trackedSince,
-  }) : trackedSince = trackedSince ?? createdAt;
+  }) : trackedSince = trackedSince ?? createdAt,
+       checkInsSinceTracked = checkInsSinceTracked ?? checkInsInWindow;
 
   final String id;
   final String title;
   final DateTime createdAt;
   final HabitCadence cadence;
   final int targetCount;
+
+  /// Every check-in recorded in the last [windowDays] days, whatever the
+  /// habit's frequency was then. This is the number the paid packet carries
+  /// under its "last 14 days" label.
   final int checkInsInWindow;
+
+  /// Only the check-ins made under the current frequency (from
+  /// [trackedSince]): the same span the one-tap answer judges.
+  final int checkInsSinceTracked;
   final int currentStreak;
   final bool checkedInThisPeriod;
   final int windowDays;

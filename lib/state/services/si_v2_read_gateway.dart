@@ -256,6 +256,29 @@ DateTime? _wholeDay(DateTime? value) {
   return DateTime(value.year, value.month, value.day);
 }
 
+/// [days] calendar days before [moment] at the same local time of day, built
+/// from calendar fields so a day with 23 or 25 hours still counts as one day.
+DateTime _daysBefore(DateTime moment, int days) {
+  final DateTime l = moment.toLocal();
+  return DateTime(
+    l.year,
+    l.month,
+    l.day - days,
+    l.hour,
+    l.minute,
+    l.second,
+    l.millisecond,
+  );
+}
+
+/// Whether an outcome's key belongs to the habit's current frequency: edited
+/// habits (revision above 0) write keys prefixed with their revision, and
+/// older outcomes keep the keys they were written with.
+bool _inCurrentFrequency(HabitEntity habit, String key) =>
+    habit.frequencyRevision == 0
+    ? !RegExp(r'^r\d+:').hasMatch(key)
+    : key.startsWith('r${habit.frequencyRevision}:');
+
 /// Window the on-device one-tap questions look back over.
 const int _recentWindowDays = 14;
 
@@ -299,9 +322,7 @@ List<SIV2HabitEvidence> _habitEvidence(
   DateTime observedAt,
 ) {
   final DateTime now = observedAt.toLocal();
-  final DateTime windowStart = observedAt.subtract(
-    const Duration(days: _recentWindowDays),
-  );
+  final DateTime windowStart = _daysBefore(observedAt, _recentWindowDays);
   final List<SIV2HabitEvidence> result = <SIV2HabitEvidence>[];
   for (final HabitEntity habit in habits) {
     if (habit.status != HabitStatus.active ||
@@ -326,6 +347,8 @@ List<SIV2HabitEvidence> _habitEvidence(
       HabitCadence.weekly => DateTime(day.year, day.month, day.day - 7),
       HabitCadence.monthly => DateTime(day.year, day.month - 1, 1),
     };
+    final DateTime trackedSince = (habit.frequencyStartedAt ?? habit.createdAt)
+        .toUtc();
     final bool checkedIn = keys.contains(keyAt(now));
     // The period that is still open does not break a streak.
     DateTime cursor = checkedIn ? now : previous(now);
@@ -341,6 +364,10 @@ List<SIV2HabitEvidence> _habitEvidence(
         createdAt: habit.createdAt.toUtc(),
         cadence: habit.cadence,
         targetCount: habit.targetCount,
+        // Every check-in in the last 14 days (what the paid packet's label
+        // says), and separately only those under the current frequency: the
+        // span the one-tap answer judges, so a habit edited 4 days ago is not
+        // credited with the days before the edit.
         checkInsInWindow: completed
             .where(
               (HabitOccurrenceEntity item) =>
@@ -348,10 +375,19 @@ List<SIV2HabitEvidence> _habitEvidence(
                   !item.recordedAt.isAfter(observedAt),
             )
             .length,
+        checkInsSinceTracked: completed
+            .where(
+              (HabitOccurrenceEntity item) =>
+                  _inCurrentFrequency(habit, item.occurrenceKey) &&
+                  !item.recordedAt.isBefore(windowStart) &&
+                  !item.recordedAt.isBefore(trackedSince) &&
+                  !item.recordedAt.isAfter(observedAt),
+            )
+            .length,
         currentStreak: streak,
         checkedInThisPeriod: checkedIn,
         windowDays: _recentWindowDays,
-        trackedSince: (habit.frequencyStartedAt ?? habit.createdAt).toUtc(),
+        trackedSince: trackedSince,
       ),
     );
   }
@@ -366,10 +402,8 @@ List<SIV2RecentTaskEvidence> _recentTaskEvidence(
   List<TaskEntity> tasks,
   DateTime observedAt,
 ) {
-  final DateTime windowStart = observedAt.subtract(
-    const Duration(days: _recentWindowDays),
-  );
-  final DateTime windowEnd = observedAt.add(const Duration(days: 1));
+  final DateTime windowStart = _daysBefore(observedAt, _recentWindowDays);
+  final DateTime windowEnd = _daysBefore(observedAt, -1);
   final List<SIV2RecentTaskEvidence> result = <SIV2RecentTaskEvidence>[];
   for (final TaskEntity task in tasks) {
     if (task.isCanceled || task.title.trim().isEmpty) continue;

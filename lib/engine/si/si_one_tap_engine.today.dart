@@ -125,7 +125,7 @@ extension _TodayQuestions on _Run {
     if (isEmptyAccount) {
       return empty('show as coming up', 'mostrar como próximo');
     }
-    final DateTime end = today.add(const Duration(days: 8));
+    final DateTime end = oneTapAddDays(today, 8);
     bool inRange(DateTime day) => !day.isBefore(today) && day.isBefore(end);
     final Set<String> taskIds = tasks.map((SIV2TaskEvidence t) => t.id).toSet();
     final List<({DateTime day, String text, String id})> items =
@@ -153,7 +153,14 @@ extension _TodayQuestions on _Run {
         continue;
       }
       final DateTime day = dayOf(due);
-      if (inRange(day) && !due.toLocal().isBefore(now)) {
+      // A time of exactly midnight means a whole day: it stays for that day.
+      final DateTime at = due.toLocal();
+      final bool wholeDay =
+          at.hour == 0 &&
+          at.minute == 0 &&
+          at.second == 0 &&
+          at.millisecond == 0;
+      if (inRange(day) && (wholeDay || !at.isBefore(now))) {
         items.add((
           day: day,
           text: '"${event.title}" · ${dateLabel(day)}',
@@ -277,7 +284,8 @@ extension _TodayQuestions on _Run {
         (SIV2HabitEvidence h) =>
             h.cadence != HabitCadence.monthly &&
             h.checkInsInWindow == 0 &&
-            now.difference(h.trackedSince.toLocal()).inDays >= _habitWindowDays,
+            oneTapDaysBetween(h.trackedSince.toLocal(), now) >=
+                _habitWindowDays,
       )
       .toList(growable: false);
 

@@ -526,15 +526,19 @@ void main() {
   testWidgets('a question waiting for another account is dropped', (
     tester,
   ) async {
-    final container = _container(kind: 'late');
+    AccountStorageScope current = scope;
+    final container = _container(kind: 'late', readScope: () => current);
     addTearDown(() => _dispose(tester, container));
     container
         .read(siOneTapRequestProvider.notifier)
         .ask(SIOneTapQuestion.planMyDay);
     expect(container.read(siOneTapRequestProvider), isNotNull);
-    // A request is account scoped state: it starts empty when rebuilt.
-    container.invalidate(siOneTapRequestProvider);
+    // The account changes before Chat takes the question.
+    current = AccountStorageScope.authenticated('another-account');
+    container.invalidate(accountStorageScopeProvider);
     expect(container.read(siOneTapRequestProvider), isNull);
+    await _pump(tester, container);
+    expect(find.byKey(const Key('si-v2-response')), findsNothing);
   });
 
   for (final String language in <String>['en', 'es']) {
@@ -721,10 +725,112 @@ void main() {
       tester.widget<TextField>(find.byKey(_aiInput)).controller!.text,
       'my own words',
     );
+    expect(paid.calls, 0);
+  });
+
+  testWidgets(
+    'a Today question in AI chat that is not busy answers on the device',
+    (tester) async {
+      final _Paid paid = _Paid();
+      final container = _container(ai: true, onDevice: false, paid: paid);
+      addTearDown(() => _dispose(tester, container));
+      await _pump(tester, container);
+      await waitForChatReady(tester);
+      container
+          .read(siOneTapRequestProvider.notifier)
+          .ask(SIOneTapQuestion.planMyDay);
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byKey(_localInput), findsOneWidget);
+      expect(find.byKey(const Key('si-v2-response')), findsOneWidget);
+      expect(container.read(siOneTapRequestProvider), isNull);
+      expect(paid.calls, 0);
+    },
+  );
+
+  testWidgets('Ask AI after a Today question keeps what was typed in AI chat', (
+    tester,
+  ) async {
+    final _Paid paid = _Paid();
+    final container = _container(ai: true, onDevice: false, paid: paid);
+    addTearDown(() => _dispose(tester, container));
+    await _pump(tester, container);
+    await enterChatText(tester, 'words typed in AI chat');
+    // The person goes to Today and taps a question; Chat answers it for free.
+    container
+        .read(siOneTapRequestProvider.notifier)
+        .ask(SIOneTapQuestion.reachGoal);
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byKey(_localInput), findsOneWidget);
+    final Finder askAi = find.byKey(const Key('one-tap-ask-ai'));
+    await _reveal(tester, askAi);
+    await tester.tap(askAi);
+    await tester.pumpAndSettle();
+    await waitForChatReady(tester);
+    expect(
+      tester.widget<TextField>(find.byKey(_aiInput)).controller!.text,
+      'words typed in AI chat',
+    );
     expect(
       find.text('Your message was kept. The question was not added.'),
       findsOneWidget,
     );
     expect(paid.calls, 0);
   });
+
+  testWidgets('a draft in the free input is not overwritten by the quick row', (
+    tester,
+  ) async {
+    final container = _container(ai: true, onDevice: true);
+    addTearDown(() => _dispose(tester, container));
+    await _pump(tester, container);
+    await tester.enterText(find.byKey(_localInput), 'free draft');
+    // Over to AI chat: the draft goes along. Then different words there.
+    await tester.tap(find.byKey(const Key('assistant-mode-ai')));
+    await tester.pumpAndSettle();
+    await waitForChatReady(tester);
+    await tester.enterText(find.byKey(_aiInput), 'different words');
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('one-tap-row-scroll')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await _ask(tester, SIOneTapQuestion.whatsComingUp);
+    // Both are still there, neither replaced.
+    final String free = tester
+        .widget<TextField>(find.byKey(_localInput))
+        .controller!
+        .text;
+    expect(free, contains('free draft'));
+    expect(free, contains('different words'));
+  });
+
+  testWidgets(
+    'a Today question that arrives during a typed answer is asked after it',
+    (tester) async {
+      final Completer<List<TaskEntity>> gate = Completer<List<TaskEntity>>();
+      final container = _container(slowTasks: () => gate.future);
+      addTearDown(() => _dispose(tester, container));
+      await _pump(tester, container);
+      await tester.enterText(find.byKey(_localInput), 'What should I do next?');
+      await tester.tap(find.byIcon(Icons.send_rounded));
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      container
+          .read(siOneTapRequestProvider.notifier)
+          .ask(SIOneTapQuestion.whatsComingUp);
+      await tester.pump();
+      expect(container.read(siOneTapRequestProvider), isNotNull);
+      gate.complete(<TaskEntity>[]);
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(container.read(siOneTapRequestProvider), isNull);
+      expect(find.byKey(const Key('one-tap-free-line')), findsOneWidget);
+    },
+  );
 }

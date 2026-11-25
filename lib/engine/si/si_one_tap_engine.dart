@@ -42,6 +42,20 @@ final class SIOneTapEngine {
   }
 }
 
+/// Whole calendar days from [from] to [to] (negative when [to] is earlier),
+/// counted on calendar fields: a day with 23 or 25 hours where the clocks
+/// change is still one day.
+int oneTapDaysBetween(DateTime from, DateTime to) => DateTime.utc(
+  to.year,
+  to.month,
+  to.day,
+).difference(DateTime.utc(from.year, from.month, from.day)).inDays;
+
+/// The local calendar day [days] after [day] (before when negative), at local
+/// midnight, built from calendar fields.
+DateTime oneTapAddDays(DateTime day, int days) =>
+    DateTime(day.year, day.month, day.day + days);
+
 /// The kinds of saved information a question reads. "Covered" in the answer's
 /// certainty counts the kinds that had records.
 enum _Signal { tasks, goals, milestones, timeline, habits, recent }
@@ -207,7 +221,7 @@ final class _Run {
     return planned;
   }
 
-  int daysFromToday(DateTime day) => day.difference(today).inDays;
+  int daysFromToday(DateTime day) => oneTapDaysBetween(today, day);
 
   String dateLabel(DateTime day) {
     const List<String> en = <String>[

@@ -166,7 +166,7 @@ extension _GoalAndRoutineQuestions on _Run {
   /// habit is monthly. Counted from when the frequency began: a habit whose
   /// frequency was edited is not judged against the old one.
   int? _periods(SIV2HabitEvidence habit) {
-    final int days = now.difference(habit.trackedSince.toLocal()).inDays + 1;
+    final int days = oneTapDaysBetween(habit.trackedSince.toLocal(), now) + 1;
     final int span = days < habit.windowDays ? days : habit.windowDays;
     return switch (habit.cadence) {
       HabitCadence.daily => span >= 3 ? span : null,
@@ -179,9 +179,9 @@ extension _GoalAndRoutineQuestions on _Run {
   /// is set to, so check-ins are counted in periods.
   int _checked(SIV2HabitEvidence h) {
     final int? periods = _periods(h);
-    return periods != null && h.checkInsInWindow > periods
+    return periods != null && h.checkInsSinceTracked > periods
         ? periods
-        : h.checkInsInWindow;
+        : h.checkInsSinceTracked;
   }
 
   String _habitLine(SIV2HabitEvidence h) {
@@ -283,8 +283,8 @@ extension _GoalAndRoutineQuestions on _Run {
       final SIV2HabitEvidence most = judged.first;
       final SIV2HabitEvidence fewest = judged.last;
       recommendation = t(
-        'The records show the most check-ins on "${most.title}" (${_checked(most)} of ${_periods(most)}) and the fewest on "${fewest.title}" (${_checked(fewest)} of ${_periods(fewest)}). Whether and how to change a habit is up to you. $unchanged',
-        'Los registros muestran la mayor cantidad en "${most.title}" (${_checked(most)} de ${_periods(most)}) y la menor en "${fewest.title}" (${_checked(fewest)} de ${_periods(fewest)}). Si cambiar un hábito y cómo, lo decides tú. $unchanged',
+        'The records show the highest share of check-ins on "${most.title}" (${_checked(most)} of ${_periods(most)}) and the lowest on "${fewest.title}" (${_checked(fewest)} of ${_periods(fewest)}). Whether and how to change a habit is up to you. $unchanged',
+        'Los registros muestran la mayor proporción de registros en "${most.title}" (${_checked(most)} de ${_periods(most)}) y la menor en "${fewest.title}" (${_checked(fewest)} de ${_periods(fewest)}). Si cambiar un hábito y cómo, lo decides tú. $unchanged',
       );
     }
     return finish(

@@ -122,6 +122,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   bool _aiBusy = false;
   String _aiDraft = '';
   int _aiDraftRevision = 0;
+  // The draft is a suggested question, which must not replace typed words.
+  bool _aiDraftIsSuggestion = false;
   final List<_Msg> _messages = [];
   final TextEditingController _input = TextEditingController();
   final TextEditingController _entityFilter = TextEditingController();
@@ -218,8 +220,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       duration: const Duration(milliseconds: 900),
     );
     // A question tapped on Today may be waiting for this screen.
+    // Two frames, so AI chat has reported a request it is collecting first.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _takeOneTapRequest(ref.read(siOneTapRequestProvider));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _takeOneTapRequest(ref.read(siOneTapRequestProvider));
+      });
     });
   }
 
@@ -729,6 +734,13 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         );
       });
       _scrollToBottom();
+    } finally {
+      // A question from Today that waited for this answer is asked now.
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _takeOneTapRequest(ref.read(siOneTapRequestProvider));
+        });
+      }
     }
   }
 
@@ -778,28 +790,31 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     );
   }
 
+  /// Brings words typed in AI chat to the free input without replacing a
+  /// draft already there.
+  void _carryTyped(String typed) {
+    if (typed.isEmpty) return;
+    final String own = _input.text.trim();
+    if (own.isEmpty || typed.contains(own)) {
+      _input.text = typed;
+    } else if (!own.contains(typed)) {
+      _input.text = '$own${String.fromCharCode(10)}$typed';
+    }
+  }
+
   /// Hands the question to AI chat as a draft. The person still has to look at
   /// the price and confirm the send there.
   void _askAiAbout(SIOneTapQuestion question) {
     final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
-    // A message the person already typed is never replaced by the question.
+    // What the person typed here goes along as a suggestion, otherwise the
+    // question does. AI chat never replaces a message typed in its own box.
     final String typed = _input.text.trim();
     setState(() {
       _aiDraft = typed.isEmpty ? question.label(isSpanish: isSpanish) : typed;
+      _aiDraftIsSuggestion = true;
       _aiDraftRevision++;
       _aiUpdate = false;
     });
-    if (typed.isNotEmpty) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          content: Text(
-            isSpanish
-                ? 'Se conservó tu mensaje. La pregunta no se añadió.'
-                : 'Your message was kept. The question was not added.',
-          ),
-        ),
-      );
-    }
     _chooseMode(onDevice: false);
   }
 
@@ -1009,13 +1024,15 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                       if (mounted) setState(() => _aiBusy = busy);
                     },
                     onQuickQuestion: (SIOneTapQuestion question, String typed) {
-                      // What was typed in AI chat goes with the person.
-                      if (typed.isNotEmpty) _input.text = typed;
+                      // What was typed in AI chat goes with the person; a draft
+                      // already here is kept and the two are joined.
+                      _carryTyped(typed);
                       _chooseMode(onDevice: true);
                       unawaited(_askOneTap(question));
                     },
                     incomingDraft: _aiDraft,
                     incomingDraftRevision: _aiDraftRevision,
+                    incomingDraftIsSuggestion: _aiDraftIsSuggestion,
                     onLocalTools: () => _chooseMode(onDevice: true),
                     onLocalToolsWithDraft: (String draft) {
                       _input.text = draft;
@@ -1147,6 +1164,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                           onChooseAi: () {
                             setState(() {
                               _aiDraft = _input.text.trim();
+                              _aiDraftIsSuggestion = false;
                               _aiDraftRevision++;
                               _aiUpdate = false;
                             });

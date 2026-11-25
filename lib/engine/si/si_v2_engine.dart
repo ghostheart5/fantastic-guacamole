@@ -184,7 +184,13 @@ final class SIV2Engine {
           (SIV2MilestoneEvidence item) =>
               !item.completed &&
               item.targetDate != null &&
-              item.targetDate!.toUtc().isBefore(observedNow),
+              (item.targetDay != null
+                  ? DateTime.utc(
+                      item.targetDay!.year,
+                      item.targetDay!.month,
+                      item.targetDay!.day,
+                    ).isBefore(_localDay(observedNow))
+                  : item.targetDate!.toUtc().isBefore(observedNow)),
         )
         .length;
     final List<SIV2Statement> calculations = <SIV2Statement>[
@@ -1029,8 +1035,7 @@ final class SIV2Engine {
         return '$totalMatched evidence items matched, but none contains a task-level next action.';
       case _SIV2QuestionFocus.urgency:
         if (focusTask != null) {
-          final DateTime? date = focusTask.dueDate ?? focusTask.scheduledFor;
-          return '"${focusTask.title}" has the strongest urgency signal: priority ${focusTask.priority}/5 and ${_timingLabel(date, now)}.';
+          return '"${focusTask.title}" has the strongest urgency signal: priority ${focusTask.priority}/5 and ${_taskTiming(focusTask, now)}.';
         }
         if (goals.length >= 2 && question.sourceHint != SIV2Source.milestones) {
           return _comparisonAnswer(
@@ -1042,10 +1047,10 @@ final class SIV2Engine {
           );
         }
         if (focusGoal != null) {
-          return 'Goal "${focusGoal.title}" has the strongest available urgency signal with ${_goalTargetLabel(focusGoal.targetDate, now)}.';
+          return 'Goal "${focusGoal.title}" has the strongest available urgency signal with ${_goalTargetLabel(focusGoal.targetDate, now, wholeDay: focusGoal.targetDay)}.';
         }
         if (focusMilestone != null) {
-          return 'Milestone "${focusMilestone.title}" has the strongest available urgency signal with ${_targetLabel(focusMilestone.targetDate, now)}.';
+          return 'Milestone "${focusMilestone.title}" has the strongest available urgency signal with ${_targetLabel(focusMilestone.targetDate, now, wholeDay: focusMilestone.targetDay)}.';
         }
         return 'The current evidence has no recorded date or priority signal that can answer which item is urgent.';
       case _SIV2QuestionFocus.workload:
@@ -1105,7 +1110,7 @@ final class SIV2Engine {
         return 'No task-to-goal or milestone-to-goal link in the selected information answers the alignment question.';
       case _SIV2QuestionFocus.schedule:
         if (focusTask != null) {
-          return 'The relevant saved task is "${focusTask.title}", with ${_timingLabel(focusTask.dueDate ?? focusTask.scheduledFor, now)}.';
+          return 'The relevant saved task is "${focusTask.title}", with ${_taskTiming(focusTask, now)}.';
         }
         if (focusTimeline != null) {
           return 'The relevant Schedule record is "${focusTimeline.title}" from ${_dateLabel(focusTimeline.timestamp)} with status "${focusTimeline.status}".';
@@ -1141,7 +1146,7 @@ final class SIV2Engine {
               focusTask.dueDate ?? focusTask.scheduledFor;
           final timing = savedTime == null
               ? 'no saved due or scheduled time is available for this task'
-              : 'its saved timing is ${_timingLabel(savedTime, now)}';
+              : 'its saved timing is ${_taskTiming(focusTask, now)}';
           final userDateLimit = savedTime == null
               ? ' A date supplied only in your question is not a saved task date.'
               : '';
@@ -1199,7 +1204,7 @@ final class SIV2Engine {
               '${titles.length > 20 ? '\nShowing the first 20; select fewer saved records to inspect the rest.' : ''}';
         }
         if (focusTask != null && question.titleScore(focusTask.title) > 0) {
-          return 'Your question most closely matches saved task "${focusTask.title}", recorded at priority ${focusTask.priority}/5 with ${_timingLabel(focusTask.dueDate ?? focusTask.scheduledFor, now)}.';
+          return 'Your question most closely matches saved task "${focusTask.title}", recorded at priority ${focusTask.priority}/5 with ${_taskTiming(focusTask, now)}.';
         }
         return '$totalMatched evidence item${totalMatched == 1 ? '' : 's'} matched. Ask about the next action, urgency, workload, progress, schedule, goal alignment, conflicts, or a named saved item for a more specific answer.';
       case _SIV2QuestionFocus.unsupported:
@@ -1405,7 +1410,7 @@ final class SIV2Engine {
         });
       final SIV2TaskEvidence first = ranked[0];
       final SIV2TaskEvidence second = ranked[1];
-      return '"${first.title}" ranks ahead of "${second.title}" for this question: ${_timingLabel(first.dueDate ?? first.scheduledFor, now)}, priority ${first.priority}/5, versus ${_timingLabel(second.dueDate ?? second.scheduledFor, now)}, priority ${second.priority}/5.';
+      return '"${first.title}" ranks ahead of "${second.title}" for this question: ${_taskTiming(first, now)}, priority ${first.priority}/5, versus ${_taskTiming(second, now)}, priority ${second.priority}/5.';
     }
     if (question.sourceHint == SIV2Source.milestones) {
       if (milestones.length < 2) {
@@ -1434,12 +1439,12 @@ final class SIV2Engine {
     final SIV2GoalEvidence first = ranked[0];
     final SIV2GoalEvidence second = ranked[1];
     if (question.titleScore(first.title) != question.titleScore(second.title)) {
-      return '"${first.title}" ranks ahead of "${second.title}" because its title more closely matches this question. Recorded targets: ${_goalTargetLabel(first.targetDate, now)} versus ${_goalTargetLabel(second.targetDate, now)}; dates did not decide this ordering.';
+      return '"${first.title}" ranks ahead of "${second.title}" because its title more closely matches this question. Recorded targets: ${_goalTargetLabel(first.targetDate, now, wholeDay: first.targetDay)} versus ${_goalTargetLabel(second.targetDate, now, wholeDay: second.targetDay)}; dates did not decide this ordering.';
     }
     if (_compareGoalTargets(first.targetDate, second.targetDate) != 0) {
-      return '"${first.title}" ranks ahead of "${second.title}" because title relevance is tied and its recorded target is ${_goalTargetLabel(first.targetDate, now)} versus ${_goalTargetLabel(second.targetDate, now)}.';
+      return '"${first.title}" ranks ahead of "${second.title}" because title relevance is tied and its recorded target is ${_goalTargetLabel(first.targetDate, now, wholeDay: first.targetDay)} versus ${_goalTargetLabel(second.targetDate, now, wholeDay: second.targetDay)}.';
     }
-    return '"${first.title}" and "${second.title}" are tied on title relevance and recorded targets (${_goalTargetLabel(first.targetDate, now)}). These signals do not establish a higher priority for either goal.';
+    return '"${first.title}" and "${second.title}" are tied on title relevance and recorded targets (${_goalTargetLabel(first.targetDate, now, wholeDay: first.targetDay)}). These signals do not establish a higher priority for either goal.';
   }
 
   SIV2Conflict? _relevantConflict(
@@ -1484,8 +1489,29 @@ final class SIV2Engine {
         (milestone != null && question.titleScore(milestone.title) > 0);
   }
 
-  String _timingLabel(DateTime? date, DateTime now) {
+  /// A task's due or planned time. A deadline saved as a whole day is judged
+  /// by its calendar day, so one reply never says a task is not overdue and
+  /// "now past" at once.
+  String _taskTiming(SIV2TaskEvidence task, DateTime now) => _timingLabel(
+    task.dueDate ?? task.scheduledFor,
+    now,
+    wholeDay: task.dueDate != null ? task.dueDay : null,
+  );
+
+  String _wholeDayLabel(DateTime day) =>
+      '${day.year.toString().padLeft(4, '0')}-'
+      '${day.month.toString().padLeft(2, '0')}-'
+      '${day.day.toString().padLeft(2, '0')}';
+
+  bool _wholeDayPast(DateTime day, DateTime now) =>
+      DateTime.utc(day.year, day.month, day.day).isBefore(_localDay(now));
+
+  String _timingLabel(DateTime? date, DateTime now, {DateTime? wholeDay}) {
     if (date == null) return 'no saved due or scheduled date';
+    if (wholeDay != null) {
+      final String label = 'recorded date ${_wholeDayLabel(wholeDay)}';
+      return _wholeDayPast(wholeDay, now) ? '$label, now past' : label;
+    }
     final bool dateOnly =
         date.hour == 0 &&
         date.minute == 0 &&
@@ -1499,8 +1525,12 @@ final class SIV2Engine {
     return 'recorded date ${_dateLabel(date)}';
   }
 
-  String _targetLabel(DateTime? date, DateTime now) {
+  String _targetLabel(DateTime? date, DateTime now, {DateTime? wholeDay}) {
     if (date == null) return 'no saved target date';
+    if (wholeDay != null) {
+      final String label = 'target ${_wholeDayLabel(wholeDay)}';
+      return _wholeDayPast(wholeDay, now) ? '$label, now past' : label;
+    }
     final DateTime utc = date.toUtc();
     return utc.isBefore(now)
         ? 'target ${_dateLabel(utc)}, now past'
@@ -1527,9 +1557,11 @@ final class SIV2Engine {
     return _localDay(left).compareTo(_localDay(right));
   }
 
-  String _goalTargetLabel(DateTime? date, DateTime now) {
+  String _goalTargetLabel(DateTime? date, DateTime now, {DateTime? wholeDay}) {
     if (date == null) return 'no saved target date';
-    final day = _localDay(date);
+    final day = wholeDay != null
+        ? DateTime.utc(wholeDay.year, wholeDay.month, wholeDay.day)
+        : _localDay(date);
     final order = day.compareTo(_localDay(now));
     final suffix = order < 0 ? ', now past' : (order == 0 ? ', due today' : '');
     return 'target ${_dateLabel(day)}$suffix';

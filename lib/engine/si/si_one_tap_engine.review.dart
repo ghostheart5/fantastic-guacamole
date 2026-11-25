@@ -51,13 +51,13 @@ extension _PatternAndWeekQuestions on _Run {
     for (final SIV2HabitEvidence h in snapshot.habits.take(3)) {
       fact(_habitLine(h), <String>[habitLink(h)]);
     }
-    final bool enough = recent.length >= _patternMinimum;
+    final bool enough = done.length >= _patternMinimum;
     String direct;
     if (!enough) {
       missing(
         t(
-          'Only ${count(recent.length, 'finished or skipped task', 'finished or skipped tasks', 'tarea terminada u omitida', 'tareas terminadas u omitidas')} in the last 14 days; at least $_patternMinimum are needed to show a pattern.',
-          'Solo ${count(recent.length, 'tarea terminada u omitida', 'tareas terminadas u omitidas', 'tarea terminada u omitida', 'tareas terminadas u omitidas')} en los últimos 14 días; hacen falta al menos $_patternMinimum para ver un patrón.',
+          'Only ${count(done.length, 'finished task', 'finished tasks', 'tarea terminada', 'tareas terminadas')} in the last 14 days; at least $_patternMinimum are needed to show a pattern.',
+          'Solo ${count(done.length, 'tarea terminada', 'tareas terminadas', 'tarea terminada', 'tareas terminadas')} en los últimos 14 días; hacen falta al menos $_patternMinimum para ver un patrón.',
         ),
       );
       direct = t(
@@ -70,7 +70,9 @@ extension _PatternAndWeekQuestions on _Run {
       for (final SIV2RecentTaskEvidence r in done) {
         final DateTime at = r.at.toLocal();
         byDay.update(at.weekday, (int v) => v + 1, ifAbsent: () => 1);
-        final String part = at.hour < 12
+        final String part = at.hour < 6
+            ? 'night'
+            : at.hour < 12
             ? 'morning'
             : at.hour < 17
             ? 'afternoon'
@@ -109,11 +111,17 @@ extension _PatternAndWeekQuestions on _Run {
           (a, b) => b.value > a.value ? b : a,
         );
         if (part.value >= 3 && part.value * 2 > done.length) {
-          final String en = part.key;
+          final String en = switch (part.key) {
+            'night' => 'night (midnight to 5:59)',
+            'morning' => 'morning (6:00 to 11:59)',
+            'afternoon' => 'afternoon (12:00 to 16:59)',
+            _ => 'evening (17:00 to 23:59)',
+          };
           final String es = switch (part.key) {
-            'morning' => 'por la mañana',
-            'afternoon' => 'por la tarde',
-            _ => 'por la noche',
+            'night' => 'de madrugada (de 0:00 a 5:59)',
+            'morning' => 'por la mañana (de 6:00 a 11:59)',
+            'afternoon' => 'por la tarde (de 12:00 a 16:59)',
+            _ => 'por la noche (de 17:00 a 23:59)',
           };
           calc(
             t(
@@ -182,8 +190,8 @@ extension _PatternAndWeekQuestions on _Run {
     if (isEmptyAccount) {
       return empty('review for your week', 'revisar en tu semana');
     }
-    final DateTime weekStart = today.subtract(const Duration(days: 6));
-    final DateTime prevStart = today.subtract(const Duration(days: 13));
+    final DateTime weekStart = oneTapAddDays(today, -6);
+    final DateTime prevStart = oneTapAddDays(today, -13);
     int doneThis = 0;
     int skippedThis = 0;
     int donePrev = 0;
@@ -206,7 +214,7 @@ extension _PatternAndWeekQuestions on _Run {
       final DateTime? day = taskDay(task);
       return day != null &&
           !day.isBefore(today) &&
-          day.isBefore(today.add(const Duration(days: 8)));
+          day.isBefore(oneTapAddDays(today, 8));
     }).length;
     final int habitCheckIns = snapshot.habits.fold(
       0,
@@ -215,7 +223,7 @@ extension _PatternAndWeekQuestions on _Run {
     fact(
       t(
         'In the last 7 days, ${count(doneThis, 'task was', 'tasks were', 'tarea se terminó', 'tareas se terminaron')} finished and $skippedThis skipped.',
-        'En los últimos 7 días se ${doneThis == 1 ? 'terminó' : 'terminaron'} $doneThis ${doneThis == 1 ? 'tarea' : 'tareas'} y se omitieron $skippedThis.',
+        'En los últimos 7 días se ${doneThis == 1 ? 'terminó' : 'terminaron'} $doneThis ${doneThis == 1 ? 'tarea' : 'tareas'} y ${skippedThis == 1 ? 'se omitió' : 'se omitieron'} $skippedThis.',
       ),
       <String>[recentGroup],
     );
@@ -271,7 +279,7 @@ extension _PatternAndWeekQuestions on _Run {
             )
           : t(
               'This week, $doneThis ${doneThis == 1 ? 'task was' : 'tasks were'} finished and $skippedThis skipped: $trend ($donePrev).',
-              'Esta semana se ${doneThis == 1 ? 'terminó' : 'terminaron'} $doneThis ${doneThis == 1 ? 'tarea' : 'tareas'} y se omitieron $skippedThis: $trend ($donePrev).',
+              'Esta semana se ${doneThis == 1 ? 'terminó' : 'terminaron'} $doneThis ${doneThis == 1 ? 'tarea' : 'tareas'} y ${skippedThis == 1 ? 'se omitió' : 'se omitieron'} $skippedThis: $trend ($donePrev).',
             ),
       recommendation: overdue > 0
           ? t(
