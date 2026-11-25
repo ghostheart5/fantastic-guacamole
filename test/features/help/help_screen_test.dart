@@ -129,22 +129,134 @@ void main() {
 
   group('topics', () {
     test('every contextual hint has a Help topic, except the one whose text '
-        'is about its own button', () {
+        'is about its own button; wording tied to the screen of the hint is '
+        'replaced', () {
+      // These hints say "here" or "these settings", or name only part of a
+      // rule, so Help words them to stand on their own.
+      const Set<GuidanceLessonId> reworded = <GuidanceLessonId>{
+        GuidanceLessonId.habits,
+        GuidanceLessonId.goals,
+        GuidanceLessonId.notificationSettings,
+      };
       for (final GuidanceHint hint in GuidanceCatalogue.hints) {
-        final bool listed = HelpTopics.all.any(
-          (HelpTopic topic) =>
-              topic.title.en == hint.title.en &&
-              topic.body.en == hint.body.en &&
-              topic.title.es == hint.title.es &&
-              topic.body.es == hint.body.es,
+        final Iterable<HelpTopic> topics = HelpTopics.all.where(
+          (HelpTopic topic) => topic.id == 'hint-${hint.id.name}',
         );
-        expect(
-          listed,
-          hint.id != GuidanceLessonId.remindersOff,
-          reason: hint.id.name,
-        );
+        if (hint.id == GuidanceLessonId.remindersOff) {
+          expect(topics, isEmpty);
+          continue;
+        }
+        expect(topics, hasLength(1), reason: hint.id.name);
+        final HelpTopic topic = topics.single;
+        final bool same =
+            topic.title.en == hint.title.en &&
+            topic.title.es == hint.title.es &&
+            topic.body.en == hint.body.en &&
+            topic.body.es == hint.body.es;
+        expect(same, !reworded.contains(hint.id), reason: hint.id.name);
       }
     });
+
+    test('no topic points at "here" or "these", which only make sense on '
+        'the screen itself', () {
+      final RegExp english = RegExp(r'\b(here|these|this screen)\b');
+      final RegExp spanish = RegExp(
+        r'(^|[^\p{L}])(aquí|estos|estas|esta pantalla)([^\p{L}]|$)',
+        unicode: true,
+        caseSensitive: false,
+      );
+      for (final HelpTopic topic in HelpTopics.all) {
+        for (final GuidanceText? text in <GuidanceText?>[
+          topic.title,
+          topic.body,
+          topic.whereToTap,
+        ]) {
+          if (text == null) continue;
+          expect(
+            english.hasMatch(text.en.toLowerCase()),
+            isFalse,
+            reason: text.en,
+          );
+          expect(spanish.hasMatch(text.es), isFalse, reason: text.es);
+        }
+      }
+    });
+
+    test('the suggested-step hint on Today says where its reasons are', () {
+      final HelpTopic topic = HelpTopics.all.singleWhere(
+        (HelpTopic topic) => topic.id == 'hint-nexus',
+      );
+      expect(topic.whereToTap?.en, 'On Today, tap Review my day in detail.');
+      expect(topic.whereToTap?.es, 'En Hoy, toca Revisar mi día en detalle.');
+    });
+
+    test(
+      'reminder topics state the rules Settings shows, in both languages',
+      () {
+        String text(String id, bool es) {
+          final HelpTopic topic = HelpTopics.all.singleWhere(
+            (HelpTopic topic) => topic.id == id,
+          );
+          return topic.body.of(spanish: es);
+        }
+
+        for (final bool es in <bool>[false, true]) {
+          final String tasks = text('task-reminders', es);
+          final String goals = text('goal-habit-reminders', es);
+          final String late = text('late-reminders', es);
+          final String missing = text('reminders-not-arriving', es);
+          // The Task reminder time setting moves the reminder earlier, and
+          // Overdue nudges add one the day after.
+          expect(
+            tasks,
+            contains(
+              es ? 'Hora del recordatorio de tareas' : 'Task reminder time',
+            ),
+          );
+          expect(tasks, contains(es ? 'Avisos de vencidos' : 'Overdue nudges'));
+          expect(tasks, contains(es ? '9:00' : '9 AM'));
+          expect(tasks, contains('20'));
+          // Goals: 9 AM slots, 6 PM same day, overdue, "almost there".
+          expect(goals, contains(es ? 'tres días antes' : 'three days before'));
+          expect(goals, contains(es ? '18:00' : '6 PM'));
+          expect(goals, contains(es ? 'Avisos de vencidos' : 'Overdue nudges'));
+          expect(goals, contains(es ? 'ya casi' : 'almost there'));
+          expect(
+            goals,
+            contains(es ? 'sin hora no avisan' : 'without a time stays quiet'),
+          );
+          expect(
+            late,
+            contains(es ? 'varios minutos tarde' : 'several minutes late'),
+          );
+          expect(late, contains(es ? 'horas de silencio' : 'quiet hours'));
+          // Every switch that can silence a reminder is named as Settings
+          // names it.
+          for (final String label
+              in es
+                  ? <String>[
+                      'Recordatorios de tareas',
+                      'Recordatorios de metas',
+                      'Recordatorios de ritmos',
+                    ]
+                  : <String>[
+                      'Task Reminders',
+                      'Goal Reminders',
+                      'Habit Reminders',
+                    ]) {
+            expect(missing, contains(label));
+          }
+          expect(
+            missing,
+            contains(
+              es
+                  ? 'sin hora de recordatorio no avisan'
+                  : 'without a reminder time stays quiet',
+            ),
+          );
+        }
+      },
+    );
 
     test('topics written for Help cover the main screens, reminders and '
         'the guide in both languages', () {
@@ -161,7 +273,10 @@ void main() {
           'What Insights is for',
           'What Chat is for',
           'What Notifications settings are for',
-          'How reminders work',
+          'How task reminders work',
+          'How goal and habit reminders work',
+          'Why a reminder can come late',
+          'If reminders do not arrive',
           'Turn the guide back on',
         ]),
       );
@@ -286,8 +401,8 @@ void main() {
       expect(
         topicTitle(
           const GuidanceText(
-            'How reminders work',
-            'Cómo funcionan los recordatorios',
+            'Why a reminder can come late',
+            'Por qué un recordatorio puede llegar tarde',
           ),
           es,
         ),

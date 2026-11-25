@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:fantastic_guacamole/features/help/ui/help_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
@@ -191,6 +192,41 @@ void main() {
     await tester.tap(find.text('Save with reminder'));
     await _settle(tester);
     expect(find.byKey(_card), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Help opened over a screen with a hint waiting draws no hint '
+      'card and marks nothing seen', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues(_existingUser);
+    final GoRouter router = await _pumpApp(tester);
+    router.go(RoutePaths.settings);
+    await _settle(tester);
+    final Set<String> before = (await SharedPreferences.getInstance())
+        .getKeys();
+
+    // The Notifications area opens underneath as Help opens on top.
+    await tester.tap(find.text('Open notifications under help'));
+    await _settle(tester);
+    expect(find.byType(HelpScreen), findsOneWidget);
+    expect(find.byKey(_card), findsNothing);
+    expect(await _seen(GuidanceLessonId.notificationSettings), isNull);
+
+    // Reading and searching Help, including the topic about the same
+    // settings, changes nothing.
+    await tester.enterText(find.byType(TextField), 'quiet hours');
+    await _settle(tester);
+    expect(find.byKey(_card), findsNothing);
+    expect(await _seen(GuidanceLessonId.notificationSettings), isNull);
+    expect((await SharedPreferences.getInstance()).getKeys(), before);
+
+    // The hint really was waiting: it appears once Help is closed.
+    await tester.tap(find.byType(BackButton));
+    await _settle(tester);
+    expect(find.byType(HelpScreen), findsNothing);
+    expect(
+      _cardText(GuidanceCatalogue.notificationSettings.title.en),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -407,6 +443,13 @@ class _SettingsPageState extends State<_SettingsPage> {
         TextButton(
           onPressed: () => setState(() => _open = !_open),
           child: const Text('Toggle notifications'),
+        ),
+        TextButton(
+          onPressed: () {
+            setState(() => _open = true);
+            openHelpScreen(context);
+          },
+          child: const Text('Open notifications under help'),
         ),
         if (_open)
           const GuideHintPlace(

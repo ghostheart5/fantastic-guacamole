@@ -84,23 +84,35 @@ const GuidanceText _openHabits = GuidanceText(
   'Para abrir Hábitos, ve a Hoy y toca Registrar un hábito.',
 );
 
-/// The Help topic for a contextual hint: its title and plain text, where it
-/// appears and how to get there. Null for a hint Help does not list.
+/// The Help topic for a contextual hint: where it appears and how to get
+/// there, with the hint's title and plain text unless [title] or [body] give
+/// wording that stands on its own away from the hint's screen. Null for a
+/// hint Help does not list.
 HelpTopic? _hintTopic(GuidanceHint hint) {
   HelpTopic topic({
     required GuidanceText place,
     AppView? showMe,
     GuidanceText? whereToTap,
+    GuidanceText? title,
+    GuidanceText? body,
   }) => HelpTopic(
     id: 'hint-${hint.id.name}',
-    title: hint.title,
-    body: hint.body,
+    title: title ?? hint.title,
+    body: body ?? hint.body,
     place: place,
     whereToTap: whereToTap,
     showMe: showMe,
   );
   return switch (hint.id) {
-    GuidanceLessonId.nexus => topic(place: _today, showMe: AppView.nexus),
+    // The suggested step and its reasons are on the detailed view of Today.
+    GuidanceLessonId.nexus => topic(
+      place: _today,
+      showMe: AppView.nexus,
+      whereToTap: const GuidanceText(
+        'On Today, tap Review my day in detail.',
+        'En Hoy, toca Revisar mi día en detalle.',
+      ),
+    ),
     GuidanceLessonId.smartPlanner => topic(
       place: _chooseStep,
       showMe: AppView.smartPlanner,
@@ -118,16 +130,38 @@ HelpTopic? _hintTopic(GuidanceHint hint) {
       place: _activity,
       showMe: AppView.progression,
     ),
+    // The hint says "Mark here", which only makes sense on Habits itself.
     GuidanceLessonId.habits => topic(
       place: _habits,
       showMe: AppView.nexus,
       whereToTap: _openHabits,
+      body: const GuidanceText(
+        'A habit is something you repeat every day, week or month. On Habits, mark whether you did it this time. '
+            'You can give a habit a reminder time when you add it, or later with Set reminder.',
+        'Un hábito es algo que repites cada día, semana o mes. En Hábitos, marca si lo hiciste esta vez. '
+            'Puedes ponerle una hora de recordatorio al añadirlo, o después con Poner recordatorio.',
+      ),
     ),
-    GuidanceLessonId.goals => topic(place: _goals, showMe: AppView.goals),
-    // Settings is where Help is opened from, so Back is the way there.
+    // The full goal reminder rule is in "How goal and habit reminders work".
+    GuidanceLessonId.goals => topic(
+      place: _goals,
+      showMe: AppView.goals,
+      body: const GuidanceText(
+        'Give a goal a target date to get reminders before it is due and on the day itself. '
+            'You can add or change the date when you edit the goal.',
+        'Ponle una fecha límite a una meta para recibir avisos antes de que venza y el mismo día. '
+            'Puedes añadir o cambiar la fecha al editar la meta.',
+      ),
+    ),
+    // Settings is where Help is opened from, so Back is the way there. The
+    // hint's title ("What these settings do") needs its own screen.
     GuidanceLessonId.notificationSettings => topic(
       place: _notificationSettings,
       whereToTap: _openNotificationSettings,
+      title: const GuidanceText(
+        'The Reminders switch, Task reminder time and Quiet hours',
+        'El interruptor Recordatorios, Hora del recordatorio de tareas y Horas de silencio',
+      ),
     ),
     // Its text is about the button on its own card; "If reminders do not
     // arrive" covers the same case here.
@@ -161,8 +195,8 @@ abstract final class HelpTopics {
     id: 'today',
     title: GuidanceText('What Today is for', 'Para qué sirve Hoy'),
     body: GuidanceText(
-      'Today shows a few tasks to start with. From here you can add a goal, task or habit, open your goals, check in with a habit or ask in Chat.',
-      'Hoy muestra algunas tareas por las que empezar. Desde aquí puedes añadir una meta, tarea o hábito, abrir tus metas, registrar un hábito o preguntar en Chat.',
+      'Today shows a few tasks to start with. On Today you can add a goal, task or habit, open Goals, check in with a habit, open Chat, see patterns and future outcomes, or review your day in detail.',
+      'Hoy muestra algunas tareas por las que empezar. En Hoy puedes añadir una meta, tarea o hábito, abrir Metas, registrar un hábito, abrir Chat, ver patrones y resultados futuros, o revisar tu día en detalle.',
     ),
     place: _today,
     showMe: AppView.nexus,
@@ -195,8 +229,8 @@ abstract final class HelpTopics {
     id: 'goals',
     title: GuidanceText('What Goals is for', 'Para qué sirve Metas'),
     body: GuidanceText(
-      'Goals are the bigger things you are working toward. Give a goal a target date to get reminders before it is due.',
-      'Las metas son lo más grande por lo que trabajas. Ponle una fecha límite a una meta para recibir avisos antes de que venza.',
+      'Goals are the bigger things you are working toward. A goal can have a target date, and tasks linked to it count as its steps.',
+      'Las metas son lo más grande por lo que trabajas. Una meta puede tener fecha límite, y las tareas vinculadas a ella cuentan como sus pasos.',
     ),
     place: _goals,
     showMe: AppView.goals,
@@ -206,8 +240,8 @@ abstract final class HelpTopics {
     id: 'insights',
     title: GuidanceText('What Insights is for', 'Para qué sirve Perspectivas'),
     body: GuidanceText(
-      'Insights shows patterns in what you recorded and estimates what may happen next. You can compare a different time, amount of work or priority before you change your plan.',
-      'Perspectivas muestra patrones en lo que registraste y estima lo que puede pasar después. Puedes comparar otra hora, otra cantidad de trabajo u otra prioridad antes de cambiar tu plan.',
+      'Insights shows patterns in what you recorded and what could happen next. You can compare a different time, amount of work or priority before you change your plan.',
+      'Perspectivas muestra patrones en lo que registraste y lo que podría pasar después. Puedes comparar otra hora, otra cantidad de trabajo u otra prioridad antes de cambiar tu plan.',
     ),
     place: _insights,
     showMe: AppView.trajectoryEngine,
@@ -231,30 +265,68 @@ abstract final class HelpTopics {
       'Para qué sirven los ajustes de Notificaciones',
     ),
     body: GuidanceText(
-      'They turn reminders on or off, set how early task reminders come and set quiet hours. They also show whether reminders can reach this device.',
-      'Activan o desactivan los recordatorios, fijan con cuánta antelación avisan las tareas y fijan las horas de silencio. También muestran si los recordatorios pueden llegar a este dispositivo.',
+      'They turn all reminders, or only task, goal or habit reminders, on or off. They also set how early task reminders come, overdue nudges and quiet hours, and show whether reminders can reach this device.',
+      'Activan o desactivan todos los recordatorios, o solo los de tareas, metas o hábitos. También fijan con cuánta antelación avisan las tareas, los avisos de vencidos y las horas de silencio, y muestran si los recordatorios pueden llegar a este dispositivo.',
     ),
     place: _notificationSettings,
     whereToTap: _openNotificationSettings,
   );
 
-  static const HelpTopic reminders = HelpTopic(
-    id: 'reminders',
+  static const HelpTopic taskReminders = HelpTopic(
+    id: 'task-reminders',
     title: GuidanceText(
-      'How reminders work',
-      'Cómo funcionan los recordatorios',
+      'How task reminders work',
+      'Cómo funcionan los recordatorios de tareas',
     ),
     body: GuidanceText(
-      'A task gets one reminder at its start time, or when it is due if it has no start time. '
-          'A goal with a target date is reminded at 9 AM three days before, the day before and on the day. '
-          'A habit is reminded at the time and on the days you chose. '
-          'Android can deliver a reminder several minutes late. '
-          'During quiet hours, task and goal reminders wait until quiet hours end; habit times you chose are not moved.',
-      'Una tarea recibe un recordatorio a su hora de inicio o, si no tiene, cuando vence. '
-          'Una meta con fecha límite avisa a las 9:00 tres días antes, el día anterior y el mismo día. '
-          'Un hábito avisa a la hora y los días que elegiste. '
-          'Android puede entregar un recordatorio varios minutos tarde. '
-          'Durante las horas de silencio, los avisos de tareas y metas esperan a que terminen; las horas de hábitos que elegiste no se mueven.',
+      'A task reminds you at its start time. Without one, it reminds you when it is due: at its time, or at 9 AM when the deadline has no time. '
+          'If you chose a Task reminder time, such as 15 minutes before, the reminder comes that much earlier. '
+          'With Overdue nudges on, a task still open the day after it was due gets one more reminder at 9 AM. '
+          'Finished tasks stay quiet, and only the next 20 task reminders are set at once.',
+      'Una tarea te avisa a su hora de inicio. Si no tiene, te avisa cuando vence: a su hora, o a las 9:00 si la fecha límite no tiene hora. '
+          'Si elegiste una Hora del recordatorio de tareas, como 15 minutos antes, el aviso llega ese tiempo antes. '
+          'Con Avisos de vencidos activado, una tarea que sigue pendiente el día después de vencer recibe otro aviso a las 9:00. '
+          'Las tareas terminadas no avisan y solo se programan los 20 siguientes avisos de tareas a la vez.',
+    ),
+    place: _notificationSettings,
+    whereToTap: _openNotificationSettings,
+  );
+
+  static const HelpTopic goalAndHabitReminders = HelpTopic(
+    id: 'goal-habit-reminders',
+    title: GuidanceText(
+      'How goal and habit reminders work',
+      'Cómo funcionan los recordatorios de metas y hábitos',
+    ),
+    body: GuidanceText(
+      'A goal with a target date reminds you at 9 AM three days before, the day before and on the morning it is due. '
+          'A goal due today that you add after 9 AM gets one reminder at 6 PM instead. '
+          'With Overdue nudges on, a goal still open the day after its date gets one more at 9 AM. '
+          'A goal also gets one "almost there" reminder when most of its steps are done. '
+          'A habit reminds you at the time you set, on the days you chose. A habit without a time stays quiet.',
+      'Una meta con fecha límite te avisa a las 9:00 tres días antes, el día anterior y la mañana en que vence. '
+          'Si añades después de las 9:00 una meta que vence hoy, recibes un aviso a las 18:00. '
+          'Con Avisos de vencidos activado, una meta que sigue pendiente el día después de su fecha recibe otro aviso a las 9:00. '
+          'Una meta también recibe un aviso de "ya casi" cuando la mayoría de sus pasos estén hechos. '
+          'Un hábito te avisa a la hora que le pusiste, los días que elegiste. Los hábitos sin hora no avisan.',
+    ),
+    place: _notificationSettings,
+    whereToTap: _openNotificationSettings,
+  );
+
+  static const HelpTopic lateReminders = HelpTopic(
+    id: 'late-reminders',
+    title: GuidanceText(
+      'Why a reminder can come late',
+      'Por qué un recordatorio puede llegar tarde',
+    ),
+    body: GuidanceText(
+      'Android can deliver a reminder several minutes late. '
+          'During quiet hours, task and goal reminders, whose time the app picks, wait until quiet hours end. '
+          'Times you chose yourself, such as habit times, are not moved.',
+      'Android puede entregar un recordatorio varios minutos tarde. '
+          'Durante las horas de silencio, los recordatorios de tareas y metas, cuya hora elige la aplicación, esperan a que terminen. '
+          'Las horas que elegiste tú, como las de los hábitos, no se mueven.',
     ),
     place: _notificationSettings,
     whereToTap: _openNotificationSettings,
@@ -267,9 +339,11 @@ abstract final class HelpTopics {
       'Si no llegan los recordatorios',
     ),
     body: GuidanceText(
-      'Reminders appear only when notifications are on for Axiomara on this device and the Reminders switch is on. '
+      'Reminders appear only when notifications are on for Axiomara on this device, the Reminders switch is on, and the switch for that kind is on: Task Reminders, Goal Reminders or Habit Reminders. '
+          'A habit without a reminder time stays quiet. '
           'The top of the Notifications settings says whether reminders can reach you and what to change.',
-      'Los recordatorios solo aparecen si las notificaciones de Axiomara están activadas en este dispositivo y el interruptor Recordatorios está activado. '
+      'Los recordatorios solo aparecen si las notificaciones de Axiomara están activadas en este dispositivo, el interruptor Recordatorios está activado y también el de ese tipo: Recordatorios de tareas, Recordatorios de metas o Recordatorios de ritmos. '
+          'Los hábitos sin hora de recordatorio no avisan. '
           'La parte de arriba de los ajustes de Notificaciones dice si los recordatorios pueden llegarte y qué cambiar.',
     ),
     place: _notificationSettings,
@@ -310,7 +384,9 @@ abstract final class HelpTopics {
     _hintTopic(GuidanceCatalogue.progression),
     notificationSettings,
     _hintTopic(GuidanceCatalogue.notificationSettings),
-    reminders,
+    taskReminders,
+    goalAndHabitReminders,
+    lateReminders,
     remindersNotArriving,
     restartGuide,
   ].whereType<HelpTopic>().toList(growable: false);
