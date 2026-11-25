@@ -4,6 +4,9 @@ import 'dart:async';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_mode_switch.dart';
+import 'package:fantastic_guacamole/features/assistant/ui/one_tap_questions.dart';
+import 'package:fantastic_guacamole/domain/entities/si_one_tap_question.dart';
+import 'package:fantastic_guacamole/state/providers/si_one_tap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_chat_mode_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
@@ -50,6 +53,7 @@ class _Msg {
     this.processingMode = AIProcessingMode.unknown,
     this.systemPanel = false,
     this.siV2,
+    this.oneTap,
   });
   final String text;
   final bool isUser;
@@ -58,6 +62,9 @@ class _Msg {
   final AIProcessingMode processingMode;
   final bool systemPanel;
   final SIV2Response? siV2;
+
+  /// Set when this is the answer to a one-tap question.
+  final SIOneTapAnswer? oneTap;
 }
 
 @immutable
@@ -208,6 +215,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
+    // A question tapped on Today may be waiting for this screen.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _takeOneTapRequest(ref.read(siOneTapRequestProvider));
+    });
   }
 
   @override
@@ -719,6 +730,136 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     }
   }
 
+  /// A request left by Today. Taking it clears it, so it is asked once.
+  void _takeOneTapRequest(SIOneTapRequest? request) {
+    if (request == null || !mounted) return;
+    ref.read(siOneTapRequestProvider.notifier).clear();
+    unawaited(_askOneTap(request.question));
+  }
+
+  Widget _withOneTapFooter(_Msg msg, Widget bubble, bool aiAvailable) {
+    final SIOneTapAnswer? answer = msg.oneTap;
+    if (answer == null) return bubble;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        bubble,
+        OneTapAnswerFooter(
+          answer: answer,
+          onAddSomething: answer.offerAddSomething
+              ? () => goToAppView(context, ref, AppView.creator)
+              : null,
+          onAskAi: answer.offerAi && aiAvailable
+              ? () => _askAiAbout(answer.question)
+              : null,
+        ),
+      ],
+    );
+  }
+
+  /// Hands the question to AI chat as a draft. The person still has to look at
+  /// the price and confirm the send there.
+  void _askAiAbout(SIOneTapQuestion question) {
+    final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
+    setState(() {
+      _aiDraft = question.label(isSpanish: isSpanish);
+      _aiDraftRevision++;
+      _aiUpdate = false;
+    });
+    _chooseMode(onDevice: false);
+  }
+
+  /// Answers a one-tap question on this device. Nothing is sent anywhere, no
+  /// credits are used and no record is changed.
+  Future<void> _askOneTap(SIOneTapQuestion question, {String? goalId}) async {
+    if (_typing || !mounted) return;
+    final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
+    String? goal = goalId;
+    if (question == SIOneTapQuestion.reachGoal && goal == null) {
+      List<SIV2GoalEvidence> goals = const <SIV2GoalEvidence>[];
+      try {
+        goals = (await ref.read(siV2EvidenceSnapshotProvider.future)).goals;
+      } on Object {
+        goals = const <SIV2GoalEvidence>[];
+      }
+      if (!mounted) return;
+      if (goals.length > 1) {
+        goal = await chooseOneTapGoal(context, goals);
+        if (goal == null || !mounted) return;
+      } else if (goals.length == 1) {
+        goal = goals.single.id;
+      }
+    }
+    _advancedComposer.collapse();
+    final String? namespace = ref.read(accountStorageScopeProvider).v2Namespace;
+    final String label = question.label(isSpanish: isSpanish);
+    final SIConsoleQueryController controller = ref.read(
+      siConsoleQueryControllerProvider,
+    );
+    controller.recordQuestionSent();
+    _safeSetState(() {
+      _messages.add(_Msg(text: label, isUser: true));
+      _typing = true;
+    });
+    _scrollToBottom();
+    final SIRoutineCopy routine = ChronoSparkLocalizations.of(
+      context,
+    ).siRoutine;
+    try {
+      final SIOneTapAnswer answer = await ref
+          .read(siOneTapServiceProvider)
+          .answer(question, isSpanish: isSpanish, goalId: goal)
+          .timeout(const Duration(seconds: 25));
+      if (!mounted ||
+          ref.read(accountStorageScopeProvider).v2Namespace != namespace) {
+        return;
+      }
+      _safeSetState(() {
+        _typing = false;
+        _boundPersonContextRevision = ref.read(
+          siV2PersonContextRevisionProvider,
+        );
+        _messages.add(
+          _Msg(
+            text: answer.response.toPlainText(),
+            isUser: false,
+            emotion: 'focused',
+            rationale: isSpanish
+                ? 'Respuesta de solo lectura en este dispositivo, gratis, con tus registros guardados.'
+                : 'Read-only answer on this device, free, from your saved records.',
+            processingMode: AIProcessingMode.onDevice,
+            siV2: answer.response,
+            oneTap: answer,
+          ),
+        );
+      });
+      _scrollToLatestResponse();
+    } catch (_) {
+      if (!mounted) return;
+      final AIRecommendation fallback = controller.localFallbackResponse(
+        query: label,
+        response: routine.responseValidationFailed,
+        reason: 'si_one_tap_failure',
+        emotion: 'cautious',
+      );
+      fallback.contract!.validate();
+      _safeSetState(() {
+        _typing = false;
+        _messages.add(
+          _Msg(
+            text: fallback.message,
+            isUser: false,
+            emotion: fallback.emotion ?? 'cautious',
+            rationale: fallback.reasoning,
+            systemPanel: true,
+            processingMode: fallback.processingMode,
+          ),
+        );
+      });
+      _scrollToBottom();
+    }
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
@@ -777,6 +918,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final bool aiAvailable = ref.watch(
       assistantConversationSurfaceAvailableProvider(ConversationSurface.si),
     );
+    ref.listen<SIOneTapRequest?>(
+      siOneTapRequestProvider,
+      (_, SIOneTapRequest? next) => _takeOneTapRequest(next),
+    );
     ref.listen(accountStorageScopeProvider, (previous, next) {
       if (previous?.v2Namespace == next.v2Namespace) return;
       // Nothing typed or arrived for one account goes to the next.
@@ -813,6 +958,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                       if (mounted) setState(() => _aiUpdate = true);
                     },
                     surface: ConversationSurface.si,
+                    onQuickQuestion: (SIOneTapQuestion question) {
+                      _chooseMode(onDevice: true);
+                      unawaited(_askOneTap(question));
+                    },
                     incomingDraft: _aiDraft,
                     incomingDraftRevision: _aiDraftRevision,
                     onLocalTools: () => _chooseMode(onDevice: true),
@@ -953,6 +1102,17 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                           },
                         ),
                       ),
+                    if (consoleAvailable && !keyboardVisible)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                        child: OneTapQuestionRow(
+                          layout: OneTapRowLayout.scroll,
+                          questions: chatOneTapQuestions,
+                          enabled: !_typing,
+                          onAsk: (SIOneTapQuestion q) =>
+                              unawaited(_askOneTap(q)),
+                        ),
+                      ),
                     _ContextStatusBanner(
                       compact: compactChrome,
                       availabilityLoading: availabilityAsync.isLoading,
@@ -1016,6 +1176,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                                                     ),
                                                   ),
                                           );
+                                          final Widget item = _withOneTapFooter(
+                                            _messages[i],
+                                            bubble,
+                                            aiAvailable,
+                                          );
                                           final bool latestResponse =
                                               i == _messages.length - 1 &&
                                               !_messages[i].isUser;
@@ -1026,10 +1191,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                                                     key: const Key(
                                                       'si-latest-response-anchor',
                                                     ),
-                                                    child: bubble,
+                                                    child: item,
                                                   ),
                                                 )
-                                              : bubble;
+                                              : item;
                                         },
                                       ),
                                     ),

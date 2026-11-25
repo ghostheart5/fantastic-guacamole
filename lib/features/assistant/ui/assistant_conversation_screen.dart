@@ -6,6 +6,8 @@ import 'package:fantastic_guacamole/domain/entities/assistant_conversation_histo
 import 'package:fantastic_guacamole/features/assistant/ui/ai_chat_consent.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_mode_switch.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_response_body.dart';
+import 'package:fantastic_guacamole/features/assistant/ui/one_tap_questions.dart';
+import 'package:fantastic_guacamole/domain/entities/si_one_tap_question.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
@@ -84,6 +86,7 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
     this.incomingDraftRevision = 0,
     this.hidden = false,
     this.onUpdateWhileHidden,
+    this.onQuickQuestion,
   });
   final ConversationSurface surface;
   final VoidCallback onLocalTools;
@@ -100,6 +103,10 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
   /// [onUpdateWhileHidden], and a dialog waits until the screen is shown.
   final bool hidden;
   final VoidCallback? onUpdateWhileHidden;
+
+  /// Chat only: a one-tap question picked here is answered on this device,
+  /// for free, by the free assistant. Null hides the row.
+  final ValueChanged<SIOneTapQuestion>? onQuickQuestion;
   @override
   ConsumerState<AssistantConversationScreen> createState() =>
       _AssistantConversationScreenState();
@@ -998,6 +1005,30 @@ class _AssistantConversationScreenState
                     enabled: enabled,
                     tasks: tasks,
                   ),
+                  // Free questions, answered on this device by the free
+                  // assistant. They sit with the options, ahead of the
+                  // conversation, so a reply is never pushed out of view.
+                  if (!planner && widget.onQuickQuestion != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      copy(
+                        'Quick questions · free, answered on this device',
+                        'Preguntas rápidas · gratis, respondidas en este dispositivo',
+                      ),
+                      style: TextStyle(
+                        color: lightForms
+                            ? selectedTheme.colorScheme.onSurfaceVariant
+                            : Colors.white70,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    OneTapQuestionRow(
+                      layout: OneTapRowLayout.scroll,
+                      questions: chatOneTapQuestions,
+                      enabled: !_busy,
+                      onAsk: widget.onQuickQuestion!,
+                    ),
+                  ],
                   ..._history.map(
                     (turn) => Card(
                       color: lightForms

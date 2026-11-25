@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
@@ -229,12 +230,73 @@ final class SIV2GoalEvidence {
     required this.title,
     required this.createdAt,
     this.targetDate,
+    this.linkedTasksDone = 0,
+    this.linkedTasksOpen = 0,
+    this.milestonesDone = 0,
+    this.milestonesOpen = 0,
   });
 
   final String id;
   final String title;
   final DateTime createdAt;
   final DateTime? targetDate;
+
+  /// Progress read from the records linked to this goal. Used only by the
+  /// on-device one-tap questions; the remote packet does not carry it.
+  final int linkedTasksDone;
+  final int linkedTasksOpen;
+  final int milestonesDone;
+  final int milestonesOpen;
+
+  bool get hasProgress =>
+      linkedTasksDone + linkedTasksOpen + milestonesDone + milestonesOpen > 0;
+}
+
+/// One habit as the on-device one-tap questions read it: its cadence, the
+/// check-ins recorded in the last [windowDays] days and the current streak of
+/// consecutive periods with a check-in. Never sent to a server.
+final class SIV2HabitEvidence {
+  const SIV2HabitEvidence({
+    required this.id,
+    required this.title,
+    required this.createdAt,
+    required this.cadence,
+    required this.targetCount,
+    required this.checkInsInWindow,
+    required this.currentStreak,
+    required this.checkedInThisPeriod,
+    this.windowDays = 14,
+  });
+
+  final String id;
+  final String title;
+  final DateTime createdAt;
+  final HabitCadence cadence;
+  final int targetCount;
+  final int checkInsInWindow;
+  final int currentStreak;
+  final bool checkedInThisPeriod;
+  final int windowDays;
+}
+
+enum SIV2RecentTaskOutcome { completed, skipped }
+
+/// A task finished or skipped recently (the last 14 days). Titles are the
+/// person's own words and stay untrusted data, like every other record.
+final class SIV2RecentTaskEvidence {
+  const SIV2RecentTaskEvidence({
+    required this.id,
+    required this.title,
+    required this.outcome,
+    required this.at,
+    this.goalId,
+  });
+
+  final String id;
+  final String title;
+  final SIV2RecentTaskOutcome outcome;
+  final DateTime at;
+  final String? goalId;
 }
 
 final class SIV2MilestoneEvidence {
@@ -371,7 +433,12 @@ final class SIV2EvidenceSnapshot {
     required List<SIV2TimelineEvidence> timeline,
     this.personContext,
     Set<SIV2Source> unavailableSources = const <SIV2Source>{},
+    List<SIV2HabitEvidence> habits = const <SIV2HabitEvidence>[],
+    List<SIV2RecentTaskEvidence> recentTasks = const <SIV2RecentTaskEvidence>[],
+    this.habitsUnavailable = false,
   }) : accountScopeId = accountScopeId.trim(),
+       habits = List<SIV2HabitEvidence>.unmodifiable(habits),
+       recentTasks = List<SIV2RecentTaskEvidence>.unmodifiable(recentTasks),
        tasks = List<SIV2TaskEvidence>.unmodifiable(tasks),
        goals = List<SIV2GoalEvidence>.unmodifiable(goals),
        milestones = List<SIV2MilestoneEvidence>.unmodifiable(milestones),
@@ -417,6 +484,12 @@ final class SIV2EvidenceSnapshot {
   final List<SIV2TimelineEvidence> timeline;
   final SIV2PersonContextEvidence? personContext;
   final Set<SIV2Source> unavailableSources;
+
+  /// Habits and the last 14 days of finished or skipped tasks. They feed the
+  /// on-device one-tap questions only and are not part of the remote packet.
+  final List<SIV2HabitEvidence> habits;
+  final List<SIV2RecentTaskEvidence> recentTasks;
+  final bool habitsUnavailable;
 
   String get revision => sha256
       .convert(
@@ -515,6 +588,46 @@ final class SIV2EvidenceSnapshot {
                     .map((SIV2Source source) => source.name)
                     .toList()
                   ..sort(),
+            // Only present when there is something to say, so a snapshot
+            // without these records keeps the revision it always had.
+            if (goals.any((SIV2GoalEvidence item) => item.hasProgress))
+              'goalProgress': goals
+                  .map(
+                    (SIV2GoalEvidence item) => <Object?>[
+                      item.id,
+                      item.linkedTasksDone,
+                      item.linkedTasksOpen,
+                      item.milestonesDone,
+                      item.milestonesOpen,
+                    ],
+                  )
+                  .toList(growable: false),
+            if (habits.isNotEmpty)
+              'habits': habits
+                  .map(
+                    (SIV2HabitEvidence item) => <Object?>[
+                      item.id,
+                      item.title,
+                      item.cadence.name,
+                      item.targetCount,
+                      item.checkInsInWindow,
+                      item.currentStreak,
+                      item.checkedInThisPeriod,
+                    ],
+                  )
+                  .toList(growable: false),
+            if (recentTasks.isNotEmpty)
+              'recentTasks': recentTasks
+                  .map(
+                    (SIV2RecentTaskEvidence item) => <Object?>[
+                      item.id,
+                      item.title,
+                      item.outcome.name,
+                      item.at.toUtc().toIso8601String(),
+                    ],
+                  )
+                  .toList(growable: false),
+            if (habitsUnavailable) 'habitsUnavailable': true,
           }),
         ),
       )

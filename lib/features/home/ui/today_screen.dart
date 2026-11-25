@@ -1,6 +1,9 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/domain/entities/si_one_tap_question.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/features/assistant/ui/one_tap_questions.dart';
 import 'package:fantastic_guacamole/features/creator/ui/daily_rhythms_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_notice.dart';
@@ -10,7 +13,9 @@ import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/features/creator/ui/open_creator.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_chat_mode_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
+import 'package:fantastic_guacamole/state/providers/si_one_tap_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
@@ -117,6 +122,30 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                   'Add a goal, task or habit',
                   'Añadir una meta, tarea o hábito',
                 ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _t(
+                'Quick questions · free, answered on this device',
+                'Preguntas rápidas · gratis, respondidas en este dispositivo',
+              ),
+              style: const TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 8),
+            OneTapQuestionRow(
+              questions: todayOneTapQuestions,
+              onAsk: _askQuickQuestion,
+              trailing: OutlinedButton(
+                key: const Key('today-one-tap-more'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => _askQuickQuestion(null),
+                child: Text(_t('More questions', 'Más preguntas')),
               ),
             ),
             const SizedBox(height: 24),
@@ -323,6 +352,18 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
         ),
       ),
     );
+  }
+
+  /// Opens Chat on the free on-device assistant with the question already
+  /// asked. Nothing is sent anywhere and no credits are used.
+  void _askQuickQuestion(SIOneTapQuestion? question) {
+    ref
+        .read(assistantChatModeProvider.notifier)
+        .choose(ConversationSurface.si, onDevice: true);
+    if (question != null) {
+      ref.read(siOneTapRequestProvider.notifier).ask(question);
+    }
+    goToAppView(context, ref, AppView.console);
   }
 
   Future<void> _chooseKind() async {
