@@ -1,4 +1,3 @@
-import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_operation.dart';
@@ -18,7 +17,6 @@ import 'package:fantastic_guacamole/state/services/reflection_reminder_service.d
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
 import 'package:fantastic_guacamole/system/location/location_service.dart';
 import 'package:fantastic_guacamole/system/notifications/local_timezone.dart';
-import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,36 +56,10 @@ class SettingsUiActions {
     return _reminderService.requestNotificationPermission();
   }
 
-  /// The only user-facing entry point that can request remote push permission.
-  /// Local scheduling permission remains explicit as well; startup never calls
-  /// either operating-system prompt.
-  Future<bool> requestNotificationPermissionAndRegisterPush() async {
-    final bool localGranted = await requestNotificationPermission();
-    if (!localGranted) {
-      return false;
-    }
-    if (!Env.cloudServicesEnabled) return localGranted;
-    final String? issue = await const FirebaseMessagingBootstrap()
-        .requestPermissionAndToken(isMockMode: Env.isMockMode);
-    if (issue != null) {
-      // Local reminders remain enabled when remote push registration is
-      // unavailable on a platform or during a transient backend outage.
-      return localGranted;
-    }
-    final String? token = FirebaseMessagingBootstrap.latestToken;
-    final client = _ref.read(supabaseClientProvider);
-    if (token != null && token.isNotEmpty && client != null) {
-      try {
-        await _ref
-            .read(firebaseSupabaseBridgeRepositoryProvider)
-            .syncFirebaseMessagingToken(client, token, source: 'settings');
-      } on Object {
-        // Permission remains granted even if cloud token sync is temporarily
-        // unavailable; the bridge retries on a later authenticated refresh.
-      }
-    }
-    return true;
-  }
+  // Remote push is not requested here: no server sends push yet. When a
+  // sender exists, wire the Firebase messaging bootstrap (initialize at startup,
+  // permission, token, token refresh, tap routing) and register_firebase_device
+  // through a new flow; the code, edge function and migrations stay in place.
 
   ReminderOrchestratorPrefs loadAdvancedReminderPrefs() {
     return _ref.read(reminderOrchestratorServiceProvider).loadPrefs();

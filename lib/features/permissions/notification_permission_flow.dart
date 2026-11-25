@@ -16,8 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// explanation before the system dialog. After this account said no (to the
 /// explanation or to the system) it does not ask again by itself; pass
 /// [userInitiated] for an explicit "turn on notifications" action. [request]
-/// replaces the plain system request (the Settings card also registers for
-/// push). Returns whether notifications are allowed afterwards.
+/// replaces the plain system request. Returns whether notifications are allowed afterwards.
 Future<bool> ensureNotificationPermission(
   BuildContext context,
   WidgetRef ref, {
@@ -50,7 +49,7 @@ Future<bool> ensureNotificationPermission(
 }
 
 /// The Settings card: the manual route, so it asks even after a refusal.
-/// It keeps registering for push after a grant, as before.
+/// It asks only for the local notification permission.
 class NotificationPermissionSettingsCard extends ConsumerWidget {
   const NotificationPermissionSettingsCard({super.key});
 
@@ -62,14 +61,8 @@ class NotificationPermissionSettingsCard extends ConsumerWidget {
           NotificationPermissionPrompt(
             permissionGranted: granted,
             explainsFirst: false,
-            onRequestPermission: () => ensureNotificationPermission(
-              context,
-              ref,
-              userInitiated: true,
-              request: ref
-                  .read(settingsUiActionsProvider)
-                  .requestNotificationPermissionAndRegisterPush,
-            ),
+            onRequestPermission: () =>
+                ensureNotificationPermission(context, ref, userInitiated: true),
             onOpenSystemSettings: () =>
                 openNotificationSystemSettings(context, ref),
           ),
