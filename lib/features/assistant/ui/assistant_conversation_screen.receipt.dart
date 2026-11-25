@@ -40,6 +40,24 @@ extension _ReplyReceipt on _AssistantConversationScreenState {
           'elemento de la agenda',
           'elementos de la agenda',
         ),
+      if (receipt.habits > 0)
+        _countLabel(receipt.habits, 'habit', 'habits', 'hábito', 'hábitos'),
+      if (receipt.recentTasks > 0)
+        _countLabel(
+          receipt.recentTasks,
+          'recent result',
+          'recent results',
+          'resultado reciente',
+          'resultados recientes',
+        ),
+      if (receipt.goalProgress > 0)
+        _countLabel(
+          receipt.goalProgress,
+          'goal progress record',
+          'goal progress records',
+          'registro de progreso de metas',
+          'registros de progreso de metas',
+        ),
       if (receipt.note) copy('your note', 'tu nota'),
       if (receipt.energy) copy('your energy', 'tu energía'),
       if (receipt.emotion) copy('your emotional state', 'tu estado emocional'),

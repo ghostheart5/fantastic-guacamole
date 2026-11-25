@@ -214,6 +214,11 @@ extension _ConversationCopy on _AssistantConversationScreenState {
     final includedSources = SIV2Source.values
         .where((source) => sourceNames.contains(source.name))
         .map(_sourceLabel)
+        .followedBy(
+          ConversationExtraSource.values
+              .where((source) => sourceNames.contains(source.name))
+              .map(_extraLabel),
+        )
         .join(', ');
     final lines = <String>[
       if (data['contextScope'] == 'attachedTaskOnly')
@@ -256,6 +261,19 @@ extension _ConversationCopy on _AssistantConversationScreenState {
       'timestamp': copy('Recorded time', 'Hora registrada'),
       'status': copy('Status', 'Estado'),
       'body': copy('Note', 'Nota'),
+      // The extra sources (habits, recent results, goal progress).
+      'cadence': copy('Repeats', 'Se repite'),
+      'checkInsLast14Days': copy(
+        'Check-ins in the last 14 days',
+        'Registros en los últimos 14 días',
+      ),
+      'currentStreak': copy('Current streak', 'Racha actual'),
+      'outcome': copy('Result', 'Resultado'),
+      'at': copy('Date', 'Fecha'),
+      'tasksDone': copy('Linked tasks done', 'Tareas vinculadas hechas'),
+      'tasksOpen': copy('Linked tasks open', 'Tareas vinculadas abiertas'),
+      'milestonesDone': copy('Milestones done', 'Hitos hechos'),
+      'milestonesOpen': copy('Milestones open', 'Hitos abiertos'),
     };
     void record(Map<Object?, Object?> values) {
       for (final entry in labels.entries) {
@@ -273,6 +291,43 @@ extension _ConversationCopy on _AssistantConversationScreenState {
       lines.add('\n${_sourceLabel(source)}');
       for (final item in records.whereType<Map<Object?, Object?>>()) {
         record(item);
+      }
+    }
+    final unreadable = (data['unavailableSources'] as List? ?? const [])
+        .whereType<String>()
+        .toSet();
+    for (final source in ConversationExtraSource.values) {
+      if (!sourceNames.contains(source.name)) continue;
+      lines.add('\n${_extraHeading(source)}');
+      final records = data[source.name];
+      if (unreadable.contains(source.name)) {
+        lines.add(
+          copy(
+            'Could not be read on this device.',
+            'No se pudo leer en este dispositivo.',
+          ),
+        );
+      }
+      if (records is! List || records.isEmpty) {
+        if (!unreadable.contains(source.name)) {
+          lines.add(copy('None found.', 'No se encontró nada.'));
+        }
+        continue;
+      }
+      for (final item in records.whereType<Map<Object?, Object?>>()) {
+        record({
+          ...item,
+          if (item['cadence'] case final String cadence)
+            'cadence': switch (cadence) {
+              'weekly' => copy('Weekly', 'Semanal'),
+              'monthly' => copy('Monthly', 'Mensual'),
+              _ => copy('Daily', 'Diario'),
+            },
+          if (item['outcome'] case final String outcome)
+            'outcome': outcome == 'skipped'
+                ? copy('Skipped', 'Omitida')
+                : copy('Finished', 'Terminada'),
+        });
       }
     }
     if (data['explicitlyAttachedNote'] case final Map<Object?, Object?> note) {
@@ -320,6 +375,17 @@ extension _ConversationCopy on _AssistantConversationScreenState {
     SIV2TimeRange.sevenDays => copy('7 days', '7 días'),
     SIV2TimeRange.thirtyDays => copy('30 days', '30 días'),
     SIV2TimeRange.all => copy('All dates', 'Todas las fechas'),
+  };
+  String _extraHeading(ConversationExtraSource value) => switch (value) {
+    ConversationExtraSource.habits => copy('Habits', 'Hábitos'),
+    ConversationExtraSource.recentTasks => copy(
+      'Recent results (last 14 days)',
+      'Resultados recientes (últimos 14 días)',
+    ),
+    ConversationExtraSource.goalProgress => copy(
+      'Goal progress',
+      'Progreso de metas',
+    ),
   };
   String _sourceLabel(SIV2Source value) => switch (value) {
     SIV2Source.tasks => copy('Tasks', 'Tareas'),

@@ -20,6 +20,7 @@ extension _OneStepSend on _AssistantConversationScreenState {
     final context = packet.toJson()['context'] as Map;
     return jsonEncode([
       (_sources.map((source) => source.name).toList()..sort()),
+      (_extras.map((source) => source.name).toList()..sort()),
       _range.name,
       _intent.name,
       _filter.text.trim(),

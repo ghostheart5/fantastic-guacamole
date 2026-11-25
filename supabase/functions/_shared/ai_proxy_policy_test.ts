@@ -1537,3 +1537,107 @@ Deno.test("conversation removes only the unsupported action sentence", () => {
     throw new Error("multi-sentence dialogue was split or the claim kept");
   }
 });
+
+// AI chat can add habits, recent results and goal progress to its context when
+// the person turns them on. The server checks context only by shape and size,
+// so these records are accepted under exactly the bounds every other source
+// has; nothing here needs a new deployment of the validation.
+function aiChatContextWithExtraSources(
+  count: number,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const many = (make: (i: number) => Record<string, unknown>) =>
+    Array.from({ length: count }, (_, i) => make(i));
+  return {
+    language: "en",
+    nowLocal: "2026-08-20T10:00:00.000",
+    utcOffsetMinutes: 0,
+    taskTimeZoneId: null,
+    mode: "answer",
+    timeRange: "all",
+    selectedSources: [
+      "goals",
+      "goalProgress",
+      "habits",
+      "milestones",
+      "recentTasks",
+      "tasks",
+      "timeline",
+    ],
+    entityFilter: "",
+    scenarioAssumption: "",
+    evidenceRevision: "abc",
+    tasks: [{ id: "t1", title: "Grocery list", priority: 3 }],
+    goals: [{ id: "g1", title: "Launch", targetDate: null }],
+    milestones: [],
+    timeline: [],
+    habits: many((i) => ({
+      title: `Habit ${i}`,
+      cadence: "daily",
+      checkInsLast14Days: 9,
+      currentStreak: 3,
+    })),
+    recentTasks: many((i) => ({
+      title: `Done ${i}`,
+      outcome: "completed",
+      at: "2026-08-19T09:00:00.000",
+    })),
+    goalProgress: many((i) => ({
+      title: `Goal ${i}`,
+      tasksDone: 2,
+      tasksOpen: 1,
+      milestonesDone: 1,
+      milestonesOpen: 0,
+    })),
+    omittedRecordCount: 0,
+    unavailableSources: [],
+    surface: "si",
+    ...overrides,
+  };
+}
+
+Deno.test("accepts habits, recent results and goal progress at the 12 item limit", () => {
+  for (const personality of ["planner", "strategist", "strict"]) {
+    const prompt = buildServerSystemPrompt(
+      personality,
+      aiChatContextWithExtraSources(12),
+    );
+    if (
+      prompt === null || !prompt.includes('"habits":[{"title":"Habit 0"') ||
+      !prompt.includes('"recentTasks"') || !prompt.includes('"goalProgress"') ||
+      !prompt.includes('"selectedSources":["goals","goalProgress","habits"')
+    ) {
+      throw new Error("extra sources were rejected or dropped");
+    }
+  }
+});
+
+Deno.test("rejects more than 12 habits, results or goals, and an extra key past 24", () => {
+  if (
+    buildServerSystemPrompt("strategist", aiChatContextWithExtraSources(13))
+  ) {
+    throw new Error("13 records per source accepted");
+  }
+  const keys = Object.keys(aiChatContextWithExtraSources(1)).length;
+  const padding: Record<string, unknown> = {};
+  for (let i = keys; i <= 24; i++) padding[`extra${i}`] = 1;
+  if (
+    buildServerSystemPrompt(
+      "strategist",
+      aiChatContextWithExtraSources(1, padding),
+    ) !== null
+  ) {
+    throw new Error("more than 24 context keys accepted");
+  }
+});
+
+Deno.test("rejects an extra-source context over the 12000 character limit", () => {
+  const long = "x".repeat(800);
+  const context = aiChatContextWithExtraSources(12, {
+    habits: Array.from({ length: 12 }, () => ({ title: long })),
+    recentTasks: Array.from({ length: 12 }, () => ({ title: long })),
+  });
+  if (buildServerSystemPrompt("strategist", context) !== null) {
+    throw new Error("oversized extra-source context accepted");
+  }
+});

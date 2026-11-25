@@ -18,6 +18,7 @@ extension _ConversationScope on _AssistantConversationScreenState {
   /// Call inside a rebuild.
   void _applySavedScope(AssistantConversationHistory saved) {
     _sourcesChosen = saved.sourcesChosen;
+    _extras = <ConversationExtraSource>{};
     _sources = saved.sourcesChosen
         ? saved.sources.toSet()
         : {..._myPlanSources};
@@ -29,6 +30,7 @@ extension _ConversationScope on _AssistantConversationScreenState {
   /// rebuild.
   void _applyDefaultScope() {
     _sourcesChosen = false;
+    _extras = <ConversationExtraSource>{};
     _sources = {..._myPlanSources};
     _scopeNoticeVisible = !_scopeExplained;
   }
@@ -37,6 +39,8 @@ extension _ConversationScope on _AssistantConversationScreenState {
   void _chooseSources(Set<SIV2Source> sources) {
     _rebuild(() {
       _sources = sources;
+      // Extra information adds to saved information: Just this chat has none.
+      if (sources.isEmpty) _extras = <ConversationExtraSource>{};
       _sourcesChosen = true;
       _scopeNoticeVisible = false;
     });
@@ -103,7 +107,7 @@ extension _ConversationScope on _AssistantConversationScreenState {
       ),
     );
 
-    return Semantics(
+    final main = Semantics(
       container: true,
       label: copy(
         'Information AI chat uses',
@@ -141,5 +145,96 @@ extension _ConversationScope on _AssistantConversationScreenState {
         ],
       ),
     );
+    // The extra choices exist only in a build whose switch is on.
+    if (!ref.watch(aiChatExtraSourcesAvailableProvider)) return main;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        main,
+        _extraSourceChips(enabled: enabled && _sources.isNotEmpty),
+      ],
+    );
   }
+
+  /// Optional extra information, off until turned on for this chat. Each
+  /// choice shows its lines in the review before anything is sent.
+  Widget _extraSourceChips({required bool enabled}) {
+    Widget chip(ConversationExtraSource source) => Padding(
+      padding: const EdgeInsetsDirectional.only(end: 8),
+      child: FilterChip(
+        key: Key('conversation-extra-${source.name}'),
+        label: Text(_extraLabel(source)),
+        tooltip: _extraDetail(source),
+        selected: _extras.contains(source),
+        materialTapTargetSize: MaterialTapTargetSize.padded,
+        onSelected: enabled
+            ? (on) {
+                _rebuild(() {
+                  _extras = on
+                      ? {..._extras, source}
+                      : ({..._extras}..remove(source));
+                });
+              }
+            : null,
+      ),
+    );
+
+    return Semantics(
+      container: true,
+      label: copy(
+        'More information AI chat can use, off unless you turn it on',
+        'Más información que puede usar el chat con IA, desactivada salvo que la actives',
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              copy(
+                'Add more, listed in See what is sent (off unless you turn it on)',
+                'Añadir más, se muestra en Ver qué se envía (desactivado salvo que lo actives)',
+              ),
+            ),
+          ),
+          Wrap(
+            key: const Key('conversation-extra-sources'),
+            children: [
+              for (final source in ConversationExtraSource.values) chip(source),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// What a choice adds, read out and shown as its tooltip.
+  String _extraDetail(ConversationExtraSource source) => switch (source) {
+    ConversationExtraSource.habits => copy(
+      'Habit names, check-ins in the last 14 days and streak',
+      'Nombres de hábitos, registros de los últimos 14 días y racha',
+    ),
+    ConversationExtraSource.recentTasks => copy(
+      'Titles of tasks you finished or skipped in the last 14 days',
+      'Títulos de las tareas que terminaste u omitiste en los últimos 14 días',
+    ),
+    ConversationExtraSource.goalProgress => copy(
+      'How many linked tasks and milestones are done or open for each goal',
+      'Cuántas tareas e hitos vinculados están hechos o abiertos en cada meta',
+    ),
+  };
+
+  String _extraLabel(ConversationExtraSource source) => switch (source) {
+    ConversationExtraSource.habits => copy('Habits', 'Hábitos'),
+    ConversationExtraSource.recentTasks => copy(
+      'Recent results',
+      'Resultados recientes',
+    ),
+    ConversationExtraSource.goalProgress => copy(
+      'Goal progress',
+      'Progreso de metas',
+    ),
+  };
 }

@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/features/assistant/ui/assistant_response_bod
 import 'package:fantastic_guacamole/features/assistant/ui/one_tap_questions.dart';
 import 'package:fantastic_guacamole/domain/entities/si_one_tap_question.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/domain/entities/conversation_extra_sources.dart';
 import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
@@ -25,6 +26,7 @@ import 'package:fantastic_guacamole/state/providers/ai_content_report_provider.d
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
+import 'package:fantastic_guacamole/state/providers/ai_chat_extra_sources_provider.dart';
 import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
@@ -156,6 +158,9 @@ class _AssistantConversationScreenState
   bool _sourcesChosen = false;
   bool _scopeExplained = false;
   bool _scopeNoticeVisible = false;
+  // Optional extra information for this chat only (off every time the chat
+  // opens, never saved); see the scope part.
+  Set<ConversationExtraSource> _extras = <ConversationExtraSource>{};
   // The on-device suggestion for the current draft (see the send part).
   bool _freeSuggested = false;
   int _suggestionCheck = 0;
@@ -450,6 +455,7 @@ class _AssistantConversationScreenState
               reportedEnergy: _energy,
               selectedTaskId: _attachedTaskId,
               attachedTaskOnly: _attachedTaskOnly,
+              extraSources: _extras,
             );
         if (!current()) return;
         final attachedNoteSafety = EmotionalSafetyPolicy.assess(

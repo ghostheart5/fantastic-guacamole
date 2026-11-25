@@ -2,6 +2,8 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:fantastic_guacamole/domain/entities/conversation_extra_sources.dart';
+
 enum ConversationSurface { planner, si }
 
 /// The price, in credits, of one AI chat message as the server prices it
@@ -138,11 +140,21 @@ Map<String, Object?> _boundedContext(Map<String, Object?> input) {
     jsonDecode(jsonEncode(input)) as Map,
   );
   while (jsonEncode(context).length > 10000) {
-    final candidates = ['tasks', 'goals', 'milestones', 'timeline']
-        .where(
-          (key) => context[key] is List && (context[key] as List).length > 1,
-        )
-        .toList();
+    final candidates =
+        [
+              'tasks',
+              'goals',
+              'milestones',
+              'timeline',
+              'habits',
+              'recentTasks',
+              'goalProgress',
+            ]
+            .where(
+              (key) =>
+                  context[key] is List && (context[key] as List).length > 1,
+            )
+            .toList();
     if (candidates.isEmpty) {
       throw const ConversationFailure('context_too_large');
     }
@@ -276,6 +288,9 @@ final class ConversationReplyReceipt {
     this.goals = 0,
     this.milestones = 0,
     this.schedule = 0,
+    this.habits = 0,
+    this.recentTasks = 0,
+    this.goalProgress = 0,
     this.note = false,
     this.energy = false,
     this.emotion = false,
@@ -299,6 +314,9 @@ final class ConversationReplyReceipt {
       goals: count('goals'),
       milestones: count('milestones'),
       schedule: count('timeline'),
+      habits: count('habits'),
+      recentTasks: count('recentTasks'),
+      goalProgress: count('goalProgress'),
       note: context['explicitlyAttachedNote'] is Map,
       energy: context['reportedEnergy'] is num,
       emotion: context['reportedEmotion'] is String,
@@ -317,6 +335,13 @@ final class ConversationReplyReceipt {
   final int goals;
   final int milestones;
   final int schedule;
+
+  /// Extra information the person turned on for this request. Kept only when
+  /// something was sent, so a receipt without any is exactly what earlier
+  /// versions wrote.
+  final int habits;
+  final int recentTasks;
+  final int goalProgress;
   final bool note;
   final bool energy;
   final bool emotion;
@@ -330,6 +355,9 @@ final class ConversationReplyReceipt {
     'goals': goals,
     'milestones': milestones,
     'schedule': schedule,
+    if (habits > 0) 'habits': habits,
+    if (recentTasks > 0) 'recentTasks': recentTasks,
+    if (goalProgress > 0) 'goalProgress': goalProgress,
     'note': note,
     'energy': energy,
     'emotion': emotion,
@@ -343,7 +371,11 @@ final class ConversationReplyReceipt {
   /// Null for anything that is not exactly a receipt this version writes, so
   /// a damaged or unknown one simply shows no footer.
   static ConversationReplyReceipt? fromJson(Object? json) {
-    if (json is! Map || json.length != 11 || json['version'] != 1) return null;
+    if (json is! Map || json['version'] != 1) return null;
+    const extraKeys = ['habits', 'recentTasks', 'goalProgress'];
+    if (json.length != 11 + extraKeys.where(json.containsKey).length) {
+      return null;
+    }
     int? count(String key, {int min = 0, int max = 1000}) {
       final value = json[key];
       return value is int && value >= min && value <= max ? value : null;
@@ -353,6 +385,15 @@ final class ConversationReplyReceipt {
     final goals = count('goals');
     final milestones = count('milestones');
     final schedule = count('schedule');
+    final habits = json.containsKey('habits')
+        ? count('habits', min: 1, max: conversationExtraSourceItemLimit)
+        : 0;
+    final recentTasks = json.containsKey('recentTasks')
+        ? count('recentTasks', min: 1, max: conversationExtraSourceItemLimit)
+        : 0;
+    final goalProgress = json.containsKey('goalProgress')
+        ? count('goalProgress', min: 1, max: conversationExtraSourceItemLimit)
+        : 0;
     final earlier = count('earlierMessages');
     final charged = count('creditsCharged', min: 1, max: 100);
     final remaining = count('remainingCredits', max: 1 << 31);
@@ -363,6 +404,9 @@ final class ConversationReplyReceipt {
         goals == null ||
         milestones == null ||
         schedule == null ||
+        habits == null ||
+        recentTasks == null ||
+        goalProgress == null ||
         earlier == null ||
         charged == null ||
         remaining == null ||
@@ -376,6 +420,9 @@ final class ConversationReplyReceipt {
       goals: goals,
       milestones: milestones,
       schedule: schedule,
+      habits: habits,
+      recentTasks: recentTasks,
+      goalProgress: goalProgress,
       note: note,
       energy: energy,
       emotion: emotion,

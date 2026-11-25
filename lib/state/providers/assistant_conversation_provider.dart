@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/data/repositories/assistant_conversation_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/domain/entities/conversation_extra_sources.dart';
 import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -9,6 +10,8 @@ import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/engine/assistant/axiomara_deterministic_router.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
+import 'package:fantastic_guacamole/state/providers/ai_chat_extra_sources_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_extra_records.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
@@ -440,11 +443,22 @@ final class ConversationPacketFactory {
     double? reportedEnergy,
     String? selectedTaskId,
     bool attachedTaskOnly = false,
+    Set<ConversationExtraSource> extraSources = const {},
   }) async {
     final taskOnly =
         surface == ConversationSurface.planner &&
         selectedTaskId != null &&
         attachedTaskOnly;
+    // Extra information is a Chat choice on top of saved information: it is
+    // ignored while the build switch is off, for Choose a step, for one
+    // attached task and for Just this chat.
+    final extras =
+        surface == ConversationSurface.si &&
+            !taskOnly &&
+            sources.isNotEmpty &&
+            ref.read(aiChatExtraSourcesAvailableProvider)
+        ? extraSources
+        : const <ConversationExtraSource>{};
     final scope = ref.read(accountStorageScopeProvider).v2Namespace;
     final generation = ref.read(authSessionBoundaryProvider).generation;
     if (scope == null ||
@@ -467,7 +481,11 @@ final class ConversationPacketFactory {
     }
     final snapshot = await ref
         .read(siV2ReadGatewayProvider)
-        .read(observedAt: now.toUtc(), decisionText: prompt);
+        .read(
+          observedAt: now.toUtc(),
+          decisionText: prompt,
+          includeActivity: extras.isNotEmpty,
+        );
     final note =
         surface == ConversationSurface.planner &&
             !taskOnly &&
@@ -573,6 +591,13 @@ final class ConversationPacketFactory {
     String bounded(String text, int limit) =>
         text.length > limit ? '${text.substring(0, limit)} [truncated]' : text;
     String? localDate(DateTime? time) => time?.toLocal().toIso8601String();
+    final extra = ConversationExtraRecords.read(
+      extras: extras,
+      snapshot: snapshot,
+      entityFilter: entityFilter,
+      title: (text) => bounded(text, conversationExtraTitleLimit),
+      localDate: (time) => localDate(time)!,
+    );
     return ConversationPacket(
       surface: surface,
       accountScope: scope,
@@ -585,8 +610,10 @@ final class ConversationPacketFactory {
         'taskTimeZoneId': taskTimeZoneId,
         'mode': query.intent.name,
         'timeRange': range.name,
-        'selectedSources':
-            effectiveSources.map((source) => source.name).toList()..sort(),
+        'selectedSources': [
+          ...effectiveSources.map((source) => source.name),
+          ...extras.map((source) => source.name),
+        ]..sort(),
         'entityFilter': entityFilter,
         'scenarioAssumption': scenario,
         'evidenceRevision': effectiveSources.isEmpty
@@ -657,16 +684,21 @@ final class ConversationPacketFactory {
               },
             )
             .toList(),
-        'omittedRecordCount': [
-          tasks.length,
-          goals.length,
-          milestones.length,
-          timeline.length,
-        ].fold<int>(0, (sum, size) => sum + (size > 12 ? size - 12 : 0)),
-        'unavailableSources': snapshot.unavailableSources
-            .where(effectiveSources.contains)
-            .map((source) => source.name)
-            .toList(),
+        ...extra.records,
+        'omittedRecordCount':
+            [
+              tasks.length,
+              goals.length,
+              milestones.length,
+              timeline.length,
+            ].fold<int>(0, (sum, size) => sum + (size > 12 ? size - 12 : 0)) +
+            extra.omitted,
+        'unavailableSources': [
+          ...snapshot.unavailableSources
+              .where(effectiveSources.contains)
+              .map((source) => source.name),
+          ...extra.unavailable,
+        ],
         if (note != null) 'selectedNoteId': note.id,
         if (note != null)
           'explicitlyAttachedNote': {

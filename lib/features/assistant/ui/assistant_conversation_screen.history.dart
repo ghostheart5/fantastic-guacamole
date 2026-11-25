@@ -19,6 +19,7 @@ extension _StoredChat on _AssistantConversationScreenState {
       _range = SIV2TimeRange.all;
       // Nothing until this account's saved choice or default has loaded.
       _sources = <SIV2Source>{};
+      _extras = <ConversationExtraSource>{};
       _sourcesChosen = false;
       _scopeExplained = false;
       _scopeNoticeVisible = false;
@@ -62,6 +63,7 @@ extension _StoredChat on _AssistantConversationScreenState {
       _updateHistory(() {
         _historyReady = false;
         _sources = <SIV2Source>{};
+        _extras = <ConversationExtraSource>{};
         _sourcesChosen = false;
         // Unknown for this account, so a later Clear shows the line.
         _scopeExplained = false;
