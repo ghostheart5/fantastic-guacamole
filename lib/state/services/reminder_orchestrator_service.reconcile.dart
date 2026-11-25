@@ -527,11 +527,11 @@ extension _ReminderReconciler on ReminderOrchestratorService {
     final Set<String> withReminders = <String>{};
     final List<_PlannedReminder> wanted = <_PlannedReminder>[];
     final DateTime now = _now();
+    final Map<String, DateTime> previousDueTimes = _goalDueTodayTimes();
     if (prefs.goalRemindersEnabled) {
       // Without permission nothing is registered, so skip the task read.
       final progress = permissionGranted ? await _goalProgress() : null;
       final Map<String, DateTime> previousNudges = _goalCloseNudges();
-      final Map<String, DateTime> previousDueTimes = _goalDueTodayTimes();
       for (final GoalEntity goal in goals) {
         if (goal.isCompleted) continue;
         final List<GoalReminderSlot> slots = goalReminderSlots(
@@ -586,7 +586,16 @@ extension _ReminderReconciler on ReminderOrchestratorService {
               : <String>{...previous, ...goals.map((goal) => goal.id)},
         );
         await _saveGoalCloseNudges(nextNudges);
-        await _saveGoalDueTodayTimes(nextDueTimes);
+        // A newly chosen time counts only once every wanted reminder is
+        // registered; otherwise the next run decides again.
+        await _saveGoalDueTodayTimes(
+          _confirmedDueTimes(
+            nextDueTimes,
+            previousDueTimes,
+            registered: (String goalId, DateTime at) =>
+                outcome == NotificationScheduleResult.scheduled,
+          ),
+        );
       },
     );
   }

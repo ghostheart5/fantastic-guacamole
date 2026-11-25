@@ -142,10 +142,17 @@ void main() {
     expect(fixture.scheduler.bodies[_deadline], endsWith('1 of 2 steps done.'));
 
     // From linked tasks to none: the goal still hears about it.
+    fixture.scheduler.clearLog();
+    fixture.goalReads = 0;
     await fixture.write(
       (tasks) =>
           (tasks as IExactTaskSnapshotRepository).replaceTaskSnapshot(const []),
     );
+    expect(fixture.goalReads, greaterThan(0));
+    expect(fixture.goalRegistrations, contains(_deadline));
+    expect(fixture.scheduler.bodies[_deadline], '"Run a 5K" is due in 3 days.');
+
+    // From none to none: nothing to update.
     fixture.goalReads = 0;
     await fixture.write(
       (tasks) =>

@@ -450,6 +450,46 @@ void main() {
     );
   });
 
+  test('a 9 AM reminder that was never registered still leaves room for '
+      'the evening one', () async {
+    // Notifications are off the evening before: nothing is registered.
+    final fixture = _Fixture()..now = DateTime(2026, 11, 5, 20);
+    final goals = [fixture.goal('trip')];
+    expect(await fixture.reconcile(goals, [], permission: false), isFalse);
+    expect(fixture.scheduler.registered, isEmpty);
+
+    // They are turned on after 9 AM on the target date.
+    fixture.now = DateTime(2026, 11, 6, 10);
+    fixture.scheduler.clearLog();
+    expect(await fixture.reconcile(goals, []), isTrue);
+    expect(fixture.scheduler.registered.where((id) => id.startsWith('goal_')), [
+      'goal_reminder_trip_due',
+    ]);
+    expect(
+      fixture.scheduler.times['goal_reminder_trip_due'],
+      DateTime(2026, 11, 6, 18),
+    );
+  });
+
+  test('a 9 AM reminder whose registration failed still leaves room for '
+      'the evening one', () async {
+    final fixture = _Fixture()..now = DateTime(2026, 11, 5, 20);
+    final goals = [fixture.goal('trip')];
+    fixture.scheduler.throwOn = 'goal_reminder_trip_due';
+    expect(
+      await Logger.withMutedErrors(() => fixture.reconcile(goals, [])),
+      isFalse,
+    );
+    fixture.scheduler.throwOn = null;
+    fixture.now = DateTime(2026, 11, 6, 10);
+    fixture.scheduler.clearLog();
+    expect(await fixture.reconcile(goals, []), isTrue);
+    expect(
+      fixture.scheduler.times['goal_reminder_trip_due'],
+      DateTime(2026, 11, 6, 18),
+    );
+  });
+
   test('a goal whose 9 AM reminder was set up gets no evening one', () async {
     final fixture = _Fixture()..now = DateTime(2026, 11, 5, 20);
     final goals = [fixture.goal('trip')];

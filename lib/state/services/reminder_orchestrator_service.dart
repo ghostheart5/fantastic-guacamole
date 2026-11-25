@@ -346,9 +346,35 @@ class ReminderOrchestratorService {
     if (shouldContinue?.call() == false) return;
     await _saveTrackedGoalReminderIds(scheduledIds);
     await _saveGoalCloseNudges(nextNudges);
-    await _saveGoalDueTodayTimes(nextDueTimes);
+    await _saveGoalDueTodayTimes(
+      _confirmedDueTimes(
+        nextDueTimes,
+        previousDueTimes,
+        registered: (String goalId, DateTime at) => registered.any(
+          (_PlannedReminder item) =>
+              item.id == '${_goalReminderId(goalId)}_due' &&
+              item.at.isAtSameMomentAs(at),
+        ),
+      ),
+    );
     await _rememberFingerprints(registered);
   }
+
+  /// The "due today" times to remember: those already remembered, and newly
+  /// chosen ones only once [registered] confirms the OS holds them. A time
+  /// that was never registered (notifications off, a failed registration) is
+  /// decided again on the next run, so turning notifications on after 9 AM on
+  /// the target date still gets the evening reminder.
+  Map<String, DateTime> _confirmedDueTimes(
+    Map<String, DateTime> next,
+    Map<String, DateTime> previous, {
+    required bool Function(String goalId, DateTime at) registered,
+  }) => <String, DateTime>{
+    for (final MapEntry<String, DateTime> entry in next.entries)
+      if (previous[entry.key]?.isAtSameMomentAs(entry.value) == true ||
+          registered(entry.key, entry.value))
+        entry.key: entry.value,
+  };
 
   /// Brings only the goal reminders in line with [goals] and their linked
   /// tasks, changing what differs. Every task write that touches a goal's

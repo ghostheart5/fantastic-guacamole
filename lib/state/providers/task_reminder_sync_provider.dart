@@ -15,13 +15,42 @@ final taskReminderSyncProvider = Provider<TaskReminderSync>(
 );
 
 /// Brings this account's task reminders up to date after a task write.
-/// Requests that arrive while one runs are folded into one more run, so a
-/// burst of writes (a completion and its repeating successor, a restore)
-/// costs at most two.
-class TaskReminderSync {
-  TaskReminderSync(this._ref);
+class TaskReminderSync extends ReminderSyncRunner {
+  TaskReminderSync(super.ref) : super(name: 'Task', sync: _syncTasks);
+
+  static Future<void> _syncTasks(
+    Ref ref,
+    AccountOperation owner,
+    bool granted,
+  ) async {
+    await owner.wait(
+      ref
+          .read(reminderOrchestratorServiceProvider)
+          .syncTaskReminders(
+            permissionGranted: granted,
+            shouldContinue: () => owner.isCurrent,
+          ),
+    );
+    ref.invalidate(automationNotificationsProvider);
+  }
+}
+
+/// One run of a write-time reminder sync, after the shared checks.
+typedef ReminderSyncRun =
+    Future<void> Function(Ref ref, AccountOperation owner, bool granted);
+
+/// Runs one write-time reminder sync per request. Requests that arrive while
+/// one runs are folded into one more run, so a burst of writes (a completion
+/// and its repeating successor, a restore) costs at most two. Each run checks
+/// the account, waits until the scheduler is set up, refreshes the time zone
+/// and reads the permission (never showing the system dialog) before handing
+/// over to [sync].
+class ReminderSyncRunner {
+  ReminderSyncRunner(this._ref, {required this._name, required this._sync});
 
   final Ref _ref;
+  final String _name;
+  final ReminderSyncRun _sync;
   Future<void>? _running;
   bool _again = false;
 
@@ -59,22 +88,14 @@ class TaskReminderSync {
             .read(notificationSchedulerProvider)
             .init(requestPermissions: false),
       );
-      await owner.wait(
-        _ref
-            .read(reminderOrchestratorServiceProvider)
-            .syncTaskReminders(
-              permissionGranted: granted,
-              shouldContinue: () => owner.isCurrent,
-            ),
-      );
-      _ref.invalidate(automationNotificationsProvider);
+      await _sync(_ref, owner, granted);
     } on StaleAccountOperation {
       // The account changed; its next session reconciles on its own.
     } on Object catch (error) {
       // A container disposed mid-run (sign-out, app teardown) is not an
       // error: there is nothing left to update for it.
       if (!_ref.mounted) return;
-      Logger.warn('Task reminders could not be updated ($error).');
+      Logger.warn('$_name reminders could not be updated ($error).');
     }
   }
 }
@@ -95,19 +116,25 @@ bool notificationSchedulerReady(Ref ref) {
 /// The one place every task write passes through: create, edit, reschedule,
 /// complete, skip, delete, the Creator's direct save, a repeating task's
 /// successor and restore all reach the store through this wrapper, which
-/// asks [TaskReminderSync] to update the task reminders after each write.
+/// calls [changed] after each write.
+///
+/// With [concerns], only writes to a task that matches it before or after
+/// the write call [changed]; when the stored task cannot be read, the write
+/// counts as matching.
 ITaskRepository reminderSyncingTaskStore(
   ITaskRepository store,
-  void Function() changed,
-) => store is IExactTaskSnapshotRepository
-    ? _ExactReminderSyncingTaskStore(store, changed)
-    : _ReminderSyncingTaskStore(store, changed);
+  void Function() changed, {
+  bool Function(TaskEntity task)? concerns,
+}) => store is IExactTaskSnapshotRepository
+    ? _ExactReminderSyncingTaskStore(store, changed, concerns)
+    : _ReminderSyncingTaskStore(store, changed, concerns);
 
 class _ReminderSyncingTaskStore implements ITaskRepository {
-  _ReminderSyncingTaskStore(this._store, this._changed);
+  _ReminderSyncingTaskStore(this._store, this._changed, this._concerns);
 
   final ITaskRepository _store;
   final void Function() _changed;
+  final bool Function(TaskEntity task)? _concerns;
 
   @override
   Future<List<TaskEntity>> getAllTasks() => _store.getAllTasks();
@@ -117,24 +144,47 @@ class _ReminderSyncingTaskStore implements ITaskRepository {
 
   @override
   Future<void> saveTask(TaskEntity task) async {
+    final bool relevant = _matches(task) || await _storedMatches(task.id);
     await _store.saveTask(task);
-    _changed();
+    if (relevant) _changed();
   }
 
   @override
   Future<void> deleteTask(String id) async {
+    final bool relevant = await _storedMatches(id);
     await _store.deleteTask(id);
-    _changed();
+    if (relevant) _changed();
+  }
+
+  bool _matches(TaskEntity task) => _concerns?.call(task) ?? true;
+
+  Future<bool> _storedMatches(String id) => _readMatches(() async {
+    final TaskEntity? stored = await _store.getTaskById(id);
+    return stored != null && _matches(stored);
+  });
+
+  Future<bool> _readMatches(Future<bool> Function() read) async {
+    if (_concerns == null) return true;
+    try {
+      return await read();
+    } on Object {
+      return true;
+    }
   }
 }
 
 class _ExactReminderSyncingTaskStore extends _ReminderSyncingTaskStore
     implements IExactTaskSnapshotRepository {
-  _ExactReminderSyncingTaskStore(super._store, super._changed);
+  _ExactReminderSyncingTaskStore(super._store, super._changed, super._concerns);
 
   @override
   Future<void> replaceTaskSnapshot(List<TaskEntity> tasks) async {
+    final bool relevant =
+        tasks.any(_matches) ||
+        await _readMatches(
+          () async => (await _store.getAllTasks()).any(_matches),
+        );
     await (_store as IExactTaskSnapshotRepository).replaceTaskSnapshot(tasks);
-    _changed();
+    if (relevant) _changed();
   }
 }
