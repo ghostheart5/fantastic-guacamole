@@ -8,7 +8,7 @@ Nothing in this document has been run yet. Every results table below is empty on
 purpose. Fill each one in as you go. A step is only "passed" when you saw it with
 your own eyes on the phone.
 
-This protocol was written against the app code at commit `d3463989` on branch
+This protocol was written against the app code at commit `04c7e960` on branch
 `claude/phase2-scheduling-notifications`. If your QA build is older than that, some
 steps will not match. Say so in the notes.
 
@@ -73,7 +73,7 @@ steps will not match. Say so in the notes.
 
 | Step | What to do | What you should see |
 | --- | --- | --- |
-| S1 | In Android: Settings > About phone. Write down the Android version and the model in the results table. For the build, write the version shown in the app's Settings > About, or the date you installed it. | You have the device, Android version and build to record. |
+| S1 | In Android: Settings > About phone. Write down the Android version and the model in the results table. For the app build: Android Settings > Apps > Axiomara (the QA one) > App details shows the version at the bottom. Write it down. If you cannot find it, write the date you installed the QA build instead. | You have the device, Android version and build (or install date) to record. |
 | S2 | Open Axiomara (QA). Go to Browse tools > **Settings** > **Notifications**. Make sure the **Reminders** switch is on, **Task Reminders** is on and **Overdue nudges** is off. | Switches as described. The top line says "Reminders can arrive on this device." |
 | S3 | In the same area, under **Task Reminders**, set **Task reminder time** to **5 minutes before**. | The drop-down shows "5 minutes before". |
 | S4 | The first time you save a task that has a date, the app asks to allow notifications. When it shows **Enable Notifications**, tap **Allow Notifications**, then in Android's own box tap **Allow**. | You land back in the app and the task saves. |
@@ -121,7 +121,7 @@ Goal: a reminder still arrives while the phone is locked.
 | --- | --- | --- |
 | 2.1 | Create `Reminder test 2` scheduled **12 minutes from now**. | The task saves. |
 | 2.2 | Lock the phone with the power button. Leave it locked and untouched for the whole wait. | The screen goes dark. |
-| 2.3 | After 7 minutes (plus up to 10 minutes of lateness), look at the phone without unlocking it. | A notification appears on the lock screen. The screen may light up or it may only show when you press the power button. Either way, note which one. If your lock screen hides notification content, it may only say a notification from Axiomara is waiting. That is an Android setting, not a fault. |
+| 2.3 | After 7 minutes (plus up to 10 minutes of lateness), look at the phone without unlocking it. If nothing has come 30 minutes after the due time, keep waiting up to 60 and write down when it finally comes (late, not lost). | A notification appears on the lock screen. The screen may light up or it may only show when you press the power button. Either way, note which one. If your lock screen hides notification content, it may only say a notification from Axiomara is waiting. That is an Android setting, not a fault. |
 
 ## Test 3: After a restart, without opening the app
 
@@ -162,7 +162,7 @@ Goal: see how much Battery Saver delays a reminder.
 | --- | --- | --- |
 | 5.1 | Create `Reminder test 5` scheduled **12 minutes from now**. | The task saves. |
 | 5.2 | Turn on Battery Saver: Android Settings > Battery > Battery Saver > turn on. Close the app by swiping it away. Lock the phone. | The battery icon shows the saver mark. |
-| 5.3 | Wait 7 minutes. Write down the time it arrives. Wait up to 30 minutes in total (rule 1). | A notification appears: **Starting soon**, `"Reminder test 5" starts in 5 minutes.` It may be late. |
+| 5.3 | Wait 7 minutes. Write down the time it arrives. Wait up to 30 minutes in total (rule 1). If it has not come by then, keep waiting up to 60 and write down when it comes (late, not lost). | A notification appears: **Starting soon**, `"Reminder test 5" starts in 5 minutes.` It may be late. |
 | 5.4 | Turn Battery Saver off again. | |
 
 For this test the lateness is the interesting result. Always write down the
@@ -199,7 +199,7 @@ Goal: completing a task before its reminder time cancels the reminder.
 | 7.1 | Create `Reminder test 7` scheduled **15 minutes from now**. | The task saves. |
 | 7.2 | Open **My plan** (bottom bar), find `Reminder test 7` and tap **Complete**. | The task shows as completed. |
 | 7.3 | Close the app. Wait until 5 minutes before the time plus 10 minutes. | **No** notification arrives for this task. |
-| 7.4 | Repeat 7.1 to 7.3 with a task called `Reminder test 7b`, but remove the task instead of completing it (open it from **My plan** and use its remove option; if you cannot find one, write that in the notes). | **No** notification arrives. |
+| 7.4 | Repeat 7.1 to 7.3 with a task called `Reminder test 7b`, but remove it instead of completing it. In **My plan**, find the task and tap **Delete** on its card. A box titled **Remove task from active planning?** appears. Tap **Remove task**. | The task disappears from the active list. **No** notification arrives for it. |
 
 ## Test 8: Say no to notifications, then allow them later
 
@@ -211,11 +211,11 @@ is to start the QA app fresh. In Android Settings > Apps > Axiomara (check it is
 the QA one, with `.qa` in its details) > Storage > **Clear data**. Warning: this
 erases the QA app's test data on the phone and resets its permissions. That is
 fine for the QA build. You will need to click through its first-time screens
-again.
+again. **Clear data also resets your settings** (the 5 minute lead from S3 goes back to "At the time", and switches go back to their defaults), so step 8.1 redoes the S2 and S3 checks. Quiet hours and the language are also reset. Tests 9 and later assume you did step 8.1; if you skip test 8, you do not need to.
 
 | Step | What to do | What should happen |
 | --- | --- | --- |
-| 8.1 | Open the app and finish the first-time screens. Create `Reminder test 8` scheduled **30 minutes from now**. | When you save, a sheet called **Enable Notifications** appears after the task is saved. |
+| 8.1 | Open the app and finish the first-time screens. Before creating anything, redo S2 and S3: Settings > **Notifications**, check **Reminders** and **Task Reminders** are on and **Overdue nudges** is off, and set **Task reminder time** to **5 minutes before** again. (The top status line may already say notifications are off. That is expected here.) Then create `Reminder test 8` scheduled **30 minutes from now**. | When you save, a sheet called **Enable Notifications** appears after the task is saved. |
 | 8.2 | Tap **Not Now**. | The task is still saved. No Android permission box appears. |
 | 8.3 | Open **Today**, then **Goals**. | Each shows a notice: **Reminders are on, but notifications are off for Axiomara.** with a **Turn on notifications** button. |
 | 8.4 | Create another dated task (`Reminder test 8b`, 30 minutes ahead). | The app does **not** ask for permission again by itself. |
@@ -234,7 +234,7 @@ Goal: tapping the reminder opens the right place in the app.
 | --- | --- | --- |
 | 9.1 | Create `Reminder test 9` scheduled **12 minutes from now**. Close the app by swiping it away. | |
 | 9.2 | When the reminder arrives, tap it (from the lock screen too if you like). | The app starts and opens **My plan**. It does not need a second tap. |
-| 9.3 | Repeat with a reminder you let wait: create `Reminder test 9b` scheduled 12 minutes ahead, close the app, wait until the reminder arrives, then wait **3 more minutes** before tapping it. | The app opens, but because more than 2 minutes passed after the app started, it may open on the normal start screen instead of **My plan**. The app only follows a tap that arrives within 2 minutes after the app has launched. Write down what you saw. This is a note, not a pass or fail. |
+| 9.3 | Do 9.1 and 9.2 a second time with `Reminder test 9b`, to be sure a cold-start tap works every time. | The app opens **My plan** again. (The app only drops a closed-app tap when the app has taken more than 2 minutes after launching to become ready to route it, for example a very slow sign-in. You cannot trigger that on purpose, and waiting before you tap does not matter. If you ever land on the normal start screen after a tap, write down how long the app took to open.) |
 | 9.4 | Tap a reminder while the app is open in the background (home button, not swiped away). | The app comes to the front on **My plan**. |
 
 Where each reminder opens in the app:
@@ -315,7 +315,7 @@ that you create after 09:00 (only if 18:00 is at least 30 minutes away).
 
 | Step | What to do | What should happen |
 | --- | --- | --- |
-| 14.1 | Run this between 09:30 and 17:00. **Add something** > **Goal**. Title `Reminder goal`, **Target date** = today. Save. | The goal saves. |
+| 14.1 | Run this between 09:30 and 17:00. **Add something** > **Goal**. Title `Reminder goal`. Open **Add a target date (optional)**, tap **Add target date...**, pick today in the date picker and tap OK. Tap **Save goal**. | The goal saves. |
 | 14.2 | Close the app. Wait until 18:00 plus up to 10 minutes. | **Goal due today**, `"Reminder goal" is due today.` |
 | 14.3 | Tap it. | The app opens **Goals**. |
 
@@ -359,7 +359,7 @@ late" is arrival minus the time the reminder was due.
 | 7b | Deleted first, no reminder | | | | | | |
 | 8 | Said no, then allowed later | | | | | | |
 | 9 | Tap with app closed opens My plan | | | | | | |
-| 9b | Tap more than 2 minutes after launch (note only) | | | | | | |
+| 9b | Second tap with the app closed | | | | | | |
 | 10 | Quiet hours hold, then deliver | | | | | | |
 | 11 | Main switch off, then on | | | | | | |
 | 12 | Spanish wording | | | | | | |
