@@ -558,7 +558,10 @@ void main() {
       // Chat and Choose a step overlap: either answer may carry the older
       // figure (reservation order is not known here), so neither is shown.
       known.reportWallet(account, known.beginRead(), 50);
+      expect(shown(), 50);
       known.enterPaid(account, 'chat', firstAttempt: true);
+      // Reserved at once by the server: 50 is out of date while it runs.
+      expect(shown(), isNull);
       known.enterPaid(account, 'choose-a-step', firstAttempt: true);
       known.reportAnswer(account, 'choose-a-step', 45);
       expect(shown(), isNull);

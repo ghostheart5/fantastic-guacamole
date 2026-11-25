@@ -145,15 +145,18 @@ class AiCreditKnownBalance extends Notifier<int?> {
   /// Marks the start of a server wallet read.
   int beginRead() => _version;
 
-  /// A request for [account] is handed on for a reply. Only its first
-  /// attempt in this run marks when it entered the paid step: a retry keeps
-  /// that mark, and a request recovered from an earlier run has none.
+  /// A request for [account] is handed on for a reply. The server reserves
+  /// its credits at once, so the balance shown until now is out of date and
+  /// is forgotten. Only its first attempt in this run marks when it entered
+  /// the paid step: a retry keeps that mark, and a request recovered from an
+  /// earlier run has none.
   void enterPaid(
     String account,
     String requestId, {
     required bool firstAttempt,
   }) {
     if (account != _account) return;
+    _forget(requestId);
     if (firstAttempt) _paidSince.putIfAbsent(requestId, () => _version);
     _inFlight.add(requestId);
   }
