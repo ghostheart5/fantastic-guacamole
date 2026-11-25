@@ -34,14 +34,44 @@ class _NotificationSettingsAreaState
       _remindersOn = value;
       _saving = true;
     });
+    bool applied;
     try {
-      await ref.read(settingsUiActionsProvider).setRemindersEnabled(value);
+      applied = await ref
+          .read(settingsUiActionsProvider)
+          .setRemindersEnabled(value);
     } on Object catch (error) {
       Logger.warn('Main reminder switch could not be applied ($error).');
+      applied = false;
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-    if (!mounted || !value) return;
+    if (!mounted) return;
+    if (!applied) {
+      // The choice is saved; only updating the device's reminders failed.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            value
+                ? journeyText(
+                    context,
+                    'Reminders are on, but they could not all be set up.',
+                    'Los recordatorios están activados, pero no se pudieron programar todos.',
+                  )
+                : journeyText(
+                    context,
+                    'Reminders are off, but some could not be stopped yet.',
+                    'Los recordatorios están desactivados, pero algunos aún no se pudieron detener.',
+                  ),
+          ),
+          action: SnackBarAction(
+            label: journeyText(context, 'Try again', 'Intentar de nuevo'),
+            onPressed: () => unawaited(_toggle(value)),
+          ),
+        ),
+      );
+      return;
+    }
+    if (!value) return;
     // Turned back on: ask in context if notifications are off.
     await ensureNotificationPermission(context, ref);
   }
@@ -238,6 +268,21 @@ class _QuietHoursSectionState extends ConsumerState<_QuietHoursSection> {
     );
     if (picked == null || !mounted) return;
     final int chosen = picked.hour * 60 + picked.minute;
+    if (chosen == (start ? _quiet.endMinutes : _quiet.startMinutes)) {
+      // The same start and end would hold nothing back.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Quiet hours need different start and end times.',
+              'Las horas de silencio necesitan horas de inicio y fin distintas.',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
     await _save(
       QuietHours(
         enabled: _quiet.enabled,
@@ -252,6 +297,8 @@ class _QuietHoursSectionState extends ConsumerState<_QuietHoursSection> {
     ref.listen(restoredSettingsRevisionProvider, (_, _) => _load());
     String format(int minutes) =>
         TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60).format(context);
+    final bool active =
+        _quiet.enabled && _quiet.startMinutes != _quiet.endMinutes;
     return _Section(
       label: journeyText(context, 'QUIET HOURS', 'HORAS DE SILENCIO'),
       accentColor: AppColors.neonViolet,
@@ -260,18 +307,21 @@ class _QuietHoursSectionState extends ConsumerState<_QuietHoursSection> {
           _NeonToggleTile(
             key: const Key('quiet-hours-toggle'),
             title: journeyText(context, 'Quiet hours', 'Horas de silencio'),
-            value: _quiet.enabled,
+            // Equal start and end hold nothing back, so they show as off.
+            value: active,
             onChanged: widget.enabled
                 ? (bool value) => _save(
-                    QuietHours(
-                      enabled: value,
-                      startMinutes: _quiet.startMinutes,
-                      endMinutes: _quiet.endMinutes,
-                    ),
+                    _quiet.startMinutes == _quiet.endMinutes
+                        ? QuietHours(enabled: value)
+                        : QuietHours(
+                            enabled: value,
+                            startMinutes: _quiet.startMinutes,
+                            endMinutes: _quiet.endMinutes,
+                          ),
                   )
                 : null,
           ),
-          if (_quiet.enabled) ...<Widget>[
+          if (active) ...<Widget>[
             _ReminderTimeRow(
               label: journeyText(context, 'Starts', 'Empieza'),
               time: format(_quiet.startMinutes),

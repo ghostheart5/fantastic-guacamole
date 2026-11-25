@@ -68,6 +68,7 @@ abstract final class TaskReminderPlanner {
         now: now,
         leadTime: Duration(minutes: prefs.taskReminderLeadMinutes),
         overdueNudges: prefs.taskOverdueNudgesEnabled,
+        quietHours: prefs.quietHours,
       ).isNotEmpty;
 
   static bool isOpen(TaskEntity task) =>
@@ -78,7 +79,9 @@ abstract final class TaskReminderPlanner {
 
   /// The reminders [tasks] should have right now, nearest first. Local times
   /// use the device time zone (`tz.local`). With a lead time, a task saved
-  /// too late for it is reminded at its time itself.
+  /// too late for it is reminded at its time itself. Every time is moved out
+  /// of [quietHours] before it is judged, so a reminder held back until quiet
+  /// hours end stays planned (and counts toward [limit]) while it waits.
   static List<TaskReminderSlot> plan(
     Iterable<TaskEntity> tasks, {
     required DateTime now,
@@ -86,12 +89,19 @@ abstract final class TaskReminderPlanner {
     bool overdueNudges = false,
     bool spanish = false,
     int limit = maxPending,
+    QuietHours quietHours = const QuietHours(),
   }) {
     final Duration lead = leadTime.isNegative ? Duration.zero : leadTime;
     final List<TaskReminderSlot> slots = <TaskReminderSlot>[
       for (final TaskEntity task in tasks)
         if (isOpen(task))
-          ..._forTask(task, now: now, lead: lead, overdue: overdueNudges)
+          ..._forTask(
+                task,
+                now: now,
+                lead: lead,
+                overdue: overdueNudges,
+                quiet: quietHours,
+              )
               .map((slot) => slot.written(_TaskReminderCopy(spanish, task)))
               .where((TaskReminderSlot slot) => slot.at.isAfter(now)),
     ];
@@ -107,6 +117,7 @@ abstract final class TaskReminderPlanner {
     required DateTime now,
     required Duration lead,
     required bool overdue,
+    required QuietHours quiet,
   }) {
     final DateTime? start = task.scheduledFor;
     final DateTime? due = task.dueDate;
@@ -117,11 +128,12 @@ abstract final class TaskReminderPlanner {
     final DateTime savedAt = task.updatedAt ?? task.createdAt;
     _TaskSlotTime? ahead(String id, _TaskReminderKind kind, DateTime at) {
       final DateTime early = at.subtract(lead);
-      if (early.isAfter(now)) {
-        return _TaskSlotTime(id, kind, early, lead.inMinutes);
+      final DateTime heldEarly = quiet.moveOut(early);
+      if (heldEarly.isAfter(now)) {
+        return _TaskSlotTime(id, kind, heldEarly, lead.inMinutes);
       }
       if (early.isAfter(savedAt)) return null;
-      return _TaskSlotTime(id, kind, at, 0);
+      return _TaskSlotTime(id, kind, quiet.moveOut(at), 0);
     }
 
     final _TaskSlotTime? first = start != null
@@ -141,7 +153,9 @@ abstract final class TaskReminderPlanner {
         _TaskSlotTime(
           overdueId(task.id),
           _TaskReminderKind.overdue,
-          _morning(due, dateOnly: task.hasDateOnlyDeadline, daysAfter: 1),
+          quiet.moveOut(
+            _morning(due, dateOnly: task.hasDateOnlyDeadline, daysAfter: 1),
+          ),
           0,
         ),
     ];
@@ -259,13 +273,14 @@ extension _TaskReminders on ReminderOrchestratorService {
           leadTime: Duration(minutes: prefs.taskReminderLeadMinutes),
           overdueNudges: prefs.taskOverdueNudgesEnabled,
           spanish: _isSpanish(),
+          quietHours: prefs.quietHours,
         ))
           _PlannedReminder.once(
             id: slot.id,
             title: slot.title,
             body: slot.body,
-            // The app picks these times, so quiet hours move them.
-            at: prefs.quietHours.moveOut(slot.at),
+            // Already moved out of quiet hours by the planner.
+            at: slot.at,
           ),
     ];
     final Set<String> wantedIds = <String>{

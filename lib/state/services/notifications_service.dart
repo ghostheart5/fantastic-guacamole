@@ -21,6 +21,17 @@ class NotificationsService {
     await _repository.cancelNotification(id);
   }
 
+  /// Cancels every listed notification whose id matches [test].
+  Future<void> cancelWhere(bool Function(String id) test) async {
+    final List<NotificationEntity> notifications = await _repository
+        .getNotifications();
+    for (final NotificationEntity notification in notifications) {
+      if (test(notification.id)) {
+        await _repository.cancelNotification(notification.id);
+      }
+    }
+  }
+
   Future<void> cancelAll() async {
     final List<NotificationEntity> notifications = await _repository
         .getNotifications();

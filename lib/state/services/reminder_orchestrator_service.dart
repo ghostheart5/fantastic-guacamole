@@ -81,6 +81,11 @@ class ReminderOrchestratorService {
 
   /// The main reminder switch; missing means on, as before it existed.
   static const String remindersEnabledKey = 'reminders_enabled';
+
+  /// The one-off "rebuild your streak" nudge (see the profile controller).
+  /// It goes through the notification list, not the reconciler, so a full
+  /// reconcile with the main switch off cancels it separately.
+  static const String streakBreakIdPrefix = 'streak_break_recovery_';
   static const String _quietHoursEnabledKey = 'quiet_hours_enabled';
   static const String _quietHoursStartKey = 'quiet_hours_start';
   static const String _quietHoursEndKey = 'quiet_hours_end';
@@ -222,6 +227,25 @@ class ReminderOrchestratorService {
   /// cancels every OS reminder (off) or registers them again (on).
   Future<void> setRemindersEnabled(bool enabled) =>
       _preferences.save(remindersEnabledKey, enabled.toString());
+
+  /// Lists the one-off "rebuild your streak" nudge and hands it to the OS,
+  /// unless the main reminder switch is off: then nothing is listed or
+  /// registered. Returns whether it was scheduled.
+  Future<bool> scheduleStreakBreakNudge({
+    required String id,
+    required String title,
+    required String body,
+    required DateTime at,
+  }) => KeyedMutationCoordinator.shared.runExclusive<bool>(
+    AccountDataRegistry.notificationMutationKeyForScope(
+      _accountScope ?? 'legacy',
+    ),
+    () async {
+      if (!_remindersOn()) return false;
+      await _notifications.schedule(id: id, title: title, body: body, at: at);
+      return true;
+    },
+  );
 
   /// Applied by the next reconcile (the caller runs one).
   Future<void> setTaskOverdueNudgesEnabled(bool enabled) =>
@@ -807,6 +831,10 @@ class ReminderOrchestratorService {
     final int done = progress.completedCount;
     final _ReminderCopy copy = _ReminderCopy(_isSpanish());
     final DateTime today = DateTime(now.year, now.month, now.day);
+    // The app picks these times, so quiet hours move them. Whether one is
+    // still ahead is judged on the moved time, so a reminder being held
+    // back is not dropped while it waits.
+    final QuietHours quiet = _quietHours();
 
     final DateTime? target = goal.targetDate;
     DateTime? dueDay;
@@ -829,17 +857,18 @@ class ReminderOrchestratorService {
                 next: nextDueTimes,
               )
             : morning(daysBefore);
-        if (at == null || !at.isAfter(now)) continue;
+        final DateTime? when = at == null ? null : quiet.moveOut(at);
+        if (when == null || !when.isAfter(now)) continue;
         slots.add(
           GoalReminderSlot(
             id: id,
             title: copy.goalDeadlineTitle(daysBefore),
             body: copy.goalDeadlineBody(title, daysBefore, done, total),
-            at: at,
+            at: when,
           ),
         );
       }
-      final DateTime overdueAt = morning(-1);
+      final DateTime overdueAt = quiet.moveOut(morning(-1));
       if (overdueNudges && overdueAt.isAfter(now)) {
         slots.add(
           GoalReminderSlot(
@@ -866,20 +895,26 @@ class ReminderOrchestratorService {
       // Progress could not be read: keep any pending nudge as it was.
       if (earlier != null) {
         nextNudges[goal.id] = earlier;
-        if (earlier.isAfter(now) && !deadlineSoon) {
-          slots.add(_closeSlot(copy, base, title, remaining, earlier));
+        final DateTime when = quiet.moveOut(earlier);
+        if (when.isAfter(now) && !deadlineSoon) {
+          slots.add(_closeSlot(copy, base, title, remaining, when));
         }
       }
     } else if (close && !deadlineSoon) {
       final DateTime at =
           earlier ??
-          (DateTime(now.year, now.month, now.day, goalReminderHour).isAfter(now)
+          (quiet
+                  .moveOut(
+                    DateTime(now.year, now.month, now.day, goalReminderHour),
+                  )
+                  .isAfter(now)
               ? DateTime(now.year, now.month, now.day, goalReminderHour)
               : DateTime(now.year, now.month, now.day + 1, goalReminderHour));
       nextNudges[goal.id] = at;
       // A nudge whose time has passed already fired; it does not repeat.
-      if (at.isAfter(now)) {
-        slots.add(_closeSlot(copy, base, title, remaining, at));
+      final DateTime when = quiet.moveOut(at);
+      if (when.isAfter(now)) {
+        slots.add(_closeSlot(copy, base, title, remaining, when));
       }
     }
     return slots;
@@ -919,9 +954,11 @@ class ReminderOrchestratorService {
         day.day,
         goalSameDayHour,
       );
-      if (morning.isAfter(now)) {
+      // Judged on the times after quiet hours move them.
+      if (_appTimed(morning).isAfter(now)) {
         at = morning;
-      } else if (onDay(now) && !evening.isBefore(now.add(goalSameDayLead))) {
+      } else if (onDay(now) &&
+          !_appTimed(evening).isBefore(now.add(goalSameDayLead))) {
         at = evening;
       }
     }
@@ -956,7 +993,7 @@ class ReminderOrchestratorService {
   /// True only when the OS confirmed the registration. The listed slot goes
   /// through the notification list, which does not report the outcome.
   Future<bool> _scheduleGoalSlot(GoalReminderSlot slot) async {
-    final DateTime at = _appTimed(slot.at);
+    final DateTime at = slot.at;
     if (_isListedGoalSlot(slot.id)) {
       await _notifications.schedule(
         id: slot.id,

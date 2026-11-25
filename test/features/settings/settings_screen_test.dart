@@ -707,9 +707,13 @@ void main() {
     WidgetTester tester, {
     bool es = false,
     bool? permission = true,
+    void Function(_FakeSettingsUiActions actions)? arrange,
   }) async {
     useTallSurface(tester);
     final container = createContainer(notificationPermission: permission);
+    arrange?.call(
+      container.read(settingsUiActionsProvider) as _FakeSettingsUiActions,
+    );
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -853,6 +857,59 @@ void main() {
     });
   }
 
+  for (final es in [false, true]) {
+    testWidgets('when the device reminders cannot be updated the main switch '
+        'says so and offers to try again (es=$es)', (tester) async {
+      final container = await openNotifications(
+        tester,
+        es: es,
+        arrange: (actions) => actions.mainSwitchApplies = false,
+      );
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('reminders-main-toggle')),
+          matching: find.byType(Switch),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        find.text(
+          es
+              ? 'Los recordatorios están desactivados, pero algunos aún no se pudieron detener.'
+              : 'Reminders are off, but some could not be stopped yet.',
+        ),
+        findsOneWidget,
+      );
+      final actions =
+          container.read(settingsUiActionsProvider) as _FakeSettingsUiActions;
+      actions.mainSwitchApplies = true;
+      // Let the message finish sliding in.
+      await tester.pump(const Duration(milliseconds: 750));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(SnackBar),
+          matching: find.text(es ? 'Intentar de nuevo' : 'Try again'),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(actions.mainSwitchWrites, [false, false]);
+    });
+  }
+
+  testWidgets('quiet hours with the same start and end show as off', (
+    tester,
+  ) async {
+    await openNotifications(
+      tester,
+      arrange: (actions) => actions.storedQuietHours = const QuietHours(
+        enabled: true,
+        startMinutes: 22 * 60,
+        endMinutes: 22 * 60,
+      ),
+    );
+    expect(switchIn(tester, 'quiet-hours-toggle').value, isFalse);
+    expect(find.text('Starts'), findsNothing);
+  });
   for (final dark in [true, false]) {
     testWidgets(
       'Reflection picker follows dark forms=$dark and Cancel preserves time',
@@ -2180,14 +2237,22 @@ class _FakeSettingsUiActions extends SettingsUiActions {
   final List<int> leadWrites = <int>[];
   final List<QuietHours> quietWrites = <QuietHours>[];
 
+  /// What the main switch reports back: false when the device's reminders
+  /// could not all be updated.
+  bool mainSwitchApplies = true;
+
+  /// Replaces the stored quiet hours when set.
+  QuietHours? storedQuietHours;
+
   @override
   Future<void> setTaskRemindersEnabled(bool enabled) async {
     taskReminderWrites.add(enabled);
   }
 
   @override
-  Future<void> setRemindersEnabled(bool enabled) async {
+  Future<bool> setRemindersEnabled(bool enabled) async {
     mainSwitchWrites.add(enabled);
+    return mainSwitchApplies;
   }
 
   @override
@@ -2208,7 +2273,21 @@ class _FakeSettingsUiActions extends SettingsUiActions {
   @override
   ReminderOrchestratorPrefs loadAdvancedReminderPrefs() {
     advancedLoads++;
-    return super.loadAdvancedReminderPrefs();
+    final ReminderOrchestratorPrefs stored = super.loadAdvancedReminderPrefs();
+    final QuietHours? quiet = storedQuietHours;
+    if (quiet == null) return stored;
+    return ReminderOrchestratorPrefs(
+      goalRemindersEnabled: stored.goalRemindersEnabled,
+      habitRemindersEnabled: stored.habitRemindersEnabled,
+      dailyPlanningEnabled: stored.dailyPlanningEnabled,
+      dailyPlanningHour: stored.dailyPlanningHour,
+      dailyPlanningMinute: stored.dailyPlanningMinute,
+      taskRemindersEnabled: stored.taskRemindersEnabled,
+      taskOverdueNudgesEnabled: stored.taskOverdueNudgesEnabled,
+      taskReminderLeadMinutes: stored.taskReminderLeadMinutes,
+      remindersEnabled: stored.remindersEnabled,
+      quietHours: quiet,
+    );
   }
 
   @override

@@ -119,9 +119,15 @@ class SettingsUiActions {
 
   /// The main reminder switch. Either way the full reconcile follows: off
   /// cancels every OS reminder of this account, on registers them again.
-  /// In-app notification list entries are left as they are.
-  Future<void> setRemindersEnabled(bool enabled) =>
-      _saveAndReconcile((reminders) => reminders.setRemindersEnabled(enabled));
+  /// Entries that already went off stay in the in-app list. Returns false
+  /// when turning off could not cancel everything; turning on reports its
+  /// problems through the Settings status row instead.
+  Future<bool> setRemindersEnabled(bool enabled) async {
+    final bool complete = await _saveAndReconcile(
+      (reminders) => reminders.setRemindersEnabled(enabled),
+    );
+    return enabled || complete;
+  }
 
   Future<void> setTaskOverdueNudgesEnabled(bool enabled) => _saveAndReconcile(
     (reminders) => reminders.setTaskOverdueNudgesEnabled(enabled),
@@ -134,13 +140,13 @@ class SettingsUiActions {
   Future<void> setQuietHours(QuietHours quietHours) =>
       _saveAndReconcile((reminders) => reminders.setQuietHours(quietHours));
 
-  Future<void> _saveAndReconcile(
+  Future<bool> _saveAndReconcile(
     Future<void> Function(ReminderOrchestratorService reminders) save,
   ) async {
     final owner = AccountOperation.capture(_ref);
     owner.check();
     await owner.wait(save(_ref.read(reminderOrchestratorServiceProvider)));
-    await _reconcileReminders(owner);
+    return _reconcileReminders(owner);
   }
 
   Future<void> refreshNotificationPermissionAndReminders() async {
@@ -149,7 +155,8 @@ class SettingsUiActions {
     await _reconcileReminders(owner);
   }
 
-  Future<void> _reconcileReminders(AccountOperation owner) async {
+  /// Whether every reminder group and the reflection reminder are in line.
+  Future<bool> _reconcileReminders(AccountOperation owner) async {
     owner.check();
     await owner.wait(_ref.read(localTimezoneRefresherProvider)());
     final scheduler = _ref.read(notificationSchedulerProvider);
@@ -157,7 +164,7 @@ class SettingsUiActions {
     final goals = _ref.read(getGoalsUseCaseProvider).call();
     owner.check();
     final habits = await owner.wait(_ref.read(getHabitsUseCaseProvider).call());
-    await owner.wait(
+    final bool planned = await owner.wait(
       _ref
           .read(reminderOrchestratorServiceProvider)
           .reconcileAfterRestore(
@@ -167,13 +174,14 @@ class SettingsUiActions {
             shouldContinue: () => owner.isCurrent,
           ),
     );
-    await owner.wait(
+    final bool reflected = await owner.wait(
       _reminderService.reconcileAfterRestore(
         permissionGranted: granted,
         shouldContinue: () => owner.isCurrent,
       ),
     );
     _ref.invalidate(automationNotificationsProvider);
+    return planned && reflected;
   }
 
   /// Saves the choice, then reports how registering the reminder went.

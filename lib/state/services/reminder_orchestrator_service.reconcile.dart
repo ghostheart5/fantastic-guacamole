@@ -201,6 +201,19 @@ extension _ReminderReconciler on ReminderOrchestratorService {
     final bool keepLegacy = _keepsLegacyHabitReminder();
     final bool trackLegacy = await _legacyIdToKeepTracked(keepLegacy);
     if (!shouldContinue()) return false;
+    if (!_remindersOn()) {
+      // One-off nudges outside the reconciler go too. The notification list
+      // drops a future entry and keeps one that already went off.
+      try {
+        await _notifications.cancelWhere(
+          (String id) =>
+              id.startsWith(ReminderOrchestratorService.streakBreakIdPrefix),
+        );
+      } on Object {
+        return false;
+      }
+      if (!shouldContinue()) return false;
+    }
     return _runGroups(
       _reminderGroups(
         goals: goals,
@@ -632,13 +645,13 @@ extension _ReminderReconciler on ReminderOrchestratorService {
     );
   }
 
-  /// Goal reminder times are picked by the app, so quiet hours move them.
+  /// Slot times already have quiet hours applied (see [goalReminderSlots]).
   _PlannedReminder _goalReminder(GoalReminderSlot slot) =>
       _PlannedReminder.once(
         id: slot.id,
         title: slot.title,
         body: slot.body,
-        at: _appTimed(slot.at),
+        at: slot.at,
       );
 
   Map<String, _StoredFingerprint> _loadFingerprints() {

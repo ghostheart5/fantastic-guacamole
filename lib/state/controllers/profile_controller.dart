@@ -18,6 +18,7 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
+import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
 import 'package:fantastic_guacamole/state/services/streak_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -211,7 +212,7 @@ class ProfileController extends Notifier<ProfileState> {
   static const _secureStateKey = 'profile_state_v2';
   static const _streakLogic = StreakService();
   static const String _streakBreakNotificationIdPrefix =
-      'streak_break_recovery_';
+      ReminderOrchestratorService.streakBreakIdPrefix;
 
   SecureStore get _secureStore {
     return ref
@@ -483,9 +484,11 @@ class ProfileController extends Notifier<ProfileState> {
     final String id =
         '$_streakBreakNotificationIdPrefix${day.toIso8601String().split('T').first}';
     try {
+      // Skipped (not listed, not registered) while the main reminder switch
+      // is off.
       await ref
-          .read(notificationsServiceProvider)
-          .schedule(
+          .read(reminderOrchestratorServiceProvider)
+          .scheduleStreakBreakNudge(
             id: id,
             title: 'Rebuild your streak today',
             body:

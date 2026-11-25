@@ -225,6 +225,121 @@ void main() {
     );
     expect(fixture.scheduler.pending, contains('daily_planning_reminder'));
   });
+
+  test('a task reminder held by quiet hours survives a reconcile during '
+      'quiet hours, and goes once the task is done', () async {
+    final fixture = _Fixture()..now = utc(local(2026, 11, 2, 21));
+    fixture.preferences.values
+      ..['quiet_hours_enabled'] = 'true'
+      ..['quiet_hours_start'] = '22:0'
+      ..['quiet_hours_end'] = '7:0'
+      ..['task_overdue_nudges_enabled'] = 'true';
+    final night = _task('night', dueDate: local(2026, 11, 3, 2));
+    fixture.tasks = [night];
+    expect(await fixture.reconcile(const [], const []), isTrue);
+    expect(
+      fixture.scheduler.times['task_reminder_due_night'],
+      utc(local(2026, 11, 3, 7)),
+    );
+
+    // 03:00, inside quiet hours: the app is opened or a task is saved.
+    fixture.now = utc(local(2026, 11, 3, 3));
+    fixture.scheduler.clearLog();
+    expect(await fixture.reconcile(const [], const []), isTrue);
+    await fixture.service.syncTaskReminders(
+      permissionGranted: true,
+      shouldContinue: () => true,
+    );
+    expect(fixture.scheduler.cancelled, isEmpty);
+    expect(fixture.scheduler.registered, isEmpty);
+    expect(fixture.scheduler.pending, contains('task_reminder_due_night'));
+    expect(
+      fixture.scheduler.times['task_reminder_due_night'],
+      utc(local(2026, 11, 3, 7)),
+    );
+
+    // The overdue nudge (9 AM the next day) is held the same way when quiet
+    // hours run past it.
+    fixture.preferences.values['quiet_hours_end'] = '10:0';
+    fixture.now = utc(local(2026, 11, 4, 9, 30));
+    expect(await fixture.reconcile(const [], const []), isTrue);
+    expect(
+      fixture.scheduler.times['task_reminder_overdue_night'],
+      utc(local(2026, 11, 4, 10)),
+    );
+    expect(fixture.scheduler.pending, contains('task_reminder_overdue_night'));
+
+    // Finished while held back: the reminder goes at once.
+    fixture.tasks = [night.copyWith(isCompleted: true)];
+    fixture.scheduler.clearLog();
+    await fixture.service.syncTaskReminders(
+      permissionGranted: true,
+      shouldContinue: () => true,
+    );
+    expect(
+      fixture.scheduler.cancelled,
+      contains('task_reminder_overdue_night'),
+    );
+    expect(
+      fixture.scheduler.pending.where((id) => id.startsWith('task_')),
+      isEmpty,
+    );
+  });
+
+  test('a goal reminder held by quiet hours survives a reconcile while it '
+      'waits', () async {
+    final fixture = _Fixture();
+    final DateTime goalMorning = DateTime(2026, 11, 3, 9);
+    final tz.TZDateTime wall = tz.TZDateTime.from(goalMorning, tz.local);
+    final int start = wall.hour * 60 + wall.minute;
+    String time(int minutes) => '${minutes ~/ 60}:${minutes % 60}';
+    fixture.preferences.values
+      ..['quiet_hours_enabled'] = 'true'
+      ..['quiet_hours_start'] = time(start)
+      ..['quiet_hours_end'] = time((start + 60) % (24 * 60));
+    final goals = [fixture.goal('trip')];
+    expect(await fixture.reconcile(goals, const []), isTrue);
+    final DateTime held = goalMorning.add(const Duration(hours: 1));
+    expect(
+      fixture.scheduler.times['goal_reminder_trip_3d']!.isAtSameMomentAs(held),
+      isTrue,
+    );
+
+    // Half an hour after its own time, still before quiet hours end.
+    fixture.now = goalMorning.add(const Duration(minutes: 30));
+    fixture.scheduler.clearLog();
+    expect(await fixture.reconcile(goals, const []), isTrue);
+    await fixture.service.syncGoalReminders(goals);
+    expect(
+      fixture.scheduler.cancelled,
+      isNot(contains('goal_reminder_trip_3d')),
+    );
+    expect(fixture.scheduler.pending, contains('goal_reminder_trip_3d'));
+  });
+
+  test('the streak nudge is not listed or registered while the main switch '
+      'is off, and turning it off cancels one that is waiting', () async {
+    final fixture = _Fixture();
+    Future<bool> nudge(String day) => fixture.service.scheduleStreakBreakNudge(
+      id: 'streak_break_recovery_$day',
+      title: 'Rebuild your streak today',
+      body: 'Your streak chain broke.',
+      at: DateTime.utc(2026, 11, 1, 17),
+    );
+    expect(await nudge('2026-11-01'), isTrue);
+    expect(
+      fixture.listed.entries,
+      contains('streak_break_recovery_2026-11-01'),
+    );
+
+    fixture.preferences.values['reminders_enabled'] = 'false';
+    expect(await fixture.reconcile(const [], const []), isTrue);
+    expect(fixture.listed.cancelled, ['streak_break_recovery_2026-11-01']);
+    expect(fixture.listed.entries, isEmpty);
+
+    expect(await nudge('2026-11-02'), isFalse);
+    expect(fixture.listed.entries, isEmpty);
+  });
 }
 
 TaskEntity _task(String id, {DateTime? dueDate}) => TaskEntity(
@@ -243,9 +358,10 @@ class _Fixture {
   List<TaskEntity> tasks = <TaskEntity>[];
   final preferences = _Preferences();
   final scheduler = _Scheduler();
+  final listed = _Repository();
   late final service = ReminderOrchestratorService(
     preferences: preferences,
-    notifications: NotificationsService(_Repository()),
+    notifications: NotificationsService(listed),
     scheduler: scheduler,
     accountScope: _scope,
     loadHabitOccurrences: () async => [],
@@ -380,15 +496,26 @@ class _Preferences implements SharedPrefsStore {
   }
 }
 
+/// The in-app notification list; its entries reach the OS in the app.
 class _Repository implements INotificationRepository {
+  final Map<String, NotificationEntity> entries =
+      <String, NotificationEntity>{};
+  final List<String> cancelled = <String>[];
   @override
-  Future<void> cancelNotification(String id) async {}
+  Future<void> cancelNotification(String id) async {
+    cancelled.add(id);
+    entries.remove(id);
+  }
+
   @override
   Future<void> delete(String id) async {}
   @override
-  Future<List<NotificationEntity>> getNotifications() async => const [];
+  Future<List<NotificationEntity>> getNotifications() async =>
+      entries.values.toList();
   @override
   Future<void> markRead(String id) async {}
   @override
-  Future<void> scheduleNotification(NotificationEntity notification) async {}
+  Future<void> scheduleNotification(NotificationEntity notification) async {
+    entries[notification.id] = notification;
+  }
 }
