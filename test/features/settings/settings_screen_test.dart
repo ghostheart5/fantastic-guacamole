@@ -8,7 +8,9 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:flutter/rendering.dart';
 import 'package:fantastic_guacamole/data/services/mock_auth_service.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
+import 'package:fantastic_guacamole/features/help/ui/help_screen.dart';
 import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
@@ -1255,6 +1257,68 @@ void main() {
       }
       expect(find.byType(SettingsScreen), findsOneWidget);
       expect(find.byType(LicensePage), findsNothing);
+    });
+
+    testWidgets('Settings opens Help in ${locale.languageCode} and keeps '
+        'the Support link', (tester) async {
+      useTallSurface(tester);
+      final bool es = locale.languageCode == 'es';
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: createContainer(),
+          child: MaterialApp(
+            locale: locale,
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const SettingsScreen(),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      final String category = es ? 'Ayuda y aspectos legales' : 'Help & legal';
+      await tester.ensureVisible(find.text(category));
+      await tester.pump();
+      await tester.tap(find.text(category).hitTestable());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text(es ? 'Soporte' : 'Support'), findsOneWidget);
+      final Finder help = find.text(es ? 'Ayuda' : 'Help');
+      await Scrollable.ensureVisible(tester.element(help), alignment: 0.5);
+      await tester.pump();
+      expect(
+        tester
+            .getSize(
+              find.ancestor(of: help, matching: find.byType(SmartPressable)),
+            )
+            .height,
+        greaterThanOrEqualTo(48),
+      );
+      await tester.tap(help.hitTestable());
+      await tester.pumpAndSettle(
+        const Duration(milliseconds: 100),
+        EnginePhase.sendSemanticsUpdate,
+        const Duration(seconds: 5),
+      );
+
+      expect(find.byType(HelpScreen), findsOneWidget);
+      expect(find.text(es ? 'Buscar en la ayuda' : 'Search help'), findsOne);
+      await tester.tap(find.byType(BackButton));
+      // Settings animates its background, so it never settles.
+      for (
+        int frame = 0;
+        frame < 10 && find.byType(HelpScreen).evaluate().isNotEmpty;
+        frame++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(HelpScreen), findsNothing);
+      expect(find.byType(SettingsScreen), findsOneWidget);
     });
   }
 
