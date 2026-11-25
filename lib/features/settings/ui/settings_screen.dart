@@ -23,6 +23,7 @@ import 'package:fantastic_guacamole/domain/release/assistant_release_control.dar
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_flow.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_permission_prompt.dart';
+import 'package:fantastic_guacamole/features/settings/ui/reminder_health.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_consent_reset_button.dart';
 import 'package:fantastic_guacamole/features/settings/widgets/internal_credit_test_panel.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
@@ -36,12 +37,14 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
     as extended_domain;
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
+import 'package:fantastic_guacamole/state/providers/notification_permission_provider.dart';
 import 'package:fantastic_guacamole/state/providers/onboarding_preferences_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/providers/subscription_status_refresh_provider.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
+import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
@@ -57,6 +60,7 @@ import 'package:go_router/go_router.dart';
 
 part 'settings_screen.sections.dart';
 part 'settings_screen.planning_sections.dart';
+part 'settings_screen.notification_sections.dart';
 part 'settings_screen.person_context.dart';
 part 'settings_screen.governance_sections.dart';
 part 'settings_screen.data_sections.dart';
@@ -451,13 +455,25 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 12),
 
               _SettingsCategory(
+                title: copy('Notifications', 'Notificaciones'),
+                subtitle: copy(
+                  'Reminders, quiet hours, and whether they can arrive',
+                  'Recordatorios, horas de silencio y si pueden llegar',
+                ),
+                icon: Icons.notifications_rounded,
+                accent: AppColors.neonCyan,
+                child: const _NotificationSettingsArea(),
+              ),
+              const SizedBox(height: 12),
+
+              _SettingsCategory(
                 title: copy(
                   'Planning & guidance',
                   'Planificación y orientación',
                 ),
                 subtitle: copy(
-                  'Context, reminders, planning preferences, memory, and tutorials',
-                  'Contexto, recordatorios, preferencias de planificación, memoria y tutoriales',
+                  'Context, planning preferences, memory, and tutorials',
+                  'Contexto, preferencias de planificación, memoria y tutoriales',
                 ),
                 icon: Icons.auto_awesome_rounded,
                 accent: AppColors.neonViolet,
@@ -467,10 +483,6 @@ class SettingsScreen extends ConsumerWidget {
                     AdaptiveGuidanceSettingsSection(),
                     SizedBox(height: 10),
                     _PersonContextSection(),
-                    SizedBox(height: 10),
-                    _ReflectionReminderSection(),
-                    SizedBox(height: 10),
-                    _ReminderAutomationSection(),
                     SizedBox(height: 10),
                     _PersonalizationSection(),
                     SizedBox(height: 10),

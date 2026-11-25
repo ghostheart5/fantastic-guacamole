@@ -117,6 +117,32 @@ class SettingsUiActions {
     if (enabled) await _reconcileReminders(owner);
   }
 
+  /// The main reminder switch. Either way the full reconcile follows: off
+  /// cancels every OS reminder of this account, on registers them again.
+  /// In-app notification list entries are left as they are.
+  Future<void> setRemindersEnabled(bool enabled) =>
+      _saveAndReconcile((reminders) => reminders.setRemindersEnabled(enabled));
+
+  Future<void> setTaskOverdueNudgesEnabled(bool enabled) => _saveAndReconcile(
+    (reminders) => reminders.setTaskOverdueNudgesEnabled(enabled),
+  );
+
+  Future<void> setTaskReminderLeadMinutes(int minutes) => _saveAndReconcile(
+    (reminders) => reminders.setTaskReminderLeadMinutes(minutes),
+  );
+
+  Future<void> setQuietHours(QuietHours quietHours) =>
+      _saveAndReconcile((reminders) => reminders.setQuietHours(quietHours));
+
+  Future<void> _saveAndReconcile(
+    Future<void> Function(ReminderOrchestratorService reminders) save,
+  ) async {
+    final owner = AccountOperation.capture(_ref);
+    owner.check();
+    await owner.wait(save(_ref.read(reminderOrchestratorServiceProvider)));
+    await _reconcileReminders(owner);
+  }
+
   Future<void> refreshNotificationPermissionAndReminders() async {
     final owner = AccountOperation.capture(_ref);
     if (!owner.isCurrent) return;

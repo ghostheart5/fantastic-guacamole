@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/data/services/sync_service.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/account_scoped_hive_storage.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
@@ -81,7 +82,15 @@ class SyncErrorMessageNotifier extends Notifier<String?> {
   void report(String message) => state = message;
 }
 
-enum CloudRestoreWarning { legacyCleanupPending, remindersPending }
+enum CloudRestoreWarning {
+  legacyCleanupPending,
+  remindersPending,
+
+  /// Every reminder that can be set here is set; some kinds (for example
+  /// repeating rhythm reminders outside Android) are not supported on this
+  /// device. Nothing for the person to fix.
+  remindersUnsupported,
+}
 
 final cloudRestoreWarningsProvider =
     NotifierProvider<CloudRestoreWarningsNotifier, Set<CloudRestoreWarning>>(
@@ -95,8 +104,12 @@ class CloudRestoreWarningsNotifier extends Notifier<Set<CloudRestoreWarning>> {
   void add(CloudRestoreWarning warning) => state = {...state, warning};
 }
 
+/// Rebuilds reminders after a restore. [NotificationScheduleResult.scheduled]
+/// when everything is set, [NotificationScheduleResult.unsupported] when the
+/// rest is set but some kinds are not supported on this device, otherwise
+/// [NotificationScheduleResult.failed] (something needs attention).
 final restoredReminderReconciliationProvider =
-    Provider<Future<bool> Function()>(
+    Provider<Future<NotificationScheduleResult> Function()>(
       (ref) => () async {
         final owner = AccountOperation.capture(ref);
         owner.check();
@@ -140,7 +153,13 @@ final restoredReminderReconciliationProvider =
             shouldContinue: () => owner.isCurrent,
           ),
         );
-        return permissionKnown && reflected && planned;
+        if (!(permissionKnown && reflected && planned)) {
+          return NotificationScheduleResult.failed;
+        }
+        return reminders.lastReminderResult.value ==
+                NotificationScheduleResult.unsupported
+            ? NotificationScheduleResult.unsupported
+            : NotificationScheduleResult.scheduled;
       },
     );
 
@@ -800,11 +819,9 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
           .read(cloudBackupAttentionProvider.notifier)
           .set(CloudBackupAttention.none);
       ref.read(restoredSettingsRevisionProvider.notifier).bump();
-      bool remindersComplete = false;
+      NotificationScheduleResult reminders = NotificationScheduleResult.failed;
       try {
-        remindersComplete = await ref.read(
-          restoredReminderReconciliationProvider,
-        )();
+        reminders = await ref.read(restoredReminderReconciliationProvider)();
       } on Object catch (error, stackTrace) {
         Logger.errorCategory(
           'Sync Errors',
@@ -815,7 +832,11 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
       }
       if (!owner.isCurrent) return false;
       ref.invalidate(automationNotificationsProvider);
-      if (!remindersComplete) {
+      if (reminders == NotificationScheduleResult.unsupported) {
+        ref
+            .read(cloudRestoreWarningsProvider.notifier)
+            .add(CloudRestoreWarning.remindersUnsupported);
+      } else if (reminders != NotificationScheduleResult.scheduled) {
         ref
             .read(cloudRestoreWarningsProvider.notifier)
             .add(CloudRestoreWarning.remindersPending);

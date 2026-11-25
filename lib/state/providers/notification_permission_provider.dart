@@ -78,11 +78,13 @@ class NotificationPermissionController
 
   NotificationPermissionRefusal? get refusal => state.refusal;
 
-  /// Whether any reminder switch of this account is on.
+  /// Whether any reminder switch of this account is on (and the main
+  /// reminder switch too).
   bool anyReminderSwitchOn() {
     if (!ref.read(accountStorageScopeProvider).isWritable) return false;
     final SettingsUiActions actions = ref.read(settingsUiActionsProvider);
     final prefs = actions.loadAdvancedReminderPrefs();
+    if (!prefs.remindersEnabled) return false;
     return prefs.goalRemindersEnabled ||
         prefs.habitRemindersEnabled ||
         prefs.dailyPlanningEnabled ||

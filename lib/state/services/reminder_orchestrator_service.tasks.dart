@@ -53,6 +53,7 @@ abstract final class TaskReminderPlanner {
     required ReminderOrchestratorPrefs prefs,
     required DateTime now,
   }) =>
+      prefs.remindersEnabled &&
       prefs.taskRemindersEnabled &&
       plan(
         <TaskEntity>[
@@ -249,8 +250,9 @@ extension _TaskReminders on ReminderOrchestratorService {
         if (TaskReminderPlanner.isOpen(task))
           ...TaskReminderPlanner.idsFor(task.id),
     };
+    final bool tasksOn = prefs.remindersEnabled && prefs.taskRemindersEnabled;
     final List<_PlannedReminder> wanted = <_PlannedReminder>[
-      if (prefs.taskRemindersEnabled)
+      if (tasksOn)
         for (final TaskReminderSlot slot in TaskReminderPlanner.plan(
           tasks,
           now: now,
@@ -262,7 +264,8 @@ extension _TaskReminders on ReminderOrchestratorService {
             id: slot.id,
             title: slot.title,
             body: slot.body,
-            at: slot.at,
+            // The app picks these times, so quiet hours move them.
+            at: prefs.quietHours.moveOut(slot.at),
           ),
     ];
     final Set<String> wantedIds = <String>{
@@ -281,7 +284,7 @@ extension _TaskReminders on ReminderOrchestratorService {
       // finished or removed task loses it at once.
       keep: (String id, _StoredFingerprint? stored) {
         final DateTime? at = stored?.onceAt;
-        return prefs.taskRemindersEnabled &&
+        return tasksOn &&
             at != null &&
             !at.isAfter(now) &&
             openIds.contains(id);

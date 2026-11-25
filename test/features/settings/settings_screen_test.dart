@@ -301,12 +301,13 @@ void main() {
     bool billingCreditAccess = false,
     bool guideReady = false,
     AiCreditWallet? wallet,
+    bool? notificationPermission = true,
   }) {
     final AccountStorageScope resolvedScope =
         accountScope ??
         AccountStorageScope.authenticated('settings-test-account');
     final ValueNotifier<bool?> permissionListenable = ValueNotifier<bool?>(
-      true,
+      notificationPermission,
     );
     addTearDown(permissionListenable.dispose);
 
@@ -624,11 +625,11 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 200));
     await tester.scrollUntilVisible(
-      find.text('Planning & guidance'),
+      find.text('Notifications'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    await invokeNavTile(tester, 'Planning & guidance');
+    await invokeNavTile(tester, 'Notifications');
     final actions =
         container.read(settingsUiActionsProvider) as _FakeSettingsUiActions;
     final before = actions.advancedLoads;
@@ -641,7 +642,8 @@ void main() {
     container.read(restoredSettingsRevisionProvider.notifier).bump();
     await tester.pump();
     expect(find.text('Reminder Time'), findsOneWidget);
-    expect(actions.advancedLoads, before + 1);
+    // The main switch, the reminder rules and quiet hours each reload.
+    expect(actions.advancedLoads, before + 3);
     expect(tester.takeException(), isNull);
   });
 
@@ -669,10 +671,7 @@ void main() {
       );
       addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
       await tester.pump(const Duration(milliseconds: 200));
-      await invokeNavTile(
-        tester,
-        es ? 'Planificación y orientación' : 'Planning & guidance',
-      );
+      await invokeNavTile(tester, es ? 'Notificaciones' : 'Notifications');
       final title = find.text(
         es ? 'Recordatorios de tareas' : 'Task Reminders',
       );
@@ -704,6 +703,156 @@ void main() {
     });
   }
 
+  Future<ProviderContainer> openNotifications(
+    WidgetTester tester, {
+    bool es = false,
+    bool? permission = true,
+  }) async {
+    useTallSurface(tester);
+    final container = createContainer(notificationPermission: permission);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          locale: Locale(es ? 'es' : 'en'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const SettingsScreen(),
+        ),
+      ),
+    );
+    addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+    await tester.pump(const Duration(milliseconds: 200));
+    await invokeNavTile(tester, es ? 'Notificaciones' : 'Notifications');
+    return container;
+  }
+
+  Switch switchIn(WidgetTester tester, String key) => tester.widget<Switch>(
+    find.descendant(of: find.byKey(Key(key)), matching: find.byType(Switch)),
+  );
+
+  Finder healthText(String text) => find.descendant(
+    of: find.byKey(const Key('reminder-health-row')),
+    matching: find.text(text),
+  );
+
+  for (final es in [false, true]) {
+    testWidgets('the main reminder switch turns reminders off, says so at '
+        'the top and holds the other controls (es=$es)', (tester) async {
+      final container = await openNotifications(tester, es: es);
+      expect(
+        healthText(
+          es
+              ? 'Los recordatorios pueden llegar a este dispositivo.'
+              : 'Reminders can arrive on this device.',
+        ),
+        findsOneWidget,
+      );
+      expect(switchIn(tester, 'reminders-main-toggle').value, isTrue);
+      expect(switchIn(tester, 'task-reminders-toggle').onChanged, isNotNull);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('reminders-main-toggle')),
+          matching: find.byType(Switch),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final actions =
+          container.read(settingsUiActionsProvider) as _FakeSettingsUiActions;
+      expect(actions.mainSwitchWrites, [false]);
+      expect(switchIn(tester, 'reminders-main-toggle').value, isFalse);
+      expect(
+        healthText(
+          es
+              ? 'Los recordatorios están desactivados. Activa Recordatorios abajo para volver a recibirlos.'
+              : 'Reminders are off. Turn on Reminders below to get them again.',
+        ),
+        findsOneWidget,
+      );
+      // Each feature keeps its choice but cannot change while all are off.
+      expect(switchIn(tester, 'task-reminders-toggle').value, isTrue);
+      expect(switchIn(tester, 'task-reminders-toggle').onChanged, isNull);
+      expect(switchIn(tester, 'overdue-nudges-toggle').onChanged, isNull);
+      expect(switchIn(tester, 'quiet-hours-toggle').onChanged, isNull);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('lead time, overdue nudges and quiet hours save the choice '
+        '(es=$es)', (tester) async {
+      final container = await openNotifications(tester, es: es);
+      final actions =
+          container.read(settingsUiActionsProvider) as _FakeSettingsUiActions;
+
+      final Finder lead = find.text(es ? 'A la hora' : 'At the time');
+      await tester.ensureVisible(lead);
+      await tester.tap(lead);
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.tap(
+        find.text(es ? '15 minutos antes' : '15 minutes before'),
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(actions.leadWrites, [15]);
+
+      final Finder overdue = find.descendant(
+        of: find.byKey(const Key('overdue-nudges-toggle')),
+        matching: find.byType(Switch),
+      );
+      expect(tester.widget<Switch>(overdue).value, isFalse);
+      await tester.ensureVisible(overdue);
+      await tester.tap(overdue);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(actions.overdueWrites, [true]);
+
+      final Finder quiet = find.descendant(
+        of: find.byKey(const Key('quiet-hours-toggle')),
+        matching: find.byType(Switch),
+      );
+      expect(tester.widget<Switch>(quiet).value, isFalse);
+      await tester.ensureVisible(quiet);
+      await tester.tap(quiet);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(actions.quietWrites, hasLength(1));
+      expect(actions.quietWrites.single.enabled, isTrue);
+      expect(actions.quietWrites.single.startMinutes, 22 * 60);
+      expect(actions.quietWrites.single.endMinutes, 7 * 60);
+      expect(find.text(es ? 'Empieza' : 'Starts'), findsOneWidget);
+      expect(find.text(es ? 'Termina' : 'Ends'), findsOneWidget);
+      expect(
+        find.textContaining(
+          es
+              ? 'Las horas que elegiste tú (hábitos, planificación diaria, reflexión) no se mueven.'
+              : 'Times you chose yourself (habits, daily planning, reflection) are not moved.',
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('with notifications off the top row says why and offers the '
+        'same step as the notice (es=$es)', (tester) async {
+      await openNotifications(tester, es: es, permission: false);
+      expect(
+        healthText(
+          es
+              ? 'Las notificaciones de Axiomara están desactivadas, así que los recordatorios no pueden llegar.'
+              : 'Notifications are off for Axiomara, so reminders cannot arrive.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        healthText(es ? 'Activar notificaciones' : 'Turn on notifications'),
+        findsOneWidget,
+      );
+    });
+  }
+
   for (final dark in [true, false]) {
     testWidgets(
       'Reflection picker follows dark forms=$dark and Cancel preserves time',
@@ -727,11 +876,11 @@ void main() {
         );
         await tester.pump(const Duration(milliseconds: 200));
         await tester.scrollUntilVisible(
-          find.text('Planning & guidance'),
+          find.text('Notifications'),
           300,
           scrollable: find.byType(Scrollable).first,
         );
-        await invokeNavTile(tester, 'Planning & guidance');
+        await invokeNavTile(tester, 'Notifications');
         await tester.scrollUntilVisible(
           find.text('Reminder Time'),
           300,
@@ -1263,7 +1412,7 @@ void main() {
 
     await tester.tap(find.text('Apariencia y permisos'));
     await tester.pump(const Duration(milliseconds: 200));
-    await tester.tap(find.text('Planificación y orientación'));
+    await tester.tap(find.text('Notificaciones'));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.scrollUntilVisible(
       find.text('REFLEXIÓN DIARIA'),
@@ -2026,10 +2175,34 @@ class _FakeSettingsUiActions extends SettingsUiActions {
   int advancedLoads = 0;
   int reflectionTimeWrites = 0;
   final List<bool> taskReminderWrites = <bool>[];
+  final List<bool> mainSwitchWrites = <bool>[];
+  final List<bool> overdueWrites = <bool>[];
+  final List<int> leadWrites = <int>[];
+  final List<QuietHours> quietWrites = <QuietHours>[];
 
   @override
   Future<void> setTaskRemindersEnabled(bool enabled) async {
     taskReminderWrites.add(enabled);
+  }
+
+  @override
+  Future<void> setRemindersEnabled(bool enabled) async {
+    mainSwitchWrites.add(enabled);
+  }
+
+  @override
+  Future<void> setTaskOverdueNudgesEnabled(bool enabled) async {
+    overdueWrites.add(enabled);
+  }
+
+  @override
+  Future<void> setTaskReminderLeadMinutes(int minutes) async {
+    leadWrites.add(minutes);
+  }
+
+  @override
+  Future<void> setQuietHours(QuietHours quietHours) async {
+    quietWrites.add(quietHours);
   }
 
   @override

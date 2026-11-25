@@ -144,6 +144,10 @@ class CloudBackupActionsState extends ConsumerState<CloudBackupActions> {
             _message =
                 '${_message!} ${journeyText(context, 'Device reminders could not all be updated. Review reminder settings and notification permission on this device.', 'No se pudieron actualizar todos los recordatorios. Revisa sus ajustes y el permiso de notificaciones en este dispositivo.')}';
           }
+          if (warnings.contains(CloudRestoreWarning.remindersUnsupported)) {
+            _message =
+                '${_message!} ${journeyText(context, 'Some reminders are not supported on this device.', 'Algunos recordatorios no son compatibles con este dispositivo.')}';
+          }
         }
       });
     } on Object {

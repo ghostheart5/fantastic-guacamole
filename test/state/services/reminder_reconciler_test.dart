@@ -214,8 +214,11 @@ void main() {
       fixture.scheduler.cadenceResult = declined;
       final goals = [fixture.goal('trip')];
       final habits = [fixture.habit('walk', minutes: 18 * 60)];
-      // Not complete: the rhythm still has no reminder.
-      expect(await fixture.reconcile(goals, habits), isFalse);
+      // Missing permission leaves something to fix; a reminder this device
+      // cannot hold at all does not.
+      final bool complete = declined == NotificationScheduleResult.unsupported;
+      expect(await fixture.reconcile(goals, habits), complete);
+      expect(fixture.service.lastReminderResult.value, declined);
       expect(fixture.scheduler.pending, {
         'daily_planning_reminder',
         'goal_reminder_trip_3d',
@@ -226,7 +229,7 @@ void main() {
 
       for (var resume = 0; resume < 2; resume++) {
         fixture.scheduler.clearLog();
-        expect(await fixture.reconcile(goals, habits), isFalse);
+        expect(await fixture.reconcile(goals, habits), complete);
         expect(fixture.scheduler.cancelled, isEmpty);
         expect(fixture.scheduler.registered, isEmpty);
       }

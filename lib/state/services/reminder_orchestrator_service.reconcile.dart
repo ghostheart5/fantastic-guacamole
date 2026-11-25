@@ -239,6 +239,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
     bool complete = true;
     final List<String> failed = <String>[];
     NotificationScheduleResult? habitOutcome;
+    NotificationScheduleResult overall = NotificationScheduleResult.scheduled;
     for (final (String name, Future<_ReminderGroup> Function() plan)
         in groups) {
       if (!shouldContinue()) return _abandon(run);
@@ -261,15 +262,23 @@ extension _ReminderReconciler on ReminderOrchestratorService {
       } on Object {
         outcome = NotificationScheduleResult.failed;
       }
-      if (outcome != NotificationScheduleResult.scheduled) complete = false;
+      // A reminder this device cannot register at all (for example a
+      // repeating rhythm reminder outside Android) is nothing the person can
+      // fix, so it does not leave the update incomplete.
+      if (outcome != NotificationScheduleResult.scheduled &&
+          outcome != NotificationScheduleResult.unsupported) {
+        complete = false;
+      }
       if (outcome == NotificationScheduleResult.failed) failed.add(name);
       if (name == 'habits') habitOutcome = outcome;
+      overall = ReminderOrchestratorService._worseResult(overall, outcome);
     }
     if (!shouldContinue()) return _abandon(run);
     await _saveFingerprints(run.fingerprints);
     await _saveClearedWhileOff(run.clearedWhileOff);
     if (failed.isNotEmpty) _recordIncomplete(failed);
     if (habitOutcome != null) _lastHabitReminderResult.value = habitOutcome;
+    if (everyGroup) _lastReminderResult.value = overall;
     return complete;
   }
 
@@ -458,7 +467,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
       owns: (String id) =>
           id == ReminderOrchestratorService._dailyPlanningReminderId,
       wanted: <_PlannedReminder>[
-        if (prefs.dailyPlanningEnabled)
+        if (prefs.remindersEnabled && prefs.dailyPlanningEnabled)
           _dailyPlanningReminder(
             prefs.dailyPlanningHour,
             prefs.dailyPlanningMinute,
@@ -478,9 +487,10 @@ extension _ReminderReconciler on ReminderOrchestratorService {
   }) async {
     final List<HabitEntity> wanted =
         _isEnabled(
-          ReminderOrchestratorService._habitReminderEnabledKey,
-          defaultValue: true,
-        )
+              ReminderOrchestratorService._habitReminderEnabledKey,
+              defaultValue: true,
+            ) &&
+            _remindersOn()
         ? habits
               .where(ReminderOrchestratorService._wantsReminder)
               .toList(growable: false)
@@ -538,7 +548,8 @@ extension _ReminderReconciler on ReminderOrchestratorService {
     final List<_PlannedReminder> wanted = <_PlannedReminder>[];
     final DateTime now = _now();
     final Map<String, DateTime> previousDueTimes = _goalDueTodayTimes();
-    if (prefs.goalRemindersEnabled) {
+    final bool goalsOn = prefs.remindersEnabled && prefs.goalRemindersEnabled;
+    if (goalsOn) {
       // Without permission nothing is registered, so skip the task read.
       final progress = permissionGranted ? await _goalProgress() : null;
       final Map<String, DateTime> previousNudges = _goalCloseNudges();
@@ -583,7 +594,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
       // OS to deliver it; it goes away on its own once it has fired.
       keep: (String id, _StoredFingerprint? stored) {
         final DateTime? at = stored?.onceAt;
-        return prefs.goalRemindersEnabled &&
+        return goalsOn &&
             at != null &&
             !at.isAfter(now) &&
             activeSlotIds.contains(id);
@@ -619,12 +630,13 @@ extension _ReminderReconciler on ReminderOrchestratorService {
         minute: minute,
       );
 
+  /// Goal reminder times are picked by the app, so quiet hours move them.
   _PlannedReminder _goalReminder(GoalReminderSlot slot) =>
       _PlannedReminder.once(
         id: slot.id,
         title: slot.title,
         body: slot.body,
-        at: slot.at,
+        at: _appTimed(slot.at),
       );
 
   Map<String, _StoredFingerprint> _loadFingerprints() {

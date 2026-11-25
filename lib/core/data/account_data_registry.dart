@@ -268,6 +268,11 @@ abstract final class AccountDataRegistry {
     'scheduled_task_reminder_ids',
     // When each goal's "due today" reminder was planned for its target date.
     'goal_due_today_times',
+    // The main reminder switch and quiet hours.
+    'reminders_enabled',
+    'quiet_hours_enabled',
+    'quiet_hours_start',
+    'quiet_hours_end',
     // The account's answer to the in-context notification permission request
     // and whether it closed the "notifications are off" notice.
     'notification_permission_refusal_v1',

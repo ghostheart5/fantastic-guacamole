@@ -19,6 +19,7 @@ import 'package:flutter/foundation.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 part 'reminder_orchestrator_service.habits.dart';
+part 'reminder_orchestrator_service.quiet_hours.dart';
 part 'reminder_orchestrator_service.reconcile.dart';
 part 'reminder_orchestrator_service.tasks.dart';
 
@@ -32,7 +33,16 @@ class ReminderOrchestratorPrefs {
     this.taskRemindersEnabled = false,
     this.taskOverdueNudgesEnabled = false,
     this.taskReminderLeadMinutes = 0,
+    this.remindersEnabled = true,
+    this.quietHours = const QuietHours(),
   });
+
+  /// The main switch. Off, the account has no OS reminders at all; each
+  /// feature keeps its own choice for when it is turned back on.
+  final bool remindersEnabled;
+
+  /// Off unless the person sets it.
+  final QuietHours quietHours;
 
   final bool goalRemindersEnabled;
   final bool habitRemindersEnabled;
@@ -66,6 +76,15 @@ class ReminderOrchestratorService {
   }) : _now = now ?? DateTime.now,
        _timeZoneName = timeZoneName ?? _deviceTimeZoneName,
        _isSpanish = isSpanish ?? _deviceIsSpanish;
+
+  /// The main reminder switch; missing means on, as before it existed.
+  static const String remindersEnabledKey = 'reminders_enabled';
+  static const String _quietHoursEnabledKey = 'quiet_hours_enabled';
+  static const String _quietHoursStartKey = 'quiet_hours_start';
+  static const String _quietHoursEndKey = 'quiet_hours_end';
+
+  /// The task lead times offered in Settings, in minutes.
+  static const List<int> taskLeadChoices = <int>[0, 5, 15, 30, 60];
 
   static const String _goalReminderEnabledKey = 'goal_reminders_enabled';
   static const String _habitReminderEnabledKey = 'habit_reminders_enabled';
@@ -130,6 +149,15 @@ class ReminderOrchestratorService {
   ValueListenable<NotificationScheduleResult?> get lastHabitReminderResult =>
       _lastHabitReminderResult;
 
+  final ValueNotifier<NotificationScheduleResult?> _lastReminderResult =
+      ValueNotifier<NotificationScheduleResult?>(null);
+
+  /// How the latest full reminder update ([reconcileAfterRestore]) ended for
+  /// this account, across every kind of reminder: the most telling result
+  /// (see [_worseResult]). Null until one ran.
+  ValueListenable<NotificationScheduleResult?> get lastReminderResult =>
+      _lastReminderResult;
+
   static String _deviceTimeZoneName() {
     try {
       return tz.local.name;
@@ -179,8 +207,42 @@ class ReminderOrchestratorService {
         defaultValue: false,
       ),
       taskReminderLeadMinutes: _taskReminderLeadMinutes(),
+      remindersEnabled: _remindersOn(),
+      quietHours: _quietHours(),
     );
   }
+
+  bool _remindersOn() => _isEnabled(remindersEnabledKey, defaultValue: true);
+
+  /// Saves the main switch. The caller then runs the full reconcile, which
+  /// cancels every OS reminder (off) or registers them again (on).
+  Future<void> setRemindersEnabled(bool enabled) =>
+      _preferences.save(remindersEnabledKey, enabled.toString());
+
+  /// Applied by the next reconcile (the caller runs one).
+  Future<void> setTaskOverdueNudgesEnabled(bool enabled) =>
+      _preferences.save(_taskOverdueNudgesKey, enabled.toString());
+
+  /// Applied by the next reconcile (the caller runs one).
+  Future<void> setTaskReminderLeadMinutes(int minutes) => _preferences.save(
+    _taskReminderLeadKey,
+    minutes.clamp(0, 24 * 60).toInt().toString(),
+  );
+
+  /// Applied by the next reconcile (the caller runs one).
+  Future<void> setQuietHours(QuietHours quietHours) async {
+    String time(int minutes) => '${minutes ~/ 60}:${minutes % 60}';
+    await _preferences.save(_quietHoursStartKey, time(quietHours.startMinutes));
+    await _preferences.save(_quietHoursEndKey, time(quietHours.endMinutes));
+    await _preferences.save(
+      _quietHoursEnabledKey,
+      quietHours.enabled.toString(),
+    );
+  }
+
+  /// [at] moved out of the stored quiet hours, for reminders whose time the
+  /// app picks itself.
+  DateTime _appTimed(DateTime at) => _quietHours().moveOut(at);
 
   /// Off cancels every task reminder right away; on is applied by the next
   /// reconcile (the caller runs one).
@@ -280,7 +342,8 @@ class ReminderOrchestratorService {
     bool Function()? shouldContinue,
   }) async {
     if (shouldContinue?.call() == false) return;
-    if (!_isEnabled(_goalReminderEnabledKey, defaultValue: true)) {
+    if (!_isEnabled(_goalReminderEnabledKey, defaultValue: true) ||
+        !_remindersOn()) {
       await _cancelTrackedGoalReminders(shouldContinue: shouldContinue);
       return;
     }
@@ -354,7 +417,7 @@ class ReminderOrchestratorService {
         registered: (String goalId, DateTime at) => registered.any(
           (_PlannedReminder item) =>
               item.id == '${_goalReminderId(goalId)}_due' &&
-              item.at.isAtSameMomentAs(at),
+              item.at.isAtSameMomentAs(_appTimed(at)),
         ),
       ),
     );
@@ -415,6 +478,7 @@ class ReminderOrchestratorService {
     () async {
       if (shouldContinue?.call() == false) return;
       if (!_isEnabled(_habitReminderEnabledKey, defaultValue: true) ||
+          !_remindersOn() ||
           !habits.any(_wantsReminder)) {
         // The notification repository carries this account's cancellation
         // scope even when scheduling initialization was skipped.
@@ -507,10 +571,11 @@ class ReminderOrchestratorService {
   /// The old shared reminder is then this account's only sign that its
   /// rhythms had a reminder, and it still fires at 8 PM, so every other path
   /// leaves it registered and keeps its tracked id. Only the migration (or
-  /// the user turning rhythm reminders off) cancels it.
+  /// the user turning rhythm reminders, or every reminder, off) cancels it.
   bool _keepsLegacyHabitReminder() =>
       _preferences.load(_legacyHabitMigrationDoneKey) != 'true' &&
-      _isEnabled(_habitReminderEnabledKey, defaultValue: true);
+      _isEnabled(_habitReminderEnabledKey, defaultValue: true) &&
+      _remindersOn();
 
   /// Rhythm reminder ids a sync or reconcile may cancel.
   Set<String> _habitReminderIdsToCancel(bool keepLegacy) => <String>{
@@ -657,7 +722,8 @@ class ReminderOrchestratorService {
           () async {
             if (shouldContinue?.call() == false) return null;
             await _forgetFingerprints(const <String>[_dailyPlanningReminderId]);
-            if (!_isEnabled(_dailyPlanningEnabledKey, defaultValue: true)) {
+            if (!_isEnabled(_dailyPlanningEnabledKey, defaultValue: true) ||
+                !_remindersOn()) {
               await _notifications.cancel(_dailyPlanningReminderId);
               return NotificationScheduleResult.scheduled;
             }
@@ -892,12 +958,13 @@ class ReminderOrchestratorService {
   /// True only when the OS confirmed the registration. The listed slot goes
   /// through the notification list, which does not report the outcome.
   Future<bool> _scheduleGoalSlot(GoalReminderSlot slot) async {
+    final DateTime at = _appTimed(slot.at);
     if (_isListedGoalSlot(slot.id)) {
       await _notifications.schedule(
         id: slot.id,
         title: slot.title,
         body: slot.body,
-        at: slot.at,
+        at: at,
       );
       return false;
     }
@@ -906,7 +973,7 @@ class ReminderOrchestratorService {
         id: slot.id,
         title: slot.title,
         message: slot.body,
-        scheduledAt: slot.at,
+        scheduledAt: at,
       ),
       accountScope: _accountScope,
     );
