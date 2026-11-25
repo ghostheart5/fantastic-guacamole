@@ -66,6 +66,18 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // GuideHintSlot closes a card for the rest of a visit once the keyboard
+    // opens. A guide step must stay until it is done, so each time the
+    // keyboard closes the step gets a new slot (keyed by this count) and
+    // comes back.
+    final bool keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    if (_keyboardWasOpen && !keyboardOpen) _keyboardCloses++;
+    _keyboardWasOpen = keyboardOpen;
+  }
+
+  @override
   void didUpdateWidget(covariant AdaptiveGuideOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.router, widget.router)) {
@@ -130,13 +142,6 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     if (guidance == null) {
       return const SizedBox.shrink();
     }
-    ref.listen<AsyncValue<AdaptiveGuidanceState>>(
-      adaptiveGuidanceProvider,
-      (previous, next) => _openScheduleAfterGuidedSave(
-        previous?.asData?.value,
-        next.asData?.value,
-      ),
-    );
 
     final DailyDecisionIntelligence decision = ref.watch(
       dailyDecisionIntelligenceProvider,
@@ -160,13 +165,6 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
           : _contextualHint(context, hint);
     }
 
-    // GuideHintSlot closes a card for the rest of a visit once the keyboard
-    // opens. A guide step must stay until it is done, so each time the
-    // keyboard closes the step gets a new slot and comes back.
-    final bool keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
-    if (_keyboardWasOpen && !keyboardOpen) _keyboardCloses++;
-    _keyboardWasOpen = keyboardOpen;
-
     // A step is shown only on the screen it is about; everywhere else the
     // app is left alone (including Settings and the Smart Planner choice
     // offered at the end of setup).
@@ -183,12 +181,7 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       },
       GuidanceLessonId.reviewTimeline =>
         location == RoutePaths.timeline
-            ? _timelineStepCard(
-                context,
-                guidance,
-                lesson,
-                ref.watch(timelineTutorialEvidenceProvider),
-              )
+            ? _timelineStepCard(context, guidance, lesson)
             : null,
       _ => null,
     };
@@ -350,7 +343,16 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       context,
     );
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _creatorStep = CreatorTutorialStep.title);
+    if (AdaptiveGuidanceState.coreStepNumber(lesson) == 1) {
+      // Leave Add something as the plain form: drop a pending review and the
+      // guided form's progress. The typed draft itself is kept, so nothing
+      // the person wrote is lost.
+      if (ref.read(creatorHandshakeProvider).isReviewing) {
+        ref.read(creatorHandshakeProvider.notifier).cancelPreview();
+      }
+      ref.read(creatorTutorialDraftProvider.notifier).reset();
+      setState(() => _creatorStep = CreatorTutorialStep.title);
+    }
     await ref.read(adaptiveGuidanceProvider.notifier).skipCoreStep(lesson);
     if (!mounted ||
         ref.read(adaptiveGuidanceProvider).asData?.value.activeCoreLesson !=
@@ -491,43 +493,19 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     }
   }
 
-  /// The guided task was saved with a date through the Creator's own confirm
-  /// button: open the schedule, where the next step is, as the card's own
-  /// confirm action does.
-  void _openScheduleAfterGuidedSave(
-    AdaptiveGuidanceState? previous,
-    AdaptiveGuidanceState? next,
-  ) {
-    if (previous == null || next == null || _completingCreator) return;
-    if (AdaptiveGuidanceState.coreStepNumber(
-              previous.activeCoreLesson ?? GuidanceLessonId.nexus,
-            ) !=
-            1 ||
-        next.activeCoreLesson != GuidanceLessonId.reviewTimeline ||
-        next.count(GuidanceMilestone.firstSchedule) <=
-            previous.count(GuidanceMilestone.firstSchedule)) {
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted ||
-          widget.router.routerDelegate.currentConfiguration.isEmpty ||
-          widget.router.routerDelegate.state.uri.path != RoutePaths.creator) {
-        return;
-      }
-      _resetCreatorGuide();
-      widget.router.go(RoutePaths.timeline);
-    });
-  }
-
   /// Step 2 on the schedule. It ends when the person says they found the
   /// task; marking it done is not required.
   Widget _timelineStepCard(
     BuildContext context,
     AdaptiveGuidanceState guidance,
     GuidanceLesson lesson,
-    String? timelineEvidenceTaskId,
   ) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    // Rebuild when Schedule shows (or stops showing) the saved task.
+    ref.watch(timelineTutorialEvidenceProvider);
+    // A saved task can still appear here only while it is open and has a
+    // date: a task saved without one, or done, skipped or deleted since,
+    // never will.
     bool allExpectedTasksUnavailable =
         guidance.expectedFirstRunCreatorTaskIds.isNotEmpty;
     for (final String id in guidance.expectedFirstRunCreatorTaskIds) {
@@ -536,14 +514,13 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       );
       final TaskEntity? task = taskState.asData?.value;
       if (taskState.asData == null ||
-          (task?.isActionableAt(DateTime.now()) ?? false)) {
+          (task != null &&
+              task.isActionableAt(DateTime.now()) &&
+              (task.scheduledFor != null || task.dueDate != null))) {
         allExpectedTasksUnavailable = false;
       }
     }
-    final bool hasMatchingEvidence =
-        timelineEvidenceTaskId != null &&
-        guidance.matchesExpectedFirstRunCreatorTask(timelineEvidenceTaskId) &&
-        FirstRunTutorialTargets.timelineEvidence.currentContext != null;
+    final bool hasMatchingEvidence = _expectedTaskInView(guidance);
     return GuideStepCard(
       key: const Key('guide_step_card'),
       progressLabel: _stepLabel(l10n, lesson.id),
@@ -563,22 +540,31 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
           : allExpectedTasksUnavailable
           ? _copy(
               l10n,
-              'This task is no longer on your schedule. Tap Skip this step to finish the guide.',
-              'Esta tarea ya no está en tu agenda. Toca Omitir este paso para terminar la guía.',
+              'This task is not on your schedule. Tap Skip this step to finish the guide.',
+              'Esta tarea no está en tu agenda. Toca Omitir este paso para terminar la guía.',
             )
           : _copy(
               l10n,
-              'Your new task appears here as soon as Schedule loads it.',
-              'Tu nueva tarea aparecerá aquí en cuanto la agenda la cargue.',
+              'Your new task appears here as soon as Schedule loads it. If it does not appear, tap Skip this step.',
+              'Tu nueva tarea aparecerá aquí en cuanto la agenda la cargue. Si no aparece, toca Omitir este paso.',
             ),
       primaryLabel: _copy(l10n, 'I found my task', 'Encontré mi tarea'),
-      primaryEnabled: !_confirmingFoundTask,
+      // Only the task really shown here can be "found".
+      primaryEnabled: hasMatchingEvidence && !_confirmingFoundTask,
       onPrimary: () => unawaited(_confirmFoundTask(context)),
       skipStepLabel: _skipStepLabel(l10n),
       onSkipStep: () => unawaited(_skipStep(context, lesson.id)),
       pauseLabel: _pauseLabel(l10n),
       onPause: () => _pauseGuide(context, lesson.id),
     );
+  }
+
+  /// Whether the task the guide saved is the one Schedule shows right now.
+  bool _expectedTaskInView(AdaptiveGuidanceState guidance) {
+    final String? shown = ref.read(timelineTutorialEvidenceProvider);
+    return shown != null &&
+        guidance.matchesExpectedFirstRunCreatorTask(shown) &&
+        FirstRunTutorialTargets.timelineEvidence.currentContext != null;
   }
 
   /// "I found my task" records the schedule review and so finishes the
@@ -593,13 +579,17 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     bool isCurrent() {
       if (!mounted) return false;
       final AuthSessionBoundary now = ref.read(authSessionBoundaryProvider);
+      final AdaptiveGuidanceState? guidance = ref
+          .read(adaptiveGuidanceProvider)
+          .asData
+          ?.value;
       return now.generation == boundary.generation &&
           now.userId == boundary.userId &&
           now.isStorageReady &&
           !now.isTransitioning &&
           now.blockingIssue == null &&
-          ref.read(adaptiveGuidanceProvider).asData?.value.activeCoreLesson ==
-              GuidanceLessonId.reviewTimeline;
+          guidance?.activeCoreLesson == GuidanceLessonId.reviewTimeline &&
+          _expectedTaskInView(guidance!);
     }
 
     if (!isCurrent()) return;

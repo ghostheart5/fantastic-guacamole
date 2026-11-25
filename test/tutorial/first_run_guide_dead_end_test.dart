@@ -227,47 +227,50 @@ void main() {
   });
 
   for (final language in <String>['en', 'es']) {
-    for (final bool alreadyDone in <bool>[false, true]) {
-      testWidgets(
-        '$language "I found my task" finishes the guide without completing '
-        'the task (task already done=$alreadyDone)',
-        (tester) async {
-          _tallView(tester);
-          final repo = _Tasks.withScheduledTask();
-          if (alreadyDone) {
-            repo.tasks['restored'] = repo.tasks['restored']!.complete();
-          }
-          final container = _container(repo, overlay: true, timeline: true);
-          addTearDown(container.dispose);
-          await _prepareTimelineGuide(container);
-          await _pumpTimelineWithGuide(tester, container, Locale(language));
-          expect(
-            find.text(language == 'en' ? 'Step 2 of 2' : 'Paso 2 de 2'),
-            findsOneWidget,
-          );
-          final String found = language == 'en'
-              ? 'I found my task'
-              : 'Encontré mi tarea';
-          // The button never waits for anything to be marked done.
-          expect(_primary(tester, found).onPressed, isNotNull);
-          final int savesBefore = repo.saveCalls;
-          await tester.tap(find.text(found));
-          for (int i = 0; i < 4; i++) {
-            await tester.pump(const Duration(milliseconds: 100));
-          }
-          final AdaptiveGuidanceState state = container
-              .read(adaptiveGuidanceProvider)
-              .requireValue;
-          expect(state.coreComplete, isTrue);
-          expect(state.has(GuidanceMilestone.firstCompletion), isFalse);
-          expect(state.expectedFirstRunCreatorTaskIds, isEmpty);
-          expect(repo.tasks['restored']!.isCompleted, alreadyDone);
-          expect(repo.saveCalls, savesBefore);
-          expect(find.text(found), findsNothing);
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
+    testWidgets(
+      '$language "I found my task" finishes the guide without completing '
+      'the task',
+      (tester) async {
+        _tallView(tester);
+        final repo = _Tasks.withScheduledTask();
+        final container = _container(repo, overlay: true, timeline: true);
+        addTearDown(container.dispose);
+        await _prepareTimelineGuide(container);
+        await _pumpTimelineWithGuide(tester, container, Locale(language));
+        expect(
+          find.text(language == 'en' ? 'Step 2 of 2' : 'Paso 2 de 2'),
+          findsOneWidget,
+        );
+        final String found = language == 'en'
+            ? 'I found my task'
+            : 'Encontré mi tarea';
+        // The saved task is on Schedule; nothing has to be marked done.
+        expect(
+          find.text(
+            language == 'en'
+                ? 'Your saved task is now on Schedule'
+                : 'Tu tarea guardada ya está en agenda',
+          ),
+          findsOneWidget,
+        );
+        expect(_primary(tester, found).onPressed, isNotNull);
+        final int savesBefore = repo.saveCalls;
+        await tester.tap(find.text(found));
+        for (int i = 0; i < 4; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        final AdaptiveGuidanceState state = container
+            .read(adaptiveGuidanceProvider)
+            .requireValue;
+        expect(state.coreComplete, isTrue);
+        expect(state.has(GuidanceMilestone.firstCompletion), isFalse);
+        expect(state.expectedFirstRunCreatorTaskIds, isEmpty);
+        expect(repo.tasks['restored']!.isCompleted, isFalse);
+        expect(repo.saveCalls, savesBefore);
+        expect(find.text(found), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     for (final action in <String>['skip', 'postpone']) {
       testWidgets(
@@ -351,9 +354,20 @@ void main() {
       addTearDown(container.dispose);
       await _prepareTimelineGuide(container, taskId: 'different-task');
       await _pumpTimelineWithGuide(tester, container, const Locale('en'));
-      expect(find.textContaining('no longer on your schedule'), findsOneWidget);
+      expect(find.textContaining('not on your schedule'), findsOneWidget);
+      // Nothing here was found, so the review cannot be recorded.
+      expect(_primary(tester, 'I found my task').onPressed, isNull);
+      await tester.tap(find.text('I found my task'));
+      await tester.pump(const Duration(milliseconds: 100));
       expect(
         container.read(adaptiveGuidanceProvider).requireValue.coreComplete,
+        isFalse,
+      );
+      expect(
+        container
+            .read(adaptiveGuidanceProvider)
+            .requireValue
+            .has(GuidanceMilestone.firstTimelineReview),
         isFalse,
       );
       await tester.tap(find.text('Skip this step'));
@@ -401,6 +415,89 @@ void main() {
     // Step 2 is shown on the schedule, not here.
     expect(find.text('Step 1 of 2'), findsNothing);
     expect(find.text('Step 2 of 2'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('after skipping step 1 with a task saved without a date, the '
+      'schedule step says so and only Skip this step can end it', (
+    tester,
+  ) async {
+    _tallView(tester);
+    final repo = _Tasks()
+      ..tasks['undated'] = TaskEntity(
+        id: 'undated',
+        title: 'Undated task',
+        createdAt: DateTime.utc(2026, 11, 1, 9),
+      );
+    final container = _container(repo, overlay: true, timeline: true);
+    addTearDown(container.dispose);
+    await container.read(adaptiveGuidanceProvider.future);
+    final notifier = container.read(adaptiveGuidanceProvider.notifier);
+    await notifier.recordCreatorHandshakeReceipt(_guideReceipt('undated'));
+    await notifier.skipCoreStep(GuidanceLessonId.createFirstItem);
+    expect(
+      container.read(adaptiveGuidanceProvider).requireValue.activeCoreLesson,
+      GuidanceLessonId.reviewTimeline,
+    );
+    await _pumpTimelineWithGuide(tester, container, const Locale('es'));
+    expect(find.textContaining('no está en tu agenda'), findsOneWidget);
+    expect(_primary(tester, 'Encontré mi tarea').onPressed, isNull);
+    await tester.tap(find.text('Omitir este paso'));
+    for (int i = 0; i < 3; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final AdaptiveGuidanceState state = container
+        .read(adaptiveGuidanceProvider)
+        .requireValue;
+    expect(state.activeCoreLesson, isNull);
+    expect(state.has(GuidanceMilestone.firstTimelineReview), isFalse);
+    expect(state.coreGuideStatus, CoreGuideStatus.skipped);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Skip this step while reviewing leaves the plain Add something '
+      'form', (tester) async {
+    _tallView(tester);
+    final repo = _Tasks();
+    final container = _container(repo, overlay: true);
+    addTearDown(container.dispose);
+    await container.read(adaptiveGuidanceProvider.future);
+    await container
+        .read(creatorHandshakeProvider.notifier)
+        .stage(
+          data: CreatorFormData(
+            title: 'First scheduled task',
+            type: 'Task',
+            priority: 4,
+            scheduledFor: DateTime.utc(2026, 11, 2, 9),
+          ),
+        );
+    container.read(creatorTutorialDraftProvider.notifier)
+      ..setHasTitle(true)
+      ..markPriorityChosen()
+      ..setHasSchedule(true);
+    await _pumpCreatorWithGuide(tester, container);
+    expect(container.read(creatorHandshakeProvider).isReviewing, isTrue);
+    expect(find.text('Confirm the exact task'), findsOneWidget);
+
+    await tester.tap(find.text('Skip this step'));
+    for (int i = 0; i < 3; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(container.read(creatorHandshakeProvider).isReviewing, isFalse);
+    expect(find.byKey(const Key('creator-confirm-selected')), findsNothing);
+    final CreatorTutorialDraftState draft = container.read(
+      creatorTutorialDraftProvider,
+    );
+    expect(draft.hasTitle, isFalse);
+    expect(draft.hasSchedule, isFalse);
+    final AdaptiveGuidanceState state = container
+        .read(adaptiveGuidanceProvider)
+        .requireValue;
+    expect(state.guidesCreatorTask, isFalse);
+    expect(state.has(GuidanceMilestone.firstItem), isFalse);
+    expect(repo.saveCalls, 0);
+    expect(find.text('Step 1 of 2'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -657,7 +754,7 @@ enum _CoreStepScreen {
 }
 
 CreatorHandshakeReceipt _guideReceipt(String taskId) {
-  final now = DateTime.now();
+  final now = DateTime.utc(2026, 11, 1, 12);
   return CreatorHandshakeReceipt(
     proposalId: 'guide-proposal',
     accountScopeId: AccountStorageScope.authenticated('account-a').v2Namespace!,
