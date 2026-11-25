@@ -371,6 +371,10 @@ void main() {
       expect(container.read(unreadNotificationsProvider), 2);
       expect(find.text('Switched off reminder'), findsNothing);
       expect(find.textContaining('3 total'), findsOneWidget);
+      // The badge waits on the future reminder with a timer; disposing the
+      // container before the test ends cancels it.
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
     },
   );
   testWidgets(

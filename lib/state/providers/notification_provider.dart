@@ -207,12 +207,35 @@ bool isNewNotificationActivity(NotificationEntity item, DateTime now) =>
     (!item.scheduledAt.isAfter(now) ||
         (!item.isEnabled && !NotificationEntity.isReminderId(item.id)));
 
+/// The time used to decide which notifications are new. Tests override it.
+final notificationClockProvider = Provider<DateTime Function()>(
+  (Ref ref) => DateTime.now,
+);
+
+/// The badge count. It depends on the time, so it re-evaluates itself when
+/// the next unread reminder comes due; the shell also invalidates it on
+/// resume, when timers may have been held back. The timer is cancelled
+/// whenever the provider is rebuilt or disposed, including on an account
+/// change (the notification list rebuilds then).
 final unreadNotificationsProvider = Provider<int>((Ref ref) {
-  final DateTime now = DateTime.now();
-  return ref
-      .watch(notificationProvider)
-      .where((NotificationEntity item) => isNewNotificationActivity(item, now))
-      .length;
+  final DateTime now = ref.watch(notificationClockProvider)();
+  final List<NotificationEntity> items = ref.watch(notificationProvider);
+  int count = 0;
+  DateTime? nextDue;
+  for (final NotificationEntity item in items) {
+    if (item.isRead) continue;
+    if (isNewNotificationActivity(item, now)) {
+      count++;
+    } else if (item.scheduledAt.isAfter(now) &&
+        (nextDue == null || item.scheduledAt.isBefore(nextDue))) {
+      nextDue = item.scheduledAt;
+    }
+  }
+  if (nextDue != null) {
+    final Timer timer = Timer(nextDue.difference(now), ref.invalidateSelf);
+    ref.onDispose(timer.cancel);
+  }
+  return count;
 });
 
 class NotificationActions {
