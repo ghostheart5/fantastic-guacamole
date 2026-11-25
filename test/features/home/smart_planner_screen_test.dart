@@ -1,9 +1,11 @@
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_chat_mode_provider.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'dart:async';
+import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
@@ -276,6 +278,156 @@ void main() {
           .text,
       'Pick a calmer step',
     );
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets(
+    'Choose a step collects a stored paid request while the free planner is remembered',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final gate = Completer<void>();
+      final paid = <Map<String, dynamic>>[];
+      final backend = InMemorySecureStoreBackend();
+      final container = _container(
+        conversationAvailable: true,
+        allowedAi: true,
+        secureBackend: backend,
+        conversationTransport: (body) async {
+          if (body['quoteOnly'] == true) {
+            return (
+              status: 200,
+              data: <String, dynamic>{
+                'requestId': body['requestId'],
+                'quote': <String, dynamic>{
+                  'credits': 4,
+                  'digest': 'fixture',
+                  'proof': 'fixture',
+                  'policy': 'fixture',
+                  'expiresAt': DateTime.now()
+                      .add(const Duration(minutes: 5))
+                      .millisecondsSinceEpoch,
+                },
+              },
+            );
+          }
+          paid.add(body);
+          await gate.future;
+          return (
+            status: 200,
+            data: <String, dynamic>{
+              'requestId': body['requestId'],
+              'message': 'Start with the smallest step.',
+              'creditsCharged': 4,
+              'remainingCredits': 20,
+              'model': 'transport-fixture',
+            },
+          );
+        },
+      );
+      addTearDown(() async {
+        if (!gate.isCompleted) gate.complete();
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pumpPlanner(tester, container);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Which step first?',
+      );
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      for (var i = 0; i < 100 && find.text('Send').evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.tap(find.text('Send'));
+      for (
+        var i = 0;
+        i < 100 && find.text('Use 4 credits').evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.tap(find.text('Use 4 credits'));
+      for (var i = 0; i < 100 && paid.isEmpty; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(paid, hasLength(1));
+
+      // Leave with the free planner remembered, then come back.
+      container
+          .read(assistantChatModeProvider.notifier)
+          .choose(ConversationSurface.planner, onDevice: true);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _pumpPlanner(tester, container);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byKey(const Key('planner-context-field')), findsOneWidget);
+
+      gate.complete();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(
+        find.byKey(const Key('assistant-mode-reply-ready')),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(find.byKey(const Key('assistant-mode-ai')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('assistant-mode-ai')));
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(find.text('Start with the smallest step.'), findsOneWidget);
+      expect(paid, hasLength(1), reason: 'One paid call only');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('Choose a step: AI chat without consent opens the consent step', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final container = _container(conversationAvailable: true);
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(AssistantConversationScreen), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const Key('assistant-mode-on-device')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('assistant-mode-on-device')));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const Key('planner-context-field')), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 2));
+    await _press(tester, const Key('assistant-mode-ai'));
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(find.text('Turn on AI chat?'), findsOneWidget);
+    await _press(tester, const Key('ai-chat-consent-decline'));
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(
+      container.read(personalizationProfileProvider).externalAiAllowed,
+      isFalse,
+    );
+    expect(find.byKey(const Key('planner-context-field')), findsOneWidget);
+
+    await _press(tester, const Key('assistant-mode-ai'));
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pump(const Duration(milliseconds: 800));
+    await _press(tester, const Key('ai-chat-consent-allow'));
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(
+      container.read(personalizationProfileProvider).externalAiAllowed,
+      isTrue,
+    );
+    expect(find.byType(AssistantConversationScreen), findsOneWidget);
+    expect(find.byKey(const Key('planner-context-field')), findsNothing);
     expect(tester.takeException(), isNull);
   });
   testWidgets(
@@ -1863,6 +2015,8 @@ ProviderContainer _container({
   SharedPrefsStore? sharedPrefsStore,
   PersonContextRepository? personContextRepository,
   _RecordingGuidance Function()? guidance,
+  ConversationTransport? conversationTransport,
+  InMemorySecureStoreBackend? secureBackend,
 }) {
   final SharedPrefsStore resolvedStore = sharedPrefsStore ?? _MemoryPrefs();
   final AccountStorageScope resolvedScope =
@@ -1920,8 +2074,12 @@ ProviderContainer _container({
       // secure-storage read never completes here and would hold the shared
       // account storage lock for later tests.
       secureStoreProvider.overrideWithValue(
-        SecureStore(backend: InMemorySecureStoreBackend()),
+        SecureStore(backend: secureBackend ?? InMemorySecureStoreBackend()),
       ),
+      if (conversationTransport != null) ...[
+        conversationTransportProvider.overrideWithValue(conversationTransport),
+        authSessionBoundaryProvider.overrideWith(_TestBoundary.new),
+      ],
       if (personContextRepository != null)
         personContextRepositoryProvider.overrideWithValue(
           personContextRepository,
@@ -1961,6 +2119,41 @@ ProviderContainer _container({
           (Ref ref) async => explanationPort,
         ),
     ],
+  );
+}
+
+/// Presses a button by its key without depending on where the test window
+/// puts it.
+Future<void> _press(WidgetTester tester, Key key) async {
+  final finder = find.byKey(key);
+  final list = find.descendant(
+    of: find.byKey(const Key('planner-content-scroll')),
+    matching: find.byType(Scrollable),
+  );
+  if (finder.evaluate().isEmpty && list.evaluate().isNotEmpty) {
+    tester.state<ScrollableState>(list.first).position.jumpTo(0);
+    await tester.pump();
+  }
+  final button = tester.widget<ButtonStyleButton>(
+    finder.evaluate().first.widget is ButtonStyleButton
+        ? finder
+        : find.descendant(
+            of: finder,
+            matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+          ),
+  );
+  button.onPressed!();
+  await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+  await tester.pump(const Duration(milliseconds: 800));
+}
+
+class _TestBoundary extends AuthSessionBoundaryNotifier {
+  @override
+  AuthSessionBoundary build() => const AuthSessionBoundary(
+    generation: 1,
+    userId: 'planner-test-account',
+    isTransitioning: false,
+    isStorageReady: true,
   );
 }
 

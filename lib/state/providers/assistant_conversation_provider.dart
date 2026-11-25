@@ -68,6 +68,52 @@ final assistantConversationSurfaceAvailableProvider =
               true;
     });
 
+/// Why AI chat cannot be used right now, so the mode switch can say so in
+/// plain words instead of hiding. [none] means it can be used.
+enum AiChatBlock {
+  none,
+  accountNotReady,
+  notAvailable,
+  checking,
+  notAvailableNow,
+}
+
+/// Whether this build has AI chat at all. Only a build without it hides the
+/// mode switch; every other case shows the switch and explains when tapped.
+final assistantChatInBuildProvider = Provider<bool>(
+  (ref) =>
+      ref.watch(externalAiAvailableProvider) ||
+      ref.watch(assistantConversationAvailableProvider),
+);
+
+final assistantChatBlockProvider =
+    Provider.family<AiChatBlock, ConversationSurface>((ref, surface) {
+      if (!ref.watch(accountStorageScopeProvider).isWritable) {
+        return AiChatBlock.accountNotReady;
+      }
+      if (!ref.watch(assistantConversationAvailableProvider)) {
+        return AiChatBlock.notAvailable;
+      }
+      final capability = surface == ConversationSurface.planner
+          ? AssistantReleaseCapability.smartPlannerV2
+          : AssistantReleaseCapability.siConsoleV2;
+      final decisions = [
+        ref.watch(assistantReleaseDecisionProvider(capability)),
+        ref.watch(
+          assistantReleaseDecisionProvider(
+            AssistantReleaseCapability.safetyCritic,
+          ),
+        ),
+      ];
+      if (decisions.any(
+        (d) => d.hasError || d.asData?.value.enabled == false,
+      )) {
+        return AiChatBlock.notAvailableNow;
+      }
+      if (decisions.any((d) => d.asData == null)) return AiChatBlock.checking;
+      return AiChatBlock.none;
+    });
+
 final conversationTransportProvider = Provider<ConversationTransport>(
   (ref) => ref.watch(internalCreditTestTransportProvider),
 );

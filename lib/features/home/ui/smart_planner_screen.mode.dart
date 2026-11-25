@@ -17,20 +17,25 @@ extension _PlannerChatMode on _SmartPlannerScreenState {
         .choose(ConversationSurface.planner, onDevice: onDevice);
   }
 
-  /// The switch shown at the top of the free planner (null when AI chat is
-  /// not available in this build, so there is nothing to switch to).
+  /// The switch shown at the top of the free planner. Only a build without AI
+  /// chat has nothing to show.
   Widget _modeSwitch() {
-    if (!_aiChatAvailable) return const SizedBox.shrink();
+    if (!ref.watch(assistantChatInBuildProvider)) {
+      return const SizedBox.shrink();
+    }
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: AssistantModeSwitch(
+        surface: ConversationSurface.planner,
         aiSelected: false,
         enabled: true,
+        replyReady: _aiUpdate,
         onChooseOnDevice: () {},
         onChooseAi: () {
           _rebuild(() {
             _aiDraft = _notesController.text.trim();
-            if (_aiDraft.isNotEmpty) _aiDraftRevision++;
+            _aiDraftRevision++;
+            _aiUpdate = false;
           });
           _chooseMode(onDevice: false);
         },
@@ -43,38 +48,59 @@ extension _PlannerChatMode on _SmartPlannerScreenState {
         _useLocalTools ||
         ref.watch(assistantOnDeviceModeProvider(ConversationSurface.planner));
     final bool aiAvailable = _aiChatAvailable;
-    if (aiAvailable && !onDevice) _aiChatOpened = true;
-    if (!aiAvailable || !_aiChatOpened) return _buildOnDevice(context);
+    ref.listen(accountStorageScopeProvider, (previous, next) {
+      if (previous?.v2Namespace == next.v2Namespace) return;
+      // Nothing typed or arrived for one account goes to the next.
+      _rebuild(() {
+        _aiDraft = '';
+        _aiUpdate = false;
+      });
+    });
+    if (!aiAvailable && !ref.watch(assistantChatInBuildProvider)) {
+      return _buildOnDevice(context);
+    }
+    final bool mountAi = aiAvailable && (_firstValueDone || !_useLocalTools);
+    final bool showOnDevice = onDevice || !mountAi;
+    // The AI screen is kept (hidden) so a stored or running paid request is
+    // collected while the free planner is shown.
     return Stack(
       fit: StackFit.expand,
       children: [
-        KeyedSubtree(
-          key: const ValueKey<String>('planner-ai-chat'),
-          child: Offstage(
-            offstage: onDevice,
-            child: TickerMode(
-              enabled: !onDevice,
-              child: AssistantConversationScreen(
-                isActive: !onDevice,
-                surface: ConversationSurface.planner,
-                incomingDraft: _aiDraft,
-                incomingDraftRevision: _aiDraftRevision,
-                onLocalTools: () => _chooseMode(onDevice: true),
-                onLocalToolsWithDraft: (String draft) {
-                  if (draft.isNotEmpty) {
-                    // Controller assignments do not call the field's onChanged
-                    // handler. An old plan must not remain actionable for this
-                    // new request.
-                    _clearChangedCheckIn();
-                    _notesController.text = draft;
-                  }
-                  _chooseMode(onDevice: true);
-                },
+        if (mountAi)
+          KeyedSubtree(
+            key: const ValueKey<String>('planner-ai-chat'),
+            child: Offstage(
+              offstage: showOnDevice,
+              child: TickerMode(
+                enabled: !showOnDevice,
+                child: ExcludeFocus(
+                  excluding: showOnDevice,
+                  child: AssistantConversationScreen(
+                    isActive: !showOnDevice,
+                    hidden: showOnDevice,
+                    onUpdateWhileHidden: () {
+                      if (mounted) _rebuild(() => _aiUpdate = true);
+                    },
+                    surface: ConversationSurface.planner,
+                    incomingDraft: _aiDraft,
+                    incomingDraftRevision: _aiDraftRevision,
+                    onLocalTools: () => _chooseMode(onDevice: true),
+                    onLocalToolsWithDraft: (String draft) {
+                      if (draft != _notesController.text) {
+                        // Controller assignments do not call the field's
+                        // onChanged handler. An old plan must not remain
+                        // actionable for this new request.
+                        _clearChangedCheckIn();
+                        _notesController.text = draft;
+                      }
+                      _chooseMode(onDevice: true);
+                    },
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-        if (onDevice)
+        if (showOnDevice)
           KeyedSubtree(
             key: const ValueKey<String>('planner-on-device'),
             child: _buildOnDevice(context),

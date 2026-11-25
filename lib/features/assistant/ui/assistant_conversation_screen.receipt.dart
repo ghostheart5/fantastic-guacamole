@@ -136,8 +136,8 @@ extension _ReplyReceipt on _AssistantConversationScreenState {
                 ' Consigue créditos o espera tu asignación mensual; después toca enviar para preguntar de nuevo como un mensaje nuevo.',
               )
             : copy(
-                ' Buying credits is not available in this version of the app. Wait for your monthly allowance, then tap send to ask again as a new message, or use Free tools, which need no credits.',
-                ' Comprar créditos no está disponible en esta versión de la app. Espera tu asignación mensual y luego toca enviar para preguntar de nuevo como un mensaje nuevo, o usa Herramientas gratis, que no usan créditos.',
+                ' Buying credits is not available in this version of the app. Wait for your monthly allowance, then tap send to ask again as a new message, or choose On this device · free, which needs no credits.',
+                ' Comprar créditos no está disponible en esta versión de la app. Espera tu asignación mensual y luego toca enviar para preguntar de nuevo como un mensaje nuevo, o elige En este dispositivo · gratis, que no usa créditos.',
               ));
   }
 
@@ -173,7 +173,7 @@ extension _ReplyReceipt on _AssistantConversationScreenState {
           NetworkInterfaceAvailability.unavailable;
 
   String get _offlineText => copy(
-    'You are offline. AI chat needs an internet connection, so nothing was sent and nothing was charged. Your question is kept; connect, then tap send again. Free tools work without a connection.',
-    'No tienes conexión. El chat con IA necesita internet, así que no se envió nada y no se cobró nada. Tu pregunta se conserva; conéctate y vuelve a tocar enviar. Herramientas gratis funciona sin conexión.',
+    'You are offline. AI chat needs an internet connection, so nothing was sent and nothing was charged. Your question is kept; connect, then tap send again. The free assistant on this device works without a connection.',
+    'No tienes conexión. El chat con IA necesita internet, así que no se envió nada y no se cobró nada. Tu pregunta se conserva; conéctate y vuelve a tocar enviar. El asistente gratis en este dispositivo funciona sin conexión.',
   );
 }

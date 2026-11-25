@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_mode_switch.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_chat_mode_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 import 'dart:math' as math;
@@ -108,9 +109,8 @@ class SIConsoleScreen extends ConsumerStatefulWidget {
 
 class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  // The AI chat screen stays alive behind the free tools once it was opened,
-  // so a conversation, a draft or a running request is not lost by switching.
-  bool _aiChatOpened = false;
+  // The AI chat screen stays alive behind the free assistant (see build).
+  bool _aiUpdate = false;
   String _aiDraft = '';
   int _aiDraftRevision = 0;
   final List<_Msg> _messages = [];
@@ -777,36 +777,54 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final bool aiAvailable = ref.watch(
       assistantConversationSurfaceAvailableProvider(ConversationSurface.si),
     );
-    if (aiAvailable && !onDevice) {
-      _aiChatOpened = true;
+    ref.listen(accountStorageScopeProvider, (previous, next) {
+      if (previous?.v2Namespace == next.v2Namespace) return;
+      // Nothing typed or arrived for one account goes to the next.
+      setState(() {
+        _aiDraft = '';
+        _aiUpdate = false;
+      });
+    });
+    if (!aiAvailable && !ref.watch(assistantChatInBuildProvider)) {
+      return _buildOnDevice(context, false);
     }
-    if (!aiAvailable || !_aiChatOpened) {
-      return _buildOnDevice(context, aiAvailable);
-    }
+    final bool showOnDevice = onDevice || !aiAvailable;
+    // The AI screen is kept (hidden) whenever AI chat is available, even while
+    // the free assistant is shown, so a paid request that is still running or
+    // stored is collected and its reply is there when the person switches
+    // back.
     return Stack(
       fit: StackFit.expand,
       children: [
-        KeyedSubtree(
-          key: const ValueKey<String>('si-ai-chat'),
-          child: Offstage(
-            offstage: onDevice,
-            child: TickerMode(
-              enabled: !onDevice,
-              child: AssistantConversationScreen(
-                isActive: widget.isActive && !onDevice,
-                surface: ConversationSurface.si,
-                incomingDraft: _aiDraft,
-                incomingDraftRevision: _aiDraftRevision,
-                onLocalTools: () => _chooseMode(onDevice: true),
-                onLocalToolsWithDraft: (String draft) {
-                  if (draft.isNotEmpty) _input.text = draft;
-                  _chooseMode(onDevice: true);
-                },
+        if (aiAvailable)
+          KeyedSubtree(
+            key: const ValueKey<String>('si-ai-chat'),
+            child: Offstage(
+              offstage: showOnDevice,
+              child: TickerMode(
+                enabled: !showOnDevice,
+                child: ExcludeFocus(
+                  excluding: showOnDevice,
+                  child: AssistantConversationScreen(
+                    isActive: widget.isActive && !showOnDevice,
+                    hidden: showOnDevice,
+                    onUpdateWhileHidden: () {
+                      if (mounted) setState(() => _aiUpdate = true);
+                    },
+                    surface: ConversationSurface.si,
+                    incomingDraft: _aiDraft,
+                    incomingDraftRevision: _aiDraftRevision,
+                    onLocalTools: () => _chooseMode(onDevice: true),
+                    onLocalToolsWithDraft: (String draft) {
+                      _input.text = draft;
+                      _chooseMode(onDevice: true);
+                    },
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-        if (onDevice)
+        if (showOnDevice)
           KeyedSubtree(
             key: const ValueKey<String>('si-on-device'),
             child: _buildOnDevice(context, aiAvailable),
@@ -915,17 +933,20 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                         unawaited(_showAccessibilityGuide());
                       },
                     ),
-                    if (aiAvailable)
+                    if (ref.watch(assistantChatInBuildProvider))
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
                         child: AssistantModeSwitch(
+                          surface: ConversationSurface.si,
                           aiSelected: false,
                           enabled: true,
+                          replyReady: _aiUpdate,
                           onChooseOnDevice: () {},
                           onChooseAi: () {
                             setState(() {
                               _aiDraft = _input.text.trim();
-                              if (_aiDraft.isNotEmpty) _aiDraftRevision++;
+                              _aiDraftRevision++;
+                              _aiUpdate = false;
                             });
                             _chooseMode(onDevice: false);
                           },

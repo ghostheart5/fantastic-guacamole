@@ -966,7 +966,12 @@ void main() {
         final balance = find.byKey(_balance, skipOffstage: false);
         await tester.drag(find.byType(ListView), const Offset(0, 5000));
         await tester.pump();
-        await tester.ensureVisible(balance);
+        // The mode switch is above it, so scroll down to the balance.
+        await tester.scrollUntilVisible(
+          balance,
+          100,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tester.pump();
         expect(find.byKey(_balance).hitTestable(), findsOneWidget);
         expect(

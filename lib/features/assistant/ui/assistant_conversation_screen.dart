@@ -82,6 +82,8 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
     this.isActive = true,
     this.incomingDraft = '',
     this.incomingDraftRevision = 0,
+    this.hidden = false,
+    this.onUpdateWhileHidden,
   });
   final ConversationSurface surface;
   final VoidCallback onLocalTools;
@@ -92,6 +94,12 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
   /// chat. A new [incomingDraftRevision] makes this screen take the text.
   final String incomingDraft;
   final int incomingDraftRevision;
+
+  /// The free assistant is shown in front of this screen. A reply, a failure
+  /// or a collected request that arrives meanwhile is reported through
+  /// [onUpdateWhileHidden], and a dialog waits until the screen is shown.
+  final bool hidden;
+  final VoidCallback? onUpdateWhileHidden;
   @override
   ConsumerState<AssistantConversationScreen> createState() =>
       _AssistantConversationScreenState();
@@ -154,7 +162,6 @@ class _AssistantConversationScreenState
   @override
   void initState() {
     super.initState();
-    _input.text = widget.incomingDraft;
     _input.addListener(_onDraftChanged);
     if (widget.surface == ConversationSurface.si) {
       _sources = <SIV2Source>{};
@@ -187,8 +194,11 @@ class _AssistantConversationScreenState
   @override
   void didUpdateWidget(covariant AssistantConversationScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.incomingDraftRevision != widget.incomingDraftRevision &&
-        widget.incomingDraft.isNotEmpty) {
+    if (oldWidget.hidden && !widget.hidden) {
+      _shownGate?.complete();
+      _shownGate = null;
+    }
+    if (oldWidget.incomingDraftRevision != widget.incomingDraftRevision) {
       _input.value = TextEditingValue(
         text: widget.incomingDraft,
         selection: TextSelection.collapsed(offset: widget.incomingDraft.length),
@@ -204,8 +214,29 @@ class _AssistantConversationScreenState
     }
   }
 
+  Completer<void>? _shownGate;
+
+  /// Tells the free assistant's screen that something arrived out of sight.
+  void _reportWhileHidden() {
+    final report = widget.onUpdateWhileHidden;
+    if (widget.hidden && report != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.hidden) report();
+      });
+    }
+  }
+
+  /// A dialog raised while the free assistant is shown waits for this screen
+  /// to be shown again; it is not lost.
+  Future<void> _whenShown() async {
+    while (widget.hidden && mounted) {
+      await (_shownGate ??= Completer<void>()).future;
+    }
+  }
+
   @override
   void dispose() {
+    _shownGate?.complete();
     _voiceActivation++;
     _voiceControllerForDispose?.invalidatePendingCapture();
     _paidWaitTimer?.cancel();
@@ -244,6 +275,8 @@ class _AssistantConversationScreenState
     required Widget content,
     required String action,
   }) async {
+    await _whenShown();
+    if (!mounted) return false;
     try {
       return await showDialog<bool>(
             context: context,
@@ -312,6 +345,8 @@ class _AssistantConversationScreenState
       ].join(' '),
     );
     if (safety.route != EmotionalSafetyRoute.routine) {
+      await _whenShown();
+      if (!mounted) return;
       if (safety.requiresSupportivePause) {
         await showSupportiveDistressDialog(context);
       } else {
@@ -369,6 +404,7 @@ class _AssistantConversationScreenState
           packet.attachedNoteSafetyText,
         );
         if (attachedNoteSafety.route != EmotionalSafetyRoute.routine) {
+          await _whenShown();
           if (!mounted) return;
           if (attachedNoteSafety.requiresSupportivePause) {
             await showSupportiveDistressDialog(context);
@@ -539,6 +575,7 @@ class _AssistantConversationScreenState
         _error = null;
       });
       _persistChat(completedRequestId: quote.packet.requestId);
+      _reportWhileHidden();
       _noteBalance(quote.packet, answer.remainingCredits, sentForReply: true);
       ref.invalidate(aiCreditWalletProvider);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -648,6 +685,7 @@ class _AssistantConversationScreenState
       _error = message;
       _outOfCredits = outOfCredits;
     });
+    _reportWhileHidden();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scroll.hasClients) return;
       unawaited(
@@ -846,8 +884,14 @@ class _AssistantConversationScreenState
         (planner || (_historyReady && !_historyLoading && !_historyConflict));
     // One two-way control: free on this device, or AI chat with its price.
     final modeSwitch = AssistantModeSwitch(
+      surface: widget.surface,
       aiSelected: true,
+      aiOff: !consent,
       enabled: !_busy,
+      disabledReason: copy(
+        'A message is being sent. You can switch when it finishes.',
+        'Se está enviando un mensaje. Podrás cambiar cuando termine.',
+      ),
       onChooseOnDevice: () => _openFreeTools(_input.text.trim()),
       onChooseAi: () {},
     );
@@ -868,7 +912,7 @@ class _AssistantConversationScreenState
       body: _ConversationBody(
         child: Column(
           children: [
-            if (!_largeText)
+            if (!_largeText && consent)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 // The mode switch and the balance stay in view. At large text
@@ -895,7 +939,10 @@ class _AssistantConversationScreenState
                     _aiChatOffNotice(),
                     const SizedBox(height: 12),
                   ],
-                  if (_largeText) ...[modeSwitch, const SizedBox(height: 12)],
+                  if (_largeText || !consent) ...[
+                    modeSwitch,
+                    const SizedBox(height: 12),
+                  ],
                   Text(
                     copy(
                       'AI conversation · uses credits',
@@ -903,7 +950,7 @@ class _AssistantConversationScreenState
                     ),
                     style: const TextStyle(color: Colors.cyanAccent),
                   ),
-                  if (_largeText) _balanceLine(),
+                  if (_largeText || !consent) _balanceLine(),
                   const SizedBox(height: 8),
                   Text(
                     copy(

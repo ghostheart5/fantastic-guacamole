@@ -26,6 +26,7 @@ import 'package:fantastic_guacamole/state/providers/assistant_conversation_provi
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/internal_credit_test_provider.dart';
@@ -91,6 +92,11 @@ ProviderContainer setup(
   bool externalAiAllowed = true,
   AdaptiveGuidanceNotifier? guidance,
   MemoryPrefs? preferences,
+  // Release decision: held open by [releaseGate], or switched off.
+  Completer<void>? releaseGate,
+  bool releaseEnabled = true,
+  // A build that has AI chat even when it cannot be used right now.
+  bool externalAiBuild = false,
 }) => ProviderContainer(
   overrides: [
     if (guidance != null) adaptiveGuidanceProvider.overrideWith(() => guidance),
@@ -111,6 +117,7 @@ ProviderContainer setup(
     assistantConversationAvailableProvider.overrideWithValue(
       conversationAvailable,
     ),
+    if (externalAiBuild) externalAiAvailableProvider.overrideWithValue(true),
     if (!conversationAvailable)
       siV2AvailabilityProvider.overrideWith((ref) async => true),
     if (preferences == null)
@@ -165,17 +172,18 @@ ProviderContainer setup(
       AssistantReleaseCapability.siConsoleV2,
       AssistantReleaseCapability.safetyCritic,
     ])
-      assistantReleaseDecisionProvider(capability).overrideWith(
-        (ref) async => AssistantReleaseDecision(
-          enabled: true,
+      assistantReleaseDecisionProvider(capability).overrideWith((ref) async {
+        if (releaseGate != null) await releaseGate.future;
+        return AssistantReleaseDecision(
+          enabled: releaseEnabled,
           shadowEvaluationEnabled: false,
           cohort: AssistantReleaseCohort.internal,
           reasonCode: 'synthetic-test',
           accountDigest: 'test',
           capability: capability,
           configDigest: 'test',
-        ),
-      ),
+        );
+      }),
   ],
 );
 

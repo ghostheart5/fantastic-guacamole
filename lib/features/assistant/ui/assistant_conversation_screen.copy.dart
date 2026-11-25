@@ -119,8 +119,8 @@ extension _ConversationCopy on _AssistantConversationScreenState {
     // Refused by the server before any charge. (release_unavailable is not
     // here: it can also be raised after a reply was charged.)
     'internal_ai_access_required' || 'external_ai_disabled' => copy(
-      'AI chat is not available for this account right now. Nothing was charged. Your question is kept. Free tools work without credits.',
-      'El chat con IA no está disponible para esta cuenta en este momento. No se cobró nada. Tu pregunta se conserva. Herramientas gratis funciona sin créditos.',
+      'AI chat is not available for this account right now. Nothing was charged. Your question is kept. The free assistant on this device works without credits.',
+      'El chat con IA no está disponible para esta cuenta en este momento. No se cobró nada. Tu pregunta se conserva. El asistente gratis en este dispositivo funciona sin créditos.',
     ),
     'attachment_unavailable' => copy(
       'The attached task is no longer available. Nothing was sent for a reply. Nothing was charged. Attach another task or remove the attachment, then tap send.',

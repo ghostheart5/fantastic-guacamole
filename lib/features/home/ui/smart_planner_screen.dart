@@ -56,7 +56,10 @@ class SmartPlannerScreen extends ConsumerStatefulWidget {
 
 class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   bool _useLocalTools = false;
-  bool _aiChatOpened = false;
+  // The AI screen is kept hidden once the onboarding first-value request has
+  // been consumed, so it cannot take that request from the free planner.
+  bool _firstValueDone = false;
+  bool _aiUpdate = false;
   String _aiDraft = '';
   int _aiDraftRevision = 0;
   double? _energy;
@@ -145,13 +148,17 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     final SmartPlannerFirstValueRequest? request = ref
         .read(smartPlannerFirstValueProvider.notifier)
         .takeFor(accountScopeId: accountScopeId, now: DateTime.now().toUtc());
-    if (request == null) return;
+    if (request == null) {
+      if (!_firstValueDone) _rebuild(() => _firstValueDone = true);
+      return;
+    }
 
     _clearChangedCheckIn();
     ref
         .read(assistantChatModeProvider.notifier)
         .choose(ConversationSurface.planner, onDevice: true);
     setState(() {
+      _firstValueDone = true;
       _useLocalTools = true;
       final String? prompt = request.prompt;
       if (prompt != null) _notesController.text = prompt;
