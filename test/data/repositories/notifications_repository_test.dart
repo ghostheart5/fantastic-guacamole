@@ -4,7 +4,9 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/repositories/notifications_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -112,26 +114,40 @@ void main() {
     expect(entries.single.id, 'ok');
   });
 
-  test(
-    'cancelNotification disables existing entry without deleting it',
-    () async {
-      await repository.scheduleNotification(
-        NotificationEntity(
-          id: 'cancel-me',
-          title: 'Cancel',
-          message: 'Disable only',
-          scheduledAt: DateTime.utc(2026, 7, 5, 11),
-        ),
-      );
+  test('cancelling a reminder removes its stored record', () async {
+    await repository.scheduleNotification(
+      NotificationEntity(
+        id: 'goal_reminder_trip',
+        title: 'Goal due tomorrow',
+        message: 'Book the trip',
+        scheduledAt: DateTime.now().add(const Duration(days: 2)),
+      ),
+    );
 
-      await repository.cancelNotification('cancel-me');
+    await repository.cancelNotification('goal_reminder_trip');
 
-      final entries = await repository.getNotifications();
-      expect(cancelledIds, <String>['cancel-me']);
-      expect(entries, hasLength(1));
-      expect(entries.single.isEnabled, isFalse);
-    },
-  );
+    expect(cancelledIds, <String>['goal_reminder_trip']);
+    expect(await repository.getNotifications(), isEmpty);
+  });
+
+  test('cancelling leaves an in-app history entry as it was', () async {
+    final NotificationEntity history = NotificationEntity(
+      id: 'notification-1',
+      title: 'Goal completed',
+      message: '"Trip" is complete.',
+      scheduledAt: DateTime.utc(2026, 7, 5, 11),
+      isEnabled: false,
+    );
+    await repository.scheduleNotification(history);
+
+    await repository.cancelNotification(history.id);
+
+    final NotificationEntity stored =
+        (await repository.getNotifications()).single;
+    expect(stored.id, history.id);
+    expect(stored.isEnabled, isFalse);
+    expect(stored.isRead, isFalse);
+  });
 
   test('markRead updates read flag in storage', () async {
     await repository.scheduleNotification(
@@ -230,18 +246,131 @@ void main() {
     },
   );
 
-  test('re-enabling an unchanged reminder retains its read state', () async {
-    await repository.scheduleNotification(reminder());
-    await repository.markRead(reminder().id);
-    await repository.cancelNotification(reminder().id);
-    expect((await repository.getNotifications()).single.isEnabled, isFalse);
+  test(
+    'a cancelled reminder scheduled again comes back as a new record',
+    () async {
+      await repository.scheduleNotification(reminder());
+      await repository.markRead(reminder().id);
+      await repository.cancelNotification(reminder().id);
+      expect(await repository.getNotifications(), isEmpty);
 
-    await reopen().scheduleNotification(reminder());
+      await reopen().scheduleNotification(reminder());
 
-    final persisted = (await reopen().getNotifications()).single;
-    expect(persisted.isEnabled, isTrue);
-    expect(persisted.isRead, isTrue);
+      final persisted = (await reopen().getNotifications()).single;
+      expect(persisted.isEnabled, isTrue);
+      expect(persisted.isRead, isFalse);
+    },
+  );
+
+  for (final NotificationScheduleResult refused in <NotificationScheduleResult>[
+    NotificationScheduleResult.permissionDenied,
+    NotificationScheduleResult.unsupported,
+    NotificationScheduleResult.failed,
+  ]) {
+    test(
+      'a refused schedule is stored with its reason (${refused.name})',
+      () async {
+        final NotificationsRepository refusing = NotificationsRepository(
+          _ResultScheduler(refused),
+          SecureStore(backend: backend),
+          accountId: 'account-a',
+        );
+
+        await refusing.scheduleNotification(reminder(at: DateTime(2099)));
+
+        expect(
+          (await reopen().getNotifications()).single.scheduleResult,
+          refused,
+        );
+      },
+    );
+  }
+
+  test('an accepted schedule is stored as scheduled', () async {
+    final NotificationsRepository accepting = NotificationsRepository(
+      _ResultScheduler(NotificationScheduleResult.scheduled),
+      SecureStore(backend: backend),
+      accountId: 'account-a',
+    );
+
+    await accepting.scheduleNotification(reminder(at: DateTime(2099)));
+
+    expect(
+      (await reopen().getNotifications()).single.scheduleResult,
+      NotificationScheduleResult.scheduled,
+    );
   });
+
+  test('a scheduler error is stored as failed and logged', () async {
+    final NotificationsRepository throwing = NotificationsRepository(
+      _ResultScheduler(null),
+      SecureStore(backend: backend),
+      accountId: 'account-a',
+    );
+
+    await Logger.withMutedErrors(
+      () => throwing.scheduleNotification(reminder(at: DateTime(2099))),
+    );
+
+    expect(
+      (await reopen().getNotifications()).single.scheduleResult,
+      NotificationScheduleResult.failed,
+    );
+  });
+
+  test(
+    'old stored lists still load and stale cancelled reminders are hidden',
+    () async {
+      final DateTime future = DateTime.now().add(const Duration(days: 3));
+      Map<String, Object?> row(
+        String id, {
+        required bool enabled,
+        DateTime? at,
+      }) => <String, Object?>{
+        'id': id,
+        'title': id,
+        'message': 'Stored before scheduleResult existed',
+        'scheduledAt': (at ?? DateTime.utc(2026, 7, 5))
+            .toUtc()
+            .toIso8601String(),
+        'isEnabled': enabled,
+        'isRead': false,
+      };
+      await SecureStore(backend: backend).writeString(
+        AccountDataRegistry.notificationSecureKeyFor('account-a'),
+        jsonEncode(<Map<String, Object?>>[
+          row('goal_reminder_live', enabled: true, at: future),
+          row('goal_reminder_cancelled', enabled: false, at: future),
+          row('notification-42', enabled: false),
+          <String, Object?>{
+            ...row('goal_reminder_odd', enabled: true, at: future),
+            'scheduleResult': 'somethingNew',
+          },
+        ]),
+      );
+
+      final List<NotificationEntity> entries = await repository
+          .getNotifications();
+
+      expect(
+        entries.map((NotificationEntity entry) => entry.id).toSet(),
+        <String>{'goal_reminder_live', 'notification-42', 'goal_reminder_odd'},
+      );
+      expect(
+        entries.every(
+          (NotificationEntity entry) => entry.scheduleResult == null,
+        ),
+        isTrue,
+      );
+
+      // The next write drops the stale row for good.
+      await repository.markRead('notification-42');
+      final String? raw = await SecureStore(
+        backend: backend,
+      ).readString(AccountDataRegistry.notificationSecureKeyFor('account-a'));
+      expect(raw, isNot(contains('goal_reminder_cancelled')));
+    },
+  );
 
   test('same reminder ID cannot inherit another account read state', () async {
     await repository.scheduleNotification(reminder());
@@ -467,4 +596,57 @@ void main() {
 
     expect(await repository.getNotifications(), hasLength(2));
   });
+}
+
+/// Answers every one-off schedule with [result], or throws when it is null.
+class _ResultScheduler implements NotificationSchedulerPort {
+  _ResultScheduler(this.result);
+
+  final NotificationScheduleResult? result;
+
+  @override
+  Future<NotificationScheduleResult> schedule(
+    NotificationEntity notification, {
+    String? accountScope,
+  }) async {
+    final NotificationScheduleResult? value = result;
+    if (value == null) throw StateError('platform refused');
+    return value;
+  }
+
+  @override
+  Future<NotificationScheduleResult> scheduleDailyAt({
+    required String id,
+    required String title,
+    required String body,
+    required int hour,
+    required int minute,
+    String? accountScope,
+  }) async => NotificationScheduleResult.unsupported;
+
+  @override
+  Future<NotificationScheduleResult> scheduleCadenceAt({
+    required String id,
+    required String title,
+    required String body,
+    required HabitCadence cadence,
+    required DateTime firstAt,
+    String? accountScope,
+  }) async => NotificationScheduleResult.unsupported;
+
+  @override
+  Future<bool> cancel(String id, {String? accountScope}) async => true;
+
+  @override
+  Future<bool> cancelAll() async => true;
+
+  @override
+  Future<List<String>> pendingIdsForAccount(String accountScope) async =>
+      const <String>[];
+
+  @override
+  Future<bool> requestPermissions() async => true;
+
+  @override
+  void clearTappedPayload() {}
 }

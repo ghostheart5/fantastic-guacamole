@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 
 class NotificationRecord {
   const NotificationRecord({
@@ -8,6 +9,7 @@ class NotificationRecord {
     required this.scheduledAt,
     required this.isEnabled,
     required this.isRead,
+    this.scheduleResult,
   });
 
   final String id;
@@ -17,6 +19,10 @@ class NotificationRecord {
   final bool isEnabled;
   final bool isRead;
 
+  /// Optional: absent in lists stored by older builds, and an unknown value
+  /// reads as absent.
+  final NotificationScheduleResult? scheduleResult;
+
   factory NotificationRecord.fromEntity(NotificationEntity entity) {
     return NotificationRecord(
       id: entity.id,
@@ -25,6 +31,7 @@ class NotificationRecord {
       scheduledAt: entity.scheduledAt,
       isEnabled: entity.isEnabled,
       isRead: entity.isRead,
+      scheduleResult: entity.scheduleResult,
     );
   }
 
@@ -58,6 +65,8 @@ class NotificationRecord {
       scheduledAt: scheduledAt.toLocal(),
       isEnabled: requiredBool('isEnabled'),
       isRead: requiredBool('isRead'),
+      scheduleResult: NotificationScheduleResult.values
+          .asNameMap()[json['scheduleResult']],
     );
   }
 
@@ -69,6 +78,7 @@ class NotificationRecord {
       scheduledAt: scheduledAt,
       isEnabled: isEnabled,
       isRead: isRead,
+      scheduleResult: scheduleResult,
     );
   }
 
@@ -79,5 +89,6 @@ class NotificationRecord {
     'scheduledAt': scheduledAt.toUtc().toIso8601String(),
     'isEnabled': isEnabled,
     'isRead': isRead,
+    if (scheduleResult != null) 'scheduleResult': scheduleResult!.name,
   };
 }

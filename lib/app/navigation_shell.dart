@@ -153,7 +153,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       fireImmediately: true,
     );
     _energySubscription = ref.listenManual<double>(energyProvider, (_, _) {
-      ref.invalidate(aiDecisionProvider);
       ref.invalidate(aiResponseProvider);
       ref.invalidate(smartPlannerAiResponseProvider);
     });
@@ -161,7 +160,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       _,
       _,
     ) {
-      ref.invalidate(aiDecisionProvider);
       ref.invalidate(aiResponseProvider);
       ref.invalidate(smartPlannerAiResponseProvider);
     });

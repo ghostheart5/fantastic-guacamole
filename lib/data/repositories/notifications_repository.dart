@@ -80,13 +80,16 @@ class NotificationsRepository implements INotificationRepository {
           continue;
         }
         try {
-          entries.add(
-            NotificationRecord.fromJson(
-              value.map(
-                (dynamic key, dynamic item) => MapEntry(key.toString(), item),
-              ),
-            ).toEntity(),
-          );
+          final NotificationEntity entry = NotificationRecord.fromJson(
+            value.map(
+              (dynamic key, dynamic item) => MapEntry(key.toString(), item),
+            ),
+          ).toEntity();
+          // Older builds kept cancelled reminders as disabled records. They
+          // are not history; skipping them here also drops them on the next
+          // write.
+          if (entry.isCancelledReminder) continue;
+          entries.add(entry);
         } on FormatException catch (error) {
           malformedCount++;
           if (malformedCount == 1) {
@@ -127,27 +130,45 @@ class NotificationsRepository implements INotificationRepository {
       final NotificationEntity scheduled = preserveRead
           ? _copy(notification, isRead: true)
           : notification;
-      await _save(<NotificationEntity>[
-        scheduled,
-        ...entries.where(
-          (NotificationEntity entry) => entry.id != scheduled.id,
-        ),
-      ]);
+      NotificationScheduleResult result;
       try {
         final schedule = _scheduleNotification;
         if (schedule != null) {
           await schedule(scheduled);
+          result = NotificationScheduleResult.scheduled;
         } else {
-          await _scheduler.schedule(scheduled, accountScope: _accountScope);
+          result = await _scheduler.schedule(
+            scheduled,
+            accountScope: _accountScope,
+          );
         }
       } catch (error) {
+        // Recorded as failed, so the list shows it as not scheduled.
+        result = NotificationScheduleResult.failed;
         Logger.warn(
           'Failed to schedule notification ${notification.id}: $error',
         );
       }
+      // Kept on the record so the list can say why a reminder is not
+      // scheduled. In-app entries never reach the OS and carry none.
+      final NotificationEntity stored = NotificationEntity(
+        id: scheduled.id,
+        title: scheduled.title,
+        message: scheduled.message,
+        scheduledAt: scheduled.scheduledAt,
+        isEnabled: scheduled.isEnabled,
+        isRead: scheduled.isRead,
+        scheduleResult: scheduled.isEnabled ? result : null,
+      );
+      await _save(<NotificationEntity>[
+        stored,
+        ...entries.where((NotificationEntity entry) => entry.id != stored.id),
+      ]);
     });
   }
 
+  /// Cancels the OS reminder and removes its record, so a switched-off
+  /// reminder never lingers in the list. In-app history entries stay.
   @override
   Future<void> cancelNotification(String id) async {
     await _runMutation(() async {
@@ -155,7 +176,12 @@ class NotificationsRepository implements INotificationRepository {
       final List<NotificationEntity> entries = await _readNotifications();
       final NotificationEntity? existing = _find(entries, id);
       if (existing == null) return;
-      await _upsert(_copy(existing, isEnabled: false));
+      if (!existing.isEnabled && !NotificationEntity.isReminderId(id)) return;
+      await _save(
+        entries
+            .where((NotificationEntity entry) => entry.id != id)
+            .toList(growable: false),
+      );
     });
   }
 
@@ -365,6 +391,7 @@ class NotificationsRepository implements INotificationRepository {
       scheduledAt: entry.scheduledAt,
       isEnabled: isEnabled ?? entry.isEnabled,
       isRead: isRead ?? entry.isRead,
+      scheduleResult: entry.scheduleResult,
     );
   }
 

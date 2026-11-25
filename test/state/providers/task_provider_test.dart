@@ -13,7 +13,9 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/completion_side_effect_policy.dart';
 import 'package:fantastic_guacamole/domain/usecases/complete_task.dart';
@@ -29,9 +31,12 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/completion_score_provider.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart'
+    show SoundEnabledNotifier, soundEnabledProvider;
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/system/analytics/local_metrics_accumulator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -184,6 +189,40 @@ void main() {
     expect(container.read(profileProvider).xp, greaterThan(0));
     expect(container.read(learningProvider).completed, 1);
     expect(container.read(siStateProvider).completedToday, 1);
+  });
+
+  test('a task mutation records no Decision Alert entry', () async {
+    final _MemoryTaskRepository repository = _MemoryTaskRepository();
+    for (final String id in <String>['task-a', 'task-b']) {
+      await repository.saveTask(
+        TaskEntity(
+          id: id,
+          title: 'Step $id',
+          createdAt: DateTime.utc(2026, 7, 5),
+          priority: 3,
+        ),
+      );
+    }
+    final _RecordingNotificationRepository inApp =
+        _RecordingNotificationRepository();
+    final ProviderContainer container = _buildTaskContainer(
+      repository,
+      extraOverrides: [
+        domainNotificationRepositoryProvider.overrideWithValue(inApp),
+        soundEnabledProvider.overrideWith(_SilentSound.new),
+      ],
+    );
+    addTearDown(container.dispose);
+    expect(await container.read(tasksProvider.future), hasLength(2));
+
+    await container.read(taskActionsProvider).completeTask('task-a');
+    await Future<void>.delayed(Duration.zero);
+
+    final List<String> titles = inApp.saved
+        .map((NotificationEntity entry) => entry.title)
+        .toList(growable: false);
+    expect(titles, contains('Completion'));
+    expect(titles, isNot(contains('Decision Alert')));
   });
 
   test(
@@ -536,9 +575,11 @@ ProviderContainer _buildTaskContainer(
   bool highFatigue = false,
   _MemorySkipOccurrenceRepository? skipLedger,
   _SkipMirrorProbe? skipProbe,
+  List<Override> extraOverrides = const [],
 }) {
   return ProviderContainer(
     overrides: [
+      ...extraOverrides,
       if (mutableScope)
         accountStorageScopeProvider.overrideWith(
           (Ref ref) => ref.watch(_testAccountStorageScopeProvider),
@@ -781,5 +822,32 @@ class _RecordingSkipTimeline extends TimelineActions {
     bool Function()? shouldContinue,
   }) async {
     probe.timelineWrites++;
+  }
+}
+
+final class _SilentSound extends SoundEnabledNotifier {
+  @override
+  bool build() => false;
+}
+
+class _RecordingNotificationRepository implements INotificationRepository {
+  final List<NotificationEntity> saved = <NotificationEntity>[];
+
+  @override
+  Future<void> cancelNotification(String id) async {}
+
+  @override
+  Future<void> delete(String id) async {}
+
+  @override
+  Future<List<NotificationEntity>> getNotifications() async =>
+      List<NotificationEntity>.of(saved);
+
+  @override
+  Future<void> markRead(String id) async {}
+
+  @override
+  Future<void> scheduleNotification(NotificationEntity notification) async {
+    saved.add(notification);
   }
 }

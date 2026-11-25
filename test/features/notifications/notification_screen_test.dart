@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:flutter/material.dart';
@@ -9,11 +10,15 @@ import 'package:flutter_test/flutter_test.dart';
 /// The notifications surface had no widget coverage. Both the empty state and
 /// the populated list are first-run-visible, so both are pinned here.
 void main() {
-  Future<void> pumpNotifications(
+  Future<ProviderContainer> pumpNotifications(
     WidgetTester tester,
     List<NotificationEntity> items, {
     List<NotificationEntity> repeating = const [],
     Locale locale = const Locale('en'),
+    RegisteredReminders registered = const RegisteredReminders(
+      ids: <String>{},
+      permissionGranted: true,
+    ),
   }) async {
     tester.platformDispatcher.views.first
       ..physicalSize = const Size(1200, 2400)
@@ -28,6 +33,7 @@ void main() {
       overrides: [
         notificationProvider.overrideWith(() => _StaticNotifications(items)),
         automationNotificationsProvider.overrideWith((ref) async => repeating),
+        registeredRemindersProvider.overrideWith((ref) async => registered),
       ],
     );
     addTearDown(container.dispose);
@@ -44,6 +50,8 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pump();
+    return container;
   }
 
   testWidgets(
@@ -171,6 +179,152 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+  NotificationEntity goalDueTomorrow({
+    NotificationScheduleResult? result,
+    bool enabled = true,
+    String id = 'goal_reminder_trip',
+  }) => NotificationEntity(
+    id: id,
+    title: 'Goal due tomorrow',
+    message: '"Trip" is due tomorrow.',
+    scheduledAt: DateTime.now().add(const Duration(days: 2)),
+    isEnabled: enabled,
+    scheduleResult: result,
+  );
+
+  for (final (locale, label) in [
+    (const Locale('en'), 'Not scheduled: notifications are off'),
+    (
+      const Locale('es'),
+      'No programado: las notificaciones están desactivadas',
+    ),
+  ]) {
+    testWidgets('a refused reminder reads "$label", not Scheduled', (
+      tester,
+    ) async {
+      await pumpNotifications(
+        tester,
+        <NotificationEntity>[
+          goalDueTomorrow(result: NotificationScheduleResult.permissionDenied),
+        ],
+        locale: locale,
+        registered: const RegisteredReminders(
+          ids: <String>{},
+          permissionGranted: false,
+        ),
+      );
+
+      expect(find.textContaining(label), findsOneWidget);
+      expect(find.textContaining('Scheduled ·'), findsNothing);
+      expect(find.textContaining('Programado ·'), findsNothing);
+      expect(
+        find.textContaining(
+          locale.languageCode == 'es' ? '0 programadas' : '0 scheduled',
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final (result, label) in [
+    (
+      NotificationScheduleResult.unsupported,
+      'Not scheduled: not available on this device',
+    ),
+    (NotificationScheduleResult.failed, 'Not scheduled: could not be set'),
+  ]) {
+    testWidgets('a ${result.name} reminder reads "$label"', (tester) async {
+      await pumpNotifications(tester, <NotificationEntity>[
+        goalDueTomorrow(result: result),
+      ]);
+
+      expect(find.textContaining(label), findsOneWidget);
+      expect(find.textContaining('Scheduled ·'), findsNothing);
+    });
+  }
+
+  testWidgets('a reminder the OS no longer holds is not shown as Scheduled', (
+    tester,
+  ) async {
+    // Accepted once, then cleared by the reminder updater while
+    // notifications were off: the stored result alone would still say
+    // scheduled.
+    await pumpNotifications(
+      tester,
+      <NotificationEntity>[
+        goalDueTomorrow(result: NotificationScheduleResult.scheduled),
+      ],
+      registered: const RegisteredReminders(
+        ids: <String>{},
+        permissionGranted: false,
+      ),
+    );
+
+    expect(
+      find.textContaining('Not scheduled: notifications are off'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Scheduled ·'), findsNothing);
+  });
+
+  testWidgets('a reminder the OS holds reads Scheduled', (tester) async {
+    await pumpNotifications(
+      tester,
+      <NotificationEntity>[
+        goalDueTomorrow(result: NotificationScheduleResult.scheduled),
+      ],
+      registered: const RegisteredReminders(
+        ids: <String>{'goal_reminder_trip'},
+        permissionGranted: true,
+      ),
+    );
+
+    expect(find.textContaining('Scheduled ·'), findsOneWidget);
+    expect(find.textContaining('Not scheduled'), findsNothing);
+    expect(find.textContaining('1 scheduled'), findsOneWidget);
+  });
+
+  testWidgets(
+    'the badge counts what the screen counts as new, with a future and a cancelled reminder present',
+    (tester) async {
+      final ProviderContainer container = await pumpNotifications(
+        tester,
+        <NotificationEntity>[
+          NotificationEntity(
+            id: 'goal_reminder_past',
+            title: 'Delivered reminder',
+            message: 'Already went off.',
+            scheduledAt: DateTime.now().subtract(const Duration(hours: 2)),
+          ),
+          NotificationEntity(
+            id: 'notification-1',
+            title: 'Goal completed',
+            message: '"Run a 5K" is complete.',
+            scheduledAt: DateTime.now().subtract(const Duration(hours: 1)),
+            isEnabled: false,
+          ),
+          goalDueTomorrow(result: NotificationScheduleResult.scheduled),
+          NotificationEntity(
+            id: 'goal_reminder_switched_off',
+            title: 'Switched off reminder',
+            message: 'Cancelled by an older build.',
+            scheduledAt: DateTime.now().add(const Duration(days: 3)),
+            isEnabled: false,
+          ),
+        ],
+        registered: const RegisteredReminders(
+          ids: <String>{'goal_reminder_trip'},
+          permissionGranted: true,
+        ),
+      );
+
+      expect(find.textContaining('2 new'), findsOneWidget);
+      expect(container.read(unreadNotificationsProvider), 2);
+      expect(find.text('Switched off reminder'), findsNothing);
+      expect(find.textContaining('3 total'), findsOneWidget);
+    },
+  );
 }
 
 class _StaticNotifications extends NotificationNotifier {

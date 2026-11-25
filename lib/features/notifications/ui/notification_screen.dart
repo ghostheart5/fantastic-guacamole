@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/core/extensions/string_extensions.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -13,7 +14,15 @@ class NotificationsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final List<NotificationEntity> items = ref.watch(notificationProvider);
+    // Reminders switched off by older builds are not activity.
+    final List<NotificationEntity> items = ref
+        .watch(notificationProvider)
+        .where((NotificationEntity item) => !item.isCancelledReminder)
+        .toList(growable: false);
+    final RegisteredReminders? registered = ref
+        .watch(registeredRemindersProvider)
+        .asData
+        ?.value;
     final es = Localizations.localeOf(context).languageCode == 'es';
     final localizations = MaterialLocalizations.of(context);
     final automations = ref.watch(automationNotificationsProvider);
@@ -22,14 +31,18 @@ class NotificationsPage extends ConsumerWidget {
     final int scheduledCount =
         repeating.length +
         items
-            .where((item) => item.isEnabled && item.scheduledAt.isAfter(now))
+            .where(
+              (item) =>
+                  notificationListStatus(
+                    item,
+                    now: now,
+                    registered: registered,
+                  ) ==
+                  NotificationListStatus.scheduled,
+            )
             .length;
     final int unreadCount = items
-        .where(
-          (item) =>
-              !item.isRead &&
-              (!item.isEnabled || !item.scheduledAt.isAfter(now)),
-        )
+        .where((item) => isNewNotificationActivity(item, now))
         .length;
 
     return AnimatedSystemBackground(
@@ -83,6 +96,7 @@ class NotificationsPage extends ConsumerWidget {
                     for (final item in items)
                       _NotificationTile(
                         item: item,
+                        registered: registered,
                         onMarkRead: () => ref
                             .read(notificationProvider.notifier)
                             .markRead(item.id),
@@ -139,11 +153,13 @@ class _Header extends StatelessWidget {
 class _NotificationTile extends StatelessWidget {
   const _NotificationTile({
     required this.item,
+    required this.registered,
     required this.onMarkRead,
     required this.onDelete,
   });
 
   final NotificationEntity item;
+  final RegisteredReminders? registered;
   final Future<void> Function() onMarkRead;
   final Future<void> Function() onDelete;
 
@@ -151,8 +167,13 @@ class _NotificationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool es = Localizations.localeOf(context).languageCode == 'es';
     final DateTime now = DateTime.now();
+    final NotificationListStatus status = notificationListStatus(
+      item,
+      now: now,
+      registered: registered,
+    );
     final bool futureSchedule = item.isEnabled && item.scheduledAt.isAfter(now);
-    final bool newActivity = !futureSchedule && !item.isRead;
+    final bool newActivity = isNewNotificationActivity(item, now);
     final String title = _localizedTitle(item.title, es);
     final String message = _localizedMessage(item.message, es);
     final Color accent = !item.isEnabled
@@ -183,7 +204,9 @@ class _NotificationTile extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 12),
         child: Semantics(
           button: true,
-          label: futureSchedule
+          label: status == NotificationListStatus.notScheduled
+              ? '${es ? 'Recordatorio no programado' : 'Reminder not scheduled'}: $title'
+              : futureSchedule
               ? '${es ? 'Recordatorio programado' : 'Scheduled reminder'}: $title'
               : item.isRead
               ? title
@@ -282,7 +305,7 @@ class _NotificationTile extends StatelessWidget {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                '${futureSchedule ? (es ? 'Programado' : 'Scheduled') : (item.isEnabled ? (es ? 'Hora prevista' : 'Scheduled time') : (es ? 'Actividad en la app' : 'In-app activity'))} · ${MaterialLocalizations.of(context).formatCompactDate(item.scheduledAt.toLocal())}',
+                                '${_statusLabel(status, notScheduledReason(item, registered), es)} · ${MaterialLocalizations.of(context).formatCompactDate(item.scheduledAt.toLocal())}',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: accent,
@@ -358,6 +381,34 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
+
+String _statusLabel(
+  NotificationListStatus status,
+  NotificationScheduleResult? reason,
+  bool es,
+) => switch (status) {
+  NotificationListStatus.scheduled => es ? 'Programado' : 'Scheduled',
+  NotificationListStatus.past ||
+  NotificationListStatus.unconfirmed => es ? 'Hora prevista' : 'Scheduled time',
+  NotificationListStatus.inApp =>
+    es ? 'Actividad en la app' : 'In-app activity',
+  NotificationListStatus.notScheduled => switch (reason) {
+    NotificationScheduleResult.permissionDenied =>
+      es
+          ? 'No programado: las notificaciones están desactivadas'
+          : 'Not scheduled: notifications are off',
+    NotificationScheduleResult.unsupported =>
+      es
+          ? 'No programado: no disponible en este dispositivo'
+          : 'Not scheduled: not available on this device',
+    NotificationScheduleResult.failed =>
+      es
+          ? 'No programado: no se pudo programar'
+          : 'Not scheduled: could not be set',
+    NotificationScheduleResult.scheduled ||
+    null => es ? 'No programado' : 'Not scheduled',
+  },
+};
 
 String _localizedTitle(String raw, bool es) {
   if (!es) return raw.capitalize;

@@ -10,6 +10,7 @@ import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
@@ -104,12 +105,109 @@ final automationNotificationsProvider =
       ];
     });
 
-final unreadNotificationsProvider = Provider<int>(
-  (Ref ref) => ref
+/// The reminders the OS holds for this account right now, and whether
+/// notifications are allowed. A stored reminder reads "Scheduled" only when
+/// its id is in [ids]: the reminder updater registers and clears reminders
+/// without rewriting the stored list.
+class RegisteredReminders {
+  const RegisteredReminders({
+    required this.ids,
+    required this.permissionGranted,
+  });
+
+  final Set<String> ids;
+
+  /// Null when not known.
+  final bool? permissionGranted;
+}
+
+final registeredRemindersProvider =
+    FutureProvider.autoDispose<RegisteredReminders>((ref) async {
+      // Read again whenever the list changes.
+      ref.watch(notificationProvider);
+      final scope = ref.watch(accountStorageScopeProvider);
+      if (!scope.isWritable || scope.rawUserId == null) {
+        return const RegisteredReminders(
+          ids: <String>{},
+          permissionGranted: null,
+        );
+      }
+      final owner = AccountOperation.capture(ref);
+      final scheduler = ref.read(notificationSchedulerProvider);
+      final pending = await owner.wait(
+        scheduler.pendingForAccount(
+          AccountDataRegistry.accountDigest(scope.rawUserId!),
+        ),
+      );
+      return RegisteredReminders(
+        ids: <String>{for (final item in pending) item.id},
+        permissionGranted: scheduler.permissionStatusListenable.value,
+      );
+    });
+
+/// How a stored entry reads in the notification list.
+enum NotificationListStatus {
+  /// In-app history; never handed to the OS.
+  inApp,
+
+  /// A reminder whose time has passed.
+  past,
+
+  /// A future reminder the OS holds.
+  scheduled,
+
+  /// A future reminder the OS does not hold.
+  notScheduled,
+
+  /// A future reminder whose OS state could not be read; claimed neither way.
+  unconfirmed,
+}
+
+NotificationListStatus notificationListStatus(
+  NotificationEntity item, {
+  required DateTime now,
+  required RegisteredReminders? registered,
+}) {
+  if (!item.isEnabled) return NotificationListStatus.inApp;
+  if (!item.scheduledAt.isAfter(now)) return NotificationListStatus.past;
+  if (registered == null) {
+    final NotificationScheduleResult? stored = item.scheduleResult;
+    return stored == null || stored == NotificationScheduleResult.scheduled
+        ? NotificationListStatus.unconfirmed
+        : NotificationListStatus.notScheduled;
+  }
+  return registered.ids.contains(item.id)
+      ? NotificationListStatus.scheduled
+      : NotificationListStatus.notScheduled;
+}
+
+/// Why a reminder is not scheduled, or null when that is not known.
+/// Notifications being off now outranks what was stored earlier.
+NotificationScheduleResult? notScheduledReason(
+  NotificationEntity item,
+  RegisteredReminders? registered,
+) {
+  if (registered?.permissionGranted == false) {
+    return NotificationScheduleResult.permissionDenied;
+  }
+  final NotificationScheduleResult? stored = item.scheduleResult;
+  return stored == NotificationScheduleResult.scheduled ? null : stored;
+}
+
+/// The one definition of "new" shared by the list and the badge: unread,
+/// not a switched-off reminder, and not still waiting for its time.
+bool isNewNotificationActivity(NotificationEntity item, DateTime now) =>
+    !item.isRead &&
+    !item.isCancelledReminder &&
+    (!item.isEnabled || !item.scheduledAt.isAfter(now));
+
+final unreadNotificationsProvider = Provider<int>((Ref ref) {
+  final DateTime now = DateTime.now();
+  return ref
       .watch(notificationProvider)
-      .where((NotificationEntity item) => !item.isRead)
-      .length,
-);
+      .where((NotificationEntity item) => isNewNotificationActivity(item, now))
+      .length;
+});
 
 class NotificationActions {
   const NotificationActions(this._ref);
@@ -118,12 +216,6 @@ class NotificationActions {
 
   Future<void> push(NotificationEntity notification) {
     return _ref.read(notificationProvider.notifier).push(notification);
-  }
-
-  Future<void> pushMirroredDecision(String taskTitle) {
-    return _ref
-        .read(notificationProvider.notifier)
-        .pushDecision(taskTitle, refreshPlanner: false, refreshPlan: true);
   }
 
   Future<void> pushMirroredCompletionFeedback(String taskTitle) {
@@ -239,9 +331,9 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
   /// Identical to [push] except it never asks the OS to post anything. The
   /// entity is persisted (so it appears in the in-app list) with
   /// `isEnabled: false`, which `NotificationScheduler.schedule` treats as
-  /// "in-app only". Used for transient interaction feedback — task decision,
-  /// completion, skip — which previously each produced a real system
-  /// notification one second later.
+  /// "in-app only". Used for transient interaction feedback — completion,
+  /// skip — which previously each produced a real system notification one
+  /// second later.
   Future<void> pushInApp(
     NotificationEntity notification, {
     bool refreshPlanner = true,
@@ -273,21 +365,6 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
             action: 'in_app',
           ),
         );
-  }
-
-  Future<void> pushDecision(
-    String taskTitle, {
-    bool refreshPlanner = true,
-    bool refreshPlan = true,
-  }) {
-    return pushInApp(
-      _inAppNotification(
-        title: 'Decision Alert',
-        message: 'Selected $taskTitle as the current execution target.',
-      ),
-      refreshPlanner: refreshPlanner,
-      refreshPlan: refreshPlan,
-    );
   }
 
   Future<void> pushCompletionFeedback(
@@ -331,16 +408,7 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     if (!_isCurrent(generation, repository)) return;
     state = state
         .map(
-          (NotificationEntity item) => item.id == id
-              ? NotificationEntity(
-                  id: item.id,
-                  title: item.title,
-                  message: item.message,
-                  scheduledAt: item.scheduledAt,
-                  isEnabled: item.isEnabled,
-                  isRead: true,
-                )
-              : item,
+          (NotificationEntity item) => item.id == id ? item.markRead() : item,
         )
         .toList(growable: false);
   }

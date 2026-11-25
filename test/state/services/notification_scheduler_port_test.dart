@@ -329,7 +329,10 @@ void main() {
       try {
         original.read(notificationProvider);
         await pumpEventQueue();
-        expect(original.read(unreadNotificationsProvider), 1);
+        expect(original.read(notificationProvider).single.isRead, isFalse);
+        // A reminder still waiting for its time is not counted as new, the
+        // same rule the notification list uses.
+        expect(original.read(unreadNotificationsProvider), 0);
         final id = original.read(notificationProvider).single.id;
         await original.read(notificationProvider.notifier).markRead(id);
         expect(original.read(unreadNotificationsProvider), 0);

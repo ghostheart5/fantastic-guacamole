@@ -22,15 +22,13 @@ void main() {
 
     await container
         .read(notificationProvider.notifier)
-        .pushDecision('Prepare launch');
+        .pushTaskSkipped('Prepare launch');
 
     final List<NotificationEntity> created = container.read(
       notificationProvider,
     );
     expect(
-      created.where(
-        (NotificationEntity item) => item.title == 'Decision Alert',
-      ),
+      created.where((NotificationEntity item) => item.title == 'Task Skipped'),
       isNotEmpty,
     );
     expect(
@@ -72,7 +70,7 @@ void main() {
 
       await container
           .read(notificationProvider.notifier)
-          .pushDecision('Lock sprint scope');
+          .pushTaskSkipped('Lock sprint scope');
       await Future<void>.delayed(const Duration(milliseconds: 70));
 
       final List<NotificationEntity> notifications = container.read(
@@ -126,7 +124,7 @@ void main() {
 
     await container
         .read(notificationProvider.notifier)
-        .pushDecision('Reset target');
+        .pushTaskSkipped('Reset target');
     expect(container.read(notificationProvider), isNotEmpty);
 
     container.read(notificationProvider.notifier).clear();
