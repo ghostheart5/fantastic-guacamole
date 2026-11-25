@@ -54,7 +54,9 @@ class _TrajectoryEngineScreenState
   bool _reviewRecorded = false;
 
   /// The Patterns lesson finishes when the person actually uses this screen
-  /// (scrolls, taps or changes the range), not when it first appears.
+  /// (scrolls, changes the range or picks an option to compare), not when it
+  /// first appears and not on a first touch, which would remove its hint
+  /// card and move the page under the finger.
   void _recordReview() {
     if (_reviewRecorded) return;
     _reviewRecorded = true;
@@ -143,7 +145,7 @@ class _TrajectoryEngineScreenState
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: Listener(
-            onPointerDown: (_) => _recordReview(),
+            // A mouse wheel or trackpad scroll.
             onPointerSignal: (_) => _recordReview(),
             child: NotificationListener<UserScrollNotification>(
               onNotification: (_) {
@@ -347,6 +349,7 @@ class _TrajectoryEngineScreenState
                                     canRecommend: canRecommendScenario,
                                     onSelected: (String id) {
                                       if (_isRefreshing) return;
+                                      _recordReview();
                                       setState(() => _selectedScenarioId = id);
                                     },
                                   ),
@@ -426,6 +429,7 @@ class _TrajectoryEngineScreenState
                                             TrajectoryCustomScenarioDraft draft,
                                           ) {
                                             if (_isRefreshing) return;
+                                            _recordReview();
                                             final request =
                                                 _CustomComparisonRequest(
                                                   draft: draft,

@@ -327,7 +327,26 @@ void _noSavedChanges(ProviderContainer container) {
 }
 
 void main() {
-  for (final interaction in ['scroll', 'tap', 'range']) {
+  testWidgets('a first touch on Patterns does not finish its lesson', (
+    tester,
+  ) async {
+    // The hint card would vanish and the page would jump under the finger.
+    final container = await _open(tester);
+    try {
+      final guidance =
+          container.read(adaptiveGuidanceProvider.notifier) as _QuietGuidance;
+      await _frames(tester);
+      await tester.tap(find.text('How this helps you'));
+      await _frames(tester);
+      expect(guidance.recorded, isEmpty);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+      await tester.pump(Duration.zero);
+    }
+  });
+
+  for (final interaction in ['scroll', 'scenario', 'range']) {
     testWidgets(
       'Patterns lesson finishes on a real $interaction, not on opening',
       (tester) async {
@@ -344,8 +363,12 @@ void main() {
                 find.byType(Scrollable).first,
                 const Offset(0, -200),
               );
-            case 'tap':
-              await tester.tap(find.text('How this helps you'));
+            case 'scenario':
+              // Moving the list programmatically is not the person scrolling.
+              await tester.ensureVisible(find.text('Keep current plan').first);
+              await _frames(tester);
+              expect(guidance.recorded, isEmpty);
+              await tester.tap(find.text('Keep current plan').first);
             default:
               // Moving the list programmatically is not the person scrolling.
               await tester.ensureVisible(find.text('30 DAYS'));
