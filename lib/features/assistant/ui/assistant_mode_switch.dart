@@ -133,11 +133,11 @@ class _AssistantModeSwitchState extends ConsumerState<AssistantModeSwitch> {
           : 'Checking whether AI chat is available. Try again in a moment.',
     AiChatBlock.notAvailableNow =>
       _spanish
-          ? 'El chat con IA no está disponible para esta cuenta en este momento. Lo gratis en este dispositivo sigue funcionando.'
+          ? 'El chat con IA no está disponible para esta cuenta en este momento. El asistente gratis en este dispositivo sigue funcionando.'
           : 'AI chat is not available for this account right now. The free assistant on this device still works.',
     _ =>
       _spanish
-          ? 'El chat con IA no está disponible en esta versión de la app ni para esta cuenta. Lo gratis en este dispositivo sigue funcionando.'
+          ? 'El chat con IA no está disponible en esta versión de la app ni para esta cuenta. El asistente gratis en este dispositivo sigue funcionando.'
           : 'AI chat is not available in this version of the app or for this account. The free assistant on this device still works.',
   };
 

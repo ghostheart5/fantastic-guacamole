@@ -121,8 +121,8 @@ void main() {
           await tester.pump(const Duration(milliseconds: 300));
           final explanation = find.textContaining(
             language == 'es'
-                ? 'Las herramientas gratuitas no usan créditos'
-                : 'Free tools use no credits',
+                ? 'En este dispositivo · gratis no usa créditos'
+                : 'On this device · free uses no credits',
           );
           expect(explanation, findsOneWidget);
           final container = ProviderScope.containerOf(

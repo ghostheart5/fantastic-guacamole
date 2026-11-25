@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_mode_switch.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
@@ -285,6 +287,72 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  // A dialog the hidden AI screen raises (here the crisis support dialog on a
+  // recovered request) waits until AI chat is chosen, and is never shown to
+  // another account.
+  for (final changeAccount in [false, true]) {
+    testWidgets(
+      changeAccount
+          ? 'a deferred dialog is dropped when another account signs in'
+          : 'a deferred dialog is shown once when AI chat is chosen',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        var account = AccountStorageScope.authenticated('synthetic-review');
+        final server = _Server(Completer<void>());
+        final container = setup(
+          server.call,
+          historyBackend: InMemorySecureStoreBackend(),
+          readScope: () => account,
+        );
+        addTearDown(() async {
+          if (!server.gate.isCompleted) server.gate.complete();
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await _host(tester, container);
+        await _sendPaid(tester, server);
+        container
+            .read(assistantChatModeProvider.notifier)
+            .choose(ConversationSurface.si, onDevice: true);
+        await tester.pumpWidget(const SizedBox.shrink());
+        // Chat already holds an earlier message that calls for support.
+        final repository = container.read(
+          assistantConversationHistoryRepositoryProvider,
+        )!;
+        await tester.runAsync(() async {
+          final saved = await repository.load(keep: (_) => true);
+          await repository.save(
+            expectedRevision: saved.revision,
+            messages: [
+              {'role': 'user', 'content': 'I want to kill myself'},
+              {'role': 'assistant', 'content': 'Please reach out for help.'},
+            ],
+            sources: <SIV2Source>{},
+          );
+        });
+        await _host(tester, container);
+        await _pumpFor(tester, const Duration(seconds: 2));
+        expect(find.byKey(_localInput), findsOneWidget);
+        expect(find.byType(Dialog), findsNothing);
+
+        if (changeAccount) {
+          account = AccountStorageScope.authenticated('another-account');
+          container.invalidate(accountStorageScopeProvider);
+          await _pumpFor(tester, const Duration(seconds: 1));
+          await tester.pumpAndSettle();
+          expect(find.byType(Dialog), findsNothing);
+        } else {
+          await _tap(tester, _ai);
+          await _pumpFor(tester, const Duration(milliseconds: 500));
+          expect(find.byType(Dialog), findsOneWidget);
+        }
+        expect(server.paid, hasLength(1));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   // When AI chat cannot be used, the AI choice stays visible and tapping it
   // says why; nothing switches.

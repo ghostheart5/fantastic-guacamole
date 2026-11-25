@@ -373,13 +373,30 @@ void main() {
         find.byKey(const Key('assistant-mode-reply-ready')),
         findsOneWidget,
       );
-      await tester.ensureVisible(find.byKey(const Key('assistant-mode-ai')));
-      await tester.pump();
-      await tester.tap(find.byKey(const Key('assistant-mode-ai')));
+      // Leaving without choosing AI chat must not use the reply up: the next
+      // visit collects the same reply again and says so, with no new call.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _pumpPlanner(tester, container);
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(find.byKey(const Key('planner-context-field')), findsOneWidget);
+      expect(
+        find.byKey(const Key('assistant-mode-reply-ready')),
+        findsOneWidget,
+      );
+      expect(paid, hasLength(1));
+      await _press(tester, const Key('assistant-mode-ai'));
       await tester.pump(const Duration(milliseconds: 800));
       expect(find.text('Start with the smallest step.'), findsOneWidget);
       expect(paid, hasLength(1), reason: 'One paid call only');
+      // Seen now: leaving and returning does not show it as new again.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _pumpPlanner(tester, container);
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(find.text('Start with the smallest step.'), findsNothing);
+      expect(find.byKey(const Key('assistant-mode-reply-ready')), findsNothing);
+      expect(paid, hasLength(1));
       expect(tester.takeException(), isNull);
     },
   );
@@ -430,6 +447,63 @@ void main() {
     expect(find.byKey(const Key('planner-context-field')), findsNothing);
     expect(tester.takeException(), isNull);
   });
+  testWidgets(
+    'going back to the free planner with an empty AI box keeps its plan',
+    (tester) async {
+      final releaseGate = Completer<AssistantReleaseDecision>();
+      final container = _container(
+        conversationAvailable: true,
+        allowedAi: true,
+        plannerReleaseGate: releaseGate,
+      );
+      addTearDown(container.dispose);
+      await _pumpPlanner(tester, container);
+      await _requestGuidance(tester);
+      expect(find.byKey(const Key('planner-use-this-plan')), findsOneWidget);
+      final notes = tester
+          .widget<TextField>(find.byKey(const Key('planner-context-field')))
+          .controller!
+          .text;
+      releaseGate.complete(_testEnabledReleaseDecision());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(AssistantConversationScreen), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('conversation-input')), '');
+      await _press(tester, const Key('assistant-mode-on-device'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('planner-use-this-plan')),
+        300,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const Key('planner-content-scroll')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(find.byKey(const Key('planner-use-this-plan')), findsOneWidget);
+      tester
+          .state<ScrollableState>(
+            find
+                .descendant(
+                  of: find.byKey(const Key('planner-content-scroll')),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          )
+          .position
+          .jumpTo(0);
+      await tester.pump();
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('planner-context-field')))
+            .controller!
+            .text,
+        notes,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets(
     'planner shows partial dictation before completion and keeps Send disabled',
     (tester) async {

@@ -220,18 +220,42 @@ class _AssistantConversationScreenState
   void _reportWhileHidden() {
     final report = widget.onUpdateWhileHidden;
     if (widget.hidden && report != null) {
+      final generation = _generation;
+      final epoch = _gateEpoch;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && widget.hidden) report();
+        if (mounted &&
+            widget.hidden &&
+            generation == _generation &&
+            epoch == _gateEpoch) {
+          report();
+        }
       });
     }
   }
 
-  /// A dialog raised while the free assistant is shown waits for this screen
-  /// to be shown again; it is not lost.
-  Future<void> _whenShown() async {
-    while (widget.hidden && mounted) {
+  int _gateEpoch = 0;
+
+  /// Wakes anything waiting to be shown; an account or sign-in change makes
+  /// it drop what it was going to show.
+  void _releaseGate() {
+    _gateEpoch++;
+    _shownGate?.complete();
+    _shownGate = null;
+  }
+
+  /// A dialog (or a reply) raised while the free assistant is shown waits for
+  /// this screen to be shown again; it is not lost. False when the screen or
+  /// the account changed meanwhile, so nothing of the old account is shown.
+  Future<bool> _whenShown() async {
+    final generation = _generation;
+    final epoch = _gateEpoch;
+    while (widget.hidden &&
+        mounted &&
+        generation == _generation &&
+        epoch == _gateEpoch) {
       await (_shownGate ??= Completer<void>()).future;
     }
+    return mounted && generation == _generation && epoch == _gateEpoch;
   }
 
   @override
@@ -275,8 +299,7 @@ class _AssistantConversationScreenState
     required Widget content,
     required String action,
   }) async {
-    await _whenShown();
-    if (!mounted) return false;
+    if (!await _whenShown() || !mounted) return false;
     try {
       return await showDialog<bool>(
             context: context,
@@ -345,8 +368,7 @@ class _AssistantConversationScreenState
       ].join(' '),
     );
     if (safety.route != EmotionalSafetyRoute.routine) {
-      await _whenShown();
-      if (!mounted) return;
+      if (!await _whenShown() || !mounted) return;
       if (safety.requiresSupportivePause) {
         await showSupportiveDistressDialog(context);
       } else {
@@ -404,8 +426,7 @@ class _AssistantConversationScreenState
           packet.attachedNoteSafetyText,
         );
         if (attachedNoteSafety.route != EmotionalSafetyRoute.routine) {
-          await _whenShown();
-          if (!mounted) return;
+          if (!await _whenShown() || !mounted) return;
           if (attachedNoteSafety.requiresSupportivePause) {
             await showSupportiveDistressDialog(context);
           } else {
@@ -512,6 +533,7 @@ class _AssistantConversationScreenState
           _waitIndicatorDismissed = false;
           _error = _failureText('request_timeout');
         });
+        _reportWhileHidden();
       });
       executing = quote;
       // Its answer's balance may replace the one shown only if nothing
@@ -527,6 +549,14 @@ class _AssistantConversationScreenState
       // Joins a run that outlived an earlier screen instead of sending again.
       final answer = await registry.execute(quote, service);
       if (!current()) return;
+      if (widget.surface == ConversationSurface.planner && widget.hidden) {
+        // Choose a step keeps no history: the reply is marked shown, and its
+        // stored request forgotten, only once the person is shown it. If this
+        // screen goes away first, the next one collects the same reply.
+        _paidWaitTimer?.cancel();
+        _reportWhileHidden();
+        if (!await _whenShown() || !current()) return;
+      }
       registry.finish(quote.packet.requestId, shown: true);
       final review = const AssistantSafetyPipeline().evaluate(
         AssistantSafetyReview(
@@ -799,6 +829,7 @@ class _AssistantConversationScreenState
   Widget build(BuildContext context) {
     ref.listen(accountStorageScopeProvider, (previous, next) {
       if (previous?.v2Namespace != next.v2Namespace) {
+        _releaseGate();
         final dialog = _dialogContext;
         if (dialog != null && dialog.mounted) Navigator.pop(dialog);
         unawaited(ref.read(voiceControllerProvider.notifier).stopListening());
@@ -828,6 +859,7 @@ class _AssistantConversationScreenState
     });
     ref.listen(authSessionBoundaryProvider, (previous, next) {
       if (previous != null && previous.generation != next.generation) {
+        _releaseGate();
         _restartChat();
         unawaited(_loadPlannerPending());
       }

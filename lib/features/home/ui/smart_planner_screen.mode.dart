@@ -86,7 +86,8 @@ extension _PlannerChatMode on _SmartPlannerScreenState {
                     incomingDraftRevision: _aiDraftRevision,
                     onLocalTools: () => _chooseMode(onDevice: true),
                     onLocalToolsWithDraft: (String draft) {
-                      if (draft != _notesController.text) {
+                      // An empty AI box keeps the free planner's notes and plan.
+                      if (draft.isNotEmpty && draft != _notesController.text) {
                         // Controller assignments do not call the field's
                         // onChanged handler. An old plan must not remain
                         // actionable for this new request.

@@ -780,6 +780,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     ref.listen(accountStorageScopeProvider, (previous, next) {
       if (previous?.v2Namespace == next.v2Namespace) return;
       // Nothing typed or arrived for one account goes to the next.
+      _input.clear();
       setState(() {
         _aiDraft = '';
         _aiUpdate = false;

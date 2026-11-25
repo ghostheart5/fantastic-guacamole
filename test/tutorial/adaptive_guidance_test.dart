@@ -44,8 +44,8 @@ void main() {
           body,
           contains(
             language == 'es'
-                ? 'herramientas gratuitas no usan créditos'
-                : 'Free tools use no credits',
+                ? 'En este dispositivo · gratis no usa créditos'
+                : 'On this device · free uses no credits',
           ),
         );
         expect(
