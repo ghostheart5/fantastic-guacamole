@@ -7,7 +7,7 @@ void main() {
     'supabase/functions/ai-proxy/index.ts',
   ).readAsStringSync();
   final String client = File(
-    'lib/data/services/ai/agents/chat_agent.dart',
+    'lib/state/providers/internal_credit_test_provider.dart',
   ).readAsStringSync();
   final String migration = File(
     'supabase/migrations/20260904022000_remove_ai_proxy_conversation_retention.sql',

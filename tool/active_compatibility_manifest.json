@@ -12,11 +12,6 @@
       "replacement": "CalendarEntryEntity",
       "removalCriteria": "Remove after planning and Nexus callers use CalendarEntryEntity without relying on the completed or non-null taskId compatibility accessors."
     },
-    "lib/engine/si/si_ai_service.dart": {
-      "owner": "si-engine",
-      "replacement": "SIEngineService",
-      "removalCriteria": "Remove after agent callers consume SIEngineService directly and the public SI surface no longer exports SIAIService."
-    },
     "lib/engine/si/synthetic_intelligence_engine.dart": {
       "owner": "si-engine",
       "replacement": "SIEngineService",

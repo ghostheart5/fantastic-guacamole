@@ -339,12 +339,8 @@ class _MemoryGovernanceSection extends ConsumerWidget {
         false;
     if (!confirmed) return;
     await ref.read(siEngineServiceProvider).clearAllMemory();
-    ref.invalidate(siEngineStateProvider);
-    ref.invalidate(smartPlannerEngineStateProvider);
     ref.invalidate(siMemoryProvider);
     ref.invalidate(smartPlannerMemoryProvider);
-    ref.invalidate(aiResponseProvider);
-    ref.invalidate(smartPlannerAiResponseProvider);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

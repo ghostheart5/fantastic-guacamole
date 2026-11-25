@@ -1,4 +1,3 @@
-import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/momentum_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/prediction_controller.dart';
@@ -35,8 +34,6 @@ class TesterDataResetController {
     _ref.read(onboardingCompleteProvider.notifier).set(false);
     _ref.read(onboardingWelcomeCompleteProvider.notifier).set(false);
     _ref.invalidate(accountOnboardingCompleteProvider);
-    _ref.read(aiInputProvider.notifier).set(null);
-    _ref.read(smartPlannerAiInputProvider.notifier).set(null);
     _ref.read(notificationProvider.notifier).clear();
 
     _ref.invalidate(tasksProvider);
@@ -57,12 +54,6 @@ class TesterDataResetController {
     _ref.invalidate(completionScoreProvider);
     _ref.invalidate(momentumProvider);
     _ref.invalidate(emotionCheckInProvider);
-    _ref.invalidate(aiResponseProvider);
-    _ref.invalidate(smartPlannerAiResponseProvider);
-    _ref.invalidate(aiAgentTraceProvider);
-    _ref.invalidate(smartPlannerAiAgentTraceProvider);
-    _ref.invalidate(aiExecutionStatusProvider);
-    _ref.invalidate(smartPlannerAiExecutionStatusProvider);
     _ref.invalidate(aiCreditWalletProvider);
     _ref.invalidate(optimizationConfigProvider);
     _ref.invalidate(progressionProvider);
