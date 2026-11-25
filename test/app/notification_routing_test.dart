@@ -185,17 +185,10 @@ void main() {
     tester,
   ) async {
     await pumpShell(tester);
-    // ignore: invalid_use_of_protected_member
-    expect(NotificationScheduler.tappedPayloadListenable.hasListeners, isTrue);
+    expect(NotificationScheduler.debugHasPayloadListeners, isTrue);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
-    // ignore: invalid_use_of_protected_member
-    expect(NotificationScheduler.tappedPayloadListenable.hasListeners, isFalse);
-    expect(
-      // ignore: invalid_use_of_protected_member
-      NotificationScheduler.heldLaunchPayloadListenable.hasListeners,
-      isFalse,
-    );
+    expect(NotificationScheduler.debugHasPayloadListeners, isFalse);
   });
 
   for (final String payload in <String>[

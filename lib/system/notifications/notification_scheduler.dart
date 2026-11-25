@@ -40,7 +40,14 @@ class NotificationScheduler implements NotificationSchedulerPort {
   /// observable, so whichever shell is mounted when it arrives routes it,
   /// even when the shell that claimed it is gone.
   static final ValueNotifier<String?> heldLaunchPayloadListenable =
-      ValueNotifier<String?>(null);
+      _PayloadNotifier();
+
+  /// Whether anything still listens for taps or held launches, so tests can
+  /// check that a closed shell let go of both.
+  @visibleForTesting
+  static bool get debugHasPayloadListeners =>
+      (tappedPayloadListenable as _PayloadNotifier).listening ||
+      (heldLaunchPayloadListenable as _PayloadNotifier).listening;
 
   /// Test isolation only. Release builds cannot rearm a consumed launch.
   @visibleForTesting
@@ -100,7 +107,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
   /// the app and a launch-from-notification was indistinguishable from a
   /// normal launch.
   static final ValueNotifier<String?> tappedPayloadListenable =
-      ValueNotifier<String?>(null);
+      _PayloadNotifier();
 
   ValueListenable<bool?> get permissionStatusListenable =>
       permissionGrantedListenable;
@@ -620,4 +627,11 @@ class NotificationScheduler implements NotificationSchedulerPort {
       return null;
     }
   }
+}
+
+/// A payload notifier that can say whether anything still listens.
+class _PayloadNotifier extends ValueNotifier<String?> {
+  _PayloadNotifier() : super(null);
+
+  bool get listening => hasListeners;
 }
