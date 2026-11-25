@@ -13,6 +13,7 @@ import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guide_overlay.dart';
 import 'package:fantastic_guacamole/tutorial/guide_hint_layout.dart';
+import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -384,7 +385,9 @@ void main() {
       final String hintLabel = es
           ? 'Ayuda con esta página'
           : 'Help with this page';
-      final String title = l10n.guideTitle('siConsole', 'Ask what is missing');
+      final String title = GuidanceCatalogue.siConsole.title.of(
+        spanish: l10n.isSpanish,
+      );
 
       final SemanticsNode cardNode = tester.getSemantics(find.byKey(_card));
       expect(

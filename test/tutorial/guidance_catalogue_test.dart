@@ -3,7 +3,6 @@ import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Every contextual hint lives in one catalogue; the four hints for habits,
@@ -57,17 +56,35 @@ void main() {
       }
     });
 
-    test('Spanish hint text comes from the catalogue', () {
-      const ChronoSparkLocalizations spanish = ChronoSparkLocalizations(
-        Locale('es'),
+    test('existing English hint text is unchanged, including the suggested '
+        'change for today', () {
+      final AdaptiveGuidanceState state = _coreDone(DateTime.utc(2026, 8, 18));
+      final DateTime later = DateTime.utc(2026, 8, 21);
+      GuidanceLesson? at(String route, DailyDecisionIntelligence decision) =>
+          state.nextIntervention(
+            currentRoute: route,
+            decision: decision,
+            now: later,
+          );
+      expect(
+        at(RoutePaths.smartPlanner, _decision)?.body,
+        'Ask one specific question about the ranked task, its constraints, '
+        'or what should move. Type a question to get a suggestion.',
       );
+      expect(
+        at(RoutePaths.smartPlanner, _withReplan('Move Task A to 3 pm.'))?.body,
+        'Move Task A to 3 pm. Type a question to get a suggestion.',
+      );
+      expect(
+        at(RoutePaths.nexus, _decision)?.body,
+        'Task A is the highest feasible item. Read why it was suggested and '
+        'what is uncertain before deciding.',
+      );
+    });
+
+    test('each lesson finds its own hint', () {
       for (final GuidanceHint hint in GuidanceCatalogue.hints) {
-        final String id = hint.id.name;
-        expect(spanish.guideTitle(id, 'x'), hint.title.es, reason: id);
-        expect(spanish.guideBody(id, 'x'), hint.body.es, reason: id);
-        if (hint.action case final GuidanceAction action) {
-          expect(spanish.guideAction(id, 'x'), action.label.es, reason: id);
-        }
+        expect(GuidanceCatalogue.forLesson(hint.id), same(hint));
       }
     });
 
@@ -105,7 +122,7 @@ void main() {
       RoutePaths.notifications,
       RoutePaths.home,
       RoutePaths.shell,
-      GuidancePlaces.none,
+      GuidancePlaces.undeclaredScreen(Object()),
       '/habits',
     }.toList();
 
@@ -280,3 +297,20 @@ const DailyDecisionIntelligence _decision = DailyDecisionIntelligence(
   confidence: .7,
   observedOutcomes: 1,
 );
+
+DailyDecisionIntelligence _withReplan(String replanAction) =>
+    DailyDecisionIntelligence(
+      primaryAction: _decision.primaryAction,
+      momentum: _decision.momentum,
+      trajectory: _decision.trajectory,
+      energy: _decision.energy,
+      warning: _decision.warning,
+      recovery: _decision.recovery,
+      recommendedAction: _decision.recommendedAction,
+      rationale: _decision.rationale,
+      changeSummary: _decision.changeSummary,
+      evidence: _decision.evidence,
+      confidence: _decision.confidence,
+      observedOutcomes: _decision.observedOutcomes,
+      replanAction: replanAction,
+    );

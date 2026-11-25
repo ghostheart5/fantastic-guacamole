@@ -129,24 +129,32 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
       );
   }
 
-  Future<void> _record(String owner, HabitEntity habit, bool complete) async {
-    final bool recorded = await _recordOutcome(owner, habit, complete);
-    // A check-in is what the Habits hint is about; it then stays away.
-    if (!recorded || !_sameAccount(owner)) return;
+  /// A check-in that was really saved is what the Habits hint is about; it
+  /// then stays away.
+  void _checkedIn(String owner) {
+    if (!_sameAccount(owner)) return;
     ref
         .read(adaptiveGuidanceProvider.notifier)
         .recordIfMissing(GuidanceMilestone.firstHabitCheckIn)
         .ignore();
   }
 
-  Future<bool> _recordOutcome(
+  Future<void> _record(
     String owner,
     HabitEntity habit,
     bool complete,
   ) => _run(owner, habit, (notifier) async {
-    final result = complete
-        ? await notifier.completeHabit(habit.id)
-        : await notifier.skipHabit(habit.id);
+    final HabitOccurrenceResult result;
+    try {
+      result = complete
+          ? await notifier.completeHabit(habit.id)
+          : await notifier.skipHabit(habit.id);
+    } on RhythmReminderSyncException {
+      // The outcome was saved; only the reminder update failed.
+      _checkedIn(owner);
+      rethrow;
+    }
+    if (result.mutation == HabitOccurrenceMutation.applied) _checkedIn(owner);
     if (result.mutation == HabitOccurrenceMutation.conflict) {
       return _t(
         'This period already has a different recorded outcome.',

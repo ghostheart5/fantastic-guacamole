@@ -335,16 +335,21 @@ abstract final class GuidanceInterventionEngine {
   ]) {
     final String? lead = switch (hint.id) {
       GuidanceLessonId.nexus => decision.rationale,
-      GuidanceLessonId.smartPlanner => decision.replanAction,
       GuidanceLessonId.siConsole => decision.warning,
       _ => null,
+    };
+    final String? replan = decision.replanAction;
+    final String body = switch (hint.id) {
+      // Today's suggested change replaces the default first sentence.
+      GuidanceLessonId.smartPlanner when replan != null =>
+        '$replan ${GuidanceCatalogue.smartPlannerAskLine}',
+      _ when lead != null => '$lead ${hint.body.en}',
+      _ => hint.body.en,
     };
     return GuidanceLesson(
       id: hint.id,
       title: hint.title.en,
-      body: lead == null || lead.trim().isEmpty
-          ? hint.body.en
-          : '$lead ${hint.body.en}',
+      body: body,
       route: route ?? hint.route,
       actionLabel: hint.action?.label.en ?? '',
       hint: hint,

@@ -48,8 +48,10 @@ abstract final class GuidancePlaces {
   /// Whichever screen a reminder was just saved on.
   static const String whereReminderWasSaved = 'place:where-reminder-was-saved';
 
-  /// A screen opened on top of another that has no hint of its own.
-  static const String none = 'place:none';
+  /// A screen opened on top of another that has no hint of its own. Each
+  /// such screen gets its own key, so leaving one for another ends a visit.
+  static String undeclaredScreen(Object route) =>
+      'place:screen-${identityHashCode(route)}';
 }
 
 /// Text in both languages.
@@ -144,12 +146,17 @@ abstract final class GuidanceCatalogue {
     }),
   );
 
+  /// Ends the English Choose a step text, also after today's suggested
+  /// change takes the place of its first sentence.
+  static const String smartPlannerAskLine =
+      'Type a question to get a suggestion.';
+
   static const GuidanceHint smartPlanner = GuidanceHint(
     id: GuidanceLessonId.smartPlanner,
     route: RoutePaths.smartPlanner,
     title: GuidanceText('Ask for help with a plan', 'Pide ayuda con un plan'),
     body: GuidanceText(
-      'Ask one specific question about the ranked task, its constraints, or what should move. Type a question to get a suggestion.',
+      'Ask one specific question about the ranked task, its constraints, or what should move. $smartPlannerAskLine',
       'Haz una pregunta específica sobre la tarea elegida, sus límites o qué debería moverse.',
     ),
     action: GuidanceAction(

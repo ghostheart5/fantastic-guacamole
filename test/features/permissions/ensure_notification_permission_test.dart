@@ -1,5 +1,5 @@
 import 'package:fantastic_guacamole/features/permissions/notification_permission_flow.dart';
-import 'package:fantastic_guacamole/tutorial/guide_hint_place.dart';
+import 'package:fantastic_guacamole/state/providers/reminders_off_hint_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

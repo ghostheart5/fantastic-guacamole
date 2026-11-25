@@ -709,14 +709,15 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
             clearTargetDate: nextTargetDate == null,
           ),
         );
-    if (nextTargetDate != null && !result.accountChanged && mounted) {
-      _recordGoalDate(ref);
-    }
-    // Saved first. A date that was newly set or moved can remind, so this is
-    // the moment to ask, once.
-    if (nextTargetDate != null &&
+    final bool dateSetOrMoved =
+        nextTargetDate != null &&
         !_sameCalendarDay(previousDate, nextTargetDate) &&
         !result.accountChanged &&
+        mounted;
+    if (dateSetOrMoved) _recordGoalDate(ref);
+    // Saved first. A date that was newly set or moved can remind, so this is
+    // the moment to ask, once.
+    if (dateSetOrMoved &&
         mounted &&
         ref
             .read(settingsUiActionsProvider)

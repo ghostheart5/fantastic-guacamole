@@ -329,6 +329,48 @@ void main() {
       expect(guidance.lessonFinishedByAction(GuidanceLessonId.habits), isTrue);
     },
   );
+
+  for (final (
+        String label,
+        HabitOccurrenceMutation mutation,
+        bool syncFails,
+        bool saved,
+      )
+      in <(String, HabitOccurrenceMutation, bool, bool)>[
+        (
+          'a conflicting outcome',
+          HabitOccurrenceMutation.conflict,
+          false,
+          false,
+        ),
+        (
+          'an already recorded period',
+          HabitOccurrenceMutation.idempotent,
+          false,
+          false,
+        ),
+        (
+          'a saved outcome whose reminder update failed',
+          HabitOccurrenceMutation.applied,
+          true,
+          true,
+        ),
+      ]) {
+    testWidgets('the Habits hint counts $label as a check-in: $saved', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      notifier.completionMutation = mutation;
+      notifier.completionReminderSyncFails = syncFails;
+      await open(tester);
+      await tester.tap(find.text('Mark target completed'));
+      await tester.pumpAndSettle();
+      final AdaptiveGuidanceState guidance = await container.read(
+        adaptiveGuidanceProvider.future,
+      );
+      expect(guidance.has(GuidanceMilestone.firstHabitCheckIn), saved);
+    });
+  }
 }
 
 HabitOccurrenceEntity _outcome(HabitOccurrenceOutcome outcome) =>
@@ -370,15 +412,21 @@ class _Rhythms extends HabitsNotifier {
     ),
   ];
 
+  HabitOccurrenceMutation completionMutation = HabitOccurrenceMutation.applied;
+  bool completionReminderSyncFails = false;
+
   @override
   Future<HabitOccurrenceResult> completeHabit(String id) async {
     if (failCompletion) throw StateError('fixture write failure');
-    completions++;
     final outcome = _outcome(HabitOccurrenceOutcome.completed);
-    outcomes.add(outcome);
-    ref.invalidate(habitOccurrencesProvider);
+    if (completionMutation == HabitOccurrenceMutation.applied) {
+      completions++;
+      outcomes.add(outcome);
+      ref.invalidate(habitOccurrencesProvider);
+    }
+    if (completionReminderSyncFails) throw RhythmReminderSyncException();
     return HabitOccurrenceResult(
-      mutation: HabitOccurrenceMutation.applied,
+      mutation: completionMutation,
       occurrence: outcome,
     );
   }

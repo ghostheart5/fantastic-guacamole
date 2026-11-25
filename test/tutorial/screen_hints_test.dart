@@ -12,6 +12,7 @@ import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_permission_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/providers/reminders_off_hint_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guide_overlay.dart';
 import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
 import 'package:fantastic_guacamole/tutorial/guide_hint_layout.dart';
@@ -208,6 +209,115 @@ void main() {
     expect(await _seen(GuidanceLessonId.remindersOff), isNull);
     expect(tester.takeException(), isNull);
   });
+
+  Future<void> saveOnSavedItems(WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues(_existingUser);
+    await _pumpApp(tester);
+    await tester.tap(find.text('Open saved items'));
+    await _settle(tester);
+    expect(find.text('Saved items page'), findsOneWidget);
+    expect(find.byKey(_card), findsNothing);
+    await tester.tap(find.text('Save with reminder'));
+    await _settle(tester);
+    expect(_cardText(GuidanceCatalogue.remindersOff.title.en), findsOneWidget);
+  }
+
+  testWidgets('the reminders hint saved on a pushed screen does not follow '
+      'the person to the next pushed screen', (WidgetTester tester) async {
+    await saveOnSavedItems(tester);
+    await tester.tap(find.text('Open next screen'));
+    await _settle(tester);
+    expect(find.text('Next page'), findsOneWidget);
+    expect(find.byKey(_card), findsNothing);
+    // Nor back on the screen of the save: that visit has ended.
+    await tester.tap(find.text('Back'));
+    await _settle(tester);
+    expect(find.text('Saved items page'), findsOneWidget);
+    expect(find.byKey(_card), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the reminders hint ends when its pushed screen is replaced', (
+    WidgetTester tester,
+  ) async {
+    await saveOnSavedItems(tester);
+    await tester.tap(find.text('Replace this screen'));
+    await _settle(tester);
+    expect(find.text('Replacement page'), findsOneWidget);
+    expect(find.byKey(_card), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a dialog over the pushed screen hides the reminders hint '
+      'only while it is open', (WidgetTester tester) async {
+    await saveOnSavedItems(tester);
+    await tester.tap(find.text('Open dialog'));
+    await _settle(tester);
+    expect(find.text('A dialog'), findsOneWidget);
+    expect(find.byKey(_card).hitTestable(), findsNothing);
+    await tester.tap(find.text('Close dialog'));
+    await _settle(tester);
+    expect(
+      _cardText(GuidanceCatalogue.remindersOff.title.en).hitTestable(),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+}
+
+/// A screen pushed on top without a hint place of its own, like saved items
+/// or a task's details.
+class _PushedPage extends StatelessWidget {
+  const _PushedPage(this.name);
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: ListView(
+      children: <Widget>[
+        Text(name),
+        _saveWithReminder(),
+        Builder(
+          builder: (BuildContext context) => TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Back'),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => const _PushedPage('Next page'),
+            ),
+          ),
+          child: const Text('Open next screen'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pushReplacement<void, void>(
+            MaterialPageRoute<void>(
+              builder: (_) => const _PushedPage('Replacement page'),
+            ),
+          ),
+          child: const Text('Replace this screen'),
+        ),
+        TextButton(
+          onPressed: () => showDialog<void>(
+            context: context,
+            builder: (BuildContext context) => AlertDialog(
+              content: const Text('A dialog'),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Close dialog'),
+                ),
+              ],
+            ),
+          ),
+          child: const Text('Open dialog'),
+        ),
+      ],
+    ),
+  );
 }
 
 Future<void> _settle(WidgetTester tester) async {
@@ -264,6 +374,14 @@ class _TodayPage extends StatelessWidget {
             ),
           ),
           child: const Text('Open other screen'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => const _PushedPage('Saved items page'),
+            ),
+          ),
+          child: const Text('Open saved items'),
         ),
         _saveWithReminder(),
       ],

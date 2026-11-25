@@ -94,6 +94,22 @@ void main() {
     expect(guidance.lessonFinishedByAction(GuidanceLessonId.goals), isTrue);
   });
 
+  testWidgets('saving a goal whose date did not change does not finish the '
+      'Goals hint', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final goals = _Goals(DateTime(2026, 9, 1));
+    final f = fixture(goals);
+    await openEdit(tester, f);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(goals.updated.single.targetDate, DateTime(2026, 9, 1));
+    final AdaptiveGuidanceState guidance = await f.container.read(
+      adaptiveGuidanceProvider.future,
+    );
+    expect(guidance.lessonFinishedByAction(GuidanceLessonId.goals), isFalse);
+  });
+
   testWidgets('the date can be changed, then it asks', (tester) async {
     final goals = _Goals(DateTime(2026, 9, 1));
     final f = fixture(goals);

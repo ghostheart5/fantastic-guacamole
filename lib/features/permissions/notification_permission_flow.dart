@@ -5,7 +5,7 @@ import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/state/providers/notification_permission_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
-import 'package:fantastic_guacamole/tutorial/guide_hint_place.dart';
+import 'package:fantastic_guacamole/state/providers/reminders_off_hint_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

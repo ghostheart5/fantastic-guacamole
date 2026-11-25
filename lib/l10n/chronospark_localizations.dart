@@ -4,7 +4,6 @@ import 'package:fantastic_guacamole/l10n/creator_copy.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/strategic/si_console_shortcut_registry.dart';
-import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
 
 class ChronoSparkLocalizations {
   const ChronoSparkLocalizations(this.locale);
@@ -82,15 +81,15 @@ class ChronoSparkLocalizations {
       ? 'Política de privacidad oficial: $privacyUrl. Términos: $termsUrl. Página de soporte: $supportUrl. Correo de soporte: $supportEmail.'
       : 'Official privacy policy: $privacyUrl. Terms: $termsUrl. Support page: $supportUrl. Support email: $supportEmail.';
 
-  /// Spanish copy for a first-run guide step or, from [GuidanceCatalogue], a
-  /// contextual hint. English callers pass the lesson's own text.
+  /// Spanish copy for a first-run guide step. Contextual hints carry both
+  /// languages in the guidance catalogue.
   String guideTitle(String id, String fallback) {
     if (!isSpanish) return fallback;
     return switch (id) {
       'createFirstItem' => 'Añade tu primera tarea',
       'scheduleFirstItem' => 'Elige cuándo hacerla',
       'reviewTimeline' => 'Encuentra tu tarea guardada',
-      _ => _hint(id)?.title.es ?? fallback,
+      _ => fallback,
     };
   }
 
@@ -103,7 +102,7 @@ class ChronoSparkLocalizations {
         'Asigna una fecha y una hora a tu tarea para que aparezca en tu plan. Puedes cambiar la hora después.',
       'reviewTimeline' =>
         'Abre la tarea que acabas de guardar en tu agenda. Revisa su fecha y sus detalles.',
-      _ => _hint(id)?.body.es ?? fallback,
+      _ => fallback,
     };
   }
 
@@ -113,15 +112,8 @@ class ChronoSparkLocalizations {
       'createFirstItem' => 'Añadir una tarea',
       'scheduleFirstItem' => 'Elegir fecha y hora',
       'reviewTimeline' => 'Abrir Mi plan',
-      _ => _hint(id)?.action?.label.es ?? fallback,
+      _ => fallback,
     };
-  }
-
-  static GuidanceHint? _hint(String id) {
-    for (final GuidanceHint hint in GuidanceCatalogue.hints) {
-      if (hint.id.name == id) return hint;
-    }
-    return null;
   }
 
   String decisionConfidenceLabel(OperatingConfidence confidence) {

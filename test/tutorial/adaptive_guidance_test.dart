@@ -39,7 +39,7 @@ void main() {
       expect(lesson.body, startsWith(_decision.warning));
       for (final language in ['en', 'es']) {
         final copy = ChronoSparkLocalizations(Locale(language));
-        final body = copy.guideBody(lesson.id.name, lesson.body);
+        final body = copy.isSpanish ? lesson.hint!.body.es : lesson.body;
         expect(
           body,
           contains(
@@ -73,7 +73,7 @@ void main() {
           contains(language == 'es' ? 'en Ajustes' : 'check Settings'),
         );
         expect(
-          copy.guideAction(lesson.id.name, lesson.actionLabel),
+          lesson.hint!.action!.label.of(spanish: copy.isSpanish),
           language == 'es' ? 'Revisar las fuentes' : 'Inspect evidence',
         );
       }

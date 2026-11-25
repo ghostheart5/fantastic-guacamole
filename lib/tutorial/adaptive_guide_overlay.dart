@@ -13,6 +13,7 @@ import 'package:fantastic_guacamole/state/providers/creator_draft_provider.dart'
 import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
 import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/reminders_off_hint_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:fantastic_guacamole/tutorial/guide_hint_card.dart';
@@ -201,15 +202,17 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   }
 
   /// Where the person is, for guidance: the place a screen or area in view
-  /// declared, nowhere for a screen pushed on top without one, otherwise the
-  /// router [location].
+  /// declared, a place of its own with no hint for a screen pushed on top
+  /// without one, otherwise the router [location].
   String _place(String location, Map<Route<dynamic>, String> declared) {
     final Route<dynamic>? top = _modals?.topScreen;
     if (top == null) return location;
     final String? place = declared[top];
     if (place != null) return place;
+    // Each such screen is its own place, so a visit (and a note about a
+    // reminder saved there) ends when another one is pushed or replaces it.
     return GuideHintModalObserver.isPushedScreen(top)
-        ? GuidancePlaces.none
+        ? GuidancePlaces.undeclaredScreen(top)
         : location;
   }
 

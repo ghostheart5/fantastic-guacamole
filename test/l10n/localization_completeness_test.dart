@@ -35,7 +35,9 @@ void main() {
     }
   });
 
-  test('contextual guidance has Spanish title body and action coverage', () {
+  // Contextual hints carry Spanish in the guidance catalogue
+  // (test/tutorial/guidance_catalogue_test.dart).
+  test('first-run guide steps have Spanish title body and action', () {
     const ChronoSparkLocalizations spanish = ChronoSparkLocalizations(
       Locale('es'),
     );
@@ -43,12 +45,6 @@ void main() {
       'createFirstItem',
       'scheduleFirstItem',
       'reviewTimeline',
-      'nexus',
-      'smartPlanner',
-      'timelineExecution',
-      'siConsole',
-      'trajectoryEngine',
-      'progression',
     ]) {
       expect(spanish.guideTitle(id, 'fallback'), isNot('fallback'));
       expect(spanish.guideBody(id, 'fallback'), isNot('fallback'));
