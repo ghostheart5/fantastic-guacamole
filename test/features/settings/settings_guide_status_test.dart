@@ -45,13 +45,13 @@ void main() {
       await _pump(tester, pausedByOldVersion, es: es);
       expect(find.text(es ? 'Guía en pausa' : 'Guide paused'), findsOneWidget);
       expect(
-        find.text(
-          es ? 'Aprendiendo el flujo principal' : 'Learning the core workflow',
-        ),
+        find.text(es ? 'Guía en curso' : 'Guide in progress'),
         findsNothing,
       );
       expect(
-        find.textContaining(es ? 'avisos silenciados' : 'prompts muted'),
+        find.textContaining(
+          es ? 'tarjetas de ayuda ocultas' : 'help cards hidden',
+        ),
         findsNothing,
       );
       expect(
@@ -112,19 +112,71 @@ void main() {
   testWidgets('after Skip this step with a step left, the guide is still '
       'active', (WidgetTester tester) async {
     await _pump(tester, firstStepSkipped, es: false);
-    expect(find.text('Learning the core workflow'), findsOneWidget);
-    // A skipped step is not a muted prompt.
-    expect(find.textContaining('0 prompts muted'), findsOneWidget);
+    expect(find.text('Guide in progress'), findsOneWidget);
+    // A skipped step is not a hidden help card.
+    expect(find.textContaining('0 help cards hidden'), findsOneWidget);
     expect(find.text('Guide skipped'), findsNothing);
   });
 
-  testWidgets('an active guide keeps the existing status text', (
-    WidgetTester tester,
-  ) async {
-    await _pump(tester, <String, Object>{}, es: false);
-    expect(find.text('Learning the core workflow'), findsOneWidget);
-    expect(find.textContaining('0 prompts muted'), findsOneWidget);
-  });
+  for (final bool es in <bool>[false, true]) {
+    testWidgets('${es ? 'Spanish' : 'English'} status counts in plain words, '
+        'singular and plural', (WidgetTester tester) async {
+      await _pump(tester, <String, Object>{}, es: es);
+      expect(
+        find.text(es ? 'Guía en curso' : 'Guide in progress'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          es
+              ? '0 acciones registradas · 0 tarjetas de ayuda ocultas'
+              : '0 actions recorded · 0 help cards hidden',
+        ),
+        findsOneWidget,
+      );
+
+      await _pump(tester, <String, Object>{
+        '$prefix.$namespace.firstItem.at': 1755475200000,
+        '$prefix.$namespace.firstItem.count': 1,
+        '$prefix.$namespace.skip.nexus': true,
+      }, es: es);
+      expect(
+        find.text(
+          es
+              ? '1 acción registrada · 1 tarjeta de ayuda oculta'
+              : '1 action recorded · 1 help card hidden',
+        ),
+        findsOneWidget,
+      );
+
+      await _pump(tester, skipped, es: es);
+      expect(
+        find.text(
+          es
+              ? '0 acciones registradas · Reinicia la guía abajo para continuar.'
+              : '0 actions recorded · Restart the guide below to continue.',
+        ),
+        findsOneWidget,
+      );
+
+      await _pump(tester, <String, Object>{
+        for (final String id in <String>[
+          'firstItem',
+          'firstSchedule',
+          'firstTimelineReview',
+        ]) ...<String, Object>{
+          '$prefix.$namespace.$id.at': 1755475200000,
+          '$prefix.$namespace.$id.count': 1,
+        },
+      }, es: es);
+      expect(
+        find.text(es ? 'Guía terminada' : 'Guide finished'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('real outcomes'), findsNothing);
+      expect(find.textContaining('resultados reales'), findsNothing);
+    });
+  }
 }
 
 Future<void> _pump(

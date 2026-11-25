@@ -109,7 +109,7 @@ void main() {
 
     await _pumpCreatorWithGuide(tester, container);
 
-    expect(find.text('Name the real task'), findsOneWidget);
+    expect(find.text('Name your task'), findsOneWidget);
     expect(FirstRunTutorialTargets.creatorTitle.currentContext, isNotNull);
     final Finder titleField = find.byWidgetPredicate(
       (Widget widget) =>
@@ -120,6 +120,41 @@ void main() {
     expect(_primary(tester, 'Title entered').onPressed, isNotNull);
     expect(tester.takeException(), isNull);
   });
+
+  for (final String language in <String>['en', 'es']) {
+    testWidgets('$language Add something guide steps use plain words', (
+      WidgetTester tester,
+    ) async {
+      _tallView(tester);
+      final ProviderContainer container = _container(
+        _Tasks.withScheduledTask(),
+        overlay: true,
+      );
+      addTearDown(container.dispose);
+      await container.read(adaptiveGuidanceProvider.future);
+      await container.read(adaptiveGuidanceProvider.notifier).restartLessons();
+      await _pumpCreatorWithGuide(tester, container, locale: Locale(language));
+
+      final bool es = language == 'es';
+      expect(
+        find.text(es ? 'Ponle nombre a tu tarea' : 'Name your task'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          es
+              ? 'Escribe lo que necesitas hacer en el campo de título de abajo '
+                    'y toca Título escrito.'
+              : 'Type what you need to do in the title field below, then tap '
+                    'Title entered.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('real task'), findsNothing);
+      expect(find.textContaining('tarea real'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   test(
     'a returning account with restored tasks gets a guided Creator',
@@ -173,7 +208,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('guide_step_back')));
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('Name the real task'), findsOneWidget);
+    expect(find.text('Name your task'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -192,7 +227,7 @@ void main() {
 
     expect(find.byKey(const Key('guide-paused-snackbar')), findsOneWidget);
     expect(find.textContaining('Restart Adaptive Guide'), findsOneWidget);
-    expect(find.text('Name the real task'), findsNothing);
+    expect(find.text('Name your task'), findsNothing);
   });
 
   testWidgets('core guidance does not cover the Smart Planner first choice', (
@@ -478,7 +513,7 @@ void main() {
       ..setHasSchedule(true);
     await _pumpCreatorWithGuide(tester, container);
     expect(container.read(creatorHandshakeProvider).isReviewing, isTrue);
-    expect(find.text('Confirm the exact task'), findsOneWidget);
+    expect(find.text('Confirm your task'), findsOneWidget);
 
     await tester.tap(find.text('Skip this step'));
     for (int i = 0; i < 3; i++) {
@@ -831,8 +866,9 @@ FilledButton _primary(WidgetTester tester, String label) {
 
 Future<void> _pumpCreatorWithGuide(
   WidgetTester tester,
-  ProviderContainer container,
-) async {
+  ProviderContainer container, {
+  Locale locale = const Locale('en'),
+}) async {
   final GoRouter router = GoRouter(
     initialLocation: RoutePaths.creator,
     routes: <RouteBase>[
@@ -843,7 +879,7 @@ Future<void> _pumpCreatorWithGuide(
     ],
   );
   addTearDown(router.dispose);
-  await _pumpRouterWithGuide(tester, container, router);
+  await _pumpRouterWithGuide(tester, container, router, locale: locale);
 }
 
 Future<void> _pumpRouterWithGuide(

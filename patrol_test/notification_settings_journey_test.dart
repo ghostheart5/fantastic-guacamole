@@ -183,10 +183,10 @@ void main() {
       Future<void> textTap(String label) => tap(find.text(label));
       Future<void> openSettings() async {
         await tap(find.byTooltip('Open navigation map'));
-        await tap(find.widgetWithText(ListTile, 'Control Center'));
+        await tap(find.widgetWithText(ListTile, 'Settings'));
         await waitRead(
           () async => find.text('SETTINGS').evaluate().isNotEmpty,
-          'Control Center must show Settings.',
+          'The Settings menu item must open Settings.',
         );
       }
 

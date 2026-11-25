@@ -56,29 +56,171 @@ void main() {
       }
     });
 
-    test('existing English hint text is unchanged, including the suggested '
-        'change for today', () {
+    group('hint text is built from typed values, the same in both '
+        'languages, never from engine sentences', () {
       final AdaptiveGuidanceState state = _coreDone(DateTime.utc(2026, 8, 18));
       final DateTime later = DateTime.utc(2026, 8, 21);
-      GuidanceLesson? at(String route, DailyDecisionIntelligence decision) =>
-          state.nextIntervention(
-            currentRoute: route,
-            decision: decision,
-            now: later,
+      GuidanceText? at(String route, DailyDecisionIntelligence decision) {
+        final GuidanceLesson? lesson = state.nextIntervention(
+          currentRoute: route,
+          decision: decision,
+          now: later,
+        );
+        final GuidanceText? text = lesson?.hintBody;
+        // The English body the lesson reports is the same text.
+        expect(lesson?.body, text?.en);
+        return text;
+      }
+
+      test('Choose a step', () {
+        final GuidanceText? plain = at(RoutePaths.smartPlanner, _decision);
+        expect(
+          plain?.en,
+          'Ask one clear question about the suggested task, what is holding '
+          'it back, or what could move. Type a question to get a suggestion.',
+        );
+        expect(
+          plain?.es,
+          'Haz una pregunta clara sobre la tarea sugerida, lo que la frena o '
+          'lo que podría moverse. Escribe una pregunta para recibir una '
+          'sugerencia.',
+        );
+        // Today's suggested change is named in both languages; the engine's
+        // English sentence is not copied into the hint.
+        final GuidanceText? change = at(
+          RoutePaths.smartPlanner,
+          _decisionWith(replanAction: 'Move Task A to 3 pm.'),
+        );
+        expect(
+          change?.en,
+          'Your plan has a suggested change for today. Ask about it, or type '
+          'another question to get a suggestion.',
+        );
+        expect(
+          change?.es,
+          'Tu plan tiene un cambio sugerido para hoy. Pregunta por él o '
+          'escribe otra pregunta para recibir una sugerencia.',
+        );
+        expect(change?.en, isNot(contains('Task A')));
+      });
+
+      test('Today', () {
+        final GuidanceText? text = at(RoutePaths.nexus, _decision);
+        expect(
+          text?.en,
+          'Read why it was suggested and what is uncertain before deciding.',
+        );
+        expect(
+          text?.es,
+          'Lee por qué se sugirió y qué es incierto antes de decidir.',
+        );
+        expect(text?.en, isNot(contains(_decision.rationale)));
+      });
+
+      test('Chat: the typed plan warning replaces the check on an English '
+          'sentence prefix', () {
+        // No plan warning: the hint has no warning line, whatever the
+        // engine's sentence says.
+        for (final String warning in <String>[
+          'No material constraint is supported by the current evidence.',
+          'Decision evidence is still loading; constraints are not yet '
+              'resolved.',
+        ]) {
+          final GuidanceText? calm = at(
+            RoutePaths.siConsole,
+            _decisionWith(warning: warning),
           );
+          expect(calm?.en, GuidanceCatalogue.siConsole.body.en);
+          expect(calm?.es, GuidanceCatalogue.siConsole.body.es);
+        }
+        // A plan warning adds one plain line in both languages, and never
+        // the engine's own sentence.
+        final GuidanceText? warned = at(
+          RoutePaths.siConsole,
+          _decisionWith(
+            warning: 'No material constraint, but recent deferrals pile up.',
+            hasPlanWarning: true,
+          ),
+        );
+        expect(
+          warned?.en,
+          'Your plan has a warning today. '
+          '${GuidanceCatalogue.siConsole.body.en}',
+        );
+        expect(
+          warned?.es,
+          'Tu plan tiene un aviso hoy. ${GuidanceCatalogue.siConsole.body.es}',
+        );
+        expect(warned?.en, isNot(contains('deferrals')));
+        expect(
+          GuidanceCatalogue.siConsole.body.en,
+          startsWith(
+            'Ask what is missing from your plan, or what would change the '
+            'suggestion. ',
+          ),
+        );
+        expect(
+          GuidanceCatalogue.siConsole.body.es,
+          startsWith(
+            'Pregunta qué falta en tu plan o qué cambiaría la sugerencia. ',
+          ),
+        );
+      });
+
+      test('every other hint shows its catalogue text', () {
+        for (final GuidanceHint hint in <GuidanceHint>[
+          GuidanceCatalogue.timelineExecution,
+          GuidanceCatalogue.trajectoryEngine,
+          GuidanceCatalogue.progression,
+        ]) {
+          final GuidanceText? text = at(hint.route, _decision);
+          expect(text?.en, hint.body.en, reason: hint.id.name);
+          expect(text?.es, hint.body.es, reason: hint.id.name);
+        }
+      });
+    });
+
+    test('hint wording names each screen as the screen names itself', () {
+      expect(GuidanceCatalogue.siConsole.action?.label.en, 'Ask in Chat');
+      expect(GuidanceCatalogue.siConsole.action?.label.es, 'Preguntar en Chat');
       expect(
-        at(RoutePaths.smartPlanner, _decision)?.body,
-        'Ask one specific question about the ranked task, its constraints, '
-        'or what should move. Type a question to get a suggestion.',
+        GuidanceCatalogue.timelineExecution.action?.label.en,
+        'Open My plan',
       );
       expect(
-        at(RoutePaths.smartPlanner, _withReplan('Move Task A to 3 pm.'))?.body,
-        'Move Task A to 3 pm. Type a question to get a suggestion.',
+        GuidanceCatalogue.timelineExecution.action?.label.es,
+        'Abrir Mi plan',
       );
       expect(
-        at(RoutePaths.nexus, _decision)?.body,
-        'Task A is the highest feasible item. Read why it was suggested and '
-        'what is uncertain before deciding.',
+        GuidanceCatalogue.timelineRecovery.action?.label.en,
+        'Review in My plan',
+      );
+      expect(GuidanceCatalogue.progression.action?.label.en, 'Review activity');
+      expect(
+        GuidanceCatalogue.progression.action?.label.es,
+        'Revisar actividad',
+      );
+      expect(
+        GuidanceCatalogue.trajectoryEngine.body.es,
+        'Prueba otra hora, otra cantidad de trabajo u otra prioridad. '
+        'Compara la estimación antes de cambiar tu plan.',
+      );
+      expect(
+        GuidanceCatalogue.progression.body.es,
+        'Ve las tareas y los hitos que registraste. Abre los detalles para '
+        'revisarlos.',
+      );
+      expect(
+        GuidanceCatalogue.timelineExecution.body.es,
+        'Abre una tarea con fecha. Márcala como hecha, muévela o corrige sus '
+        'detalles y guarda el cambio.',
+      );
+    });
+
+    test('the "Continue here" string the hint card replaced is gone', () {
+      expect(
+        ChronoSparkString.values.map((ChronoSparkString key) => key.name),
+        isNot(contains('useThisScreen')),
       );
     });
 
@@ -298,19 +440,23 @@ const DailyDecisionIntelligence _decision = DailyDecisionIntelligence(
   observedOutcomes: 1,
 );
 
-DailyDecisionIntelligence _withReplan(String replanAction) =>
-    DailyDecisionIntelligence(
-      primaryAction: _decision.primaryAction,
-      momentum: _decision.momentum,
-      trajectory: _decision.trajectory,
-      energy: _decision.energy,
-      warning: _decision.warning,
-      recovery: _decision.recovery,
-      recommendedAction: _decision.recommendedAction,
-      rationale: _decision.rationale,
-      changeSummary: _decision.changeSummary,
-      evidence: _decision.evidence,
-      confidence: _decision.confidence,
-      observedOutcomes: _decision.observedOutcomes,
-      replanAction: replanAction,
-    );
+DailyDecisionIntelligence _decisionWith({
+  String? replanAction,
+  String? warning,
+  bool hasPlanWarning = false,
+}) => DailyDecisionIntelligence(
+  primaryAction: _decision.primaryAction,
+  momentum: _decision.momentum,
+  trajectory: _decision.trajectory,
+  energy: _decision.energy,
+  warning: warning ?? _decision.warning,
+  hasPlanWarning: hasPlanWarning,
+  recovery: _decision.recovery,
+  recommendedAction: _decision.recommendedAction,
+  rationale: _decision.rationale,
+  changeSummary: _decision.changeSummary,
+  evidence: _decision.evidence,
+  confidence: _decision.confidence,
+  observedOutcomes: _decision.observedOutcomes,
+  replanAction: replanAction,
+);

@@ -47,6 +47,38 @@ void main() {
     semantics.dispose();
   });
 
+  for (final bool es in <bool>[false, true]) {
+    testWidgets('${es ? 'Spanish' : 'English'} first-login guide names its '
+        'setup step and promises no later step', (WidgetTester tester) async {
+      final _LoginHarness harness = await _pumpLoginRouter(
+        tester,
+        initialLocation: RoutePaths.login,
+        showFirstRunGuide: true,
+        locale: Locale(es ? 'es' : 'en'),
+      );
+      addTearDown(harness.dispose);
+
+      expect(
+        // The overlay shows its step label in capitals.
+        find.text(es ? 'CONFIGURACIÓN: TU CUENTA' : 'SETUP: YOUR ACCOUNT'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          es
+              ? 'Usa la cuenta en la que quieres que Axiomara guarde tus '
+                    'tareas y planes.'
+              : 'Use the account you want Axiomara to keep your tasks and '
+                    'plans in.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining(RegExp(r'\d (of|de) \d')), findsNothing);
+      expect(find.textContaining('display name'), findsNothing);
+      expect(find.textContaining('nombre visible'), findsNothing);
+    });
+  }
+
   testWidgets(
     'shows accessible legal actions before account creation and OAuth',
     (WidgetTester tester) async {

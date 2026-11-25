@@ -103,7 +103,9 @@ void main() {
         find.descendant(
           of: find.byKey(_inactive),
           matching: find.text(
-            spanish ? 'Notificaciones desactivadas' : 'Notifications are off',
+            spanish
+                ? 'Las notificaciones están desactivadas'
+                : 'Notifications are off',
           ),
         ),
         findsOneWidget,

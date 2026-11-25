@@ -98,8 +98,8 @@ class NotificationPermissionPrompt extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 isSpanish
-                    ? 'Activa las notificaciones para recibir los recordatorios de ejecución y reflexión que programes.'
-                    : 'Enable notifications to receive scheduled execution and reflection reminders.',
+                    ? 'Activa las notificaciones para recibir los recordatorios que pongas a tus tareas, hábitos y metas.'
+                    : 'Turn on notifications to get the reminders you set for tasks, habits and goals.',
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 13,

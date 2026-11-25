@@ -35,11 +35,11 @@ void main() {
       )!;
       expect(lesson.id, GuidanceLessonId.siConsole);
       expect(lesson.route, RoutePaths.siConsole);
-      expect(lesson.actionLabel, 'Inspect evidence');
-      expect(lesson.body, startsWith(_decision.warning));
+      expect(lesson.actionLabel, 'Ask in Chat');
+      expect(lesson.body, isNot(contains(_decision.warning)));
       for (final language in ['en', 'es']) {
         final copy = ChronoSparkLocalizations(Locale(language));
-        final body = copy.isSpanish ? lesson.hint!.body.es : lesson.body;
+        final body = lesson.hintBody!.of(spanish: copy.isSpanish);
         expect(
           body,
           contains(
@@ -74,7 +74,7 @@ void main() {
         );
         expect(
           lesson.hint!.action!.label.of(spanish: copy.isSpanish),
-          language == 'es' ? 'Revisar las fuentes' : 'Inspect evidence',
+          language == 'es' ? 'Preguntar en Chat' : 'Ask in Chat',
         );
       }
       expect(state.completedLessons, isEmpty);

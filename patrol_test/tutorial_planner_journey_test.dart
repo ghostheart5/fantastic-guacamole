@@ -142,7 +142,7 @@ void main() {
         while (DateTime.now().isBefore(deadline)) {
           if (allowContextualDismiss &&
               find
-                  .text('CONTEXTUAL GUIDANCE')
+                  .byKey(const Key('guide_hint_card'))
                   .hitTestable()
                   .evaluate()
                   .isNotEmpty &&
@@ -230,10 +230,10 @@ void main() {
           tap(find.byTooltip('Back').first, direction: AxisDirection.up);
       Future<void> openSettings() async {
         await tap(find.byTooltip('Open navigation map'));
-        await tap(find.widgetWithText(ListTile, 'Control Center'));
+        await tap(find.widgetWithText(ListTile, 'Settings'));
         await waitFor(
           () => find.text('SETTINGS').evaluate().isNotEmpty,
-          'Control Center must show real Settings.',
+          'The Settings menu item must open real Settings.',
           allowContextualDismiss: true,
         );
         if (find.text('Restart first setup').evaluate().isEmpty) {
@@ -302,11 +302,8 @@ void main() {
           await keyTap('local-profile-continue');
         }
         await waitFor(
-          () => find
-              .text('FIRST SETUP 3 OF 3')
-              .hitTestable()
-              .evaluate()
-              .isNotEmpty,
+          () =>
+              find.text('SETUP: LAST STEP').hitTestable().evaluate().isNotEmpty,
           'The real optional question page must be usable.',
         );
         expect(
@@ -384,7 +381,7 @@ void main() {
             {
               'historical_baseline_cta': 'CONTINUE TO LOGIN',
               'visible_cta': observedWelcomeAction,
-              'actual_destination': 'FIRST SETUP 3 OF 3',
+              'actual_destination': 'SETUP: LAST STEP',
               'finding':
                   'Current signed-in replay CTA names setup and advances to its optional question. Archived baseline mismatch remains preserved.',
             },
@@ -553,7 +550,7 @@ void main() {
           'Creator Back must return to usable app navigation.',
           allowContextualDismiss: true,
         );
-        expect(find.text('FIRST SETUP 3 OF 3'), findsNothing);
+        expect(find.text('SETUP: LAST STEP'), findsNothing);
         await openSettings();
         await assertCompletionStored();
         expect(find.byKey(const Key('first-value-question')), findsNothing);

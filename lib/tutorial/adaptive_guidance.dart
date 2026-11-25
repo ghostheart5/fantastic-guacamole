@@ -23,10 +23,13 @@ class GuidanceLesson {
     required this.route,
     required this.actionLabel,
     this.hint,
+    this.hintBody,
   });
 
   final GuidanceLessonId id;
   final String title;
+
+  /// English text; a contextual hint's body in both languages is [hintBody].
   final String body;
   final String route;
 
@@ -35,6 +38,10 @@ class GuidanceLesson {
 
   /// The catalogue entry of a contextual hint; null for a first-run step.
   final GuidanceHint? hint;
+
+  /// A contextual hint's body in both languages, chosen for today's plan
+  /// from typed values; null for a first-run step.
+  final GuidanceText? hintBody;
 }
 
 final adaptiveGuidanceProvider =
@@ -329,33 +336,32 @@ abstract final class GuidanceInterventionEngine {
     };
   }
 
-  /// A catalogue hint as a lesson. Some English bodies start with a line
-  /// about today's plan; [route] places a hint that has no screen of its own.
+  /// A catalogue hint as a lesson. Its text comes from the catalogue in both
+  /// languages; today's plan only chooses between catalogue texts, through
+  /// typed values, and the engine's own sentences are never copied in.
+  /// [route] places a hint that has no screen of its own.
   static GuidanceLesson _hintLesson(
     GuidanceHint hint,
     DailyDecisionIntelligence decision, [
     String? route,
   ]) {
-    final String? lead = switch (hint.id) {
-      GuidanceLessonId.nexus => decision.rationale,
-      GuidanceLessonId.siConsole => decision.warning,
-      _ => null,
-    };
-    final String? replan = decision.replanAction;
-    final String body = switch (hint.id) {
-      // Today's suggested change replaces the default first sentence.
-      GuidanceLessonId.smartPlanner when replan != null =>
-        '$replan ${GuidanceCatalogue.smartPlannerAskLine}',
-      _ when lead != null => '$lead ${hint.body.en}',
-      _ => hint.body.en,
+    final GuidanceText body = switch (hint.id) {
+      GuidanceLessonId.smartPlanner when decision.replanAction != null =>
+        GuidanceCatalogue.smartPlannerSuggestedChange,
+      GuidanceLessonId.siConsole when decision.hasPlanWarning => GuidanceText(
+        '${GuidanceCatalogue.planWarningLead.en} ${hint.body.en}',
+        '${GuidanceCatalogue.planWarningLead.es} ${hint.body.es}',
+      ),
+      _ => hint.body,
     };
     return GuidanceLesson(
       id: hint.id,
       title: hint.title.en,
-      body: body,
+      body: body.en,
       route: route ?? hint.route,
       actionLabel: hint.action?.label.en ?? '',
       hint: hint,
+      hintBody: body,
     );
   }
 }
@@ -701,8 +707,8 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     );
   }
 
-  /// "Continue here" on a contextual lesson: the person has read it and is
-  /// using the screen, so it is finished for this account. First-run guide
+  /// "Got it" on a contextual lesson (and showing it at all): the person has
+  /// read it and is using the screen, so it is finished for this account. First-run guide
   /// steps finish only through their real milestones.
   Future<void> completeLesson(GuidanceLessonId lesson) async {
     if (_replayableCoreLessons.contains(lesson)) return;

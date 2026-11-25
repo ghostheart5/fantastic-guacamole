@@ -29,11 +29,11 @@ String authStatusText(BuildContext context, String value, {String? fallback}) {
     'Stopping safely': 'Deteniendo de forma segura',
     'Enter a valid email.': 'Introduce un correo válido.',
     'Password required.': 'Introduce tu contraseña.',
-    'Use 8+ chars with upper, lower, and a number.':
-        'Usa al menos 8 caracteres, con mayúsculas, minúsculas y un número.',
+    'Use at least 8 characters, with an uppercase letter, a lowercase letter and a number.':
+        'Usa al menos 8 caracteres, con una mayúscula, una minúscula y un número.',
     'Passwords do not match.': 'Las contraseñas no coinciden.',
-    'Enter account email, then trigger password reset.':
-        'Introduce el correo de la cuenta y solicita restablecer la contraseña.',
+    'Enter your account email, then tap Forgot Password? again.':
+        'Introduce el correo de tu cuenta y vuelve a tocar ¿Olvidaste la contraseña?.',
     'Verification link sent. Confirm inbox to proceed.':
         'Se envió el enlace de verificación. Revisa tu correo para continuar.',
     'Password reset link sent.':
@@ -43,10 +43,10 @@ String authStatusText(BuildContext context, String value, {String? fallback}) {
         'Se verificó la recuperación. Escribe tu nueva contraseña a continuación.',
     'Reset link received. Secure verification is required; request a new email if this link has expired.':
         'Se recibió el enlace de recuperación. Debe verificarse de forma segura; solicita otro correo si el enlace caducó.',
-    'Email verification callback received. Continue sign-in if needed.':
-        'Se recibió la verificación del correo. Continúa con el inicio de sesión si es necesario.',
-    'Authentication callback received. Continuing sign-in flow.':
-        'Se recibió la confirmación de acceso. Continuando el inicio de sesión.',
+    'Email link opened. If you are not signed in yet, sign in to continue.':
+        'Se abrió el enlace del correo. Si aún no has iniciado sesión, inicia sesión para continuar.',
+    'Sign-in link opened. Finishing sign-in.':
+        'Se abrió el enlace de acceso. Terminando de iniciar sesión.',
   };
   return spanish[value] ?? fallback ?? value;
 }

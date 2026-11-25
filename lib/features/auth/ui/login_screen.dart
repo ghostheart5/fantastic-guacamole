@@ -231,14 +231,14 @@ class _LoginScreenState extends State<LoginScreen>
               InteractiveTutorialOverlay(
                 targetKey: _loginFormKey,
                 stepLabel: l10n.isSpanish
-                    ? 'Configuración 2 de 3'
-                    : 'First setup 2 of 3',
+                    ? 'Configuración: tu cuenta'
+                    : 'Setup: your account',
                 title: l10n.isSpanish
                     ? 'Inicia sesión o crea tu cuenta'
                     : 'Sign in or create your account',
                 body: l10n.isSpanish
-                    ? 'Usa la cuenta real que quieres que Axiomara recuerde. Después de autenticarte, continuarás con tu nombre visible.'
-                    : 'Use the real account you want Axiomara to remember. After authentication, setup continues with your display name.',
+                    ? 'Usa la cuenta en la que quieres que Axiomara guarde tus tareas y planes.'
+                    : 'Use the account you want Axiomara to keep your tasks and plans in.',
                 primaryLabel: l10n.isSpanish
                     ? 'Comenzar acceso'
                     : 'Start login',

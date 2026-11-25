@@ -200,7 +200,7 @@ void main() {
       ],
     });
     await caseRun('guide-restart-real-settings-control', () async {
-      await navigate('Control Center');
+      await navigate('Settings');
       if (find.text('Restart Adaptive Guide').evaluate().isEmpty) {
         await tap(find.text('Planning & guidance'));
       }
@@ -232,7 +232,7 @@ void main() {
         beforeIds,
       );
       await tap(find.text('Open Creator'));
-      await $(find.text('Name the real task')).waitUntilVisible();
+      await $(find.text('Name your task')).waitUntilVisible();
       return {'existing_outcomes_preserved': true, 'replay_core_active': true};
     });
     await caseRun('guide-real-title-priority-and-due-schedule', () async {
@@ -302,7 +302,7 @@ void main() {
     late String taskId;
     await caseRun('guide-review-confirm-exact-one-task', () async {
       await tap(find.text('Review changes'));
-      await $(find.text('Confirm the exact task')).waitUntilVisible();
+      await $(find.text('Confirm your task')).waitUntilVisible();
       expect(
         (await repo.getAllTasks()).any((task) => task.title == title),
         isFalse,
@@ -314,7 +314,7 @@ void main() {
       expect(operation.task.priority, 3);
       expect(operation.task.scheduledFor, isNotNull);
       expect(operation.task.scheduledFor!.isAfter(DateTime.now()), isFalse);
-      await tap(find.text('Confirm and open Timeline'));
+      await tap(find.text('Confirm and open Schedule'));
       await waitRead(
         () async =>
             (await repo.getAllTasks())
@@ -389,7 +389,7 @@ void main() {
       };
     });
     await caseRun('guide-revisit-no-repeat-or-duplicate', () async {
-      await navigate('Control Center');
+      await navigate('Settings');
       await navigate('Truth Ledger');
       expect(find.text('I found my task'), findsNothing);
       final after = await repo.getAllTasks();

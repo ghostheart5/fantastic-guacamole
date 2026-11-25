@@ -245,7 +245,7 @@ void main() {
     }
   });
 
-  test('"Continue here" completes the lesson for the account', () async {
+  test('"Got it" completes the lesson for the account', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final ProviderContainer first = _container('continue-here-user');
     await first.read(adaptiveGuidanceProvider.future);
@@ -280,7 +280,7 @@ void main() {
     );
   });
 
-  test('"Continue here" never finishes a first-run guide step', () async {
+  test('"Got it" never finishes a first-run guide step', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final ProviderContainer container = _container('core-continue-user');
     addTearDown(container.dispose);

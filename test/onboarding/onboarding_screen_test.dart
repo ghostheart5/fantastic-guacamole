@@ -4,11 +4,13 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_content_contract.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lottie/lottie.dart';
@@ -289,6 +291,64 @@ void main() {
       AccountStorageScope.authenticated('onboarding-test-user').v2Namespace,
     );
   });
+
+  for (final bool es in <bool>[false, true]) {
+    testWidgets('${es ? 'Spanish' : 'English'} skip note says one-time help '
+        'cards still appear', (WidgetTester tester) async {
+      _setLargeTestSurface(tester);
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        onboardingWelcomeCompleteStorageKey: true,
+      });
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          domainTaskRepositoryProvider.overrideWithValue(_EmptyTasks()),
+          accountStorageScopeProvider.overrideWithValue(
+            AccountStorageScope.authenticated('onboarding-test-user'),
+          ),
+        ],
+      );
+      container.read(onboardingWelcomeCompleteProvider.notifier).set(true);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: Locale(es ? 'es' : 'en'),
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const OnboardingScreen(),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(
+        find.text(es ? 'CONFIGURACIÓN: ÚLTIMO PASO' : 'SETUP: LAST STEP'),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('first-value-skip-top')));
+      await tester.pump(const Duration(milliseconds: 600));
+
+      expect(
+        find.text(
+          es
+              ? 'Guía omitida. Algunas páginas aún muestran una vez una '
+                    'tarjeta breve de Ayuda con esta página. Reinicia la guía '
+                    'cuando quieras en Ajustes › Reiniciar la Guía Adaptativa.'
+              : 'Guide skipped. Some pages still show a short Help with this '
+                    'page card once. Restart the guide anytime in Settings › '
+                    'Restart Adaptive Guide.',
+        ),
+        findsOneWidget,
+      );
+    });
+  }
 
   testWidgets('skip completes setup without staging guidance', (
     WidgetTester tester,

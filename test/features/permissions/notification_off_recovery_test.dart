@@ -65,6 +65,16 @@ void main() {
           ),
           findsNothing,
         );
+        expect(
+          find.text(
+            language == 'es'
+                ? 'Activa las notificaciones para recibir los recordatorios '
+                      'que pongas a tus tareas, hábitos y metas.'
+                : 'Turn on notifications to get the reminders you set for '
+                      'tasks, habits and goals.',
+          ),
+          findsOneWidget,
+        );
         await tester.tap(find.widgetWithText(FilledButton, enable));
         await tester.pumpAndSettle();
         expect(

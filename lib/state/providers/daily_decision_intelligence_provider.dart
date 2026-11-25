@@ -20,6 +20,7 @@ class DailyDecisionIntelligence {
     required this.evidence,
     required this.confidence,
     required this.observedOutcomes,
+    this.hasPlanWarning = false,
     this.replanTitle,
     this.replanAction,
   });
@@ -36,6 +37,11 @@ class DailyDecisionIntelligence {
   final List<String> evidence;
   final double confidence;
   final int observedOutcomes;
+
+  /// Whether [warning] reports something that constrains today's plan (a
+  /// decision warning, repeated deferrals, or time and load in conflict),
+  /// rather than that nothing does or that the evidence is not ready.
+  final bool hasPlanWarning;
   final String? replanTitle;
   final String? replanAction;
 }
@@ -73,6 +79,13 @@ final dailyDecisionIntelligenceProvider = Provider<DailyDecisionIntelligence>((
   final String trajectoryText =
       trajectory.predictionOutcome ?? 'Future path is still stabilizing.';
 
+  final bool evidenceReady =
+      !intelligenceAsync.hasError && !intelligenceAsync.isLoading;
+  final bool hasPlanWarning =
+      evidenceReady &&
+      (decision?.warnings.isNotEmpty == true ||
+          execution.hasDeferralPressure ||
+          momentum.pressurePercent >= 75);
   final String warning = intelligenceAsync.hasError
       ? 'Decision evidence is unavailable. Axiomara is not treating missing data as a clear plan.'
       : intelligenceAsync.isLoading
@@ -115,6 +128,7 @@ final dailyDecisionIntelligenceProvider = Provider<DailyDecisionIntelligence>((
         ? '${momentum.energyPercent}% energy'
         : 'Energy not checked',
     warning: warning,
+    hasPlanWarning: hasPlanWarning,
     recovery: recovery,
     recommendedAction: recommendedAction,
     rationale:

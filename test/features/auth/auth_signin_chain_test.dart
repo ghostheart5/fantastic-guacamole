@@ -430,7 +430,7 @@ void main() {
 
       expect(service.passwordResetCalls, isEmpty);
       expect(
-        find.text('Enter account email, then trigger password reset.'),
+        find.text('Enter your account email, then tap Forgot Password? again.'),
         findsOneWidget,
       );
     },

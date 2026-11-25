@@ -140,29 +140,36 @@ abstract final class GuidanceCatalogue {
     ),
     body: GuidanceText(
       'Read why it was suggested and what is uncertain before deciding.',
-      'Revisa la razón y la incertidumbre mostradas junto al bloque antes de actuar.',
+      'Lee por qué se sugirió y qué es incierto antes de decidir.',
     ),
     action: GuidanceAction(
       GuidanceActionKind.openScreen,
-      GuidanceText('Review today', 'Revisar en Hoy'),
+      GuidanceText('Review Today', 'Revisar Hoy'),
     ),
     completedBy: GuidanceCompletion.byMilestone(<GuidanceMilestone>{
       GuidanceMilestone.firstNexusReview,
     }),
   );
 
-  /// Ends the English Choose a step text, also after today's suggested
-  /// change takes the place of its first sentence.
-  static const String smartPlannerAskLine =
-      'Type a question to get a suggestion.';
+  /// The Choose a step text when today's plan has a suggested change.
+  static const GuidanceText smartPlannerSuggestedChange = GuidanceText(
+    'Your plan has a suggested change for today. Ask about it, or type another question to get a suggestion.',
+    'Tu plan tiene un cambio sugerido para hoy. Pregunta por él o escribe otra pregunta para recibir una sugerencia.',
+  );
+
+  /// Starts the Chat text when today's plan has a warning.
+  static const GuidanceText planWarningLead = GuidanceText(
+    'Your plan has a warning today.',
+    'Tu plan tiene un aviso hoy.',
+  );
 
   static const GuidanceHint smartPlanner = GuidanceHint(
     id: GuidanceLessonId.smartPlanner,
     route: RoutePaths.smartPlanner,
     title: GuidanceText('Ask for help with a plan', 'Pide ayuda con un plan'),
     body: GuidanceText(
-      'Ask one specific question about the ranked task, its constraints, or what should move. $smartPlannerAskLine',
-      'Haz una pregunta específica sobre la tarea elegida, sus límites o qué debería moverse.',
+      'Ask one clear question about the suggested task, what is holding it back, or what could move. Type a question to get a suggestion.',
+      'Haz una pregunta clara sobre la tarea sugerida, lo que la frena o lo que podría moverse. Escribe una pregunta para recibir una sugerencia.',
     ),
     action: GuidanceAction(
       GuidanceActionKind.openScreen,
@@ -179,11 +186,11 @@ abstract final class GuidanceCatalogue {
     title: GuidanceText('Record what happened', 'Registra lo que pasó'),
     body: GuidanceText(
       'Open a scheduled task. Mark it done, move it, or correct its details, then save your change.',
-      'Completa, aplaza o corrige un bloque. Solo el resultado guardado hace avanzar esta guía.',
+      'Abre una tarea con fecha. Márcala como hecha, muévela o corrige sus detalles y guarda el cambio.',
     ),
     action: GuidanceAction(
       GuidanceActionKind.openScreen,
-      GuidanceText('Open schedule', 'Abrir Mi plan'),
+      GuidanceText('Open My plan', 'Abrir Mi plan'),
     ),
     completedBy: GuidanceCompletion.byMilestone(<GuidanceMilestone>{
       GuidanceMilestone.firstCompletion,
@@ -206,7 +213,7 @@ abstract final class GuidanceCatalogue {
     ),
     action: GuidanceAction(
       GuidanceActionKind.openScreen,
-      GuidanceText('Review in schedule', 'Revisar en Mi plan'),
+      GuidanceText('Review in My plan', 'Revisar en Mi plan'),
     ),
     completedBy: GuidanceCompletion.byMilestone(<GuidanceMilestone>{
       GuidanceMilestone.firstCompletion,
@@ -219,14 +226,14 @@ abstract final class GuidanceCatalogue {
     route: RoutePaths.siConsole,
     title: GuidanceText('Ask what is missing', 'Pregunta qué falta'),
     body: GuidanceText(
-      'Ask what evidence is missing and what input could change the recommendation. '
+      'Ask what is missing from your plan, or what would change the suggestion. '
           'Free tools use no credits; questions to cloud AI show their price, up to 5 credits, before you confirm. Eligible free plans include 20 credits per month without rollover; check Settings for your allowance and reset date.',
-      'Pregunta qué evidencia falta y qué dato podría cambiar la recomendación. '
+      'Pregunta qué falta en tu plan o qué cambiaría la sugerencia. '
           'Las herramientas gratuitas no usan créditos; las preguntas a la IA en la nube muestran su precio, de hasta 5 créditos, antes de confirmar. Los planes gratuitos elegibles incluyen 20 créditos al mes sin acumulación; consulta tu asignación y fecha de renovación en Ajustes.',
     ),
     action: GuidanceAction(
       GuidanceActionKind.openScreen,
-      GuidanceText('Inspect evidence', 'Revisar las fuentes'),
+      GuidanceText('Ask in Chat', 'Preguntar en Chat'),
     ),
     completedBy: GuidanceCompletion.byMilestone(<GuidanceMilestone>{
       GuidanceMilestone.firstSiQuery,
@@ -239,7 +246,7 @@ abstract final class GuidanceCatalogue {
     title: GuidanceText('Compare another option', 'Compara otra opción'),
     body: GuidanceText(
       'Try a different time, amount of work, or priority. Compare the estimate before changing your plan.',
-      'Cambia tiempo, alcance o prioridad y compara las consecuencias y supuestos.',
+      'Prueba otra hora, otra cantidad de trabajo u otra prioridad. Compara la estimación antes de cambiar tu plan.',
     ),
     action: GuidanceAction(
       GuidanceActionKind.openScreen,
@@ -256,11 +263,11 @@ abstract final class GuidanceCatalogue {
     title: GuidanceText('Review your activity', 'Revisa tu actividad'),
     body: GuidanceText(
       'See the tasks and milestones you recorded. Open the details to review them.',
-      'Revisa los resultados detrás de la progresión. La revisión real completa esta guía.',
+      'Ve las tareas y los hitos que registraste. Abre los detalles para revisarlos.',
     ),
     action: GuidanceAction(
       GuidanceActionKind.openScreen,
-      GuidanceText('Review outcomes', 'Revisar resultados'),
+      GuidanceText('Review activity', 'Revisar actividad'),
     ),
     completedBy: GuidanceCompletion.byMilestone(<GuidanceMilestone>{
       GuidanceMilestone.firstProgressionReview,

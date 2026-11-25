@@ -111,7 +111,7 @@ class ChronoSparkLocalizations {
     return switch (id) {
       'createFirstItem' => 'Añadir una tarea',
       'scheduleFirstItem' => 'Elegir fecha y hora',
-      'reviewTimeline' => 'Abrir Mi plan',
+      'reviewTimeline' => 'Abrir agenda',
       _ => fallback,
     };
   }
@@ -276,7 +276,6 @@ class ChronoSparkLocalizations {
     ChronoSparkString.contextualGuidance: 'Help with this page',
     ChronoSparkString.openContextualGuidance: 'Open help for this page',
     ChronoSparkString.collapseGuidance: 'Hide help',
-    ChronoSparkString.useThisScreen: 'Continue here',
     ChronoSparkString.notNow: 'Not now',
     ChronoSparkString.cancel: 'Cancel',
     ChronoSparkString.securingAccountData: 'Securing account data',
@@ -415,7 +414,6 @@ class ChronoSparkLocalizations {
     ChronoSparkString.contextualGuidance: 'Ayuda con esta página',
     ChronoSparkString.openContextualGuidance: 'Abrir ayuda de esta página',
     ChronoSparkString.collapseGuidance: 'Ocultar ayuda',
-    ChronoSparkString.useThisScreen: 'Continuar aquí',
     ChronoSparkString.notNow: 'Ahora no',
     ChronoSparkString.cancel: 'Cancelar',
     ChronoSparkString.securingAccountData: 'Protegiendo datos de la cuenta',
@@ -1152,7 +1150,6 @@ enum ChronoSparkString {
   contextualGuidance,
   openContextualGuidance,
   collapseGuidance,
-  useThisScreen,
   notNow,
   cancel,
   securingAccountData,

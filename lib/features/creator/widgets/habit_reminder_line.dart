@@ -95,7 +95,7 @@ class HabitReminderLine extends ConsumerWidget {
           HabitReminderBlock.notificationsOff => journeyText(
             context,
             'Notifications are off',
-            'Notificaciones desactivadas',
+            'Las notificaciones están desactivadas',
           ),
           HabitReminderBlock.remindersOff => journeyText(
             context,

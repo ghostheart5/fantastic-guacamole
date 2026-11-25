@@ -13,125 +13,7 @@ void main() {
   test(
     'uses the evidence-backed decision instead of generic threshold copy',
     () async {
-      final DateTime now = DateTime.now().toUtc();
-      final OperatingSnapshot snapshot = OperatingSnapshot(
-        accountScope: 'account-a',
-        observedAt: now,
-        sourceRevisions: const <String, String>{'tasks': '4', 'timeline': '3'},
-        activeGoalCount: 2,
-        actionableCount: 4,
-        overdueCount: 1,
-        completedToday: 2,
-        energy: .63,
-        fatigue: .28,
-        momentum: 68,
-        pressure: 54,
-        topActionId: 'task-4',
-        topActionLabel: 'Finish the release evidence',
-        activeRisks: const <String>['One deadline is overdue.'],
-        evidenceCoverage: .82,
-      );
-      final OperatingDecisionReceipt decision = OperatingDecisionReceipt(
-        subjectId: 'task-4',
-        recommendedAction: 'Finish the release evidence',
-        rationale:
-            'It is the highest-ranked feasible action before the deadline.',
-        whyItMatters: 'It removes the current schedule bottleneck.',
-        consequenceOfDelay: 'The release window becomes less flexible.',
-        generatedAt: now,
-        expiresAt: now.add(const Duration(minutes: 20)),
-        confidence: OperatingConfidence.high,
-        evidence: <OperatingEvidence>[
-          OperatingEvidence(
-            code: 'ranked_action',
-            description: 'Task rank includes deadline, capacity, and energy.',
-            kind: OperatingEvidenceKind.derived,
-            recordedAt: now,
-            source: 'predictive_planning_v2',
-            subjectId: 'task-4',
-          ),
-        ],
-        actionIntent: const OperatingActionIntent(
-          id: 'open-task-4',
-          type: OperatingActionType.openTimeline,
-          label: 'Review on Timeline',
-          destination: '/timeline',
-          targetEntityId: 'task-4',
-        ),
-        sourceRevisions: const <String, String>{'tasks': '4', 'timeline': '3'},
-        modelVersion: 'predictive-planning-v2',
-      );
-      final DecisionIntelligence intelligence = DecisionIntelligence(
-        snapshot: snapshot,
-        delta: const OperatingDeltaEngine().compare(
-          previous: null,
-          current: snapshot,
-          comparedAt: now,
-        ),
-        decision: decision,
-        acknowledgedSnapshotId: null,
-      );
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          momentumEngineProvider.overrideWithValue(
-            const MomentumEngineState(
-              score: 68,
-              trend: 'Rising',
-              recovery: 'Recovered',
-              forecast: 'Observed momentum is rising.',
-              energyPercent: 63,
-              pressurePercent: 54,
-              streak: 5,
-              completedToday: 2,
-            ),
-          ),
-          adaptiveReplanningProvider.overrideWithValue(
-            const <AdaptiveReplanningScenario>[],
-          ),
-          executionSignalsProvider.overrideWithValue(
-            const ExecutionSignals(
-              createdToday: 1,
-              completedToday: 2,
-              skippedToday: 0,
-              delayedToday: 0,
-              created7d: 6,
-              completed7d: 5,
-              skipped7d: 1,
-              delayed7d: 0,
-            ),
-          ),
-          trajectorySummaryProvider.overrideWithValue(
-            const TrajectorySummaryView(
-              pendingTasks: 4,
-              completedTasks: 7,
-              completedToday: 2,
-              level: 3,
-              streak: 5,
-              energy: .63,
-              momentum: .68,
-              adaptability: .7,
-              lastCompletionXp: 40,
-              lastCompletionQuality: .8,
-              pressureIndex: 54,
-              behaviorDivergence: 9,
-              alert: 'Current evidence is stable.',
-              predictionTitle: null,
-              predictionOutcome: null,
-              predictionProbability: null,
-              predictionExplanation: null,
-            ),
-          ),
-          decisionIntelligenceProvider.overrideWith(
-            (Ref ref) async => intelligence,
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      await container.read(decisionIntelligenceProvider.future);
-      final DailyDecisionIntelligence result = container.read(
-        dailyDecisionIntelligenceProvider,
-      );
+      final DailyDecisionIntelligence result = await _read();
 
       expect(result.recommendedAction, 'Finish the release evidence');
       expect(result.rationale, contains('highest-ranked feasible action'));
@@ -144,4 +26,154 @@ void main() {
       expect(result.observedOutcomes, 6);
     },
   );
+
+  group('hasPlanWarning says whether the plan has a real warning', () {
+    test('no warning when nothing constrains the plan', () async {
+      final DailyDecisionIntelligence result = await _read();
+      expect(result.warning, startsWith('No material constraint'));
+      expect(result.hasPlanWarning, isFalse);
+    });
+
+    test('a warning from the decision', () async {
+      final DailyDecisionIntelligence result = await _read(
+        warnings: const <String>['One deadline is overdue.'],
+      );
+      expect(result.warning, 'One deadline is overdue.');
+      expect(result.hasPlanWarning, isTrue);
+    });
+
+    test('time and load in conflict', () async {
+      final DailyDecisionIntelligence result = await _read(pressure: 80);
+      expect(result.hasPlanWarning, isTrue);
+    });
+
+    test('tasks moved or skipped today', () async {
+      final DailyDecisionIntelligence result = await _read(skippedToday: 2);
+      expect(result.hasPlanWarning, isTrue);
+    });
+  });
+}
+
+Future<DailyDecisionIntelligence> _read({
+  List<String> warnings = const <String>[],
+  int pressure = 54,
+  int skippedToday = 0,
+}) async {
+  final DateTime now = DateTime.now().toUtc();
+  final OperatingSnapshot snapshot = OperatingSnapshot(
+    accountScope: 'account-a',
+    observedAt: now,
+    sourceRevisions: const <String, String>{'tasks': '4', 'timeline': '3'},
+    activeGoalCount: 2,
+    actionableCount: 4,
+    overdueCount: 1,
+    completedToday: 2,
+    energy: .63,
+    fatigue: .28,
+    momentum: 68,
+    pressure: 54,
+    topActionId: 'task-4',
+    topActionLabel: 'Finish the release evidence',
+    activeRisks: const <String>['One deadline is overdue.'],
+    evidenceCoverage: .82,
+  );
+  final OperatingDecisionReceipt decision = OperatingDecisionReceipt(
+    subjectId: 'task-4',
+    recommendedAction: 'Finish the release evidence',
+    rationale: 'It is the highest-ranked feasible action before the deadline.',
+    whyItMatters: 'It removes the current schedule bottleneck.',
+    consequenceOfDelay: 'The release window becomes less flexible.',
+    generatedAt: now,
+    expiresAt: now.add(const Duration(minutes: 20)),
+    confidence: OperatingConfidence.high,
+    evidence: <OperatingEvidence>[
+      OperatingEvidence(
+        code: 'ranked_action',
+        description: 'Task rank includes deadline, capacity, and energy.',
+        kind: OperatingEvidenceKind.derived,
+        recordedAt: now,
+        source: 'predictive_planning_v2',
+        subjectId: 'task-4',
+      ),
+    ],
+    actionIntent: const OperatingActionIntent(
+      id: 'open-task-4',
+      type: OperatingActionType.openTimeline,
+      label: 'Review on Timeline',
+      destination: '/timeline',
+      targetEntityId: 'task-4',
+    ),
+    sourceRevisions: const <String, String>{'tasks': '4', 'timeline': '3'},
+    modelVersion: 'predictive-planning-v2',
+    warnings: warnings,
+  );
+  final DecisionIntelligence intelligence = DecisionIntelligence(
+    snapshot: snapshot,
+    delta: const OperatingDeltaEngine().compare(
+      previous: null,
+      current: snapshot,
+      comparedAt: now,
+    ),
+    decision: decision,
+    acknowledgedSnapshotId: null,
+  );
+  final ProviderContainer container = ProviderContainer(
+    overrides: [
+      momentumEngineProvider.overrideWithValue(
+        MomentumEngineState(
+          score: 68,
+          trend: 'Rising',
+          recovery: 'Recovered',
+          forecast: 'Observed momentum is rising.',
+          energyPercent: 63,
+          pressurePercent: pressure,
+          streak: 5,
+          completedToday: 2,
+        ),
+      ),
+      adaptiveReplanningProvider.overrideWithValue(
+        const <AdaptiveReplanningScenario>[],
+      ),
+      executionSignalsProvider.overrideWithValue(
+        ExecutionSignals(
+          createdToday: 1,
+          completedToday: 2,
+          skippedToday: skippedToday,
+          delayedToday: 0,
+          created7d: 6,
+          completed7d: 5,
+          skipped7d: 1,
+          delayed7d: 0,
+        ),
+      ),
+      trajectorySummaryProvider.overrideWithValue(
+        const TrajectorySummaryView(
+          pendingTasks: 4,
+          completedTasks: 7,
+          completedToday: 2,
+          level: 3,
+          streak: 5,
+          energy: .63,
+          momentum: .68,
+          adaptability: .7,
+          lastCompletionXp: 40,
+          lastCompletionQuality: .8,
+          pressureIndex: 54,
+          behaviorDivergence: 9,
+          alert: 'Current evidence is stable.',
+          predictionTitle: null,
+          predictionOutcome: null,
+          predictionProbability: null,
+          predictionExplanation: null,
+        ),
+      ),
+      decisionIntelligenceProvider.overrideWith(
+        (Ref ref) async => intelligence,
+      ),
+    ],
+  );
+  addTearDown(container.dispose);
+
+  await container.read(decisionIntelligenceProvider.future);
+  return container.read(dailyDecisionIntelligenceProvider);
 }

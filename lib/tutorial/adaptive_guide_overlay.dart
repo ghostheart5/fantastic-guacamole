@@ -653,7 +653,7 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         key: const Key('guide_hint_card'),
         label: l10n.text(ChronoSparkString.contextualGuidance),
         title: spanish && entry != null ? entry.title.es : lesson.title,
-        body: spanish && entry != null ? entry.body.es : lesson.body,
+        body: lesson.hintBody?.of(spanish: spanish) ?? lesson.body,
         // "Not now" keeps its stored per-lesson mute, which Settings counts.
         dismissLabel: l10n.text(ChronoSparkString.notNow),
         onDismiss: () {
@@ -687,11 +687,11 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   ) {
     return switch (step) {
       CreatorTutorialStep.title => _CreatorStepCopy(
-        title: _copy(l10n, 'Name the real task', 'Nombra la tarea real'),
+        title: _copy(l10n, 'Name your task', 'Ponle nombre a tu tarea'),
         body: _copy(
           l10n,
-          'Type a concrete outcome in the title field below, then tap Title entered.',
-          'Escribe un resultado concreto en el campo de título de abajo y toca Título escrito.',
+          'Type what you need to do in the title field below, then tap Title entered.',
+          'Escribe lo que necesitas hacer en el campo de título de abajo y toca Título escrito.',
         ),
         action: _copy(l10n, 'Title entered', 'Título escrito'),
       ),
@@ -699,17 +699,17 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         title: _copy(l10n, 'Set its priority', 'Define su prioridad'),
         body: _copy(
           l10n,
-          'Choose how important this task is. Your selection helps rank upcoming work.',
-          'Elige la importancia de esta tarea. Tu selección ayuda a ordenar el trabajo próximo.',
+          'Choose how important this task is. This helps decide what to suggest first.',
+          'Elige qué tan importante es esta tarea. Esto ayuda a decidir qué sugerir primero.',
         ),
         action: _copy(l10n, 'Priority chosen', 'Prioridad elegida'),
       ),
       CreatorTutorialStep.schedule => _CreatorStepCopy(
-        title: _copy(l10n, 'Put it on the calendar', 'Ponla en el calendario'),
+        title: _copy(l10n, 'Pick a date and time', 'Elige fecha y hora'),
         body: _copy(
           l10n,
-          'Choose a real date and time. Scheduling is required for this first task so it can appear on Schedule.',
-          'Elige una fecha y hora reales. La primera tarea necesita horario para aparecer en agenda.',
+          'Pick a date and time. This first task needs one so it can appear on Schedule.',
+          'Elige una fecha y una hora. Esta primera tarea necesita una para aparecer en la agenda.',
         ),
         action: _copy(l10n, 'Schedule chosen', 'Horario elegido'),
       ),
@@ -717,21 +717,17 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         title: _copy(l10n, 'Review before saving', 'Revisa antes de guardar'),
         body: _copy(
           l10n,
-          'Open the confirmation preview and verify the exact task. Nothing is saved until the final confirmation.',
-          'Abre la vista de confirmación y verifica la tarea exacta. Nada se guarda hasta la confirmación final.',
+          'Open the review and check your task. Nothing is saved until you confirm.',
+          'Abre la revisión y comprueba tu tarea. No se guarda nada hasta que confirmes.',
         ),
         action: _copy(l10n, 'Review changes', 'Revisar cambios'),
       ),
       CreatorTutorialStep.confirm => _CreatorStepCopy(
-        title: _copy(
-          l10n,
-          'Confirm the exact task',
-          'Confirma la tarea exacta',
-        ),
+        title: _copy(l10n, 'Confirm your task', 'Confirma tu tarea'),
         body: _copy(
           l10n,
-          'Confirm the reviewed task once. Axiomara will save it and open Schedule so you can verify where it landed.',
-          'Confirma la tarea revisada una vez. Axiomara la guardará y abrirá agenda para verificar dónde quedó.',
+          'Confirm once. Axiomara saves your task and opens Schedule so you can see where it is.',
+          'Confirma una vez. Axiomara guarda tu tarea y abre la agenda para que veas dónde quedó.',
         ),
         action: _completingCreator
             ? _copy(l10n, 'Saving', 'Guardando')
