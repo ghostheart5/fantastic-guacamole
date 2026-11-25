@@ -28,12 +28,12 @@ extension _AiChatConsent on _AssistantConversationScreenState {
         ref.read(authSessionBoundaryProvider).generation != authGeneration) {
       return;
     }
-    final profile = ref.read(personalizationProfileProvider);
-    if (profile.externalAiAllowed) return;
+    // Waits for the stored profile, so the person's other choices are kept;
+    // writes nothing if the account changes while it waits.
     try {
       await ref
           .read(personalizationProfileProvider.notifier)
-          .update(profile.copyWith(externalAiAllowed: true));
+          .setExternalAiAllowed(true);
     } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

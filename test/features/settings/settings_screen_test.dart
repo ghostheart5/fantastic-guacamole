@@ -1683,11 +1683,13 @@ void main() {
               ? 'Qué se envía: tu pregunta, hasta seis mensajes recientes de esta conversación y la información que se muestra en la vista previa antes de enviar.\n'
                     'Quién lo recibe: Axiomara, para calcular el precio. Si confirmas el precio, Axiomara lo envía a Anthropic, el proveedor de IA, para obtener la respuesta.\n'
                     'Cuánto tiempo se guarda: Anthropic normalmente lo conserva hasta 30 días.\n'
-                    'Cuánto cuesta: cada mensaje muestra su precio en créditos antes de enviar nada. No se cobra nada hasta que confirmes ese precio.'
+                    'Cuánto cuesta: cada mensaje muestra su precio en créditos antes de enviarlo a Anthropic. No se cobra nada hasta que confirmes ese precio.\n'
+                    'También en Elegir un paso: donde se ofrece, el botón opcional Explicar este plan envía el plan que ves en pantalla a Axiomara para mostrarte su precio en créditos, y a Anthropic solo después de que confirmes ese precio.'
               : 'What is sent: your question, up to six recent messages from this conversation, and the information shown in the preview before you send.\n'
                     'Who receives it: Axiomara, to work out the price. If you confirm the price, Axiomara sends it to Anthropic, the AI provider, for a reply.\n'
                     'How long it is kept: Anthropic normally keeps it for up to 30 days.\n'
-                    'What it costs: each message shows its price in credits before anything is sent. Nothing is charged until you confirm that price.',
+                    'What it costs: each message shows its price in credits before it is sent to Anthropic. Nothing is charged until you confirm that price.\n'
+                    'Also on Choose a step: where it is offered, the optional Explain this plan button sends the plan shown on screen to Axiomara to show you its price in credits, and to Anthropic only after you confirm that price.',
         );
         expect(explanation, findsOneWidget);
         expect(find.text(spanish ? 'Chat con IA' : 'AI chat'), findsOneWidget);

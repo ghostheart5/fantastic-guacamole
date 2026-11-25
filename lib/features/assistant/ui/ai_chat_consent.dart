@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 /// What turning on AI chat means, in plain words. Chat's consent sheet and the
 /// Settings switch show the same text. The facts match the per-request review
 /// in the conversation screen: the provider, retention and that every message
-/// shows its credit price before anything is sent or charged.
+/// shows its credit price before it reaches Anthropic or is charged.
 class AiChatDisclosure {
   const AiChatDisclosure({required this.spanish});
 
@@ -29,12 +29,29 @@ class AiChatDisclosure {
     'Cuánto tiempo se guarda: Anthropic normalmente lo conserva hasta 30 días.',
   );
 
+  // The question goes to Axiomara to get the price, so the price is shown
+  // before anything reaches Anthropic, not before anything is sent.
   String get cost => _copy(
-    'What it costs: each message shows its price in credits before anything is sent. Nothing is charged until you confirm that price.',
-    'Cuánto cuesta: cada mensaje muestra su precio en créditos antes de enviar nada. No se cobra nada hasta que confirmes ese precio.',
+    'What it costs: each message shows its price in credits before it is sent to Anthropic. Nothing is charged until you confirm that price.',
+    'Cuánto cuesta: cada mensaje muestra su precio en créditos antes de enviarlo a Anthropic. No se cobra nada hasta que confirmes ese precio.',
   );
 
-  List<String> get lines => [whatIsSent, toWhom, howLong, cost];
+  // The same preference also allows Choose a step's optional plan
+  // explanation (plannerExplanationAvailabilityProvider). It sends the
+  // visible plan (PlannerExplanationPacket) for a quote first, then to
+  // Anthropic only after the person confirms that quote.
+  String get planExplanation => _copy(
+    'Also on Choose a step: where it is offered, the optional Explain this plan button sends the plan shown on screen to Axiomara to show you its price in credits, and to Anthropic only after you confirm that price.',
+    'También en Elegir un paso: donde se ofrece, el botón opcional Explicar este plan envía el plan que ves en pantalla a Axiomara para mostrarte su precio en créditos, y a Anthropic solo después de que confirmes ese precio.',
+  );
+
+  List<String> get lines => [
+    whatIsSent,
+    toWhom,
+    howLong,
+    cost,
+    planExplanation,
+  ];
 
   /// The whole explanation as one block, for the Settings switch.
   String get summary => lines.join('\n');
@@ -74,28 +91,39 @@ class _AiChatConsentSheet extends StatelessWidget {
     final disclosure = AiChatDisclosure(spanish: spanish);
     String copy(String en, String es) => spanish ? es : en;
     final theme = Theme.of(context);
-    return SingleChildScrollView(
+    // The explanation scrolls; the two choices stay visible below it.
+    return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Semantics(
-            header: true,
-            child: Text(
-              copy('Turn on AI chat?', '¿Activar el chat con IA?'),
-              style: theme.textTheme.titleLarge,
-            ),
-          ),
-          const SizedBox(height: 12),
-          for (final line in disclosure.lines) ...[
-            Text(line),
-            const SizedBox(height: 8),
-          ],
-          Text(
-            copy(
-              'Turning it on sends nothing by itself. You can turn it off again in Settings › Planning & guidance.',
-              'Activarlo no envía nada por sí solo. Puedes volver a desactivarlo en Ajustes › Planificación y orientación.',
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      copy('Turn on AI chat?', '¿Activar el chat con IA?'),
+                      style: theme.textTheme.titleLarge,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  for (final line in disclosure.lines) ...[
+                    Text(line),
+                    const SizedBox(height: 8),
+                  ],
+                  Text(
+                    copy(
+                      'Turning it on sends nothing by itself. You can turn it off again in Settings › Planning & guidance.',
+                      'Activarlo no envía nada por sí solo. Puedes volver a desactivarlo en Ajustes › Planificación y orientación.',
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),

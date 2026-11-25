@@ -10,6 +10,24 @@ class _PersonalizationSection extends ConsumerWidget {
   ) async {
     await ref.read(personalizationProfileProvider.notifier).update(next);
     if (!context.mounted) return;
+    _showSaved(context);
+  }
+
+  // Waits for the stored profile, so turning AI chat on or off never writes
+  // defaults over the other stored choices.
+  Future<void> _saveAiChat(
+    BuildContext context,
+    WidgetRef ref,
+    bool allowed,
+  ) async {
+    await ref
+        .read(personalizationProfileProvider.notifier)
+        .setExternalAiAllowed(allowed);
+    if (!context.mounted) return;
+    _showSaved(context);
+  }
+
+  void _showSaved(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -172,11 +190,7 @@ class _PersonalizationSection extends ConsumerWidget {
             _NeonToggleTile(
               title: isSpanish ? 'Permitir el chat con IA' : 'Allow AI chat',
               value: profile.externalAiAllowed,
-              onChanged: (bool value) => _save(
-                context,
-                ref,
-                profile.copyWith(externalAiAllowed: value),
-              ),
+              onChanged: (bool value) => _saveAiChat(context, ref, value),
             ),
           ] else
             _NeonStatusTile(
