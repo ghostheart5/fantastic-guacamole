@@ -4,7 +4,6 @@ import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
-import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
 import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
 import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
@@ -935,19 +934,6 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
         expectedFirstRunCreatorTaskIds: const <String>{},
       ),
     );
-  }
-
-  Future<void> replayOnboarding() async {
-    if (_activeScope == null) return;
-    await record(GuidanceMilestone.replayed);
-    await _restartLessons(replayCore: true);
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(onboardingWelcomeCompleteStorageKey, false);
-    await prefs.setBool(onboardingCompleteStorageKey, false);
-    await prefs.setInt(onboardingContentVersionStorageKey, 0);
-    await ref.read(accountOnboardingCompleteProvider.notifier).reset();
-    ref.read(onboardingCompleteProvider.notifier).set(false);
-    ref.read(onboardingWelcomeCompleteProvider.notifier).set(false);
   }
 
   Future<AdaptiveGuidanceState> _current() async {

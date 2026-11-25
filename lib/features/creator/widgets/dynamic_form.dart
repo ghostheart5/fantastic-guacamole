@@ -362,16 +362,11 @@ class _DynamicFormState extends State<DynamicForm> {
             ),
           ],
           const SizedBox(height: 20),
-          KeyedSubtree(
-            key: widget.guidedFirstTask
-                ? FirstRunTutorialTargets.creatorSave
-                : null,
-            child: TemporalActionButton(
-              label: _submitting ? _copy.working : _createActionLabel,
-              onPressed: _submitting ? null : _submit,
-              icon: _submitting ? Icons.hourglass_top_rounded : _iconFor(_type),
-              accent: _accentFor(_type),
-            ),
+          TemporalActionButton(
+            label: _submitting ? _copy.working : _createActionLabel,
+            onPressed: _submitting ? null : _submit,
+            icon: _submitting ? Icons.hourglass_top_rounded : _iconFor(_type),
+            accent: _accentFor(_type),
           ),
         ],
       ),
@@ -446,36 +441,26 @@ class _DynamicFormState extends State<DynamicForm> {
       },
     ),
     const SizedBox(height: 18),
-    KeyedSubtree(
-      key: widget.guidedFirstTask
-          ? FirstRunTutorialTargets.creatorPriority
-          : null,
-      child: _PriorityPicker(
-        value: _priority,
-        onChanged: (int value) {
-          widget.onPriorityChosen?.call();
-          setState(() => _priority = value);
-        },
-      ),
+    _PriorityPicker(
+      value: _priority,
+      onChanged: (int value) {
+        widget.onPriorityChosen?.call();
+        setState(() => _priority = value);
+      },
     ),
     const SizedBox(height: 18),
-    KeyedSubtree(
-      key: widget.guidedFirstTask
-          ? FirstRunTutorialTargets.creatorSchedule
-          : null,
-      child: _DateField(
-        label: widget.guidedFirstTask ? _copy.requiredSchedule : _copy.schedule,
-        emptyLabel: _copy.pickSchedule,
-        selected: _scheduledFor,
-        includeTime: true,
-        accent: AppColors.neonCyan,
-        onVisibilityChanged: widget.onPickerVisibilityChanged,
-        onPick: (DateTime? date) {
-          if (!mounted) return;
-          setState(() => _scheduledFor = date);
-          widget.onScheduleValidityChanged?.call(date != null);
-        },
-      ),
+    _DateField(
+      label: widget.guidedFirstTask ? _copy.requiredSchedule : _copy.schedule,
+      emptyLabel: _copy.pickSchedule,
+      selected: _scheduledFor,
+      includeTime: true,
+      accent: AppColors.neonCyan,
+      onVisibilityChanged: widget.onPickerVisibilityChanged,
+      onPick: (DateTime? date) {
+        if (!mounted) return;
+        setState(() => _scheduledFor = date);
+        widget.onScheduleValidityChanged?.call(date != null);
+      },
     ),
     const SizedBox(height: 18),
     _DateField(

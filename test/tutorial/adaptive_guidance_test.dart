@@ -438,50 +438,6 @@ void main() {
   );
 
   test(
-    'Replay reopens core guidance without deleting product milestones',
-    () async {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
-      final ProviderContainer first = _guidanceContainer(
-        'guidance-replay-user',
-      );
-      await first.read(adaptiveGuidanceProvider.future);
-      final AdaptiveGuidanceNotifier notifier = first.read(
-        adaptiveGuidanceProvider.notifier,
-      );
-      await notifier.record(GuidanceMilestone.firstItem);
-      await notifier.record(GuidanceMilestone.firstSchedule);
-      await notifier.record(GuidanceMilestone.firstTimelineReview);
-
-      await notifier.replayOnboarding();
-      final AdaptiveGuidanceState replaying = first
-          .read(adaptiveGuidanceProvider)
-          .requireValue;
-      expect(replaying.coreComplete, isTrue);
-      expect(replaying.replayLessons, _replayableCoreLessonMatcher);
-      expect(
-        replaying
-            .nextIntervention(
-              currentRoute: RoutePaths.nexus,
-              decision: _decision,
-            )
-            ?.id,
-        GuidanceLessonId.createFirstItem,
-      );
-      first.dispose();
-
-      final ProviderContainer restarted = _guidanceContainer(
-        'guidance-replay-user',
-      );
-      addTearDown(restarted.dispose);
-      final AdaptiveGuidanceState persisted = await restarted.read(
-        adaptiveGuidanceProvider.future,
-      );
-      expect(persisted.coreComplete, isTrue);
-      expect(persisted.replayLessons, _replayableCoreLessonMatcher);
-    },
-  );
-
-  test(
     'Restarted core replay advances on new evidence and can pause',
     () async {
       SharedPreferences.setMockInitialValues(<String, Object>{});

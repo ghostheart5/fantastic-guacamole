@@ -16,8 +16,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Never asks when notifications are already allowed, and always shows the
 /// explanation before the system dialog. After this account said no (to the
 /// explanation or to the system) it does not ask again by itself; pass
-/// [userInitiated] for an explicit "turn on notifications" action. [request]
-/// replaces the plain system request. Returns whether notifications are allowed afterwards.
+/// [userInitiated] for an explicit "turn on notifications" action. Returns whether
+/// notifications are allowed afterwards.
 ///
 /// Pass [afterSave] when something with a reminder was just saved: if the
 /// account already refused, the guide then says once, on this screen, where
@@ -27,7 +27,6 @@ Future<bool> ensureNotificationPermission(
   WidgetRef ref, {
   bool userInitiated = false,
   bool afterSave = false,
-  Future<bool> Function()? request,
 }) async {
   final NotificationPermissionController permission = ref.read(
     notificationPermissionProvider.notifier,
@@ -52,7 +51,7 @@ Future<bool> ensureNotificationPermission(
       isSpanish: ChronoSparkLocalizations.of(context).isSpanish,
     ),
     onPrimary: () async {
-      granted = await permission.request(via: request);
+      granted = await permission.request();
     },
   );
   if (granted == null) await permission.recordDeclined();

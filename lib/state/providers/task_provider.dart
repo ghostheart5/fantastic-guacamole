@@ -115,7 +115,7 @@ class TaskActions {
   static final CompletionScoringEngine _scoringEngine =
       CompletionScoringEngine();
 
-  Future<void> createTask(TaskEntity entity, {bool notify = false}) async {
+  Future<void> createTask(TaskEntity entity) async {
     final String trimmed = entity.title.trim();
     if (trimmed.isEmpty) {
       return;
@@ -141,7 +141,6 @@ class TaskActions {
       operation: operation,
       task: normalized,
       timestamp: now,
-      notify: notify,
     );
     if (!operation.isCurrent(_ref)) return;
 
@@ -160,7 +159,7 @@ class TaskActions {
     _ref.invalidate(goalProgressProvider);
   }
 
-  Future<void> createQuickTask(String title, {bool notify = false}) async {
+  Future<void> createQuickTask(String title) async {
     final String trimmed = title.trim();
     if (trimmed.isEmpty) {
       return;
@@ -174,7 +173,7 @@ class TaskActions {
       difficulty: 3,
       energyRequired: 3,
     );
-    await createTask(entity, notify: notify);
+    await createTask(entity);
   }
 
   Future<void> updateTask({required String id, required String title}) =>
@@ -614,7 +613,6 @@ class TaskActions {
     required _TaskAccountOperation operation,
     required TaskEntity task,
     required DateTime timestamp,
-    required bool notify,
   }) async {
     await _bestEffort(
       operation,
