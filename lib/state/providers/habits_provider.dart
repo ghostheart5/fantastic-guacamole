@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.da
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/rhythm_planning_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_reminder_sync_provider.dart';
 import 'package:fantastic_guacamole/state/services/habit_occurrence_coordinator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -34,7 +35,7 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
       try {
         habits = await _migrateLegacyReminder(habits, owner);
         owner.check();
-        await _syncReminders(habits);
+        await _syncRemindersByDifference(habits, owner);
       } on Object catch (error, stack) {
         Logger.errorCategory(
           'RhythmReminderSync',
@@ -68,6 +69,24 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
     return ref
         .read(reminderOrchestratorServiceProvider)
         .syncHabitReminders(habits, shouldContinue: () => owner.isCurrent);
+  }
+
+  /// Every cold start rebuilds this list. Only what differs changes, so a
+  /// reminder already shown stays in the tray. Until the scheduler is set up
+  /// the next full reconcile does this.
+  Future<void> _syncRemindersByDifference(
+    List<HabitEntity> habits,
+    AccountOperation owner,
+  ) async {
+    final bool? granted = await notificationPermissionIfReady(ref);
+    if (granted == null || !owner.isCurrent) return;
+    await ref
+        .read(reminderOrchestratorServiceProvider)
+        .syncHabitReminderGroup(
+          habits: habits,
+          permissionGranted: granted,
+          shouldContinue: () => owner.isCurrent,
+        );
   }
 
   Future<void> _afterOutcome(AccountOperation owner) async {
@@ -259,27 +278,35 @@ class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
   });
 
   /// Sets (or clears, with null) the habit's own reminder time, as minutes
-  /// after midnight. Changing a reminder is not a frequency change, so the
-  /// habit's history and revision stay untouched.
-  Future<void> setReminderTime(String id, int? minutesAfterMidnight) =>
-      _mutate((current) async {
-        if (!current.any((value) => value.id == id)) {
-          throw StateError('Daily Rhythm not found.');
-        }
-        final next = current
-            .map(
-              (habit) => habit.id == id
-                  ? habit.copyWith(
-                      reminderMinutes: minutesAfterMidnight,
-                      clearReminder: minutesAfterMidnight == null,
-                      updatedAt: DateTime.now(),
-                    )
-                  : habit,
-            )
-            .toList(growable: false);
-        await ref.read(saveHabitsUseCaseProvider).call(next);
-        return next;
-      });
+  /// after midnight, and, when given, the weekdays (weekly habits) or the
+  /// day of the month (monthly habits) it reminds on. Changing a reminder is
+  /// not a frequency change, so the habit's history and revision stay
+  /// untouched.
+  Future<void> setReminderTime(
+    String id,
+    int? minutesAfterMidnight, {
+    List<int>? weekdays,
+    int? dayOfMonth,
+  }) => _mutate((current) async {
+    if (!current.any((value) => value.id == id)) {
+      throw StateError('Daily Rhythm not found.');
+    }
+    final next = current
+        .map(
+          (habit) => habit.id == id
+              ? habit.copyWith(
+                  reminderMinutes: minutesAfterMidnight,
+                  clearReminder: minutesAfterMidnight == null,
+                  reminderWeekdays: weekdays,
+                  reminderDayOfMonth: dayOfMonth,
+                  updatedAt: DateTime.now(),
+                )
+              : habit,
+        )
+        .toList(growable: false);
+    await ref.read(saveHabitsUseCaseProvider).call(next);
+    return next;
+  });
 
   Future<void> removeHabit(String id) => _mutate(
     (current) =>

@@ -1,7 +1,26 @@
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
+import 'package:fantastic_guacamole/state/providers/notification_permission_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('notification permission memory is removed with the account', () {
+    final String namespace = AccountDataRegistry.accountNamespace('owner-a');
+    final AccountDataCleanupPlan plan = AccountDataRegistry.cleanupPlanFor(
+      'owner-a',
+    );
+    for (final String key in <String>[
+      NotificationPermissionController.refusalKey,
+      NotificationPermissionController.noticeDismissedKey,
+    ]) {
+      expect(plan.preferenceExactKeys, contains('$key.$namespace'));
+      // A device-side memory of "no" is never restored from a backup.
+      expect(
+        AccountDataRegistry.accountPreferenceBackupKeys,
+        isNot(contains(key)),
+      );
+    }
+  });
+
   test('Chat history is local-only and covered by account cleanup', () {
     final domain = accountDataDomains.singleWhere(
       (d) => d.id == 'assistant_chat_history',

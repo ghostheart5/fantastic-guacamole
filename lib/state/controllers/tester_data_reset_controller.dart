@@ -57,7 +57,6 @@ class TesterDataResetController {
     _ref.invalidate(completionScoreProvider);
     _ref.invalidate(momentumProvider);
     _ref.invalidate(emotionCheckInProvider);
-    _ref.invalidate(aiDecisionProvider);
     _ref.invalidate(aiResponseProvider);
     _ref.invalidate(smartPlannerAiResponseProvider);
     _ref.invalidate(aiAgentTraceProvider);

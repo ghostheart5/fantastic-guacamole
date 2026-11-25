@@ -593,7 +593,7 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
     );
     if (next == null || !mounted) return;
 
-    await _runManagementAction(
+    final bool saved = await _runManagementAction(
       action: () => ref
           .read(taskActionsProvider)
           .updateTaskDetails(
@@ -621,6 +621,14 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
         'Task could not be updated. Refresh and try again.',
         'No se pudo actualizar la tarea. Actualiza e inténtalo de nuevo.',
       ),
+    );
+    if (!saved || !mounted) return;
+    // Saved first; then ask in context when the task now has a reminder.
+    await askForRemindersAfterTaskSave(
+      context,
+      ref,
+      scheduledFor: next.scheduledFor,
+      dueDate: next.dueDate,
     );
   }
 
@@ -683,27 +691,30 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
     );
   }
 
-  Future<void> _runManagementAction({
+  /// Whether [action] succeeded.
+  Future<bool> _runManagementAction({
     required Future<void> Function() action,
     required String successMessage,
     required String errorMessage,
   }) async {
-    if (_busy) return;
+    if (_busy) return false;
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
       await action();
-      if (!mounted) return;
+      if (!mounted) return true;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(successMessage)));
+      return true;
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _error = errorMessage;
       });
+      return false;
     } finally {
       if (mounted) {
         setState(() {

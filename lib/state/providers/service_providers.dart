@@ -74,6 +74,8 @@ final reminderOrchestratorServiceProvider =
         loadHabitOccurrences: occurrences?.load,
         // Linked-task progress drives each goal's "almost there" reminder.
         loadGoalTasks: () => ref.read(getTasksUseCaseProvider).call(),
+        // Dated open tasks get their own reminders.
+        loadTasks: () => ref.read(getTasksUseCaseProvider).call(),
       );
     });
 

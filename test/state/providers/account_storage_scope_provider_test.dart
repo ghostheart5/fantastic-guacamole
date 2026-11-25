@@ -193,9 +193,11 @@ void main() {
 
     expect(authenticatedRepository, isNot(same(signedOutRepository)));
     expect(authenticatedUseCase, isNot(same(signedOutUseCase)));
+    // Writes go through a wrapper that also updates task reminders; the
+    // store it wraps is the current account's repository.
     expect(
-      container.read(taskRepositoryProvider),
-      same(authenticatedRepository),
+      container.read(taskStoreProvider),
+      same(container.read(taskRepositoryProvider)),
     );
   });
 

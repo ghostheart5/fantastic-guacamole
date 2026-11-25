@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/app/notification_destination.dart';
 import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart'
     as route_guards;
@@ -11,6 +12,7 @@ import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
+import 'package:fantastic_guacamole/features/creator/ui/daily_rhythms_screen.dart';
 import 'package:fantastic_guacamole/features/creator/ui/record_library_screen.dart';
 import 'package:fantastic_guacamole/features/goals/ui/goals_screen.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
@@ -149,11 +151,14 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     }
     _reminderRecoverySubscription = ref.listenManual(
       _reminderRecoveryOwnerProvider,
-      (_, next) => _queueReminderRecovery(next),
+      (_, next) {
+        _queueReminderRecovery(next);
+        // A cold-launch tap waits for this same readiness.
+        _routeHeldLaunchPayload();
+      },
       fireImmediately: true,
     );
     _energySubscription = ref.listenManual<double>(energyProvider, (_, _) {
-      ref.invalidate(aiDecisionProvider);
       ref.invalidate(aiResponseProvider);
       ref.invalidate(smartPlannerAiResponseProvider);
     });
@@ -161,7 +166,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       _,
       _,
     ) {
-      ref.invalidate(aiDecisionProvider);
       ref.invalidate(aiResponseProvider);
       ref.invalidate(smartPlannerAiResponseProvider);
     });
@@ -227,6 +231,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     NotificationScheduler.tappedPayloadListenable.addListener(
       _onNotificationTapped,
     );
+    NotificationScheduler.heldLaunchPayloadListenable.addListener(
+      _onHeldLaunchPayload,
+    );
   }
 
   @override
@@ -234,6 +241,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     WidgetsBinding.instance.removeObserver(this);
     NotificationScheduler.tappedPayloadListenable.removeListener(
       _onNotificationTapped,
+    );
+    NotificationScheduler.heldLaunchPayloadListenable.removeListener(
+      _onHeldLaunchPayload,
     );
     _entitlementAuthorityRecheckTimer?.cancel();
     _networkRetryDebounceTimer?.cancel();
@@ -331,6 +341,17 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         _syncAppFlowToRouteView(widget.initialView);
         break;
     }
+  }
+
+  // Class methods (not the extension's), so add and remove get equal tear-offs.
+  void _onHeldLaunchPayload() => _routeHeldLaunchPayload();
+  void _onNotificationTapped() => _routeTappedNotification();
+
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    // Reminder text follows the app language: register it again in the new
+    // one (only reminders whose text changed are replaced).
+    _queueReminderRecovery(ref.read(_reminderRecoveryOwnerProvider));
   }
 
   void _startEntitlementAuthorityRechecks() {

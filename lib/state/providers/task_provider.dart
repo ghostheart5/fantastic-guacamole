@@ -363,7 +363,7 @@ class TaskActions {
     }
 
     if (selectedTask == null && completionDecision.shouldRunNotification) {
-      unawaited(_refreshPlannerDecision(operation, notify: notify));
+      unawaited(_refreshPlannerDecision(operation));
     }
 
     if (selectedTask != null && completionDecision.shouldRunAnalytics) {
@@ -518,7 +518,7 @@ class TaskActions {
           .pushMirroredTaskSkipped(selectedTask.title);
     }
     if (!operation.isCurrent(_ref)) return;
-    await _refreshPlannerDecision(operation, notify: notify);
+    await _refreshPlannerDecision(operation);
     if (!operation.isCurrent(_ref)) return;
 
     _ref
@@ -536,37 +536,14 @@ class TaskActions {
     _ref.invalidate(goalProgressProvider);
   }
 
-  Future<void> _refreshPlannerDecision(
-    _TaskAccountOperation operation, {
-    required bool notify,
-  }) async {
+  /// Refreshes the planner's pick after a task change. The pick is not
+  /// written to the notification list.
+  Future<void> _refreshPlannerDecision(_TaskAccountOperation operation) async {
     if (!operation.isCurrent(_ref)) return;
     try {
-      final decision = await _ref
-          .read(generateSiDecisionUseCaseProvider)
-          .call();
+      await _ref.read(generateSiDecisionUseCaseProvider).call();
       if (!operation.isCurrent(_ref)) return;
       _ref.invalidate(domainSiDecisionProvider);
-      if (!notify) {
-        return;
-      }
-
-      final String? selectedTaskId = decision.selectedTaskId;
-      if (selectedTaskId == null || selectedTaskId.isEmpty) {
-        return;
-      }
-
-      final TaskEntity? selected = await _ref
-          .read(domainTaskRepositoryProvider)
-          .getTaskById(selectedTaskId);
-      if (!operation.isCurrent(_ref)) return;
-      final String selectedTitle = selected?.title.trim() ?? '';
-      if (selectedTitle.isEmpty) {
-        return;
-      }
-      await _ref
-          .read(notificationActionsProvider)
-          .pushMirroredDecision(selectedTitle);
     } catch (_) {
       // Skip planner refresh errors to avoid blocking task mutations.
     }
@@ -665,7 +642,7 @@ class TaskActions {
             ),
           ),
     );
-    await _refreshPlannerDecision(operation, notify: notify);
+    await _refreshPlannerDecision(operation);
   }
 
   Future<void> _recordCompletionSideEffects({
@@ -748,7 +725,7 @@ class TaskActions {
             .pushMirroredCompletionFeedback(task.title),
       );
     }
-    await _refreshPlannerDecision(operation, notify: notify);
+    await _refreshPlannerDecision(operation);
   }
 
   Future<bool> _isLearningPaused(_TaskAccountOperation operation) async {

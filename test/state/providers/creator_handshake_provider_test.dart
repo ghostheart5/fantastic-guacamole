@@ -21,6 +21,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
@@ -28,10 +29,19 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
+import 'package:fantastic_guacamole/state/providers/service_providers.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_reminder_sync_provider.dart';
+import 'package:fantastic_guacamole/state/services/notifications_service.dart';
+import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'task_reminder_test_support.dart';
 
 void main() {
   setUp(() {
@@ -623,6 +633,51 @@ void main() {
     },
   );
 
+  test('a confirmed dated task registers its reminder', () async {
+    final scheduler = RecordingTaskScheduler();
+    final DateTime now = DateTime.utc(2026, 8, 20, 18);
+    late final _Harness harness;
+    harness = _Harness(
+      now: now,
+      writeThroughTaskStore: true,
+      extraOverrides: [
+        notificationSchedulerProvider.overrideWithValue(scheduler),
+        localTimezoneRefresherProvider.overrideWithValue(() async {}),
+        reminderOrchestratorServiceProvider.overrideWith(
+          (ref) => ReminderOrchestratorService(
+            preferences: MemoryReminderPrefs(),
+            notifications: NotificationsService(NoNotificationList()),
+            scheduler: scheduler,
+            accountScope: testReminderScope,
+            loadTasks: () => harness.repository.getAllTasks(),
+            now: () => now,
+            isSpanish: () => false,
+          ),
+        ),
+      ],
+    );
+    addTearDown(harness.dispose);
+
+    await harness.notifier.stage(
+      data: CreatorFormData(
+        title: 'Call the clinic',
+        type: 'Task',
+        priority: 3,
+        scheduledFor: now.add(const Duration(hours: 2)),
+      ),
+    );
+    final CreatorHandshakeState result = await harness.notifier.confirm();
+    await harness.container.read(taskReminderSyncProvider).idle;
+
+    expect(result.phase, CreatorHandshakePhase.applied);
+    final String taskId = harness.repository.activeTasks.single.id;
+    expect(scheduler.registered, ['task_reminder_start_$taskId']);
+    expect(
+      scheduler.times['task_reminder_start_$taskId'],
+      now.add(const Duration(hours: 2)),
+    );
+  });
+
   test('confirmed scheduled task records first-run milestones', () async {
     final _Harness harness = _Harness();
     addTearDown(harness.dispose);
@@ -969,6 +1024,203 @@ void main() {
   });
 
   test(
+    'a habit saved with a reminder keeps its time and chosen days',
+    () async {
+      final _Harness harness = _Harness();
+      addTearDown(harness.dispose);
+
+      await harness.notifier.stage(
+        data: const CreatorFormData(
+          title: 'Long run',
+          type: 'Habit',
+          priority: 3,
+          recurrenceRule: RecurrenceRule.weekly,
+          habitReminderMinutes: 7 * 60 + 30,
+          habitReminderWeekdays: <int>[6, 3],
+          // Not a monthly habit, so this is not kept.
+          habitReminderDayOfMonth: 12,
+        ),
+      );
+      final CreatorHabitMutation staged =
+          harness.state.preview!.operations.single.habit!;
+      expect(staged.reminderMinutes, 450);
+      expect(staged.reminderWeekdays, <int>[3, 6]);
+      expect(staged.reminderDayOfMonth, isNull);
+      await harness.notifier.confirm();
+      final HabitEntity saved = harness.habitRepository.habits.single;
+      expect(saved.reminderMinutes, 450);
+      expect(saved.reminderWeekdays, <int>[3, 6]);
+      expect(saved.reminderDayOfMonth, isNull);
+      // Still recognised as the item this preview created.
+      expect(
+        (await harness.notifier.undo()).phase,
+        CreatorHandshakePhase.undone,
+      );
+      expect(harness.habitRepository.habits, isEmpty);
+
+      harness.notifier.clearResult();
+      await harness.notifier.stage(
+        data: const CreatorFormData(
+          title: 'Pay rent',
+          type: 'Habit',
+          priority: 3,
+          habitCadence: HabitCadence.monthly,
+          habitReminderMinutes: 9 * 60,
+          habitReminderDayOfMonth: HabitEntity.lastDayOfMonth,
+        ),
+      );
+      await harness.notifier.confirm();
+      final HabitEntity monthly = harness.habitRepository.habits.single;
+      expect(monthly.reminderMinutes, 540);
+      expect(monthly.reminderDayOfMonth, HabitEntity.lastDayOfMonth);
+      expect(monthly.reminderWeekdays, isNull);
+    },
+  );
+
+  for (final (String name, CreatorFormData data, List<String> suffixes)
+      in <(String, CreatorFormData, List<String>)>[
+        (
+          'daily',
+          const CreatorFormData(
+            title: 'Stretch',
+            type: 'Habit',
+            priority: 3,
+            habitReminderMinutes: 20 * 60,
+          ),
+          <String>[''],
+        ),
+        (
+          'weekly with two weekdays',
+          const CreatorFormData(
+            title: 'Long run',
+            type: 'Habit',
+            priority: 3,
+            recurrenceRule: RecurrenceRule.weekly,
+            habitReminderMinutes: 7 * 60,
+            habitReminderWeekdays: <int>[3, 6],
+          ),
+          <String>['_wd3', '_wd6'],
+        ),
+      ]) {
+    test('a $name habit confirmed with a reminder registers its alarm with '
+        'nothing watching the habit list', () async {
+      final scheduler = RecordingTaskScheduler();
+      final list = _RecordingNotificationList();
+      final DateTime now = DateTime.utc(2026, 8, 20, 9);
+      late final _Harness harness;
+      harness = _Harness(
+        now: now,
+        extraOverrides: [
+          reminderOrchestratorServiceProvider.overrideWith(
+            (ref) => ReminderOrchestratorService(
+              preferences: MemoryReminderPrefs(),
+              notifications: NotificationsService(list),
+              scheduler: scheduler,
+              accountScope: testReminderScope,
+              loadHabitOccurrences: () async => const [],
+              now: () => now,
+              isSpanish: () => false,
+            ),
+          ),
+        ],
+      );
+      addTearDown(harness.dispose);
+
+      await harness.notifier.stage(data: data);
+      final CreatorHandshakeState result = await harness.notifier.confirm();
+
+      expect(result.phase, CreatorHandshakePhase.applied);
+      final String habitId = harness.habitRepository.habits.single.id;
+      expect(
+        scheduler.pending,
+        containsAll(<String>[
+          for (final String suffix in suffixes)
+            'habit_reminder_$habitId$suffix',
+        ]),
+      );
+
+      // Undo takes the alarm away again (the last reminder goes through the
+      // notification list, which cancels it with the OS).
+      expect(
+        (await harness.notifier.undo()).phase,
+        CreatorHandshakePhase.undone,
+      );
+      expect(harness.habitRepository.habits, isEmpty);
+      expect(
+        list.cancelled,
+        containsAll(<String>[
+          for (final String suffix in suffixes)
+            'habit_reminder_$habitId$suffix',
+        ]),
+      );
+    });
+  }
+
+  test(
+    'a habit with a reminder still saves when notifications are off',
+    () async {
+      final scheduler = RecordingTaskScheduler()..granted = false;
+      final DateTime now = DateTime.utc(2026, 8, 20, 9);
+      final ReminderOrchestratorService service = ReminderOrchestratorService(
+        preferences: MemoryReminderPrefs(),
+        notifications: NotificationsService(NoNotificationList()),
+        scheduler: scheduler,
+        accountScope: testReminderScope,
+        loadHabitOccurrences: () async => const [],
+        now: () => now,
+        isSpanish: () => false,
+      );
+      final _Harness harness = _Harness(
+        now: now,
+        extraOverrides: [
+          reminderOrchestratorServiceProvider.overrideWithValue(service),
+        ],
+      );
+      addTearDown(harness.dispose);
+
+      await harness.notifier.stage(
+        data: const CreatorFormData(
+          title: 'Stretch',
+          type: 'Habit',
+          priority: 3,
+          habitReminderMinutes: 20 * 60,
+        ),
+      );
+      final CreatorHandshakeState result = await harness.notifier.confirm();
+
+      expect(result.phase, CreatorHandshakePhase.applied);
+      expect(harness.habitRepository.habits.single.reminderMinutes, 20 * 60);
+      expect(scheduler.pending, isEmpty);
+      expect(
+        service.lastHabitReminderResult.value,
+        NotificationScheduleResult.permissionDenied,
+      );
+    },
+  );
+
+  test('"Any time" saves a habit without a reminder or days', () async {
+    final _Harness harness = _Harness();
+    addTearDown(harness.dispose);
+    await harness.notifier.stage(
+      data: const CreatorFormData(
+        title: 'Read',
+        type: 'Habit',
+        priority: 3,
+        recurrenceRule: RecurrenceRule.weekly,
+        habitReminderWeekdays: <int>[2],
+      ),
+    );
+    final CreatorHabitMutation staged =
+        harness.state.preview!.operations.single.habit!;
+    expect(staged.toCanonicalJson().containsKey('reminderMinutes'), isFalse);
+    expect(staged.toCanonicalJson().containsKey('reminderWeekdays'), isFalse);
+    await harness.notifier.confirm();
+    final HabitEntity saved = harness.habitRepository.habits.single;
+    expect(saved.reminderMinutes, isNull);
+    expect(saved.reminderWeekdays, isNull);
+  });
+
+  test(
     'domain revision detects Goal, Daily Rhythm, and Note changes',
     () async {
       Future<void> expectStaleAfter(
@@ -1120,6 +1372,8 @@ class _Harness {
     ITimelineRepository? timelineRepository,
     SecureStore? store,
     DateTime? now,
+    bool writeThroughTaskStore = false,
+    List<Override> extraOverrides = const <Override>[],
   }) : repository = repository ?? _MemoryTaskRepository(),
        goalRepository = goalRepository ?? _MemoryGoalRepository(),
        habitRepository = habitRepository ?? _MemoryHabitRepository(),
@@ -1129,7 +1383,24 @@ class _Harness {
     container = ProviderContainer(
       overrides: [
         accountStorageScopeProvider.overrideWithValue(_testAccountScope),
-        domainTaskRepositoryProvider.overrideWithValue(this.repository),
+        // The real write path wraps the task store, as in the app.
+        if (writeThroughTaskStore)
+          taskStoreProvider.overrideWithValue(this.repository)
+        else
+          domainTaskRepositoryProvider.overrideWithValue(this.repository),
+        ...extraOverrides,
+        // A quiet device for habit reminder updates after a save.
+        if (extraOverrides.isEmpty)
+          reminderOrchestratorServiceProvider.overrideWith(
+            (ref) => ReminderOrchestratorService(
+              preferences: MemoryReminderPrefs(),
+              notifications: NotificationsService(NoNotificationList()),
+              scheduler: RecordingTaskScheduler(),
+              accountScope: testReminderScope,
+              loadHabitOccurrences: () async => const [],
+              isSpanish: () => false,
+            ),
+          ),
         domainGoalRepositoryProvider.overrideWithValue(this.goalRepository),
         domainHabitRepositoryProvider.overrideWithValue(this.habitRepository),
         domainNoteRepositoryProvider.overrideWithValue(this.noteRepository),
@@ -1386,4 +1657,10 @@ class _RecordingNoteProjection implements NoteTimelineAdapter {
     mutations.add(mutation);
     if (fail) throw StateError('Simulated Timeline storage failure');
   }
+}
+
+class _RecordingNotificationList extends NoNotificationList {
+  final List<String> cancelled = <String>[];
+  @override
+  Future<void> cancelNotification(String id) async => cancelled.add(id);
 }

@@ -29,6 +29,15 @@ class ReflectionReminderService {
   static const String timeKey = 'reflection_reminder_time';
   static const String notificationId = 'reflection_reminder';
 
+  /// The account's main reminder switch (see
+  /// `ReminderOrchestratorService.remindersEnabledKey`); missing means on.
+  static const String remindersEnabledKey = 'reminders_enabled';
+
+  bool get _remindersOn {
+    final String? raw = _preferences.load(remindersEnabledKey);
+    return raw == null || raw == 'true';
+  }
+
   final SharedPrefsStore _preferences;
   final NotificationSchedulerPort _scheduler;
   final ValueListenable<bool?> permissionListenable;
@@ -72,15 +81,15 @@ class ReflectionReminderService {
           await _scheduler.cancel(notificationId, accountScope: _accountScope);
           return false;
         }
-
-        final bool granted = await _scheduler.requestPermissions();
-        if (!granted) {
-          await _preferences.save(enabledKey, 'false');
-          await _scheduler.cancel(notificationId, accountScope: _accountScope);
-          return false;
+        if (!_remindersOn) {
+          // Kept for when the main reminder switch is turned back on.
+          await _preferences.save(enabledKey, 'true');
+          return true;
         }
 
-        final scheduled = await _scheduler.scheduleDailyAt(
+        // Never asks here: the switch asks first, once, through the shared
+        // in-context permission helper. Missing permission reports false.
+        final result = await _scheduler.scheduleDailyAt(
           id: notificationId,
           title: 'Daily Reflection',
           body:
@@ -89,6 +98,7 @@ class ReflectionReminderService {
           minute: time.minute,
           accountScope: _accountScope,
         );
+        final scheduled = result == NotificationScheduleResult.scheduled;
         await _preferences.save(enabledKey, scheduled.toString());
         if (!scheduled) {
           await _scheduler.cancel(notificationId, accountScope: _accountScope);
@@ -98,8 +108,8 @@ class ReflectionReminderService {
 
   Future<bool> setTime({required TimeOfDay time}) => _mutate(() async {
     await _preferences.save(timeKey, '${time.hour}:${time.minute}');
-    if (!loadPrefs().enabled) return true;
-    final scheduled = await _scheduler.scheduleDailyAt(
+    if (!loadPrefs().enabled || !_remindersOn) return true;
+    final result = await _scheduler.scheduleDailyAt(
       id: notificationId,
       title: 'Daily Reflection',
       body: 'Take 3 minutes to review your day and set intent for tomorrow.',
@@ -107,6 +117,7 @@ class ReflectionReminderService {
       minute: time.minute,
       accountScope: _accountScope,
     );
+    final scheduled = result == NotificationScheduleResult.scheduled;
     if (!scheduled) {
       await _preferences.save(enabledKey, 'false');
       await _scheduler.cancel(notificationId, accountScope: _accountScope);
@@ -129,12 +140,12 @@ class ReflectionReminderService {
     () async {
       if (!shouldContinue()) return false;
       final prefs = loadPrefs();
+      // The main reminder switch off keeps the choice but no OS reminder.
+      final bool wanted = prefs.enabled && _remindersOn;
       // An inexact daily alarm may still be waiting to fire after its nominal
       // minute. Preserve that occurrence (and any posted notification) when
       // this account already has the requested daily registration.
-      if (prefs.enabled &&
-          permissionGranted &&
-          hasMatchingRegistration != null) {
+      if (wanted && permissionGranted && hasMatchingRegistration != null) {
         final matches = await hasMatchingRegistration!(prefs.time);
         if (!shouldContinue()) return false;
         if (matches) return true;
@@ -146,9 +157,9 @@ class ReflectionReminderService {
         return false;
       }
       if (!shouldContinue()) return false;
-      if (!prefs.enabled) return true;
+      if (!wanted) return true;
       if (!permissionGranted) return false;
-      final scheduled = await _scheduler.scheduleDailyAt(
+      final result = await _scheduler.scheduleDailyAt(
         id: notificationId,
         title: 'Daily Reflection',
         body: 'Take 3 minutes to review your day and set intent for tomorrow.',
@@ -156,6 +167,7 @@ class ReflectionReminderService {
         minute: prefs.time.minute,
         accountScope: _accountScope,
       );
+      final scheduled = result == NotificationScheduleResult.scheduled;
       if (!shouldContinue()) {
         await _scheduler.cancel(notificationId, accountScope: _accountScope);
         return false;

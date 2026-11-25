@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/core/extensions/string_extensions.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -13,23 +14,36 @@ class NotificationsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final List<NotificationEntity> items = ref.watch(notificationProvider);
+    final DateTime now = DateTime.now();
+    // Reminders older builds switched off before their time are not
+    // activity.
+    final List<NotificationEntity> items = ref
+        .watch(notificationProvider)
+        .where((NotificationEntity item) => !item.isCancelledReminderAt(now))
+        .toList(growable: false);
+    final RegisteredReminders? registered = ref
+        .watch(registeredRemindersProvider)
+        .asData
+        ?.value;
     final es = Localizations.localeOf(context).languageCode == 'es';
     final localizations = MaterialLocalizations.of(context);
     final automations = ref.watch(automationNotificationsProvider);
     final repeating = automations.asData?.value ?? const <NotificationEntity>[];
-    final DateTime now = DateTime.now();
     final int scheduledCount =
         repeating.length +
         items
-            .where((item) => item.isEnabled && item.scheduledAt.isAfter(now))
+            .where(
+              (item) =>
+                  notificationListStatus(
+                    item,
+                    now: now,
+                    registered: registered,
+                  ) ==
+                  NotificationListStatus.scheduled,
+            )
             .length;
     final int unreadCount = items
-        .where(
-          (item) =>
-              !item.isRead &&
-              (!item.isEnabled || !item.scheduledAt.isAfter(now)),
-        )
+        .where((item) => isNewNotificationActivity(item, now))
         .length;
 
     return AnimatedSystemBackground(
@@ -83,6 +97,7 @@ class NotificationsPage extends ConsumerWidget {
                     for (final item in items)
                       _NotificationTile(
                         item: item,
+                        registered: registered,
                         onMarkRead: () => ref
                             .read(notificationProvider.notifier)
                             .markRead(item.id),
@@ -139,11 +154,13 @@ class _Header extends StatelessWidget {
 class _NotificationTile extends StatelessWidget {
   const _NotificationTile({
     required this.item,
+    required this.registered,
     required this.onMarkRead,
     required this.onDelete,
   });
 
   final NotificationEntity item;
+  final RegisteredReminders? registered;
   final Future<void> Function() onMarkRead;
   final Future<void> Function() onDelete;
 
@@ -151,8 +168,12 @@ class _NotificationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool es = Localizations.localeOf(context).languageCode == 'es';
     final DateTime now = DateTime.now();
-    final bool futureSchedule = item.isEnabled && item.scheduledAt.isAfter(now);
-    final bool newActivity = !futureSchedule && !item.isRead;
+    final NotificationListStatus status = notificationListStatus(
+      item,
+      now: now,
+      registered: registered,
+    );
+    final bool newActivity = isNewNotificationActivity(item, now);
     final String title = _localizedTitle(item.title, es);
     final String message = _localizedMessage(item.message, es);
     final Color accent = !item.isEnabled
@@ -183,11 +204,18 @@ class _NotificationTile extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 12),
         child: Semantics(
           button: true,
-          label: futureSchedule
-              ? '${es ? 'Recordatorio programado' : 'Scheduled reminder'}: $title'
-              : item.isRead
-              ? title
-              : '${es ? 'Actividad nueva' : 'New activity'}: $title',
+          label: switch (status) {
+            NotificationListStatus.notScheduled =>
+              '${es ? 'Recordatorio no programado' : 'Reminder not scheduled'}: $title',
+            NotificationListStatus.scheduled =>
+              '${es ? 'Recordatorio programado' : 'Scheduled reminder'}: $title',
+            NotificationListStatus.unconfirmed =>
+              '${es ? 'Recordatorio, hora prevista' : 'Reminder, scheduled time'}: $title',
+            NotificationListStatus.past || NotificationListStatus.inApp =>
+              item.isRead
+                  ? title
+                  : '${es ? 'Actividad nueva' : 'New activity'}: $title',
+          },
           child: InkWell(
             onTap: onMarkRead,
             borderRadius: BorderRadius.circular(8),
@@ -282,7 +310,7 @@ class _NotificationTile extends StatelessWidget {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                '${futureSchedule ? (es ? 'Programado' : 'Scheduled') : (item.isEnabled ? (es ? 'Hora prevista' : 'Scheduled time') : (es ? 'Actividad en la app' : 'In-app activity'))} · ${MaterialLocalizations.of(context).formatCompactDate(item.scheduledAt.toLocal())}',
+                                '${_statusLabel(status, notScheduledReason(item, registered), es)} · ${MaterialLocalizations.of(context).formatCompactDate(item.scheduledAt.toLocal())}',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: accent,
@@ -359,19 +387,63 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+String _statusLabel(
+  NotificationListStatus status,
+  NotificationScheduleResult? reason,
+  bool es,
+) => switch (status) {
+  NotificationListStatus.scheduled => es ? 'Programado' : 'Scheduled',
+  NotificationListStatus.past ||
+  NotificationListStatus.unconfirmed => es ? 'Hora prevista' : 'Scheduled time',
+  NotificationListStatus.inApp =>
+    es ? 'Actividad en la app' : 'In-app activity',
+  NotificationListStatus.notScheduled => switch (reason) {
+    NotificationScheduleResult.permissionDenied =>
+      es
+          ? 'No programado: las notificaciones están desactivadas'
+          : 'Not scheduled: notifications are off',
+    NotificationScheduleResult.unsupported =>
+      es
+          ? 'No programado: no disponible en este dispositivo'
+          : 'Not scheduled: not available on this device',
+    NotificationScheduleResult.failed =>
+      es
+          ? 'No programado: no se pudo programar'
+          : 'Not scheduled: could not be set',
+    NotificationScheduleResult.scheduled ||
+    null => es ? 'No programado' : 'Not scheduled',
+  },
+};
+
 String _localizedTitle(String raw, bool es) {
   if (!es) return raw.capitalize;
   return switch (raw.trim().toLowerCase()) {
     'goal reminder' => 'Recordatorio de meta',
+    'goal due tomorrow' => 'Meta para mañana',
     'decision alert' => 'Decisión actual',
     'completion' => 'Finalización',
     'task skipped' => 'Tarea omitida',
+    'goal completed' => 'Meta completada',
     _ => raw.capitalize,
   };
 }
 
+/// The day-before goal reminder, the only goal reminder kept in this list.
+/// New ones are written in the app language; this covers English records
+/// saved before a switch to Spanish.
+final RegExp _goalDueTomorrowMessage = RegExp(
+  r'^"(.*)" is due tomorrow\.(?: (\d+) of (\d+) steps done\.)?$',
+);
+
 String _localizedMessage(String raw, bool es) {
   if (!es) return raw;
+  final RegExpMatch? goalDue = _goalDueTomorrowMessage.firstMatch(raw);
+  if (goalDue != null) {
+    final String steps = goalDue.group(2) == null
+        ? ''
+        : ' ${goalDue.group(2)} de ${goalDue.group(3)} pasos hechos.';
+    return '«${goalDue.group(1)}» vence mañana.$steps';
+  }
   return raw
       .replaceFirst('Target date is near for', 'Se acerca la fecha de')
       .replaceFirst('Selected ', 'Se seleccionó ')
@@ -386,5 +458,10 @@ String _localizedMessage(String raw, bool es) {
       .replaceFirst(
         ' skipped and adaptation triggered.',
         ' se omitió y se actualizó la adaptación.',
-      );
+      )
+      .replaceFirst(
+        ' skipped. SI will adapt the next pick.',
+        ' se omitió. SI adaptará la próxima elección.',
+      )
+      .replaceFirst('" is complete.', '" se cumplió.');
 }

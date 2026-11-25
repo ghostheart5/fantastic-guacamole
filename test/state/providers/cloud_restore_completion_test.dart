@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
@@ -15,7 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   ProviderContainer containerFor(
     CloudRestoreOutcome outcome,
-    Future<bool> Function() reconcile, {
+    Future<NotificationScheduleResult> Function() reconcile, {
     bool Function()? current,
     Completer<SharedPrefsStorage>? loading,
   }) {
@@ -51,7 +52,7 @@ void main() {
     var reconciled = false;
     final container = containerFor(CloudRestoreOutcome.restored, () async {
       reconciled = true;
-      return true;
+      return NotificationScheduleResult.scheduled;
     }, loading: ready);
     var completed = false;
     final pending = container.read(restoreFromCloudProvider.future);
@@ -67,7 +68,7 @@ void main() {
 
   test('restore waits for reminder reconciliation before completing', () async {
     final entered = Completer<void>();
-    final release = Completer<bool>();
+    final release = Completer<NotificationScheduleResult>();
     final container = containerFor(CloudRestoreOutcome.restored, () {
       entered.complete();
       return release.future;
@@ -78,7 +79,7 @@ void main() {
     await entered.future;
     expect(completed, isFalse);
     expect(container.read(restoredSettingsRevisionProvider), 1);
-    release.complete(true);
+    release.complete(NotificationScheduleResult.scheduled);
     expect(await pending, isTrue);
     expect(container.read(cloudRestoreWarningsProvider), isEmpty);
   });
@@ -86,13 +87,26 @@ void main() {
   test('legacy cleanup and reminder failures both remain visible', () async {
     final container = containerFor(
       CloudRestoreOutcome.restoredLegacyCleanupPending,
-      () async => false,
+      () async => NotificationScheduleResult.failed,
     );
     expect(await container.read(restoreFromCloudProvider.future), isTrue);
     expect(container.read(cloudRestoreWarningsProvider), {
       CloudRestoreWarning.legacyCleanupPending,
       CloudRestoreWarning.remindersPending,
     });
+  });
+
+  test('reminders this device does not support are reported as such, '
+      'not as needing attention', () async {
+    final container = containerFor(
+      CloudRestoreOutcome.restored,
+      () async => NotificationScheduleResult.unsupported,
+    );
+    expect(await container.read(restoreFromCloudProvider.future), isTrue);
+    expect(container.read(cloudRestoreWarningsProvider), {
+      CloudRestoreWarning.remindersUnsupported,
+    });
+    expect(container.read(syncErrorMessageProvider), isNull);
   });
 
   test(
@@ -115,7 +129,7 @@ void main() {
       CloudRestoreOutcome.recoveryKeyRequired,
       () async {
         calls++;
-        return true;
+        return NotificationScheduleResult.scheduled;
       },
     );
     expect(await container.read(restoreFromCloudProvider.future), isFalse);
@@ -128,7 +142,7 @@ void main() {
     () async {
       var current = true;
       final entered = Completer<void>();
-      final release = Completer<bool>();
+      final release = Completer<NotificationScheduleResult>();
       final container = containerFor(CloudRestoreOutcome.restored, () {
         entered.complete();
         return release.future;
@@ -137,7 +151,7 @@ void main() {
       await entered.future;
       current = false;
       container.invalidate(accountStorageScopeProvider);
-      release.complete(true);
+      release.complete(NotificationScheduleResult.scheduled);
       expect(await pending, isFalse);
     },
   );

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/repositories/decision_outcome_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/habit_occurrence_repository.dart';
@@ -19,7 +20,9 @@ import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.da
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
+import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
+import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -96,6 +99,8 @@ void main() {
             habitOccurrenceCoordinatorProvider.overrideWithValue(coordinator),
             decisionOutcomeRepositoryProvider.overrideWithValue(null),
             reminderOrchestratorServiceProvider.overrideWithValue(service),
+            // Set up and allowed, so the habits build registers too.
+            notificationSchedulerProvider.overrideWithValue(_ReadyScheduler()),
           ],
         );
         addTearDown(container.dispose);
@@ -275,11 +280,85 @@ void main() {
         DateTime(2026, 12, 1, 20),
       );
       expect(fixture.scheduler.daily, ['daily_planning_reminder']);
+      // The OS holds nothing for this account, so restore only registers:
+      // no cancel of the old shared id or of the rhythm's own id.
+      expect(fixture.scheduler.events, ['cadence:qa:habit_reminder_first']);
+    },
+  );
+  for (final declined in [
+    NotificationScheduleResult.permissionDenied,
+    NotificationScheduleResult.unsupported,
+  ]) {
+    test('sync is not an error when the OS answers $declined', () async {
+      final fixture = _Fixture(DateTime(2026, 10, 12, 10));
+      fixture.scheduler.cadenceResult = declined;
+      await fixture.service.syncHabitReminders([
+        fixture.habit(HabitCadence.daily),
+      ]);
+      expect(fixture.scheduler.cadences, isEmpty);
+      expect(fixture.service.lastHabitReminderResult.value, declined);
+
+      // Once notifications work again the next sync registers it.
+      fixture.scheduler.cadenceResult = NotificationScheduleResult.scheduled;
+      await fixture.service.syncHabitReminders([
+        fixture.habit(HabitCadence.daily),
+      ]);
+      expect(fixture.scheduler.cadences, hasLength(1));
       expect(
-        fixture.scheduler.events.indexOf('cancel:qa:habit_reminder_daily'),
-        lessThan(
-          fixture.scheduler.events.indexOf('cadence:qa:habit_reminder_first'),
+        fixture.service.lastHabitReminderResult.value,
+        NotificationScheduleResult.scheduled,
+      );
+    });
+    test(
+      'check-in with a reminder time reports plain success when $declined',
+      () async {
+        final fixture = _Fixture(DateTime(2026, 10, 12, 10));
+        fixture.scheduler.cadenceResult = declined;
+        final habit = fixture.habit(HabitCadence.daily);
+        final checkIn = await _CheckIn.create(fixture, habit);
+        final result = await checkIn.notifier.completeHabit(habit.id);
+        expect(result.mutation, HabitOccurrenceMutation.applied);
+        expect(await checkIn.occurrences.load(), hasLength(1));
+        expect(fixture.scheduler.cadences, isEmpty);
+        expect(checkIn.service.lastHabitReminderResult.value, declined);
+      },
+    );
+  }
+  test(
+    'a failed registration still reports that reminders need retry',
+    () async {
+      final fixture = _Fixture(DateTime(2026, 10, 12, 10));
+      fixture.scheduler.cadenceResult = NotificationScheduleResult.failed;
+      await expectLater(
+        fixture.service.syncHabitReminders([fixture.habit(HabitCadence.daily)]),
+        throwsStateError,
+      );
+      expect(
+        fixture.service.lastHabitReminderResult.value,
+        NotificationScheduleResult.failed,
+      );
+    },
+  );
+  test(
+    'check-in with a platform error keeps the reminder retry message',
+    () async {
+      final fixture = _Fixture(DateTime(2026, 10, 12, 10));
+      fixture.scheduler.cadenceThrows = true;
+      final habit = fixture.habit(HabitCadence.daily);
+      final checkIn = await Logger.withMutedErrors(
+        () => _CheckIn.create(fixture, habit),
+      );
+      await Logger.withMutedErrors(
+        () => expectLater(
+          checkIn.notifier.completeHabit(habit.id),
+          throwsA(isA<RhythmReminderSyncException>()),
         ),
+      );
+      // The check-in itself was saved.
+      expect(await checkIn.occurrences.load(), hasLength(1));
+      expect(
+        checkIn.service.lastHabitReminderResult.value,
+        NotificationScheduleResult.failed,
       );
     },
   );
@@ -348,6 +427,53 @@ class _Fixture {
   );
 }
 
+/// The rhythms notifier wired to [_Fixture]'s scheduler, for check-ins.
+class _CheckIn {
+  _CheckIn(this.notifier, this.service, this.occurrences);
+  final HabitsNotifier notifier;
+  final ReminderOrchestratorService service;
+  final HabitOccurrenceRepository occurrences;
+
+  static Future<_CheckIn> create(_Fixture fixture, HabitEntity habit) async {
+    final now = fixture.now;
+    final scope = AccountStorageScope.authenticated('cadence-check-in');
+    final repository = _Habits([habit]);
+    final occurrences = HabitOccurrenceRepository(fixture.preferences, scope);
+    final coordinator = HabitOccurrenceCoordinator(
+      scope: scope,
+      habitRepository: repository,
+      occurrenceRepository: occurrences,
+      outcomeRepository: DecisionOutcomeRepository(fixture.preferences, scope),
+      learningPaused: () async => true,
+      clock: () => now,
+    );
+    final service = ReminderOrchestratorService(
+      preferences: fixture.preferences,
+      notifications: NotificationsService(_Repository()),
+      scheduler: fixture.scheduler,
+      accountScope: 'qa',
+      now: () => now,
+      loadHabitOccurrences: occurrences.load,
+    );
+    final container = ProviderContainer(
+      overrides: [
+        accountStorageScopeProvider.overrideWithValue(scope),
+        domainHabitRepositoryProvider.overrideWithValue(repository),
+        habitOccurrenceCoordinatorProvider.overrideWithValue(coordinator),
+        decisionOutcomeRepositoryProvider.overrideWithValue(null),
+        reminderOrchestratorServiceProvider.overrideWithValue(service),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(habitsProvider.future);
+    return _CheckIn(
+      container.read(habitsProvider.notifier),
+      service,
+      occurrences,
+    );
+  }
+}
+
 class _Preferences implements SharedPrefsStore {
   final values = <String, String>{};
   @override
@@ -370,6 +496,17 @@ class _Preferences implements SharedPrefsStore {
   }
 }
 
+/// The app's scheduler, set up and allowed; reminders go through the
+/// orchestrator's own fake port.
+class _ReadyScheduler implements NotificationScheduler {
+  @override
+  bool get isInitialized => true;
+  @override
+  Future<bool> init({bool requestPermissions = false}) async => true;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _CadenceSchedule {
   _CadenceSchedule(this.cadence, this.firstAt, this.body);
   final HabitCadence cadence;
@@ -382,8 +519,15 @@ class _Scheduler implements NotificationSchedulerPort {
   final cadences = <_CadenceSchedule>[];
   final daily = <String>[];
   bool cancelSucceeds = true;
+
+  /// What the OS answers for a rhythm reminder. Only scheduled records it.
+  NotificationScheduleResult cadenceResult =
+      NotificationScheduleResult.scheduled;
+
+  /// Makes the platform call throw, like a plugin error.
+  bool cadenceThrows = false;
   @override
-  Future<bool> scheduleCadenceAt({
+  Future<NotificationScheduleResult> scheduleCadenceAt({
     required String id,
     required String title,
     required String body,
@@ -391,9 +535,14 @@ class _Scheduler implements NotificationSchedulerPort {
     required DateTime firstAt,
     String? accountScope,
   }) async {
+    if (cadenceThrows) throw StateError('Fixture platform error');
+    if (cadenceResult != NotificationScheduleResult.scheduled) {
+      events.add('declined:$accountScope:$id');
+      return cadenceResult;
+    }
     events.add('cadence:$accountScope:$id');
     cadences.add(_CadenceSchedule(cadence, firstAt, body));
-    return true;
+    return cadenceResult;
   }
 
   @override
@@ -403,7 +552,7 @@ class _Scheduler implements NotificationSchedulerPort {
   }
 
   @override
-  Future<bool> scheduleDailyAt({
+  Future<NotificationScheduleResult> scheduleDailyAt({
     required String id,
     required String title,
     required String body,
@@ -412,17 +561,17 @@ class _Scheduler implements NotificationSchedulerPort {
     String? accountScope,
   }) async {
     daily.add(id);
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override
   Future<bool> requestPermissions() async =>
       throw StateError('Must not request permission during sync');
   @override
-  Future<bool> schedule(
+  Future<NotificationScheduleResult> schedule(
     NotificationEntity notification, {
     String? accountScope,
-  }) async => true;
+  }) async => NotificationScheduleResult.scheduled;
   @override
   Future<List<String>> pendingIdsForAccount(String accountScope) async =>
       const <String>[];

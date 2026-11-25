@@ -35,6 +35,9 @@ class CreatorFormData {
     this.goalColorHex = 0xFF9B8AFB,
     this.habitCadence = HabitCadence.daily,
     this.habitTargetCount = 1,
+    this.habitReminderMinutes,
+    this.habitReminderWeekdays,
+    this.habitReminderDayOfMonth,
   }) : assert(habitTargetCount > 0);
 
   final String title;
@@ -50,6 +53,17 @@ class CreatorFormData {
   final int goalColorHex;
   final HabitCadence habitCadence;
   final int habitTargetCount;
+
+  /// Reminder time as minutes after midnight; null is "Any time" (no
+  /// reminder).
+  final int? habitReminderMinutes;
+
+  /// ISO weekdays a weekly habit reminds on; null means Monday.
+  final List<int>? habitReminderWeekdays;
+
+  /// Day a monthly habit reminds on (1 to 28 or
+  /// [HabitEntity.lastDayOfMonth]); null means the 1st.
+  final int? habitReminderDayOfMonth;
 
   CreatorFormKind get kind => CreatorFormKind.fromType(type);
 }

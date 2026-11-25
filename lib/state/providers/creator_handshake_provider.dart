@@ -23,6 +23,7 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
 import 'package:fantastic_guacamole/state/providers/rhythm_planning_provider.dart';
+import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
@@ -403,6 +404,9 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       _bestEffort(() => _recordGuidanceMilestones(preview, receipt, owner)),
     );
     _invalidateDomains(preview.selectedOperations);
+    await owner.wait(
+      _syncHabitRemindersAfter(preview.selectedOperations, owner),
+    );
     state = state.copyWith(
       phase: replayOnly
           ? CreatorHandshakePhase.idempotent
@@ -530,6 +534,9 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     }
     await owner.wait(_bestEffort(() => _writeLedger(account, ledger)));
     _invalidateDomains(preview.selectedOperations);
+    await owner.wait(
+      _syncHabitRemindersAfter(preview.selectedOperations, owner),
+    );
     state = state.copyWith(
       phase: CreatorHandshakePhase.undone,
       message:
@@ -598,17 +605,12 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         targetDate: data.targetDate ?? data.dueDate ?? data.scheduledFor,
         colorHex: data.goalColorHex,
       ),
-      CreatorFormKind.habit => CreatorHabitMutation(
+      CreatorFormKind.habit => _habitMutationFromForm(
+        data,
         habitId: 'creator-habit-$idDigest',
         title: title,
         description: description,
         createdAt: createdAt,
-        cadence: switch (data.recurrenceRule) {
-          RecurrenceRule.daily => HabitCadence.daily,
-          RecurrenceRule.weekly => HabitCadence.weekly,
-          RecurrenceRule.none => data.habitCadence,
-        },
-        targetCount: data.habitTargetCount.clamp(1, 365),
       ),
       CreatorFormKind.note => CreatorNoteMutation(
         noteId: 'creator-note-$idDigest',
@@ -617,6 +619,46 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         createdAt: createdAt,
       ),
     };
+  }
+
+  /// The habit to create. Its reminder days are kept only with a reminder
+  /// time and only for the cadence they belong to.
+  CreatorHabitMutation _habitMutationFromForm(
+    CreatorFormData data, {
+    required String habitId,
+    required String title,
+    required String? description,
+    required DateTime createdAt,
+  }) {
+    final HabitCadence cadence = switch (data.recurrenceRule) {
+      RecurrenceRule.daily => HabitCadence.daily,
+      RecurrenceRule.weekly => HabitCadence.weekly,
+      RecurrenceRule.none => data.habitCadence,
+    };
+    final HabitEntity reminder = HabitEntity(
+      id: habitId,
+      title: title,
+      createdAt: createdAt,
+      reminderMinutes: data.habitReminderMinutes,
+      reminderWeekdays: data.habitReminderWeekdays,
+      reminderDayOfMonth: data.habitReminderDayOfMonth,
+    );
+    final bool reminds = reminder.reminderMinutes != null;
+    return CreatorHabitMutation(
+      habitId: habitId,
+      title: title,
+      description: description,
+      createdAt: createdAt,
+      cadence: cadence,
+      targetCount: data.habitTargetCount.clamp(1, 365),
+      reminderMinutes: reminder.reminderMinutes,
+      reminderWeekdays: reminds && cadence == HabitCadence.weekly
+          ? reminder.reminderWeekdays
+          : null,
+      reminderDayOfMonth: reminds && cadence == HabitCadence.monthly
+          ? reminder.reminderDayOfMonth
+          : null,
+    );
   }
 
   PersonContextView? _creatorPersonContext(String accountScopeId) {
@@ -786,6 +828,9 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         updatedAt: mutation.createdAt,
         cadence: mutation.cadence,
         targetCount: mutation.targetCount,
+        reminderMinutes: mutation.reminderMinutes,
+        reminderWeekdays: mutation.reminderWeekdays,
+        reminderDayOfMonth: mutation.reminderDayOfMonth,
       );
 
   NoteEntity _noteEntityFromMutation(CreatorNoteMutation mutation) =>
@@ -967,6 +1012,10 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
             existing.userId == null &&
             existing.cadence == expected.cadence &&
             existing.targetCount == expected.targetCount &&
+            existing.reminderMinutes == expected.reminderMinutes &&
+            existing.reminderWeekdays?.join(',') ==
+                expected.reminderWeekdays?.join(',') &&
+            existing.reminderDayOfMonth == expected.reminderDayOfMonth &&
             existing.stepTaskIds.isEmpty &&
             existing.status == HabitStatus.active;
       case final CreatorNoteMutation mutation:
@@ -1063,6 +1112,32 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         relatedId: mutation.goalId,
       ),
     );
+  }
+
+  /// Brings the habit reminders in line once a habit was created or removed,
+  /// without waiting for something to watch the habit list. Runs under the
+  /// caller's storage lock and the reminder lock, for this account only.
+  /// Missing permission is a known state, not an error, and a reminder that
+  /// could not update never undoes the save (the next reconcile retries).
+  Future<void> _syncHabitRemindersAfter(
+    Iterable<CreatorMutationOperation> operations,
+    AccountOperation owner,
+  ) async {
+    if (!operations.any(
+      (CreatorMutationOperation operation) =>
+          operation.entityKind == CreatorEntityKind.habit,
+    )) {
+      return;
+    }
+    await _bestEffort(() async {
+      owner.check();
+      final List<HabitEntity> habits = await owner.wait(
+        ref.read(domainHabitRepositoryProvider).getHabits(),
+      );
+      await ref
+          .read(reminderOrchestratorServiceProvider)
+          .syncHabitReminders(habits, shouldContinue: () => owner.isCurrent);
+    });
   }
 
   void _invalidateDomains(Iterable<CreatorMutationOperation> operations) {

@@ -19,6 +19,21 @@ These changes are not yet released or verified on a device.
 - Skipping setup now tells you the guide is off and how to restart it.
 - A paid AI reply is kept if you leave the screen while it is being answered.
 - First-run test flows and device journeys are updated for the current app.
+- Tasks now remind you at their start time, or when they are due. This is on by default, with one reminder per task and only the next 20 set at once.
+- You can turn on a nudge the morning after a task or goal was due, if it is still open. It is off by default.
+- A goal due today that you add after 9 AM gets one reminder at 6 PM.
+- You can set a habit's reminder time when you create it, and pick the days of the week or the day of the month it reminds you on.
+- You can change a goal's target date after creating it.
+- Settings has one Notifications area: a main switch, how early task reminders come, quiet hours, and a line that says whether reminders can arrive on this device.
+- The app asks for notification permission at the moment you set something that needs a reminder, and explains what to do if notifications are off.
+- The in-app reminder list shows what the phone actually accepted, with the right time for habits on any chosen day.
+- When the app starts or comes back to the front, reminders are updated by changing only what is different, instead of cancelling and setting them all again. A reminder already shown stays in the notification tray when the app restarts. Saving a goal or checking in a habit still sets that kind of reminder again.
+- Reminder times follow a change of time zone.
+- Changing how early task reminders come, or turning reminders back on, no longer drops a task reminder that is still to come.
+- Tapping a reminder opens the screen it is about.
+- Reminder text follows the app language.
+- The app no longer asks for a push notification token, since nothing sends push messages yet.
+- A step-by-step check for reminders on a real phone is in docs/DEVICE_REMINDER_PROTOCOL.md. It has not been run on a device yet.
 
 ## Future release entries
 

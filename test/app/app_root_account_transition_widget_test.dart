@@ -21,6 +21,7 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
@@ -60,7 +61,12 @@ void main() {
         );
       }
       final auth = StreamController<User?>.broadcast();
-      final container = ProviderContainer(
+      // Each reminder reconcile starts by re-reading the device time zone.
+      // Record which account it ran for instead of calling the platform
+      // channel, which never answers under the widget test's fake clock.
+      final reconcileAccounts = <String?>[];
+      late final ProviderContainer container;
+      container = ProviderContainer(
         overrides: [
           authUserProvider.overrideWith((ref) => auth.stream),
           secureStoreProvider.overrideWithValue(store),
@@ -75,6 +81,15 @@ void main() {
           domainTaskRepositoryProvider.overrideWithValue(FakeTaskRepository()),
           guards.onboardingWelcomeCompleteGuardProvider.overrideWithValue(true),
           guards.onboardingCompleteGuardProvider.overrideWithValue(true),
+          localTimezoneRefresherProvider.overrideWithValue(() async {
+            final scope = container.read(accountStorageScopeProvider);
+            final transitioning = container
+                .read(authSessionBoundaryProvider)
+                .isTransitioning;
+            reconcileAccounts.add(
+              scope.isWritable && !transitioning ? scope.rawUserId : null,
+            );
+          }),
         ],
       );
       bool containerDisposed = false;
@@ -108,9 +123,11 @@ void main() {
         container.read(personalizationProfileProvider).goalCategory,
         'account-a',
       );
+      expect(reconcileAccounts, <String?>['account-a']);
 
       for (final account in ['account-b', 'account-a']) {
         final previous = container.read(accountStorageScopeProvider).rawUserId!;
+        final reconcilesBeforeSwitch = reconcileAccounts.length;
         backend.blockMarkerRead();
         auth.add(User(id: account, emailVerified: true));
         await tester.pump();
@@ -131,6 +148,8 @@ void main() {
         expect(container.read(timelineProvider), isEmpty);
         expect(container.read(profileProvider).xp, 0);
         expect(container.read(personalizationProfileProvider).goalCategory, '');
+        // No reminder reconcile starts while the boundary is fenced.
+        expect(reconcileAccounts, hasLength(reconcilesBeforeSwitch));
 
         backend.releaseMarkerRead();
         await _pumpUntilAccountReady(tester, container, account);
@@ -163,6 +182,10 @@ void main() {
         await tester.pump(const Duration(milliseconds: 500));
         expect(find.byType(SettingsScreen), findsOneWidget);
         expect(tester.takeException(), isNull);
+        // Once the account is open its reminders are reconciled for it only.
+        expect(reconcileAccounts.sublist(reconcilesBeforeSwitch), <String?>[
+          account,
+        ]);
       }
       await tester.pumpWidget(const SizedBox.shrink());
       container.dispose();

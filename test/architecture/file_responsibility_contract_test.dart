@@ -8,6 +8,7 @@ void main() {
     'lib/features/settings/ui/settings_screen.dart': <String>[
       'settings_screen.sections.dart',
       'settings_screen.planning_sections.dart',
+      'settings_screen.notification_sections.dart',
       'settings_screen.person_context.dart',
       'settings_screen.governance_sections.dart',
       'settings_screen.data_sections.dart',

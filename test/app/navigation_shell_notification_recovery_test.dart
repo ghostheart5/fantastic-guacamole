@@ -13,19 +13,48 @@ import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
+import 'package:fantastic_guacamole/system/notifications/local_timezone.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 void main() {
+  testWidgets('each reminder reconcile re-reads the device time zone', (
+    tester,
+  ) async {
+    tzdata.initializeTimeZones();
+    addTearDown(() => tz.setLocalLocation(tz.getLocation('Etc/UTC')));
+    var lookups = 0;
+    String zoneFor(int n) => n.isOdd ? 'America/Chicago' : 'Europe/Paris';
+    final fixture = await _Fixture.create(
+      timezoneRefresher: () =>
+          refreshLocalTimezone(readName: () async => zoneFor(++lookups)),
+    );
+    await fixture.mount(tester);
+    final actions = fixture.container.read(settingsUiActionsProvider);
+    final before = lookups;
+    await actions.refreshNotificationPermissionAndReminders();
+    expect(lookups, before + 1);
+    expect(tz.local.name, zoneFor(lookups));
+    final firstZone = tz.local.name;
+    await actions.refreshNotificationPermissionAndReminders();
+    expect(lookups, before + 2);
+    expect(tz.local.name, zoneFor(lookups));
+    expect(tz.local.name, isNot(firstZone));
+  });
+
   testWidgets(
     'cold mounted shell reconciles revoked reminders without resume',
     (tester) async {
@@ -33,7 +62,9 @@ void main() {
       await fixture.mount(tester);
       expect(fixture.scheduler.ownPending('a'), isEmpty);
       expect(fixture.scheduler.ownPending('b'), hasLength(4));
-      expect(fixture.scheduler.cancelled, hasLength(8));
+      // The fixed reminders, the rhythm's two ids, its seven weekday ids
+      // and all five goal slots.
+      expect(fixture.scheduler.cancelled, hasLength(16));
       expect(fixture.scheduler.permissionRequests, 0);
       expect(fixture.scheduler.scheduled, isEmpty);
       fixture.expectPreferencesPreserved();
@@ -97,6 +128,23 @@ void main() {
     fixture.expectPreferencesPreserved();
   });
 
+  testWidgets('resume refreshes the time-dependent unread count', (
+    tester,
+  ) async {
+    var builds = 0;
+    final fixture = await _Fixture.create(
+      granted: true,
+      onUnreadBuild: () => builds++,
+    );
+    fixture.container.listen<int>(unreadNotificationsProvider, (_, _) {});
+    await fixture.mount(tester);
+    final before = builds;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await _flush(tester);
+    expect(builds, greaterThan(before));
+  });
+
   testWidgets('resume preserves the matching account reflection registration', (
     tester,
   ) async {
@@ -147,7 +195,7 @@ void main() {
       gate.complete();
       await _flush(tester);
       expect(fixture.scheduler.permissionQueries, 2);
-      expect(fixture.scheduler.cancelled, hasLength(8));
+      expect(fixture.scheduler.cancelled, hasLength(16));
       expect(fixture.scheduler.ownPending('a'), isEmpty);
       expect(fixture.scheduler.ownPending('b'), hasLength(4));
       expect(
@@ -230,6 +278,8 @@ class _Fixture {
   static Future<_Fixture> create({
     bool ready = true,
     bool granted = false,
+    Future<void> Function()? timezoneRefresher,
+    void Function()? onUnreadBuild,
   }) async {
     final scheduler = _Scheduler()..granted = granted;
     final prefs = _MemoryPreferences();
@@ -246,10 +296,17 @@ class _Fixture {
           SecureStore(backend: InMemorySecureStoreBackend()),
         ),
         notificationSchedulerProvider.overrideWithValue(scheduler),
+        localTimezoneRefresherProvider.overrideWithValue(
+          timezoneRefresher ??
+              () => refreshLocalTimezone(readName: () async => 'Etc/UTC'),
+        ),
         domainGoalRepositoryProvider.overrideWithValue(_Goals()),
         domainHabitRepositoryProvider.overrideWithValue(_Habits()),
         getTasksUseCaseProvider.overrideWithValue(GetTasks(_Tasks())),
-        unreadNotificationsProvider.overrideWithValue(0),
+        unreadNotificationsProvider.overrideWith((ref) {
+          onUnreadBuild?.call();
+          return 0;
+        }),
         goalsProvider.overrideWith(_StaticGoals.new),
       ],
     );
@@ -450,7 +507,7 @@ class _Scheduler implements NotificationScheduler {
   Future<bool> cancelAll() async =>
       throw StateError('Global cancellation forbidden');
   @override
-  Future<bool> scheduleDailyAt({
+  Future<NotificationScheduleResult> scheduleDailyAt({
     required String id,
     required String title,
     required String body,
@@ -461,7 +518,7 @@ class _Scheduler implements NotificationScheduler {
     scheduled.add((id: id, time: (hour, minute), cadence: null));
     pending.add('$accountScope:$id');
     dailyTimes['$accountScope:$id'] = (hour, minute);
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override
@@ -497,17 +554,17 @@ class _Scheduler implements NotificationScheduler {
   }
 
   @override
-  Future<bool> schedule(
+  Future<NotificationScheduleResult> schedule(
     NotificationEntity notification, {
     String? accountScope,
   }) async {
     scheduled.add((id: notification.id, time: null, cadence: null));
     pending.add('$accountScope:${notification.id}');
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override
-  Future<bool> scheduleCadenceAt({
+  Future<NotificationScheduleResult> scheduleCadenceAt({
     required String id,
     required String title,
     required String body,
@@ -521,7 +578,7 @@ class _Scheduler implements NotificationScheduler {
       cadence: cadence,
     ));
     pending.add('$accountScope:$id');
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override

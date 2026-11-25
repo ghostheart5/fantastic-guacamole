@@ -1,7 +1,24 @@
 part of 'domain_usecase_providers.dart';
 
-final domainTaskRepositoryProvider = Provider<ITaskRepository>((ref) {
+/// The stored tasks themselves. Read and write tasks through
+/// [domainTaskRepositoryProvider] instead.
+final taskStoreProvider = Provider<ITaskRepository>((ref) {
   return ref.watch(taskRepositoryProvider);
+});
+
+/// Every task write goes through here, so each one also updates the task
+/// reminders (see [reminderSyncingTaskStore]) and, when the task has or had
+/// a goal, the goal reminders (see [goalReminderSyncingTaskStore]).
+final domainTaskRepositoryProvider = Provider<ITaskRepository>((ref) {
+  final TaskReminderSync reminders = ref.read(taskReminderSyncProvider);
+  final GoalReminderSync goalReminders = ref.read(goalReminderSyncProvider);
+  return reminderSyncingTaskStore(
+    goalReminderSyncingTaskStore(
+      ref.watch(taskStoreProvider),
+      () => unawaited(goalReminders.request()),
+    ),
+    () => unawaited(reminders.request()),
+  );
 });
 
 final domainNotificationRepositoryProvider = Provider<INotificationRepository>((

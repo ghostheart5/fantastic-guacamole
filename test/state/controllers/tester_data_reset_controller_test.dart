@@ -43,7 +43,9 @@ void main() {
     container.read(mockSignInProvider.notifier).set(true);
     container.read(onboardingCompleteProvider.notifier).set(true);
     container.read(aiInputProvider.notifier).set('draft prompt');
-    await container.read(notificationProvider.notifier).pushDecision('Task A');
+    await container
+        .read(notificationProvider.notifier)
+        .pushTaskSkipped('Task A');
 
     expect(container.read(notificationProvider), isNotEmpty);
 

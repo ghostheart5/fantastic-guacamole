@@ -179,6 +179,7 @@ class CreatorCopy {
           'Target date' => 'Fecha objetivo',
           'Cadence' => 'Frecuencia',
           'Target count' => 'Repeticiones objetivo',
+          'Reminder' => 'Recordatorio',
           'Body' => 'Contenido',
           _ => name,
         };

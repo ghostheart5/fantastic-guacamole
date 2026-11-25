@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/planner_v2_response.dart';
+import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
@@ -583,6 +584,61 @@ void main() {
     expect(
       find.textContaining('Estimated duration: Not present'),
       findsNothing,
+    );
+  });
+
+  testWidgets('habit review shows the reminder time and its days', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        sensitivePrefsStoreProvider.overrideWithValue(_ScreenPreferences()),
+        accountStorageScopeProvider.overrideWithValue(
+          AccountStorageScope.authenticated('creator-habit-screen-test'),
+        ),
+        domainTaskRepositoryProvider.overrideWithValue(_ScreenTaskRepository()),
+        domainGoalRepositoryProvider.overrideWithValue(
+          const _ScreenGoalRepository(),
+        ),
+        domainHabitRepositoryProvider.overrideWithValue(
+          const _ScreenHabitRepository(),
+        ),
+        domainNoteRepositoryProvider.overrideWithValue(
+          const _ScreenNoteRepository(),
+        ),
+        secureStoreProvider.overrideWithValue(
+          SecureStore(backend: InMemorySecureStoreBackend()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container
+        .read(creatorHandshakeProvider.notifier)
+        .stage(
+          data: const CreatorFormData(
+            title: 'Long run',
+            type: 'Habit',
+            priority: 3,
+            recurrenceRule: RecurrenceRule.weekly,
+            habitReminderMinutes: 7 * 60,
+            habitReminderWeekdays: <int>[3, 6],
+          ),
+        );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: CreatorScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(
+      find.text('Reminder: 7:00 AM every Wednesday and Saturday'),
+      findsOneWidget,
     );
   });
 

@@ -2,6 +2,8 @@ import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dar
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
+import 'package:fantastic_guacamole/domain/planning/habit_reminder_days.dart';
+import 'package:fantastic_guacamole/features/creator/widgets/habit_reminder_day_pickers.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_provider.dart';
 import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
@@ -11,6 +13,8 @@ import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/l10n/creator_copy.dart';
+
+part 'dynamic_form.habit_reminder.dart';
 
 class DynamicForm extends StatefulWidget {
   const DynamicForm({
@@ -77,6 +81,9 @@ class _DynamicFormState extends State<DynamicForm> {
   RecurrenceRule _taskRecurrence = RecurrenceRule.none;
   HabitCadence _habitCadence = HabitCadence.daily;
   int _habitTargetCount = 1;
+  int? _habitReminderMinutes;
+  List<int>? _habitReminderWeekdays;
+  int? _habitReminderDayOfMonth;
   bool _submitting = false;
   bool _replacingDraftText = false;
   String? _errorMessage;
@@ -210,6 +217,11 @@ class _DynamicFormState extends State<DynamicForm> {
           targetDate: _type == CreatorFormKind.goal ? _targetDate : null,
           habitCadence: _habitCadence,
           habitTargetCount: _habitTargetCount,
+          habitReminderMinutes: _type == CreatorFormKind.habit
+              ? _habitReminderMinutes
+              : null,
+          habitReminderWeekdays: _habitReminderWeekdays,
+          habitReminderDayOfMonth: _habitReminderDayOfMonth,
         ),
       );
       if (!mounted) return;
@@ -246,6 +258,9 @@ class _DynamicFormState extends State<DynamicForm> {
     _estimatedDuration = const Duration(minutes: 30);
     _habitCadence = HabitCadence.daily;
     _habitTargetCount = 1;
+    _habitReminderMinutes = null;
+    _habitReminderWeekdays = null;
+    _habitReminderDayOfMonth = null;
   }
 
   @override
@@ -502,6 +517,20 @@ class _DynamicFormState extends State<DynamicForm> {
       value: _habitTargetCount,
       cadence: _habitCadence,
       onChanged: (int value) => setState(() => _habitTargetCount = value),
+    ),
+    _HabitReminderRow(
+      cadence: _habitCadence,
+      minutes: _habitReminderMinutes,
+      weekdays: _habitReminderWeekdays,
+      dayOfMonth: _habitReminderDayOfMonth,
+      enabled: !_submitting,
+      onMinutes: (int? value) {
+        if (mounted) setState(() => _habitReminderMinutes = value);
+      },
+      onWeekdays: (List<int> value) =>
+          setState(() => _habitReminderWeekdays = value),
+      onDayOfMonth: (int value) =>
+          setState(() => _habitReminderDayOfMonth = value),
     ),
   ];
 

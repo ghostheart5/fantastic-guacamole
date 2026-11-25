@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
+
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Notifications
 class NotificationEntity {
   const NotificationEntity({
@@ -7,7 +9,17 @@ class NotificationEntity {
     required this.scheduledAt,
     this.isEnabled = true,
     this.isRead = false,
+    this.scheduleResult,
   });
+
+  /// Whether [id] names a reminder the app registers with the OS, as
+  /// opposed to an in-app history entry.
+  static bool isReminderId(String id) =>
+      id.startsWith('goal_reminder_') ||
+      id.startsWith('habit_reminder_') ||
+      id.startsWith('task_reminder_') ||
+      id == 'daily_planning_reminder' ||
+      id == 'reflection_reminder';
 
   final String id;
   final String title;
@@ -15,6 +27,16 @@ class NotificationEntity {
   final DateTime scheduledAt;
   final bool isEnabled;
   final bool isRead;
+
+  /// What the OS said when this reminder was last handed to it. Null for
+  /// in-app entries and for records stored before this was kept.
+  final NotificationScheduleResult? scheduleResult;
+
+  /// A reminder switched off before its time. Older builds kept it as a
+  /// disabled record; it never went off, so it is not activity and is never
+  /// listed. One whose time has passed went off and stays as history.
+  bool isCancelledReminderAt(DateTime now) =>
+      !isEnabled && isReminderId(id) && scheduledAt.isAfter(now);
 
   // Domain behavior
   bool isDueAt(DateTime reference) => reference.isAfter(scheduledAt);
@@ -51,6 +73,7 @@ class NotificationEntity {
     DateTime? scheduledAt,
     bool? isEnabled,
     bool? isRead,
+    NotificationScheduleResult? scheduleResult,
   }) {
     return NotificationEntity(
       id: id ?? this.id,
@@ -59,6 +82,7 @@ class NotificationEntity {
       scheduledAt: scheduledAt ?? this.scheduledAt,
       isEnabled: isEnabled ?? this.isEnabled,
       isRead: isRead ?? this.isRead,
+      scheduleResult: scheduleResult ?? this.scheduleResult,
     );
   }
 }

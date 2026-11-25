@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/features/notes/ui/note_detail_screen.dart';
+import 'package:fantastic_guacamole/features/permissions/task_reminder_permission.dart';
 import 'package:fantastic_guacamole/features/tasks/widgets/task_edit_dialog.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
@@ -439,6 +440,7 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
       if (!mounted || !current()) return;
       if (existing == null) throw StateError('Task not found');
       final actions = ref.read(taskActionsProvider);
+      TaskEditDraft? edited;
       if (action == 'edit') {
         final draft = await showTaskEditDialog(
           context: context,
@@ -446,6 +448,7 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
           goals: ref.read(goalsProvider),
         );
         if (draft == null || !current()) return;
+        edited = draft;
         await actions.updateTaskDetails(
           id: existing.id,
           title: draft.title,
@@ -513,6 +516,15 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
           }),
         ),
       );
+      if (edited != null) {
+        // Saved first; then ask in context when the task now has a reminder.
+        await askForRemindersAfterTaskSave(
+          context,
+          ref,
+          scheduledFor: edited.scheduledFor,
+          dueDate: edited.dueDate,
+        );
+      }
     } catch (_) {
       if (!mounted || !current()) return;
       ScaffoldMessenger.of(context).showSnackBar(

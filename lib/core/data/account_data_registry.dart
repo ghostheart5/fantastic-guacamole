@@ -258,6 +258,32 @@ abstract final class AccountDataRegistry {
     'daily_planning_reminder_enabled',
     'daily_planning_reminder_time',
     'scheduled_goal_reminder_ids',
+    'reminder_fingerprints_v1',
+    'reminders_cleared_while_off_v1',
+    // Task reminders: the switch, overdue nudges, lead time and the ids the
+    // reconciler last registered.
+    'task_reminders_enabled',
+    'task_overdue_nudges_enabled',
+    'task_reminder_lead_minutes',
+    'scheduled_task_reminder_ids',
+    // When a lead time, reminder switch or quiet hours last changed (or
+    // notifications were allowed again), so a missed lead-time reminder
+    // still comes.
+    'task_reminder_rules_changed_at',
+    // When each goal's "due today" reminder was planned for its target date.
+    'goal_due_today_times',
+    // The main reminder switch and quiet hours.
+    'reminders_enabled',
+    'quiet_hours_enabled',
+    'quiet_hours_start',
+    'quiet_hours_end',
+    // When quiet hours last really changed, so a reminder that had already
+    // gone off then is not held back and sent again.
+    'quiet_hours_changed_at',
+    // The account's answer to the in-context notification permission request
+    // and whether it closed the "notifications are off" notice.
+    'notification_permission_refusal_v1',
+    'notification_permission_notice_dismissed_v1',
   };
 
   static const Set<String> legacyAccountHiveBoxes = <String>{

@@ -480,6 +480,7 @@ class _MemoryGovernanceSection extends ConsumerWidget {
 
 class _PreferenceDropdown<T> extends StatelessWidget {
   const _PreferenceDropdown({
+    super.key,
     required this.label,
     required this.value,
     required this.items,
@@ -490,7 +491,9 @@ class _PreferenceDropdown<T> extends StatelessWidget {
   final String label;
   final T value;
   final List<T> items;
-  final ValueChanged<T> onChanged;
+
+  /// Null shows the choice without letting it change.
+  final ValueChanged<T>? onChanged;
   final String Function(T value)? itemLabel;
 
   @override
@@ -519,9 +522,11 @@ class _PreferenceDropdown<T> extends StatelessWidget {
                 ),
               )
               .toList(growable: false),
-          onChanged: (T? next) {
-            if (next != null) onChanged(next);
-          },
+          onChanged: onChanged == null
+              ? null
+              : (T? next) {
+                  if (next != null) onChanged!(next);
+                },
         ),
       ),
     );

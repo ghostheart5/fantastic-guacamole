@@ -87,6 +87,26 @@ void main() {
     expect(source.substring(explicit), contains('requestPermission('));
   });
 
+  test('Settings notification flow requests no push permission or token', () {
+    for (final String path in <String>[
+      'lib/state/providers/settings_ui_provider.dart',
+      'lib/features/permissions/notification_permission_flow.dart',
+    ]) {
+      final String source = read(path);
+      expect(
+        source,
+        isNot(contains('FirebaseMessagingBootstrap')),
+        reason: path,
+      );
+      expect(
+        source,
+        isNot(contains('syncFirebaseMessagingToken')),
+        reason: path,
+      );
+      expect(source, isNot(contains('RegisterPush')), reason: path);
+    }
+  });
+
   test('published policy copies identify one current data contract', () {
     final String policy = read('web/privacy/index.html');
     final String bundled = read('assets/legal/privacy_policy.txt');

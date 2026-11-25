@@ -60,7 +60,9 @@ enum AppDiagnosticCode {
     'storage.personalization_profile_load_failed',
   ),
   storagePlanningPatternsLoadFailed('storage.planning_patterns_load_failed'),
-  optimizationComputeFailed('optimization.compute_failed');
+  optimizationComputeFailed('optimization.compute_failed'),
+  timezoneLookupFailed('timezone.lookup_failed'),
+  reminderReconcileIncomplete('reminders.reconcile_incomplete');
 
   const AppDiagnosticCode(this.wireName);
 

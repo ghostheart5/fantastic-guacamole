@@ -1,4 +1,3 @@
-import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/async/account_storage_mutation.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_operation.dart';
@@ -10,17 +9,24 @@ import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/backup_cipher.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
 import 'package:fantastic_guacamole/system/location/location_service.dart';
-import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
+import 'package:fantastic_guacamole/system/notifications/local_timezone.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// Re-reads the device time zone. Overridable so tests never touch the real
+/// platform channel.
+final localTimezoneRefresherProvider = Provider<Future<void> Function()>(
+  (Ref ref) => refreshLocalTimezone,
+);
 
 class SettingsUiActions {
   SettingsUiActions(this._ref);
@@ -50,36 +56,10 @@ class SettingsUiActions {
     return _reminderService.requestNotificationPermission();
   }
 
-  /// The only user-facing entry point that can request remote push permission.
-  /// Local scheduling permission remains explicit as well; startup never calls
-  /// either operating-system prompt.
-  Future<bool> requestNotificationPermissionAndRegisterPush() async {
-    final bool localGranted = await requestNotificationPermission();
-    if (!localGranted) {
-      return false;
-    }
-    if (!Env.cloudServicesEnabled) return localGranted;
-    final String? issue = await const FirebaseMessagingBootstrap()
-        .requestPermissionAndToken(isMockMode: Env.isMockMode);
-    if (issue != null) {
-      // Local reminders remain enabled when remote push registration is
-      // unavailable on a platform or during a transient backend outage.
-      return localGranted;
-    }
-    final String? token = FirebaseMessagingBootstrap.latestToken;
-    final client = _ref.read(supabaseClientProvider);
-    if (token != null && token.isNotEmpty && client != null) {
-      try {
-        await _ref
-            .read(firebaseSupabaseBridgeRepositoryProvider)
-            .syncFirebaseMessagingToken(client, token, source: 'settings');
-      } on Object {
-        // Permission remains granted even if cloud token sync is temporarily
-        // unavailable; the bridge retries on a later authenticated refresh.
-      }
-    }
-    return true;
-  }
+  // Remote push is not requested here: no server sends push yet. When a
+  // sender exists, wire the Firebase messaging bootstrap (initialize at startup,
+  // permission, token, token refresh, tap routing) and register_firebase_device
+  // through a new flow; the code, edge function and migrations stay in place.
 
   ReminderOrchestratorPrefs loadAdvancedReminderPrefs() {
     return _ref.read(reminderOrchestratorServiceProvider).loadPrefs();
@@ -101,20 +81,62 @@ class SettingsUiActions {
     if (enabled) await _reconcileReminders(owner);
   }
 
+  Future<void> setTaskRemindersEnabled(bool enabled) async {
+    final owner = AccountOperation.capture(_ref);
+    owner.check();
+    final reminders = _ref.read(reminderOrchestratorServiceProvider);
+    await owner.wait(reminders.setTaskRemindersEnabled(enabled));
+    if (enabled) await _reconcileReminders(owner);
+  }
+
+  /// The main reminder switch. Either way the full reconcile follows: off
+  /// cancels every OS reminder of this account, on registers them again.
+  /// Entries that already went off stay in the in-app list. Returns false
+  /// when turning off could not cancel everything; turning on reports its
+  /// problems through the Settings status row instead.
+  Future<bool> setRemindersEnabled(bool enabled) async {
+    final bool complete = await _saveAndReconcile(
+      (reminders) => reminders.setRemindersEnabled(enabled),
+    );
+    return enabled || complete;
+  }
+
+  Future<void> setTaskOverdueNudgesEnabled(bool enabled) => _saveAndReconcile(
+    (reminders) => reminders.setTaskOverdueNudgesEnabled(enabled),
+  );
+
+  Future<void> setTaskReminderLeadMinutes(int minutes) => _saveAndReconcile(
+    (reminders) => reminders.setTaskReminderLeadMinutes(minutes),
+  );
+
+  Future<void> setQuietHours(QuietHours quietHours) =>
+      _saveAndReconcile((reminders) => reminders.setQuietHours(quietHours));
+
+  Future<bool> _saveAndReconcile(
+    Future<void> Function(ReminderOrchestratorService reminders) save,
+  ) async {
+    final owner = AccountOperation.capture(_ref);
+    owner.check();
+    await owner.wait(save(_ref.read(reminderOrchestratorServiceProvider)));
+    return _reconcileReminders(owner);
+  }
+
   Future<void> refreshNotificationPermissionAndReminders() async {
     final owner = AccountOperation.capture(_ref);
     if (!owner.isCurrent) return;
     await _reconcileReminders(owner);
   }
 
-  Future<void> _reconcileReminders(AccountOperation owner) async {
+  /// Whether every reminder group and the reflection reminder are in line.
+  Future<bool> _reconcileReminders(AccountOperation owner) async {
     owner.check();
+    await owner.wait(_ref.read(localTimezoneRefresherProvider)());
     final scheduler = _ref.read(notificationSchedulerProvider);
     final granted = await owner.wait(scheduler.init(requestPermissions: false));
     final goals = _ref.read(getGoalsUseCaseProvider).call();
     owner.check();
     final habits = await owner.wait(_ref.read(getHabitsUseCaseProvider).call());
-    await owner.wait(
+    final bool planned = await owner.wait(
       _ref
           .read(reminderOrchestratorServiceProvider)
           .reconcileAfterRestore(
@@ -124,20 +146,24 @@ class SettingsUiActions {
             shouldContinue: () => owner.isCurrent,
           ),
     );
-    await owner.wait(
+    final bool reflected = await owner.wait(
       _reminderService.reconcileAfterRestore(
         permissionGranted: granted,
         shouldContinue: () => owner.isCurrent,
       ),
     );
     _ref.invalidate(automationNotificationsProvider);
+    // Reminders that came due while away count as new activity now.
+    _ref.invalidate(unreadNotificationsProvider);
+    return planned && reflected;
   }
 
-  Future<void> setDailyPlanningReminder({
+  /// Saves the choice, then reports how registering the reminder went.
+  Future<NotificationScheduleResult> setDailyPlanningReminder({
     required bool enabled,
     required TimeOfDay time,
-  }) async {
-    await _ref
+  }) {
+    return _ref
         .read(reminderOrchestratorServiceProvider)
         .setDailyPlanningReminder(
           enabled: enabled,

@@ -18,7 +18,9 @@ class NotificationsRepository implements INotificationRepository {
     this._scheduleNotification,
     this._cancelScheduledNotification,
     this._cancelAllScheduledNotifications,
-  }) : _accountId = accountId?.trim().isEmpty == true
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now,
+       _accountId = accountId?.trim().isEmpty == true
            ? null
            : accountId?.trim(),
        _mutations = mutationCoordinator ?? KeyedMutationCoordinator.shared;
@@ -31,6 +33,7 @@ class NotificationsRepository implements INotificationRepository {
   _scheduleNotification;
   final Future<void> Function(String id)? _cancelScheduledNotification;
   final Future<void> Function()? _cancelAllScheduledNotifications;
+  final DateTime Function() _now;
 
   String? get accountId => _accountId;
 
@@ -51,7 +54,17 @@ class NotificationsRepository implements INotificationRepository {
     if (mutationKey == null) return const <NotificationEntity>[];
     return _mutations.runExclusive<List<NotificationEntity>>(
       mutationKey,
-      _readNotifications,
+      () async {
+        bool skippedStale = false;
+        final List<NotificationEntity> entries = await _readNotificationsAt(
+          _storageKey,
+          onStaleSkipped: () => skippedStale = true,
+        );
+        // Drop them for good now, before their date passes and they would
+        // read as reminders that went off.
+        if (skippedStale) await _save(entries);
+        return entries;
+      },
     );
   }
 
@@ -61,8 +74,9 @@ class NotificationsRepository implements INotificationRepository {
   }
 
   Future<List<NotificationEntity>> _readNotificationsAt(
-    String? storageKey,
-  ) async {
+    String? storageKey, {
+    void Function()? onStaleSkipped,
+  }) async {
     if (storageKey == null) return const <NotificationEntity>[];
     final String? raw = await _store.readString(storageKey);
     if (raw == null || raw.trim().isEmpty) {
@@ -74,19 +88,26 @@ class NotificationsRepository implements INotificationRepository {
         throw const FormatException('Notification storage is not a list.');
       }
       final List<NotificationEntity> entries = <NotificationEntity>[];
+      final DateTime now = _now();
       int malformedCount = 0;
       for (final Object? value in decoded) {
         if (value is! Map) {
           continue;
         }
         try {
-          entries.add(
-            NotificationRecord.fromJson(
-              value.map(
-                (dynamic key, dynamic item) => MapEntry(key.toString(), item),
-              ),
-            ).toEntity(),
-          );
+          final NotificationEntity entry = NotificationRecord.fromJson(
+            value.map(
+              (dynamic key, dynamic item) => MapEntry(key.toString(), item),
+            ),
+          ).toEntity();
+          // Older builds kept reminders switched off before their time as
+          // disabled records. They never went off, so they are not history;
+          // skipping them here also drops them on the next write.
+          if (entry.isCancelledReminderAt(now)) {
+            onStaleSkipped?.call();
+            continue;
+          }
+          entries.add(entry);
         } on FormatException catch (error) {
           malformedCount++;
           if (malformedCount == 1) {
@@ -127,27 +148,47 @@ class NotificationsRepository implements INotificationRepository {
       final NotificationEntity scheduled = preserveRead
           ? _copy(notification, isRead: true)
           : notification;
-      await _save(<NotificationEntity>[
-        scheduled,
-        ...entries.where(
-          (NotificationEntity entry) => entry.id != scheduled.id,
-        ),
-      ]);
+      NotificationScheduleResult result;
       try {
         final schedule = _scheduleNotification;
         if (schedule != null) {
           await schedule(scheduled);
+          result = NotificationScheduleResult.scheduled;
         } else {
-          await _scheduler.schedule(scheduled, accountScope: _accountScope);
+          result = await _scheduler.schedule(
+            scheduled,
+            accountScope: _accountScope,
+          );
         }
       } catch (error) {
+        // Recorded as failed, so the list shows it as not scheduled.
+        result = NotificationScheduleResult.failed;
         Logger.warn(
           'Failed to schedule notification ${notification.id}: $error',
         );
       }
+      // Kept on the record so the list can say why a reminder is not
+      // scheduled. In-app entries never reach the OS and carry none.
+      final NotificationEntity stored = NotificationEntity(
+        id: scheduled.id,
+        title: scheduled.title,
+        message: scheduled.message,
+        scheduledAt: scheduled.scheduledAt,
+        isEnabled: scheduled.isEnabled,
+        isRead: scheduled.isRead,
+        scheduleResult: scheduled.isEnabled ? result : null,
+      );
+      await _save(<NotificationEntity>[
+        stored,
+        ...entries.where((NotificationEntity entry) => entry.id != stored.id),
+      ]);
     });
   }
 
+  /// Cancels the OS reminder and removes its record while its time is still
+  /// ahead, so a switched-off reminder never lingers in the list. A reminder
+  /// whose time has passed already went off and stays as history, as do
+  /// in-app entries.
   @override
   Future<void> cancelNotification(String id) async {
     await _runMutation(() async {
@@ -155,7 +196,13 @@ class NotificationsRepository implements INotificationRepository {
       final List<NotificationEntity> entries = await _readNotifications();
       final NotificationEntity? existing = _find(entries, id);
       if (existing == null) return;
-      await _upsert(_copy(existing, isEnabled: false));
+      if (!existing.isEnabled && !NotificationEntity.isReminderId(id)) return;
+      if (!existing.scheduledAt.isAfter(_now())) return;
+      await _save(
+        entries
+            .where((NotificationEntity entry) => entry.id != id)
+            .toList(growable: false),
+      );
     });
   }
 
@@ -266,8 +313,8 @@ class NotificationsRepository implements INotificationRepository {
     });
   }
 
-  /// Rhythm reminders and the extra goal reminder slots are registered
-  /// straight with the OS, so read them back from the platform for cleanup.
+  /// Rhythm, task and the extra goal reminder slots are registered straight
+  /// with the OS, so read them back from the platform for cleanup.
   Future<List<String>> _pendingRhythmReminderIds() async {
     final String? scope = _accountScope;
     if (scope == null) return const <String>[];
@@ -276,7 +323,8 @@ class NotificationsRepository implements INotificationRepository {
           .where(
             (String id) =>
                 id.startsWith('habit_reminder_') ||
-                id.startsWith('goal_reminder_'),
+                id.startsWith('goal_reminder_') ||
+                id.startsWith('task_reminder_'),
           )
           .toList(growable: false);
     } catch (error) {
@@ -364,6 +412,7 @@ class NotificationsRepository implements INotificationRepository {
       scheduledAt: entry.scheduledAt,
       isEnabled: isEnabled ?? entry.isEnabled,
       isRead: isRead ?? entry.isRead,
+      scheduleResult: entry.scheduleResult,
     );
   }
 

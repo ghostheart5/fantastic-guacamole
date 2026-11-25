@@ -2,12 +2,14 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -603,6 +605,186 @@ void main() {
     expect(submitted?.habitCadence, HabitCadence.weekly);
     expect(submitted?.habitTargetCount, 2);
     expect(submitted?.recurrenceRule.name, 'weekly');
+  });
+
+  testWidgets('a habit is saved with a preset time and chosen weekdays', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    CreatorFormData? submitted;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: appTheme,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: DynamicForm(
+              initialType: CreatorFormKind.habit,
+              onSubmit: (CreatorFormData data) async => submitted = data,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextField).first, 'Long run');
+
+    // "Any time" is the default: no reminder and no day chooser.
+    expect(
+      tester
+          .widget<ChoiceChip>(
+            find.byKey(const Key('creator-habit-reminder-any')),
+          )
+          .selected,
+      isTrue,
+    );
+    expect(find.text('No reminder. Choose a time to get one.'), findsOneWidget);
+    await tester.tap(find.text('Weekly'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('habit-reminder-weekday-3')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('creator-habit-reminder-1200')));
+    await tester.pumpAndSettle();
+    expect(find.text('Reminder at 8:00 PM every Monday'), findsOneWidget);
+    for (final day in [3, 1, 5]) {
+      await tester.ensureVisible(
+        find.byKey(Key('habit-reminder-weekday-$day')),
+      );
+      await tester.tap(find.byKey(Key('habit-reminder-weekday-$day')));
+      await tester.pumpAndSettle();
+    }
+    expect(
+      find.text('Reminder at 8:00 PM every Wednesday and Friday'),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(find.text('Save habit'));
+    await tester.tap(find.text('Save habit'));
+    await tester.pump();
+
+    expect(submitted?.habitCadence, HabitCadence.weekly);
+    expect(submitted?.habitReminderMinutes, 20 * 60);
+    expect(submitted?.habitReminderWeekdays, [3, 5]);
+  });
+
+  testWidgets('screen readers hear and can toggle each weekday', (
+    WidgetTester tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    CreatorFormData? submitted;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: DynamicForm(
+              initialType: CreatorFormKind.habit,
+              onSubmit: (CreatorFormData data) async => submitted = data,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextField).first, 'Long run');
+    await tester.tap(find.text('Weekly'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('creator-habit-reminder-480')));
+    await tester.pumpAndSettle();
+
+    final wednesday = find.byKey(const ValueKey('habit-reminder-weekday-3'));
+    expect(
+      tester.getSemantics(wednesday),
+      isSemantics(
+        label: 'Wednesday',
+        isButton: true,
+        hasTapAction: true,
+        hasSelectedState: true,
+        isSelected: false,
+        hasEnabledState: true,
+        isEnabled: true,
+      ),
+    );
+    expect(
+      tester.getSemantics(
+        find.byKey(const ValueKey('habit-reminder-weekday-1')),
+      ),
+      isSemantics(label: 'Monday', isSelected: true, hasTapAction: true),
+    );
+    tester.binding.renderViews.single.owner!.semanticsOwner!.performAction(
+      tester.getSemantics(wednesday).id,
+      SemanticsAction.tap,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSemantics(wednesday),
+      isSemantics(label: 'Wednesday', isSelected: true),
+    );
+    await tester.ensureVisible(find.text('Save habit'));
+    await tester.tap(find.text('Save habit'));
+    await tester.pump();
+    expect(submitted?.habitReminderWeekdays, [1, 3]);
+    semantics.dispose();
+  });
+
+  testWidgets('a habit can be given another time and a day of the month', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    CreatorFormData? submitted;
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('es'),
+        supportedLocales: ChronoSparkLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          ChronoSparkLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: DynamicForm(
+              initialType: CreatorFormKind.habit,
+              onSubmit: (CreatorFormData data) async => submitted = data,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Pagar el alquiler');
+    expect(find.text('A cualquier hora'), findsOneWidget);
+    await tester.tap(find.text('Mensual'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('creator-habit-reminder-other')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(TextButton).last); // Accept 18:00.
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Recordatorio a las 18:00 el día 1 de cada mes'),
+      findsOneWidget,
+    );
+    final day = find.byKey(const Key('habit-reminder-month-day'));
+    await tester.ensureVisible(day);
+    await tester.tap(day);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Último día').last);
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Recordatorio a las 18:00 el último día de cada mes'),
+      findsOneWidget,
+    );
+    final save = find.text('Guardar hábito');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pump();
+
+    expect(submitted?.habitCadence, HabitCadence.monthly);
+    expect(submitted?.habitReminderMinutes, 18 * 60);
+    expect(submitted?.habitReminderDayOfMonth, HabitEntity.lastDayOfMonth);
   });
 
   testWidgets('Note uses only title and body and never task semantics', (

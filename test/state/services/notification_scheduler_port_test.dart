@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/repositories/notifications_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -34,7 +35,9 @@ void main() {
           await prefs.save(key, 'false');
         }
         await prefs.save('scheduled_goal_reminder_ids', '["old-goal"]');
-        final scheduler = _RecordingScheduler();
+        // Registered before the restore turned them off.
+        final scheduler = _RecordingScheduler()
+          ..pending.addAll(['habit_reminder_daily', 'daily_planning_reminder']);
         final reflection = ReflectionReminderService(
           preferences: prefs,
           scheduler: scheduler,
@@ -226,13 +229,18 @@ void main() {
           'daily_planning_reminder',
           'habit_reminder_daily',
           'habit_reminder_owned-habit',
+          // One alarm per weekday a weekly habit can choose.
+          for (var weekday = 1; weekday <= 7; weekday++)
+            'habit_reminder_owned-habit_wd$weekday',
           for (final id in ['legacy-tracked', ...goals.map((goal) => goal.id)])
-            for (final suffix in ['', '_3d', '_due', '_close'])
+            for (final suffix in ['', '_3d', '_due', '_close', '_overdue'])
               'goal_reminder_$id$suffix',
         ]),
       );
-      // Fixed reminders, the rhythm's own id, and four slots per goal.
-      expect(scheduler.cancelled.toSet().length, 3 + 696 * 4);
+      // Fixed reminders, the rhythm's own id and its seven weekday ids, and
+      // every one of the five slots a goal can own, including the
+      // morning-after overdue nudge.
+      expect(scheduler.cancelled.toSet().length, 3 + 7 + 696 * 5);
       expect(
         scheduler.operations.every((op) => op == 'cancel:$account'),
         isTrue,
@@ -258,11 +266,13 @@ void main() {
         accountScope: 'restore-scope',
       );
       expect(
-        await service.reconcileAfterRestore(
-          goals: [],
-          habits: [],
-          permissionGranted: true,
-          shouldContinue: () => true,
+        await Logger.withMutedErrors(
+          () => service.reconcileAfterRestore(
+            goals: [],
+            habits: [],
+            permissionGranted: true,
+            shouldContinue: () => true,
+          ),
         ),
         isFalse,
       );
@@ -324,7 +334,10 @@ void main() {
       try {
         original.read(notificationProvider);
         await pumpEventQueue();
-        expect(original.read(unreadNotificationsProvider), 1);
+        expect(original.read(notificationProvider).single.isRead, isFalse);
+        // A reminder still waiting for its time is not counted as new, the
+        // same rule the notification list uses.
+        expect(original.read(unreadNotificationsProvider), 0);
         final id = original.read(notificationProvider).single.id;
         await original.read(notificationProvider.notifier).markRead(id);
         expect(original.read(unreadNotificationsProvider), 0);
@@ -344,6 +357,56 @@ void main() {
       expect(restarted.read(notificationProvider), hasLength(1));
       expect(restarted.read(notificationProvider).single.isRead, isTrue);
       expect(restarted.read(unreadNotificationsProvider), 0);
+    },
+  );
+
+  test(
+    'the day-before reminder stays listed after its time passes and goals sync again',
+    () async {
+      DateTime current = DateTime(2026, 12, 1, 8);
+      final scheduler = _RecordingScheduler();
+      const accountId = 'went-off-account';
+      final repository = NotificationsRepository(
+        scheduler,
+        SecureStore(backend: InMemorySecureStoreBackend()),
+        accountId: accountId,
+        now: () => current,
+      );
+      final service = ReminderOrchestratorService(
+        preferences: _MemoryPreferences(),
+        notifications: NotificationsService(repository),
+        scheduler: scheduler,
+        accountScope: AccountDataRegistry.accountDigest(accountId),
+        now: () => current,
+      );
+      final goal = GoalEntity(
+        id: 'trip',
+        title: 'Book the trip',
+        createdAt: current,
+        targetDate: DateTime(2026, 12, 5),
+      );
+
+      await service.syncGoalReminders([goal]);
+      final listed = (await repository.getNotifications()).singleWhere(
+        (entry) => entry.id == 'goal_reminder_trip',
+      );
+      expect(listed.title, 'Goal due tomorrow');
+      expect(listed.scheduledAt, DateTime(2026, 12, 4, 9));
+
+      // The reminder went off at 09:00; the next sync no longer wants it.
+      current = DateTime(2026, 12, 4, 10);
+      await service.syncGoalReminders([goal]);
+
+      expect(scheduler.cancelled, contains('goal_reminder_trip'));
+      final kept = (await repository.getNotifications()).singleWhere(
+        (entry) => entry.id == 'goal_reminder_trip',
+      );
+      expect(kept.title, 'Goal due tomorrow');
+      expect(
+        notificationListStatus(kept, now: current, registered: null),
+        NotificationListStatus.past,
+      );
+      expect(isNewNotificationActivity(kept, current), isTrue);
     },
   );
 
@@ -456,7 +519,8 @@ void main() {
     );
 
     expect(preferences.load(ReflectionReminderService.enabledKey), 'true');
-    expect(scheduler.permissionRequests, 1);
+    // The switch asks first through the shared helper; saving never asks.
+    expect(scheduler.permissionRequests, 0);
     expect(scheduler.dailySchedules.single.id, 'reflection_reminder');
     expect(scheduler.dailySchedules.single.hour, 9);
     expect(scheduler.dailySchedules.single.minute, 15);
@@ -676,6 +740,9 @@ final class _MemoryPreferences implements SharedPrefsStore {
 
 final class _RecordingScheduler implements NotificationSchedulerPort {
   bool scheduleSucceeds = true;
+  NotificationScheduleResult get _result => scheduleSucceeds
+      ? NotificationScheduleResult.scheduled
+      : NotificationScheduleResult.failed;
   bool blockFirstGoalCancellation = false;
   final firstGoalCancellationEntered = Completer<void>();
   final releaseGoalCancellation = Completer<void>();
@@ -689,6 +756,7 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
   final ValueNotifier<bool?> permissionSignal = ValueNotifier<bool?>(true);
   final List<_DailySchedule> dailySchedules = <_DailySchedule>[];
   final List<String> cancelled = <String>[];
+  final Set<String> pending = <String>{};
   int permissionRequests = 0;
   int clearTappedPayloadCalls = 0;
 
@@ -699,16 +767,16 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
   }
 
   @override
-  Future<bool> schedule(
+  Future<NotificationScheduleResult> schedule(
     NotificationEntity notification, {
     String? accountScope,
   }) async {
     schedules.add(notification);
-    return scheduleSucceeds;
+    return _result;
   }
 
   @override
-  Future<bool> scheduleDailyAt({
+  Future<NotificationScheduleResult> scheduleDailyAt({
     required String id,
     required String title,
     required String body,
@@ -729,11 +797,11 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
       entered.complete();
       await release.future;
     }
-    return scheduleSucceeds;
+    return _result;
   }
 
   @override
-  Future<bool> scheduleCadenceAt({
+  Future<NotificationScheduleResult> scheduleCadenceAt({
     required String id,
     required String title,
     required String body,
@@ -743,7 +811,7 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
   }) async {
     operations.add('cadence:$accountScope');
     cadenceSchedules++;
-    return scheduleSucceeds;
+    return _result;
   }
 
   @override
@@ -761,7 +829,7 @@ final class _RecordingScheduler implements NotificationSchedulerPort {
 
   @override
   Future<List<String>> pendingIdsForAccount(String accountScope) async =>
-      const <String>[];
+      pending.toList();
 
   @override
   Future<bool> cancelAll() async {

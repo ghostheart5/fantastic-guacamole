@@ -70,6 +70,7 @@ retention, while UI checks distinguish Cancel from confirmed removal.
 These are bounded source, host, and local-device results. They do not establish
 whole-app acceptance, a new emulator journey to level 20, authenticated cloud
 sync/recovery, renewal/refund/cross-device purchases, timed notification delivery
-under Doze/reboot, or a native clock-change experiment. Prior Play test purchases
+under Doze/reboot, or a native clock-change experiment (the hands-on check for these is
+[DEVICE_REMINDER_PROTOCOL.md](DEVICE_REMINDER_PROTOCOL.md); no results are recorded yet). Prior Play test purchases
 are separately recorded and used test payments only. This branch is not a Google
 Play publication.

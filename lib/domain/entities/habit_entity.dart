@@ -20,7 +20,11 @@ class HabitEntity {
     this.stepTaskIds = const <String>[],
     this.status = HabitStatus.active,
     int? reminderMinutes,
+    List<int>? reminderWeekdays,
+    int? reminderDayOfMonth,
   }) : reminderMinutes = _validReminderMinutes(reminderMinutes),
+       reminderWeekdays = normalizeReminderWeekdays(reminderWeekdays),
+       reminderDayOfMonth = normalizeReminderDayOfMonth(reminderDayOfMonth),
        updatedAt = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
 
   final String id;
@@ -39,6 +43,44 @@ class HabitEntity {
   /// Optional local reminder time, as minutes after midnight (for example
   /// 17 * 60 for 5:00 PM). Null means this habit sends no reminder.
   final int? reminderMinutes;
+
+  /// The ISO weekdays (1 = Monday ... 7 = Sunday) a weekly habit reminds on,
+  /// sorted and without repeats. Null means Monday, as before these could be
+  /// chosen. Only weekly habits use it.
+  final List<int>? reminderWeekdays;
+
+  /// The day of the month a monthly habit reminds on: 1 to 28, or
+  /// [lastDayOfMonth]. Null means the 1st, as before it could be chosen. Only
+  /// monthly habits use it.
+  final int? reminderDayOfMonth;
+
+  /// [reminderDayOfMonth] value for "the last day of each month" (the 28th,
+  /// 29th, 30th or 31st, whichever ends that month).
+  static const int lastDayOfMonth = 31;
+
+  /// Sorted, unique ISO weekdays from [raw], or null when none is readable.
+  static List<int>? normalizeReminderWeekdays(Object? raw) {
+    if (raw is! Iterable) return null;
+    final Set<int> days = <int>{
+      for (final Object? value in raw)
+        if (value is num &&
+            value == value.toInt() &&
+            value >= DateTime.monday &&
+            value <= DateTime.sunday)
+          value.toInt(),
+    };
+    if (days.isEmpty) return null;
+    return List<int>.unmodifiable(days.toList()..sort());
+  }
+
+  /// 1 to 28 or [lastDayOfMonth] from [raw]; anything else is null.
+  static int? normalizeReminderDayOfMonth(Object? raw) {
+    if (raw is! num || raw != raw.toInt()) return null;
+    final int value = raw.toInt();
+    return (value >= 1 && value <= 28) || value == lastDayOfMonth
+        ? value
+        : null;
+  }
 
   int? get reminderHour =>
       reminderMinutes == null ? null : reminderMinutes! ~/ 60;
@@ -67,6 +109,10 @@ class HabitEntity {
     HabitStatus? status,
     int? reminderMinutes,
     bool clearReminder = false,
+    List<int>? reminderWeekdays,
+    int? reminderDayOfMonth,
+    // Back to Monday and the 1st.
+    bool clearReminderDays = false,
   }) {
     return HabitEntity(
       id: id,
@@ -84,6 +130,12 @@ class HabitEntity {
       reminderMinutes: clearReminder
           ? null
           : (reminderMinutes ?? this.reminderMinutes),
+      reminderWeekdays: clearReminderDays
+          ? null
+          : (reminderWeekdays ?? this.reminderWeekdays),
+      reminderDayOfMonth: clearReminderDays
+          ? null
+          : (reminderDayOfMonth ?? this.reminderDayOfMonth),
     );
   }
 
@@ -103,6 +155,8 @@ class HabitEntity {
       'status': status.name,
       'active': active,
       if (reminderMinutes != null) 'reminderMinutes': reminderMinutes,
+      if (reminderWeekdays != null) 'reminderWeekdays': reminderWeekdays,
+      if (reminderDayOfMonth != null) 'reminderDayOfMonth': reminderDayOfMonth,
     };
   }
 
@@ -156,6 +210,10 @@ class HabitEntity {
             json['active'] == false ? HabitStatus.paused : HabitStatus.active,
       ),
       reminderMinutes: _validReminderMinutes(json['reminderMinutes']),
+      reminderWeekdays: normalizeReminderWeekdays(json['reminderWeekdays']),
+      reminderDayOfMonth: normalizeReminderDayOfMonth(
+        json['reminderDayOfMonth'],
+      ),
     );
   }
 }

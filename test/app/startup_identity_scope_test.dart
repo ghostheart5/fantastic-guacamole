@@ -112,10 +112,19 @@ void main() {
     final stages = File(
       'lib/app/startup/startup_stages.dart',
     ).readAsStringSync();
-    final initialize = stages.substring(
-      stages.indexOf('Future<StartupBootstrapResult> _initializeStartup('),
-      stages.indexOf('Future<void> _configureLocalTimezone('),
+    // _initializeStartup runs before the account boundary is verified, so it
+    // must never start identity. Its body ends where the next top-level
+    // startup stage begins.
+    final int initializeStart = stages.indexOf(
+      'Future<StartupBootstrapResult> _initializeStartup(',
     );
+    final int initializeEnd = stages.indexOf(
+      'Future<String?> _initStorageSafe(',
+    );
+    expect(initializeStart, isNonNegative);
+    expect(initializeEnd, greaterThan(initializeStart));
+    final initialize = stages.substring(initializeStart, initializeEnd);
+    expect(initialize, contains('_initStorageSafe(cancellationToken)'));
     expect(initialize, isNot(contains('_initIdentitySafe(')));
     final coordinator = File(
       'lib/app/startup/startup_coordinator.dart',

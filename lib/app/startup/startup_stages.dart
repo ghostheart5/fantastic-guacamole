@@ -72,7 +72,7 @@ Future<StartupBootstrapResult> _initializeStartup(
   }
 
   tzdata.initializeTimeZones();
-  await _configureLocalTimezone(cancellationToken);
+  await refreshLocalTimezone(shouldApply: () => !cancellationToken.isCancelled);
   if (cancellationToken.isCancelled) {
     return _cancelledStartupResult;
   }
@@ -220,27 +220,6 @@ Future<StartupBootstrapResult> _initializeStartup(
     startupError: startupError,
     productionReadinessBlocked: false,
   );
-}
-
-Future<void> _configureLocalTimezone(
-  StartupCancellationToken cancellationToken,
-) async {
-  try {
-    final timezoneName = (await FlutterTimezone.getLocalTimezone()).identifier;
-    if (cancellationToken.isCancelled) {
-      return;
-    }
-    final tz.Location location = tz.getLocation(timezoneName);
-    tz.setLocalLocation(location);
-    Logger.log('Startup', 'Timezone configured: $timezoneName');
-    RuntimeDiagnostics.record('Timezone configured: $timezoneName');
-  } catch (error) {
-    if (cancellationToken.isCancelled) {
-      return;
-    }
-    Logger.warn('Failed to configure local timezone.');
-    RuntimeDiagnostics.record('Failed to configure local timezone.');
-  }
 }
 
 Future<String?> _initStorageSafe(

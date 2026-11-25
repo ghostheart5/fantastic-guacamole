@@ -50,6 +50,12 @@ void main() {
             automationNotificationsProvider.overrideWith(
               (ref) async => const <NotificationEntity>[],
             ),
+            registeredRemindersProvider.overrideWith(
+              (ref) async => const RegisteredReminders(
+                ids: <String>{},
+                permissionGranted: true,
+              ),
+            ),
           ],
         );
         addTearDown(() async {

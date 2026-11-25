@@ -49,23 +49,6 @@ final smartPlannerEngineStateProvider = FutureProvider<Map<String, dynamic>?>((
   );
 });
 
-final aiDecisionProvider = FutureProvider<Decision?>((ref) async {
-  final List<Task> tasks = await ref.watch(tasksProvider.future);
-  final si = ref.watch(siStateProvider);
-  final learning = ref.watch(learningProvider);
-
-  final SICore core = SICore(si: si, learning: learning);
-  final Decision? decision = core.decide(tasks);
-
-  if (decision != null) {
-    await ref
-        .read(notificationActionsProvider)
-        .pushMirroredDecision(decision.task.title);
-  }
-
-  return decision;
-});
-
 final aiResponseProvider =
     AsyncNotifierProvider<AIResponseController, AIRecommendation?>(
       AIResponseController.new,

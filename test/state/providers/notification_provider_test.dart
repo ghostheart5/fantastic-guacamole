@@ -22,15 +22,13 @@ void main() {
 
     await container
         .read(notificationProvider.notifier)
-        .pushDecision('Prepare launch');
+        .pushTaskSkipped('Prepare launch');
 
     final List<NotificationEntity> created = container.read(
       notificationProvider,
     );
     expect(
-      created.where(
-        (NotificationEntity item) => item.title == 'Decision Alert',
-      ),
+      created.where((NotificationEntity item) => item.title == 'Task Skipped'),
       isNotEmpty,
     );
     expect(
@@ -72,7 +70,7 @@ void main() {
 
       await container
           .read(notificationProvider.notifier)
-          .pushDecision('Lock sprint scope');
+          .pushTaskSkipped('Lock sprint scope');
       await Future<void>.delayed(const Duration(milliseconds: 70));
 
       final List<NotificationEntity> notifications = container.read(
@@ -126,7 +124,7 @@ void main() {
 
     await container
         .read(notificationProvider.notifier)
-        .pushDecision('Reset target');
+        .pushTaskSkipped('Reset target');
     expect(container.read(notificationProvider), isNotEmpty);
 
     container.read(notificationProvider.notifier).clear();
@@ -169,6 +167,111 @@ void main() {
     accountA.releaseLoad();
     await Future<void>.delayed(const Duration(milliseconds: 20));
     expect(container.read(notificationProvider).single.id, 'b-only');
+  });
+
+  group('unread count follows the clock', () {
+    final DateTime start = DateTime(2026, 7, 5, 9);
+    NotificationEntity reminder(String id, DateTime at) =>
+        NotificationEntity(id: id, title: id, message: id, scheduledAt: at);
+
+    testWidgets('counts a future reminder once its time has passed', (
+      tester,
+    ) async {
+      DateTime now = start;
+      final _FakeNotificationRepository repository =
+          _FakeNotificationRepository();
+      await repository.scheduleNotification(
+        reminder('later', start.add(const Duration(minutes: 10))),
+      );
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          domainNotificationRepositoryProvider.overrideWithValue(repository),
+          notificationClockProvider.overrideWithValue(() => now),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen<int>(unreadNotificationsProvider, (_, _) {});
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(container.read(notificationProvider), hasLength(1));
+      expect(container.read(unreadNotificationsProvider), 0);
+      now = start.add(const Duration(minutes: 10));
+      await tester.pump(const Duration(minutes: 10));
+      expect(container.read(unreadNotificationsProvider), 1);
+      container.dispose();
+    });
+
+    testWidgets('an invalidation re-reads the clock, as resume does', (
+      tester,
+    ) async {
+      DateTime now = start;
+      final _FakeNotificationRepository repository =
+          _FakeNotificationRepository();
+      await repository.scheduleNotification(
+        reminder('later', start.add(const Duration(hours: 1))),
+      );
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          domainNotificationRepositoryProvider.overrideWithValue(repository),
+          notificationClockProvider.overrideWithValue(() => now),
+        ],
+      );
+      container.listen<int>(unreadNotificationsProvider, (_, _) {});
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(container.read(notificationProvider), hasLength(1));
+      expect(container.read(unreadNotificationsProvider), 0);
+
+      // The clock moved while timers were held back.
+      now = start.add(const Duration(hours: 2));
+      container.invalidate(unreadNotificationsProvider);
+      expect(container.read(unreadNotificationsProvider), 1);
+      container.dispose();
+    });
+
+    testWidgets('leaves no timer after an account change or dispose', (
+      tester,
+    ) async {
+      int evaluations = 0;
+      final _FakeNotificationRepository accountA =
+          _FakeNotificationRepository();
+      final _FakeNotificationRepository accountB =
+          _FakeNotificationRepository();
+      await accountA.scheduleNotification(
+        reminder('a', start.add(const Duration(minutes: 5))),
+      );
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          _testRepositoriesProvider.overrideWithValue(
+            <String, INotificationRepository>{
+              'account-a': accountA,
+              'account-b': accountB,
+            },
+          ),
+          domainNotificationRepositoryProvider.overrideWith((ref) {
+            final String account = ref.watch(_testAccountIdProvider);
+            return ref.watch(_testRepositoriesProvider)[account]!;
+          }),
+          notificationClockProvider.overrideWithValue(() {
+            evaluations++;
+            return start;
+          }),
+        ],
+      );
+      container.listen<int>(unreadNotificationsProvider, (_, _) {});
+      await tester.pump(const Duration(milliseconds: 1));
+
+      container.read(_testAccountIdProvider.notifier).set('account-b');
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(container.read(unreadNotificationsProvider), 0);
+      final int afterSwitch = evaluations;
+      // Account A's reminder time passes: its timer must be gone.
+      await tester.pump(const Duration(minutes: 10));
+      expect(evaluations, afterSwitch);
+
+      container.read(_testAccountIdProvider.notifier).set('account-a');
+      await tester.pump(const Duration(milliseconds: 1));
+      container.dispose();
+    });
   });
 }
 

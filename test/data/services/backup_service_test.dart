@@ -459,6 +459,53 @@ void main() {
     );
   });
 
+  test('backup keeps a habit reminder time and its chosen days', () async {
+    habitRepository.values = <HabitEntity>[
+      HabitEntity(
+        id: 'habit-weekly',
+        title: 'Long run',
+        createdAt: DateTime.utc(2026, 8, 30, 8),
+        updatedAt: DateTime.utc(2026, 8, 30, 8),
+        cadence: HabitCadence.weekly,
+        reminderMinutes: 7 * 60,
+        reminderWeekdays: const <int>[3, 6],
+      ),
+      HabitEntity(
+        id: 'habit-monthly',
+        title: 'Pay rent',
+        createdAt: DateTime.utc(2026, 8, 30, 8),
+        updatedAt: DateTime.utc(2026, 8, 30, 8),
+        cadence: HabitCadence.monthly,
+        reminderMinutes: 9 * 60,
+        reminderDayOfMonth: HabitEntity.lastDayOfMonth,
+      ),
+      HabitEntity(
+        id: 'habit-plain',
+        title: 'Stretch',
+        createdAt: DateTime.utc(2026, 8, 30, 8),
+        updatedAt: DateTime.utc(2026, 8, 30, 8),
+      ),
+    ];
+    final Map<String, dynamic> backup =
+        jsonDecode(jsonEncode(await service.createFullBackup()))
+            as Map<String, dynamic>;
+    habitRepository.values = <HabitEntity>[];
+    await service.restoreFullBackup(backup);
+
+    final Map<String, HabitEntity> restored = <String, HabitEntity>{
+      for (final HabitEntity habit in habitRepository.values) habit.id: habit,
+    };
+    expect(restored['habit-weekly']!.reminderWeekdays, <int>[3, 6]);
+    expect(restored['habit-weekly']!.reminderMinutes, 7 * 60);
+    expect(
+      restored['habit-monthly']!.reminderDayOfMonth,
+      HabitEntity.lastDayOfMonth,
+    );
+    expect(restored['habit-plain']!.reminderWeekdays, isNull);
+    expect(restored['habit-plain']!.reminderDayOfMonth, isNull);
+    expect(restored['habit-plain']!.reminderMinutes, isNull);
+  });
+
   test('full restore rejects a different account before any write', () async {
     await repository.saveTask(
       TaskEntity(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
@@ -18,16 +19,81 @@ class NotificationScheduler implements NotificationSchedulerPort {
 
   final FlutterLocalNotificationsPlugin _plugin;
   bool _initialized = false;
+  Completer<void> _initializedOnce = Completer<void>();
   bool _launchPayloadClaimed = false;
+
+  /// When this process first asked for its launch payload (about when the
+  /// app started); a held payload is measured from here.
+  DateTime? _launchAskedAt;
+
+  /// How late after launch a held cold-start tap is still honoured. Waiting
+  /// for sign-in or a slow account restore fits well inside this; later, the
+  /// person is already doing something else and must not be moved.
+  static const Duration heldLaunchPayloadMaxAge = Duration(minutes: 2);
+
+  /// The clock for [heldLaunchPayloadMaxAge].
+  @visibleForTesting
+  static DateTime Function() launchClock = DateTime.now;
+
+  /// The claimed launch payload waiting until the app can route it (the
+  /// account it belongs to is ready), or null. Held for the process and
+  /// observable, so whichever shell is mounted when it arrives routes it,
+  /// even when the shell that claimed it is gone.
+  static final ValueNotifier<String?> heldLaunchPayloadListenable =
+      _PayloadNotifier();
+
+  /// Whether anything still listens for taps or held launches, so tests can
+  /// check that a closed shell let go of both.
+  @visibleForTesting
+  static bool get debugHasPayloadListeners =>
+      (tappedPayloadListenable as _PayloadNotifier).listening ||
+      (heldLaunchPayloadListenable as _PayloadNotifier).listening;
 
   /// Test isolation only. Release builds cannot rearm a consumed launch.
   @visibleForTesting
   void resetLaunchConsumptionForTesting() {
     assert(() {
       _launchPayloadClaimed = false;
+      _launchAskedAt = null;
+      heldLaunchPayloadListenable.value = null;
       return true;
     }());
   }
+
+  /// Test isolation only: as if [init] had not run yet in this process.
+  @visibleForTesting
+  void resetInitializationForTesting() {
+    assert(() {
+      _initialized = false;
+      _initializedOnce = Completer<void>();
+      return true;
+    }());
+  }
+
+  void holdLaunchPayload(String payload) =>
+      heldLaunchPayloadListenable.value = payload;
+
+  bool get hasHeldLaunchPayload => heldLaunchPayloadListenable.value != null;
+
+  /// The held launch payload, handed out once; null, and dropped, once
+  /// [heldLaunchPayloadMaxAge] has passed since launch.
+  String? takeHeldLaunchPayload() {
+    final String? payload = heldLaunchPayloadListenable.value;
+    if (payload == null) return null;
+    heldLaunchPayloadListenable.value = null;
+    final DateTime? askedAt = _launchAskedAt;
+    if (askedAt != null &&
+        launchClock().difference(askedAt) > heldLaunchPayloadMaxAge) {
+      Logger.log('Notifications', 'Dropped a cold-start tap held too long.');
+      return null;
+    }
+    return payload;
+  }
+
+  /// Whether [init] has set up the plugin in this process. Until then
+  /// nothing can be registered, and the next full reconcile (which runs
+  /// [init] itself) brings reminders in line.
+  bool get isInitialized => _initialized;
 
   bool _permissionGranted = true;
   static final ValueNotifier<bool?> permissionGrantedListenable =
@@ -41,7 +107,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
   /// the app and a launch-from-notification was indistinguishable from a
   /// normal launch.
   static final ValueNotifier<String?> tappedPayloadListenable =
-      ValueNotifier<String?>(null);
+      _PayloadNotifier();
 
   ValueListenable<bool?> get permissionStatusListenable =>
       permissionGrantedListenable;
@@ -112,10 +178,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
           first.minute == minute &&
           first.second == 0 &&
           first.millisecond == 0 &&
-          first.microsecond == 0 &&
-          (cadence != HabitCadence.weekly ||
-              first.weekday == DateTime.monday) &&
-          (cadence != HabitCadence.monthly || first.day == 1);
+          first.microsecond == 0;
       result.add((
         id: scoped.notificationId,
         title: request.title ?? '',
@@ -137,9 +200,15 @@ class NotificationScheduler implements NotificationSchedulerPort {
   /// tap. Queries the retained native launch intent at most once per process,
   /// including ordinary launches and failed reads, so remounts cannot replay it.
   /// Foreground notification callbacks remain independent.
+  ///
+  /// Startup does not wait for [init], so a shell can ask first: the read then
+  /// waits for [init] instead of dropping a cold-start tap.
   Future<String?> consumeLaunchPayload() async {
-    if (!_initialized || _launchPayloadClaimed) {
-      return null;
+    _launchAskedAt ??= launchClock();
+    if (_launchPayloadClaimed) return null;
+    if (!_initialized) {
+      await _initializedOnce.future;
+      if (_launchPayloadClaimed) return null;
     }
     // Android retains the Activity intent. Claim before awaiting so concurrent
     // shell mounts cannot replay it. Real foreground taps use the listener.
@@ -211,6 +280,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
       onDidReceiveNotificationResponse: _handleNotificationResponse,
     );
     _initialized = true;
+    if (!_initializedOnce.isCompleted) _initializedOnce.complete();
 
     final AndroidFlutterLocalNotificationsPlugin? androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
@@ -300,7 +370,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
   }
 
   @override
-  Future<bool> schedule(
+  Future<NotificationScheduleResult> schedule(
     NotificationEntity notification, {
     String? accountScope,
   }) async {
@@ -309,7 +379,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
       // transient toasts) are persisted for the in-app notification list but
       // must never reach the OS. Without this guard every task interaction
       // posted a real system notification one second later.
-      return false;
+      return NotificationScheduleResult.unsupported;
     }
     if (!_initialized) {
       Logger.warn(
@@ -318,7 +388,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
       RuntimeDiagnostics.record(
         'Skipped notification schedule because scheduler is not initialized.',
       );
-      return false;
+      return NotificationScheduleResult.unsupported;
     }
     if (!_permissionGranted) {
       Logger.log(
@@ -328,13 +398,13 @@ class NotificationScheduler implements NotificationSchedulerPort {
       RuntimeDiagnostics.record(
         'Skipped notification schedule because permission is not granted.',
       );
-      return false;
+      return NotificationScheduleResult.permissionDenied;
     }
     final scheduledTz = tz.TZDateTime.from(notification.scheduledAt, tz.local);
     if (scheduledTz.isBefore(tz.TZDateTime.now(tz.local))) {
       Logger.log('Notifications', 'Skipped schedule for past time.');
       RuntimeDiagnostics.record('Skipped notification schedule for past time.');
-      return false;
+      return NotificationScheduleResult.failed;
     }
     await _plugin.zonedSchedule(
       id: _notificationId(_platformKey(notification.id, accountScope)),
@@ -348,7 +418,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
           ? notification.id
           : accountPayload(accountScope, notification.id),
     );
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   /// The actual first-date calculation used by daily reminder registration.
@@ -382,7 +452,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
   }
 
   @override
-  Future<bool> scheduleDailyAt({
+  Future<NotificationScheduleResult> scheduleDailyAt({
     required String id,
     required String title,
     required String body,
@@ -398,7 +468,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
       RuntimeDiagnostics.record(
         'Skipped daily notification schedule: scheduler not initialized.',
       );
-      return false;
+      return NotificationScheduleResult.unsupported;
     }
     if (!_permissionGranted) {
       Logger.log(
@@ -408,7 +478,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
       RuntimeDiagnostics.record(
         'Skipped daily notification schedule: permission not granted.',
       );
-      return false;
+      return NotificationScheduleResult.permissionDenied;
     }
     final scheduled = nextDailyScheduledTime(
       now: tz.TZDateTime.now(tz.local),
@@ -433,11 +503,11 @@ class NotificationScheduler implements NotificationSchedulerPort {
               dailyMinute: minute,
             ),
     );
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override
-  Future<bool> scheduleCadenceAt({
+  Future<NotificationScheduleResult> scheduleCadenceAt({
     required String id,
     required String title,
     required String body,
@@ -450,9 +520,10 @@ class NotificationScheduler implements NotificationSchedulerPort {
     // cannot safely suppress a completed current period.
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       Logger.warn('Rhythm cadence reminders are unsupported on this platform.');
-      return false;
+      return NotificationScheduleResult.unsupported;
     }
-    if (!_initialized || !_permissionGranted) return false;
+    if (!_initialized) return NotificationScheduleResult.unsupported;
+    if (!_permissionGranted) return NotificationScheduleResult.permissionDenied;
     final local = firstAt.toLocal();
     final scheduled = tz.TZDateTime(
       tz.local,
@@ -462,7 +533,9 @@ class NotificationScheduler implements NotificationSchedulerPort {
       local.hour,
       local.minute,
     );
-    if (!scheduled.isAfter(tz.TZDateTime.now(tz.local))) return false;
+    if (!scheduled.isAfter(tz.TZDateTime.now(tz.local))) {
+      return NotificationScheduleResult.failed;
+    }
     final match = switch (cadence) {
       HabitCadence.daily => DateTimeComponents.time,
       HabitCadence.weekly => DateTimeComponents.dayOfWeekAndTime,
@@ -493,7 +566,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
       matchDateTimeComponents: match,
       payload: payload,
     );
-    return true;
+    return NotificationScheduleResult.scheduled;
   }
 
   @override
@@ -554,4 +627,11 @@ class NotificationScheduler implements NotificationSchedulerPort {
       return null;
     }
   }
+}
+
+/// A payload notifier that can say whether anything still listens.
+class _PayloadNotifier extends ValueNotifier<String?> {
+  _PayloadNotifier() : super(null);
+
+  bool get listening => hasListeners;
 }
