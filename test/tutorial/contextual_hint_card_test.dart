@@ -459,6 +459,35 @@ void main() {
     expect(await _storedSeen(_otherAccount), isTrue);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('a launch that restores another tab does not use up the Today '
+      'hint unseen', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues(_coreFinished);
+    Future<bool?> todaySeen() async => (await SharedPreferences.getInstance())
+        .getBool('$_prefix.complete.nexus');
+    // Every launch starts on Today while the saved tab is read.
+    final GoRouter router = await _pumpApp(
+      tester,
+      _Page(),
+      initialLocation: '${RoutePaths.nexus}?restoreSavedTab=true',
+    );
+    expect(find.text('Today page'), findsOneWidget);
+    expect(find.byKey(_card), findsNothing);
+    expect(await todaySeen(), isNull);
+
+    // The saved tab was another screen: its own hint shows, Today's stays.
+    router.go(RoutePaths.siConsole);
+    await _settle(tester);
+    expect(find.byKey(_card), findsOneWidget);
+    expect(await todaySeen(), isNull);
+
+    // A real visit to Today shows its hint.
+    router.go(RoutePaths.nexus);
+    await _settle(tester);
+    expect(find.byKey(_card), findsOneWidget);
+    expect(await todaySeen(), isTrue);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _Page {
@@ -536,15 +565,21 @@ Future<GoRouter> _pumpApp(
   String language = 'en',
   double textScale = 1,
   int restart = 0,
+  String initialLocation = RoutePaths.siConsole,
 }) async {
   final GuideHintModalObserver modals = GuideHintModalObserver();
   final GoRouter router = GoRouter(
-    initialLocation: RoutePaths.siConsole,
+    initialLocation: initialLocation,
     observers: <NavigatorObserver>[modals],
     routes: <RouteBase>[
       GoRoute(
         path: RoutePaths.siConsole,
         builder: (BuildContext context, GoRouterState state) => page.build(),
+      ),
+      GoRoute(
+        path: RoutePaths.nexus,
+        builder: (BuildContext context, GoRouterState state) =>
+            const Scaffold(body: Center(child: Text('Today page'))),
       ),
       GoRoute(
         path: RoutePaths.settings,

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/app/router/app_router.dart'
+    show restoreSavedTabQueryParameter;
 import 'package:fantastic_guacamole/app/router/route_guards.dart'
     show onboardingCompleteGuardProvider;
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
@@ -117,15 +119,21 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     final bool interactionPaused = ref.watch(tutorialInteractionPausedProvider);
     final auth = ref.watch(authUserProvider).asData?.value;
     final AuthSessionBoundary boundary = ref.watch(authSessionBoundaryProvider);
-    final String location =
-        widget.router.routerDelegate.currentConfiguration.isEmpty
-        ? ''
-        : widget.router.routerDelegate.state.uri.path;
+    final bool routed =
+        widget.router.routerDelegate.currentConfiguration.isNotEmpty;
+    final Uri? uri = routed ? widget.router.routerDelegate.state.uri : null;
+    final String location = uri?.path ?? '';
+    // Every launch starts on Today while the saved tab is read, then goes
+    // there (dropping this parameter). Showing Today's hint in between would
+    // count it as seen by someone who never looked at Today.
+    final bool restoringSavedTab =
+        uri?.queryParameters[restoreSavedTabQueryParameter] == 'true';
 
     // Account-scoped intelligence fails closed until authentication and its
     // storage boundary agree. Do not subscribe to those providers from the
     // signed-out/login frame or while an account transition is still settling.
-    if (!onboardingComplete ||
+    if (restoringSavedTab ||
+        !onboardingComplete ||
         interactionPaused ||
         auth == null ||
         boundary.isTransitioning ||
