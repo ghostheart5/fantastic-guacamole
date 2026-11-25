@@ -247,9 +247,11 @@ final conversationExecutionRegistryProvider =
               )
               .ignore();
         },
-        onReleased: (requestId) {
+        onReleased: (requestId, {required failed}) {
           if (!ref.mounted) return;
-          ref.read(aiCreditKnownBalanceProvider.notifier).release(requestId);
+          ref
+              .read(aiCreditKnownBalanceProvider.notifier)
+              .release(requestId, failed: failed);
         },
       );
       // An account or generation change drops this registry and its timer.
@@ -271,13 +273,14 @@ final class ConversationExecutionRegistry {
 
   /// Told when an execution completes (answer or failure, whoever is
   /// listening) and when a request's outcome is finished; it no longer
-  /// counts as running for the AI credit balance.
-  final void Function(String requestId)? onReleased;
+  /// counts as running for the AI credit balance. [failed] is true when the
+  /// execution failed, which may have refunded its charge.
+  final void Function(String requestId, {required bool failed})? onReleased;
 
-  void _release(String requestId) {
+  void _release(String requestId, {bool failed = false}) {
     if (_disposed) return;
     try {
-      onReleased?.call(requestId);
+      onReleased?.call(requestId, failed: failed);
     } on Object {
       // Display bookkeeping only.
     }
@@ -363,7 +366,7 @@ final class ConversationExecutionRegistry {
           }
         },
         onError: (Object _) {
-          _release(id);
+          _release(id, failed: true);
           if (identical(_running[id]?.future, future)) {
             _running[id] = (future: future, failed: true);
             // A run kept past its deadline may now be purged.

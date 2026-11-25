@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/repositories/assistant_conversation_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
@@ -133,8 +134,11 @@ ProviderContainer _setup(
   Future<Map<String, dynamic>> Function(String? account)? walletRow,
   AccountStorageScope Function()? readScope,
   Duration? paidWaitTimeout,
+  Stream<SubscriptionState>? purchaseOutcomes,
 }) => ProviderContainer(
   overrides: [
+    if (purchaseOutcomes != null)
+      paywallPurchaseOutcomeProvider.overrideWith((ref) => purchaseOutcomes),
     if (paidWaitTimeout != null)
       conversationPaidWaitTimeoutProvider.overrideWithValue(paidWaitTimeout),
     secureStoreProvider.overrideWithValue(SecureStore(backend: backend)),
@@ -191,15 +195,14 @@ Future<void> _pump(
   ProviderContainer container, {
   String language = 'en',
   double textScale = 1,
+  ConversationSurface surface = ConversationSurface.si,
 }) async {
   final router = GoRouter(
     routes: [
       GoRoute(
         path: '/',
-        builder: (context, state) => AssistantConversationScreen(
-          surface: ConversationSurface.si,
-          onLocalTools: () {},
-        ),
+        builder: (context, state) =>
+            AssistantConversationScreen(surface: surface, onLocalTools: () {}),
       ),
       GoRoute(
         path: '/paywall',
@@ -644,9 +647,72 @@ void main() {
         known.enterPaid(account, 'new', firstAttempt: true);
         known.reportAnswer(account, 'new', 25);
         expect(shown(), 25);
-        // A late completion of the abandoned request changes nothing.
+        // A late answer to the abandoned request changes nothing: it was
+        // reserved before it was abandoned, so 25 already includes it.
         known.release('old');
         expect(shown(), 25);
+      },
+    );
+
+    test(
+      'a late failure of an abandoned request forgets it (it may have been refunded)',
+      () {
+        known.enterPaid(account, 'old', firstAttempt: true);
+        known.release('old'); // Start another request
+        known.enterPaid(account, 'new', firstAttempt: true);
+        known.reportAnswer(account, 'new', 25);
+        expect(shown(), 25);
+        // The server refunds "old" after "new" took its figure.
+        known.release('old', failed: true);
+        expect(shown(), isNull);
+      },
+    );
+
+    test('the registry tells it when a finished request is released', () {
+      final registry = container.read(conversationExecutionRegistryProvider);
+      known.enterPaid(account, 'expired', firstAttempt: true);
+      // Finished without being shown (expired, dropped or already shown).
+      registry.finish('expired', shown: false);
+      known.enterPaid(account, 'next', firstAttempt: true);
+      known.reportAnswer(account, 'next', 20);
+      expect(shown(), 20);
+    });
+
+    test(
+      'a purchase outcome that may change the wallet forgets it, with no plans screen open',
+      () async {
+        final outcomes = StreamController<SubscriptionState>.broadcast();
+        addTearDown(outcomes.close);
+        final c = _setup(
+          _Server(),
+          InMemorySecureStoreBackend(),
+          purchaseOutcomes: outcomes.stream,
+        );
+        addTearDown(c.dispose);
+        // What the app root does for the whole run.
+        c.listen(aiCreditPurchaseOutcomeWatchProvider, (_, _) {});
+        await pumpEventQueue();
+        final k = c.read(aiCreditKnownBalanceProvider.notifier);
+        k.reportWallet(account, k.beginRead(), 42);
+        SubscriptionState outcome(String status) =>
+            SubscriptionState(isActive: true, status: status, source: 'test');
+
+        // Still waiting: nothing granted yet, and repeated on rechecks.
+        for (final status in [
+          'purchase_pending',
+          'customer_resolution_required',
+          'verification_failed',
+        ]) {
+          outcomes.add(outcome(status));
+          await pumpEventQueue();
+          expect(c.read(aiCreditKnownBalanceProvider), 42, reason: status);
+        }
+        for (final status in ['credits_added', 'active', 'purchase_canceled']) {
+          k.reportWallet(account, k.beginRead(), 42);
+          outcomes.add(outcome(status));
+          await pumpEventQueue();
+          expect(c.read(aiCreditKnownBalanceProvider), isNull, reason: status);
+        }
       },
     );
 
@@ -706,6 +772,83 @@ void main() {
       await _ask(tester, 'And something else?', 'en');
       expect(server.paid, hasLength(2));
       expect(_balanceText(tester), 'Your balance: 20 credits');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'a request left mid-way and never collected does not keep a later balance hidden',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final first = Completer<_Response>();
+      final server = _Server(paidScript: [first.future]);
+      final container = _setup(server, InMemorySecureStoreBackend());
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container);
+      await _ask(tester, 'When should I do the Grocery list?', 'en');
+      expect(server.paid, hasLength(1));
+      // Leave Chat while the reply is on its way, and do not come back.
+      await tester.pumpWidget(const SizedBox.shrink());
+      // The reply arrives with nobody listening.
+      first.complete((
+        status: 200,
+        data: <String, dynamic>{
+          'requestId': server.paid.single['requestId'],
+          'message': 'Uncollected reply.',
+          'creditsCharged': conversationMessageCredits,
+          'remainingCredits': 20,
+          'model': 'transport-fixture',
+        },
+      ));
+      await tester.pump();
+      server.balance = 20;
+
+      // A request on Choose a step: its figure is the balance now.
+      await _pump(tester, container, surface: ConversationSurface.planner);
+      await _ask(tester, 'What should I do first?', 'en');
+      expect(server.paid, hasLength(2));
+      expect(_balanceText(tester), 'Your balance: 15 credits');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'credits added while the plans screen is closed hide the Chat balance',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final outcomes = StreamController<SubscriptionState>.broadcast();
+      addTearDown(outcomes.close);
+      final container = _setup(
+        _Server(),
+        InMemorySecureStoreBackend(),
+        purchaseOutcomes: outcomes.stream,
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      // The app root keeps this for the whole run.
+      container.listen(aiCreditPurchaseOutcomeWatchProvider, (_, _) {});
+      await _pump(tester, container);
+      await _ask(tester, 'When should I do the Grocery list?', 'en');
+      expect(_balanceText(tester), 'Your balance: 20 credits');
+      // A slow payment completes from Google Play's updates or the routine
+      // recheck; no plans screen is mounted.
+      outcomes.add(
+        const SubscriptionState(
+          isActive: true,
+          status: 'credits_added',
+          source: 'google_play',
+        ),
+      );
+      await _settle(tester);
+      expect(_balanceText(tester), isNull);
+      expect(_receipts(tester).single, contains('20 left after this reply'));
       expect(tester.takeException(), isNull);
     },
   );

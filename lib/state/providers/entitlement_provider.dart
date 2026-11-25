@@ -64,14 +64,44 @@ final entitlementProvider =
 
 typedef EntitlementAuthorityRefresh = Future<void> Function({bool force});
 
+/// The subscription this run last saw from the server, for one account. A
+/// routine recheck that finds it unchanged is no reason to think the AI
+/// credit balance changed; a different one (or the first one seen) may come
+/// with granted or removed credits.
+final class _SubscriptionLastSeen {
+  String? _account;
+  Object? _seen;
+
+  static Object _key(SubscriptionState s) =>
+      (s.isActive, s.status, s.planId, s.renewalDate);
+
+  /// Records [state] for [account]; true when it differs from the one seen
+  /// before for that account, or none was.
+  bool changed(String? account, SubscriptionState state) {
+    final seen = _key(state);
+    final changed = account != _account || seen != _seen;
+    _account = account;
+    _seen = seen;
+    return changed;
+  }
+
+  /// Records the startup read for [account] when nothing was seen for it
+  /// yet. Every wallet read waits for that read, so the balance it reports
+  /// already includes this subscription; a later difference is found by
+  /// [changed].
+  void seed(String? account, SubscriptionState state) {
+    if (account == _account) return;
+    _account = account;
+    _seen = _key(state);
+  }
+}
+
+final _subscriptionLastSeenProvider = Provider<_SubscriptionLastSeen>(
+  (ref) => _SubscriptionLastSeen(),
+);
+
 final entitlementAuthorityRefreshProvider =
     Provider<EntitlementAuthorityRefresh>((Ref ref) {
-      // The subscription this run last saw from the server, per account. A
-      // routine recheck that finds it unchanged is no reason to think the
-      // AI credit balance changed; a different one (or the first one seen)
-      // may come with granted or removed credits.
-      String? lastAccount;
-      Object? lastSeen;
       return ({bool force = false}) async {
         if (Env.isLocalMode) return;
         final repository = ref.read(paywallRepositoryProvider);
@@ -80,17 +110,11 @@ final entitlementAuthorityRefreshProvider =
           final SubscriptionState refreshed =
               await (repository as ISubscriptionAuthorityRefresher)
                   .refreshSubscriptionState(force: force);
-          final Object seen = (
-            refreshed.isActive,
-            refreshed.status,
-            refreshed.planId,
-            refreshed.renewalDate,
-          );
-          if (account != lastAccount || seen != lastSeen) {
+          if (ref
+              .read(_subscriptionLastSeenProvider)
+              .changed(account, refreshed)) {
             ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
           }
-          lastAccount = account;
-          lastSeen = seen;
         }
         ref.invalidate(entitlementProvider);
         ref.invalidate(paywallSubscriptionProvider);
@@ -142,6 +166,11 @@ class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
         : await repository.getUserSubscriptionState();
     if (!ref.mounted || !_scopeStillMatches(userId)) {
       return EntitlementState.locked;
+    }
+    if (authorityRefresher != null) {
+      ref
+          .read(_subscriptionLastSeenProvider)
+          .seed(scope.v2Namespace, subscription);
     }
     String? owner = await _readOwner(userId);
     if (!ref.mounted || !_scopeStillMatches(userId)) {

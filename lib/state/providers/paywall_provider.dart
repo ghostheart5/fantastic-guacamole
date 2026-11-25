@@ -118,7 +118,8 @@ int _aiCreditBalanceClock = 0;
 /// attempt. An outside change, for a request, is anything not about that
 /// request itself: a wallet read or wallet change (purchase, restore,
 /// changed subscription, test charge, Get credits), or another request
-/// entering the paid step, answering, failing or being released. A request
+/// entering the paid step, answering, failing (also after it was released,
+/// which may have refunded it) or being released. A request
 /// stops counting as in the paid step when its answer or failure arrives or
 /// when it is released (its outcome shown or dropped, it is abandoned, or
 /// its execution completes with nobody waiting). A request recovered from an
@@ -187,9 +188,11 @@ class AiCreditKnownBalance extends Notifier<int?> {
   /// abandoned), or its execution completed. Its charge may still have
   /// happened, so this is an outside change for other requests; it no
   /// longer keeps later answers from setting the balance. A request that is
-  /// not running is left alone.
-  void release(String requestId) {
-    if (!_running.remove(requestId)) return;
+  /// not running is left alone, unless its execution [failed]: a failure
+  /// arriving after it was abandoned may have refunded its charge, which no
+  /// later figure includes.
+  void release(String requestId, {bool failed = false}) {
+    if (!_running.remove(requestId) && !failed) return;
     _event(requestId);
   }
 
@@ -262,6 +265,40 @@ final paywallPurchaseOutcomeProvider =
           )
           .map((event) => event.state);
     });
+
+/// Purchase outcomes that report nothing granted or taken back yet: the
+/// purchase is still waiting, was not verified, or failed. Some of these
+/// repeat on every routine recheck while a purchase waits.
+const _outcomesWithoutWalletChange = {
+  'purchase_pending',
+  'customer_resolution_required',
+  'checkout_unresolved',
+  'verification_failed',
+  'purchase_failed',
+  'restore_error',
+  'nothing_to_restore',
+};
+
+/// Forgets the known AI credit balance when a purchase outcome for the
+/// signed-in account may have changed the server wallet (credits added, a
+/// verified subscription, a canceled or refunded purchase), wherever it
+/// completes: Google Play's purchase updates, or the routine recheck that
+/// finishes a waiting credit purchase. Watched by the app root so it runs
+/// for the whole app run, not only while the plans screen is open; that
+/// screen forgetting it too is harmless.
+final aiCreditPurchaseOutcomeWatchProvider = Provider<void>((ref) {
+  ref.listen<AsyncValue<SubscriptionState>>(paywallPurchaseOutcomeProvider, (
+    _,
+    next,
+  ) {
+    final outcome = next.asData?.value;
+    if (outcome == null ||
+        _outcomesWithoutWalletChange.contains(outcome.status)) {
+      return;
+    }
+    ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
+  });
+});
 
 final getAvailablePlansUseCaseProvider = Provider<GetAvailablePlans>((ref) {
   return GetAvailablePlans(ref.watch(paywallRepositoryProvider));
