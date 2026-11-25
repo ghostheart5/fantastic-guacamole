@@ -62,7 +62,8 @@ void main() {
       await fixture.mount(tester);
       expect(fixture.scheduler.ownPending('a'), isEmpty);
       expect(fixture.scheduler.ownPending('b'), hasLength(4));
-      expect(fixture.scheduler.cancelled, hasLength(8));
+      // The fixed reminders, the rhythm's two ids and all five goal slots.
+      expect(fixture.scheduler.cancelled, hasLength(9));
       expect(fixture.scheduler.permissionRequests, 0);
       expect(fixture.scheduler.scheduled, isEmpty);
       fixture.expectPreferencesPreserved();
@@ -176,7 +177,7 @@ void main() {
       gate.complete();
       await _flush(tester);
       expect(fixture.scheduler.permissionQueries, 2);
-      expect(fixture.scheduler.cancelled, hasLength(8));
+      expect(fixture.scheduler.cancelled, hasLength(9));
       expect(fixture.scheduler.ownPending('a'), isEmpty);
       expect(fixture.scheduler.ownPending('b'), hasLength(4));
       expect(
