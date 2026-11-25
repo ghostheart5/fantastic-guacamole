@@ -114,6 +114,43 @@ void main() {
     expect(scheduler.hasHeldLaunchPayload, isFalse);
   });
 
+  test('a held launch is honoured for two minutes after launch, then dropped, '
+      'and holding notifies listeners', () async {
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'initialize' ||
+          call.method == 'areNotificationsEnabled') {
+        return true;
+      }
+      if (call.method == 'getNotificationAppLaunchDetails') {
+        return stableNativeResponse;
+      }
+      return null;
+    });
+    DateTime now = DateTime(2026, 11, 24, 8);
+    NotificationScheduler.launchClock = () => now;
+    addTearDown(() => NotificationScheduler.launchClock = DateTime.now);
+    await scheduler.init(requestPermissions: false);
+    expect(await scheduler.consumeLaunchPayload(), payload);
+    var notified = 0;
+    void listener() => notified++;
+    NotificationScheduler.heldLaunchPayloadListenable.addListener(listener);
+    addTearDown(
+      () => NotificationScheduler.heldLaunchPayloadListenable.removeListener(
+        listener,
+      ),
+    );
+
+    scheduler.holdLaunchPayload(payload);
+    expect(notified, 1);
+    now = now.add(NotificationScheduler.heldLaunchPayloadMaxAge);
+    expect(scheduler.takeHeldLaunchPayload(), payload);
+
+    scheduler.holdLaunchPayload(payload);
+    now = now.add(const Duration(seconds: 1));
+    expect(scheduler.takeHeldLaunchPayload(), isNull);
+    expect(scheduler.hasHeldLaunchPayload, isFalse);
+  });
+
   test('an uncertain native read is not retried automatically', () async {
     var queries = 0;
     messenger.setMockMethodCallHandler(channel, (call) async {

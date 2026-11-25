@@ -19,31 +19,67 @@ class NotificationScheduler implements NotificationSchedulerPort {
 
   final FlutterLocalNotificationsPlugin _plugin;
   bool _initialized = false;
-  final Completer<void> _initializedOnce = Completer<void>();
+  Completer<void> _initializedOnce = Completer<void>();
   bool _launchPayloadClaimed = false;
-  String? _heldLaunchPayload;
+
+  /// When this process first asked for its launch payload (about when the
+  /// app started); a held payload is measured from here.
+  DateTime? _launchAskedAt;
+
+  /// How late after launch a held cold-start tap is still honoured. Waiting
+  /// for sign-in or a slow account restore fits well inside this; later, the
+  /// person is already doing something else and must not be moved.
+  static const Duration heldLaunchPayloadMaxAge = Duration(minutes: 2);
+
+  /// The clock for [heldLaunchPayloadMaxAge].
+  @visibleForTesting
+  static DateTime Function() launchClock = DateTime.now;
+
+  /// The claimed launch payload waiting until the app can route it (the
+  /// account it belongs to is ready), or null. Held for the process and
+  /// observable, so whichever shell is mounted when it arrives routes it,
+  /// even when the shell that claimed it is gone.
+  static final ValueNotifier<String?> heldLaunchPayloadListenable =
+      ValueNotifier<String?>(null);
 
   /// Test isolation only. Release builds cannot rearm a consumed launch.
   @visibleForTesting
   void resetLaunchConsumptionForTesting() {
     assert(() {
       _launchPayloadClaimed = false;
-      _heldLaunchPayload = null;
+      _launchAskedAt = null;
+      heldLaunchPayloadListenable.value = null;
       return true;
     }());
   }
 
-  /// Keeps a claimed launch payload until the app can route it (the account
-  /// it belongs to is ready). Held for the process, so a shell that mounts
-  /// later still finds it.
-  void holdLaunchPayload(String payload) => _heldLaunchPayload = payload;
+  /// Test isolation only: as if [init] had not run yet in this process.
+  @visibleForTesting
+  void resetInitializationForTesting() {
+    assert(() {
+      _initialized = false;
+      _initializedOnce = Completer<void>();
+      return true;
+    }());
+  }
 
-  bool get hasHeldLaunchPayload => _heldLaunchPayload != null;
+  void holdLaunchPayload(String payload) =>
+      heldLaunchPayloadListenable.value = payload;
 
-  /// The held launch payload, handed out once.
+  bool get hasHeldLaunchPayload => heldLaunchPayloadListenable.value != null;
+
+  /// The held launch payload, handed out once; null, and dropped, once
+  /// [heldLaunchPayloadMaxAge] has passed since launch.
   String? takeHeldLaunchPayload() {
-    final String? payload = _heldLaunchPayload;
-    _heldLaunchPayload = null;
+    final String? payload = heldLaunchPayloadListenable.value;
+    if (payload == null) return null;
+    heldLaunchPayloadListenable.value = null;
+    final DateTime? askedAt = _launchAskedAt;
+    if (askedAt != null &&
+        launchClock().difference(askedAt) > heldLaunchPayloadMaxAge) {
+      Logger.log('Notifications', 'Dropped a cold-start tap held too long.');
+      return null;
+    }
     return payload;
   }
 
@@ -164,6 +200,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
   /// Startup does not wait for [init], so a shell can ask first: the read then
   /// waits for [init] instead of dropping a cold-start tap.
   Future<String?> consumeLaunchPayload() async {
+    _launchAskedAt ??= launchClock();
     if (_launchPayloadClaimed) return null;
     if (!_initialized) {
       await _initializedOnce.future;

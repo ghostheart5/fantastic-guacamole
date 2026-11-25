@@ -12,8 +12,9 @@ extension _NavigationShellNotificationRouting on _NavigationShellState {
   }
 
   /// Claims a cold launch that came from a notification tap and holds it
-  /// until this account is ready (see [_routeHeldLaunchPayload]). A shell
-  /// that mounts after the claim picks up a payload still held.
+  /// until the account is ready (see [_routeHeldLaunchPayload]). Holding
+  /// notifies every mounted shell, so the tap is routed even when the shell
+  /// that claimed it was replaced while the read was waiting.
   Future<void> _handleNotificationLaunch() async {
     final NotificationScheduler scheduler = NotificationScheduler();
     final String? payload = await scheduler.consumeLaunchPayload();
@@ -55,7 +56,10 @@ extension _NavigationShellNotificationRouting on _NavigationShellState {
       return;
     }
 
-    switch (notificationDestinationFor(logicalPayload)) {
+    final NotificationDestination destination = notificationDestinationFor(
+      logicalPayload,
+    );
+    switch (destination) {
       case NotificationDestination.habitCheckIns:
         if (!_canPushFromNotification()) return;
         // Close anything pushed earlier so the list is what shows.
@@ -68,8 +72,12 @@ extension _NavigationShellNotificationRouting on _NavigationShellState {
       case NotificationDestination.reflectionSchedule:
         if (!_canPushFromNotification()) return;
         unawaited(openSchedule(context));
-      case final NotificationDestination destination:
-        _goToView(destination.view!);
+      case NotificationDestination.goals ||
+          NotificationDestination.dailyPlanning ||
+          NotificationDestination.tasks ||
+          NotificationDestination.activity ||
+          NotificationDestination.fallback:
+        _goToView(destination.view ?? AppView.timeline);
     }
   }
 

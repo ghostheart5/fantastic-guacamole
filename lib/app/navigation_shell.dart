@@ -231,6 +231,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     NotificationScheduler.tappedPayloadListenable.addListener(
       _onNotificationTapped,
     );
+    NotificationScheduler.heldLaunchPayloadListenable.addListener(
+      _onHeldLaunchPayload,
+    );
   }
 
   @override
@@ -238,6 +241,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     WidgetsBinding.instance.removeObserver(this);
     NotificationScheduler.tappedPayloadListenable.removeListener(
       _onNotificationTapped,
+    );
+    NotificationScheduler.heldLaunchPayloadListenable.removeListener(
+      _onHeldLaunchPayload,
     );
     _entitlementAuthorityRecheckTimer?.cancel();
     _networkRetryDebounceTimer?.cancel();
@@ -336,6 +342,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         break;
     }
   }
+
+  // A class method (not the extension's), so add and remove get equal tear-offs.
+  void _onHeldLaunchPayload() => _routeHeldLaunchPayload();
 
   @override
   void didChangeLocales(List<Locale>? locales) {

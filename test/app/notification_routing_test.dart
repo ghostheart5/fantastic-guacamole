@@ -38,9 +38,12 @@ void main() {
   AndroidFlutterLocalNotificationsPlugin.registerWith();
   const channel = MethodChannel('dexterous.com/flutter/local_notifications');
   String? launchPayload;
+  // When set, the native launch read waits for the test to release it.
+  Completer<void>? launchReadGate;
   setUp(() async {
     NotificationScheduler.tappedPayloadListenable.value = null;
     launchPayload = null;
+    launchReadGate = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
           if (call.method == 'initialize' ||
@@ -48,6 +51,7 @@ void main() {
             return true;
           }
           if (call.method == 'getNotificationAppLaunchDetails') {
+            await launchReadGate?.future;
             final payload = launchPayload;
             return <String, Object?>{
               'notificationLaunchedApp': payload != null,
@@ -69,6 +73,7 @@ void main() {
         .setMockMethodCallHandler(channel, null),
   );
   tearDown(() => NotificationScheduler.tappedPayloadListenable.value = null);
+  tearDown(() => NotificationScheduler.launchClock = DateTime.now);
 
   // With accountReady false the account stays mid-switch (account storage not
   // writable yet) until the test completes this generation.
@@ -243,6 +248,66 @@ void main() {
         isTransitioning: true,
       ),
     );
+    await tester.pump(const Duration(seconds: 1));
+    expect(container.read(appFlowProvider), AppView.nexus);
+    expect(NotificationScheduler().hasHeldLaunchPayload, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a shell replaced while the launch read waits for init does not '
+      'strand the tap: the new shell routes it once', (tester) async {
+    NotificationScheduler().resetInitializationForTesting();
+    launchReadGate = Completer<void>();
+    launchPayload = goalPayload('notification-routing-test-account');
+    // Shell A mounts before notification init and waits in the launch read.
+    final container = await pumpShell(tester);
+    // A router redirect replaces it with shell B, which also waits.
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: NavigationShell(key: ValueKey<String>('shell-b')),
+        ),
+      ),
+    );
+    await tester.pump();
+    // Init completes: A's waiting read claims the launch, B's finds it
+    // claimed. Then the native read answers, after A is gone.
+    unawaited(NotificationScheduler().init(requestPermissions: false));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(container.read(appFlowProvider), AppView.nexus);
+    launchReadGate!.complete();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(container.read(appFlowProvider), AppView.goals);
+
+    container.read(appFlowProvider.notifier).toNexus();
+    await tester.pump(const Duration(seconds: 1));
+    expect(container.read(appFlowProvider), AppView.nexus);
+    expect(NotificationScheduler().hasHeldLaunchPayload, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a cold launch still held two minutes after launch is dropped', (
+    tester,
+  ) async {
+    DateTime now = DateTime(2026, 11, 24, 8);
+    NotificationScheduler.launchClock = () => now;
+    launchPayload = goalPayload('notification-routing-test-account');
+    final container = await pumpShell(tester, accountReady: false);
+    await tester.pump(const Duration(seconds: 1));
+    expect(NotificationScheduler().hasHeldLaunchPayload, isTrue);
+
+    // The account becomes ready only after the person has moved on.
+    now = now.add(
+      NotificationScheduler.heldLaunchPayloadMaxAge +
+          const Duration(seconds: 1),
+    );
+    container
+        .read(authSessionBoundaryProvider.notifier)
+        .complete(fencedGeneration);
     await tester.pump(const Duration(seconds: 1));
     expect(container.read(appFlowProvider), AppView.nexus);
     expect(NotificationScheduler().hasHeldLaunchPayload, isFalse);
