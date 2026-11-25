@@ -967,16 +967,16 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(
-          locale: const Locale('en'),
+        child: const MaterialApp(
+          locale: Locale('en'),
           supportedLocales: ChronoSparkLocalizations.supportedLocales,
-          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+          localizationsDelegates: <LocalizationsDelegate<dynamic>>[
             ChronoSparkLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          home: const Scaffold(body: SizedBox.shrink()),
+          home: Scaffold(body: SizedBox.shrink()),
         ),
       ),
     );
