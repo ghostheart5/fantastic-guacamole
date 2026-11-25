@@ -82,6 +82,42 @@ void main() {
     });
   }
 
+  // "Skip this step" on every remaining step ends the guide; it moved on
+  // after the first skip and stopped after the last.
+  final Map<String, Object> everyStepSkipped = <String, Object>{
+    for (final String id in <String>[
+      'createFirstItem',
+      'scheduleFirstItem',
+      'reviewTimeline',
+    ])
+      '$prefix.$namespace.skipStep.$id': true,
+  };
+  final Map<String, Object> firstStepSkipped = <String, Object>{
+    '$prefix.$namespace.skipStep.createFirstItem': true,
+    '$prefix.$namespace.skipStep.scheduleFirstItem': true,
+    '$prefix.$namespace.expected_first_run_creator_task_ids': <String>[
+      'saved-task',
+    ],
+  };
+
+  testWidgets('Settings reports a guide ended by Skip this step as skipped', (
+    WidgetTester tester,
+  ) async {
+    await _pump(tester, everyStepSkipped, es: false);
+    expect(find.text('Guide skipped'), findsOneWidget);
+    expect(find.textContaining('Restart the guide below'), findsOneWidget);
+    expect(find.text('Guide paused'), findsNothing);
+  });
+
+  testWidgets('after Skip this step with a step left, the guide is still '
+      'active', (WidgetTester tester) async {
+    await _pump(tester, firstStepSkipped, es: false);
+    expect(find.text('Learning the core workflow'), findsOneWidget);
+    // A skipped step is not a muted prompt.
+    expect(find.textContaining('0 prompts muted'), findsOneWidget);
+    expect(find.text('Guide skipped'), findsNothing);
+  });
+
   testWidgets('an active guide keeps the existing status text', (
     WidgetTester tester,
   ) async {

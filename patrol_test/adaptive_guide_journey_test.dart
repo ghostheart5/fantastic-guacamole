@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 
 import 'package:fantastic_guacamole/app/startup/app_bootstrap.dart';
 import 'package:fantastic_guacamole/config/env.dart';
-import 'package:fantastic_guacamole/domain/entities/task_occurrence_entity.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
@@ -196,8 +195,8 @@ void main() {
       'core_complete_before': beforeGuidance.coreComplete,
       'limits': [
         'No process restart or cloud/billing claim',
-        'Finish guide is used only if the actual recovery CTA appears',
-        'Synthetic task remains as completed audit evidence',
+        'The guide ends at "I found my task"; the task is not marked done',
+        'Synthetic task remains as open audit evidence',
       ],
     });
     await caseRun('guide-restart-real-settings-control', () async {
@@ -344,18 +343,10 @@ void main() {
         'timeline_receipt_matches': true,
       };
     });
-    await caseRun('guide-find-complete-and-finish', () async {
+    await caseRun('guide-found-task-finishes-without-completion', () async {
+      // "I found my task" ends the guide; marking the task done is not part
+      // of it (it becomes a later, one-time hint on Schedule).
       await tap(find.text('I found my task'));
-      await $(find.text('Complete your task')).waitUntilVisible();
-      await tap(find.byKey(FirstRunTutorialTargets.timelineCompletion));
-      await waitRead(
-        () async => (await repo.getTaskById(taskId))?.isCompleted == true,
-        'Highlighted task completion must persist.',
-      );
-      await $.pump(const Duration(milliseconds: 700));
-      final recovery = find.text('Finish guide').hitTestable();
-      final usedRecovery = recovery.evaluate().isNotEmpty;
-      if (usedRecovery) await tap(recovery);
       await waitRead(
         () async =>
             container
@@ -364,7 +355,7 @@ void main() {
                 ?.value
                 .activeCoreLesson ==
             null,
-        'Completion or the visible Finish guide recovery must finish core guidance.',
+        '"I found my task" must finish core guidance.',
       );
       final guidance = container.read(adaptiveGuidanceProvider).requireValue;
       expect(guidance.coreComplete, isTrue);
@@ -374,9 +365,9 @@ void main() {
       );
       expect(guidance.replayLessons, isEmpty);
       expect(guidance.expectedFirstRunCreatorTaskIds, isEmpty);
+      expect((await repo.getTaskById(taskId))?.isCompleted, isFalse);
       final outcomes = await occurrences.listOccurrencesForTask(taskId);
-      expect(outcomes, hasLength(1));
-      expect(outcomes.single.terminalOutcome, TaskOccurrenceOutcome.completed);
+      expect(outcomes, isEmpty);
       final prefs = await SharedPreferences.getInstance();
       await prefs.reload();
       for (final lesson in [
@@ -393,8 +384,7 @@ void main() {
       );
       return {
         'task_id': taskId,
-        'one_terminal_completion': true,
-        'finish_guide_recovery_tapped': usedRecovery,
+        'task_left_open': true,
         'persisted_core_flags': true,
       };
     });
@@ -402,7 +392,6 @@ void main() {
       await navigate('Control Center');
       await navigate('Truth Ledger');
       expect(find.text('I found my task'), findsNothing);
-      expect(find.text('Finish guide'), findsNothing);
       final after = await repo.getAllTasks();
       expect(after.where((task) => task.title == title), hasLength(1));
       expect(

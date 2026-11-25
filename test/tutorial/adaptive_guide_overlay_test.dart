@@ -283,11 +283,12 @@ void main() {
       'guide overlay follows the account setup answer, not the device flag '
       '(account complete=$accountComplete)',
       (WidgetTester tester) async {
+        // The schedule step is shown on Schedule only.
         final GoRouter router = GoRouter(
-          initialLocation: RoutePaths.creator,
+          initialLocation: RoutePaths.timeline,
           routes: <RouteBase>[
             GoRoute(
-              path: RoutePaths.creator,
+              path: RoutePaths.timeline,
               builder: (BuildContext context, GoRouterState state) =>
                   const Scaffold(body: SizedBox.expand()),
             ),
@@ -361,11 +362,12 @@ void main() {
     );
   }
 
-  testWidgets('accessible review guide action opens the real Timeline route', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('the schedule step leaves other screens usable and appears on '
+      'Schedule', (WidgetTester tester) async {
     final semantics = tester.ensureSemantics();
-    final router = GoRouter(
+    var underlyingActions = 0;
+    late final GoRouter router;
+    router = GoRouter(
       initialLocation: RoutePaths.creator,
       routes: [
         GoRoute(
@@ -373,7 +375,10 @@ void main() {
           builder: (context, state) => Scaffold(
             body: Center(
               child: ElevatedButton(
-                onPressed: () => fail('Covered screen action was activated'),
+                onPressed: () {
+                  underlyingActions++;
+                  router.go(RoutePaths.timeline);
+                },
                 child: const Text('Open Timeline'),
               ),
             ),
@@ -435,9 +440,11 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
-    expect(find.text('Find your saved task'), findsOneWidget);
+    // Nothing covers Add something while the next step waits on Schedule.
+    expect(find.text('Find your saved task'), findsNothing);
+    expect(find.text('Step 2 of 2'), findsNothing);
     final action = tester.getSemantics(
-      find.widgetWithText(FilledButton, 'Open schedule'),
+      find.widgetWithText(ElevatedButton, 'Open Timeline'),
     );
     tester.binding.renderViews.single.owner!.semanticsOwner!.performAction(
       action.id,
@@ -445,9 +452,12 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(underlyingActions, 1);
     expect(router.routerDelegate.state.uri.path, RoutePaths.timeline);
     expect(find.text('Timeline route opened'), findsOneWidget);
-    expect(find.text('Find your saved task'), findsNothing);
+    expect(find.text('Find your saved task'), findsOneWidget);
+    expect(find.text('Step 2 of 2'), findsOneWidget);
     expect(tester.takeException(), isNull);
     semantics.dispose();
   });
