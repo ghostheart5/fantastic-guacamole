@@ -20,6 +20,7 @@ import 'package:fantastic_guacamole/state/providers/internal_credit_test_provide
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -167,14 +168,38 @@ final conversationPurgeTimerProvider = Provider<ConversationPurgeTimer>(
 
 final conversationExecutionRegistryProvider =
     Provider<ConversationExecutionRegistry>((ref) {
-      ref.watch(accountStorageScopeProvider.select((s) => s.v2Namespace));
-      ref.watch(authSessionBoundaryProvider.select((b) => b.generation));
+      final account = ref.watch(
+        accountStorageScopeProvider.select((s) => s.v2Namespace),
+      );
+      final generation = ref.watch(
+        authSessionBoundaryProvider.select((b) => b.generation),
+      );
       final registry = ConversationExecutionRegistry(
         createTimer: ref.read(conversationPurgeTimerProvider),
         // Read when the timer fires: the repository is rebuilt on every auth
         // event (a token refresh too), so a kept instance would go stale.
         readStore: () =>
             ref.read(assistantConversationHistoryRepositoryProvider),
+        onAnswered: (packet) {
+          // A confirmed question that was answered finishes the Chat or
+          // Choose a step lesson, only for the account that sent it.
+          bool sameAccount() =>
+              ref.mounted &&
+              account != null &&
+              packet.accountScope == account &&
+              ref.read(accountStorageScopeProvider).v2Namespace == account &&
+              ref.read(authSessionBoundaryProvider).generation == generation;
+          if (!sameAccount()) return;
+          ref
+              .read(adaptiveGuidanceProvider.notifier)
+              .recordIfMissing(
+                packet.surface == ConversationSurface.planner
+                    ? GuidanceMilestone.firstPlannerQuestion
+                    : GuidanceMilestone.firstSiQuery,
+                shouldContinue: sameAccount,
+              )
+              .ignore();
+        },
       );
       // An account or generation change drops this registry and its timer.
       ref.onDispose(registry.dispose);
@@ -185,11 +210,16 @@ final class ConversationExecutionRegistry {
   ConversationExecutionRegistry({
     ConversationPurgeTimer? createTimer,
     AssistantConversationRepository? Function()? readStore,
+    this.onAnswered,
   }) : _createTimer = createTimer ?? Timer.new,
        _readStore = readStore ?? (() => null);
 
   final ConversationPurgeTimer _createTimer;
   final AssistantConversationRepository? Function() _readStore;
+
+  /// Told once per answered execution started here (a joined request is not
+  /// a second answer). It can never change the request's own outcome.
+  final void Function(ConversationPacket packet)? onAnswered;
   final _running =
       <String, ({Future<ConversationAnswer> future, bool failed})>{};
   final _shown = <String>{};
@@ -257,7 +287,14 @@ final class ConversationExecutionRegistry {
     // unhandled error after its screen closed.
     unawaited(
       future.then<void>(
-        (_) {},
+        (_) {
+          if (_disposed) return;
+          try {
+            onAnswered?.call(quote.packet);
+          } on Object {
+            // Bookkeeping only: the answer already belongs to the person.
+          }
+        },
         onError: (Object _) {
           if (identical(_running[id]?.future, future)) {
             _running[id] = (future: future, failed: true);
