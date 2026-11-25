@@ -319,8 +319,9 @@ void main() {
         _receipt(account, <String>['saved-task']),
       );
       await notifier.recordIfMissing(GuidanceMilestone.firstItem);
-      if (dated)
+      if (dated) {
         await notifier.recordIfMissing(GuidanceMilestone.firstSchedule);
+      }
       // Hidden for the rest of this run.
       expect(
         first.read(adaptiveGuidanceProvider).requireValue.activeCoreLesson,
