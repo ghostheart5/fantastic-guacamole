@@ -560,6 +560,20 @@ void main() {
         find.text(es ? 'Omitir este paso' : 'Skip this step'),
         findsOneWidget,
       );
+
+      // As the card says, Skip this step finishes the guide, for good.
+      await tester.tap(find.text(es ? 'Omitir este paso' : 'Skip this step'));
+      for (int i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byKey(const Key('guide-skipped-snackbar')), findsOneWidget);
+      expect(find.byKey(const Key('guide_step_card')), findsNothing);
+      final AdaptiveGuidanceState state = container
+          .read(adaptiveGuidanceProvider)
+          .requireValue;
+      expect(state.activeCoreLesson, isNull);
+      expect(state.coreGuideStatus, CoreGuideStatus.skipped);
+      expect(state.has(GuidanceMilestone.firstTimelineReview), isFalse);
       expect(tester.takeException(), isNull);
     });
   }

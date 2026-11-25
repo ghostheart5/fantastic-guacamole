@@ -379,6 +379,287 @@ void main() {
       expect(state.coreGuideStatus, CoreGuideStatus.paused);
       expect(state.expectedFirstRunCreatorTaskIds, isEmpty);
     });
+
+    test('with an undated task, Skip this step on step 2 ends the guide for '
+        'good, also after a reload', () async {
+      await saveWhileHiddenThenReopen('add-button-undated-skip', dated: false);
+      final ProviderContainer container = _container('add-button-undated-skip');
+      addTearDown(container.dispose);
+      await container.read(adaptiveGuidanceProvider.future);
+      await container
+          .read(adaptiveGuidanceProvider.notifier)
+          .skipCoreStep(GuidanceLessonId.reviewTimeline);
+      final AdaptiveGuidanceState state = container
+          .read(adaptiveGuidanceProvider)
+          .requireValue;
+      expect(state.activeCoreLesson, isNull);
+      expect(state.coreGuideStatus, CoreGuideStatus.skipped);
+      expect(state.expectedFirstRunCreatorTaskIds, isEmpty);
+
+      final ProviderContainer reloaded = _container('add-button-undated-skip');
+      addTearDown(reloaded.dispose);
+      final AdaptiveGuidanceState persisted = await reloaded.read(
+        adaptiveGuidanceProvider.future,
+      );
+      expect(persisted.activeCoreLesson, isNull);
+      expect(persisted.coreGuideStatus, CoreGuideStatus.skipped);
+    });
+
+    test('"I found my task" ends the guide for good even if the time was not '
+        'recorded', () async {
+      // firstSchedule is written best-effort after the save; if it is lost
+      // the guide still reaches step 2, and finishing it must not bring
+      // step 1 back.
+      await saveWhileHiddenThenReopen('found-without-time', dated: false);
+      final ProviderContainer container = _container('found-without-time');
+      addTearDown(container.dispose);
+      await container.read(adaptiveGuidanceProvider.future);
+      await container
+          .read(adaptiveGuidanceProvider.notifier)
+          .record(GuidanceMilestone.firstTimelineReview);
+      final AdaptiveGuidanceState state = container
+          .read(adaptiveGuidanceProvider)
+          .requireValue;
+      expect(state.activeCoreLesson, isNull);
+      expect(state.coreGuideStatus, CoreGuideStatus.complete);
+      expect(state.coreComplete, isTrue);
+    });
+  });
+
+  // A stored skip or pause of the time step alone (older versions wrote one
+  // for a single step) keeps the guide off even with a leftover task list.
+  for (final String flag in <String>['skip', 'later']) {
+    test('a stored $flag of the time step alone, with a leftover task list, '
+        'keeps the guide off', () async {
+      final String account = 'legacy-$flag-schedule';
+      final String prefix =
+          'adaptive_guidance_v3.${AccountStorageScope.authenticated(account).v2Namespace}';
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        '$prefix.$flag.scheduleFirstItem': true,
+        '$prefix.firstItem.at': DateTime.utc(2026, 1, 1).millisecondsSinceEpoch,
+        '$prefix.firstItem.count': 1,
+        '$prefix.expected_first_run_creator_task_ids': <String>['old-task'],
+      });
+      final ProviderContainer container = _container(account);
+      addTearDown(container.dispose);
+      final AdaptiveGuidanceState state = await container.read(
+        adaptiveGuidanceProvider.future,
+      );
+      expect(state.activeCoreLesson, isNull);
+      expect(
+        state.coreGuideStatus,
+        flag == 'skip' ? CoreGuideStatus.skipped : CoreGuideStatus.paused,
+      );
+    });
+  }
+
+  group('every stored shape resolves as recorded in the fix report', () {
+    final DateTime at = DateTime.utc(2026, 1, 1);
+    const GuidanceLessonId create = GuidanceLessonId.createFirstItem;
+    const GuidanceLessonId time = GuidanceLessonId.scheduleFirstItem;
+    const GuidanceLessonId find = GuidanceLessonId.reviewTimeline;
+    const Set<GuidanceLessonId> all = <GuidanceLessonId>{create, time, find};
+
+    AdaptiveGuidanceState shape({
+      Set<GuidanceMilestone> milestones = const <GuidanceMilestone>{},
+      bool receipt = false,
+      Set<GuidanceLessonId> skip = const <GuidanceLessonId>{},
+      Set<GuidanceLessonId> later = const <GuidanceLessonId>{},
+      Set<GuidanceLessonId> reopen = const <GuidanceLessonId>{},
+      Set<GuidanceLessonId> skipStep = const <GuidanceLessonId>{},
+      Set<GuidanceLessonId> replay = const <GuidanceLessonId>{},
+    }) => AdaptiveGuidanceState(
+      milestones: <GuidanceMilestone, DateTime>{
+        for (final GuidanceMilestone m in milestones) m: at,
+      },
+      counts: const <GuidanceMilestone, int>{},
+      skippedLessons: skip,
+      completedLessons: const <GuidanceLessonId>{},
+      laterLessons: later,
+      untilReopenedLessons: reopen,
+      skippedCoreSteps: skipStep,
+      replayLessons: replay,
+      expectedFirstRunCreatorTaskIds: receipt
+          ? const <String>{'saved-task'}
+          : const <String>{},
+    );
+
+    const GuidanceMilestone item = GuidanceMilestone.firstItem;
+    const GuidanceMilestone sched = GuidanceMilestone.firstSchedule;
+    const GuidanceMilestone review = GuidanceMilestone.firstTimelineReview;
+    const CoreGuideStatus active = CoreGuideStatus.active;
+    const CoreGuideStatus paused = CoreGuideStatus.paused;
+    const CoreGuideStatus skipped = CoreGuideStatus.skipped;
+    const CoreGuideStatus complete = CoreGuideStatus.complete;
+
+    final List<
+      (String, AdaptiveGuidanceState, GuidanceLessonId?, CoreGuideStatus)
+    >
+    table =
+        <(String, AdaptiveGuidanceState, GuidanceLessonId?, CoreGuideStatus)>[
+          ('new account', shape(), create, active),
+          ('firstItem only', shape(milestones: {item}), time, active),
+          (
+            'firstItem + time, no receipt',
+            shape(milestones: {item, sched}),
+            create,
+            active,
+          ),
+          (
+            'firstItem + receipt',
+            shape(milestones: {item}, receipt: true),
+            find,
+            active,
+          ),
+          (
+            'firstItem + time + receipt',
+            shape(milestones: {item, sched}, receipt: true),
+            find,
+            active,
+          ),
+          ('receipt only', shape(receipt: true), create, active),
+          (
+            'all three milestones',
+            shape(milestones: {item, sched, review}),
+            null,
+            complete,
+          ),
+          (
+            'review only (time lost)',
+            shape(milestones: {review}),
+            null,
+            complete,
+          ),
+          (
+            'returning account',
+            shape(milestones: {GuidanceMilestone.returningAccount}),
+            null,
+            complete,
+          ),
+          ('whole guide skipped', shape(skip: all), null, skipped),
+          (
+            'whole guide skipped + receipt',
+            shape(milestones: {item}, receipt: true, skip: all),
+            null,
+            skipped,
+          ),
+          ('whole guide paused', shape(later: all), null, paused),
+          (
+            'whole guide paused + receipt',
+            shape(milestones: {item}, receipt: true, later: all),
+            null,
+            paused,
+          ),
+          ('hidden until reopened', shape(reopen: all), null, paused),
+          (
+            'hidden until reopened + receipt',
+            shape(milestones: {item}, receipt: true, reopen: all),
+            null,
+            paused,
+          ),
+          ('skip of step 1 add only', shape(skip: {create}), null, skipped),
+          (
+            'skip of the time step only',
+            shape(milestones: {item}, skip: {time}),
+            null,
+            skipped,
+          ),
+          (
+            'skip of the time step + receipt',
+            shape(milestones: {item}, receipt: true, skip: {time}),
+            null,
+            skipped,
+          ),
+          (
+            'pause of the time step + receipt',
+            shape(milestones: {item}, receipt: true, later: {time}),
+            null,
+            paused,
+          ),
+          (
+            'skip of step 2 only, receipt',
+            shape(milestones: {item, sched}, receipt: true, skip: {find}),
+            null,
+            skipped,
+          ),
+          (
+            'pause of step 2 only, receipt',
+            shape(milestones: {item, sched}, receipt: true, later: {find}),
+            null,
+            paused,
+          ),
+          (
+            'step 1 skipped, nothing saved',
+            shape(skipStep: {create, time}),
+            null,
+            skipped,
+          ),
+          (
+            'step 1 skipped, receipt',
+            shape(skipStep: {create, time}, receipt: true),
+            find,
+            active,
+          ),
+          (
+            'step 2 skipped',
+            shape(milestones: {item, sched}, skipStep: {find}),
+            null,
+            skipped,
+          ),
+          ('every step skipped', shape(skipStep: all), null, skipped),
+          (
+            'restarted, done before',
+            shape(milestones: {item, sched, review}, replay: all),
+            create,
+            active,
+          ),
+          (
+            'restarted, add done again',
+            shape(milestones: {item, sched, review}, replay: {time, find}),
+            time,
+            active,
+          ),
+          (
+            'restarted, add done again + receipt',
+            shape(
+              milestones: {item, sched, review},
+              replay: {time, find},
+              receipt: true,
+            ),
+            find,
+            active,
+          ),
+          (
+            'restarted + time skipped + receipt',
+            shape(
+              milestones: {item, sched, review},
+              replay: {time, find},
+              receipt: true,
+              skip: {time},
+            ),
+            null,
+            skipped,
+          ),
+          (
+            'restarted, then paused',
+            shape(milestones: {item, sched, review}, replay: all, later: all),
+            null,
+            paused,
+          ),
+        ];
+
+    for (final (
+          String name,
+          AdaptiveGuidanceState state,
+          GuidanceLessonId? lesson,
+          CoreGuideStatus status,
+        )
+        in table) {
+      test(name, () {
+        expect(state.activeCoreLesson, lesson, reason: name);
+        expect(state.coreGuideStatus, status, reason: name);
+      });
+    }
   });
 
   test('after the guide ends at the schedule, marking a task done is a later '

@@ -111,11 +111,12 @@ class AdaptiveGuidanceState {
     return expectedFirstRunCreatorTaskIds.contains(taskId.trim());
   }
 
+  /// Finding the saved task ends the guide, even if an earlier milestone
+  /// (written best-effort after the save) was lost: "I found my task" must
+  /// not bring step 1 back.
   bool get coreComplete =>
       has(GuidanceMilestone.returningAccount) ||
-      (has(GuidanceMilestone.firstItem) &&
-          has(GuidanceMilestone.firstSchedule) &&
-          has(GuidanceMilestone.firstTimelineReview));
+      has(GuidanceMilestone.firstTimelineReview);
 
   static const Duration postCoreQuietPeriod = Duration(hours: 24);
 
@@ -284,11 +285,13 @@ abstract final class GuidanceInterventionEngine {
         state.untilReopenedLessons.contains(id);
     // Step 1 is one form. Once it saved a task the guide looks for, the step
     // is done even if that task has no date: step 2 then says the task is not
-    // on the schedule and offers "Skip this step".
+    // on the schedule and offers "Skip this step". A stored skip or pause of
+    // that step still wins, as it always did.
     bool stepPassed(GuidanceLessonId id) =>
         state.skippedCoreSteps.contains(id) ||
         (id == GuidanceLessonId.scheduleFirstItem &&
-            state.expectedFirstRunCreatorTaskIds.isNotEmpty);
+            state.expectedFirstRunCreatorTaskIds.isNotEmpty &&
+            !muted(id));
 
     GuidanceLessonId? withReceipt(GuidanceLessonId id) {
       if (id == GuidanceLessonId.reviewTimeline &&
@@ -889,6 +892,14 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
       },
     );
     if (next.activeCoreLesson == null) {
+      // The guide ends here. Every step is stored as skipped, so clearing the
+      // task list cannot bring back a step that was passed only because a
+      // task had been saved (a task saved without a date never records its
+      // time).
+      for (final GuidanceLessonId id in _replayableCoreLessons) {
+        await prefs.setBool('$prefix.$_skipStepKey.${id.name}', true);
+        await prefs.remove('$prefix.replay.${id.name}');
+      }
       await prefs.remove('$prefix.$_expectedCreatorTaskIdsKey');
       next = AdaptiveGuidanceState(
         milestones: next.milestones,
@@ -896,9 +907,12 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
         skippedLessons: next.skippedLessons,
         completedLessons: next.completedLessons,
         laterLessons: next.laterLessons,
-        replayLessons: next.replayLessons,
+        replayLessons: next.replayLessons.difference(_replayableCoreLessons),
         untilReopenedLessons: next.untilReopenedLessons,
-        skippedCoreSteps: next.skippedCoreSteps,
+        skippedCoreSteps: <GuidanceLessonId>{
+          ...next.skippedCoreSteps,
+          ..._replayableCoreLessons,
+        },
       );
     }
     if (!ref.mounted || _activeScope != account) return;
