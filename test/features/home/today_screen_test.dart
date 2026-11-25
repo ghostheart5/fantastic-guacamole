@@ -3,11 +3,9 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
-import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/entities/si_one_tap_question.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
-import 'package:fantastic_guacamole/state/providers/assistant_chat_mode_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_one_tap_provider.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -352,12 +350,8 @@ void main() {
         expect(container.read(appFlowProvider), isNot(AppView.console));
         await tester.tap(find.byKey(const ValueKey('one-tap-planMyDay')));
         await tester.pump();
-        // One tap: the free assistant is chosen, the question is waiting and
-        // Chat is open.
-        expect(
-          container.read(assistantOnDeviceModeProvider(ConversationSurface.si)),
-          isTrue,
-        );
+        // One tap: the question is waiting and Chat is open. Chat chooses the
+        // free assistant when it takes the question.
         expect(
           container.read(siOneTapRequestProvider)?.question,
           SIOneTapQuestion.planMyDay,
@@ -366,6 +360,29 @@ void main() {
         await tester.pumpWidget(const SizedBox.shrink());
       },
     );
+  }
+
+  for (final language in ['en', 'es']) {
+    testWidgets('$language: the question row fits 320dp wide at 200% text', (
+      tester,
+    ) async {
+      await pumpToday(
+        tester,
+        width: 320,
+        height: 1400,
+        scale: 2,
+        locale: Locale(language),
+      );
+      for (final question in todayQuestions) {
+        final button = find.byKey(ValueKey('one-tap-${question.name}'));
+        expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+        expect(tester.getRect(button).right, lessThanOrEqualTo(320));
+      }
+      final more = find.byKey(const Key('today-one-tap-more'));
+      expect(tester.getRect(more).right, lessThanOrEqualTo(320));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
   }
 
   testWidgets('More questions opens Chat without asking anything', (
@@ -382,7 +399,7 @@ void main() {
   testWidgets('one tap on Today reaches an answer in Chat, free', (
     tester,
   ) async {
-    final now = DateTime.now();
+    final now = DateTime(2026, 8, 20, 12);
     final snapshot = SIV2EvidenceSnapshot(
       accountScopeId: 'account:today-test',
       observedAt: now.toUtc(),

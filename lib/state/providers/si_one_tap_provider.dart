@@ -125,8 +125,9 @@ final siOneTapServiceProvider = Provider<SIOneTapPort>((Ref ref) {
   return _ReleaseControlledOneTapPort(
     ref,
     SIOneTapService(
-      readEvidence: (DateTime observedAt) =>
-          ref.read(siV2ReadGatewayProvider).read(observedAt: observedAt),
+      readEvidence: (DateTime observedAt) => ref
+          .read(siV2ReadGatewayProvider)
+          .read(observedAt: observedAt, includeActivity: true),
       clock: ref.watch(siV2ClockProvider),
     ),
   );

@@ -12,6 +12,8 @@ void main() {
   // Midday UTC keeps the local calendar day the same in every time zone that
   // matters for these checks.
   final DateTime now = DateTime.utc(2026, 8, 20, 12);
+  const String pinnedRevision =
+      'a5555f37c3fb38122d6bf964d7a14fff560bbb89cafa48047c766903db801967';
 
   HabitOccurrenceEntity checkIn(
     HabitEntity habit,
@@ -67,7 +69,7 @@ void main() {
       final SIV2EvidenceSnapshot snapshot = await gateway(
         habits: <HabitEntity>[walk],
         occurrences: occurrences,
-      ).read(observedAt: now);
+      ).read(observedAt: now, includeActivity: true);
       final SIV2HabitEvidence habit = snapshot.habits.single;
       expect(habit.cadence, HabitCadence.daily);
       expect(habit.checkInsInWindow, 4);
@@ -88,7 +90,7 @@ void main() {
         checkIn(read, now.subtract(const Duration(days: 1))),
         checkIn(read, now.subtract(const Duration(days: 2))),
       ],
-    ).read(observedAt: now);
+    ).read(observedAt: now, includeActivity: true);
     expect(snapshot.habits.single.currentStreak, 2);
     expect(snapshot.habits.single.checkedInThisPeriod, isFalse);
   });
@@ -116,7 +118,7 @@ void main() {
           checkIn(weekly, now.subtract(const Duration(days: 14))),
           checkIn(weekly, now.subtract(const Duration(days: 28))),
         ],
-      ).read(observedAt: now);
+      ).read(observedAt: now, includeActivity: true);
       expect(snapshot.habits.map((SIV2HabitEvidence h) => h.id), <String>[
         'weekly',
       ]);
@@ -127,13 +129,16 @@ void main() {
   test('habits are marked unavailable when they cannot be read', () async {
     final SIV2EvidenceSnapshot snapshot = await gateway(
       habitReader: () async => throw StateError('storage broke'),
-    ).read(observedAt: now);
+    ).read(observedAt: now, includeActivity: true);
     expect(snapshot.habitsUnavailable, isTrue);
     expect(snapshot.habits, isEmpty);
   });
 
   test('without a habit reader nothing is claimed about habits', () async {
-    final SIV2EvidenceSnapshot snapshot = await gateway().read(observedAt: now);
+    final SIV2EvidenceSnapshot snapshot = await gateway().read(
+      observedAt: now,
+      includeActivity: true,
+    );
     expect(snapshot.habits, isEmpty);
     expect(snapshot.habitsUnavailable, isFalse);
   });
@@ -180,7 +185,7 @@ void main() {
             createdAt: now.subtract(const Duration(days: 40)),
           ),
         ],
-      ).read(observedAt: now);
+      ).read(observedAt: now, includeActivity: true);
       expect(
         snapshot.recentTasks.map((SIV2RecentTaskEvidence t) => t.id),
         <String>['a', 'skip', 'b'],
@@ -223,7 +228,7 @@ void main() {
           updatedAt: now,
         ),
       ],
-    ).read(observedAt: now);
+    ).read(observedAt: now, includeActivity: true);
     final SIV2GoalEvidence goal = snapshot.goals.firstWhere(
       (SIV2GoalEvidence g) => g.id == 'g',
     );
@@ -237,50 +242,178 @@ void main() {
     expect(bare.hasProgress, isFalse);
   });
 
-  test('a snapshot with none of the new records keeps its revision', () async {
-    final SIV2EvidenceSnapshot plain = SIV2EvidenceSnapshot(
+  test('without includeActivity no habit or history is read at all', () async {
+    int habitReads = 0;
+    final SIV2ReadGateway g = SIV2ReadGateway(
       accountScopeId: 'account:test',
-      observedAt: now,
-      tasks: const <SIV2TaskEvidence>[],
-      goals: <SIV2GoalEvidence>[
-        SIV2GoalEvidence(id: 'g', title: 'Goal', createdAt: now),
-      ],
-      milestones: const <SIV2MilestoneEvidence>[],
-      timeline: const <SIV2TimelineEvidence>[],
-    );
-    final SIV2EvidenceSnapshot withHabit = SIV2EvidenceSnapshot(
-      accountScopeId: 'account:test',
-      observedAt: now,
-      tasks: const <SIV2TaskEvidence>[],
-      goals: plain.goals,
-      milestones: const <SIV2MilestoneEvidence>[],
-      timeline: const <SIV2TimelineEvidence>[],
-      habits: <SIV2HabitEvidence>[
-        SIV2HabitEvidence(
-          id: 'h',
-          title: 'Walk',
+      readTasks: () async => <TaskEntity>[
+        TaskEntity(
+          id: 'done',
+          title: 'Done',
           createdAt: now,
-          cadence: HabitCadence.daily,
-          targetCount: 1,
-          checkInsInWindow: 1,
-          currentStreak: 1,
-          checkedInThisPeriod: true,
+          isCompleted: true,
+          completedAt: now,
         ),
       ],
+      readGoals: () async => const [],
+      readMilestones: () async => const [],
+      readTimeline: () async => const [],
+      readHabits: () async {
+        habitReads++;
+        return <HabitEntity>[];
+      },
+      readHabitOccurrences: () async {
+        habitReads++;
+        return <HabitOccurrenceEntity>[];
+      },
     );
-    expect(plain.revision, hasLength(64));
-    expect(withHabit.revision, isNot(plain.revision));
-    // Pinned: goals without progress and no habits hash exactly as before.
-    expect(
-      SIV2EvidenceSnapshot(
-        accountScopeId: 'account:test',
-        observedAt: now,
-        tasks: const <SIV2TaskEvidence>[],
-        goals: plain.goals,
-        milestones: const <SIV2MilestoneEvidence>[],
-        timeline: const <SIV2TimelineEvidence>[],
-      ).revision,
-      plain.revision,
+    final SIV2EvidenceSnapshot packetSide = await g.read(observedAt: now);
+    expect(habitReads, 0);
+    expect(packetSide.habits, isEmpty);
+    expect(packetSide.recentTasks, isEmpty);
+    final SIV2EvidenceSnapshot oneTap = await g.read(
+      observedAt: now,
+      includeActivity: true,
     );
+    expect(habitReads, 2);
+    expect(oneTap.recentTasks, hasLength(1));
+  });
+
+  test(
+    'the evidence revision is exactly what it was before the one-tap records',
+    () async {
+      // The value was computed with the contract as it stood before this change
+      // (commit 8f9255dc) for this exact account.
+      SIV2EvidenceSnapshot build({bool withNewRecords = false}) =>
+          SIV2EvidenceSnapshot(
+            accountScopeId: 'account:test',
+            observedAt: now,
+            tasks: <SIV2TaskEvidence>[
+              SIV2TaskEvidence(
+                id: 't1',
+                title: 'Write report',
+                createdAt: DateTime.utc(2026, 8, 1),
+                priority: 4,
+                dueDate: DateTime.utc(2026, 8, 19, 22),
+                goalId: 'g1',
+                dueDay: withNewRecords ? DateTime(2026, 8, 20) : null,
+              ),
+            ],
+            goals: <SIV2GoalEvidence>[
+              SIV2GoalEvidence(
+                id: 'g1',
+                title: 'Launch',
+                createdAt: DateTime.utc(2026, 7, 1),
+                targetDate: DateTime.utc(2026, 9, 1),
+                linkedTasksDone: withNewRecords ? 3 : 0,
+              ),
+            ],
+            milestones: const <SIV2MilestoneEvidence>[],
+            timeline: const <SIV2TimelineEvidence>[],
+            habits: withNewRecords
+                ? <SIV2HabitEvidence>[
+                    SIV2HabitEvidence(
+                      id: 'h',
+                      title: 'Walk',
+                      createdAt: now,
+                      cadence: HabitCadence.daily,
+                      targetCount: 1,
+                      checkInsInWindow: 1,
+                      currentStreak: 1,
+                      checkedInThisPeriod: true,
+                    ),
+                  ]
+                : const <SIV2HabitEvidence>[],
+            recentTasks: withNewRecords
+                ? <SIV2RecentTaskEvidence>[
+                    SIV2RecentTaskEvidence(
+                      id: 'x',
+                      title: 'Finished',
+                      outcome: SIV2RecentTaskOutcome.completed,
+                      at: now,
+                    ),
+                  ]
+                : const <SIV2RecentTaskEvidence>[],
+          );
+      expect(build().revision, pinnedRevision);
+      // Habits, recent tasks, goal progress and whole days never change it, so
+      // a preview and a later send compare equal.
+      expect(build(withNewRecords: true).revision, pinnedRevision);
+    },
+  );
+
+  test('a deadline chosen as a whole day carries its calendar day', () async {
+    final SIV2EvidenceSnapshot s = await gateway(
+      tasks: <TaskEntity>[
+        // Saved at local midnight, in this machine's zone.
+        TaskEntity(
+          id: 'local',
+          title: 'Local midnight',
+          createdAt: now,
+          dueDate: DateTime(2026, 8, 20),
+        ),
+        // A cloud decoder may mark the same chosen day as UTC.
+        TaskEntity(
+          id: 'utc',
+          title: 'UTC marked',
+          createdAt: now,
+          dueDate: DateTime.utc(2026, 8, 20),
+        ),
+        TaskEntity(
+          id: 'timed',
+          title: 'Has a time',
+          createdAt: now,
+          dueDate: DateTime(2026, 8, 20, 18, 30),
+        ),
+      ],
+      goals: <GoalEntity>[
+        GoalEntity(
+          id: 'g',
+          title: 'Goal',
+          createdAt: now,
+          targetDate: DateTime(2026, 9, 1),
+        ),
+      ],
+      milestones: <MilestoneEntity>[
+        MilestoneEntity(
+          id: 'm',
+          title: 'Milestone',
+          createdAt: now,
+          updatedAt: now,
+          targetDate: DateTime(2026, 9, 2),
+        ),
+      ],
+    ).read(observedAt: now);
+    final Map<String, SIV2TaskEvidence> byId = <String, SIV2TaskEvidence>{
+      for (final SIV2TaskEvidence t in s.tasks) t.id: t,
+    };
+    expect(byId['local']!.dueDay, DateTime(2026, 8, 20));
+    expect(byId['utc']!.dueDay, DateTime(2026, 8, 20));
+    expect(byId['timed']!.dueDay, isNull);
+    expect(s.goals.single.targetDay, DateTime(2026, 9, 1));
+    expect(s.milestones.single.targetDay, DateTime(2026, 9, 2));
+  });
+
+  test('a habit is tracked from its last frequency edit', () async {
+    final HabitEntity edited = HabitEntity(
+      id: 'e',
+      title: 'Edited',
+      createdAt: now.subtract(const Duration(days: 90)),
+      frequencyRevision: 1,
+      frequencyStartedAt: now.subtract(const Duration(days: 4)),
+    );
+    final HabitEntity plain = HabitEntity(
+      id: 'p',
+      title: 'Plain',
+      createdAt: now.subtract(const Duration(days: 90)),
+    );
+    final SIV2EvidenceSnapshot s = await gateway(
+      habits: <HabitEntity>[edited, plain],
+    ).read(observedAt: now, includeActivity: true);
+    final Map<String, SIV2HabitEvidence> byId = <String, SIV2HabitEvidence>{
+      for (final SIV2HabitEvidence h in s.habits) h.id: h,
+    };
+    expect(byId['e']!.trackedSince, now.subtract(const Duration(days: 4)));
+    expect(byId['p']!.trackedSince, now.subtract(const Duration(days: 90)));
   });
 }

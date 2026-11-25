@@ -87,6 +87,7 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
     this.hidden = false,
     this.onUpdateWhileHidden,
     this.onQuickQuestion,
+    this.onBusyChanged,
   });
   final ConversationSurface surface;
   final VoidCallback onLocalTools;
@@ -106,7 +107,12 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
 
   /// Chat only: a one-tap question picked here is answered on this device,
   /// for free, by the free assistant. Null hides the row.
-  final ValueChanged<SIOneTapQuestion>? onQuickQuestion;
+  final void Function(SIOneTapQuestion question, String typedDraft)?
+  onQuickQuestion;
+
+  /// Reports when a message is being sent, so the free assistant's questions
+  /// left by Today do not switch away from a request that is running.
+  final ValueChanged<bool>? onBusyChanged;
   @override
   ConsumerState<AssistantConversationScreen> createState() =>
       _AssistantConversationScreenState();
@@ -121,6 +127,7 @@ class _AssistantConversationScreenState
   final List<Map<String, String>> _history = [];
   VoiceController? _voiceControllerForDispose;
   bool _busy = false;
+  bool _reportedBusy = false;
   bool _waitIndicatorDismissed = false;
   String? _error;
   // The error is about running out of credits: Get credits is offered.
@@ -958,6 +965,15 @@ class _AssistantConversationScreenState
         !_busy &&
         _pending == null &&
         (planner || (_historyReady && !_historyLoading && !_historyConflict));
+    if (_reportedBusy != _busy) {
+      _reportedBusy = _busy;
+      final ValueChanged<bool>? report = widget.onBusyChanged;
+      if (report != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) report(_busy);
+        });
+      }
+    }
     // One two-way control: free on this device, or AI chat with its price.
     final modeSwitch = AssistantModeSwitch(
       surface: widget.surface,
@@ -1063,7 +1079,8 @@ class _AssistantConversationScreenState
                       layout: OneTapRowLayout.scroll,
                       questions: chatOneTapQuestions,
                       enabled: !_busy,
-                      onAsk: widget.onQuickQuestion!,
+                      onAsk: (SIOneTapQuestion question) =>
+                          widget.onQuickQuestion!(question, _input.text.trim()),
                     ),
                   ],
                   ..._history.map(

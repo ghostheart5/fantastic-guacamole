@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
@@ -8,6 +11,7 @@ import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart
 import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_chat_mode_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_one_tap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
@@ -18,7 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../assistant/assistant_conversation_screen_test.dart'
-    show scope, setup, waitForChatReady;
+    show enterChatText, scope, setup, waitForChatReady;
 
 // The eight one-tap questions in Chat: answered on this device, free, from the
 // records the app already has. Tapping one never reaches the paid path.
@@ -26,8 +30,14 @@ import '../assistant/assistant_conversation_screen_test.dart'
 const _localInput = Key('si-query-input');
 const _aiInput = Key('conversation-input');
 
-SIV2ReadGateway _gateway(String kind) {
-  final DateTime now = DateTime.now();
+/// The moment every test runs at; the free assistant reads this clock.
+final DateTime _now = DateTime(2026, 8, 20, 12);
+
+SIV2ReadGateway _gateway(
+  String kind, {
+  Future<List<TaskEntity>> Function()? slowTasks,
+}) {
+  final DateTime now = _now;
   final HabitEntity walk = HabitEntity(
     id: 'walk',
     title: 'Walk',
@@ -48,54 +58,56 @@ SIV2ReadGateway _gateway(String kind) {
   final bool twoGoals = kind == 'two-goals';
   return SIV2ReadGateway(
     accountScopeId: scope.v2Namespace!,
-    readTasks: () async => empty
-        ? <TaskEntity>[]
-        : <TaskEntity>[
-            if (late) ...<TaskEntity>[
-              TaskEntity(
-                id: 'late1',
-                title: 'File taxes',
-                createdAt: now.subtract(const Duration(days: 30)),
-                dueDate: now.subtract(const Duration(days: 9)),
-                priority: 5,
-              ),
-              TaskEntity(
-                id: 'late2',
-                title: 'Renew passport',
-                createdAt: now.subtract(const Duration(days: 30)),
-                dueDate: now.subtract(const Duration(days: 2)),
-              ),
-            ] else ...<TaskEntity>[
-              TaskEntity(
-                id: 'today',
-                title: 'Write report',
-                createdAt: now.subtract(const Duration(days: 5)),
-                dueDate: now,
-                priority: 4,
-              ),
-              TaskEntity(
-                id: 'soon',
-                title: 'Call the bank',
-                createdAt: now.subtract(const Duration(days: 5)),
-                dueDate: now.add(const Duration(days: 3)),
-              ),
-              TaskEntity(
-                id: 'linked',
-                title: 'Draft the plan',
-                goalId: 'g1',
-                createdAt: now.subtract(const Duration(days: 5)),
-              ),
-              for (int i = 0; i < 5; i++)
-                TaskEntity(
-                  id: 'done$i',
-                  title: 'Finished $i',
-                  createdAt: now.subtract(const Duration(days: 20)),
-                  isCompleted: true,
-                  completedAt: now.subtract(Duration(days: i + 1)),
-                  goalId: i == 0 ? 'g1' : null,
-                ),
-            ],
-          ],
+    readTasks:
+        slowTasks ??
+        () async => empty
+            ? <TaskEntity>[]
+            : <TaskEntity>[
+                if (late) ...<TaskEntity>[
+                  TaskEntity(
+                    id: 'late1',
+                    title: 'File taxes',
+                    createdAt: now.subtract(const Duration(days: 30)),
+                    dueDate: now.subtract(const Duration(days: 9)),
+                    priority: 5,
+                  ),
+                  TaskEntity(
+                    id: 'late2',
+                    title: 'Renew passport',
+                    createdAt: now.subtract(const Duration(days: 30)),
+                    dueDate: now.subtract(const Duration(days: 2)),
+                  ),
+                ] else ...<TaskEntity>[
+                  TaskEntity(
+                    id: 'today',
+                    title: 'Write report',
+                    createdAt: now.subtract(const Duration(days: 5)),
+                    dueDate: now,
+                    priority: 4,
+                  ),
+                  TaskEntity(
+                    id: 'soon',
+                    title: 'Call the bank',
+                    createdAt: now.subtract(const Duration(days: 5)),
+                    dueDate: now.add(const Duration(days: 3)),
+                  ),
+                  TaskEntity(
+                    id: 'linked',
+                    title: 'Draft the plan',
+                    goalId: 'g1',
+                    createdAt: now.subtract(const Duration(days: 5)),
+                  ),
+                  for (int i = 0; i < 5; i++)
+                    TaskEntity(
+                      id: 'done$i',
+                      title: 'Finished $i',
+                      createdAt: now.subtract(const Duration(days: 20)),
+                      isCompleted: true,
+                      completedAt: now.subtract(Duration(days: i + 1)),
+                      goalId: i == 0 ? 'g1' : null,
+                    ),
+                ],
+              ],
     readGoals: () async => empty
         ? <GoalEntity>[]
         : <GoalEntity>[
@@ -132,15 +144,51 @@ ProviderContainer _container({
   bool ai = false,
   bool onDevice = true,
   _Paid? paid,
+  Future<List<TaskEntity>> Function()? slowTasks,
+  AccountStorageScope Function()? readScope,
+  Completer<void>? paidGate,
 }) {
   final _Paid counter = paid ?? _Paid();
   final ProviderContainer container = setup(
-    (_) async {
+    (body) async {
+      if (paidGate == null) {
+        counter.calls++;
+        throw StateError('A one-tap question must never reach the paid path');
+      }
+      // A paid AI message that is deliberately running (a quote, then a held
+      // reply), so a one-tap question can arrive while it is in flight.
+      if (body['quoteOnly'] == true) {
+        return (
+          status: 200,
+          data: <String, dynamic>{
+            'requestId': body['requestId'],
+            'quote': <String, dynamic>{
+              'credits': conversationMessageCredits,
+              'digest': 'fixture',
+              'proof': 'fixture',
+              'policy': 'fixture',
+              'expiresAt': 4102444800000,
+            },
+          },
+        );
+      }
       counter.calls++;
-      throw StateError('A one-tap question must never reach the paid path');
+      await paidGate.future;
+      return (
+        status: 200,
+        data: <String, dynamic>{
+          'requestId': body['requestId'],
+          'message': 'Take a short walk first.',
+          'creditsCharged': conversationMessageCredits,
+          'remainingCredits': 20,
+          'model': 'transport-fixture',
+        },
+      );
     },
-    readGateway: _gateway(kind),
+    readGateway: _gateway(kind, slowTasks: slowTasks),
     conversationAvailable: ai,
+    clock: () => _now.toUtc(),
+    readScope: readScope,
   );
   container
       .read(assistantChatModeProvider.notifier)
@@ -526,4 +574,157 @@ void main() {
       },
     );
   }
+
+  // ---- a question that arrives, waits, or is cut short ---------------------
+  Future<void> tapQuestion(WidgetTester tester, SIOneTapQuestion q) async {
+    final Finder chip = find.byKey(ValueKey<String>('one-tap-${q.name}'));
+    await tester.tap(chip);
+    // The typing indicator animates, so step by time instead of settling.
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  testWidgets('an account change while an answer loads gives Chat back', (
+    tester,
+  ) async {
+    final Completer<List<TaskEntity>> gate = Completer<List<TaskEntity>>();
+    AccountStorageScope current = scope;
+    final container = _container(
+      slowTasks: () => gate.future,
+      readScope: () => current,
+    );
+    addTearDown(() => _dispose(tester, container));
+    await _pump(tester, container);
+    await tapQuestion(tester, SIOneTapQuestion.planMyDay);
+    // While loading, the questions are off.
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.byKey(const ValueKey<String>('one-tap-planMyDay')),
+          )
+          .onPressed,
+      isNull,
+    );
+    current = AccountStorageScope.authenticated('another-account');
+    container.invalidate(accountStorageScopeProvider);
+    await tester.pump();
+    gate.complete(<TaskEntity>[]);
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    // The other account's answer is not shown, and Chat works again.
+    expect(find.byKey(const Key('si-v2-response')), findsNothing);
+    final OutlinedButton chip = tester.widget<OutlinedButton>(
+      find.byKey(const ValueKey<String>('one-tap-planMyDay')),
+    );
+    expect(chip.onPressed, isNotNull);
+    await tapQuestion(tester, SIOneTapQuestion.planMyDay);
+    expect(find.byKey(const Key('si-v2-response')), findsOneWidget);
+  });
+
+  testWidgets('a question that arrives during an answer is asked after it', (
+    tester,
+  ) async {
+    final Completer<List<TaskEntity>> gate = Completer<List<TaskEntity>>();
+    final container = _container(slowTasks: () => gate.future);
+    addTearDown(() => _dispose(tester, container));
+    await _pump(tester, container);
+    await tapQuestion(tester, SIOneTapQuestion.planMyDay);
+    container
+        .read(siOneTapRequestProvider.notifier)
+        .ask(SIOneTapQuestion.whatsComingUp);
+    await tester.pump();
+    // Not lost: it waits.
+    expect(container.read(siOneTapRequestProvider), isNotNull);
+    gate.complete(<TaskEntity>[]);
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(container.read(siOneTapRequestProvider), isNull);
+    // The newest answer is the waiting question's.
+    expect(
+      find.textContaining(
+        'Nothing with a date is coming up',
+        findRichText: true,
+      ),
+      findsWidgets,
+    );
+  });
+
+  testWidgets('a question from Today does not interrupt a message being sent', (
+    tester,
+  ) async {
+    final Completer<void> gate = Completer<void>();
+    final _Paid paid = _Paid();
+    final container = _container(
+      ai: true,
+      onDevice: false,
+      paid: paid,
+      paidGate: gate,
+    );
+    addTearDown(() async {
+      if (!gate.isCompleted) gate.complete();
+      await _dispose(tester, container);
+    });
+    await _pump(tester, container);
+    await enterChatText(tester, 'What should I do first?');
+    await tester.tap(find.byKey(const Key('conversation-send')));
+    for (var i = 0; i < 40 && find.text('Send').evaluate().isEmpty; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.tap(find.text('Send'));
+    for (var i = 0; i < 40 && paid.calls == 0; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(paid.calls, 1);
+    container
+        .read(siOneTapRequestProvider.notifier)
+        .ask(SIOneTapQuestion.planMyDay);
+    await tester.pump();
+    await tester.pump();
+    expect(
+      find.text('A message is being sent. Ask the question when it finishes.'),
+      findsOneWidget,
+    );
+    // Still on AI chat, nothing asked, nothing waiting.
+    expect(find.byKey(_localInput), findsNothing);
+    expect(container.read(siOneTapRequestProvider), isNull);
+    expect(paid.calls, 1);
+  });
+
+  testWidgets('Ask AI keeps what the person already typed in AI chat', (
+    tester,
+  ) async {
+    final _Paid paid = _Paid();
+    final container = _container(ai: true, onDevice: false, paid: paid);
+    addTearDown(() => _dispose(tester, container));
+    await _pump(tester, container);
+    await enterChatText(tester, 'my own words');
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('one-tap-row-scroll')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await _ask(tester, SIOneTapQuestion.reachGoal);
+    // The typed words went with the person to the free assistant.
+    expect(
+      tester.widget<TextField>(find.byKey(_localInput)).controller!.text,
+      'my own words',
+    );
+    final Finder askAi = find.byKey(const Key('one-tap-ask-ai'));
+    await _reveal(tester, askAi);
+    await tester.tap(askAi);
+    await tester.pumpAndSettle();
+    await waitForChatReady(tester);
+    expect(
+      tester.widget<TextField>(find.byKey(_aiInput)).controller!.text,
+      'my own words',
+    );
+    expect(
+      find.text('Your message was kept. The question was not added.'),
+      findsOneWidget,
+    );
+    expect(paid.calls, 0);
+  });
 }

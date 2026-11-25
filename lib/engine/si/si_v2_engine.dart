@@ -1564,6 +1564,16 @@ final class SIV2Engine {
   bool _taskIsOverdue(SIV2TaskEvidence task, DateTime now) {
     final due = task.dueDate;
     if (due == null) return false;
+    // A deadline saved as a whole day belongs to that local day, whatever the
+    // zone (the evidence carries the day; the UTC instant alone cannot say).
+    final DateTime? wholeDay = task.dueDay;
+    if (wholeDay != null) {
+      return DateTime.utc(
+        wholeDay.year,
+        wholeDay.month,
+        wholeDay.day,
+      ).isBefore(_localDay(now));
+    }
     final bool dateOnly =
         due.hour == 0 &&
         due.minute == 0 &&

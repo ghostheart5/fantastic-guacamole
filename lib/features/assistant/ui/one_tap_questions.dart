@@ -46,6 +46,9 @@ class OneTapQuestionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
+    final String freeNote = isSpanish
+        ? ', gratis, respondida en este dispositivo'
+        : ', free, answered on this device';
     final List<Widget> buttons = <Widget>[
       for (final SIOneTapQuestion question in questions)
         OutlinedButton(
@@ -57,7 +60,11 @@ class OneTapQuestionRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
           ),
-          child: Text(question.label(isSpanish: isSpanish)),
+          child: Semantics(
+            label: '${question.label(isSpanish: isSpanish)}$freeNote',
+            excludeSemantics: true,
+            child: Text(question.label(isSpanish: isSpanish)),
+          ),
         ),
       ?trailing,
     ];
@@ -230,8 +237,8 @@ class OneTapAnswerFooter extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   isSpanish
-                      ? 'Esto solo abre el chat con IA con tu pregunta. No se envía nada hasta que confirmes el precio.'
-                      : 'This only opens AI chat with your question. Nothing is sent until you confirm the price.',
+                      ? 'Esto solo abre el chat con IA con tu pregunta. No se envía nada hasta que toques «Enviar · $conversationMessageCredits créditos».'
+                      : 'This only opens AI chat with your question. Nothing is sent until you tap "Send · $conversationMessageCredits credits".',
                   key: const Key('one-tap-ai-note'),
                   style: const TextStyle(
                     color: Colors.white60,

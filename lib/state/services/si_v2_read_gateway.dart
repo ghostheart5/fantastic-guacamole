@@ -53,9 +53,14 @@ final class SIV2ReadGateway {
   final SIV2HabitReader? readHabits;
   final SIV2HabitOccurrenceReader? readHabitOccurrences;
 
+  /// [includeActivity] also reads habits and check-ins and the last 14 days of
+  /// finished or skipped tasks, for the on-device one-tap questions. Nothing
+  /// else (paid packets, the older console) asks for them, so they are not
+  /// read for those.
   Future<SIV2EvidenceSnapshot> read({
     required DateTime observedAt,
     String decisionText = '',
+    bool includeActivity = false,
   }) async {
     final Set<SIV2Source> unavailable = <SIV2Source>{};
     List<TaskEntity> taskEntities = const <TaskEntity>[];
@@ -92,7 +97,7 @@ final class SIV2ReadGateway {
     } on Object {
       unavailable.add(SIV2Source.timeline);
     }
-    if (readHabits != null) {
+    if (includeActivity && readHabits != null) {
       try {
         habitEntities = await readHabits!().timeout(const Duration(seconds: 3));
         occurrenceEntities =
@@ -129,6 +134,7 @@ final class SIV2ReadGateway {
                 priority: item.priority,
                 scheduledFor: item.scheduledFor?.toUtc(),
                 dueDate: item.dueDate?.toUtc(),
+                dueDay: _wholeDay(item.dueDate),
                 goalId: _trimToNull(item.goalId),
               ),
             )
@@ -166,6 +172,7 @@ final class SIV2ReadGateway {
                 archived: item.isArchived,
                 goalId: _trimToNull(item.goalId),
                 targetDate: item.targetDate?.toUtc(),
+                targetDay: _wholeDay(item.targetDate),
                 dependencies: List<String>.unmodifiable(
                   item.dependencies
                       .map((String value) => value.trim())
@@ -198,15 +205,12 @@ final class SIV2ReadGateway {
             (SIV2TimelineEvidence left, SIV2TimelineEvidence right) =>
                 right.timestamp.compareTo(left.timestamp),
           );
-    final List<SIV2HabitEvidence> habits = _habitEvidence(
-      habitEntities,
-      occurrenceEntities,
-      observedAt,
-    );
-    final List<SIV2RecentTaskEvidence> recentTasks = _recentTaskEvidence(
-      taskEntities,
-      observedAt,
-    );
+    final List<SIV2HabitEvidence> habits = includeActivity
+        ? _habitEvidence(habitEntities, occurrenceEntities, observedAt)
+        : const <SIV2HabitEvidence>[];
+    final List<SIV2RecentTaskEvidence> recentTasks = includeActivity
+        ? _recentTaskEvidence(taskEntities, observedAt)
+        : const <SIV2RecentTaskEvidence>[];
     final SIV2PersonContextEvidence? personContext = decisionText.trim().isEmpty
         ? siV2PersonContextEvidenceOrNull(
             personContextView,
@@ -234,6 +238,22 @@ final class SIV2ReadGateway {
       habitsUnavailable: habitsUnavailable,
     );
   }
+}
+
+/// The calendar day of a date saved without a time of day (midnight), as year,
+/// month and day at local midnight; null for a deadline with a time. Mirrors
+/// TaskEntity.hasDateOnlyDeadline and effectiveDueAt: the stored components are
+/// the day the person chose, even when the value is marked UTC.
+DateTime? _wholeDay(DateTime? value) {
+  if (value == null ||
+      value.hour != 0 ||
+      value.minute != 0 ||
+      value.second != 0 ||
+      value.millisecond != 0 ||
+      value.microsecond != 0) {
+    return null;
+  }
+  return DateTime(value.year, value.month, value.day);
 }
 
 /// Window the on-device one-tap questions look back over.
@@ -265,6 +285,7 @@ SIV2GoalEvidence _goalEvidence(
     title: goal.title.trim(),
     createdAt: goal.createdAt.toUtc(),
     targetDate: goal.targetDate?.toUtc(),
+    targetDay: _wholeDay(goal.targetDate),
     linkedTasksDone: tasksDone,
     linkedTasksOpen: tasksOpen,
     milestonesDone: milestonesDone,
@@ -330,6 +351,7 @@ List<SIV2HabitEvidence> _habitEvidence(
         currentStreak: streak,
         checkedInThisPeriod: checkedIn,
         windowDays: _recentWindowDays,
+        trackedSince: (habit.frequencyStartedAt ?? habit.createdAt).toUtc(),
       ),
     );
   }

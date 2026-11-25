@@ -72,7 +72,8 @@ void main() {
   }
 
   SIOneTapService service(String kind) => SIOneTapService(
-    readEvidence: (DateTime at) => gateway(kind).read(observedAt: at),
+    readEvidence: (DateTime at) =>
+        gateway(kind).read(observedAt: at, includeActivity: true),
     clock: () => now,
   );
 

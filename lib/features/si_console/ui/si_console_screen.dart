@@ -118,6 +118,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   // The AI chat screen stays alive behind the free assistant (see build).
   bool _aiUpdate = false;
+  // A paid message is being sent in AI chat.
+  bool _aiBusy = false;
   String _aiDraft = '';
   int _aiDraftRevision = 0;
   final List<_Msg> _messages = [];
@@ -733,7 +735,26 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   /// A request left by Today. Taking it clears it, so it is asked once.
   void _takeOneTapRequest(SIOneTapRequest? request) {
     if (request == null || !mounted) return;
+    // Still answering another question: the request stays and is taken when
+    // that answer is in.
+    if (_typing) return;
     ref.read(siOneTapRequestProvider.notifier).clear();
+    // A message being sent in AI chat is not interrupted: the question is
+    // dropped with a plain line instead of switching away from it.
+    if (_aiBusy) {
+      final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            isSpanish
+                ? 'Se está enviando un mensaje. Haz la pregunta cuando termine.'
+                : 'A message is being sent. Ask the question when it finishes.',
+          ),
+        ),
+      );
+      return;
+    }
+    _chooseMode(onDevice: true);
     unawaited(_askOneTap(request.question));
   }
 
@@ -761,11 +782,24 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   /// the price and confirm the send there.
   void _askAiAbout(SIOneTapQuestion question) {
     final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
+    // A message the person already typed is never replaced by the question.
+    final String typed = _input.text.trim();
     setState(() {
-      _aiDraft = question.label(isSpanish: isSpanish);
+      _aiDraft = typed.isEmpty ? question.label(isSpanish: isSpanish) : typed;
       _aiDraftRevision++;
       _aiUpdate = false;
     });
+    if (typed.isNotEmpty) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            isSpanish
+                ? 'Se conservó tu mensaje. La pregunta no se añadió.'
+                : 'Your message was kept. The question was not added.',
+          ),
+        ),
+      );
+    }
     _chooseMode(onDevice: false);
   }
 
@@ -797,8 +831,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       siConsoleQueryControllerProvider,
     );
     controller.recordQuestionSent();
+    final _Msg asked = _Msg(text: label, isUser: true);
     _safeSetState(() {
-      _messages.add(_Msg(text: label, isUser: true));
+      _messages.add(asked);
       _typing = true;
     });
     _scrollToBottom();
@@ -810,12 +845,13 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           .read(siOneTapServiceProvider)
           .answer(question, isSpanish: isSpanish, goalId: goal)
           .timeout(const Duration(seconds: 25));
-      if (!mounted ||
-          ref.read(accountStorageScopeProvider).v2Namespace != namespace) {
+      if (!mounted) return;
+      if (ref.read(accountStorageScopeProvider).v2Namespace != namespace) {
+        // Another account's answer is never shown here.
+        _safeSetState(() => _messages.remove(asked));
         return;
       }
       _safeSetState(() {
-        _typing = false;
         _boundPersonContextRevision = ref.read(
           siV2PersonContextRevisionProvider,
         );
@@ -836,27 +872,38 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       _scrollToLatestResponse();
     } catch (_) {
       if (!mounted) return;
-      final AIRecommendation fallback = controller.localFallbackResponse(
-        query: label,
-        response: routine.responseValidationFailed,
-        reason: 'si_one_tap_failure',
-        emotion: 'cautious',
-      );
-      fallback.contract!.validate();
-      _safeSetState(() {
-        _typing = false;
-        _messages.add(
-          _Msg(
-            text: fallback.message,
-            isUser: false,
-            emotion: fallback.emotion ?? 'cautious',
-            rationale: fallback.reasoning,
-            systemPanel: true,
-            processingMode: fallback.processingMode,
-          ),
+      try {
+        final AIRecommendation fallback = controller.localFallbackResponse(
+          query: label,
+          response: routine.responseValidationFailed,
+          reason: 'si_one_tap_failure',
+          emotion: 'cautious',
         );
-      });
-      _scrollToBottom();
+        fallback.contract!.validate();
+        _safeSetState(() {
+          _messages.add(
+            _Msg(
+              text: fallback.message,
+              isUser: false,
+              emotion: fallback.emotion ?? 'cautious',
+              rationale: fallback.reasoning,
+              systemPanel: true,
+              processingMode: fallback.processingMode,
+            ),
+          );
+        });
+        _scrollToBottom();
+      } on Object {
+        // The fallback is a courtesy; the input still has to come back.
+      }
+    } finally {
+      // Every way out gives Chat back, then a question that waited is taken.
+      if (mounted) {
+        _safeSetState(() => _typing = false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _takeOneTapRequest(ref.read(siOneTapRequestProvider));
+        });
+      }
     }
   }
 
@@ -958,7 +1005,12 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                       if (mounted) setState(() => _aiUpdate = true);
                     },
                     surface: ConversationSurface.si,
-                    onQuickQuestion: (SIOneTapQuestion question) {
+                    onBusyChanged: (bool busy) {
+                      if (mounted) setState(() => _aiBusy = busy);
+                    },
+                    onQuickQuestion: (SIOneTapQuestion question, String typed) {
+                      // What was typed in AI chat goes with the person.
+                      if (typed.isNotEmpty) _input.text = typed;
                       _chooseMode(onDevice: true);
                       unawaited(_askOneTap(question));
                     },

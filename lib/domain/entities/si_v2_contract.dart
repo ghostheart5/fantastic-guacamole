@@ -213,6 +213,7 @@ final class SIV2TaskEvidence {
     this.scheduledFor,
     this.dueDate,
     this.goalId,
+    this.dueDay,
   });
 
   final String id;
@@ -222,6 +223,12 @@ final class SIV2TaskEvidence {
   final DateTime? scheduledFor;
   final DateTime? dueDate;
   final String? goalId;
+
+  /// Set only when the deadline is a whole day chosen without a time (saved at
+  /// midnight, see TaskEntity.hasDateOnlyDeadline): that calendar day, as
+  /// year, month and day at local midnight. The person owns that whole day, so
+  /// the task is overdue only once the day has ended. Not sent anywhere.
+  final DateTime? dueDay;
 }
 
 final class SIV2GoalEvidence {
@@ -230,6 +237,7 @@ final class SIV2GoalEvidence {
     required this.title,
     required this.createdAt,
     this.targetDate,
+    this.targetDay,
     this.linkedTasksDone = 0,
     this.linkedTasksOpen = 0,
     this.milestonesDone = 0,
@@ -240,6 +248,10 @@ final class SIV2GoalEvidence {
   final String title;
   final DateTime createdAt;
   final DateTime? targetDate;
+
+  /// The calendar day of a target saved without a time (see
+  /// [SIV2TaskEvidence.dueDay]).
+  final DateTime? targetDay;
 
   /// Progress read from the records linked to this goal. Used only by the
   /// on-device one-tap questions; the remote packet does not carry it.
@@ -266,7 +278,8 @@ final class SIV2HabitEvidence {
     required this.currentStreak,
     required this.checkedInThisPeriod,
     this.windowDays = 14,
-  });
+    DateTime? trackedSince,
+  }) : trackedSince = trackedSince ?? createdAt;
 
   final String id;
   final String title;
@@ -277,6 +290,10 @@ final class SIV2HabitEvidence {
   final int currentStreak;
   final bool checkedInThisPeriod;
   final int windowDays;
+
+  /// When the current frequency began: the last frequency edit, or creation.
+  /// A habit is judged only over the time it has had this frequency.
+  final DateTime trackedSince;
 }
 
 enum SIV2RecentTaskOutcome { completed, skipped }
@@ -310,6 +327,7 @@ final class SIV2MilestoneEvidence {
     required this.archived,
     this.goalId,
     this.targetDate,
+    this.targetDay,
     List<String> dependencies = const <String>[],
   }) : dependencies = List<String>.unmodifiable(dependencies);
 
@@ -322,6 +340,9 @@ final class SIV2MilestoneEvidence {
   final bool archived;
   final String? goalId;
   final DateTime? targetDate;
+
+  /// See [SIV2GoalEvidence.targetDay].
+  final DateTime? targetDay;
   final List<String> dependencies;
 }
 
@@ -588,46 +609,9 @@ final class SIV2EvidenceSnapshot {
                     .map((SIV2Source source) => source.name)
                     .toList()
                   ..sort(),
-            // Only present when there is something to say, so a snapshot
-            // without these records keeps the revision it always had.
-            if (goals.any((SIV2GoalEvidence item) => item.hasProgress))
-              'goalProgress': goals
-                  .map(
-                    (SIV2GoalEvidence item) => <Object?>[
-                      item.id,
-                      item.linkedTasksDone,
-                      item.linkedTasksOpen,
-                      item.milestonesDone,
-                      item.milestonesOpen,
-                    ],
-                  )
-                  .toList(growable: false),
-            if (habits.isNotEmpty)
-              'habits': habits
-                  .map(
-                    (SIV2HabitEvidence item) => <Object?>[
-                      item.id,
-                      item.title,
-                      item.cadence.name,
-                      item.targetCount,
-                      item.checkInsInWindow,
-                      item.currentStreak,
-                      item.checkedInThisPeriod,
-                    ],
-                  )
-                  .toList(growable: false),
-            if (recentTasks.isNotEmpty)
-              'recentTasks': recentTasks
-                  .map(
-                    (SIV2RecentTaskEvidence item) => <Object?>[
-                      item.id,
-                      item.title,
-                      item.outcome.name,
-                      item.at.toUtc().toIso8601String(),
-                    ],
-                  )
-                  .toList(growable: false),
-            if (habitsUnavailable) 'habitsUnavailable': true,
+            // The one-tap records (habits, recent tasks, goal progress, whole
+            // day deadlines) are deliberately not part of this revision: it
+            // describes what the remote packet and its preview carry.
           }),
         ),
       )

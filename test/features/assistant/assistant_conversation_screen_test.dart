@@ -97,6 +97,8 @@ ProviderContainer setup(
   bool releaseEnabled = true,
   // A build that has AI chat even when it cannot be used right now.
   bool externalAiBuild = false,
+  // A fixed clock for the free assistant's answers.
+  DateTime Function()? clock,
 }) => ProviderContainer(
   overrides: [
     if (guidance != null) adaptiveGuidanceProvider.overrideWith(() => guidance),
@@ -130,6 +132,7 @@ ProviderContainer setup(
     if (paidWaitTimeout != null)
       conversationPaidWaitTimeoutProvider.overrideWithValue(paidWaitTimeout),
     siV2ReadGatewayProvider.overrideWithValue(readGateway ?? gateway),
+    if (clock != null) siV2ClockProvider.overrideWithValue(clock),
     // Retained local-SI voice tests exercise capture lifecycle, not the real
     // Person Context secure-preference loader and its account mutation queue.
     siV2PersonContextRevisionProvider.overrideWithValue(
