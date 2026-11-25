@@ -1,6 +1,9 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
@@ -35,6 +38,43 @@ class FakePermissionScheduler implements NotificationScheduler {
     signal.value = granted;
     return granted;
   }
+
+  NotificationScheduleResult get _result => granted
+      ? NotificationScheduleResult.scheduled
+      : NotificationScheduleResult.permissionDenied;
+
+  @override
+  Future<NotificationScheduleResult> schedule(
+    NotificationEntity notification, {
+    String? accountScope,
+  }) async => _result;
+
+  @override
+  Future<NotificationScheduleResult> scheduleDailyAt({
+    required String id,
+    required String title,
+    required String body,
+    required int hour,
+    required int minute,
+    String? accountScope,
+  }) async => _result;
+
+  @override
+  Future<NotificationScheduleResult> scheduleCadenceAt({
+    required String id,
+    required String title,
+    required String body,
+    required HabitCadence cadence,
+    required DateTime firstAt,
+    String? accountScope,
+  }) async => _result;
+
+  @override
+  Future<bool> cancel(String id, {String? accountScope}) async => true;
+
+  @override
+  Future<List<String>> pendingIdsForAccount(String accountScope) async =>
+      const <String>[];
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

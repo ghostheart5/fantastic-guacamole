@@ -50,16 +50,18 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     return scope.isWritable && scope.v2Namespace == owner;
   }
 
-  Future<void> _run(
+  /// True only when the change and its reminder update both finished.
+  Future<bool> _run(
     String owner,
     HabitEntity habit,
     Future<String> Function(HabitsNotifier notifier) operation,
   ) async {
-    if (!_sameAccount(owner) || _busy.contains(habit.id)) return;
+    if (!_sameAccount(owner) || _busy.contains(habit.id)) return false;
     setState(() => _busy.add(habit.id));
     try {
       final String message = await operation(ref.read(habitsProvider.notifier));
       if (_sameAccount(owner)) _message(message);
+      return true;
     } on RhythmReminderSyncException {
       if (_sameAccount(owner)) {
         _message(
@@ -84,6 +86,7 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     } finally {
       if (mounted) setState(() => _busy.remove(habit.id));
     }
+    return false;
   }
 
   Future<void> _retryReminders(String owner) async {
@@ -327,7 +330,7 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
           : TimeOfDay(hour: current ~/ 60, minute: current % 60),
     );
     if (picked == null || !_sameAccount(owner)) return;
-    await _run(owner, habit, (notifier) async {
+    final bool saved = await _run(owner, habit, (notifier) async {
       await notifier.setReminderTime(
         habit.id,
         picked.hour * 60 + picked.minute,
@@ -338,7 +341,7 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     });
     // The person just asked for a reminder and it is saved: the moment to
     // ask for notification permission, once.
-    if (!mounted || !_sameAccount(owner)) return;
+    if (!saved || !mounted || !_sameAccount(owner)) return;
     await ensureNotificationPermission(context, ref);
   }
 

@@ -260,6 +260,10 @@ abstract final class AccountDataRegistry {
     'scheduled_goal_reminder_ids',
     'reminder_fingerprints_v1',
     'reminders_cleared_while_off_v1',
+    // The account's answer to the in-context notification permission request
+    // and whether it closed the "notifications are off" notice.
+    'notification_permission_refusal_v1',
+    'notification_permission_notice_dismissed_v1',
   };
 
   static const Set<String> legacyAccountHiveBoxes = <String>{

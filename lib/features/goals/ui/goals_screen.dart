@@ -331,6 +331,7 @@ class GoalsScreen extends ConsumerWidget {
                                   isSaving = true;
                                   saveError = null;
                                 });
+                                bool canRemind = false;
                                 try {
                                   final result = await ref
                                       .read(goalsProvider.notifier)
@@ -360,20 +361,9 @@ class GoalsScreen extends ConsumerWidget {
                                       ),
                                     );
                                   }
-                                  // Saved first; a dated goal can remind,
-                                  // so this is the moment to ask, once.
-                                  if (targetDate != null &&
-                                      !result.accountChanged &&
-                                      context.mounted &&
-                                      ref
-                                          .read(settingsUiActionsProvider)
-                                          .loadAdvancedReminderPrefs()
-                                          .goalRemindersEnabled) {
-                                    await ensureNotificationPermission(
-                                      context,
-                                      ref,
-                                    );
-                                  }
+                                  canRemind =
+                                      targetDate != null &&
+                                      !result.accountChanged;
                                 } on Object {
                                   if (ctx.mounted) {
                                     setSheetState(() {
@@ -385,6 +375,19 @@ class GoalsScreen extends ConsumerWidget {
                                       );
                                     });
                                   }
+                                }
+                                // Saved first; a dated goal can remind, so
+                                // this is the moment to ask, once.
+                                if (canRemind &&
+                                    context.mounted &&
+                                    ref
+                                        .read(settingsUiActionsProvider)
+                                        .loadAdvancedReminderPrefs()
+                                        .goalRemindersEnabled) {
+                                  await ensureNotificationPermission(
+                                    context,
+                                    ref,
+                                  );
                                 }
                               },
                       ),

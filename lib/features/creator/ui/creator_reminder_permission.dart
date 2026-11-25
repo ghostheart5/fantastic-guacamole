@@ -1,0 +1,32 @@
+import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
+import 'package:fantastic_guacamole/features/permissions/notification_permission_flow.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// Whether anything the Creator just saved can send a reminder. Today: a
+/// goal with a target date while goal reminders are on. Add each new kind of
+/// item that gets a reminder here.
+bool creatorSaveCanRemind(
+  Iterable<CreatorMutationOperation> saved,
+  ReminderOrchestratorPrefs prefs,
+) => saved.any(
+  (CreatorMutationOperation operation) =>
+      prefs.goalRemindersEnabled && operation.goal?.targetDate != null,
+);
+
+/// Called after the Creator has saved [saved]: asks once, in context, for
+/// notification permission when one of them can remind the person.
+Future<void> askForRemindersAfterCreatorSave(
+  BuildContext context,
+  WidgetRef ref,
+  Iterable<CreatorMutationOperation> saved,
+) async {
+  if (!context.mounted) return;
+  final ReminderOrchestratorPrefs prefs = ref
+      .read(settingsUiActionsProvider)
+      .loadAdvancedReminderPrefs();
+  if (!creatorSaveCanRemind(saved, prefs)) return;
+  await ensureNotificationPermission(context, ref);
+}

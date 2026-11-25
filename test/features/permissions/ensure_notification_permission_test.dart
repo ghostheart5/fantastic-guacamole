@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/features/permissions/notification_permission_flow.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +25,31 @@ void main() {
   );
 
   setUp(results.clear);
+
+  for (final platform in <TargetPlatform>[
+    TargetPlatform.windows,
+    TargetPlatform.linux,
+  ]) {
+    testWidgets('${platform.name} has no permission to ask for', (
+      tester,
+    ) async {
+      // The scheduler registers no Windows or Linux settings, so its
+      // initialisation (and so any request) has never worked there.
+      debugDefaultTargetPlatformOverride = platform;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final fixture = PermissionFixture();
+      await tester.pumpWidget(fixture.app(trigger(userInitiated: true)));
+
+      await tester.tap(find.text('Save something'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('WHEN IT IS USED'), findsNothing);
+      expect(fixture.actions.requests, 0);
+      expect(fixture.scheduler.queries, 0);
+      expect(results, <bool>[false]);
+      debugDefaultTargetPlatformOverride = null;
+    });
+  }
 
   testWidgets('explains first, asks the system once, never again after no', (
     tester,

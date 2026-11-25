@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
+import 'package:fantastic_guacamole/features/creator/ui/creator_reminder_permission.dart';
 import 'package:fantastic_guacamole/features/creator/ui/daily_rhythms_screen.dart';
 import 'package:fantastic_guacamole/features/creator/ui/record_library_screen.dart';
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
@@ -138,6 +139,10 @@ class CreatorScreen extends ConsumerWidget {
                                           null,
                                     ) ??
                                     false);
+                            final List<CreatorMutationOperation> saving =
+                                handshake.preview?.selectedOperations
+                                    .toList() ??
+                                const <CreatorMutationOperation>[];
                             final CreatorHandshakeState result = await ref
                                 .read(creatorHandshakeProvider.notifier)
                                 .confirm();
@@ -162,6 +167,11 @@ class CreatorScreen extends ConsumerWidget {
                                     behavior: SnackBarBehavior.floating,
                                   ),
                                 );
+                              await askForRemindersAfterCreatorSave(
+                                context,
+                                ref,
+                                saving,
+                              );
                             }
                           }
                         : null,
@@ -279,6 +289,12 @@ class CreatorScreen extends ConsumerWidget {
                             tutorialDraft.reset();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text(copy.savedSnack)),
+                            );
+                            await askForRemindersAfterCreatorSave(
+                              context,
+                              ref,
+                              staged.preview?.operations ??
+                                  const <CreatorMutationOperation>[],
                             );
                           }
                         }
