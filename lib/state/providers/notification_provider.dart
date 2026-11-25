@@ -141,6 +141,18 @@ class NotificationActions {
         .read(notificationProvider.notifier)
         .pushTaskSkipped(taskTitle, refreshPlanner: false, refreshPlan: true);
   }
+
+  /// In-app only: a completed goal is acknowledged in the notification list,
+  /// never by the OS.
+  Future<void> pushMirroredGoalCompleted(String goalTitle) {
+    return _ref
+        .read(notificationProvider.notifier)
+        .pushInApp(
+          NotificationNotifier.goalCompleted(goalTitle),
+          refreshPlanner: false,
+          refreshPlan: false,
+        );
+  }
 }
 
 class NotificationNotifier extends Notifier<List<NotificationEntity>> {
@@ -385,7 +397,15 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
   /// `isEnabled: false` marks it as never-to-be-posted by the OS, and
   /// `scheduledAt` is now rather than a second in the future because there is
   /// no future delivery to schedule.
-  NotificationEntity _inAppNotification({
+  /// The in-app entry for a completed goal. Stored in English like the other
+  /// entries; the notification list shows it in the app language.
+  static NotificationEntity goalCompleted(String goalTitle) =>
+      _inAppNotification(
+        title: 'Goal completed',
+        message: '"$goalTitle" is complete.',
+      );
+
+  static NotificationEntity _inAppNotification({
     required String title,
     required String message,
   }) {

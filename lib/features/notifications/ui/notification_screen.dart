@@ -366,6 +366,7 @@ String _localizedTitle(String raw, bool es) {
     'decision alert' => 'Decisión actual',
     'completion' => 'Finalización',
     'task skipped' => 'Tarea omitida',
+    'goal completed' => 'Meta completada',
     _ => raw.capitalize,
   };
 }
@@ -386,5 +387,6 @@ String _localizedMessage(String raw, bool es) {
       .replaceFirst(
         ' skipped and adaptation triggered.',
         ' se omitió y se actualizó la adaptación.',
-      );
+      )
+      .replaceFirst('" is complete.', '" se cumplió.');
 }

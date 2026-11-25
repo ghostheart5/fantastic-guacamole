@@ -7,11 +7,16 @@ final taskStoreProvider = Provider<ITaskRepository>((ref) {
 });
 
 /// Every task write goes through here, so each one also updates the task
-/// reminders (see [reminderSyncingTaskStore]).
+/// reminders (see [reminderSyncingTaskStore]) and, when the task has or had
+/// a goal, the goal reminders (see [goalReminderSyncingTaskStore]).
 final domainTaskRepositoryProvider = Provider<ITaskRepository>((ref) {
   final TaskReminderSync reminders = ref.read(taskReminderSyncProvider);
+  final GoalReminderSync goalReminders = ref.read(goalReminderSyncProvider);
   return reminderSyncingTaskStore(
-    ref.watch(taskStoreProvider),
+    goalReminderSyncingTaskStore(
+      ref.watch(taskStoreProvider),
+      () => unawaited(goalReminders.request()),
+    ),
     () => unawaited(reminders.request()),
   );
 });

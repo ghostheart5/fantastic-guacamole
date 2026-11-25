@@ -83,9 +83,17 @@ class ReminderOrchestratorService {
       'scheduled_habit_reminder_ids';
   static const String _goalCloseNudgesKey = 'goal_close_nudges';
 
+  /// When each goal's "due today" reminder was planned for its target date.
+  static const String _goalDueTodayTimesKey = 'goal_due_today_times';
+
   /// Deadline and "almost there" goal reminders arrive at this local hour,
   /// never at midnight (target dates carry no time of day).
   static const int goalReminderHour = 9;
+
+  /// A goal due today whose morning reminder time has already passed gets one
+  /// reminder at this local hour, if it is still [goalSameDayLead] away.
+  static const int goalSameDayHour = 18;
+  static const Duration goalSameDayLead = Duration(minutes: 30);
 
   /// Older builds registered one shared 8 PM rhythm reminder under this id.
   /// [migrateLegacyHabitReminder] replaces it with per-rhythm times; until
@@ -282,6 +290,9 @@ class ReminderOrchestratorService {
     final Set<String> previousIds = _trackedGoalReminderIds();
     final Map<String, DateTime> previousNudges = _goalCloseNudges();
     final Map<String, DateTime> nextNudges = <String, DateTime>{};
+    final Map<String, DateTime> previousDueTimes = _goalDueTodayTimes();
+    final Map<String, DateTime> nextDueTimes = <String, DateTime>{};
+    final bool overdueNudges = loadPrefs().taskOverdueNudgesEnabled;
     final Set<String> scheduledIds = <String>{};
     // Everything below may change these registrations; the reconciler only
     // trusts what is recorded again once registered.
@@ -303,6 +314,9 @@ class ReminderOrchestratorService {
         now: now,
         previousNudges: previousNudges,
         nextNudges: nextNudges,
+        overdueNudges: overdueNudges,
+        previousDueTimes: previousDueTimes,
+        nextDueTimes: nextDueTimes,
       );
       for (final GoalReminderSlot slot in slots) {
         if (shouldContinue?.call() == false) return;
@@ -332,7 +346,34 @@ class ReminderOrchestratorService {
     if (shouldContinue?.call() == false) return;
     await _saveTrackedGoalReminderIds(scheduledIds);
     await _saveGoalCloseNudges(nextNudges);
+    await _saveGoalDueTodayTimes(nextDueTimes);
     await _rememberFingerprints(registered);
+  }
+
+  /// Brings only the goal reminders in line with [goals] and their linked
+  /// tasks, changing what differs. Every task write that touches a goal's
+  /// steps ends here (see the goal reminder sync provider).
+  Future<bool> syncGoalReminderGroup({
+    required List<GoalEntity> goals,
+    required bool permissionGranted,
+    required bool Function() shouldContinue,
+  }) {
+    return KeyedMutationCoordinator.shared.runExclusive<bool>(
+      AccountDataRegistry.notificationMutationKeyForScope(
+        _accountScope ?? 'legacy',
+      ),
+      () async {
+        if (!shouldContinue()) return false;
+        return _runGroups(
+          <(String, Future<_ReminderGroup> Function())>[
+            ('goals', () => _planGoalGroup(goals, permissionGranted)),
+          ],
+          permissionGranted: permissionGranted,
+          shouldContinue: shouldContinue,
+          everyGroup: false,
+        );
+      },
+    );
   }
 
   /// Gives every active rhythm that has its own reminder time a repeating
@@ -694,6 +735,9 @@ class ReminderOrchestratorService {
     required DateTime now,
     required Map<String, DateTime> previousNudges,
     required Map<String, DateTime> nextNudges,
+    bool overdueNudges = false,
+    Map<String, DateTime> previousDueTimes = const <String, DateTime>{},
+    Map<String, DateTime>? nextDueTimes,
   }) {
     final List<GoalReminderSlot> slots = <GoalReminderSlot>[];
     if (goal.isCompleted) return slots;
@@ -717,14 +761,37 @@ class ReminderOrchestratorService {
             (base, 1, 'Goal due tomorrow', 'is due tomorrow'),
             ('${base}_due', 0, 'Goal due today', 'is due today'),
           ]) {
-        final DateTime at = morning(daysBefore);
-        if (!at.isAfter(now)) continue;
+        final DateTime? at = daysBefore == 0
+            ? _dueTodayAt(
+                goal.id,
+                day,
+                now,
+                previous: previousDueTimes,
+                next: nextDueTimes,
+              )
+            : morning(daysBefore);
+        if (at == null || !at.isAfter(now)) continue;
         slots.add(
           GoalReminderSlot(
             id: id,
             title: heading,
             body: '"$title" $phrase.$steps',
             at: at,
+          ),
+        );
+      }
+      final DateTime overdueAt = morning(-1);
+      if (overdueNudges && overdueAt.isAfter(now)) {
+        final bool spanish = _isSpanish();
+        slots.add(
+          GoalReminderSlot(
+            id: '${base}_overdue',
+            title: spanish ? 'Meta vencida' : 'Goal overdue',
+            body: spanish
+                ? '«$title» venció ayer y sigue pendiente.'
+                      '${total > 0 ? ' $done de $total pasos hechos.' : ''}'
+                : '"$title" was due yesterday and is still open.$steps',
+            at: overdueAt,
           ),
         );
       }
@@ -761,6 +828,50 @@ class ReminderOrchestratorService {
     return slots;
   }
 
+  /// When a goal's "due today" reminder fires: [goalReminderHour] on its
+  /// target date, or, when that time had already passed before the reminder
+  /// was first planned on the day itself, once at [goalSameDayHour] if that is
+  /// still at least [goalSameDayLead] away. The time chosen for the target
+  /// date is kept in [next], so later updates neither add an evening reminder
+  /// after the morning one nor drop an evening reminder about to fire.
+  DateTime? _dueTodayAt(
+    String goalId,
+    DateTime day,
+    DateTime now, {
+    required Map<String, DateTime> previous,
+    required Map<String, DateTime>? next,
+  }) {
+    bool onDay(DateTime value) =>
+        value.year == day.year &&
+        value.month == day.month &&
+        value.day == day.day;
+    final DateTime? earlier = previous[goalId];
+    DateTime? at;
+    if (earlier != null && onDay(earlier)) {
+      at = earlier;
+    } else {
+      final DateTime morning = DateTime(
+        day.year,
+        day.month,
+        day.day,
+        goalReminderHour,
+      );
+      final DateTime evening = DateTime(
+        day.year,
+        day.month,
+        day.day,
+        goalSameDayHour,
+      );
+      if (morning.isAfter(now)) {
+        at = morning;
+      } else if (onDay(now) && !evening.isBefore(now.add(goalSameDayLead))) {
+        at = evening;
+      }
+    }
+    if (at != null) next?[goalId] = at;
+    return at;
+  }
+
   GoalReminderSlot _closeSlot(
     String base,
     String title,
@@ -785,7 +896,8 @@ class ReminderOrchestratorService {
       id.startsWith('goal_reminder_') &&
       !id.endsWith('_3d') &&
       !id.endsWith('_due') &&
-      !id.endsWith('_close');
+      !id.endsWith('_close') &&
+      !id.endsWith('_overdue');
 
   /// True only when the OS confirmed the registration. The listed slot goes
   /// through the notification list, which does not report the outcome.
@@ -853,7 +965,13 @@ class ReminderOrchestratorService {
   /// it also replaces the single midnight reminder older builds registered.
   Set<String> _goalSlotIds(String goalId) {
     final String base = _goalReminderId(goalId);
-    return <String>{base, '${base}_3d', '${base}_due', '${base}_close'};
+    return <String>{
+      base,
+      '${base}_3d',
+      '${base}_due',
+      '${base}_close',
+      '${base}_overdue',
+    };
   }
 
   Set<String> _trackedHabitReminderIds() {
@@ -878,8 +996,21 @@ class ReminderOrchestratorService {
     );
   }
 
-  Map<String, DateTime> _goalCloseNudges() {
-    final String? encoded = _preferences.load(_goalCloseNudgesKey);
+  Map<String, DateTime> _goalCloseNudges() =>
+      _loadGoalTimes(_goalCloseNudgesKey);
+
+  Future<void> _saveGoalCloseNudges(Map<String, DateTime> nudges) =>
+      _saveGoalTimes(_goalCloseNudgesKey, nudges);
+
+  Map<String, DateTime> _goalDueTodayTimes() =>
+      _loadGoalTimes(_goalDueTodayTimesKey);
+
+  Future<void> _saveGoalDueTodayTimes(Map<String, DateTime> times) =>
+      _saveGoalTimes(_goalDueTodayTimesKey, times);
+
+  /// A goal id to time map; unreadable entries are skipped.
+  Map<String, DateTime> _loadGoalTimes(String key) {
+    final String? encoded = _preferences.load(key);
     if (encoded == null || encoded.isEmpty) return <String, DateTime>{};
     try {
       final Object? decoded = jsonDecode(encoded);
@@ -895,11 +1026,11 @@ class ReminderOrchestratorService {
     }
   }
 
-  Future<void> _saveGoalCloseNudges(Map<String, DateTime> nudges) {
+  Future<void> _saveGoalTimes(String key, Map<String, DateTime> times) {
     return _preferences.save(
-      _goalCloseNudgesKey,
+      key,
       jsonEncode(<String, String>{
-        for (final MapEntry<String, DateTime> entry in nudges.entries)
+        for (final MapEntry<String, DateTime> entry in times.entries)
           entry.key: entry.value.toIso8601String(),
       }),
     );
@@ -945,6 +1076,7 @@ class ReminderOrchestratorService {
     if (shouldContinue?.call() == false) return;
     await _saveTrackedGoalReminderIds(<String>{});
     await _saveGoalCloseNudges(<String, DateTime>{});
+    await _saveGoalDueTodayTimes(<String, DateTime>{});
   }
 
   (int, int) _dailyPlanningTime() {

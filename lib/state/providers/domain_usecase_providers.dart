@@ -133,6 +133,7 @@ import 'package:fantastic_guacamole/engine/tasks/task_ranker.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/providers/calendar_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/goal_reminder_sync_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_reminder_sync_provider.dart';
 import 'package:fantastic_guacamole/state/services/task_occurrence_coordinator.dart';
 import 'package:fantastic_guacamole/state/services/extended_domain_service.dart';

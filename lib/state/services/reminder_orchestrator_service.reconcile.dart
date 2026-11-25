@@ -523,6 +523,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
         if (!goal.isCompleted) goal.id,
     };
     final Map<String, DateTime> nextNudges = <String, DateTime>{};
+    final Map<String, DateTime> nextDueTimes = <String, DateTime>{};
     final Set<String> withReminders = <String>{};
     final List<_PlannedReminder> wanted = <_PlannedReminder>[];
     final DateTime now = _now();
@@ -530,6 +531,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
       // Without permission nothing is registered, so skip the task read.
       final progress = permissionGranted ? await _goalProgress() : null;
       final Map<String, DateTime> previousNudges = _goalCloseNudges();
+      final Map<String, DateTime> previousDueTimes = _goalDueTodayTimes();
       for (final GoalEntity goal in goals) {
         if (goal.isCompleted) continue;
         final List<GoalReminderSlot> slots = goalReminderSlots(
@@ -539,6 +541,10 @@ extension _ReminderReconciler on ReminderOrchestratorService {
           now: now,
           previousNudges: previousNudges,
           nextNudges: nextNudges,
+          // The morning-after nudge follows the same choice as for tasks.
+          overdueNudges: prefs.taskOverdueNudgesEnabled,
+          previousDueTimes: previousDueTimes,
+          nextDueTimes: nextDueTimes,
         );
         if (slots.isEmpty) continue;
         withReminders.add(goal.id);
@@ -580,6 +586,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
               : <String>{...previous, ...goals.map((goal) => goal.id)},
         );
         await _saveGoalCloseNudges(nextNudges);
+        await _saveGoalDueTodayTimes(nextDueTimes);
       },
     );
   }

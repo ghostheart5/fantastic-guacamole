@@ -386,6 +386,90 @@ void main() {
     );
   });
 
+  test('an open goal gets its overdue nudge only while overdue nudges are on, '
+      'and loses it once completed', () async {
+    final fixture = _Fixture();
+    final goals = [fixture.goal('trip')];
+    expect(await fixture.reconcile(goals, []), isTrue);
+    expect(
+      fixture.scheduler.pending,
+      isNot(contains('goal_reminder_trip_overdue')),
+    );
+
+    fixture.preferences.values['task_overdue_nudges_enabled'] = 'true';
+    fixture.scheduler.clearLog();
+    expect(await fixture.reconcile(goals, []), isTrue);
+    expect(fixture.scheduler.registered, ['goal_reminder_trip_overdue']);
+    expect(fixture.scheduler.cancelled, isEmpty);
+    expect(
+      fixture.scheduler.times['goal_reminder_trip_overdue'],
+      DateTime(2026, 11, 7, 9),
+    );
+
+    fixture.scheduler.clearLog();
+    final done = goals.single.markCompleted(fixture.now);
+    expect(await fixture.reconcile([done], []), isTrue);
+    expect(fixture.scheduler.cancelled, contains('goal_reminder_trip_overdue'));
+    expect(
+      fixture.scheduler.pending.where((id) => id.startsWith('goal_reminder_')),
+      isEmpty,
+    );
+  });
+
+  test('a goal due today saved after 9 AM gets one evening reminder that '
+      'later updates leave in place', () async {
+    final fixture = _Fixture()..now = DateTime(2026, 11, 6, 10);
+    final goals = [fixture.goal('trip')];
+    expect(await fixture.reconcile(goals, []), isTrue);
+    expect(
+      fixture.scheduler.pending.where((id) => id.startsWith('goal_reminder_')),
+      ['goal_reminder_trip_due'],
+    );
+    expect(
+      fixture.scheduler.times['goal_reminder_trip_due'],
+      DateTime(2026, 11, 6, 18),
+    );
+
+    // Within half an hour of it, neither a resume nor a goal save drops it.
+    fixture.now = DateTime(2026, 11, 6, 17, 45);
+    fixture.scheduler.clearLog();
+    expect(await fixture.reconcile(goals, []), isTrue);
+    expect(fixture.scheduler.cancelled, isEmpty);
+    expect(fixture.scheduler.registered, isEmpty);
+    await fixture.service.syncGoalReminders(goals);
+    expect(
+      fixture.scheduler.cancelled,
+      isNot(contains('goal_reminder_trip_due')),
+    );
+    expect(fixture.scheduler.pending, contains('goal_reminder_trip_due'));
+    // What it remembers belongs to the account.
+    expect(fixture.preferences.values, contains('goal_due_today_times'));
+    expect(
+      AccountDataRegistry.reminderPreferenceKeys,
+      contains('goal_due_today_times'),
+    );
+  });
+
+  test('a goal whose 9 AM reminder was set up gets no evening one', () async {
+    final fixture = _Fixture()..now = DateTime(2026, 11, 5, 20);
+    final goals = [fixture.goal('trip')];
+    expect(await fixture.reconcile(goals, []), isTrue);
+    expect(
+      fixture.scheduler.times['goal_reminder_trip_due'],
+      DateTime(2026, 11, 6, 9),
+    );
+
+    // The morning reminder has been delivered.
+    fixture.now = DateTime(2026, 11, 6, 10);
+    fixture.scheduler.pending.remove('goal_reminder_trip_due');
+    fixture.scheduler.clearLog();
+    expect(await fixture.reconcile(goals, []), isTrue);
+    expect(fixture.scheduler.registered, isEmpty);
+    fixture.now = DateTime(2026, 11, 6, 11);
+    expect(await fixture.reconcile(goals, []), isTrue);
+    expect(fixture.scheduler.registered, isEmpty);
+  });
+
   test('goal sync waits for the reminder lock', () async {
     final fixture = _Fixture();
     final entered = Completer<void>();
@@ -459,6 +543,7 @@ class _Scheduler implements NotificationSchedulerPort {
   final List<String> registered = <String>[];
   final List<String> cancelled = <String>[];
   final Map<String, (int, int)> cadenceTimes = <String, (int, int)>{};
+  final Map<String, DateTime> times = <String, DateTime>{};
   String? throwOn;
 
   /// What the OS answers for rhythm reminders; only scheduled registers.
@@ -482,7 +567,11 @@ class _Scheduler implements NotificationSchedulerPort {
   Future<NotificationScheduleResult> schedule(
     NotificationEntity notification, {
     String? accountScope,
-  }) async => _register(notification.id, accountScope);
+  }) async {
+    final result = _register(notification.id, accountScope);
+    times[notification.id] = notification.scheduledAt;
+    return result;
+  }
 
   @override
   Future<NotificationScheduleResult> scheduleDailyAt({

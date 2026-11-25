@@ -11,6 +11,8 @@ import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart'
+    show SoundEnabledNotifier, notificationProvider, soundEnabledProvider;
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
@@ -41,8 +43,11 @@ void main() {
       final _RecordingLogs logs = _RecordingLogs();
       final _RecordingTimeline timeline = _RecordingTimeline();
       final _RecordingProfile profile = _RecordingProfile();
+      final _RecordingNotifications inApp = _RecordingNotifications();
       final ProviderContainer container = ProviderContainer(
         overrides: [
+          domainNotificationRepositoryProvider.overrideWithValue(inApp),
+          soundEnabledProvider.overrideWith(_Silent.new),
           accountStorageScopeProvider.overrideWithValue(
             AccountStorageScope.authenticated('goal-actions-test'),
           ),
@@ -193,8 +198,45 @@ void main() {
       );
       expect(profile.awards, <int>[12, 6, 6, 40, 6, 40, 40]);
       expect(goals.saveCalls, 7);
+
+      // Each completion, and only completions, adds one in-app entry that
+      // never reaches the OS.
+      expect(
+        inApp.saved.map((NotificationEntity entry) => entry.title),
+        <String>['Goal completed', 'Goal completed', 'Goal completed'],
+      );
+      expect(
+        inApp.saved.map((NotificationEntity entry) => entry.message),
+        <String>[
+          '"Finish Priority 7 safely" is complete.',
+          '"Finish Priority 7 safely" is complete.',
+          '"Active goal" is complete.',
+        ],
+      );
+      expect(
+        inApp.saved.every((NotificationEntity entry) => !entry.isEnabled),
+        isTrue,
+      );
+      expect(
+        container.read(notificationProvider).map((entry) => entry.title),
+        everyElement('Goal completed'),
+      );
     },
   );
+}
+
+final class _Silent extends SoundEnabledNotifier {
+  @override
+  bool build() => false;
+}
+
+final class _RecordingNotifications extends _NoopNotifications {
+  final List<NotificationEntity> saved = <NotificationEntity>[];
+
+  @override
+  Future<void> scheduleNotification(NotificationEntity notification) async {
+    saved.add(notification);
+  }
 }
 
 final class _FakeGoalRepository implements IGoalRepository {
@@ -330,7 +372,7 @@ final class _DisabledPreferences implements SharedPrefsStore {
   Future<void> save(String key, String value) async {}
 }
 
-final class _NoopNotifications implements INotificationRepository {
+class _NoopNotifications implements INotificationRepository {
   @override
   Future<void> cancelNotification(String id) async {}
 

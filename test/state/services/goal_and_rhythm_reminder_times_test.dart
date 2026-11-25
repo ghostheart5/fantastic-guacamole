@@ -106,6 +106,138 @@ void main() {
       );
     });
 
+    group('overdue nudge', () {
+      List<GoalReminderSlot> overdue(_Fixture fixture, {required bool on}) =>
+          fixture.service
+              .goalReminderSlots(
+                _goal(target: DateTime(2026, 11, 14)),
+                progress: _progress(done: 1, total: 3),
+                progressKnown: true,
+                now: now,
+                previousNudges: {},
+                nextNudges: {},
+                overdueNudges: on,
+              )
+              .where((slot) => slot.id.endsWith('_overdue'))
+              .toList();
+
+      test('arrives at 9 AM the day after the target date', () {
+        final slot = overdue(_Fixture(now), on: true).single;
+        expect(slot.id, 'goal_reminder_g_overdue');
+        expect(slot.at, DateTime(2026, 11, 15, 9));
+        expect(slot.title, 'Goal overdue');
+        expect(
+          slot.body,
+          '"Run a 5K" was due yesterday and is still open. '
+          '1 of 3 steps done.',
+        );
+      });
+
+      test('is written in Spanish when the app is in Spanish', () {
+        final slot = overdue(_Fixture(now, spanish: true), on: true).single;
+        expect(slot.title, 'Meta vencida');
+        expect(
+          slot.body,
+          '«Run a 5K» venció ayer y sigue pendiente. '
+          '1 de 3 pasos hechos.',
+        );
+      });
+
+      test('is left out while overdue nudges are off', () {
+        expect(overdue(_Fixture(now), on: false), isEmpty);
+      });
+
+      test('is not registered once its time has passed', () {
+        final fixture = _Fixture(now);
+        final slots = fixture.service.goalReminderSlots(
+          _goal(target: DateTime(2026, 11, 12)),
+          progress: const GoalProgressView.empty(),
+          progressKnown: true,
+          now: now,
+          previousNudges: {},
+          nextNudges: {},
+          overdueNudges: true,
+        );
+        expect(slots, isEmpty);
+      });
+    });
+
+    group('goal due today after 9 AM', () {
+      List<GoalReminderSlot> dueToday(
+        DateTime at, {
+        Map<String, DateTime> previous = const {},
+        Map<String, DateTime>? next,
+      }) => _Fixture(at).service
+          .goalReminderSlots(
+            _goal(target: DateTime(2026, 11, 13)),
+            progress: const GoalProgressView.empty(),
+            progressKnown: true,
+            now: at,
+            previousNudges: {},
+            nextNudges: {},
+            previousDueTimes: previous,
+            nextDueTimes: next,
+          )
+          .where((slot) => slot.id == 'goal_reminder_g_due')
+          .toList();
+
+      test('gets one evening reminder at 6 PM', () {
+        final next = <String, DateTime>{};
+        final slot = dueToday(DateTime(2026, 11, 13, 14), next: next).single;
+        expect(slot.at, DateTime(2026, 11, 13, 18));
+        expect(slot.title, 'Goal due today');
+        expect(next, {'g': DateTime(2026, 11, 13, 18)});
+      });
+
+      test('still gets it at 5:30 PM, half an hour ahead', () {
+        expect(
+          dueToday(DateTime(2026, 11, 13, 17, 30)).single.at,
+          DateTime(2026, 11, 13, 18),
+        );
+      });
+
+      test('gets none after 5:30 PM', () {
+        expect(dueToday(DateTime(2026, 11, 13, 17, 31)), isEmpty);
+      });
+
+      test('gets none when the 9 AM reminder was already set up', () {
+        final next = <String, DateTime>{};
+        expect(
+          dueToday(
+            DateTime(2026, 11, 13, 10),
+            previous: {'g': DateTime(2026, 11, 13, 9)},
+            next: next,
+          ),
+          isEmpty,
+        );
+        expect(next, {'g': DateTime(2026, 11, 13, 9)});
+      });
+
+      test('keeps an evening reminder already set up after 5:30 PM', () {
+        expect(
+          dueToday(
+            DateTime(2026, 11, 13, 17, 45),
+            previous: {'g': DateTime(2026, 11, 13, 18)},
+          ).single.at,
+          DateTime(2026, 11, 13, 18),
+        );
+      });
+
+      test('the morning reminder is remembered while it is planned', () {
+        final next = <String, DateTime>{};
+        _Fixture(now).service.goalReminderSlots(
+          _goal(target: DateTime(2026, 11, 14)),
+          progress: const GoalProgressView.empty(),
+          progressKnown: true,
+          now: now,
+          previousNudges: {},
+          nextNudges: {},
+          nextDueTimes: next,
+        );
+        expect(next, {'g': DateTime(2026, 11, 14, 9)});
+      });
+    });
+
     test('sync uses linked-task progress and cancels a removed goal', () async {
       final fixture = _Fixture(now)
         ..tasks = [
@@ -132,6 +264,7 @@ void main() {
         'goal_reminder_g_3d',
         'goal_reminder_g_due',
         'goal_reminder_g_close',
+        'goal_reminder_g_overdue',
       ]);
     });
   });
@@ -221,11 +354,12 @@ HabitEntity _habit(String id, {int? minutes}) => HabitEntity(
 );
 
 class _Fixture {
-  _Fixture(this.now) {
+  _Fixture(this.now, {this.spanish = false}) {
     // An account past the one-time move off the old shared 8 PM reminder.
     preferences.values['legacy_habit_reminder_migrated'] = 'true';
   }
   final DateTime now;
+  final bool spanish;
   final preferences = _Preferences();
   final scheduler = _Scheduler();
   final repository = _Repository();
@@ -238,6 +372,7 @@ class _Fixture {
     now: () => now,
     loadHabitOccurrences: () async => [],
     loadGoalTasks: () async => tasks,
+    isSpanish: () => spanish,
   );
 }
 

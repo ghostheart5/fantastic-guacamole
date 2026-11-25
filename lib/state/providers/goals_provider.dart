@@ -15,6 +15,7 @@ import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provid
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
+import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -275,6 +276,14 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
             shouldContinue: () => operation.isCurrent(ref),
           );
     }, warnings);
+
+    if (action == _GoalAction.completed) {
+      await _auxiliary(operation, 'notifications', () async {
+        await ref
+            .read(notificationActionsProvider)
+            .pushMirroredGoalCompleted(goal.title);
+      }, warnings);
+    }
 
     final int progressionXp = switch (action) {
       _GoalAction.created => 12,

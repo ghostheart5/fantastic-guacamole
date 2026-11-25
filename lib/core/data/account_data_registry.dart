@@ -266,6 +266,8 @@ abstract final class AccountDataRegistry {
     'task_overdue_nudges_enabled',
     'task_reminder_lead_minutes',
     'scheduled_task_reminder_ids',
+    // When each goal's "due today" reminder was planned for its target date.
+    'goal_due_today_times',
     // The account's answer to the in-context notification permission request
     // and whether it closed the "notifications are off" notice.
     'notification_permission_refusal_v1',

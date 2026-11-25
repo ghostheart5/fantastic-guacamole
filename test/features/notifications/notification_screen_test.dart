@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,6 +13,7 @@ void main() {
     WidgetTester tester,
     List<NotificationEntity> items, {
     List<NotificationEntity> repeating = const [],
+    Locale locale = const Locale('en'),
   }) async {
     tester.platformDispatcher.views.first
       ..physicalSize = const Size(1200, 2400)
@@ -33,7 +35,12 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: NotificationsPage()),
+        child: MaterialApp(
+          locale: locale,
+          supportedLocales: const [Locale('en'), Locale('es')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: const NotificationsPage(),
+        ),
       ),
     );
     await tester.pump();
@@ -143,6 +150,27 @@ void main() {
     expect(find.text('Cancelled reminder'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final (locale, title, message) in [
+    (const Locale('en'), 'Goal completed', '"Run a 5K" is complete.'),
+    (const Locale('es'), 'Meta completada', '"Run a 5K" se cumplió.'),
+  ]) {
+    testWidgets('a completed goal entry reads "$title"', (tester) async {
+      await pumpNotifications(tester, <NotificationEntity>[
+        NotificationEntity(
+          id: 'notification-1',
+          title: 'Goal completed',
+          message: '"Run a 5K" is complete.',
+          scheduledAt: DateTime.utc(2026, 8, 6, 22),
+          isEnabled: false,
+        ),
+      ], locale: locale);
+
+      expect(find.text(title), findsOneWidget);
+      expect(find.text(message), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
 
 class _StaticNotifications extends NotificationNotifier {

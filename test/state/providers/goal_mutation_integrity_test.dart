@@ -16,6 +16,8 @@ import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart'
+    show SoundEnabledNotifier, soundEnabledProvider;
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
@@ -229,6 +231,11 @@ class _Fixture {
         logsProvider.overrideWith(() => logs),
         timelineProvider.overrideWith(() => timeline),
         profileProvider.overrideWith(() => profile),
+        // Completing a goal adds an in-app entry to the notification list.
+        domainNotificationRepositoryProvider.overrideWithValue(
+          _NoopNotifications(),
+        ),
+        soundEnabledProvider.overrideWith(_Silent.new),
       ],
     );
   }
@@ -449,4 +456,9 @@ final class _NoopNotifications implements INotificationRepository {
 
   @override
   Future<void> scheduleNotification(NotificationEntity notification) async {}
+}
+
+final class _Silent extends SoundEnabledNotifier {
+  @override
+  bool build() => false;
 }
