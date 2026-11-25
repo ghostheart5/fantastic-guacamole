@@ -167,12 +167,9 @@ void main() {
   });
 
   group('expected first-run task ids', () {
-    for (final String muted in <String>[
-      'skipped',
-      'paused',
-      'paused until reopened',
-      'complete',
-    ]) {
+    // A guide hidden only until the app is reopened still keeps them: see
+    // "Today's own Add button during step 1" below.
+    for (final String muted in <String>['skipped', 'paused', 'complete']) {
       test('are not recorded while the guide is $muted', () async {
         final ProviderContainer container = _container('muted-$muted');
         addTearDown(container.dispose);
@@ -185,8 +182,6 @@ void main() {
             await notifier.skipCoreGuide();
           case 'paused':
             await notifier.later(GuidanceLessonId.createFirstItem);
-          case 'paused until reopened':
-            await notifier.pauseCoreGuideUntilReopened();
           default:
             await notifier.record(GuidanceMilestone.firstItem);
             await notifier.record(GuidanceMilestone.firstSchedule);
@@ -299,6 +294,89 @@ void main() {
         )).expectedFirstRunCreatorTaskIds,
         isEmpty,
       );
+    });
+  });
+
+  // Today's own "Add a goal, task or habit" button opens the plain form and
+  // hides the guide until the app is next opened. A task saved there is
+  // still the guide's first task, so the next launch goes on to step 2
+  // instead of asking for a first task again.
+  group("Today's own Add button during step 1", () {
+    Future<AdaptiveGuidanceState> saveWhileHiddenThenReopen(
+      String account, {
+      required bool dated,
+      Future<void> Function(AdaptiveGuidanceNotifier notifier)? before,
+    }) async {
+      final ProviderContainer first = _container(account);
+      await first.read(adaptiveGuidanceProvider.future);
+      final AdaptiveGuidanceNotifier notifier = first.read(
+        adaptiveGuidanceProvider.notifier,
+      );
+      await before?.call(notifier);
+      await notifier.pauseCoreGuideUntilReopened();
+      // What confirming in Add something records, in the same order.
+      await notifier.recordCreatorHandshakeReceipt(
+        _receipt(account, <String>['saved-task']),
+      );
+      await notifier.recordIfMissing(GuidanceMilestone.firstItem);
+      if (dated)
+        await notifier.recordIfMissing(GuidanceMilestone.firstSchedule);
+      // Hidden for the rest of this run.
+      expect(
+        first.read(adaptiveGuidanceProvider).requireValue.activeCoreLesson,
+        isNull,
+      );
+      first.dispose();
+
+      final ProviderContainer reopened = _container(account);
+      addTearDown(reopened.dispose);
+      return reopened.read(adaptiveGuidanceProvider.future);
+    }
+
+    test('a task saved with a date resumes at step 2', () async {
+      final AdaptiveGuidanceState state = await saveWhileHiddenThenReopen(
+        'add-button-dated',
+        dated: true,
+      );
+      expect(state.activeCoreLesson, GuidanceLessonId.reviewTimeline);
+      expect(state.coreGuideStatus, CoreGuideStatus.active);
+      expect(state.matchesExpectedFirstRunCreatorTask('saved-task'), isTrue);
+    });
+
+    test(
+      'a task saved without a date also resumes at step 2, not step 1',
+      () async {
+        final AdaptiveGuidanceState state = await saveWhileHiddenThenReopen(
+          'add-button-undated',
+          dated: false,
+        );
+        expect(state.activeCoreLesson, GuidanceLessonId.reviewTimeline);
+        expect(state.matchesExpectedFirstRunCreatorTask('saved-task'), isTrue);
+        expect(state.has(GuidanceMilestone.firstSchedule), isFalse);
+      },
+    );
+
+    test('a guide skipped before is not brought back', () async {
+      final AdaptiveGuidanceState state = await saveWhileHiddenThenReopen(
+        'add-button-skipped',
+        dated: true,
+        before: (AdaptiveGuidanceNotifier notifier) => notifier.skipCoreGuide(),
+      );
+      expect(state.activeCoreLesson, isNull);
+      expect(state.coreGuideStatus, CoreGuideStatus.skipped);
+      expect(state.expectedFirstRunCreatorTaskIds, isEmpty);
+    });
+
+    test('a guide paused before stays paused', () async {
+      final AdaptiveGuidanceState state = await saveWhileHiddenThenReopen(
+        'add-button-paused',
+        dated: true,
+        before: (AdaptiveGuidanceNotifier notifier) =>
+            notifier.later(GuidanceLessonId.createFirstItem),
+      );
+      expect(state.activeCoreLesson, isNull);
+      expect(state.coreGuideStatus, CoreGuideStatus.paused);
+      expect(state.expectedFirstRunCreatorTaskIds, isEmpty);
     });
   });
 

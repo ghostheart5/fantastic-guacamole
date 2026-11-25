@@ -282,8 +282,13 @@ abstract final class GuidanceInterventionEngine {
         state.laterLessons.contains(id) ||
         state.skippedLessons.contains(id) ||
         state.untilReopenedLessons.contains(id);
-    bool stepSkipped(GuidanceLessonId id) =>
-        state.skippedCoreSteps.contains(id);
+    // Step 1 is one form. Once it saved a task the guide looks for, the step
+    // is done even if that task has no date: step 2 then says the task is not
+    // on the schedule and offers "Skip this step".
+    bool stepPassed(GuidanceLessonId id) =>
+        state.skippedCoreSteps.contains(id) ||
+        (id == GuidanceLessonId.scheduleFirstItem &&
+            state.expectedFirstRunCreatorTaskIds.isNotEmpty);
 
     GuidanceLessonId? withReceipt(GuidanceLessonId id) {
       if (id == GuidanceLessonId.reviewTimeline &&
@@ -292,7 +297,7 @@ abstract final class GuidanceInterventionEngine {
         // accounts can have both task milestones without that receipt; after
         // "Skip this step" on the first step there is nothing to find.
         return muted(GuidanceLessonId.createFirstItem) ||
-                stepSkipped(GuidanceLessonId.createFirstItem)
+                stepPassed(GuidanceLessonId.createFirstItem)
             ? null
             : GuidanceLessonId.createFirstItem;
       }
@@ -300,7 +305,7 @@ abstract final class GuidanceInterventionEngine {
     }
 
     for (final GuidanceLessonId id in _replayableCoreLessons) {
-      if (!state.replayLessons.contains(id) || stepSkipped(id)) continue;
+      if (!state.replayLessons.contains(id) || stepPassed(id)) continue;
       return muted(id) ? null : withReceipt(id);
     }
 
@@ -315,7 +320,7 @@ abstract final class GuidanceInterventionEngine {
           ),
         ]) {
       // "Skip this step" moves on to the next step.
-      if (state.has(milestone) || stepSkipped(lesson)) continue;
+      if (state.has(milestone) || stepPassed(lesson)) continue;
       // A paused or muted lesson must not be replaced by a later step.
       return muted(lesson) ? null : withReceipt(lesson);
     }
@@ -667,8 +672,23 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
 
     final AdaptiveGuidanceState current = await _current();
     // Only the first-run guide looks for these tasks: a skipped, paused or
-    // finished guide keeps no list.
-    if (_activeScope != account || current.activeCoreLesson == null) return;
+    // finished guide keeps no list. A guide hidden only until the app is
+    // reopened (Today's own Add button opens the plain form) still does, so
+    // the next launch goes on to the schedule step instead of asking for a
+    // first task again.
+    final AdaptiveGuidanceState ignoringReopen = AdaptiveGuidanceState(
+      milestones: current.milestones,
+      counts: current.counts,
+      skippedLessons: current.skippedLessons,
+      completedLessons: current.completedLessons,
+      laterLessons: current.laterLessons,
+      replayLessons: current.replayLessons,
+      expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
+      skippedCoreSteps: current.skippedCoreSteps,
+    );
+    if (_activeScope != account || ignoringReopen.activeCoreLesson == null) {
+      return;
+    }
     final List<String> persistedTaskIds = _newestTaskIds(<String>[
       ...current.expectedFirstRunCreatorTaskIds.where(
         (String id) => !taskIds.contains(id),

@@ -490,6 +490,53 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final String language in <String>['en', 'es']) {
+    testWidgets('$language: a task saved without a date from the plain form '
+        "(Today's own Add button) leads on reopening to step 2, which says "
+        'why and offers Skip this step', (tester) async {
+      _tallView(tester);
+      final bool es = language == 'es';
+      final repo = _Tasks()
+        ..tasks['undated'] = TaskEntity(
+          id: 'undated',
+          title: 'Undated task',
+          createdAt: DateTime.utc(2026, 11, 1, 9),
+        );
+      final first = _container(repo);
+      await first.read(adaptiveGuidanceProvider.future);
+      final notifier = first.read(adaptiveGuidanceProvider.notifier);
+      await notifier.pauseCoreGuideUntilReopened();
+      await notifier.recordCreatorHandshakeReceipt(_guideReceipt('undated'));
+      await notifier.recordIfMissing(GuidanceMilestone.firstItem);
+      first.dispose();
+
+      // The app is opened again.
+      final container = _container(repo, overlay: true, timeline: true);
+      addTearDown(container.dispose);
+      await container.read(adaptiveGuidanceProvider.future);
+      await _pumpTimelineWithGuide(tester, container, Locale(language));
+      expect(find.text(es ? 'Paso 2 de 2' : 'Step 2 of 2'), findsOneWidget);
+      expect(
+        find.textContaining(
+          es ? 'no está en tu agenda' : 'not on your schedule',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        _primary(
+          tester,
+          es ? 'Encontré mi tarea' : 'I found my task',
+        ).onPressed,
+        isNull,
+      );
+      expect(
+        find.text(es ? 'Omitir este paso' : 'Skip this step'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('Skip this step while reviewing leaves the plain Add something '
       'form', (tester) async {
     _tallView(tester);
