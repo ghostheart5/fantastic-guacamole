@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_history.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/ai_chat_consent.dart';
+import 'package:fantastic_guacamole/features/assistant/ui/assistant_mode_switch.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_response_body.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
@@ -79,11 +80,18 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
     required this.onLocalTools,
     this.onLocalToolsWithDraft,
     this.isActive = true,
+    this.incomingDraft = '',
+    this.incomingDraftRevision = 0,
   });
   final ConversationSurface surface;
   final VoidCallback onLocalTools;
   final ValueChanged<String>? onLocalToolsWithDraft;
   final bool isActive;
+
+  /// Text typed on the free tools, carried over when the person switches to AI
+  /// chat. A new [incomingDraftRevision] makes this screen take the text.
+  final String incomingDraft;
+  final int incomingDraftRevision;
   @override
   ConsumerState<AssistantConversationScreen> createState() =>
       _AssistantConversationScreenState();
@@ -146,6 +154,7 @@ class _AssistantConversationScreenState
   @override
   void initState() {
     super.initState();
+    _input.text = widget.incomingDraft;
     _input.addListener(_onDraftChanged);
     if (widget.surface == ConversationSurface.si) {
       _sources = <SIV2Source>{};
@@ -178,6 +187,13 @@ class _AssistantConversationScreenState
   @override
   void didUpdateWidget(covariant AssistantConversationScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.incomingDraftRevision != widget.incomingDraftRevision &&
+        widget.incomingDraft.isNotEmpty) {
+      _input.value = TextEditingValue(
+        text: widget.incomingDraft,
+        selection: TextSelection.collapsed(offset: widget.incomingDraft.length),
+      );
+    }
     if (oldWidget.isActive && !widget.isActive) {
       _voiceActivation++;
       final controller = _voiceControllerForDispose;
@@ -828,6 +844,13 @@ class _AssistantConversationScreenState
         !_busy &&
         _pending == null &&
         (planner || (_historyReady && !_historyLoading && !_historyConflict));
+    // One two-way control: free on this device, or AI chat with its price.
+    final modeSwitch = AssistantModeSwitch(
+      aiSelected: true,
+      enabled: !_busy,
+      onChooseOnDevice: () => _openFreeTools(_input.text.trim()),
+      onChooseAi: () {},
+    );
     final scaffold = Scaffold(
       backgroundColor: const Color(0xFF07111C),
       appBar: AppBar(
@@ -845,48 +868,21 @@ class _AssistantConversationScreenState
       body: _ConversationBody(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              // The balance stays in view beside Free tools. At large text it
-              // is at the top of the conversation instead, so this fixed area
-              // leaves the conversation its room.
-              child: Wrap(
-                spacing: 16,
-                runSpacing: 4,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Tooltip(
-                    message: copy('On-device tools', 'Herramientas locales'),
-                    child: OutlinedButton.icon(
-                      key: const Key('conversation-free-tools'),
-                      onPressed: _busy
-                          ? null
-                          : () {
-                              final handoff = widget.onLocalToolsWithDraft;
-                              if (handoff == null) {
-                                widget.onLocalTools();
-                              } else {
-                                handoff(_input.text.trim());
-                              }
-                            },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        backgroundColor: const Color(0xFF10203F),
-                        minimumSize: const Size(0, 48),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        side: const BorderSide(color: Colors.cyanAccent),
-                      ),
-                      icon: const Icon(Icons.offline_bolt_outlined),
-                      label: Text(copy('Free tools', 'Herramientas gratis')),
-                    ),
-                  ),
-                  if (!_largeText) _balanceLine(),
-                ],
+            if (!_largeText)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                // The mode switch and the balance stay in view. At large text
+                // both are at the top of the conversation instead, so this
+                // fixed area leaves the conversation its room.
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    modeSwitch,
+                    const SizedBox(height: 4),
+                    _balanceLine(),
+                  ],
+                ),
               ),
-            ),
             Expanded(
               child: ListView(
                 controller: _scroll,
@@ -894,10 +890,12 @@ class _AssistantConversationScreenState
                 children: [
                   // First in the list so it is the first thing seen on open,
                   // but it scrolls, so large text cannot overflow the screen.
+                  // At large text the mode switch follows it.
                   if (!consent) ...[
                     _aiChatOffNotice(),
                     const SizedBox(height: 12),
                   ],
+                  if (_largeText) ...[modeSwitch, const SizedBox(height: 12)],
                   Text(
                     copy(
                       'AI conversation · uses credits',

@@ -340,10 +340,17 @@ void main() {
           );
           await tester.pumpAndSettle();
           await waitForChatReady(tester);
-          final button = find.byKey(const Key('conversation-free-tools'));
           final label = find.text(
-            language == 'es' ? 'Herramientas gratis' : 'Free tools',
+            language == 'es'
+                ? 'En este dispositivo · gratis'
+                : 'On this device · free',
           );
+          final button = find.byKey(const Key('assistant-mode-on-device'));
+          final switchBounds = tester.getRect(
+            find.byKey(const Key('assistant-mode-switch')),
+          );
+          expect(switchBounds.left, greaterThanOrEqualTo(16));
+          expect(switchBounds.right, lessThanOrEqualTo(304));
           expect(label, findsOneWidget);
           expect(button.hitTestable(), findsOneWidget);
           final bounds = tester.getRect(button);
@@ -838,7 +845,7 @@ void main() {
     await waitForChatReady(tester);
     await tapRevealedChatControl(
       tester,
-      find.byKey(const Key('conversation-free-tools')),
+      find.byKey(const Key('assistant-mode-on-device')),
     );
     expect(calls, 1);
     expect(tester.takeException(), isNull);
@@ -2719,7 +2726,11 @@ void main() {
         );
         if (surface == ConversationSurface.planner) {
           final contextSwitch = find.byKey(const Key('conversation-task-only'));
-          await tester.ensureVisible(contextSwitch);
+          await tester.scrollUntilVisible(
+            contextSwitch,
+            -200,
+            scrollable: find.byType(Scrollable).first,
+          );
           // Lay out the scrolled list before tapping (each reply now has a
           // footer, which moves the switch).
           await tester.pump();

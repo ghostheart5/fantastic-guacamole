@@ -221,6 +221,63 @@ void main() {
     expect(find.byKey(const Key('planner-use-this-plan')), findsNothing);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('Choose a step switches both ways and keeps the choice', (
+    tester,
+  ) async {
+    final container = _container(conversationAvailable: true, allowedAi: true);
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(AssistantConversationScreen), findsOneWidget);
+    expect(find.byKey(const Key('assistant-mode-switch')), findsOneWidget);
+
+    // To the free planner, with the typed text.
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'Pick a step',
+    );
+    await tester.tap(find.byKey(const Key('assistant-mode-on-device')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(AssistantConversationScreen), findsNothing);
+    expect(find.byKey(const Key('assistant-mode-switch')), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('planner-context-field')))
+          .controller!
+          .text,
+      'Pick a step',
+    );
+
+    // Leaving the screen and coming back keeps the free planner.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pumpPlanner(tester, container);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const Key('planner-context-field')), findsOneWidget);
+    expect(find.byType(AssistantConversationScreen), findsNothing);
+
+    // And back to AI chat, carrying what was typed there.
+    await tester.enterText(
+      find.byKey(const Key('planner-context-field')),
+      'Pick a calmer step',
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.ensureVisible(find.byKey(const Key('assistant-mode-ai')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('assistant-mode-ai')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(AssistantConversationScreen), findsOneWidget);
+    expect(find.byKey(const Key('planner-context-field')), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('conversation-input')))
+          .controller!
+          .text,
+      'Pick a calmer step',
+    );
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'planner shows partial dictation before completion and keeps Send disabled',
     (tester) async {

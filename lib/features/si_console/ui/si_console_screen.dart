@@ -3,6 +3,8 @@ import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dar
 import 'dart:async';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
+import 'package:fantastic_guacamole/features/assistant/ui/assistant_mode_switch.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_chat_mode_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 import 'dart:math' as math;
 
@@ -106,7 +108,11 @@ class SIConsoleScreen extends ConsumerStatefulWidget {
 
 class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  bool _useLocalTools = false;
+  // The AI chat screen stays alive behind the free tools once it was opened,
+  // so a conversation, a draft or a running request is not lost by switching.
+  bool _aiChatOpened = false;
+  String _aiDraft = '';
+  int _aiDraftRevision = 0;
   final List<_Msg> _messages = [];
   final TextEditingController _input = TextEditingController();
   final TextEditingController _entityFilter = TextEditingController();
@@ -765,20 +771,55 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (!_useLocalTools &&
-        ref.watch(
-          assistantConversationSurfaceAvailableProvider(ConversationSurface.si),
-        )) {
-      return AssistantConversationScreen(
-        isActive: widget.isActive,
-        surface: ConversationSurface.si,
-        onLocalTools: () => setState(() => _useLocalTools = true),
-        onLocalToolsWithDraft: (String draft) => setState(() {
-          if (draft.isNotEmpty) _input.text = draft;
-          _useLocalTools = true;
-        }),
-      );
+    final bool onDevice = ref.watch(
+      assistantOnDeviceModeProvider(ConversationSurface.si),
+    );
+    final bool aiAvailable = ref.watch(
+      assistantConversationSurfaceAvailableProvider(ConversationSurface.si),
+    );
+    if (aiAvailable && !onDevice) {
+      _aiChatOpened = true;
     }
+    if (!aiAvailable || !_aiChatOpened) {
+      return _buildOnDevice(context, aiAvailable);
+    }
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        KeyedSubtree(
+          key: const ValueKey<String>('si-ai-chat'),
+          child: Offstage(
+            offstage: onDevice,
+            child: TickerMode(
+              enabled: !onDevice,
+              child: AssistantConversationScreen(
+                isActive: widget.isActive && !onDevice,
+                surface: ConversationSurface.si,
+                incomingDraft: _aiDraft,
+                incomingDraftRevision: _aiDraftRevision,
+                onLocalTools: () => _chooseMode(onDevice: true),
+                onLocalToolsWithDraft: (String draft) {
+                  if (draft.isNotEmpty) _input.text = draft;
+                  _chooseMode(onDevice: true);
+                },
+              ),
+            ),
+          ),
+        ),
+        if (onDevice)
+          KeyedSubtree(
+            key: const ValueKey<String>('si-on-device'),
+            child: _buildOnDevice(context, aiAvailable),
+          ),
+      ],
+    );
+  }
+
+  void _chooseMode({required bool onDevice}) => ref
+      .read(assistantChatModeProvider.notifier)
+      .choose(ConversationSurface.si, onDevice: onDevice);
+
+  Widget _buildOnDevice(BuildContext context, bool aiAvailable) {
     final SIRoutineCopy routine = ChronoSparkLocalizations.of(
       context,
     ).siRoutine;
@@ -874,6 +915,22 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                         unawaited(_showAccessibilityGuide());
                       },
                     ),
+                    if (aiAvailable)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                        child: AssistantModeSwitch(
+                          aiSelected: false,
+                          enabled: true,
+                          onChooseOnDevice: () {},
+                          onChooseAi: () {
+                            setState(() {
+                              _aiDraft = _input.text.trim();
+                              if (_aiDraft.isNotEmpty) _aiDraftRevision++;
+                            });
+                            _chooseMode(onDevice: false);
+                          },
+                        ),
+                      ),
                     _ContextStatusBanner(
                       compact: compactChrome,
                       availabilityLoading: availabilityAsync.isLoading,
