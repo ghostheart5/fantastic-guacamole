@@ -35,7 +35,7 @@ void main() {
           'choose Just this chat to send nothing from your plan',
           'The kinds of information that will be used are shown above the message box before you send, in Chat and in Choose a step.',
           'Once you have typed a question, a button by the message box opens the full preview of what will be sent (your question, the recent messages, the plan records and other selected details, and a list of the technical details that go with them) whenever sending is available',
-          'the preview also opens by itself before your first message after the app opens and whenever the information used changes',
+          'the preview also opens by itself before your first message after the app opens and whenever you change the information selected, including the note, energy or emotional state',
           'Nothing is sent, including the request for a price, until you tap send',
           'tapping send confirms the price shown on it',
           'you are asked again before anything is charged',
@@ -54,6 +54,7 @@ void main() {
           'your plan (tasks, goals and schedule)',
           'credit quotes are not part of this history',
           'exactly what will be sent',
+          'whenever the information used changes',
           'one tap away at any time',
         ]) {
           expect(source, isNot(contains(retired)), reason: path);

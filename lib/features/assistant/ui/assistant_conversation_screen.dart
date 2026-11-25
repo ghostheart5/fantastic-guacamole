@@ -107,8 +107,10 @@ class _AssistantConversationScreenState
   // A request since the wallet was loaded may have changed the balance.
   bool _walletUntrusted = false;
   ConversationQuote? _pending;
-  // A confirmed request is being written to storage before it is sent.
-  bool _storing = false;
+  // The operation whose confirmed request has started its storage write:
+  // from then on it is sent (see _send), so Stop waiting no longer withdraws
+  // it.
+  int? _committingOperation;
   String? _recoveringRequestId;
   int _generation = 0;
   int _operation = 0;
@@ -395,41 +397,33 @@ class _AssistantConversationScreenState
           quote: quote,
           savedAt: DateTime.now(),
         );
-        // Stop waiting tapped while storing: same account, a later operation
-        // (only sending and Stop waiting change it), even if the screen has
-        // closed since. Leaving without tapping it keeps the Phase 1 design:
-        // the stored request is collected on return.
-        bool stoppedWhileStoring() =>
-            generation == _generation && operation != _operation;
+        // Stop waiting decides, inside the storage queue, whether this request
+        // is written at all. Until the write starts, Stop waiting (a later
+        // operation) withdraws it: nothing is stored, so no path can send it
+        // later, whatever happens to the account or sign-in meanwhile. Once
+        // the write starts ([_committingOperation]), Stop waiting treats it as
+        // confirmed and says so. Leaving the screen without tapping Stop keeps
+        // the Phase 1 design: the stored request is collected on return.
         final bool replacedUntold;
-        _storing = true;
         try {
           if (repository == null) throw StateError('chat_account_unavailable');
-          replacedUntold = await repository.savePending(record);
+          replacedUntold = await repository.savePending(
+            record,
+            commit: () {
+              if (operation != _operation) return false;
+              _committingOperation = operation;
+              return true;
+            },
+          );
         } on Object {
-          if (stoppedWhileStoring()) {
-            // Nothing was stored, so nothing can be sent or charged.
-            if (mounted) _showFailure(_stoppedBeforeSendingText);
-            return;
-          }
+          // Withdrawn by Stop waiting: its message already says nothing was
+          // sent or charged, which is true.
+          if (operation != _operation) return;
           throw const ConversationFailure('request_not_saved');
-        } finally {
-          _storing = false;
         }
         // Its content is removed once it can no longer be collected, even if
         // no screen is open then.
         registry.schedulePurge(record.collectBefore);
-        if (stoppedWhileStoring()) {
-          await _withdrawStoppedRequest(
-            record,
-            registry: registry,
-            removeStored: () => repository.clearPending(
-              record.surface,
-              requestId: record.requestId,
-            ),
-          );
-          return;
-        }
         if (!mounted || !current()) return;
         if (replacedUntold) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -614,17 +608,12 @@ class _AssistantConversationScreenState
   void _stopWaiting() {
     if (!_busy) return;
     setState(() {
-      if (_pending == null) {
+      // Before the confirmed request starts its storage write, stopping
+      // withdraws it for good: it is never stored or sent (see _send).
+      if (_pending == null && _committingOperation != _operation) {
         _operation++;
         _busy = false;
-        // While the confirmed request is being stored the outcome is not yet
-        // known; the send step reports it once storing ends.
-        _error = _storing
-            ? copy(
-                'Stopping. Making sure this request is not sent…',
-                'Deteniendo. Asegurándonos de que esta solicitud no se envíe…',
-              )
-            : _stoppedBeforeSendingText;
+        _error = _stoppedBeforeSendingText;
         return;
       }
       _waitIndicatorDismissed = true;

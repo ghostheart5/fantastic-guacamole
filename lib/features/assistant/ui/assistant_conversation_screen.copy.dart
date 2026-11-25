@@ -193,8 +193,8 @@ extension _ConversationCopy on _AssistantConversationScreenState {
     if (data['reportedEmotion'] case final String emotion) {
       lines.add(
         copy(
-          'Your selected emotional state: $emotion',
-          'Tu estado emocional seleccionado: $emotion',
+          'Your selected emotional state: ${_emotionName(emotion)}',
+          'Tu estado emocional seleccionado: ${_emotionName(emotion)}',
         ),
       );
     }

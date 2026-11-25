@@ -2,10 +2,12 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/repositories/assistant_conversation_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/domain/entities/emotional_state.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
+import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
@@ -13,6 +15,7 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
@@ -108,6 +111,7 @@ ProviderContainer _setup(
   _Server server,
   InMemorySecureStoreBackend backend, {
   AccountStorageScope Function()? readScope,
+  ConversationTransport? transport,
 }) => ProviderContainer(
   overrides: [
     secureStoreProvider.overrideWithValue(SecureStore(backend: backend)),
@@ -117,7 +121,8 @@ ProviderContainer _setup(
     authSessionBoundaryProvider.overrideWith(_Boundary.new),
     assistantConversationAvailableProvider.overrideWithValue(true),
     personalizationProfileProvider.overrideWith(_Consent.new),
-    conversationTransportProvider.overrideWithValue(server.call),
+    conversationTransportProvider.overrideWithValue(transport ?? server.call),
+    consentedHumanContextProvider.overrideWith((ref) => _human),
     siV2ReadGatewayProvider.overrideWith(
       (ref) => _gatewayFor(ref.watch(accountStorageScopeProvider).v2Namespace),
     ),
@@ -643,7 +648,206 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await _settle(tester);
   });
+  testWidgets(
+    'the preview opens again after a session change for the same account',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      addTearDown(() => _sessionGeneration = 1);
+      final server = _Server();
+      final container = _setup(server, InMemorySecureStoreBackend());
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container);
+      await _tapSend(tester, 'First question.');
+      await _acceptPreview(tester);
+      _sessionGeneration = 2;
+      container.invalidate(authSessionBoundaryProvider);
+      await _settle(tester);
+      await _tapSend(tester, 'Second question.');
+      expect(_previewDialog, findsOneWidget);
+      expect(server.quotes, 1, reason: 'Nothing is sent before the preview');
+      await _acceptPreview(tester);
+      expect(server.paid, hasLength(2));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final language in ['en', 'es']) {
+    testWidgets(
+      '$language: Choose a step names the emotional state in words, and a changed energy or emotion reopens the preview',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 1400));
+        addTearDown(() {
+          _human = _noEmotion;
+          return tester.binding.setSurfaceSize(null);
+        });
+        _human = const ConsentedHumanContext(
+          emotionAllowed: true,
+          memoryAllowed: false,
+          emotion: EmotionalState.fatigued,
+          siState: SIState(),
+        );
+        final server = _Server();
+        final container = _setup(server, InMemorySecureStoreBackend());
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await _pump(
+          tester,
+          container,
+          language: language,
+          surface: ConversationSurface.planner,
+        );
+        final spanish = language == 'es';
+        final line = find.byKey(const Key('conversation-planner-scope'));
+        expect(
+          tester.widget<Text>(line).data,
+          contains(
+            spanish
+                ? 'tu estado emocional (con cansancio)'
+                : 'your emotional state (fatigued)',
+          ),
+        );
+        final send = spanish ? 'Enviar' : 'Send';
+        final review = spanish
+            ? 'Revisa lo que recibirá la IA'
+            : 'Review what AI will receive';
+        Future<void> sendMessage(String text) async {
+          await tester.enterText(
+            find.byKey(const Key('conversation-input')),
+            text,
+          );
+          await tester.pump();
+          await tester.ensureVisible(find.byKey(_send));
+          await tester.tap(find.byKey(_send));
+          await _settle(tester);
+        }
+
+        await sendMessage('One?');
+        expect(find.text(review), findsOneWidget);
+        await tester.tap(find.text(send));
+        await _settle(tester);
+        await sendMessage('Two?');
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(server.paid, hasLength(2));
+
+        // A different emotional state is new information.
+        _human = const ConsentedHumanContext(
+          emotionAllowed: true,
+          memoryAllowed: false,
+          emotion: EmotionalState.calm,
+          siState: SIState(),
+        );
+        container.invalidate(consentedHumanContextProvider);
+        await _settle(tester);
+        await sendMessage('Three?');
+        expect(find.text(review), findsOneWidget);
+        expect(server.quotes, 2);
+        await tester.tap(find.text(send));
+        await _settle(tester);
+        expect(server.paid, hasLength(3));
+
+        // So is a different energy value.
+        final energyTile = find.text(
+          spanish
+              ? '¿Cuánta energía tienes? (opcional)'
+              : 'How much energy do you have? (optional)',
+        );
+        // The options sit at the top of the scrolled conversation.
+        await tester.scrollUntilVisible(
+          energyTile,
+          -200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(energyTile);
+        await _settle(tester);
+        final energy = find.byType(DropdownButtonFormField<double>);
+        await tester.ensureVisible(energy);
+        await tester.tap(energy);
+        await _settle(tester);
+        await tester.tap(find.text('40%').last);
+        await _settle(tester);
+        expect(
+          tester.widget<Text>(line).data,
+          contains(spanish ? 'tu energía (40%)' : 'your energy (40%)'),
+        );
+        await sendMessage('Four?');
+        expect(find.text(review), findsOneWidget);
+        expect(server.quotes, 3);
+        await tester.tap(find.text(send));
+        await _settle(tester);
+        expect(server.paid, hasLength(4));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final sentForReply in [false, true]) {
+    testWidgets(
+      'an unexpected failure ${sentForReply ? 'after the request was handed on keeps it for Retry' : 'before anything was handed on says nothing was charged'}',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        var executes = 0;
+        final container = _setup(
+          _Server(),
+          InMemorySecureStoreBackend(),
+          transport: (body) async {
+            if (body['quoteOnly'] == true) {
+              if (!sentForReply) throw StateError('synthetic_network_failure');
+              return _Server().call(body);
+            }
+            executes++;
+            throw StateError('synthetic_network_failure');
+          },
+        );
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await _pump(tester, container);
+        await _tapSend(tester, 'Compare my two options.');
+        await _acceptPreview(tester);
+        final error = find.byKey(const Key('conversation-error'));
+        expect(error, findsOneWidget);
+        if (sentForReply) {
+          expect(executes, 1);
+          expect(
+            find.textContaining('did not confirm a reply'),
+            findsOneWidget,
+          );
+          expect(find.textContaining('Nothing was charged'), findsNothing);
+          expect(find.text('Retry same request'), findsOneWidget);
+        } else {
+          expect(executes, 0);
+          expect(
+            find.textContaining(
+              'Nothing was sent for a reply and nothing was charged',
+            ),
+            findsOneWidget,
+          );
+          expect(find.text('Retry same request'), findsNothing);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
+
+const _noEmotion = ConsentedHumanContext(
+  emotionAllowed: false,
+  memoryAllowed: false,
+  emotion: null,
+  siState: SIState(),
+);
+ConsentedHumanContext _human = _noEmotion;
+
+/// A session-boundary change for the same account raises this.
+var _sessionGeneration = 1;
 
 class _Consent extends PersonalizationProfileController {
   @override
@@ -653,8 +857,8 @@ class _Consent extends PersonalizationProfileController {
 
 class _Boundary extends AuthSessionBoundaryNotifier {
   @override
-  AuthSessionBoundary build() => const AuthSessionBoundary(
-    generation: 1,
+  AuthSessionBoundary build() => AuthSessionBoundary(
+    generation: _sessionGeneration,
     userId: 'synthetic-one-step',
     isTransitioning: false,
     isStorageReady: true,

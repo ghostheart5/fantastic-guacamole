@@ -390,6 +390,35 @@ void main() {
     },
   );
 
+  test(
+    'a request withdrawn before its write is never stored; one committed is',
+    () async {
+      var asked = 0;
+      await expectLater(
+        repository('a').savePending(
+          pendingFor(ConversationSurface.si, 'withdrawn'),
+          commit: () {
+            asked++;
+            return false;
+          },
+        ),
+        throwsStateError,
+      );
+      expect(asked, 1);
+      expect((await repository('a').load()).pendingRequests, isEmpty);
+      await repository('a').savePending(
+        pendingFor(ConversationSurface.si, 'kept'),
+        commit: () => true,
+      );
+      expect(
+        (await repository(
+          'a',
+        ).load()).pendingRequests[ConversationSurface.si]?.requestId,
+        'kept',
+      );
+    },
+  );
+
   test('Chat saved before pending requests existed still loads', () async {
     final store = base.forAccount(AccountStorageScope.authenticated('a'));
     await store.writeString(

@@ -341,22 +341,33 @@ class AssistantConversationRepository {
   ///
   /// Returns true when this replaced a marker of an earlier request the
   /// person has not been told about yet, so the caller can tell them now.
-  Future<bool> savePending(PendingConversationRequest request) =>
-      runAccountStorageMutation(() async {
-        final decoded = await _readRaw() ?? _emptyEnvelope();
-        final view = _parsePending(decoded);
-        final replacedUntold =
-            view.expired.containsKey(request.surface) ||
-            view.unreadable.contains(request.surface);
-        await _writeRaw({
-          ...decoded,
-          'pendingRequests': {
-            ..._rawPending(decoded),
-            request.surface.name: request.toJson(),
-          },
-        });
-        return replacedUntold;
-      });
+  ///
+  /// [commit] is asked once, inside the storage queue, right before the
+  /// write: returning false writes nothing and throws [StateError], so a
+  /// request withdrawn while it waited is never stored. Once it returns true
+  /// the write goes ahead.
+  Future<bool> savePending(
+    PendingConversationRequest request, {
+    bool Function()? commit,
+  }) => runAccountStorageMutation(() async {
+    final decoded = await _readRaw() ?? _emptyEnvelope();
+    final view = _parsePending(decoded);
+    final replacedUntold =
+        view.expired.containsKey(request.surface) ||
+        view.unreadable.contains(request.surface);
+    _checkCurrent();
+    if (commit != null && !commit()) {
+      throw StateError('pending_request_withdrawn');
+    }
+    await _writeRaw({
+      ...decoded,
+      'pendingRequests': {
+        ..._rawPending(decoded),
+        request.surface.name: request.toJson(),
+      },
+    });
+    return replacedUntold;
+  });
 
   /// Removes the surface's stored request or marker when it is [requestId],
   /// or whatever is stored there when [requestId] is null (an unreadable

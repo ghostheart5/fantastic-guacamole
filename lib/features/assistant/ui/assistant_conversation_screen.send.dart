@@ -36,6 +36,10 @@ extension _OneStepSend on _AssistantConversationScreenState {
     ]);
   }
 
+  /// The app's own bilingual name for an emotional state.
+  String _emotionName(String name) =>
+      ChronoSparkLocalizations.of(context).plannerRoutine.emotionName(name);
+
   /// Choose a step has no choice row: this read-only line names what its
   /// requests carry, matching ConversationPacketFactory.build.
   Widget _plannerScopeLine() {
@@ -64,8 +68,8 @@ extension _OneStepSend on _AssistantConversationScreenState {
         ),
       if (emotion != null)
         copy(
-          'your emotional state (${emotion.name})',
-          'tu estado emocional (${emotion.name})',
+          'your emotional state (${_emotionName(emotion.name)})',
+          'tu estado emocional (${_emotionName(emotion.name)})',
         ),
     ];
     return Text(
@@ -130,8 +134,8 @@ extension _OneStepSend on _AssistantConversationScreenState {
           const SizedBox(height: 12),
           Text(
             copy(
-              'This review opens by itself before your first message after the app opens and whenever the information used changes. Once you have typed a question, See what is sent by the message box shows it whenever sending is available.',
-              'Esta revisión se abre sola antes de tu primer mensaje después de abrir la app y cada vez que cambia la información que se usa. Cuando hayas escrito una pregunta, Ver qué se envía, junto al cuadro de mensaje, la muestra siempre que se pueda enviar.',
+              'This review opens by itself before your first message after the app opens and whenever you change the information selected, including the note, energy or emotional state. Once you have typed a question, See what is sent by the message box shows it whenever sending is available.',
+              'Esta revisión se abre sola antes de tu primer mensaje después de abrir la app y cada vez que cambias la información elegida, incluida la nota, la energía o el estado emocional. Cuando hayas escrito una pregunta, Ver qué se envía, junto al cuadro de mensaje, la muestra siempre que se pueda enviar.',
             ),
           ),
         ],

@@ -127,35 +127,6 @@ extension _PendingRequest on _AssistantConversationScreenState {
     'Se detuvo antes de enviar la solicitud para obtener una respuesta. No se cobró nada. Tu pregunta se conserva.',
   );
 
-  /// Stop waiting was tapped while [record] was being stored. It is never
-  /// sent from this app run, and it is removed from storage; the person is
-  /// told only what is certain. Works even if the screen closed meanwhile,
-  /// so [registry] and [removeStored] are captured before storing.
-  Future<void> _withdrawStoppedRequest(
-    PendingConversationRequest record, {
-    required ConversationExecutionRegistry registry,
-    required Future<void> Function() removeStored,
-  }) async {
-    final generation = _generation;
-    registry.finish(record.requestId, shown: true);
-    var removed = false;
-    try {
-      await removeStored();
-      removed = true;
-    } on Object {
-      removed = false;
-    }
-    if (!mounted || generation != _generation) return;
-    _showFailure(
-      removed
-          ? _stoppedBeforeSendingText
-          : copy(
-              'Stopped, but this request was already stored on this device and could not be removed. It may still be sent and charged once later. Your question is retained.',
-              'Se detuvo, pero esta solicitud ya estaba guardada en este dispositivo y no se pudo quitar. Es posible que aún se envíe y se cobre una vez más adelante. Tu pregunta se conserva.',
-            ),
-    );
-  }
-
   /// Removes this surface's stored request; null removes an unreadable one.
   void _forgetPending(String? requestId) {
     final repository = ref.read(assistantConversationHistoryRepositoryProvider);

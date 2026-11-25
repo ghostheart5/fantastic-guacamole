@@ -1060,86 +1060,187 @@ void main() {
     },
   );
 
-  for (final failRemoval in [false, true]) {
-    testWidgets(
-      'stop waiting while the confirmed request is being stored ${failRemoval ? 'says it may still be charged when it cannot be removed' : 'removes it, never sends it and says nothing was charged'}',
-      (tester) async {
-        await tester.binding.setSurfaceSize(const Size(412, 915));
-        addTearDown(() => tester.binding.setSurfaceSize(null));
-        final backend = _GatedWriteBackend()..failRemoval = failRemoval;
-        final paid = <Map<String, dynamic>>[];
-        final container = _setup((body) async {
+  /// Sends one message up to the storing step and holds its storage at
+  /// [hold] (the read before the write, or the write itself).
+  Future<_GatedBackend> holdStoring(
+    WidgetTester tester,
+    ProviderContainer Function(_GatedBackend backend) create,
+    _Hold hold,
+  ) async {
+    final backend = _GatedBackend();
+    final container = create(backend);
+    addTearDown(() async {
+      backend.release();
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await _pumpScreen(tester, container, ConversationSurface.si);
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'Compare my two options.',
+    );
+    await tester.tap(find.byKey(const Key('conversation-send')));
+    await _waitFor(tester, find.text('Send'));
+    backend.armed = hold;
+    await tester.tap(find.text('Send'));
+    for (var i = 0; i < 30 && backend.held == null; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(backend.held, isNotNull, reason: 'Storing is held');
+    // Let the preview finish closing.
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    return backend;
+  }
+
+  Future<void> tapStop(WidgetTester tester) async {
+    final stop = find.byKey(const Key('conversation-stop-waiting'));
+    await tester.ensureVisible(stop);
+    await tester.tap(stop);
+    await tester.pump();
+  }
+
+  const stoppedText =
+      'Stopped before the request was sent for a reply. Nothing was charged. Your question is retained.';
+
+  testWidgets(
+    'stop while the request waits to be stored withdraws it: never stored, never sent, even after a restart',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final paid = <Map<String, dynamic>>[];
+      Future<_Response> server(Map<String, dynamic> body) async {
+        if (body['quoteOnly'] == true) return _quote(body, credits: 5);
+        paid.add(body);
+        return _answer(body['requestId'], 'Must not be sent.', credits: 5);
+      }
+
+      late ProviderContainer container;
+      final backend = await holdStoring(
+        tester,
+        (backend) => container = _setup(server, backend),
+        _Hold.read,
+      );
+      await tapStop(tester);
+      expect(find.text(stoppedText), findsOneWidget);
+      backend.release();
+      await _settle(tester);
+      expect(paid, isEmpty);
+      expect(find.text(stoppedText), findsOneWidget);
+      expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+
+      await _leave(tester, container);
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await _settle(tester);
+      final restarted = _setup(server, backend);
+      addTearDown(restarted.dispose);
+      await _pumpScreen(tester, restarted, ConversationSurface.si);
+      await _settle(tester);
+      expect(paid, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'stop while waiting to be stored, then a session change for the same account: never sent',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      addTearDown(() => _sessionGeneration = 1);
+      final paid = <Map<String, dynamic>>[];
+      late ProviderContainer container;
+      final backend = await holdStoring(
+        tester,
+        (backend) => container = _setup((body) async {
           if (body['quoteOnly'] == true) return _quote(body, credits: 5);
           paid.add(body);
           return _answer(body['requestId'], 'Must not be sent.', credits: 5);
-        }, backend);
-        addTearDown(() async {
-          await tester.pumpWidget(const SizedBox.shrink());
-          container.dispose();
-        });
-        await _pumpScreen(tester, container, ConversationSurface.si);
-        await tester.enterText(
-          find.byKey(const Key('conversation-input')),
-          'Compare my two options.',
-        );
-        await tester.tap(find.byKey(const Key('conversation-send')));
-        await _waitFor(tester, find.text('Send'));
-        backend.armed = true;
-        await tester.tap(find.text('Send'));
-        for (var i = 0; i < 30 && backend.held == null; i++) {
-          await tester.pump(const Duration(milliseconds: 50));
-        }
-        expect(backend.held, isNotNull, reason: 'The request is being stored');
-        // Never leave the app-wide storage queue blocked for later tests.
-        addTearDown(() {
-          if (!backend.held!.isCompleted) backend.held!.complete();
-        });
-        // Let the preview finish closing.
-        for (var i = 0; i < 10; i++) {
-          await tester.pump(const Duration(milliseconds: 50));
-        }
+        }, backend),
+        _Hold.read,
+      );
+      await tapStop(tester);
+      _sessionGeneration = 2;
+      container.invalidate(authSessionBoundaryProvider);
+      await tester.pump();
+      backend.release();
+      await _settle(tester);
+      expect(paid, isEmpty);
+      expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+      // The reloaded chat has nothing to collect.
+      await _leave(tester, container);
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await _settle(tester);
+      expect(paid, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
-        final stop = find.byKey(const Key('conversation-stop-waiting'));
-        await tester.ensureVisible(stop);
-        await tester.tap(stop);
-        await tester.pump();
-        expect(
-          find.text('Stopping. Making sure this request is not sent…'),
-          findsOneWidget,
-        );
-        expect(find.textContaining('Nothing was charged'), findsNothing);
+  testWidgets(
+    'stop while waiting to be stored, then an account switch and return: never sent',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final paid = <Map<String, dynamic>>[];
+      var active = _scope;
+      late ProviderContainer container;
+      final backend = await holdStoring(
+        tester,
+        (backend) => container = _setup(
+          (body) async {
+            if (body['quoteOnly'] == true) return _quote(body, credits: 5);
+            paid.add(body);
+            return _answer(body['requestId'], 'Must not be sent.', credits: 5);
+          },
+          backend,
+          readScope: () => active,
+        ),
+        _Hold.read,
+      );
+      await tapStop(tester);
+      active = AccountStorageScope.authenticated('synthetic-other');
+      container.invalidate(accountStorageScopeProvider);
+      await tester.pump();
+      backend.release();
+      await _settle(tester);
+      active = _scope;
+      container.invalidate(accountStorageScopeProvider);
+      await tester.pump();
+      await _settle(tester);
+      expect(paid, isEmpty);
+      expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+      expect(tester.takeException(), isNull);
+    },
+  );
 
-        backend.held!.complete();
-        await _settle(tester);
-        expect(paid, isEmpty);
-        if (failRemoval) {
-          expect(
-            find.textContaining('It may still be sent and charged once later'),
-            findsOneWidget,
-          );
-          expect(find.textContaining('Nothing was charged'), findsNothing);
-        } else {
-          expect(
-            find.text(
-              'Stopped before the request was sent for a reply. Nothing was charged. Your question is retained.',
-            ),
-            findsOneWidget,
-          );
-          expect(
-            await _storedChat(backend),
-            isNot(contains('pendingRequests')),
-          );
-        }
-
-        // Coming back in this app run never sends it.
-        await _leave(tester, container);
-        await _pumpScreen(tester, container, ConversationSurface.si);
-        await _settle(tester);
-        expect(paid, isEmpty);
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
+  testWidgets(
+    'stop once the storage write has started says the request is finishing, and it is sent once',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final paid = <Map<String, dynamic>>[];
+      final backend = await holdStoring(
+        tester,
+        (backend) => _setup((body) async {
+          if (body['quoteOnly'] == true) return _quote(body, credits: 5);
+          paid.add(body);
+          return _answer(body['requestId'], 'The finished reply.', credits: 5);
+        }, backend),
+        _Hold.write,
+      );
+      await tapStop(tester);
+      expect(find.textContaining('Nothing was charged'), findsNothing);
+      expect(
+        find.textContaining('The paid request is still finishing safely'),
+        findsOneWidget,
+      );
+      backend.release();
+      await _settle(tester);
+      expect(paid, hasLength(1));
+      expect(find.text('The finished reply.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'stop waiting before the request is stored stores nothing and sends nothing',
@@ -1187,29 +1288,37 @@ void main() {
   );
 }
 
-/// Holds the next Chat-store write (the confirmed request being stored) until
-/// released; with [failRemoval] the write after it (its removal) fails.
-class _GatedWriteBackend extends InMemorySecureStoreBackend {
-  bool armed = false;
-  bool failRemoval = false;
-  bool _failNext = false;
+enum _Hold { read, write }
+
+/// Holds the next Chat-store read or write (storing the confirmed request
+/// reads first, then writes) until released.
+class _GatedBackend extends InMemorySecureStoreBackend {
+  _Hold? armed;
   Completer<void>? held;
+
+  void release() {
+    final gate = held;
+    if (gate != null && !gate.isCompleted) gate.complete();
+  }
+
+  Future<void> _maybeHold(_Hold kind, String key) async {
+    if (armed == kind &&
+        key.startsWith(AssistantConversationRepository.storageKey)) {
+      armed = null;
+      held = Completer<void>();
+      await held!.future;
+    }
+  }
+
+  @override
+  Future<String?> read({required String key}) async {
+    await _maybeHold(_Hold.read, key);
+    return super.read(key: key);
+  }
 
   @override
   Future<void> write({required String key, required String value}) async {
-    if (key.startsWith(AssistantConversationRepository.storageKey)) {
-      if (armed) {
-        armed = false;
-        held = Completer<void>();
-        await held!.future;
-        _failNext = failRemoval;
-        return super.write(key: key, value: value);
-      }
-      if (_failNext) {
-        _failNext = false;
-        throw StateError('synthetic_removal_failure');
-      }
-    }
+    await _maybeHold(_Hold.write, key);
     return super.write(key: key, value: value);
   }
 }
@@ -1254,10 +1363,13 @@ class _Consent extends PersonalizationProfileController {
       const PersonalizationProfile(externalAiAllowed: true);
 }
 
+/// A session-boundary change for the same account raises this.
+var _sessionGeneration = 1;
+
 class _Boundary extends AuthSessionBoundaryNotifier {
   @override
-  AuthSessionBoundary build() => const AuthSessionBoundary(
-    generation: 1,
+  AuthSessionBoundary build() => AuthSessionBoundary(
+    generation: _sessionGeneration,
     userId: 'synthetic-pending',
     isTransitioning: false,
     isStorageReady: true,
