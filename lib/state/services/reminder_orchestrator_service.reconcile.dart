@@ -115,8 +115,15 @@ class _ReminderGroup {
   /// allowed and used in place of the OS list when that cannot be read.
   final Set<String> couldOwn;
 
-  /// Registered ids that are not wanted but must not be cancelled.
-  final bool Function(String id, _StoredFingerprint? stored)? keep;
+  /// Registered ids that are not wanted but must not be cancelled. [held]
+  /// is false only when the OS list was read and no longer holds the id
+  /// (a one-off reminder that was delivered).
+  final bool Function(
+    String id,
+    _StoredFingerprint? stored, {
+    required bool held,
+  })?
+  keep;
 
   /// Saves the group's own bookkeeping once it has been applied, given how
   /// that went: [NotificationScheduleResult.scheduled] when every wanted
@@ -308,7 +315,13 @@ extension _ReminderReconciler on ReminderOrchestratorService {
     final Set<String> wantedIds = <String>{
       for (final _PlannedReminder item in group.wanted) item.id,
     };
-    bool kept(String id) => group.keep?.call(id, fingerprints[id]) ?? false;
+    bool kept(String id) =>
+        group.keep?.call(
+          id,
+          fingerprints[id],
+          held: pending?.contains(id) ?? true,
+        ) ??
+        false;
     bool ok = true;
     NotificationScheduleResult? declined;
 
@@ -537,7 +550,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
           ..._habitReminderIdsOwnedBy(habit.id),
       },
       // The old shared reminder stays until its one-time migration has run.
-      keep: (String id, _) => keepLegacy && id == legacy,
+      keep: (String id, _, {required bool held}) => keepLegacy && id == legacy,
       commit: (NotificationScheduleResult outcome) =>
           _saveTrackedHabitReminderIds(<String>{
             if (outcome == NotificationScheduleResult.failed)
@@ -609,7 +622,7 @@ extension _ReminderReconciler on ReminderOrchestratorService {
       },
       // A reminder whose time has just passed may still be waiting for the
       // OS to deliver it; it goes away on its own once it has fired.
-      keep: (String id, _StoredFingerprint? stored) {
+      keep: (String id, _StoredFingerprint? stored, {required bool held}) {
         final DateTime? at = stored?.onceAt;
         return goalsOn &&
             at != null &&

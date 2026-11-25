@@ -58,6 +58,8 @@ steps will not match. Say so in the notes.
       tap **Schedule date and time...**. Pick today in the date picker, tap OK,
       then pick the time in the clock picker (if you see a dial, the small
       keyboard icon lets you type the time instead), tap OK.
+      (The button shows the three dots on screen. Screen readers and adb read
+      it without them, as "Schedule date and time".)
       Work out the time before you start (now plus the minutes the test says),
       because the picker does not do the sum for you.
    5. Tap **Save task**.
@@ -99,7 +101,8 @@ Read this once. It explains the times you will calculate.
   and `"..." starts now.` Always schedule tasks at least 8 minutes ahead to avoid
   this.
 - **At the time** (the default setting) gives **Time to start** at the task time.
-- A task that is done, skipped or deleted has its reminder cancelled.
+- A task that is done, skipped or deleted has its reminder cancelled, and a
+  reminder for it that is still in the notification tray is cleared.
 - The app keeps at most 20 task reminders waiting at once (the nearest ones).
 
 ## Test 1: Reminder arrives with the app closed
@@ -197,9 +200,15 @@ Goal: completing a task before its reminder time cancels the reminder.
 | Step | What to do | What should happen |
 | --- | --- | --- |
 | 7.1 | Create `Reminder test 7` scheduled **15 minutes from now**. | The task saves. |
-| 7.2 | Open **My plan** (bottom bar), find `Reminder test 7` and tap **Complete**. | The task shows as completed. |
+| 7.2 | Open **My plan** (bottom bar), find `Reminder test 7` and tap the round **Complete task** button at the left of its card. | The task shows as completed. |
 | 7.3 | Close the app. Wait until 5 minutes before the time plus 10 minutes. | **No** notification arrives for this task. |
-| 7.4 | Repeat 7.1 to 7.3 with a task called `Reminder test 7b`, but remove it instead of completing it. In **My plan**, find the task and tap **Delete** on its card. A box titled **Remove task from active planning?** appears. Tap **Remove task**. | The task disappears from the active list. **No** notification arrives for it. |
+| 7.4 | Repeat 7.1 to 7.3 with a task called `Reminder test 7b`, but remove it instead of completing it. In **My plan**, find the task and tap **More options** (the ⋮ at the right of its card), then **Delete**. A box titled **Remove task from active planning?** appears. Tap **Remove task**. | The task disappears from the active list. **No** notification arrives for it. |
+
+There is no Delete button on a **My plan** card: it is in the **More options**
+menu, next to **Edit** and **Skip**. While the in-app guide is on its scheduling
+lesson, **My plan** shows the schedule view instead. There a dated task's card
+has its own buttons, **Complete**, **Skip**, **Edit** and **Delete**, and
+**Delete** opens the same **Remove task from active planning?** box.
 
 ## Test 8: Say no to notifications, then allow them later
 
@@ -242,6 +251,13 @@ Where each reminder opens in the app:
 - Habit reminder: the habit check-in list.
 - Goal reminder: **Goals** (the list, not one single goal).
 
+When two or more Axiomara notifications are in the tray, Android may group
+them into one collapsed row ("Axiomara · 2"). Tapping that collapsed group
+opens the app's normal start screen (**Today**) and leaves the notifications in
+the tray. That is Android's own group row, not a failure. To check routing,
+expand the group first (swipe down on it or tap its arrow), then tap the single
+reminder row: that one opens **My plan** and clears itself.
+
 ## Test 10: Quiet hours hold a reminder
 
 Goal: a reminder that falls inside quiet hours waits until quiet hours end.
@@ -257,7 +273,12 @@ Do not run this test close to midnight.
 | 10.3 | Create `Reminder test 10` scheduled **10 minutes from now**. | The task saves. |
 | 10.4 | Close the app. At the scheduled time plus 5 minutes, check the phone. | **No** notification yet. It is being held. |
 | 10.5 | Wait for the Ends time, plus up to 10 minutes of lateness. | The notification arrives now: **Time to start**, `"Reminder test 10" starts now.` |
-| 10.6 | Turn **Quiet hours** off again. Set **Task reminder time** back to **5 minutes before** if you want to continue with the other tests. | |
+| 10.6 | Turn **Quiet hours** off. Leave **Task reminder time** on **At the time**. | |
+| 10.7 | Now check that turning quiet hours on does not send a delivered reminder again. Create `Reminder test 10b` scheduled **10 minutes from now**. Close the app. | The task saves. |
+| 10.8 | Wait for its reminder (**Time to start**, `"Reminder test 10b" starts now.`). Do not complete the task. | One notification for `Reminder test 10b`. |
+| 10.9 | Open the app, Settings > **Notifications**. Turn **Quiet hours** on. Set **Starts** to **30 minutes ago** (before the time the reminder came) and **Ends** to **20 minutes from now**. | Starts and Ends show your times. |
+| 10.10 | Close the app. Wait for the Ends time, plus 10 minutes. | **No** second notification for `Reminder test 10b`. A reminder that already went off is not held back and sent again when quiet hours are switched on or changed. |
+| 10.11 | Turn **Quiet hours** off again. Complete `Reminder test 10b`. Set **Task reminder time** back to **5 minutes before** if you want to continue with the other tests. | Completing the task also clears its notification from the tray if it is still there. |
 
 Note: if you try this with a lead time such as 5 minutes before, the held
 reminder may still read "starts in 5 minutes" even though it arrives after the
@@ -299,13 +320,19 @@ before the language change keeps its old language until the app plans again.
 
 | Step | What to do | What should happen |
 | --- | --- | --- |
-| 13.1 | **Add something** > **Habit**. Title `Reminder habit`. Under **Reminder** (default is **Any time**, meaning no reminder) tap **Other time...** and pick **6 minutes from now**. Tap **Save habit**. | The line under the chips reads "Reminder at ... every day" (or similar). |
+| 13.1 | **Add something** > **Habit**. Title `Reminder habit`. Under **Reminder** (default is **Any time**, meaning no reminder) tap **Other time…** and pick **6 minutes from now**. Tap **Save habit**. | The line under the chips reads "Reminder at ... every day" (or similar). |
 | 13.2 | Close the app. Wait for that time plus up to 10 minutes. | A notification titled **Reminder habit** arrives: `Time for "Reminder habit". Tap to check in.` |
 | 13.3 | Tap it. | The app opens the habit check-in list. |
 
 Weekly habits let you choose weekdays. Monthly habits let you choose a day of the
 month or **Last day**. These need days of waiting, so they are covered only in
 the "expected, not a failure" list below.
+
+If you set up a weekly habit: the weekday chips appear once you have chosen a
+reminder time, and **Monday is already selected**. Tapping other days adds them
+to Monday. If you do not want Monday, tap it to unselect it, and check that the
+line under the chips names only the days you want (for example "Reminder at
+9:15 PM every Wednesday and Saturday").
 
 ## Optional test 14: Goal reminders
 
@@ -315,7 +342,7 @@ that you create after 09:00 (only if 18:00 is at least 30 minutes away).
 
 | Step | What to do | What should happen |
 | --- | --- | --- |
-| 14.1 | Run this between 09:30 and 17:00. **Add something** > **Goal**. Title `Reminder goal`. Open **Add a target date (optional)**, tap **Add target date...**, pick today in the date picker and tap OK. Tap **Save goal**. | The goal saves. |
+| 14.1 | Run this between 09:30 and 17:00. **Add something** > **Goal**. Title `Reminder goal`. Open **Add a target date (optional)**, tap **Add target date...**, pick today in the date picker and tap OK. Tap **Save goal**. (As in rule 5, the button shows the three dots on screen; screen readers and adb read it as "Add target date".) | The goal saves. |
 | 14.2 | Close the app. Wait until 18:00 plus up to 10 minutes. | **Goal due today**, `"Reminder goal" is due today.` |
 | 14.3 | Tap it. | The app opens **Goals**. |
 
@@ -361,6 +388,7 @@ late" is arrival minus the time the reminder was due.
 | 9 | Tap with app closed opens My plan | | | | | | |
 | 9b | Second tap with the app closed | | | | | | |
 | 10 | Quiet hours hold, then deliver | | | | | | |
+| 10b | Quiet hours on after delivery, no repeat | | | | | | |
 | 11 | Main switch off, then on | | | | | | |
 | 12 | Spanish wording | | | | | | |
 | 13 | Habit reminder (optional) | | | | | | |

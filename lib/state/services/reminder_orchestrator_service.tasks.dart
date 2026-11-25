@@ -69,6 +69,7 @@ abstract final class TaskReminderPlanner {
         leadTime: Duration(minutes: prefs.taskReminderLeadMinutes),
         overdueNudges: prefs.taskOverdueNudgesEnabled,
         quietHours: prefs.quietHours,
+        quietHoursChangedAt: prefs.quietHoursChangedAt,
       ).isNotEmpty;
 
   static bool isOpen(TaskEntity task) =>
@@ -81,10 +82,12 @@ abstract final class TaskReminderPlanner {
   /// use the device time zone (`tz.local`). With a lead time, a task saved
   /// too late for it is reminded at its time itself, and so is a task whose
   /// lead moment came before [rulesChangedAt] (the lead time or a reminder
-  /// switch changed, or notifications were allowed again, after it). Every
-  /// time is moved out of [quietHours] before it is judged, so a reminder
-  /// held back until quiet hours end stays planned (and counts toward
-  /// [limit]) while it waits.
+  /// switch, quiet hours or notifications being allowed changed after it).
+  /// Every time is moved out of [quietHours] before it is judged, so a
+  /// reminder held back until quiet hours end stays planned (and counts
+  /// toward [limit]) while it waits; but a time that had already passed at
+  /// [quietHoursChangedAt] (when they were last set; null is long ago) is
+  /// not held: it went off or was dropped then.
   static List<TaskReminderSlot> plan(
     Iterable<TaskEntity> tasks, {
     required DateTime now,
@@ -93,6 +96,7 @@ abstract final class TaskReminderPlanner {
     bool spanish = false,
     int limit = maxPending,
     QuietHours quietHours = const QuietHours(),
+    DateTime? quietHoursChangedAt,
     DateTime? rulesChangedAt,
   }) {
     final Duration lead = leadTime.isNegative ? Duration.zero : leadTime;
@@ -100,15 +104,14 @@ abstract final class TaskReminderPlanner {
       for (final TaskEntity task in tasks)
         if (isOpen(task))
           ..._forTask(
-                task,
-                now: now,
-                lead: lead,
-                overdue: overdueNudges,
-                quiet: quietHours,
-                rulesChangedAt: rulesChangedAt,
-              )
-              .map((slot) => slot.written(_TaskReminderCopy(spanish, task)))
-              .where((TaskReminderSlot slot) => slot.at.isAfter(now)),
+            task,
+            now: now,
+            lead: lead,
+            overdue: overdueNudges,
+            quiet: quietHours,
+            quietSince: quietHoursChangedAt,
+            rulesChangedAt: rulesChangedAt,
+          ).map((slot) => slot.written(_TaskReminderCopy(spanish, task))),
     ];
     slots.sort((TaskReminderSlot a, TaskReminderSlot b) {
       final int byTime = a.at.compareTo(b.at);
@@ -123,10 +126,13 @@ abstract final class TaskReminderPlanner {
     required Duration lead,
     required bool overdue,
     required QuietHours quiet,
+    required DateTime? quietSince,
     required DateTime? rulesChangedAt,
   }) {
     final DateTime? start = task.scheduledFor;
     final DateTime? due = task.dueDate;
+    DateTime? toCome(DateTime at) =>
+        quiet.stillToCome(at, now: now, changedAt: quietSince);
     // The lead-time reminder, or, when that moment had already passed when
     // the task was last saved or the reminder rules last changed, but the
     // time itself is still ahead, a reminder at the time itself. A task
@@ -135,15 +141,21 @@ abstract final class TaskReminderPlanner {
     final DateTime savedAt = task.updatedAt ?? task.createdAt;
     _TaskSlotTime? ahead(String id, _TaskReminderKind kind, DateTime at) {
       final DateTime early = at.subtract(lead);
-      final DateTime heldEarly = quiet.moveOut(early);
-      if (heldEarly.isAfter(now)) {
+      final DateTime? heldEarly = toCome(early);
+      if (heldEarly != null) {
         return _TaskSlotTime(id, kind, heldEarly, lead.inMinutes);
       }
-      if (early.isAfter(savedAt) &&
-          (rulesChangedAt == null || early.isAfter(rulesChangedAt))) {
+      // When the lead-time reminder really went off: at the end of the
+      // quiet hours that held it back.
+      final DateTime sent = quiet.mayHold(early, quietSince)
+          ? quiet.moveOut(early)
+          : early;
+      if (sent.isAfter(savedAt) &&
+          (rulesChangedAt == null || sent.isAfter(rulesChangedAt))) {
         return null;
       }
-      return _TaskSlotTime(id, kind, quiet.moveOut(at), 0);
+      final DateTime? heldAt = toCome(at);
+      return heldAt == null ? null : _TaskSlotTime(id, kind, heldAt, 0);
     }
 
     final _TaskSlotTime? first = start != null
@@ -157,15 +169,18 @@ abstract final class TaskReminderPlanner {
             _morning(due, dateOnly: true, daysAfter: 0),
           )
         : ahead(dueId(task.id), _TaskReminderKind.due, due);
+    final DateTime? overdueAt = overdue && due != null
+        ? toCome(
+            _morning(due, dateOnly: task.hasDateOnlyDeadline, daysAfter: 1),
+          )
+        : null;
     return <_TaskSlotTime>[
       ?first,
-      if (overdue && due != null)
+      if (overdueAt != null)
         _TaskSlotTime(
           overdueId(task.id),
           _TaskReminderKind.overdue,
-          quiet.moveOut(
-            _morning(due, dateOnly: task.hasDateOnlyDeadline, daysAfter: 1),
-          ),
+          overdueAt,
           0,
         ),
     ];
@@ -287,6 +302,7 @@ extension _TaskReminders on ReminderOrchestratorService {
           overdueNudges: prefs.taskOverdueNudgesEnabled,
           spanish: _isSpanish(),
           quietHours: prefs.quietHours,
+          quietHoursChangedAt: prefs.quietHoursChangedAt,
           rulesChangedAt: _taskRulesChangedAt(),
         ))
           _PlannedReminder.once(
@@ -309,42 +325,54 @@ extension _TaskReminders on ReminderOrchestratorService {
         ..._loadFingerprints().keys.where(TaskReminderPlanner.ownsId),
       },
       // A reminder whose time has just passed may still be waiting for the
-      // OS to deliver it; it goes away on its own once it has fired. A
-      // finished or removed task loses it at once.
-      keep: (String id, _StoredFingerprint? stored) {
+      // OS to deliver it; it goes away on its own once it has fired. One the
+      // OS no longer holds was delivered: cancelling it would only take it
+      // out of the tray, so it stays there while its task is open. A
+      // finished or removed task loses both at once.
+      keep: (String id, _StoredFingerprint? stored, {required bool held}) {
+        if (!openIds.contains(id)) return false;
+        if (!held) return true;
         final DateTime? at = stored?.onceAt;
-        return tasksOn &&
-            at != null &&
-            !at.isAfter(now) &&
-            openIds.contains(id);
+        return tasksOn && at != null && !at.isAfter(now);
       },
+      // Ids of open tasks stay tracked after their reminder went off, so
+      // finishing the task later still clears it from the tray.
       commit: (NotificationScheduleResult outcome) =>
           _saveTrackedTaskReminderIds(
             outcome == NotificationScheduleResult.scheduled
-                ? wantedIds
+                ? <String>{...wantedIds, ...previous.where(openIds.contains)}
                 : <String>{...previous, ...wantedIds},
           ),
     );
   }
 
-  /// Cancels every task reminder this account may have registered.
+  /// Cancels every task reminder this account may have registered. When the
+  /// OS list can be read, a reminder it no longer holds (already delivered)
+  /// is left in the tray and stays tracked, so finishing its task later
+  /// still clears it.
   Future<void> _cancelTaskReminders() async {
-    final Set<String> ids = <String>{
+    final Set<String>? pending = await _readPendingIds();
+    final Set<String> known = <String>{
       ..._trackedTaskReminderIds(),
       ..._loadFingerprints().keys.where(TaskReminderPlanner.ownsId),
-      ...(await _readPendingIds() ?? const <String>{}).where(
-        TaskReminderPlanner.ownsId,
-      ),
     };
-    await _forgetFingerprints(ids);
+    final Set<String> delivered = pending == null
+        ? <String>{}
+        : known.difference(pending);
+    final Set<String> ids = <String>{
+      ...known.difference(delivered),
+      ...?pending?.where(TaskReminderPlanner.ownsId),
+    };
+    await _forgetFingerprints(<String>{...ids, ...delivered});
     for (final String id in ids) {
       await _scheduler.cancel(id, accountScope: _accountScope);
     }
-    await _saveTrackedTaskReminderIds(<String>{});
+    await _saveTrackedTaskReminderIds(delivered);
   }
 
-  /// When the lead time, the task reminder switch or the main switch last
-  /// changed, or notifications were last allowed again; null if never.
+  /// When the lead time, the task reminder switch, the main switch or quiet
+  /// hours last changed, or notifications were last allowed again; null if
+  /// never.
   DateTime? _taskRulesChangedAt() {
     final String? raw = _preferences.load(
       ReminderOrchestratorService._taskRulesChangedAtKey,

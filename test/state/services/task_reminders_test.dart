@@ -316,6 +316,52 @@ void main() {
       expect(fixture.scheduler.pending, isEmpty);
     });
 
+    for (final String change in <String>[
+      'completing',
+      'skipping',
+      'removing',
+    ]) {
+      test('$change a task also clears its delivered reminder from the tray, '
+          'even after later updates', () async {
+        final fixture = _Fixture();
+        final task = fixture.dated('a', hours: 2);
+        fixture.tasks = [task];
+        expect(await fixture.sync(), isTrue);
+
+        // It went off and is shown in the tray; the app is opened and other
+        // updates run while the task stays open.
+        fixture.now = fixture.now.add(const Duration(hours: 2, minutes: 5));
+        fixture.scheduler.pending.remove('task_reminder_start_a');
+        fixture.scheduler.clearLog();
+        expect(await fixture.reconcile(), isTrue);
+        expect(await fixture.sync(), isTrue);
+        await fixture.service.setRemindersEnabled(false);
+        expect(await fixture.reconcile(), isTrue);
+        await fixture.service.setRemindersEnabled(true);
+        expect(await fixture.reconcile(), isTrue);
+        await fixture.service.setTaskRemindersEnabled(false);
+        await fixture.service.setTaskRemindersEnabled(true);
+        expect(await fixture.reconcile(), isTrue);
+        // An open task keeps its shown reminder.
+        expect(fixture.scheduler.cancelled, isEmpty);
+
+        fixture.tasks = switch (change) {
+          'completing' => [task.complete(at: fixture.now)],
+          'skipping' => [
+            task.copyWith(isSkipped: true, skippedAt: fixture.now),
+          ],
+          _ => <TaskEntity>[],
+        };
+        expect(await fixture.sync(), isTrue);
+        expect(fixture.scheduler.cancelled, ['task_reminder_start_a']);
+
+        // Only once.
+        fixture.scheduler.clearLog();
+        expect(await fixture.reconcile(), isTrue);
+        expect(fixture.scheduler.cancelled, isEmpty);
+      });
+    }
+
     test('moving a task moves its reminder', () async {
       final fixture = _Fixture();
       final task = fixture.dated('a', hours: 2);

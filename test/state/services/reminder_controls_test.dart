@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
@@ -317,6 +318,245 @@ void main() {
     expect(fixture.scheduler.pending, contains('goal_reminder_trip_3d'));
   });
 
+  test('turning quiet hours on does not bring back a task reminder that '
+      'was already delivered', () async {
+    final fixture = _Fixture()..now = utc(local(2026, 11, 2, 23, 40));
+    fixture.tasks = [
+      _task('b', scheduledFor: local(2026, 11, 2, 23, 52)),
+      _task('c', dueDate: local(2026, 11, 2, 23, 55)),
+      _task('e', scheduledFor: local(2026, 11, 3, 1, 3)),
+    ];
+    expect(await fixture.reconcile(const [], const []), isTrue);
+
+    // B and C went off on time and left the OS list; both stay open.
+    fixture.now = utc(local(2026, 11, 3, 0, 16));
+    fixture.scheduler.pending
+      ..remove('task_reminder_start_b')
+      ..remove('task_reminder_due_c');
+    expect(await fixture.reconcile(const [], const []), isTrue);
+
+    // 00:25: quiet hours on, 22:00 to 07:00. Only E, still ahead, is held.
+    fixture.now = utc(local(2026, 11, 3, 0, 25));
+    fixture.scheduler.clearLog();
+    await fixture.service.setQuietHours(const QuietHours(enabled: true));
+    expect(await fixture.reconcile(const [], const []), isTrue);
+    expect(fixture.scheduler.registered, ['task_reminder_start_e']);
+    expect(
+      fixture.scheduler.times['task_reminder_start_e'],
+      utc(local(2026, 11, 3, 7)),
+    );
+
+    // 00:26: quiet hours now end at 01:23. Still only E, held to then.
+    fixture.now = utc(local(2026, 11, 3, 0, 26));
+    fixture.scheduler.clearLog();
+    await fixture.service.setQuietHours(
+      const QuietHours(enabled: true, endMinutes: 60 + 23),
+    );
+    expect(await fixture.reconcile(const [], const []), isTrue);
+    expect(fixture.scheduler.registered, ['task_reminder_start_e']);
+    expect(
+      fixture.scheduler.times['task_reminder_start_e'],
+      utc(local(2026, 11, 3, 1, 23)),
+    );
+    expect(fixture.scheduler.pending.where((id) => id.startsWith('task_')), {
+      'task_reminder_start_e',
+    });
+  });
+
+  test('quiet hours set after an overdue nudge went off do not send it '
+      'again', () async {
+    final fixture = _Fixture()..now = utc(local(2026, 11, 3, 8));
+    fixture.preferences.values['task_overdue_nudges_enabled'] = 'true';
+    fixture.tasks = [_task('late', dueDate: local(2026, 11, 2, 17))];
+    expect(await fixture.reconcile(const [], const []), isTrue);
+    expect(
+      fixture.scheduler.times['task_reminder_overdue_late'],
+      utc(local(2026, 11, 3, 9)),
+    );
+
+    // 09:30: it went off at 09:00. Quiet hours 08:00 to 10:00 are set.
+    fixture.now = utc(local(2026, 11, 3, 9, 30));
+    fixture.scheduler.pending.remove('task_reminder_overdue_late');
+    fixture.scheduler.clearLog();
+    await fixture.service.setQuietHours(
+      const QuietHours(enabled: true, startMinutes: 8 * 60, endMinutes: 600),
+    );
+    expect(await fixture.reconcile(const [], const []), isTrue);
+    expect(fixture.scheduler.registered, isEmpty);
+    expect(
+      fixture.scheduler.pending,
+      isNot(contains('task_reminder_overdue_late')),
+    );
+  });
+
+  test('turning quiet hours on does not bring back a goal reminder that '
+      'was already delivered', () async {
+    final fixture = _Fixture();
+    final DateTime goalMorning = DateTime(2026, 11, 3, 9);
+    final tz.TZDateTime wall = tz.TZDateTime.from(goalMorning, tz.local);
+    final int start = wall.hour * 60 + wall.minute;
+    final goals = [fixture.goal('trip')];
+    expect(await fixture.reconcile(goals, const []), isTrue);
+    expect(fixture.scheduler.pending, contains('goal_reminder_trip_3d'));
+
+    // Ten minutes after it went off, an hour of quiet hours starting at its
+    // time is switched on.
+    fixture.now = goalMorning.add(const Duration(minutes: 10));
+    fixture.scheduler.pending.remove('goal_reminder_trip_3d');
+    expect(await fixture.reconcile(goals, const []), isTrue);
+    fixture.scheduler.clearLog();
+    await fixture.service.setQuietHours(
+      QuietHours(
+        enabled: true,
+        startMinutes: start,
+        endMinutes: (start + 60) % (24 * 60),
+      ),
+    );
+    expect(await fixture.reconcile(goals, const []), isTrue);
+    await fixture.service.syncGoalReminders(goals);
+    expect(
+      fixture.scheduler.registered,
+      isNot(contains('goal_reminder_trip_3d')),
+    );
+    expect(fixture.scheduler.pending, isNot(contains('goal_reminder_trip_3d')));
+    // The later ones are untouched.
+    expect(fixture.scheduler.pending, contains('goal_reminder_trip_due'));
+  });
+
+  test(
+    'only a real quiet-hours change is recorded, for this account',
+    () async {
+      final fixture = _Fixture();
+      await fixture.service.setQuietHours(const QuietHours());
+      expect(
+        fixture.preferences.values,
+        isNot(contains('quiet_hours_changed_at')),
+      );
+      expect(
+        fixture.preferences.values,
+        isNot(contains('task_reminder_rules_changed_at')),
+      );
+
+      await fixture.service.setQuietHours(const QuietHours(enabled: true));
+      final String stamp = fixture.now.toIso8601String();
+      expect(fixture.preferences.values['quiet_hours_changed_at'], stamp);
+      expect(
+        fixture.preferences.values['task_reminder_rules_changed_at'],
+        stamp,
+      );
+
+      // The same setting again is not a change.
+      fixture.now = fixture.now.add(const Duration(hours: 1));
+      await fixture.service.setQuietHours(const QuietHours(enabled: true));
+      expect(fixture.preferences.values['quiet_hours_changed_at'], stamp);
+
+      // Each of on/off, start and end is.
+      for (final QuietHours next in const <QuietHours>[
+        QuietHours(enabled: true, startMinutes: 23 * 60),
+        QuietHours(enabled: true, startMinutes: 23 * 60, endMinutes: 6 * 60),
+        QuietHours(startMinutes: 23 * 60, endMinutes: 6 * 60),
+      ]) {
+        fixture.now = fixture.now.add(const Duration(minutes: 1));
+        await fixture.service.setQuietHours(next);
+        expect(
+          fixture.preferences.values['quiet_hours_changed_at'],
+          fixture.now.toIso8601String(),
+        );
+      }
+      expect(
+        AccountDataRegistry.reminderPreferenceKeys,
+        contains('quiet_hours_changed_at'),
+      );
+    },
+  );
+
+  test('turning quiet hours off while a lead-time reminder is held reminds '
+      'at the time itself', () async {
+    final fixture = _Fixture()..now = utc(local(2026, 11, 2, 21));
+    fixture.preferences.values
+      ..['quiet_hours_enabled'] = 'true'
+      ..['quiet_hours_start'] = '22:0'
+      ..['quiet_hours_end'] = '7:0'
+      ..['task_reminder_lead_minutes'] = '60';
+    final DateTime saved = fixture.now;
+    fixture.tasks = [
+      _task(
+        'soon',
+        scheduledFor: local(2026, 11, 3, 7, 30),
+      ).copyWith(updatedAt: saved),
+      // Its own time passes before quiet hours are turned off.
+      _task(
+        'early',
+        scheduledFor: local(2026, 11, 3, 6, 40),
+      ).copyWith(updatedAt: saved),
+    ];
+    expect(await fixture.reconcile(const [], const []), isTrue);
+    expect(
+      fixture.scheduler.times['task_reminder_start_soon'],
+      utc(local(2026, 11, 3, 7)),
+    );
+    expect(
+      fixture.scheduler.times['task_reminder_start_early'],
+      utc(local(2026, 11, 3, 7)),
+    );
+
+    fixture.now = utc(local(2026, 11, 3, 6, 45));
+    fixture.scheduler.clearLog();
+    await fixture.service.setQuietHours(const QuietHours());
+    expect(await fixture.reconcile(const [], const []), isTrue);
+    expect(fixture.scheduler.registered, ['task_reminder_start_soon']);
+    expect(
+      fixture.scheduler.times['task_reminder_start_soon'],
+      utc(local(2026, 11, 3, 7, 30)),
+    );
+    expect(fixture.scheduler.pending.where((id) => id.startsWith('task_')), {
+      'task_reminder_start_soon',
+    });
+  });
+
+  test('a lead-time reminder delivered at the end of quiet hours is not '
+      'followed by one at the time itself', () async {
+    final fixture = _Fixture()..now = utc(local(2026, 11, 2, 21));
+    fixture.preferences.values
+      ..['quiet_hours_enabled'] = 'true'
+      ..['quiet_hours_start'] = '22:0'
+      ..['quiet_hours_end'] = '7:0'
+      ..['task_reminder_lead_minutes'] = '60';
+    fixture.tasks = [
+      _task(
+        'soon',
+        scheduledFor: local(2026, 11, 3, 7, 30),
+      ).copyWith(updatedAt: fixture.now),
+    ];
+    expect(await fixture.reconcile(const [], const []), isTrue);
+
+    // 06:45: task reminders are switched off and on again.
+    fixture.now = utc(local(2026, 11, 3, 6, 45));
+    await fixture.service.setTaskRemindersEnabled(false);
+    expect(await fixture.reconcile(const [], const []), isTrue);
+    await fixture.service.setTaskRemindersEnabled(true);
+    expect(await fixture.reconcile(const [], const []), isTrue);
+    expect(
+      fixture.scheduler.times['task_reminder_start_soon'],
+      utc(local(2026, 11, 3, 7)),
+    );
+
+    // 07:10: it went off at 07:00.
+    fixture.now = utc(local(2026, 11, 3, 7, 10));
+    fixture.scheduler.pending.remove('task_reminder_start_soon');
+    fixture.scheduler.clearLog();
+    expect(await fixture.reconcile(const [], const []), isTrue);
+    await fixture.service.syncTaskReminders(
+      permissionGranted: true,
+      shouldContinue: () => true,
+    );
+    expect(fixture.scheduler.registered, isEmpty);
+    expect(
+      fixture.scheduler.pending.where((id) => id.startsWith('task_')),
+      isEmpty,
+    );
+  });
+
   test('the streak nudge is not listed or registered while the main switch '
       'is off, and turning it off cancels one that is waiting', () async {
     final fixture = _Fixture();
@@ -342,12 +582,14 @@ void main() {
   });
 }
 
-TaskEntity _task(String id, {DateTime? dueDate}) => TaskEntity(
-  id: id,
-  title: 'Task $id',
-  createdAt: DateTime.utc(2026, 10, 1),
-  dueDate: dueDate,
-);
+TaskEntity _task(String id, {DateTime? dueDate, DateTime? scheduledFor}) =>
+    TaskEntity(
+      id: id,
+      title: 'Task $id',
+      createdAt: DateTime.utc(2026, 10, 1),
+      dueDate: dueDate,
+      scheduledFor: scheduledFor,
+    );
 
 class _Fixture {
   _Fixture() {

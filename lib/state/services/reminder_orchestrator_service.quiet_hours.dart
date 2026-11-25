@@ -48,6 +48,28 @@ class QuietHours {
         ? DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true)
         : DateTime.fromMillisecondsSinceEpoch(ms);
   }
+
+  /// Whether these quiet hours may hold back a reminder due at [at]: only
+  /// when [at] was still ahead at [changedAt], when this setting last really
+  /// changed. A time that had passed by then was already delivered or
+  /// dropped under the earlier setting. A null [changedAt] counts as long
+  /// ago.
+  bool mayHold(DateTime at, DateTime? changedAt) =>
+      changedAt == null || at.isAfter(changedAt);
+
+  /// When a reminder due at [at] still comes, judged at [now]: [at] moved out
+  /// of quiet hours (see [moveOut]), or null when that has passed or these
+  /// quiet hours may not hold it back (see [mayHold]).
+  DateTime? stillToCome(
+    DateTime at, {
+    required DateTime now,
+    required DateTime? changedAt,
+  }) {
+    if (at.isAfter(now)) return moveOut(at);
+    if (!mayHold(at, changedAt)) return null;
+    final DateTime moved = moveOut(at);
+    return moved.isAfter(now) ? moved : null;
+  }
 }
 
 extension _ReminderControls on ReminderOrchestratorService {
@@ -65,6 +87,15 @@ extension _ReminderControls on ReminderOrchestratorService {
       QuietHours.defaultEndMinutes,
     ),
   );
+
+  /// When the quiet-hours setting last really changed; null (long ago) when
+  /// it never did since this was recorded.
+  DateTime? _quietHoursChangedAt() {
+    final String? raw = _preferences.load(
+      ReminderOrchestratorService._quietHoursChangedAtKey,
+    );
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
 
   /// A stored "hour:minute" time as minutes after midnight, or [fallback].
   int _storedMinutes(String key, int fallback) {

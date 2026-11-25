@@ -266,8 +266,9 @@ abstract final class AccountDataRegistry {
     'task_overdue_nudges_enabled',
     'task_reminder_lead_minutes',
     'scheduled_task_reminder_ids',
-    // When a lead time or reminder switch last changed (or notifications
-    // were allowed again), so a missed lead-time reminder still comes.
+    // When a lead time, reminder switch or quiet hours last changed (or
+    // notifications were allowed again), so a missed lead-time reminder
+    // still comes.
     'task_reminder_rules_changed_at',
     // When each goal's "due today" reminder was planned for its target date.
     'goal_due_today_times',
@@ -276,6 +277,9 @@ abstract final class AccountDataRegistry {
     'quiet_hours_enabled',
     'quiet_hours_start',
     'quiet_hours_end',
+    // When quiet hours last really changed, so a reminder that had already
+    // gone off then is not held back and sent again.
+    'quiet_hours_changed_at',
     // The account's answer to the in-context notification permission request
     // and whether it closed the "notifications are off" notice.
     'notification_permission_refusal_v1',

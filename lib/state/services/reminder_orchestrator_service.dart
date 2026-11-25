@@ -37,6 +37,7 @@ class ReminderOrchestratorPrefs {
     this.taskReminderLeadMinutes = 0,
     this.remindersEnabled = true,
     this.quietHours = const QuietHours(),
+    this.quietHoursChangedAt,
   });
 
   /// The main switch. Off, the account has no OS reminders at all; each
@@ -45,6 +46,10 @@ class ReminderOrchestratorPrefs {
 
   /// Off unless the person sets it.
   final QuietHours quietHours;
+
+  /// When [quietHours] last really changed; null counts as long ago (see
+  /// [QuietHours.mayHold]).
+  final DateTime? quietHoursChangedAt;
 
   final bool goalRemindersEnabled;
   final bool habitRemindersEnabled;
@@ -89,6 +94,10 @@ class ReminderOrchestratorService {
   static const String _quietHoursEnabledKey = 'quiet_hours_enabled';
   static const String _quietHoursStartKey = 'quiet_hours_start';
   static const String _quietHoursEndKey = 'quiet_hours_end';
+
+  /// When the quiet-hours setting last really changed, so a reminder that
+  /// had already gone off then is not held back and sent again.
+  static const String _quietHoursChangedAtKey = 'quiet_hours_changed_at';
 
   /// The task lead times offered in Settings, in minutes.
   static const List<int> taskLeadChoices = <int>[0, 5, 15, 30, 60];
@@ -222,6 +231,7 @@ class ReminderOrchestratorService {
       taskReminderLeadMinutes: _taskReminderLeadMinutes(),
       remindersEnabled: _remindersOn(),
       quietHours: _quietHours(),
+      quietHoursChangedAt: _quietHoursChangedAt(),
     );
   }
 
@@ -266,8 +276,16 @@ class ReminderOrchestratorService {
     if (changed) await _markTaskRulesChanged();
   }
 
-  /// Applied by the next reconcile (the caller runs one).
+  /// Applied by the next reconcile (the caller runs one). A real change
+  /// (on/off, start or end) is recorded: reminders whose time had passed by
+  /// then are not held back again, and it counts as a task rule change, so a
+  /// lead-time reminder it was holding falls back to the time itself.
   Future<void> setQuietHours(QuietHours quietHours) async {
+    final QuietHours before = _quietHours();
+    final bool changed =
+        before.enabled != quietHours.enabled ||
+        before.startMinutes != quietHours.startMinutes ||
+        before.endMinutes != quietHours.endMinutes;
     String time(int minutes) => '${minutes ~/ 60}:${minutes % 60}';
     await _preferences.save(_quietHoursStartKey, time(quietHours.startMinutes));
     await _preferences.save(_quietHoursEndKey, time(quietHours.endMinutes));
@@ -275,6 +293,12 @@ class ReminderOrchestratorService {
       _quietHoursEnabledKey,
       quietHours.enabled.toString(),
     );
+    if (!changed) return;
+    await _preferences.save(
+      _quietHoursChangedAtKey,
+      _now().toUtc().toIso8601String(),
+    );
+    await _markTaskRulesChanged();
   }
 
   /// [at] moved out of the stored quiet hours, for reminders whose time the
@@ -897,8 +921,12 @@ class ReminderOrchestratorService {
     final DateTime today = DateTime(now.year, now.month, now.day);
     // The app picks these times, so quiet hours move them. Whether one is
     // still ahead is judged on the moved time, so a reminder being held
-    // back is not dropped while it waits.
+    // back is not dropped while it waits; one whose own time had passed when
+    // the quiet hours were set is not held (see [QuietHours.stillToCome]).
     final QuietHours quiet = _quietHours();
+    final DateTime? quietSince = _quietHoursChangedAt();
+    DateTime? toCome(DateTime at) =>
+        quiet.stillToCome(at, now: now, changedAt: quietSince);
 
     final DateTime? target = goal.targetDate;
     DateTime? dueDay;
@@ -921,8 +949,8 @@ class ReminderOrchestratorService {
                 next: nextDueTimes,
               )
             : morning(daysBefore);
-        final DateTime? when = at == null ? null : quiet.moveOut(at);
-        if (when == null || !when.isAfter(now)) continue;
+        final DateTime? when = at == null ? null : toCome(at);
+        if (when == null) continue;
         slots.add(
           GoalReminderSlot(
             id: id,
@@ -932,8 +960,8 @@ class ReminderOrchestratorService {
           ),
         );
       }
-      final DateTime overdueAt = quiet.moveOut(morning(-1));
-      if (overdueNudges && overdueAt.isAfter(now)) {
+      final DateTime? overdueAt = toCome(morning(-1));
+      if (overdueNudges && overdueAt != null) {
         slots.add(
           GoalReminderSlot(
             id: '${base}_overdue',
@@ -959,25 +987,22 @@ class ReminderOrchestratorService {
       // Progress could not be read: keep any pending nudge as it was.
       if (earlier != null) {
         nextNudges[goal.id] = earlier;
-        final DateTime when = quiet.moveOut(earlier);
-        if (when.isAfter(now) && !deadlineSoon) {
+        final DateTime? when = toCome(earlier);
+        if (when != null && !deadlineSoon) {
           slots.add(_closeSlot(copy, base, title, remaining, when));
         }
       }
     } else if (close && !deadlineSoon) {
       final DateTime at =
           earlier ??
-          (quiet
-                  .moveOut(
-                    DateTime(now.year, now.month, now.day, goalReminderHour),
-                  )
-                  .isAfter(now)
+          (toCome(DateTime(now.year, now.month, now.day, goalReminderHour)) !=
+                  null
               ? DateTime(now.year, now.month, now.day, goalReminderHour)
               : DateTime(now.year, now.month, now.day + 1, goalReminderHour));
       nextNudges[goal.id] = at;
       // A nudge whose time has passed already fired; it does not repeat.
-      final DateTime when = quiet.moveOut(at);
-      if (when.isAfter(now)) {
+      final DateTime? when = toCome(at);
+      if (when != null) {
         slots.add(_closeSlot(copy, base, title, remaining, when));
       }
     }
@@ -1018,11 +1043,19 @@ class ReminderOrchestratorService {
         day.day,
         goalSameDayHour,
       );
-      // Judged on the times after quiet hours move them.
-      if (_appTimed(morning).isAfter(now)) {
+      // Judged on the times after quiet hours move them, as for every slot.
+      final QuietHours quiet = _quietHours();
+      final DateTime? quietSince = _quietHoursChangedAt();
+      final DateTime? heldEvening = quiet.stillToCome(
+        evening,
+        now: now,
+        changedAt: quietSince,
+      );
+      if (quiet.stillToCome(morning, now: now, changedAt: quietSince) != null) {
         at = morning;
       } else if (onDay(now) &&
-          !_appTimed(evening).isBefore(now.add(goalSameDayLead))) {
+          heldEvening != null &&
+          !heldEvening.isBefore(now.add(goalSameDayLead))) {
         at = evening;
       }
     }
