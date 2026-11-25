@@ -362,6 +362,70 @@ void main() {
       });
     }
 
+    test('when the OS list cannot be read, a delivered reminder of an open '
+        'task stays in the tray, and finishing the task still clears '
+        'it', () async {
+      final fixture = _Fixture();
+      final task = fixture.dated('a', hours: 2);
+      fixture.tasks = [task];
+      expect(await fixture.sync(), isTrue);
+      fixture.now = fixture.now.add(const Duration(hours: 2, minutes: 5));
+      fixture.scheduler.pending.remove('task_reminder_start_a');
+      expect(await fixture.reconcile(), isTrue);
+
+      fixture.scheduler
+        ..pendingUnreadable = true
+        ..clearLog();
+      await fixture.reconcile();
+      await fixture.sync();
+      await fixture.reconcile();
+      await fixture.service.setTaskRemindersEnabled(false);
+      await fixture.service.setTaskRemindersEnabled(true);
+      await fixture.reconcile();
+      // Other kinds of reminder are registered anew without the OS list.
+      bool isTask(String id) => id.startsWith('task_');
+      expect(fixture.scheduler.cancelled.where(isTask), isEmpty);
+      expect(fixture.scheduler.registered.where(isTask), isEmpty);
+
+      fixture.tasks = [task.complete(at: fixture.now)];
+      fixture.scheduler.clearLog();
+      await fixture.sync();
+      expect(fixture.scheduler.cancelled, ['task_reminder_start_a']);
+    });
+
+    test('a delivered reminder is not cleared while notifications are off, '
+        'and their return brings no second reminder', () async {
+      final fixture = _Fixture();
+      await fixture.service.setTaskReminderLeadMinutes(15);
+      fixture.now = fixture.now.add(const Duration(minutes: 1));
+      final DateTime start = fixture.now.add(const Duration(minutes: 30));
+      fixture.tasks = [_task('a', scheduledFor: start)];
+      expect(await fixture.sync(), isTrue);
+
+      // The lead reminder went off; the task stays open.
+      fixture.now = fixture.now.add(const Duration(minutes: 20));
+      fixture.scheduler.pending.remove('task_reminder_start_a');
+      expect(await fixture.reconcile(), isTrue);
+      final String? rulesChanged =
+          fixture.preferences.values['task_reminder_rules_changed_at'];
+
+      fixture.scheduler.clearLog();
+      await fixture.reconcile(permission: false);
+      await fixture.sync(permission: false);
+      bool isTask(String id) => id.startsWith('task_');
+      expect(fixture.scheduler.cancelled.where(isTask), isEmpty);
+
+      fixture.now = fixture.now.add(const Duration(minutes: 2));
+      expect(await fixture.sync(), isTrue);
+      expect(await fixture.reconcile(), isTrue);
+      expect(fixture.scheduler.registered.where(isTask), isEmpty);
+      expect(fixture.scheduler.cancelled.where(isTask), isEmpty);
+      expect(
+        fixture.preferences.values['task_reminder_rules_changed_at'],
+        rulesChanged,
+      );
+    });
+
     test('moving a task moves its reminder', () async {
       final fixture = _Fixture();
       final task = fixture.dated('a', hours: 2);
@@ -684,6 +748,9 @@ class _Scheduler implements NotificationSchedulerPort {
   _Scheduler({required this.scope});
 
   final String scope;
+
+  /// When true, the OS list cannot be read.
+  bool pendingUnreadable = false;
   final Set<String> pending = <String>{};
   final List<String> registered = <String>[];
   final List<String> cancelled = <String>[];
@@ -740,6 +807,7 @@ class _Scheduler implements NotificationSchedulerPort {
   @override
   Future<List<String>> pendingIdsForAccount(String accountScope) async {
     expect(accountScope, scope);
+    if (pendingUnreadable) throw StateError('OS list unavailable');
     return pending.toList();
   }
 

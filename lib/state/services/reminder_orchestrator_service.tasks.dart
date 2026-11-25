@@ -327,11 +327,13 @@ extension _TaskReminders on ReminderOrchestratorService {
       // A reminder whose time has just passed may still be waiting for the
       // OS to deliver it; it goes away on its own once it has fired. One the
       // OS no longer holds was delivered: cancelling it would only take it
-      // out of the tray, so it stays there while its task is open. A
-      // finished or removed task loses both at once.
-      keep: (String id, _StoredFingerprint? stored, {required bool held}) {
+      // out of the tray, so it stays there while its task is open. So does
+      // one with no registration on record when the OS list is unknown: its
+      // record is dropped only once it was delivered or cancelled. A finished
+      // or removed task loses both at once.
+      keep: (String id, _StoredFingerprint? stored, {required bool? held}) {
         if (!openIds.contains(id)) return false;
-        if (!held) return true;
+        if (held == false || (held == null && stored == null)) return true;
         final DateTime? at = stored?.onceAt;
         return tasksOn && at != null && !at.isAfter(now);
       },
@@ -346,19 +348,20 @@ extension _TaskReminders on ReminderOrchestratorService {
     );
   }
 
-  /// Cancels every task reminder this account may have registered. When the
-  /// OS list can be read, a reminder it no longer holds (already delivered)
-  /// is left in the tray and stays tracked, so finishing its task later
-  /// still clears it.
+  /// Cancels every task reminder this account may have registered. One the
+  /// OS no longer holds (already delivered), or, when its list cannot be
+  /// read, one with no registration on record, is left in the tray and
+  /// stays tracked, so finishing its task later still clears it.
   Future<void> _cancelTaskReminders() async {
     final Set<String>? pending = await _readPendingIds();
+    final Set<String> fingerprinted = _loadFingerprints().keys
+        .where(TaskReminderPlanner.ownsId)
+        .toSet();
     final Set<String> known = <String>{
       ..._trackedTaskReminderIds(),
-      ..._loadFingerprints().keys.where(TaskReminderPlanner.ownsId),
+      ...fingerprinted,
     };
-    final Set<String> delivered = pending == null
-        ? <String>{}
-        : known.difference(pending);
+    final Set<String> delivered = known.difference(pending ?? fingerprinted);
     final Set<String> ids = <String>{
       ...known.difference(delivered),
       ...?pending?.where(TaskReminderPlanner.ownsId),
