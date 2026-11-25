@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/domain/planning/habit_reminder_days.dart';
 import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/habit_reminder_day_pickers.dart';
+import 'package:fantastic_guacamole/features/creator/widgets/habit_reminder_line.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_flow.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
@@ -700,10 +701,15 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
                   : '${habit.targetCount} ${habit.targetCount == 1 ? 'time' : 'times'} per $period · ${habit.active ? 'Active' : 'Paused'}',
             ),
             const SizedBox(height: 4),
-            Text(
-              _reminderLabel(habit),
-              key: ValueKey<String>('rhythm-reminder-label-${habit.id}'),
-            ),
+            habit.reminderMinutes == null
+                ? Text(
+                    _reminderLabel(habit),
+                    key: ValueKey<String>('rhythm-reminder-label-${habit.id}'),
+                  )
+                : HabitReminderLine(
+                    habitId: habit.id,
+                    label: _reminderLabel(habit),
+                  ),
             if (habit.description?.isNotEmpty ?? false) ...[
               const SizedBox(height: 8),
               Text(habit.description!),
