@@ -2,10 +2,15 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
+import 'package:fantastic_guacamole/state/providers/account_operation.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+typedef _AccountRecords = ({bool any, bool hasCompletedTasks});
 
 final accountOnboardingCompleteProvider =
     AsyncNotifierProvider<AccountOnboardingCompleteNotifier, bool>(
@@ -66,8 +71,91 @@ class AccountOnboardingCompleteNotifier extends AsyncNotifier<bool> {
 
     // Legacy completion remains device-global and read-only. Only the account
     // proven by the authentication boundary may use it as a fallback.
-    return legacyOwnership == LegacyScopeOwnership.provenOwned &&
-        (prefs.getBool(onboardingCompleteStorageKey) ?? false);
+    if (legacyOwnership == LegacyScopeOwnership.provenOwned &&
+        (prefs.getBool(onboardingCompleteStorageKey) ?? false)) {
+      return true;
+    }
+    // This install has no setup answer for the now-ready account. Its records
+    // are checked afterwards, so the answer never waits on the record stores.
+    final AccountOperation owner = AccountOperation.capture(ref);
+    unawaited(_adoptAfterBuild(owner, account));
+    return false;
+  }
+
+  Future<void> _adoptAfterBuild(AccountOperation owner, String account) async {
+    try {
+      await Future<void>.value();
+      // This build's own result must settle first so it cannot replace ours.
+      final bool complete = await future;
+      if (owner.isCurrent) {
+        await _adoptReturningAccount(owner, account, complete);
+      }
+    } on Object {
+      // Nothing was decided; the next account-ready read or restore retries.
+    }
+  }
+
+  /// After a cloud restore wrote the account's records to this device. Setup
+  /// ends if this install has no setup answer for the account, and the
+  /// first-run guide ends unless the person skipped, paused or restarted it.
+  Future<void> adoptRestoredRecords() async {
+    final String? account = _activeScope;
+    if (account == null) return;
+    final AccountOperation owner = AccountOperation.capture(ref);
+    final bool complete = await future;
+    if (owner.isCurrent) await _adoptReturningAccount(owner, account, complete);
+  }
+
+  /// If [account]'s own tasks, habits or goals are on this device, it is a
+  /// returning account: setup and the first-run guide count as done, each
+  /// recorded once. A new account with no records still gets setup, and
+  /// nothing is recorded, so a restore that fills its stores later can still
+  /// decide. A restart of setup the person asked for is never overridden.
+  Future<void> _adoptReturningAccount(
+    AccountOperation owner,
+    String account,
+    bool complete,
+  ) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    if (!owner.isCurrent || prefs.getBool(_key(account)) == false) return;
+    final _AccountRecords? records = await _readRecords();
+    if (!owner.isCurrent || records == null || !records.any) return;
+    await ref
+        .read(adaptiveGuidanceProvider.notifier)
+        .adoptReturningAccount(
+          account: account,
+          hasCompletedTasks: records.hasCompletedTasks,
+          shouldContinue: () => owner.isCurrent,
+        );
+    // Setup is recorded after the guide, so an interrupted write is retried.
+    // Checked and written with no wait between, so an explicit completion or
+    // reset written meanwhile is kept.
+    if (!owner.isCurrent || complete || prefs.getBool(_key(account)) != null) {
+      return;
+    }
+    await prefs.setBool(_key(account), true);
+    if (owner.isCurrent) state = const AsyncData<bool>(true);
+  }
+
+  /// The active account's own tasks, habits and goals on this device. Null
+  /// when they cannot be read, which never counts as a returning account.
+  Future<_AccountRecords?> _readRecords() async {
+    try {
+      final List<TaskEntity> tasks = await ref
+          .read(domainTaskRepositoryProvider)
+          .getAllTasks();
+      final bool any =
+          tasks.isNotEmpty ||
+          ref.read(domainGoalRepositoryProvider).getGoals().isNotEmpty ||
+          (await ref.read(domainHabitRepositoryProvider).getHabits())
+              .isNotEmpty;
+      return (
+        any: any,
+        hasCompletedTasks: tasks.any((TaskEntity task) => task.isCompleted),
+      );
+    } on Object {
+      return null;
+    }
   }
 
   Future<void> complete() async {

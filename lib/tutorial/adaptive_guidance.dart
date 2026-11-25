@@ -87,15 +87,18 @@ class AdaptiveGuidanceState {
   }
 
   bool get coreComplete =>
-      has(GuidanceMilestone.firstItem) &&
-      has(GuidanceMilestone.firstSchedule) &&
-      has(GuidanceMilestone.firstTimelineReview);
+      has(GuidanceMilestone.returningAccount) ||
+      (has(GuidanceMilestone.firstItem) &&
+          has(GuidanceMilestone.firstSchedule) &&
+          has(GuidanceMilestone.firstTimelineReview));
 
   static const Duration postCoreQuietPeriod = Duration(hours: 24);
 
   bool isInPostCoreQuietPeriod(DateTime now) {
     final DateTime? completedAt =
         milestones[GuidanceMilestone.firstTimelineReview];
+    // A returning account did not just finish the guide on this device.
+    if (has(GuidanceMilestone.returningAccount)) return false;
     if (!coreComplete || completedAt == null) return false;
     final Duration elapsed = now.toUtc().difference(completedAt.toUtc());
     // A device-clock rollback must not make a just-completed tutorial reappear.
@@ -536,6 +539,79 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
       return;
     }
     await record(milestone, shouldContinue: shouldContinue);
+  }
+
+  /// [account] already has its own tasks, habits or goals on this install,
+  /// which has no first-run guide state for it: the guide counts as done,
+  /// recorded once. The schedule review is inferred only from a finished
+  /// task. An explicit skip, pause, step skip or restart is kept as it is.
+  /// Screen hints are not affected and still appear once each.
+  Future<void> adoptReturningAccount({
+    required String account,
+    required bool hasCompletedTasks,
+    required bool Function() shouldContinue,
+  }) async {
+    bool stillCurrent() =>
+        ref.mounted && _activeScope == account && shouldContinue();
+    if (!stillCurrent()) return;
+    final AdaptiveGuidanceState current = await _current();
+    if (!stillCurrent() ||
+        current.coreComplete ||
+        _replayableCoreLessons.any(
+          (GuidanceLessonId id) =>
+              current.skippedLessons.contains(id) ||
+              current.laterLessons.contains(id) ||
+              current.replayLessons.contains(id) ||
+              current.skippedCoreSteps.contains(id),
+        )) {
+      return;
+    }
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    if (!stillCurrent()) return;
+    final String prefix = _prefix(account);
+    final DateTime observedAt = DateTime.now();
+    final Map<GuidanceMilestone, DateTime> milestones =
+        <GuidanceMilestone, DateTime>{...current.milestones};
+    final Map<GuidanceMilestone, int> counts = <GuidanceMilestone, int>{
+      ...current.counts,
+    };
+    // The marker goes last, so an interrupted write is tried again.
+    for (final GuidanceMilestone milestone in <GuidanceMilestone>[
+      if (hasCompletedTasks) GuidanceMilestone.firstTimelineReview,
+      GuidanceMilestone.returningAccount,
+    ]) {
+      if (milestones.containsKey(milestone)) continue;
+      milestones[milestone] = observedAt;
+      counts[milestone] = current.count(milestone) == 0
+          ? 1
+          : current.count(milestone);
+      await prefs.setInt(
+        '$prefix.${milestone.name}.at',
+        observedAt.millisecondsSinceEpoch,
+      );
+      await prefs.setInt('$prefix.${milestone.name}.count', counts[milestone]!);
+      final GuidanceLessonId? lesson = _lessonCompletedBy(milestone);
+      if (lesson != null) {
+        await prefs.setBool('$prefix.complete.${lesson.name}', true);
+      }
+    }
+    await prefs.remove('$prefix.$_expectedCreatorTaskIdsKey');
+    if (!stillCurrent()) return;
+    state = AsyncData(
+      AdaptiveGuidanceState(
+        milestones: milestones,
+        counts: counts,
+        skippedLessons: current.skippedLessons,
+        completedLessons: <GuidanceLessonId>{
+          ...current.completedLessons,
+          ..._lessonsCompletedBy(milestones.keys),
+        },
+        laterLessons: current.laterLessons,
+        replayLessons: current.replayLessons,
+        untilReopenedLessons: current.untilReopenedLessons,
+        skippedCoreSteps: current.skippedCoreSteps,
+      ),
+    );
   }
 
   Future<void> recordCreatorHandshakeReceipt(

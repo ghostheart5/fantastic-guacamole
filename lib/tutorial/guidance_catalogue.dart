@@ -33,6 +33,11 @@ enum GuidanceMilestone {
   firstReminderSettingChange,
   guidanceDismissed,
   replayed,
+
+  /// Recorded once when an account with its own tasks, habits or goals
+  /// arrives on an install with no setup or guide state for it: the account
+  /// already uses the app, so the first-run guide counts as done.
+  returningAccount,
 }
 
 /// Where a contextual hint can appear that has no router path of its own.
