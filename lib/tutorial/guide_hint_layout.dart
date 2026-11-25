@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Height kept free at the top of the app for a visible hint card, so the
@@ -41,7 +43,13 @@ class GuideHintSpace extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final double reserved = ref.watch(guideHintReservedHeightProvider);
+    // A hint never keeps space while the keyboard is open (GuideHintSlot
+    // draws nothing then); dropping it here too, in the same frame, keeps
+    // the page from being squeezed while the keyboard comes up.
+    final double held = ref.watch(guideHintReservedHeightProvider);
+    final double reserved = MediaQuery.viewInsetsOf(context).bottom > 0
+        ? 0
+        : held;
     // Same widget structure with or without a hint, so the routed app keeps
     // its state when a hint appears or goes away.
     return MediaQuery.removePadding(
@@ -49,19 +57,92 @@ class GuideHintSpace extends ConsumerWidget {
       removeTop: reserved > 0,
       child: Padding(
         padding: EdgeInsets.only(top: reserved),
-        child: child,
+        // Sorted after the hint card ([GuideHintSlot] uses -1), so screen
+        // readers reach the hint first. Both need a key for the order to
+        // apply.
+        child: Semantics(
+          container: true,
+          explicitChildNodes: true,
+          sortKey: const OrdinalSortKey(0),
+          child: child,
+        ),
       ),
     );
   }
 }
 
+/// Counts dialogs and bottom sheets open in the router's root navigator, so
+/// a hint drawn above the app can step aside while one is on top. Register it
+/// in the router's `observers` and call [attachTo] with that router.
+class GuideHintModalObserver extends NavigatorObserver with ChangeNotifier {
+  static final Expando<GuideHintModalObserver> _byRouter =
+      Expando<GuideHintModalObserver>('guide-hint-modal-observer');
+
+  /// The observer registered for [router], if any.
+  static GuideHintModalObserver? of(Object router) => _byRouter[router];
+
+  void attachTo(Object router) => _byRouter[router] = this;
+
+  int _openModals = 0;
+
+  bool get hasModalOnTop => _openModals > 0;
+
+  void _change(Route<dynamic>? route, int delta) {
+    if (route is! PopupRoute<dynamic>) return;
+    _openModals = math.max(0, _openModals + delta);
+    // Navigation can happen while widgets are building; tell listeners after.
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) => notifyListeners());
+    } else {
+      notifyListeners();
+    }
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _change(route, 1);
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _change(route, -1);
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _change(route, -1);
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    _change(oldRoute, -1);
+    _change(newRoute, 1);
+  }
+}
+
 /// Puts a hint card at the top of an overlay [Stack] and reserves its height
-/// in [GuideHintSpace]. Nothing is shown or reserved while the visible area is
-/// too short, for example with the keyboard open on a small phone.
+/// in [GuideHintSpace].
+///
+/// Rules:
+/// - Nothing is drawn or reserved while the keyboard is open or the visible
+///   area is shorter than 360 dp (split screen, landscape phones).
+/// - [onShown] is called once, after the card has actually been laid out on
+///   screen and is not hidden. Only then does it count as seen.
+/// - If the keyboard opens after the card was seen, the card leaves for the
+///   rest of this visit, so the page does not jump back while the person
+///   types. A card that was never seen appears once the keyboard closes.
+/// - While [hidden] (a dialog or sheet is on top) a card already seen keeps
+///   its space, so nothing moves under the dialog, but it is not drawn,
+///   tappable or read by screen readers. A card not yet seen waits.
 class GuideHintSlot extends ConsumerStatefulWidget {
-  const GuideHintSlot({required this.child, super.key});
+  const GuideHintSlot({
+    required this.child,
+    this.hidden = false,
+    this.onShown,
+    super.key,
+  });
 
   final Widget child;
+  final bool hidden;
+  final VoidCallback? onShown;
 
   @override
   ConsumerState<GuideHintSlot> createState() => _GuideHintSlotState();
@@ -74,7 +155,9 @@ class _GuideHintSlotState extends ConsumerState<GuideHintSlot> {
   final GlobalKey _measuredKey = GlobalKey(debugLabel: 'guide-hint-slot');
   late final GuideHintReservedHeight _reservation;
   bool _measureScheduled = false;
-  bool _fits = false;
+  bool _laidOut = false;
+  bool _seen = false;
+  bool _closedByKeyboard = false;
 
   @override
   void initState() {
@@ -98,25 +181,30 @@ class _GuideHintSlotState extends ConsumerState<GuideHintSlot> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _measureScheduled = false;
       if (!mounted) return;
-      final double height = _fits
+      final double height = _laidOut
           ? _measuredKey.currentContext?.size?.height ?? 0
           : 0;
       _reservation.reserve(this, height);
+      if (height > 0 && !widget.hidden && !_seen) {
+        _seen = true;
+        widget.onShown?.call();
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final double visibleHeight =
-        MediaQuery.sizeOf(context).height -
-        MediaQuery.viewInsetsOf(context).bottom;
-    _fits = visibleHeight >= _minimumVisibleHeight;
+    final double height = MediaQuery.sizeOf(context).height;
+    final bool keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    if (keyboardOpen && _seen) _closedByKeyboard = true;
+    _laidOut =
+        !_closedByKeyboard &&
+        !keyboardOpen &&
+        height >= _minimumVisibleHeight &&
+        (_seen || !widget.hidden);
     _scheduleMeasure();
-    if (!_fits) return const SizedBox.shrink();
-    final double maxCardHeight = math.max(
-      _minimumCardHeight,
-      visibleHeight * .45,
-    );
+    if (!_laidOut) return const SizedBox.shrink();
+    final double maxCardHeight = math.max(_minimumCardHeight, height * .45);
     return Positioned(
       top: 0,
       left: 0,
@@ -138,7 +226,20 @@ class _GuideHintSlotState extends ConsumerState<GuideHintSlot> {
                   maxWidth: 560,
                   maxHeight: maxCardHeight,
                 ),
-                child: widget.child,
+                // The card sits at the top, so screen readers reach it
+                // before the page below.
+                child: Semantics(
+                  container: true,
+                  explicitChildNodes: true,
+                  sortKey: const OrdinalSortKey(-1),
+                  child: Visibility(
+                    visible: !widget.hidden,
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    child: widget.child,
+                  ),
+                ),
               ),
             ),
           ),

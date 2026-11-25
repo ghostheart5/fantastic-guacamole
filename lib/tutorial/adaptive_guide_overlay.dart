@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fantastic_guacamole/app/router/route_guards.dart'
     show onboardingCompleteGuardProvider;
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
@@ -44,6 +45,34 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   String? _acknowledgedTimelineTaskId;
   bool _completingTimeline = false;
   bool _timelineCompletionFailed = false;
+  GuideHintModalObserver? _modals;
+
+  @override
+  void initState() {
+    super.initState();
+    _modals = GuideHintModalObserver.of(widget.router)
+      ?..addListener(_onModalsChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant AdaptiveGuideOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.router, widget.router)) {
+      _modals?.removeListener(_onModalsChanged);
+      _modals = GuideHintModalObserver.of(widget.router)
+        ?..addListener(_onModalsChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    _modals?.removeListener(_onModalsChanged);
+    super.dispose();
+  }
+
+  void _onModalsChanged() {
+    if (mounted) setState(() {});
+  }
 
   bool _routeAllowsGuidance(String location) {
     return location.isNotEmpty &&
@@ -143,9 +172,9 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   }
 
   /// The contextual hint for this visit to [location]. A hint is stored as
-  /// seen as soon as it appears, so it is shown once per account; it then
-  /// stays until the person dismisses it, acts on it, does the page's real
-  /// action, or leaves the page.
+  /// seen once it has actually been drawn (see [GuideHintSlot]), so it is
+  /// shown once per account; it then stays until the person dismisses it,
+  /// acts on it, does the page's real action, or leaves the page.
   GuidanceLesson? _visibleHint(
     GuidanceLesson? lesson,
     AdaptiveGuidanceState guidance,
@@ -158,7 +187,6 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         (_shownHint?.id != lesson.id || _shownHintOwner != owner)) {
       _shownHint = lesson;
       _shownHintOwner = owner;
-      _rememberHintShown(lesson.id, owner);
     }
     final GuidanceLesson? shown = _shownHint;
     if (shown == null ||
@@ -172,17 +200,23 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     return lesson?.id == shown.id ? lesson : shown;
   }
 
-  void _rememberHintShown(GuidanceLessonId id, (int, String?) owner) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final AuthSessionBoundary current = ref.read(authSessionBoundaryProvider);
-      if ((current.generation, current.userId) != owner ||
-          current.isTransitioning ||
-          !current.isStorageReady) {
-        return;
-      }
-      unawaited(ref.read(adaptiveGuidanceProvider.notifier).completeLesson(id));
-    });
+  /// Called by [GuideHintSlot] after the card was drawn on screen.
+  void _rememberHintShown(GuidanceLessonId id, (int, String?)? owner) {
+    if (!mounted) return;
+    final AuthSessionBoundary current = ref.read(authSessionBoundaryProvider);
+    if ((current.generation, current.userId) != owner ||
+        current.isTransitioning ||
+        !current.isStorageReady) {
+      return;
+    }
+    unawaited(
+      ref.read(adaptiveGuidanceProvider.notifier).completeLesson(id).catchError(
+        (Object error) {
+          // Not stored: the hint may show once more on a later visit.
+          Logger.warn('Contextual hint could not be stored as seen.');
+        },
+      ),
+    );
   }
 
   Widget _routePrompt(BuildContext context, GuidanceLesson lesson) {
@@ -508,7 +542,12 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   /// A small card at the top of the app that leaves the page usable.
   Widget _contextualHint(BuildContext context, GuidanceLesson lesson) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final (int, String?)? owner = _shownHintOwner;
     return GuideHintSlot(
+      // A new hint or account starts a new slot, with its own seen state.
+      key: ValueKey<Object?>((lesson.id, owner)),
+      hidden: _modals?.hasModalOnTop ?? false,
+      onShown: () => _rememberHintShown(lesson.id, owner),
       child: GuideHintCard(
         key: const Key('guide_hint_card'),
         label: l10n.text(ChronoSparkString.contextualGuidance),

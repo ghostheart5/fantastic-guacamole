@@ -23,8 +23,10 @@ void main() {
       testWidgets(
         '$language credit guidance remains reachable at 320px and 200 percent text, dismiss=$dismiss',
         (tester) async {
-          await tester.binding.setSurfaceSize(const Size(320, 800));
-          addTearDown(() => tester.binding.setSurfaceSize(null));
+          // Sets the window MediaQuery reads, in logical pixels.
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = const Size(320, 800);
+          addTearDown(tester.view.reset);
           var underlyingActions = 0;
           final router = GoRouter(
             initialLocation: RoutePaths.siConsole,
@@ -123,6 +125,15 @@ void main() {
                 : 'Free tools use no credits',
           );
           expect(explanation, findsOneWidget);
+          final container = ProviderScope.containerOf(
+            tester.element(find.byType(MaterialApp)),
+          );
+          final _CreditGuideState notifier =
+              container.read(adaptiveGuidanceProvider.notifier)
+                  as _CreditGuideState;
+          // Drawing the card stores it as seen once.
+          expect(notifier.completeCalls, 1);
+          expect(notifier.skipCalls, 0);
           // The long credit explanation scrolls inside the small hint card;
           // its buttons stay on screen the whole time.
           final scrollable = find.descendant(
@@ -149,20 +160,15 @@ void main() {
           expect(underlyingActions, 1);
           expect(router.routerDelegate.state.uri.path, RoutePaths.siConsole);
           expect(explanation, findsNothing);
-          final container = ProviderScope.containerOf(
-            tester.element(find.byType(MaterialApp)),
-          );
+          // Only the tapped button's own call follows: "Not now" stores its
+          // mute, "Got it" finishes the lesson again. Either way it does not
+          // come back on the next visit.
+          expect(notifier.skipCalls, dismiss ? 1 : 0);
+          expect(notifier.completeCalls, dismiss ? 1 : 2);
           final saved = container.read(adaptiveGuidanceProvider).requireValue;
-          // A shown hint is finished for the account; "Not now" also keeps
-          // its stored mute. Either way it does not come back on the next
-          // visit.
           expect(
             saved.skippedLessons.contains(GuidanceLessonId.siConsole),
             dismiss,
-          );
-          expect(
-            saved.completedLessons.contains(GuidanceLessonId.siConsole),
-            isTrue,
           );
           router.go(RoutePaths.settings);
           await tester.pump();
@@ -654,8 +660,12 @@ class _CreditGuideState extends AdaptiveGuidanceNotifier {
     completedLessons: const {},
   );
 
+  int skipCalls = 0;
+  int completeCalls = 0;
+
   @override
   Future<void> skip(GuidanceLessonId lesson) async {
+    skipCalls++;
     final current = state.requireValue;
     state = AsyncData(
       AdaptiveGuidanceState(
@@ -669,6 +679,7 @@ class _CreditGuideState extends AdaptiveGuidanceNotifier {
 
   @override
   Future<void> completeLesson(GuidanceLessonId lesson) async {
+    completeCalls++;
     final current = state.requireValue;
     state = AsyncData(
       AdaptiveGuidanceState(

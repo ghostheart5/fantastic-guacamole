@@ -25,10 +25,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// per account and lesson, and also reach people who skipped the first-run
 /// guide.
 const String _account = 'hint-card-user';
+const String _otherAccount = 'hint-card-other-user';
 const Key _card = Key('guide_hint_card');
 
-String get _prefix =>
-    'adaptive_guidance_v3.${AccountStorageScope.authenticated(_account).v2Namespace}';
+String _prefixFor(String account) =>
+    'adaptive_guidance_v3.${AccountStorageScope.authenticated(account).v2Namespace}';
+
+String get _prefix => _prefixFor(_account);
 
 const List<String> _core = <String>[
   'createFirstItem',
@@ -36,7 +39,7 @@ const List<String> _core = <String>[
   'reviewTimeline',
 ];
 
-Map<String, Object> get _coreFinished {
+Map<String, Object> _coreFinishedFor(String account) {
   final int at = DateTime.utc(2020).millisecondsSinceEpoch;
   return <String, Object>{
     for (final String milestone in <String>[
@@ -44,11 +47,13 @@ Map<String, Object> get _coreFinished {
       'firstSchedule',
       'firstTimelineReview',
     ]) ...<String, Object>{
-      '$_prefix.$milestone.at': at,
-      '$_prefix.$milestone.count': 1,
+      '${_prefixFor(account)}.$milestone.at': at,
+      '${_prefixFor(account)}.$milestone.count': 1,
     },
   };
 }
+
+Map<String, Object> get _coreFinished => _coreFinishedFor(_account);
 
 Map<String, Object> get _coreSkipped => <String, Object>{
   for (final String id in _core) '$_prefix.skip.$id': true,
@@ -57,6 +62,18 @@ Map<String, Object> get _coreSkipped => <String, Object>{
 Map<String, Object> get _corePaused => <String, Object>{
   for (final String id in _core) '$_prefix.later.$id': true,
 };
+
+/// Sets the test window in logical pixels, so MediaQuery sees exactly this.
+void _setWindow(WidgetTester tester, Size size, {double keyboard = 0}) {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = size;
+  tester.view.viewInsets = FakeViewPadding(bottom: keyboard);
+}
+
+Future<bool?> _storedSeen(String account) async =>
+    (await SharedPreferences.getInstance()).getBool(
+      '${_prefixFor(account)}.complete.siConsole',
+    );
 
 void main() {
   testWidgets('the page under a hint stays usable and is not covered', (
@@ -91,21 +108,26 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final (String action, String storedKey) in <(String, String)>[
-    ('Not now', 'skip'),
-    ('Got it', 'complete'),
-  ]) {
+  for (final String action in <String>['Not now', 'Got it']) {
     testWidgets('after "$action" the hint does not return on re-entry or '
         'restart', (WidgetTester tester) async {
       SharedPreferences.setMockInitialValues(_coreFinished);
       final GoRouter router = await _pumpApp(tester, _Page());
       expect(find.byKey(_card), findsOneWidget);
+      // Drawn, so already stored as seen; it stays until acted on.
+      expect(await _storedSeen(_account), isTrue);
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.byKey(_card), findsOneWidget);
 
       await tester.tap(find.widgetWithText(TextButton, action));
       await _settle(tester);
+      // Only the button closes the card on this visit; only "Not now" mutes.
       expect(find.byKey(_card), findsNothing);
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('$_prefix.$storedKey.siConsole'), isTrue);
+      expect(
+        prefs.getBool('$_prefix.skip.siConsole'),
+        action == 'Not now' ? isTrue : isNull,
+      );
 
       router.go(RoutePaths.settings);
       await _settle(tester);
@@ -195,15 +217,137 @@ void main() {
     });
   }
 
+  testWidgets('a hint that cannot be drawn is not stored as seen', (
+    WidgetTester tester,
+  ) async {
+    addTearDown(tester.view.reset);
+    // A landscape phone or split screen: too short for the card.
+    _setWindow(tester, const Size(600, 330));
+    SharedPreferences.setMockInitialValues(_coreFinished);
+    await _pumpApp(tester, _Page());
+    expect(
+      MediaQuery.sizeOf(tester.element(find.byKey(const Key('page-title')))),
+      const Size(600, 330),
+    );
+    expect(find.byKey(_card), findsNothing);
+    await tester.pump(const Duration(seconds: 1));
+    expect(await _storedSeen(_account), isNull);
+    expect(tester.takeException(), isNull);
+
+    _setWindow(tester, const Size(600, 800));
+    await _settle(tester);
+    expect(find.byKey(_card), findsOneWidget);
+    expect(await _storedSeen(_account), isTrue);
+  });
+
+  testWidgets('arriving with the keyboard open: no card and not seen until '
+      'the keyboard closes', (WidgetTester tester) async {
+    addTearDown(tester.view.reset);
+    _setWindow(tester, const Size(320, 640), keyboard: 280);
+    SharedPreferences.setMockInitialValues(_coreFinished);
+    final _Page page = _Page();
+    await _pumpApp(tester, page, textScale: 2);
+    expect(find.byKey(_card), findsNothing);
+    expect(await _storedSeen(_account), isNull);
+    // The composer above the keyboard can be used.
+    await tester.tap(find.byKey(const Key('bottom-action')));
+    expect(page.bottomTaps, 1);
+
+    _setWindow(tester, const Size(320, 640));
+    await _settle(tester);
+    expect(find.byKey(_card), findsOneWidget);
+    expect(await _storedSeen(_account), isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final String language in <String>['en', 'es']) {
+    testWidgets('$language: the keyboard opening closes a seen hint for the '
+        'visit and gives the page its room back', (WidgetTester tester) async {
+      addTearDown(tester.view.reset);
+      _setWindow(tester, const Size(320, 640));
+      SharedPreferences.setMockInitialValues(_coreFinished);
+      final _Page page = _Page();
+      await _pumpApp(tester, page, language: language, textScale: 2);
+      expect(find.byKey(_card), findsOneWidget);
+      final double withCard = tester
+          .getRect(find.byKey(const Key('page-title')))
+          .top;
+      expect(withCard, greaterThan(100));
+
+      _setWindow(tester, const Size(320, 640), keyboard: 280);
+      await _settle(tester);
+      expect(find.byKey(_card), findsNothing);
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getRect(find.byKey(const Key('page-title'))).top,
+        lessThan(withCard),
+      );
+      final Finder composer = find.byKey(const Key('bottom-action'));
+      expect(composer.hitTestable(), findsOneWidget);
+      expect(tester.getRect(composer).bottom, lessThanOrEqualTo(640 - 280));
+      await tester.tap(composer);
+      expect(page.bottomTaps, 1);
+      final double typing = tester
+          .getRect(find.byKey(const Key('page-title')))
+          .top;
+
+      // Closing the keyboard does not bring the card back on this visit, so
+      // the page does not jump again.
+      _setWindow(tester, const Size(320, 640));
+      await _settle(tester);
+      expect(find.byKey(_card), findsNothing);
+      expect(tester.getRect(find.byKey(const Key('page-title'))).top, typing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('$language: a dialog covers the hint, and nothing moves under '
+        'it', (WidgetTester tester) async {
+      addTearDown(tester.view.reset);
+      _setWindow(tester, const Size(320, 640));
+      final SemanticsHandle semantics = tester.ensureSemantics();
+      SharedPreferences.setMockInitialValues(_coreFinished);
+      await _pumpApp(tester, _Page(), language: language, textScale: 2);
+      final String dismiss = language == 'es' ? 'Ahora no' : 'Not now';
+      expect(find.byKey(_card), findsOneWidget);
+      final double pageTop = tester
+          .getRect(find.byKey(const Key('page-title')))
+          .top;
+
+      await tester.tap(find.byKey(const Key('open-dialog')));
+      await _settle(tester);
+      expect(find.text('A dialog'), findsOneWidget);
+      expect(
+        find.widgetWithText(TextButton, dismiss).hitTestable(),
+        findsNothing,
+      );
+      // Not reachable by screen readers behind the dialog either.
+      expect(find.semantics.byLabel(dismiss), findsNothing);
+      expect(tester.getRect(find.byKey(const Key('page-title'))).top, pageTop);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('Close dialog'));
+      await _settle(tester);
+      expect(
+        find.widgetWithText(TextButton, dismiss).hitTestable(),
+        findsOneWidget,
+      );
+      expect(find.semantics.byLabel(dismiss), findsOne);
+      semantics.dispose();
+    });
+
     testWidgets('$language hint fits 320 dp at 200% text and keeps the page '
         'usable', (WidgetTester tester) async {
-      await tester.binding.setSurfaceSize(const Size(320, 640));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+      addTearDown(tester.view.reset);
+      _setWindow(tester, const Size(320, 640));
       SharedPreferences.setMockInitialValues(_coreFinished);
       final _Page page = _Page();
       await _pumpApp(tester, page, language: language, textScale: 2);
       final bool es = language == 'es';
+      final BuildContext pageContext = tester.element(
+        find.byKey(const Key('page-title')),
+      );
+      expect(MediaQuery.sizeOf(pageContext), const Size(320, 640));
+      expect(MediaQuery.textScalerOf(pageContext).scale(10), 20);
 
       expect(find.byKey(_card), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -223,11 +367,13 @@ void main() {
       }
       await tester.tap(find.byKey(const Key('top-action')));
       expect(page.topTaps, 1);
+      await tester.tap(find.byKey(const Key('bottom-action')));
+      expect(page.bottomTaps, 1);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('$language hint is announced once as a hint and its buttons '
-        'work from a screen reader', (WidgetTester tester) async {
+    testWidgets('$language hint is read first, announced as a hint, and its '
+        'buttons work from a screen reader', (WidgetTester tester) async {
       final SemanticsHandle semantics = tester.ensureSemantics();
       SharedPreferences.setMockInitialValues(_coreFinished);
       await _pumpApp(tester, _Page(), language: language);
@@ -240,10 +386,21 @@ void main() {
           : 'Help with this page';
       final String title = l10n.guideTitle('siConsole', 'Ask what is missing');
 
+      final SemanticsNode cardNode = tester.getSemantics(find.byKey(_card));
       expect(
-        tester.getSemantics(find.byKey(_card)),
+        cardNode,
         isSemantics(label: '$hintLabel. $title', isLiveRegion: true),
       );
+      // Screen readers reach the hint before the page under it.
+      final List<SemanticsNode> order = tester.semantics
+          .simulatedAccessibilityTraversal()
+          .toList();
+      final SemanticsNode pageTitle = tester.getSemantics(
+        find.byKey(const Key('page-title')),
+      );
+      expect(order.indexOf(cardNode), isNonNegative);
+      expect(order.indexOf(cardNode), lessThan(order.indexOf(pageTitle)));
+
       final String dismiss = es ? 'Ahora no' : 'Not now';
       final String gotIt = es ? 'Entendido' : 'Got it';
       expect(
@@ -262,13 +419,42 @@ void main() {
         SemanticsAction.tap,
       );
       await _settle(tester);
+      // The tap closed the card; "Got it" is not a mute.
       expect(find.byKey(_card), findsNothing);
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('$_prefix.complete.siConsole'), isTrue);
+      expect(prefs.getBool('$_prefix.skip.siConsole'), isNull);
       expect(tester.takeException(), isNull);
       semantics.dispose();
     });
   }
+
+  testWidgets('switching accounts on the same page: each account sees its '
+      'own hint once, and only its own record is written', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      ..._coreFinishedFor(_account),
+      ..._coreFinishedFor(_otherAccount),
+    });
+    await _pumpApp(tester, _Page());
+    expect(find.byKey(_card), findsOneWidget);
+    expect(await _storedSeen(_account), isTrue);
+    expect(await _storedSeen(_otherAccount), isNull);
+
+    final ProviderContainer container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('page-title'))),
+    );
+    container.read(_activeAccountProvider.notifier).switchTo(_otherAccount);
+    await tester.pump();
+    // A's card does not write anything for B on the way out.
+    expect(await _storedSeen(_otherAccount), isNull);
+    await _settle(tester);
+    // B gets its own hint, stored for B once drawn; A's record is unchanged.
+    expect(find.byKey(_card), findsOneWidget);
+    expect(await _storedSeen(_account), isTrue);
+    expect(await _storedSeen(_otherAccount), isTrue);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _Page {
@@ -281,14 +467,37 @@ class _Page {
     body: SafeArea(
       child: Column(
         children: <Widget>[
-          const Text('Chat page', key: Key('page-title')),
-          TextButton(
-            key: const Key('top-action'),
-            onPressed: () => topTaps++,
-            child: const Text('Top action'),
+          Expanded(
+            child: ListView(
+              children: <Widget>[
+                const Text('Chat page', key: Key('page-title')),
+                TextButton(
+                  key: const Key('top-action'),
+                  onPressed: () => topTaps++,
+                  child: const Text('Top action'),
+                ),
+                const TextField(key: Key('page-field')),
+                Builder(
+                  builder: (BuildContext context) => TextButton(
+                    key: const Key('open-dialog'),
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (BuildContext context) => AlertDialog(
+                        content: const Text('A dialog'),
+                        actions: <Widget>[
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('Close dialog'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    child: const Text('Open dialog'),
+                  ),
+                ),
+              ],
+            ),
           ),
-          const TextField(key: Key('page-field')),
-          const Spacer(),
           TextButton(
             key: const Key('bottom-action'),
             onPressed: () => bottomTaps++,
@@ -306,6 +515,17 @@ Future<void> _settle(WidgetTester tester) async {
   }
 }
 
+final _activeAccountProvider = NotifierProvider<_ActiveAccount, String>(
+  _ActiveAccount.new,
+);
+
+class _ActiveAccount extends Notifier<String> {
+  @override
+  String build() => _account;
+
+  void switchTo(String account) => state = account;
+}
+
 Future<GoRouter> _pumpApp(
   WidgetTester tester,
   _Page page, {
@@ -313,8 +533,10 @@ Future<GoRouter> _pumpApp(
   double textScale = 1,
   int restart = 0,
 }) async {
+  final GuideHintModalObserver modals = GuideHintModalObserver();
   final GoRouter router = GoRouter(
     initialLocation: RoutePaths.siConsole,
+    observers: <NavigatorObserver>[modals],
     routes: <RouteBase>[
       GoRoute(
         path: RoutePaths.siConsole,
@@ -327,21 +549,24 @@ Future<GoRouter> _pumpApp(
       ),
     ],
   );
+  modals.attachTo(router);
   addTearDown(router.dispose);
   await tester.pumpWidget(
     ProviderScope(
       // A new scope is a fresh app start that reads stored guidance again.
       key: ValueKey<int>(restart),
       overrides: [
-        accountStorageScopeProvider.overrideWithValue(
-          AccountStorageScope.authenticated(_account),
+        accountStorageScopeProvider.overrideWith(
+          (Ref ref) => AccountStorageScope.authenticated(
+            ref.watch(_activeAccountProvider),
+          ),
         ),
         domainTaskRepositoryProvider.overrideWithValue(_NoTasks()),
         accountOnboardingCompleteProvider.overrideWith(_SetupDone.new),
         authUserProvider.overrideWith(
           (Ref ref) => Stream<User?>.value(
-            const User(
-              id: _account,
+            User(
+              id: ref.watch(_activeAccountProvider),
               email: 'hint@example.test',
               emailVerified: true,
             ),
@@ -397,12 +622,15 @@ class _SetupDone extends AccountOnboardingCompleteNotifier {
 
 class _ReadyBoundary extends AuthSessionBoundaryNotifier {
   @override
-  AuthSessionBoundary build() => const AuthSessionBoundary(
-    generation: 1,
-    userId: _account,
-    isTransitioning: false,
-    isStorageReady: true,
-  );
+  AuthSessionBoundary build() {
+    final String account = ref.watch(_activeAccountProvider);
+    return AuthSessionBoundary(
+      generation: account == _account ? 1 : 2,
+      userId: account,
+      isTransitioning: false,
+      isStorageReady: true,
+    );
+  }
 }
 
 class _NoTasks implements ITaskRepository {
