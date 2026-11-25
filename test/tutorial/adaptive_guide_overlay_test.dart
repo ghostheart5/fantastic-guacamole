@@ -24,13 +24,12 @@ void main() {
         (tester) async {
           await tester.binding.setSurfaceSize(const Size(320, 800));
           addTearDown(() => tester.binding.setSurfaceSize(null));
-          var chatEntries = 0;
           var underlyingActions = 0;
           final router = GoRouter(
-            initialLocation: '/credit-guide',
+            initialLocation: RoutePaths.siConsole,
             routes: [
               GoRoute(
-                path: '/credit-guide',
+                path: RoutePaths.siConsole,
                 builder: (context, state) => Scaffold(
                   body: TextButton(
                     onPressed: () => underlyingActions++,
@@ -39,11 +38,9 @@ void main() {
                 ),
               ),
               GoRoute(
-                path: RoutePaths.siConsole,
-                builder: (context, state) {
-                  chatEntries++;
-                  return const Scaffold(body: Text('Chat destination'));
-                },
+                path: RoutePaths.settings,
+                builder: (context, state) =>
+                    const Scaffold(body: Text('Settings')),
               ),
             ],
           );
@@ -93,10 +90,16 @@ void main() {
                   child: Stack(
                     children: [
                       ?child,
+                      // Keyed by location like the app root, so widget
+                      // state cannot hide a lesson after a route change.
                       ListenableBuilder(
                         listenable: router.routerDelegate,
-                        builder: (context, child) =>
-                            AdaptiveGuideOverlay(router: router),
+                        builder: (context, child) => AdaptiveGuideOverlay(
+                          key: ValueKey<String>(
+                            router.routerDelegate.state.uri.path,
+                          ),
+                          router: router,
+                        ),
                       ),
                     ],
                   ),
@@ -125,7 +128,7 @@ void main() {
                 )
               : find.widgetWithText(
                   FilledButton,
-                  language == 'es' ? 'Revisar las fuentes' : 'Inspect evidence',
+                  language == 'es' ? 'Continuar aquí' : 'Continue here',
                 );
           for (
             var read = 0;
@@ -137,24 +140,134 @@ void main() {
             await tester.pump();
           }
           expect(target.hitTestable(), findsOneWidget);
-          expect(chatEntries, 0);
           expect(underlyingActions, 0);
           expect(tester.takeException(), isNull);
           await tester.tap(target.hitTestable());
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 300));
-          expect(chatEntries, dismiss ? 0 : 1);
           expect(underlyingActions, 0);
-          expect(
-            router.routerDelegate.state.uri.path,
-            dismiss ? '/credit-guide' : RoutePaths.siConsole,
+          expect(router.routerDelegate.state.uri.path, RoutePaths.siConsole);
+          expect(explanation, findsNothing);
+          final container = ProviderScope.containerOf(
+            tester.element(find.byType(MaterialApp)),
           );
-          // Primary routing retains contextual guidance; dismissal hides it.
-          expect(explanation, dismiss ? findsNothing : findsOneWidget);
+          final saved = container.read(adaptiveGuidanceProvider).requireValue;
+          // "Not now" keeps its stored meaning; "Continue here" finishes the
+          // lesson. Either way it does not come back on the next visit.
+          expect(
+            saved.skippedLessons.contains(GuidanceLessonId.siConsole),
+            dismiss,
+          );
+          expect(
+            saved.completedLessons.contains(GuidanceLessonId.siConsole),
+            !dismiss,
+          );
+          router.go(RoutePaths.settings);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          router.go(RoutePaths.siConsole);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(explanation, findsNothing);
           expect(tester.takeException(), isNull);
         },
       );
     }
+  }
+
+  for (final String route in <String>[
+    RoutePaths.settings,
+    RoutePaths.creator,
+    RoutePaths.creatorGoals,
+  ]) {
+    testWidgets('no lesson about another screen covers $route after the '
+        'first-run guide', (WidgetTester tester) async {
+      var underlyingActions = 0;
+      final GoRouter router = GoRouter(
+        initialLocation: route,
+        routes: <RouteBase>[
+          GoRoute(
+            path: route,
+            builder: (BuildContext context, GoRouterState state) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () => underlyingActions++,
+                  child: const Text('Form field'),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            accountOnboardingCompleteProvider.overrideWith(
+              () => _FixedAccountOnboarding(true),
+            ),
+            authUserProvider.overrideWith(
+              (ref) => Stream<User?>.value(
+                const User(
+                  id: 'account-a',
+                  email: 'account-a@example.test',
+                  emailVerified: true,
+                ),
+              ),
+            ),
+            authSessionBoundaryProvider.overrideWith(
+              () => _FixedBoundary(
+                const AuthSessionBoundary(
+                  generation: 1,
+                  userId: 'account-a',
+                  isTransitioning: false,
+                  isStorageReady: true,
+                ),
+              ),
+            ),
+            // Core finished long ago and every old fallback is live: low
+            // confidence, no outcomes, Today never reviewed.
+            adaptiveGuidanceProvider.overrideWith(_CreditGuideState.new),
+            dailyDecisionIntelligenceProvider.overrideWith(
+              (ref) => const DailyDecisionIntelligence(
+                primaryAction: 'Wait for evidence.',
+                momentum: '0% stable',
+                trajectory: 'No trajectory yet.',
+                energy: 'Energy not checked',
+                warning: 'Too much is scheduled for Friday.',
+                recovery: 'No recovery signal yet.',
+                recommendedAction: 'Wait for evidence.',
+                rationale: 'No evidence yet.',
+                changeSummary: 'No prior state.',
+                evidence: <String>[],
+                confidence: 0,
+                observedOutcomes: 0,
+                replanAction: 'Move Task A to 3 pm.',
+              ),
+            ),
+          ],
+          child: MaterialApp.router(
+            routerConfig: router,
+            builder: (context, child) => Stack(
+              children: [
+                ?child,
+                ListenableBuilder(
+                  listenable: router.routerDelegate,
+                  builder: (context, child) =>
+                      AdaptiveGuideOverlay(router: router),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Help with this page'), findsNothing);
+      await tester.tap(find.text('Form field'));
+      expect(underlyingActions, 1);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   for (final bool accountComplete in <bool>[true, false]) {
@@ -548,6 +661,19 @@ class _CreditGuideState extends AdaptiveGuidanceNotifier {
         counts: current.counts,
         skippedLessons: {...current.skippedLessons, lesson},
         completedLessons: current.completedLessons,
+      ),
+    );
+  }
+
+  @override
+  Future<void> completeLesson(GuidanceLessonId lesson) async {
+    final current = state.requireValue;
+    state = AsyncData(
+      AdaptiveGuidanceState(
+        milestones: current.milestones,
+        counts: current.counts,
+        skippedLessons: current.skippedLessons,
+        completedLessons: {...current.completedLessons, lesson},
       ),
     );
   }

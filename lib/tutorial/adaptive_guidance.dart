@@ -185,7 +185,22 @@ abstract final class GuidanceInterventionEngine {
       return core == null ? null : _coreLesson(core);
     }
 
-    if (state.hasDeferralFriction) {
+    // A contextual lesson describes one screen, so it appears only there.
+    // Screens without a lesson of their own (Settings, Add something, Goals,
+    // Daily Rhythms...) never show guidance about another screen.
+    final GuidanceLessonId? routeLesson = switch (currentRoute) {
+      RoutePaths.nexus => GuidanceLessonId.nexus,
+      RoutePaths.smartPlanner => GuidanceLessonId.smartPlanner,
+      RoutePaths.timeline => GuidanceLessonId.timelineExecution,
+      RoutePaths.siConsole => GuidanceLessonId.siConsole,
+      RoutePaths.trajectoryEngine => GuidanceLessonId.trajectoryEngine,
+      RoutePaths.progression => GuidanceLessonId.progression,
+      _ => null,
+    };
+    if (routeLesson == null) return null;
+
+    if (routeLesson == GuidanceLessonId.timelineExecution &&
+        state.hasDeferralFriction) {
       final GuidanceLesson? recovery = unresolved(
         const GuidanceLesson(
           id: GuidanceLessonId.timelineExecution,
@@ -204,44 +219,9 @@ abstract final class GuidanceInterventionEngine {
     // can resume after the user has had an uninterrupted day with the app.
     if (state.isInPostCoreQuietPeriod(now)) return null;
 
-    final GuidanceLessonId? routeLesson = switch (currentRoute) {
-      RoutePaths.nexus => GuidanceLessonId.nexus,
-      RoutePaths.smartPlanner => GuidanceLessonId.smartPlanner,
-      RoutePaths.timeline => GuidanceLessonId.timelineExecution,
-      RoutePaths.siConsole => GuidanceLessonId.siConsole,
-      RoutePaths.trajectoryEngine => GuidanceLessonId.trajectoryEngine,
-      RoutePaths.progression => GuidanceLessonId.progression,
-      _ => null,
-    };
-    if (routeLesson != null) {
-      final GuidanceLesson? contextual = unresolved(
-        _advancedLesson(routeLesson, decision),
-      );
-      if (contextual != null) return contextual;
-    }
-
-    if (decision.replanAction != null) {
-      return unresolved(
-        _advancedLesson(GuidanceLessonId.smartPlanner, decision),
-      );
-    }
-    if (decision.confidence < .5) {
-      return unresolved(_advancedLesson(GuidanceLessonId.siConsole, decision));
-    }
-    if (decision.observedOutcomes == 0) {
-      return unresolved(
-        _advancedLesson(GuidanceLessonId.timelineExecution, decision),
-      );
-    }
-    if (!state.completedLessons.contains(GuidanceLessonId.nexus)) {
-      return unresolved(_advancedLesson(GuidanceLessonId.nexus, decision));
-    }
-    if (!decision.warning.startsWith('No material constraint')) {
-      return unresolved(
-        _advancedLesson(GuidanceLessonId.trajectoryEngine, decision),
-      );
-    }
-    return null;
+    // A finished or dismissed lesson is not replaced by one about another
+    // screen.
+    return unresolved(_advancedLesson(routeLesson, decision));
   }
 
   static GuidanceLessonId? activeCoreLesson(AdaptiveGuidanceState state) {
@@ -618,6 +598,39 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
           ...pausedLessons,
         },
         replayLessons: replay,
+        expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
+        untilReopenedLessons: current.untilReopenedLessons,
+      ),
+    );
+  }
+
+  /// "Continue here" on a contextual lesson: the person has read it and is
+  /// using the screen, so it is finished for this account. First-run guide
+  /// steps finish only through their real milestones.
+  Future<void> completeLesson(GuidanceLessonId lesson) async {
+    if (_replayableCoreLessons.contains(lesson)) return;
+    final String? account = _activeScope;
+    if (account == null) return;
+    final AdaptiveGuidanceState current = await _current();
+    if (_activeScope != account) return;
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    if (_activeScope != account) return;
+    final String prefix = _prefix(account);
+    await prefs.setBool('$prefix.complete.${lesson.name}', true);
+    await prefs.remove('$prefix.later.${lesson.name}');
+    if (!ref.mounted || _activeScope != account) return;
+    state = AsyncData(
+      AdaptiveGuidanceState(
+        milestones: current.milestones,
+        counts: current.counts,
+        skippedLessons: current.skippedLessons,
+        completedLessons: <GuidanceLessonId>{
+          ...current.completedLessons,
+          lesson,
+        },
+        laterLessons: <GuidanceLessonId>{...current.laterLessons}
+          ..remove(lesson),
+        replayLessons: current.replayLessons,
         expectedFirstRunCreatorTaskIds: current.expectedFirstRunCreatorTaskIds,
         untilReopenedLessons: current.untilReopenedLessons,
       ),

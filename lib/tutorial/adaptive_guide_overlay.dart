@@ -467,7 +467,14 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
           : l10n.guideAction(lesson.id.name, lesson.actionLabel),
       onPrimary: () {
         if (alreadyHere) {
+          // Remembered for the account, so it does not return on the next
+          // visit; hidden now without waiting for storage.
           setState(() => _suppressedLesson = lesson.id);
+          unawaited(
+            ref
+                .read(adaptiveGuidanceProvider.notifier)
+                .completeLesson(lesson.id),
+          );
         } else {
           widget.router.go(lesson.route);
         }

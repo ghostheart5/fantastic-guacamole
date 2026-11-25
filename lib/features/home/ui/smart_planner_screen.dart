@@ -29,6 +29,7 @@ import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planner_explanation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -213,6 +214,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       return;
     }
     if (!mounted || revision != _checkInRevision) return;
+    _recordPlannerQuestionSent();
     final ({String? pauseReason, String? question}) supportiveCopy =
         _localizedSupportiveCopy(notes, planner);
 
@@ -500,6 +502,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       return;
     }
     if (!mounted || revision != _checkInRevision) return;
+    _recordPlannerQuestionSent();
     final supportiveCopy = _localizedSupportiveCopy(safetyText, planner);
     _followUpController.clear();
     setState(() {

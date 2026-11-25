@@ -48,6 +48,8 @@ class _Control extends Notifier<_ControlState> {
 // Guidance persistence has its own integration tests. This screen fixture
 // isolates that startup side effect while exercising real comparison rendering.
 class _QuietGuidance extends AdaptiveGuidanceNotifier {
+  final List<GuidanceMilestone> recorded = <GuidanceMilestone>[];
+
   @override
   Future<AdaptiveGuidanceState> build() async => const AdaptiveGuidanceState(
     milestones: {},
@@ -59,7 +61,7 @@ class _QuietGuidance extends AdaptiveGuidanceNotifier {
   Future<void> record(
     GuidanceMilestone milestone, {
     bool Function()? shouldContinue,
-  }) async {}
+  }) async => recorded.add(milestone);
 }
 
 class _Actions extends TrajectoryForecastLedgerActions {
@@ -325,6 +327,46 @@ void _noSavedChanges(ProviderContainer container) {
 }
 
 void main() {
+  for (final interaction in ['scroll', 'tap', 'range']) {
+    testWidgets(
+      'Patterns lesson finishes on a real $interaction, not on opening',
+      (tester) async {
+        final container = await _open(tester);
+        try {
+          final guidance =
+              container.read(adaptiveGuidanceProvider.notifier)
+                  as _QuietGuidance;
+          await _frames(tester);
+          expect(guidance.recorded, isEmpty);
+          switch (interaction) {
+            case 'scroll':
+              await tester.drag(
+                find.byType(Scrollable).first,
+                const Offset(0, -200),
+              );
+            case 'tap':
+              await tester.tap(find.text('How this helps you'));
+            default:
+              // Moving the list programmatically is not the person scrolling.
+              await tester.ensureVisible(find.text('30 DAYS'));
+              await _frames(tester);
+              expect(guidance.recorded, isEmpty);
+              await tester.tap(find.text('30 DAYS').hitTestable());
+              expect(container.read(trajectoryHorizonDaysProvider), 30);
+          }
+          await _frames(tester);
+          expect(guidance.recorded, <GuidanceMilestone>[
+            GuidanceMilestone.firstTrajectoryReview,
+          ]);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+          await tester.pump(Duration.zero);
+        }
+      },
+    );
+  }
+
   for (final es in [false, true]) {
     testWidgets(
       '${es ? 'Spanish reduced-motion' : 'English'} scrolled composer confirms and reveals matching preview',

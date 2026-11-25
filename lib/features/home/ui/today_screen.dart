@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/features/creator/ui/open_creator.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:flutter/material.dart';
@@ -404,11 +405,19 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
       ref.read(authSessionBoundaryProvider).blockingIssue == null &&
       ref.read(accountStorageScopeProvider).v2Namespace == namespace;
 
+  /// Acting on a suggested step is the Today lesson's real milestone; simply
+  /// opening Today is not. Guidance bookkeeping never blocks the action.
+  void _usedSuggestedStep() => ref
+      .read(adaptiveGuidanceProvider.notifier)
+      .recordIfMissing(GuidanceMilestone.firstNexusReview)
+      .ignore();
+
   Future<void> _complete(String id) async {
     if (_busy.contains(id)) return;
     final generation = ref.read(authSessionBoundaryProvider).generation;
     final namespace = ref.read(accountStorageScopeProvider).v2Namespace;
     if (!_sameAccount(generation, namespace)) return;
+    _usedSuggestedStep();
     setState(() => _busy.add(id));
     try {
       await ref.read(taskActionsProvider).completeTask(id, notify: false);
@@ -445,6 +454,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
   Future<void> _edit(TaskEntity task) async {
     final generation = ref.read(authSessionBoundaryProvider).generation;
     final namespace = ref.read(accountStorageScopeProvider).v2Namespace;
+    _usedSuggestedStep();
     final draft = await showTaskEditDialog(
       context: context,
       editable: task,

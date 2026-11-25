@@ -21,6 +21,7 @@ import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -375,6 +376,44 @@ void main() {
       expect(port.calls, 1);
     },
   );
+
+  testWidgets('sending a chat question finishes the Chat lesson; '
+      'opening Chat or a crisis message does not', (WidgetTester tester) async {
+    final _RecordingPort port = _RecordingPort(snapshot: snapshot, now: now);
+    final ProviderContainer container = _container(
+      port,
+      snapshot,
+      guidance: _RecordingGuidance.new,
+    );
+    addTearDown(() => _dispose(tester, container));
+    await _pumpScreen(tester, container);
+    final _RecordingGuidance guidance =
+        container.read(adaptiveGuidanceProvider.notifier) as _RecordingGuidance;
+    expect(guidance.recorded, isEmpty);
+
+    await tester.enterText(
+      find.byKey(const Key('si-query-input')),
+      'I want to kill myself',
+    );
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pump();
+    expect(find.byKey(const Key('immediate-safety-dialog')), findsOneWidget);
+    expect(guidance.recorded, isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+
+    await _pumpScreen(tester, container);
+    await tester.enterText(
+      find.byKey(const Key('si-query-input')),
+      'What needs attention?',
+    );
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(port.calls, 1);
+    expect(guidance.recorded, <GuidanceMilestone>[
+      GuidanceMilestone.firstSiQuery,
+    ]);
+  });
 
   testWidgets('malformed empty input is ignored without analysis', (
     WidgetTester tester,
@@ -949,9 +988,11 @@ ProviderContainer _container(
   bool playbackEnabled = true,
   VoiceService? playbackService,
   VoiceController? voiceController,
+  _RecordingGuidance Function()? guidance,
 }) {
   return ProviderContainer(
     overrides: [
+      if (guidance != null) adaptiveGuidanceProvider.overrideWith(guidance),
       secureStoreProvider.overrideWithValue(
         SecureStore(backend: InMemorySecureStoreBackend()),
       ),
@@ -1010,6 +1051,30 @@ ProviderContainer _container(
       ),
     ],
   );
+}
+
+class _RecordingGuidance extends AdaptiveGuidanceNotifier {
+  final List<GuidanceMilestone> recorded = <GuidanceMilestone>[];
+
+  @override
+  Future<AdaptiveGuidanceState> build() async => const AdaptiveGuidanceState(
+    milestones: <GuidanceMilestone, DateTime>{},
+    counts: <GuidanceMilestone, int>{},
+    skippedLessons: <GuidanceLessonId>{},
+    completedLessons: <GuidanceLessonId>{},
+  );
+
+  @override
+  Future<void> recordIfMissing(
+    GuidanceMilestone milestone, {
+    bool Function()? shouldContinue,
+  }) async => recorded.add(milestone);
+
+  @override
+  Future<void> record(
+    GuidanceMilestone milestone, {
+    bool Function()? shouldContinue,
+  }) async => recorded.add(milestone);
 }
 
 class _ReadyChatBoundary extends AuthSessionBoundaryNotifier {

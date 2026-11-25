@@ -335,9 +335,12 @@ void main() {
 
     expect(
       state
-          .nextIntervention(currentRoute: RoutePaths.nexus, decision: _decision)
-          ?.id,
-      GuidanceLessonId.timelineExecution,
+          .nextIntervention(
+            currentRoute: RoutePaths.timeline,
+            decision: _decision,
+          )
+          ?.title,
+      'Try a smaller step or a different time',
     );
   });
 
