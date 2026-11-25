@@ -21,7 +21,6 @@ import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/providers/ai_content_report_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
-import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -520,12 +519,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       return;
     }
 
-    // A question really sent from Chat finishes its lesson. Guidance
-    // bookkeeping must never interrupt the query itself.
-    ref
-        .read(adaptiveGuidanceProvider.notifier)
-        .recordIfMissing(GuidanceMilestone.firstSiQuery)
-        .ignore();
+    // A question really sent from Chat finishes its lesson.
+    controller.recordQuestionSent();
     if (_handleLocalShortcut(text)) {
       _input.clear();
       return;

@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final siConsoleQueryControllerProvider = Provider<SIConsoleQueryController>((
@@ -20,6 +21,20 @@ class SIConsoleQueryController {
   final Ref _ref;
 
   bool detectsCrisis(String text) => CrisisDetectionPolicy.detects(text);
+
+  /// A question really sent from Chat finishes the Chat lesson for the
+  /// current account. Guidance bookkeeping only: it never touches tasks,
+  /// goals or SI state, and a failure never reaches the query.
+  void recordQuestionSent() {
+    try {
+      _ref
+          .read(adaptiveGuidanceProvider.notifier)
+          .recordIfMissing(GuidanceMilestone.firstSiQuery)
+          .ignore();
+    } on Object {
+      // The query goes ahead regardless.
+    }
+  }
 
   EmotionalSafetyAssessment assessEmotionalSafety(String text) =>
       EmotionalSafetyPolicy.assess(text);
