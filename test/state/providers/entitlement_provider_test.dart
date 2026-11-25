@@ -336,13 +336,14 @@ void main() {
     });
 
     test(
-      'an entitlement refresh forgets the AI chat balance it may have changed',
+      'a routine recheck keeps the AI chat balance; a changed subscription clears it',
       () async {
         final _Harness harness = await _Harness.create(
           subscription: const SubscriptionState(
             isActive: true,
             status: 'active',
             source: 'supabase_authority',
+            planId: 'monthly',
           ),
           owner: 'user-a',
           user: _user('user-a'),
@@ -353,15 +354,31 @@ void main() {
         final known = harness.container.read(
           aiCreditKnownBalanceProvider.notifier,
         );
+        int? shown() => harness.container.read(aiCreditKnownBalanceProvider);
+        Future<void> recheck() => harness.container.read(
+          entitlementAuthorityRefreshProvider,
+        )(force: true);
+
+        // The first recheck in a run has nothing to compare with.
+        await recheck();
         known.enterPaid(account, 'request', firstAttempt: true);
         known.reportAnswer(account, 'request', 20);
-        expect(harness.container.read(aiCreditKnownBalanceProvider), 20);
+        expect(shown(), 20);
 
-        await harness.container.read(entitlementAuthorityRefreshProvider)(
-          force: true,
+        // Routine rechecks finding the same subscription keep it.
+        await recheck();
+        await recheck();
+        expect(shown(), 20);
+
+        // A different subscription may come with granted credits.
+        harness.repository.subscription = const SubscriptionState(
+          isActive: true,
+          status: 'active',
+          source: 'supabase_authority',
+          planId: 'yearly',
         );
-
-        expect(harness.container.read(aiCreditKnownBalanceProvider), isNull);
+        await recheck();
+        expect(shown(), isNull);
       },
     );
   });

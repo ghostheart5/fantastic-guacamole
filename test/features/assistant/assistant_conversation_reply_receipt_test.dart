@@ -96,6 +96,7 @@ class _Server {
     paid.add(body);
     if (paidScript.isNotEmpty) {
       final next = paidScript.removeAt(0);
+      if (next is Future<_Response>) return next;
       if (next is _Response) return next;
       throw next as Error;
     }
@@ -131,8 +132,11 @@ ProviderContainer _setup(
   NetworkInterfaceAvailability? network,
   Future<Map<String, dynamic>> Function(String? account)? walletRow,
   AccountStorageScope Function()? readScope,
+  Duration? paidWaitTimeout,
 }) => ProviderContainer(
   overrides: [
+    if (paidWaitTimeout != null)
+      conversationPaidWaitTimeoutProvider.overrideWithValue(paidWaitTimeout),
     secureStoreProvider.overrideWithValue(SecureStore(backend: backend)),
     accountStorageScopeProvider.overrideWith(
       (ref) => readScope?.call() ?? _scope,
@@ -509,81 +513,200 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a wallet read that began before a reply never replaces its newer balance',
-    (tester) async {
-      final container = _setup(
-        _Server(),
-        InMemorySecureStoreBackend(),
-        walletRow: (_) async => {'balance': 42},
-      );
-      addTearDown(container.dispose);
-      final account = _scope.v2Namespace!;
-      final known = container.read(aiCreditKnownBalanceProvider.notifier);
-      int? shown() => container.read(aiCreditKnownBalanceProvider);
-      known.enterPaid(account, 'a', firstAttempt: true);
-      final token = known.beginRead();
-      known.reportAnswer(account, 'a', 20);
-      known.reportWallet(account, token, 42);
-      expect(shown(), 20);
+  group('known balance: one row of the rule each', () {
+    late ProviderContainer container;
+    late AiCreditKnownBalance known;
+    final account = _scope.v2Namespace!;
+    int? shown() => container.read(aiCreditKnownBalanceProvider);
+    void wallet(int balance) =>
+        known.reportWallet(account, known.beginRead(), balance);
+
+    setUp(() {
+      container = _setup(_Server(), InMemorySecureStoreBackend());
+      known = container.read(aiCreditKnownBalanceProvider.notifier);
+    });
+    tearDown(() => container.dispose());
+
+    test('a wallet read with nothing running sets it', () {
+      wallet(42);
+      expect(shown(), 42);
+    });
+
+    test('a wallet read for another account is ignored', () {
+      wallet(42);
       known.reportWallet('someone-else', known.beginRead(), 9);
-      expect(shown(), 20);
-      known.reportWallet(account, known.beginRead(), 18);
-      expect(shown(), 18);
-    },
-  );
+      expect(shown(), 42);
+    });
 
-  testWidgets(
-    'an answer never replaces a newer figure: a wallet read, a purchase or an overlapping answer since its request was sent',
-    (tester) async {
-      final container = _setup(_Server(), InMemorySecureStoreBackend());
-      addTearDown(container.dispose);
-      final account = _scope.v2Namespace!;
-      final known = container.read(aiCreditKnownBalanceProvider.notifier);
-      int? shown() => container.read(aiCreditKnownBalanceProvider);
-
-      // A wallet read reported after the request was sent.
-      known.enterPaid(account, 'wallet-first', firstAttempt: true);
-      known.reportWallet(account, known.beginRead(), 120);
-      known.reportAnswer(account, 'wallet-first', 20);
-      expect(shown(), isNull);
-
-      // A purchase (or entitlement refresh) while it was running.
-      known.reportWallet(account, known.beginRead(), 50);
-      known.enterPaid(account, 'purchase-during', firstAttempt: true);
+    test('a wallet read that began before a later event is not taken', () {
+      final token = known.beginRead();
       known.walletChanged();
-      known.reportAnswer(account, 'purchase-during', 45);
+      known.reportWallet(account, token, 42);
       expect(shown(), isNull);
+    });
 
-      // Chat and Choose a step overlap: either answer may carry the older
-      // figure (reservation order is not known here), so neither is shown.
-      known.reportWallet(account, known.beginRead(), 50);
-      expect(shown(), 50);
-      known.enterPaid(account, 'chat', firstAttempt: true);
-      // Reserved at once by the server: 50 is out of date while it runs.
+    test('a request entering the paid step forgets it', () {
+      wallet(42);
+      known.enterPaid(account, 'a', firstAttempt: true);
       expect(shown(), isNull);
+    });
+
+    test(
+      'a wallet read while a request runs is not taken and overtakes it',
+      () {
+        known.enterPaid(account, 'a', firstAttempt: true);
+        wallet(42);
+        expect(shown(), isNull);
+        known.reportAnswer(account, 'a', 37);
+        expect(shown(), isNull);
+      },
+    );
+
+    test('an answer to a first attempt with nothing since sets it', () {
+      wallet(42);
+      known.enterPaid(account, 'a', firstAttempt: true);
+      known.release('a'); // its execution completed
+      known.reportAnswer(account, 'a', 37);
+      expect(shown(), 37);
+    });
+
+    test(
+      'an answer after a wallet change since its first attempt does not',
+      () {
+        known.enterPaid(account, 'a', firstAttempt: true);
+        known.walletChanged();
+        known.reportAnswer(account, 'a', 37);
+        expect(shown(), isNull);
+      },
+    );
+
+    test(
+      'a retry after a purchase and a wallet read keeps the first mark: no figure',
+      () {
+        known.enterPaid(account, 'a', firstAttempt: true);
+        known.forget(account, 'a'); // left or timed out without an answer
+        known.walletChanged(); // bought credits on Plans
+        wallet(120); // Plans read the wallet
+        expect(shown(), 120);
+        known.enterPaid(account, 'a', firstAttempt: false); // retry/recovery
+        known.reportAnswer(account, 'a', 20); // the cached reply
+        expect(shown(), isNull);
+      },
+    );
+
+    test('a retry after only its own uncertain failure sets it', () {
+      known.enterPaid(account, 'a', firstAttempt: true);
+      known.forget(account, 'a');
+      known.enterPaid(account, 'a', firstAttempt: false);
+      known.reportAnswer(account, 'a', 37);
+      expect(shown(), 37);
+    });
+
+    test('a request recovered from an earlier run never sets it', () {
+      known.enterPaid(account, 'earlier-run', firstAttempt: false);
+      known.reportAnswer(account, 'earlier-run', 20);
+      expect(shown(), isNull);
+    });
+
+    test('a request on the other surface between attempts overtakes it', () {
+      known.enterPaid(account, 'a', firstAttempt: true);
+      known.forget(account, 'a');
+      known.enterPaid(account, 'b', firstAttempt: true);
+      known.reportAnswer(account, 'b', 40);
+      expect(shown(), 40);
+      known.enterPaid(account, 'a', firstAttempt: false);
+      known.reportAnswer(account, 'a', 45);
+      expect(shown(), isNull);
+    });
+
+    test('overlapping requests set nothing; the next one alone does', () {
+      known.enterPaid(account, 'chat', firstAttempt: true);
       known.enterPaid(account, 'choose-a-step', firstAttempt: true);
       known.reportAnswer(account, 'choose-a-step', 45);
       expect(shown(), isNull);
       known.reportAnswer(account, 'chat', 40);
       expect(shown(), isNull);
-      // The next request on its own shows its figure again.
       known.enterPaid(account, 'next', firstAttempt: true);
       known.reportAnswer(account, 'next', 35);
       expect(shown(), 35);
+    });
 
-      // A request with no mark in this run (recovered from an earlier run).
-      known.reportWallet(account, known.beginRead(), 50);
-      known.reportAnswer(account, 'earlier-run', 20);
+    test(
+      'a released request stops blocking later answers but overtakes earlier marks',
+      () {
+        known.enterPaid(account, 'old', firstAttempt: true);
+        known.enterPaid(account, 'waiting', firstAttempt: true);
+        // "old" is abandoned (Start another request) or its execution ends
+        // with nobody waiting.
+        known.release('old');
+        known.reportAnswer(account, 'waiting', 30);
+        expect(shown(), isNull, reason: 'old may have been charged after');
+        known.enterPaid(account, 'new', firstAttempt: true);
+        known.reportAnswer(account, 'new', 25);
+        expect(shown(), 25);
+        // A late completion of the abandoned request changes nothing.
+        known.release('old');
+        expect(shown(), 25);
+      },
+    );
+
+    test('a failure without a figure forgets it', () {
+      wallet(42);
+      known.enterPaid(account, 'a', firstAttempt: true);
+      known.forget(account, 'a');
       expect(shown(), isNull);
+    });
 
-      // Its own retry after its own uncertain failure is not "newer".
-      known.reportWallet(account, known.beginRead(), 50);
-      known.enterPaid(account, 'retried', firstAttempt: true);
-      known.forget(account, 'retried');
-      known.enterPaid(account, 'retried', firstAttempt: false);
-      known.reportAnswer(account, 'retried', 45);
-      expect(shown(), 45);
+    test('a wallet change forgets it', () {
+      wallet(42);
+      known.walletChanged();
+      expect(shown(), isNull);
+    });
+
+    test('events for another account are ignored', () {
+      wallet(42);
+      known.enterPaid('someone-else', 'x', firstAttempt: true);
+      known.forget('someone-else', 'x');
+      known.reportAnswer('someone-else', 'x', 1);
+      expect(shown(), 42);
+    });
+  });
+
+  testWidgets(
+    'after a timeout, Start another request lets the new answer set the balance',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      // The first paid request never answers.
+      final never = Completer<_Response>();
+      final server = _Server(paidScript: [never.future]);
+      final container = _setup(
+        server,
+        InMemorySecureStoreBackend(),
+        paidWaitTimeout: const Duration(seconds: 2),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container);
+      await _ask(tester, 'When should I do the Grocery list?', 'en');
+      await tester.pump(const Duration(seconds: 3));
+      await _settle(tester);
+      expect(find.textContaining('took too long'), findsOneWidget);
+      await tester.ensureVisible(
+        find.text('Start another request', skipOffstage: false),
+      );
+      await tester.pump();
+      await tester.tap(find.text('Start another request'));
+      await _settle(tester);
+      await tester.tap(find.text('Start new request'));
+      await _settle(tester);
+
+      await _ask(tester, 'And something else?', 'en');
+      expect(server.paid, hasLength(2));
+      expect(_balanceText(tester), 'Your balance: 20 credits');
+      expect(tester.takeException(), isNull);
     },
   );
 

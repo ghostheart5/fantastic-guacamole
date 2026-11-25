@@ -105,30 +105,38 @@ Future<AiCreditWallet> loadServerAiCreditWallet(
 int _aiCreditBalanceClock = 0;
 
 /// The current AI credit balance of the signed-in account, as far as this
-/// app run knows it, or null when it cannot know it. Kept in memory only.
-/// Watching it never contacts the server, so AI chat can show a balance
-/// without causing a wallet read.
+/// app run knows it, or null when it cannot know it. Kept in memory only;
+/// watching it never contacts the server.
 ///
-/// Sources: a server wallet read something else made (Settings, Plans and
-/// credits), and an AI chat answer. An answer's figure is the balance when
-/// its request was reserved, so it is used only for a request that entered
-/// the paid step in this run with nothing reported or forgotten since
-/// ([enterPaid]); otherwise the balance is forgotten. Anything that may
-/// change the wallet away from AI chat (a purchase, a restore, an
-/// entitlement refresh, a test charge) calls [walletChanged]. Empty after
-/// any account or sign-in change, and cleared by the account fence.
+/// The rule: the balance is shown only while nothing is running and nothing
+/// has happened that it does not include. Every event forgets it, except
+/// the two that may set it. A server wallet read sets it when no request is
+/// in the paid step and nothing happened since the read began. An AI chat
+/// answer (the balance when its request was reserved) sets it when its
+/// request first entered the paid step in this run, no other request is in
+/// the paid step, and no outside change has happened since that first
+/// attempt. An outside change, for a request, is anything not about that
+/// request itself: a wallet read or wallet change (purchase, restore,
+/// changed subscription, test charge, Get credits), or another request
+/// entering the paid step, answering, failing or being released. A request
+/// stops counting as in the paid step when its answer or failure arrives or
+/// when it is released (its outcome shown or dropped, it is abandoned, or
+/// its execution completes with nobody waiting). A request recovered from an
+/// earlier run has no first attempt here, so its answer never sets it. An
+/// account or sign-in change, or the account fence, empties everything.
 final aiCreditKnownBalanceProvider =
     NotifierProvider<AiCreditKnownBalance, int?>(AiCreditKnownBalance.new);
 
 class AiCreditKnownBalance extends Notifier<int?> {
   String? _account;
-  // Changes whenever the value is set or forgotten. A wallet read or an
-  // answer whose request began before the latest change is ignored.
+  // Changes on every event. A wallet read that began before the latest
+  // event is not taken.
   int _version = 0;
-  // Per request id: the version when it entered the paid step in this run.
-  final _paidSince = <String, int>{};
-  // Requests handed on for a reply whose answer has not arrived yet.
-  final _inFlight = <String>{};
+  // Requests whose first attempt in this run entered the paid step, and
+  // whether an outside change has happened since.
+  final _overtaken = <String, bool>{};
+  // Requests in the paid step whose answer has not arrived.
+  final _running = <String>{};
 
   @override
   int? build() {
@@ -137,80 +145,73 @@ class AiCreditKnownBalance extends Notifier<int?> {
     );
     ref.watch(authSessionBoundaryProvider.select((b) => b.generation));
     _version = ++_aiCreditBalanceClock;
-    _paidSince.clear();
-    _inFlight.clear();
+    _overtaken.clear();
+    _running.clear();
     return null;
   }
 
   /// Marks the start of a server wallet read.
   int beginRead() => _version;
 
-  /// A request for [account] is handed on for a reply. The server reserves
-  /// its credits at once, so the balance shown until now is out of date and
-  /// is forgotten. Only its first attempt in this run marks when it entered
-  /// the paid step: a retry keeps that mark, and a request recovered from an
-  /// earlier run has none.
+  /// A request for [account] is handed on for a reply. [firstAttempt] is
+  /// false for a retry or a recovery, which keeps the first attempt's mark.
   void enterPaid(
     String account,
     String requestId, {
     required bool firstAttempt,
   }) {
     if (account != _account) return;
-    _forget(requestId);
-    if (firstAttempt) _paidSince.putIfAbsent(requestId, () => _version);
-    _inFlight.add(requestId);
+    _event(requestId);
+    if (firstAttempt) _overtaken.putIfAbsent(requestId, () => false);
+    _running.add(requestId);
   }
 
-  /// A balance the answer to [requestId] reported. Used only when nothing
-  /// was reported or forgotten since that request entered the paid step and
-  /// no other request is still waiting for its answer (whose reservation
-  /// may be newer); otherwise the balance is forgotten.
+  /// The answer to [requestId] reported [balance].
   void reportAnswer(String account, String requestId, int balance) {
     if (account != _account) return;
-    _inFlight.remove(requestId);
-    final since = _paidSince[requestId];
-    if (since == null ||
-        since != _version ||
-        _inFlight.isNotEmpty ||
-        balance < 0) {
-      _forget(requestId);
-      return;
+    _running.remove(requestId);
+    _event(requestId);
+    if (_overtaken[requestId] == false && _running.isEmpty && balance >= 0) {
+      state = balance;
     }
-    _version = ++_aiCreditBalanceClock;
-    _paidSince[requestId] = _version;
-    state = balance;
   }
 
-  /// The request [requestId] for [account] may have changed the balance
-  /// without saying what it is now: show none until it is known again.
+  /// [requestId] failed without saying what the balance is now.
   void forget(String account, String requestId) {
     if (account != _account) return;
-    _inFlight.remove(requestId);
-    _forget(requestId);
+    _running.remove(requestId);
+    _event(requestId);
+  }
+
+  /// The app will not use [requestId]'s answer (it was shown, dropped or
+  /// abandoned), or its execution completed. Its charge may still have
+  /// happened, so this is an outside change for other requests; it no
+  /// longer keeps later answers from setting the balance. A request that is
+  /// not running is left alone.
+  void release(String requestId) {
+    if (!_running.remove(requestId)) return;
+    _event(requestId);
   }
 
   /// The wallet may have changed away from AI chat.
-  void walletChanged() => _forget(null);
-
-  void _forget(String? requestId) {
-    _version = ++_aiCreditBalanceClock;
-    // This request's own outcome is not a change it has to be older than.
-    if (requestId != null && _paidSince.containsKey(requestId)) {
-      _paidSince[requestId] = _version;
-    }
-    state = null;
-  }
+  void walletChanged() => _event(null);
 
   /// A server wallet read for [account] that began at [token] finished.
   void reportWallet(String? account, int token, int balance) {
-    if (account == null ||
-        account != _account ||
-        token != _version ||
-        balance < 0) {
-      return;
-    }
+    if (account == null || account != _account) return;
+    final current = token == _version && _running.isEmpty && balance >= 0;
+    _event(null);
+    if (current) state = balance;
+  }
+
+  /// Every event forgets the balance and is an outside change for every
+  /// marked request other than [requestId].
+  void _event(String? requestId) {
     _version = ++_aiCreditBalanceClock;
-    state = balance;
+    for (final id in _overtaken.keys.toList()) {
+      if (id != requestId) _overtaken[id] = true;
+    }
+    state = null;
   }
 }
 

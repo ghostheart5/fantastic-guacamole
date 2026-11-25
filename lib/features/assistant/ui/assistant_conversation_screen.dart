@@ -1066,6 +1066,10 @@ class _AssistantConversationScreenState
                             if (mounted && confirmed && abandoned != null) {
                               setState(() => _pending = null);
                               _forgetPending(abandoned);
+                              // Its answer will not be used here.
+                              ref
+                                  .read(aiCreditKnownBalanceProvider.notifier)
+                                  .release(abandoned);
                             }
                           },
                           child: Text(

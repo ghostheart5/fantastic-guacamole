@@ -1549,6 +1549,52 @@ void main() {
     },
   );
 
+  testWidgets(
+    'leaving mid-request, buying credits and returning shows no older balance',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      final reply = Completer<_Response>();
+      final paid = <Map<String, dynamic>>[];
+      final container = _setup((body) async {
+        if (body['quoteOnly'] == true) return _quote(body);
+        paid.add(body);
+        return reply.future;
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await _confirmPaidRequest(tester, 'Compare my two options.');
+      expect(paid, hasLength(1));
+      await _leave(tester, container);
+      // Reserved and answered while away: 20 left then.
+      reply.complete(_answer(paid.single['requestId'], 'The paid reply.'));
+      await _settle(tester);
+      // Then the person bought credits; Plans read the wallet.
+      final known = container.read(aiCreditKnownBalanceProvider.notifier);
+      known.walletChanged();
+      known.reportWallet(_scope.v2Namespace, known.beginRead(), 120);
+      expect(container.read(aiCreditKnownBalanceProvider), 120);
+
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await _settle(tester);
+      expect(find.text('The paid reply.'), findsOneWidget);
+      expect(paid, hasLength(1), reason: 'Joined, not sent again');
+      expect(
+        find.textContaining('20 left after this reply', skipOffstage: false),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('conversation-balance'), skipOffstage: false),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final surface in ConversationSurface.values) {
     testWidgets(
       '${surface.name}: a recovered request refused with unauthorized does not say nothing was charged',

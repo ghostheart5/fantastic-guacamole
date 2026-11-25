@@ -17,6 +17,7 @@ import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provid
 import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/internal_credit_test_provider.dart';
+import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
@@ -200,6 +201,10 @@ final conversationExecutionRegistryProvider =
               )
               .ignore();
         },
+        onReleased: (requestId) {
+          if (!ref.mounted) return;
+          ref.read(aiCreditKnownBalanceProvider.notifier).release(requestId);
+        },
       );
       // An account or generation change drops this registry and its timer.
       ref.onDispose(registry.dispose);
@@ -211,11 +216,26 @@ final class ConversationExecutionRegistry {
     ConversationPurgeTimer? createTimer,
     AssistantConversationRepository? Function()? readStore,
     this.onAnswered,
+    this.onReleased,
   }) : _createTimer = createTimer ?? Timer.new,
        _readStore = readStore ?? (() => null);
 
   final ConversationPurgeTimer _createTimer;
   final AssistantConversationRepository? Function() _readStore;
+
+  /// Told when an execution completes (answer or failure, whoever is
+  /// listening) and when a request's outcome is finished; it no longer
+  /// counts as running for the AI credit balance.
+  final void Function(String requestId)? onReleased;
+
+  void _release(String requestId) {
+    if (_disposed) return;
+    try {
+      onReleased?.call(requestId);
+    } on Object {
+      // Display bookkeeping only.
+    }
+  }
 
   /// Told once per answered execution started here (a joined request is not
   /// a second answer). It can never change the request's own outcome.
@@ -289,6 +309,7 @@ final class ConversationExecutionRegistry {
       future.then<void>(
         (_) {
           if (_disposed) return;
+          _release(id);
           try {
             onAnswered?.call(quote.packet);
           } on Object {
@@ -296,6 +317,7 @@ final class ConversationExecutionRegistry {
           }
         },
         onError: (Object _) {
+          _release(id);
           if (identical(_running[id]?.future, future)) {
             _running[id] = (future: future, failed: true);
             // A run kept past its deadline may now be purged.
@@ -311,6 +333,7 @@ final class ConversationExecutionRegistry {
   void finish(String requestId, {required bool shown}) {
     _running.remove(requestId);
     if (shown) _shown.add(requestId);
+    _release(requestId);
   }
 
   bool wasShown(String requestId) => _shown.contains(requestId);

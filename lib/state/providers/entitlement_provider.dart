@@ -66,18 +66,36 @@ typedef EntitlementAuthorityRefresh = Future<void> Function({bool force});
 
 final entitlementAuthorityRefreshProvider =
     Provider<EntitlementAuthorityRefresh>((Ref ref) {
+      // The subscription this run last saw from the server, per account. A
+      // routine recheck that finds it unchanged is no reason to think the
+      // AI credit balance changed; a different one (or the first one seen)
+      // may come with granted or removed credits.
+      String? lastAccount;
+      Object? lastSeen;
       return ({bool force = false}) async {
         if (Env.isLocalMode) return;
         final repository = ref.read(paywallRepositoryProvider);
         if (repository is ISubscriptionAuthorityRefresher) {
-          await (repository as ISubscriptionAuthorityRefresher)
-              .refreshSubscriptionState(force: force);
+          final account = ref.read(accountStorageScopeProvider).v2Namespace;
+          final SubscriptionState refreshed =
+              await (repository as ISubscriptionAuthorityRefresher)
+                  .refreshSubscriptionState(force: force);
+          final Object seen = (
+            refreshed.isActive,
+            refreshed.status,
+            refreshed.planId,
+            refreshed.renewalDate,
+          );
+          if (account != lastAccount || seen != lastSeen) {
+            ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
+          }
+          lastAccount = account;
+          lastSeen = seen;
         }
         ref.invalidate(entitlementProvider);
         ref.invalidate(paywallSubscriptionProvider);
         ref.invalidate(paywallConfigProvider);
         ref.invalidate(aiCreditWalletProvider);
-        ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
         await ref.read(entitlementProvider.future);
       };
     });
