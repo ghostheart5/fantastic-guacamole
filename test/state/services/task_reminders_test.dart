@@ -444,12 +444,107 @@ void main() {
       );
     });
 
+    test('a new lead time inside the window still reminds at the time '
+        'itself', () async {
+      // Starts at 10:10; registered for 10:10 with no lead time.
+      final fixture = _Fixture();
+      final DateTime start = fixture.now.add(const Duration(minutes: 10));
+      fixture.tasks = [_task('a', scheduledFor: start)];
+      await fixture.sync();
+      expect(fixture.scheduler.times['task_reminder_start_a'], start);
+
+      // At 10:00 the person picks "15 minutes before": that moment has
+      // passed, but no reminder came yet.
+      await fixture.service.setTaskReminderLeadMinutes(15);
+      fixture.scheduler.clearLog();
+      expect(await fixture.reconcile(), isTrue);
+      expect(fixture.scheduler.cancelled, isEmpty);
+      expect(fixture.scheduler.pending, contains('task_reminder_start_a'));
+      expect(fixture.scheduler.times['task_reminder_start_a'], start);
+    });
+
+    test('a task whose lead-time reminder was delivered gets no second '
+        'one', () async {
+      final fixture = _Fixture();
+      await fixture.service.setTaskReminderLeadMinutes(15);
+      fixture.now = fixture.now.add(const Duration(minutes: 1));
+      final DateTime start = fixture.now.add(const Duration(minutes: 30));
+      fixture.tasks = [_task('a', scheduledFor: start)];
+      await fixture.sync();
+      expect(
+        fixture.scheduler.times['task_reminder_start_a'],
+        start.subtract(const Duration(minutes: 15)),
+      );
+
+      // It fired and left the OS list; nothing else changed.
+      fixture.now = fixture.now.add(const Duration(minutes: 20));
+      fixture.scheduler.pending.remove('task_reminder_start_a');
+      fixture.scheduler.clearLog();
+      expect(await fixture.sync(), isTrue);
+      expect(await fixture.reconcile(), isTrue);
+      expect(fixture.scheduler.registered, isEmpty);
+      expect(fixture.scheduler.pending, isEmpty);
+    });
+
+    for (final String name in <String>['main switch', 'task reminders']) {
+      test('turned back on with the $name after the lead moment, the task '
+          'is reminded at its time', () async {
+        final fixture = _Fixture();
+        await fixture.service.setTaskReminderLeadMinutes(15);
+        fixture.now = fixture.now.add(const Duration(minutes: 1));
+        final DateTime start = fixture.now.add(const Duration(minutes: 30));
+        fixture.tasks = [_task('a', scheduledFor: start)];
+        await fixture.sync();
+
+        Future<void> set(bool on) => name == 'main switch'
+            ? fixture.service.setRemindersEnabled(on)
+            : fixture.service.setTaskRemindersEnabled(on);
+        await set(false);
+        await fixture.reconcile();
+        expect(fixture.scheduler.pending, isEmpty);
+
+        // The lead moment passes while reminders are off.
+        fixture.now = fixture.now.add(const Duration(minutes: 20));
+        await set(true);
+        fixture.scheduler.clearLog();
+        expect(await fixture.reconcile(), isTrue);
+        expect(fixture.scheduler.registered, ['task_reminder_start_a']);
+        expect(fixture.scheduler.times['task_reminder_start_a'], start);
+      });
+    }
+
+    test('when permission returns after the lead moment, the task is '
+        'reminded at its time', () async {
+      final fixture = _Fixture();
+      await fixture.service.setTaskReminderLeadMinutes(15);
+      fixture.now = fixture.now.add(const Duration(minutes: 1));
+      final DateTime start = fixture.now.add(const Duration(minutes: 30));
+      fixture.tasks = [_task('a', scheduledFor: start)];
+      await fixture.sync();
+
+      fixture.now = fixture.now.add(const Duration(minutes: 5));
+      await fixture.sync(permission: false);
+      expect(fixture.scheduler.pending, isEmpty);
+
+      fixture.now = fixture.now.add(const Duration(minutes: 15));
+      fixture.scheduler.clearLog();
+      expect(await fixture.sync(), isTrue);
+      expect(fixture.scheduler.registered, ['task_reminder_start_a']);
+      expect(fixture.scheduler.times['task_reminder_start_a'], start);
+
+      // Only once: a later update does not register it again.
+      fixture.scheduler.clearLog();
+      await fixture.reconcile();
+      expect(fixture.scheduler.registered, isEmpty);
+    });
+
     test('new task preferences are cleared with the account', () {
       for (final key in <String>[
         'task_reminders_enabled',
         'task_overdue_nudges_enabled',
         'task_reminder_lead_minutes',
         'scheduled_task_reminder_ids',
+        'task_reminder_rules_changed_at',
       ]) {
         expect(AccountDataRegistry.reminderPreferenceKeys, contains(key));
       }

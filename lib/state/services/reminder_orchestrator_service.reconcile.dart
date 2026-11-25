@@ -184,7 +184,11 @@ extension _ReminderReconciler on ReminderOrchestratorService {
       ),
     ),
     ('goals', () => _planGoalGroup(goals, permissionGranted)),
-    if (_loadTasks case final load?) ('tasks', () => _planTaskGroup(load)),
+    if (_loadTasks case final load?)
+      (
+        'tasks',
+        () => _planTaskGroup(load, permissionGranted: permissionGranted),
+      ),
   ];
 
   /// Applies only the difference between what each group wants and what is

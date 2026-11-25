@@ -98,6 +98,10 @@ class ReminderOrchestratorService {
   static const String _taskReminderEnabledKey = 'task_reminders_enabled';
   static const String _taskOverdueNudgesKey = 'task_overdue_nudges_enabled';
   static const String _taskReminderLeadKey = 'task_reminder_lead_minutes';
+
+  /// When a change could have let a lead-time reminder be missed (see
+  /// [TaskReminderPlanner.plan]).
+  static const String _taskRulesChangedAtKey = 'task_reminder_rules_changed_at';
   static const String _scheduledTaskReminderIdsKey =
       'scheduled_task_reminder_ids';
   static const String _dailyPlanningEnabledKey =
@@ -225,8 +229,11 @@ class ReminderOrchestratorService {
 
   /// Saves the main switch. The caller then runs the full reconcile, which
   /// cancels every OS reminder (off) or registers them again (on).
-  Future<void> setRemindersEnabled(bool enabled) =>
-      _preferences.save(remindersEnabledKey, enabled.toString());
+  Future<void> setRemindersEnabled(bool enabled) async {
+    final bool changed = _remindersOn() != enabled;
+    await _preferences.save(remindersEnabledKey, enabled.toString());
+    if (changed) await _markTaskRulesChanged();
+  }
 
   /// Lists the one-off "rebuild your streak" nudge and hands it to the OS,
   /// unless the main reminder switch is off: then nothing is listed or
@@ -252,10 +259,12 @@ class ReminderOrchestratorService {
       _preferences.save(_taskOverdueNudgesKey, enabled.toString());
 
   /// Applied by the next reconcile (the caller runs one).
-  Future<void> setTaskReminderLeadMinutes(int minutes) => _preferences.save(
-    _taskReminderLeadKey,
-    minutes.clamp(0, 24 * 60).toInt().toString(),
-  );
+  Future<void> setTaskReminderLeadMinutes(int minutes) async {
+    final int value = minutes.clamp(0, 24 * 60).toInt();
+    final bool changed = _taskReminderLeadMinutes() != value;
+    await _preferences.save(_taskReminderLeadKey, value.toString());
+    if (changed) await _markTaskRulesChanged();
+  }
 
   /// Applied by the next reconcile (the caller runs one).
   Future<void> setQuietHours(QuietHours quietHours) async {
@@ -275,7 +284,10 @@ class ReminderOrchestratorService {
   /// Off cancels every task reminder right away; on is applied by the next
   /// reconcile (the caller runs one).
   Future<void> setTaskRemindersEnabled(bool enabled) async {
+    final bool changed =
+        _isEnabled(_taskReminderEnabledKey, defaultValue: true) != enabled;
     await _preferences.save(_taskReminderEnabledKey, enabled.toString());
+    if (changed) await _markTaskRulesChanged();
     if (!enabled) {
       await KeyedMutationCoordinator.shared.runExclusive<void>(
         AccountDataRegistry.notificationMutationKeyForScope(
@@ -302,7 +314,10 @@ class ReminderOrchestratorService {
         if (load == null || !shouldContinue()) return false;
         return _runGroups(
           <(String, Future<_ReminderGroup> Function())>[
-            ('tasks', () => _planTaskGroup(load)),
+            (
+              'tasks',
+              () => _planTaskGroup(load, permissionGranted: permissionGranted),
+            ),
           ],
           permissionGranted: permissionGranted,
           shouldContinue: shouldContinue,

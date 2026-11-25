@@ -266,6 +266,9 @@ abstract final class AccountDataRegistry {
     'task_overdue_nudges_enabled',
     'task_reminder_lead_minutes',
     'scheduled_task_reminder_ids',
+    // When a lead time or reminder switch last changed (or notifications
+    // were allowed again), so a missed lead-time reminder still comes.
+    'task_reminder_rules_changed_at',
     // When each goal's "due today" reminder was planned for its target date.
     'goal_due_today_times',
     // The main reminder switch and quiet hours.

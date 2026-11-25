@@ -79,9 +79,12 @@ abstract final class TaskReminderPlanner {
 
   /// The reminders [tasks] should have right now, nearest first. Local times
   /// use the device time zone (`tz.local`). With a lead time, a task saved
-  /// too late for it is reminded at its time itself. Every time is moved out
-  /// of [quietHours] before it is judged, so a reminder held back until quiet
-  /// hours end stays planned (and counts toward [limit]) while it waits.
+  /// too late for it is reminded at its time itself, and so is a task whose
+  /// lead moment came before [rulesChangedAt] (the lead time or a reminder
+  /// switch changed, or notifications were allowed again, after it). Every
+  /// time is moved out of [quietHours] before it is judged, so a reminder
+  /// held back until quiet hours end stays planned (and counts toward
+  /// [limit]) while it waits.
   static List<TaskReminderSlot> plan(
     Iterable<TaskEntity> tasks, {
     required DateTime now,
@@ -90,6 +93,7 @@ abstract final class TaskReminderPlanner {
     bool spanish = false,
     int limit = maxPending,
     QuietHours quietHours = const QuietHours(),
+    DateTime? rulesChangedAt,
   }) {
     final Duration lead = leadTime.isNegative ? Duration.zero : leadTime;
     final List<TaskReminderSlot> slots = <TaskReminderSlot>[
@@ -101,6 +105,7 @@ abstract final class TaskReminderPlanner {
                 lead: lead,
                 overdue: overdueNudges,
                 quiet: quietHours,
+                rulesChangedAt: rulesChangedAt,
               )
               .map((slot) => slot.written(_TaskReminderCopy(spanish, task)))
               .where((TaskReminderSlot slot) => slot.at.isAfter(now)),
@@ -118,13 +123,15 @@ abstract final class TaskReminderPlanner {
     required Duration lead,
     required bool overdue,
     required QuietHours quiet,
+    required DateTime? rulesChangedAt,
   }) {
     final DateTime? start = task.scheduledFor;
     final DateTime? due = task.dueDate;
     // The lead-time reminder, or, when that moment had already passed when
-    // the task was last saved but the time itself is still ahead, a
-    // reminder at the time itself. A task saved before its lead moment
-    // already had its lead-time reminder, so none follows at the time.
+    // the task was last saved or the reminder rules last changed, but the
+    // time itself is still ahead, a reminder at the time itself. A task
+    // saved before its lead moment, under rules unchanged since, already had
+    // its lead-time reminder, so none follows at the time.
     final DateTime savedAt = task.updatedAt ?? task.createdAt;
     _TaskSlotTime? ahead(String id, _TaskReminderKind kind, DateTime at) {
       final DateTime early = at.subtract(lead);
@@ -132,7 +139,10 @@ abstract final class TaskReminderPlanner {
       if (heldEarly.isAfter(now)) {
         return _TaskSlotTime(id, kind, heldEarly, lead.inMinutes);
       }
-      if (early.isAfter(savedAt)) return null;
+      if (early.isAfter(savedAt) &&
+          (rulesChangedAt == null || early.isAfter(rulesChangedAt))) {
+        return null;
+      }
       return _TaskSlotTime(id, kind, quiet.moveOut(at), 0);
     }
 
@@ -253,8 +263,11 @@ class _TaskReminderCopy {
 
 extension _TaskReminders on ReminderOrchestratorService {
   Future<_ReminderGroup> _planTaskGroup(
-    Future<List<TaskEntity>> Function() load,
-  ) async {
+    Future<List<TaskEntity>> Function() load, {
+    required bool permissionGranted,
+  }) async {
+    // Read before this run saves its own record of what it cleared.
+    if (permissionGranted) await _markTaskRulesChangedIfPermissionReturned();
     final ReminderOrchestratorPrefs prefs = loadPrefs();
     final Set<String> previous = _trackedTaskReminderIds();
     final DateTime now = _now();
@@ -274,6 +287,7 @@ extension _TaskReminders on ReminderOrchestratorService {
           overdueNudges: prefs.taskOverdueNudgesEnabled,
           spanish: _isSpanish(),
           quietHours: prefs.quietHours,
+          rulesChangedAt: _taskRulesChangedAt(),
         ))
           _PlannedReminder.once(
             id: slot.id,
@@ -327,6 +341,29 @@ extension _TaskReminders on ReminderOrchestratorService {
       await _scheduler.cancel(id, accountScope: _accountScope);
     }
     await _saveTrackedTaskReminderIds(<String>{});
+  }
+
+  /// When the lead time, the task reminder switch or the main switch last
+  /// changed, or notifications were last allowed again; null if never.
+  DateTime? _taskRulesChangedAt() {
+    final String? raw = _preferences.load(
+      ReminderOrchestratorService._taskRulesChangedAtKey,
+    );
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
+
+  Future<void> _markTaskRulesChanged() => _preferences.save(
+    ReminderOrchestratorService._taskRulesChangedAtKey,
+    _now().toUtc().toIso8601String(),
+  );
+
+  /// Called at the start of an update with notifications allowed. When the
+  /// last update without them cleared task reminders, the person may have
+  /// missed a lead-time reminder meanwhile, so the rules count as changed.
+  Future<void> _markTaskRulesChangedIfPermissionReturned() async {
+    if (_loadClearedWhileOff().any(TaskReminderPlanner.ownsId)) {
+      await _markTaskRulesChanged();
+    }
   }
 
   int _taskReminderLeadMinutes() {
