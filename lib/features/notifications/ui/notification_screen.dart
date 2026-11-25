@@ -14,10 +14,12 @@ class NotificationsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Reminders switched off by older builds are not activity.
+    final DateTime now = DateTime.now();
+    // Reminders older builds switched off before their time are not
+    // activity.
     final List<NotificationEntity> items = ref
         .watch(notificationProvider)
-        .where((NotificationEntity item) => !item.isCancelledReminder)
+        .where((NotificationEntity item) => !item.isCancelledReminderAt(now))
         .toList(growable: false);
     final RegisteredReminders? registered = ref
         .watch(registeredRemindersProvider)
@@ -27,7 +29,6 @@ class NotificationsPage extends ConsumerWidget {
     final localizations = MaterialLocalizations.of(context);
     final automations = ref.watch(automationNotificationsProvider);
     final repeating = automations.asData?.value ?? const <NotificationEntity>[];
-    final DateTime now = DateTime.now();
     final int scheduledCount =
         repeating.length +
         items
@@ -172,7 +173,6 @@ class _NotificationTile extends StatelessWidget {
       now: now,
       registered: registered,
     );
-    final bool futureSchedule = item.isEnabled && item.scheduledAt.isAfter(now);
     final bool newActivity = isNewNotificationActivity(item, now);
     final String title = _localizedTitle(item.title, es);
     final String message = _localizedMessage(item.message, es);
@@ -204,13 +204,18 @@ class _NotificationTile extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 12),
         child: Semantics(
           button: true,
-          label: status == NotificationListStatus.notScheduled
-              ? '${es ? 'Recordatorio no programado' : 'Reminder not scheduled'}: $title'
-              : futureSchedule
-              ? '${es ? 'Recordatorio programado' : 'Scheduled reminder'}: $title'
-              : item.isRead
-              ? title
-              : '${es ? 'Actividad nueva' : 'New activity'}: $title',
+          label: switch (status) {
+            NotificationListStatus.notScheduled =>
+              '${es ? 'Recordatorio no programado' : 'Reminder not scheduled'}: $title',
+            NotificationListStatus.scheduled =>
+              '${es ? 'Recordatorio programado' : 'Scheduled reminder'}: $title',
+            NotificationListStatus.unconfirmed =>
+              '${es ? 'Recordatorio, hora prevista' : 'Reminder, scheduled time'}: $title',
+            NotificationListStatus.past || NotificationListStatus.inApp =>
+              item.isRead
+                  ? title
+                  : '${es ? 'Actividad nueva' : 'New activity'}: $title',
+          },
           child: InkWell(
             onTap: onMarkRead,
             borderRadius: BorderRadius.circular(8),

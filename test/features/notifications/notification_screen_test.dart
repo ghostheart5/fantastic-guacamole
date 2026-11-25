@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
@@ -19,6 +21,7 @@ void main() {
       ids: <String>{},
       permissionGranted: true,
     ),
+    bool osListPending = false,
   }) async {
     tester.platformDispatcher.views.first
       ..physicalSize = const Size(1200, 2400)
@@ -33,7 +36,11 @@ void main() {
       overrides: [
         notificationProvider.overrideWith(() => _StaticNotifications(items)),
         automationNotificationsProvider.overrideWith((ref) async => repeating),
-        registeredRemindersProvider.overrideWith((ref) async => registered),
+        registeredRemindersProvider.overrideWith(
+          (ref) => osListPending
+              ? Completer<RegisteredReminders>().future
+              : Future<RegisteredReminders>.value(registered),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -325,6 +332,83 @@ void main() {
       expect(find.textContaining('3 total'), findsOneWidget);
     },
   );
+  testWidgets(
+    'reminders that already went off read as past activity and count as new',
+    (tester) async {
+      final ProviderContainer container = await pumpNotifications(
+        tester,
+        <NotificationEntity>[
+          // Went off this morning; the OS no longer holds it.
+          NotificationEntity(
+            id: 'goal_reminder_trip',
+            title: 'Goal due tomorrow',
+            message: '"Trip" is due tomorrow.',
+            scheduledAt: DateTime.now().subtract(const Duration(hours: 1)),
+            scheduleResult: NotificationScheduleResult.scheduled,
+          ),
+          // An older build disabled it after it went off.
+          NotificationEntity(
+            id: 'goal_reminder_old',
+            title: 'Goal coming up',
+            message: '"Old" is due in 3 days.',
+            scheduledAt: DateTime.now().subtract(const Duration(days: 2)),
+            isEnabled: false,
+          ),
+        ],
+        registered: const RegisteredReminders(
+          ids: <String>{},
+          permissionGranted: false,
+        ),
+      );
+
+      expect(find.text('Goal due tomorrow'), findsOneWidget);
+      expect(find.text('Goal coming up'), findsOneWidget);
+      expect(find.textContaining('Scheduled time ·'), findsNWidgets(2));
+      expect(find.textContaining('Not scheduled'), findsNothing);
+      expect(find.textContaining('Scheduled ·'), findsNothing);
+      expect(find.textContaining('2 new'), findsOneWidget);
+      expect(container.read(unreadNotificationsProvider), 2);
+    },
+  );
+
+  for (final (locale, visible, spoken, wrong) in [
+    (
+      const Locale('en'),
+      'Scheduled time ·',
+      'Reminder, scheduled time: Goal due tomorrow',
+      'Scheduled reminder: Goal due tomorrow',
+    ),
+    (
+      const Locale('es'),
+      'Hora prevista ·',
+      'Recordatorio, hora prevista: Goal due tomorrow',
+      'Recordatorio programado: Goal due tomorrow',
+    ),
+  ]) {
+    testWidgets(
+      'an unconfirmed reminder is announced as "$spoken", like its label',
+      (tester) async {
+        final SemanticsHandle semantics = tester.ensureSemantics();
+        await pumpNotifications(
+          tester,
+          <NotificationEntity>[goalDueTomorrow()],
+          locale: locale,
+          osListPending: true,
+        );
+
+        expect(find.textContaining(visible), findsOneWidget);
+        expect(
+          find.bySemanticsLabel(RegExp('^${RegExp.escape(spoken)}')),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel(RegExp('^${RegExp.escape(wrong)}')),
+          findsNothing,
+        );
+        semantics.dispose();
+      },
+    );
+  }
 }
 
 class _StaticNotifications extends NotificationNotifier {

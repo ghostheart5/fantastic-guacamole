@@ -114,21 +114,50 @@ void main() {
     expect(entries.single.id, 'ok');
   });
 
-  test('cancelling a reminder removes its stored record', () async {
-    await repository.scheduleNotification(
-      NotificationEntity(
-        id: 'goal_reminder_trip',
-        title: 'Goal due tomorrow',
-        message: 'Book the trip',
-        scheduledAt: DateTime.now().add(const Duration(days: 2)),
-      ),
-    );
+  NotificationsRepository atClock(DateTime Function() now) =>
+      NotificationsRepository(
+        NotificationScheduler(),
+        SecureStore(backend: backend),
+        accountId: 'account-a',
+        scheduleNotification: (_) async {},
+        cancelScheduledNotification: (String id) async => cancelledIds.add(id),
+        now: now,
+      );
 
-    await repository.cancelNotification('goal_reminder_trip');
+  NotificationEntity dayBefore() => NotificationEntity(
+    id: 'goal_reminder_trip',
+    title: 'Goal due tomorrow',
+    message: 'Book the trip',
+    scheduledAt: DateTime(2026, 12, 4, 9),
+  );
+
+  test('cancelling a reminder removes its stored record', () async {
+    final clocked = atClock(() => DateTime(2026, 12, 1, 8));
+    await clocked.scheduleNotification(dayBefore());
+
+    await clocked.cancelNotification('goal_reminder_trip');
 
     expect(cancelledIds, <String>['goal_reminder_trip']);
-    expect(await repository.getNotifications(), isEmpty);
+    expect(await clocked.getNotifications(), isEmpty);
   });
+
+  test(
+    'cancelling a reminder whose time has passed keeps its record',
+    () async {
+      DateTime current = DateTime(2026, 12, 1, 8);
+      final clocked = atClock(() => current);
+      await clocked.scheduleNotification(dayBefore());
+
+      current = DateTime(2026, 12, 4, 10);
+      await clocked.cancelNotification('goal_reminder_trip');
+
+      expect(cancelledIds, <String>['goal_reminder_trip']);
+      final NotificationEntity kept = (await clocked.getNotifications()).single;
+      expect(kept.id, 'goal_reminder_trip');
+      expect(kept.isEnabled, isTrue);
+      expect(kept.isRead, isFalse);
+    },
+  );
 
   test('cancelling leaves an in-app history entry as it was', () async {
     final NotificationEntity history = NotificationEntity(
@@ -249,14 +278,15 @@ void main() {
   test(
     'a cancelled reminder scheduled again comes back as a new record',
     () async {
-      await repository.scheduleNotification(reminder());
-      await repository.markRead(reminder().id);
-      await repository.cancelNotification(reminder().id);
-      expect(await repository.getNotifications(), isEmpty);
+      final clocked = atClock(() => DateTime(2026, 9, 1));
+      await clocked.scheduleNotification(reminder());
+      await clocked.markRead(reminder().id);
+      await clocked.cancelNotification(reminder().id);
+      expect(await clocked.getNotifications(), isEmpty);
 
-      await reopen().scheduleNotification(reminder());
+      await clocked.scheduleNotification(reminder());
 
-      final persisted = (await reopen().getNotifications()).single;
+      final persisted = (await clocked.getNotifications()).single;
       expect(persisted.isEnabled, isTrue);
       expect(persisted.isRead, isFalse);
     },
@@ -321,7 +351,7 @@ void main() {
   test(
     'old stored lists still load and stale cancelled reminders are hidden',
     () async {
-      final DateTime future = DateTime.now().add(const Duration(days: 3));
+      final DateTime future = DateTime(2026, 12, 4, 9);
       Map<String, Object?> row(
         String id, {
         required bool enabled,
@@ -342,6 +372,7 @@ void main() {
           row('goal_reminder_live', enabled: true, at: future),
           row('goal_reminder_cancelled', enabled: false, at: future),
           row('notification-42', enabled: false),
+          row('goal_reminder_went_off', enabled: false),
           <String, Object?>{
             ...row('goal_reminder_odd', enabled: true, at: future),
             'scheduleResult': 'somethingNew',
@@ -349,12 +380,19 @@ void main() {
         ]),
       );
 
-      final List<NotificationEntity> entries = await repository
-          .getNotifications();
+      final List<NotificationEntity> entries = await atClock(
+        () => DateTime(2026, 12, 1, 8),
+      ).getNotifications();
 
+      // A disabled reminder dated in the past went off: it stays as history.
       expect(
         entries.map((NotificationEntity entry) => entry.id).toSet(),
-        <String>{'goal_reminder_live', 'notification-42', 'goal_reminder_odd'},
+        <String>{
+          'goal_reminder_live',
+          'notification-42',
+          'goal_reminder_went_off',
+          'goal_reminder_odd',
+        },
       );
       expect(
         entries.every(
@@ -363,8 +401,7 @@ void main() {
         isTrue,
       );
 
-      // The next write drops the stale row for good.
-      await repository.markRead('notification-42');
+      // The read drops the stale row for good, before its date can pass.
       final String? raw = await SecureStore(
         backend: backend,
       ).readString(AccountDataRegistry.notificationSecureKeyFor('account-a'));

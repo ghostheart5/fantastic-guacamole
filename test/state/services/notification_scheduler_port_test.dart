@@ -357,6 +357,56 @@ void main() {
   );
 
   test(
+    'the day-before reminder stays listed after its time passes and goals sync again',
+    () async {
+      DateTime current = DateTime(2026, 12, 1, 8);
+      final scheduler = _RecordingScheduler();
+      const accountId = 'went-off-account';
+      final repository = NotificationsRepository(
+        scheduler,
+        SecureStore(backend: InMemorySecureStoreBackend()),
+        accountId: accountId,
+        now: () => current,
+      );
+      final service = ReminderOrchestratorService(
+        preferences: _MemoryPreferences(),
+        notifications: NotificationsService(repository),
+        scheduler: scheduler,
+        accountScope: AccountDataRegistry.accountDigest(accountId),
+        now: () => current,
+      );
+      final goal = GoalEntity(
+        id: 'trip',
+        title: 'Book the trip',
+        createdAt: current,
+        targetDate: DateTime(2026, 12, 5),
+      );
+
+      await service.syncGoalReminders([goal]);
+      final listed = (await repository.getNotifications()).singleWhere(
+        (entry) => entry.id == 'goal_reminder_trip',
+      );
+      expect(listed.title, 'Goal due tomorrow');
+      expect(listed.scheduledAt, DateTime(2026, 12, 4, 9));
+
+      // The reminder went off at 09:00; the next sync no longer wants it.
+      current = DateTime(2026, 12, 4, 10);
+      await service.syncGoalReminders([goal]);
+
+      expect(scheduler.cancelled, contains('goal_reminder_trip'));
+      final kept = (await repository.getNotifications()).singleWhere(
+        (entry) => entry.id == 'goal_reminder_trip',
+      );
+      expect(kept.title, 'Goal due tomorrow');
+      expect(
+        notificationListStatus(kept, now: current, registered: null),
+        NotificationListStatus.past,
+      );
+      expect(isNewNotificationActivity(kept, current), isTrue);
+    },
+  );
+
+  test(
     'disabled daily reminder uses the real repository under its reentrant account lock',
     () async {
       final preferences = _MemoryPreferences();

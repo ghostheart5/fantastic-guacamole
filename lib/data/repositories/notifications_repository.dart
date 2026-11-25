@@ -18,7 +18,9 @@ class NotificationsRepository implements INotificationRepository {
     this._scheduleNotification,
     this._cancelScheduledNotification,
     this._cancelAllScheduledNotifications,
-  }) : _accountId = accountId?.trim().isEmpty == true
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now,
+       _accountId = accountId?.trim().isEmpty == true
            ? null
            : accountId?.trim(),
        _mutations = mutationCoordinator ?? KeyedMutationCoordinator.shared;
@@ -31,6 +33,7 @@ class NotificationsRepository implements INotificationRepository {
   _scheduleNotification;
   final Future<void> Function(String id)? _cancelScheduledNotification;
   final Future<void> Function()? _cancelAllScheduledNotifications;
+  final DateTime Function() _now;
 
   String? get accountId => _accountId;
 
@@ -51,7 +54,17 @@ class NotificationsRepository implements INotificationRepository {
     if (mutationKey == null) return const <NotificationEntity>[];
     return _mutations.runExclusive<List<NotificationEntity>>(
       mutationKey,
-      _readNotifications,
+      () async {
+        bool skippedStale = false;
+        final List<NotificationEntity> entries = await _readNotificationsAt(
+          _storageKey,
+          onStaleSkipped: () => skippedStale = true,
+        );
+        // Drop them for good now, before their date passes and they would
+        // read as reminders that went off.
+        if (skippedStale) await _save(entries);
+        return entries;
+      },
     );
   }
 
@@ -61,8 +74,9 @@ class NotificationsRepository implements INotificationRepository {
   }
 
   Future<List<NotificationEntity>> _readNotificationsAt(
-    String? storageKey,
-  ) async {
+    String? storageKey, {
+    void Function()? onStaleSkipped,
+  }) async {
     if (storageKey == null) return const <NotificationEntity>[];
     final String? raw = await _store.readString(storageKey);
     if (raw == null || raw.trim().isEmpty) {
@@ -74,6 +88,7 @@ class NotificationsRepository implements INotificationRepository {
         throw const FormatException('Notification storage is not a list.');
       }
       final List<NotificationEntity> entries = <NotificationEntity>[];
+      final DateTime now = _now();
       int malformedCount = 0;
       for (final Object? value in decoded) {
         if (value is! Map) {
@@ -85,10 +100,13 @@ class NotificationsRepository implements INotificationRepository {
               (dynamic key, dynamic item) => MapEntry(key.toString(), item),
             ),
           ).toEntity();
-          // Older builds kept cancelled reminders as disabled records. They
-          // are not history; skipping them here also drops them on the next
-          // write.
-          if (entry.isCancelledReminder) continue;
+          // Older builds kept reminders switched off before their time as
+          // disabled records. They never went off, so they are not history;
+          // skipping them here also drops them on the next write.
+          if (entry.isCancelledReminderAt(now)) {
+            onStaleSkipped?.call();
+            continue;
+          }
           entries.add(entry);
         } on FormatException catch (error) {
           malformedCount++;
@@ -167,8 +185,10 @@ class NotificationsRepository implements INotificationRepository {
     });
   }
 
-  /// Cancels the OS reminder and removes its record, so a switched-off
-  /// reminder never lingers in the list. In-app history entries stay.
+  /// Cancels the OS reminder and removes its record while its time is still
+  /// ahead, so a switched-off reminder never lingers in the list. A reminder
+  /// whose time has passed already went off and stays as history, as do
+  /// in-app entries.
   @override
   Future<void> cancelNotification(String id) async {
     await _runMutation(() async {
@@ -177,6 +197,7 @@ class NotificationsRepository implements INotificationRepository {
       final NotificationEntity? existing = _find(entries, id);
       if (existing == null) return;
       if (!existing.isEnabled && !NotificationEntity.isReminderId(id)) return;
+      if (!existing.scheduledAt.isAfter(_now())) return;
       await _save(
         entries
             .where((NotificationEntity entry) => entry.id != id)

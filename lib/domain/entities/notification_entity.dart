@@ -32,9 +32,11 @@ class NotificationEntity {
   /// in-app entries and for records stored before this was kept.
   final NotificationScheduleResult? scheduleResult;
 
-  /// A reminder that was switched off. Older builds kept it as a disabled
-  /// record; it is not activity and is never listed.
-  bool get isCancelledReminder => !isEnabled && isReminderId(id);
+  /// A reminder switched off before its time. Older builds kept it as a
+  /// disabled record; it never went off, so it is not activity and is never
+  /// listed. One whose time has passed went off and stays as history.
+  bool isCancelledReminderAt(DateTime now) =>
+      !isEnabled && isReminderId(id) && scheduledAt.isAfter(now);
 
   // Domain behavior
   bool isDueAt(DateTime reference) => reference.isAfter(scheduledAt);

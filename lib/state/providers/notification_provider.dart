@@ -150,7 +150,8 @@ enum NotificationListStatus {
   /// In-app history; never handed to the OS.
   inApp,
 
-  /// A reminder whose time has passed.
+  /// A reminder whose time has passed: it went off (or was due), so it is
+  /// past activity whether or not it was later switched off.
   past,
 
   /// A future reminder the OS holds.
@@ -168,8 +169,12 @@ NotificationListStatus notificationListStatus(
   required DateTime now,
   required RegisteredReminders? registered,
 }) {
-  if (!item.isEnabled) return NotificationListStatus.inApp;
+  final bool reminder =
+      item.isEnabled || NotificationEntity.isReminderId(item.id);
+  if (!reminder) return NotificationListStatus.inApp;
   if (!item.scheduledAt.isAfter(now)) return NotificationListStatus.past;
+  // Switched off before its time (older builds kept such rows).
+  if (!item.isEnabled) return NotificationListStatus.notScheduled;
   if (registered == null) {
     final NotificationScheduleResult? stored = item.scheduleResult;
     return stored == null || stored == NotificationScheduleResult.scheduled
@@ -194,12 +199,13 @@ NotificationScheduleResult? notScheduledReason(
   return stored == NotificationScheduleResult.scheduled ? null : stored;
 }
 
-/// The one definition of "new" shared by the list and the badge: unread,
-/// not a switched-off reminder, and not still waiting for its time.
+/// The one definition of "new" shared by the list and the badge: unread and
+/// no longer waiting for its time. In-app entries and reminders that went
+/// off count; future and switched-off reminders do not.
 bool isNewNotificationActivity(NotificationEntity item, DateTime now) =>
     !item.isRead &&
-    !item.isCancelledReminder &&
-    (!item.isEnabled || !item.scheduledAt.isAfter(now));
+    (!item.scheduledAt.isAfter(now) ||
+        (!item.isEnabled && !NotificationEntity.isReminderId(item.id)));
 
 final unreadNotificationsProvider = Provider<int>((Ref ref) {
   final DateTime now = DateTime.now();
