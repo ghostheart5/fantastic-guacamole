@@ -23,6 +23,7 @@ import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
 import 'package:fantastic_guacamole/theme/theme.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guide_overlay.dart';
+import 'package:fantastic_guacamole/tutorial/guide_hint_layout.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:fantastic_guacamole/ui/widgets/voice_playback_controls.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
@@ -342,7 +343,11 @@ class _AppRootState extends ConsumerState<AppRoot> {
           fit: StackFit.expand,
           children: <Widget>[
             Positioned.fill(
-              child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
+              // A contextual hint card moves the app down instead of
+              // covering its controls or bottom navigation.
+              child: GuideHintSpace(
+                child: ErrorBoundary(child: child ?? const SizedBox.shrink()),
+              ),
             ),
             ListenableBuilder(
               listenable: router.routerDelegate,

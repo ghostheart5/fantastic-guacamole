@@ -134,6 +134,117 @@ void main() {
     );
   });
 
+  // A skipped or paused first-run guide stays off, but the small hints for
+  // the screen in front of the person still appear.
+  final Map<String, AdaptiveGuidanceState> coreOffStates =
+      <String, AdaptiveGuidanceState>{
+        'skipped': const AdaptiveGuidanceState(
+          milestones: <GuidanceMilestone, DateTime>{},
+          counts: <GuidanceMilestone, int>{},
+          skippedLessons: _coreLessons,
+          completedLessons: <GuidanceLessonId>{},
+        ),
+        'paused': const AdaptiveGuidanceState(
+          milestones: <GuidanceMilestone, DateTime>{},
+          counts: <GuidanceMilestone, int>{},
+          skippedLessons: <GuidanceLessonId>{},
+          completedLessons: <GuidanceLessonId>{},
+          laterLessons: _coreLessons,
+        ),
+        'paused until reopened': const AdaptiveGuidanceState(
+          milestones: <GuidanceMilestone, DateTime>{},
+          counts: <GuidanceMilestone, int>{},
+          skippedLessons: <GuidanceLessonId>{},
+          completedLessons: <GuidanceLessonId>{},
+          untilReopenedLessons: _coreLessons,
+        ),
+        'skipped after the first task': AdaptiveGuidanceState(
+          milestones: <GuidanceMilestone, DateTime>{
+            GuidanceMilestone.firstItem: coreDoneAt,
+          },
+          counts: const <GuidanceMilestone, int>{},
+          skippedLessons: _coreLessons,
+          completedLessons: const <GuidanceLessonId>{
+            GuidanceLessonId.createFirstItem,
+          },
+        ),
+      };
+  for (final MapEntry<String, AdaptiveGuidanceState> entry
+      in coreOffStates.entries) {
+    test('${entry.key} first-run guide: each screen still gets its own '
+        'hint', () {
+      final AdaptiveGuidanceState state = entry.value;
+      for (final (String route, GuidanceLessonId own) in _lessonRoutes) {
+        final GuidanceLesson? lesson = state.nextIntervention(
+          currentRoute: route,
+          decision: _decision(),
+          now: later,
+        );
+        expect(lesson?.id, own, reason: route);
+        expect(lesson?.route, route);
+      }
+    });
+
+    test('${entry.key} first-run guide stays off and screens without a '
+        'hint stay clear', () {
+      final AdaptiveGuidanceState state = entry.value;
+      expect(state.activeCoreLesson, isNull);
+      for (final String route in routesWithoutALesson) {
+        expect(
+          state.nextIntervention(
+            currentRoute: route,
+            decision: _decision(),
+            now: later,
+          ),
+          isNull,
+          reason: route,
+        );
+      }
+      // A dismissed hint stays dismissed for these accounts too.
+      final AdaptiveGuidanceState dismissed = AdaptiveGuidanceState(
+        milestones: state.milestones,
+        counts: state.counts,
+        skippedLessons: <GuidanceLessonId>{
+          ...state.skippedLessons,
+          GuidanceLessonId.siConsole,
+        },
+        completedLessons: state.completedLessons,
+        laterLessons: state.laterLessons,
+        untilReopenedLessons: state.untilReopenedLessons,
+      );
+      expect(
+        dismissed.nextIntervention(
+          currentRoute: RoutePaths.siConsole,
+          decision: _decision(),
+          now: later,
+        ),
+        isNull,
+      );
+    });
+  }
+
+  test('an active first-run guide still owns every screen', () {
+    const AdaptiveGuidanceState fresh = AdaptiveGuidanceState(
+      milestones: <GuidanceMilestone, DateTime>{},
+      counts: <GuidanceMilestone, int>{},
+      skippedLessons: <GuidanceLessonId>{},
+      completedLessons: <GuidanceLessonId>{},
+    );
+    for (final (String route, _) in _lessonRoutes) {
+      expect(
+        fresh
+            .nextIntervention(
+              currentRoute: route,
+              decision: _decision(),
+              now: later,
+            )
+            ?.id,
+        GuidanceLessonId.createFirstItem,
+        reason: route,
+      );
+    }
+  });
+
   test('"Continue here" completes the lesson for the account', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final ProviderContainer first = _container('continue-here-user');
@@ -253,6 +364,12 @@ void main() {
     );
   });
 }
+
+const Set<GuidanceLessonId> _coreLessons = <GuidanceLessonId>{
+  GuidanceLessonId.createFirstItem,
+  GuidanceLessonId.scheduleFirstItem,
+  GuidanceLessonId.reviewTimeline,
+};
 
 const List<(String, GuidanceLessonId)> _lessonRoutes =
     <(String, GuidanceLessonId)>[

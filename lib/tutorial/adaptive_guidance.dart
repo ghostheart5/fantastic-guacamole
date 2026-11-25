@@ -87,6 +87,12 @@ class AdaptiveGuidanceState {
   bool has(GuidanceMilestone milestone) => milestones.containsKey(milestone);
   int count(GuidanceMilestone milestone) => counts[milestone] ?? 0;
 
+  /// Whether a real action recorded for this account, not just reading or
+  /// dismissing a hint, has finished [lesson].
+  bool lessonFinishedByAction(GuidanceLessonId lesson) => milestones.keys.any(
+    (GuidanceMilestone milestone) => _lessonCompletedBy(milestone) == lesson,
+  );
+
   bool matchesExpectedFirstRunCreatorTask(String taskId) {
     return expectedFirstRunCreatorTaskIds.contains(taskId.trim());
   }
@@ -182,7 +188,10 @@ abstract final class GuidanceInterventionEngine {
 
     if (state.coreGuidanceOwnsState) {
       final GuidanceLessonId? core = activeCoreLesson(state);
-      return core == null ? null : _coreLesson(core);
+      if (core != null) return _coreLesson(core);
+      // A skipped or paused first-run guide stays off until it is restarted
+      // in Settings, but the small, non-blocking hint for the screen in view
+      // still appears.
     }
 
     // A contextual lesson describes one screen, so it appears only there.

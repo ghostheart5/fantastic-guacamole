@@ -13,6 +13,8 @@ import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
+import 'package:fantastic_guacamole/tutorial/guide_hint_card.dart';
+import 'package:fantastic_guacamole/tutorial/guide_hint_layout.dart';
 import 'package:fantastic_guacamole/tutorial/interactive_tutorial_overlay.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,6 +38,8 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   );
   CreatorTutorialStep _creatorStep = CreatorTutorialStep.title;
   GuidanceLessonId? _suppressedLesson;
+  GuidanceLesson? _shownHint;
+  (int, String?)? _shownHintOwner;
   bool _completingCreator = false;
   String? _acknowledgedTimelineTaskId;
   bool _completingTimeline = false;
@@ -95,8 +99,16 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       decision: decision,
     );
 
-    if (lesson == null || _suppressedLesson == lesson.id) {
-      return const SizedBox.shrink();
+    if (lesson == null || !_isCoreLesson(lesson.id)) {
+      final GuidanceLesson? hint = _visibleHint(
+        lesson,
+        guidance,
+        location,
+        boundary,
+      );
+      return hint == null
+          ? const SizedBox.shrink()
+          : _contextualHint(context, hint);
     }
 
     // Onboarding's "Show one helpful choice" opens Smart Planner. A full-screen
@@ -127,7 +139,50 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       return _timelineLesson(context, guidance, timelineEvidenceTaskId);
     }
 
-    return _advancedLesson(context, lesson, location);
+    return const SizedBox.shrink();
+  }
+
+  /// The contextual hint for this visit to [location]. A hint is stored as
+  /// seen as soon as it appears, so it is shown once per account; it then
+  /// stays until the person dismisses it, acts on it, does the page's real
+  /// action, or leaves the page.
+  GuidanceLesson? _visibleHint(
+    GuidanceLesson? lesson,
+    AdaptiveGuidanceState guidance,
+    String location,
+    AuthSessionBoundary boundary,
+  ) {
+    final (int, String?) owner = (boundary.generation, boundary.userId);
+    if (lesson != null &&
+        lesson.route == location &&
+        (_shownHint?.id != lesson.id || _shownHintOwner != owner)) {
+      _shownHint = lesson;
+      _shownHintOwner = owner;
+      _rememberHintShown(lesson.id, owner);
+    }
+    final GuidanceLesson? shown = _shownHint;
+    if (shown == null ||
+        shown.route != location ||
+        _shownHintOwner != owner ||
+        _suppressedLesson == shown.id ||
+        guidance.skippedLessons.contains(shown.id) ||
+        guidance.lessonFinishedByAction(shown.id)) {
+      return null;
+    }
+    return lesson?.id == shown.id ? lesson : shown;
+  }
+
+  void _rememberHintShown(GuidanceLessonId id, (int, String?) owner) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final AuthSessionBoundary current = ref.read(authSessionBoundaryProvider);
+      if ((current.generation, current.userId) != owner ||
+          current.isTransitioning ||
+          !current.isStorageReady) {
+        return;
+      }
+      unawaited(ref.read(adaptiveGuidanceProvider.notifier).completeLesson(id));
+    });
   }
 
   Widget _routePrompt(BuildContext context, GuidanceLesson lesson) {
@@ -450,40 +505,34 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     }
   }
 
-  Widget _advancedLesson(
-    BuildContext context,
-    GuidanceLesson lesson,
-    String location,
-  ) {
+  /// A small card at the top of the app that leaves the page usable.
+  Widget _contextualHint(BuildContext context, GuidanceLesson lesson) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
-    final bool alreadyHere = location == lesson.route;
-    return InteractiveTutorialOverlay(
-      targetKey: _untargetedLessonKey,
-      stepLabel: l10n.text(ChronoSparkString.contextualGuidance),
-      title: l10n.guideTitle(lesson.id.name, lesson.title),
-      body: l10n.guideBody(lesson.id.name, lesson.body),
-      primaryLabel: alreadyHere
-          ? l10n.text(ChronoSparkString.useThisScreen)
-          : l10n.guideAction(lesson.id.name, lesson.actionLabel),
-      onPrimary: () {
-        if (alreadyHere) {
-          // Remembered for the account, so it does not return on the next
-          // visit; hidden now without waiting for storage.
+    return GuideHintSlot(
+      child: GuideHintCard(
+        key: const Key('guide_hint_card'),
+        label: l10n.text(ChronoSparkString.contextualGuidance),
+        title: l10n.guideTitle(lesson.id.name, lesson.title),
+        body: l10n.guideBody(lesson.id.name, lesson.body),
+        // "Not now" keeps its stored per-lesson mute, which Settings counts.
+        dismissLabel: l10n.text(ChronoSparkString.notNow),
+        onDismiss: () {
+          setState(() => _suppressedLesson = lesson.id);
+          unawaited(
+            ref.read(adaptiveGuidanceProvider.notifier).skip(lesson.id),
+          );
+        },
+        actionLabel: _copy(l10n, 'Got it', 'Entendido'),
+        onAction: () {
+          // Hidden now without waiting for storage; remembered as finished.
           setState(() => _suppressedLesson = lesson.id);
           unawaited(
             ref
                 .read(adaptiveGuidanceProvider.notifier)
                 .completeLesson(lesson.id),
           );
-        } else {
-          widget.router.go(lesson.route);
-        }
-      },
-      secondaryLabel: l10n.text(ChronoSparkString.notNow),
-      onSecondary: () => unawaited(
-        ref.read(adaptiveGuidanceProvider.notifier).skip(lesson.id),
+        },
       ),
-      allowTargetInteraction: false,
     );
   }
 

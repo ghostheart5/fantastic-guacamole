@@ -10,6 +10,7 @@ import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guide_overlay.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
+import 'package:fantastic_guacamole/tutorial/guide_hint_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -89,7 +90,12 @@ void main() {
                   ).copyWith(textScaler: const TextScaler.linear(2)),
                   child: Stack(
                     children: [
-                      ?child,
+                      // Like the app root: a hint card moves the page down.
+                      Positioned.fill(
+                        child: GuideHintSpace(
+                          child: child ?? const SizedBox.shrink(),
+                        ),
+                      ),
                       // Keyed by location like the app root, so widget
                       // state cannot hide a lesson after a route change.
                       ListenableBuilder(
@@ -117,50 +123,46 @@ void main() {
                 : 'Free tools use no credits',
           );
           expect(explanation, findsOneWidget);
+          // The long credit explanation scrolls inside the small hint card;
+          // its buttons stay on screen the whole time.
           final scrollable = find.descendant(
-            of: find.byKey(const Key('tutorial_callout_scroll_view')),
+            of: find.byKey(const Key('guide_hint_text')),
             matching: find.byType(Scrollable),
           );
-          final target = dismiss
-              ? find.widgetWithText(
-                  TextButton,
-                  language == 'es' ? 'Ahora no' : 'Not now',
-                )
-              : find.widgetWithText(
-                  FilledButton,
-                  language == 'es' ? 'Continuar aquí' : 'Continue here',
-                );
-          for (
-            var read = 0;
-            read < 12 && target.hitTestable().evaluate().isEmpty;
-            read++
-          ) {
-            await tester.drag(scrollable, const Offset(0, -160));
-            await tester.pump(const Duration(milliseconds: 300));
-            await tester.pump();
-          }
+          final target = find.widgetWithText(
+            TextButton,
+            dismiss
+                ? (language == 'es' ? 'Ahora no' : 'Not now')
+                : (language == 'es' ? 'Entendido' : 'Got it'),
+          );
           expect(target.hitTestable(), findsOneWidget);
-          expect(underlyingActions, 0);
+          await tester.drag(scrollable, const Offset(0, -400));
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(target.hitTestable(), findsOneWidget);
+          // The page under the hint stays usable.
+          await tester.tap(find.text('Underlying action'));
+          expect(underlyingActions, 1);
           expect(tester.takeException(), isNull);
           await tester.tap(target.hitTestable());
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 300));
-          expect(underlyingActions, 0);
+          expect(underlyingActions, 1);
           expect(router.routerDelegate.state.uri.path, RoutePaths.siConsole);
           expect(explanation, findsNothing);
           final container = ProviderScope.containerOf(
             tester.element(find.byType(MaterialApp)),
           );
           final saved = container.read(adaptiveGuidanceProvider).requireValue;
-          // "Not now" keeps its stored meaning; "Continue here" finishes the
-          // lesson. Either way it does not come back on the next visit.
+          // A shown hint is finished for the account; "Not now" also keeps
+          // its stored mute. Either way it does not come back on the next
+          // visit.
           expect(
             saved.skippedLessons.contains(GuidanceLessonId.siConsole),
             dismiss,
           );
           expect(
             saved.completedLessons.contains(GuidanceLessonId.siConsole),
-            !dismiss,
+            isTrue,
           );
           router.go(RoutePaths.settings);
           await tester.pump();
