@@ -533,7 +533,7 @@ void main() {
     );
 
     test(
-      'older saved chats: only a non-empty selection counts as a choice',
+      'older saved chats keep their selection as chosen, even an empty one',
       () async {
         await writeRaw('a', {
           'version': 1,
@@ -548,8 +548,12 @@ void main() {
           'sources': ['goals'],
         });
         final a = await repository('a').load();
-        expect(a.sourcesChosen, isFalse);
+        expect(a.sourcesChosen, isTrue);
+        expect(a.sources, isEmpty);
         expect(a.messages, pair);
+        // Marking the explanation never turns an old choice into a default.
+        await repository('a').markScopeExplained();
+        expect((await repository('a').load()).sourcesChosen, isTrue);
         final b = await repository('b').load();
         expect(b.sourcesChosen, isTrue);
         expect(b.sources, {SIV2Source.goals});
@@ -618,14 +622,32 @@ void main() {
       },
     );
 
-    test('marking the explanation on a new account creates no chat', () async {
-      await repository('a').markScopeExplained();
-      final loaded = await repository('a').load();
-      expect(loaded.scopeExplained, isTrue);
-      expect(loaded.revision, 0);
-      expect(loaded.messages, isEmpty);
-      expect(loaded.sourcesChosen, isFalse);
-    });
+    test(
+      'marking the explanation on a new account keeps My plan and creates no chat',
+      () async {
+        await repository('a').markScopeExplained();
+        final loaded = await repository('a').load();
+        expect(loaded.scopeExplained, isTrue);
+        expect(loaded.revision, 0);
+        expect(loaded.messages, isEmpty);
+        expect(loaded.sourcesChosen, isFalse);
+      },
+    );
+
+    test(
+      'a request stored on a new account by Choose a step keeps My plan',
+      () async {
+        await repository(
+          'a',
+        ).savePending(pendingFor(ConversationSurface.planner, 'planner-1'));
+        final loaded = await repository('a').load();
+        expect(loaded.sourcesChosen, isFalse);
+        expect(
+          loaded.pendingRequests[ConversationSurface.planner]?.requestId,
+          'planner-1',
+        );
+      },
+    );
   });
 }
 

@@ -30,6 +30,11 @@ void main() {
           "explicitly clearing this account's local data removes its saved Chat history",
           'The last six messages',
           'even when saved planning sources are off',
+          'A new AI chat starts with your plan (tasks, goals and schedule) selected as the information it may use.',
+          'choose Just this chat to send nothing from your plan',
+          'every request shows what will be sent before anything is sent',
+          'Chats saved before this version keep the selection they had.',
+          'whether you have seen the note explaining the default',
           'Choose a step keeps a separate conversation only while its screen is open',
         ]) {
           expect(source, contains(phrase), reason: path);
@@ -37,6 +42,18 @@ void main() {
         expect(
           source,
           isNot(contains('does not provide a saved transcript archive')),
+          reason: path,
+        );
+        expect(
+          source,
+          isNot(
+            contains('New Chat history starts with saved planning sources off'),
+          ),
+          reason: path,
+        );
+        expect(
+          source,
+          isNot(contains('your saved planning-source choices are retained')),
           reason: path,
         );
         expect(

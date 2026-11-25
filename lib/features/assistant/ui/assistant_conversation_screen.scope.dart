@@ -91,7 +91,7 @@ extension _ConversationScope on _AssistantConversationScreenState {
       required Key key,
       required String label,
       required bool selected,
-      required VoidCallback? onTap,
+      required VoidCallback onTap,
     }) => Padding(
       padding: const EdgeInsetsDirectional.only(end: 8),
       child: ChoiceChip(
@@ -99,7 +99,7 @@ extension _ConversationScope on _AssistantConversationScreenState {
         label: Text(label),
         selected: selected,
         materialTapTargetSize: MaterialTapTargetSize.padded,
-        onSelected: !enabled || onTap == null ? null : (_) => onTap(),
+        onSelected: enabled ? (_) => onTap() : null,
       ),
     );
 
@@ -126,14 +126,17 @@ extension _ConversationScope on _AssistantConversationScreenState {
             selected: chatOnly,
             onTap: () => _chooseSources(<SIV2Source>{}),
           ),
+          // A label, not a control: single sources are chosen under
+          // Choose information to use.
           if (!myPlan && !chatOnly)
-            chip(
-              key: const Key('conversation-scope-custom'),
-              label: copy('$chosen only', 'Solo $chosen'),
-              selected: true,
-              // Already in use; the single sources are chosen under
-              // Choose information to use.
-              onTap: () {},
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 8),
+              child: Chip(
+                key: const Key('conversation-scope-custom'),
+                avatar: const Icon(Icons.check, size: 18),
+                label: Text(copy('$chosen only', 'Solo $chosen')),
+                materialTapTargetSize: MaterialTapTargetSize.padded,
+              ),
             ),
         ],
       ),

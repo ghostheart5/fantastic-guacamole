@@ -19,6 +19,7 @@ extension _StoredChat on _AssistantConversationScreenState {
       // Nothing until this account's saved choice or default has loaded.
       _sources = <SIV2Source>{};
       _sourcesChosen = false;
+      _scopeExplained = false;
       _scopeNoticeVisible = false;
       _attachedTaskId = null;
       _energy = null;
@@ -61,6 +62,8 @@ extension _StoredChat on _AssistantConversationScreenState {
         _historyReady = false;
         _sources = <SIV2Source>{};
         _sourcesChosen = false;
+        // Unknown for this account, so a later Clear shows the line.
+        _scopeExplained = false;
         _scopeNoticeVisible = false;
       });
     } finally {
@@ -239,14 +242,21 @@ extension _StoredChat on _AssistantConversationScreenState {
         ),
       ),
       Text(
-        copy(
-          _sources.isEmpty
-              ? 'Saved planning sources: off.'
-              : 'Saved planning sources: ${_sources.map(_sourceLabel).join(', ')}.',
-          _sources.isEmpty
-              ? 'Fuentes de planificación: desactivadas.'
-              : 'Fuentes de planificación: ${_sources.map(_sourceLabel).join(', ')}.',
-        ),
+        // Only a choice the person made is called saved; the default is
+        // named as the default.
+        !_sourcesChosen && _sources.isNotEmpty
+            ? copy(
+                'Planning sources: My plan (${_sources.map(_sourceLabel).join(', ')}), the default.',
+                'Fuentes de planificación: Mi plan (${_sources.map(_sourceLabel).join(', ')}), la opción predeterminada.',
+              )
+            : copy(
+                _sources.isEmpty
+                    ? 'Saved planning sources: off.'
+                    : 'Saved planning sources: ${_sources.map(_sourceLabel).join(', ')}.',
+                _sources.isEmpty
+                    ? 'Fuentes de planificación: desactivadas.'
+                    : 'Fuentes de planificación: ${_sources.map(_sourceLabel).join(', ')}.',
+              ),
       ),
       if (_historyLoading)
         Text(copy('Loading saved chat…', 'Cargando conversación guardada…')),

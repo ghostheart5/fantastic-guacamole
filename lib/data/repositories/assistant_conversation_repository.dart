@@ -109,9 +109,10 @@ class AssistantConversationRepository {
         revision: decoded['revision'] as int,
         messages: messages,
         sources: sources,
-        // Older chats have no marker. Their default was no sources, so only
-        // a non-empty selection can have been the person's own choice.
-        sourcesChosen: chosen as bool? ?? sources.isNotEmpty,
+        // Chats stored by an older version have no marker. Their selection,
+        // even an empty one, is kept as chosen: an empty one may have been
+        // an explicit "just this chat" and is never widened silently.
+        sourcesChosen: chosen as bool? ?? true,
         scopeExplained: explained == true,
         pendingRequests: view.pending,
         unreadablePendingRequests: view.unreadable,
@@ -300,17 +301,21 @@ class AssistantConversationRepository {
     );
   });
 
+  /// A new, empty Chat created only to hold something else. Its selection is
+  /// marked as not chosen, so Chat's default still applies; without the
+  /// marker it would read as an older chat's explicit empty choice.
+  static Map<String, dynamic> _emptyEnvelope() => <String, dynamic>{
+    'version': 1,
+    'revision': 0,
+    'messages': <Object?>[],
+    'sources': <Object?>[],
+    'sourcesChosen': false,
+  };
+
   /// Records that this account was shown why Chat uses the plan by default.
   /// Everything else stored is kept exactly as it is, revision included.
   Future<void> markScopeExplained() => runAccountStorageMutation(() async {
-    final decoded =
-        await _readRaw() ??
-        <String, dynamic>{
-          'version': 1,
-          'revision': 0,
-          'messages': <Object?>[],
-          'sources': <Object?>[],
-        };
+    final decoded = await _readRaw() ?? _emptyEnvelope();
     if (decoded['scopeExplained'] == true) return;
     await _writeRaw({...decoded, 'scopeExplained': true});
   });
@@ -323,14 +328,7 @@ class AssistantConversationRepository {
   /// person has not been told about yet, so the caller can tell them now.
   Future<bool> savePending(PendingConversationRequest request) =>
       runAccountStorageMutation(() async {
-        final decoded =
-            await _readRaw() ??
-            <String, dynamic>{
-              'version': 1,
-              'revision': 0,
-              'messages': <Object?>[],
-              'sources': <Object?>[],
-            };
+        final decoded = await _readRaw() ?? _emptyEnvelope();
         final view = _parsePending(decoded);
         final replacedUntold =
             view.expired.containsKey(request.surface) ||

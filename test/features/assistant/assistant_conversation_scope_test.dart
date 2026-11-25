@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/repositories/assistant_conversation_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
@@ -322,14 +325,14 @@ void main() {
     await _pump(tester, container);
     expect(_selected(tester, _myPlan), isFalse);
     expect(_selected(tester, _chatOnly), isFalse);
-    expect(
-      tester
-          .widget<ChoiceChip>(
-            find.byKey(const Key('conversation-scope-custom')),
-          )
-          .selected,
-      isTrue,
-    );
+    // Shown as a plain label: a screen reader is not offered a control that
+    // does nothing.
+    final custom = find.byKey(const Key('conversation-scope-custom'));
+    expect(tester.widget(custom), isA<Chip>());
+    final semantics = tester.ensureSemantics();
+    await tester.pump();
+    expect(tester.getSemantics(custom), isNot(isSemantics(hasTapAction: true)));
+    semantics.dispose();
     expect(find.text('Goals only'), findsOneWidget);
     // Someone who already chose is not told about the default.
     expect(find.byKey(_notice), findsNothing);
@@ -432,6 +435,115 @@ void main() {
       isFalse,
     );
   });
+
+  testWidgets(
+    'a chat saved by the previous version with nothing selected stays Just this chat',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      // Exactly what the previous version stored: no choice marker.
+      await SecureStore(backend: backend)
+          .forAccount(_scope)
+          .writeString(
+            AssistantConversationRepository.storageKey,
+            jsonEncode({
+              'version': 1,
+              'revision': 2,
+              'messages': [
+                {'role': 'user', 'content': 'A quiet break after work'},
+                {'role': 'assistant', 'content': 'Try a short pause.'},
+              ],
+              'sources': <String>[],
+            }),
+          );
+      final sent = <Map<String, dynamic>>[];
+      final container = _setup(sent, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container);
+      expect(_selected(tester, _chatOnly), isTrue);
+      expect(_selected(tester, _myPlan), isFalse);
+      final preview = await _reviewAndAskPrice(
+        tester,
+        'When should I do the Grocery list?',
+      );
+      final context = _context(sent.single);
+      expect(context['selectedSources'], isEmpty);
+      expect(context['contextScope'], 'chatOnly');
+      for (final source in SIV2Source.values) {
+        expect(context[source.name], isEmpty);
+      }
+      expect(preview, contains('Sources: just this chat'));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'after switching to an account whose chat cannot load, clearing it shows the line',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      final other = AccountStorageScope.authenticated('synthetic-damaged');
+      await SecureStore(backend: backend)
+          .forAccount(other)
+          .writeString(
+            AssistantConversationRepository.storageKey,
+            jsonEncode({
+              'version': 1,
+              'revision': 1,
+              'messages': <Object?>[],
+              'sources': ['unknown'],
+            }),
+          );
+      var current = _scope;
+      final container = _setup([], backend, readScope: () => current);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container);
+      // This account sees and records the line.
+      expect(find.text(_noticeText), findsOneWidget);
+      await tester.pump();
+
+      current = other;
+      container.invalidate(accountStorageScopeProvider);
+      await tester.pumpAndSettle();
+      expect(find.text('Retry loading chat'), findsOneWidget);
+      final privacy = find.text('Chat history & privacy');
+      await tester.scrollUntilVisible(
+        privacy,
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(privacy);
+      await tester.pumpAndSettle();
+      final clear = find.byKey(const Key('conversation-clear-history'));
+      await tester.scrollUntilVisible(
+        clear,
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(clear);
+      await tester.pumpAndSettle();
+      await tester.tap(clear);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Clear conversation').last);
+      await tester.pumpAndSettle();
+      expect(_selected(tester, _myPlan), isTrue);
+      await tester.scrollUntilVisible(
+        find.byKey(_notice),
+        -100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text(_noticeText), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final language in ['en', 'es']) {
     testWidgets(

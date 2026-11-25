@@ -336,6 +336,81 @@ void main() {
     },
   );
 
+  testWidgets(
+    'a request persisted by the previous version (no sourcesChosen marker) is re-sent byte for byte',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      final quote = ConversationQuote(
+        packet: ConversationPacket(
+          surface: ConversationSurface.si,
+          accountScope: _scope.v2Namespace!,
+          prompt: 'Compare my two options.',
+          history: const [],
+          context: {
+            'language': 'en',
+            'selectedSources': <String>[],
+            'contextScope': 'chatOnly',
+            'tasks': <Object?>[],
+          },
+          requestId: 'legacy-request-1',
+        ),
+        data: {
+          'credits': 4,
+          'digest': 'fixture',
+          'proof': 'fixture',
+          'policy': 'fixture',
+          'expiresAt': DateTime.now()
+              .add(const Duration(minutes: 5))
+              .millisecondsSinceEpoch,
+        },
+      );
+      final stored = PendingConversationRequest(
+        quote: quote,
+        savedAt: DateTime.now(),
+      );
+      // Exactly the shape the previous version wrote: no choice marker.
+      await SecureStore(backend: backend)
+          .forAccount(_scope)
+          .writeString(
+            AssistantConversationRepository.storageKey,
+            jsonEncode({
+              'version': 1,
+              'revision': 0,
+              'messages': <Object?>[],
+              'sources': <Object?>[],
+              'pendingRequests': {'si': stored.toJson()},
+            }),
+          );
+      final paid = <Map<String, dynamic>>[];
+      var quotes = 0;
+      final container = _setup((body) async {
+        if (body['quoteOnly'] == true) {
+          quotes++;
+          return _quote(body);
+        }
+        paid.add(body);
+        return _answer(body['requestId'], 'The legacy paid reply.');
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await _settle(tester);
+
+      expect(quotes, 0);
+      expect(paid, hasLength(1));
+      expect(
+        jsonEncode(paid.single),
+        jsonEncode({...quote.packet.toJson(), 'quote': quote.data}),
+      );
+      expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final language in ['en', 'es']) {
     testWidgets(
       '$language: a pending request older than the price lifetime is not re-sent and the user is told',
