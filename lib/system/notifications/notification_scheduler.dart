@@ -29,6 +29,11 @@ class NotificationScheduler implements NotificationSchedulerPort {
     }());
   }
 
+  /// Whether [init] has set up the plugin in this process. Until then
+  /// nothing can be registered, and the next full reconcile (which runs
+  /// [init] itself) brings reminders in line.
+  bool get isInitialized => _initialized;
+
   bool _permissionGranted = true;
   static final ValueNotifier<bool?> permissionGrantedListenable =
       ValueNotifier<bool?>(null);

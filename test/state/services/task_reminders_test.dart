@@ -184,6 +184,55 @@ void main() {
       );
     });
 
+    test('a task saved inside its lead time is reminded at its time', () {
+      // Starts and is due in 10 minutes, with a 15-minute lead time.
+      final slots = TaskReminderPlanner.plan(
+        <TaskEntity>[
+          _task(
+            'start',
+            scheduledFor: now.add(const Duration(minutes: 10)),
+          ).copyWith(updatedAt: now),
+          _task(
+            'due',
+            dueDate: now.add(const Duration(minutes: 10)),
+          ).copyWith(updatedAt: now),
+        ],
+        now: now,
+        leadTime: const Duration(minutes: 15),
+      );
+      final byId = {for (final slot in slots) slot.id: slot};
+
+      expect(
+        byId['task_reminder_start_start']!.at,
+        now.add(const Duration(minutes: 10)),
+      );
+      expect(
+        byId['task_reminder_start_start']!.body,
+        '"Task start" starts now.',
+      );
+      expect(
+        byId['task_reminder_due_due']!.at,
+        now.add(const Duration(minutes: 10)),
+      );
+      expect(byId['task_reminder_due_due']!.body, '"Task due" is due now.');
+    });
+
+    test('after its lead-time reminder no second one follows', () {
+      // Saved an hour ago; the 15-minute reminder was due 5 minutes ago.
+      final slots = TaskReminderPlanner.plan(
+        <TaskEntity>[
+          _task(
+            'a',
+            scheduledFor: now.add(const Duration(minutes: 10)),
+          ).copyWith(updatedAt: now.subtract(const Duration(hours: 1))),
+        ],
+        now: now,
+        leadTime: const Duration(minutes: 15),
+      );
+
+      expect(slots, isEmpty);
+    });
+
     test('completed, skipped and removed tasks get no reminders', () {
       final DateTime at = local(2026, 11, 3, 9);
       final slots = TaskReminderPlanner.plan(<TaskEntity>[

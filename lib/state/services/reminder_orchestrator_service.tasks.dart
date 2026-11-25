@@ -59,6 +59,7 @@ abstract final class TaskReminderPlanner {
           TaskEntity(
             id: 'saved',
             title: '',
+            createdAt: now,
             scheduledFor: scheduledFor,
             dueDate: dueDate,
           ),
@@ -75,7 +76,8 @@ abstract final class TaskReminderPlanner {
       !task.isCanceled;
 
   /// The reminders [tasks] should have right now, nearest first. Local times
-  /// use the device time zone (`tz.local`).
+  /// use the device time zone (`tz.local`). With a lead time, a task saved
+  /// too late for it is reminded at its time itself.
   static List<TaskReminderSlot> plan(
     Iterable<TaskEntity> tasks, {
     required DateTime now,
@@ -88,7 +90,7 @@ abstract final class TaskReminderPlanner {
     final List<TaskReminderSlot> slots = <TaskReminderSlot>[
       for (final TaskEntity task in tasks)
         if (isOpen(task))
-          ..._forTask(task, lead: lead, overdue: overdueNudges)
+          ..._forTask(task, now: now, lead: lead, overdue: overdueNudges)
               .map((slot) => slot.written(_TaskReminderCopy(spanish, task)))
               .where((TaskReminderSlot slot) => slot.at.isAfter(now)),
     ];
@@ -101,34 +103,39 @@ abstract final class TaskReminderPlanner {
 
   static List<_TaskSlotTime> _forTask(
     TaskEntity task, {
+    required DateTime now,
     required Duration lead,
     required bool overdue,
   }) {
     final DateTime? start = task.scheduledFor;
     final DateTime? due = task.dueDate;
-    final int leadMinutes = lead.inMinutes;
+    // The lead-time reminder, or, when that moment had already passed when
+    // the task was last saved but the time itself is still ahead, a
+    // reminder at the time itself. A task saved before its lead moment
+    // already had its lead-time reminder, so none follows at the time.
+    final DateTime savedAt = task.updatedAt ?? task.createdAt;
+    _TaskSlotTime? ahead(String id, _TaskReminderKind kind, DateTime at) {
+      final DateTime early = at.subtract(lead);
+      if (early.isAfter(now)) {
+        return _TaskSlotTime(id, kind, early, lead.inMinutes);
+      }
+      if (early.isAfter(savedAt)) return null;
+      return _TaskSlotTime(id, kind, at, 0);
+    }
+
+    final _TaskSlotTime? first = start != null
+        ? ahead(startId(task.id), _TaskReminderKind.start, start)
+        : due == null
+        ? null
+        : task.hasDateOnlyDeadline
+        ? ahead(
+            dueId(task.id),
+            _TaskReminderKind.dueToday,
+            _morning(due, dateOnly: true, daysAfter: 0),
+          )
+        : ahead(dueId(task.id), _TaskReminderKind.due, due);
     return <_TaskSlotTime>[
-      if (start != null)
-        _TaskSlotTime(
-          startId(task.id),
-          _TaskReminderKind.start,
-          start.subtract(lead),
-          leadMinutes,
-        )
-      else if (due != null && task.hasDateOnlyDeadline)
-        _TaskSlotTime(
-          dueId(task.id),
-          _TaskReminderKind.dueToday,
-          _morning(due, dateOnly: true, daysAfter: 0).subtract(lead),
-          leadMinutes,
-        )
-      else if (due != null)
-        _TaskSlotTime(
-          dueId(task.id),
-          _TaskReminderKind.due,
-          due.subtract(lead),
-          leadMinutes,
-        ),
+      ?first,
       if (overdue && due != null)
         _TaskSlotTime(
           overdueId(task.id),

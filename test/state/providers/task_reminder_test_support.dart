@@ -46,6 +46,11 @@ class MemoryTaskStore implements ITaskRepository, IExactTaskSnapshotRepository {
 /// platform channel.
 class RecordingTaskScheduler implements NotificationScheduler {
   bool granted = true;
+
+  /// Set up at startup, as on a device outside mock mode.
+  @override
+  bool isInitialized = true;
+  int permissionReads = 0;
   final Set<String> pending = <String>{};
   final List<String> registered = <String>[];
   final List<String> cancelled = <String>[];
@@ -59,6 +64,7 @@ class RecordingTaskScheduler implements NotificationScheduler {
   @override
   Future<bool> init({bool requestPermissions = false}) async {
     if (requestPermissions) throw StateError('Must not prompt for permission');
+    permissionReads++;
     return granted;
   }
 

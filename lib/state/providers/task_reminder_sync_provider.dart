@@ -51,6 +51,7 @@ class TaskReminderSync {
     try {
       final AccountOperation owner = AccountOperation.capture(_ref);
       if (!owner.isCurrent) return;
+      if (!notificationSchedulerReady(_ref)) return;
       await owner.wait(_ref.read(localTimezoneRefresherProvider)());
       // Reads the permission; never shows the system dialog.
       final bool granted = await owner.wait(
@@ -70,8 +71,24 @@ class TaskReminderSync {
     } on StaleAccountOperation {
       // The account changed; its next session reconciles on its own.
     } on Object catch (error) {
+      // A container disposed mid-run (sign-out, app teardown) is not an
+      // error: there is nothing left to update for it.
+      if (!_ref.mounted) return;
       Logger.warn('Task reminders could not be updated ($error).');
     }
+  }
+}
+
+/// Whether the notification scheduler was set up in this process (startup
+/// does it outside mock mode). Before that nothing can be registered, so the
+/// write-time syncs wait for the next full reconcile, which sets it up.
+/// Never touches a platform channel.
+bool notificationSchedulerReady(Ref ref) {
+  try {
+    return ref.read(notificationSchedulerProvider).isInitialized;
+  } on Object {
+    // A scheduler that cannot say counts as not set up.
+    return false;
   }
 }
 

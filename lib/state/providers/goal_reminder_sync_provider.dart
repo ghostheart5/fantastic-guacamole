@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_reminder_sync_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final goalReminderSyncProvider = Provider<GoalReminderSync>(
@@ -51,6 +52,7 @@ class GoalReminderSync {
     try {
       final AccountOperation owner = AccountOperation.capture(_ref);
       if (!owner.isCurrent) return;
+      if (!notificationSchedulerReady(_ref)) return;
       await owner.wait(_ref.read(localTimezoneRefresherProvider)());
       // Reads the permission; never shows the system dialog.
       final bool granted = await owner.wait(
@@ -72,6 +74,8 @@ class GoalReminderSync {
     } on StaleAccountOperation {
       // The account changed; its next session reconciles on its own.
     } on Object catch (error) {
+      // A container disposed mid-run is not an error.
+      if (!_ref.mounted) return;
       Logger.warn('Goal reminders could not be updated ($error).');
     }
   }

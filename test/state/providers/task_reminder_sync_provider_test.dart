@@ -110,6 +110,30 @@ void main() {
     expect(fixture.scheduler.registered, isEmpty);
     expect(fixture.store.tasks, contains('a'));
   });
+
+  test('before the scheduler is set up a write touches nothing', () async {
+    final fixture = _Fixture()..scheduler.isInitialized = false;
+    await fixture.write((tasks) => tasks.saveTask(fixture.dated('a', 2)));
+
+    expect(fixture.timezoneRefreshes, 0);
+    expect(fixture.scheduler.permissionReads, 0);
+    expect(fixture.scheduler.registered, isEmpty);
+    expect(fixture.store.tasks, contains('a'));
+  });
+
+  test(
+    'a sync still running when its container goes settles quietly',
+    () async {
+      final fixture = _Fixture();
+      final tasks = fixture.container.read(domainTaskRepositoryProvider);
+      final sync = fixture.container.read(taskReminderSyncProvider);
+      await tasks.saveTask(fixture.dated('a', 2));
+      final Future<void> running = sync.idle;
+      fixture.container.dispose();
+
+      await expectLater(running, completes);
+    },
+  );
 }
 
 class _Fixture {
@@ -124,7 +148,9 @@ class _Fixture {
         ),
         taskStoreProvider.overrideWithValue(store),
         notificationSchedulerProvider.overrideWithValue(scheduler),
-        localTimezoneRefresherProvider.overrideWithValue(() async {}),
+        localTimezoneRefresherProvider.overrideWithValue(
+          () async => timezoneRefreshes++,
+        ),
         reminderOrchestratorServiceProvider.overrideWith(
           (ref) => ReminderOrchestratorService(
             preferences: preferences,
@@ -145,6 +171,7 @@ class _Fixture {
   final store = MemoryTaskStore();
   final scheduler = RecordingTaskScheduler();
   final preferences = MemoryReminderPrefs();
+  int timezoneRefreshes = 0;
   late final ProviderContainer container;
 
   TaskEntity dated(String id, int hours) => TaskEntity(
