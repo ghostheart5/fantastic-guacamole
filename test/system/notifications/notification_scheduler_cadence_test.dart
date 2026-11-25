@@ -57,8 +57,8 @@ void main() {
         payload('weekly', '2026-10-12T20:00:00.000'),
         payload('monthly', '2026-11-01T20:00:00.000'),
         payload('unknown', '2026-10-13T20:00:00.000'),
-        payload('weekly', '2026-10-13T20:00:00.000'),
-        payload('monthly', '2026-11-02T20:00:00.000'),
+        payload('weekly', '2026-10-13T20:00:30.000'),
+        payload('monthly', '2026-11-02T20:05:00.000'),
         payload('daily', '2026-10-13T20:00:00.000Z'),
         payload('daily', '2026-02-31T20:00:00.000'),
         payload('daily', '2026-10-13T19:00:00.000'),
@@ -121,6 +121,53 @@ void main() {
       );
       expect(rows.last.cadenceMetadataMalformed, isFalse);
       expect(calls.any((call) => call.method == 'zonedSchedule'), isFalse);
+    },
+  );
+  test(
+    'pending weekly and monthly cadences keep their chosen weekday and day',
+    () async {
+      String payload(String cadence, String first) => jsonEncode({
+        'v': 1,
+        'accountScope': 'owner-a',
+        'notificationId': 'habit_reminder_habit-1',
+        'dailyHour': 7,
+        'dailyMinute': 0,
+        'cadence': cadence,
+        'firstScheduledLocal': first,
+      });
+      final values = [
+        // A Wednesday.
+        payload('weekly', '2026-10-14T07:00:00.000'),
+        // The 15th.
+        payload('monthly', '2026-11-15T07:00:00.000'),
+        // "Last day" in a 30-day month and in a 31-day month.
+        payload('monthly', '2026-11-30T07:00:00.000'),
+        payload('monthly', '2026-12-31T07:00:00.000'),
+      ];
+      pending = [
+        for (var i = 0; i < values.length; i++)
+          {
+            'id': i,
+            'title': 'Reminder',
+            'body': 'Rhythm',
+            'payload': values[i],
+          },
+      ];
+      final rows = await NotificationScheduler().pendingForAccount('owner-a');
+      expect(rows, hasLength(4));
+      expect(rows.every((row) => !row.cadenceMetadataMalformed), isTrue);
+      expect(rows.map((row) => row.cadence), [
+        HabitCadence.weekly,
+        HabitCadence.monthly,
+        HabitCadence.monthly,
+        HabitCadence.monthly,
+      ]);
+      expect(rows.map((row) => row.firstScheduledLocal), [
+        DateTime(2026, 10, 14, 7),
+        DateTime(2026, 11, 15, 7),
+        DateTime(2026, 11, 30, 7),
+        DateTime(2026, 12, 31, 7),
+      ]);
     },
   );
   tearDown(() {

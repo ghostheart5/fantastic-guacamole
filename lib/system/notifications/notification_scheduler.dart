@@ -171,10 +171,7 @@ class NotificationScheduler implements NotificationSchedulerPort {
           first.minute == minute &&
           first.second == 0 &&
           first.millisecond == 0 &&
-          first.microsecond == 0 &&
-          (cadence != HabitCadence.weekly ||
-              first.weekday == DateTime.monday) &&
-          (cadence != HabitCadence.monthly || first.day == 1);
+          first.microsecond == 0;
       result.add((
         id: scoped.notificationId,
         title: request.title ?? '',
