@@ -10,6 +10,9 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
 import 'package:fantastic_guacamole/state/services/habit_occurrence_coordinator.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
+import 'package:fantastic_guacamole/tutorial/guide_hint_place.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
@@ -126,7 +129,17 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
       );
   }
 
-  Future<void> _record(
+  Future<void> _record(String owner, HabitEntity habit, bool complete) async {
+    final bool recorded = await _recordOutcome(owner, habit, complete);
+    // A check-in is what the Habits hint is about; it then stays away.
+    if (!recorded || !_sameAccount(owner)) return;
+    ref
+        .read(adaptiveGuidanceProvider.notifier)
+        .recordIfMissing(GuidanceMilestone.firstHabitCheckIn)
+        .ignore();
+  }
+
+  Future<bool> _recordOutcome(
     String owner,
     HabitEntity habit,
     bool complete,
@@ -434,7 +447,7 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     // The person just asked for a reminder and it is saved: the moment to
     // ask for notification permission, once.
     if (!saved || !mounted || !_sameAccount(owner)) return;
-    await ensureNotificationPermission(context, ref);
+    await ensureNotificationPermission(context, ref, afterSave: true);
   }
 
   Future<void> _backfill(String owner, HabitEntity habit) async {
@@ -547,6 +560,19 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     final String? owner = scope.v2Namespace;
     final habits = ref.watch(habitsProvider);
     final occurrences = ref.watch(habitOccurrencesProvider);
+    // Opened on top of other screens, so it says itself where the person is.
+    return GuideHintPlace(
+      place: GuidancePlaces.habits,
+      child: _page(scope.isWritable, owner, habits, occurrences),
+    );
+  }
+
+  Widget _page(
+    bool writable,
+    String? owner,
+    AsyncValue<List<HabitEntity>> habits,
+    AsyncValue<List<HabitOccurrenceEntity>> occurrences,
+  ) {
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgCreatorIntent,
       child: Scaffold(
@@ -565,7 +591,7 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
                 onBack: () => Navigator.of(context).pop(),
               ),
               const SizedBox(height: 20),
-              if (!scope.isWritable || owner == null)
+              if (!writable || owner == null)
                 Text(
                   _t(
                     'Sign in to view your habits.',

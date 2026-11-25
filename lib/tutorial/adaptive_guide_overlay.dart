@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/features/permissions/notification_permission_flow.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/creator_draft_provider.dart';
@@ -15,7 +16,9 @@ import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:fantastic_guacamole/tutorial/guide_hint_card.dart';
+import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
 import 'package:fantastic_guacamole/tutorial/guide_hint_layout.dart';
+import 'package:fantastic_guacamole/tutorial/guide_hint_place.dart';
 import 'package:fantastic_guacamole/tutorial/guide_step_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,10 +48,19 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   bool _keyboardWasOpen = false;
   int _keyboardCloses = 0;
   GuideHintModalObserver? _modals;
+  int _remindersOffRequests = 0;
+  (String, (int, String?))? _remindersOffAt;
+
+  /// Screens that show the notifications-off notice themselves.
+  static const Set<String> _placesWithPermissionNotice = <String>{
+    RoutePaths.nexus,
+    RoutePaths.creatorGoals,
+  };
 
   @override
   void initState() {
     super.initState();
+    _remindersOffRequests = ref.read(remindersOffHintRequestsProvider);
     _modals = GuideHintModalObserver.of(widget.router)
       ?..addListener(_onModalsChanged);
   }
@@ -129,16 +141,18 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     final DailyDecisionIntelligence decision = ref.watch(
       dailyDecisionIntelligenceProvider,
     );
+    final String place = _place(location, ref.watch(guideHintPlacesProvider));
     final GuidanceLesson? lesson = guidance.nextIntervention(
-      currentRoute: location,
+      currentRoute: place,
       decision: decision,
+      reminderSavedWhileNotificationsOff: _reminderSavedHere(place, boundary),
     );
 
     if (lesson == null || !_isCoreLesson(lesson.id)) {
       final GuidanceLesson? hint = _visibleHint(
         lesson,
         guidance,
-        location,
+        place,
         boundary,
       );
       return hint == null
@@ -178,7 +192,8 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
             : null,
       _ => null,
     };
-    if (step == null) return const SizedBox.shrink();
+    // Nor above a screen opened on top of the step's own.
+    if (step == null || place != location) return const SizedBox.shrink();
     return GuideHintSlot(
       key: ValueKey<Object?>((
         'guide-step',
@@ -192,6 +207,39 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     );
   }
 
+  /// Where the person is, for guidance: the place a screen or area in view
+  /// declared, nowhere for a screen pushed on top without one, otherwise the
+  /// router [location].
+  String _place(String location, Map<Route<dynamic>, String> declared) {
+    final Route<dynamic>? top = _modals?.topScreen;
+    if (top == null) return location;
+    final String? place = declared[top];
+    if (place != null) return place;
+    return GuideHintModalObserver.isPushedScreen(top)
+        ? GuidancePlaces.none
+        : location;
+  }
+
+  /// Whether something with a reminder was just saved on this screen while
+  /// notifications are off and the request was already refused. Leaving the
+  /// screen ends it; Today and Goals show their own notice instead.
+  bool _reminderSavedHere(String place, AuthSessionBoundary boundary) {
+    final (String, (int, String?)) here = (
+      place,
+      (boundary.generation, boundary.userId),
+    );
+    final int requests = ref.watch(remindersOffHintRequestsProvider);
+    if (requests != _remindersOffRequests) {
+      _remindersOffRequests = requests;
+      _remindersOffAt = _placesWithPermissionNotice.contains(place)
+          ? null
+          : here;
+    } else if (_remindersOffAt != here) {
+      _remindersOffAt = null;
+    }
+    return _remindersOffAt != null;
+  }
+
   /// The contextual hint for this visit to [location]. A hint is stored as
   /// seen once it has actually been drawn (see [GuideHintSlot]), so it is
   /// shown once per account; it then stays until the person dismisses it,
@@ -203,8 +251,21 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
     AuthSessionBoundary boundary,
   ) {
     final (int, String?) owner = (boundary.generation, boundary.userId);
+    // Leaving the screen or area ends the visit, also when the router's
+    // location stays the same (a pushed screen, a closed Settings area).
+    if (_shownHint?.route != location) _shownHint = null;
+    final GuidanceLesson? current = _shownHint;
+    // One hint per visit; only the note about a reminder just saved here
+    // may take the place of the screen's own hint.
+    final bool keepCurrent =
+        current != null &&
+        current.id != lesson?.id &&
+        current.route == location &&
+        _shownHintOwner == owner &&
+        lesson?.id != GuidanceLessonId.remindersOff;
     if (lesson != null &&
         lesson.route == location &&
+        !keepCurrent &&
         (_shownHint?.id != lesson.id || _shownHintOwner != owner)) {
       _shownHint = lesson;
       _shownHintOwner = owner;
@@ -574,6 +635,22 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
   Widget _contextualHint(BuildContext context, GuidanceLesson lesson) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     final (int, String?)? owner = _shownHintOwner;
+    final GuidanceHint? entry = lesson.hint;
+    final bool spanish = l10n.isSpanish;
+    // On its own screen a hint naming that screen offers "Got it"; a hint
+    // whose action does something offers that action instead.
+    final GuidanceAction? action =
+        entry?.action?.kind == GuidanceActionKind.openScreen
+        ? null
+        : entry?.action;
+    void close() {
+      // Hidden now without waiting for storage; remembered as finished.
+      setState(() => _suppressedLesson = lesson.id);
+      unawaited(
+        ref.read(adaptiveGuidanceProvider.notifier).completeLesson(lesson.id),
+      );
+    }
+
     return GuideHintSlot(
       // A new hint or account starts a new slot, with its own seen state.
       key: ValueKey<Object?>((lesson.id, owner)),
@@ -582,8 +659,8 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       child: GuideHintCard(
         key: const Key('guide_hint_card'),
         label: l10n.text(ChronoSparkString.contextualGuidance),
-        title: l10n.guideTitle(lesson.id.name, lesson.title),
-        body: l10n.guideBody(lesson.id.name, lesson.body),
+        title: spanish && entry != null ? entry.title.es : lesson.title,
+        body: spanish && entry != null ? entry.body.es : lesson.body,
         // "Not now" keeps its stored per-lesson mute, which Settings counts.
         dismissLabel: l10n.text(ChronoSparkString.notNow),
         onDismiss: () {
@@ -592,15 +669,20 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
             ref.read(adaptiveGuidanceProvider.notifier).skip(lesson.id),
           );
         },
-        actionLabel: _copy(l10n, 'Got it', 'Entendido'),
-        onAction: () {
-          // Hidden now without waiting for storage; remembered as finished.
-          setState(() => _suppressedLesson = lesson.id);
-          unawaited(
-            ref
-                .read(adaptiveGuidanceProvider.notifier)
-                .completeLesson(lesson.id),
-          );
+        actionLabel:
+            action?.label.of(spanish: spanish) ??
+            _copy(l10n, 'Got it', 'Entendido'),
+        onAction: switch (action?.kind) {
+          GuidanceActionKind.turnOnNotifications => () {
+            close();
+            // The overlay sits above the router's navigator; the request's
+            // explanation sheet opens in it.
+            final BuildContext inApp =
+                widget.router.routerDelegate.navigatorKey.currentContext ??
+                context;
+            unawaited(turnOnNotifications(inApp, ref));
+          },
+          _ => close,
         },
       ),
     );

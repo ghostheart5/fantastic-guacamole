@@ -183,10 +183,10 @@ void main() {
     }
   }
 
+  // Goals has a hint of its own (test/tutorial/screen_hints_test.dart).
   for (final String route in <String>[
     RoutePaths.settings,
     RoutePaths.creator,
-    RoutePaths.creatorGoals,
   ]) {
     testWidgets('no lesson about another screen covers $route after the '
         'first-run guide', (WidgetTester tester) async {

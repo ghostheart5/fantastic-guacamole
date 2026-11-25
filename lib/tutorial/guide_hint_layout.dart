@@ -72,8 +72,10 @@ class GuideHintSpace extends ConsumerWidget {
 }
 
 /// Counts dialogs and bottom sheets open in the router's root navigator, so
-/// a hint drawn above the app can step aside while one is on top. Register it
-/// in the router's `observers` and call [attachTo] with that router.
+/// a hint drawn above the app can step aside while one is on top, and keeps
+/// the screens in it in order, so a hint about the router's page is not
+/// drawn above a screen pushed on top of it. Register it in the router's
+/// `observers` and call [attachTo] with that router.
 class GuideHintModalObserver extends NavigatorObserver with ChangeNotifier {
   static final Expando<GuideHintModalObserver> _byRouter =
       Expando<GuideHintModalObserver>('guide-hint-modal-observer');
@@ -84,12 +86,30 @@ class GuideHintModalObserver extends NavigatorObserver with ChangeNotifier {
   void attachTo(Object router) => _byRouter[router] = this;
 
   int _openModals = 0;
+  final List<Route<dynamic>> _screens = <Route<dynamic>>[];
 
   bool get hasModalOnTop => _openModals > 0;
 
+  /// The full screen on top, ignoring dialogs and sheets.
+  Route<dynamic>? get topScreen {
+    _screens.removeWhere((Route<dynamic> route) => !route.isActive);
+    return _screens.isEmpty ? null : _screens.last;
+  }
+
+  /// Whether [route] was pushed directly (for example with
+  /// `Navigator.push`) rather than by the router, so the router's location
+  /// does not describe it.
+  static bool isPushedScreen(Route<dynamic> route) =>
+      route.settings is! Page<dynamic>;
+
   void _change(Route<dynamic>? route, int delta) {
-    if (route is! PopupRoute<dynamic>) return;
-    _openModals = math.max(0, _openModals + delta);
+    if (route is PageRoute<dynamic>) {
+      delta > 0 ? _screens.add(route) : _screens.remove(route);
+    } else if (route is PopupRoute<dynamic>) {
+      _openModals = math.max(0, _openModals + delta);
+    } else {
+      return;
+    }
     // Navigation can happen while widgets are building; tell listeners after.
     if (SchedulerBinding.instance.schedulerPhase ==
         SchedulerPhase.persistentCallbacks) {

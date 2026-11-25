@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/features/permissions/notification_permission
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
@@ -355,6 +356,7 @@ class GoalsScreen extends ConsumerWidget {
                                   canRemind =
                                       targetDate != null &&
                                       !result.accountChanged;
+                                  if (canRemind) _recordGoalDate(ref);
                                 } on Object {
                                   if (ctx.mounted) {
                                     setSheetState(() {
@@ -435,6 +437,13 @@ bool _sameCalendarDay(DateTime? a, DateTime? b) =>
         a.year == b.year &&
         a.month == b.month &&
         a.day == b.day);
+
+/// Saving a goal with a target date is what the Goals hint is about; it then
+/// stays away.
+void _recordGoalDate(WidgetRef ref) => ref
+    .read(adaptiveGuidanceProvider.notifier)
+    .recordIfMissing(GuidanceMilestone.firstGoalTargetDate)
+    .ignore();
 
 class _EmptyGoals extends StatelessWidget {
   const _EmptyGoals({required this.onAdd});
@@ -700,6 +709,9 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
             clearTargetDate: nextTargetDate == null,
           ),
         );
+    if (nextTargetDate != null && !result.accountChanged && mounted) {
+      _recordGoalDate(ref);
+    }
     // Saved first. A date that was newly set or moved can remind, so this is
     // the moment to ask, once.
     if (nextTargetDate != null &&

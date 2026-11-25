@@ -1,4 +1,9 @@
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
+import 'package:fantastic_guacamole/tutorial/guide_hint_place.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:flutter/rendering.dart';
 import 'package:fantastic_guacamole/data/services/mock_auth_service.dart';
@@ -302,6 +307,7 @@ void main() {
     bool guideReady = false,
     AiCreditWallet? wallet,
     bool? notificationPermission = true,
+    bool noTasks = false,
   }) {
     final AccountStorageScope resolvedScope =
         accountScope ??
@@ -329,6 +335,8 @@ void main() {
         if (authService != null)
           authServiceProvider.overrideWithValue(authService),
         accountStorageScopeProvider.overrideWithValue(resolvedScope),
+        // The guide reads saved tasks when it loads; there are none here.
+        if (noTasks) domainTaskRepositoryProvider.overrideWithValue(_NoTasks()),
         accountLegacyOwnershipProvider.overrideWithValue(
           LegacyScopeOwnership.provenNotOwned,
         ),
@@ -708,9 +716,13 @@ void main() {
     bool es = false,
     bool? permission = true,
     void Function(_FakeSettingsUiActions actions)? arrange,
+    bool noTasks = false,
   }) async {
     useTallSurface(tester);
-    final container = createContainer(notificationPermission: permission);
+    final container = createContainer(
+      notificationPermission: permission,
+      noTasks: noTasks,
+    );
     arrange?.call(
       container.read(settingsUiActionsProvider) as _FakeSettingsUiActions,
     );
@@ -991,6 +1003,32 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     expect(actions.mainSwitchWrites, [false, false]);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the open Notifications area is the notification settings '
+      'hint place; changing lead time finishes that hint', (tester) async {
+    final container = await openNotifications(tester, noTasks: true);
+    expect(
+      find.byWidgetPredicate(
+        (Widget widget) =>
+            widget is GuideHintPlace &&
+            widget.place == GuidancePlaces.notificationSettings,
+      ),
+      findsOneWidget,
+    );
+    final Finder lead = find.text('At the time');
+    await tester.ensureVisible(lead);
+    await tester.tap(lead);
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.text('15 minutes before'));
+    await tester.pump(const Duration(milliseconds: 350));
+    final AdaptiveGuidanceState guidance = await container.read(
+      adaptiveGuidanceProvider.future,
+    );
+    expect(
+      guidance.lessonFinishedByAction(GuidanceLessonId.notificationSettings),
+      isTrue,
+    );
   });
 
   testWidgets('quiet hours with the same start and end show as off', (
@@ -2447,4 +2485,15 @@ class _CopyGuidance extends AdaptiveGuidanceNotifier {
     skippedLessons: {},
     completedLessons: {},
   );
+}
+
+class _NoTasks implements ITaskRepository {
+  @override
+  Future<List<TaskEntity>> getAllTasks() async => <TaskEntity>[];
+  @override
+  Future<TaskEntity?> getTaskById(String id) async => null;
+  @override
+  Future<void> saveTask(TaskEntity task) async {}
+  @override
+  Future<void> deleteTask(String id) async {}
 }

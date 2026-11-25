@@ -6,21 +6,13 @@ import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
+import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum GuidanceLessonId {
-  createFirstItem,
-  scheduleFirstItem,
-  reviewTimeline,
-  nexus,
-  smartPlanner,
-  timelineExecution,
-  siConsole,
-  trajectoryEngine,
-  progression,
-}
+export 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart'
+    show GuidanceLessonId, GuidanceMilestone;
 
 @immutable
 class GuidanceLesson {
@@ -30,28 +22,19 @@ class GuidanceLesson {
     required this.body,
     required this.route,
     required this.actionLabel,
+    this.hint,
   });
 
   final GuidanceLessonId id;
   final String title;
   final String body;
   final String route;
-  final String actionLabel;
-}
 
-enum GuidanceMilestone {
-  firstItem,
-  firstSchedule,
-  firstTimelineReview,
-  firstCompletion,
-  firstTaskDeferral,
-  firstNexusReview,
-  firstPlannerQuestion,
-  firstSiQuery,
-  firstTrajectoryReview,
-  firstProgressionReview,
-  guidanceDismissed,
-  replayed,
+  /// Empty for a hint without an action.
+  final String actionLabel;
+
+  /// The catalogue entry of a contextual hint; null for a first-run step.
+  final GuidanceHint? hint;
 }
 
 final adaptiveGuidanceProvider =
@@ -183,30 +166,37 @@ class AdaptiveGuidanceState {
     _ => false,
   };
 
+  /// [currentRoute] is the router location, or the [GuidancePlaces] key a
+  /// screen or area in view declares. [reminderSavedWhileNotificationsOff]
+  /// is true on the screen where something with a reminder was just saved
+  /// while notifications are off and the request was already refused.
   GuidanceLesson? nextIntervention({
     required String currentRoute,
     required DailyDecisionIntelligence decision,
     DateTime? now,
+    bool reminderSavedWhileNotificationsOff = false,
   }) {
     return GuidanceInterventionEngine.resolve(
       state: this,
       currentRoute: currentRoute,
       decision: decision,
       now: now ?? DateTime.now(),
+      reminderSavedWhileNotificationsOff: reminderSavedWhileNotificationsOff,
     );
   }
 }
 
 enum CoreGuideStatus { active, paused, skipped, complete }
 
-/// Chooses one intervention from observed state. There is no ordered lesson
-/// catalog and no progress-card completion path.
+/// Chooses one intervention from observed state. Contextual hints come from
+/// [GuidanceCatalogue]; there is no progress-card completion path.
 abstract final class GuidanceInterventionEngine {
   static GuidanceLesson? resolve({
     required AdaptiveGuidanceState state,
     required String currentRoute,
     required DailyDecisionIntelligence decision,
     required DateTime now,
+    bool reminderSavedWhileNotificationsOff = false,
   }) {
     GuidanceLesson? unresolved(GuidanceLesson lesson) {
       if (state.skippedLessons.contains(lesson.id) ||
@@ -225,31 +215,26 @@ abstract final class GuidanceInterventionEngine {
       // still appears.
     }
 
-    // A contextual lesson describes one screen, so it appears only there.
-    // Screens without a lesson of their own (Settings, Add something, Goals,
-    // Daily Rhythms...) never show guidance about another screen.
-    final GuidanceLessonId? routeLesson = switch (currentRoute) {
-      RoutePaths.nexus => GuidanceLessonId.nexus,
-      RoutePaths.smartPlanner => GuidanceLessonId.smartPlanner,
-      RoutePaths.timeline => GuidanceLessonId.timelineExecution,
-      RoutePaths.siConsole => GuidanceLessonId.siConsole,
-      RoutePaths.trajectoryEngine => GuidanceLessonId.trajectoryEngine,
-      RoutePaths.progression => GuidanceLessonId.progression,
-      _ => null,
-    };
-    if (routeLesson == null) return null;
+    // About something just saved on this screen, so it comes first, even
+    // right after the first-run guide.
+    if (reminderSavedWhileNotificationsOff) {
+      final GuidanceLesson? off = unresolved(
+        _hintLesson(GuidanceCatalogue.remindersOff, decision, currentRoute),
+      );
+      if (off != null) return off;
+    }
 
-    if (routeLesson == GuidanceLessonId.timelineExecution &&
+    // A contextual lesson describes one screen, so it appears only there.
+    // Screens without a lesson of their own (Settings outside its
+    // Notifications area, Add something...) never show guidance about
+    // another screen.
+    final GuidanceHint? hint = GuidanceCatalogue.forPlace(currentRoute);
+    if (hint == null || hint.id == GuidanceLessonId.remindersOff) return null;
+
+    if (hint.id == GuidanceLessonId.timelineExecution &&
         state.hasDeferralFriction) {
       final GuidanceLesson? recovery = unresolved(
-        const GuidanceLesson(
-          id: GuidanceLessonId.timelineExecution,
-          title: 'Try a smaller step or a different time',
-          body:
-              'You moved this more than once. You can make it smaller, choose another time, or record what happened.',
-          route: RoutePaths.timeline,
-          actionLabel: 'Review in schedule',
-        ),
+        _hintLesson(GuidanceCatalogue.timelineRecovery, decision),
       );
       if (recovery != null) return recovery;
     }
@@ -261,7 +246,7 @@ abstract final class GuidanceInterventionEngine {
 
     // A finished or dismissed lesson is not replaced by one about another
     // screen.
-    return unresolved(_advancedLesson(routeLesson, decision));
+    return unresolved(_hintLesson(hint, decision));
   }
 
   static GuidanceLessonId? activeCoreLesson(AdaptiveGuidanceState state) {
@@ -335,77 +320,35 @@ abstract final class GuidanceInterventionEngine {
         route: RoutePaths.timeline,
         actionLabel: 'Open schedule',
       ),
-      GuidanceLessonId.nexus ||
-      GuidanceLessonId.smartPlanner ||
-      GuidanceLessonId.timelineExecution ||
-      GuidanceLessonId.siConsole ||
-      GuidanceLessonId.trajectoryEngine ||
-      GuidanceLessonId.progression => throw ArgumentError(
+      _ => throw ArgumentError(
         'Only core lessons can be replayed as first-run guidance.',
       ),
     };
   }
 
-  static GuidanceLesson _advancedLesson(
-    GuidanceLessonId id,
-    DailyDecisionIntelligence decision,
-  ) {
-    return switch (id) {
-      GuidanceLessonId.nexus => GuidanceLesson(
-        id: id,
-        title: 'Review the suggested next step',
-        body:
-            '${decision.rationale} Read why it was suggested and what is uncertain before deciding.',
-        route: RoutePaths.nexus,
-        actionLabel: 'Review today',
-      ),
-      GuidanceLessonId.smartPlanner => GuidanceLesson(
-        id: id,
-        title: 'Ask for help with a plan',
-        body:
-            '${decision.replanAction ?? 'Ask one specific question about the ranked task, its constraints, or what should move.'} Type a question to get a suggestion.',
-        route: RoutePaths.smartPlanner,
-        actionLabel: 'Ask for a next step',
-      ),
-      GuidanceLessonId.timelineExecution => GuidanceLesson(
-        id: id,
-        title: 'Record what happened',
-        body:
-            'Open a scheduled task. Mark it done, move it, or correct its details, then save your change.',
-        route: RoutePaths.timeline,
-        actionLabel: 'Open schedule',
-      ),
-      GuidanceLessonId.siConsole => GuidanceLesson(
-        id: id,
-        title: 'Ask what is missing',
-        body:
-            '${decision.warning} Ask what evidence is missing and what input could change the recommendation. '
-            'Free tools use no credits; questions to cloud AI show their price, up to 5 credits, before you confirm. Eligible free plans include 20 credits per month without rollover; check Settings for your allowance and reset date.',
-        route: RoutePaths.siConsole,
-        actionLabel: 'Inspect evidence',
-      ),
-      GuidanceLessonId.trajectoryEngine => GuidanceLesson(
-        id: id,
-        title: 'Compare another option',
-        body:
-            'Try a different time, amount of work, or priority. Compare the estimate before changing your plan.',
-        route: RoutePaths.trajectoryEngine,
-        actionLabel: 'Compare options',
-      ),
-      GuidanceLessonId.progression => const GuidanceLesson(
-        id: GuidanceLessonId.progression,
-        title: 'Review your activity',
-        body:
-            'See the tasks and milestones you recorded. Open the details to review them.',
-        route: RoutePaths.progression,
-        actionLabel: 'Review outcomes',
-      ),
-      GuidanceLessonId.createFirstItem ||
-      GuidanceLessonId.scheduleFirstItem ||
-      GuidanceLessonId.reviewTimeline => throw ArgumentError(
-        'Core-loop lessons are resolved separately.',
-      ),
+  /// A catalogue hint as a lesson. Some English bodies start with a line
+  /// about today's plan; [route] places a hint that has no screen of its own.
+  static GuidanceLesson _hintLesson(
+    GuidanceHint hint,
+    DailyDecisionIntelligence decision, [
+    String? route,
+  ]) {
+    final String? lead = switch (hint.id) {
+      GuidanceLessonId.nexus => decision.rationale,
+      GuidanceLessonId.smartPlanner => decision.replanAction,
+      GuidanceLessonId.siConsole => decision.warning,
+      _ => null,
     };
+    return GuidanceLesson(
+      id: hint.id,
+      title: hint.title.en,
+      body: lead == null || lead.trim().isEmpty
+          ? hint.body.en
+          : '$lead ${hint.body.en}',
+      route: route ?? hint.route,
+      actionLabel: hint.action?.label.en ?? '',
+      hint: hint,
+    );
   }
 }
 
@@ -972,14 +915,6 @@ GuidanceLessonId? _lessonCompletedBy(GuidanceMilestone milestone) {
     GuidanceMilestone.firstItem => GuidanceLessonId.createFirstItem,
     GuidanceMilestone.firstSchedule => GuidanceLessonId.scheduleFirstItem,
     GuidanceMilestone.firstTimelineReview => GuidanceLessonId.reviewTimeline,
-    GuidanceMilestone.firstCompletion ||
-    GuidanceMilestone.firstTaskDeferral => GuidanceLessonId.timelineExecution,
-    GuidanceMilestone.firstNexusReview => GuidanceLessonId.nexus,
-    GuidanceMilestone.firstPlannerQuestion => GuidanceLessonId.smartPlanner,
-    GuidanceMilestone.firstSiQuery => GuidanceLessonId.siConsole,
-    GuidanceMilestone.firstTrajectoryReview =>
-      GuidanceLessonId.trajectoryEngine,
-    GuidanceMilestone.firstProgressionReview => GuidanceLessonId.progression,
-    GuidanceMilestone.guidanceDismissed || GuidanceMilestone.replayed => null,
+    _ => GuidanceCatalogue.lessonCompletedBy(milestone),
   };
 }

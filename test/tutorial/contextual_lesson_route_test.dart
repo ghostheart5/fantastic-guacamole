@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -49,7 +50,6 @@ void main() {
   const List<String> routesWithoutALesson = <String>[
     RoutePaths.settings,
     RoutePaths.creator,
-    RoutePaths.creatorGoals,
     RoutePaths.notifications,
     RoutePaths.advancedRoot,
     RoutePaths.home,
@@ -379,6 +379,12 @@ const List<(String, GuidanceLessonId)> _lessonRoutes =
       (RoutePaths.siConsole, GuidanceLessonId.siConsole),
       (RoutePaths.trajectoryEngine, GuidanceLessonId.trajectoryEngine),
       (RoutePaths.progression, GuidanceLessonId.progression),
+      (GuidancePlaces.habits, GuidanceLessonId.habits),
+      (RoutePaths.creatorGoals, GuidanceLessonId.goals),
+      (
+        GuidancePlaces.notificationSettings,
+        GuidanceLessonId.notificationSettings,
+      ),
     ];
 
 AdaptiveGuidanceState _coreDone(DateTime at, {int deferrals = 0}) {

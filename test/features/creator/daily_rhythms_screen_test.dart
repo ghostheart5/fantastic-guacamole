@@ -5,10 +5,17 @@ import 'package:fantastic_guacamole/features/creator/ui/daily_rhythms_screen.dar
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/state/services/habit_occurrence_coordinator.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
+import 'package:fantastic_guacamole/tutorial/guide_hint_place.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   late ProviderContainer container;
@@ -25,6 +32,8 @@ void main() {
         accountStorageScopeProvider.overrideWith((ref) => scope),
         habitsProvider.overrideWith(() => notifier),
         habitOccurrencesProvider.overrideWith((ref) async => List.of(outcomes)),
+        // The guide reads saved tasks when it loads; there are none here.
+        domainTaskRepositoryProvider.overrideWithValue(_NoTasks()),
       ],
     );
   });
@@ -297,6 +306,29 @@ void main() {
     );
     expect(outcomes, isEmpty);
   });
+
+  testWidgets(
+    'the screen is the place of the Habits hint, and a check-in is the '
+    'action that finishes that hint',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      await open(tester);
+      expect(
+        find.byWidgetPredicate(
+          (Widget widget) =>
+              widget is GuideHintPlace && widget.place == GuidancePlaces.habits,
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Mark target completed'));
+      await tester.pumpAndSettle();
+      final AdaptiveGuidanceState guidance = await container.read(
+        adaptiveGuidanceProvider.future,
+      );
+      expect(guidance.has(GuidanceMilestone.firstHabitCheckIn), isTrue);
+      expect(guidance.lessonFinishedByAction(GuidanceLessonId.habits), isTrue);
+    },
+  );
 }
 
 HabitOccurrenceEntity _outcome(HabitOccurrenceOutcome outcome) =>
@@ -384,4 +416,15 @@ class _Rhythms extends HabitsNotifier {
     removals++;
     state = const AsyncData([]);
   }
+}
+
+class _NoTasks implements ITaskRepository {
+  @override
+  Future<List<TaskEntity>> getAllTasks() async => <TaskEntity>[];
+  @override
+  Future<TaskEntity?> getTaskById(String id) async => null;
+  @override
+  Future<void> saveTask(TaskEntity task) async {}
+  @override
+  Future<void> deleteTask(String id) async {}
 }

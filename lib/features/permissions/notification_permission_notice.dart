@@ -61,7 +61,7 @@ class NotificationPermissionNotice extends ConsumerWidget {
                           ),
                         ),
                         TextButton(
-                          onPressed: () => _turnOn(context, ref),
+                          onPressed: () => turnOnNotifications(context, ref),
                           child: Text(
                             journeyText(
                               context,
@@ -87,14 +87,5 @@ class NotificationPermissionNotice extends ConsumerWidget {
         );
       },
     );
-  }
-
-  Future<void> _turnOn(BuildContext context, WidgetRef ref) async {
-    if (ref.read(notificationPermissionProvider).refusal ==
-        NotificationPermissionRefusal.denied) {
-      await openNotificationSystemSettings(context, ref);
-      return;
-    }
-    await ensureNotificationPermission(context, ref, userInitiated: true);
   }
 }

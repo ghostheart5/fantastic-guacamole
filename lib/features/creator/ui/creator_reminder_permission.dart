@@ -42,5 +42,5 @@ Future<void> askForRemindersAfterCreatorSave(
       .read(settingsUiActionsProvider)
       .loadAdvancedReminderPrefs();
   if (!creatorSaveCanRemind(saved, prefs)) return;
-  await ensureNotificationPermission(context, ref);
+  await ensureNotificationPermission(context, ref, afterSave: true);
 }

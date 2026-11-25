@@ -46,6 +46,8 @@ import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
+import 'package:fantastic_guacamole/tutorial/guide_hint_place.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
