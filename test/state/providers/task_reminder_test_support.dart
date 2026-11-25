@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
@@ -78,6 +79,23 @@ class RecordingTaskScheduler implements NotificationScheduler {
     registered.add(notification.id);
     pending.add(notification.id);
     times[notification.id] = notification.scheduledAt;
+    return NotificationScheduleResult.scheduled;
+  }
+
+  @override
+  Future<NotificationScheduleResult> scheduleCadenceAt({
+    required String id,
+    required String title,
+    required String body,
+    required HabitCadence cadence,
+    required DateTime firstAt,
+    String? accountScope,
+  }) async {
+    expect(accountScope, testReminderScope);
+    if (!granted) return NotificationScheduleResult.permissionDenied;
+    registered.add(id);
+    pending.add(id);
+    times[id] = firstAt;
     return NotificationScheduleResult.scheduled;
   }
 

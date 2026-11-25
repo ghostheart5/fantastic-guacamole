@@ -23,6 +23,7 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
 import 'package:fantastic_guacamole/state/providers/rhythm_planning_provider.dart';
+import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
@@ -403,6 +404,9 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
       _bestEffort(() => _recordGuidanceMilestones(preview, receipt, owner)),
     );
     _invalidateDomains(preview.selectedOperations);
+    await owner.wait(
+      _syncHabitRemindersAfter(preview.selectedOperations, owner),
+    );
     state = state.copyWith(
       phase: replayOnly
           ? CreatorHandshakePhase.idempotent
@@ -530,6 +534,9 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
     }
     await owner.wait(_bestEffort(() => _writeLedger(account, ledger)));
     _invalidateDomains(preview.selectedOperations);
+    await owner.wait(
+      _syncHabitRemindersAfter(preview.selectedOperations, owner),
+    );
     state = state.copyWith(
       phase: CreatorHandshakePhase.undone,
       message:
@@ -1105,6 +1112,32 @@ class CreatorHandshakeNotifier extends Notifier<CreatorHandshakeState> {
         relatedId: mutation.goalId,
       ),
     );
+  }
+
+  /// Brings the habit reminders in line once a habit was created or removed,
+  /// without waiting for something to watch the habit list. Runs under the
+  /// caller's storage lock and the reminder lock, for this account only.
+  /// Missing permission is a known state, not an error, and a reminder that
+  /// could not update never undoes the save (the next reconcile retries).
+  Future<void> _syncHabitRemindersAfter(
+    Iterable<CreatorMutationOperation> operations,
+    AccountOperation owner,
+  ) async {
+    if (!operations.any(
+      (CreatorMutationOperation operation) =>
+          operation.entityKind == CreatorEntityKind.habit,
+    )) {
+      return;
+    }
+    await _bestEffort(() async {
+      owner.check();
+      final List<HabitEntity> habits = await owner.wait(
+        ref.read(domainHabitRepositoryProvider).getHabits(),
+      );
+      await ref
+          .read(reminderOrchestratorServiceProvider)
+          .syncHabitReminders(habits, shouldContinue: () => owner.isCurrent);
+    });
   }
 
   void _invalidateDomains(Iterable<CreatorMutationOperation> operations) {

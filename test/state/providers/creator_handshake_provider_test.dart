@@ -21,6 +21,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
@@ -1076,6 +1077,127 @@ void main() {
     },
   );
 
+  for (final (String name, CreatorFormData data, List<String> suffixes)
+      in <(String, CreatorFormData, List<String>)>[
+        (
+          'daily',
+          const CreatorFormData(
+            title: 'Stretch',
+            type: 'Habit',
+            priority: 3,
+            habitReminderMinutes: 20 * 60,
+          ),
+          <String>[''],
+        ),
+        (
+          'weekly with two weekdays',
+          const CreatorFormData(
+            title: 'Long run',
+            type: 'Habit',
+            priority: 3,
+            recurrenceRule: RecurrenceRule.weekly,
+            habitReminderMinutes: 7 * 60,
+            habitReminderWeekdays: <int>[3, 6],
+          ),
+          <String>['_wd3', '_wd6'],
+        ),
+      ]) {
+    test('a $name habit confirmed with a reminder registers its alarm with '
+        'nothing watching the habit list', () async {
+      final scheduler = RecordingTaskScheduler();
+      final list = _RecordingNotificationList();
+      final DateTime now = DateTime.utc(2026, 8, 20, 9);
+      late final _Harness harness;
+      harness = _Harness(
+        now: now,
+        extraOverrides: [
+          reminderOrchestratorServiceProvider.overrideWith(
+            (ref) => ReminderOrchestratorService(
+              preferences: MemoryReminderPrefs(),
+              notifications: NotificationsService(list),
+              scheduler: scheduler,
+              accountScope: testReminderScope,
+              loadHabitOccurrences: () async => const [],
+              now: () => now,
+              isSpanish: () => false,
+            ),
+          ),
+        ],
+      );
+      addTearDown(harness.dispose);
+
+      await harness.notifier.stage(data: data);
+      final CreatorHandshakeState result = await harness.notifier.confirm();
+
+      expect(result.phase, CreatorHandshakePhase.applied);
+      final String habitId = harness.habitRepository.habits.single.id;
+      expect(
+        scheduler.pending,
+        containsAll(<String>[
+          for (final String suffix in suffixes)
+            'habit_reminder_$habitId$suffix',
+        ]),
+      );
+
+      // Undo takes the alarm away again (the last reminder goes through the
+      // notification list, which cancels it with the OS).
+      expect(
+        (await harness.notifier.undo()).phase,
+        CreatorHandshakePhase.undone,
+      );
+      expect(harness.habitRepository.habits, isEmpty);
+      expect(
+        list.cancelled,
+        containsAll(<String>[
+          for (final String suffix in suffixes)
+            'habit_reminder_$habitId$suffix',
+        ]),
+      );
+    });
+  }
+
+  test(
+    'a habit with a reminder still saves when notifications are off',
+    () async {
+      final scheduler = RecordingTaskScheduler()..granted = false;
+      final DateTime now = DateTime.utc(2026, 8, 20, 9);
+      final ReminderOrchestratorService service = ReminderOrchestratorService(
+        preferences: MemoryReminderPrefs(),
+        notifications: NotificationsService(NoNotificationList()),
+        scheduler: scheduler,
+        accountScope: testReminderScope,
+        loadHabitOccurrences: () async => const [],
+        now: () => now,
+        isSpanish: () => false,
+      );
+      final _Harness harness = _Harness(
+        now: now,
+        extraOverrides: [
+          reminderOrchestratorServiceProvider.overrideWithValue(service),
+        ],
+      );
+      addTearDown(harness.dispose);
+
+      await harness.notifier.stage(
+        data: const CreatorFormData(
+          title: 'Stretch',
+          type: 'Habit',
+          priority: 3,
+          habitReminderMinutes: 20 * 60,
+        ),
+      );
+      final CreatorHandshakeState result = await harness.notifier.confirm();
+
+      expect(result.phase, CreatorHandshakePhase.applied);
+      expect(harness.habitRepository.habits.single.reminderMinutes, 20 * 60);
+      expect(scheduler.pending, isEmpty);
+      expect(
+        service.lastHabitReminderResult.value,
+        NotificationScheduleResult.permissionDenied,
+      );
+    },
+  );
+
   test('"Any time" saves a habit without a reminder or days', () async {
     final _Harness harness = _Harness();
     addTearDown(harness.dispose);
@@ -1267,6 +1389,18 @@ class _Harness {
         else
           domainTaskRepositoryProvider.overrideWithValue(this.repository),
         ...extraOverrides,
+        // A quiet device for habit reminder updates after a save.
+        if (extraOverrides.isEmpty)
+          reminderOrchestratorServiceProvider.overrideWith(
+            (ref) => ReminderOrchestratorService(
+              preferences: MemoryReminderPrefs(),
+              notifications: NotificationsService(NoNotificationList()),
+              scheduler: RecordingTaskScheduler(),
+              accountScope: testReminderScope,
+              loadHabitOccurrences: () async => const [],
+              isSpanish: () => false,
+            ),
+          ),
         domainGoalRepositoryProvider.overrideWithValue(this.goalRepository),
         domainHabitRepositoryProvider.overrideWithValue(this.habitRepository),
         domainNoteRepositoryProvider.overrideWithValue(this.noteRepository),
@@ -1523,4 +1657,10 @@ class _RecordingNoteProjection implements NoteTimelineAdapter {
     mutations.add(mutation);
     if (fail) throw StateError('Simulated Timeline storage failure');
   }
+}
+
+class _RecordingNotificationList extends NoNotificationList {
+  final List<String> cancelled = <String>[];
+  @override
+  Future<void> cancelNotification(String id) async => cancelled.add(id);
 }

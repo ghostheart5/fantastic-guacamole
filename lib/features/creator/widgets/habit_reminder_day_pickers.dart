@@ -22,16 +22,31 @@ class HabitWeekdayChooser extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<int> days = selected ?? const <int>[DateTime.monday];
+    // Turns [day] on or off; the last chosen day stays on.
+    void toggle(int day, bool on) {
+      final Set<int> next = <int>{...days};
+      if (on) {
+        next.add(day);
+      } else if (next.length > 1) {
+        next.remove(day);
+      }
+      onChanged(next.toList()..sort());
+    }
+
     return Wrap(
       spacing: 6,
       runSpacing: 6,
       children: <Widget>[
         for (int day = DateTime.monday; day <= DateTime.sunday; day++)
+          // The full day name is read out instead of the short one, so the
+          // node also carries the chip's tap and selected state.
           Semantics(
             label: HabitReminderDays.weekdayName(day, spanish: spanish),
             excludeSemantics: true,
-            selected: days.contains(day),
             button: true,
+            enabled: enabled,
+            selected: days.contains(day),
+            onTap: enabled ? () => toggle(day, !days.contains(day)) : null,
             child: FilterChip(
               key: ValueKey<String>('habit-reminder-weekday-$day'),
               label: Text(
@@ -39,17 +54,7 @@ class HabitWeekdayChooser extends StatelessWidget {
               ),
               selected: days.contains(day),
               showCheckmark: false,
-              onSelected: !enabled
-                  ? null
-                  : (bool on) {
-                      final Set<int> next = <int>{...days};
-                      if (on) {
-                        next.add(day);
-                      } else if (next.length > 1) {
-                        next.remove(day);
-                      }
-                      onChanged(next.toList()..sort());
-                    },
+              onSelected: enabled ? (bool on) => toggle(day, on) : null,
             ),
           ),
       ],

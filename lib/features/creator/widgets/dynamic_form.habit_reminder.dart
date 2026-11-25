@@ -115,11 +115,13 @@ class _HabitReminderRow extends StatelessWidget {
           const SizedBox(height: 10),
           _DropdownShell(
             accent: AppColors.memoryAmber,
-            child: HabitMonthDayChooser(
-              selected: dayOfMonth,
-              spanish: es,
-              enabled: enabled,
-              onChanged: onDayOfMonth,
+            child: DropdownRouteKeyboardGuard(
+              child: HabitMonthDayChooser(
+                selected: dayOfMonth,
+                spanish: es,
+                enabled: enabled,
+                onChanged: onDayOfMonth,
+              ),
             ),
           ),
         ],
