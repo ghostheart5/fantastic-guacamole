@@ -188,6 +188,11 @@ void main() {
       );
       expect(topic.whereToTap?.en, 'On Today, tap Review my day in detail.');
       expect(topic.whereToTap?.es, 'En Hoy, toca Revisar mi día en detalle.');
+      // Its text is the card's, which names the same button.
+      expect(topic.body.en, GuidanceCatalogue.nexus.body.en);
+      expect(topic.body.es, GuidanceCatalogue.nexus.body.es);
+      expect(topic.body.en, contains('tap Review my day in detail'));
+      expect(topic.body.es, contains('toca Revisar mi día en detalle'));
     });
 
     test(

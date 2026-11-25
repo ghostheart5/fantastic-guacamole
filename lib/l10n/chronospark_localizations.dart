@@ -101,7 +101,7 @@ class ChronoSparkLocalizations {
       'scheduleFirstItem' =>
         'Asigna una fecha y una hora a tu tarea para que aparezca en tu plan. Puedes cambiar la hora después.',
       'reviewTimeline' =>
-        'Abre la tarea que acabas de guardar en tu agenda. Revisa su fecha y sus detalles.',
+        'Busca la tarea que acabas de guardar en Mi plan. Revisa su fecha y sus detalles.',
       _ => fallback,
     };
   }

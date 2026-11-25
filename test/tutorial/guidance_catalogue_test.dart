@@ -133,15 +133,19 @@ void main() {
         }
       });
 
-      test('Today', () {
+      test('Today, which says where the reasons are', () {
+        // The reasons are not on Today itself: the card names Today's own
+        // section and the button that opens them.
         final GuidanceText? text = at(RoutePaths.nexus, _decision);
         expect(
           text?.en,
-          'Read why it was suggested and what is uncertain before deciding.',
+          'The tasks under A place to start are suggestions. To read why one '
+          'was suggested and what is uncertain, tap Review my day in detail.',
         );
         expect(
           text?.es,
-          'Lee por qué se sugirió y qué es incierto antes de decidir.',
+          'Las tareas de Por dónde empezar son sugerencias. Para leer por qué '
+          'se sugirió una y qué es incierto, toca Revisar mi día en detalle.',
         );
         expect(text?.en, isNot(contains(_decision.rationale)));
       });

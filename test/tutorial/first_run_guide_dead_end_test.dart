@@ -212,23 +212,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('pausing the guide says where to resume it', (
-    WidgetTester tester,
-  ) async {
-    _tallView(tester);
-    final ProviderContainer container = _container(_Tasks(), overlay: true);
-    addTearDown(container.dispose);
-    await container.read(adaptiveGuidanceProvider.future);
-    await _pumpCreatorWithGuide(tester, container);
+  for (final String language in <String>['en', 'es']) {
+    testWidgets('$language: pausing the guide says page hints still appear '
+        'and where to resume it', (WidgetTester tester) async {
+      _tallView(tester);
+      final bool es = language == 'es';
+      final ProviderContainer container = _container(_Tasks(), overlay: true);
+      addTearDown(container.dispose);
+      await container.read(adaptiveGuidanceProvider.future);
+      await _pumpCreatorWithGuide(tester, container, locale: Locale(language));
 
-    await tester.tap(find.text('Pause guide'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.text(es ? 'Pausar guía' : 'Pause guide'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.byKey(const Key('guide-paused-snackbar')), findsOneWidget);
-    expect(find.textContaining('Restart Adaptive Guide'), findsOneWidget);
-    expect(find.text('Name your task'), findsNothing);
-  });
+      expect(find.byKey(const Key('guide-paused-snackbar')), findsOneWidget);
+      // The same words as the note after skipping setup.
+      expect(
+        find.text(
+          es
+              ? 'Guía en pausa. Algunas páginas aún muestran una vez una breve '
+                    'tarjeta “Ayuda con esta página”. Reanúdala cuando quieras '
+                    'en Ajustes › Reiniciar la Guía Adaptativa.'
+              : 'Guide paused. Some pages still show a short “Help with this '
+                    'page” card once. Resume it anytime in Settings › Restart '
+                    'Adaptive Guide.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(es ? 'Ponle nombre a tu tarea' : 'Name your task'),
+        findsNothing,
+      );
+    });
+  }
 
   testWidgets('core guidance does not cover the Smart Planner first choice', (
     WidgetTester tester,
@@ -279,15 +296,25 @@ void main() {
         final String found = language == 'en'
             ? 'I found my task'
             : 'Encontré mi tarea';
-        // The saved task is on Schedule; nothing has to be marked done.
+        // The saved task is in My plan; nothing has to be marked done. The
+        // card names the tab it just sent the person to.
         expect(
           find.text(
             language == 'en'
-                ? 'Your saved task is now on Schedule'
-                : 'Tu tarea guardada ya está en agenda',
+                ? 'Your saved task is now in My plan'
+                : 'Tu tarea guardada ya está en Mi plan',
           ),
           findsOneWidget,
         );
+        for (final String other in <String>['Schedule', 'agenda']) {
+          expect(
+            find.descendant(
+              of: find.byKey(const Key('guide_step_card')),
+              matching: find.textContaining(other),
+            ),
+            findsNothing,
+          );
+        }
         expect(_primary(tester, found).onPressed, isNotNull);
         final int savesBefore = repo.saveCalls;
         await tester.tap(find.text(found));

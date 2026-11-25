@@ -349,7 +349,7 @@ abstract final class GuidanceInterventionEngine {
         id: GuidanceLessonId.reviewTimeline,
         title: 'Find your saved task',
         body:
-            'Open the task you just saved in your schedule. Check its date and details.',
+            'Find the task you just saved in My plan. Check its date and details.',
         route: RoutePaths.timeline,
         actionLabel: 'Open My plan',
       ),

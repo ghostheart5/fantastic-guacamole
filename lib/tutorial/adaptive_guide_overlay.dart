@@ -338,8 +338,8 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
           content: Text(
             _copy(
               l10n,
-              'Guide paused. Resume it anytime in Settings › Restart Adaptive Guide.',
-              'Guía en pausa. Reanúdala cuando quieras en Ajustes › Reiniciar la Guía Adaptativa.',
+              'Guide paused. Some pages still show a short “Help with this page” card once. Resume it anytime in Settings › Restart Adaptive Guide.',
+              'Guía en pausa. Algunas páginas aún muestran una vez una breve tarjeta “Ayuda con esta página”. Reanúdala cuando quieras en Ajustes › Reiniciar la Guía Adaptativa.',
             ),
           ),
           behavior: SnackBarBehavior.floating,
@@ -548,8 +548,8 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
       title: hasMatchingEvidence
           ? _copy(
               l10n,
-              'Your saved task is now on Schedule',
-              'Tu tarea guardada ya está en agenda',
+              'Your saved task is now in My plan',
+              'Tu tarea guardada ya está en Mi plan',
             )
           : l10n.guideTitle(lesson.id.name, lesson.title),
       body: hasMatchingEvidence
@@ -566,8 +566,8 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
             )
           : _copy(
               l10n,
-              'Your new task appears here as soon as Schedule loads it. If it does not appear, tap Skip this step.',
-              'Tu nueva tarea aparecerá aquí en cuanto la agenda la cargue. Si no aparece, toca Omitir este paso.',
+              'Your new task appears here as soon as My plan loads it. If it does not appear, tap Skip this step.',
+              'Tu nueva tarea aparecerá aquí en cuanto Mi plan la cargue. Si no aparece, toca Omitir este paso.',
             ),
       primaryLabel: _copy(l10n, 'I found my task', 'Encontré mi tarea'),
       // Only the task really shown here can be "found".
@@ -726,8 +726,8 @@ class _AdaptiveGuideOverlayState extends ConsumerState<AdaptiveGuideOverlay> {
         title: _copy(l10n, 'Pick a date and time', 'Elige fecha y hora'),
         body: _copy(
           l10n,
-          'Pick a date and time. This first task needs one so it can appear on Schedule.',
-          'Elige una fecha y una hora. Esta primera tarea necesita una para aparecer en la agenda.',
+          'Pick a date and time. This first task needs one so it can appear in My plan.',
+          'Elige una fecha y una hora. Esta primera tarea necesita una para aparecer en Mi plan.',
         ),
         action: _copy(l10n, 'Schedule chosen', 'Horario elegido'),
       ),

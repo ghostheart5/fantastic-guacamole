@@ -141,8 +141,8 @@ abstract final class GuidanceCatalogue {
       'Revisa el próximo paso sugerido',
     ),
     body: GuidanceText(
-      'Read why it was suggested and what is uncertain before deciding.',
-      'Lee por qué se sugirió y qué es incierto antes de decidir.',
+      'The tasks under A place to start are suggestions. To read why one was suggested and what is uncertain, tap Review my day in detail.',
+      'Las tareas de Por dónde empezar son sugerencias. Para leer por qué se sugirió una y qué es incierto, toca Revisar mi día en detalle.',
     ),
     action: GuidanceAction(
       GuidanceActionKind.openScreen,
