@@ -225,16 +225,7 @@ class GoalsScreen extends ConsumerWidget {
                       InkWell(
                         borderRadius: BorderRadius.circular(8),
                         onTap: () async {
-                          final picked = await showDatePicker(
-                            context: ctx,
-                            initialDate: DateTime.now().add(
-                              const Duration(days: 30),
-                            ),
-                            firstDate: DateTime.now(),
-                            lastDate: DateTime.now().add(
-                              const Duration(days: 730),
-                            ),
-                          );
+                          final picked = await _pickGoalTargetDate(ctx);
                           if (picked != null) {
                             setSheetState(() => targetDate = picked);
                           }
@@ -421,6 +412,30 @@ class GoalsScreen extends ConsumerWidget {
   }
 }
 
+/// The goal date picker shared by the add sheet and the edit dialog. An
+/// existing date that has already passed stays pickable and selected.
+Future<DateTime?> _pickGoalTargetDate(
+  BuildContext context, {
+  DateTime? current,
+}) {
+  final DateTime now = DateTime.now();
+  final DateTime latest = now.add(const Duration(days: 730));
+  return showDatePicker(
+    context: context,
+    initialDate: current ?? now.add(const Duration(days: 30)),
+    firstDate: current != null && current.isBefore(now) ? current : now,
+    lastDate: current != null && current.isAfter(latest) ? current : latest,
+  );
+}
+
+bool _sameCalendarDay(DateTime? a, DateTime? b) =>
+    a == b ||
+    (a != null &&
+        b != null &&
+        a.year == b.year &&
+        a.month == b.month &&
+        a.day == b.day);
+
 class _EmptyGoals extends StatelessWidget {
   const _EmptyGoals({required this.onAdd});
 
@@ -556,6 +571,7 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
     if (_completing) return;
     String nextTitle = '';
     String nextDescription = '';
+    DateTime? nextTargetDate = widget.goal.targetDate;
     final bool? save = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => TextControllerScope(
@@ -583,6 +599,75 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                   labelText: journeyText(context, 'Description', 'Descripción'),
                 ),
               ),
+              const SizedBox(height: 8),
+              StatefulBuilder(
+                builder: (dialogContext, setDialogState) {
+                  final DateTime? date = nextTargetDate;
+                  final String label = date != null
+                      ? journeyText(
+                          context,
+                          'Target: ${date.day}/${date.month}/${date.year}',
+                          'Objetivo: ${date.day}/${date.month}/${date.year}',
+                        )
+                      : journeyText(
+                          context,
+                          'No target date',
+                          'Sin fecha objetivo',
+                        );
+                  return Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Semantics(
+                          button: true,
+                          label: journeyText(
+                            context,
+                            'Target date. $label. Tap to change.',
+                            'Fecha objetivo. $label. Toca para cambiarla.',
+                          ),
+                          excludeSemantics: true,
+                          child: InkWell(
+                            key: const Key('edit-goal-target-date'),
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () async {
+                              final DateTime? picked =
+                                  await _pickGoalTargetDate(
+                                    dialogContext,
+                                    current: date,
+                                  );
+                              if (picked != null && dialogContext.mounted) {
+                                setDialogState(() => nextTargetDate = picked);
+                              }
+                            },
+                            child: Container(
+                              constraints: const BoxConstraints(minHeight: 48),
+                              alignment: Alignment.centerLeft,
+                              child: Row(
+                                children: <Widget>[
+                                  const Icon(Icons.calendar_month_outlined),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: Text(label)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (date != null)
+                        IconButton(
+                          key: const Key('edit-goal-clear-target-date'),
+                          tooltip: journeyText(
+                            context,
+                            'Clear target date',
+                            'Quitar fecha objetivo',
+                          ),
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () =>
+                              setDialogState(() => nextTargetDate = null),
+                        ),
+                    ],
+                  );
+                },
+              ),
             ],
           ),
           actions: <Widget>[
@@ -603,15 +688,30 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
       ),
     );
     if (save != true || nextTitle.isEmpty || !mounted) return;
-    await ref
+    final DateTime? previousDate = widget.goal.targetDate;
+    final GoalMutationResult result = await ref
         .read(goalsProvider.notifier)
         .update(
           widget.goal.copyWith(
             title: nextTitle,
             description: nextDescription.isEmpty ? null : nextDescription,
             clearDescription: nextDescription.isEmpty,
+            targetDate: nextTargetDate,
+            clearTargetDate: nextTargetDate == null,
           ),
         );
+    // Saved first. A date that was newly set or moved can remind, so this is
+    // the moment to ask, once.
+    if (nextTargetDate != null &&
+        !_sameCalendarDay(previousDate, nextTargetDate) &&
+        !result.accountChanged &&
+        mounted &&
+        ref
+            .read(settingsUiActionsProvider)
+            .loadAdvancedReminderPrefs()
+            .goalRemindersEnabled) {
+      await ensureNotificationPermission(context, ref);
+    }
   }
 
   Future<void> _deleteGoal() async {
