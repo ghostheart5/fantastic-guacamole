@@ -327,9 +327,9 @@ class _AssistantConversationScreenState
     bool current() =>
         mounted && generation == _generation && operation == _operation;
     ConversationQuote? executing;
-    final registry = ref.read(conversationExecutionRegistryProvider);
+    var registry = ref.read(conversationExecutionRegistryProvider);
     try {
-      final service = ref.read(conversationServiceProvider);
+      var service = ref.read(conversationServiceProvider);
       var quote = retry ? _pending : null;
       if (quote == null) {
         final packet = await ref
@@ -400,7 +400,8 @@ class _AssistantConversationScreenState
         // the write starts ([_committingOperation]), Stop waiting treats it as
         // confirmed and says so. Leaving the screen without tapping Stop keeps
         // the Phase 1 design: the stored request is collected on return.
-        final bool replacedUntold;
+        var replacedUntold = false;
+        var committed = false;
         try {
           if (repository == null) throw StateError('chat_account_unavailable');
           replacedUntold = await repository.savePending(
@@ -408,14 +409,36 @@ class _AssistantConversationScreenState
             commit: () {
               if (operation != _operation) return false;
               _committingOperation = operation;
+              committed = true;
               return true;
             },
           );
         } on Object {
-          // Withdrawn by Stop waiting: its message already says nothing was
-          // sent or charged, which is true.
-          if (operation != _operation) return;
-          throw const ConversationFailure('request_not_saved');
+          if (!committed) {
+            // Withdrawn by Stop waiting (its message says nothing was sent or
+            // charged), or refused before writing: nothing was stored.
+            if (operation != _operation) return;
+            throw const ConversationFailure('request_not_saved');
+          }
+          // The write was handed to storage, so the request may be stored
+          // even though saving reported an error (a sign-in change refusing
+          // the check after the write, or a cleanup after the value was
+          // written). Read it back before saying anything about it. After an
+          // account change this screen says nothing: a stored request stays
+          // with its account and is collected there (Phase 1).
+          if (!current()) return;
+          final stored = await _storedRequest(record);
+          if (!current()) return;
+          if (stored == false) {
+            throw const ConversationFailure('request_not_saved');
+          }
+          if (stored == null) {
+            throw const ConversationFailure('request_storage_uncertain');
+          }
+          // It is stored: finish it here with this account's current
+          // service and registry, as recovery would.
+          service = ref.read(conversationServiceProvider);
+          registry = ref.read(conversationExecutionRegistryProvider);
         }
         // Its content is removed once it can no longer be collected, even if
         // no screen is open then.

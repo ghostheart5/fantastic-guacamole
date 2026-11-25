@@ -825,8 +825,9 @@ void main() {
         } else {
           expect(executes, 0);
           expect(
-            find.textContaining(
-              'Nothing was sent for a reply and nothing was charged',
+            // Only this branch says it: other failures share parts of it.
+            find.text(
+              'The AI service could not be reached. Nothing was sent for a reply and nothing was charged. Your question is retained; tap send to try again.',
             ),
             findsOneWidget,
           );

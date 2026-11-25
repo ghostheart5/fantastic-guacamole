@@ -130,6 +130,12 @@ extension _ConversationCopy on _AssistantConversationScreenState {
       'This request could not be saved on this device, so it was not sent. No credits were charged. Your question is retained; try again. If this keeps happening, open Chat and use Clear conversation, then try again.',
       'No se pudo guardar esta solicitud en este dispositivo, así que no se envió. No se cobraron créditos. Tu pregunta se conserva; inténtalo de nuevo. Si sigue pasando, abre Chat y usa Borrar conversación; luego inténtalo de nuevo.',
     ),
+    // Saving reported an error after the write was handed to storage, and
+    // reading it back failed too: both outcomes are possible.
+    'request_storage_uncertain' => copy(
+      'This request may or may not have been saved on this device; that could not be checked. If it was saved, it is sent once and its reply appears when this screen opens again, using its credits. If it was not, nothing was sent or charged. Your question is kept.',
+      'Puede que esta solicitud se haya guardado en este dispositivo o no; no se pudo comprobar. Si se guardó, se envía una vez y su respuesta aparece cuando vuelvas a abrir esta pantalla, usando sus créditos. Si no se guardó, no se envió ni se cobró nada. Tu pregunta se conserva.',
+    ),
     'quote_timeout' => copy(
       'The AI service took too long to check the credit price. Nothing was sent for a reply and nothing was charged. Your question is retained; tap send to try again.',
       'El servicio de IA tardó demasiado en comprobar el precio en créditos. No se envió nada para responder y no se cobró nada. Tu pregunta se conserva; toca enviar para intentarlo de nuevo.',

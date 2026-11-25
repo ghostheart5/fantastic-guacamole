@@ -1065,8 +1065,9 @@ void main() {
   Future<_GatedBackend> holdStoring(
     WidgetTester tester,
     ProviderContainer Function(_GatedBackend backend) create,
-    _Hold hold,
-  ) async {
+    _Hold hold, {
+    ConversationSurface surface = ConversationSurface.si,
+  }) async {
     final backend = _GatedBackend();
     final container = create(backend);
     addTearDown(() async {
@@ -1074,7 +1075,7 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       container.dispose();
     });
-    await _pumpScreen(tester, container, ConversationSurface.si);
+    await _pumpScreen(tester, container, surface);
     await tester.enterText(
       find.byKey(const Key('conversation-input')),
       'Compare my two options.',
@@ -1242,6 +1243,186 @@ void main() {
     },
   );
 
+  for (final surface in ConversationSurface.values) {
+    testWidgets(
+      '${surface.name}: stop after the write started, then a sign-in change for the same account: told it is finishing, sent once, never "nothing was charged"',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        addTearDown(() => _sessionGeneration = 1);
+        final paid = <Map<String, dynamic>>[];
+        // The reply waits, so whatever the screen says once storing has
+        // ended stays on screen to be checked.
+        final reply = Completer<_Response>();
+        late ProviderContainer container;
+        final backend = await holdStoring(
+          tester,
+          (backend) => container = _setup((body) async {
+            if (body['quoteOnly'] == true) return _quote(body, credits: 5);
+            paid.add(body);
+            return reply.future;
+          }, backend),
+          _Hold.write,
+          surface: surface,
+        );
+        await tapStop(tester);
+        expect(
+          find.textContaining('The paid request is still finishing safely'),
+          findsOneWidget,
+        );
+        _sessionGeneration = 2;
+        container.invalidate(authSessionBoundaryProvider);
+        await tester.pump();
+        backend.release();
+        // At no point may the screen say it was not saved or not charged.
+        for (var i = 0; i < 40; i++) {
+          await tester.pump(const Duration(milliseconds: 25));
+          expect(find.textContaining('could not be saved'), findsNothing);
+          expect(find.textContaining('No credits were charged'), findsNothing);
+          expect(find.textContaining('Nothing was charged'), findsNothing);
+        }
+        expect(paid, hasLength(1));
+        if (surface == ConversationSurface.planner) {
+          // Choose a step keeps its screen through a sign-in change: what it
+          // said at Stop stays true and on screen until the reply arrives.
+          expect(
+            find.textContaining('The paid request is still finishing safely'),
+            findsOneWidget,
+          );
+        }
+        reply.complete(
+          _answer(paid.single['requestId'], 'The finished reply.', credits: 5),
+        );
+        await _settle(tester);
+        expect(paid, hasLength(1));
+        expect(find.text('The finished reply.'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'stop after the write started, then an account switch and return: not sent on the other account, sent once on return',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final paid = <Map<String, dynamic>>[];
+      var active = _scope;
+      late ProviderContainer container;
+      final backend = await holdStoring(
+        tester,
+        (backend) => container = _setup(
+          (body) async {
+            if (body['quoteOnly'] == true) return _quote(body, credits: 5);
+            paid.add(body);
+            return _answer(
+              body['requestId'],
+              'The finished reply.',
+              credits: 5,
+            );
+          },
+          backend,
+          readScope: () => active,
+        ),
+        _Hold.write,
+      );
+      await tapStop(tester);
+      active = AccountStorageScope.authenticated('synthetic-other');
+      container.invalidate(accountStorageScopeProvider);
+      await tester.pump();
+      backend.release();
+      await _settle(tester);
+      expect(paid, isEmpty, reason: 'Never sent for the other account');
+      expect(find.textContaining('Nothing was charged'), findsNothing);
+      active = _scope;
+      container.invalidate(accountStorageScopeProvider);
+      await tester.pump();
+      await _settle(tester);
+      expect(paid, hasLength(1));
+      expect(find.text('The finished reply.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final surface in ConversationSurface.values) {
+    testWidgets(
+      '${surface.name}: a cleanup error after the request was written still sends it once and never says it was not saved',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final backend = _GatedBackend();
+        final paid = <Map<String, dynamic>>[];
+        final container = _setup((body) async {
+          if (body['quoteOnly'] == true) return _quote(body, credits: 5);
+          paid.add(body);
+          return _answer(body['requestId'], 'The stored reply.', credits: 5);
+        }, backend);
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await _pumpScreen(tester, container, surface);
+        await tester.enterText(
+          find.byKey(const Key('conversation-input')),
+          'Compare my two options.',
+        );
+        await tester.tap(find.byKey(const Key('conversation-send')));
+        await _waitFor(tester, find.text('Send'));
+        backend.failNextCleanup = true;
+        await tester.tap(find.text('Send'));
+        await _settle(tester);
+        expect(find.textContaining('could not be saved'), findsNothing);
+        expect(find.textContaining('No credits were charged'), findsNothing);
+        expect(paid, hasLength(1));
+        expect(find.text('The stored reply.'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'when the stored request cannot be read back, the message allows both outcomes and the request is collected once later',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = _GatedBackend();
+      final paid = <Map<String, dynamic>>[];
+      final container = _setup((body) async {
+        if (body['quoteOnly'] == true) return _quote(body, credits: 5);
+        paid.add(body);
+        return _answer(body['requestId'], 'Collected later.', credits: 5);
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Compare my two options.',
+      );
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await _waitFor(tester, find.text('Send'));
+      backend
+        ..failNextCleanup = true
+        ..failReadAfterCleanup = true;
+      await tester.tap(find.text('Send'));
+      await _settle(tester);
+      expect(
+        find.textContaining('may or may not have been saved on this device'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('No credits were charged'), findsNothing);
+      expect(paid, isEmpty);
+      await _leave(tester, container);
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await _settle(tester);
+      expect(paid, hasLength(1));
+      expect(find.text('Collected later.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'stop waiting before the request is stored stores nothing and sends nothing',
     (tester) async {
@@ -1295,6 +1476,12 @@ enum _Hold { read, write }
 class _GatedBackend extends InMemorySecureStoreBackend {
   _Hold? armed;
   Completer<void>? held;
+  // The cleanup after the next Chat-store write fails, as when the legacy
+  // marker cannot be removed after the value was written.
+  bool failNextCleanup = false;
+  // The next Chat-store read after that cleanup failure fails too.
+  bool failReadAfterCleanup = false;
+  bool _failNextRead = false;
 
   void release() {
     final gate = held;
@@ -1311,7 +1498,28 @@ class _GatedBackend extends InMemorySecureStoreBackend {
   }
 
   @override
+  Future<void> delete({required String key}) async {
+    // SecureStore names the marker after the base64 of the key.
+    if (failNextCleanup &&
+        key.contains(
+          base64UrlEncode(
+            utf8.encode(AssistantConversationRepository.storageKey),
+          ),
+        )) {
+      failNextCleanup = false;
+      _failNextRead = failReadAfterCleanup;
+      throw StateError('synthetic_cleanup_failure');
+    }
+    return super.delete(key: key);
+  }
+
+  @override
   Future<String?> read({required String key}) async {
+    if (_failNextRead &&
+        key.startsWith(AssistantConversationRepository.storageKey)) {
+      _failNextRead = false;
+      throw StateError('synthetic_read_failure');
+    }
     await _maybeHold(_Hold.read, key);
     return super.read(key: key);
   }

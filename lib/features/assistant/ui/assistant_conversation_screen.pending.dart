@@ -127,6 +127,22 @@ extension _PendingRequest on _AssistantConversationScreenState {
     'Se detuvo antes de enviar la solicitud para obtener una respuesta. No se cobró nada. Tu pregunta se conserva.',
   );
 
+  /// Reads storage back for [record] after saving reported an error once the
+  /// write was handed over: true when it is stored, false when it is not,
+  /// null when that cannot be read.
+  Future<bool?> _storedRequest(PendingConversationRequest record) async {
+    final repository = ref.read(assistantConversationHistoryRepositoryProvider);
+    if (repository == null) return null;
+    final registry = ref.read(conversationExecutionRegistryProvider);
+    try {
+      final saved = await repository.loadPending(keep: registry.isRunning);
+      return saved.pendingRequests[record.surface]?.requestId ==
+          record.requestId;
+    } on Object {
+      return null;
+    }
+  }
+
   /// Removes this surface's stored request; null removes an unreadable one.
   void _forgetPending(String? requestId) {
     final repository = ref.read(assistantConversationHistoryRepositoryProvider);
