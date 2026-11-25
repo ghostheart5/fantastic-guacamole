@@ -1,3 +1,4 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Habit reminder days
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 
 /// Words for the days a habit reminder arrives on, in English or Spanish.
