@@ -3,22 +3,45 @@ part of 'assistant_conversation_screen.dart';
 /// Words shown by the conversation: failure messages, the preview of the
 /// information a request carries, and the option labels.
 extension _ConversationCopy on _AssistantConversationScreenState {
-  String _failureText(String code) => switch (code) {
+  /// [balance] is the balance the server sent with this answer, if any.
+  String _failureText(String code, {int? balance}) => switch (code) {
     'timing_context_missing' => copy(
-      'I need one scheduled task and its local date to check this store-closing question. No credits were charged. Schedule or select the task, update the app if needed, then start a new request and review a new quote.',
-      'Necesito una tarea programada y su fecha local para comprobar esta pregunta sobre el cierre de la tienda. No se cobraron créditos de IA. Programa o selecciona la tarea, actualiza la app si hace falta y luego inicia una solicitud nueva y revisa una cotización nueva.',
+      'I need one scheduled task and its local date to check this store-closing question. No credits were charged. Schedule or select the task, update the app if needed, then tap send to ask again as a new message.',
+      'Necesito una tarea programada y su fecha local para comprobar esta pregunta sobre el cierre de la tienda. No se cobraron créditos de IA. Programa o selecciona la tarea, actualiza la app si hace falta y luego toca enviar para preguntar de nuevo como un mensaje nuevo.',
     ),
-    'insufficient_credits' || 'credits_exhausted' => copy(
-      'You do not have enough AI credits. No model answer was generated. No credits were charged. Add credits or wait for your allowance, then start a new request and review a new quote.',
-      'No tienes suficientes créditos de IA. No se generó una respuesta del modelo. No se cobraron créditos. Añade créditos o espera tu asignación; después inicia una solicitud nueva y revisa una nueva cotización.',
+    'insufficient_credits' || 'credits_exhausted' => _outOfCreditsText(
+      balance: balance,
+      needed: conversationMessageCredits,
+    ),
+    'refunded_credits_outstanding' => copy(
+      'AI chat is paused for this account because credits from a refunded purchase are still owed. No credits were charged. Your question is kept.',
+      'El chat con IA está en pausa en esta cuenta porque aún se deben créditos de una compra reembolsada. No se cobraron créditos. Tu pregunta se conserva.',
     ),
     'request_completed' => copy(
-      'This request already finished, but its reply is unavailable. Retrying did not charge you again. To ask again, start a new request and review a new quote.',
-      'Esta solicitud ya terminó, pero la respuesta no está disponible. El reintento no te cobró de nuevo. Para preguntar otra vez, inicia una solicitud nueva y revisa una cotización nueva.',
+      'This request already finished, but its reply is unavailable. Retrying did not charge you again. To ask again, tap send; it is charged as a new message.',
+      'Esta solicitud ya terminó, pero la respuesta no está disponible. El reintento no te cobró de nuevo. Para preguntar otra vez, toca enviar; se cobra como un mensaje nuevo.',
     ),
     'quote_expired' || 'credit_quote_required' => copy(
-      'The price expired. Start a new request to review a new quote.',
-      'El precio caducó. Inicia otra solicitud para revisar una nueva cotización.',
+      'The price expired before the message was sent. No credits were charged. Your question is kept; tap send to try again.',
+      'El precio caducó antes de enviar el mensaje. No se cobraron créditos. Tu pregunta se conserva; toca enviar para intentarlo de nuevo.',
+    ),
+    'request_too_large' || 'context_too_large' => copy(
+      'This question and the information with it are too large to send. Nothing was sent for a reply. Nothing was charged. Shorten the question or choose less information, then tap send.',
+      'Esta pregunta y la información que la acompaña son demasiado grandes para enviarlas. No se envió nada para responder. No se cobró nada. Acorta la pregunta o elige menos información y luego toca enviar.',
+    ),
+    'unauthorized' || 'authentication_required' => copy(
+      'Your sign-in needs renewing before AI chat can answer. Nothing was charged. Sign in again, then tap send. Your question is kept.',
+      'Debes renovar tu inicio de sesión para que el chat con IA responda. No se cobró nada. Inicia sesión de nuevo y luego toca enviar. Tu pregunta se conserva.',
+    ),
+    // Refused by the server before any charge. (release_unavailable is not
+    // here: it can also be raised after a reply was charged.)
+    'internal_ai_access_required' || 'external_ai_disabled' => copy(
+      'AI chat is not available for this account right now. Nothing was charged. Your question is kept. Free tools work without credits.',
+      'El chat con IA no está disponible para esta cuenta en este momento. No se cobró nada. Tu pregunta se conserva. Herramientas gratis funciona sin créditos.',
+    ),
+    'attachment_unavailable' => copy(
+      'The attached task is no longer available. Nothing was sent for a reply. Nothing was charged. Attach another task or remove the attachment, then tap send.',
+      'La tarea adjunta ya no está disponible. No se envió nada para responder. No se cobró nada. Adjunta otra tarea o quita el adjunto y luego toca enviar.',
     ),
     'request_not_saved' => copy(
       'This request could not be saved on this device, so it was not sent. No credits were charged. Your question is retained; try again. If this keeps happening, open Chat and use Clear conversation, then try again.',
@@ -33,8 +56,8 @@ extension _ConversationCopy on _AssistantConversationScreenState {
       'El servicio de IA tardó demasiado en confirmar una respuesta. Se conservan tu pregunta y la misma solicitud con precio. Reintenta la misma solicitud para evitar un segundo cobro.',
     ),
     'daily_budget_exceeded' => copy(
-      'You reached the rolling daily AI safety limit. No credits were charged. Your question is retained, but this priced request cannot be reused. Start a new request and review a new quote after the limit resets.',
-      'Alcanzaste el límite diario móvil de seguridad de IA. No se cobraron créditos. Tu pregunta se conserva, pero esta solicitud con precio no se puede reutilizar. Inicia una solicitud nueva y revisa una nueva cotización cuando se restablezca el límite.',
+      'You reached the rolling daily AI safety limit. No credits were charged. Your question is retained, but this priced request cannot be reused. After the limit resets, tap send to ask again as a new message.',
+      'Alcanzaste el límite diario móvil de seguridad de IA. No se cobraron créditos. Tu pregunta se conserva, pero esta solicitud con precio no se puede reutilizar. Cuando se restablezca el límite, toca enviar para preguntar de nuevo como un mensaje nuevo.',
     ),
     'provider_cost_budget_exceeded' => copy(
       'AI requests are temporarily paused by the service spending limit. No credits were charged. Your question and priced request are retained for a later retry.',
@@ -59,12 +82,14 @@ extension _ConversationCopy on _AssistantConversationScreenState {
     'truncated_upstream_response' ||
     'invalid_upstream_response' ||
     'empty_upstream_response' => copy(
-      'The request ended without a usable reply and its credits were refunded. No credits were charged. Your question is retained; start a new request and review a new quote.',
-      'La solicitud terminó sin una respuesta utilizable y se reembolsaron sus créditos. No se cobraron créditos. Tu pregunta se conserva; inicia una solicitud nueva y revisa una cotización nueva.',
+      'The request ended without a usable reply and its credits were refunded. No credits were charged. Your question is retained; tap send to ask again as a new message.',
+      'La solicitud terminó sin una respuesta utilizable y se reembolsaron sus créditos. No se cobraron créditos. Tu pregunta se conserva; toca enviar para preguntar de nuevo como un mensaje nuevo.',
     ),
+    // The server confirmed the reply and its charge; this device's check
+    // withheld it.
     'response_withheld' => copy(
-      'The reply did not pass the response check. It has not been replaced with a stock answer. Check your credit balance before another request.',
-      'La respuesta no superó la comprobación. No se sustituyó por una respuesta prefabricada. Revisa el saldo antes de otra solicitud.',
+      'The reply did not pass the response check, so it is not shown. It has not been replaced with a stock answer. This message used its credits.${balance == null ? '' : ' Credits left: $balance.'}',
+      'La respuesta no superó la comprobación, así que no se muestra. No se sustituyó por una respuesta prefabricada. Este mensaje usó sus créditos.${balance == null ? '' : ' Créditos restantes: $balance.'}',
     ),
     _ => copy(
       'The AI service could not complete this request. Your question is retained. You can try again.',

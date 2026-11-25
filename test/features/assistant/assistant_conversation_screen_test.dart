@@ -2196,8 +2196,10 @@ void main() {
           'empty_upstream_response',
         }.contains(failure.key)) {
           expect(find.text('Retry same request'), findsNothing);
-          expect(find.textContaining('new request'), findsOneWidget);
-          expect(find.textContaining('new quote'), findsOneWidget);
+          // Tapping send again asks as a new message at the shown price;
+          // there is no separate quote to review any more.
+          expect(find.textContaining('new message'), findsOneWidget);
+          expect(find.textContaining('quote'), findsNothing);
         } else {
           expect(find.text('Retry same request'), findsOneWidget);
         }
@@ -2345,13 +2347,14 @@ void main() {
       expect(find.textContaining('No se cobraron créditos'), findsOneWidget);
       expect(find.text('Reintentar la misma solicitud'), findsNothing);
       expect(find.textContaining('no se puede reutilizar'), findsOneWidget);
-      expect(find.textContaining('Inicia una solicitud nueva'), findsOneWidget);
+      expect(find.textContaining('como un mensaje nuevo'), findsOneWidget);
+      expect(find.textContaining('cotización'), findsNothing);
       expect(tester.takeException(), isNull, reason: 'failure presentation');
     },
   );
 
   testWidgets(
-    'Spanish insufficient credits preserves input and requires a new quote',
+    'Spanish insufficient credits preserves input and asks again as a new message',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(412, 915));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -2410,8 +2413,8 @@ void main() {
       );
       expect(find.textContaining('No se cobraron créditos'), findsOneWidget);
       expect(find.text('Reintentar la misma solicitud'), findsNothing);
-      expect(find.textContaining('solicitud nueva'), findsOneWidget);
-      expect(find.textContaining('cotización'), findsOneWidget);
+      expect(find.textContaining('mensaje nuevo'), findsOneWidget);
+      expect(find.textContaining('cotización'), findsNothing);
       expect(
         tester
             .widget<TextField>(find.byKey(const Key('conversation-input')))
@@ -2717,6 +2720,9 @@ void main() {
         if (surface == ConversationSurface.planner) {
           final contextSwitch = find.byKey(const Key('conversation-task-only'));
           await tester.ensureVisible(contextSwitch);
+          // Lay out the scrolled list before tapping (each reply now has a
+          // footer, which moves the switch).
+          await tester.pump();
           await tester.tap(contextSwitch);
           await tester.pumpAndSettle();
           expect(

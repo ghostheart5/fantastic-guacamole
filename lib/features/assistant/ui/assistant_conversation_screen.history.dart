@@ -12,6 +12,9 @@ extension _StoredChat on _AssistantConversationScreenState {
       _busy = false;
       _waitIndicatorDismissed = false;
       _error = null;
+      _outOfCredits = false;
+      _reportedBalance = null;
+      _walletUntrusted = false;
       _filter.clear();
       _scenario.clear();
       _intent = SIV2Intent.answer;
@@ -324,8 +327,8 @@ extension _StoredChat on _AssistantConversationScreenState {
         children: [
           Text(
             copy(
-              'Chat keeps up to 40 recent messages on this device for this account; long messages may be shortened. It is excluded from planning backups and cloud sync. Signing out keeps this account’s saved history on the device; signing back into the same account restores access. Use Clear conversation or clear this account’s local data to delete it. The last 6 messages are included with your next AI request, even when saved planning sources are off. Copy conversation puts the visible text on your clipboard; you choose where to paste it.',
-              'Chat conserva hasta 40 mensajes recientes en este dispositivo para esta cuenta; los mensajes largos pueden acortarse. No se incluyen en las copias de planificación ni se sincronizan con la nube. Al cerrar sesión, el historial guardado de esta cuenta permanece en el dispositivo; puedes volver a verlo al iniciar sesión en la misma cuenta. Usa Borrar conversación o limpia los datos locales de esta cuenta para eliminarlo. Los últimos 6 mensajes se incluyen en tu próxima solicitud de IA, incluso con las fuentes de planificación desactivadas. Copiar conversación pone el texto visible en el portapapeles; tú eliges dónde pegarlo.',
+              'Chat keeps up to 40 recent messages on this device for this account; long messages may be shortened. Each AI reply is kept with how many items of each kind of information it used, what it cost and the credits left after it. It is excluded from planning backups and cloud sync. Signing out keeps this account’s saved history on the device; signing back into the same account restores access. Use Clear conversation or clear this account’s local data to delete it. The last 6 messages are included with your next AI request, even when saved planning sources are off. Copy conversation puts the visible text on your clipboard; you choose where to paste it.',
+              'Chat conserva hasta 40 mensajes recientes en este dispositivo para esta cuenta; los mensajes largos pueden acortarse. Cada respuesta de IA se guarda con cuántos elementos de cada tipo de información usó, lo que costó y los créditos que quedaron. No se incluyen en las copias de planificación ni se sincronizan con la nube. Al cerrar sesión, el historial guardado de esta cuenta permanece en el dispositivo; puedes volver a verlo al iniciar sesión en la misma cuenta. Usa Borrar conversación o limpia los datos locales de esta cuenta para eliminarlo. Los últimos 6 mensajes se incluyen en tu próxima solicitud de IA, incluso con las fuentes de planificación desactivadas. Copiar conversación pone el texto visible en el portapapeles; tú eliges dónde pegarlo.',
             ),
           ),
           const SizedBox(height: 8),

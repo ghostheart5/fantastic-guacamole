@@ -266,9 +266,141 @@ final class ConversationAnswer {
   final String requestId;
 }
 
+/// What one AI reply used and cost, shown under it and kept with it in the
+/// account's Chat store. The counts come from the packet that was sent for
+/// the reply; the credits from the server's confirmed reply. Nothing else is
+/// recorded: no record content, titles or identifiers.
+final class ConversationReplyReceipt {
+  const ConversationReplyReceipt({
+    this.tasks = 0,
+    this.goals = 0,
+    this.milestones = 0,
+    this.schedule = 0,
+    this.note = false,
+    this.energy = false,
+    this.emotion = false,
+    this.earlierMessages = 0,
+    required this.creditsCharged,
+    required this.remainingCredits,
+  });
+
+  /// Counted from the exact packet that produced [answer], so a recovered
+  /// reply shows what its own stored request carried.
+  factory ConversationReplyReceipt.fromReply(
+    ConversationPacket packet,
+    ConversationAnswer answer,
+  ) {
+    final body = packet.toJson();
+    final context = body['context'] as Map;
+    int count(String key) =>
+        context[key] is List ? (context[key] as List).length : 0;
+    return ConversationReplyReceipt(
+      tasks: count('tasks'),
+      goals: count('goals'),
+      milestones: count('milestones'),
+      schedule: count('timeline'),
+      note: context['explicitlyAttachedNote'] is Map,
+      energy: context['reportedEnergy'] is num,
+      emotion: context['reportedEmotion'] is String,
+      earlierMessages: body['history'] is List
+          ? (body['history'] as List).length
+          : 0,
+      creditsCharged: answer.credits,
+      remainingCredits: answer.remainingCredits,
+    );
+  }
+
+  /// The key a reply's receipt is kept under in a conversation turn.
+  static const turnKey = 'receipt';
+
+  final int tasks;
+  final int goals;
+  final int milestones;
+  final int schedule;
+  final bool note;
+  final bool energy;
+  final bool emotion;
+  final int earlierMessages;
+  final int creditsCharged;
+  final int remainingCredits;
+
+  Map<String, Object?> toJson() => {
+    'version': 1,
+    'tasks': tasks,
+    'goals': goals,
+    'milestones': milestones,
+    'schedule': schedule,
+    'note': note,
+    'energy': energy,
+    'emotion': emotion,
+    'earlierMessages': earlierMessages,
+    'creditsCharged': creditsCharged,
+    'remainingCredits': remainingCredits,
+  };
+
+  String encode() => jsonEncode(toJson());
+
+  /// Null for anything that is not exactly a receipt this version writes, so
+  /// a damaged or unknown one simply shows no footer.
+  static ConversationReplyReceipt? fromJson(Object? json) {
+    if (json is! Map || json.length != 11 || json['version'] != 1) return null;
+    int? count(String key, {int min = 0, int max = 1000}) {
+      final value = json[key];
+      return value is int && value >= min && value <= max ? value : null;
+    }
+
+    final tasks = count('tasks');
+    final goals = count('goals');
+    final milestones = count('milestones');
+    final schedule = count('schedule');
+    final earlier = count('earlierMessages');
+    final charged = count('creditsCharged', min: 1, max: 100);
+    final remaining = count('remainingCredits', max: 1 << 31);
+    final note = json['note'];
+    final energy = json['energy'];
+    final emotion = json['emotion'];
+    if (tasks == null ||
+        goals == null ||
+        milestones == null ||
+        schedule == null ||
+        earlier == null ||
+        charged == null ||
+        remaining == null ||
+        note is! bool ||
+        energy is! bool ||
+        emotion is! bool) {
+      return null;
+    }
+    return ConversationReplyReceipt(
+      tasks: tasks,
+      goals: goals,
+      milestones: milestones,
+      schedule: schedule,
+      note: note,
+      energy: energy,
+      emotion: emotion,
+      earlierMessages: earlier,
+      creditsCharged: charged,
+      remainingCredits: remaining,
+    );
+  }
+
+  static ConversationReplyReceipt? decode(String? encoded) {
+    if (encoded == null) return null;
+    try {
+      return fromJson(jsonDecode(encoded));
+    } on FormatException {
+      return null;
+    }
+  }
+}
+
 final class ConversationFailure implements Exception {
-  const ConversationFailure(this.code);
+  const ConversationFailure(this.code, {this.remainingCredits});
   final String code;
+
+  /// The balance the server reported with this answer, when it sent one.
+  final int? remainingCredits;
   @override
   String toString() => 'ConversationFailure($code)';
 }
@@ -312,7 +444,11 @@ final class ConversationService {
     });
     authorize(quote.packet);
     if (response.status != 200) {
-      throw ConversationFailure(_error(response.data));
+      final balance = response.data['remainingCredits'];
+      throw ConversationFailure(
+        _error(response.data),
+        remainingCredits: balance is int && balance >= 0 ? balance : null,
+      );
     }
     final data = response.data;
     if (data['requestId'] != quote.packet.requestId ||

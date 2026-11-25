@@ -48,6 +48,84 @@ void main() {
   );
 
   test(
+    'a reply keeps its receipt; older and damaged receipts show none',
+    () async {
+      const receipt = ConversationReplyReceipt(
+        tasks: 3,
+        goals: 1,
+        earlierMessages: 2,
+        creditsCharged: 5,
+        remainingCredits: 15,
+      );
+      final withReceipt = [
+        pair.first,
+        {...pair.last, ConversationReplyReceipt.turnKey: receipt.encode()},
+      ];
+      await repository(
+        'a',
+      ).save(expectedRevision: 0, messages: withReceipt, sources: {});
+      final raw =
+          jsonDecode(
+                (await base
+                    .forAccount(AccountStorageScope.authenticated('a'))
+                    .readString(AssistantConversationRepository.storageKey))!,
+              )
+              as Map;
+      // Stored as a plain object with the reply, never with the question.
+      expect(
+        ((raw['messages'] as List).last as Map)['receipt'],
+        receipt.toJson(),
+      );
+      expect((raw['messages'] as List).first, pair.first);
+      final loaded = await repository('a').load();
+      expect(loaded.messages, withReceipt);
+      expect(
+        ConversationReplyReceipt.decode(
+          loaded.messages.last[ConversationReplyReceipt.turnKey],
+        )!.toJson(),
+        receipt.toJson(),
+      );
+
+      // A chat saved before receipts, and one whose receipt is damaged, still
+      // load in full; those replies simply have no receipt.
+      await base
+          .forAccount(AccountStorageScope.authenticated('b'))
+          .writeString(
+            AssistantConversationRepository.storageKey,
+            jsonEncode({
+              'version': 1,
+              'revision': 3,
+              'messages': [
+                ...pair,
+                pair.first,
+                {
+                  ...pair.last,
+                  'receipt': {...receipt.toJson(), 'creditsCharged': 'five'},
+                },
+              ],
+              'sources': <String>[],
+            }),
+          );
+      final older = await repository('b').load();
+      expect(older.messages, [...pair, ...pair]);
+
+      // A receipt is never attached to a question.
+      await expectLater(
+        repository('b').save(
+          expectedRevision: older.revision,
+          messages: [
+            {...pair.first, ConversationReplyReceipt.turnKey: receipt.encode()},
+            pair.last,
+          ],
+          sources: {},
+        ),
+        completes,
+      );
+      expect((await repository('b').load()).messages, pair);
+    },
+  );
+
+  test(
     'clear tombstone prevents stale paid response or old screen resurrection',
     () async {
       final old = repository('a');

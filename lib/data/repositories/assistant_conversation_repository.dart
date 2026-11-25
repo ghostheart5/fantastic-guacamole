@@ -33,6 +33,7 @@ class AssistantConversationRepository {
   static const maxMessages = AssistantConversationHistory.maxMessages;
   static const maxMessageLength = 6000;
   static const maxEncodedLength = 1500000;
+  static const _receiptKey = ConversationReplyReceipt.turnKey;
   final SecureStore _store;
   final bool Function() _isCurrent;
 
@@ -78,16 +79,22 @@ class AssistantConversationRepository {
     for (var i = 0; i < turns.length; i++) {
       final turn = turns[i];
       if (turn is! Map ||
-          turn.length != 2 ||
+          turn.length != (turn.containsKey(_receiptKey) ? 3 : 2) ||
           turn['role'] != (i.isEven ? 'user' : 'assistant') ||
           turn['content'] is! String ||
           (turn['content'] as String).isEmpty ||
           (turn['content'] as String).length > maxMessageLength) {
         throw const FormatException('chat_turn');
       }
+      // Replies saved before receipts have none; a damaged one is dropped
+      // rather than hiding the chat. Only replies carry one.
+      final receipt = i.isOdd
+          ? ConversationReplyReceipt.fromJson(turn[_receiptKey])
+          : null;
       messages.add({
         'role': turn['role'] as String,
         'content': turn['content'] as String,
+        _receiptKey: ?receipt?.encode(),
       });
     }
     final sources = <SIV2Source>{};
@@ -274,7 +281,7 @@ class AssistantConversationRepository {
     final retained = messages
         .skip(messages.length > maxMessages ? messages.length - maxMessages : 0)
         .toList();
-    final safe = <Map<String, String>>[];
+    final safe = <Map<String, Object?>>[];
     for (var i = 0; i < retained.length; i++) {
       final turn = retained[i];
       final content = turn['content'];
@@ -283,11 +290,16 @@ class AssistantConversationRepository {
           content.isEmpty) {
         throw const FormatException('chat_turn');
       }
+      // A reply's receipt (counts and credits only) is kept with it.
+      final receipt = i.isOdd
+          ? ConversationReplyReceipt.decode(turn[_receiptKey])
+          : null;
       safe.add({
-        'role': turn['role']!,
+        'role': turn['role'],
         'content': content.length > maxMessageLength
             ? content.substring(0, maxMessageLength)
             : content,
+        _receiptKey: ?receipt?.toJson(),
       });
     }
     final pending = Map<String, Object?>.of(previous.pending);
@@ -389,7 +401,7 @@ class AssistantConversationRepository {
 
   Future<int> _write(
     int revision,
-    List<Map<String, String>> messages,
+    List<Map<String, Object?>> messages,
     Set<SIV2Source> sources,
     Map<String, Object?> pending, {
     required bool sourcesChosen,

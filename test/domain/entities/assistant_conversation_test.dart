@@ -346,4 +346,99 @@ void main() {
       saved.add(PendingConversationRequest.lifetime),
     );
   });
+
+  test('a reply receipt counts what the sent packet carried and what the '
+      'server confirmed', () {
+    final sent = ConversationPacket(
+      surface: ConversationSurface.planner,
+      accountScope: 'account:test',
+      prompt: 'What should I do next?',
+      history: const [
+        {'role': 'user', 'content': 'Earlier question'},
+        {'role': 'assistant', 'content': 'Earlier answer'},
+      ],
+      context: {
+        'tasks': [
+          {'id': 'a', 'title': 'One'},
+          {'id': 'b', 'title': 'Two'},
+        ],
+        'goals': [
+          {'id': 'g', 'title': 'Goal'},
+        ],
+        'milestones': const <Object?>[],
+        'timeline': [
+          {'title': 'Event'},
+        ],
+        'explicitlyAttachedNote': {'title': 'Note', 'body': 'Body'},
+        'reportedEnergy': 0.5,
+      },
+      requestId: 'synthetic-request',
+    );
+    const answer = ConversationAnswer(
+      text: 'Reply',
+      model: 'fixture-model',
+      credits: 5,
+      remainingCredits: 15,
+      requestId: 'synthetic-request',
+    );
+    final receipt = ConversationReplyReceipt.fromReply(sent, answer);
+    expect(receipt.tasks, 2);
+    expect(receipt.goals, 1);
+    expect(receipt.milestones, 0);
+    expect(receipt.schedule, 1);
+    expect(receipt.note, isTrue);
+    expect(receipt.energy, isTrue);
+    expect(receipt.emotion, isFalse);
+    expect(receipt.earlierMessages, 2);
+    expect(receipt.creditsCharged, 5);
+    expect(receipt.remainingCredits, 15);
+
+    // Stored and read back unchanged; anything else is no receipt at all.
+    final restored = ConversationReplyReceipt.decode(receipt.encode())!;
+    expect(restored.toJson(), receipt.toJson());
+    expect(ConversationReplyReceipt.decode(null), isNull);
+    expect(ConversationReplyReceipt.decode('not json'), isNull);
+    for (final damaged in <Map<String, Object?>>[
+      {...receipt.toJson(), 'version': 2},
+      {...receipt.toJson(), 'tasks': -1},
+      {...receipt.toJson(), 'tasks': '2'},
+      {...receipt.toJson(), 'creditsCharged': 0},
+      {...receipt.toJson(), 'remainingCredits': -3},
+      {...receipt.toJson(), 'note': 'yes'},
+      {...receipt.toJson(), 'extra': 1},
+    ]) {
+      expect(ConversationReplyReceipt.fromJson(damaged), isNull);
+    }
+  });
+
+  test('a declined charge carries the balance the server reported', () async {
+    final service = ConversationService(
+      authorize: (_) {},
+      transport: (body) async => body['quoteOnly'] == true
+          ? (
+              status: 200,
+              data: <String, dynamic>{
+                'requestId': 'synthetic-request',
+                'quote': quoteData(),
+              },
+            )
+          : (
+              status: 402,
+              data: <String, dynamic>{
+                'requestId': 'synthetic-request',
+                'error': 'insufficient_credits',
+                'remainingCredits': 3,
+              },
+            ),
+    );
+    final quote = await service.quote(packet());
+    await expectLater(
+      service.execute(quote),
+      throwsA(
+        isA<ConversationFailure>()
+            .having((f) => f.code, 'code', 'insufficient_credits')
+            .having((f) => f.remainingCredits, 'remainingCredits', 3),
+      ),
+    );
+  });
 }

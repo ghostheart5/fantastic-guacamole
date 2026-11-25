@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_history.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/ai_chat_consent.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_response_body.dart';
@@ -21,10 +22,12 @@ import 'package:fantastic_guacamole/state/providers/ai_content_report_provider.d
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
+import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
@@ -33,12 +36,14 @@ import 'package:fantastic_guacamole/ui/system/crisis_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 part 'assistant_conversation_screen.consent.dart';
 part 'assistant_conversation_screen.copy.dart';
 part 'assistant_conversation_screen.history.dart';
 part 'assistant_conversation_screen.options.dart';
 part 'assistant_conversation_screen.pending.dart';
+part 'assistant_conversation_screen.receipt.dart';
 part 'assistant_conversation_screen.scope.dart';
 part 'assistant_conversation_screen.send.dart';
 
@@ -95,6 +100,12 @@ class _AssistantConversationScreenState
   bool _busy = false;
   bool _waitIndicatorDismissed = false;
   String? _error;
+  // The error is about running out of credits: Get credits is offered.
+  bool _outOfCredits = false;
+  // The latest balance a server answer reported here (see the receipt part).
+  int? _reportedBalance;
+  // A request since the wallet was loaded may have changed the balance.
+  bool _walletUntrusted = false;
   ConversationQuote? _pending;
   // A confirmed request is being written to storage before it is sent.
   bool _storing = false;
@@ -294,10 +305,17 @@ class _AssistantConversationScreenState
       }
       return;
     }
+    // Offline: said before anything is built, previewed, priced or stored.
+    // A request already confirmed and stored (retry) follows its recovery.
+    if (!retry && _offline) {
+      _showFailure(_offlineText);
+      return;
+    }
     setState(() {
       _busy = true;
       _waitIndicatorDismissed = false;
       _error = null;
+      _outOfCredits = false;
       // The one-time line has done its job once a request starts.
       _scopeNoticeVisible = false;
     });
@@ -453,13 +471,24 @@ class _AssistantConversationScreenState
         ),
       );
       if (!review.mayPublish) {
-        throw const ConversationFailure('response_withheld');
+        throw ConversationFailure(
+          'response_withheld',
+          remainingCredits: answer.remainingCredits,
+        );
       }
+      // Counted from the packet this reply answered, which for a recovered
+      // reply is its own stored request.
+      final receipt = ConversationReplyReceipt.fromReply(quote.packet, answer);
       setState(() {
         _history.addAll([
           {'role': 'user', 'content': prompt},
-          {'role': 'assistant', 'content': review.publishableText},
+          {
+            'role': 'assistant',
+            'content': review.publishableText,
+            ConversationReplyReceipt.turnKey: receipt.encode(),
+          },
         ]);
+        _reportedBalance = answer.remainingCredits;
         if (widget.surface == ConversationSurface.si &&
             _history.length > AssistantConversationHistory.maxMessages) {
           _history.removeRange(
@@ -472,7 +501,7 @@ class _AssistantConversationScreenState
         _error = null;
       });
       _persistChat(completedRequestId: quote.packet.requestId);
-      ref.invalidate(aiCreditWalletProvider);
+      _refreshWalletLater();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _scroll.hasClients) {
           unawaited(
@@ -513,15 +542,32 @@ class _AssistantConversationScreenState
       final recovered =
           executing != null &&
           executing.packet.requestId == _recoveringRequestId;
+      _noteFailureBalance(
+        error.remainingCredits,
+        sentForReply: executing != null,
+      );
+      final outOfCredits = {
+        'insufficient_credits',
+        'credits_exhausted',
+      }.contains(error.code);
       _showFailure(
         recovered &&
                 {'quote_expired', 'credit_quote_required'}.contains(error.code)
             ? _pendingExpiredText(questionRestored: true)
-            : _failureText(error.code),
+            : outOfCredits
+            ? _outOfCreditsText(
+                balance: error.remainingCredits,
+                needed: executing?.credits ?? conversationMessageCredits,
+              )
+            : _failureText(error.code, balance: error.remainingCredits),
+        outOfCredits: outOfCredits,
       );
-      ref.invalidate(aiCreditWalletProvider);
+      _refreshWalletLater();
     } on Object {
       if (!current()) return;
+      if (executing != null) {
+        _noteFailureBalance(null, sentForReply: true);
+      }
       _showFailure(
         executing == null
             // Nothing was handed on for a reply, so nothing was charged.
@@ -529,9 +575,10 @@ class _AssistantConversationScreenState
                 'The AI service could not be reached. Nothing was sent for a reply and nothing was charged. Your question is retained; tap send to try again.',
                 'No se pudo contactar con el servicio de IA. No se envió nada para responder y no se cobró nada. Tu pregunta se conserva; toca enviar para intentarlo de nuevo.',
               )
+            // Tapping send confirmed the price; the same request is kept.
             : copy(
-                'The AI service did not confirm a reply. Your question is retained. If you already confirmed payment, retry the same request to avoid a second charge.',
-                'El servicio de IA no confirmó una respuesta. Tu pregunta se conserva. Si ya confirmaste el pago, reintenta la misma solicitud para evitar otro cobro.',
+                'The AI service did not confirm a reply. Your question and this request are kept. Tap Retry same request to try again without a second charge.',
+                'El servicio de IA no confirmó una respuesta. Se conservan tu pregunta y esta solicitud. Toca Reintentar la misma solicitud para intentarlo de nuevo sin un segundo cobro.',
               ),
       );
     } finally {
@@ -547,8 +594,11 @@ class _AssistantConversationScreenState
     }
   }
 
-  void _showFailure(String message) {
-    setState(() => _error = message);
+  void _showFailure(String message, {bool outOfCredits = false}) {
+    setState(() {
+      _error = message;
+      _outOfCredits = outOfCredits;
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scroll.hasClients) return;
       unawaited(
@@ -687,6 +737,9 @@ class _AssistantConversationScreenState
           _busy = false;
           _waitIndicatorDismissed = false;
           _error = null;
+          _outOfCredits = false;
+          _reportedBalance = null;
+          _walletUntrusted = false;
           _recoveringRequestId = null;
         });
         _restartChat();
@@ -768,36 +821,44 @@ class _AssistantConversationScreenState
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Tooltip(
-                  message: copy('On-device tools', 'Herramientas locales'),
-                  child: OutlinedButton.icon(
-                    key: const Key('conversation-free-tools'),
-                    onPressed: _busy
-                        ? null
-                        : () {
-                            final handoff = widget.onLocalToolsWithDraft;
-                            if (handoff == null) {
-                              widget.onLocalTools();
-                            } else {
-                              handoff(_input.text.trim());
-                            }
-                          },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: const Color(0xFF10203F),
-                      minimumSize: const Size(0, 48),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+              // The balance stays in view beside Free tools. At large text it
+              // is at the top of the conversation instead, so this fixed area
+              // leaves the conversation its room.
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Tooltip(
+                    message: copy('On-device tools', 'Herramientas locales'),
+                    child: OutlinedButton.icon(
+                      key: const Key('conversation-free-tools'),
+                      onPressed: _busy
+                          ? null
+                          : () {
+                              final handoff = widget.onLocalToolsWithDraft;
+                              if (handoff == null) {
+                                widget.onLocalTools();
+                              } else {
+                                handoff(_input.text.trim());
+                              }
+                            },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: const Color(0xFF10203F),
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        side: const BorderSide(color: Colors.cyanAccent),
                       ),
-                      side: const BorderSide(color: Colors.cyanAccent),
+                      icon: const Icon(Icons.offline_bolt_outlined),
+                      label: Text(copy('Free tools', 'Herramientas gratis')),
                     ),
-                    icon: const Icon(Icons.offline_bolt_outlined),
-                    label: Text(copy('Free tools', 'Herramientas gratis')),
                   ),
-                ),
+                  if (!_largeText) _balanceLine(),
+                ],
               ),
             ),
             Expanded(
@@ -818,6 +879,7 @@ class _AssistantConversationScreenState
                     ),
                     style: const TextStyle(color: Colors.cyanAccent),
                   ),
+                  if (_largeText) _balanceLine(),
                   const SizedBox(height: 8),
                   Text(
                     copy(
@@ -864,9 +926,17 @@ class _AssistantConversationScreenState
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              if (turn['role'] == 'assistant')
-                                AssistantResponseBody(text: turn['content']!)
-                              else
+                              if (turn['role'] == 'assistant') ...[
+                                AssistantResponseBody(text: turn['content']!),
+                                _replyReceipt(
+                                  turn,
+                                  color: lightForms
+                                      ? selectedTheme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                      : Colors.white70,
+                                ),
+                              ] else
                                 SelectableText(turn['content']!),
                               if (turn['role'] == 'assistant')
                                 TextButton.icon(
@@ -932,6 +1002,11 @@ class _AssistantConversationScreenState
                         style: const TextStyle(color: Colors.orangeAccent),
                       ),
                     ),
+                  if (_error != null &&
+                      _outOfCredits &&
+                      !_busy &&
+                      ref.watch(subscriptionPurchasingEnabledProvider))
+                    _getCreditsAction(),
                   if (_pending != null && !_busy)
                     Wrap(
                       spacing: 12,

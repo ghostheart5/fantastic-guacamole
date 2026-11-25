@@ -43,6 +43,12 @@ final creditServiceProvider = Provider<CreditService>((ref) {
   );
 });
 
+/// True when [aiCreditWalletProvider] reads the server wallet that AI chat
+/// charges, rather than a count kept on this device.
+final aiCreditWalletFromServerProvider = Provider<bool>(
+  (ref) => Env.isProduction && ref.watch(aiProxyAvailableProvider),
+);
+
 final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
   if (!ref.watch(creditSpendingAvailableProvider)) {
     final DateTime now = DateTime.now();
@@ -62,7 +68,7 @@ final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
     entitlementProvider.future,
   );
   final bool premium = testerAccess || entitlement.isPremium;
-  if (Env.isProduction && ref.watch(aiProxyAvailableProvider)) {
+  if (ref.watch(aiCreditWalletFromServerProvider)) {
     final client = ref.watch(supabaseClientProvider);
     if (client?.auth.currentUser == null) {
       throw StateError('An authenticated session is required for AI credits.');

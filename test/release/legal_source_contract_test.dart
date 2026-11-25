@@ -19,6 +19,7 @@ void main() {
         final source = read(path);
         for (final phrase in [
           'Chat saves up to 40 recent messages',
+          'Only published messages (each AI reply with how many items of each kind of information it used, the credits it cost and the credits left after it), the planning-source selection for the chat,',
           'account-scoped secure storage on this device',
           'restarting the app',
           'excluded from planning backups and cloud sync',
@@ -48,6 +49,7 @@ void main() {
           expect(source, contains(phrase), reason: path);
         }
         for (final retired in [
+          'Only published messages, the planning-source selection',
           'every request shows what will be sent before anything is sent',
           'your plan (tasks, goals and schedule)',
           'credit quotes are not part of this history',
