@@ -461,7 +461,8 @@ void main() {
     );
 
     expect(preferences.load(ReflectionReminderService.enabledKey), 'true');
-    expect(scheduler.permissionRequests, 1);
+    // The switch asks first through the shared helper; saving never asks.
+    expect(scheduler.permissionRequests, 0);
     expect(scheduler.dailySchedules.single.id, 'reflection_reminder');
     expect(scheduler.dailySchedules.single.hour, 9);
     expect(scheduler.dailySchedules.single.minute, 15);

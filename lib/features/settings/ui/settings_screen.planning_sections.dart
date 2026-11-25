@@ -30,6 +30,10 @@ class _ReflectionReminderSectionState
   }
 
   Future<void> _toggle(bool value) async {
+    // The switch is the request: ask in context first, once. Saving no
+    // longer asks the system itself.
+    if (value) await ensureNotificationPermission(context, ref);
+    if (!mounted) return;
     final bool enabled = await ref
         .read(settingsUiActionsProvider)
         .setReflectionReminderEnabled(enabled: value, time: _time);
@@ -214,11 +218,29 @@ class _ReminderAutomationSectionState
   }
 
   Future<void> _toggleDailyPlanning(bool value) async {
-    await ref
+    final NotificationScheduleResult result = await ref
         .read(settingsUiActionsProvider)
         .setDailyPlanningReminder(enabled: value, time: _dailyPlanningTime);
     if (!mounted) return;
     setState(() => _dailyPlanningEnabled = value);
+    if (!value) return;
+    // Saved first; then ask in context. A grant rebuilds the reminder.
+    final bool granted = await ensureNotificationPermission(context, ref);
+    if (!mounted) return;
+    if (result == NotificationScheduleResult.failed ||
+        (result == NotificationScheduleResult.permissionDenied && !granted)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            journeyText(
+              context,
+              'Daily planning reminder is on, but it could not be set. Check notification permission and try again.',
+              'El recordatorio de planificación diaria está activado, pero no se pudo programar. Revisa el permiso de notificaciones e inténtalo de nuevo.',
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _pickDailyPlanningTime() async {

@@ -3,7 +3,10 @@ import 'package:fantastic_guacamole/ui/widgets/text_controller_scope.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/features/permissions/notification_permission_flow.dart';
+import 'package:fantastic_guacamole/features/permissions/notification_permission_notice.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -75,6 +78,11 @@ class GoalsScreen extends ConsumerWidget {
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              const SliverToBoxAdapter(
+                child: NotificationPermissionNotice(
+                  margin: EdgeInsets.fromLTRB(20, 0, 20, 12),
+                ),
+              ),
               if (goalsRead.hasError)
                 SliverFillRemaining(
                   hasScrollBody: false,
@@ -350,6 +358,20 @@ class GoalsScreen extends ConsumerWidget {
                                           ),
                                         ),
                                       ),
+                                    );
+                                  }
+                                  // Saved first; a dated goal can remind,
+                                  // so this is the moment to ask, once.
+                                  if (targetDate != null &&
+                                      !result.accountChanged &&
+                                      context.mounted &&
+                                      ref
+                                          .read(settingsUiActionsProvider)
+                                          .loadAdvancedReminderPrefs()
+                                          .goalRemindersEnabled) {
+                                    await ensureNotificationPermission(
+                                      context,
+                                      ref,
                                     );
                                   }
                                 } on Object {

@@ -13,12 +13,17 @@ class NotificationPermissionPrompt extends StatelessWidget {
     required this.onRequestPermission,
     required this.onOpenSystemSettings,
     this.title,
+    this.explainsFirst = true,
   });
 
   final bool? permissionGranted;
   final Future<bool> Function() onRequestPermission;
   final Future<void> Function() onOpenSystemSettings;
   final String? title;
+
+  /// False when [onRequestPermission] shows the explanation itself (the
+  /// shared in-context permission helper does).
+  final bool explainsFirst;
 
   @override
   Widget build(BuildContext context) {
@@ -116,6 +121,10 @@ class NotificationPermissionPrompt extends StatelessWidget {
                     : 'Enable Notifications',
                 icon: Icons.notifications_active_outlined,
                 onPressed: () async {
+                  if (!explainsFirst) {
+                    await onRequestPermission();
+                    return;
+                  }
                   await showPermissionRationaleSheet<void>(
                     context: context,
                     explainer: explainer,

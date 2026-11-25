@@ -73,13 +73,8 @@ class ReflectionReminderService {
           return false;
         }
 
-        final bool granted = await _scheduler.requestPermissions();
-        if (!granted) {
-          await _preferences.save(enabledKey, 'false');
-          await _scheduler.cancel(notificationId, accountScope: _accountScope);
-          return false;
-        }
-
+        // Never asks here: the switch asks first, once, through the shared
+        // in-context permission helper. Missing permission reports false.
         final result = await _scheduler.scheduleDailyAt(
           id: notificationId,
           title: 'Daily Reflection',

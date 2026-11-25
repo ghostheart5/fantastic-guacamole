@@ -20,7 +20,8 @@ import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/learning/learning_ledger.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
-import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
+import 'package:fantastic_guacamole/features/permissions/notification_permission_flow.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_permission_prompt.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_consent_reset_button.dart';
 import 'package:fantastic_guacamole/features/settings/widgets/internal_credit_test_panel.dart';
@@ -410,40 +411,7 @@ class SettingsScreen extends ConsumerWidget {
                         },
                       ),
                       const SizedBox(height: 8),
-                      ValueListenableBuilder<bool?>(
-                        valueListenable: ref.watch(
-                          notificationPermissionListenableProvider,
-                        ),
-                        builder: (context, granted, _) {
-                          return NotificationPermissionPrompt(
-                            permissionGranted: granted,
-                            onRequestPermission: () async {
-                              final bool granted = await ref
-                                  .read(settingsUiActionsProvider)
-                                  .requestNotificationPermissionAndRegisterPush();
-                              return granted;
-                            },
-                            onOpenSystemSettings: () async {
-                              final bool opened = await ref
-                                  .read(settingsUiActionsProvider)
-                                  .openSystemAppSettings();
-                              if (!context.mounted || opened) {
-                                return;
-                              }
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    copy(
-                                      'Open your device app settings and enable notifications for Axiomara.',
-                                      'Abre los ajustes de aplicaciones del dispositivo y activa las notificaciones para Axiomara.',
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
+                      const NotificationPermissionSettingsCard(),
                       const SizedBox(height: 8),
                       VoicePermissionPrompt(
                         permissionGranted: voicePermissionGranted,

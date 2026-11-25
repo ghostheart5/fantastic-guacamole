@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
+import 'package:fantastic_guacamole/features/permissions/notification_permission_flow.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
-import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/state/services/habit_occurrence_coordinator.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -327,10 +327,6 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
           : TimeOfDay(hour: current ~/ 60, minute: current % 60),
     );
     if (picked == null || !_sameAccount(owner)) return;
-    // The person just asked for a reminder, so this is the moment to ask
-    // Android for notification permission if it was never granted.
-    await ref.read(notificationSchedulerProvider).requestPermissions();
-    if (!_sameAccount(owner)) return;
     await _run(owner, habit, (notifier) async {
       await notifier.setReminderTime(
         habit.id,
@@ -340,6 +336,10 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
         habit.copyWith(reminderMinutes: picked.hour * 60 + picked.minute),
       );
     });
+    // The person just asked for a reminder and it is saved: the moment to
+    // ask for notification permission, once.
+    if (!mounted || !_sameAccount(owner)) return;
+    await ensureNotificationPermission(context, ref);
   }
 
   Future<void> _backfill(String owner, HabitEntity habit) async {

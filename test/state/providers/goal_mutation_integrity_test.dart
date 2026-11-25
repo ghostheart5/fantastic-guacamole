@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_provider_fence.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -275,9 +276,9 @@ class _ControlledReminder extends ReminderOrchestratorService {
   }
 
   @override
-  Future<void> ensureDailyPlanningReminder({
+  Future<NotificationScheduleResult?> ensureDailyPlanningReminder({
     bool Function()? shouldContinue,
-  }) async {}
+  }) async => NotificationScheduleResult.scheduled;
 }
 
 final class _FakeGoalRepository implements IGoalRepository {

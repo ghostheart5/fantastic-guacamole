@@ -10,6 +10,7 @@ import 'package:fantastic_guacamole/state/providers/repository_providers.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/backup_cipher.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
@@ -141,11 +142,12 @@ class SettingsUiActions {
     _ref.invalidate(automationNotificationsProvider);
   }
 
-  Future<void> setDailyPlanningReminder({
+  /// Saves the choice, then reports how registering the reminder went.
+  Future<NotificationScheduleResult> setDailyPlanningReminder({
     required bool enabled,
     required TimeOfDay time,
-  }) async {
-    await _ref
+  }) {
+    return _ref
         .read(reminderOrchestratorServiceProvider)
         .setDailyPlanningReminder(
           enabled: enabled,

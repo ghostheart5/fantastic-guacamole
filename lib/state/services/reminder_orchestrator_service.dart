@@ -517,46 +517,56 @@ class ReminderOrchestratorService {
     return boundary;
   }
 
-  Future<void> ensureDailyPlanningReminder({bool Function()? shouldContinue}) {
+  /// How registering the daily planning reminder went. Also
+  /// [NotificationScheduleResult.scheduled] when it is off (nothing is left
+  /// to register); null when the account changed part way.
+  Future<NotificationScheduleResult?> ensureDailyPlanningReminder({
+    bool Function()? shouldContinue,
+  }) {
     // Share the notification repository's lock so account cleanup and a new
     // session's schedule cannot overtake an in-flight OS scheduling request.
-    return KeyedMutationCoordinator.shared.runExclusive<void>(
-      AccountDataRegistry.notificationMutationKeyForScope(
-        _accountScope ?? 'legacy',
-      ),
-      () async {
-        if (shouldContinue?.call() == false) return;
-        await _forgetFingerprints(const <String>[_dailyPlanningReminderId]);
-        if (!_isEnabled(_dailyPlanningEnabledKey, defaultValue: true)) {
-          await _notifications.cancel(_dailyPlanningReminderId);
-          return;
-        }
+    return KeyedMutationCoordinator.shared
+        .runExclusive<NotificationScheduleResult?>(
+          AccountDataRegistry.notificationMutationKeyForScope(
+            _accountScope ?? 'legacy',
+          ),
+          () async {
+            if (shouldContinue?.call() == false) return null;
+            await _forgetFingerprints(const <String>[_dailyPlanningReminderId]);
+            if (!_isEnabled(_dailyPlanningEnabledKey, defaultValue: true)) {
+              await _notifications.cancel(_dailyPlanningReminderId);
+              return NotificationScheduleResult.scheduled;
+            }
 
-        final (int hour, int minute) = _dailyPlanningTime();
-        final _PlannedReminder item = _dailyPlanningReminder(hour, minute);
-        final bool scheduled =
-            await _registerPlanned(item) ==
-            NotificationScheduleResult.scheduled;
-        if (shouldContinue?.call() == false) {
-          await _scheduler.cancel(
-            _dailyPlanningReminderId,
-            accountScope: _accountScope,
-          );
-          return;
-        }
-        if (scheduled) await _rememberFingerprints(<_PlannedReminder>[item]);
-      },
-    );
+            final (int hour, int minute) = _dailyPlanningTime();
+            final _PlannedReminder item = _dailyPlanningReminder(hour, minute);
+            final NotificationScheduleResult result = await _registerPlanned(
+              item,
+            );
+            if (shouldContinue?.call() == false) {
+              await _scheduler.cancel(
+                _dailyPlanningReminderId,
+                accountScope: _accountScope,
+              );
+              return null;
+            }
+            if (result == NotificationScheduleResult.scheduled) {
+              await _rememberFingerprints(<_PlannedReminder>[item]);
+            }
+            return result;
+          },
+        );
   }
 
-  Future<void> setDailyPlanningReminder({
+  Future<NotificationScheduleResult> setDailyPlanningReminder({
     required bool enabled,
     required int hour,
     required int minute,
   }) async {
     await _preferences.save(_dailyPlanningEnabledKey, enabled.toString());
     await _preferences.save(_dailyPlanningTimeKey, '$hour:$minute');
-    await ensureDailyPlanningReminder();
+    return await ensureDailyPlanningReminder() ??
+        NotificationScheduleResult.failed;
   }
 
   /// Brings this account's OS reminders in line with its goals, rhythms and
