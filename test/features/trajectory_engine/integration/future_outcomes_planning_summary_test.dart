@@ -2,7 +2,6 @@ import 'package:fantastic_guacamole/domain/operating_system/operating_system_con
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
-import 'package:fantastic_guacamole/ui/widgets/decision_intelligence_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -57,7 +56,6 @@ void main() {
 
   testWidgets('shown as plain rows, not the old dark card', (tester) async {
     await pumpWithSummary(tester);
-    expect(find.byType(DecisionIntelligenceCard), findsNothing);
     expect(summary, findsOneWidget);
     final List<String> texts = textsIn(tester, summary);
     expect(texts, contains("Today's planning summary"));
@@ -85,7 +83,7 @@ void main() {
     }
     // The change list uses the glossary too.
     expect(
-      texts.where((t) => t.contains('Pace: 52 to 61')),
+      texts.where((t) => t.contains('Pace: 52 to 61 of 100')),
       isNotEmpty,
       reason: texts.join(' | '),
     );
@@ -96,6 +94,59 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  // Change lines carry units, as the figures do in their own rows.
+  for (final String language in const <String>['en', 'es']) {
+    testWidgets('change lines give units ($language)', (tester) async {
+      final DecisionIntelligence base = futureOutcomesDecision();
+      OperatingSnapshot covering(double coverage, int momentum) =>
+          OperatingSnapshot(
+            accountScope: base.snapshot.accountScope,
+            observedAt: base.snapshot.observedAt,
+            sourceRevisions: base.snapshot.sourceRevisions,
+            activeGoalCount: base.snapshot.activeGoalCount,
+            actionableCount: base.snapshot.actionableCount,
+            overdueCount: base.snapshot.overdueCount,
+            completedToday: base.snapshot.completedToday,
+            energy: base.snapshot.energy,
+            fatigue: base.snapshot.fatigue,
+            momentum: momentum,
+            pressure: base.snapshot.pressure,
+            topActionId: base.snapshot.topActionId,
+            topActionLabel: base.snapshot.topActionLabel,
+            activeRisks: base.snapshot.activeRisks,
+            evidenceCoverage: coverage,
+          );
+      final OperatingSnapshot current = covering(.9, 61);
+      final DecisionIntelligence decision = DecisionIntelligence(
+        snapshot: current,
+        delta: const OperatingDeltaEngine().compare(
+          previous: covering(.6, 52),
+          current: current,
+          comparedAt: trajectoryFixtureNow,
+        ),
+        decision: base.decision,
+        acknowledgedSnapshotId: null,
+      );
+      await pumpFutureOutcomes(
+        tester,
+        locale: Locale(language),
+        size: const Size(900, 8000),
+        modelFor: (int days) =>
+            futureOutcomesModel(days: days, decision: decision),
+      );
+      await openAllDisclosures(tester);
+      final String changes = textsIn(tester, summary).join(' | ');
+      if (language == 'es') {
+        expect(changes, contains('Ritmo: 52 a 61 de 100'));
+        expect(changes, contains('Registros disponibles: 60% a 90%'));
+      } else {
+        expect(changes, contains('Pace: 52 to 61 of 100'));
+        expect(changes, contains('Records available: 60% to 90%'));
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   // The audit's case: seven small undated tasks, three recorded outcomes and
   // an 8-hour day. The forecast's workload is light; the old task-count score

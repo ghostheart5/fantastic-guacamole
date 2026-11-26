@@ -488,7 +488,15 @@ String _planningChanges(
             'Registros disponibles',
           ),
         };
-        return '$label: ${item.previousValue} ${isSpanish ? 'a' : 'to'} ${item.currentValue}';
+        final String to = isSpanish ? 'a' : 'to';
+        // Units, so a figure reads the same here as in its own row.
+        return switch (item.kind) {
+          OperatingChangeKind.momentum =>
+            '$label: ${item.previousValue} $to ${item.currentValue} ${isSpanish ? 'de' : 'of'} 100',
+          OperatingChangeKind.evidence =>
+            '$label: ${item.previousValue}% $to ${item.currentValue}%',
+          _ => '$label: ${item.previousValue} $to ${item.currentValue}',
+        };
       })
       .join('. ');
 }
