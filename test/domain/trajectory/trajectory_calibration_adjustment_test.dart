@@ -463,6 +463,34 @@ void main() {
       expect(rule.apply(20), 17);
     });
 
+    test('a share that sums to exactly 0.8 counts as 0.8 (three check days '
+        'with shares 1, 2/5 and 1)', () {
+      TrajectoryForecastReceipt at(int day, int observed) =>
+          _receipt(observedMomentum: observed, checkDay: day);
+      final TrajectoryCalibrationSummary summary =
+          TrajectoryCalibrationSummary.fromReceipts(<TrajectoryForecastReceipt>[
+            at(0, 60),
+            // Day 1: 2 of 5 inside the range.
+            at(1, 60),
+            at(1, 60),
+            at(1, 0),
+            at(1, 0),
+            at(1, 0),
+            at(2, 60),
+          ]);
+      expect(summary.checkDays, 3);
+      // (1 + 0.4 + 1) / 3 in floating point is 0.7999…
+      expect(summary.intervalCoverage, closeTo(.8, 1e-9));
+      expect(
+        TrajectoryCalibrationAdjustment.fromSummary(summary).multiplier,
+        1.0,
+      );
+      // Thresholds stay where they are just below them.
+      expect(_rule(5, .7999).multiplier, 1.2);
+      expect(_rule(5, .5999).multiplier, 1.5);
+      expect(_rule(10, .8999).multiplier, 1.0);
+    });
+
     test('band edges: 0.6 and 0.8 belong to the higher band', () {
       expect(_rule(5, 3 / 5).multiplier, 1.2);
       expect(_rule(5, 4 / 5).multiplier, 1.0);

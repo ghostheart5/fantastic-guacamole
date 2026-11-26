@@ -645,10 +645,21 @@ void main() {
     });
 
     test('a narrowed width keeps the exact engine width', () {
-      final TrajectoryForecastReceipt narrowed = underRule(_baseline(), 7, .85);
-      expect(narrowed.uncertainty, 13);
-      expect(narrowed.unadjustedUncertainty, 15);
-      expect(narrowed.toJson()['unadjustedUncertainty'], 15);
+      // Width 17 (10 outcomes at 7 days): 17 x 0.85 = 14.45, shown 14, and
+      // 14 / 0.85 = 16.5 would reconstruct 16, so only the stored width
+      // gives 17 back. (15 would not tell the two apart.)
+      final TrajectoryForecastReceipt narrowed = underRule(
+        trajectoryTestBaseline(
+          accountScope: _scope.v2Namespace!,
+          observationCount: 10,
+        ),
+        7,
+        .85,
+      );
+      expect(narrowed.uncertainty, 14);
+      expect(narrowed.unadjustedUncertainty, 17);
+      expect(narrowed.toJson()['unadjustedUncertainty'], 17);
+      expect((narrowed.uncertainty / .85).round(), isNot(17));
     });
 
     test('a receipt with no rule has no stored width key', () {

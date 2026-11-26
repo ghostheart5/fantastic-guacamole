@@ -18,6 +18,10 @@ const int trajectoryCalibrationMinimumCheckDays = 2;
 const int trajectoryCalibrationNarrowingCheckDays = 5;
 const int trajectoryCalibrationNarrowingSpanDays = 14;
 
+/// Floating-point slack when coverage is compared with the thresholds (far
+/// smaller than any real difference: one forecast in a thousand days).
+const double _thresholdTolerance = 1e-9;
+
 /// How recorded forecast accuracy changes the forecast ranges.
 ///
 /// Built from a [TrajectoryCalibrationSummary] that uses only checked,
@@ -51,7 +55,10 @@ class TrajectoryCalibrationAdjustment {
         summary.checkDays < trajectoryCalibrationMinimumCheckDays) {
       return provisional;
     }
-    final double coverage = summary.intervalCoverage;
+    // Coverage is an average of per-day shares, so a value that is exactly
+    // a threshold can arrive a hair below it (shares 1, 2/5 and 1 average
+    // to 0.7999…): compare with a small tolerance.
+    final double coverage = summary.intervalCoverage + _thresholdTolerance;
     final bool canNarrow =
         summary.checkDays >= trajectoryCalibrationNarrowingCheckDays &&
         summary.checkSpanDays >= trajectoryCalibrationNarrowingSpanDays;
