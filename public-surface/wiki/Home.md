@@ -13,7 +13,8 @@ Keep tasks, goals, habits and notes connected. Choose a useful next step, make t
 | Today | Review your day and one manageable next step. | [Today](Nexus) |
 | Add something | Create a task, goal, habit or note; review before saving. | [Add something](Creator) |
 | My plan and Schedule | Review your records and put work in time. | [My plan and Schedule](Timeline) |
-| Chat | Ask the Assistant using the context you choose. | [Chat](Smart-Planner) |
+| Chat | Ask the Assistant using the context you choose. | [Chat](SI-CONSOLE) |
+| Choose a step | Pick one next step, free on this device or with AI chat. | [Choose a step](Smart-Planner) |
 | Insights | Review patterns and compare modeled outcomes. | [Predictions](Trajectory-Engine) |
 | Activity | Review recorded progress, XP and levels. | [Activity](Progression) |
 | Settings | Manage guidance, appearance, language, reminders, account and credits. | [[Settings]] |
