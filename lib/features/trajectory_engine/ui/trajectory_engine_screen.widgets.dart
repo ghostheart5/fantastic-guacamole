@@ -36,7 +36,7 @@ class _TrajectoryStateNotice extends StatelessWidget {
           builder: (BuildContext context) {
             final PlainPalette colors = PlainPalette.of(context);
             return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 Text(
                   label,
@@ -49,24 +49,27 @@ class _TrajectoryStateNotice extends StatelessWidget {
                 ),
                 if (needsAction) ...<Widget>[
                   const SizedBox(height: 8),
-                  OutlinedButton(
-                    onPressed: status == TrajectoryEngineStatus.empty
-                        ? onCreate
-                        : onRetry,
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(
-                        AppSizes.touchTarget,
-                        AppSizes.touchTarget,
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: OutlinedButton(
+                      onPressed: status == TrajectoryEngineStatus.empty
+                          ? onCreate
+                          : onRetry,
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(
+                          AppSizes.touchTarget,
+                          AppSizes.touchTarget,
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      status == TrajectoryEngineStatus.empty
-                          ? journeyText(
-                              context,
-                              'Add a task',
-                              'Añadir una tarea',
-                            )
-                          : journeyText(context, 'Retry', 'Reintentar'),
+                      child: Text(
+                        status == TrajectoryEngineStatus.empty
+                            ? journeyText(
+                                context,
+                                'Add a task',
+                                'Añadir una tarea',
+                              )
+                            : journeyText(context, 'Retry', 'Reintentar'),
+                      ),
                     ),
                   ),
                 ],

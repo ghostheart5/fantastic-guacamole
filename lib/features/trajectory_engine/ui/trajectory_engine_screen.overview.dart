@@ -334,8 +334,9 @@ class _OptionCard extends StatelessWidget {
           final TextStyle? small = text.bodyMedium?.copyWith(
             color: colors.secondary,
           );
+          // Stretch, so every option card spans the page.
           return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               Text(
                 _trajectoryGeneratedText(context, outcome.intervention.title),
