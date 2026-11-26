@@ -360,7 +360,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     try {
       await ref
           .read(aiContentReportActionsProvider)
-          .submit(responseText: msg.text, reason: reason);
+          .submit(
+            responseText: msg.text,
+            reason: reason,
+            surface: 'si_console',
+          );
       if (mounted) {
         ScaffoldMessenger.of(
           context,
