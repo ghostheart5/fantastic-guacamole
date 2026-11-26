@@ -60,6 +60,89 @@ TrajectoryForecastReceipt _receipt({
 }
 
 void main() {
+  group('the rule does not measure its own output', () {
+    test('coverage is judged against the unadjusted width', () {
+      // Recorded under x1.5: width 15 covers an error of 12, but the
+      // engine's own width (10) does not.
+      final TrajectoryForecastReceipt widened = TrajectoryForecastReceipt(
+        id: 'widened',
+        accountScope: 'v2.test-account',
+        baselineRevision: 'trajectory-v4-test',
+        scenarioId: 'trajectory-v4-test:maintain-course',
+        interventionType: TrajectoryInterventionType.maintainCourse,
+        generatedAt: _selected,
+        selectedAt: _selected,
+        horizon: const Duration(days: 7),
+        projectedMomentum: 60,
+        projectedPressure: 20,
+        uncertainty: 15,
+        projectedRiskScore: 30,
+        confidenceBand: PredictiveConfidenceBand.moderate,
+        modelVersion: trajectoryConsequenceModelVersion,
+        calibrationMultiplier: 1.5,
+      );
+      expect(widened.unadjustedUncertainty, 10);
+      final TrajectoryCalibrationSummary summary =
+          TrajectoryCalibrationSummary.fromReceipts(<TrajectoryForecastReceipt>[
+            widened.resolve(
+              TrajectoryObservedOutcome(
+                observedAt: _selected.add(const Duration(days: 7)),
+                momentum: 72,
+                pressure: 20,
+                completedInWindow: 5,
+                deferredInWindow: 1,
+              ),
+            ),
+          ]);
+      expect(summary.intervalCoverage, 0);
+    });
+
+    test('with a fixed underlying error the multiplier is stable across '
+        'successive checks', () {
+      final List<TrajectoryForecastReceipt> ledger =
+          <TrajectoryForecastReceipt>[];
+      final List<double> applied = <double>[];
+      for (int week = 0; week < 20; week++) {
+        final TrajectoryCalibrationAdjustment rule =
+            TrajectoryCalibrationAdjustment.fromSummary(
+              TrajectoryCalibrationSummary.fromReceipts(ledger),
+            );
+        applied.add(rule.multiplier);
+        final DateTime selected = _selected.add(Duration(days: 7 * week));
+        // The engine's width is 10; the outcome always lands 12 away.
+        ledger.add(
+          TrajectoryForecastReceipt(
+            id: 'week-$week',
+            accountScope: 'v2.test-account',
+            baselineRevision: 'trajectory-v4-week-$week',
+            scenarioId: 'trajectory-v4-week-$week:maintain-course',
+            interventionType: TrajectoryInterventionType.maintainCourse,
+            generatedAt: selected,
+            selectedAt: selected,
+            horizon: const Duration(days: 7),
+            projectedMomentum: 60,
+            projectedPressure: 20,
+            uncertainty: rule.apply(10),
+            projectedRiskScore: 30,
+            confidenceBand: PredictiveConfidenceBand.moderate,
+            modelVersion: trajectoryConsequenceModelVersion,
+            calibrationMultiplier: rule.multiplier,
+          ).resolve(
+            TrajectoryObservedOutcome(
+              observedAt: selected.add(const Duration(days: 7)),
+              momentum: 72,
+              pressure: 20,
+              completedInWindow: 5,
+              deferredInWindow: 1,
+            ),
+          ),
+        );
+      }
+      expect(applied.take(3), everyElement(1.0));
+      expect(applied.skip(3), everyElement(1.5), reason: '$applied');
+    });
+  });
+
   group('TrajectoryCalibrationSummary counts like with like', () {
     test('only checked, uncorrected current-version forecasts are used', () {
       final TrajectoryCalibrationSummary summary =

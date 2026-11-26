@@ -278,6 +278,7 @@ class FutureConsequenceEngine {
           '${intervention.title} changes $subjectLabel against baseline ${baseline.revision}. '
           'Projected risk is ${risk.band.name}; ${timeline.summary}',
       utilityScore: utility,
+      calibrationMultiplier: calibration?.multiplier ?? 1.0,
     );
   }
 

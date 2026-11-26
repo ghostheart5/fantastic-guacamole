@@ -46,12 +46,13 @@ class TrajectoryObservedOutcome {
 /// once per range per local day).
 enum TrajectoryForecastOrigin { manual, automatic }
 
-/// The receipt schema that added the optional `origin` and `earlierMethodAt`
-/// fields. A receipt carrying either is written as this schema (as
+/// The receipt schema that added the optional `origin`, `earlierMethodAt`
+/// and `calibrationMultiplier` fields. A receipt carrying any of
+/// them is written as this schema (as
 /// [TrajectoryForecastReceipt.markAssumptionsCorrected] raises a receipt to
 /// schema 2); receipts without them keep their schema number and their exact
 /// JSON, so untouched stored receipts round-trip byte for byte. Older readers
-/// ignore both fields.
+/// ignore these fields.
 const int trajectoryForecastReceiptOriginSchemaVersion = 3;
 
 /// Immutable, account-local evidence that a user tracked a conditional model.
@@ -79,6 +80,7 @@ class TrajectoryForecastReceipt {
     this.observed,
     this.origin = TrajectoryForecastOrigin.manual,
     this.earlierMethodAt,
+    this.calibrationMultiplier = 1.0,
     this.schemaVersion = 2,
   }) : assumptions = List<String>.unmodifiable(assumptions),
        personContextSignalIds = List<String>.unmodifiable(
@@ -111,7 +113,10 @@ class TrajectoryForecastReceipt {
         : baseline.sourceRevisions['person_context_trajectory'],
     personContextSignalIds: _traceSignalIds(baseline.personContextTrace),
     origin: origin,
-    schemaVersion: origin == TrajectoryForecastOrigin.automatic
+    calibrationMultiplier: outcome.calibrationMultiplier,
+    schemaVersion:
+        origin == TrajectoryForecastOrigin.automatic ||
+            outcome.calibrationMultiplier != 1.0
         ? trajectoryForecastReceiptOriginSchemaVersion
         : 2,
   );
@@ -141,7 +146,19 @@ class TrajectoryForecastReceipt {
   /// so no observation measured the current way was written against it. It
   /// stays in the ledger, unresolved, and is never used for calibration.
   final DateTime? earlierMethodAt;
+
+  /// The multiplier recorded accuracy applied to [uncertainty] when this
+  /// forecast was made (1.0 when none was applied, and on every receipt
+  /// written before it existed).
+  final double calibrationMultiplier;
   final int schemaVersion;
+
+  /// The engine's own width before recorded accuracy changed it. Coverage is
+  /// judged against this, so the rule never measures its own output. Exact
+  /// except when the adjusted width sat on a bound (8 or 42).
+  int get unadjustedUncertainty => calibrationMultiplier == 1.0
+      ? uncertainty
+      : (uncertainty / calibrationMultiplier).round();
 
   DateTime get dueAt => selectedAt.add(horizon);
   bool get isResolved => observed != null;
@@ -163,87 +180,52 @@ class TrajectoryForecastReceipt {
   bool isDueAt(DateTime value) => !value.toUtc().isBefore(dueAt.toUtc());
 
   TrajectoryForecastReceipt resolve(TrajectoryObservedOutcome value) =>
-      TrajectoryForecastReceipt(
-        id: id,
-        accountScope: accountScope,
-        baselineRevision: baselineRevision,
-        scenarioId: scenarioId,
-        interventionType: interventionType,
-        generatedAt: generatedAt,
-        selectedAt: selectedAt,
-        horizon: horizon,
-        projectedMomentum: projectedMomentum,
-        projectedPressure: projectedPressure,
-        uncertainty: uncertainty,
-        projectedRiskScore: projectedRiskScore,
-        confidenceBand: confidenceBand,
-        modelVersion: modelVersion,
-        assumptions: assumptions,
-        personContextRevision: personContextRevision,
-        personContextSignalIds: personContextSignalIds,
-        assumptionsCorrectedAt: assumptionsCorrectedAt,
-        observed: value,
-        origin: origin,
-        earlierMethodAt: earlierMethodAt,
-        schemaVersion: schemaVersion,
-      );
+      _copy(observed: value);
 
   /// Settles a due forecast made by an earlier model version without writing
   /// an observation measured a different way against it.
-  TrajectoryForecastReceipt markEarlierMethod(DateTime at) =>
-      TrajectoryForecastReceipt(
-        id: id,
-        accountScope: accountScope,
-        baselineRevision: baselineRevision,
-        scenarioId: scenarioId,
-        interventionType: interventionType,
-        generatedAt: generatedAt,
-        selectedAt: selectedAt,
-        horizon: horizon,
-        projectedMomentum: projectedMomentum,
-        projectedPressure: projectedPressure,
-        uncertainty: uncertainty,
-        projectedRiskScore: projectedRiskScore,
-        confidenceBand: confidenceBand,
-        modelVersion: modelVersion,
-        assumptions: assumptions,
-        personContextRevision: personContextRevision,
-        personContextSignalIds: personContextSignalIds,
-        assumptionsCorrectedAt: assumptionsCorrectedAt,
-        observed: observed,
-        origin: origin,
-        earlierMethodAt: at.toUtc(),
-        schemaVersion:
-            schemaVersion < trajectoryForecastReceiptOriginSchemaVersion
-            ? trajectoryForecastReceiptOriginSchemaVersion
-            : schemaVersion,
-      );
+  TrajectoryForecastReceipt markEarlierMethod(DateTime at) => _copy(
+    earlierMethodAt: at.toUtc(),
+    schemaAtLeast: trajectoryForecastReceiptOriginSchemaVersion,
+  );
 
   TrajectoryForecastReceipt markAssumptionsCorrected(DateTime correctedAt) =>
-      TrajectoryForecastReceipt(
-        id: id,
-        accountScope: accountScope,
-        baselineRevision: baselineRevision,
-        scenarioId: scenarioId,
-        interventionType: interventionType,
-        generatedAt: generatedAt,
-        selectedAt: selectedAt,
-        horizon: horizon,
-        projectedMomentum: projectedMomentum,
-        projectedPressure: projectedPressure,
-        uncertainty: uncertainty,
-        projectedRiskScore: projectedRiskScore,
-        confidenceBand: confidenceBand,
-        modelVersion: modelVersion,
-        assumptions: assumptions,
-        personContextRevision: personContextRevision,
-        personContextSignalIds: personContextSignalIds,
-        assumptionsCorrectedAt: correctedAt.toUtc(),
-        observed: observed,
-        origin: origin,
-        earlierMethodAt: earlierMethodAt,
-        schemaVersion: schemaVersion < 2 ? 2 : schemaVersion,
-      );
+      _copy(assumptionsCorrectedAt: correctedAt.toUtc(), schemaAtLeast: 2);
+
+  /// This receipt with the given fields set; everything else is kept.
+  TrajectoryForecastReceipt _copy({
+    DateTime? assumptionsCorrectedAt,
+    TrajectoryObservedOutcome? observed,
+    DateTime? earlierMethodAt,
+    int schemaAtLeast = 1,
+  }) => TrajectoryForecastReceipt(
+    id: id,
+    accountScope: accountScope,
+    baselineRevision: baselineRevision,
+    scenarioId: scenarioId,
+    interventionType: interventionType,
+    generatedAt: generatedAt,
+    selectedAt: selectedAt,
+    horizon: horizon,
+    projectedMomentum: projectedMomentum,
+    projectedPressure: projectedPressure,
+    uncertainty: uncertainty,
+    projectedRiskScore: projectedRiskScore,
+    confidenceBand: confidenceBand,
+    modelVersion: modelVersion,
+    assumptions: assumptions,
+    personContextRevision: personContextRevision,
+    personContextSignalIds: personContextSignalIds,
+    assumptionsCorrectedAt:
+        assumptionsCorrectedAt ?? this.assumptionsCorrectedAt,
+    observed: observed ?? this.observed,
+    origin: origin,
+    earlierMethodAt: earlierMethodAt ?? this.earlierMethodAt,
+    calibrationMultiplier: calibrationMultiplier,
+    schemaVersion: schemaVersion < schemaAtLeast
+        ? schemaAtLeast
+        : schemaVersion,
+  );
 
   void validate() {
     if (id.trim().isEmpty ||
@@ -262,7 +244,9 @@ class TrajectoryForecastReceipt {
         projectedPressure > 100 ||
         projectedRiskScore < 0 ||
         projectedRiskScore > 100 ||
-        schemaVersion < 1) {
+        schemaVersion < 1 ||
+        !(calibrationMultiplier > 0) ||
+        calibrationMultiplier > 10) {
       throw const FormatException('Forecast receipt values are invalid.');
     }
     if (assumptionsCorrectedAt != null &&
@@ -305,6 +289,8 @@ class TrajectoryForecastReceipt {
     if (origin == TrajectoryForecastOrigin.automatic) 'origin': origin.name,
     if (earlierMethodAt != null)
       'earlierMethodAt': earlierMethodAt!.toUtc().toIso8601String(),
+    if (calibrationMultiplier != 1.0)
+      'calibrationMultiplier': calibrationMultiplier,
   };
 
   factory TrajectoryForecastReceipt.fromJson(Map<String, dynamic> json) {
@@ -376,6 +362,10 @@ class TrajectoryForecastReceipt {
       earlierMethodAt: json['earlierMethodAt'] == null
           ? null
           : _requiredDate(json['earlierMethodAt'], 'earlierMethodAt'),
+      // Absent means no recorded accuracy was applied.
+      calibrationMultiplier: json['calibrationMultiplier'] == null
+          ? 1.0
+          : _number(json['calibrationMultiplier'], 'calibrationMultiplier'),
       schemaVersion: _integer(json['schemaVersion'] ?? 1, 'schemaVersion'),
     );
     receipt.validate();
@@ -443,14 +433,11 @@ class TrajectoryCalibrationSummary {
       final TrajectoryObservedOutcome actual = receipt.observed!;
       momentumError += (receipt.projectedMomentum - actual.momentum).abs();
       pressureError += (receipt.projectedPressure - actual.pressure).abs();
-      final int lower = (receipt.projectedMomentum - receipt.uncertainty).clamp(
-        0,
-        100,
-      );
-      final int upper = (receipt.projectedMomentum + receipt.uncertainty).clamp(
-        0,
-        100,
-      );
+      // The engine's own width, before any recorded-accuracy multiplier, so
+      // the rule never measures its own output.
+      final int width = receipt.unadjustedUncertainty;
+      final int lower = (receipt.projectedMomentum - width).clamp(0, 100);
+      final int upper = (receipt.projectedMomentum + width).clamp(0, 100);
       if (actual.momentum >= lower && actual.momentum <= upper) covered++;
     }
     return TrajectoryCalibrationSummary(
@@ -492,6 +479,13 @@ String _requiredString(Object? value, String field) {
 
 DateTime _requiredDate(Object? value, String field) {
   final DateTime? result = DateTime.tryParse(value?.toString() ?? '')?.toUtc();
+  if (result == null) throw FormatException('$field is invalid.');
+  return result;
+}
+
+double _number(Object? value, String field) {
+  if (value is num) return value.toDouble();
+  final double? result = double.tryParse(value?.toString() ?? '');
   if (result == null) throw FormatException('$field is invalid.');
   return result;
 }

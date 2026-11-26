@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/repositories/trajectory_forecast_ledger_repository.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
+import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adjustment.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
 import 'package:fantastic_guacamole/engine/trajectory/future_consequence_engine.dart';
@@ -57,6 +59,37 @@ const String _storedV4Task3 =
     '"Tasks without a date are counted in every time range."],'
     '"personContextRevision":null,"personContextSignalIds":[],'
     '"assumptionsCorrectedAt":null,"observed":null}';
+
+/// An automatic receipt exactly as the first Task 4 code wrote it.
+const String _storedRound1Automatic =
+    '{"schemaVersion":3,"id":"trajectory-v4-65fb252f:maintain-course:1796137200000000",'
+    '"accountScope":"v2.YWNjb3VudC1h","baselineRevision":"trajectory-v4-65fb252f",'
+    '"scenarioId":"trajectory-v4-65fb252f:maintain-course",'
+    '"interventionType":"maintainCourse",'
+    '"generatedAt":"2026-12-01T15:00:00.000Z",'
+    '"selectedAt":"2026-12-01T15:00:00.000Z","horizonSeconds":604800,'
+    '"projectedMomentum":50,"projectedPressure":5,"uncertainty":20,'
+    '"projectedRiskScore":2,"confidenceBand":"moderate",'
+    '"modelVersion":"trajectory-consequence-v4",'
+    '"assumptions":["Current completion and deferral rates remain directionally similar."],'
+    '"personContextRevision":null,"personContextSignalIds":[],'
+    '"assumptionsCorrectedAt":null,"observed":null,"origin":"automatic"}';
+
+/// A v3 receipt the first Task 4 code settled under an earlier method.
+const String _storedRound1EarlierMethod =
+    '{"schemaVersion":3,"id":"trajectory-v3-1a2b:maintain-course:1786892400000000",'
+    '"accountScope":"v2.dGVzdC1hY2NvdW50","baselineRevision":"trajectory-v3-1a2b",'
+    '"scenarioId":"trajectory-v3-1a2b:maintain-course",'
+    '"interventionType":"maintainCourse",'
+    '"generatedAt":"2026-08-01T15:00:00.000Z",'
+    '"selectedAt":"2026-08-01T15:00:00.000Z","horizonSeconds":604800,'
+    '"projectedMomentum":61,"projectedPressure":58,"uncertainty":15,'
+    '"projectedRiskScore":44,"confidenceBand":"moderate",'
+    '"modelVersion":"trajectory-consequence-v3",'
+    '"assumptions":["Current completion and deferral rates remain directionally similar."],'
+    '"personContextRevision":null,"personContextSignalIds":[],'
+    '"assumptionsCorrectedAt":null,"observed":null,'
+    '"earlierMethodAt":"2026-08-16T15:00:00.000Z"}';
 
 const List<String> _oldReceiptKeys = <String>[
   'schemaVersion',
@@ -397,6 +430,57 @@ void main() {
       expect(receipt.isAutomatic, isTrue);
       expect(receipt.isResolved, isTrue);
       expect(receipt.schemaVersion, 3);
+    });
+
+    test('receipts written by the first Task 4 code round-trip byte for '
+        'byte', () {
+      for (final String stored in <String>[
+        _storedRound1Automatic,
+        _storedRound1EarlierMethod,
+      ]) {
+        final TrajectoryForecastReceipt receipt =
+            TrajectoryForecastReceipt.fromJson(
+              jsonDecode(stored) as Map<String, dynamic>,
+            );
+        expect(receipt.calibrationMultiplier, 1.0);
+        expect(jsonEncode(receipt.toJson()), stored);
+      }
+    });
+
+    test('a forecast made under a calibration rule stores the multiplier', () {
+      final TrajectoryBaseline baseline = _baseline();
+      final TrajectoryScenarioOutcome keepGoing =
+          const FutureConsequenceEngine()
+              .compare(
+                baseline: baseline,
+                generatedAt: trajectoryFixtureNow,
+                interventions: <TrajectoryIntervention>[
+                  _keepGoing(7).intervention,
+                ],
+                calibration: const TrajectoryCalibrationAdjustment(
+                  multiplier: 1.5,
+                  state: PredictiveCalibrationState.monitored,
+                ),
+              )
+              .outcomes
+              .single;
+      final TrajectoryForecastReceipt manual =
+          TrajectoryForecastReceipt.fromScenario(
+            baseline: baseline,
+            outcome: keepGoing,
+            selectedAt: trajectoryFixtureNow,
+          );
+      final Map<String, dynamic> json =
+          jsonDecode(jsonEncode(manual.toJson())) as Map<String, dynamic>;
+      expect(json['calibrationMultiplier'], 1.5);
+      expect(json['schemaVersion'], 3);
+      expect(json['uncertainty'], 23);
+      expect(json.keys, containsAll(_oldReceiptKeys));
+      final TrajectoryForecastReceipt reread =
+          TrajectoryForecastReceipt.fromJson(json);
+      expect(reread.calibrationMultiplier, 1.5);
+      expect(reread.unadjustedUncertainty, 15);
+      expect(jsonEncode(reread.toJson()), jsonEncode(manual.toJson()));
     });
   });
 

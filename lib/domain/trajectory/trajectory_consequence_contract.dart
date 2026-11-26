@@ -484,6 +484,7 @@ class TrajectoryScenarioOutcome {
     required this.explanation,
     required this.utilityScore,
     this.modelVersion = trajectoryConsequenceModelVersion,
+    this.calibrationMultiplier = 1.0,
   }) : goals = List<GoalDelayProjection>.unmodifiable(goals),
        evidence = List<String>.unmodifiable(evidence),
        assumptions = List<String>.unmodifiable(assumptions);
@@ -505,6 +506,10 @@ class TrajectoryScenarioOutcome {
   final String explanation;
   final double utilityScore;
   final String modelVersion;
+
+  /// The multiplier recorded forecast accuracy applied to [uncertainty]
+  /// (1.0 when none was applied).
+  final double calibrationMultiplier;
 }
 
 class TrajectoryComparison {
