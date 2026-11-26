@@ -325,7 +325,7 @@ void main() {
       final ProviderContainer container = await pumpFutureOutcomes(tester);
       // At 7 days the visible options all show different percents.
       expect(
-        find.textContaining('Same workload as another option'),
+        find.textContaining('Same shown workload as another option'),
         findsNothing,
       );
       await tapFutureOutcomes(tester, find.text('90 days'));
@@ -346,13 +346,18 @@ void main() {
         tester,
         find.byKey(const ValueKey<String>('option-remove-task-d')),
       );
-      expect(complete, contains('Same workload as another option'));
+      expect(complete, contains('Same shown workload as another option'));
       expect(complete, contains('frees about 60 minutes in this range'));
-      expect(remove, contains('Same workload as another option'));
+      // One of the reasons, not the whole cause.
+      expect(
+        complete,
+        contains('the order also weighs pace, risk and goal dates'),
+      );
+      expect(remove, contains('Same shown workload as another option'));
       expect(remove, contains('frees about 30 minutes in this range'));
       expect(
         textsIn(tester, find.byKey(const ValueKey<String>('option-planner'))),
-        isNot(contains('Same workload')),
+        isNot(contains('Same shown workload')),
       );
       expect(tester.takeException(), isNull);
     });
@@ -400,7 +405,7 @@ void main() {
       );
       expect(
         textsIn(tester, find.byKey(const ValueKey<String>('option-maintain'))),
-        contains('frees no time in this range, pace unchanged'),
+        contains('This one frees no time in this range; pace unchanged.'),
       );
       expect(tester.takeException(), isNull);
     });

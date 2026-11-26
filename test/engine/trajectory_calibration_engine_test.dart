@@ -82,6 +82,7 @@ Map<String, Object?> _structured(
                   'assumptions': o.assumptions,
                   'explanation': o.explanation,
                   'utility': o.utilityScore,
+                  'reliefMinutes': o.reliefMinutes,
                   'modelVersion': o.modelVersion,
                 },
             ],
@@ -123,6 +124,9 @@ void main() {
       // hash of the same fields.
       // Task 7 changed only one sentence in the fixture ("No Activity reward"
       // became "No progress reward", the screen was renamed); no number moved.
+      // Task 8 (review R2) added the new outcome field reliefMinutes to the
+      // fixture and to this snapshot (0 for every fixture option: none of
+      // them finishes or removes a task); no existing value changed.
       final Object? pinned = jsonDecode(
         File(
           'test/engine/fixtures/trajectory_engine_uncalibrated_snapshot.json',

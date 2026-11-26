@@ -408,8 +408,10 @@ class _Band {
 }
 
 /// When options show the same whole workload percent, the order comes from
-/// the rest of the estimate. Says, for each such option, the minutes it takes
-/// out of the range and its pace change against keeping going.
+/// the rest of the estimate (pace, risk, goal dates and the unrounded
+/// workload, among others). Says, for each such option, two of those reasons:
+/// the minutes it takes out of the range and its pace change against
+/// keeping going.
 Map<String, String> _equalWorkloadReasons(
   BuildContext context,
   TrajectoryComparison comparison,
@@ -431,7 +433,8 @@ Map<String, String> _equalWorkloadReasons(
       if ((shown[outcome.projectedPressure] ?? 0) > 1)
         outcome.id: _rankReason(
           context,
-          minutes: _minutesFreed(comparison.baseline, outcome),
+          // As the engine counted them for the workload.
+          minutes: outcome.reliefMinutes,
           paceChange: outcome.projectedMomentum - keepGoingPace,
         ),
   };
@@ -462,60 +465,9 @@ String _rankReason(
         );
   return journeyText(
     context,
-    'Same workload as another option; the order comes from the rest: this one $freed, $pace.',
-    'Misma carga que otra opción; el orden depende del resto: esta $freed, $pace.',
+    'Same shown workload as another option; the order also weighs pace, risk and goal dates. This one $freed; $pace.',
+    'Misma carga mostrada que otra opción; el orden también tiene en cuenta el ritmo, el riesgo y las fechas de las metas. Esta $freed; $pace.',
   );
-}
-
-/// Minutes an option takes out of its range: finishing or removing a task in
-/// the range frees its minutes; other options free none (as the forecast
-/// counts them).
-int _minutesFreed(TrajectoryBaseline baseline, TrajectoryScenarioOutcome o) {
-  final TrajectoryIntervention intervention = o.intervention;
-  if (intervention.type != TrajectoryInterventionType.completeTask &&
-      intervention.type != TrajectoryInterventionType.reduceScope) {
-    return 0;
-  }
-  final TrajectoryTaskNode? subject = baseline.tasks
-      .where((TrajectoryTaskNode t) => t.id == intervention.subjectId)
-      .firstOrNull;
-  if (subject == null ||
-      !_inRange(subject, baseline.observedAt, intervention.horizon.inDays)) {
-    return 0;
-  }
-  return subject.estimatedMinutes < 0 ? 0 : subject.estimatedMinutes;
-}
-
-/// Whether [task] counts in a range of [days] local days from [now], by the
-/// forecast's rule (FutureConsequenceEngine.horizonWorkload, which this
-/// screen may not import): undated tasks count in every range; a dated task
-/// counts when it is scheduled or due by the same clock time [days] days
-/// later, a whole-day deadline when its day is inside the range.
-bool _inRange(TrajectoryTaskNode task, DateTime now, int days) {
-  final DateTime? scheduled = task.scheduledAt;
-  final DateTime? due = task.dueAt;
-  if (scheduled == null && due == null) return true;
-  final DateTime local = now.toLocal();
-  final int span = days < 1 ? 1 : days;
-  final DateTime end = DateTime(
-    local.year,
-    local.month,
-    local.day + span,
-    local.hour,
-    local.minute,
-    local.second,
-    local.millisecond,
-    local.microsecond,
-  );
-  if (scheduled != null && !scheduled.isAfter(end)) return true;
-  if (due == null) return false;
-  final DateTime? wholeDay = task.dueDay;
-  if (wholeDay == null) return !due.isAfter(end);
-  return DateTime(
-    wholeDay.year,
-    wholeDay.month,
-    wholeDay.day,
-  ).isBefore(DateTime(local.year, local.month, local.day + span + 1));
 }
 
 /// The "keep going" option of a comparison, if it has one.

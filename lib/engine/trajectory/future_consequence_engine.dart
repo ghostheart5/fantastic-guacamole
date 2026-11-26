@@ -277,6 +277,7 @@ class FutureConsequenceEngine {
       utilityScore: utility,
       calibrationMultiplier: calibration?.multiplier ?? 1.0,
       unadjustedUncertainty: baseUncertainty,
+      reliefMinutes: reliefMinutes,
     );
   }
 

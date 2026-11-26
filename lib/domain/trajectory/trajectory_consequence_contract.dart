@@ -484,6 +484,7 @@ class TrajectoryScenarioOutcome {
     this.modelVersion = trajectoryConsequenceModelVersion,
     this.calibrationMultiplier = 1.0,
     int? unadjustedUncertainty,
+    this.reliefMinutes = 0,
   }) : unadjustedUncertainty = unadjustedUncertainty ?? uncertainty,
        goals = List<GoalDelayProjection>.unmodifiable(goals),
        evidence = List<String>.unmodifiable(evidence),
@@ -514,6 +515,12 @@ class TrajectoryScenarioOutcome {
   /// The engine's own width (after its 8..42 clamp) before
   /// [calibrationMultiplier] was applied; equals [uncertainty] when none was.
   final int unadjustedUncertainty;
+
+  /// Minutes of work this option takes out of its range (finishing or
+  /// removing a task inside the range), as the engine counts them for the
+  /// workload; 0 for options that remove no work. Shown only; not part of
+  /// any receipt.
+  final int reliefMinutes;
 }
 
 class TrajectoryComparison {

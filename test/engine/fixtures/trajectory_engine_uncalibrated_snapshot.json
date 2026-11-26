@@ -115,6 +115,7 @@
         ],
         "explanation": "Protect the Smart Planner path changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is low; 1 Choose a step block(s) are projected; 0 commitment(s) remain displaced.",
         "utility": 4.48,
+        "reliefMinutes": 0,
         "modelVersion": "trajectory-consequence-v4"
       },
       {
@@ -227,6 +228,7 @@
         ],
         "explanation": "Maintain current course changes the current portfolio against baseline trajectory-fixture-r1. Projected risk is low; 0 linked Schedule block(s) are affected.",
         "utility": 0.0,
+        "reliefMinutes": 0,
         "modelVersion": "trajectory-consequence-v4"
       },
       {
@@ -341,6 +343,7 @@
         ],
         "explanation": "Delay the milestone changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is watch; 1 existing block(s) are affected; 1 deadline crossing(s) are projected.",
         "utility": -10.3,
+        "reliefMinutes": 0,
         "modelVersion": "trajectory-consequence-v4"
       }
     ]
@@ -461,6 +464,7 @@
         ],
         "explanation": "Protect the Smart Planner path changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is low; 1 Choose a step block(s) are projected; 0 commitment(s) remain displaced.",
         "utility": 4.48,
+        "reliefMinutes": 0,
         "modelVersion": "trajectory-consequence-v4"
       },
       {
@@ -573,6 +577,7 @@
         ],
         "explanation": "Maintain current course changes the current portfolio against baseline trajectory-fixture-r1. Projected risk is low; 0 linked Schedule block(s) are affected.",
         "utility": 0.0,
+        "reliefMinutes": 0,
         "modelVersion": "trajectory-consequence-v4"
       },
       {
@@ -687,6 +692,7 @@
         ],
         "explanation": "Delay the milestone changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is watch; 1 existing block(s) are affected; 1 deadline crossing(s) are projected.",
         "utility": -10.58,
+        "reliefMinutes": 0,
         "modelVersion": "trajectory-consequence-v4"
       }
     ]
@@ -807,6 +813,7 @@
         ],
         "explanation": "Protect the Smart Planner path changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is low; 1 Choose a step block(s) are projected; 0 commitment(s) remain displaced.",
         "utility": 4.48,
+        "reliefMinutes": 0,
         "modelVersion": "trajectory-consequence-v4"
       },
       {
@@ -919,6 +926,7 @@
         ],
         "explanation": "Maintain current course changes the current portfolio against baseline trajectory-fixture-r1. Projected risk is low; 0 linked Schedule block(s) are affected.",
         "utility": 0.0,
+        "reliefMinutes": 0,
         "modelVersion": "trajectory-consequence-v4"
       },
       {
@@ -1033,6 +1041,7 @@
         ],
         "explanation": "Delay the milestone changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is watch; 1 existing block(s) are affected; 1 deadline crossing(s) are projected.",
         "utility": -10.58,
+        "reliefMinutes": 0,
         "modelVersion": "trajectory-consequence-v4"
       }
     ]
@@ -1153,6 +1162,7 @@
         ],
         "explanation": "Protect the Smart Planner path changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is watch; 1 Choose a step block(s) are projected; 0 commitment(s) remain displaced.",
         "utility": 3.64,
+        "reliefMinutes": 0,
         "modelVersion": "trajectory-consequence-v4"
       },
       {
@@ -1265,6 +1275,7 @@
         ],
         "explanation": "Maintain current course changes the current portfolio against baseline trajectory-fixture-r1. Projected risk is watch; 0 linked Schedule block(s) are affected.",
         "utility": 0.0,
+        "reliefMinutes": 0,
         "modelVersion": "trajectory-consequence-v4"
       },
       {
@@ -1379,6 +1390,7 @@
         ],
         "explanation": "Delay the milestone changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is elevated; 1 existing block(s) are affected; 1 deadline crossing(s) are projected.",
         "utility": -8.06,
+        "reliefMinutes": 0,
         "modelVersion": "trajectory-consequence-v4"
       }
     ]
@@ -1499,6 +1511,7 @@
         ],
         "explanation": "Protect the Smart Planner path changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is watch; 1 Choose a step block(s) are projected; 0 commitment(s) remain displaced.",
         "utility": 3.64,
+        "reliefMinutes": 0,
         "modelVersion": "trajectory-consequence-v4"
       },
       {
@@ -1611,6 +1624,7 @@
         ],
         "explanation": "Maintain current course changes the current portfolio against baseline trajectory-fixture-r1. Projected risk is watch; 0 linked Schedule block(s) are affected.",
         "utility": 0.0,
+        "reliefMinutes": 0,
         "modelVersion": "trajectory-consequence-v4"
       },
       {
@@ -1725,6 +1739,7 @@
         ],
         "explanation": "Delay the milestone changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is watch; 1 existing block(s) are affected; 1 deadline crossing(s) are projected.",
         "utility": -8.34,
+        "reliefMinutes": 0,
         "modelVersion": "trajectory-consequence-v4"
       }
     ]
