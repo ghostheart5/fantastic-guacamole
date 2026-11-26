@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/repositories/trajectory_forecast_ledger_repository.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
@@ -49,10 +51,11 @@ Future<void> _settle() async {
   }
 }
 
-/// Builds the engine model once the planning evidence is loaded, which is
-/// what reports a ready comparison.
-Future<TrajectoryEngineModel> _ready(ProviderContainer container) async {
-  await container.read(siStateAggregationProvider.future);
+/// Reads the engine model the way a watching screen does: once, then again
+/// after pending loads (such as the calibration summary) have settled.
+Future<TrajectoryEngineModel> _watchModel(ProviderContainer container) async {
+  container.read(trajectoryEngineModelProvider);
+  await _settle();
   final TrajectoryEngineModel model = container.read(
     trajectoryEngineModelProvider,
   );
@@ -60,11 +63,17 @@ Future<TrajectoryEngineModel> _ready(ProviderContainer container) async {
   return model;
 }
 
+/// Builds the engine model once the planning evidence is loaded, which is
+/// what reports a ready comparison.
+Future<TrajectoryEngineModel> _ready(ProviderContainer container) async {
+  await container.read(siStateAggregationProvider.future);
+  return _watchModel(container);
+}
+
 /// A new ready comparison for the same account (as after a refresh).
 Future<void> _readyAgain(ProviderContainer container) async {
   container.invalidate(trajectoryConsequenceProvider);
-  container.read(trajectoryEngineModelProvider);
-  await _settle();
+  await _watchModel(container);
 }
 
 TrajectoryForecastReceipt _manual(
@@ -145,6 +154,51 @@ void main() {
     expect(ledger, hasLength(3));
     expect(ledger.first.selectedAt, clock());
     expect(ledger.first.horizon, const Duration(days: 7));
+  });
+
+  test('nothing is recorded from a comparison built while the calibration '
+      'summary is still loading', () async {
+    final _Clock clock = _Clock();
+    final TrajectoryMemoryStore store = TrajectoryMemoryStore();
+    final Completer<List<TrajectoryForecastReceipt>> ledger =
+        Completer<List<TrajectoryForecastReceipt>>();
+    final ProviderContainer container = trajectoryLiveContainer(
+      now: clock.local,
+      clock: clock.call,
+      store: store,
+      overrides: [
+        trajectoryForecastLedgerProvider.overrideWith(
+          (Ref ref) => ledger.future,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final TrajectoryEngineModel model = await _ready(container);
+    expect(model.hasComparison, isTrue);
+    expect(store.saves, 0);
+
+    ledger.complete(const <TrajectoryForecastReceipt>[]);
+    await container.read(trajectoryForecastLedgerProvider.future);
+    container.read(trajectoryEngineModelProvider);
+    await _settle();
+    expect(await _ledgerOf(store, 'account-a').load(), hasLength(1));
+  });
+
+  test('nothing is recorded while the app is not in the foreground', () async {
+    final _Clock clock = _Clock();
+    final TrajectoryMemoryStore store = TrajectoryMemoryStore();
+    final ProviderContainer container = trajectoryLiveContainer(
+      now: clock.local,
+      clock: clock.call,
+      store: store,
+      overrides: [
+        trajectoryAppInForegroundProvider.overrideWithValue(() => false),
+      ],
+    );
+    addTearDown(container.dispose);
+    final TrajectoryEngineModel model = await _ready(container);
+    expect(model.hasComparison, isTrue);
+    expect(store.saves, 0);
   });
 
   test('nothing is recorded or checked in the learning state', () async {
@@ -298,6 +352,7 @@ void main() {
       );
       addTearDown(container.dispose);
       await container.read(siStateAggregationProvider.future);
+      await container.read(trajectoryForecastLedgerProvider.future);
 
       container.read(trajectoryEngineModelProvider);
       // Before the deferred write runs, the person switches accounts.
@@ -310,8 +365,7 @@ void main() {
 
       // Back on account A the same day, the attempt is made again.
       container.read(trajectoryLiveAccountProvider.notifier).use('account-a');
-      container.read(trajectoryEngineModelProvider);
-      await _settle();
+      await _watchModel(container);
       expect(await _ledgerOf(store, 'account-a').load(), hasLength(1));
       expect(await _ledgerOf(store, 'account-b').load(), isEmpty);
     });
@@ -328,6 +382,7 @@ void main() {
         );
         addTearDown(container.dispose);
         await container.read(siStateAggregationProvider.future);
+        await container.read(trajectoryForecastLedgerProvider.future);
 
         container.read(trajectoryEngineModelProvider);
         container
@@ -350,8 +405,7 @@ void main() {
       addTearDown(container.dispose);
       await _ready(container);
       container.read(trajectoryLiveAccountProvider.notifier).use('account-b');
-      container.read(trajectoryEngineModelProvider);
-      await _settle();
+      await _watchModel(container);
 
       final List<TrajectoryForecastReceipt> a = await _ledgerOf(
         store,

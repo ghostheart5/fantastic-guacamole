@@ -12,6 +12,7 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 // The forecast clock lives with the comparison provider, which in turn reads
 // the calibration from this file (a deliberate two-way import).
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final trajectoryForecastLedgerRepositoryProvider =
@@ -121,6 +122,35 @@ class TrajectoryForecastLedgerActions {
   }
 }
 
+/// Whether the current account's calibration summary has loaded, so a
+/// comparison built now uses its recorded accuracy (an automatic receipt
+/// then stores the multiplier that was really applied).
+final trajectoryCalibrationLoadedProvider = Provider<bool>((Ref ref) {
+  final String? namespace = ref.watch(accountStorageScopeProvider).v2Namespace;
+  final AsyncValue<TrajectoryCalibrationSummary> summary = ref.watch(
+    trajectoryCalibrationSummaryProvider,
+  );
+  final TrajectoryCalibrationSummary? value = summary.hasError
+      ? null
+      : summary.value;
+  return namespace != null &&
+      value != null &&
+      (value.accountScope == null || value.accountScope == namespace);
+});
+
+/// Whether the app is in the foreground. Unknown (no lifecycle reported yet,
+/// or no Flutter binding, as in plain unit tests) counts as foreground.
+final trajectoryAppInForegroundProvider = Provider<bool Function()>(
+  (Ref ref) => () {
+    try {
+      final AppLifecycleState? state = WidgetsBinding.instance.lifecycleState;
+      return state == null || state == AppLifecycleState.resumed;
+    } on Object {
+      return true;
+    }
+  },
+);
+
 final trajectoryForecastAutoRecorderProvider =
     Provider<TrajectoryForecastAutoRecorder>(
       TrajectoryForecastAutoRecorder.new,
@@ -154,7 +184,8 @@ class TrajectoryForecastAutoRecorder {
     final String? namespace = operation.namespace;
     if (namespace == null ||
         !operation.isCurrent ||
-        comparison.baseline.accountScope != namespace) {
+        comparison.baseline.accountScope != namespace ||
+        !_ref.read(trajectoryAppInForegroundProvider)()) {
       return;
     }
     final DateTime now = _ref.read(trajectoryClockProvider)().toUtc();
