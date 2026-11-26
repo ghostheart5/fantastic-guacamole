@@ -15,6 +15,7 @@ import '../../../helpers/trajectory_test_fixture.dart';
 
 /// The forecast monitoring card says truthfully what recorded accuracy does.
 void main() {
+  // Four forecasts checked on four days over three weeks: the rule widens.
   const TrajectoryCalibrationSummary checked = TrajectoryCalibrationSummary(
     resolvedForecasts: 4,
     momentumMeanAbsoluteError: 12,
@@ -22,6 +23,18 @@ void main() {
     intervalCoverage: .5,
     state: PredictiveCalibrationState.monitored,
     earlierMethodForecasts: 2,
+    checkDays: 4,
+    checkSpanDays: 21,
+  );
+  // Two checked forecasts: too few, the ranges stay as estimated.
+  const TrajectoryCalibrationSummary tooFew = TrajectoryCalibrationSummary(
+    resolvedForecasts: 2,
+    momentumMeanAbsoluteError: 4,
+    pressureMeanAbsoluteError: 1,
+    intervalCoverage: 1,
+    state: PredictiveCalibrationState.monitored,
+    checkDays: 2,
+    checkSpanDays: 7,
   );
   const TrajectoryCalibrationSummary onlyEarlier = TrajectoryCalibrationSummary(
     resolvedForecasts: 0,
@@ -36,15 +49,18 @@ void main() {
     tester,
   ) async {
     await _pump(tester, checked, const Locale('en'));
+    expect(find.text('MONITORED'), findsOneWidget);
     final Finder card = find.textContaining('4 resolved and monitored');
     expect(card, findsOneWidget);
     final String text = tester.widget<Text>(card).data!;
     expect(
       text,
       contains(
-        'Ranges are widened or narrowed from recorded accuracy once at least '
-        '3 forecasts have been checked. Forecasts used: 4. Kept from an '
-        'earlier method but not used: 2.',
+        'Accuracy here is about pace (momentum) only. Ranges are widened from '
+        'recorded accuracy once at least 3 forecasts have been checked on 2 or '
+        'more days, and narrowed only after checks on 5 or more days at least '
+        '14 days apart. Forecasts used: 4. Kept from an earlier method but '
+        'not used: 2.',
       ),
     );
     expect(text, isNot(contains('unchanged')));
@@ -56,15 +72,19 @@ void main() {
     tester,
   ) async {
     await _pump(tester, checked, const Locale('es'));
+    expect(find.text('SUPERVISADO'), findsOneWidget);
     final Finder card = find.textContaining('4 resueltas y supervisadas');
     expect(card, findsOneWidget);
     final String text = tester.widget<Text>(card).data!;
     expect(
       text,
       contains(
-        'Los rangos se amplían o se estrechan según la precisión registrada '
-        'cuando hay al menos 3 previsiones comprobadas. Previsiones usadas: 4. '
-        'Conservadas de un método anterior pero no usadas: 2.',
+        'La precisión aquí se refiere solo al ritmo (impulso). Los rangos se '
+        'amplían según la precisión registrada cuando hay al menos 3 '
+        'previsiones comprobadas en 2 o más días, y solo se estrechan tras '
+        'comprobaciones en 5 o más días separados al menos 14 días. '
+        'Previsiones usadas: 4. Conservadas de un método anterior pero no '
+        'usadas: 2.',
       ),
     );
     expect(text, isNot(contains('no cambian')));
@@ -75,25 +95,38 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('no earlier-method sentence when there are none', (tester) async {
-    await _pump(
+  for (final (String language, String label, String expected)
+      in const <(String, String, String)>[
+        (
+          'en',
+          'PROVISIONAL',
+          '2 resolved • momentum error 4.0 points • pressure error 1.0 points '
+              '• interval coverage 100%. Accuracy here is about pace '
+              '(momentum) only. Ranges stay as estimated until at least 3 '
+              'forecasts have been checked on 2 or more days. Checked so '
+              'far: 2.',
+        ),
+        (
+          'es',
+          'PROVISIONAL',
+          '2 resueltas • error de impulso 4.0 puntos • error de presión 1.0 '
+              'puntos • cobertura del intervalo 100%. La precisión aquí se '
+              'refiere solo al ritmo (impulso). Los rangos se mantienen como '
+              'se estimaron hasta que haya al menos 3 previsiones comprobadas '
+              'en 2 o más días. Comprobadas hasta ahora: 2.',
+        ),
+      ]) {
+    testWidgets('too few checks: label and text say provisional ($language)', (
       tester,
-      const TrajectoryCalibrationSummary(
-        resolvedForecasts: 1,
-        momentumMeanAbsoluteError: 0,
-        pressureMeanAbsoluteError: 0,
-        intervalCoverage: 1,
-        state: PredictiveCalibrationState.monitored,
-      ),
-      const Locale('en'),
-    );
-    final String text = tester
-        .widget<Text>(find.textContaining('1 resolved and monitored'))
-        .data!;
-    expect(text, contains('Forecasts used: 1.'));
-    expect(text, isNot(contains('earlier method')));
-  });
-
+    ) async {
+      await _pump(tester, tooFew, Locale(language));
+      expect(find.text(label), findsOneWidget);
+      expect(find.text('MONITORED'), findsNothing);
+      expect(find.text('SUPERVISADO'), findsNothing);
+      expect(find.text(expected), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final (String language, String expected) in const <(String, String)>[
     ('en', 'Kept from an earlier method but not used: 3.'),
     ('es', 'Conservadas de un método anterior pero no usadas: 3.'),

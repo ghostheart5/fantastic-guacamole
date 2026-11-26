@@ -289,7 +289,8 @@ void main() {
         expect(summary.earlierMethodForecasts, 1);
 
         // The stored JSON keeps every old key, with observed still null, and
-        // reads without the new key (what an older reader sees).
+        // parses with the new key removed. (The released reader itself is not
+        // run here; it ignores unknown keys, which review checked on main.)
         final List<dynamic> records =
             (jsonDecode(store.values[repository.storageKey!]!)
                     as Map<String, dynamic>)['records']
@@ -302,12 +303,12 @@ void main() {
         expect(json.keys.toSet().difference(_oldReceiptKeys.toSet()), <String>{
           'earlierMethodAt',
         });
-        final TrajectoryForecastReceipt asOldReader =
+        final TrajectoryForecastReceipt withoutNewKey =
             TrajectoryForecastReceipt.fromJson(
               Map<String, dynamic>.of(json)..remove('earlierMethodAt'),
             );
-        expect(asOldReader.id, settled.id);
-        expect(asOldReader.observed, isNull);
+        expect(withoutNewKey.id, settled.id);
+        expect(withoutNewKey.observed, isNull);
       },
     );
 
@@ -478,8 +479,8 @@ void main() {
       expect(json['schemaVersion'], 2);
     });
 
-    test('an automatic receipt keeps every old key and reads without the new '
-        'one', () {
+    test('an automatic receipt keeps every old key and parses with the new '
+        'key removed', () {
       final TrajectoryForecastReceipt receipt = _receiptAt(
         trajectoryFixtureNow,
         origin: TrajectoryForecastOrigin.automatic,
@@ -496,12 +497,12 @@ void main() {
           TrajectoryForecastReceipt.fromJson(json);
       expect(reread.isAutomatic, isTrue);
       expect(jsonEncode(reread.toJson()), jsonEncode(receipt.toJson()));
-      final TrajectoryForecastReceipt asOldReader =
+      final TrajectoryForecastReceipt withoutNewKey =
           TrajectoryForecastReceipt.fromJson(
             Map<String, dynamic>.of(json)..remove('origin'),
           );
-      expect(asOldReader.isAutomatic, isFalse);
-      expect(asOldReader.projectedPressure, receipt.projectedPressure);
+      expect(withoutNewKey.isAutomatic, isFalse);
+      expect(withoutNewKey.projectedPressure, receipt.projectedPressure);
     });
 
     test('resolving and correcting keep the automatic mark', () {

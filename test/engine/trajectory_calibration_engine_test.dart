@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adjustment.dart';
@@ -8,126 +9,125 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/trajectory_test_fixture.dart';
 
-/// Every field of every outcome, in order, as one string. Goal dates are
-/// built from local calendar fields, so [withGoals] false leaves goals out to
-/// keep a pinned value independent of the machine's time zone.
-String _snapshot(TrajectoryComparison comparison, {bool withGoals = true}) =>
-    jsonEncode(<String, Object?>{
-      'recommended': comparison.recommendedScenarioId,
-      'outcomes': <Object?>[
-        for (final TrajectoryScenarioOutcome o in comparison.outcomes)
-          <String, Object?>{
-            'id': o.id,
-            'baselineRevision': o.baselineRevision,
-            'intervention': o.intervention.id,
-            'generatedAt': o.generatedAt.toIso8601String(),
-            'momentum': o.projectedMomentum,
-            'pressure': o.projectedPressure,
-            'uncertainty': o.uncertainty,
-            'confidence': o.confidence.toJson(),
-            'risk': <Object?>[
-              o.risk.currentScore,
-              o.risk.projectedScore,
-              o.risk.band.name,
-              for (final TrajectoryRiskContribution c in o.risk.contributions)
-                <Object?>[
-                  c.code,
-                  c.label,
-                  c.currentScore,
-                  c.projectedScore,
-                  c.explanation,
-                ],
+/// Every field of every outcome as plain JSON values. Goal dates, days late
+/// and goal explanations are built from local calendar fields, so
+/// [withGoalDates] false leaves them out (keeping each goal's id, remaining
+/// minutes and confidence) so the pinned snapshot does not depend on the
+/// machine's time zone.
+Map<String, Object?> _structured(
+  TrajectoryComparison comparison, {
+  bool withGoalDates = true,
+}) =>
+    jsonDecode(
+          jsonEncode(<String, Object?>{
+            'recommended': comparison.recommendedScenarioId,
+            'outcomes': <Object?>[
+              for (final TrajectoryScenarioOutcome o in comparison.outcomes)
+                <String, Object?>{
+                  'id': o.id,
+                  'baselineRevision': o.baselineRevision,
+                  'intervention': o.intervention.id,
+                  'generatedAt': o.generatedAt.toIso8601String(),
+                  'momentum': o.projectedMomentum,
+                  'pressure': o.projectedPressure,
+                  'uncertainty': o.uncertainty,
+                  'calibrationMultiplier': o.calibrationMultiplier,
+                  'confidence': o.confidence.toJson(),
+                  'risk': <String, Object?>{
+                    'current': o.risk.currentScore,
+                    'projected': o.risk.projectedScore,
+                    'band': o.risk.band.name,
+                    'contributions': <Object?>[
+                      for (final TrajectoryRiskContribution c
+                          in o.risk.contributions)
+                        <String, Object?>{
+                          'code': c.code,
+                          'label': c.label,
+                          'current': c.currentScore,
+                          'projected': c.projectedScore,
+                          'explanation': c.explanation,
+                        },
+                    ],
+                  },
+                  'timeline': <String, Object?>{
+                    'affectedBlockIds': o.timeline.affectedBlockIds,
+                    'displacedSubjectIds': o.timeline.displacedSubjectIds,
+                    'deadlineCrossings': o.timeline.deadlineCrossings,
+                    'minutesAdded': o.timeline.minutesAdded,
+                    'summary': o.timeline.summary,
+                  },
+                  'goals': <Object?>[
+                    for (final GoalDelayProjection g in o.goals)
+                      <String, Object?>{
+                        'goalId': g.goalId,
+                        'goalTitle': g.goalTitle,
+                        'remainingMinutes': g.remainingMinutes,
+                        'confidence': g.confidence.toJson(),
+                        if (withGoalDates) ...<String, Object?>{
+                          'targetDate': g.targetDate?.toIso8601String(),
+                          'projected': g.projectedCompletion.toIso8601String(),
+                          'lower': g.lowerCompletion.toIso8601String(),
+                          'upper': g.upperCompletion.toIso8601String(),
+                          'delayDays': g.delayDays,
+                          'explanation': g.explanation,
+                        },
+                      },
+                  ],
+                  'progression': <String, Object?>{
+                    'potentialXp': o.progression.potentialXp,
+                    'streakProtected': o.progression.streakProtected,
+                    'summary': o.progression.summary,
+                  },
+                  'evidence': o.evidence,
+                  'assumptions': o.assumptions,
+                  'explanation': o.explanation,
+                  'utility': o.utilityScore,
+                  'modelVersion': o.modelVersion,
+                },
             ],
-            'timeline': <Object?>[
-              o.timeline.affectedBlockIds,
-              o.timeline.displacedSubjectIds,
-              o.timeline.deadlineCrossings,
-              o.timeline.minutesAdded,
-              o.timeline.summary,
-            ],
-            'goals': <Object?>[
-              if (!withGoals) o.goals.length,
-              for (final GoalDelayProjection g
-                  in withGoals ? o.goals : const [])
-                <Object?>[
-                  g.goalId,
-                  g.goalTitle,
-                  g.targetDate?.toIso8601String(),
-                  g.projectedCompletion.toIso8601String(),
-                  g.lowerCompletion.toIso8601String(),
-                  g.upperCompletion.toIso8601String(),
-                  g.delayDays,
-                  g.remainingMinutes,
-                  g.confidence.toJson(),
-                  g.explanation,
-                ],
-            ],
-            'progression': <Object?>[
-              o.progression.potentialXp,
-              o.progression.streakProtected,
-              o.progression.summary,
-            ],
-            'evidence': o.evidence,
-            'assumptions': o.assumptions,
-            'explanation': o.explanation,
-            'utility': o.utilityScore,
-            'modelVersion': o.modelVersion,
-          },
-      ],
-    });
-
-/// FNV-1a over the UTF-16 code units, 32-bit, so the pinned value is short.
-String _hash(String value) {
-  int hash = 0x811c9dc5;
-  for (final int unit in value.codeUnits) {
-    hash ^= unit;
-    hash = (hash * 0x01000193) & 0xffffffff;
-  }
-  return hash.toRadixString(16).padLeft(8, '0');
-}
+          }),
+        )
+        as Map<String, Object?>;
 
 /// A baseline with little evidence, so its uncertainty is not at a bound
 /// at 7 days and reaches the upper bound at 90 days.
 TrajectoryBaseline _thinBaseline(int horizonDays) =>
     trajectoryTestBaseline(observationCount: 3, horizonDays: horizonDays);
 
+/// The uncalibrated engine output for the fixtures, without time-zone
+/// dependent goal fields.
+Map<String, Object?> engineSnapshots() => <String, Object?>{
+  for (final int days in const <int>[7, 30, 90])
+    'fixture-$days': _structured(
+      trajectoryTestComparison(
+        horizonDays: days,
+        baseline: trajectoryTestBaseline(horizonDays: days),
+      ),
+      withGoalDates: false,
+    ),
+  for (final int days in const <int>[7, 90])
+    'thin-$days': _structured(
+      trajectoryTestComparison(
+        horizonDays: days,
+        baseline: _thinBaseline(days),
+      ),
+      withGoalDates: false,
+    ),
+};
+
 void main() {
   group('the engine without a calibration argument', () {
-    // Pinned on the engine before calibration existed (commit b8483192).
-    const Map<String, String> pinned = <String, String>{
-      'fixture-7': 'ce9e228e',
-      'fixture-30': '90da1c51',
-      'fixture-90': 'f7903a7e',
-      'thin-7': '159f376f',
-      'thin-90': '806da41b',
-    };
-
     test('returns exactly what it returned before', () {
-      final Map<String, String> actual = <String, String>{
-        for (final int days in const <int>[7, 30, 90])
-          'fixture-$days': _hash(
-            _snapshot(
-              trajectoryTestComparison(
-                horizonDays: days,
-                baseline: trajectoryTestBaseline(horizonDays: days),
-              ),
-              withGoals: false,
-            ),
-          ),
-        for (final int days in const <int>[7, 90])
-          'thin-$days': _hash(
-            _snapshot(
-              trajectoryTestComparison(
-                horizonDays: days,
-                baseline: _thinBaseline(days),
-              ),
-              withGoals: false,
-            ),
-          ),
-      };
-      expect(actual, pinned);
+      // Generated from the engine at 8546e962, whose uncalibrated output was
+      // checked against the pre-calibration engine (b8483192) by a pinned
+      // hash of the same fields.
+      final Object? pinned = jsonDecode(
+        File(
+          'test/engine/fixtures/trajectory_engine_uncalibrated_snapshot.json',
+        ).readAsStringSync(),
+      );
+      expect(engineSnapshots(), pinned);
     });
-
     test('the fixture uncertainties sit inside and at the bounds', () {
       expect(trajectoryTestComparison().outcomes.first.uncertainty, 15);
       expect(
@@ -172,12 +172,12 @@ void main() {
 
     test('null and provisional give the same outcomes as no argument', () {
       final TrajectoryBaseline baseline = _thinBaseline(7);
-      final String plain = _snapshot(
+      final Map<String, Object?> plain = _structured(
         trajectoryTestComparison(baseline: baseline),
       );
-      expect(_snapshot(calibrated(baseline, null)), plain);
+      expect(_structured(calibrated(baseline, null)), plain);
       expect(
-        _snapshot(
+        _structured(
           calibrated(baseline, TrajectoryCalibrationAdjustment.provisional),
         ),
         plain,

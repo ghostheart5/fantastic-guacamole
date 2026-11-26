@@ -936,11 +936,15 @@ class _CalibrationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
     final TrajectoryCalibrationSummary? value = summary.asData?.value;
+    // Label and text follow the rule actually applied to the ranges.
+    final bool adjusting =
+        value != null &&
+        !TrajectoryCalibrationAdjustment.fromSummary(value).isProvisional;
     final String state = value == null
         ? (summary.isLoading
               ? (isSpanish ? 'cargando' : 'loading')
               : (isSpanish ? 'no disponible' : 'unavailable'))
-        : value.resolvedForecasts == 0
+        : !adjusting
         ? (isSpanish ? 'provisional' : 'provisional')
         : (isSpanish ? 'supervisado' : 'monitored');
     final String earlier = value == null || value.earlierMethodForecasts == 0
@@ -957,8 +961,8 @@ class _CalibrationCard extends StatelessWidget {
               ? 'Ningún camino supervisado ha alcanzado su horizonte. Las previsiones siguen siendo provisionales.$earlier'
               : 'No tracked path has reached its horizon yet. Forecasts remain provisional.$earlier')
         : isSpanish
-        ? '${value.resolvedForecasts} resueltas y supervisadas • error de impulso ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} puntos • error de presión ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} puntos • cobertura del intervalo ${(value.intervalCoverage * 100).round()}%. Los rangos se amplían o se estrechan según la precisión registrada cuando hay al menos 3 previsiones comprobadas. Previsiones usadas: ${value.resolvedForecasts}.$earlier'
-        : '${value.resolvedForecasts} resolved and monitored • momentum error ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} points • pressure error ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} points • interval coverage ${(value.intervalCoverage * 100).round()}%. Ranges are widened or narrowed from recorded accuracy once at least 3 forecasts have been checked. Forecasts used: ${value.resolvedForecasts}.$earlier';
+        ? '${value.resolvedForecasts} ${adjusting ? 'resueltas y supervisadas' : 'resueltas'} • error de impulso ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} puntos • error de presión ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} puntos • cobertura del intervalo ${(value.intervalCoverage * 100).round()}%. La precisión aquí se refiere solo al ritmo (impulso). ${adjusting ? 'Los rangos se amplían según la precisión registrada cuando hay al menos 3 previsiones comprobadas en 2 o más días, y solo se estrechan tras comprobaciones en 5 o más días separados al menos 14 días. Previsiones usadas: ${value.resolvedForecasts}.' : 'Los rangos se mantienen como se estimaron hasta que haya al menos 3 previsiones comprobadas en 2 o más días. Comprobadas hasta ahora: ${value.resolvedForecasts}.'}$earlier'
+        : '${value.resolvedForecasts} ${adjusting ? 'resolved and monitored' : 'resolved'} • momentum error ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} points • pressure error ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} points • interval coverage ${(value.intervalCoverage * 100).round()}%. Accuracy here is about pace (momentum) only. ${adjusting ? 'Ranges are widened from recorded accuracy once at least 3 forecasts have been checked on 2 or more days, and narrowed only after checks on 5 or more days at least 14 days apart. Forecasts used: ${value.resolvedForecasts}.' : 'Ranges stay as estimated until at least 3 forecasts have been checked on 2 or more days. Checked so far: ${value.resolvedForecasts}.'}$earlier';
     return _Panel(
       title: journeyText(
         context,
