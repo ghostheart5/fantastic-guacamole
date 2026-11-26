@@ -3413,8 +3413,6 @@ void main() {
       'emotionProvider.notifier',
       '_persistConversationTurn',
       'savePlannerMessageUseCaseProvider',
-      'smartPlannerAiResponseProvider',
-      'smartPlannerAiInputProvider',
       'planProposalProvider',
       'timelineActionsProvider',
       'awardXp',

@@ -745,13 +745,17 @@ void main() {
       '/not-real preserve this|(?s).*Processing mode: On this device .fallback..*',
       'crisis',
     ]);
+    // Each reply above is required to show its "On this device" tag, which a
+    // reply tagged "AI chat" would fail; the free Chat screen sends nothing
+    // and AI chat replies appear on the conversation screen, which has no
+    // such tag. An assertNotVisible for "AI chat" added nothing: none remain.
     expect(
       entries(flow).where(
         (entry) =>
             entry.key == 'assertNotVisible' &&
-            entry.value == '(?s).*Processing mode: AI chat.*',
+            (entry.value as String).contains('Processing mode: AI chat'),
       ),
-      hasLength(4),
+      isEmpty,
     );
   });
 
