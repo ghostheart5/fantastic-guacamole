@@ -33,7 +33,7 @@ void main() {
         'Add something',
         'Choose a step',
         'Profile',
-        'Activity',
+        'Patterns',
         'Settings',
       ]),
     );

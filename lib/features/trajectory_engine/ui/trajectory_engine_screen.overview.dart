@@ -749,8 +749,8 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
           Text(
             journeyText(
               context,
-              'Choose one explicit change. Axiomara will compare its capacity, risk, goal-timing, Schedule, and Activity consequences without changing your real plan.',
-              'Elige un cambio concreto. Axiomara comparará sus consecuencias en capacidad, riesgo, fechas de metas, agenda y actividad sin cambiar tu plan real.',
+              'Choose one explicit change. Axiomara will compare its capacity, risk, goal-timing, Schedule, and progress consequences without changing your real plan.',
+              'Elige un cambio concreto. Axiomara comparará sus consecuencias en capacidad, riesgo, fechas de metas, agenda y progreso sin cambiar tu plan real.',
             ),
             style: const TextStyle(
               color: Colors.white70,

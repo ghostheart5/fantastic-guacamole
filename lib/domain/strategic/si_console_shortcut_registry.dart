@@ -231,7 +231,7 @@ abstract final class SIConsoleShortcutRegistry {
         ),
         SIConsoleShortcutDefinition(
           id: 'progression',
-          label: 'Activity',
+          label: 'Patterns',
           shortcut: '/activity',
           description: 'analyze level, XP, streak, and progress signals',
           route: SIShortcutRoute.intelligenceQuery,

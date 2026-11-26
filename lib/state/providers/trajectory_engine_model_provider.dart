@@ -144,7 +144,7 @@ final trajectoryEngineModelProvider = Provider<TrajectoryEngineModel>((
   } else {
     status = TrajectoryEngineStatus.ready;
     detail =
-        'Current baseline, Choose a step plan, schedule links, goals, and Activity signals are reconciled.';
+        'Current baseline, Choose a step plan, schedule links, goals, and progress signals are reconciled.';
   }
 
   // A comparison ready for the account (not loading, empty or learning, and

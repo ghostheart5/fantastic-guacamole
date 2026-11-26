@@ -246,7 +246,7 @@ class _BaselineCard extends StatelessWidget {
                     : journeyText(context, 'not scored', 'sin calcular'),
               ),
               _BaselineMetric(
-                label: journeyText(context, 'Activity', 'Actividad'),
+                label: journeyText(context, 'Progress', 'Progreso'),
                 value:
                     'L${baseline.progression.level} • ${baseline.progression.streak}d',
               ),
@@ -784,7 +784,7 @@ class _ScenarioFullDetails extends StatelessWidget {
           _Section(
             label: journeyText(
               context,
-              'ACTIVITY IMPACT',
+              'PROGRESS IMPACT',
               'IMPACTO EN EL PROGRESO',
             ),
             value: _trajectoryGeneratedText(
@@ -917,7 +917,7 @@ class _ScenarioFullDetails extends StatelessWidget {
             child: Text(
               journeyText(
                 context,
-                'SIMULATION ONLY — no task, Schedule block, goal, or Activity reward is changed here.',
+                'SIMULATION ONLY — no task, Schedule block, goal, or progress reward is changed here.',
                 'SOLO SIMULACIÓN — aquí no cambia ninguna tarea, bloque, meta ni recompensa.',
               ),
               style: const TextStyle(
@@ -1277,11 +1277,11 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
         'No hay disponibilidad observada. Se omiten el riesgo de capacidad y las fechas de finalización.',
     'Only the declared intervention changes; unmodeled life events remain outside this scenario.':
         'Solo cambia la intervención declarada; los sucesos no modelados quedan fuera del escenario.',
-    'Model this commitment as completed, then compare capacity, risk, goal timing, and Activity consequences.':
-        'Modelar este compromiso como completado y comparar sus consecuencias en capacidad, riesgo, fechas de metas y actividad.',
+    'Model this commitment as completed, then compare capacity, risk, goal timing, and progress consequences.':
+        'Modelar este compromiso como completado y comparar sus consecuencias en capacidad, riesgo, fechas de metas y progreso.',
     'Projected XP is informational and is never awarded by this simulation.':
         'Los XP proyectados son informativos y esta simulación nunca los concede.',
-    'No Activity reward is projected from this intervention alone.':
+    'No progress reward is projected from this intervention alone.':
         'Esta intervención por sí sola no proyecta una recompensa de progreso.',
     'Keep the suggested plan': 'Proteger el camino de Elegir un paso',
     'Protect the highest-value feasible block.':
@@ -1315,8 +1315,8 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
         'El compromiso eliminado es opcional o puede aplazarse de forma segura con consentimiento.',
     'The commitment is completed without creating an unmodeled obligation.':
         'El compromiso se completa sin crear una obligación no modelada.',
-    'Projected Activity effects remain informational until an outcome is recorded on Schedule.':
-        'Los efectos proyectados en la actividad son informativos hasta registrar un resultado en la agenda.',
+    'Projected progress effects remain informational until an outcome is recorded on Schedule.':
+        'Los efectos proyectados en el progreso son informativos hasta registrar un resultado en la agenda.',
     'The delayed commitment remains active and consumes later capacity.':
         'El compromiso aplazado sigue activo y consume capacidad posterior.',
     'No replacement work is assumed unless it already exists in the baseline.':

@@ -280,10 +280,10 @@ void main() {
         GuidanceCatalogue.timelineRecovery.action?.label.en,
         'Review in My plan',
       );
-      expect(GuidanceCatalogue.progression.action?.label.en, 'Review activity');
+      expect(GuidanceCatalogue.progression.action?.label.en, 'Review patterns');
       expect(
         GuidanceCatalogue.progression.action?.label.es,
-        'Revisar actividad',
+        'Revisar patrones',
       );
       expect(
         GuidanceCatalogue.trajectoryEngine.body.es,

@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/app/app_view.dart';
 import 'package:fantastic_guacamole/app/router/app_route_registry.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/l10n/insights_copy.dart';
 import 'package:flutter/widgets.dart';
 
 /// Locale-dependent presentation of canonical, locale-independent routes.
@@ -24,13 +25,13 @@ class NavigationCopy {
       ? destination.label
       : switch (destination.appView) {
           AppView.nexus => 'Hoy',
-          AppView.trajectoryEngine => 'Perspectivas',
+          AppView.trajectoryEngine => InsightsCopy.tabNameEs,
           AppView.timeline => 'Mi plan',
           AppView.profile => 'Perfil',
           AppView.creator => 'Añadir algo',
           AppView.smartPlanner => 'Elegir un paso',
           AppView.console => 'Chat',
-          AppView.progression => 'Actividad',
+          AppView.progression => InsightsCopy.patternsEs,
           AppView.settings => 'Ajustes',
           AppView.goals => 'Metas',
           null => destination.label,
@@ -40,15 +41,13 @@ class NavigationCopy {
       ? destination.navigationSubtitle ?? ''
       : switch (destination.appView) {
           AppView.nexus => 'Empieza aquí y elige qué te ayudaría hoy',
-          AppView.trajectoryEngine =>
-            'Revisa tus patrones, predicciones y resultados futuros',
+          AppView.trajectoryEngine => InsightsCopy.futureOutcomesSubtitleEs,
           AppView.timeline => 'Encuentra tareas, metas, hábitos y tu agenda',
           AppView.profile => 'Ve tu nombre y tu actividad registrada',
           AppView.creator => 'Guarda una tarea, nota, meta o hábito',
           AppView.smartPlanner => 'Encuentra un próximo paso manejable',
           AppView.console => 'Pregunta sobre tus planes guardados',
-          AppView.progression =>
-            'Revisa tareas completadas y avances registrados',
+          AppView.progression => InsightsCopy.patternsSubtitleEs,
           AppView.settings => 'Gestiona tu cuenta, privacidad y preferencias',
           AppView.goals => 'Metas y resultados',
           null => destination.navigationSubtitle ?? '',

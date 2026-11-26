@@ -21,8 +21,8 @@ void main() {
     ),
     (
       type: OperatingActionType.openProgression,
-      english: 'Review recovery in Activity',
-      spanish: 'Revisar recuperación en Actividad',
+      english: 'Review recovery in Patterns',
+      spanish: 'Revisar recuperación en Patrones',
       destination: '/progression',
     ),
   ]) {

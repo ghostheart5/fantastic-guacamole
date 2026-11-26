@@ -276,7 +276,10 @@ abstract final class GuidanceCatalogue {
   static const GuidanceHint trajectoryEngine = GuidanceHint(
     id: GuidanceLessonId.trajectoryEngine,
     route: RoutePaths.trajectoryEngine,
-    title: GuidanceText('Compare another option', 'Compara otra opción'),
+    title: GuidanceText(
+      'Compare future outcomes',
+      'Compara resultados futuros',
+    ),
     body: GuidanceText(
       'Try a different time, amount of work, or priority. Compare the estimate before changing your plan.',
       'Prueba otra hora, otra cantidad de trabajo u otra prioridad. Compara la estimación antes de cambiar tu plan.',
@@ -293,14 +296,14 @@ abstract final class GuidanceCatalogue {
   static const GuidanceHint progression = GuidanceHint(
     id: GuidanceLessonId.progression,
     route: RoutePaths.progression,
-    title: GuidanceText('Review your activity', 'Revisa tu actividad'),
+    title: GuidanceText('Review your patterns', 'Revisa tus patrones'),
     body: GuidanceText(
       'See the tasks and milestones you recorded. Open the details to review them.',
       'Ve las tareas y los hitos que registraste. Abre los detalles para revisarlos.',
     ),
     action: GuidanceAction(
       GuidanceActionKind.openScreen,
-      GuidanceText('Review activity', 'Revisar actividad'),
+      GuidanceText('Review patterns', 'Revisar patrones'),
     ),
     completedBy: GuidanceCompletion.byMilestone(<GuidanceMilestone>{
       GuidanceMilestone.firstProgressionReview,

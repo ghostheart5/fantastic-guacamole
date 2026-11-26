@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/app/app_view.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/l10n/insights_copy.dart';
 import 'package:flutter/material.dart';
 
 enum RouteAccessClass {
@@ -155,7 +156,7 @@ abstract final class AppRouteRegistry {
     ),
     AppRouteDefinition(
       path: RoutePaths.progression,
-      label: 'Activity',
+      label: InsightsCopy.patternsEn,
       icon: Icons.trending_up_rounded,
       accessClass: RouteAccessClass.protectedApplication,
       appView: AppView.progression,
@@ -163,7 +164,7 @@ abstract final class AppRouteRegistry {
       externalSlug: 'progression',
       navigationGroup: AppNavigationGroup.secondary,
       navigationOrder: 3,
-      navigationSubtitle: 'Review completed tasks and recorded progress',
+      navigationSubtitle: InsightsCopy.patternsSubtitleEn,
     ),
     AppRouteDefinition(
       path: RoutePaths.si,
@@ -209,7 +210,7 @@ abstract final class AppRouteRegistry {
     ),
     AppRouteDefinition(
       path: RoutePaths.trajectoryEngine,
-      label: 'Insights',
+      label: InsightsCopy.tabNameEn,
       icon: Icons.alt_route_rounded,
       accessClass: RouteAccessClass.protectedApplication,
       appView: AppView.trajectoryEngine,
@@ -217,8 +218,7 @@ abstract final class AppRouteRegistry {
       externalSlug: 'trajectory',
       navigationGroup: AppNavigationGroup.primary,
       navigationOrder: 2,
-      navigationSubtitle:
-          'Review your patterns, predictions and future outcomes',
+      navigationSubtitle: InsightsCopy.futureOutcomesSubtitleEn,
     ),
     AppRouteDefinition(
       path: RoutePaths.paywall,
@@ -322,7 +322,7 @@ abstract final class AppRouteRegistry {
         ),
         AppRouteCompatibility(
           path: RoutePaths.legacyInsights,
-          targetPath: RoutePaths.smartPlanner,
+          targetPath: RoutePaths.trajectoryEngine,
           registerWithRouter: true,
         ),
         AppRouteCompatibility(

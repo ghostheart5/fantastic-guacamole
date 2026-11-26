@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/state/models/profile_view_state.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
 import 'package:fantastic_guacamole/state/providers/profile_provider.dart';
+import 'package:fantastic_guacamole/l10n/insights_copy.dart';
 import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -794,7 +795,7 @@ class _NavButtons extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         _NavBtn(
-          label: journeyText(context, 'Activity', 'Actividad'),
+          label: InsightsCopy.of(context).patterns,
           icon: Icons.bolt,
           color: AppColors.memoryAmber,
           onTap: onProgression,

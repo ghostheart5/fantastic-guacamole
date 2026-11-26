@@ -617,7 +617,7 @@ class FutureConsequenceEngine {
       potentialXp: potentialXp,
       streakProtected: protectsStreak,
       summary: potentialXp == 0
-          ? 'No Activity reward is projected from this intervention alone.'
+          ? 'No progress reward is projected from this intervention alone.'
           : 'Up to $potentialXp XP is informationally projected if the action is actually completed; current streak protection is ${protectsStreak ? 'supported' : 'not supported'}.',
     );
   }

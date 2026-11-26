@@ -212,7 +212,7 @@ String _actionLabel(OperatingActionIntent intent, bool isSpanish) {
     OperatingActionType.openSiConsole => 'Revisar evidencia en Chat',
     OperatingActionType.openTrajectoryEngine =>
       'Revisar riesgo en Perspectivas',
-    OperatingActionType.openProgression => 'Revisar recuperación en Actividad',
+    OperatingActionType.openProgression => 'Revisar recuperación en Patrones',
     OperatingActionType.openTimeline => 'Revisar en agenda',
     _ => intent.label,
   };

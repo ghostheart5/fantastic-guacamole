@@ -270,7 +270,7 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
     intentDestination = RoutePaths.trajectoryEngine;
   } else if (snapshot.momentum < 30 && snapshot.completedToday > 0) {
     intentType = OperatingActionType.openProgression;
-    intentLabel = 'Review recovery in Activity';
+    intentLabel = 'Review recovery in Patterns';
     intentDestination = RoutePaths.progression;
   } else {
     intentType = OperatingActionType.openTimeline;

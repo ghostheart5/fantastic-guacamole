@@ -218,11 +218,11 @@ TrajectoryIntervention? _customIntervention(
       title: 'My scenario: complete ${subject.title}',
       horizon: Duration(days: horizonDays),
       description:
-          'Model this commitment as completed, then compare capacity, risk, goal timing, and Activity consequences.',
+          'Model this commitment as completed, then compare capacity, risk, goal timing, and progress consequences.',
       subjectId: subject.id,
       assumptions: <String>[
         'The commitment is completed without creating an unmodeled obligation.',
-        'Projected Activity effects remain informational until an outcome is recorded on Schedule.',
+        'Projected progress effects remain informational until an outcome is recorded on Schedule.',
         ...personContextAssumptions,
       ],
     ),

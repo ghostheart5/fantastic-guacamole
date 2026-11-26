@@ -1125,7 +1125,7 @@ void main() {
       );
       expect(
         comparison.outcomes.single.progression.summary,
-        'No Activity reward is projected from this intervention alone.',
+        'No progress reward is projected from this intervention alone.',
       );
       await tester.pumpWidget(
         _harness(
@@ -1294,10 +1294,10 @@ void main() {
       );
       expect(find.text('WHY THIS CHANGES THE FUTURE'), findsOneWidget);
       expect(find.text('SCHEDULE IMPACT'), findsOneWidget);
-      expect(find.text('ACTIVITY IMPACT'), findsOneWidget);
+      expect(find.text('PROGRESS IMPACT'), findsOneWidget);
       expect(
         find.text(
-          'SIMULATION ONLY — no task, Schedule block, goal, or Activity reward is changed here.',
+          'SIMULATION ONLY — no task, Schedule block, goal, or progress reward is changed here.',
         ),
         findsOneWidget,
       );
