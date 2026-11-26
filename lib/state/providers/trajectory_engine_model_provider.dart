@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dar
 import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/operating_system_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -144,6 +145,20 @@ final trajectoryEngineModelProvider = Provider<TrajectoryEngineModel>((
     status = TrajectoryEngineStatus.ready;
     detail =
         'Current baseline, Choose a step plan, schedule links, goals, and Activity signals are reconciled.';
+  }
+
+  // A comparison ready for the account (not loading, empty or learning) is
+  // recorded and checked automatically on the device; the recorder defers
+  // its writes and guards them by account and session generation.
+  if (comparison != null &&
+      const <TrajectoryEngineStatus>{
+        TrajectoryEngineStatus.ready,
+        TrajectoryEngineStatus.partial,
+        TrajectoryEngineStatus.offline,
+      }.contains(status)) {
+    ref
+        .read(trajectoryForecastAutoRecorderProvider)
+        .comparisonReady(comparison);
   }
 
   return TrajectoryEngineModel(
