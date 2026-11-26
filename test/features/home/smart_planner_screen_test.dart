@@ -826,7 +826,7 @@ void main() {
       expect(paid, hasLength(2));
       // Not an outcome: nothing is announced on the free planner yet.
       expect(find.byKey(const Key('assistant-mode-reply-ready')), findsNothing);
-      await tester.pump(const Duration(seconds: 3));
+      await tester.pump(const Duration(seconds: 5));
       for (var i = 0; i < 10; i++) {
         await tester.runAsync(() => Future<void>.delayed(Duration.zero));
         await tester.pump(const Duration(milliseconds: 100));

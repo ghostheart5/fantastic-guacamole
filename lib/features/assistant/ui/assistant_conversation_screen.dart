@@ -459,7 +459,12 @@ class _AssistantConversationScreenState
 
   /// Tapping send confirms the price shown on the button. [showPreview]
   /// opens the full preview even when this selection was already previewed.
-  Future<void> _send({bool retry = false, bool showPreview = false}) async {
+  /// [recollect]: the timer collecting again a request still being answered.
+  Future<void> _send({
+    bool retry = false,
+    bool showPreview = false,
+    bool recollect = false,
+  }) async {
     if (_busy) return;
     if (!retry && _input.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -776,10 +781,13 @@ class _AssistantConversationScreenState
       });
     } on ConversationFailure catch (error) {
       if (!current() || abandoned(executing)) return;
-      if (error.code == 'request_reserved' && executing != null) {
+      if ((error.code == 'request_reserved' ||
+              (recollect && error.code == 'rate_limit_exceeded')) &&
+          executing != null) {
         // The first call of this same request id is still running (a re-send
         // after a sign-in change or restart): it stays stored and is
-        // collected again shortly, with the same id.
+        // collected again shortly, with the same id. Too many calls while
+        // collecting it means the same: later.
         _collectAgainLater(
           executing,
           recovered: executing.packet.requestId == _recoveringRequestId,

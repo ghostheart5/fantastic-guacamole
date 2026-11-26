@@ -50,7 +50,7 @@ extension _PendingRequest on _AssistantConversationScreenState {
           return;
         }
         if (recovered) _recoveringRequestId = id;
-        unawaited(_send(retry: true));
+        unawaited(_send(retry: true, recollect: true));
       },
     );
   }

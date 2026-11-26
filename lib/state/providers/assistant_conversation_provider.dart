@@ -197,9 +197,11 @@ final conversationServiceProvider = Provider<ConversationService>((ref) {
 });
 
 /// How long a screen waits before collecting again a request whose first call
-/// the server reports as still running (`request_reserved`).
+/// the server reports as still running (`request_reserved`). Five seconds
+/// keeps well inside the server's per-account limit (20 calls a minute,
+/// price checks included).
 final conversationReservedRetryIntervalProvider = Provider<Duration>(
-  (ref) => const Duration(seconds: 3),
+  (ref) => const Duration(seconds: 5),
 );
 
 /// Paid executions outlive the screen that confirmed them. Leaving Chat or

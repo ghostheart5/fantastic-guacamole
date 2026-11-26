@@ -1922,7 +1922,7 @@ void main() {
         expect(find.textContaining('could not complete'), findsNothing);
         expect(await _storedChat(backend), contains('pendingRequests'));
 
-        await tester.pump(const Duration(seconds: 3));
+        await tester.pump(const Duration(seconds: 5));
         await _settle(tester);
         expect(paid, hasLength(2));
         expect(paid.map(jsonEncode).toSet(), hasLength(1));
@@ -1975,7 +1975,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      await tester.pump(const Duration(seconds: 3));
+      await tester.pump(const Duration(seconds: 5));
       await _settle(tester);
       expect(paid, hasLength(3));
       expect(paid.map((b) => b['requestId']).toSet(), hasLength(1));
@@ -2010,13 +2010,13 @@ void main() {
       await pumpSome(tester);
       expect(find.text(stillOnItsWay), findsOneWidget);
       // Still collectable: collected again, still being answered.
-      await tester.pump(const Duration(seconds: 3));
+      await tester.pump(const Duration(seconds: 5));
       await pumpSome(tester);
       expect(paid, hasLength(2));
       expect(find.text(stillOnItsWay), findsOneWidget);
 
       shift = const Duration(minutes: 6);
-      await tester.pump(const Duration(seconds: 3));
+      await tester.pump(const Duration(seconds: 5));
       await _settle(tester);
       expect(paid, hasLength(2), reason: 'Nothing sent after the deadline');
       expect(
@@ -2026,6 +2026,51 @@ void main() {
       expect(find.text(stillOnItsWay), findsNothing);
       expect(find.text('Retry same request'), findsNothing);
       expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'N3: too many requests while a request is still being answered means collect again later',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      await storeEarlierRunRequest(backend, ConversationSurface.si);
+      final paid = <Map<String, dynamic>>[];
+      final container = _setup((body) async {
+        if (body['quoteOnly'] == true) return _quote(body);
+        paid.add(body);
+        if (paid.length == 1) return stillReserved(body);
+        if (paid.length == 2) {
+          return (
+            status: 429,
+            data: <String, dynamic>{'error': 'rate_limit_exceeded'},
+          );
+        }
+        return _answer(body['requestId'], 'The reply that was on its way.');
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await pumpSome(tester);
+      expect(find.text(stillOnItsWay), findsOneWidget);
+      // Not before five seconds.
+      await tester.pump(const Duration(seconds: 3));
+      expect(paid, hasLength(1));
+      await tester.pump(const Duration(seconds: 2));
+      await pumpSome(tester);
+      expect(paid, hasLength(2));
+      expect(find.text(stillOnItsWay), findsOneWidget);
+      expect(find.textContaining('Too many AI requests'), findsNothing);
+      expect(await _storedChat(backend), contains('pendingRequests'));
+      await tester.pump(const Duration(seconds: 5));
+      await _settle(tester);
+      expect(paid, hasLength(3));
+      expect(paid.map(jsonEncode).toSet(), hasLength(1));
+      expect(find.text('The reply that was on its way.'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
