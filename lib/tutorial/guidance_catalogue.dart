@@ -281,8 +281,8 @@ abstract final class GuidanceCatalogue {
       'Compara resultados futuros',
     ),
     body: GuidanceText(
-      'Try a different time, amount of work, or priority. Compare the estimate before changing your plan.',
-      'Prueba otra hora, otra cantidad de trabajo u otra prioridad. Compara la estimación antes de cambiar tu plan.',
+      'Try finishing, putting off or removing a task. Compare the estimate before changing your plan.',
+      'Prueba a terminar, aplazar o quitar una tarea. Compara la estimación antes de cambiar tu plan.',
     ),
     action: GuidanceAction(
       GuidanceActionKind.openScreen,

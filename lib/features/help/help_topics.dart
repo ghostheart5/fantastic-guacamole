@@ -251,8 +251,8 @@ abstract final class HelpTopics {
     id: 'insights',
     title: GuidanceText('What Insights is for', 'Para qué sirve Perspectivas'),
     body: GuidanceText(
-      'Insights has two parts. Patterns shows what you recorded. Future outcomes shows estimates of what could happen next, and you can compare a different time, amount of work or priority before you change your plan.',
-      'Perspectivas tiene dos partes. Patrones muestra lo que registraste. Resultados futuros muestra estimaciones de lo que podría pasar después, y puedes comparar otra hora, otra cantidad de trabajo u otra prioridad antes de cambiar tu plan.',
+      'Insights has two parts. Patterns shows what you recorded. Future outcomes shows estimates of what could happen next, and you can compare finishing, putting off or removing a task before you change your plan.',
+      'Perspectivas tiene dos partes. Patrones muestra lo que registraste. Resultados futuros muestra estimaciones de lo que podría pasar después, y puedes comparar terminar, aplazar o quitar una tarea antes de cambiar tu plan.',
     ),
     place: _insights,
     showMe: AppView.trajectoryEngine,
