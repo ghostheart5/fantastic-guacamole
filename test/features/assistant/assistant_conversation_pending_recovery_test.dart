@@ -1384,6 +1384,54 @@ void main() {
   }
 
   testWidgets(
+    'Task 4: the read-back after an ambiguous save is only for the request\'s own account',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final paid = <Map<String, dynamic>>[];
+      var active = _scope;
+      late ProviderContainer container;
+      final backend = await holdStoring(
+        tester,
+        (backend) => container = _setup(
+          (body) async {
+            if (body['quoteOnly'] == true) return _quote(body, credits: 5);
+            paid.add(body);
+            return _answer(body['requestId'], 'The stored reply.', credits: 5);
+          },
+          backend,
+          readScope: () => active,
+        ),
+        _Hold.write,
+      );
+      backend.failNextCleanup = true;
+      // Another account takes over; nothing is pumped before the write is
+      // released, so the screen has not reacted yet.
+      active = AccountStorageScope.authenticated('synthetic-other');
+      container.invalidate(accountStorageScopeProvider);
+      backend.release();
+      for (var i = 0; i < 20; i++) {
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(find.textContaining('could not be saved'), findsNothing);
+        expect(
+          find.textContaining('may or may not have been saved'),
+          findsNothing,
+        );
+        expect(find.textContaining('No credits were charged'), findsNothing);
+      }
+      expect(paid, isEmpty, reason: 'Never sent for the other account');
+      // Back on the first account, its stored request is collected once.
+      active = _scope;
+      container.invalidate(accountStorageScopeProvider);
+      await tester.pump();
+      await _settle(tester);
+      expect(paid, hasLength(1));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'when the stored request cannot be read back, the message allows both outcomes and the request is collected once later',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(412, 915));

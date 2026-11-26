@@ -633,9 +633,14 @@ class _AssistantConversationScreenState
           // written). Read it back before saying anything about it. After an
           // account change this screen says nothing: a stored request stays
           // with its account and is collected there (Phase 1).
-          if (!current()) return;
+          // Read back only for the request's own account, even before this
+          // screen has heard of an account change.
+          bool ownAccount() =>
+              ref.read(accountStorageScopeProvider).v2Namespace ==
+              record.quote.packet.accountScope;
+          if (!current() || !ownAccount()) return;
           final stored = await _storedRequest(record);
-          if (!current()) return;
+          if (!current() || !ownAccount()) return;
           if (stored == false) {
             throw const ConversationFailure('request_not_saved');
           }
