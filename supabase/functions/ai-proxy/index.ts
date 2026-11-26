@@ -19,6 +19,7 @@ import {
   sha256Hex,
 } from "../_shared/billing_backend.ts";
 import {
+  buildServerPromptParts,
   buildServerSystemPrompt,
   containsBlockedConversationReply,
   containsRecommendationContradiction,
@@ -426,7 +427,12 @@ Deno.serve(async (req: Request) => {
     const prompt = (body.prompt ?? body.message ?? "").trim();
     const history = Array.isArray(body.history) ? body.history : [];
     const maxTokens = Number(body.maxTokens ?? MAX_TOKENS);
+    // Billing identity only: the quote, the reservation hash and the credit
+    // price are computed over this legacy single-string shape so quotes and
+    // retries issued before the prompt split stay valid and a repeated
+    // request id still returns its cached reply. The model never receives it.
     const system = buildServerSystemPrompt(body.personality, body.context);
+    const promptParts = buildServerPromptParts(body.personality, body.context);
     if (body.allowExternalAi !== true) {
       return jsonResponse(req, {
         requestId: requestId ?? undefined,
@@ -435,7 +441,7 @@ Deno.serve(async (req: Request) => {
     }
     if (
       !requestId || !prompt || prompt.length > 8000 || history.length > 8 ||
-      system === null ||
+      system === null || promptParts === null ||
       !Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > MAX_TOKENS ||
       history.some((item) =>
         !item || (item.role !== "user" && item.role !== "assistant") ||
@@ -465,17 +471,38 @@ Deno.serve(async (req: Request) => {
         error: "timing_context_missing",
       }, 422);
     }
-    const upstreamBody: Record<string, unknown> = {
+    const billingBody: Record<string, unknown> = {
       model: DEFAULT_MODEL,
       max_tokens: MAX_TOKENS,
       temperature: 0,
       messages,
     };
-    upstreamBody.system = timingRequest
+    billingBody.system = timingRequest
       ? `${system} ${SI_TIMING_EXTRACTION_INSTRUCTION}`
       : system;
-    if (timingRequest) upstreamBody.output_config = SI_TIMING_OUTPUT_CONFIG;
-    const cost = quotedCreditCost(upstreamBody);
+    if (timingRequest) billingBody.output_config = SI_TIMING_OUTPUT_CONFIG;
+    // What the provider receives: static policy as the system prompt, the
+    // person's records as a delimited untrusted-data block in the final user
+    // turn. Same inputs as billingBody, so it cannot differ from what was quoted.
+    const providerBody: Record<string, unknown> = {
+      ...billingBody,
+      system: timingRequest
+        ? `${promptParts.system} ${SI_TIMING_EXTRACTION_INSTRUCTION}`
+        : promptParts.system,
+      messages: messages.map((item, index) =>
+        index === messages.length - 1
+          ? {
+            ...item,
+            content: `${promptParts.contextBlock}
+
+` +
+              `The person's message:
+${item.content}`,
+          }
+          : item
+      ),
+    };
+    const cost = quotedCreditCost(billingBody);
     if (body.quoteOnly === true) {
       return jsonResponse(req, {
         requestId,
@@ -483,7 +510,7 @@ Deno.serve(async (req: Request) => {
           config.secretKey,
           userId,
           requestId,
-          upstreamBody,
+          billingBody,
         ),
       });
     }
@@ -492,7 +519,7 @@ Deno.serve(async (req: Request) => {
         config.secretKey,
         userId,
         requestId,
-        upstreamBody,
+        billingBody,
         body.quote,
       )
     ) {
@@ -506,7 +533,7 @@ Deno.serve(async (req: Request) => {
       p_user_id: userId,
       p_request_key: requestId,
       p_credit_amount: cost,
-      p_prompt_hash: await sha256Hex(JSON.stringify(upstreamBody)),
+      p_prompt_hash: await sha256Hex(JSON.stringify(billingBody)),
     });
     if (!reserved) {
       return jsonResponse(req, {
@@ -544,7 +571,7 @@ Deno.serve(async (req: Request) => {
     // Customer credits and database provider funding are separate. Expand the
     // reservation to the full unchanged worst-case cost before any provider
     // call; neither a denial nor an ambiguous RPC response may permit work.
-    const initialProviderCost = quotedProviderCostMicrousd(upstreamBody);
+    const initialProviderCost = quotedProviderCostMicrousd(providerBody);
     let providerBudget: Record<string, unknown> | null = null;
     try {
       providerBudget = await serviceRpc(
@@ -587,7 +614,7 @@ Deno.serve(async (req: Request) => {
         "x-api-key": ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify(upstreamBody),
+      body: JSON.stringify(providerBody),
     });
     if (!upstream.ok) {
       await upstream.body?.cancel();
@@ -705,9 +732,9 @@ Deno.serve(async (req: Request) => {
         "Return only the corrected answer.",
       ].join(" ");
       const repairBody: Record<string, unknown> = {
-        ...upstreamBody,
+        ...providerBody,
         messages: [
-          ...messages,
+          ...(providerBody.messages as unknown[]),
           { role: "assistant", content: message },
           {
             role: "user",
