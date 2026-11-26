@@ -102,10 +102,15 @@ void main() {
         }
         expect(status, isNot(contains('Evidence Lens')));
         final help = copy.shortcutHelp(filter: '');
-        for (final old in ['/timeline', '/trajectory', '/progression']) {
+        for (final old in [
+          '/timeline',
+          '/trajectory',
+          '/progression',
+          '/activity',
+        ]) {
           expect(help, isNot(contains(old)));
         }
-        for (final current in ['/schedule', '/insights', '/activity']) {
+        for (final current in ['/schedule', '/insights', '/patterns']) {
           expect(help, contains(current));
         }
         expect(

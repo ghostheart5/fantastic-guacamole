@@ -40,7 +40,8 @@ void main() {
         const names = {
           '/timeline': '/schedule',
           '/trajectory': '/insights',
-          '/progression': '/activity',
+          '/progression': '/patterns',
+          '/activity': '/patterns',
         };
         final help = SIConsoleShortcutRegistry.buildHelp();
         for (final entry in names.entries) {
