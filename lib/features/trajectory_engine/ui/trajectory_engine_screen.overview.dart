@@ -943,17 +943,22 @@ class _CalibrationCard extends StatelessWidget {
         : value.resolvedForecasts == 0
         ? (isSpanish ? 'provisional' : 'provisional')
         : (isSpanish ? 'supervisado' : 'monitored');
+    final String earlier = value == null || value.earlierMethodForecasts == 0
+        ? ''
+        : isSpanish
+        ? ' Conservadas de un método anterior pero no usadas: ${value.earlierMethodForecasts}.'
+        : ' Kept from an earlier method but not used: ${value.earlierMethodForecasts}.';
     final String detail = value == null
         ? (isSpanish
               ? 'Los datos de seguimiento no están disponibles en este momento.'
               : 'Monitoring evidence is not currently available.')
         : value.resolvedForecasts == 0
         ? (isSpanish
-              ? 'Ningún camino supervisado ha alcanzado su horizonte. Las previsiones siguen siendo provisionales.'
-              : 'No tracked path has reached its horizon yet. Forecasts remain provisional.')
+              ? 'Ningún camino supervisado ha alcanzado su horizonte. Las previsiones siguen siendo provisionales.$earlier'
+              : 'No tracked path has reached its horizon yet. Forecasts remain provisional.$earlier')
         : isSpanish
-        ? '${value.resolvedForecasts} resueltas y supervisadas • error de impulso ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} puntos • error de presión ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} puntos • cobertura del intervalo ${(value.intervalCoverage * 100).round()}%. Los coeficientes y la incertidumbre no cambian.'
-        : '${value.resolvedForecasts} resolved and monitored • momentum error ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} points • pressure error ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} points • interval coverage ${(value.intervalCoverage * 100).round()}%. Coefficients and uncertainty are unchanged.';
+        ? '${value.resolvedForecasts} resueltas y supervisadas • error de impulso ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} puntos • error de presión ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} puntos • cobertura del intervalo ${(value.intervalCoverage * 100).round()}%. Los rangos se amplían o se estrechan según la precisión registrada cuando hay al menos 3 previsiones comprobadas. Previsiones usadas: ${value.resolvedForecasts}.$earlier'
+        : '${value.resolvedForecasts} resolved and monitored • momentum error ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} points • pressure error ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} points • interval coverage ${(value.intervalCoverage * 100).round()}%. Ranges are widened or narrowed from recorded accuracy once at least 3 forecasts have been checked. Forecasts used: ${value.resolvedForecasts}.$earlier';
     return _Panel(
       title: journeyText(
         context,
