@@ -112,7 +112,7 @@ jobs:
 
           root = Path('_site')
           required = {
-              'index.html': ('AXIOMARA', 'Reflection and planning', 'Tools for your day', 'Today', 'Add something', 'My plan', 'Choose a step', 'SI Chat', 'Insights', 'Activity', 'NO ADS', 'does not provide an application download'),
+              'index.html': ('AXIOMARA', 'Reflection and planning', 'Tools for your day', 'Today', 'Add something', 'My plan', 'Choose a step', 'Chat', 'Insights', 'Activity', 'NO ADS', 'does not provide an application download'),
               'privacy/index.html': ('Axiomara Privacy Policy', 'does not display ads', 'Anthropic', 'account-deletion page'),
               'terms/index.html': ('Axiomara Terms of Service', 'Marketplace purchases', 'does not provide unlimited AI usage'),
               'support/index.html': ('Axiomara Support', 'Email Axiomara support', 'Install and update Axiomara', 'This site does not distribute APK files.', 'Deleting the app or your Axiomara account does not cancel store billing.'),
