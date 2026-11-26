@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
+import 'package:fantastic_guacamole/engine/trajectory/future_consequence_engine.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_habit_provider.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../helpers/future_outcomes_harness.dart';
+import '../../../helpers/trajectory_test_fixture.dart';
 
 /// Habit lines beside the forecast, the selected option kept by its kind,
 /// and the reason when options show the same workload.
@@ -351,6 +353,54 @@ void main() {
       expect(
         textsIn(tester, find.byKey(const ValueKey<String>('option-planner'))),
         isNot(contains('Same workload')),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a task outside the range frees no time', (tester) async {
+      // Finishing the review (due in 20 days) frees nothing over 7 days, so
+      // it shows the same workload as keeping going.
+      final TrajectoryBaseline baseline = futureOutcomesBaseline();
+      final TrajectoryComparison comparison = const FutureConsequenceEngine()
+          .compare(
+            baseline: baseline,
+            generatedAt: trajectoryFixtureNow,
+            interventions: <TrajectoryIntervention>[
+              TrajectoryIntervention(
+                id: 'maintain',
+                type: TrajectoryInterventionType.maintainCourse,
+                title: 'Maintain current course',
+                horizon: const Duration(days: 7),
+                description: 'Keep the present plan unchanged.',
+              ),
+              TrajectoryIntervention(
+                id: 'complete-task-b',
+                type: TrajectoryInterventionType.completeTask,
+                title: 'Complete Prepare the review',
+                horizon: const Duration(days: 7),
+                description: 'Finish the review early.',
+                subjectId: 'task-b',
+              ),
+            ],
+          );
+      await pumpFutureOutcomes(
+        tester,
+        modelFor: (_) => futureOutcomesModel(comparison: comparison),
+      );
+      expect(
+        comparison.outcomes[0].projectedPressure,
+        comparison.outcomes[1].projectedPressure,
+      );
+      expect(
+        textsIn(
+          tester,
+          find.byKey(const ValueKey<String>('option-complete-task-b')),
+        ),
+        contains('frees no time in this range'),
+      );
+      expect(
+        textsIn(tester, find.byKey(const ValueKey<String>('option-maintain'))),
+        contains('frees no time in this range, pace unchanged'),
       );
       expect(tester.takeException(), isNull);
     });

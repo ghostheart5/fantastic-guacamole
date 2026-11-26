@@ -479,16 +479,43 @@ int _minutesFreed(TrajectoryBaseline baseline, TrajectoryScenarioOutcome o) {
   final TrajectoryTaskNode? subject = baseline.tasks
       .where((TrajectoryTaskNode t) => t.id == intervention.subjectId)
       .firstOrNull;
-  if (subject == null) return 0;
-  final TrajectoryHorizonWorkload range =
-      FutureConsequenceEngine.horizonWorkload(
-        tasks: baseline.tasks,
-        now: baseline.observedAt,
-        horizonDays: intervention.horizon.inDays,
-        completedLast7Days: baseline.completedInWindow,
-      );
-  if (!range.taskIds.contains(subject.id)) return 0;
+  if (subject == null ||
+      !_inRange(subject, baseline.observedAt, intervention.horizon.inDays)) {
+    return 0;
+  }
   return subject.estimatedMinutes < 0 ? 0 : subject.estimatedMinutes;
+}
+
+/// Whether [task] counts in a range of [days] local days from [now], by the
+/// forecast's rule (FutureConsequenceEngine.horizonWorkload, which this
+/// screen may not import): undated tasks count in every range; a dated task
+/// counts when it is scheduled or due by the same clock time [days] days
+/// later, a whole-day deadline when its day is inside the range.
+bool _inRange(TrajectoryTaskNode task, DateTime now, int days) {
+  final DateTime? scheduled = task.scheduledAt;
+  final DateTime? due = task.dueAt;
+  if (scheduled == null && due == null) return true;
+  final DateTime local = now.toLocal();
+  final int span = days < 1 ? 1 : days;
+  final DateTime end = DateTime(
+    local.year,
+    local.month,
+    local.day + span,
+    local.hour,
+    local.minute,
+    local.second,
+    local.millisecond,
+    local.microsecond,
+  );
+  if (scheduled != null && !scheduled.isAfter(end)) return true;
+  if (due == null) return false;
+  final DateTime? wholeDay = task.dueDay;
+  if (wholeDay == null) return !due.isAfter(end);
+  return DateTime(
+    wholeDay.year,
+    wholeDay.month,
+    wholeDay.day,
+  ).isBefore(DateTime(local.year, local.month, local.day + span + 1));
 }
 
 /// The "keep going" option of a comparison, if it has one.

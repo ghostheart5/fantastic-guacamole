@@ -12,7 +12,6 @@ import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contra
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adjustment.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
-import 'package:fantastic_guacamole/engine/trajectory/future_consequence_engine.dart';
 import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
