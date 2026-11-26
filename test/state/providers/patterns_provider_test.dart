@@ -1,9 +1,8 @@
-import 'dart:async';
-
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
+import 'package:fantastic_guacamole/domain/policies/completion_side_effect_policy.dart';
 import 'package:fantastic_guacamole/domain/usecases/complete_task.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
@@ -34,6 +33,17 @@ import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// Waits until the provider has a settled value (not loading).
+Future<PatternsResult> settled(ProviderContainer container) async {
+  for (int i = 0; i < 500; i++) {
+    final AsyncValue<PatternsResult> v = container.read(patternsProvider);
+    if (v.hasError) Error.throwWithStackTrace(v.error!, v.stackTrace!);
+    if (v.hasValue && !v.isLoading) return v.requireValue;
+    await Future<void>.delayed(Duration.zero);
+  }
+  throw StateError('patterns never settled');
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -95,9 +105,24 @@ void main() {
             () => onTaskRead?.call(),
           );
         }),
-        completeTaskUseCaseProvider.overrideWith(
-          (ref) => CompleteTask(ref.watch(domainTaskRepositoryProvider)),
-        ),
+        // The durable path stamps a fixed instant (the real one needs real
+        // stores); TaskActions.completeTask itself is the real code.
+        completeTaskUseCaseProvider.overrideWith((ref) {
+          final ITaskRepository repository = ref.watch(
+            domainTaskRepositoryProvider,
+          );
+          return CompleteTask(
+            repository,
+            durableMutation: (String id) async {
+              final TaskEntity? task = await repository.getTaskById(id);
+              if (task == null) return CompletionMutationOutcome.conflict;
+              await repository.saveTask(
+                task.copyWith(isCompleted: true, completedAt: clock()),
+              );
+              return CompletionMutationOutcome.applied;
+            },
+          );
+        }),
         domainHabitRepositoryProvider.overrideWith((ref) {
           final String? user = ref.watch(accountStorageScopeProvider).rawUserId;
           return _Habits(habitsByUser.putIfAbsent(user ?? '', () => []));
@@ -168,24 +193,24 @@ void main() {
 
   test('reads full history for the account and follows the range', () async {
     final ProviderContainer container = build();
-    final PatternsResult seven = await container.read(patternsProvider.future);
+    final PatternsResult seven = await settled(container);
     expect(seven.rangeDays, 7);
     expect(seven.habits.value.single.title, 'Walk A');
     expect(seven.trend.value.tasksFinished, 1);
     container.read(patternsRangeDaysProvider.notifier).set(30);
-    final PatternsResult thirty = await container.read(patternsProvider.future);
+    final PatternsResult thirty = await settled(container);
     expect(thirty.rangeDays, 30);
     expect(thirty.trend.value.buckets, hasLength(4));
   });
 
   test('switching from account A to B shows none of A', () async {
     final ProviderContainer container = build();
-    final PatternsResult a = await container.read(patternsProvider.future);
+    final PatternsResult a = await settled(container);
     expect(a.habits.value.single.title, 'Walk A');
 
     scope = AccountStorageScope.authenticated('account-b');
     container.invalidate(accountStorageScopeProvider);
-    final PatternsResult b = await container.read(patternsProvider.future);
+    final PatternsResult b = await settled(container);
     expect(b.habits.value.map((h) => h.title), <String>['Stretch B']);
     expect(b.habits.value.map((h) => h.habitId), isNot(contains('ha')));
     expect(b.trend.value.tasksFinished, 1);
@@ -207,7 +232,7 @@ void main() {
         isStorageReady: true,
       ),
     );
-    final PatternsResult a = await container.read(patternsProvider.future);
+    final PatternsResult a = await settled(container);
     expect(a.habits.value.map((h) => h.title), <String>['Walk A']);
 
     // Sign-out and sign-in as B: transitioning, storage not ready, then ready
@@ -221,7 +246,7 @@ void main() {
       ),
     );
     container.invalidate(habitsProvider);
-    final PatternsResult during = await container.read(patternsProvider.future);
+    final PatternsResult during = await settled(container);
     expect(during.habits.value, isEmpty);
     expect(during.trend.value.tasksFinished, 0);
 
@@ -233,11 +258,75 @@ void main() {
         isStorageReady: true,
       ),
     );
-    final PatternsResult b = await container.read(patternsProvider.future);
+    final PatternsResult b = await settled(container);
     expect(b.habits.value.map((h) => h.title), <String>['Stretch B']);
     expect(b.missed.skippedTasks.value.map((r) => r.title), <String>[
       'Fence skipped',
     ]);
+  });
+
+  test('no listener ever sees account A while B loads', () async {
+    boundaryDriven = true;
+    final ProviderContainer container = build();
+    final _Boundary boundary =
+        container.read(authSessionBoundaryProvider.notifier) as _Boundary;
+    boundary.moveTo(
+      const AuthSessionBoundary(
+        generation: 2,
+        userId: 'account-a',
+        isTransitioning: false,
+        isStorageReady: true,
+      ),
+    );
+    expect(
+      (await settled(container)).habits.value.map((h) => h.title),
+      <String>['Walk A'],
+    );
+
+    bool showsA(AsyncValue<PatternsResult> v) {
+      final PatternsResult? r = v.value;
+      return r != null &&
+          (r.habits.value.any((h) => h.title == 'Walk A') ||
+              r.missed.skippedTasks.value.any((t) => t.title == 'Tax skipped'));
+    }
+
+    final List<AsyncValue<PatternsResult>> seen =
+        <AsyncValue<PatternsResult>>[];
+    container.listen(patternsProvider, (_, next) => seen.add(next));
+
+    // Same steps as a real sign-out and sign-in as B, reading the state a
+    // screen would read after each one.
+    final List<AsyncValue<PatternsResult>> reads =
+        <AsyncValue<PatternsResult>>[];
+    void move(AuthSessionBoundary next) {
+      boundary.moveTo(next);
+      container.invalidate(habitsProvider);
+      reads.add(container.read(patternsProvider));
+    }
+
+    move(
+      const AuthSessionBoundary(
+        generation: 3,
+        userId: 'account-b',
+        isTransitioning: true,
+        isStorageReady: false,
+      ),
+    );
+    move(
+      const AuthSessionBoundary(
+        generation: 4,
+        userId: 'account-b',
+        isTransitioning: false,
+        isStorageReady: true,
+      ),
+    );
+    final PatternsResult b = await settled(container);
+    await pumpEventQueue();
+    reads.add(container.read(patternsProvider));
+
+    expect(b.habits.value.map((h) => h.title), <String>['Stretch B']);
+    expect(seen.where(showsA), isEmpty);
+    expect(reads.where(showsA), isEmpty);
   });
 
   test('an account change during the read gives nothing of it', () async {
@@ -250,7 +339,7 @@ void main() {
       container.invalidate(accountStorageScopeProvider);
     };
     container = build();
-    final PatternsResult stale = await container.read(patternsProvider.future);
+    final PatternsResult stale = await settled(container);
     // The read that started for account A ends after the switch: whatever it
     // shows is empty or account B's, never A's.
     expect(
@@ -262,14 +351,14 @@ void main() {
       isNot(contains('Tax skipped')),
     );
     expect(switched, isTrue);
-    final PatternsResult next = await container.read(patternsProvider.future);
+    final PatternsResult next = await settled(container);
     expect(next.habits.value.map((h) => h.title), <String>['Stretch B']);
   });
 
   test('storage that is not writable gives the empty result', () async {
     scope = const AccountStorageScope.unsafe();
     final ProviderContainer container = build();
-    final PatternsResult r = await container.read(patternsProvider.future);
+    final PatternsResult r = await settled(container);
     expect(r.habits.value, isEmpty);
     expect(r.habits.evidence.enough, isFalse);
     expect(r.trend.value.tasksFinished, 0);
@@ -278,51 +367,43 @@ void main() {
 
   test('a habit check-in updates the result', () async {
     final ProviderContainer container = build();
-    final PatternsResult before = await container.read(patternsProvider.future);
+    final PatternsResult before = await settled(container);
     expect(before.habits.value.single.consistency.completed, 0);
     expect(before.trend.value.habitCheckIns, 0);
 
     await container.read(habitsProvider.notifier).completeHabit('ha');
 
-    final PatternsResult after = await container.read(patternsProvider.future);
+    final PatternsResult after = await settled(container);
     expect(after.habits.value.single.consistency.completed, 1);
     expect(after.habits.value.single.consistency.checkedInThisPeriod, isTrue);
     expect(after.trend.value.habitCheckIns, 1);
   });
 
-  group('stays live while it is kept alive', () {
+  group('stays live while it is watched', () {
     test('a task finished through the task actions shows up', () async {
-      // The real clock: completeTask stamps the real time.
-      clock = DateTime.now;
       tasksByUser['account-a'] = <TaskEntity>[
         TaskEntity(id: 'open', title: 'Open', createdAt: DateTime(2026, 10, 1)),
       ];
       final ProviderContainer container = build();
-      final PatternsResult before = await container.read(
-        patternsProvider.future,
-      );
+      final PatternsResult before = await settled(container);
       expect(before.trend.value.tasksFinished, 0);
 
       await container.read(taskActionsProvider).completeTask('open');
       await pumpEventQueue();
 
-      final PatternsResult after = await container.read(
-        patternsProvider.future,
-      );
+      final PatternsResult after = await settled(container);
       expect(after.trend.value.tasksFinished, 1);
     });
 
     test('a habit added through the habit list shows up', () async {
       final ProviderContainer container = build();
-      await container.read(patternsProvider.future);
+      await settled(container);
       await container.read(habitsProvider.future);
 
       await container.read(habitsProvider.notifier).addHabit(title: 'Stretch');
       await pumpEventQueue();
 
-      final PatternsResult after = await container.read(
-        patternsProvider.future,
-      );
+      final PatternsResult after = await settled(container);
       expect(
         after.habits.value.map((h) => h.title),
         containsAll(<String>['Walk A', 'Stretch']),
@@ -331,15 +412,13 @@ void main() {
 
     test('pausing a habit takes it out', () async {
       final ProviderContainer container = build();
-      await container.read(patternsProvider.future);
+      await settled(container);
       await container.read(habitsProvider.future);
 
       await container.read(habitsProvider.notifier).toggleHabit('ha');
       await pumpEventQueue();
 
-      final PatternsResult after = await container.read(
-        patternsProvider.future,
-      );
+      final PatternsResult after = await settled(container);
       expect(after.habits.value, isEmpty);
     });
 
@@ -349,14 +428,12 @@ void main() {
       final ProviderContainer container = build();
       // Fake time: reads finish as the test pumps.
       Future<PatternsResult> settle() async {
-        PatternsResult? result;
-        unawaited(
-          container.read(patternsProvider.future).then((v) => result = v),
-        );
-        for (int i = 0; i < 50 && result == null; i++) {
+        for (int i = 0; i < 50; i++) {
+          final AsyncValue<PatternsResult> v = container.read(patternsProvider);
+          if (v.hasValue && !v.isLoading) return v.requireValue;
           await tester.pump(const Duration(milliseconds: 1));
         }
-        return result!;
+        throw StateError('patterns never settled');
       }
 
       expect((await settle()).now.day, 1);
