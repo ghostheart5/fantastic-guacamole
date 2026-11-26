@@ -27,7 +27,7 @@ jobs:
       PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
     steps:
       - name: Checkout reviewed test overlay
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: test-overlay
@@ -35,7 +35,7 @@ jobs:
           persist-credentials: false
 
       - name: Checkout immutable release source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: 401913600150334749118e6907b0be2c5f062839
           path: release-source
@@ -73,7 +73,7 @@ jobs:
           sha256sum --check --status SHA256SUMS
 
       - name: Set up pinned local-backend CLI
-        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
+        uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13
         with:
           version: 2.116.0
 
@@ -187,7 +187,7 @@ jobs:
 
       - name: Upload bounded probe evidence only
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: reply-recovery-4019136-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/reply-evidence/
