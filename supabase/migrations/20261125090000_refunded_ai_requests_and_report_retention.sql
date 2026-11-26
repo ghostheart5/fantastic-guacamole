@@ -199,7 +199,7 @@ $$;
 --    When it runs: NOT at migration time. A daily pg_cron job (03:17 UTC) calls
 --    it. ai_content_reports exists since 2026-08-17, so no existing row is
 --    older than 180 days before 2027-02-13: the first run that can change any
---    data is on or after that date. The function can also be called by hand:
+--    data is on or after that date. The database owner can also run it by hand:
 --    select public.purge_expired_ai_content_reports(interval '180 days');
 create or replace function public.purge_expired_ai_content_reports(
   p_retention interval default interval '180 days'
@@ -224,10 +224,11 @@ begin
 end;
 $fn$;
 
+-- No client or API role can run it. service_role has only INSERT on the table
+-- (20260830050000), so a grant to it would be unusable anyway. The cron job
+-- and a manual run by the database owner (postgres) are the only callers.
 revoke all on function public.purge_expired_ai_content_reports(interval)
-  from public, anon, authenticated;
-grant execute on function public.purge_expired_ai_content_reports(interval)
-  to service_role;
+  from public, anon, authenticated, service_role;
 
 create extension if not exists pg_cron;
 do $cron$

@@ -27,14 +27,14 @@ const allowedReasons = new Set([
   "other",
 ]);
 
-// Recorded in ai_content_reports.source when the client names no surface (the
-// released app does not send one) or sends something that is not a short
-// lowercase label.
+// Recorded in ai_content_reports.source. Only these surfaces are stored; a
+// missing value (the released app sends none) or any other text is recorded
+// as unspecified so client free text never reaches the table.
+const KNOWN_SURFACES = new Set(["chat", "si_console", "planner"]);
 const UNSPECIFIED_SURFACE = "unspecified";
-const SURFACE_LABEL = /^[a-z][a-z0-9_]{0,23}$/;
 
 function reportSurface(value: unknown): string {
-  return typeof value === "string" && SURFACE_LABEL.test(value)
+  return typeof value === "string" && KNOWN_SURFACES.has(value)
     ? value
     : UNSPECIFIED_SURFACE;
 }

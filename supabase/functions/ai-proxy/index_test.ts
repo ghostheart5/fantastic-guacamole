@@ -597,6 +597,13 @@ Deno.test("served SI timing uses one quoted provider call and deterministic wind
         upstream.output_config?.format?.type !== "json_schema" ||
         !upstream.system.includes("Do not infer a departure")
       ) throw new Error("structured timing contract was not sent to provider");
+      const lastTurn = upstream.messages.at(-1).content as string;
+      if (
+        upstream.system.includes("Shopping 30 minutes") ||
+        !lastTurn.includes("<untrusted_app_data>") ||
+        !lastTurn.includes("Shopping 30 minutes") ||
+        !lastTurn.includes('"mode":"findConflict"')
+      ) throw new Error("timing request context is not in the user turn");
       return Promise.resolve(Response.json({
         id: "timing-provider",
         model: "claude-sonnet-4-6",
@@ -2190,6 +2197,7 @@ async function runProxyScenario(options: {
   prompt: string;
   context: Record<string, unknown>;
   providerText: string;
+  history?: Array<{ role: string; content: string }>;
 }) {
   if (!handler) throw new Error("handler was not registered");
   const originalFetch = globalThis.fetch;
@@ -2239,6 +2247,7 @@ async function runProxyScenario(options: {
       prompt: options.prompt,
       personality: "planner",
       context: options.context,
+      ...(options.history ? { history: options.history } : {}),
       maxTokens: 1024,
       allowExternalAi: true,
     };
@@ -2396,4 +2405,70 @@ Deno.test("a reply made only of leak sentences is refunded, not delivered empty"
     run.status !== 502 || run.settlements.length !== 1 ||
     run.settlements[0].p_succeeded !== false
   ) throw new Error("an empty paid reply was not refunded");
+});
+
+Deno.test("with history, only the last user turn carries the data block and earlier turns are intact", async () => {
+  const history = [
+    { role: "user", content: "Earlier question" },
+    { role: "assistant", content: "Earlier answer" },
+  ];
+  const run = await runProxyScenario({
+    requestId: "synthetic-history-split",
+    prompt: "And now?",
+    history,
+    context: { mode: "answer", tasks: [{ title: "Pay rent" }] },
+    providerText: "Pay it today.",
+  });
+  const messages = run.providerBodies[0].messages as Array<
+    { role: string; content: string }
+  >;
+  if (
+    messages.length !== 3 || messages[0].content !== "Earlier question" ||
+    messages[1].role !== "assistant" ||
+    messages[1].content !== "Earlier answer" ||
+    messages.slice(0, 2).some((item) => item.content.includes("untrusted")) ||
+    !messages[2].content.includes("<untrusted_app_data>") ||
+    !messages[2].content.endsWith("And now?")
+  ) throw new Error(`history was altered: ${JSON.stringify(messages)}`);
+});
+
+Deno.test("an oversized provider body is refused at the quote, before any price is confirmed", async () => {
+  if (!handler) throw new Error("handler was not registered");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = ((url) => {
+    const path = String(url);
+    if (path.endsWith("/auth/v1/user")) {
+      return Promise.resolve(
+        Response.json({ id: "11111111-1111-4111-8111-111111111111" }),
+      );
+    }
+    if (path.endsWith("/consume_backend_rate_limit")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
+    throw new Error(`unexpected transport target: ${path}`);
+  }) as typeof fetch;
+  try {
+    // Shape-valid, but every "<" doubles in size when escaped for the provider.
+    const response = await handler(
+      new Request("https://local.example/ai-proxy", {
+        method: "POST",
+        headers: { authorization: "Bearer synthetic-session" },
+        body: JSON.stringify({
+          requestId: "synthetic-oversize-quote",
+          prompt: "x",
+          personality: "planner",
+          context: { a: "<".repeat(11_900) },
+          quoteOnly: true,
+          allowExternalAi: true,
+        }),
+      }),
+    );
+    const body = await response.json();
+    if (
+      response.status !== 413 || body.error !== "request_too_large" ||
+      body.quote
+    ) throw new Error(`expected a size refusal at quote: ${response.status}`);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

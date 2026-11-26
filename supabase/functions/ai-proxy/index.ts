@@ -503,6 +503,15 @@ ${item.content}`,
           : item
       ),
     };
+    // The body actually sent is a few hundred bytes larger than the quoted
+    // one. Check its size now, before any price is quoted or confirmed, so a
+    // person never confirms a price and then fails on size.
+    let initialProviderCost: number;
+    try {
+      initialProviderCost = quotedProviderCostMicrousd(providerBody);
+    } catch {
+      return jsonResponse(req, { requestId, error: "request_too_large" }, 413);
+    }
     const cost = quotedCreditCost(billingBody);
     if (body.quoteOnly === true) {
       return jsonResponse(req, {
@@ -572,7 +581,6 @@ ${item.content}`,
     // Customer credits and database provider funding are separate. Expand the
     // reservation to the full unchanged worst-case cost before any provider
     // call; neither a denial nor an ambiguous RPC response may permit work.
-    const initialProviderCost = quotedProviderCostMicrousd(providerBody);
     let providerBudget: Record<string, unknown> | null = null;
     try {
       providerBudget = await serviceRpc(

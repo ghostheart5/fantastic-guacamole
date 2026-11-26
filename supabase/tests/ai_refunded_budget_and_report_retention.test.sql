@@ -61,15 +61,24 @@ select is(
   'the refunded row is kept; only its daily-credit weight is removed'
 );
 select ok(
-  pg_get_functiondef(
-    'public.reserve_ai_usage_for_principal(uuid,text,integer,text)'::regprocedure
-  ) not like '%''reserved'', ''completed'', ''refunded''%',
+  regexp_replace(
+    pg_get_functiondef(
+      'public.reserve_ai_usage_for_principal(uuid,text,integer,text)'::regprocedure
+    ), '\s', '', 'g'
+  ) like '%''reserved'',''completed'');%'
+  and regexp_replace(
+    pg_get_functiondef(
+      'public.reserve_ai_usage_for_principal(uuid,text,integer,text)'::regprocedure
+    ), '\s', '', 'g'
+  ) not like '%andcreated_at>=now()-interval''24hours''andstatein(''reserved'',''completed'',''refunded'')%',
   'the credit budget no longer lists refunded'
 );
 select ok(
-  pg_get_functiondef(
-    'public.reserve_ai_repair_budget_for_principal(uuid,text,bigint)'::regprocedure
-  ) like '%''reserved'', ''completed'', ''refunded''%',
+  regexp_replace(
+    pg_get_functiondef(
+      'public.reserve_ai_repair_budget_for_principal(uuid,text,bigint)'::regprocedure
+    ), '\s', '', 'g'
+  ) like '%''reserved'',''completed'',''refunded''%',
   'provider-cost budget still counts refunded work, which bounds free model calls'
 );
 
@@ -112,7 +121,7 @@ select is(
   'a second run changes nothing'
 );
 select ok(
-  has_function_privilege(
+  not has_function_privilege(
     'service_role', 'public.purge_expired_ai_content_reports(interval)',
     'execute'
   ) and not has_function_privilege(
@@ -121,7 +130,7 @@ select ok(
   ) and not has_function_privilege(
     'anon', 'public.purge_expired_ai_content_reports(interval)', 'execute'
   ),
-  'only the server role can run the purge'
+  'no API role can run the purge; the cron job and the database owner do'
 );
 select ok(
   exists(

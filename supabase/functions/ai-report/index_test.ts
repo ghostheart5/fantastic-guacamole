@@ -99,7 +99,7 @@ Deno.test("old client without a surface is accepted and recorded as unspecified"
 });
 
 Deno.test("the real surface from the new client is recorded", async () => {
-  for (const surface of ["chat", "si_console"]) {
+  for (const surface of ["chat", "si_console", "planner"]) {
     const run = await report({ ...valid, surface });
     if (run.status !== 202 || run.inserts[0]?.source !== surface) {
       throw new Error(`surface ${surface} not recorded: ${run.text}`);
@@ -109,7 +109,15 @@ Deno.test("the real surface from the new client is recorded", async () => {
 
 Deno.test("a malformed surface is recorded as unspecified, not stored", async () => {
   for (
-    const surface of ["Chat Screen", "x".repeat(40), 7, { a: 1 }, "", "../x"]
+    const surface of [
+      "anything_goes",
+      "Chat Screen",
+      "x".repeat(40),
+      7,
+      { a: 1 },
+      "",
+      "../x",
+    ]
   ) {
     const run = await report({ ...valid, surface });
     if (run.status !== 202 || run.inserts[0]?.source !== "unspecified") {
