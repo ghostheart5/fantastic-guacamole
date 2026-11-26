@@ -30,7 +30,8 @@ class HabitPeriod {
   /// The stored occurrence key (includes the frequency revision).
   final String key;
 
-  /// A local calendar day inside the period (the day it was reached from).
+  /// The real start of the period at local midnight: that day (daily), its
+  /// Monday (weekly) or the 1st (monthly).
   final DateTime start;
   final HabitPeriodState state;
 }
@@ -43,6 +44,17 @@ class HabitPeriod {
 /// period still open never breaks the current streak, and only a check-in
 /// counts toward a streak. Calendar-day arithmetic is used throughout so a
 /// clock change never shifts a day.
+///
+/// Judging starts at the period containing `frequencyStartedAt ?? createdAt`
+/// and that first period is always judged, however late in it the habit was
+/// made (a habit created at 23:50 with no check-in has that day missed), as in
+/// the one-tap goals engine. The streaks are walked over the judged periods
+/// only, so a streak can never exceed the periods judged. The gateway's own
+/// streak is not clipped, so the two differ only for a habit with check-ins
+/// older than its recorded start and no frequency edit.
+///
+/// A habit that was paused and resumed counts the paused periods as missed:
+/// the habit has no pause history to exclude them with.
 class HabitConsistency {
   const HabitConsistency._({
     required this.habitId,
@@ -87,6 +99,11 @@ class HabitConsistency {
   /// The current period has nothing recorded yet. It is not counted as missed.
   bool get currentPeriodOpen => periods.first.state == HabitPeriodState.open;
 
+  /// The current period was skipped on purpose. It does not break the streak
+  /// (as in the gateway) but it adds no day to it, so a screen can say so.
+  bool get currentPeriodSkipped =>
+      periods.first.state == HabitPeriodState.skipped;
+
   /// The most periods one read looks back over.
   static const int maxPeriods = 5000;
 
@@ -96,9 +113,13 @@ class HabitConsistency {
     HabitCadence.monthly => 3,
   };
 
-  /// Whole calendar days tracked up to [now], today included.
-  int daysTracked(DateTime now) =>
-      oneTapDaysBetween(trackedSince.toLocal(), now.toLocal()) + 1;
+  /// Whole calendar days tracked up to [now], today included; at least 1 even
+  /// when the recorded start is later than [now] (a clock that disagrees).
+  int daysTracked(DateTime now) {
+    final int days =
+        oneTapDaysBetween(trackedSince.toLocal(), now.toLocal()) + 1;
+    return days < 1 ? 1 : days;
+  }
 
   /// Null for a paused or archived habit (excluded).
   static HabitConsistency? compute({
@@ -143,7 +164,7 @@ class HabitConsistency {
       periods.add(
         HabitPeriod(
           key: key,
-          start: day,
+          start: _periodStart(habit.cadence, day),
           state: completedKeys.contains(key)
               ? HabitPeriodState.completed
               : skippedKeys.contains(key)
@@ -176,16 +197,13 @@ class HabitConsistency {
     }
 
     final bool checkedIn = periods.first.state == HabitPeriodState.completed;
-    // The same walk the read gateway does: the open period never breaks it, a
-    // skipped or missed one does, and it stops at 400 periods.
-    DateTime cursor = checkedIn ? today : previous(today);
+    // Like the gateway, the open (or skipped) current period never breaks the
+    // streak and a skipped or missed past one does, but the walk stops at the
+    // first judged period and at 400 periods.
     int streak = 0;
-    while (streak < 400 &&
-        completedKeys.contains(
-          RhythmPlanningContext.occurrenceKey(habit, cursor),
-        )) {
+    for (int i = checkedIn ? 0 : 1; i < periods.length && streak < 400; i++) {
+      if (periods[i].state != HabitPeriodState.completed) break;
       streak++;
-      cursor = previous(cursor);
     }
     int longest = 0;
     int run = 0;
@@ -205,7 +223,18 @@ class HabitConsistency {
       missed: missed,
       checkedInThisPeriod: checkedIn,
       currentStreak: streak,
-      longestStreak: longest > streak ? longest : streak,
+      longestStreak: longest,
     );
   }
+
+  static DateTime _periodStart(HabitCadence cadence, DateTime day) =>
+      switch (cadence) {
+        HabitCadence.daily => DateTime(day.year, day.month, day.day),
+        HabitCadence.weekly => DateTime(
+          day.year,
+          day.month,
+          day.day - (day.weekday - DateTime.monday),
+        ),
+        HabitCadence.monthly => DateTime(day.year, day.month, 1),
+      };
 }

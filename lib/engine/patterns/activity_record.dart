@@ -32,6 +32,33 @@ class ActivityRecord {
 
   /// The habit period it counts for (null for a task).
   final String? periodKey;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ActivityRecord &&
+      other.kind == kind &&
+      other.subjectId == subjectId &&
+      other.title == title &&
+      other.outcome == outcome &&
+      other.at == at &&
+      other.periodKey == periodKey;
+
+  @override
+  int get hashCode =>
+      Object.hash(kind, subjectId, title, outcome, at, periodKey);
+
+  /// Newest first; records at the same moment order by kind, then subject id,
+  /// then period key, so the order never depends on input order.
+  static int newestFirst(ActivityRecord a, ActivityRecord b) {
+    final int byTime = b.at.compareTo(a.at);
+    if (byTime != 0) return byTime;
+    final int byKind = a.kind.index.compareTo(b.kind.index);
+    if (byKind != 0) return byKind;
+    final int bySubject = a.subjectId.compareTo(b.subjectId);
+    return bySubject != 0
+        ? bySubject
+        : (a.periodKey ?? '').compareTo(b.periodKey ?? '');
+  }
 }
 
 /// The record for a finished or skipped task; null for a canceled task, one
@@ -84,7 +111,9 @@ List<ActivityRecord> activityFromHabit(
 
 /// Task and habit records from the last [days] calendar days up to the end of
 /// today ([now]'s local day), newest first. Habit history is kept whatever the
-/// habit's status is now.
+/// habit's status is now. Check-ins of a habit that is no longer saved are
+/// dropped (there is no title to show). A task id, or a habit and period, is
+/// listed once, with its newest record.
 List<ActivityRecord> activityRecords({
   required Iterable<TaskEntity> tasks,
   required Iterable<HabitEntity> habits,
@@ -104,12 +133,16 @@ List<ActivityRecord> activityRecords({
       if (byId[o.habitId] case final HabitEntity h)
         ?activityFromHabitOccurrence(h, o),
   ];
-  final List<ActivityRecord> inWindow = all
+  all.sort(ActivityRecord.newestFirst);
+  final Set<String> seen = <String>{};
+  return all
+      .where(
+        (ActivityRecord r) =>
+            seen.add('${r.kind.name}|${r.subjectId}|${r.periodKey ?? ''}'),
+      )
       .where((ActivityRecord r) {
         final DateTime at = r.at.toLocal();
         return !at.isBefore(start) && at.isBefore(end);
       })
       .toList(growable: false);
-  inWindow.sort((a, b) => b.at.compareTo(a.at));
-  return inWindow;
 }

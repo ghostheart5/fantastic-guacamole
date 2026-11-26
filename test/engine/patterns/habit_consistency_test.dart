@@ -290,4 +290,248 @@ void main() {
       }
     },
   );
+
+  SIV2ReadGateway gatewayFor(
+    List<HabitEntity> habits,
+    List<HabitOccurrenceEntity> occurrences,
+  ) => SIV2ReadGateway(
+    accountScopeId: 'account:test',
+    readTasks: () async => const [],
+    readGoals: () async => const [],
+    readMilestones: () async => const [],
+    readTimeline: () async => const [],
+    readHabits: () async => habits,
+    readHabitOccurrences: () async => occurrences,
+  );
+
+  test(
+    'parity with the gateway: skips, a skipped current period, windows',
+    () async {
+      final HabitEntity d = daily(id: 'd', createdDaysAgo: 40);
+      final HabitEntity skippedToday = daily(id: 'st', createdDaysAgo: 40);
+      final HabitEntity weekly = HabitEntity(
+        id: 'w',
+        title: 'Long run',
+        createdAt: daysAgo(90),
+        cadence: HabitCadence.weekly,
+      );
+      final HabitEntity monthly = HabitEntity(
+        id: 'm',
+        title: 'Review',
+        createdAt: daysAgo(200),
+        cadence: HabitCadence.monthly,
+      );
+      final List<HabitEntity> habits = <HabitEntity>[
+        d,
+        skippedToday,
+        weekly,
+        monthly,
+      ];
+      final List<HabitOccurrenceEntity> occurrences = <HabitOccurrenceEntity>[
+        for (final int i in <int>[0, 1, 3, 4, 5, 9, 12]) record(d, daysAgo(i)),
+        record(d, daysAgo(2), outcome: HabitOccurrenceOutcome.skipped),
+        record(
+          skippedToday,
+          daysAgo(0),
+          outcome: HabitOccurrenceOutcome.skipped,
+        ),
+        for (final int i in <int>[1, 2, 3, 4, 5, 6])
+          record(skippedToday, daysAgo(i)),
+        for (final int i in <int>[0, 7, 21]) record(weekly, daysAgo(i)),
+        record(weekly, daysAgo(14), outcome: HabitOccurrenceOutcome.skipped),
+        record(monthly, DateTime(2026, 8, 2)),
+        record(monthly, DateTime(2026, 6, 4)),
+      ];
+      final SIV2EvidenceSnapshot snapshot = await gatewayFor(
+        habits,
+        occurrences,
+      ).read(observedAt: now, includeActivity: true);
+      expect(snapshot.habits, hasLength(4));
+      for (final SIV2HabitEvidence e in snapshot.habits) {
+        final HabitEntity habit = habits.firstWhere(
+          (HabitEntity h) => h.id == e.id,
+        );
+        final int periods = switch (habit.cadence) {
+          HabitCadence.daily => 14,
+          HabitCadence.weekly => 2,
+          HabitCadence.monthly => 1,
+        };
+        final HabitConsistency c = HabitConsistency.compute(
+          habit: habit,
+          occurrences: occurrences,
+          now: now,
+          windowPeriods: periods,
+        )!;
+        expect(c.currentStreak, e.currentStreak, reason: '${e.id} streak');
+        expect(
+          c.checkedInThisPeriod,
+          e.checkedInThisPeriod,
+          reason: '${e.id} checked in',
+        );
+        expect(
+          c.completed,
+          e.checkInsSinceTracked,
+          reason: '${e.id} check-ins in the last $periods periods',
+        );
+      }
+      final HabitConsistency st = HabitConsistency.compute(
+        habit: skippedToday,
+        occurrences: occurrences,
+        now: now,
+      )!;
+      expect(st.currentPeriodSkipped, isTrue);
+      expect(st.currentStreak, 6, reason: 'a skip today does not break it');
+    },
+  );
+
+  test('skipped today: streak stays 6 and the result says so', () {
+    final HabitEntity h = daily();
+    final HabitConsistency c = HabitConsistency.compute(
+      habit: h,
+      occurrences: <HabitOccurrenceEntity>[
+        record(h, daysAgo(0), outcome: HabitOccurrenceOutcome.skipped),
+        for (int i = 1; i <= 6; i++) record(h, daysAgo(i)),
+      ],
+      now: now,
+    )!;
+    expect(c.currentStreak, 6);
+    expect(c.currentPeriodSkipped, isTrue);
+    expect(c.currentPeriodOpen, isFalse);
+    expect(c.checkedInThisPeriod, isFalse);
+    expect(c.skipped, 1);
+    expect(c.missed, 0);
+  });
+
+  test('the creation period is judged: made at 23:50, that day is missed', () {
+    final HabitEntity h = HabitEntity(
+      id: 'late',
+      title: 'Late',
+      createdAt: DateTime(2026, 8, 19, 23, 50),
+    );
+    final HabitConsistency c = HabitConsistency.compute(
+      habit: h,
+      occurrences: const <HabitOccurrenceEntity>[],
+      now: now,
+    )!;
+    expect(c.periods.length, 2);
+    expect(c.missed, 1, reason: 'Aug 19 is over with nothing recorded');
+    expect(c.currentPeriodOpen, isTrue);
+  });
+
+  test(
+    'a streak is clipped to the judged periods; the gateway is not',
+    () async {
+      // Created 08:00 today (revision 0) but with check-ins on each of the
+      // last 12 days (a backfill, or a clock that disagreed). The gateway
+      // walks the stored keys and reports 12. This model never reports a
+      // streak longer than the periods it judged, so a screen cannot show
+      // "streak 12" beside "1 of 1 days". This is the one intended difference
+      // from the gateway.
+      final HabitEntity h = HabitEntity(
+        id: 'young',
+        title: 'Young',
+        createdAt: DateTime(now.year, now.month, now.day, 8),
+      );
+      final List<HabitOccurrenceEntity> occurrences = <HabitOccurrenceEntity>[
+        for (int i = 0; i < 12; i++) record(h, daysAgo(i)),
+      ];
+      final HabitConsistency c = HabitConsistency.compute(
+        habit: h,
+        occurrences: occurrences,
+        now: now,
+      )!;
+      expect(c.periods.length, 1);
+      expect(c.completed, 1);
+      expect(c.currentStreak, 1);
+      expect(c.longestStreak, 1);
+      expect(c.daysTracked(now), 1);
+      final SIV2EvidenceSnapshot snapshot = await gatewayFor(<HabitEntity>[
+        h,
+      ], occurrences).read(observedAt: now, includeActivity: true);
+      expect(snapshot.habits.single.currentStreak, 12);
+    },
+  );
+
+  test('period starts are real period starts at local midnight', () {
+    final HabitEntity w = HabitEntity(
+      id: 'w',
+      title: 'W',
+      createdAt: DateTime(2026, 7, 1),
+      cadence: HabitCadence.weekly,
+    );
+    final HabitConsistency cw = HabitConsistency.compute(
+      habit: w,
+      occurrences: const <HabitOccurrenceEntity>[],
+      now: now, // Thursday 20 Aug 2026
+    )!;
+    expect(cw.periods.first.start, DateTime(2026, 8, 17));
+    expect(cw.periods[1].start, DateTime(2026, 8, 10));
+    for (final HabitPeriod p in cw.periods) {
+      expect(p.start.weekday, DateTime.monday);
+    }
+    final HabitEntity m = HabitEntity(
+      id: 'm',
+      title: 'M',
+      createdAt: DateTime(2026, 5, 20),
+      cadence: HabitCadence.monthly,
+    );
+    final HabitConsistency cm = HabitConsistency.compute(
+      habit: m,
+      occurrences: const <HabitOccurrenceEntity>[],
+      now: now,
+    )!;
+    expect(cm.periods.map((HabitPeriod p) => p.start), <DateTime>[
+      DateTime(2026, 8, 1),
+      DateTime(2026, 7, 1),
+      DateTime(2026, 6, 1),
+      DateTime(2026, 5, 1),
+    ]);
+  });
+
+  test('just after a clock change the days are still whole calendar days', () {
+    // 00:30 the day after the US spring-forward and after the fall-back. Where
+    // the machine's time zone has a change on these dates, hour arithmetic
+    // would land on the wrong date and this fails; in a zone without one it
+    // only checks calendar arithmetic and cannot fail for that reason.
+    for (final DateTime n in <DateTime>[
+      DateTime(2026, 3, 9, 0, 30),
+      DateTime(2026, 11, 2, 0, 30),
+    ]) {
+      final HabitEntity h = HabitEntity(
+        id: 'dst',
+        title: 'Stretch',
+        createdAt: DateTime(2026, 1, 1),
+      );
+      final HabitConsistency c = HabitConsistency.compute(
+        habit: h,
+        occurrences: <HabitOccurrenceEntity>[
+          for (int i = 0; i < 7; i++)
+            record(h, DateTime(n.year, n.month, n.day - i, 9)),
+        ],
+        now: n,
+      )!;
+      expect(c.periods.take(7).map((HabitPeriod p) => p.start), <DateTime>[
+        for (int i = 0; i < 7; i++) DateTime(n.year, n.month, n.day - i),
+      ]);
+      expect(c.windowPeriods, 7);
+      expect(c.currentStreak, 7);
+    }
+  });
+
+  test('a start later than now is clamped to one day', () {
+    final HabitEntity h = HabitEntity(
+      id: 'future',
+      title: 'Future',
+      createdAt: daysAgo(-3),
+    );
+    final HabitConsistency c = HabitConsistency.compute(
+      habit: h,
+      occurrences: const <HabitOccurrenceEntity>[],
+      now: now,
+    )!;
+    expect(c.daysTracked(now), 1);
+    expect(c.periods.length, 1);
+    expect(c.windowPeriods, 1);
+    expect(c.missed, 0);
+  });
 }

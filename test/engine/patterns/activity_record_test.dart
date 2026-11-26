@@ -135,4 +135,59 @@ void main() {
       hasLength(1),
     );
   });
+
+  test(
+    'records at one moment order by kind then id, and are de-duplicated',
+    () {
+      final DateTime at = daysAgo(0, 8);
+      final HabitOccurrenceEntity first = occurrence(walk, at);
+      final List<TaskEntity> tasks = <TaskEntity>[
+        task('b', completed: true, completedAt: at),
+        task('a', completed: true, completedAt: at),
+        // The same task listed twice.
+        task('a', completed: true, completedAt: at),
+      ];
+      List<String> ids(
+        Iterable<TaskEntity> t,
+        Iterable<HabitOccurrenceEntity> o,
+      ) => activityRecords(
+        tasks: t,
+        habits: <HabitEntity>[walk],
+        occurrences: o,
+        now: now,
+      ).map((ActivityRecord r) => '${r.kind.name}:${r.subjectId}').toList();
+      final List<String> forward = ids(tasks, <HabitOccurrenceEntity>[
+        first,
+        first,
+      ]);
+      expect(forward, <String>['task:a', 'task:b', 'habit:walk']);
+      expect(ids(tasks.reversed, <HabitOccurrenceEntity>[first]), forward);
+    },
+  );
+
+  test('ActivityRecord compares by value', () {
+    final DateTime at = daysAgo(1);
+    ActivityRecord make(String title) => ActivityRecord(
+      kind: ActivityKind.task,
+      subjectId: 'x',
+      title: title,
+      outcome: ActivityOutcome.done,
+      at: at,
+    );
+    expect(make('X'), make('X'));
+    expect(make('X').hashCode, make('X').hashCode);
+    expect(make('X') == make('Y'), isFalse);
+  });
+
+  test('check-ins of a habit that is no longer saved are dropped', () {
+    expect(
+      activityRecords(
+        tasks: const <TaskEntity>[],
+        habits: const <HabitEntity>[],
+        occurrences: <HabitOccurrenceEntity>[occurrence(walk, daysAgo(0))],
+        now: now,
+      ),
+      isEmpty,
+    );
+  });
 }
