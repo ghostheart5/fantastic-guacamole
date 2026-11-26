@@ -131,6 +131,18 @@ void main() {
           ),
           spanish ? 'Patrones' : 'Patterns',
         );
+        // /patterns answers about level, XP and streaks in Chat; it does not
+        // open the Patterns screen, and its description says so.
+        expect(
+          copy.shortcutDescription(
+            SIConsoleShortcutRegistry.parse('/patterns').definition!,
+          ),
+          spanish
+              ? 'preguntar aquí por tu nivel, XP y rachas; tus patrones '
+                    'registrados están en Perspectivas'
+              : 'ask here about your level, XP and streaks; your recorded '
+                    'patterns are in Insights',
+        );
       }
       expect(SIV2Source.timeline.label, 'Schedule');
       expect(SIV2Source.timeline.name, 'timeline');

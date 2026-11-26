@@ -1031,7 +1031,9 @@ final class SIRoutineCopy {
       'milestones' => 'resumir salud, riesgo y próximo objetivo de los hitos',
       'timeline' => 'resumir hitos y eventos recientes',
       'trajectory' => 'resumir impulso, presión y predicción',
-      'progression' => 'analizar nivel, XP, racha y señales de progreso',
+      'progression' =>
+        'preguntar aquí por tu nivel, XP y rachas; tus patrones registrados '
+            'están en ${InsightsCopy.tabNameEs}',
       'memories' => 'analizar preferencias guardadas y memorias pertinentes',
       'emotions' => 'analizar evidencia explícita del registro emocional',
       _ => definition.description,

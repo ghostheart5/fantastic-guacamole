@@ -237,7 +237,10 @@ abstract final class SIConsoleShortcutRegistry {
           id: 'progression',
           label: 'Patterns',
           shortcut: '/patterns',
-          description: 'analyze level, XP, streak, and progress signals',
+          // Answered here in Chat; the Patterns screen itself is in Insights.
+          description:
+              'ask here about your level, XP and streaks; your recorded '
+              'patterns are in Insights',
           route: SIShortcutRoute.intelligenceQuery,
           argumentPolicy: SIShortcutArgumentPolicy.forwardToIntelligence,
           aliases: <String>['/activity', '/xp', '/progression'],
