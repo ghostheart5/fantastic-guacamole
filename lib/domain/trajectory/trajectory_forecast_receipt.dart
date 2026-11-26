@@ -155,6 +155,11 @@ class TrajectoryForecastReceipt {
   /// Whether this forecast was made by [version] of the model, so its figures
   /// mean the same as that version's.
   bool isMethod(String version) => modelVersion == version;
+
+  /// Whether this receipt can be used to judge [version]'s accuracy: made by
+  /// that version, checked, and with its assumptions uncorrected.
+  bool isCalibrationEvidence(String version) =>
+      isMethod(version) && isResolved && !hasAssumptionCorrection;
   bool isDueAt(DateTime value) => !value.toUtc().isBefore(dueAt.toUtc());
 
   TrajectoryForecastReceipt resolve(TrajectoryObservedOutcome value) =>
@@ -416,9 +421,7 @@ class TrajectoryCalibrationSummary {
     final List<TrajectoryForecastReceipt> resolved = all
         .where(
           (TrajectoryForecastReceipt item) =>
-              item.isMethod(modelVersion) &&
-              item.observed != null &&
-              !item.hasAssumptionCorrection,
+              item.isCalibrationEvidence(modelVersion),
         )
         .toList(growable: false);
     if (resolved.isEmpty) {

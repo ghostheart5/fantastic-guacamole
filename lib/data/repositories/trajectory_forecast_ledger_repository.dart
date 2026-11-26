@@ -105,9 +105,10 @@ class TrajectoryForecastLedgerRepository
   }
 
   /// Stores an automatic [receipt] unless an automatic receipt for the same
-  /// range was already recorded on the same local day, or the cap would have
-  /// to drop an unchecked manual receipt to make room (then the automatic one
-  /// is not kept). Returns whether it was stored.
+  /// range was recorded recently (the same local day for the 7-day range,
+  /// the last 7 local days for the 30- and 90-day ranges), or there is no
+  /// room for it under the cap without dropping checked evidence or an
+  /// unchecked receipt (see [_bounded]). Returns whether it was stored.
   Future<bool> appendAutomatic(
     TrajectoryForecastReceipt receipt, {
     bool Function()? isCurrent,
@@ -121,14 +122,17 @@ class TrajectoryForecastLedgerRepository
     receipt.validate();
     final List<TrajectoryForecastReceipt> existing = await load();
     if (isCurrent != null && !isCurrent()) return false;
-    final DateTime day = _localDay(receipt.selectedAt);
-    final bool alreadyToday = existing.any(
+    final int interval = receipt.horizon.inDays > 7
+        ? automaticLongRangeIntervalDays
+        : 1;
+    final bool recent = existing.any(
       (TrajectoryForecastReceipt item) =>
           item.isAutomatic &&
           item.horizon == receipt.horizon &&
-          _localDay(item.selectedAt) == day,
+          _localDaysBetween(item.selectedAt, receipt.selectedAt).abs() <
+              interval,
     );
-    if (alreadyToday) return false;
+    if (recent) return false;
     final List<TrajectoryForecastReceipt> kept =
         _bounded(<TrajectoryForecastReceipt>[
           receipt,
@@ -262,10 +266,18 @@ class TrajectoryForecastLedgerRepository
   }
 
   /// Keeps at most [maximumReceipts], newest first. When some must go, they
-  /// go in this order, oldest first within each group: settled receipts
-  /// (checked, or due under an earlier method), then unchecked automatic
-  /// receipts, then unchecked manual receipts. So an unchecked manual receipt
-  /// is never dropped while an automatic or settled one could go instead.
+  /// go in this order:
+  /// 1. receipts that are not calibration evidence and are settled (due under
+  ///    an earlier method, missed, or corrected), oldest settled first;
+  /// 2. checked current-version receipts beyond the newest
+  ///    [maximumReceipts] / 2 (the evidence floor), earliest checked first;
+  /// 3. unchecked automatic receipts, newest first: a new automatic receipt is
+  ///    simply not kept, and one already waiting for its check is kept;
+  /// 4. the remaining checked current-version receipts, earliest checked
+  ///    first;
+  /// 5. unchecked manual receipts, oldest first.
+  /// So an unchecked manual receipt is never dropped while anything else could
+  /// go, and an automatic receipt never pushes out the evidence floor.
   List<TrajectoryForecastReceipt> _bounded(
     List<TrajectoryForecastReceipt> receipts,
   ) {
@@ -278,27 +290,70 @@ class TrajectoryForecastLedgerRepository
     if (excess <= 0) return ordered;
     final Set<TrajectoryForecastReceipt> dropped =
         Set<TrajectoryForecastReceipt>.identity();
-    for (final bool Function(TrajectoryForecastReceipt) group
-        in <bool Function(TrajectoryForecastReceipt)>[
-          (TrajectoryForecastReceipt r) => r.isSettled,
-          (TrajectoryForecastReceipt r) => r.isAutomatic,
-          (TrajectoryForecastReceipt r) => true,
-        ]) {
-      for (final TrajectoryForecastReceipt receipt in ordered.reversed) {
-        if (excess == 0) break;
-        if (dropped.contains(receipt) || !group(receipt)) continue;
-        dropped.add(receipt);
+    bool isEvidence(TrajectoryForecastReceipt r) =>
+        r.isCalibrationEvidence(trajectoryConsequenceModelVersion);
+    DateTime settledAt(TrajectoryForecastReceipt r) =>
+        r.observed?.observedAt ??
+        r.earlierMethodAt ??
+        r.assumptionsCorrectedAt ??
+        r.selectedAt;
+    List<TrajectoryForecastReceipt> earliestSettledFirst(
+      bool Function(TrajectoryForecastReceipt) test,
+    ) => ordered.where(test).toList()
+      ..sort(
+        (TrajectoryForecastReceipt a, TrajectoryForecastReceipt b) =>
+            settledAt(a).compareTo(settledAt(b)),
+      );
+    void drop(Iterable<TrajectoryForecastReceipt> candidates, {int? limit}) {
+      int allowed = limit ?? excess;
+      for (final TrajectoryForecastReceipt receipt in candidates) {
+        if (excess == 0 || allowed == 0) return;
+        if (!dropped.add(receipt)) continue;
         excess--;
+        allowed--;
       }
     }
+
+    // 1. Settled, not evidence.
+    drop(
+      earliestSettledFirst(
+        (TrajectoryForecastReceipt r) => r.isSettled && !isEvidence(r),
+      ),
+    );
+    // 2. Evidence beyond the floor.
+    final List<TrajectoryForecastReceipt> evidence = earliestSettledFirst(
+      isEvidence,
+    );
+    final int floor = maximumReceipts ~/ 2;
+    if (evidence.length > floor) drop(evidence, limit: evidence.length - floor);
+    // 3. Unchecked automatic, newest first.
+    drop(
+      ordered.where(
+        (TrajectoryForecastReceipt r) => !r.isSettled && r.isAutomatic,
+      ),
+    );
+    // 4. The rest of the evidence.
+    drop(evidence);
+    // 5. Unchecked manual (and anything left), oldest first.
+    drop(ordered.reversed);
     return ordered
         .where((TrajectoryForecastReceipt item) => !dropped.contains(item))
         .toList(growable: false);
   }
 
-  static DateTime _localDay(DateTime value) {
-    final DateTime local = value.toLocal();
-    return DateTime(local.year, local.month, local.day);
+  /// Automatic 30- and 90-day receipts are recorded at most once in this many
+  /// local days; 7-day ones at most once a local day.
+  static const int automaticLongRangeIntervalDays = 7;
+
+  /// Calendar days from [from]'s local day to [to]'s local day.
+  static int _localDaysBetween(DateTime from, DateTime to) {
+    final DateTime a = from.toLocal();
+    final DateTime b = to.toLocal();
+    return DateTime.utc(
+      b.year,
+      b.month,
+      b.day,
+    ).difference(DateTime.utc(a.year, a.month, a.day)).inDays;
   }
 
   Future<void> _save(List<TrajectoryForecastReceipt> receipts) async {

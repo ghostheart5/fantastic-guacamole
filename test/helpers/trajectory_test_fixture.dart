@@ -22,6 +22,7 @@ TrajectoryBaseline trajectoryTestBaseline({
   int completedInWindow = 6,
   int horizonDays = 7,
   int? pressureInHorizon,
+  DateTime? observedAt,
 }) {
   final List<TrajectoryTaskNode> resolvedTasks = tasks ?? _fixtureTasks();
   final int free = dailyFreeMinutes ?? 120;
@@ -51,6 +52,7 @@ TrajectoryBaseline trajectoryTestBaseline({
     dailyFreeMinutes: free,
     completedInWindow: completedInWindow,
     horizonDays: horizonDays,
+    observedAt: observedAt ?? trajectoryFixtureNow,
     // A 7-day range is the next 7 days, so an explicit pressure override is
     // also the range workload; other ranges can be set explicitly.
     pressureInHorizon:
@@ -92,10 +94,11 @@ TrajectoryBaseline _fixtureBaseline({
   required int completedInWindow,
   required int horizonDays,
   required int pressureInHorizon,
+  required DateTime observedAt,
 }) => TrajectoryBaseline(
   accountScope: accountScope,
   revision: 'trajectory-fixture-r1',
-  observedAt: trajectoryFixtureNow,
+  observedAt: observedAt,
   evidenceWindow: const Duration(days: 7),
   momentum: momentum,
   pressure: pressure,
