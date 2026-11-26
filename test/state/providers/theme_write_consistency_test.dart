@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/data/repositories/theme_repository.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_theme_repository.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_current_theme.dart';
@@ -9,8 +11,34 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test(
+    'legacy Dark and Light records and new Match device round trip',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      const store = SharedPrefsStoreAdapter();
+      await store.init();
+      const key = 'app_theme_entity_v1';
+      final repository = ThemeRepository(store);
+      for (final mode in ['dark', 'light']) {
+        final bool dark = mode == 'dark';
+        await store.save(key, '{"id":"$mode","name":"Legacy","isDark":$dark}');
+        final theme = (await repository.getCurrentTheme())!;
+        expect(theme.id, mode);
+        expect(theme.isDark, dark);
+        expect(theme.followsDevice, isFalse);
+      }
+      final theme = await repository.getThemeById('system');
+      expect(theme?.followsDevice, isTrue);
+      await repository.saveTheme(theme!);
+      expect(
+        (await ThemeRepository(store).getCurrentTheme())?.followsDevice,
+        isTrue,
+      );
+    },
+  );
   ProviderContainer containerFor(_ThemeRepository repository) {
     final container = ProviderContainer(
       overrides: [

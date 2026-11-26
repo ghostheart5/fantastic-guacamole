@@ -13,6 +13,8 @@ import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
+import 'package:fantastic_guacamole/theme/app_theme.dart';
+import 'package:fantastic_guacamole/ui/widgets/plain/plain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -29,6 +31,7 @@ Future<PermissionFixture> _open(
   bool habitRemindersOn = true,
   bool spanish = false,
   double textScale = 1,
+  ThemeData? theme,
   Size size = const Size(500, 1000),
 }) async {
   await tester.binding.setSurfaceSize(size);
@@ -74,7 +77,9 @@ Future<PermissionFixture> _open(
             disableAnimations: true,
             textScaler: TextScaler.linear(textScale),
           ),
-          child: const DailyRhythmsScreen(),
+          child: theme == null
+              ? const DailyRhythmsScreen()
+              : Theme(data: theme, child: const DailyRhythmsScreen()),
         ),
       ),
       spanish: spanish,
@@ -84,7 +89,59 @@ Future<PermissionFixture> _open(
   return fixture;
 }
 
+double _contrast(Color a, Color b) {
+  final double first = a.computeLuminance() + 0.05;
+  final double second = b.computeLuminance() + 0.05;
+  return first > second ? first / second : second / first;
+}
+
 void main() {
+  for (final ThemeData theme in <ThemeData>[appTheme, appLightTheme]) {
+    testWidgets(
+      'Habit actions and inactive reminder are readable at 200% in ${theme.brightness.name}',
+      (tester) async {
+        await _open(
+          tester,
+          granted: false,
+          spanish: true,
+          theme: theme,
+          textScale: 2,
+          size: const Size(320, 1600),
+        );
+
+        expect(find.byType(PlainScreen), findsOneWidget);
+        expect(find.byType(PlainCard), findsOneWidget);
+        final Color surface = Color.alphaBlend(
+          theme.cardTheme.color ?? theme.colorScheme.surface,
+          PlainPalette.page.fill,
+        );
+        final Text reminder = tester.widget<Text>(find.byKey(_label));
+        expect(
+          _contrast(reminder.style!.color!, surface),
+          greaterThanOrEqualTo(4.5),
+        );
+
+        final Finder options = find.byKey(
+          const ValueKey<String>('habit-options-walk'),
+        );
+        await tester.scrollUntilVisible(options, 350, maxScrolls: 16);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Opciones del hábito'));
+        await tester.pumpAndSettle();
+        final Finder edit = find.byKey(
+          const ValueKey<String>('rhythm-reminder-walk'),
+        );
+        await tester.scrollUntilVisible(edit, 350, maxScrolls: 16);
+        await tester.pumpAndSettle();
+        expect(tester.getSize(edit).height, greaterThanOrEqualTo(48));
+        expect(
+          tester.getSize(find.byKey(_action)).height,
+          greaterThanOrEqualTo(48),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   for (final spanish in <bool>[false, true]) {
     final String lang = spanish ? 'es' : 'en';
 

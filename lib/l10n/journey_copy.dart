@@ -83,6 +83,7 @@ String journeyLabel(BuildContext context, String label) =>
             'Open Creator': 'Añadir una tarea',
             'Today': 'Hoy',
             'Week': 'Semana',
+            'This week': 'Esta semana',
             'Month': 'Mes',
             'Year': 'Año',
             'All': 'Todo',

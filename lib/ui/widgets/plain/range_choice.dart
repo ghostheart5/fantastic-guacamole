@@ -33,9 +33,14 @@ class RangeChoice extends StatelessWidget {
             backgroundColor: colors.fill,
             selectedColor: colors.selectedFill,
             checkmarkColor: colors.primary,
-            side: BorderSide(
-              color: i == selectedIndex ? colors.accent : colors.line,
-            ),
+            side: WidgetStateBorderSide.resolveWith((Set<WidgetState> states) {
+              if (states.contains(WidgetState.focused)) {
+                return BorderSide(color: colors.primary, width: 3);
+              }
+              return BorderSide(
+                color: i == selectedIndex ? colors.accent : colors.line,
+              );
+            }),
             materialTapTargetSize: MaterialTapTargetSize.padded,
             onSelected: (_) => onSelected(i),
           ),

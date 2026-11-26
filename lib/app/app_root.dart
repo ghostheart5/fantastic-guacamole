@@ -272,6 +272,11 @@ class _AppRootState extends ConsumerState<AppRoot> {
     // the background recheck) still forgets the Chat balance it changed.
     ref.watch(aiCreditPurchaseOutcomeWatchProvider);
     final themeEntity = ref.watch(currentThemeProvider).asData?.value;
+    final ThemeMode themeMode = (themeEntity?.followsDevice ?? false)
+        ? ThemeMode.system
+        : (themeEntity?.isDark ?? true)
+        ? ThemeMode.dark
+        : ThemeMode.light;
     final AuthSessionBoundary accountBoundary = ref.watch(
       authSessionBoundaryProvider,
     );
@@ -292,7 +297,9 @@ class _AppRootState extends ConsumerState<AppRoot> {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        theme: (themeEntity?.isDark ?? true) ? appTheme : appLightTheme,
+        theme: appLightTheme,
+        darkTheme: appTheme,
+        themeMode: themeMode,
         home: _AccountDataLock(boundary: accountBoundary),
       );
     }
@@ -341,7 +348,9 @@ class _AppRootState extends ConsumerState<AppRoot> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: (themeEntity?.isDark ?? true) ? appTheme : appLightTheme,
+      theme: appLightTheme,
+      darkTheme: appTheme,
+      themeMode: themeMode,
       routerConfig: _routerConfig,
       builder: (context, child) {
         final Widget appChild = Stack(

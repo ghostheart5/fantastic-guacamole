@@ -6,7 +6,7 @@ import 'package:fantastic_guacamole/state/providers/notification_permission_prov
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
-import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/widgets/plain/plain_palette.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -85,8 +85,8 @@ class HabitReminderLine extends ConsumerWidget {
           key: ValueKey<String>('rhythm-reminder-label-$habitId'),
           style: block == null
               ? null
-              : const TextStyle(
-                  color: Colors.white54,
+              : TextStyle(
+                  color: PlainPalette.of(context).secondary,
                   decoration: TextDecoration.lineThrough,
                 ),
         );
@@ -132,9 +132,9 @@ class HabitReminderLine extends ConsumerWidget {
               excludeSemantics: true,
               child: Row(
                 children: <Widget>[
-                  const Icon(
+                  Icon(
                     Icons.notifications_off_outlined,
-                    color: AppColors.memoryAmber,
+                    color: PlainPalette.of(context).secondary,
                     size: 18,
                   ),
                   const SizedBox(width: 8),

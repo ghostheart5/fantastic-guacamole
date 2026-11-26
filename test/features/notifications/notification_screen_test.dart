@@ -4,7 +4,9 @@ import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,9 +24,12 @@ void main() {
       permissionGranted: true,
     ),
     bool osListPending = false,
+    Size size = const Size(1200, 2400),
+    ThemeData? theme,
+    double textScale = 1,
   }) async {
     tester.platformDispatcher.views.first
-      ..physicalSize = const Size(1200, 2400)
+      ..physicalSize = size
       ..devicePixelRatio = 1.0;
     addTearDown(() {
       tester.platformDispatcher.views.first
@@ -50,6 +55,13 @@ void main() {
         container: container,
         child: MaterialApp(
           locale: locale,
+          theme: theme,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
           supportedLocales: const [Locale('en'), Locale('es')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
           home: const NotificationsPage(),
@@ -59,6 +71,46 @@ void main() {
     await tester.pump();
     await tester.pump();
     return container;
+  }
+
+  for (final ThemeData theme in <ThemeData>[appTheme, appLightTheme]) {
+    testWidgets(
+      'scrolls and keeps readable summary at 200% in ${theme.brightness.name}',
+      (tester) async {
+        await pumpNotifications(
+          tester,
+          <NotificationEntity>[
+            NotificationEntity(
+              id: 'qa-large-text',
+              title: 'Test reminder',
+              message: 'A reminder description that can wrap at large text.',
+              scheduledAt: DateTime.utc(2026, 1, 1),
+            ),
+          ],
+          theme: theme,
+          size: const Size(320, 568),
+          textScale: 2,
+        );
+
+        final Finder summary = find.text('Activity and scheduled reminders.');
+        final RenderParagraph paragraph = tester.renderObject<RenderParagraph>(
+          find.descendant(of: summary, matching: find.byType(RichText)),
+        );
+        final Color background = tester
+            .widget<Scaffold>(find.byType(Scaffold))
+            .backgroundColor!;
+        final double fg = paragraph.text.style!.color!.computeLuminance() + .05;
+        final double bg = background.computeLuminance() + .05;
+        expect(fg > bg ? fg / bg : bg / fg, greaterThanOrEqualTo(4.5));
+        expect(
+          tester.getSize(find.byTooltip('Back')).shortestSide,
+          greaterThanOrEqualTo(48),
+        );
+        await tester.scrollUntilVisible(find.text('Test reminder'), 250);
+        expect(find.text('Test reminder').hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets(

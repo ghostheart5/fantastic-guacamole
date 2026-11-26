@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 /// segments sit side by side, and stack when a label would not fit in half
 /// the width (large text, narrow screen) so no word is broken. Colours come
 /// from the surrounding [PlainPalette].
-class DestinationSwitch extends StatelessWidget {
+class DestinationSwitch extends StatefulWidget {
   const DestinationSwitch({
     required this.firstLabel,
     required this.secondLabel,
@@ -19,6 +19,13 @@ class DestinationSwitch extends StatelessWidget {
   final String secondLabel;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+
+  @override
+  State<DestinationSwitch> createState() => _DestinationSwitchState();
+}
+
+class _DestinationSwitchState extends State<DestinationSwitch> {
+  int? _focusedIndex;
 
   static const double _gap = 8;
   static const double _segmentPadding = 8;
@@ -35,7 +42,10 @@ class DestinationSwitch extends StatelessWidget {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints box) {
         double widest = 0;
-        for (final String label in <String>[firstLabel, secondLabel]) {
+        for (final String label in <String>[
+          widget.firstLabel,
+          widget.secondLabel,
+        ]) {
           final TextPainter painter = TextPainter(
             text: TextSpan(text: label, style: style),
             textDirection: direction,
@@ -46,8 +56,8 @@ class DestinationSwitch extends StatelessWidget {
         }
         final bool sideBySide =
             widest + 2 * _segmentPadding <= (box.maxWidth - _gap) / 2;
-        final Widget first = _segment(context, 0, firstLabel);
-        final Widget second = _segment(context, 1, secondLabel);
+        final Widget first = _segment(context, 0, widget.firstLabel);
+        final Widget second = _segment(context, 1, widget.secondLabel);
         if (sideBySide) {
           return Row(
             children: <Widget>[
@@ -72,7 +82,8 @@ class DestinationSwitch extends StatelessWidget {
   Widget _segment(BuildContext context, int index, String label) {
     final ThemeData theme = Theme.of(context);
     final PlainPalette colors = PlainPalette.of(context);
-    final bool selected = index == selectedIndex;
+    final bool selected = index == widget.selectedIndex;
+    final bool focused = index == _focusedIndex;
     final ShapeBorder? cardShape = theme.cardTheme.shape;
     final BorderRadiusGeometry radius = cardShape is RoundedRectangleBorder
         ? cardShape.borderRadius
@@ -83,19 +94,28 @@ class DestinationSwitch extends StatelessWidget {
       inMutuallyExclusiveGroup: true,
       label: label,
       excludeSemantics: true,
-      onTap: () => onSelected(index),
+      onTap: () => widget.onSelected(index),
       child: Material(
         color: selected ? colors.selectedFill : colors.fill,
         shape: RoundedRectangleBorder(
           borderRadius: radius,
           side: BorderSide(
-            color: selected ? colors.accent : colors.line,
-            width: selected ? 2 : 1,
+            color: focused
+                ? colors.primary
+                : (selected ? colors.accent : colors.line),
+            width: focused ? 3 : (selected ? 2 : 1),
           ),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: () => onSelected(index),
+          onFocusChange: (bool focused) {
+            if (focused) {
+              setState(() => _focusedIndex = index);
+            } else if (_focusedIndex == index) {
+              setState(() => _focusedIndex = null);
+            }
+          },
+          onTap: () => widget.onSelected(index),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 48),
             child: Center(

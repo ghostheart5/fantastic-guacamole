@@ -1753,10 +1753,17 @@ void main() {
     await tester.tap(find.text('Apariencia y permisos'));
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('APARIENCIA Y PERMISOS'), findsOneWidget);
-    expect(find.text('Formularios y diálogos oscuros'), findsOneWidget);
+    expect(find.text('Apariencia'), findsOneWidget);
+    final DropdownButtonFormField<String> appearance = tester
+        .widget<DropdownButtonFormField<String>>(
+          find.byWidgetPredicate(
+            (widget) => widget is DropdownButtonFormField<String>,
+          ),
+        );
+    expect(appearance.initialValue, isIn(<String>['dark', 'light', 'system']));
     expect(
       find.text(
-        'El fondo sigue oscuro. Este ajuste cambia los formularios y diálogos.',
+        'Los formularios y las tarjetas siguen tu elección. Los fondos azul marino siguen oscuros.',
       ),
       findsOneWidget,
     );
@@ -2819,6 +2826,26 @@ void main() {
         300,
         scrollable: find.byType(Scrollable).first,
       );
+      final List<Text> guidanceDescriptions = tester
+          .widgetList<Text>(
+            find.descendant(
+              of: find.ancestor(
+                of: find.text('Planning & guidance'),
+                matching: find.byType(ExpansionTile),
+              ),
+              matching: find.byType(Text),
+            ),
+          )
+          .where((Text text) => text.data != 'Planning & guidance')
+          .toList();
+      expect(guidanceDescriptions, hasLength(1));
+      expect(
+        guidanceDescriptions.single.style?.fontSize,
+        greaterThanOrEqualTo(12),
+      );
+      expect(guidanceDescriptions.single.maxLines, isNull);
+      expect(tester.takeException(), isNull);
+
       await invokeNavTile(tester, 'Planning & guidance');
       await tester.scrollUntilVisible(
         find.text('Use feedback for learning'),

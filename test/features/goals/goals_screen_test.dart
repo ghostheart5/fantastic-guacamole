@@ -285,15 +285,25 @@ void main() {
           ],
         );
         addTearDown(container.dispose);
-        await tester.pumpWidget(_testApp(container, es));
+        await tester.pumpWidget(
+          _testApp(container, es, theme: es ? appLightTheme : appTheme),
+        );
         await tester.pump();
+        final Finder message = find.text(
+          es
+              ? 'No se pueden leer tus metas. Los datos existentes se conservaron.'
+              : 'Your goals could not be read. Existing data was preserved.',
+        );
+        expect(message, findsOneWidget);
+        final RenderParagraph paragraph = tester.renderObject<RenderParagraph>(
+          find.descendant(of: message, matching: find.byType(RichText)),
+        );
+        final Color background = tester
+            .widget<Scaffold>(find.byType(Scaffold))
+            .backgroundColor!;
         expect(
-          find.text(
-            es
-                ? 'No se pueden leer tus metas. Los datos existentes se conservaron.'
-                : 'Your goals could not be read. Existing data was preserved.',
-          ),
-          findsOneWidget,
+          _contrast(paragraph.text.style!.color!, background),
+          greaterThanOrEqualTo(4.5),
         );
         expect(
           tester

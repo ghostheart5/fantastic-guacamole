@@ -82,7 +82,7 @@ class _Section extends StatelessWidget {
                     label,
                     softWrap: true,
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 12,
                       letterSpacing: 0,
                       color: accentColor,
                       fontWeight: FontWeight.w700,
@@ -151,7 +151,7 @@ class _PlanAndCreditsCard extends StatelessWidget {
             journeyText(context, 'PLAN & CREDITS', 'PLANES Y CRÉDITOS'),
             style: const TextStyle(
               color: AppColors.neonCyan,
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: FontWeight.w900,
               letterSpacing: 0,
             ),
@@ -248,7 +248,7 @@ class _SettingsAccessEntry extends StatelessWidget {
                       eyebrow,
                       style: TextStyle(
                         color: accent,
-                        fontSize: 8,
+                        fontSize: 12,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 0,
                       ),
@@ -265,11 +265,9 @@ class _SettingsAccessEntry extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Color(0xFF95A3BF),
-                        fontSize: 10,
+                        fontSize: 12,
                         height: 1.3,
                       ),
                     ),
@@ -285,7 +283,7 @@ class _SettingsAccessEntry extends StatelessWidget {
                     actionLabel,
                     style: TextStyle(
                       color: accent,
-                      fontSize: 8,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -354,11 +352,9 @@ class _SettingsCategory extends StatelessWidget {
           ),
           subtitle: Text(
             subtitle,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Color(0xFF8C99B5),
-              fontSize: 10,
+              fontSize: 12,
               height: 1.3,
             ),
           ),
@@ -383,13 +379,11 @@ class _FormAppearanceSettingState
     extends ConsumerState<_FormAppearanceSetting> {
   bool _saving = false;
 
-  Future<void> _save(bool dark) async {
+  Future<void> _save(AppThemeEntity theme) async {
     if (_saving) return;
     setState(() => _saving = true);
     try {
-      await ref
-          .read(themeActionsProvider)
-          .save(dark ? AppThemeEntity.dark() : AppThemeEntity.light());
+      await ref.read(themeActionsProvider).save(theme);
     } on Object {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -413,28 +407,57 @@ class _FormAppearanceSettingState
   Widget build(BuildContext context) {
     String copy(String english, String spanish) =>
         journeyText(context, english, spanish);
-    final isDark = ref.watch(currentThemeProvider).asData?.value.isDark ?? true;
-    return Column(
-      children: [
-        _NeonToggleTile(
-          title: copy(
-            'Dark forms and dialogs',
-            'Formularios y diálogos oscuros',
+    final AppThemeEntity? saved = ref.watch(currentThemeProvider).asData?.value;
+    final List<AppThemeEntity> choices = <AppThemeEntity>[
+      AppThemeEntity.dark(),
+      AppThemeEntity.light(),
+      AppThemeEntity.matchDevice,
+    ];
+    final String selected = (saved?.followsDevice ?? false)
+        ? AppThemeEntity.matchDevice.id
+        : (saved?.isDark ?? true)
+        ? 'dark'
+        : 'light';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          DropdownButtonFormField<String>(
+            key: ValueKey((selected, _saving)),
+            initialValue: selected,
+            isExpanded: true,
+            decoration: InputDecoration(
+              labelText: copy('Appearance', 'Apariencia'),
+            ),
+            items: <DropdownMenuItem<String>>[
+              for (final AppThemeEntity choice in choices)
+                DropdownMenuItem<String>(
+                  value: choice.id,
+                  child: Text(switch (choice.id) {
+                    'dark' => copy('Dark', 'Oscura'),
+                    'light' => copy('Light', 'Clara'),
+                    _ => copy('Match device', 'Igual que el dispositivo'),
+                  }),
+                ),
+            ],
+            onChanged: _saving || saved == null
+                ? null
+                : (String? id) {
+                    if (id == null || id == selected) return;
+                    _save(choices.firstWhere((choice) => choice.id == id));
+                  },
           ),
-          value: isDark,
-          onChanged: _saving ? null : _save,
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: Text(
+          const SizedBox(height: 8),
+          Text(
             copy(
-              'Background artwork stays dark. This setting changes forms and dialogs.',
-              'El fondo sigue oscuro. Este ajuste cambia los formularios y diálogos.',
+              'Forms and cards follow your choice. The navy page backgrounds stay dark.',
+              'Los formularios y las tarjetas siguen tu elección. Los fondos azul marino siguen oscuros.',
             ),
             style: const TextStyle(color: Colors.white70),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

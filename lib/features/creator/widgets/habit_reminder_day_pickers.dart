@@ -54,6 +54,16 @@ class HabitWeekdayChooser extends StatelessWidget {
               ),
               selected: days.contains(day),
               showCheckmark: false,
+              materialTapTargetSize: MaterialTapTargetSize.padded,
+              visualDensity: VisualDensity.standard,
+              side: WidgetStateBorderSide.resolveWith((
+                Set<WidgetState> states,
+              ) {
+                final ColorScheme colors = Theme.of(context).colorScheme;
+                return states.contains(WidgetState.focused)
+                    ? BorderSide(color: colors.onSurface, width: 3)
+                    : BorderSide(color: colors.outline);
+              }),
               onSelected: enabled ? (bool on) => toggle(day, on) : null,
             ),
           ),

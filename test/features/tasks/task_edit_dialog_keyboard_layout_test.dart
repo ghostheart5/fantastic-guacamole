@@ -35,6 +35,72 @@ void main() {
   });
 
   testWidgets(
+    '200% landscape text leaves the focused title visible above the keyboard',
+    (tester) async {
+      final results = <TaskEditDraft?>[];
+      await _pumpHarness(
+        tester,
+        _task(),
+        results,
+        logicalWidth: 936,
+        textScale: 2,
+      );
+      await _openEditor(tester);
+      _showKeyboardInset(tester);
+      await tester.pumpAndSettle();
+
+      final Finder title = find.byKey(_titleKey);
+      final Rect titleRect = tester.getRect(title);
+      final Rect saveRect = tester.getRect(
+        find.widgetWithText(FilledButton, 'Save'),
+      );
+      expect(titleRect.bottom, lessThanOrEqualTo(saveRect.top));
+      expect(title.hitTestable(at: const Alignment(0, .8)), findsOneWidget);
+      expect(
+        tester.widget<AlertDialog>(find.byType(AlertDialog)).semanticLabel,
+        'Edit task',
+      );
+      await tester.enterText(title, 'Large landscape edit');
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      expect(results.single?.title, 'Large landscape edit');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'very tall landscape keyboard keeps the form and actions scrollable',
+    (tester) async {
+      final results = <TaskEditDraft?>[];
+      await _pumpHarness(
+        tester,
+        _task(),
+        results,
+        logicalWidth: 936,
+        textScale: 2,
+      );
+      await _openEditor(tester);
+      tester.view.viewInsets = const FakeViewPadding(
+        bottom: 300 * _devicePixelRatio,
+      );
+      await tester.pumpAndSettle();
+
+      final Finder title = find.byKey(_titleKey);
+      expect(title.hitTestable(), findsOneWidget);
+      await tester.enterText(title, 'Very short viewport edit');
+      await tester.pumpAndSettle();
+      final Finder save = find.widgetWithText(FilledButton, 'Save');
+      await tester.ensureVisible(save);
+      await tester.pumpAndSettle();
+      expect(save.hitTestable(), findsOneWidget);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(results.single?.title, 'Very short viewport edit');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'landscape keyboard leaves fields reachable and Save returns the edited draft',
     (tester) async {
       final task = _task();
@@ -255,6 +321,7 @@ Future<void> _pumpHarness(
   TaskEntity task,
   List<TaskEditDraft?> results, {
   required double logicalWidth,
+  double textScale = 1,
 }) async {
   tester.view.physicalSize = Size(
     logicalWidth * _devicePixelRatio,
@@ -273,6 +340,12 @@ Future<void> _pumpHarness(
   await tester.pumpWidget(
     MaterialApp(
       theme: appTheme,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       home: Builder(
         builder: (context) => Scaffold(
           body: Center(

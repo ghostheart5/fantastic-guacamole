@@ -811,51 +811,36 @@ class _TimelineHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TemporalScreenHeader(
-      title: journeyText(context, 'Schedule', 'Agenda'),
-      subtitle: journeyText(
-        context,
-        'See tasks with dates and past activity. Open a task to update it.',
-        'Ve tareas con fecha y actividad anterior. Abre una tarea para actualizarla.',
-      ),
-      eyebrow: journeyText(
-        context,
-        '${_windowLabel(window)} view',
-        'Vista: ${journeyLabel(context, _windowLabel(window))}',
-      ),
-      accent: AppColors.neonViolet,
-      onBack: onBack,
-      backTooltip: Navigator.canPop(context)
-          ? journeyText(context, 'Back', 'Atrás')
-          : journeyText(context, 'Back to Today', 'Volver a Hoy'),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    return PlainPaletteScope(
+      palette: PlainPalette.page,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              '$eventCount',
-              maxLines: 1,
-              softWrap: false,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
+          PlainHeader(
+            title: journeyText(context, 'Schedule', 'Agenda'),
+            actions: <PlainHeaderAction>[
+              PlainHeaderAction(
+                icon: Icons.arrow_back_rounded,
+                label: Navigator.canPop(context)
+                    ? journeyText(context, 'Back', 'Atrás')
+                    : journeyText(context, 'Back to Today', 'Volver a Hoy'),
+                onPressed: onBack,
               ),
+            ],
+          ),
+          Text(
+            journeyText(
+              context,
+              'See tasks with dates and past activity. Open a task to update it.',
+              'Ve tareas con fecha y actividad anterior. Abre una tarea para actualizarla.',
             ),
           ),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              journeyText(context, 'EVENTS', 'EVENTOS'),
-              maxLines: 1,
-              softWrap: false,
-              style: const TextStyle(
-                color: Color(0xFF8B99B8),
-                fontSize: 8,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
-              ),
+          const SizedBox(height: 4),
+          Text(
+            journeyText(
+              context,
+              '${_windowLabel(window)} view · $eventCount events',
+              'Vista: ${journeyLabel(context, _windowLabel(window))} · $eventCount eventos',
             ),
           ),
         ],
@@ -933,8 +918,9 @@ class _TimelineFocusCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Container(
-                width: 62,
-                height: 68,
+                width: 72,
+                constraints: const BoxConstraints(minHeight: 68),
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: const Color(0xA9081427),
@@ -1139,23 +1125,17 @@ class _TimelineControls extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
-            children: _TimelineWindow.values
-                .map(
-                  (_TimelineWindow value) => Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        right: value == _TimelineWindow.all ? 0 : 5,
-                      ),
-                      child: _TimelineRangeButton(
-                        label: journeyLabel(context, _windowLabel(value)),
-                        selected: window == value,
-                        onTap: () => onWindowChanged(value),
-                      ),
-                    ),
-                  ),
-                )
-                .toList(growable: false),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: <Widget>[
+              for (final _TimelineWindow value in _TimelineWindow.values)
+                _TimelineRangeButton(
+                  label: journeyLabel(context, _windowLabel(value)),
+                  selected: window == value,
+                  onTap: () => onWindowChanged(value),
+                ),
+            ],
           ),
           const SizedBox(height: 10),
           Row(
@@ -1180,23 +1160,19 @@ class _TimelineControls extends StatelessWidget {
                   ),
                 ),
               ),
-              TextButton.icon(
-                onPressed: onToggleExpanded,
-                icon: Icon(
-                  expanded ? Icons.expand_less_rounded : Icons.tune_rounded,
-                  size: 17,
-                ),
-                label: Text(
-                  isRefined
-                      ? journeyText(context, 'Refined', 'Filtrado')
-                      : journeyText(
-                          context,
-                          'Find & filter',
-                          'Buscar y filtrar',
-                        ),
-                ),
-              ),
             ],
+          ),
+          TextButton.icon(
+            onPressed: onToggleExpanded,
+            icon: Icon(
+              expanded ? Icons.expand_less_rounded : Icons.tune_rounded,
+              size: 17,
+            ),
+            label: Text(
+              isRefined
+                  ? journeyText(context, 'Refined', 'Filtrado')
+                  : journeyText(context, 'Find & filter', 'Buscar y filtrar'),
+            ),
           ),
           AnimatedCrossFade(
             duration: const Duration(milliseconds: 220),
@@ -1297,8 +1273,8 @@ class _TimelineRangeButton extends StatelessWidget {
       ),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: selected
               ? AppColors.neonCyan.withValues(alpha: .18)
@@ -1312,10 +1288,9 @@ class _TimelineRangeButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          maxLines: 1,
           style: TextStyle(
             color: selected ? AppColors.neonCyan : const Color(0xFF8E9AB5),
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: FontWeight.w800,
           ),
         ),

@@ -47,6 +47,7 @@ class PlainHeader extends StatelessWidget {
         ),
         for (final PlainHeaderAction action in actions)
           IconButton(
+            style: IconButton.styleFrom(minimumSize: const Size.square(48)),
             color: colors.secondary,
             disabledColor: colors.line,
             tooltip: action.label,

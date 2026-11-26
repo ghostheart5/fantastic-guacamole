@@ -6,6 +6,7 @@ import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:fantastic_guacamole/core/async/keyed_mutation_coordinator.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:flutter/foundation.dart' show compute;
 
 class BackupRecoveryKeyRequiredException implements Exception {
   const BackupRecoveryKeyRequiredException();
@@ -159,14 +160,24 @@ class BackupCipher {
     Map<String, dynamic> payload,
   ) async {
     final encrypt.Key key = await _loadOrCreateKey();
+    return compute(_encodeAndEncryptPayload, (
+      key: key.bytes,
+      payload: payload,
+    ), debugLabel: 'encodeAndEncryptCloudBackup');
+  }
+
+  static Map<String, dynamic> _encodeAndEncryptPayload(
+    ({Uint8List key, Map<String, dynamic> payload}) input,
+  ) {
+    final Random random = Random.secure();
     final Uint8List ivBytes = Uint8List.fromList(
-      List<int>.generate(12, (_) => Random.secure().nextInt(256)),
+      List<int>.generate(12, (_) => random.nextInt(256)),
     );
     final encrypt.Encrypter encrypter = encrypt.Encrypter(
-      encrypt.AES(key, mode: encrypt.AESMode.gcm),
+      encrypt.AES(encrypt.Key(input.key), mode: encrypt.AESMode.gcm),
     );
     final encrypt.Encrypted encrypted = encrypter.encrypt(
-      jsonEncode(payload),
+      jsonEncode(input.payload),
       iv: encrypt.IV(ivBytes),
     );
     return <String, dynamic>{

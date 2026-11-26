@@ -597,6 +597,60 @@ void main() {
     },
   );
 
+  testWidgets('This week uses the local calendar week and preserves Week', (
+    tester,
+  ) async {
+    // With English (US) Monday has already started the current Sunday-based week.
+    final DateTime now = DateTime(2026, 8, 31, 12);
+    final Task nextWeek = Task(
+      id: 'next-calendar-week',
+      title: 'Next calendar Sunday',
+      priority: 3,
+      difficulty: 2,
+      energyRequired: 2,
+      dueDate: DateTime(2026, 9, 6, 10),
+    );
+    final ProviderContainer container = _buildContainer(
+      task: nextWeek,
+      clock: () => now,
+    );
+    addTearDown(container.dispose);
+    await _pumpTimeline(tester, container, taskTitle: nextWeek.title);
+    expect(find.text(nextWeek.title), findsOneWidget);
+    final Finder thisWeek = find.text('This week');
+    await tester.ensureVisible(thisWeek);
+    await tester.tap(thisWeek);
+    await tester.pump(const Duration(milliseconds: 220));
+    expect(find.text(nextWeek.title), findsNothing);
+    expect(find.text('No saved activity in this view'), findsOneWidget);
+    await tester.tap(find.text('Week'));
+    await tester.pump(const Duration(milliseconds: 220));
+    expect(find.text(nextWeek.title), findsOneWidget);
+  });
+
+  testWidgets('Spanish calendar week control fits at 320 dp and 200% text', (
+    tester,
+  ) async {
+    final ProviderContainer container = _buildContainer();
+    addTearDown(container.dispose);
+    await _pumpTimelineShell(
+      tester,
+      container,
+      locale: const Locale('es'),
+      size: const Size(320, 568),
+      textScale: 2,
+    );
+    final Finder choice = find.text('Esta semana');
+    await tester.scrollUntilVisible(choice, 240);
+    await tester.pump();
+    expect(choice.hitTestable(), findsOneWidget);
+    final Finder target = find.bySemanticsLabel('Mostrar agenda: Esta semana');
+    expect(tester.getSize(target).shortestSide, greaterThanOrEqualTo(48));
+    await tester.tap(choice);
+    await tester.pump(const Duration(milliseconds: 220));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('schedule-only task is never presented as due or overdue', (
     WidgetTester tester,
   ) async {
@@ -955,8 +1009,10 @@ Future<void> _pumpTimelineShell(
   WidgetTester tester,
   ProviderContainer container, {
   Locale locale = const Locale('en'),
+  Size size = const Size(1200, 1400),
+  double textScale = 1,
 }) async {
-  tester.view.physicalSize = const Size(1200, 1400);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -973,6 +1029,13 @@ Future<void> _pumpTimelineShell(
           GlobalCupertinoLocalizations.delegate,
         ],
         theme: ThemeData(splashFactory: NoSplash.splashFactory),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(textScale),
+            disableAnimations: true,
+          ),
+          child: child!,
+        ),
         home: const TimelineScreen(),
       ),
     ),
