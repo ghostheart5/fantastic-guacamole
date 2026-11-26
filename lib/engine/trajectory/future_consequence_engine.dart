@@ -178,6 +178,7 @@ class FutureConsequenceEngine {
       baseline: baseline,
       intervention: intervention,
       subject: subject,
+      currentPressure: keepGoingPressure,
       projectedPressure: projectedPressure,
       timeline: timeline,
     );
@@ -386,9 +387,12 @@ class FutureConsequenceEngine {
     required TrajectoryBaseline baseline,
     required TrajectoryIntervention intervention,
     required TrajectoryTaskNode? subject,
+    required int currentPressure,
     required int projectedPressure,
     required TimelineConsequence timeline,
   }) {
+    // currentPressure is keeping going over the same range, so current and
+    // projected describe the same window.
     final int currentDeferral = baseline.observationCount == 0
         ? 0
         : ((baseline.deferredInWindow / baseline.observationCount) * 100)
@@ -417,7 +421,7 @@ class FutureConsequenceEngine {
       projectedCapacity = (capacityBase - 18).clamp(0, 100);
     }
     final List<int> currentRiskSignals = <int>[
-      baseline.pressure,
+      currentPressure,
       currentDeferral,
       currentDeadline,
       if (baseline.hasObservedAvailability) capacityBase,
@@ -438,7 +442,7 @@ class FutureConsequenceEngine {
         TrajectoryRiskContribution(
           code: 'pressure',
           label: 'Pressure load',
-          currentScore: baseline.pressure,
+          currentScore: currentPressure,
           projectedScore: projectedPressure,
           explanation: 'Sustained pressure raises rollover and recovery risk.',
         ),

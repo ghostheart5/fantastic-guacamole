@@ -474,7 +474,9 @@ String _conciseOutcomeSummary({
   required TrajectoryScenarioOutcome outcome,
 }) {
   final int momentumDelta = outcome.projectedMomentum - baseline.momentum;
-  final int pressureDelta = outcome.projectedPressure - baseline.pressure;
+  // Same window on both sides: the workload over the chosen range.
+  final int pressureDelta =
+      outcome.projectedPressure - baseline.pressureInHorizon;
   final String momentumChange = momentumDelta == 0
       ? 'momentum holding steady'
       : 'momentum ${momentumDelta > 0 ? 'rising' : 'falling'} by ${momentumDelta.abs()} points';
@@ -559,7 +561,7 @@ class _ScenarioComparisonCard extends StatelessWidget {
               ),
               _MetricDelta(
                 label: journeyText(context, 'Pressure', 'Presión'),
-                current: baseline.pressure,
+                current: baseline.pressureInHorizon,
                 projected: outcome.projectedPressure,
                 uncertainty: outcome.uncertainty,
                 lowerIsBetter: true,
@@ -744,7 +746,7 @@ class _ScenarioFullDetails extends StatelessWidget {
               ),
               _MetricDelta(
                 label: journeyText(context, 'Pressure', 'Presión'),
-                current: baseline.pressure,
+                current: baseline.pressureInHorizon,
                 projected: outcome.projectedPressure,
                 uncertainty: outcome.uncertainty,
                 lowerIsBetter: true,

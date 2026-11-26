@@ -92,6 +92,56 @@ void main() {
         },
       );
 
+      testWidgets('keep going reads as holding steady at 7, 30 and 90 days in '
+          '$language', (tester) async {
+        await tester.binding.setSurfaceSize(const Size(900, 1800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final scope = AccountStorageScope.authenticated('test-account');
+        final steady = language == 'es'
+            ? 'la presión estable'
+            : 'pressure holding steady';
+        final Set<int> projected = <int>{};
+        for (final int days in const <int>[7, 30, 90]) {
+          final comparison = trajectoryTestComparison(
+            horizonDays: days,
+            baseline: trajectoryTestBaseline(
+              accountScope: scope.v2Namespace!,
+              horizonDays: days,
+            ),
+          );
+          final outcome = comparison.outcomes.firstWhere(
+            (value) => value.intervention.id == 'maintain',
+          );
+          projected.add(outcome.projectedPressure);
+          await tester.pumpWidget(
+            _harness(
+              model: _modelWithOutcomes(comparison, [outcome]),
+              locale: Locale(language),
+              repository: TrajectoryForecastLedgerRepository(
+                store: _MemoryStore(),
+                scope: scope,
+              ),
+            ),
+          );
+          await _pumpForecastTransition(tester);
+          await tester.scrollUntilVisible(
+            find.textContaining(steady).first,
+            250,
+            scrollable: find.byType(Scrollable).first,
+          );
+          expect(find.textContaining(steady), findsWidgets, reason: '$days');
+          expect(
+            find.textContaining(
+              language == 'es' ? 'presión bajando' : 'pressure falling',
+            ),
+            findsNothing,
+            reason: '$days',
+          );
+        }
+        // The projected workload itself still differs between ranges.
+        expect(projected.length, greaterThan(1));
+      });
+
       testWidgets('range and free-time assumptions read plainly in $language', (
         tester,
       ) async {

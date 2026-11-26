@@ -418,6 +418,11 @@ TrajectoryBaseline _baseline({
     energyOrigin: aggregation.siState.energyOrigin,
     availabilityOrigin: decision.plan.capacity.windowOrigin,
     horizonDays: horizonDays,
+    pressureInHorizon: FutureConsequenceEngine.capacityLoad(
+      requiredMinutes: inRange.requiredMinutes,
+      dailyFreeMinutes: governedFree,
+      days: horizonDays,
+    ),
     dailyFreeMinutes: governedFree,
     dailyFreeOrigin: freeOrigin,
     tasksInHorizon: inRange.taskCount,

@@ -176,7 +176,9 @@ class TrajectoryBaseline {
     int? requiredMinutesInHorizon,
     this.expectedCompletionsInHorizon = TrajectoryExpectedCompletions.none,
     List<String> assumptions = const <String>[],
-  }) : dailyFreeMinutes =
+    int? pressureInHorizon,
+  }) : pressureInHorizon = pressureInHorizon ?? pressure,
+       dailyFreeMinutes =
            dailyFreeMinutes ??
            (availableMinutes - occupiedMinutes).clamp(0, 1 << 30),
        dailyFreeOrigin = dailyFreeOrigin ?? availabilityOrigin,
@@ -240,6 +242,11 @@ class TrajectoryBaseline {
 
   /// The chosen time range (7, 30 or 90 days) this baseline was built for.
   final int horizonDays;
+
+  /// Workload over the chosen range: the share of the range's free time the
+  /// work in it needs. Options are compared against this value; [pressure]
+  /// stays the next-7-days value (Home reads it).
+  final int pressureInHorizon;
 
   /// Free minutes in a day: planner availability minus occupied time. When
   /// [dailyFreeOrigin] is not observed it comes from the planner's assumed

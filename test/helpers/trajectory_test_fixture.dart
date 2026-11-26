@@ -20,6 +20,71 @@ TrajectoryBaseline trajectoryTestBaseline({
   List<TrajectoryTaskNode>? tasks,
   int? dailyFreeMinutes,
   int completedInWindow = 6,
+  int horizonDays = 7,
+}) {
+  final List<TrajectoryTaskNode> resolvedTasks = tasks ?? _fixtureTasks();
+  final int free = dailyFreeMinutes ?? 120;
+  return _fixtureBaseline(
+    accountScope: accountScope,
+    momentum: momentum,
+    pressure: pressure,
+    observationCount: observationCount,
+    energyOrigin: energyOrigin,
+    availabilityOrigin: availabilityOrigin,
+    personContextWarnings: personContextWarnings,
+    assumptions: assumptions,
+    tasks: resolvedTasks,
+    dailyFreeMinutes: free,
+    completedInWindow: completedInWindow,
+    horizonDays: horizonDays,
+    // The range workload the engine computes for the same tasks, so the
+    // screen's "current" value matches keeping going.
+    pressureInHorizon: FutureConsequenceEngine.capacityLoad(
+      requiredMinutes: FutureConsequenceEngine.horizonWorkload(
+        tasks: resolvedTasks,
+        now: trajectoryFixtureNow,
+        horizonDays: horizonDays,
+        completedLast7Days: completedInWindow,
+      ).requiredMinutes,
+      dailyFreeMinutes: free,
+      days: horizonDays,
+    ),
+  );
+}
+
+List<TrajectoryTaskNode> _fixtureTasks() => <TrajectoryTaskNode>[
+  TrajectoryTaskNode(
+    id: 'task-launch',
+    title: 'Ship protected milestone',
+    priority: 5,
+    estimatedMinutes: 90,
+    goalId: 'goal-release',
+    dueAt: trajectoryFixtureNow.add(const Duration(days: 2)),
+    scheduledAt: trajectoryFixtureNow.add(const Duration(days: 1)),
+  ),
+  const TrajectoryTaskNode(
+    id: 'task-polish',
+    title: 'Polish optional copy',
+    priority: 1,
+    estimatedMinutes: 60,
+    goalId: 'goal-release',
+  ),
+];
+
+TrajectoryBaseline _fixtureBaseline({
+  required String accountScope,
+  required int momentum,
+  required int pressure,
+  required int observationCount,
+  required PredictiveEvidenceOrigin energyOrigin,
+  required PredictiveEvidenceOrigin availabilityOrigin,
+  required List<String> personContextWarnings,
+  required List<String> assumptions,
+  required List<TrajectoryTaskNode> tasks,
+  required int dailyFreeMinutes,
+  required int completedInWindow,
+  required int horizonDays,
+  required int pressureInHorizon,
 }) => TrajectoryBaseline(
   accountScope: accountScope,
   revision: 'trajectory-fixture-r1',
@@ -36,26 +101,9 @@ TrajectoryBaseline trajectoryTestBaseline({
   unscheduledMinutes: 90,
   dailyFreeMinutes: dailyFreeMinutes,
   assumptions: assumptions,
-  tasks:
-      tasks ??
-      <TrajectoryTaskNode>[
-        TrajectoryTaskNode(
-          id: 'task-launch',
-          title: 'Ship protected milestone',
-          priority: 5,
-          estimatedMinutes: 90,
-          goalId: 'goal-release',
-          dueAt: trajectoryFixtureNow.add(const Duration(days: 2)),
-          scheduledAt: trajectoryFixtureNow.add(const Duration(days: 1)),
-        ),
-        const TrajectoryTaskNode(
-          id: 'task-polish',
-          title: 'Polish optional copy',
-          priority: 1,
-          estimatedMinutes: 60,
-          goalId: 'goal-release',
-        ),
-      ],
+  horizonDays: horizonDays,
+  pressureInHorizon: pressureInHorizon,
+  tasks: tasks,
   goals: <TrajectoryGoalNode>[
     TrajectoryGoalNode(
       id: 'goal-release',

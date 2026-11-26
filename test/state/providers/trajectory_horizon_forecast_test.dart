@@ -307,6 +307,32 @@ void main() {
       expect(keepGoing(ninety).projectedPressure, 1);
     });
 
+    test(
+      'keep going holds steady against the range workload at 7, 30 and 90 days',
+      () async {
+        final Map<int, int> projected = <int, int>{};
+        for (final int days in const <int>[7, 30, 90]) {
+          final TrajectoryComparison c = await _compare(
+            briefTasks(),
+            now: now,
+            horizonDays: days,
+          );
+          final TrajectoryScenarioOutcome k = keepGoing(c);
+          // Home keeps the next-7-days value at every range.
+          expect(c.baseline.pressure, 5, reason: '$days');
+          expect(c.baseline.pressureInHorizon, k.projectedPressure);
+          final TrajectoryRiskContribution load = k.risk.contributions
+              .firstWhere(
+                (TrajectoryRiskContribution r) => r.code == 'pressure',
+              );
+          expect(load.currentScore, c.baseline.pressureInHorizon);
+          expect(load.projectedScore, load.currentScore, reason: '$days');
+          projected[days] = k.projectedPressure;
+        }
+        expect(projected, <int, int>{7: 5, 30: 1, 90: 1});
+      },
+    );
+
     test('completing a task in the range removes its minutes', () async {
       final TrajectoryComparison c = await _compare(
         <Task>[
