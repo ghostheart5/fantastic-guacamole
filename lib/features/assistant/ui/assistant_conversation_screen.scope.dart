@@ -1,5 +1,9 @@
 part of 'assistant_conversation_screen.dart';
 
+/// Counts every time extra information is turned on from none, across chats
+/// and accounts in this app run, so no turning-on repeats an earlier one.
+int _extraTurnOnCount = 0;
+
 /// What AI chat uses when the person has not chosen: their plan, meaning the
 /// planning sources that exist today. Listed by name so a source added later
 /// is never sent by default without its own decision.
@@ -171,6 +175,9 @@ extension _ConversationScope on _AssistantConversationScreenState {
         onSelected: enabled
             ? (on) {
                 _rebuild(() {
+                  if (on && _extras.isEmpty) {
+                    _extrasEpoch = ++_extraTurnOnCount;
+                  }
                   _extras = on
                       ? {..._extras, source}
                       : ({..._extras}..remove(source));
@@ -231,7 +238,7 @@ extension _ConversationScope on _AssistantConversationScreenState {
           (source) => switch (source) {
             ConversationExtraSource.habits => copy(
               'Habits (check-ins: last 14 days)',
-              'Hábitos (registros: últimos 14 días)',
+              'Hábitos (cumplimientos: últimos 14 días)',
             ),
             ConversationExtraSource.recentTasks => copy(
               'Recent results (${_recentWindowWords(window)})',
@@ -250,7 +257,7 @@ extension _ConversationScope on _AssistantConversationScreenState {
   String _extraDetail(ConversationExtraSource source) => switch (source) {
     ConversationExtraSource.habits => copy(
       'Habit names, check-ins in the last 14 days and streak',
-      'Nombres de hábitos, registros de los últimos 14 días y racha',
+      'Nombres de hábitos, cumplimientos de los últimos 14 días y racha',
     ),
     ConversationExtraSource.recentTasks => copy(
       'Titles of tasks you finished or skipped, with the date and time, within your selected dates (at most 14 days)',

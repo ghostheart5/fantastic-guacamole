@@ -21,6 +21,10 @@ extension _OneStepSend on _AssistantConversationScreenState {
     return jsonEncode([
       (_sources.map((source) => source.name).toList()..sort()),
       (_extras.map((source) => source.name).toList()..sort()),
+      // Each time the extras go from none to some counts as a new selection,
+      // even if the same ones were accepted earlier in this app run (after
+      // Clear, Just this chat, reopening or an account change).
+      _extras.isEmpty ? null : _extrasEpoch,
       _range.name,
       _intent.name,
       _filter.text.trim(),

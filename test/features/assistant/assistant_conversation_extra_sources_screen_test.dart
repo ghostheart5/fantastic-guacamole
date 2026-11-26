@@ -411,10 +411,12 @@ void main() {
     );
     expect(
       preview,
-      contains('Hábitos (registros: últimos 14 días)\nTítulo: Evening walk'),
+      contains(
+        'Hábitos (cumplimientos: últimos 14 días)\nTítulo: Evening walk',
+      ),
     );
     expect(preview, contains('Se repite: Diario'));
-    expect(preview, contains('Registros en los últimos 14 días: 3'));
+    expect(preview, contains('Cumplimientos en los últimos 14 días: 3'));
     expect(
       preview,
       contains('seguidos, desde el último cambio de frecuencia): 3'),

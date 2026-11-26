@@ -58,12 +58,14 @@ final class SIV2ReadGateway {
   /// AI chat request whose person turned on Habits, Recent results or Goal
   /// progress. Nothing else asks for them, so they are not read otherwise.
   /// [titleContains] keeps only habits and results whose title contains it,
-  /// before the read limits apply.
+  /// before the read limits apply. [withoutReadLimits] returns every habit and
+  /// result that matches, so a caller can count exactly what it leaves out.
   Future<SIV2EvidenceSnapshot> read({
     required DateTime observedAt,
     String decisionText = '',
     bool includeActivity = false,
     String titleContains = '',
+    bool withoutReadLimits = false,
   }) async {
     final Set<SIV2Source> unavailable = <SIV2Source>{};
     List<TaskEntity> taskEntities = const <TaskEntity>[];
@@ -214,10 +216,16 @@ final class SIV2ReadGateway {
             occurrenceEntities,
             observedAt,
             titleContains,
+            withoutReadLimits,
           )
         : const <SIV2HabitEvidence>[];
     final List<SIV2RecentTaskEvidence> recentTasks = includeActivity
-        ? _recentTaskEvidence(taskEntities, observedAt, titleContains)
+        ? _recentTaskEvidence(
+            taskEntities,
+            observedAt,
+            titleContains,
+            withoutReadLimits,
+          )
         : const <SIV2RecentTaskEvidence>[];
     final SIV2PersonContextEvidence? personContext = decisionText.trim().isEmpty
         ? siV2PersonContextEvidenceOrNull(
@@ -330,6 +338,7 @@ List<SIV2HabitEvidence> _habitEvidence(
   List<HabitOccurrenceEntity> occurrences,
   DateTime observedAt,
   String titleContains,
+  bool withoutReadLimits,
 ) {
   final DateTime now = observedAt.toLocal();
   final DateTime windowStart = _daysBefore(observedAt, _recentWindowDays);
@@ -413,7 +422,7 @@ List<SIV2HabitEvidence> _habitEvidence(
     (SIV2HabitEvidence left, SIV2HabitEvidence right) =>
         left.id.compareTo(right.id),
   );
-  return result.length <= siV2HabitReadLimit
+  return withoutReadLimits || result.length <= siV2HabitReadLimit
       ? result
       : result.sublist(0, siV2HabitReadLimit);
 }
@@ -422,6 +431,7 @@ List<SIV2RecentTaskEvidence> _recentTaskEvidence(
   List<TaskEntity> tasks,
   DateTime observedAt,
   String titleContains,
+  bool withoutReadLimits,
 ) {
   final DateTime windowStart = _daysBefore(observedAt, _recentWindowDays);
   final DateTime windowEnd = _daysBefore(observedAt, -1);
@@ -452,7 +462,7 @@ List<SIV2RecentTaskEvidence> _recentTaskEvidence(
     (SIV2RecentTaskEvidence left, SIV2RecentTaskEvidence right) =>
         right.at.compareTo(left.at),
   );
-  return result.length <= siV2RecentTaskReadLimit
+  return withoutReadLimits || result.length <= siV2RecentTaskReadLimit
       ? result
       : result.sublist(0, siV2RecentTaskReadLimit);
 }

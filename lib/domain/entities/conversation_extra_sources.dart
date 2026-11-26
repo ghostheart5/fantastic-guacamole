@@ -3,8 +3,9 @@ import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 
 /// Optional information AI chat can add to a request, beyond "My plan". Each
 /// is off until the person turns it on, stays on for every later message in
-/// that open chat until they turn it off, and is shown line by line in the
-/// review before the first message that carries it.
+/// that open chat until they turn it off (or choose Just this chat, clear the
+/// conversation, change account or reopen the chat), and each time it is turned
+/// on the full review of what is sent opens before the next message.
 enum ConversationExtraSource {
   /// Habit titles with cadence, check-ins in the last 14 days and streak.
   habits,

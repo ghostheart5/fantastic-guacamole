@@ -165,6 +165,9 @@ class _AssistantConversationScreenState
   // Optional extra information for this chat only (off every time the chat
   // opens, never saved); see the scope part.
   Set<ConversationExtraSource> _extras = <ConversationExtraSource>{};
+  // Which turning-on of the extras this is (see the scope part): part of the
+  // selection, so a new one always shows the full preview first.
+  int _extrasEpoch = 0;
   // The on-device suggestion for the current draft (see the send part).
   bool _freeSuggested = false;
   int _suggestionCheck = 0;

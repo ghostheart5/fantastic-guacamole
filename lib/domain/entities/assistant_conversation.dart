@@ -32,12 +32,11 @@ final class ConversationPacket {
          'personality': surface == ConversationSurface.planner
              ? 'planner'
              : 'strategist',
-         'context': {
-           ..._boundedContext(context),
-           'surface': surface.name,
-           if (history.any((t) => (t['content']?.length ?? 0) > 2500))
-             'historyClipped': true,
-         },
+         'context': _contextWithMarkers(
+           _boundedContext(context),
+           surface,
+           history.any((t) => (t['content']?.length ?? 0) > 2500),
+         ),
          'maxTokens': 1024,
          'allowExternalAi': true,
        }) {
@@ -134,6 +133,31 @@ List<Map<String, String>> _boundedHistory(
         : '${content.substring(0, 1400)}\n[Earlier message shortened]\n${content.substring(content.length - 1000)}',
   };
 }).toList();
+
+/// The most keys the server accepts in a request's context
+/// (supabase/functions/_shared/ai_proxy_policy.ts, isJsonValue). A longer one
+/// is refused before any price is quoted, and a retry would be refused again.
+const int conversationContextKeyLimit = 24;
+
+/// Adds the surface and the shortened-history marker. The marker is the one
+/// optional key left out when it would pass the limit: the shortened message
+/// already carries its own "[Earlier message shortened]" text in the history,
+/// so no consent or meaning depends on the marker. If the context is still
+/// over the limit the request is not built.
+Map<String, Object?> _contextWithMarkers(
+  Map<String, Object?> bounded,
+  ConversationSurface surface,
+  bool historyClipped,
+) {
+  final result = <String, Object?>{...bounded, 'surface': surface.name};
+  if (historyClipped && result.length < conversationContextKeyLimit) {
+    result['historyClipped'] = true;
+  }
+  if (result.length > conversationContextKeyLimit) {
+    throw const ConversationFailure('context_too_large');
+  }
+  return result;
+}
 
 Map<String, Object?> _boundedContext(Map<String, Object?> input) {
   final context = Map<String, Object?>.from(

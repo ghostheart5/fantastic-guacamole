@@ -493,6 +493,8 @@ final class ConversationPacketFactory {
           // Applied before the read's own limits, so a long list is not cut
           // before the person's filter.
           titleContains: extras.isNotEmpty ? entityFilter : '',
+          // The count of what does not fit is then exact.
+          withoutReadLimits: extras.isNotEmpty,
         );
     final note =
         surface == ConversationSurface.planner &&

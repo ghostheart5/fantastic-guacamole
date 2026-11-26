@@ -3,21 +3,25 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/entities/conversation_extra_sources.dart';
+import 'package:fantastic_guacamole/domain/entities/emotional_state.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
+import 'package:fantastic_guacamole/engine/si/api.dart' show SIState;
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/ai_chat_extra_sources_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
@@ -97,6 +101,8 @@ ProviderContainer _container(
   _Fixture fixture, {
   required bool switchOn,
   AccountStorageScope Function()? readScope,
+  NoteEntity? note,
+  ConsentedHumanContext? human,
 }) => ProviderContainer(
   overrides: [
     accountStorageScopeProvider.overrideWith(
@@ -113,7 +119,8 @@ ProviderContainer _container(
     domainTaskRepositoryProvider.overrideWithValue(
       _Tasks(fixture.allTasks, fail: fixture.failDetails),
     ),
-    selectedPlanningNoteProvider.overrideWith((ref) async => null),
+    selectedPlanningNoteProvider.overrideWith((ref) async => note),
+    if (human != null) consentedHumanContextProvider.overrideWithValue(human),
     for (final capability in [
       AssistantReleaseCapability.smartPlannerV2,
       AssistantReleaseCapability.siConsoleV2,
@@ -188,9 +195,10 @@ Future<ConversationPacket> _build(
   SIV2TimeRange range = SIV2TimeRange.all,
   String? selectedTaskId,
   List<Map<String, String>> history = const [],
+  String prompt = 'How is my week?',
+  SIV2Intent intent = SIV2Intent.answer,
 }) {
   final factory = container.read(conversationPacketFactoryProvider);
-  const prompt = 'How is my week?';
   // The call every screen made before this change: no extra-source argument.
   if (extras == null) {
     return factory.build(
@@ -199,6 +207,7 @@ Future<ConversationPacket> _build(
       history: history,
       languageCode: 'en',
       selectedTaskId: selectedTaskId,
+      intent: intent,
       sources: sources,
       entityFilter: entityFilter,
       range: range,
@@ -210,6 +219,7 @@ Future<ConversationPacket> _build(
     history: history,
     languageCode: 'en',
     selectedTaskId: selectedTaskId,
+    intent: intent,
     sources: sources,
     entityFilter: entityFilter,
     range: range,
@@ -729,6 +739,256 @@ void main() {
       );
       expect(restored.serializedBody, packet.serializedBody);
       expect(restored.toJson(), packet.toJson());
+    });
+  });
+
+  group('limits the server enforces', () {
+    // The context keys the fullest request can carry on each surface. A key
+    // added later changes one of these sets and fails the test, so the new
+    // key's place in the server's 24-key budget is decided on purpose.
+    const chatKeys = {
+      'language',
+      'nowLocal',
+      'utcOffsetMinutes',
+      'taskTimeZoneId',
+      'mode',
+      'timeRange',
+      'selectedSources',
+      'entityFilter',
+      'scenarioAssumption',
+      'evidenceRevision',
+      'taskDetailsUnavailable',
+      'explicitlyAttachedTaskId',
+      'focusedTaskId',
+      'tasks',
+      'goals',
+      'milestones',
+      'timeline',
+      'omittedRecordCount',
+      'unavailableSources',
+      'habits',
+      'recentTasksLast14Days',
+      'goalProgressAllTime',
+      'surface',
+      'historyClipped',
+    };
+    // Choose a step: the note and energy and emotion instead of the extras.
+    // The shortened-history marker is the one key left out at the limit.
+    const plannerKeys = {
+      'language',
+      'nowLocal',
+      'utcOffsetMinutes',
+      'taskTimeZoneId',
+      'mode',
+      'timeRange',
+      'selectedSources',
+      'entityFilter',
+      'scenarioAssumption',
+      'evidenceRevision',
+      'taskDetailsUnavailable',
+      'explicitlyAttachedTaskId',
+      'focusedTaskId',
+      'tasks',
+      'goals',
+      'milestones',
+      'timeline',
+      'omittedRecordCount',
+      'unavailableSources',
+      'selectedNoteId',
+      'explicitlyAttachedNote',
+      'reportedEnergy',
+      'reportedEmotion',
+      'surface',
+    };
+
+    int depth(Object? value) => switch (value) {
+      Map() => 1 + (value.values.map(depth).fold(0, (a, b) => a > b ? a : b)),
+      List() => 1 + (value.map(depth).fold(0, (a, b) => a > b ? a : b)),
+      _ => 0,
+    };
+
+    void expectServerLimits(ConversationPacket packet) {
+      final body = jsonDecode(packet.serializedBody) as Map<String, dynamic>;
+      final context = body['context'] as Map<String, dynamic>;
+      expect(context.length, lessThanOrEqualTo(24));
+      for (final entry in context.entries) {
+        expect(entry.key.length, lessThanOrEqualTo(80));
+        if (entry.value is List) {
+          expect(
+            (entry.value as List).length,
+            lessThanOrEqualTo(12),
+            reason: entry.key,
+          );
+        }
+      }
+      // The server counts the context itself at depth 0.
+      expect(depth(context) - 1, lessThanOrEqualTo(4));
+      expect(jsonEncode(context).length, lessThanOrEqualTo(12000));
+      expect(packet.serializedBody.length, lessThanOrEqualTo(30000));
+    }
+
+    final longHistory = [
+      {'role': 'user', 'content': 'x' * 2600},
+    ];
+
+    test('the fullest Chat request stays within them', () async {
+      final container = _container(
+        _Fixture(
+          habits: [for (var i = 0; i < 14; i++) _habit('h$i', 'Habit $i')],
+          tasks: [..._tasks, _finished('a', 'Done', 1)],
+          failDetails: true,
+        ),
+        switchOn: true,
+      );
+      addTearDown(container.dispose);
+      final packet = await _build(
+        container,
+        extras: _all,
+        selectedTaskId: 'grocery',
+        history: longHistory,
+        prompt: 'Does Grocery list conflict with an 8 PM store closing?',
+        intent: SIV2Intent.findConflict,
+      );
+      expectServerLimits(packet);
+      expect(_context(packet).keys.toSet(), chatKeys);
+    });
+
+    test('the fullest Choose a step request stays within them', () async {
+      final container = _container(
+        _Fixture(
+          tasks: [..._tasks, _finished('a', 'Done', 1)],
+          failDetails: true,
+        ),
+        switchOn: true,
+        note: NoteEntity(
+          id: 'n1',
+          title: 'Note',
+          body: 'Check the pantry.',
+          createdAt: DateTime.utc(2026, 8),
+          taskId: 'grocery',
+        ),
+        human: const ConsentedHumanContext(
+          emotionAllowed: true,
+          memoryAllowed: false,
+          emotion: EmotionalState.fatigued,
+          siState: SIState(),
+        ),
+      );
+      addTearDown(container.dispose);
+      final packet = await container
+          .read(conversationPacketFactoryProvider)
+          .build(
+            surface: ConversationSurface.planner,
+            prompt: 'Does Grocery list conflict with an 8 PM store closing?',
+            intent: SIV2Intent.findConflict,
+            history: longHistory,
+            languageCode: 'en',
+            selectedTaskId: 'grocery',
+            attachedTaskOnly: false,
+            reportedEnergy: 0.5,
+          );
+      expectServerLimits(packet);
+      final context = _context(packet);
+      expect(context.keys.toSet(), plannerKeys);
+      // Without the limit this request would have 25 keys.
+      expect(context.containsKey('historyClipped'), isFalse);
+      // The shortened message says so in the history itself.
+      expect(
+        jsonEncode(packet.toJson()['history']),
+        contains('[Earlier message shortened]'),
+      );
+    });
+
+    test('a request with room keeps the shortened-history marker', () async {
+      final container = _container(_Fixture(), switchOn: true);
+      addTearDown(container.dispose);
+      final packet = await _build(container, history: longHistory);
+      expect(_context(packet)['historyClipped'], isTrue);
+    });
+
+    test('a request over the key limit is not built', () {
+      expect(
+        () => ConversationPacket(
+          surface: ConversationSurface.si,
+          accountScope: 'a',
+          prompt: 'hi',
+          history: const [],
+          context: {for (var i = 0; i < 24; i++) 'key$i': i},
+        ),
+        throwsA(isA<ConversationFailure>()),
+      );
+    });
+  });
+
+  group('what does not fit is counted exactly', () {
+    test(
+      'exactly 40 and 41 habits, and more results than the old limit',
+      () async {
+        for (final count in [12, 40, 41]) {
+          final container = _container(
+            _Fixture(
+              habits: [
+                for (var i = 0; i < count; i++) _habit('h$i', 'Habit $i'),
+              ],
+            ),
+            switchOn: true,
+          );
+          addTearDown(container.dispose);
+          final context = _context(
+            await _build(container, extras: {ConversationExtraSource.habits}),
+          );
+          expect(context['omittedRecordCount'], count - 12, reason: '$count');
+        }
+        final container = _container(
+          _Fixture(
+            tasks: [
+              ..._tasks,
+              for (var i = 0; i < 250; i++) _finished('t$i', 'Done $i', 1),
+            ],
+          ),
+          switchOn: true,
+        );
+        addTearDown(container.dispose);
+        final context = _context(
+          await _build(
+            container,
+            extras: {ConversationExtraSource.recentTasks},
+            range: SIV2TimeRange.sevenDays,
+          ),
+        );
+        expect(context['omittedRecordCount'], 250 - 12);
+      },
+    );
+
+    test('a completion dated after the request is not listed', () async {
+      final container = _container(
+        _Fixture(
+          tasks: [
+            ..._tasks,
+            _finished('now', 'Finished this morning', 0),
+            TaskEntity(
+              id: 'future',
+              title: 'Dated later today',
+              createdAt: _daysAgo(2),
+              isCompleted: true,
+              completedAt: DateTime(2026, 8, 20, 18),
+            ),
+          ],
+        ),
+        switchOn: true,
+      );
+      addTearDown(container.dispose);
+      final context = _context(
+        await _build(
+          container,
+          extras: {ConversationExtraSource.recentTasks},
+          range: SIV2TimeRange.today,
+        ),
+      );
+      expect(
+        (context['recentTasksToday'] as List).map((t) => (t as Map)['title']),
+        ['Finished this morning'],
+      );
     });
   });
 

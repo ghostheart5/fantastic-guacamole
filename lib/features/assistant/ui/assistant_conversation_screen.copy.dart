@@ -265,7 +265,7 @@ extension _ConversationCopy on _AssistantConversationScreenState {
       'cadence': copy('Repeats', 'Se repite'),
       'checkInsLast14Days': copy(
         'Check-ins in the last 14 days',
-        'Registros en los últimos 14 días',
+        'Cumplimientos en los últimos 14 días',
       ),
       'streakPeriods': copy(
         'Current streak (days, weeks or months in a row, since the last change to how often it repeats)',
@@ -416,7 +416,7 @@ extension _ConversationCopy on _AssistantConversationScreenState {
       ),
       _ => copy(
         'Habits (check-ins: last 14 days)',
-        'Hábitos (registros: últimos 14 días)',
+        'Hábitos (cumplimientos: últimos 14 días)',
       ),
     };
   }

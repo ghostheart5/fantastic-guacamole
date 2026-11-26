@@ -1,7 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/conversation_extra_sources.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/engine/si/api.dart';
-import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
 
 /// The records the chosen extra sources add to an AI chat request, read from
 /// the same evidence snapshot the on-device one-tap questions use (nothing is
@@ -22,7 +21,7 @@ final class ConversationExtraRecords {
   /// Context entries, one per chosen source (empty when none is chosen).
   final Map<String, Object?> records;
 
-  /// Records that did not fit the per-source limit (at least this many).
+  /// Records that did not fit the per-source limit.
   final int omitted;
 
   /// Chosen sources that could not be read.
@@ -70,8 +69,8 @@ final class ConversationExtraRecords {
       final key = source.contextKey(window);
       switch (source) {
         case ConversationExtraSource.habits:
-          // The read already applied the title filter before its own limit.
-          if (snapshot.habits.length >= siV2HabitReadLimit) omitted += 1;
+          // The read applied the title filter and returned every match, so
+          // what does not fit the 12 is counted exactly.
           records[key] = limited([
             for (final habit in snapshot.habits)
               {
@@ -85,15 +84,15 @@ final class ConversationExtraRecords {
           ]);
           if (snapshot.habitsUnavailable) unavailable.add(source.name);
         case ConversationExtraSource.recentTasks:
-          if (snapshot.recentTasks.length >= siV2RecentTaskReadLimit) {
-            omitted += 1;
-          }
           // The person's selected dates when 14 days or shorter, counted in
           // calendar days with today as the first.
           final start = oneTapAddDays(now.toLocal(), -window.daysBeforeToday);
           records[key] = limited([
             for (final task in snapshot.recentTasks.where(
-              (t) => !t.at.toLocal().isBefore(start),
+              (t) =>
+                  !t.at.toLocal().isBefore(start) &&
+                  // Never later than the moment of the request.
+                  !t.at.toLocal().isAfter(now),
             ))
               {
                 'title': title(task.title),
