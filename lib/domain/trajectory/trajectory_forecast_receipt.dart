@@ -46,8 +46,8 @@ class TrajectoryObservedOutcome {
 /// once per range per local day).
 enum TrajectoryForecastOrigin { manual, automatic }
 
-/// The receipt schema that added the optional `origin`, `earlierMethodAt`
-/// and `calibrationMultiplier` fields. A receipt carrying any of
+/// The receipt schema that added the optional `origin`, `earlierMethodAt`,
+/// `calibrationMultiplier` and `missedAt` fields. A receipt carrying any of
 /// them is written as this schema (as
 /// [TrajectoryForecastReceipt.markAssumptionsCorrected] raises a receipt to
 /// schema 2); receipts without them keep their schema number and their exact
@@ -81,6 +81,7 @@ class TrajectoryForecastReceipt {
     this.origin = TrajectoryForecastOrigin.manual,
     this.earlierMethodAt,
     this.calibrationMultiplier = 1.0,
+    this.missedAt,
     this.schemaVersion = 2,
   }) : assumptions = List<String>.unmodifiable(assumptions),
        personContextSignalIds = List<String>.unmodifiable(
@@ -151,6 +152,11 @@ class TrajectoryForecastReceipt {
   /// forecast was made (1.0 when none was applied, and on every receipt
   /// written before it existed).
   final double calibrationMultiplier;
+
+  /// When this forecast was found too long after it fell due (more than
+  /// max(1, H / 7) local days late, H its range in days): no observation was
+  /// written against it, and it is never used for calibration.
+  final DateTime? missedAt;
   final int schemaVersion;
 
   /// The engine's own width before recorded accuracy changed it. Coverage is
@@ -164,9 +170,35 @@ class TrajectoryForecastReceipt {
   bool get isResolved => observed != null;
   bool get isAutomatic => origin == TrajectoryForecastOrigin.automatic;
 
-  /// Nothing more will be written against this forecast: it was checked, or
-  /// it fell due under an earlier method.
-  bool get isSettled => isResolved || earlierMethodAt != null;
+  /// Nothing more will be written against this forecast: it was checked, it
+  /// fell due under an earlier method, or its check was missed.
+  bool get isSettled =>
+      isResolved || earlierMethodAt != null || missedAt != null;
+
+  /// Local calendar days from this forecast's due day (its local selection
+  /// day plus its range) to [at]'s local day: negative before it is due, 0 on
+  /// the due day itself.
+  int localDaysPastDue(DateTime at) {
+    final DateTime selected = selectedAt.toLocal();
+    final DateTime checked = at.toLocal();
+    return DateTime.utc(checked.year, checked.month, checked.day)
+        .difference(
+          DateTime.utc(
+            selected.year,
+            selected.month,
+            selected.day + horizon.inDays,
+          ),
+        )
+        .inDays;
+  }
+
+  /// Local days after the due day within which a check still counts:
+  /// max(1, H / 7) for a range of H days.
+  int get allowedDaysLate {
+    final int weeks = horizon.inDays ~/ 7;
+    return weeks < 1 ? 1 : weeks;
+  }
+
   bool get hasAssumptionCorrection => assumptionsCorrectedAt != null;
 
   /// Whether this forecast was made by [version] of the model, so its figures
@@ -192,11 +224,19 @@ class TrajectoryForecastReceipt {
   TrajectoryForecastReceipt markAssumptionsCorrected(DateTime correctedAt) =>
       _copy(assumptionsCorrectedAt: correctedAt.toUtc(), schemaAtLeast: 2);
 
+  /// Settles a forecast found too long after it fell due, without writing an
+  /// observation from a different moment against it.
+  TrajectoryForecastReceipt markMissed(DateTime at) => _copy(
+    missedAt: at.toUtc(),
+    schemaAtLeast: trajectoryForecastReceiptOriginSchemaVersion,
+  );
+
   /// This receipt with the given fields set; everything else is kept.
   TrajectoryForecastReceipt _copy({
     DateTime? assumptionsCorrectedAt,
     TrajectoryObservedOutcome? observed,
     DateTime? earlierMethodAt,
+    DateTime? missedAt,
     int schemaAtLeast = 1,
   }) => TrajectoryForecastReceipt(
     id: id,
@@ -222,6 +262,7 @@ class TrajectoryForecastReceipt {
     origin: origin,
     earlierMethodAt: earlierMethodAt ?? this.earlierMethodAt,
     calibrationMultiplier: calibrationMultiplier,
+    missedAt: missedAt ?? this.missedAt,
     schemaVersion: schemaVersion < schemaAtLeast
         ? schemaAtLeast
         : schemaVersion,
@@ -261,6 +302,11 @@ class TrajectoryForecastReceipt {
         'Forecast earlier-method mark cannot predate selection.',
       );
     }
+    if (missedAt != null && missedAt!.toUtc().isBefore(selectedAt.toUtc())) {
+      throw const FormatException(
+        'Forecast missed mark cannot predate selection.',
+      );
+    }
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -291,6 +337,7 @@ class TrajectoryForecastReceipt {
       'earlierMethodAt': earlierMethodAt!.toUtc().toIso8601String(),
     if (calibrationMultiplier != 1.0)
       'calibrationMultiplier': calibrationMultiplier,
+    if (missedAt != null) 'missedAt': missedAt!.toUtc().toIso8601String(),
   };
 
   factory TrajectoryForecastReceipt.fromJson(Map<String, dynamic> json) {
@@ -366,6 +413,9 @@ class TrajectoryForecastReceipt {
       calibrationMultiplier: json['calibrationMultiplier'] == null
           ? 1.0
           : _number(json['calibrationMultiplier'], 'calibrationMultiplier'),
+      missedAt: json['missedAt'] == null
+          ? null
+          : _requiredDate(json['missedAt'], 'missedAt'),
       schemaVersion: _integer(json['schemaVersion'] ?? 1, 'schemaVersion'),
     );
     receipt.validate();
@@ -383,6 +433,8 @@ class TrajectoryCalibrationSummary {
     this.earlierMethodForecasts = 0,
     this.correctedForecasts = 0,
     this.accountScope,
+    this.checkDays = 0,
+    this.checkSpanDays = 0,
   });
 
   /// Uses only checked, uncorrected forecasts of [modelVersion] (the current
@@ -440,6 +492,17 @@ class TrajectoryCalibrationSummary {
       final int upper = (receipt.projectedMomentum + width).clamp(0, 100);
       if (actual.momentum >= lower && actual.momentum <= upper) covered++;
     }
+    // Forecasts checked on the same local day are checked against the same
+    // moment, so independent evidence is counted by distinct check days.
+    final List<DateTime> checkDays =
+        resolved
+            .map((TrajectoryForecastReceipt item) {
+              final DateTime local = item.observed!.observedAt.toLocal();
+              return DateTime.utc(local.year, local.month, local.day);
+            })
+            .toSet()
+            .toList()
+          ..sort();
     return TrajectoryCalibrationSummary(
       resolvedForecasts: resolved.length,
       momentumMeanAbsoluteError: momentumError / resolved.length,
@@ -449,8 +512,16 @@ class TrajectoryCalibrationSummary {
       earlierMethodForecasts: earlierMethod,
       correctedForecasts: corrected,
       accountScope: accountScope,
+      checkDays: checkDays.length,
+      checkSpanDays: checkDays.last.difference(checkDays.first).inDays,
     );
   }
+
+  /// Distinct local days on which the used forecasts were checked.
+  final int checkDays;
+
+  /// Local days from the first to the last of those check days.
+  final int checkSpanDays;
 
   /// Checked, uncorrected forecasts of the current model version: the only
   /// ones used.

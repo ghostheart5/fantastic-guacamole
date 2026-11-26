@@ -4,19 +4,38 @@ import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_con
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-TrajectoryCalibrationSummary _summary(int resolved, double coverage) =>
-    TrajectoryCalibrationSummary(
-      resolvedForecasts: resolved,
-      momentumMeanAbsoluteError: 0,
-      pressureMeanAbsoluteError: 0,
-      intervalCoverage: coverage,
-      state: resolved == 0
-          ? PredictiveCalibrationState.provisional
-          : PredictiveCalibrationState.monitored,
-    );
+/// A summary of [resolved] checked forecasts, each checked on its own day,
+/// the checks spread over 30 days unless said otherwise.
+TrajectoryCalibrationSummary _summary(
+  int resolved,
+  double coverage, {
+  int? checkDays,
+  int checkSpanDays = 30,
+}) => TrajectoryCalibrationSummary(
+  resolvedForecasts: resolved,
+  momentumMeanAbsoluteError: 0,
+  pressureMeanAbsoluteError: 0,
+  intervalCoverage: coverage,
+  state: resolved == 0
+      ? PredictiveCalibrationState.provisional
+      : PredictiveCalibrationState.monitored,
+  checkDays: checkDays ?? resolved,
+  checkSpanDays: resolved < 2 ? 0 : checkSpanDays,
+);
 
-TrajectoryCalibrationAdjustment _rule(int resolved, double coverage) =>
-    TrajectoryCalibrationAdjustment.fromSummary(_summary(resolved, coverage));
+TrajectoryCalibrationAdjustment _rule(
+  int resolved,
+  double coverage, {
+  int? checkDays,
+  int checkSpanDays = 30,
+}) => TrajectoryCalibrationAdjustment.fromSummary(
+  _summary(
+    resolved,
+    coverage,
+    checkDays: checkDays,
+    checkSpanDays: checkSpanDays,
+  ),
+);
 
 final DateTime _selected = DateTime.utc(2026, 11, 1, 12);
 int _sequence = 0;
@@ -27,6 +46,7 @@ TrajectoryForecastReceipt _receipt({
   String modelVersion = trajectoryConsequenceModelVersion,
   int? observedMomentum,
   bool corrected = false,
+  int checkDay = 0,
 }) {
   final TrajectoryForecastReceipt receipt = TrajectoryForecastReceipt(
     id: 'receipt-${_sequence++}',
@@ -50,7 +70,7 @@ TrajectoryForecastReceipt _receipt({
   if (observedMomentum == null) return receipt;
   return receipt.resolve(
     TrajectoryObservedOutcome(
-      observedAt: _selected.add(const Duration(days: 7)),
+      observedAt: _selected.add(Duration(days: 7 + checkDay)),
       momentum: observedMomentum,
       pressure: 20,
       completedInWindow: 5,
@@ -143,6 +163,75 @@ void main() {
     });
   });
 
+  group('evidence is counted by distinct check days', () {
+    List<TrajectoryForecastReceipt> covered(List<int> checkDays) =>
+        <TrajectoryForecastReceipt>[
+          for (final int day in checkDays)
+            _receipt(observedMomentum: 60, checkDay: day),
+        ];
+    List<TrajectoryForecastReceipt> missed(List<int> checkDays) =>
+        <TrajectoryForecastReceipt>[
+          for (final int day in checkDays)
+            _receipt(observedMomentum: 0, checkDay: day),
+        ];
+    TrajectoryCalibrationAdjustment ruleOf(
+      List<TrajectoryForecastReceipt> receipts,
+    ) => TrajectoryCalibrationAdjustment.fromSummary(
+      TrajectoryCalibrationSummary.fromReceipts(receipts),
+    );
+
+    test('the summary counts distinct check days and their span', () {
+      final TrajectoryCalibrationSummary summary =
+          TrajectoryCalibrationSummary.fromReceipts(
+            covered(<int>[0, 0, 3, 3, 14]),
+          );
+      expect(summary.resolvedForecasts, 5);
+      expect(summary.checkDays, 3);
+      expect(summary.checkSpanDays, 14);
+    });
+
+    test('5 receipts all checked on one day do not narrow', () {
+      final TrajectoryCalibrationAdjustment rule = ruleOf(
+        covered(<int>[4, 4, 4, 4, 4]),
+      );
+      expect(rule.multiplier, 1.0);
+      expect(rule.state, PredictiveCalibrationState.provisional);
+    });
+
+    test('5 distinct check days within 10 days do not narrow', () {
+      final TrajectoryCalibrationAdjustment rule = ruleOf(
+        covered(<int>[0, 2, 5, 8, 10]),
+      );
+      expect(rule.multiplier, 1.0);
+      expect(rule.state, PredictiveCalibrationState.monitored);
+    });
+
+    test('5 distinct check days over 14 or more days narrow', () {
+      expect(ruleOf(covered(<int>[0, 3, 7, 10, 14])).multiplier, .85);
+      expect(ruleOf(covered(<int>[0, 5, 10, 20, 40])).multiplier, .85);
+      // 4 check days over 30 days: not enough to narrow.
+      expect(ruleOf(covered(<int>[0, 10, 20, 30, 30])).multiplier, 1.0);
+    });
+
+    test('widening acts at 3 receipts over at least 2 check days', () {
+      expect(ruleOf(missed(<int>[0, 0, 1])).multiplier, 1.5);
+      expect(ruleOf(missed(<int>[0, 0, 0])).multiplier, 1.0);
+      expect(
+        ruleOf(missed(<int>[0, 0, 0])),
+        TrajectoryCalibrationAdjustment.provisional,
+      );
+      expect(ruleOf(missed(<int>[0, 1])).multiplier, 1.0);
+    });
+
+    test('the pure rule states the same conditions', () {
+      expect(_rule(5, 1).multiplier, .85);
+      expect(_rule(5, 1, checkSpanDays: 13).multiplier, 1.0);
+      expect(_rule(6, 1, checkDays: 4).multiplier, 1.0);
+      expect(_rule(3, 0, checkDays: 1).multiplier, 1.0);
+      expect(_rule(3, 0, checkDays: 2).multiplier, 1.5);
+    });
+  });
+
   group('TrajectoryCalibrationSummary counts like with like', () {
     test('only checked, uncorrected current-version forecasts are used', () {
       final TrajectoryCalibrationSummary summary =
@@ -179,9 +268,9 @@ void main() {
       final TrajectoryCalibrationSummary summary =
           TrajectoryCalibrationSummary.fromReceipts(<TrajectoryForecastReceipt>[
             _receipt(observedMomentum: 60),
-            _receipt(observedMomentum: 65),
-            _receipt(observedMomentum: 0),
-            _receipt(observedMomentum: 100),
+            _receipt(observedMomentum: 65, checkDay: 1),
+            _receipt(observedMomentum: 0, checkDay: 2),
+            _receipt(observedMomentum: 100, checkDay: 3),
             for (int i = 0; i < 6; i++)
               _receipt(
                 modelVersion: 'trajectory-consequence-v3',
@@ -254,7 +343,7 @@ void main() {
       expect(_rule(10, .89).multiplier, 1.0);
     });
 
-    test('narrowing needs 5 checked forecasts; widening needs only 3', () {
+    test('narrowing needs 5 check days; widening needs only 3 forecasts', () {
       expect(_rule(4, 1).multiplier, 1.0);
       expect(_rule(4, 1).state, PredictiveCalibrationState.monitored);
       expect(_rule(5, 1).multiplier, .85);

@@ -119,10 +119,12 @@ final AccountStorageScope _scope = AccountStorageScope.authenticated(
 );
 
 /// The fixture baseline in the test account's storage namespace.
-TrajectoryBaseline _baseline({int horizonDays = 7}) => trajectoryTestBaseline(
-  accountScope: _scope.v2Namespace!,
-  horizonDays: horizonDays,
-);
+TrajectoryBaseline _baseline({int horizonDays = 7, DateTime? observedAt}) =>
+    trajectoryTestBaseline(
+      accountScope: _scope.v2Namespace!,
+      horizonDays: horizonDays,
+      observedAt: observedAt,
+    );
 
 TrajectoryForecastLedgerRepository _repository(
   _MemoryStore store, {
@@ -351,6 +353,87 @@ void main() {
         isFalse,
       );
       expect(store.values[repository.storageKey!], before);
+    });
+  });
+
+  group('due by local day; late checks are missed', () {
+    /// Local [hour]:00 on [day] days after 1 October 2026.
+    DateTime local(int day, [int hour = 9]) =>
+        DateTime(2026, 10, 1 + day, hour).toUtc();
+
+    Future<TrajectoryForecastReceipt> checkOn(
+      TrajectoryForecastReceipt receipt,
+      DateTime at,
+    ) async {
+      final _MemoryStore store = _MemoryStore();
+      final TrajectoryForecastLedgerRepository repository = _repository(store);
+      await repository.append(receipt);
+      await repository.reconcileDue(
+        _baseline(observedAt: at),
+        pressureForHorizon: (int _) => 18,
+      );
+      return (await repository.load()).single;
+    }
+
+    test('a forecast is due from the start of its local due day', () async {
+      // Tracked at 18:00; checked at 09:00 seven local days later.
+      final TrajectoryForecastReceipt checked = await checkOn(
+        _receiptAt(local(0, 18)),
+        local(7),
+      );
+      expect(checked.isResolved, isTrue);
+      final TrajectoryForecastReceipt early = await checkOn(
+        _receiptAt(local(0, 18)),
+        local(6, 23),
+      );
+      expect(early.isSettled, isFalse);
+    });
+
+    test('a 7-day forecast checked one day late is used; two days late is '
+        'missed', () async {
+      final TrajectoryForecastReceipt oneLate = await checkOn(
+        _receiptAt(local(0)),
+        local(8),
+      );
+      expect(oneLate.isResolved, isTrue);
+      expect(oneLate.missedAt, isNull);
+
+      final TrajectoryForecastReceipt twoLate = await checkOn(
+        _receiptAt(local(0)),
+        local(9),
+      );
+      expect(twoLate.isResolved, isFalse);
+      expect(twoLate.missedAt, local(9));
+      expect(twoLate.isSettled, isTrue);
+      expect(twoLate.schemaVersion, 3);
+      final TrajectoryCalibrationSummary summary =
+          TrajectoryCalibrationSummary.fromReceipts(<TrajectoryForecastReceipt>[
+            twoLate,
+          ]);
+      expect(summary.resolvedForecasts, 0);
+      final Map<String, dynamic> json =
+          jsonDecode(jsonEncode(twoLate.toJson())) as Map<String, dynamic>;
+      expect(json.keys, containsAll(_oldReceiptKeys));
+      expect(json['observed'], isNull);
+      expect(json['missedAt'], local(9).toIso8601String());
+      expect(
+        jsonEncode(TrajectoryForecastReceipt.fromJson(json).toJson()),
+        jsonEncode(twoLate.toJson()),
+      );
+    });
+
+    test('a 90-day forecast may be checked up to 12 days late', () async {
+      final TrajectoryForecastReceipt late12 = await checkOn(
+        _receiptAt(local(0), horizonDays: 90),
+        local(102),
+      );
+      expect(late12.isResolved, isTrue);
+      final TrajectoryForecastReceipt late13 = await checkOn(
+        _receiptAt(local(0), horizonDays: 90),
+        local(103),
+      );
+      expect(late13.isResolved, isFalse);
+      expect(late13.missedAt, isNotNull);
     });
   });
 

@@ -6,24 +6,37 @@ import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receip
 const int trajectoryUncertaintyMinimum = 8;
 const int trajectoryUncertaintyMaximum = 42;
 
-/// Checked forecasts needed before recorded accuracy widens the ranges.
+/// Checked forecasts needed before recorded accuracy changes the ranges.
 const int trajectoryCalibrationMinimumForecasts = 3;
 
-/// Checked forecasts needed before recorded accuracy narrows the ranges.
-/// Narrowing needs more evidence than widening.
-const int trajectoryCalibrationNarrowingForecasts = 5;
+/// Distinct local check days needed before recorded accuracy widens the
+/// ranges (forecasts checked the same day are checked against one moment).
+const int trajectoryCalibrationMinimumCheckDays = 2;
+
+/// Distinct local check days, and the days they must span, before recorded
+/// accuracy narrows the ranges. Narrowing needs more evidence than widening.
+const int trajectoryCalibrationNarrowingCheckDays = 5;
+const int trajectoryCalibrationNarrowingSpanDays = 14;
 
 /// How recorded forecast accuracy changes the forecast ranges.
 ///
-/// Built from a [TrajectoryCalibrationSummary] that counts only checked,
-/// uncorrected forecasts of the current model version:
-/// - fewer than 3: x1.0, provisional;
-/// - 3 or more with interval coverage below 0.6: x1.5 (wider);
-/// - coverage 0.6 to below 0.8: x1.2 (wider);
-/// - 5 or more with coverage at least 0.9: x0.85 (narrower);
-/// - otherwise x1.0.
-/// With 3 or more checked forecasts the state is monitored. The adjusted
-/// uncertainty is always kept within the engine's bounds (8 to 42).
+/// Built from a [TrajectoryCalibrationSummary] that uses only checked,
+/// uncorrected forecasts of the current model version that were checked in
+/// time (a forecast found more than max(1, H / 7) local days after its due
+/// day is marked missed and never used). Coverage is the share of those
+/// forecasts whose observed pace (momentum) fell inside the engine's own,
+/// unadjusted range. The rule:
+/// - fewer than 3 checked forecasts, or all of them checked on one local
+///   day: x1.0, provisional;
+/// - otherwise (3 or more forecasts checked on at least 2 distinct local
+///   days), monitored, with:
+///   - coverage below 0.6: x1.5 (wider);
+///   - coverage 0.6 to below 0.8: x1.2 (wider);
+///   - coverage at least 0.9, checked on at least 5 distinct local days
+///     whose first and last are at least 14 days apart: x0.85 (narrower);
+///   - otherwise x1.0.
+/// The adjusted uncertainty is always kept within the engine's bounds
+/// (8 to 42).
 class TrajectoryCalibrationAdjustment {
   const TrajectoryCalibrationAdjustment({
     required this.multiplier,
@@ -33,14 +46,19 @@ class TrajectoryCalibrationAdjustment {
   factory TrajectoryCalibrationAdjustment.fromSummary(
     TrajectoryCalibrationSummary summary,
   ) {
-    final int checked = summary.resolvedForecasts;
-    if (checked < trajectoryCalibrationMinimumForecasts) return provisional;
+    if (summary.resolvedForecasts < trajectoryCalibrationMinimumForecasts ||
+        summary.checkDays < trajectoryCalibrationMinimumCheckDays) {
+      return provisional;
+    }
     final double coverage = summary.intervalCoverage;
+    final bool canNarrow =
+        summary.checkDays >= trajectoryCalibrationNarrowingCheckDays &&
+        summary.checkSpanDays >= trajectoryCalibrationNarrowingSpanDays;
     final double multiplier = coverage < .6
         ? 1.5
         : coverage < .8
         ? 1.2
-        : checked >= trajectoryCalibrationNarrowingForecasts && coverage >= .9
+        : canNarrow && coverage >= .9
         ? .85
         : 1.0;
     return TrajectoryCalibrationAdjustment(

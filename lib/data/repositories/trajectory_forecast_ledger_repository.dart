@@ -181,7 +181,12 @@ class TrajectoryForecastLedgerRepository
     return true;
   }
 
-  /// Settles the forecasts that are due at [current].observedAt.
+  /// Settles the forecasts that are due at [current].observedAt: a forecast
+  /// is due from the start of its local due day (local selection day plus H
+  /// days).
+  ///
+  /// A current-version forecast found more than max(1, H / 7) local days
+  /// after its due day is marked missed (no observation, never used).
   ///
   /// Like with like: a forecast of the current model version with range H is
   /// checked against the workload over that same range length measured now
@@ -220,12 +225,18 @@ class TrajectoryForecastLedgerRepository
                 : current.observedAt;
             return receipt.markAssumptionsCorrected(correctedAt);
           }
-          if (receipt.isSettled || !receipt.isDueAt(current.observedAt)) {
-            return receipt;
-          }
+          // Due from the start of the local due day (selection day + range).
+          final int daysLate = receipt.localDaysPastDue(current.observedAt);
+          if (receipt.isSettled || daysLate < 0) return receipt;
           if (!receipt.isMethod(modelVersion)) {
             resolved++;
             return receipt.markEarlierMethod(current.observedAt);
+          }
+          // Found too long after it fell due: today's figures describe a
+          // different moment, so it is marked missed and never used.
+          if (daysLate > receipt.allowedDaysLate) {
+            resolved++;
+            return receipt.markMissed(current.observedAt);
           }
           final int? pressure = _observedPressure(
             receipt,
