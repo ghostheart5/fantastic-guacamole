@@ -145,15 +145,21 @@ extension _StoredChat on _AssistantConversationScreenState {
     final epoch = _historyEpoch;
     final repository = ref.read(assistantConversationHistoryRepositoryProvider);
     if (repository == null) return;
+    // A paid request kept here (still finishing after the wait limit, or
+    // waiting for Retry same request) is removed too: say so.
+    final keptRequest = _pending != null
+        ? ' ${copy('A paid request from this conversation is still kept, and its reply may still be on its way. Clearing also removes it: its reply will not be shown, and it may have used credits.', 'Todavía se conserva una solicitud pagada de esta conversación y su respuesta puede seguir en camino. Borrar también la elimina: su respuesta no se mostrará y es posible que haya usado créditos.')}'
+        : '';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(copy('Clear conversation?', '¿Borrar la conversación?')),
         content: Text(
           copy(
-            'Delete this Chat history from this account on this device? AI chat goes back to using My plan. This cannot be undone. Tasks, goals, and habits stay saved.',
-            '¿Borrar el historial de Chat de esta cuenta en este dispositivo? El chat con IA vuelve a usar Mi plan. No se puede deshacer. Se conservan las tareas, metas y hábitos.',
-          ),
+                'Delete this Chat history from this account on this device? AI chat goes back to using My plan. This cannot be undone. Tasks, goals, and habits stay saved.',
+                '¿Borrar el historial de Chat de esta cuenta en este dispositivo? El chat con IA vuelve a usar Mi plan. No se puede deshacer. Se conservan las tareas, metas y hábitos.',
+              ) +
+              keptRequest,
         ),
         actions: [
           TextButton(

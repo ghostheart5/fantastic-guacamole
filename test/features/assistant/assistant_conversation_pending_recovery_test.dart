@@ -1639,6 +1639,62 @@ void main() {
     );
   }
 
+  for (final language in ['en', 'es']) {
+    testWidgets(
+      '$language: M2: Clear conversation says a paid request still finishing is removed too',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final backend = InMemorySecureStoreBackend();
+        final never = Completer<_Response>();
+        final container = _setup(
+          (body) async {
+            if (body['quoteOnly'] == true) return _quote(body);
+            return never.future;
+          },
+          backend,
+          paidWaitTimeout: const Duration(seconds: 2),
+        );
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await _pumpScreen(
+          tester,
+          container,
+          ConversationSurface.si,
+          language: language,
+        );
+        if (language == 'es') {
+          await _confirmPaidRequestSpanish(tester, 'Compara mis opciones.');
+        } else {
+          await _confirmPaidRequest(tester, 'Compare my two options.');
+        }
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pump(const Duration(milliseconds: 300));
+        final privacy = find.byKey(const Key('conversation-history-privacy'));
+        await tester.ensureVisible(privacy);
+        await tester.tap(privacy);
+        await tester.pump(const Duration(milliseconds: 400));
+        final clear = tester.widget<TextButton>(
+          find.byKey(const Key('conversation-clear-history')),
+        );
+        expect(clear.onPressed, isNotNull);
+        clear.onPressed!();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(
+          find.textContaining(
+            language == 'es'
+                ? 'Borrar también la elimina: su respuesta no se mostrará y es posible que haya usado créditos.'
+                : 'Clearing also removes it: its reply will not be shown, and it may have used credits.',
+          ),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   // I1: the server answers request_reserved while the first call of the same
   // request id is still running.
   _Response stillReserved(Map<String, dynamic> body) => (
