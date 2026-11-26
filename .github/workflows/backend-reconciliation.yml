@@ -75,7 +75,7 @@ jobs:
             .path == ".github/workflows/ci.yml" and .event == "workflow_dispatch" and
             .status == "completed" and .conclusion == "success"' "$RUNNER_TEMP/license-refund-ci.json"
       - name: Checkout exact reviewed license-test source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_sha }}
           persist-credentials: false
@@ -94,7 +94,7 @@ jobs:
           cat "$RUNNER_TEMP/license-refund-result.json" >> "$GITHUB_STEP_SUMMARY"
       - name: Save aggregate license-test result
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: license-refund-${{ inputs.source_sha }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/license-refund-result.json
@@ -114,7 +114,7 @@ jobs:
     environment: production
     steps:
       - name: Checkout exact monitor source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
@@ -136,7 +136,7 @@ jobs:
     # No production environment or secrets: the fixture cannot touch paid orders.
     steps:
       - name: Checkout exact alert drill source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
@@ -158,7 +158,7 @@ jobs:
     environment: production
     steps:
       - name: Checkout exact reconciliation source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
@@ -264,21 +264,21 @@ jobs:
             .conclusion == "success"' "$RUNNER_TEMP/backend-repair-ci.json"
 
       - name: Checkout exact reviewed workflow tooling
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           path: tooling
           persist-credentials: false
 
       - name: Checkout frozen green app source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_sha }}
           path: candidate
           persist-credentials: false
 
       - name: Set up pinned Supabase CLI
-        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
         with:
           version: 2.116.0
 
@@ -295,7 +295,7 @@ jobs:
 
       - name: Save sanitized repair metadata and verification evidence
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: backend-reviewed-repairs-${{ github.sha }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/chronospark-backend-repair-evidence/*.json
