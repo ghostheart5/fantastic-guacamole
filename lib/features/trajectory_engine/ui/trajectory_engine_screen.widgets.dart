@@ -625,11 +625,11 @@ class _MonitoringDetails extends StatelessWidget {
             : 'No recorded forecast has reached its end date yet, so the ranges stay as estimated.'
       else ...<String>[
         isSpanish
-            ? '${value.resolvedForecasts} previsiones comprobadas • error de ritmo ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} puntos • error de carga ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} puntos • ${(value.intervalCoverage * 100).round()}% dentro de su rango.'
-            : '${value.resolvedForecasts} forecasts checked • pace error ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} points • workload error ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} points • ${(value.intervalCoverage * 100).round()}% inside their range.',
+            ? '${value.resolvedForecasts} previsiones comprobadas • error medio de ritmo ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} puntos • error medio de carga ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} puntos • ${(value.intervalCoverage * 100).round()}% dentro de su rango.'
+            : '${value.resolvedForecasts} forecasts checked • average pace error ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} points • average workload error ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} points • ${(value.intervalCoverage * 100).round()}% inside their range.',
         isSpanish
-            ? 'Aquí la precisión se refiere solo al ritmo y se promedia por los días en que se comprobaron las previsiones.'
-            : 'Accuracy here is about pace only and is averaged over the days forecasts were checked.',
+            ? 'La parte dentro del rango usa solo el ritmo y se promedia por los días en que se comprobaron las previsiones.'
+            : 'The share inside the range uses pace only and is averaged over the days forecasts were checked.',
         adjusting
             ? (isSpanish
                   ? 'Los rangos se amplían según la precisión registrada cuando hay al menos 3 previsiones comprobadas en 2 o más días, y solo se estrechan tras comprobaciones en 5 o más días repartidos en al menos 14 días. Previsiones usadas: ${value.resolvedForecasts}.'

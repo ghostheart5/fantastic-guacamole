@@ -52,14 +52,15 @@ void main() {
     expect(find.text('Status: monitored'), findsOneWidget);
     expect(
       find.text(
-        '4 forecasts checked • pace error 12.0 points • workload error 3.0 '
+        '4 forecasts checked • average pace error 12.0 points • average '
+        'workload error 3.0 '
         'points • 50% inside their range.',
       ),
       findsOneWidget,
     );
     expect(
       find.text(
-        'Accuracy here is about pace only and is averaged over the days '
+        'The share inside the range uses pace only and is averaged over the days '
         'forecasts were checked.',
       ),
       findsOneWidget,
@@ -94,14 +95,14 @@ void main() {
     expect(find.text('Estado: supervisado'), findsOneWidget);
     expect(
       find.text(
-        '4 previsiones comprobadas • error de ritmo 12.0 puntos • error de '
+        '4 previsiones comprobadas • error medio de ritmo 12.0 puntos • error medio de '
         'carga 3.0 puntos • 50% dentro de su rango.',
       ),
       findsOneWidget,
     );
     expect(
       find.text(
-        'Aquí la precisión se refiere solo al ritmo y se promedia por los '
+        'La parte dentro del rango usa solo el ritmo y se promedia por los '
         'días en que se comprobaron las previsiones.',
       ),
       findsOneWidget,
@@ -138,7 +139,8 @@ void main() {
         (
           'en',
           'Status: provisional',
-          '2 forecasts checked • pace error 4.0 points • workload error 1.0 '
+          '2 forecasts checked • average pace error 4.0 points • average '
+              'workload error 1.0 '
               'points • 100% inside their range.',
           'Ranges stay as estimated until at least 3 forecasts have been '
               'checked on 2 or more days. Checked so far: 2.',
@@ -146,7 +148,7 @@ void main() {
         (
           'es',
           'Estado: provisional',
-          '2 previsiones comprobadas • error de ritmo 4.0 puntos • error de '
+          '2 previsiones comprobadas • error medio de ritmo 4.0 puntos • error medio de '
               'carga 1.0 puntos • 100% dentro de su rango.',
           'Los rangos se mantienen como se estimaron hasta que haya al menos '
               '3 previsiones comprobadas en 2 o más días. Comprobadas hasta '
