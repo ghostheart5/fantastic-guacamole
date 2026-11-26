@@ -850,24 +850,19 @@ class _ProcessingModeTag extends StatelessWidget {
   final AIProcessingMode mode;
 
   String _label(BuildContext context) {
-    switch (mode) {
-      case AIProcessingMode.external:
-        return journeyText(context, 'AI chat', 'Chat con IA');
-      case AIProcessingMode.onDevice:
-        return journeyText(context, 'On this device', 'En este dispositivo');
-      case AIProcessingMode.onDeviceFallback:
-        return journeyText(
-          context,
-          'On this device (fallback)',
-          'En este dispositivo (alternativa)',
-        );
-      case AIProcessingMode.unknown:
-        return journeyText(
-          context,
-          'Processing unknown',
-          'Procesamiento desconocido',
-        );
-    }
+    String t(String en, String es) => journeyText(context, en, es);
+    return switch (mode) {
+      AIProcessingMode.external => t('AI chat', 'Chat con IA'),
+      AIProcessingMode.onDevice => t('On this device', 'En este dispositivo'),
+      AIProcessingMode.onDeviceFallback => t(
+        'On this device (fallback)',
+        'En este dispositivo (alternativa)',
+      ),
+      AIProcessingMode.unknown => t(
+        'Processing unknown',
+        'Procesamiento desconocido',
+      ),
+    };
   }
 
   Color get _color {

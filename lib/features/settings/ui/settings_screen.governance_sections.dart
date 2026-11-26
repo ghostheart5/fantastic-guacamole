@@ -374,8 +374,8 @@ class _MemoryGovernanceSection extends ConsumerWidget {
             child: Text(
               journeyText(
                 context,
-                'By default Axiomara uses what you tell it only this once. It keeps something longer only if you confirm it, only for the part of the app it came from, and forgets it automatically after a while. Every kept item has a record you can review. Chat never keeps anything long-term. Raw emotional and crisis messages are not kept, and interpretive memory is not saved.',
-                'De forma predeterminada, Axiomara usa lo que le cuentas solo esta vez. Guarda algo por más tiempo solo si lo confirmas, solo para la parte de la app de donde vino, y lo olvida automáticamente pasado un tiempo. Cada elemento guardado tiene un registro que puedes revisar. Chat nunca guarda nada a largo plazo. No se conservan mensajes emocionales ni de crisis sin procesar, y no se guarda memoria interpretativa.',
+                'By default Axiomara uses what you tell it only this once. It keeps something longer only if you confirm it, only for the part of the app it came from, and forgets it automatically after a while. Every kept item has a record you can review. Chat never saves memories. Its conversation history is saved on this device for your account and is separate: open Chat and choose Clear conversation to delete it. Raw emotional and crisis messages are not kept, and interpretive memory is not saved.',
+                'De forma predeterminada, Axiomara usa lo que le cuentas solo esta vez. Guarda algo por más tiempo solo si lo confirmas, solo para la parte de la app de donde vino, y lo olvida automáticamente pasado un tiempo. Cada elemento guardado tiene un registro que puedes revisar. Chat nunca guarda memorias. Su historial de conversación se guarda en este dispositivo para tu cuenta y es independiente: abre Chat y elige Borrar conversación para eliminarlo. No se conservan mensajes emocionales ni de crisis sin procesar, y no se guarda memoria interpretativa.',
               ),
               style: const TextStyle(
                 color: Colors.white60,
@@ -412,8 +412,8 @@ class _MemoryGovernanceSection extends ConsumerWidget {
             ),
             subtitle: journeyText(
               context,
-              'Off: the Assistant cannot save or retrieve interpretive memory.',
-              'Desactivada: el asistente no puede guardar ni recuperar memoria interpretativa.',
+              'Off: Chat cannot save or retrieve interpretive memory.',
+              'Desactivada: Chat no puede guardar ni recuperar memoria interpretativa.',
             ),
           ),
           _NeonNavTile(
@@ -556,9 +556,17 @@ class _AssistantReleaseSection extends ConsumerWidget {
     // (checked on the config so a rollback or an "off" stage does not hide
     // the status view from testers). Everyone else sees nothing, except an
     // account that is still opted in, which sees one switch to leave.
+    final bool advisorAccess = ref.watch(internalAdvisorAccessProvider);
+    // Show nothing until the opt-in value, the config and the decision have
+    // all resolved, so an internal tester never sees the leave-only section
+    // flash before the internal list is checked.
+    if (!advisorAccess &&
+        !(optIn.hasValue && config.hasValue && plannerDecision.hasValue)) {
+      return const SizedBox.shrink();
+    }
     final String? digest = plannerDecision.asData?.value.accountDigest;
     final bool isInternal =
-        ref.watch(internalAdvisorAccessProvider) ||
+        advisorAccess ||
         (loadedConfig != null &&
             digest != null &&
             loadedConfig.internalAccountDigests.contains(digest));

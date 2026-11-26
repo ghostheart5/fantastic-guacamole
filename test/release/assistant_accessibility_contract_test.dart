@@ -42,7 +42,16 @@ void main() {
     );
     expect(source, contains('MediaQuery.textScalerOf(context).scale(1) > 1.3'));
     expect(source, contains('child: Text(copy.retryEvidence)'));
-    expect(source, contains("'Chat is analyzing the current evidence'"));
+    // The typing indicator is a live region whose Semantics label is the
+    // bilingual sentence (not merely a string somewhere in the file).
+    expect(
+      source,
+      contains(
+        RegExp(
+          r"liveRegion: true,\s*label: journeyText\(\s*context,\s*'Chat is analyzing the current evidence',\s*'Chat está analizando la evidencia actual',\s*\),",
+        ),
+      ),
+    );
     expect(source, isNot(contains('TextScaler.noScaling')));
   });
 

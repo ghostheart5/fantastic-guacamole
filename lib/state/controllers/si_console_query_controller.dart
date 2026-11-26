@@ -78,7 +78,7 @@ class SIConsoleQueryController {
       evidence: createAssistantEvidenceItems(
         request: request,
         summaries: const <String>[
-          'Response checked before it was shown in the Assistant',
+          'Response checked before it was shown in Chat',
         ],
         sourceId: 'si_console_display_boundary',
         kind: AssistantEvidenceKind.policy,

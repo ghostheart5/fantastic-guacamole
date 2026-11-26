@@ -22,11 +22,8 @@ final RegExp _quoted = RegExp(r"""(['"])((?:\\.|(?!\1).)*)\1""");
 /// Files whose strings are exception messages, log lines, storage inventory
 /// or protocol identifiers, never shown to a person.
 const Set<String> _exemptFiles = <String>{
-  'lib/domain/entities/si_v2_contract.dart',
   'lib/domain/entities/assistant_contracts.dart',
-  'lib/domain/strategic/si_console_intelligence_contract.dart',
   'lib/domain/assistant/axiomara_router_contract.dart',
-  'lib/domain/policies/assistant_safety_policy.dart',
   'lib/core/data/account_data_registry.dart',
   'lib/data/services/workspace_store_service.dart',
   'lib/data/repositories/si_engine_repository.dart',
@@ -51,7 +48,15 @@ bool _isNotCopy(String copy) =>
     copy.startsWith('SI shortcut ') ||
     copy.startsWith('Duplicate SI shortcut') ||
     copy.startsWith('Invalid SI shortcut') ||
-    copy.startsWith('SI shortcut registry');
+    copy.startsWith('SI shortcut registry') ||
+    // Exception messages of the SI V2 and intelligence-receipt contracts.
+    copy.startsWith('SI V2 ') ||
+    copy.startsWith('SI intelligence receipts ') ||
+    copy.startsWith('SI confidence must ') ||
+    copy.endsWith(' SI intelligence receipt version.') ||
+    copy.endsWith(' SI intelligence receipt time.') ||
+    // The safety policy's pattern for repairing a leading "SI" in replies.
+    copy.startsWith(r'(^|(?<=[.!?])\s+)SI');
 
 void main() {
   test('no visible text uses a retired assistant name', () {
@@ -75,6 +80,26 @@ void main() {
           if (_retired.hasMatch(copy)) {
             violations.add('$path:${i + 1}: $copy');
           }
+        }
+      }
+    }
+    // Triple-quoted strings can span lines, so scan whole files for them.
+    final RegExp triple = RegExp(
+      r"'''[\s\S]*?'''|"
+      r'"""[\s\S]*?"""',
+    );
+    for (final File file
+        in Directory('lib')
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((File f) => f.path.endsWith('.dart'))) {
+      final String path = file.path.replaceAll(r'\', '/');
+      if (_exemptFiles.contains(path)) continue;
+      for (final RegExpMatch match in triple.allMatches(
+        file.readAsStringSync(),
+      )) {
+        if (_retired.hasMatch(match.group(0)!)) {
+          violations.add('$path: triple-quoted copy ${match.group(0)}');
         }
       }
     }

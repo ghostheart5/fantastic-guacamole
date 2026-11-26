@@ -213,7 +213,7 @@ class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
         sourceSurface == MemorySurface.unknown) {
       throw const MemoryGovernanceException(
         'surface_not_allowed',
-        'Durable interpretive memory is disabled for the Assistant. Nothing was saved.',
+        'Durable interpretive memory is disabled for Chat. Nothing was saved.',
       );
     }
     final AccountStorageScope scope = ref.read(accountStorageScopeProvider);
