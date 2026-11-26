@@ -1695,6 +1695,81 @@ void main() {
     );
   }
 
+  for (final language in ['en', 'es']) {
+    testWidgets(
+      '$language: M6: a request too large to build gets the shorten text, nothing sent',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final backend = InMemorySecureStoreBackend();
+        // Saved messages whose characters grow sixfold in the request's JSON.
+        final heavy = List.filled(2500, '\u0001').join();
+        await SecureStore(backend: backend)
+            .forAccount(_scope)
+            .writeString(
+              AssistantConversationRepository.storageKey,
+              jsonEncode({
+                'version': 1,
+                'revision': 0,
+                'messages': [
+                  for (var i = 0; i < 2; i++)
+                    {'role': i.isEven ? 'user' : 'assistant', 'content': heavy},
+                ],
+                'sources': <Object?>[],
+                'sourcesChosen': true,
+              }),
+            );
+        var calls = 0;
+        final container = _setup((body) async {
+          calls++;
+          return _quote(body);
+        }, backend);
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await _pumpScreen(
+          tester,
+          container,
+          ConversationSurface.si,
+          language: language,
+        );
+        await _settle(tester);
+        await tester.enterText(
+          find.byKey(const Key('conversation-input')),
+          'Compare my two options.',
+        );
+        await tester.pump();
+        await tester.ensureVisible(find.byKey(const Key('conversation-send')));
+        await tester.tap(find.byKey(const Key('conversation-send')));
+        await _settle(tester);
+        expect(calls, 0);
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('conversation-error')),
+          500,
+          scrollable: find.byType(Scrollable).first,
+        );
+        final error = tester
+            .widget<Text>(
+              find.descendant(
+                of: find.byKey(const Key('conversation-error')),
+                matching: find.byType(Text),
+              ),
+            )
+            .data!;
+        expect(
+          error,
+          contains(
+            language == 'es'
+                ? 'Acorta la pregunta o elige menos información'
+                : 'Shorten the question or choose less information',
+          ),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   // I1: the server answers request_reserved while the first call of the same
   // request id is still running.
   _Response stillReserved(Map<String, dynamic> body) => (

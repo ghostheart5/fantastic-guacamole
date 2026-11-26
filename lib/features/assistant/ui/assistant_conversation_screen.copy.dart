@@ -108,10 +108,10 @@ extension _ConversationCopy on _AssistantConversationScreenState {
       'The price expired before the message was sent. No credits were charged. Your question is kept; tap send to try again.',
       'El precio caducó antes de enviar el mensaje. No se cobraron créditos. Tu pregunta se conserva; toca enviar para intentarlo de nuevo.',
     ),
-    'request_too_large' || 'context_too_large' => copy(
-      'This question and the information with it are too large to send. Nothing was sent for a reply. Nothing was charged. Shorten the question or choose less information, then tap send.',
-      'Esta pregunta y la información que la acompaña son demasiado grandes para enviarlas. No se envió nada para responder. No se cobró nada. Acorta la pregunta o elige menos información y luego toca enviar.',
-    ),
+    'request_too_large' || 'context_too_large' => _tooLargeText,
+    // Before anything was handed on, invalid_request means the request was
+    // over the size the server accepts and was not built.
+    'invalid_request' when !sentForReply => _tooLargeText,
     'unauthorized' || 'authentication_required' => copy(
       'Your sign-in needs renewing before AI chat can answer. Nothing was charged. Sign in again, then tap send. Your question is kept.',
       'Debes renovar tu inicio de sesión para que el chat con IA responda. No se cobró nada. Inicia sesión de nuevo y luego toca enviar. Tu pregunta se conserva.',
@@ -193,6 +193,11 @@ extension _ConversationCopy on _AssistantConversationScreenState {
       'El servicio de IA no pudo completar esta solicitud. No se envió nada para responder y no se cobró nada. Tu pregunta se conserva; puedes intentarlo de nuevo.',
     ),
   };
+
+  String get _tooLargeText => copy(
+    'This question and the information with it are too large to send. Nothing was sent for a reply. Nothing was charged. Shorten the question or choose less information, then tap send.',
+    'Esta pregunta y la información que la acompaña son demasiado grandes para enviarlas. No se envió nada para responder. No se cobró nada. Acorta la pregunta o elige menos información y luego toca enviar.',
+  );
 
   Iterable<String> _recordEvidenceIds(ConversationPacket packet) sync* {
     final data = packet.toJson()['context'] as Map;
