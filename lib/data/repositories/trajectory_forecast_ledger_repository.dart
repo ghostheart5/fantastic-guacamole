@@ -79,19 +79,65 @@ class TrajectoryForecastLedgerRepository
     }
   }
 
+  /// Stores [receipt]. [isCurrent] is checked after the ledger is read and
+  /// before anything is written: when it returns false (the account changed
+  /// meanwhile) nothing is written.
   @override
-  Future<bool> append(TrajectoryForecastReceipt receipt) async {
+  Future<bool> append(
+    TrajectoryForecastReceipt receipt, {
+    bool Function()? isCurrent,
+  }) async {
     final String? key = storageKey;
     if (key == null || receipt.accountScope != scope.v2Namespace) return false;
     receipt.validate();
     final List<TrajectoryForecastReceipt> existing = await load();
+    if (isCurrent != null && !isCurrent()) return false;
     final List<TrajectoryForecastReceipt> next = <TrajectoryForecastReceipt>[
       receipt,
       ...existing.where(
         (TrajectoryForecastReceipt item) => item.id != receipt.id,
       ),
     ];
-    await _save(next);
+    final List<TrajectoryForecastReceipt> kept = _bounded(next);
+    if (!kept.contains(receipt)) return false;
+    await _save(kept);
+    return true;
+  }
+
+  /// Stores an automatic [receipt] unless an automatic receipt for the same
+  /// range was already recorded on the same local day, or the cap would have
+  /// to drop an unchecked manual receipt to make room (then the automatic one
+  /// is not kept). Returns whether it was stored.
+  Future<bool> appendAutomatic(
+    TrajectoryForecastReceipt receipt, {
+    bool Function()? isCurrent,
+  }) async {
+    final String? key = storageKey;
+    if (key == null ||
+        !receipt.isAutomatic ||
+        receipt.accountScope != scope.v2Namespace) {
+      return false;
+    }
+    receipt.validate();
+    final List<TrajectoryForecastReceipt> existing = await load();
+    if (isCurrent != null && !isCurrent()) return false;
+    final DateTime day = _localDay(receipt.selectedAt);
+    final bool alreadyToday = existing.any(
+      (TrajectoryForecastReceipt item) =>
+          item.isAutomatic &&
+          item.horizon == receipt.horizon &&
+          _localDay(item.selectedAt) == day,
+    );
+    if (alreadyToday) return false;
+    final List<TrajectoryForecastReceipt> kept =
+        _bounded(<TrajectoryForecastReceipt>[
+          receipt,
+          ...existing.where(
+            (TrajectoryForecastReceipt item) => item.id != receipt.id,
+          ),
+        ]);
+    if (!kept.contains(receipt)) return false;
+    await _save(kept);
     return true;
   }
 
@@ -131,12 +177,28 @@ class TrajectoryForecastLedgerRepository
     return true;
   }
 
+  /// Settles the forecasts that are due at [current].observedAt.
+  ///
+  /// Like with like: a forecast of the current model version with range H is
+  /// checked against the workload over that same range length measured now
+  /// ([pressureForHorizon] for H; without it, the baseline's own range or
+  /// next-7-days figure when H matches, otherwise the forecast is left for a
+  /// later check). A due forecast of an earlier model version gets no
+  /// observation measured a different way: it is marked as settled under an
+  /// earlier method and kept. [isCurrent] is checked after the ledger is read
+  /// and before anything is written.
   @override
-  Future<int> reconcileDue(TrajectoryBaseline current) async {
+  Future<int> reconcileDue(
+    TrajectoryBaseline current, {
+    int Function(int horizonDays)? pressureForHorizon,
+    bool Function()? isCurrent,
+    String modelVersion = trajectoryConsequenceModelVersion,
+  }) async {
     if (storageKey == null || current.accountScope != scope.v2Namespace) {
       return 0;
     }
     final List<TrajectoryForecastReceipt> receipts = await load();
+    if (isCurrent != null && !isCurrent()) return 0;
     int resolved = 0;
     final List<TrajectoryForecastReceipt> next = receipts
         .map((receipt) {
@@ -154,15 +216,25 @@ class TrajectoryForecastLedgerRepository
                 : current.observedAt;
             return receipt.markAssumptionsCorrected(correctedAt);
           }
-          if (receipt.isResolved || !receipt.isDueAt(current.observedAt)) {
+          if (receipt.isSettled || !receipt.isDueAt(current.observedAt)) {
             return receipt;
           }
+          if (!receipt.isMethod(modelVersion)) {
+            resolved++;
+            return receipt.markEarlierMethod(current.observedAt);
+          }
+          final int? pressure = _observedPressure(
+            receipt,
+            current,
+            pressureForHorizon,
+          );
+          if (pressure == null) return receipt;
           resolved++;
           return receipt.resolve(
             TrajectoryObservedOutcome(
               observedAt: current.observedAt,
               momentum: current.momentum,
-              pressure: current.pressure,
+              pressure: pressure,
               completedInWindow: current.completedInWindow,
               deferredInWindow: current.deferredInWindow,
             ),
@@ -173,18 +245,66 @@ class TrajectoryForecastLedgerRepository
     return resolved;
   }
 
-  Future<void> _save(List<TrajectoryForecastReceipt> receipts) async {
-    final String? key = storageKey;
-    if (key == null) return;
+  /// The workload over the receipt's own range length, measured now; null
+  /// when it cannot be measured the same way.
+  static int? _observedPressure(
+    TrajectoryForecastReceipt receipt,
+    TrajectoryBaseline current,
+    int Function(int horizonDays)? pressureForHorizon,
+  ) {
+    final int days = receipt.horizon.inDays < 1 ? 1 : receipt.horizon.inDays;
+    if (pressureForHorizon != null) {
+      return pressureForHorizon(days).clamp(0, 100);
+    }
+    if (days == current.horizonDays) return current.pressureInHorizon;
+    if (days == 7) return current.pressure;
+    return null;
+  }
+
+  /// Keeps at most [maximumReceipts], newest first. When some must go, they
+  /// go in this order, oldest first within each group: settled receipts
+  /// (checked, or due under an earlier method), then unchecked automatic
+  /// receipts, then unchecked manual receipts. So an unchecked manual receipt
+  /// is never dropped while an automatic or settled one could go instead.
+  List<TrajectoryForecastReceipt> _bounded(
+    List<TrajectoryForecastReceipt> receipts,
+  ) {
     final List<TrajectoryForecastReceipt> ordered =
         <TrajectoryForecastReceipt>[...receipts]..sort(
           (TrajectoryForecastReceipt a, TrajectoryForecastReceipt b) =>
               b.selectedAt.compareTo(a.selectedAt),
         );
-    final List<TrajectoryForecastReceipt> bounded =
-        ordered.length <= maximumReceipts
-        ? ordered
-        : ordered.sublist(0, maximumReceipts);
+    int excess = ordered.length - maximumReceipts;
+    if (excess <= 0) return ordered;
+    final Set<TrajectoryForecastReceipt> dropped =
+        Set<TrajectoryForecastReceipt>.identity();
+    for (final bool Function(TrajectoryForecastReceipt) group
+        in <bool Function(TrajectoryForecastReceipt)>[
+          (TrajectoryForecastReceipt r) => r.isSettled,
+          (TrajectoryForecastReceipt r) => r.isAutomatic,
+          (TrajectoryForecastReceipt r) => true,
+        ]) {
+      for (final TrajectoryForecastReceipt receipt in ordered.reversed) {
+        if (excess == 0) break;
+        if (dropped.contains(receipt) || !group(receipt)) continue;
+        dropped.add(receipt);
+        excess--;
+      }
+    }
+    return ordered
+        .where((TrajectoryForecastReceipt item) => !dropped.contains(item))
+        .toList(growable: false);
+  }
+
+  static DateTime _localDay(DateTime value) {
+    final DateTime local = value.toLocal();
+    return DateTime(local.year, local.month, local.day);
+  }
+
+  Future<void> _save(List<TrajectoryForecastReceipt> receipts) async {
+    final String? key = storageKey;
+    if (key == null) return;
+    final List<TrajectoryForecastReceipt> bounded = _bounded(receipts);
     await store.save(
       key,
       jsonEncode(<String, dynamic>{

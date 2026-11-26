@@ -41,6 +41,19 @@ class TrajectoryObservedOutcome {
       );
 }
 
+/// How a forecast receipt was recorded: by the person tapping "Track this
+/// path", or automatically on the device (the keep-going forecast, at most
+/// once per range per local day).
+enum TrajectoryForecastOrigin { manual, automatic }
+
+/// The receipt schema that added the optional `origin` and `earlierMethodAt`
+/// fields. A receipt carrying either is written as this schema (as
+/// [TrajectoryForecastReceipt.markAssumptionsCorrected] raises a receipt to
+/// schema 2); receipts without them keep their schema number and their exact
+/// JSON, so untouched stored receipts round-trip byte for byte. Older readers
+/// ignore both fields.
+const int trajectoryForecastReceiptOriginSchemaVersion = 3;
+
 /// Immutable, account-local evidence that a user tracked a conditional model.
 /// It stores model assumptions but no task titles.
 class TrajectoryForecastReceipt {
@@ -64,6 +77,8 @@ class TrajectoryForecastReceipt {
     List<String> personContextSignalIds = const <String>[],
     this.assumptionsCorrectedAt,
     this.observed,
+    this.origin = TrajectoryForecastOrigin.manual,
+    this.earlierMethodAt,
     this.schemaVersion = 2,
   }) : assumptions = List<String>.unmodifiable(assumptions),
        personContextSignalIds = List<String>.unmodifiable(
@@ -74,6 +89,7 @@ class TrajectoryForecastReceipt {
     required TrajectoryBaseline baseline,
     required TrajectoryScenarioOutcome outcome,
     required DateTime selectedAt,
+    TrajectoryForecastOrigin origin = TrajectoryForecastOrigin.manual,
   }) => TrajectoryForecastReceipt(
     id: '${outcome.id}:${selectedAt.toUtc().microsecondsSinceEpoch}',
     accountScope: baseline.accountScope,
@@ -94,6 +110,10 @@ class TrajectoryForecastReceipt {
         ? null
         : baseline.sourceRevisions['person_context_trajectory'],
     personContextSignalIds: _traceSignalIds(baseline.personContextTrace),
+    origin: origin,
+    schemaVersion: origin == TrajectoryForecastOrigin.automatic
+        ? trajectoryForecastReceiptOriginSchemaVersion
+        : 2,
   );
 
   final String id;
@@ -115,10 +135,21 @@ class TrajectoryForecastReceipt {
   final List<String> personContextSignalIds;
   final DateTime? assumptionsCorrectedAt;
   final TrajectoryObservedOutcome? observed;
+  final TrajectoryForecastOrigin origin;
+
+  /// When this forecast fell due but was made by an earlier model version,
+  /// so no observation measured the current way was written against it. It
+  /// stays in the ledger, unresolved, and is never used for calibration.
+  final DateTime? earlierMethodAt;
   final int schemaVersion;
 
   DateTime get dueAt => selectedAt.add(horizon);
   bool get isResolved => observed != null;
+  bool get isAutomatic => origin == TrajectoryForecastOrigin.automatic;
+
+  /// Nothing more will be written against this forecast: it was checked, or
+  /// it fell due under an earlier method.
+  bool get isSettled => isResolved || earlierMethodAt != null;
   bool get hasAssumptionCorrection => assumptionsCorrectedAt != null;
 
   /// Whether this forecast was made by [version] of the model, so its figures
@@ -147,7 +178,40 @@ class TrajectoryForecastReceipt {
         personContextSignalIds: personContextSignalIds,
         assumptionsCorrectedAt: assumptionsCorrectedAt,
         observed: value,
+        origin: origin,
+        earlierMethodAt: earlierMethodAt,
         schemaVersion: schemaVersion,
+      );
+
+  /// Settles a due forecast made by an earlier model version without writing
+  /// an observation measured a different way against it.
+  TrajectoryForecastReceipt markEarlierMethod(DateTime at) =>
+      TrajectoryForecastReceipt(
+        id: id,
+        accountScope: accountScope,
+        baselineRevision: baselineRevision,
+        scenarioId: scenarioId,
+        interventionType: interventionType,
+        generatedAt: generatedAt,
+        selectedAt: selectedAt,
+        horizon: horizon,
+        projectedMomentum: projectedMomentum,
+        projectedPressure: projectedPressure,
+        uncertainty: uncertainty,
+        projectedRiskScore: projectedRiskScore,
+        confidenceBand: confidenceBand,
+        modelVersion: modelVersion,
+        assumptions: assumptions,
+        personContextRevision: personContextRevision,
+        personContextSignalIds: personContextSignalIds,
+        assumptionsCorrectedAt: assumptionsCorrectedAt,
+        observed: observed,
+        origin: origin,
+        earlierMethodAt: at.toUtc(),
+        schemaVersion:
+            schemaVersion < trajectoryForecastReceiptOriginSchemaVersion
+            ? trajectoryForecastReceiptOriginSchemaVersion
+            : schemaVersion,
       );
 
   TrajectoryForecastReceipt markAssumptionsCorrected(DateTime correctedAt) =>
@@ -171,6 +235,8 @@ class TrajectoryForecastReceipt {
         personContextSignalIds: personContextSignalIds,
         assumptionsCorrectedAt: correctedAt.toUtc(),
         observed: observed,
+        origin: origin,
+        earlierMethodAt: earlierMethodAt,
         schemaVersion: schemaVersion < 2 ? 2 : schemaVersion,
       );
 
@@ -200,6 +266,12 @@ class TrajectoryForecastReceipt {
         'Forecast assumption correction cannot predate selection.',
       );
     }
+    if (earlierMethodAt != null &&
+        earlierMethodAt!.toUtc().isBefore(selectedAt.toUtc())) {
+      throw const FormatException(
+        'Forecast earlier-method mark cannot predate selection.',
+      );
+    }
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -223,6 +295,11 @@ class TrajectoryForecastReceipt {
     'personContextSignalIds': personContextSignalIds,
     'assumptionsCorrectedAt': assumptionsCorrectedAt?.toUtc().toIso8601String(),
     'observed': observed?.toJson(),
+    // Optional schema-3 fields, written only when set so that every other
+    // receipt keeps its exact JSON.
+    if (origin == TrajectoryForecastOrigin.automatic) 'origin': origin.name,
+    if (earlierMethodAt != null)
+      'earlierMethodAt': earlierMethodAt!.toUtc().toIso8601String(),
   };
 
   factory TrajectoryForecastReceipt.fromJson(Map<String, dynamic> json) {
@@ -287,6 +364,13 @@ class TrajectoryForecastReceipt {
               Map<String, dynamic>.from(json['observed'] as Map),
             )
           : null,
+      // Absent or unknown means the person tracked it.
+      origin: json['origin'] == TrajectoryForecastOrigin.automatic.name
+          ? TrajectoryForecastOrigin.automatic
+          : TrajectoryForecastOrigin.manual,
+      earlierMethodAt: json['earlierMethodAt'] == null
+          ? null
+          : _requiredDate(json['earlierMethodAt'], 'earlierMethodAt'),
       schemaVersion: _integer(json['schemaVersion'] ?? 1, 'schemaVersion'),
     );
     receipt.validate();
