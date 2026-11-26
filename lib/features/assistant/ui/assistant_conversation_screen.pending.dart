@@ -7,8 +7,8 @@ part of 'assistant_conversation_screen.dart';
 /// still running, with `request_reserved`: see [_collectAgainLater]).
 extension _PendingRequest on _AssistantConversationScreenState {
   String get _stillAnsweringText => copy(
-    'Your reply is still on its way: the first attempt of this same request is still being answered. It is collected again here in a few seconds, and nothing more is charged for collecting it. Your question is kept.',
-    'Tu respuesta sigue en camino: el primer intento de esta misma solicitud aún se está respondiendo. Se vuelve a recoger aquí en unos segundos y no se cobra nada más por recogerla. Tu pregunta se conserva.',
+    'This same request is still being answered from its first attempt. The app checks again here every few seconds, and checking costs nothing more. Your question is kept.',
+    'Esta misma solicitud aún se está respondiendo desde su primer intento. La app vuelve a comprobarlo aquí cada pocos segundos y comprobarlo no cuesta nada más. Tu pregunta se conserva.',
   );
 
   /// The server is still answering the first call of this same request id.

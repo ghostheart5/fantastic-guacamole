@@ -1888,7 +1888,7 @@ void main() {
     },
   );
   const stillOnItsWay =
-      'Your reply is still on its way: the first attempt of this same request is still being answered. It is collected again here in a few seconds, and nothing more is charged for collecting it. Your question is kept.';
+      'This same request is still being answered from its first attempt. The app checks again here every few seconds, and checking costs nothing more. Your question is kept.';
   Future<void> pumpSome(WidgetTester tester) async {
     for (var i = 0; i < 10; i++) {
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
@@ -1971,7 +1971,7 @@ void main() {
       expect(paid, hasLength(2));
       expect(
         find.text(
-          'Tu respuesta sigue en camino: el primer intento de esta misma solicitud aún se está respondiendo. Se vuelve a recoger aquí en unos segundos y no se cobra nada más por recogerla. Tu pregunta se conserva.',
+          'Esta misma solicitud aún se está respondiendo desde su primer intento. La app vuelve a comprobarlo aquí cada pocos segundos y comprobarlo no cuesta nada más. Tu pregunta se conserva.',
         ),
         findsOneWidget,
       );

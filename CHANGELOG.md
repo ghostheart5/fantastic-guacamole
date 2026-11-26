@@ -61,7 +61,7 @@ These changes are not yet released or verified on a device.
 - "Memory governance" in Settings is now "What Axiomara remembers", in plain words.
 - Plans and credits now says "AI chat credit plans".
 - The old assistant code that the app no longer used is removed.
-- Server changes are written and tested but not deployed yet: record text is kept out of the AI's instructions, the reply filter removes only the sentence at fault, refunded requests do not count toward the daily limit, and reply reports are blanked after 180 days.
+- Server changes are written, with tests, but not deployed yet, and the database change has not been run yet: record text is kept out of the AI's instructions, the reply filter removes only the sentence at fault, refunded requests do not count toward the daily limit, and reply reports are blanked after 180 days.
 
 ## Future release entries
 
