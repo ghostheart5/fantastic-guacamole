@@ -226,13 +226,18 @@ Future<String> _review(
 /// Scrolls the conversation until [finder] is built, then makes it visible.
 Future<void> _reveal(WidgetTester tester, Finder finder) async {
   await tester.pumpAndSettle();
-  if (finder.evaluate().isEmpty) {
-    await tester.scrollUntilVisible(
-      finder,
-      180,
-      scrollable: find.byType(Scrollable).first,
-      maxScrolls: 20,
-    );
+  for (final step in [180.0, -180.0]) {
+    if (finder.evaluate().isNotEmpty) break;
+    try {
+      await tester.scrollUntilVisible(
+        finder,
+        step,
+        scrollable: find.byType(Scrollable).first,
+        maxScrolls: 30,
+      );
+    } on StateError {
+      // Not in this direction: try the other one.
+    }
   }
   await Scrollable.ensureVisible(tester.element(finder));
   await tester.pumpAndSettle();
