@@ -26,6 +26,11 @@ jobs:
               break
             fi
           done
+          # Dependabot (Nov 26, 2026, INF-11): its update PRs may open, still behind CODEOWNERS review and CI.
+          # Matched on GitHub's fixed bot account id AND login, so a look-alike name can't pass.
+          if [ "$PR_AUTHOR_ID" = "49699333" ] && [ "$PR_AUTHOR_LOGIN" = "dependabot[bot]" ]; then
+            allowed=true
+          fi
           if [ "$allowed" = "false" ]; then
             echo "Pull requests to main are restricted to maintainer-managed changes."
             echo "PR author '$PR_AUTHOR_LOGIN' (id $PR_AUTHOR_ID) is not allowed by policy."
