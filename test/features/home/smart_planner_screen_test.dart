@@ -40,6 +40,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
+  // A test that moves the sign-in generation must not leave it moved.
+  tearDown(() => _testBoundaryGeneration = 1);
   for (final invalid in ['wrong account', 'expired', 'future']) {
     for (final mounted in [false, true]) {
       testWidgets(
@@ -349,6 +351,46 @@ void main() {
         'Your words are still in AI chat. Your notes in the free planner were kept.',
       ),
       findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Choose a step: notes do not cross an account change', (
+    tester,
+  ) async {
+    final prefs = _MemoryPrefs();
+    prefs.values['chronospark.first_use_context_offer.v1.${AccountStorageScope.authenticated('planner-other-account').v2Namespace}'] =
+        'true';
+    final container = _container(
+      conversationAvailable: true,
+      allowedAi: true,
+      sharedPrefsStore: prefs,
+      switchableScope: true,
+    );
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    await tester.pump(const Duration(milliseconds: 300));
+    await plannerSwitch(tester, 'assistant-mode-on-device');
+    await tester.enterText(
+      find.byKey(const Key('planner-context-field')),
+      'Private notes of the first account',
+    );
+    await tester.pump(const Duration(seconds: 2));
+
+    container
+        .read(_scopeTestProvider.notifier)
+        .set(AccountStorageScope.authenticated('planner-other-account'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 400));
+    // The choice starts again on AI chat, with an empty box.
+    expect(plannerBox(tester, 'conversation-input'), isEmpty);
+    await plannerSwitch(tester, 'assistant-mode-on-device');
+    expect(plannerBox(tester, 'planner-context-field'), isEmpty);
+    expect(plannerBox(tester, 'conversation-input'), isEmpty);
+    expect(
+      find.text('Private notes of the first account', skipOffstage: false),
+      findsNothing,
     );
     expect(tester.takeException(), isNull);
   });
@@ -2348,6 +2390,7 @@ ProviderContainer _container({
   _RecordingGuidance Function()? guidance,
   ConversationTransport? conversationTransport,
   InMemorySecureStoreBackend? secureBackend,
+  bool switchableScope = false,
 }) {
   final SharedPrefsStore resolvedStore = sharedPrefsStore ?? _MemoryPrefs();
   final AccountStorageScope resolvedScope =
@@ -2396,7 +2439,12 @@ ProviderContainer _container({
         voiceInputEnabledProvider.overrideWithValue(true),
       if (voiceController != null)
         voiceControllerProvider.overrideWith(() => voiceController),
-      accountStorageScopeProvider.overrideWithValue(resolvedScope),
+      if (switchableScope)
+        accountStorageScopeProvider.overrideWith(
+          (ref) => ref.watch(_scopeTestProvider) ?? resolvedScope,
+        )
+      else
+        accountStorageScopeProvider.overrideWithValue(resolvedScope),
       accountLegacyOwnershipProvider.overrideWithValue(
         LegacyScopeOwnership.provenNotOwned,
       ),
@@ -2537,6 +2585,19 @@ class _MemoryPrefs implements SharedPrefsStore {
 
   @override
   Future<void> clear() async => values.clear();
+}
+
+/// The account a switchable test container is on (null: the default one).
+final _scopeTestProvider =
+    NotifierProvider<_ScopeTestNotifier, AccountStorageScope?>(
+      _ScopeTestNotifier.new,
+    );
+
+class _ScopeTestNotifier extends Notifier<AccountStorageScope?> {
+  @override
+  AccountStorageScope? build() => null;
+
+  void set(AccountStorageScope scope) => state = scope;
 }
 
 final _plannerContextRevisionTestProvider =
