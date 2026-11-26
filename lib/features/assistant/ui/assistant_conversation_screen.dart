@@ -792,11 +792,11 @@ class _AssistantConversationScreenState
         'invalid_upstream_response',
         'empty_upstream_response',
       }.contains(error.code)) {
-        if (error.code == 'request_completed' &&
-            executing != null &&
+        if (executing != null &&
             widget.surface == ConversationSurface.planner &&
             widget.hidden) {
-          // Its text is seen before its stored request is forgotten.
+          // Every final answer is seen before its stored request is
+          // forgotten; a re-send of the same id gets the same answer.
           _reportWhileHidden();
           if (!await _whenShown() || !current()) {
             _resumeHeld(generation, operation);
