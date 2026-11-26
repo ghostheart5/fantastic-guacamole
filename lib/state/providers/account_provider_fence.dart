@@ -46,6 +46,7 @@ import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_habit_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Disposes every provider that can retain account-owned values in memory.
@@ -58,6 +59,7 @@ void invalidateAccountOwnedProviders(Ref ref) {
   ref.invalidate(goalsProvider);
   ref.invalidate(habitsProvider);
   ref.invalidate(patternsProvider);
+  ref.invalidate(trajectoryHabitSourceProvider);
   ref.invalidate(rhythmPlanningProvider);
   ref.invalidate(projectsProvider);
   ref.invalidate(routinesProvider);

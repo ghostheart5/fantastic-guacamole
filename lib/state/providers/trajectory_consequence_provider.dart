@@ -19,6 +19,7 @@ import 'package:fantastic_guacamole/state/providers/person_context_provider.dart
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_habit_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final futureConsequenceEngineProvider = Provider<FutureConsequenceEngine>(
@@ -148,6 +149,14 @@ final trajectoryConsequenceProvider =
       final TrajectoryCalibrationAdjustment calibration = ref.watch(
         trajectoryCalibrationAdjustmentProvider,
       );
+      // Habit lines for this account: listed only, never blocking (none
+      // until the account's own habits are read).
+      final TrajectoryHabitEvidenceView habits = trajectoryHabitEvidence(
+        source: ref.watch(trajectoryHabitSourceProvider),
+        namespace: scope.v2Namespace,
+        now: now,
+        horizonDays: horizonDays,
+      );
       final TrajectoryBaseline baseline = _baseline(
         aggregation: aggregation,
         progression: progression,
@@ -157,6 +166,7 @@ final trajectoryConsequenceProvider =
         personContext: personContext,
         horizonDays: horizonDays,
         calibration: calibration,
+        habits: habits,
       );
       final List<TrajectoryIntervention> interventions =
           <TrajectoryIntervention>[
@@ -269,6 +279,7 @@ TrajectoryBaseline _baseline({
   required GovernedDecisionContext personContext,
   required int horizonDays,
   required TrajectoryCalibrationAdjustment calibration,
+  required TrajectoryHabitEvidenceView habits,
 }) {
   final DecisionRecommendation decision = aggregation.noContextPlanningDecision;
   final List<TrajectoryTaskNode> tasks = aggregation.tasks
@@ -396,6 +407,9 @@ TrajectoryBaseline _baseline({
     },
     // A rule from recorded accuracy makes this a different comparison.
     if (!calibration.isProvisional) 'calibration': calibration.revision,
+    // A habit or check-in change makes this a different comparison.
+    if (habits.revision != null)
+      'habits': '${habits.nodes.length}:${_stableHash(habits.revision!)}',
   };
   return TrajectoryBaseline(
     accountScope: scope.v2Namespace ?? 'signed-out',
@@ -455,6 +469,7 @@ TrajectoryBaseline _baseline({
         trajectoryAssumedWorkdayAssumption,
       if (inRange.undatedTasks > 0) trajectoryUndatedTasksAssumption,
     ],
+    habits: habits.nodes,
   );
 }
 
