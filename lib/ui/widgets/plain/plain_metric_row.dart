@@ -2,7 +2,9 @@ import 'package:fantastic_guacamole/ui/widgets/plain/provenance_label.dart';
 import 'package:flutter/material.dart';
 
 /// Label on the left, value on the right, with an optional caption and
-/// provenance label underneath. Text wraps; nothing is truncated.
+/// provenance label underneath. When the value is too wide to sit beside the
+/// label (large text, narrow screen) it moves under the label. Text wraps at
+/// spaces; a number is never split.
 class PlainMetricRow extends StatelessWidget {
   const PlainMetricRow({
     required this.label,
@@ -19,7 +21,17 @@ class PlainMetricRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
+    final ThemeData theme = Theme.of(context);
+    final TextTheme text = theme.textTheme;
+    final ColorScheme colors = theme.colorScheme;
+    final TextStyle labelStyle =
+        text.bodyLarge?.copyWith(color: colors.onSurfaceVariant) ??
+        const TextStyle();
+    final TextStyle valueStyle =
+        text.titleMedium?.copyWith(color: colors.onSurface) ??
+        const TextStyle();
+    final TextScaler scaler = MediaQuery.textScalerOf(context);
+    final TextDirection direction = Directionality.of(context);
     return Semantics(
       container: true,
       child: Padding(
@@ -27,33 +39,43 @@ class PlainMetricRow extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    label,
-                    style: text.bodyLarge?.copyWith(color: Colors.white70),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    value,
-                    textAlign: TextAlign.end,
-                    style: text.titleMedium?.copyWith(color: Colors.white),
-                  ),
-                ),
-              ],
+            LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints box) {
+                final TextPainter painter = TextPainter(
+                  text: TextSpan(text: value, style: valueStyle),
+                  textDirection: direction,
+                  textScaler: scaler,
+                )..layout();
+                final bool beside = painter.width <= box.maxWidth * 0.45;
+                painter.dispose();
+                if (beside) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Expanded(child: Text(label, style: labelStyle)),
+                      const SizedBox(width: 12),
+                      Text(value, textAlign: TextAlign.end, style: valueStyle),
+                    ],
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(label, style: labelStyle),
+                    const SizedBox(height: 2),
+                    Text(value, style: valueStyle),
+                  ],
+                );
+              },
             ),
             if (caption != null)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
                   caption!,
-                  style: text.bodySmall?.copyWith(color: Colors.white70),
+                  style: text.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
                 ),
               ),
             if (provenance != null)

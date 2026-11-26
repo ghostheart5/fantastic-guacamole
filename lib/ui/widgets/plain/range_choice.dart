@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 /// Row of choice chips for a small set of ranges. Exactly one is selected.
-/// Labels come from the caller, in the right language.
+/// Labels come from the caller, in the right language. Chip labels never wrap,
+/// so callers pass short labels such as "7 days"; the chips wrap onto further
+/// lines instead. Each chip's tap area is padded to 48 dp.
 class RangeChoice extends StatelessWidget {
   const RangeChoice({
     required this.labels,
@@ -18,20 +20,13 @@ class RangeChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     return Wrap(
       spacing: 8,
-      runSpacing: 4,
       children: <Widget>[
         for (int i = 0; i < labels.length; i++)
-          ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
-            child: Center(
-              widthFactor: 1,
-              child: ChoiceChip(
-                label: Text(labels[i]),
-                selected: i == selectedIndex,
-                materialTapTargetSize: MaterialTapTargetSize.padded,
-                onSelected: (_) => onSelected(i),
-              ),
-            ),
+          ChoiceChip(
+            label: Text(labels[i]),
+            selected: i == selectedIndex,
+            materialTapTargetSize: MaterialTapTargetSize.padded,
+            onSelected: (_) => onSelected(i),
           ),
       ],
     );

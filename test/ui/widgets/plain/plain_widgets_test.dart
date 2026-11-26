@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:fantastic_guacamole/ui/widgets/plain/plain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -12,6 +13,7 @@ Future<void> pumpPlain(
   String language = 'en',
   double width = 800,
   double textScale = 1.0,
+  ThemeData? theme,
 }) async {
   tester.view.physicalSize = Size(width, 1600);
   tester.view.devicePixelRatio = 1.0;
@@ -20,6 +22,7 @@ Future<void> pumpPlain(
   addTearDown(tester.platformDispatcher.clearAllTestValues);
   await tester.pumpWidget(
     MaterialApp(
+      theme: theme,
       locale: Locale(language),
       supportedLocales: ChronoSparkLocalizations.supportedLocales,
       localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
@@ -61,19 +64,33 @@ Widget everything(String language) {
             semanticLabel: 'Open',
             child: const Text('A card with some content inside it'),
           ),
-          PlainMetricRow(
-            label: es
-                ? 'Tareas terminadas a tiempo en las últimas semanas'
-                : 'Tasks finished on time across the last several weeks',
-            value: es ? 'unas 12 a 15' : 'about 12 to 15',
-            caption: es
-                ? 'Calculado con tus registros de este periodo'
-                : 'Calculated from your records for this period',
-            provenance: ProvenanceKind.estimate,
-          ),
-          PlainDisclosure(
-            title: es ? 'En qué se basa esto' : 'What this is based on',
-            children: const <Widget>[Text('Details')],
+          PlainCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                PlainMetricRow(
+                  label: es
+                      ? 'Tareas terminadas a tiempo en las últimas semanas'
+                      : 'Tasks finished on time across the last several weeks',
+                  value: es ? 'unas 12 a 15' : 'about 12 to 15',
+                  caption: es
+                      ? 'Calculado con tus registros de este periodo'
+                      : 'Calculated from your records for this period',
+                  provenance: ProvenanceKind.estimate,
+                ),
+                PlainDisclosure(
+                  title: es ? 'En qué se basa esto' : 'What this is based on',
+                  initiallyExpanded: true,
+                  children: <Widget>[
+                    Text(
+                      es
+                          ? 'Se basa en tus registros de las últimas semanas.'
+                          : 'Based on your records from the last few weeks.',
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           RangeChoice(
             labels: es
@@ -110,6 +127,7 @@ void main() {
       int refreshes = 0;
       await tester.pumpWidget(
         MaterialApp(
+          theme: appTheme,
           home: PlainScreen(
             leading: const Text('Back control'),
             onRefresh: () async => refreshes++,
@@ -334,6 +352,7 @@ void main() {
             'From your records',
             'De tus registros',
           ],
+          ProvenanceKind.plan: <String>['From your plan', 'De tu plan'],
           ProvenanceKind.estimate: <String>['Estimate', 'Estimación'],
           ProvenanceKind.ai: <String>[
             'AI interpretation',
@@ -395,7 +414,10 @@ void main() {
           ],
         ),
       );
-      expect(find.bySemanticsLabel('Settings'), findsWidgets);
+      expect(
+        tester.getSemantics(find.byType(IconButton)).getSemanticsData().tooltip,
+        'Settings',
+      );
       handle.dispose();
     });
   });
@@ -466,57 +488,203 @@ void main() {
       expectBig(tester, find.byType(OutlinedButton));
     });
 
-    testWidgets('range chips', (WidgetTester tester) async {
+    // Range chip hit areas are tested at their edges in plain_theme_test.dart.
+  });
+
+  group('API additions', () {
+    testWidgets('PlainDisclosure can start open and keeps its state', (
+      WidgetTester tester,
+    ) async {
+      Widget build(String extra) => PlainDisclosure(
+        key: const ValueKey<String>('why'),
+        title: 'Why',
+        initiallyExpanded: true,
+        children: <Widget>[Text('Detail $extra')],
+      );
+      await pumpPlain(tester, build('one'));
+      expect(find.text('Detail one'), findsOneWidget);
+      await tester.tap(find.text('Why'));
+      await tester.pump();
+      expect(find.text('Detail one'), findsNothing);
+      await pumpPlain(tester, build('two'));
+      expect(find.textContaining('Detail'), findsNothing);
+    });
+
+    testWidgets('PlainCard selected is announced and not set by default', (
+      WidgetTester tester,
+    ) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
       await pumpPlain(
         tester,
-        RangeChoice(
-          labels: const <String>['7', '30', '90'],
+        Column(
+          children: <Widget>[
+            PlainCard(
+              selected: true,
+              onTap: () {},
+              semanticLabel: 'Chosen',
+              child: const Text('Chosen'),
+            ),
+            const PlainCard(child: Text('Plain content')),
+          ],
+        ),
+      );
+      final chosen = tester
+          .getSemantics(find.bySemanticsLabel('Chosen'))
+          .getSemanticsData();
+      expect(chosen.flagsCollection.isSelected, ui.Tristate.isTrue);
+      final plain = tester
+          .getSemantics(find.bySemanticsLabel('Plain content'))
+          .getSemanticsData();
+      expect(plain.flagsCollection.isSelected, ui.Tristate.none);
+      handle.dispose();
+    });
+
+    testWidgets('PlainHeaderAction with no callback is disabled', (
+      WidgetTester tester,
+    ) async {
+      await pumpPlain(
+        tester,
+        const PlainHeader(
+          title: 'Insights',
+          actions: <PlainHeaderAction>[
+            PlainHeaderAction(
+              icon: Icons.refresh,
+              label: 'Refresh',
+              onPressed: null,
+            ),
+          ],
+        ),
+      );
+      expect(
+        tester.widget<IconButton>(find.byType(IconButton)).onPressed,
+        isNull,
+      );
+    });
+
+    testWidgets('DestinationSwitch segments form one exclusive group', (
+      WidgetTester tester,
+    ) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      await pumpPlain(
+        tester,
+        DestinationSwitch(
+          firstLabel: 'Patterns',
+          secondLabel: 'Future outcomes',
           selectedIndex: 0,
           onSelected: (_) {},
         ),
       );
-      final Finder boxes = find.ancestor(
-        of: find.byType(ChoiceChip),
-        matching: find.byType(ConstrainedBox),
+      final data = tester
+          .getSemantics(find.bySemanticsLabel('Patterns'))
+          .getSemanticsData();
+      expect(data.flagsCollection.isInMutuallyExclusiveGroup, isTrue);
+      handle.dispose();
+    });
+
+    testWidgets('PlainScreen passes its controller to the list', (
+      WidgetTester tester,
+    ) async {
+      final ScrollController controller = ScrollController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PlainScreen(
+            controller: controller,
+            children: const <Widget>[Text('Body')],
+          ),
+        ),
       );
-      for (final ChoiceChip chip in tester.widgetList<ChoiceChip>(
-        find.byType(ChoiceChip),
-      )) {
-        final Size size = tester.getSize(
-          find
-              .ancestor(
-                of: find.byWidget(chip),
-                matching: find.byType(ConstrainedBox),
-              )
-              .first,
-        );
-        expect(size.width, greaterThanOrEqualTo(48));
-        expect(size.height, greaterThanOrEqualTo(48));
-      }
-      expect(boxes, findsWidgets);
+      expect(controller.hasClients, isTrue);
+    });
+  });
+
+  group('layout when space is short (text scale 2.0, 320 wide)', () {
+    testWidgets('DestinationSwitch stacks its segments', (
+      WidgetTester tester,
+    ) async {
+      await pumpPlain(
+        tester,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: DestinationSwitch(
+            firstLabel: 'Patrones',
+            secondLabel: 'Resultados futuros',
+            selectedIndex: 0,
+            onSelected: (_) {},
+          ),
+        ),
+        language: 'es',
+        width: 320,
+        textScale: 2.0,
+      );
+      final Rect a = tester.getRect(find.text('Patrones'));
+      final Rect b = tester.getRect(find.text('Resultados futuros'));
+      expect(b.top, greaterThanOrEqualTo(a.bottom));
+      // Stacked segments have the room to show the longest word whole.
+      expect(
+        tester.getSize(find.text('Resultados futuros')).width,
+        greaterThan(0),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('PlainMetricRow puts a wide value under its label', (
+      WidgetTester tester,
+    ) async {
+      await pumpPlain(
+        tester,
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: PlainMetricRow(label: 'Completed', value: '12 to 15'),
+        ),
+        width: 320,
+        textScale: 2.0,
+      );
+      expect(
+        tester.getRect(find.text('12 to 15')).top,
+        greaterThanOrEqualTo(tester.getRect(find.text('Completed')).bottom),
+      );
+    });
+
+    testWidgets('PlainMetricRow keeps a short value beside its label', (
+      WidgetTester tester,
+    ) async {
+      await pumpPlain(
+        tester,
+        const PlainMetricRow(label: 'Completed', value: '12'),
+      );
+      expect(
+        tester.getRect(find.text('12')).left,
+        greaterThan(tester.getRect(find.text('Completed')).right),
+      );
     });
   });
 
   group('no overflow at text scale 2.0 on a 320 wide screen', () {
     for (final String language in <String>['en', 'es']) {
-      testWidgets('all widgets, $language', (WidgetTester tester) async {
-        await pumpPlain(
-          tester,
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: everything(language),
-          ),
-          language: language,
-          width: 320,
-          textScale: 2.0,
-        );
-        expect(tester.takeException(), isNull);
-        // Values are wrapped, not truncated.
-        expect(
-          find.text(language == 'es' ? 'unas 12 a 15' : 'about 12 to 15'),
-          findsOneWidget,
-        );
-      });
+      for (final ThemeData theme in <ThemeData>[appTheme, appLightTheme]) {
+        testWidgets('all widgets, $language, ${theme.brightness.name}', (
+          WidgetTester tester,
+        ) async {
+          await pumpPlain(
+            tester,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: everything(language),
+            ),
+            language: language,
+            width: 320,
+            textScale: 2.0,
+            theme: theme,
+          );
+          expect(tester.takeException(), isNull);
+          // Values are wrapped at spaces, not truncated.
+          expect(
+            find.text(language == 'es' ? 'unas 12 a 15' : 'about 12 to 15'),
+            findsOneWidget,
+          );
+        });
+      }
     }
 
     testWidgets('PlainScreen with long header at 2.0 and 320', (

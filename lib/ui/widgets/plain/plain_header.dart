@@ -10,9 +10,11 @@ class PlainHeaderAction {
 
   final IconData icon;
 
-  /// Tooltip and screen reader label.
+  /// Tooltip and the single screen reader label.
   final String label;
-  final VoidCallback onPressed;
+
+  /// Null shows the button disabled (for example while refreshing).
+  final VoidCallback? onPressed;
 }
 
 /// Title row: a sentence-case title and optional icon actions.
@@ -28,6 +30,7 @@ class PlainHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
     return Row(
       children: <Widget>[
         Expanded(
@@ -37,16 +40,16 @@ class PlainHeader extends StatelessWidget {
               title,
               style: Theme.of(
                 context,
-              ).textTheme.headlineMedium?.copyWith(color: Colors.white),
+              ).textTheme.headlineMedium?.copyWith(color: colors.onSurface),
             ),
           ),
         ),
         for (final PlainHeaderAction action in actions)
           IconButton(
-            color: Colors.white70,
+            color: colors.onSurfaceVariant,
             tooltip: action.label,
             onPressed: action.onPressed,
-            icon: Icon(action.icon, semanticLabel: action.label),
+            icon: Icon(action.icon),
           ),
       ],
     );

@@ -15,12 +15,18 @@ class PlainEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(message, style: const TextStyle(color: Colors.white70)),
+          Text(
+            message,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
           if (actionLabel != null && onAction != null) ...<Widget>[
             const SizedBox(height: 8),
             ConstrainedBox(

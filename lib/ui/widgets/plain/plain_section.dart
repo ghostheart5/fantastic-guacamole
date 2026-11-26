@@ -15,6 +15,7 @@ class PlainSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -23,14 +24,19 @@ class PlainSection extends StatelessWidget {
           header: true,
           child: Text(
             title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(color: Colors.white),
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
+            ),
           ),
         ),
         if (description != null) ...<Widget>[
           const SizedBox(height: 4),
-          Text(description!, style: const TextStyle(color: Colors.white70)),
+          Text(
+            description!,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
         const SizedBox(height: 12),
         ...children,
