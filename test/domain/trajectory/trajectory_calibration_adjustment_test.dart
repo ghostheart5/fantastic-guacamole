@@ -292,6 +292,31 @@ void main() {
       expect(summary.checkSpanDays, 14);
     });
 
+    test('coverage is averaged per check day, so one day cannot dominate', () {
+      // Five covered forecasts checked on one day, three missed on three
+      // other days: 5 of 8 receipts, but 1 of 4 check days.
+      final TrajectoryCalibrationSummary summary =
+          TrajectoryCalibrationSummary.fromReceipts(<TrajectoryForecastReceipt>[
+            ...covered(<int>[0, 0, 0, 0, 0]),
+            ...missed(<int>[1, 2, 3]),
+          ]);
+      expect(summary.resolvedForecasts, 8);
+      expect(summary.checkDays, 4);
+      expect(summary.intervalCoverage, .25);
+      expect(
+        TrajectoryCalibrationAdjustment.fromSummary(summary).multiplier,
+        1.5,
+      );
+      // Within one day the share still counts: 1 of 2 that day, 1 the next.
+      expect(
+        TrajectoryCalibrationSummary.fromReceipts(<TrajectoryForecastReceipt>[
+          ...covered(<int>[0, 1]),
+          ...missed(<int>[0]),
+        ]).intervalCoverage,
+        .75,
+      );
+    });
+
     test('5 receipts all checked on one day do not narrow', () {
       final TrajectoryCalibrationAdjustment rule = ruleOf(
         covered(<int>[4, 4, 4, 4, 4]),

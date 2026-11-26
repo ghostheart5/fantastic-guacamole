@@ -23,9 +23,10 @@ const int trajectoryCalibrationNarrowingSpanDays = 14;
 /// Built from a [TrajectoryCalibrationSummary] that uses only checked,
 /// uncorrected forecasts of the current model version that were checked in
 /// time (a forecast found more than max(1, H / 7) local days after its due
-/// day is marked missed and never used). Coverage is the share of those
-/// forecasts whose observed pace (momentum) fell inside the engine's own,
-/// unadjusted range. The rule:
+/// day is marked missed and never used). Coverage is, averaged over the
+/// distinct local check days, the share of that day's forecasts whose observed
+/// pace (momentum) fell inside the engine's own, unadjusted range (stored on
+/// the receipt). The rule:
 /// - fewer than 3 checked forecasts, or all of them checked on one local
 ///   day: x1.0, provisional;
 /// - otherwise (3 or more forecasts checked on at least 2 distinct local

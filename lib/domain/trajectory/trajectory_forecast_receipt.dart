@@ -510,7 +510,11 @@ class TrajectoryCalibrationSummary {
     }
     double momentumError = 0;
     double pressureError = 0;
-    int covered = 0;
+    // Forecasts checked on the same local day are checked against the same
+    // moment, so independent evidence is counted by distinct check days, and
+    // coverage is the average of each check day's share: a cluster of
+    // forecasts checked on one day counts as one day.
+    final Map<DateTime, List<bool>> coveredByDay = <DateTime, List<bool>>{};
     for (final TrajectoryForecastReceipt receipt in resolved) {
       final TrajectoryObservedOutcome actual = receipt.observed!;
       momentumError += (receipt.projectedMomentum - actual.momentum).abs();
@@ -520,24 +524,27 @@ class TrajectoryCalibrationSummary {
       final int width = receipt.unadjustedUncertainty;
       final int lower = (receipt.projectedMomentum - width).clamp(0, 100);
       final int upper = (receipt.projectedMomentum + width).clamp(0, 100);
-      if (actual.momentum >= lower && actual.momentum <= upper) covered++;
+      final DateTime local = actual.observedAt.toLocal();
+      coveredByDay
+          .putIfAbsent(
+            DateTime.utc(local.year, local.month, local.day),
+            () => <bool>[],
+          )
+          .add(actual.momentum >= lower && actual.momentum <= upper);
     }
-    // Forecasts checked on the same local day are checked against the same
-    // moment, so independent evidence is counted by distinct check days.
-    final List<DateTime> checkDays =
-        resolved
-            .map((TrajectoryForecastReceipt item) {
-              final DateTime local = item.observed!.observedAt.toLocal();
-              return DateTime.utc(local.year, local.month, local.day);
-            })
-            .toSet()
-            .toList()
-          ..sort();
+    final List<DateTime> checkDays = coveredByDay.keys.toList()..sort();
+    final double coverage =
+        coveredByDay.values
+            .map(
+              (List<bool> day) => day.where((bool c) => c).length / day.length,
+            )
+            .reduce((double a, double b) => a + b) /
+        coveredByDay.length;
     return TrajectoryCalibrationSummary(
       resolvedForecasts: resolved.length,
       momentumMeanAbsoluteError: momentumError / resolved.length,
       pressureMeanAbsoluteError: pressureError / resolved.length,
-      intervalCoverage: covered / resolved.length,
+      intervalCoverage: coverage,
       state: PredictiveCalibrationState.monitored,
       earlierMethodForecasts: earlierMethod,
       correctedForecasts: corrected,
