@@ -238,7 +238,7 @@ void main() {
           : '• Pick a path to see how much you might get done and how much '
                 'pressure you might feel. The time range (7, 30 or 90 days) '
                 'changes which tasks count and how wide the uncertainty is: '
-                'further ahead means less certain. '
+                'further ahead means less reliable. '
                 '“Recommended adjustment” marks the path that looks '
                 'best right now.';
       expect(find.text(expected), findsOneWidget);
@@ -271,6 +271,7 @@ void main() {
       expect(find.textContaining('range only changes'), findsNothing);
       expect(find.textContaining('solo cambia lo amplia'), findsNothing);
       expect(find.textContaining('menos seguro'), findsNothing);
+      expect(find.textContaining('less certain'), findsNothing);
       expect(find.textContaining('Over 7 days'), findsNothing);
       expect(find.textContaining('Durante 7 días'), findsNothing);
     });
