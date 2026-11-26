@@ -219,4 +219,63 @@ void main() {
       }
     },
   );
+
+  // I3: one definition of a past deadline, shared with the one-tap answers.
+  test('a timed deadline at 00:00 UTC is past from that moment, not a whole '
+      'day', () {
+    final now = DateTime.utc(2026, 9, 17, 0, 30);
+    final response = ask(
+      now: now,
+      targets: const [],
+      question: 'Which tasks are overdue?',
+      tasks: [
+        SIV2TaskEvidence(
+          id: 't',
+          title: 'Return the form',
+          createdAt: DateTime.utc(2026, 9, 1),
+          priority: 3,
+          // 5 pm in Los Angeles in summer: a time, not a whole day.
+          dueDate: DateTime.utc(2026, 9, 17),
+        ),
+      ],
+    );
+    expect(
+      response.calculations.map((s) => s.text),
+      contains('1 matched task is past the recorded due date.'),
+    );
+    response.validate();
+  });
+
+  test('a goal is judged by its saved calendar day', () {
+    final now = DateTime(2026, 9, 17, 12);
+    final response = const SIV2Engine().analyze(
+      now: now.toUtc(),
+      query: SIV2Query.fromUserInput(
+        rawText: 'Which goals are overdue today?',
+        selectedIntent: SIV2Intent.answer,
+        selectedSources: {SIV2Source.goals},
+        timeRange: SIV2TimeRange.all,
+      ),
+      snapshot: SIV2EvidenceSnapshot(
+        accountScopeId: 'calendar-regression',
+        observedAt: now.toUtc(),
+        goals: [
+          SIV2GoalEvidence(
+            id: 'g',
+            title: 'Family plan',
+            createdAt: DateTime(2026, 9, 1),
+            targetDate: DateTime(2026, 9, 20, 12).toUtc(),
+            targetDay: DateTime(2026, 9, 16),
+          ),
+        ],
+        tasks: const [],
+        milestones: const [],
+        timeline: const [],
+      ),
+    );
+    expect(
+      response.calculations.map((s) => s.text),
+      contains('1 matched goal is past the recorded target date.'),
+    );
+  });
 }
