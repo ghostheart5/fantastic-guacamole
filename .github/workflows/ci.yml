@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 35
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -160,7 +160,7 @@ jobs:
 
       - name: Upload static evidence
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: chronospark-static-${{ github.sha }}-${{ github.run_attempt }}
           if-no-files-found: error
@@ -175,7 +175,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -220,7 +220,7 @@ jobs:
       - name: Upload Flutter test evidence
         if: always()
         timeout-minutes: 5
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: chronospark-flutter-tests-${{ github.sha }}-${{ github.run_attempt }}
           if-no-files-found: error
@@ -236,7 +236,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -280,7 +280,7 @@ jobs:
 
       - name: Upload integration evidence
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: chronospark-linux-integration-${{ github.sha }}-${{ github.run_attempt }}
           if-no-files-found: error
@@ -293,7 +293,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout exact source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -343,7 +343,7 @@ jobs:
       - name: Upload Windows golden evidence
         if: always()
         timeout-minutes: 5
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: chronospark-windows-goldens-${{ github.sha }}-${{ github.run_attempt }}
           if-no-files-found: error
