@@ -179,8 +179,9 @@ Future<void> _pump(
         ),
         home: AssistantConversationScreen(
           surface: surface,
-          onLocalTools: () {},
-          onLocalToolsWithDraft: onDraft,
+          // The words themselves go to the free box (DraftTransfer); here
+          // the box's text when the free assistant is chosen is recorded.
+          onLocalTools: () => onDraft?.call(_inputText(tester).trim()),
         ),
       ),
     ),
@@ -210,6 +211,11 @@ Future<void> _tapSend(WidgetTester tester, String prompt) async {
 }
 
 Finder get _previewDialog => find.text('Review what AI will receive');
+
+String _inputText(WidgetTester tester) => tester
+    .widget<TextField>(find.byKey(const Key('conversation-input')))
+    .controller!
+    .text;
 
 Future<void> _acceptPreview(WidgetTester tester) async {
   expect(_previewDialog, findsOneWidget);

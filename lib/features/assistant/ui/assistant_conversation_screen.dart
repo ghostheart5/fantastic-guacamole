@@ -83,7 +83,6 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
     super.key,
     required this.surface,
     required this.onLocalTools,
-    this.onLocalToolsWithDraft,
     this.isActive = true,
     this.freeBox,
     this.onFreeBoxChanged,
@@ -95,8 +94,9 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
     this.onBusyChanged,
   });
   final ConversationSurface surface;
+
+  /// Chooses the free assistant; typed words go with it through [freeBox].
   final VoidCallback onLocalTools;
-  final ValueChanged<String>? onLocalToolsWithDraft;
   final bool isActive;
 
   /// The free side's text box. Each time this screen is shown or hidden the
@@ -272,7 +272,9 @@ class _AssistantConversationScreenState
       planner: widget.surface == ConversationSurface.planner,
       isSpanish: _spanish,
       sourceSent: !toAi && sent,
-      destinationSent: toAi && sent,
+      // Only a question still being sent gives way. One held for Retry same
+      // request is kept, and the moved words stay in the free box.
+      destinationSent: toAi && _busy,
       suggestion: suggestion,
     );
     final String ai = toAi ? result.destination : result.source;
@@ -1116,7 +1118,7 @@ class _AssistantConversationScreenState
         'A message is being sent. You can switch when it finishes.',
         'Se está enviando un mensaje. Podrás cambiar cuando termine.',
       ),
-      onChooseOnDevice: () => _openFreeTools(_input.text.trim()),
+      onChooseOnDevice: widget.onLocalTools,
       onChooseAi: () {},
     );
     final scaffold = Scaffold(

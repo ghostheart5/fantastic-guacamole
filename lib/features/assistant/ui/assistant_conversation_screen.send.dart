@@ -205,15 +205,6 @@ extension _OneStepSend on _AssistantConversationScreenState {
     _rebuild(() => _freeSuggested = suggest);
   }
 
-  void _openFreeTools(String draft) {
-    final handoff = widget.onLocalToolsWithDraft;
-    if (handoff == null) {
-      widget.onLocalTools();
-    } else {
-      handoff(draft);
-    }
-  }
-
   Widget _freeSuggestion() => Padding(
     padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
     child: Align(
@@ -224,7 +215,7 @@ extension _OneStepSend on _AssistantConversationScreenState {
           foregroundColor: Colors.cyanAccent,
           minimumSize: const Size(48, 48),
         ),
-        onPressed: _busy ? null : () => _openFreeTools(_input.text.trim()),
+        onPressed: _busy ? null : widget.onLocalTools,
         icon: const Icon(Icons.offline_bolt_outlined),
         label: Text(
           copy(

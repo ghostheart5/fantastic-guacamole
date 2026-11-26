@@ -987,6 +987,48 @@ void main() {
   );
 
   testWidgets(
+    'Task 7: a held paid question is kept when free words come to AI chat',
+    (tester) async {
+      final Completer<void> gate = Completer<void>();
+      final container = _container(ai: true, onDevice: false, paidGate: gate);
+      addTearDown(() => _dispose(tester, container));
+      await _pump(tester, container);
+      await enterChatText(tester, 'What should I do first?');
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      for (var i = 0; i < 40 && find.text('Send').evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await tester.tap(find.text('Send'));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      // The paid call fails without an answer: the question is held for
+      // Retry same request.
+      gate.completeError(StateError('connection lost'));
+      for (var i = 0; i < 10; i++) {
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(find.text('Retry same request'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('assistant-mode-on-device')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(_localInput), 'my free words');
+      await tester.tap(find.byKey(const Key('assistant-mode-ai')));
+      await tester.pumpAndSettle();
+      expect(box(tester, _aiInput), 'What should I do first?');
+      expect(
+        find.text(
+          'Your words are still in the free assistant. AI chat already had other text, which was kept.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('assistant-mode-on-device')));
+      await tester.pumpAndSettle();
+      expect(box(tester, _localInput), 'my free words');
+    },
+  );
+
+  testWidgets(
     'a question being sent stays in AI chat when a Today question wins the race',
     (tester) async {
       final Completer<void> gate = Completer<void>();

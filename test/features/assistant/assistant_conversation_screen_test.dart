@@ -304,7 +304,7 @@ void main() {
           await tester.binding.setSurfaceSize(const Size(320, 1000));
           addTearDown(() => tester.binding.setSurfaceSize(null));
           var requests = 0;
-          var fallbackCalls = 0;
+          var freeCalls = 0;
           String? handoff;
           final container = setup((_) async {
             requests++;
@@ -343,8 +343,16 @@ void main() {
                 ),
                 home: AssistantConversationScreen(
                   surface: ConversationSurface.si,
-                  onLocalTools: () => fallbackCalls++,
-                  onLocalToolsWithDraft: (draft) => handoff = draft,
+                  onLocalTools: () {
+                    freeCalls++;
+                    handoff = tester
+                        .widget<TextField>(
+                          find.byKey(const Key('conversation-input')),
+                        )
+                        .controller!
+                        .text
+                        .trim();
+                  },
                 ),
               ),
             ),
@@ -389,7 +397,7 @@ void main() {
           await enterChatText(tester, 'A quiet next step');
           await tapRevealedChatControl(tester, button);
           expect(handoff, 'A quiet next step');
-          expect(fallbackCalls, 0);
+          expect(freeCalls, 1);
           expect(requests, 0);
           expect(tester.takeException(), isNull);
         },
@@ -2021,8 +2029,11 @@ void main() {
           theme: ThemeData.dark(),
           home: AssistantConversationScreen(
             surface: ConversationSurface.si,
-            onLocalTools: () {},
-            onLocalToolsWithDraft: (draft) => handoffDraft = draft,
+            onLocalTools: () => handoffDraft = tester
+                .widget<TextField>(find.byKey(const Key('conversation-input')))
+                .controller!
+                .text
+                .trim(),
           ),
         ),
       ),
@@ -2069,8 +2080,11 @@ void main() {
           theme: ThemeData.dark(),
           home: AssistantConversationScreen(
             surface: ConversationSurface.si,
-            onLocalTools: () {},
-            onLocalToolsWithDraft: (draft) => handoffDraft = draft,
+            onLocalTools: () => handoffDraft = tester
+                .widget<TextField>(find.byKey(const Key('conversation-input')))
+                .controller!
+                .text
+                .trim(),
           ),
         ),
       ),
@@ -3616,8 +3630,11 @@ void main() {
         child: MaterialApp(
           home: AssistantConversationScreen(
             surface: ConversationSurface.si,
-            onLocalTools: () {},
-            onLocalToolsWithDraft: (draft) => handoffDraft = draft,
+            onLocalTools: () => handoffDraft = tester
+                .widget<TextField>(find.byKey(const Key('conversation-input')))
+                .controller!
+                .text
+                .trim(),
           ),
         ),
       ),
