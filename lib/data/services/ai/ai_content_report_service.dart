@@ -20,7 +20,7 @@ class AiContentReportService {
   Future<void> submit({
     required String responseText,
     required AiContentReportReason reason,
-    String surface = 'chat',
+    required String surface,
   }) async {
     final Uri? endpoint = parseSecureHttpsEndpoint(Env.aiReportEndpoint);
     if (endpoint == null) {

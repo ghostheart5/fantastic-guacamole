@@ -20,7 +20,7 @@ class AiContentReportActions {
   Future<void> submit({
     required String responseText,
     required AiContentReportReason reason,
-    String surface = 'chat',
+    required String surface,
   }) {
     return _ref
         .read(_aiContentReportServiceProvider)

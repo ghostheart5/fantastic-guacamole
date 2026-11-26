@@ -935,7 +935,13 @@ class _AssistantConversationScreenState
     try {
       await ref
           .read(aiContentReportActionsProvider)
-          .submit(responseText: response, reason: reason);
+          .submit(
+            responseText: response,
+            reason: reason,
+            surface: widget.surface == ConversationSurface.planner
+                ? 'planner'
+                : 'chat',
+          );
       if (!mounted || generation != _generation) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
