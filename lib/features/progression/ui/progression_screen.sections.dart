@@ -36,14 +36,17 @@ class _Reading extends StatelessWidget {
 
 /// A refresh is running; the figures below are this account's earlier ones.
 class _Updating extends StatelessWidget {
-  const _Updating(this.text);
+  const _Updating(this.text, {required this.announce});
 
   final String text;
+  final bool announce;
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: 16),
-    child: Semantics(liveRegion: true, child: _PageLine(text)),
+    // Announced only for a real refresh, not for the quiet re-read when
+    // the screen comes back into view.
+    child: Semantics(liveRegion: announce, child: _PageLine(text)),
   );
 }
 
@@ -363,7 +366,7 @@ class _WorkloadSection extends StatelessWidget {
       children: <Widget>[
         if (!planned && !hasUnplaced)
           PlainEmptyState(
-            message: copy.workloadEmpty,
+            message: copy.workloadEmpty(days.length),
             actionLabel: copy.addSomething,
             onAction: () => onOpenPlan(hasWork: false),
           )

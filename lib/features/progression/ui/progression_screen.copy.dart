@@ -115,10 +115,10 @@ class _PatternsCopy {
   // Habits.
   String get habits => _t('Habits', 'Hábitos');
   String get habitsDescription => _t(
-    'Check-ins over the period on each line. The current day, week or month '
-        'is included.',
-    'Registros en el periodo de cada línea. Se incluye el día, la semana o '
-        'el mes en curso.',
+    'Each line counts check-ins over the days, weeks or months it names, '
+        'including the current one.',
+    'Cada línea cuenta los registros en los días, semanas o meses que indica, '
+        'incluido el actual.',
   );
   String get noHabits => _t(
     'No active habits yet. Add a habit and check in to see it here.',
@@ -298,10 +298,10 @@ class _PatternsCopy {
     'Minutos planificados para los próximos $days días, según tus '
         'estimaciones.',
   );
-  String get workloadEmpty => _t(
-    'Nothing planned for the next 7 days and no open work without a day.',
-    'No hay nada planificado para los próximos 7 días ni trabajo abierto sin '
-        'día.',
+  String workloadEmpty(int days) => _t(
+    'Nothing planned for the next $days days and no open work without a day.',
+    'No hay nada planificado para los próximos $days días ni trabajo abierto '
+        'sin día.',
   );
 
   /// "45 min", "1 h", "1 h 30 min".
@@ -321,9 +321,9 @@ class _PatternsCopy {
   String get notOnADay => _t('Not on a day', 'Sin día asignado');
   String get none => _t('None', 'Ninguna');
   String unplacedCaption(int count, int withoutEstimate) => _t(
-    '${tasks(count)} with no date, a date that has passed, or overdue'
+    '${tasks(count)} with no date or a date that has passed'
         '${_withoutEstimate(withoutEstimate)}',
-    '${tasks(count)} sin fecha, con una fecha ya pasada o vencidas'
+    '${tasks(count)} sin fecha o con una fecha ya pasada'
         '${_withoutEstimate(withoutEstimate)}',
   );
   String workloadFootnote({required bool anyWithoutEstimate}) {

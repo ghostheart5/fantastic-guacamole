@@ -227,6 +227,10 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
   /// A flag only: no figures are kept in this state.
   bool _rereadPending = false;
 
+  /// True for the whole re-read after coming back into view, so its
+  /// "Updating" line is not announced (it is not news to the person).
+  bool _resumeRead = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -239,6 +243,7 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
     final bool inView = TickerMode.valuesOf(context).enabled;
     if (_inView == false && inView && !_rereadPending) {
       _rereadPending = true;
+      _resumeRead = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         ref.invalidate(patternsForAccountProvider);
@@ -263,6 +268,10 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
     final AsyncValue<PatternsResult> patterns = ref.watch(patternsProvider);
     final int rangeDays = ref.watch(patternsRangeDaysProvider);
     final PatternsResult? result = patterns.hasError ? null : patterns.value;
+    final bool updating = patterns.isLoading || _rereadPending;
+    final bool announceUpdate = updating && !_resumeRead;
+    // A plain flag (no figures): the resume re-read ends with its result.
+    if (!updating) _resumeRead = false;
 
     return PlainScreen(
       children: <Widget>[
@@ -296,7 +305,7 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
         else if (result == null)
           _Reading(copy.reading)
         else ...<Widget>[
-          if (patterns.isLoading || _rereadPending) _Updating(copy.updating),
+          if (updating) _Updating(copy.updating, announce: announceUpdate),
           _HabitsSection(result: result, copy: copy),
           _TrendSection(result: result, copy: copy),
           _WhenDoneSection(result: result, copy: copy),

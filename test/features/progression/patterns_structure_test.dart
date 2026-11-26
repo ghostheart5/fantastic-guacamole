@@ -427,7 +427,7 @@ void main() {
         inPatternsSection(
           s,
           find.text(
-            '2 tasks with no date, a date that has passed, or overdue; 1 '
+            '2 tasks with no date or a date that has passed; 1 '
             'with no estimate saved',
           ),
         ),

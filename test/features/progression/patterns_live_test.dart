@@ -257,11 +257,22 @@ void main() {
     );
 
     finishOnToday(container);
-    await tester.pump();
-    // This account's earlier result stays on screen, marked as updating.
-    if (find.text('Updating from your records…').evaluate().isNotEmpty) {
-      expect(find.text('Walk A'), findsOneWidget);
+    // Every frame until it settles: the fresh figure, or the earlier figures
+    // of this account marked as updating; never the old ones unmarked.
+    bool sawFresh = false;
+    for (int i = 0; i < 100 && !sawFresh; i++) {
+      await tester.pump(const Duration(milliseconds: 1));
+      sawFresh = value(
+        'patterns-trend',
+        'Tasks finished',
+        '1',
+      ).evaluate().isNotEmpty;
+      if (!sawFresh) {
+        expect(find.text('Updating from your records…'), findsOneWidget);
+        expect(find.text('Walk A'), findsOneWidget);
+      }
     }
+    expect(sawFresh, isTrue);
     await settle(tester);
     expect(value('patterns-trend', 'Tasks finished', '1'), findsOneWidget);
     // The only open task is finished: nothing is planned or unplaced now.
@@ -308,23 +319,82 @@ void main() {
 
     inView.value = true;
     await tester.pump();
-    // First frame back: never the old figures as if they were current.
-    final bool fresh = value(
-      'patterns-trend',
-      'Tasks finished',
-      '1',
-    ).evaluate().isNotEmpty;
-    final bool updating = find
-        .text('Updating from your records…')
-        .evaluate()
-        .isNotEmpty;
+    // First frame back: the earlier figures, marked as updating (the
+    // re-read starts right after this frame), not announced aloud.
+    final Finder updating = find.text('Updating from your records…');
     expect(
-      fresh || updating,
-      isTrue,
+      updating,
+      findsOneWidget,
       reason: 'the first frame shows stale figures without saying so',
     );
+    expect(
+      tester
+          .widget<Semantics>(
+            find.ancestor(of: updating, matching: find.byType(Semantics)).first,
+          )
+          .properties
+          .liveRegion,
+      isFalse,
+    );
+    // Then: the fresh figures, and the updating line is gone.
     await settle(tester);
     expect(value('patterns-trend', 'Tasks finished', '1'), findsOneWidget);
+    expect(updating, findsNothing);
+    await unmount(tester, container);
+  });
+
+  testWidgets('an account switch while out of view: back in view, nothing '
+      'of the previous account is shown', (tester) async {
+    boundaryDriven = true;
+    final (ProviderContainer container, ValueNotifier<bool> inView) =
+        await mount(tester);
+    final _Boundary boundary =
+        container.read(authSessionBoundaryProvider.notifier) as _Boundary;
+    boundary.moveTo(
+      const AuthSessionBoundary(
+        generation: 2,
+        userId: 'account-a',
+        isTransitioning: false,
+        isStorageReady: true,
+      ),
+    );
+    await settle(tester);
+    expect(find.text('Walk A'), findsOneWidget);
+
+    inView.value = false;
+    await tester.pump();
+    for (final AuthSessionBoundary next in const <AuthSessionBoundary>[
+      AuthSessionBoundary(
+        generation: 3,
+        userId: 'account-b',
+        isTransitioning: true,
+        isStorageReady: false,
+      ),
+      AuthSessionBoundary(
+        generation: 4,
+        userId: 'account-b',
+        isTransitioning: false,
+        isStorageReady: true,
+      ),
+    ]) {
+      boundary.moveTo(next);
+      container.invalidate(habitsProvider);
+      for (int i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 1));
+      }
+    }
+
+    inView.value = true;
+    final List<String> leaks = <String>[];
+    for (int i = 0; i < 60; i++) {
+      await tester.pump(const Duration(milliseconds: 1));
+      for (final String text in <String>['Walk A', 'Tax skipped']) {
+        if (find.text(text).evaluate().isNotEmpty) leaks.add('$text at $i');
+      }
+    }
+    expect(leaks, isEmpty, reason: leaks.join(' / '));
+    await settle(tester);
+    expect(find.text('Stretch B'), findsOneWidget);
     await unmount(tester, container);
   });
 
