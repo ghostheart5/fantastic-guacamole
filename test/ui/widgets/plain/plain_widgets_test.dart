@@ -241,6 +241,44 @@ void main() {
       expect(find.byType(ProvenanceLabel), findsNothing);
     });
 
+    // PlainCard's documented warning: a tappable card without a label
+    // merges everything inside it into one screen reader node, so a
+    // disclosure inside it loses its own expand action and state.
+    testWidgets('a PlainDisclosure inside a tappable card is swallowed by '
+        'the card for screen readers', (WidgetTester tester) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      int cardTaps = 0;
+      await pumpPlain(
+        tester,
+        PlainCard(
+          onTap: () => cardTaps++,
+          child: const PlainDisclosure(
+            title: 'Inner details',
+            children: <Widget>[Text('Hidden inside')],
+          ),
+        ),
+      );
+      final merged = tester
+          .getSemantics(find.text('Inner details'))
+          .getSemanticsData();
+      // One node: the card's button, carrying the disclosure's title.
+      expect(merged.flagsCollection.isButton, isTrue);
+      expect(merged.label, contains('Inner details'));
+      // The disclosure is no longer its own node with an expanded state.
+      expect(
+        find.bySemanticsLabel('Inner details'),
+        findsOneWidget,
+        reason: 'merged into the card, not a node of its own',
+      );
+      // The title's node is the card's node.
+      expect(
+        tester.getSemantics(find.text('Inner details')).id,
+        tester.getSemantics(find.byType(PlainCard)).id,
+      );
+      expect(cardTaps, 0);
+      handle.dispose();
+    });
+
     testWidgets('PlainDisclosure toggles and announces its state', (
       WidgetTester tester,
     ) async {

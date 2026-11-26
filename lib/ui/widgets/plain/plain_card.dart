@@ -10,6 +10,12 @@ import 'package:flutter/material.dart';
 /// [semanticLabel] to give it one exact screen reader label; without it the
 /// card is announced from the text inside it. [selected] (null for cards that
 /// are not selectable) outlines the card and is announced as selected.
+///
+/// Warning: a tappable or selectable card without [semanticLabel] merges
+/// everything inside it into one screen reader node (the card's button). Do
+/// not put interactive children (buttons, switches, a [PlainDisclosure])
+/// inside such a card: they lose their own node, action and state for screen
+/// readers. Put them in a plain card, or beside the tappable one.
 class PlainCard extends StatelessWidget {
   const PlainCard({
     required this.child,
