@@ -1,4 +1,4 @@
-# The Activity destination preserves the recorded progression review.
+# Patterns (recorded history) sits inside the Insights tab beside Future outcomes.
 appId: com.ghostheart5.chronospark
 tags:
   - core
@@ -9,7 +9,11 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Activity"
+      TARGET: "Patterns"
 - assertVisible: 'Your recorded progress'
-- assertVisible: 'Activity'
+- assertVisible: 'Patterns'
+- assertVisible: 'Future outcomes'
 - assertVisible: 'Review completed tasks and recorded milestones. You can start again at any time.'
+# The two-part switch moves to the other destination of the Insights tab.
+- tapOn: 'Future outcomes'
+- assertVisible: 'Predictions are possibilities, not promises'

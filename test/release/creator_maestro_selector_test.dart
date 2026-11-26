@@ -611,7 +611,9 @@ void main() {
         ],
         '08-progression': [
           'Your recorded progress',
-          'Activity',
+          'Patterns',
+          'Future outcomes',
+          'Predictions are possibilities, not promises',
           'Review completed tasks and recorded milestones. You can start again at any time.',
         ],
       };

@@ -265,6 +265,33 @@ void main() {
       expect(es.text(ChronoSparkString.timeline), 'Mi plan');
     });
 
+    test('the Insights and Patterns hints keep their routes and milestones '
+        'and use the new names', () {
+      expect(
+        GuidanceCatalogue.trajectoryEngine.route,
+        RoutePaths.trajectoryEngine,
+      );
+      expect(GuidanceCatalogue.progression.route, RoutePaths.progression);
+      expect(
+        GuidanceCatalogue.trajectoryEngine.completedBy.milestones,
+        <GuidanceMilestone>{GuidanceMilestone.firstTrajectoryReview},
+      );
+      expect(
+        GuidanceCatalogue.progression.completedBy.milestones,
+        <GuidanceMilestone>{GuidanceMilestone.firstProgressionReview},
+      );
+      expect(
+        GuidanceCatalogue.trajectoryEngine.title.en,
+        'Compare future outcomes',
+      );
+      expect(
+        GuidanceCatalogue.trajectoryEngine.title.es,
+        'Compara resultados futuros',
+      );
+      expect(GuidanceCatalogue.progression.title.en, 'Review your patterns');
+      expect(GuidanceCatalogue.progression.title.es, 'Revisa tus patrones');
+    });
+
     test('hint wording names each screen as its navigation label does', () {
       expect(GuidanceCatalogue.siConsole.action?.label.en, 'Ask in Chat');
       expect(GuidanceCatalogue.siConsole.action?.label.es, 'Preguntar en Chat');
