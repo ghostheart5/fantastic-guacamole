@@ -184,6 +184,41 @@ void main() {
     expect(await _ledgerOf(store, 'account-a').load(), hasLength(1));
   });
 
+  test('when the ledger fails to load nothing is recorded or checked, and '
+      'it is logged once', () async {
+    final List<String?> logs = <String?>[];
+    final DebugPrintCallback original = debugPrint;
+    debugPrint = (String? message, {int? wrapWidth}) => logs.add(message);
+    addTearDown(() => debugPrint = original);
+    final _Clock clock = _Clock();
+    final TrajectoryMemoryStore store = TrajectoryMemoryStore();
+    final ProviderContainer container = trajectoryLiveContainer(
+      now: clock.local,
+      clock: clock.call,
+      store: store,
+      overrides: [
+        trajectoryForecastLedgerProvider.overrideWith(
+          (Ref ref) => Future<List<TrajectoryForecastReceipt>>.error(
+            StateError('ledger unreadable'),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final TrajectoryEngineModel model = await _ready(container);
+    await _readyAgain(container);
+    await _readyAgain(container);
+    expect(model.hasComparison, isTrue);
+    expect(store.saves, 0);
+    expect(
+      logs.where(
+        (String? m) =>
+            m?.contains('Forecast ledger could not be loaded') ?? false,
+      ),
+      hasLength(1),
+    );
+  });
+
   test('nothing is recorded while the app is not in the foreground', () async {
     final _Clock clock = _Clock();
     final TrajectoryMemoryStore store = TrajectoryMemoryStore();

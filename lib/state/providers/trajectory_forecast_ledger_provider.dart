@@ -125,11 +125,23 @@ class TrajectoryForecastLedgerActions {
 /// Whether the current account's calibration summary has loaded, so a
 /// comparison built now uses its recorded accuracy (an automatic receipt
 /// then stores the multiplier that was really applied).
+///
+/// When the ledger fails to load this stays false, so nothing is recorded or
+/// checked automatically until it loads again (a later refresh, account
+/// change or restart); the failure is logged once each time it happens.
 final trajectoryCalibrationLoadedProvider = Provider<bool>((Ref ref) {
   final String? namespace = ref.watch(accountStorageScopeProvider).v2Namespace;
   final AsyncValue<TrajectoryCalibrationSummary> summary = ref.watch(
     trajectoryCalibrationSummaryProvider,
   );
+  if (summary.hasError && !summary.isLoading) {
+    // This provider rebuilds only when the ledger or the account changes, so
+    // a lasting failure is logged once, not on every comparison.
+    Logger.warn(
+      'Forecast ledger could not be loaded; automatic forecast recording '
+      'and checking are paused: ${summary.error.runtimeType}.',
+    );
+  }
   final TrajectoryCalibrationSummary? value = summary.hasError
       ? null
       : summary.value;
