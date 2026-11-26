@@ -14,7 +14,15 @@ bool siDeadlinePast(DateTime moment, DateTime? wholeDay, DateTime now) =>
 /// late once its target day ([wholeDay], or else the local day of [target])
 /// has ended.
 bool siGoalLate(DateTime target, DateTime? wholeDay, DateTime now) =>
-    _dayBefore(wholeDay ?? target.toLocal(), now);
+    _dayBefore(siGoalDay(target, wholeDay), now);
+
+/// The calendar day a goal target means: [wholeDay], or else the local day
+/// of [target]. Returned as a UTC day key (only its year, month and day
+/// count), so day comparisons are safe across clock changes.
+DateTime siGoalDay(DateTime target, DateTime? wholeDay) {
+  final DateTime day = wholeDay ?? target.toLocal();
+  return DateTime.utc(day.year, day.month, day.day);
+}
 
 bool _dayBefore(DateTime day, DateTime now) {
   final DateTime local = now.toLocal();

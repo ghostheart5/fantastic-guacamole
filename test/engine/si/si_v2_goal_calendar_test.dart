@@ -278,4 +278,28 @@ void main() {
       contains('1 matched goal is past the recorded target date.'),
     );
   });
+
+  test('N10: a goal target with a time at 00:00 UTC is read on its local day '
+      'in the label, the range and the count alike', () {
+    final target = DateTime.utc(2026, 9, 17);
+    final local = target.toLocal();
+    String day(DateTime d) =>
+        '${d.year.toString().padLeft(4, '0')}-'
+        '${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
+    final response = ask(
+      now: DateTime(local.year, local.month, local.day, 23, 30),
+      targets: [target],
+      range: SIV2TimeRange.today,
+    );
+    expect(
+      response.observedFacts.map((s) => s.text),
+      contains('1 active goal matched the selected information.'),
+    );
+    expect(response.directAnswer, contains('target ${day(local)}, due today'));
+    expect(
+      response.calculations.map((s) => s.text),
+      contains('0 matched goals are past the recorded target date.'),
+    );
+  });
 }

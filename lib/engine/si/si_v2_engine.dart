@@ -68,7 +68,7 @@ final class SIV2Engine {
               .where((SIV2GoalEvidence item) => !question.excludes(item.title))
               .where(
                 (SIV2GoalEvidence item) => _withinGoalRange(
-                  item.targetDate,
+                  item,
                   query.timeRange,
                   observedNow,
                   undatedMatches: true,
@@ -1534,23 +1534,22 @@ final class SIV2Engine {
 
   String _goalTargetLabel(DateTime? date, DateTime now, {DateTime? wholeDay}) {
     if (date == null) return 'no saved target date';
-    final day = wholeDay != null
-        ? DateTime.utc(wholeDay.year, wholeDay.month, wholeDay.day)
-        : _localDay(date);
+    final day = siGoalDay(date, wholeDay);
     final order = day.compareTo(_localDay(now));
     final suffix = order < 0 ? ', now past' : (order == 0 ? ', due today' : '');
     return 'target ${_dateLabel(day)}$suffix';
   }
 
   bool _withinGoalRange(
-    DateTime? date,
+    SIV2GoalEvidence goal,
     SIV2TimeRange range,
     DateTime now, {
     required bool undatedMatches,
   }) {
+    final date = goal.targetDate;
     if (range == SIV2TimeRange.all) return true;
     if (date == null) return undatedMatches;
-    final day = _localDay(date);
+    final day = siGoalDay(date, goal.targetDay);
     final start = _localDay(now);
     if (day.isBefore(start)) return true;
     return _withinRange(day, range, start, undatedMatches: undatedMatches);
