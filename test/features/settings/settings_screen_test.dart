@@ -1993,7 +1993,7 @@ void main() {
     );
   }
 
-  for (final bool es in <bool>[true, false])
+  for (final bool es in <bool>[true, false]) {
     for (final int count in <int>[1, 2]) {
       testWidgets('${es ? 'Spanish' : 'English'} memory count for $count kept '
           'item(s) agrees in number', (WidgetTester tester) async {
@@ -2061,6 +2061,7 @@ void main() {
         expect(many, count == 1 ? findsNothing : findsOneWidget);
       });
     }
+  }
 
   for (final bool rollback in <bool>[false, true]) {
     testWidgets(

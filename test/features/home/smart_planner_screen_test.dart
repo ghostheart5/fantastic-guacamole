@@ -582,7 +582,7 @@ void main() {
   for (final (code, status, explained) in [
     ('request_completed', 429, 'already finished'),
     ('request_refunded', 409, 'ended without a usable reply'),
-  ])
+  ]) {
     testWidgets(
       'Choose a step: a finished request ($code) is explained once it is seen',
       (tester) async {
@@ -713,6 +713,7 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+  }
 
   testWidgets(
     'Choose a step: a request still being answered is collected again out of sight and held',
