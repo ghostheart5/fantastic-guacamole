@@ -716,6 +716,105 @@ void main() {
   }
 
   testWidgets(
+    'N7: a final answer held out of sight is not turned into a timeout',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final gate = Completer<void>();
+      final paid = <Map<String, dynamic>>[];
+      final container = _container(
+        conversationAvailable: true,
+        allowedAi: true,
+        paidWaitTimeout: const Duration(seconds: 2),
+        conversationTransport: (body) async {
+          if (body['quoteOnly'] == true) {
+            return (
+              status: 200,
+              data: <String, dynamic>{
+                'requestId': body['requestId'],
+                'quote': <String, dynamic>{
+                  'credits': 4,
+                  'digest': 'fixture',
+                  'proof': 'fixture',
+                  'policy': 'fixture',
+                  'expiresAt': 4102444800000,
+                },
+              },
+            );
+          }
+          paid.add(body);
+          await gate.future;
+          return (
+            status: 409,
+            data: <String, dynamic>{'error': 'request_refunded'},
+          );
+        },
+      );
+      addTearDown(() async {
+        if (!gate.isCompleted) gate.complete();
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pumpPlanner(tester, container);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Which step first?',
+      );
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      for (var i = 0; i < 100 && find.text('Send').evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.tap(find.text('Send'));
+      for (
+        var i = 0;
+        i < 100 && find.text('Use 4 credits').evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.tap(find.text('Use 4 credits'));
+      for (var i = 0; i < 10 && paid.isEmpty; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(paid, hasLength(1));
+      // The free planner is shown; the final answer arrives out of sight.
+      container
+          .read(assistantChatModeProvider.notifier)
+          .choose(ConversationSurface.planner, onDevice: true);
+      await tester.pump(const Duration(milliseconds: 400));
+      gate.complete();
+      for (var i = 0; i < 5; i++) {
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(
+        find.byKey(const Key('assistant-mode-reply-ready')),
+        findsOneWidget,
+      );
+      // The wait limit passes while it is held.
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump(const Duration(milliseconds: 200));
+      await _press(tester, const Key('assistant-mode-ai'));
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(find.textContaining('took too long'), findsNothing);
+      }
+      await tester.scrollUntilVisible(
+        find.textContaining('ended without a usable reply'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.textContaining('took too long'), findsNothing);
+      expect(paid, hasLength(1));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'Choose a step: a request still being answered is collected again out of sight and held',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(412, 915));
@@ -2544,6 +2643,7 @@ ProviderContainer _container({
   ConversationTransport? conversationTransport,
   InMemorySecureStoreBackend? secureBackend,
   bool switchableScope = false,
+  Duration? paidWaitTimeout,
 }) {
   final SharedPrefsStore resolvedStore = sharedPrefsStore ?? _MemoryPrefs();
   final AccountStorageScope resolvedScope =
@@ -2555,6 +2655,8 @@ ProviderContainer _container({
   }
   return ProviderContainer(
     overrides: [
+      if (paidWaitTimeout != null)
+        conversationPaidWaitTimeoutProvider.overrideWithValue(paidWaitTimeout),
       if (guidance != null) adaptiveGuidanceProvider.overrideWith(guidance),
       if (allowedAi)
         personalizationProfileProvider.overrideWith(_AllowedConsent.new),

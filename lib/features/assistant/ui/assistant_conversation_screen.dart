@@ -817,7 +817,9 @@ class _AssistantConversationScreenState
             widget.surface == ConversationSurface.planner &&
             widget.hidden) {
           // Every final answer is seen before its stored request is
-          // forgotten; a re-send of the same id gets the same answer.
+          // forgotten; a re-send of the same id gets the same answer. The
+          // wait limit no longer applies: the answer is here.
+          waitTimer?.cancel();
           _reportWhileHidden();
           if (!await _whenShown() || !current()) {
             _resumeHeld(generation, operation);
