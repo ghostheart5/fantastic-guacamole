@@ -1575,14 +1575,14 @@ function aiChatContextWithExtraSources(
       title: `Habit ${i}`,
       cadence: "daily",
       checkInsLast14Days: 9,
-      currentStreak: 3,
+      streakPeriods: 3,
     })),
-    recentTasks: many((i) => ({
+    recentTasksLast14Days: many((i) => ({
       title: `Done ${i}`,
       outcome: "completed",
       at: "2026-08-19T09:00:00.000",
     })),
-    goalProgress: many((i) => ({
+    goalProgressAllTime: many((i) => ({
       title: `Goal ${i}`,
       tasksDone: 2,
       tasksOpen: 1,
@@ -1604,7 +1604,8 @@ Deno.test("accepts habits, recent results and goal progress at the 12 item limit
     );
     if (
       prompt === null || !prompt.includes('"habits":[{"title":"Habit 0"') ||
-      !prompt.includes('"recentTasks"') || !prompt.includes('"goalProgress"') ||
+      !prompt.includes('"recentTasksLast14Days"') ||
+      !prompt.includes('"goalProgressAllTime"') ||
       !prompt.includes('"selectedSources":["goals","goalProgress","habits"')
     ) {
       throw new Error("extra sources were rejected or dropped");
@@ -1639,5 +1640,20 @@ Deno.test("rejects an extra-source context over the 12000 character limit", () =
   });
   if (buildServerSystemPrompt("strategist", context) !== null) {
     throw new Error("oversized extra-source context accepted");
+  }
+});
+
+Deno.test("accepts the fullest AI chat request: 24 context keys with every extra source", () => {
+  const context = aiChatContextWithExtraSources(12, {
+    taskDetailsUnavailable: true,
+    explicitlyAttachedTaskId: "t1",
+    focusedTaskId: "t1",
+    historyClipped: true,
+  });
+  if (Object.keys(context).length !== 24) {
+    throw new Error(`expected 24 keys, got ${Object.keys(context).length}`);
+  }
+  if (buildServerSystemPrompt("strategist", context) === null) {
+    throw new Error("the fullest request was rejected");
   }
 });

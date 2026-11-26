@@ -190,13 +190,25 @@ extension _ConversationScope on _AssistantConversationScreenState {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // While any is on, this line replaces the heading and names what is
+          // on with the dates each covers: the full preview opens again only
+          // when the selection changes, so what rides along with every later
+          // message is always in view next to the input.
           Padding(
+            key: _extras.isEmpty
+                ? null
+                : const Key('conversation-extra-status'),
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              copy(
-                'Add more, listed in See what is sent (off unless you turn it on)',
-                'Añadir más, se muestra en Ver qué se envía (desactivado salvo que lo actives)',
-              ),
+              _extras.isEmpty
+                  ? copy(
+                      'Add more, listed in See what is sent (off unless you turn it on)',
+                      'Añadir más, se muestra en Ver qué se envía (desactivado salvo que lo actives)',
+                    )
+                  : copy(
+                      'On for every message in this chat until you turn it off: ${_extraSummary()}',
+                      'Activado en cada mensaje de este chat hasta que lo desactives: ${_extraSummary()}',
+                    ),
             ),
           ),
           Wrap(
@@ -210,6 +222,30 @@ extension _ConversationScope on _AssistantConversationScreenState {
     );
   }
 
+  /// The chosen extras with the dates each one really covers.
+  String _extraSummary() {
+    final window = ConversationRecentWindow.forRange(_range);
+    return ConversationExtraSource.values
+        .where(_extras.contains)
+        .map(
+          (source) => switch (source) {
+            ConversationExtraSource.habits => copy(
+              'Habits (check-ins: last 14 days)',
+              'Hábitos (registros: últimos 14 días)',
+            ),
+            ConversationExtraSource.recentTasks => copy(
+              'Recent results (${_recentWindowWords(window)})',
+              'Resultados recientes (${_recentWindowWords(window)})',
+            ),
+            ConversationExtraSource.goalProgress => copy(
+              'Goal progress (all time)',
+              'Progreso de metas (todo el tiempo)',
+            ),
+          },
+        )
+        .join('; ');
+  }
+
   /// What a choice adds, read out and shown as its tooltip.
   String _extraDetail(ConversationExtraSource source) => switch (source) {
     ConversationExtraSource.habits => copy(
@@ -217,12 +253,12 @@ extension _ConversationScope on _AssistantConversationScreenState {
       'Nombres de hábitos, registros de los últimos 14 días y racha',
     ),
     ConversationExtraSource.recentTasks => copy(
-      'Titles of tasks you finished or skipped in the last 14 days',
-      'Títulos de las tareas que terminaste u omitiste en los últimos 14 días',
+      'Titles of tasks you finished or skipped, with the date and time, within your selected dates (at most 14 days)',
+      'Títulos de las tareas que terminaste u omitiste, con fecha y hora, dentro de las fechas elegidas (como máximo 14 días)',
     ),
     ConversationExtraSource.goalProgress => copy(
-      'How many linked tasks and milestones are done or open for each goal',
-      'Cuántas tareas e hitos vinculados están hechos o abiertos en cada meta',
+      'Each goal title with how many linked tasks and milestones are done or open, all time',
+      'Cada título de meta con cuántas tareas e hitos vinculados están hechos o abiertos, en total',
     ),
   };
 

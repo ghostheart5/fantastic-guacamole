@@ -267,9 +267,12 @@ extension _ConversationCopy on _AssistantConversationScreenState {
         'Check-ins in the last 14 days',
         'Registros en los últimos 14 días',
       ),
-      'currentStreak': copy('Current streak', 'Racha actual'),
+      'streakPeriods': copy(
+        'Current streak (days, weeks or months in a row, since the last change to how often it repeats)',
+        'Racha actual (días, semanas o meses seguidos, desde el último cambio de frecuencia)',
+      ),
       'outcome': copy('Result', 'Resultado'),
-      'at': copy('Date', 'Fecha'),
+      'at': copy('Date and time', 'Fecha y hora'),
       'tasksDone': copy('Linked tasks done', 'Tareas vinculadas hechas'),
       'tasksOpen': copy('Linked tasks open', 'Tareas vinculadas abiertas'),
       'milestonesDone': copy('Milestones done', 'Hitos hechos'),
@@ -298,8 +301,14 @@ extension _ConversationCopy on _AssistantConversationScreenState {
         .toSet();
     for (final source in ConversationExtraSource.values) {
       if (!sourceNames.contains(source.name)) continue;
-      lines.add('\n${_extraHeading(source)}');
-      final records = data[source.name];
+      // The heading names the window the request really carries: the key it
+      // was sent under says it.
+      final key = source.contextKeys.firstWhere(
+        data.containsKey,
+        orElse: () => source.contextKeys.first,
+      );
+      lines.add('\n${_extraHeading(key)}');
+      final records = data[key];
       if (unreadable.contains(source.name)) {
         lines.add(
           copy(
@@ -376,17 +385,42 @@ extension _ConversationCopy on _AssistantConversationScreenState {
     SIV2TimeRange.thirtyDays => copy('30 days', '30 días'),
     SIV2TimeRange.all => copy('All dates', 'Todas las fechas'),
   };
-  String _extraHeading(ConversationExtraSource value) => switch (value) {
-    ConversationExtraSource.habits => copy('Habits', 'Hábitos'),
-    ConversationExtraSource.recentTasks => copy(
-      'Recent results (last 14 days)',
-      'Resultados recientes (últimos 14 días)',
-    ),
-    ConversationExtraSource.goalProgress => copy(
-      'Goal progress',
-      'Progreso de metas',
-    ),
-  };
+
+  /// The window of recent results, in words, from the key it is sent under.
+  String _recentWindowWords(ConversationRecentWindow window) =>
+      switch (window) {
+        ConversationRecentWindow.today => copy('today', 'hoy'),
+        ConversationRecentWindow.last7Days => copy(
+          'last 7 days',
+          'últimos 7 días',
+        ),
+        ConversationRecentWindow.last14Days => copy(
+          'last 14 days',
+          'últimos 14 días',
+        ),
+      };
+
+  String _extraHeading(String key) {
+    for (final window in ConversationRecentWindow.values) {
+      if (window.contextKey == key) {
+        return copy(
+          'Recent results (${_recentWindowWords(window)})',
+          'Resultados recientes (${_recentWindowWords(window)})',
+        );
+      }
+    }
+    return switch (key) {
+      'goalProgressAllTime' => copy(
+        'Goal progress (all time)',
+        'Progreso de metas (todo el tiempo)',
+      ),
+      _ => copy(
+        'Habits (check-ins: last 14 days)',
+        'Hábitos (registros: últimos 14 días)',
+      ),
+    };
+  }
+
   String _sourceLabel(SIV2Source value) => switch (value) {
     SIV2Source.tasks => copy('Tasks', 'Tareas'),
     SIV2Source.goals => copy('Goals', 'Metas'),

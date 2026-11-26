@@ -417,6 +417,11 @@ final class ConversationPreviewMemory {
       _accepted[surface] = selection;
 }
 
+/// The moment a request is built. Tests replace it with a fixed time.
+final conversationClockProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
+);
+
 final conversationPacketFactoryProvider = Provider<ConversationPacketFactory>(
   (ref) => ConversationPacketFactory(ref),
 );
@@ -466,7 +471,7 @@ final class ConversationPacketFactory {
         !ref.read(authSessionBoundaryProvider).isStorageReady) {
       throw const ConversationFailure('authentication_required');
     }
-    final now = DateTime.now();
+    final now = ref.read(conversationClockProvider)();
     for (final flag in [
       surface == ConversationSurface.planner
           ? AssistantReleaseCapability.smartPlannerV2
@@ -485,6 +490,9 @@ final class ConversationPacketFactory {
           observedAt: now.toUtc(),
           decisionText: prompt,
           includeActivity: extras.isNotEmpty,
+          // Applied before the read's own limits, so a long list is not cut
+          // before the person's filter.
+          titleContains: extras.isNotEmpty ? entityFilter : '',
         );
     final note =
         surface == ConversationSurface.planner &&
@@ -595,8 +603,9 @@ final class ConversationPacketFactory {
       extras: extras,
       snapshot: snapshot,
       entityFilter: entityFilter,
+      window: ConversationRecentWindow.forRange(range),
+      now: now,
       title: (text) => bounded(text, conversationExtraTitleLimit),
-      localDate: (time) => localDate(time)!,
     );
     return ConversationPacket(
       surface: surface,

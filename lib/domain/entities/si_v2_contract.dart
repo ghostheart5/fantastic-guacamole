@@ -253,8 +253,9 @@ final class SIV2GoalEvidence {
   /// [SIV2TaskEvidence.dueDay]).
   final DateTime? targetDay;
 
-  /// Progress read from the records linked to this goal. Used only by the
-  /// on-device one-tap questions; the remote packet does not carry it.
+  /// Progress read from the records linked to this goal, all time. Read for
+  /// the on-device one-tap questions and, only when the person turns on
+  /// Goal progress in AI chat, sent as counts with the goal title.
   final int linkedTasksDone;
   final int linkedTasksOpen;
   final int milestonesDone;
@@ -266,7 +267,8 @@ final class SIV2GoalEvidence {
 
 /// One habit as the on-device one-tap questions read it: its cadence, the
 /// check-ins recorded in the last [windowDays] days and the current streak of
-/// consecutive periods with a check-in. Never sent to a server.
+/// consecutive periods with a check-in. Sent to AI chat only when the person
+/// turns on Habits there (title, cadence, check-ins and streak).
 final class SIV2HabitEvidence {
   const SIV2HabitEvidence({
     required this.id,
@@ -517,7 +519,8 @@ final class SIV2EvidenceSnapshot {
   final Set<SIV2Source> unavailableSources;
 
   /// Habits and the last 14 days of finished or skipped tasks. They feed the
-  /// on-device one-tap questions only and are not part of the remote packet.
+  /// on-device one-tap questions and, only when the person turns the matching
+  /// choice on in AI chat, that request's packet and preview.
   final List<SIV2HabitEvidence> habits;
   final List<SIV2RecentTaskEvidence> recentTasks;
   final bool habitsUnavailable;
@@ -619,9 +622,9 @@ final class SIV2EvidenceSnapshot {
                     .map((SIV2Source source) => source.name)
                     .toList()
                   ..sort(),
-            // The one-tap records (habits, recent tasks, goal progress, whole
-            // day deadlines) are deliberately not part of this revision: it
-            // describes what the remote packet and its preview carry.
+            // The activity records (habits, recent tasks, goal progress, whole
+            // day deadlines) are deliberately not part of this revision, so
+            // the revision of a request without them never changes.
           }),
         ),
       )

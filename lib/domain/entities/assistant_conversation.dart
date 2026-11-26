@@ -146,9 +146,7 @@ Map<String, Object?> _boundedContext(Map<String, Object?> input) {
               'goals',
               'milestones',
               'timeline',
-              'habits',
-              'recentTasks',
-              'goalProgress',
+              ...conversationExtraContextKeys,
             ]
             .where(
               (key) =>
@@ -309,14 +307,17 @@ final class ConversationReplyReceipt {
     final context = body['context'] as Map;
     int count(String key) =>
         context[key] is List ? (context[key] as List).length : 0;
+    // An extra source lives under the key naming its window.
+    int extraCount(ConversationExtraSource source) =>
+        source.contextKeys.fold(0, (sum, key) => sum + count(key));
     return ConversationReplyReceipt(
       tasks: count('tasks'),
       goals: count('goals'),
       milestones: count('milestones'),
       schedule: count('timeline'),
-      habits: count('habits'),
-      recentTasks: count('recentTasks'),
-      goalProgress: count('goalProgress'),
+      habits: extraCount(ConversationExtraSource.habits),
+      recentTasks: extraCount(ConversationExtraSource.recentTasks),
+      goalProgress: extraCount(ConversationExtraSource.goalProgress),
       note: context['explicitlyAttachedNote'] is Map,
       energy: context['reportedEnergy'] is num,
       emotion: context['reportedEmotion'] is String,

@@ -1,9 +1,11 @@
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/domain/entities/conversation_extra_sources.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart';
@@ -33,12 +35,15 @@ import 'package:flutter_test/flutter_test.dart';
 
 final _scope = AccountStorageScope.authenticated('synthetic-scope');
 
-// One moment for every fixture, so a check-in is never later than the read.
-final _t0 = DateTime.now();
+// One fixed moment for every fixture and for the request (see the clock
+// override), built from calendar fields so a day change cannot move it.
+final _now = DateTime(2026, 8, 20, 12);
+DateTime _daysAgo(int days) =>
+    DateTime(_now.year, _now.month, _now.day - days, 9);
 final _walk = HabitEntity(
   id: 'walk',
   title: 'Evening walk',
-  createdAt: _t0.subtract(const Duration(days: 90)),
+  createdAt: _daysAgo(90),
 );
 final _tasks = [
   TaskEntity(
@@ -50,9 +55,9 @@ final _tasks = [
   TaskEntity(
     id: 'done',
     title: 'Send invoice',
-    createdAt: _t0.subtract(const Duration(days: 6)),
+    createdAt: _daysAgo(6),
     isCompleted: true,
-    completedAt: _t0.subtract(const Duration(days: 2)),
+    completedAt: _daysAgo(2),
     goalId: 'launch',
   ),
 ];
@@ -70,13 +75,10 @@ SIV2ReadGateway _gatewayFor(String? scope) => SIV2ReadGateway(
     for (var i = 0; i < 3; i++)
       HabitOccurrenceEntity(
         habitId: _walk.id,
-        occurrenceKey: RhythmPlanningContext.occurrenceKey(
-          _walk,
-          _t0.subtract(Duration(days: i)),
-        ),
+        occurrenceKey: RhythmPlanningContext.occurrenceKey(_walk, _daysAgo(i)),
         operationId: 'op-$i',
         outcome: HabitOccurrenceOutcome.completed,
-        recordedAt: _t0.subtract(Duration(days: i)).toUtc(),
+        recordedAt: _daysAgo(i).toUtc(),
       ),
   ],
 );
@@ -90,15 +92,19 @@ const _chatOnly = Key('conversation-scope-chat-only');
 ProviderContainer _setup(
   List<Map<String, dynamic>> sent, {
   required bool switchOn,
+  AccountStorageScope Function()? readScope,
 }) => ProviderContainer(
   overrides: [
     secureStoreProvider.overrideWithValue(
       SecureStore(backend: InMemorySecureStoreBackend()),
     ),
-    accountStorageScopeProvider.overrideWith((ref) => _scope),
+    accountStorageScopeProvider.overrideWith(
+      (ref) => readScope?.call() ?? _scope,
+    ),
     authSessionBoundaryProvider.overrideWith(_Boundary.new),
     assistantConversationAvailableProvider.overrideWithValue(true),
     aiChatExtraSourcesAvailableProvider.overrideWithValue(switchOn),
+    conversationClockProvider.overrideWithValue(() => _now),
     personalizationProfileProvider.overrideWith(_Consent.new),
     conversationTransportProvider.overrideWithValue((body) async {
       sent.add(body);
@@ -112,7 +118,7 @@ ProviderContainer _setup(
     siV2EvidenceSnapshotProvider.overrideWith(
       (ref) => _gatewayFor(
         ref.watch(accountStorageScopeProvider).v2Namespace,
-      ).read(observedAt: DateTime.now()),
+      ).read(observedAt: _now),
     ),
     domainTaskRepositoryProvider.overrideWithValue(_Tasks()),
     selectedPlanningNoteProvider.overrideWith((ref) async => null),
@@ -217,6 +223,21 @@ Future<String> _review(
   return preview;
 }
 
+/// Scrolls the conversation until [finder] is built, then makes it visible.
+Future<void> _reveal(WidgetTester tester, Finder finder) async {
+  await tester.pumpAndSettle();
+  if (finder.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      finder,
+      180,
+      scrollable: find.byType(Scrollable).first,
+      maxScrolls: 20,
+    );
+  }
+  await Scrollable.ensureVisible(tester.element(finder));
+  await tester.pumpAndSettle();
+}
+
 Map<String, dynamic> _context(Map<String, dynamic> body) =>
     Map<String, dynamic>.from(body['context'] as Map);
 
@@ -240,7 +261,7 @@ void main() {
     expect(find.byKey(_habitsChip), findsNothing);
     final preview = await _review(tester, 'How are my habits going?');
     final context = _context(sent.single);
-    for (final key in ['habits', 'recentTasks', 'goalProgress']) {
+    for (final key in conversationExtraContextKeys) {
       expect(context.containsKey(key), isFalse);
     }
     expect(preview, isNot(contains('Evening walk')));
@@ -266,7 +287,7 @@ void main() {
       }
       final preview = await _review(tester, 'How are my habits going?');
       final context = _context(sent.single);
-      for (final key in ['habits', 'recentTasks', 'goalProgress']) {
+      for (final key in conversationExtraContextKeys) {
         expect(context.containsKey(key), isFalse);
       }
       expect(context['selectedSources'], [
@@ -315,7 +336,10 @@ void main() {
       // Habits: every field of every record sent is a line in the review.
       final habits = (context['habits'] as List).cast<Map<String, Object?>>();
       expect(habits, hasLength(1));
-      expect(preview, contains('Habits\nTitle: Evening walk'));
+      expect(
+        preview,
+        contains('Habits (check-ins: last 14 days)\nTitle: Evening walk'),
+      );
       expect(preview, contains('Repeats: Daily'));
       expect(
         preview,
@@ -325,19 +349,21 @@ void main() {
       );
       expect(
         preview,
-        contains('Current streak: ${habits.single['currentStreak']}'),
+        contains(
+          'in a row, since the last change to how often it repeats): ${habits.single['streakPeriods']}',
+        ),
       );
       expect(habits.single['checkInsLast14Days'], 3);
       // Recent results.
-      final recent = (context['recentTasks'] as List)
+      final recent = (context['recentTasksLast14Days'] as List)
           .cast<Map<String, Object?>>();
       expect(recent.single['title'], 'Send invoice');
       expect(preview, contains('Recent results (last 14 days)'));
       expect(preview, contains('Title: Send invoice'));
       expect(preview, contains('Result: Finished'));
-      expect(preview, contains('Date: ${recent.single['at']}'));
+      expect(preview, contains('Date and time: ${recent.single['at']}'));
       // Goal progress.
-      final goals = (context['goalProgress'] as List)
+      final goals = (context['goalProgressAllTime'] as List)
           .cast<Map<String, Object?>>();
       expect(goals.single, {
         'title': 'Launch',
@@ -346,7 +372,7 @@ void main() {
         'milestonesDone': 0,
         'milestonesOpen': 0,
       });
-      expect(preview, contains('Goal progress\nTitle: Launch'));
+      expect(preview, contains('Goal progress (all time)\nTitle: Launch'));
       expect(preview, contains('Linked tasks done: 1'));
       expect(preview, contains('Linked tasks open: 1'));
       expect(preview, contains('Milestones done: 0'));
@@ -383,13 +409,22 @@ void main() {
         'Fuentes: Tareas, Metas, Hitos, Agenda, Hábitos, Resultados recientes, Progreso de metas',
       ),
     );
-    expect(preview, contains('Hábitos\nTítulo: Evening walk'));
+    expect(
+      preview,
+      contains('Hábitos (registros: últimos 14 días)\nTítulo: Evening walk'),
+    );
     expect(preview, contains('Se repite: Diario'));
     expect(preview, contains('Registros en los últimos 14 días: 3'));
-    expect(preview, contains('Racha actual: 3'));
+    expect(
+      preview,
+      contains('seguidos, desde el último cambio de frecuencia): 3'),
+    );
     expect(preview, contains('Resultados recientes (últimos 14 días)'));
     expect(preview, contains('Resultado: Terminada'));
-    expect(preview, contains('Progreso de metas\nTítulo: Launch'));
+    expect(
+      preview,
+      contains('Progreso de metas (todo el tiempo)\nTítulo: Launch'),
+    );
     expect(preview, contains('Tareas vinculadas hechas: 1'));
     expect(preview, contains('Hitos abiertos: 0'));
     expect(tester.takeException(), isNull);
@@ -419,11 +454,129 @@ void main() {
     final preview = await _review(tester, 'How are my habits going?');
     final context = _context(sent.single);
     expect(context['contextScope'], 'chatOnly');
-    for (final key in ['habits', 'recentTasks', 'goalProgress']) {
+    for (final key in conversationExtraContextKeys) {
       expect(context.containsKey(key), isFalse);
     }
     expect(preview, contains('Sources: just this chat'));
     expect(preview, isNot(contains('Evening walk')));
+  });
+
+  testWidgets('every extra field that is sent is a line in the review', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final sent = <Map<String, dynamic>>[];
+    final container = _setup(sent, switchOn: true);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await _pump(tester, container);
+    for (final key in [_habitsChip, _recentChip, _goalChip]) {
+      await tester.tap(find.byKey(key));
+      await tester.pump();
+    }
+    final preview = await _review(tester, 'How are my habits going?');
+    final context = _context(sent.single);
+    final shown = {
+      'daily': 'Daily',
+      'weekly': 'Weekly',
+      'monthly': 'Monthly',
+      'completed': 'Finished',
+      'skipped': 'Skipped',
+    };
+    final extraKeys = context.keys
+        .where(conversationExtraContextKeys.contains)
+        .toList();
+    expect(extraKeys, hasLength(3));
+    for (final key in extraKeys) {
+      for (final item in (context[key] as List).cast<Map<String, Object?>>()) {
+        for (final entry in item.entries) {
+          final value = '${shown[entry.value] ?? entry.value}';
+          expect(preview, contains(value), reason: '$key.${entry.key}');
+        }
+      }
+    }
+  });
+
+  testWidgets(
+    'the heading and the request state the real window for the chosen dates',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final sent = <Map<String, dynamic>>[];
+      final container = _setup(sent, switchOn: true);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container);
+      await tester.tap(find.byKey(_recentChip));
+      await tester.tap(find.byKey(_goalChip));
+      await tester.pump();
+      // The line beside the input names what is on, with its real dates.
+      expect(
+        find.textContaining(
+          'On for every message in this chat until you turn it off: Recent results (last 14 days); Goal progress (all time)',
+        ),
+        findsOneWidget,
+      );
+
+      final advanced = find.byKey(const Key('conversation-advanced'));
+      await _reveal(tester, advanced);
+      await tester.tap(advanced);
+      await tester.pumpAndSettle();
+      final range = find.byType(DropdownButtonFormField<SIV2TimeRange>);
+      await _reveal(tester, range);
+      await tester.tap(range);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('7 days').last);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Recent results (last 7 days); Goal progress'),
+        findsOneWidget,
+      );
+      final preview = await _review(tester, 'Review my week');
+      final context = _context(sent.single);
+      expect(context['timeRange'], 'sevenDays');
+      expect(context.containsKey('recentTasksLast7Days'), isTrue);
+      expect(context.containsKey('recentTasksLast14Days'), isFalse);
+      expect(preview, contains('Dates: 7 days'));
+      expect(preview, contains('Recent results (last 7 days)'));
+      expect(preview, contains('Goal progress (all time)'));
+      expect(preview, isNot(contains('last 14 days')));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('an account change turns every extra choice off', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var scope = _scope;
+    final container = _setup([], switchOn: true, readScope: () => scope);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await _pump(tester, container);
+    await tester.tap(find.byKey(_habitsChip));
+    await tester.pump();
+    expect(_on(tester, _habitsChip), isTrue);
+    expect(find.byKey(const Key('conversation-extra-status')), findsOneWidget);
+
+    scope = AccountStorageScope.authenticated('other-account');
+    container.invalidate(accountStorageScopeProvider);
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(find.byKey(const Key('conversation-extra-status')), findsNothing);
+    for (final key in [_habitsChip, _recentChip, _goalChip]) {
+      if (find.byKey(key).evaluate().isNotEmpty) {
+        expect(_on(tester, key), isFalse);
+      }
+    }
   });
 
   for (final language in ['en', 'es']) {

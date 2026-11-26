@@ -58,6 +58,8 @@ class _Fixture {
     this.goals,
     this.milestones = const [],
     this.habitReader,
+    this.failTasks = false,
+    this.failDetails = false,
   });
 
   final List<HabitEntity> habits;
@@ -66,6 +68,8 @@ class _Fixture {
   final List<GoalEntity>? goals;
   final List<MilestoneEntity> milestones;
   final Future<List<HabitEntity>> Function()? habitReader;
+  final bool failTasks;
+  final bool failDetails;
 
   List<TaskEntity> get allTasks => tasks ?? _tasks;
   List<GoalEntity> get allGoals =>
@@ -80,7 +84,7 @@ class _Fixture {
 
   SIV2ReadGateway gateway(String accountScopeId) => SIV2ReadGateway(
     accountScopeId: accountScopeId,
-    readTasks: () async => allTasks,
+    readTasks: () async => failTasks ? throw StateError('tasks') : allTasks,
     readGoals: () async => allGoals,
     readMilestones: () async => milestones,
     readTimeline: () async => [],
@@ -101,11 +105,14 @@ ProviderContainer _container(
     authSessionBoundaryProvider.overrideWith(_Boundary.new),
     personalizationProfileProvider.overrideWith(_Consent.new),
     aiChatExtraSourcesAvailableProvider.overrideWithValue(switchOn),
+    conversationClockProvider.overrideWithValue(() => _now),
     siV2ReadGatewayProvider.overrideWith(
       (ref) =>
           fixture.gateway(ref.watch(accountStorageScopeProvider).v2Namespace!),
     ),
-    domainTaskRepositoryProvider.overrideWithValue(_Tasks(fixture.allTasks)),
+    domainTaskRepositoryProvider.overrideWithValue(
+      _Tasks(fixture.allTasks, fail: fixture.failDetails),
+    ),
     selectedPlanningNoteProvider.overrideWith((ref) async => null),
     for (final capability in [
       AssistantReleaseCapability.smartPlannerV2,
@@ -143,10 +150,12 @@ class _Boundary extends AuthSessionBoundaryNotifier {
 }
 
 class _Tasks implements ITaskRepository {
-  _Tasks(this.records);
+  _Tasks(this.records, {this.fail = false});
   final List<TaskEntity> records;
+  final bool fail;
   @override
-  Future<List<TaskEntity>> getAllTasks() async => records;
+  Future<List<TaskEntity>> getAllTasks() async =>
+      fail ? throw StateError('details') : records;
   @override
   Future<TaskEntity?> getTaskById(String id) async => null;
   @override
@@ -162,6 +171,8 @@ const _myPlan = {
   SIV2Source.timeline,
 };
 
+const _extraKeys = ['habits', 'recentTasksLast14Days', 'goalProgressAllTime'];
+
 const _all = {
   ConversationExtraSource.habits,
   ConversationExtraSource.recentTasks,
@@ -174,6 +185,9 @@ Future<ConversationPacket> _build(
   Set<SIV2Source> sources = _myPlan,
   ConversationSurface surface = ConversationSurface.si,
   String entityFilter = '',
+  SIV2TimeRange range = SIV2TimeRange.all,
+  String? selectedTaskId,
+  List<Map<String, String>> history = const [],
 }) {
   final factory = container.read(conversationPacketFactoryProvider);
   const prompt = 'How is my week?';
@@ -182,19 +196,23 @@ Future<ConversationPacket> _build(
     return factory.build(
       surface: surface,
       prompt: prompt,
-      history: const [],
+      history: history,
       languageCode: 'en',
+      selectedTaskId: selectedTaskId,
       sources: sources,
       entityFilter: entityFilter,
+      range: range,
     );
   }
   return factory.build(
     surface: surface,
     prompt: prompt,
-    history: const [],
+    history: history,
     languageCode: 'en',
+    selectedTaskId: selectedTaskId,
     sources: sources,
     entityFilter: entityFilter,
+    range: range,
     extraSources: extras,
   );
 }
@@ -215,15 +233,23 @@ String _fixedBody(ConversationPacket packet) {
 Map<String, dynamic> _context(ConversationPacket packet) =>
     Map<String, dynamic>.from(packet.toJson()['context'] as Map);
 
+/// The moment every request in this file is built at (see the clock override).
+final _now = DateTime(2026, 8, 20, 12);
+
+/// A local time on a calendar day before [_now], built from calendar fields
+/// so a day with 23 or 25 hours changes nothing.
+DateTime _daysAgo(int days, [int hour = 9]) =>
+    DateTime(_now.year, _now.month, _now.day - days, hour);
+
 HabitEntity _habit(String id, String title) => HabitEntity(
   id: id,
   title: title,
-  createdAt: DateTime.now().subtract(const Duration(days: 90)),
+  createdAt: _daysAgo(90),
   description: 'PRIVATE habit note',
 );
 
 HabitOccurrenceEntity _checkIn(HabitEntity habit, int daysAgo) {
-  final at = DateTime.now().subtract(Duration(days: daysAgo));
+  final at = _daysAgo(daysAgo);
   return HabitOccurrenceEntity(
     habitId: habit.id,
     occurrenceKey: RhythmPlanningContext.occurrenceKey(habit, at),
@@ -239,12 +265,12 @@ TaskEntity _finished(
   int daysAgo, {
   bool skip = false,
 }) {
-  final at = DateTime.now().subtract(Duration(days: daysAgo));
+  final at = _daysAgo(daysAgo);
   return TaskEntity(
     id: id,
     title: title,
     description: 'PRIVATE task note',
-    createdAt: at.subtract(const Duration(days: 3)),
+    createdAt: _daysAgo(daysAgo + 3),
     isCompleted: !skip,
     completedAt: skip ? null : at,
     isSkipped: skip,
@@ -336,11 +362,11 @@ void main() {
           'title': 'Walk',
           'cadence': 'daily',
           'checkInsLast14Days': 3,
-          'currentStreak': 3,
+          'streakPeriods': 3,
         },
       ]);
-      expect(context.containsKey('recentTasks'), isFalse);
-      expect(context.containsKey('goalProgress'), isFalse);
+      expect(context.containsKey('recentTasksLast14Days'), isFalse);
+      expect(context.containsKey('goalProgressAllTime'), isFalse);
       expect(context['selectedSources'], [
         'goals',
         'habits',
@@ -351,14 +377,14 @@ void main() {
 
       final all = await _build(container, extras: _all);
       context = _context(all);
-      final recent = (context['recentTasks'] as List)
+      final recent = (context['recentTasksLast14Days'] as List)
           .cast<Map<String, Object?>>();
       expect(recent.map((r) => [r['title'], r['outcome']]), [
         ['Send invoice', 'completed'],
         ['Sort mail', 'skipped'],
       ]);
       expect(recent.first.keys.toSet(), {'title', 'outcome', 'at'});
-      expect(context['goalProgress'], [
+      expect(context['goalProgressAllTime'], [
         {
           'title': 'Launch',
           'tasksDone': 1,
@@ -393,9 +419,12 @@ void main() {
       expect((context['habits'] as List).map((h) => (h as Map)['title']), [
         'Walk',
       ]);
-      expect((context['recentTasks'] as List).map((h) => (h as Map)['title']), [
-        'Walk the dog',
-      ]);
+      expect(
+        (context['recentTasksLast14Days'] as List).map(
+          (h) => (h as Map)['title'],
+        ),
+        ['Walk the dog'],
+      );
     });
 
     test('12 items per source and one size cap across all sources', () async {
@@ -423,7 +452,7 @@ void main() {
       addTearDown(container.dispose);
       final packet = await _build(container, extras: _all);
       final context = _context(packet);
-      for (final key in ['habits', 'recentTasks', 'goalProgress']) {
+      for (final key in _extraKeys) {
         expect((context[key] as List).length, 12, reason: key);
       }
       // 8 habits, 18 recent results and 3 goal records did not fit, plus the 3
@@ -460,7 +489,7 @@ void main() {
         ..remove('surface');
       expect(jsonEncode(withoutSurface).length, lessThanOrEqualTo(10000));
       expect(context['omittedRecordCount'], greaterThan(0));
-      for (final key in ['habits', 'recentTasks', 'goalProgress']) {
+      for (final key in _extraKeys) {
         for (final item in context[key] as List) {
           expect(((item as Map)['title'] as String).length, lessThan(160));
         }
@@ -478,7 +507,7 @@ void main() {
       );
       expect(context['contextScope'], 'chatOnly');
       expect(context['selectedSources'], isEmpty);
-      for (final key in ['habits', 'recentTasks', 'goalProgress']) {
+      for (final key in conversationExtraContextKeys) {
         expect(context.containsKey(key), isFalse);
       }
     });
@@ -496,7 +525,7 @@ void main() {
           surface: ConversationSurface.planner,
         ),
       );
-      for (final key in ['habits', 'recentTasks', 'goalProgress']) {
+      for (final key in conversationExtraContextKeys) {
         expect(context.containsKey(key), isFalse);
       }
     });
@@ -540,6 +569,166 @@ void main() {
           ),
         ),
       );
+    });
+  });
+
+  group('what each source covers is in the request', () {
+    _Fixture dated() => _Fixture(
+      tasks: [
+        ..._tasks,
+        _finished('d0', 'Today task', 0),
+        _finished('d2', 'Two days', 2),
+        _finished('d5', 'Five days', 5, skip: true),
+        _finished('d9', 'Nine days', 9),
+        _finished('d40', 'Forty days', 40),
+      ],
+    );
+
+    Future<Map<String, dynamic>> contextFor(SIV2TimeRange range) async {
+      final container = _container(dated(), switchOn: true);
+      addTearDown(container.dispose);
+      return _context(await _build(container, extras: _all, range: range));
+    }
+
+    List<Object?> titles(Map<String, dynamic> context, String key) => [
+      for (final item in context[key] as List) (item as Map)['title'],
+    ];
+
+    test(
+      'recent results follow the selected dates, never past 14 days',
+      () async {
+        var context = await contextFor(SIV2TimeRange.today);
+        expect(titles(context, 'recentTasksToday'), ['Today task']);
+        expect(context.containsKey('recentTasksLast14Days'), isFalse);
+
+        context = await contextFor(SIV2TimeRange.sevenDays);
+        expect(titles(context, 'recentTasksLast7Days'), [
+          'Today task',
+          'Two days',
+          'Five days',
+        ]);
+
+        for (final range in [SIV2TimeRange.thirtyDays, SIV2TimeRange.all]) {
+          context = await contextFor(range);
+          expect(titles(context, 'recentTasksLast14Days'), [
+            'Today task',
+            'Two days',
+            'Five days',
+            'Nine days',
+          ]);
+          expect(context['timeRange'], range.name);
+          for (final other in ['recentTasksToday', 'recentTasksLast7Days']) {
+            expect(context.containsKey(other), isFalse);
+          }
+        }
+      },
+    );
+
+    test('goal progress is named all time and ignores the dates', () async {
+      for (final range in SIV2TimeRange.values) {
+        final context = await contextFor(range);
+        final goal = (context['goalProgressAllTime'] as List).single as Map;
+        // The 40 day old finished task still counts: all time.
+        expect(goal['tasksDone'], 4);
+        expect(goal['tasksOpen'], 1);
+        expect(context.containsKey('goalProgress'), isFalse);
+      }
+    });
+
+    test('a result carries a readable local date and time', () async {
+      final context = await contextFor(SIV2TimeRange.sevenDays);
+      final first = (context['recentTasksLast7Days'] as List).first as Map;
+      expect(first['at'], '2026-08-20 09:00');
+    });
+
+    test(
+      'a count that could not be read is left out, not sent as zero',
+      () async {
+        final container = _container(_Fixture(failTasks: true), switchOn: true);
+        addTearDown(container.dispose);
+        final context = _context(await _build(container, extras: _all));
+        final goal = (context['goalProgressAllTime'] as List).single as Map;
+        expect(goal.keys.toSet(), {
+          'title',
+          'milestonesDone',
+          'milestonesOpen',
+        });
+        expect(
+          context['unavailableSources'],
+          containsAll(['recentTasks', 'goalProgress']),
+        );
+      },
+    );
+
+    test('the title filter reaches habits past the read limit', () async {
+      final container = _container(
+        _Fixture(
+          habits: [for (var i = 10; i < 60; i++) _habit('h$i', 'Habit $i')],
+        ),
+        switchOn: true,
+      );
+      addTearDown(container.dispose);
+      final context = _context(
+        await _build(
+          container,
+          extras: {ConversationExtraSource.habits},
+          entityFilter: 'Habit 59',
+        ),
+      );
+      expect(titles(context, 'habits'), ['Habit 59']);
+    });
+
+    test('the fullest request has 24 context keys, the server limit', () async {
+      final container = _container(
+        _Fixture(
+          habits: [_habit('walk', 'Walk')],
+          tasks: [..._tasks, _finished('a', 'Done', 1)],
+          failDetails: true,
+        ),
+        switchOn: true,
+      );
+      addTearDown(container.dispose);
+      final packet = await _build(
+        container,
+        extras: _all,
+        selectedTaskId: 'grocery',
+        history: [
+          {'role': 'user', 'content': 'x' * 2600},
+        ],
+      );
+      final context = _context(packet);
+      for (final key in [
+        'taskDetailsUnavailable',
+        'explicitlyAttachedTaskId',
+        'historyClipped',
+        ..._extraKeys,
+      ]) {
+        expect(context.containsKey(key), isTrue, reason: key);
+      }
+      // focusedTaskId appears only when the engine picks a focus task (not in
+      // this fixture): counting it, the fullest request has 24 keys, which the
+      // server accepts (24 is its limit).
+      expect(
+        context.length + (context.containsKey('focusedTaskId') ? 0 : 1),
+        24,
+      );
+    });
+
+    test('a stored request with extras is restored byte for byte', () async {
+      final container = _container(
+        _Fixture(habits: [_habit('walk', 'Walk')]),
+        switchOn: true,
+      );
+      addTearDown(container.dispose);
+      final packet = await _build(container, extras: _all);
+      final restored = ConversationPacket.restore(
+        surface: ConversationSurface.si,
+        accountScope: packet.accountScope,
+        requestId: packet.requestId,
+        body: packet.serializedBody,
+      );
+      expect(restored.serializedBody, packet.serializedBody);
+      expect(restored.toJson(), packet.toJson());
     });
   });
 

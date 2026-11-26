@@ -49,18 +49,21 @@ final class SIV2ReadGateway {
   final SIV2PersonContextReader? readPersonContext;
 
   /// Optional: habits and their check-ins, read for the on-device one-tap
-  /// questions only. Absent means "not read", not "none".
+  /// questions and the optional AI chat sources. Absent means "not read", not "none".
   final SIV2HabitReader? readHabits;
   final SIV2HabitOccurrenceReader? readHabitOccurrences;
 
   /// [includeActivity] also reads habits and check-ins and the last 14 days of
-  /// finished or skipped tasks, for the on-device one-tap questions. Nothing
-  /// else (paid packets, the older console) asks for them, so they are not
-  /// read for those.
+  /// finished or skipped tasks, for the on-device one-tap questions and for an
+  /// AI chat request whose person turned on Habits, Recent results or Goal
+  /// progress. Nothing else asks for them, so they are not read otherwise.
+  /// [titleContains] keeps only habits and results whose title contains it,
+  /// before the read limits apply.
   Future<SIV2EvidenceSnapshot> read({
     required DateTime observedAt,
     String decisionText = '',
     bool includeActivity = false,
+    String titleContains = '',
   }) async {
     final Set<SIV2Source> unavailable = <SIV2Source>{};
     List<TaskEntity> taskEntities = const <TaskEntity>[];
@@ -206,10 +209,15 @@ final class SIV2ReadGateway {
                 right.timestamp.compareTo(left.timestamp),
           );
     final List<SIV2HabitEvidence> habits = includeActivity
-        ? _habitEvidence(habitEntities, occurrenceEntities, observedAt)
+        ? _habitEvidence(
+            habitEntities,
+            occurrenceEntities,
+            observedAt,
+            titleContains,
+          )
         : const <SIV2HabitEvidence>[];
     final List<SIV2RecentTaskEvidence> recentTasks = includeActivity
-        ? _recentTaskEvidence(taskEntities, observedAt)
+        ? _recentTaskEvidence(taskEntities, observedAt, titleContains)
         : const <SIV2RecentTaskEvidence>[];
     final SIV2PersonContextEvidence? personContext = decisionText.trim().isEmpty
         ? siV2PersonContextEvidenceOrNull(
@@ -279,6 +287,15 @@ bool _inCurrentFrequency(HabitEntity habit, String key) =>
     ? !RegExp(r'^r\d+:').hasMatch(key)
     : key.startsWith('r${habit.frequencyRevision}:');
 
+/// The most habits and recent results one read returns, applied after the
+/// optional title filter. A list of exactly this size may have had more.
+const int siV2HabitReadLimit = 40;
+const int siV2RecentTaskReadLimit = 200;
+
+bool _titleMatches(String title, String contains) =>
+    contains.trim().isEmpty ||
+    title.toLowerCase().contains(contains.trim().toLowerCase());
+
 /// Window the on-device one-tap questions look back over.
 const int _recentWindowDays = 14;
 
@@ -320,6 +337,7 @@ List<SIV2HabitEvidence> _habitEvidence(
   List<HabitEntity> habits,
   List<HabitOccurrenceEntity> occurrences,
   DateTime observedAt,
+  String titleContains,
 ) {
   final DateTime now = observedAt.toLocal();
   final DateTime windowStart = _daysBefore(observedAt, _recentWindowDays);
@@ -327,7 +345,8 @@ List<SIV2HabitEvidence> _habitEvidence(
   for (final HabitEntity habit in habits) {
     if (habit.status != HabitStatus.active ||
         habit.id.trim().isEmpty ||
-        habit.title.trim().isEmpty) {
+        habit.title.trim().isEmpty ||
+        !_titleMatches(habit.title, titleContains)) {
       continue;
     }
     final List<HabitOccurrenceEntity> completed = occurrences
@@ -395,18 +414,25 @@ List<SIV2HabitEvidence> _habitEvidence(
     (SIV2HabitEvidence left, SIV2HabitEvidence right) =>
         left.id.compareTo(right.id),
   );
-  return result.length <= 40 ? result : result.sublist(0, 40);
+  return result.length <= siV2HabitReadLimit
+      ? result
+      : result.sublist(0, siV2HabitReadLimit);
 }
 
 List<SIV2RecentTaskEvidence> _recentTaskEvidence(
   List<TaskEntity> tasks,
   DateTime observedAt,
+  String titleContains,
 ) {
   final DateTime windowStart = _daysBefore(observedAt, _recentWindowDays);
   final DateTime windowEnd = _daysBefore(observedAt, -1);
   final List<SIV2RecentTaskEvidence> result = <SIV2RecentTaskEvidence>[];
   for (final TaskEntity task in tasks) {
-    if (task.isCanceled || task.title.trim().isEmpty) continue;
+    if (task.isCanceled ||
+        task.title.trim().isEmpty ||
+        !_titleMatches(task.title, titleContains)) {
+      continue;
+    }
     final bool completed = task.isCompleted;
     final DateTime? at = completed ? task.completedAt : task.skippedAt;
     if ((!completed && !task.isSkipped) || at == null) continue;
@@ -427,7 +453,9 @@ List<SIV2RecentTaskEvidence> _recentTaskEvidence(
     (SIV2RecentTaskEvidence left, SIV2RecentTaskEvidence right) =>
         right.at.compareTo(left.at),
   );
-  return result.length <= 200 ? result : result.sublist(0, 200);
+  return result.length <= siV2RecentTaskReadLimit
+      ? result
+      : result.sublist(0, siV2RecentTaskReadLimit);
 }
 
 SIV2PersonContextEvidence? _decisionPersonContextEvidenceOrNull(
