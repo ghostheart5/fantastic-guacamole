@@ -22,9 +22,10 @@ import 'package:fantastic_guacamole/engine/patterns/habit_consistency.dart';
 ///
 /// Paused and archived habits are left out (HabitConsistency returns null).
 /// These lines never feed workload, momentum, risk, the ranking or the
-/// recommendation.
+/// recommendation. Each call walks every period since the habit was tracked
+/// (HabitConsistency, capped at 5000 periods); that is cheap at these sizes.
 abstract final class TrajectoryHabitProjection {
-  static const int minimumClosedPeriods = 3;
+  static const int minimumClosedPeriods = trajectoryHabitMinimumClosedPeriods;
 
   /// How many of the most recent closed periods the rate looks at.
   static int lookBackPeriods(HabitCadence cadence) => switch (cadence) {
@@ -120,8 +121,9 @@ abstract final class TrajectoryHabitProjection {
     return List<TrajectoryHabitNode>.unmodifiable(output);
   }
 
-  /// What the lines rest on, for the comparison's source revisions; null when
-  /// there are no lines (so a person without habits keeps the same revision).
+  /// What the lines rest on (changes with a habit or check-in change, never
+  /// with anything else); null when there are no lines. It is the lines' own
+  /// revision and is not part of the forecast's revision.
   static String? revision(List<TrajectoryHabitNode> nodes) {
     if (nodes.isEmpty) return null;
     return nodes
@@ -132,17 +134,5 @@ abstract final class TrajectoryHabitProjection {
               '${n.checkedInThisPeriod ? 1 : 0}',
         )
         .join('|');
-  }
-
-  /// One evidence line per habit (data; the screen writes the sentences).
-  static String evidenceLine(TrajectoryHabitNode n) {
-    final String head = 'habit=${n.habitId}:${n.cadence.name}';
-    final TrajectoryExpectedCompletions? p = n.projectedCheckIns;
-    if (n.evidence == TrajectoryHabitEvidence.notEnoughHistory || p == null) {
-      return '$head:not_enough_history:${n.closedPeriodsJudged}/'
-          '${n.historyNeeded}:expected=${n.expectedPeriods}';
-    }
-    return '$head:enough:${n.completedPeriods}/${n.closedPeriodsJudged}:'
-        'expected=${n.expectedPeriods}:check_ins=${p.low}-${p.mid}-${p.high}';
   }
 }

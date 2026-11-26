@@ -87,12 +87,16 @@ class TrajectoryHorizonWorkload {
   int get taskCount => taskIds.length;
 }
 
+/// Closed periods a habit needs before its line is projected.
+const int trajectoryHabitMinimumClosedPeriods = 3;
+
 /// Whether a habit has enough closed periods for a projected line.
 enum TrajectoryHabitEvidence { enough, notEnoughHistory }
 
-/// One active habit's own projected line over the chosen range. Habits are
-/// listed beside the forecast and never move workload, momentum, risk, the
-/// ranking or the recommendation; they are not written into receipts.
+/// One active habit's own projected line over the chosen range. Habit lines
+/// live beside the forecast (trajectoryHabitLinesProvider): they are not part
+/// of the baseline, outcomes, revisions or receipts, and never move workload,
+/// momentum, risk, the ranking or the recommendation.
 class TrajectoryHabitNode {
   const TrajectoryHabitNode({
     required this.habitId,
@@ -105,7 +109,7 @@ class TrajectoryHabitNode {
     required this.projectedCheckIns,
     required this.checkedInThisPeriod,
     required this.evidence,
-    this.historyNeeded = 3,
+    this.historyNeeded = trajectoryHabitMinimumClosedPeriods,
   });
 
   final String habitId;
@@ -232,9 +236,7 @@ class TrajectoryBaseline {
     this.expectedCompletionsInHorizon = TrajectoryExpectedCompletions.none,
     List<String> assumptions = const <String>[],
     int? pressureInHorizon,
-    List<TrajectoryHabitNode> habits = const <TrajectoryHabitNode>[],
   }) : pressureInHorizon = pressureInHorizon ?? pressure,
-       habits = List<TrajectoryHabitNode>.unmodifiable(habits),
        dailyFreeMinutes =
            dailyFreeMinutes ??
            (availableMinutes - occupiedMinutes).clamp(0, 1 << 30),
@@ -323,10 +325,6 @@ class TrajectoryBaseline {
   /// What this baseline assumed (for example an assumed workday, or undated
   /// tasks counted in every range).
   final List<String> assumptions;
-
-  /// One projected line per active habit, for the chosen range. Listed only:
-  /// no other baseline or outcome figure reads them.
-  final List<TrajectoryHabitNode> habits;
 
   bool get hasObservedEnergy =>
       energyOrigin == PredictiveEvidenceOrigin.observed;

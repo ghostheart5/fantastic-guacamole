@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
@@ -9,9 +12,12 @@ import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provid
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
+import 'package:fantastic_guacamole/state/providers/patterns_provider.dart'
+    show patternsDayRolloverDelay;
+import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// The habits and check-ins of one account, as read for the forecast.
+/// The habits and check-ins of one account, as read for the habit lines.
 class TrajectoryHabitSource {
   TrajectoryHabitSource({
     required this.namespace,
@@ -30,6 +36,13 @@ class TrajectoryHabitSource {
   final List<HabitOccurrenceEntity> occurrences;
 }
 
+/// The key of one account's habit providers: `namespace|auth generation`.
+String trajectoryHabitAccountKey(String? namespace, int generation) =>
+    '$namespace|$generation';
+
+String _namespaceOf(String accountKey) =>
+    accountKey.substring(0, accountKey.lastIndexOf('|'));
+
 /// Reads one account's habits and check-ins from the account-scoped stores
 /// under an account lease (namespace and auth generation checked after every
 /// await). Keyed by `namespace|auth generation`, so a newly signed-in account
@@ -38,7 +51,8 @@ class TrajectoryHabitSource {
 ///
 /// Live while it is read: a changed habit list (habitsProvider, a trigger
 /// only, never awaited) or a recorded check-in (habitOccurrencesProvider)
-/// reads it again.
+/// reads it again. A failed read is logged (its type only, no user data) and
+/// surfaces as an error.
 final trajectoryHabitSourceForAccountProvider = FutureProvider.autoDispose
     .family<TrajectoryHabitSource, String>((Ref ref, String accountKey) async {
       ref.listen(habitsProvider, (
@@ -65,11 +79,17 @@ final trajectoryHabitSourceForAccountProvider = FutureProvider.autoDispose
       } on StaleAccountOperation {
         // The account changed under this read: nothing of it is kept.
         return TrajectoryHabitSource.empty(owner.namespace);
+      } on Object catch (error) {
+        Logger.errorCategory(
+          'TrajectoryHabitLines',
+          'Habits could not be read for the forecast (${error.runtimeType}).',
+        );
+        rethrow;
       }
     });
 
-/// What the forecast reads: the current account's habit source, or an empty
-/// one when storage is not writable.
+/// The current account's habit source, or an empty one when storage is not
+/// writable.
 final trajectoryHabitSourceProvider =
     Provider.autoDispose<AsyncValue<TrajectoryHabitSource>>((Ref ref) {
       final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
@@ -83,38 +103,65 @@ final trajectoryHabitSourceProvider =
       );
       return ref.watch(
         trajectoryHabitSourceForAccountProvider(
-          '${scope.v2Namespace}|$generation',
+          trajectoryHabitAccountKey(scope.v2Namespace, generation),
         ),
       );
     });
 
-/// The habit lines for a baseline and the source revision they add.
-class TrajectoryHabitEvidenceView {
-  const TrajectoryHabitEvidenceView({required this.nodes, this.revision});
+/// Whether the habit lines could be worked out.
+enum TrajectoryHabitLinesStatus {
+  /// The account's habits are still being read for the first time.
+  loading,
 
-  static const TrajectoryHabitEvidenceView none = TrajectoryHabitEvidenceView(
-    nodes: <TrajectoryHabitNode>[],
-  );
+  /// Read; [TrajectoryHabitLines.nodes] may be empty (no active habits).
+  ready,
 
-  final List<TrajectoryHabitNode> nodes;
-
-  /// Null when there are no lines (the revisions then stay as before).
-  final String? revision;
+  /// The read failed, or no account's storage is available.
+  unavailable,
 }
 
-/// Habit lines for [namespace] over [horizonDays] from [source]. No lines
-/// while the source is loading for the first time, when it failed, or when
-/// it belongs to another namespace: the forecast is never blocked on habits
-/// and never shows another account's.
-TrajectoryHabitEvidenceView trajectoryHabitEvidence({
+/// The habit lines shown beside the forecast for the selected range.
+class TrajectoryHabitLines {
+  TrajectoryHabitLines({
+    required this.status,
+    required this.horizonDays,
+    List<TrajectoryHabitNode> nodes = const <TrajectoryHabitNode>[],
+    this.revision = 'none',
+  }) : nodes = List<TrajectoryHabitNode>.unmodifiable(nodes);
+
+  final TrajectoryHabitLinesStatus status;
+  final int horizonDays;
+
+  /// One line per active habit, ordered by title (empty unless ready).
+  final List<TrajectoryHabitNode> nodes;
+
+  /// Changes when a habit or check-in changes the lines; independent of the
+  /// forecast's own revision.
+  final String revision;
+}
+
+/// The lines for [namespace] over [horizonDays] from [source]: loading until
+/// the account's first read finishes, unavailable when the read failed or
+/// there is no account, and a source of another namespace is never used
+/// (treated as still loading).
+TrajectoryHabitLines trajectoryHabitLinesFrom({
   required AsyncValue<TrajectoryHabitSource> source,
   required String? namespace,
   required DateTime now,
   required int horizonDays,
 }) {
-  final TrajectoryHabitSource? value = source.hasError ? null : source.value;
-  if (value == null || namespace == null || value.namespace != namespace) {
-    return TrajectoryHabitEvidenceView.none;
+  if (namespace == null || source.hasError) {
+    return TrajectoryHabitLines(
+      status: TrajectoryHabitLinesStatus.unavailable,
+      horizonDays: horizonDays,
+    );
+  }
+  final TrajectoryHabitSource? value = source.value;
+  if (value == null || value.namespace != namespace) {
+    return TrajectoryHabitLines(
+      status: TrajectoryHabitLinesStatus.loading,
+      horizonDays: horizonDays,
+    );
   }
   final List<TrajectoryHabitNode> nodes = TrajectoryHabitProjection.nodes(
     habits: value.habits,
@@ -122,8 +169,55 @@ TrajectoryHabitEvidenceView trajectoryHabitEvidence({
     now: now,
     horizonDays: horizonDays,
   );
-  return TrajectoryHabitEvidenceView(
+  return TrajectoryHabitLines(
+    status: TrajectoryHabitLinesStatus.ready,
+    horizonDays: horizonDays,
     nodes: nodes,
-    revision: TrajectoryHabitProjection.revision(nodes),
+    revision: TrajectoryHabitProjection.revision(nodes) ?? 'none',
   );
 }
+
+/// One account's habit lines, keyed like its source. Synchronous, it never
+/// awaits: it follows the source (habit and check-in changes), the selected
+/// range and the forecast clock, and is worked out again when the local day
+/// changes. Only the key's own account can appear in it.
+final trajectoryHabitLinesForAccountProvider = Provider.autoDispose
+    .family<TrajectoryHabitLines, String>((Ref ref, String accountKey) {
+      final int horizonDays = ref.watch(trajectoryHorizonDaysProvider);
+      final DateTime now = ref.watch(trajectoryClockProvider)();
+      final Timer rollover = Timer(patternsDayRolloverDelay(now), () {
+        ref.invalidateSelf();
+      });
+      ref.onDispose(rollover.cancel);
+      return trajectoryHabitLinesFrom(
+        source: ref.watch(trajectoryHabitSourceForAccountProvider(accountKey)),
+        namespace: _namespaceOf(accountKey),
+        now: now,
+        horizonDays: horizonDays,
+      );
+    });
+
+/// What the screen reads beside the comparison: the current account's habit
+/// lines for the selected range, with an explicit status. A separate state per
+/// account and sign-in, so a new account starts from loading and never shows
+/// the previous account's lines. Unavailable when storage is not writable.
+/// The comparison itself never reads habits.
+final trajectoryHabitLinesProvider = Provider.autoDispose<TrajectoryHabitLines>(
+  (Ref ref) {
+    final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+    if (!scope.isWritable || scope.v2Namespace == null) {
+      return TrajectoryHabitLines(
+        status: TrajectoryHabitLinesStatus.unavailable,
+        horizonDays: ref.watch(trajectoryHorizonDaysProvider),
+      );
+    }
+    final int generation = ref.watch(
+      authSessionBoundaryProvider.select((b) => b.generation),
+    );
+    return ref.watch(
+      trajectoryHabitLinesForAccountProvider(
+        trajectoryHabitAccountKey(scope.v2Namespace, generation),
+      ),
+    );
+  },
+);

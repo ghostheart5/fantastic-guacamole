@@ -60,6 +60,7 @@ void invalidateAccountOwnedProviders(Ref ref) {
   ref.invalidate(habitsProvider);
   ref.invalidate(patternsProvider);
   ref.invalidate(trajectoryHabitSourceProvider);
+  ref.invalidate(trajectoryHabitLinesProvider);
   ref.invalidate(rhythmPlanningProvider);
   ref.invalidate(projectsProvider);
   ref.invalidate(routinesProvider);

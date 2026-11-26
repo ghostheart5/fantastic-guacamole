@@ -288,23 +288,4 @@ void main() {
       );
     },
   );
-
-  test('evidence lines list each habit as data', () {
-    final HabitEntity walk = habit();
-    final HabitEntity fresh = habit(
-      id: 'fresh',
-      title: 'Fresh',
-      createdAt: daysAgo(1, 8),
-    );
-    final List<TrajectoryHabitNode> n = nodes(
-      <HabitEntity>[walk, fresh],
-      <HabitOccurrenceEntity>[
-        for (int i = 1; i <= 28; i++) record(walk, daysAgo(i)),
-      ],
-    );
-    expect(n.map(TrajectoryHabitProjection.evidenceLine), <String>[
-      'habit=fresh:daily:not_enough_history:1/3:expected=7',
-      'habit=walk:daily:enough:28/28:expected=7:check_ins=4-7-7',
-    ]);
-  });
 }
