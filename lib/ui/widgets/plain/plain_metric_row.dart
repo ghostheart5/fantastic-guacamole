@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/ui/widgets/plain/plain_palette.dart';
 import 'package:fantastic_guacamole/ui/widgets/plain/provenance_label.dart';
 import 'package:flutter/material.dart';
 
@@ -23,13 +24,11 @@ class PlainMetricRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final TextTheme text = theme.textTheme;
-    final ColorScheme colors = theme.colorScheme;
+    final PlainPalette colors = PlainPalette.of(context);
     final TextStyle labelStyle =
-        text.bodyLarge?.copyWith(color: colors.onSurfaceVariant) ??
-        const TextStyle();
+        text.bodyLarge?.copyWith(color: colors.secondary) ?? const TextStyle();
     final TextStyle valueStyle =
-        text.titleMedium?.copyWith(color: colors.onSurface) ??
-        const TextStyle();
+        text.titleMedium?.copyWith(color: colors.primary) ?? const TextStyle();
     final TextScaler scaler = MediaQuery.textScalerOf(context);
     final TextDirection direction = Directionality.of(context);
     return Semantics(
@@ -73,9 +72,7 @@ class PlainMetricRow extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
                   caption!,
-                  style: text.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
+                  style: text.bodySmall?.copyWith(color: colors.secondary),
                 ),
               ),
             if (provenance != null)

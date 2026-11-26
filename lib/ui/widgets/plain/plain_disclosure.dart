@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/ui/widgets/plain/plain_palette.dart';
 import 'package:flutter/material.dart';
 
 /// Block that is collapsed by default (or open with [initiallyExpanded]). The
@@ -27,7 +28,7 @@ class _PlainDisclosureState extends State<PlainDisclosure> {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
+    final PlainPalette colors = PlainPalette.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -48,9 +49,9 @@ class _PlainDisclosureState extends State<PlainDisclosure> {
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Text(
                         widget.title,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: colors.onSurface,
-                        ),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.titleSmall?.copyWith(color: colors.primary),
                       ),
                     ),
                   ),
@@ -58,7 +59,7 @@ class _PlainDisclosureState extends State<PlainDisclosure> {
                     _expanded
                         ? Icons.expand_less_rounded
                         : Icons.expand_more_rounded,
-                    color: colors.onSurfaceVariant,
+                    color: colors.secondary,
                   ),
                 ],
               ),

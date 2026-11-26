@@ -1,12 +1,14 @@
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/widgets/plain/plain_palette.dart';
 import 'package:flutter/material.dart';
 
 /// Page frame modelled on Today: background, safe area and a scrollable body.
 /// No back control unless [leading] is passed.
 ///
-/// The page colour is Today's [AppColors.background] under the dark theme and
-/// the theme's own page colour under the light theme, so text that follows the
-/// theme stays readable in both.
+/// The page is Today's [AppColors.background] under both themes (Today, My plan
+/// and Settings are dark pages under the light theme too). The screen supplies
+/// the light-on-dark [PlainPalette.page] colours to everything on it, and a
+/// [PlainCard] switches to the theme's card colours inside the card.
 class PlainScreen extends StatelessWidget {
   const PlainScreen({
     required this.children,
@@ -35,7 +37,6 @@ class PlainScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
     final Widget list = ListView(
       key: listKey,
       controller: controller,
@@ -48,13 +49,14 @@ class PlainScreen extends StatelessWidget {
       ],
     );
     return Scaffold(
-      backgroundColor: theme.brightness == Brightness.dark
-          ? AppColors.background
-          : theme.scaffoldBackgroundColor,
+      backgroundColor: AppColors.background,
       body: SafeArea(
-        child: onRefresh == null
-            ? list
-            : RefreshIndicator(onRefresh: onRefresh!, child: list),
+        child: PlainPaletteScope(
+          palette: PlainPalette.page,
+          child: onRefresh == null
+              ? list
+              : RefreshIndicator(onRefresh: onRefresh!, child: list),
+        ),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/ui/widgets/plain/plain_palette.dart';
 import 'package:flutter/material.dart';
 
 /// Where a number or statement comes from.
@@ -31,7 +32,7 @@ class ProvenanceLabel extends StatelessWidget {
       textFor(kind, isSpanish: ChronoSparkLocalizations.of(context).isSpanish),
       softWrap: true,
       style: theme.textTheme.bodySmall?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
+        color: PlainPalette.of(context).secondary,
       ),
     );
   }

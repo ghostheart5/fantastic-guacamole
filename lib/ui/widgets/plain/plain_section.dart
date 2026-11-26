@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/ui/widgets/plain/plain_palette.dart';
 import 'package:flutter/material.dart';
 
 /// Section heading with an optional one-line description and its children.
@@ -16,6 +17,7 @@ class PlainSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final PlainPalette colors = PlainPalette.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -24,9 +26,7 @@ class PlainSection extends StatelessWidget {
           header: true,
           child: Text(
             title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurface,
-            ),
+            style: theme.textTheme.titleMedium?.copyWith(color: colors.primary),
           ),
         ),
         if (description != null) ...<Widget>[
@@ -34,7 +34,7 @@ class PlainSection extends StatelessWidget {
           Text(
             description!,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              color: colors.secondary,
             ),
           ),
         ],

@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/ui/widgets/plain/plain_palette.dart';
 import 'package:flutter/material.dart';
 
 /// One icon button in a [PlainHeader].
@@ -30,7 +31,7 @@ class PlainHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
+    final PlainPalette colors = PlainPalette.of(context);
     return Row(
       children: <Widget>[
         Expanded(
@@ -40,13 +41,14 @@ class PlainHeader extends StatelessWidget {
               title,
               style: Theme.of(
                 context,
-              ).textTheme.headlineMedium?.copyWith(color: colors.onSurface),
+              ).textTheme.headlineMedium?.copyWith(color: colors.primary),
             ),
           ),
         ),
         for (final PlainHeaderAction action in actions)
           IconButton(
-            color: colors.onSurfaceVariant,
+            color: colors.secondary,
+            disabledColor: colors.line,
             tooltip: action.label,
             onPressed: action.onPressed,
             icon: Icon(action.icon),

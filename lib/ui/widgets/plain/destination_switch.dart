@@ -1,8 +1,11 @@
+import 'package:fantastic_guacamole/theme/radii.dart';
+import 'package:fantastic_guacamole/ui/widgets/plain/plain_palette.dart';
 import 'package:flutter/material.dart';
 
 /// Two-segment control for moving between two destinations in one tab. The
 /// segments sit side by side, and stack when a label would not fit in half
-/// the width (large text, narrow screen) so no word is broken.
+/// the width (large text, narrow screen) so no word is broken. Colours come
+/// from the surrounding [PlainPalette].
 class DestinationSwitch extends StatelessWidget {
   const DestinationSwitch({
     required this.firstLabel,
@@ -68,14 +71,12 @@ class DestinationSwitch extends StatelessWidget {
 
   Widget _segment(BuildContext context, int index, String label) {
     final ThemeData theme = Theme.of(context);
-    final ColorScheme colors = theme.colorScheme;
+    final PlainPalette colors = PlainPalette.of(context);
     final bool selected = index == selectedIndex;
     final ShapeBorder? cardShape = theme.cardTheme.shape;
-    final BorderRadius radius =
-        cardShape is RoundedRectangleBorder &&
-            cardShape.borderRadius is BorderRadius
-        ? cardShape.borderRadius as BorderRadius
-        : BorderRadius.circular(8);
+    final BorderRadiusGeometry radius = cardShape is RoundedRectangleBorder
+        ? cardShape.borderRadius
+        : cardRadius;
     return Semantics(
       button: true,
       selected: selected,
@@ -84,16 +85,11 @@ class DestinationSwitch extends StatelessWidget {
       excludeSemantics: true,
       onTap: () => onSelected(index),
       child: Material(
-        color: selected
-            ? Color.alphaBlend(
-                colors.primary.withValues(alpha: 0.2),
-                colors.surface,
-              )
-            : colors.surface,
+        color: selected ? colors.selectedFill : colors.fill,
         shape: RoundedRectangleBorder(
           borderRadius: radius,
           side: BorderSide(
-            color: selected ? colors.primary : colors.outlineVariant,
+            color: selected ? colors.accent : colors.line,
             width: selected ? 2 : 1,
           ),
         ),
@@ -109,7 +105,7 @@ class DestinationSwitch extends StatelessWidget {
                   label,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.titleSmall?.copyWith(
-                    color: colors.onSurface,
+                    color: colors.primary,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),

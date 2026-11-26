@@ -620,11 +620,9 @@ void main() {
       final Rect a = tester.getRect(find.text('Patrones'));
       final Rect b = tester.getRect(find.text('Resultados futuros'));
       expect(b.top, greaterThanOrEqualTo(a.bottom));
-      // Stacked segments have the room to show the longest word whole.
-      expect(
-        tester.getSize(find.text('Resultados futuros')).width,
-        greaterThan(0),
-      );
+      // Stacked: each segment spans the full 280 dp, not half of it.
+      expect(tester.getSize(find.byType(InkWell).first).width, 280);
+      expect(tester.getSize(find.byType(InkWell).last).width, 280);
       expect(tester.takeException(), isNull);
     });
 
@@ -687,19 +685,35 @@ void main() {
       }
     }
 
-    testWidgets('PlainScreen with long header at 2.0 and 320', (
-      WidgetTester tester,
-    ) async {
-      tester.view.physicalSize = const Size(320, 1600);
-      tester.view.devicePixelRatio = 1.0;
-      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
-      addTearDown(tester.view.reset);
-      addTearDown(tester.platformDispatcher.clearAllTestValues);
-      await tester.pumpWidget(
-        MaterialApp(home: PlainScreen(children: <Widget>[everything('en')])),
-      );
-      await tester.pump();
-      expect(tester.takeException(), isNull);
-    });
+    for (final String language in <String>['en', 'es']) {
+      for (final ThemeData theme in <ThemeData>[appTheme, appLightTheme]) {
+        testWidgets(
+          'PlainScreen at 2.0 and 320, $language, ${theme.brightness.name}',
+          (WidgetTester tester) async {
+            tester.view.physicalSize = const Size(320, 1600);
+            tester.view.devicePixelRatio = 1.0;
+            tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+            addTearDown(tester.view.reset);
+            addTearDown(tester.platformDispatcher.clearAllTestValues);
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: theme,
+                locale: Locale(language),
+                supportedLocales: ChronoSparkLocalizations.supportedLocales,
+                localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+                  ChronoSparkLocalizations.delegate,
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                ],
+                home: PlainScreen(children: <Widget>[everything(language)]),
+              ),
+            );
+            await tester.pump();
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
   });
 }
