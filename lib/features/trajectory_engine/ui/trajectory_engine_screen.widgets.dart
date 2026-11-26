@@ -373,13 +373,9 @@ class _PlanningSummary extends StatelessWidget {
           value: '${snapshot.completedToday}',
           provenance: ProvenanceKind.recorded,
         ),
-        PlainMetricRow(
-          label: journeyText(context, 'Workload today', 'Carga de trabajo hoy'),
-          value:
-              '${_workloadBand(context, snapshot.pressure)}, ${snapshot.pressure}%',
-          caption: today,
-          provenance: ProvenanceKind.estimate,
-        ),
+        // No "workload" row here: the planning summary's score counts open
+        // tasks, which is a different measure from the forecast's
+        // capacity-based workload, the only figure this screen calls workload.
         PlainMetricRow(
           label: journeyText(context, 'Pace today', 'Ritmo hoy'),
           value: journeyText(
@@ -446,7 +442,11 @@ String _planningChanges(
       'Es el primer resumen; los siguientes muestran qué cambió.',
     );
   }
-  final List<OperatingChange> changes = delta.materialChanges;
+  // The summary's risk score counts open tasks; it is not the forecast's
+  // workload, so its change is not listed under that name (or any other).
+  final List<OperatingChange> changes = delta.materialChanges
+      .where((OperatingChange item) => item.kind != OperatingChangeKind.risk)
+      .toList(growable: false);
   if (changes.isEmpty) {
     return delta.previousSnapshotId == delta.currentSnapshotId
         ? journeyText(
@@ -475,11 +475,8 @@ String _planningChanges(
             'Vencidas',
           ),
           OperatingChangeKind.momentum => journeyText(context, 'Pace', 'Ritmo'),
-          OperatingChangeKind.risk => journeyText(
-            context,
-            'Workload',
-            'Carga de trabajo',
-          ),
+          // Filtered out above.
+          OperatingChangeKind.risk => '',
           OperatingChangeKind.progression => journeyText(
             context,
             'Finished today',
