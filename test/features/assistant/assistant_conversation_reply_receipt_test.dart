@@ -843,6 +843,79 @@ void main() {
     },
   );
 
+  Future<void> abandonAfterTimeout(WidgetTester tester) async {
+    await tester.pump(const Duration(seconds: 5));
+    await _settle(tester);
+    expect(find.textContaining('took too long'), findsOneWidget);
+    await tester.ensureVisible(
+      find.text('Start another request', skipOffstage: false),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Start another request'));
+    await _settle(tester);
+    await tester.tap(find.text('Start new request'));
+    await _settle(tester);
+  }
+
+  testWidgets(
+    'M1: a late failure of an abandoned request does not offer to retry it',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final first = Completer<_Response>();
+      final server = _Server(paidScript: [first.future]);
+      final container = _setup(
+        server,
+        InMemorySecureStoreBackend(),
+        paidWaitTimeout: const Duration(seconds: 4),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container);
+      await _ask(tester, 'When should I do the Grocery list?', 'en');
+      await abandonAfterTimeout(tester);
+      first.completeError(StateError('connection lost'));
+      await _settle(tester);
+      expect(find.textContaining('did not confirm a reply'), findsNothing);
+      expect(find.text('Retry same request'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'M4: a late outcome of an older request keeps the newer request\'s wait limit',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final first = Completer<_Response>();
+      final second = Completer<_Response>();
+      final server = _Server(paidScript: [first.future, second.future]);
+      final container = _setup(
+        server,
+        InMemorySecureStoreBackend(),
+        paidWaitTimeout: const Duration(seconds: 4),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container);
+      await _ask(tester, 'When should I do the Grocery list?', 'en');
+      await abandonAfterTimeout(tester);
+      await _ask(tester, 'And something else?', 'en');
+      expect(server.paid, hasLength(2));
+      expect(find.text('Preparing your response…'), findsOneWidget);
+      first.completeError(StateError('connection lost'));
+      await tester.pump(const Duration(seconds: 5));
+      await _settle(tester);
+      expect(find.text('Preparing your response…'), findsNothing);
+      expect(find.textContaining('took too long'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'a request left mid-way and never collected does not keep a later balance hidden',
     (tester) async {

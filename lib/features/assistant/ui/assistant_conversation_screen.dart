@@ -148,6 +148,9 @@ class _AssistantConversationScreenState
   DateTime? _pendingCollectBefore;
   // Collects [_pending] again while its first call is still being answered.
   Timer? _reservedRetry;
+  // Requests given up with Start another request: a late failure of one is
+  // not shown, since it is no longer kept.
+  final Set<String> _abandoned = <String>{};
   // The operation whose confirmed request has started its storage write:
   // from then on it is sent (see _send), so Stop waiting no longer withdraws
   // it.
@@ -520,7 +523,12 @@ class _AssistantConversationScreenState
     });
     bool current() =>
         mounted && generation == _generation && operation == _operation;
+    bool abandoned(ConversationQuote? quote) =>
+        quote != null && _abandoned.contains(quote.packet.requestId);
     ConversationQuote? executing;
+    // This send's own wait limit: an older send finishing late must not
+    // cancel a newer one's.
+    Timer? waitTimer;
     var registry = ref.read(conversationExecutionRegistryProvider);
     try {
       var service = ref.read(conversationServiceProvider);
@@ -649,15 +657,18 @@ class _AssistantConversationScreenState
         _pending = quote;
         _pendingCollectBefore = record.collectBefore;
       }
-      _paidWaitTimer = Timer(ref.read(conversationPaidWaitTimeoutProvider), () {
-        if (!current() || !_busy) return;
-        setState(() {
-          _busy = false;
-          _waitIndicatorDismissed = false;
-          _error = _failureText('request_timeout');
-        });
-        _reportWhileHidden();
-      });
+      _paidWaitTimer = waitTimer = Timer(
+        ref.read(conversationPaidWaitTimeoutProvider),
+        () {
+          if (!current() || !_busy) return;
+          setState(() {
+            _busy = false;
+            _waitIndicatorDismissed = false;
+            _error = _failureText('request_timeout');
+          });
+          _reportWhileHidden();
+        },
+      );
       executing = quote;
       // Its answer's balance may replace the one shown only if nothing
       // changes from its first attempt in this run until it arrives (a retry
@@ -680,7 +691,7 @@ class _AssistantConversationScreenState
         // Choose a step keeps no history: the reply is marked shown, and its
         // stored request forgotten, only once the person is shown it. If this
         // screen goes away first, the next one collects the same reply.
-        _paidWaitTimer?.cancel();
+        waitTimer.cancel();
         knownBalance.release(quote.packet.requestId);
         _reportWhileHidden();
         if (!await _whenShown() || !current()) {
@@ -753,7 +764,7 @@ class _AssistantConversationScreenState
         }
       });
     } on ConversationFailure catch (error) {
-      if (!current()) return;
+      if (!current() || abandoned(executing)) return;
       if (error.code == 'request_reserved' && executing != null) {
         // The first call of this same request id is still running (a re-send
         // after a sign-in change or restart): it stays stored and is
@@ -834,7 +845,7 @@ class _AssistantConversationScreenState
       );
       ref.invalidate(aiCreditWalletProvider);
     } on Object {
-      if (!current()) return;
+      if (!current() || abandoned(executing)) return;
       if (executing != null) {
         _noteBalance(executing.packet, null, sentForReply: true);
       }
@@ -852,8 +863,8 @@ class _AssistantConversationScreenState
               ),
       );
     } finally {
-      _paidWaitTimer?.cancel();
-      _paidWaitTimer = null;
+      waitTimer?.cancel();
+      if (identical(_paidWaitTimer, waitTimer)) _paidWaitTimer = null;
       if (current()) {
         setState(() {
           _busy = false;
@@ -1340,6 +1351,7 @@ class _AssistantConversationScreenState
                             );
                             final abandoned = _pending?.packet.requestId;
                             if (mounted && confirmed && abandoned != null) {
+                              _abandoned.add(abandoned);
                               setState(() => _pending = null);
                               _forgetPending(abandoned);
                               // Its answer will not be used here.
