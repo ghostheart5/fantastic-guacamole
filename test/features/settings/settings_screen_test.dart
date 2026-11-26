@@ -1993,66 +1993,74 @@ void main() {
     );
   }
 
-  for (final int count in <int>[1, 2]) {
-    testWidgets('Spanish memory count for $count kept item(s) agrees in number', (
-      WidgetTester tester,
-    ) async {
-      useTallSurface(tester);
-      final AccountStorageScope scope = AccountStorageScope.authenticated(
-        'settings-test-account',
-      );
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: createContainer(
-            accountScope: scope,
-            memories: <MemoryEntity>[
-              for (int i = 0; i < count; i++)
-                MemoryEntity(
-                  id: 'm$i',
-                  text: 'kept $i',
-                  date: DateTime.utc(2026, 9, 1),
-                  accountScopeId: scope.v2Namespace!,
-                ),
-            ],
+  for (final bool es in <bool>[true, false])
+    for (final int count in <int>[1, 2]) {
+      testWidgets('${es ? 'Spanish' : 'English'} memory count for $count kept '
+          'item(s) agrees in number', (WidgetTester tester) async {
+        useTallSurface(tester);
+        final AccountStorageScope scope = AccountStorageScope.authenticated(
+          'settings-test-account',
+        );
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: createContainer(
+              accountScope: scope,
+              memories: <MemoryEntity>[
+                for (int i = 0; i < count; i++)
+                  MemoryEntity(
+                    id: 'm$i',
+                    text: 'kept $i',
+                    date: DateTime.utc(2026, 9, 1),
+                    accountScopeId: scope.v2Namespace!,
+                  ),
+              ],
+            ),
+            child: MaterialApp(
+              locale: Locale(es ? 'es' : 'en'),
+              supportedLocales: ChronoSparkLocalizations.supportedLocales,
+              localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+                ChronoSparkLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: const SettingsScreen(),
+            ),
           ),
-          child: const MaterialApp(
-            locale: Locale('es'),
-            supportedLocales: ChronoSparkLocalizations.supportedLocales,
-            localizationsDelegates: <LocalizationsDelegate<dynamic>>[
-              ChronoSparkLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            home: SettingsScreen(),
+        );
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.tap(
+          find.text(es ? 'Planificación y orientación' : 'Planning & guidance'),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.scrollUntilVisible(
+          find.text(
+            es ? 'LO QUE AXIOMARA RECUERDA' : 'WHAT AXIOMARA REMEMBERS',
           ),
-        ),
-      );
-      addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
-      await tester.pump(const Duration(milliseconds: 200));
-      await tester.tap(find.text('Planificación y orientación'));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.scrollUntilVisible(
-        find.text('LO QUE AXIOMARA RECUERDA'),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
 
-      final Finder one = find.text(
-        '1 guardado · solo de tu cuenta, solo donde se creó, y caduca',
-      );
-      final Finder many = find.text(
-        '$count guardados · solo de tu cuenta, solo donde se crearon, y caducan',
-      );
-      await tester.scrollUntilVisible(
-        count == 1 ? one : many,
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(one, count == 1 ? findsOneWidget : findsNothing);
-      expect(many, count == 1 ? findsNothing : findsOneWidget);
-    });
-  }
+        final Finder one = find.text(
+          es
+              ? '1 guardado · solo de tu cuenta, solo donde se creó, y caduca'
+              : '1 kept · only for your account, only where it was made, and it expires',
+        );
+        final Finder many = find.text(
+          es
+              ? '$count guardados · solo de tu cuenta, solo donde se crearon, y caducan'
+              : '$count kept · only for your account, only where they were made, and they expire',
+        );
+        await tester.scrollUntilVisible(
+          count == 1 ? one : many,
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(one, count == 1 ? findsOneWidget : findsNothing);
+        expect(many, count == 1 ? findsNothing : findsOneWidget);
+      });
+    }
 
   for (final bool rollback in <bool>[false, true]) {
     testWidgets(

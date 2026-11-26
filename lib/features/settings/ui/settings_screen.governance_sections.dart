@@ -398,7 +398,9 @@ class _MemoryGovernanceSection extends ConsumerWidget {
                   )
                 : journeyText(
                     context,
-                    '${memories.length} kept · only for your account, only where they were made, and they expire',
+                    memories.length == 1
+                        ? '1 kept · only for your account, only where it was made, and it expires'
+                        : '${memories.length} kept · only for your account, only where they were made, and they expire',
                     memories.length == 1
                         ? '1 guardado · solo de tu cuenta, solo donde se creó, y caduca'
                         : '${memories.length} guardados · solo de tu cuenta, solo donde se crearon, y caducan',
