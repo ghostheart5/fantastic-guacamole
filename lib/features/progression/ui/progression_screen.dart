@@ -73,16 +73,15 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
   Future<void> _shareProgressCard(BuildContext context) async {
     final profile = ref.read(profileProvider);
     final trajectory = ref.read(trajectorySummaryProvider);
-    final int pace = (trajectory.momentum * 100).round();
     final String text = journeyText(
       context,
       'Axiomara progress snapshot\n'
           'Level ${profile.level} · ${profile.xp} XP · ${profile.streak}-day streak\n'
-          'Pace $pace of 100 · ${trajectory.completedTasks} tasks finished\n'
+          '${trajectory.completedTasks} tasks finished\n'
           'Building steady progress with Axiomara: ${AppUrls.website}',
       'Resumen de progreso de Axiomara\n'
           'Nivel ${profile.level} · ${profile.xp} XP · Racha de ${profile.streak} días\n'
-          'Ritmo $pace de 100 · ${trajectory.completedTasks} tareas terminadas\n'
+          '${trajectory.completedTasks} tareas terminadas\n'
           'Progresando con Axiomara: ${AppUrls.website}',
     );
 
@@ -145,19 +144,15 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
 
   Future<void> _shareAchievementCard(BuildContext context) async {
     final profile = ref.read(profileProvider);
-    final trajectory = ref.read(trajectorySummaryProvider);
-    final int pace = (trajectory.momentum * 100).round();
     final String text = journeyText(
       context,
       'Axiomara progress milestone\n'
           'Level ${profile.level} reached\n'
           'Current streak: ${profile.streak} days\n'
-          'Pace $pace of 100\n'
           'Build with Axiomara: ${AppUrls.website}',
       'Progreso en Axiomara\n'
           'Nivel ${profile.level} alcanzado\n'
           'Racha actual: ${profile.streak} días\n'
-          'Ritmo $pace de 100\n'
           'Construye con Axiomara: ${AppUrls.website}',
     );
 

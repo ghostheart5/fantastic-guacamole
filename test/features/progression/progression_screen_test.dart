@@ -216,6 +216,7 @@ void main() {
     );
     expect(clipboardText, contains('Axiomara progress milestone'));
     expect(clipboardText, isNot(contains('Momentum')));
+    expect(clipboardText, isNot(contains('Pace')));
   });
 
   testWidgets(
@@ -245,7 +246,10 @@ void main() {
         findsOneWidget,
       );
       expect(clipboardText, contains('Axiomara progress snapshot'));
-      expect(clipboardText, contains('Pace 66 of 100'));
+      expect(clipboardText, contains('Level'));
+      expect(clipboardText, contains('tasks finished'));
+      // The learned pace score is shown nowhere in the app: not shared.
+      expect(clipboardText, isNot(contains('Pace')));
     },
   );
 }

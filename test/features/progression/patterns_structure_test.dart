@@ -619,7 +619,17 @@ void main() {
     expect(rowValue(s, 'Level', '3'), findsOneWidget);
     expect(rowValue(s, 'Points', '340 XP'), findsOneWidget);
     expect(rowValue(s, 'Streak', '4 days'), findsOneWidget);
+    expect(rowValue(s, 'Longest streak', '9 days'), findsOneWidget);
+    expect(rowValue(s, 'Milestones reached', '2 of 5'), findsOneWidget);
     expect(inPatternsSection(s, find.text('Share progress')), findsOneWidget);
+  });
+
+  testWidgets('no milestones yet: a plain "None yet"', (tester) async {
+    await pumpPatterns(tester, milestones: (completed: 0, total: 0));
+    expect(
+      rowValue('patterns-level', 'Milestones reached', 'None yet'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('first read: no figures, level and points still shown', (

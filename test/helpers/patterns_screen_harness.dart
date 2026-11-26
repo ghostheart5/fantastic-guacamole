@@ -148,6 +148,7 @@ Future<ProviderContainer> pumpPatterns(
   ProgressionState? progression,
   AsyncValue<PatternsResult> Function(PatternsResult result)? state,
   PatternsGuidanceSpy? guidance,
+  ({int completed, int total}) milestones = (completed: 2, total: 5),
   List<Override> overrides = const <Override>[],
 }) async {
   tester.view.physicalSize = size;
@@ -180,6 +181,22 @@ Future<ProviderContainer> pumpPatterns(
             ),
       ),
       trajectorySummaryProvider.overrideWithValue(patternsTrajectory),
+      milestoneSummaryProvider.overrideWithValue(
+        MilestoneSummary(
+          total: milestones.total,
+          active: milestones.total - milestones.completed,
+          completed: milestones.completed,
+          overdue: 0,
+          upcoming: 0,
+          healthScore: 100,
+          momentumScore: 0,
+          riskScore: 0,
+          completionRate: 0,
+          nextMilestone: null,
+          closestMilestone: null,
+          highestPriority: null,
+        ),
+      ),
       adaptiveGuidanceProvider.overrideWith(
         () => guidance ?? PatternsGuidanceSpy(),
       ),

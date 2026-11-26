@@ -508,6 +508,7 @@ class _LevelSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ProgressionState progression = ref.watch(progressionProvider);
     final progress = progression.progress;
+    final MilestoneSummary milestones = ref.watch(milestoneSummaryProvider);
     return PlainSection(
       key: const ValueKey<String>('patterns-level'),
       title: copy.levelAndPoints,
@@ -551,6 +552,19 @@ class _LevelSection extends ConsumerWidget {
                       label: copy.streak,
                       value: copy.streakDays(progress.streak),
                       caption: journeyLabel(context, progress.streakMessage),
+                    ),
+                    PlainMetricRow(
+                      label: copy.longestStreak,
+                      value: copy.streakDays(progress.longestStreak),
+                    ),
+                    PlainMetricRow(
+                      label: copy.milestonesReached,
+                      value: milestones.total == 0
+                          ? copy.noneYet
+                          : copy.milestonesOf(
+                              milestones.completed,
+                              milestones.total,
+                            ),
                     ),
                     const SizedBox(height: 4),
                     Align(

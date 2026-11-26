@@ -380,6 +380,11 @@ class _PatternsCopy {
   String pointsToNext(int xp, int nextLevel) =>
       _t('$xp XP until level $nextLevel', '$xp XP para el nivel $nextLevel');
   String get streak => _t('Streak', 'Racha');
+  String get longestStreak => _t('Longest streak', 'Racha más larga');
+  String get milestonesReached => _t('Milestones reached', 'Hitos alcanzados');
+  String milestonesOf(int completed, int total) =>
+      _t('$completed of $total', '$completed de $total');
+  String get noneYet => _t('None yet', 'Ninguno aún');
   String streakDays(int n) =>
       es ? _count(n, 'día', 'días') : _count(n, 'day', 'days');
   String get progressUnavailable => _t(
