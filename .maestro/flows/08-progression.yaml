@@ -16,4 +16,4 @@ tags:
 - assertVisible: 'Review completed tasks and recorded milestones. You can start again at any time.'
 # The two-part switch moves to the other destination of the Insights tab.
 - tapOn: 'Future outcomes'
-- assertVisible: 'Predictions are possibilities, not promises'
+- assertVisible: 'These are estimates, not promises.'

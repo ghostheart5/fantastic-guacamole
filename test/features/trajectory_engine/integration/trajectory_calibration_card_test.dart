@@ -49,21 +49,40 @@ void main() {
     tester,
   ) async {
     await _pump(tester, checked, const Locale('en'));
-    expect(find.text('MONITORED'), findsOneWidget);
-    final Finder card = find.textContaining('4 resolved and monitored');
-    expect(card, findsOneWidget);
-    final String text = tester.widget<Text>(card).data!;
+    expect(find.text('Status: monitored'), findsOneWidget);
     expect(
-      text,
-      contains(
-        'Interval coverage and range changes use pace (momentum) only. Ranges '
-        'are widened from recorded accuracy once at least 3 forecasts have '
-        'been checked on 2 or more days, and narrowed only after checks on 5 '
-        'or more days spread over at least 14 days. Forecasts used: 4. Kept '
-        'from an earlier method but not used: 2.',
+      find.text(
+        '4 forecasts checked • pace error 12.0 points • workload error 3.0 '
+        'points • 50% inside their range.',
       ),
+      findsOneWidget,
     );
-    expect(text, isNot(contains('unchanged')));
+    expect(
+      find.text(
+        'Accuracy here is about pace only and is averaged over the days '
+        'forecasts were checked.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'Ranges are widened from recorded accuracy once at least 3 forecasts '
+        'have been checked on 2 or more days, and narrowed only after checks '
+        'on 5 or more days spread over at least 14 days. Forecasts used: 4.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Kept from an earlier method but not used: 2.'),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('future-outcomes-monitoring-details')),
+        matching: find.textContaining('unchanged'),
+      ),
+      findsNothing,
+    );
     expect(find.textContaining('Coefficients and uncertainty'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -72,23 +91,41 @@ void main() {
     tester,
   ) async {
     await _pump(tester, checked, const Locale('es'));
-    expect(find.text('SUPERVISADO'), findsOneWidget);
-    final Finder card = find.textContaining('4 resueltas y supervisadas');
-    expect(card, findsOneWidget);
-    final String text = tester.widget<Text>(card).data!;
+    expect(find.text('Estado: supervisado'), findsOneWidget);
     expect(
-      text,
-      contains(
-        'La cobertura del intervalo y los cambios de rango usan solo el ritmo '
-        '(impulso). Los rangos se amplían según la precisión registrada cuando '
-        'hay al menos 3 previsiones comprobadas en 2 o más días, y solo se '
-        'estrechan tras comprobaciones en 5 o más días repartidos en al menos '
-        '14 días. '
-        'Previsiones usadas: 4. Conservadas de un método anterior pero no '
-        'usadas: 2.',
+      find.text(
+        '4 previsiones comprobadas • error de ritmo 12.0 puntos • error de '
+        'carga 3.0 puntos • 50% dentro de su rango.',
       ),
+      findsOneWidget,
     );
-    expect(text, isNot(contains('no cambian')));
+    expect(
+      find.text(
+        'Aquí la precisión se refiere solo al ritmo y se promedia por los '
+        'días en que se comprobaron las previsiones.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'Los rangos se amplían según la precisión registrada cuando hay al '
+        'menos 3 previsiones comprobadas en 2 o más días, y solo se estrechan '
+        'tras comprobaciones en 5 o más días repartidos en al menos 14 días. '
+        'Previsiones usadas: 4.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Conservadas de un método anterior pero no usadas: 2.'),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('future-outcomes-monitoring-details')),
+        matching: find.textContaining('no cambian'),
+      ),
+      findsNothing,
+    );
     expect(
       find.textContaining('Los coeficientes y la incertidumbre'),
       findsNothing,
@@ -96,27 +133,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final (String language, String label, String expected)
-      in const <(String, String, String)>[
+  for (final (String language, String label, String figures, String rule)
+      in const <(String, String, String, String)>[
         (
           'en',
-          'PROVISIONAL',
-          '2 resolved • momentum error 4.0 points • pressure error 1.0 points '
-              '• interval coverage 100%. Interval coverage and range changes '
-              'use pace (momentum) only. Ranges stay as estimated until at '
-              'least 3 '
-              'forecasts have been checked on 2 or more days. Checked so '
-              'far: 2.',
+          'Status: provisional',
+          '2 forecasts checked • pace error 4.0 points • workload error 1.0 '
+              'points • 100% inside their range.',
+          'Ranges stay as estimated until at least 3 forecasts have been '
+              'checked on 2 or more days. Checked so far: 2.',
         ),
         (
           'es',
-          'PROVISIONAL',
-          '2 resueltas • error de impulso 4.0 puntos • error de presión 1.0 '
-              'puntos • cobertura del intervalo 100%. La cobertura del '
-              'intervalo y los cambios de rango usan solo el ritmo (impulso). '
-              'Los rangos se mantienen como '
-              'se estimaron hasta que haya al menos 3 previsiones comprobadas '
-              'en 2 o más días. Comprobadas hasta ahora: 2.',
+          'Estado: provisional',
+          '2 previsiones comprobadas • error de ritmo 4.0 puntos • error de '
+              'carga 1.0 puntos • 100% dentro de su rango.',
+          'Los rangos se mantienen como se estimaron hasta que haya al menos '
+              '3 previsiones comprobadas en 2 o más días. Comprobadas hasta '
+              'ahora: 2.',
         ),
       ]) {
     testWidgets('too few checks: label and text say provisional ($language)', (
@@ -124,9 +158,10 @@ void main() {
     ) async {
       await _pump(tester, tooFew, Locale(language));
       expect(find.text(label), findsOneWidget);
-      expect(find.text('MONITORED'), findsNothing);
-      expect(find.text('SUPERVISADO'), findsNothing);
-      expect(find.text(expected), findsOneWidget);
+      expect(find.text('Status: monitored'), findsNothing);
+      expect(find.text('Estado: supervisado'), findsNothing);
+      expect(find.text(figures), findsOneWidget);
+      expect(find.text(rule), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
@@ -193,8 +228,8 @@ Future<void> _pump(
   await _settle(tester);
   final Finder details = find.text(
     locale.languageCode == 'es'
-        ? 'Datos y detalles del modelo'
-        : 'Evidence and model details',
+        ? 'Seguimiento de previsiones'
+        : 'Forecast monitoring',
   );
   await tester.scrollUntilVisible(
     details.hitTestable(),
@@ -206,7 +241,6 @@ Future<void> _pump(
 }
 
 Future<void> _settle(WidgetTester tester) async {
-  // The background animates continuously; advance just the transitions.
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 350));
   await tester.pump();

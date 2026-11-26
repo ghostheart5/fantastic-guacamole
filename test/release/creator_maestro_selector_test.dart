@@ -613,7 +613,7 @@ void main() {
           'Your recorded progress',
           'Patterns',
           'Future outcomes',
-          'Predictions are possibilities, not promises',
+          'These are estimates, not promises.',
           'Review completed tasks and recorded milestones. You can start again at any time.',
         ],
       };

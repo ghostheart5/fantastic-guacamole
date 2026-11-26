@@ -336,6 +336,10 @@ void main() {
       final guidance =
           container.read(adaptiveGuidanceProvider.notifier) as _QuietGuidance;
       await _frames(tester);
+      // Moving the list programmatically is not the person scrolling.
+      await tester.ensureVisible(find.text('How this helps you'));
+      await _frames(tester);
+      expect(guidance.recorded, isEmpty);
       await tester.tap(find.text('How this helps you'));
       await _frames(tester);
       expect(guidance.recorded, isEmpty);
@@ -371,10 +375,10 @@ void main() {
               await tester.tap(find.text('Keep current plan').first);
             default:
               // Moving the list programmatically is not the person scrolling.
-              await tester.ensureVisible(find.text('30 DAYS'));
+              await tester.ensureVisible(find.text('30 days'));
               await _frames(tester);
               expect(guidance.recorded, isEmpty);
-              await tester.tap(find.text('30 DAYS').hitTestable());
+              await tester.tap(find.text('30 days').hitTestable());
               expect(container.read(trajectoryHorizonDaysProvider), 30);
           }
           await _frames(tester);

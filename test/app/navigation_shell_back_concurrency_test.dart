@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart'
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_habit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,6 +60,14 @@ void main() {
         // GoalsNotifier.build schedules a timer that outlives the test frame,
         // and routing to goals mounts it.
         goalsProvider.overrideWith(_StaticGoals.new),
+        // The habit lines on Future outcomes keep a timer to the next local
+        // midnight, and routing to Insights mounts them.
+        trajectoryHabitLinesProvider.overrideWithValue(
+          TrajectoryHabitLines(
+            status: TrajectoryHabitLinesStatus.ready,
+            horizonDays: 7,
+          ),
+        ),
       ],
     );
     addTearDown(container.dispose);

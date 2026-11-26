@@ -12,6 +12,7 @@ import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contra
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adjustment.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
+import 'package:fantastic_guacamole/engine/trajectory/future_consequence_engine.dart';
 import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -21,19 +22,21 @@ import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_pr
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_habit_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
-import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
-import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
-import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/decision_intelligence_card.dart';
+import 'package:fantastic_guacamole/ui/widgets/plain/plain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+part 'trajectory_engine_screen.copy.dart';
 part 'trajectory_engine_screen.overview.dart';
 part 'trajectory_engine_screen.widgets.dart';
 
+/// Future outcomes: estimates of what could happen next, built on the plain
+/// kit. Every figure is for the selected time range.
 class TrajectoryEngineScreen extends ConsumerStatefulWidget {
   const TrajectoryEngineScreen({super.key});
 
@@ -44,7 +47,9 @@ class TrajectoryEngineScreen extends ConsumerStatefulWidget {
 
 class _TrajectoryEngineScreenState
     extends ConsumerState<TrajectoryEngineScreen> {
-  String? _selectedScenarioId;
+  /// The chosen option, kept by the kind of option (not by outcome id), so it
+  /// survives a refresh, a calibration change or a range change.
+  _OptionSelection? _selection;
   _CustomComparisonRequest? _customRequest;
   (_CustomComparisonRequest?, _CustomComparisonState?)? _lastCustomFeedback;
   final GlobalKey _comparisonPreviewKey = GlobalKey();
@@ -78,6 +83,11 @@ class _TrajectoryEngineScreenState
     final AsyncValue<TrajectoryCalibrationSummary> calibration = ref.watch(
       trajectoryCalibrationSummaryProvider,
     );
+    // Habit lines live beside the forecast: shown only, never fed into the
+    // comparison, the selected option, outcome ids or receipts.
+    final TrajectoryHabitLines habitLines = ref.watch(
+      trajectoryHabitLinesProvider,
+    );
     // Removing the forecast body during loading clamps the list to the top
     // and disposes expanded panels and unsaved what-if controls. Retain its
     // presentation only during a refresh in the same account and horizon.
@@ -92,7 +102,13 @@ class _TrajectoryEngineScreenState
       _lastDisplayModel = null;
       _lastCalibration = null;
       _customRequest = null;
-      if (_comparisonContext != null) _selectedScenarioId = null;
+      // Another account or sign-in never inherits a choice; a new range keeps
+      // the same kind of option when it still exists.
+      if (_comparisonContext != null &&
+          (_comparisonContext!.$1 != comparisonContext.$1 ||
+              _comparisonContext!.$2 != comparisonContext.$2)) {
+        _selection = null;
+      }
       _comparisonContext = comparisonContext;
     }
     final bool refreshing =
@@ -120,9 +136,9 @@ class _TrajectoryEngineScreenState
     final displayCalibration = refreshing ? _lastCalibration! : calibration;
     final TrajectoryComparison? comparison = displayModel.comparison;
     final bool canRecommendScenario = !refreshing && model.canRecommendScenario;
-    final TrajectoryScenarioOutcome? selected = _selected(
+    final TrajectoryScenarioOutcome? selected = _selectedOutcome(
       comparison,
-      _selectedScenarioId,
+      _selection,
     );
     final customFeedback = _customFeedbackState(model);
     final feedbackIdentity = (_customRequest, customFeedback);
@@ -141,400 +157,294 @@ class _TrajectoryEngineScreenState
                 model.status == TrajectoryEngineStatus.error ||
                 model.status == TrajectoryEngineStatus.empty);
 
-    return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgTrajectory,
-      overlayOpacity: .58,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Listener(
-            // A mouse wheel or trackpad scroll.
-            onPointerSignal: (_) => _recordReview(),
-            child: NotificationListener<UserScrollNotification>(
-              onNotification: (_) {
-                _recordReview();
-                return false;
-              },
-              child: Stack(
-                children: <Widget>[
-                  ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                    children: <Widget>[
-                      TemporalScreenHeader(
-                        title: InsightsCopy.of(context).futureOutcomes,
-                        subtitle: journeyText(
-                          context,
-                          'See where your current plan could lead. Choose an option to explore a different outcome.',
-                          'Ve adónde podría llevarte tu plan. Elige una opción para explorar otro resultado.',
-                        ),
-                        eyebrow: journeyText(
-                          context,
-                          'Predictions are possibilities, not promises',
-                          'Las predicciones son posibilidades, no promesas',
-                        ),
-                        trailing: IconButton(
-                          tooltip: journeyText(
-                            context,
-                            'Update estimate',
-                            'Actualizar estimación',
-                          ),
-                          constraints: const BoxConstraints.tightFor(
-                            width: AppSizes.touchTarget,
-                            height: AppSizes.touchTarget,
-                          ),
-                          onPressed: refreshing
-                              ? null
-                              : () => _refresh(comparison),
-                          icon: const Icon(Icons.refresh_rounded),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      const InsightsDestinationSwitch(
-                        current: AppView.trajectoryEngine,
-                      ),
-                      const SizedBox(height: 12),
-                      _DisclosurePanel(
-                        key: const Key('insights-how-it-helps'),
-                        title: journeyText(
-                          context,
-                          'How this helps you',
-                          'Cómo te ayuda esto',
-                        ),
-                        subtitle: journeyText(
-                          context,
-                          'What this screen does, in plain words',
-                          'Qué hace esta pantalla, en palabras simples',
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            for (final String point in <String>[
-                              journeyText(
-                                context,
-                                'It reads what you already put in Axiomara: your tasks and their times, your goals, your free time and your energy check-ins.',
-                                'Lee lo que ya pusiste en Axiomara: tus tareas y sus horarios, tus metas, tu tiempo libre y tus registros de energía.',
-                              ),
-                              journeyText(
-                                context,
-                                'It shows a few paths you could take: keep going as you are, let the planner rearrange your day, finish a task, push one back, cut something, or catch up on something you missed.',
-                                'Muestra algunos caminos posibles: seguir igual, dejar que el planificador reorganice tu día, terminar una tarea, aplazar una, recortar algo o ponerte al día con algo pendiente.',
-                              ),
-                              journeyText(
-                                context,
-                                'Pick a path to see how much you might get done and how much pressure you might feel. The time range (7, 30 or 90 days) changes which tasks count and how wide the uncertainty is: further ahead means less reliable. \u201cRecommended adjustment\u201d marks the path that looks best right now.',
-                                'Elige un camino para ver cuánto podrías lograr y cuánta presión podrías sentir. El periodo (7, 30 o 90 días) cambia qué tareas cuentan y lo amplia que es la incertidumbre: cuanto más lejos, menos fiable. \u201cAjuste recomendado\u201d marca el camino que mejor se ve ahora.',
-                              ),
-                              journeyText(
-                                context,
-                                'Nothing changes until you tap Review to act on a path. These are estimates, not promises.',
-                                'Nada cambia hasta que tocas Revisar para actuar. Son estimaciones, no promesas.',
-                              ),
-                              journeyText(
-                                context,
-                                '${InsightsCopy.patternsEn} shows what you have actually done: tasks finished, your streak and your pressure. Use the switch at the top to open it.',
-                                '${InsightsCopy.patternsEs} muestra lo que de verdad hiciste: tareas terminadas, tu racha y tu presión. Usa el selector de arriba para abrirlo.',
-                              ),
-                              journeyText(
-                                context,
-                                'It needs a few tasks with times and some check-ins before it has much to show. The more you use Axiomara, the more useful it gets.',
-                                'Necesita algunas tareas con horario y algunos registros antes de mostrar mucho. Cuanto más uses Axiomara, más útil será.',
-                              ),
-                            ])
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Text(
-                                  '\u2022 $point',
-                                  style: const TextStyle(
-                                    color: Color(0xFFD7E0F5),
-                                    fontSize: 13,
-                                    height: 1.35,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      const SizedBox(height: 12),
-                      _TrajectoryStateNotice(
-                        // The updating overlay reports refresh progress. Keep this
-                        // prior-result notice at its original height too, so a
-                        // transient loading message cannot shrink the list extent.
-                        status: displayModel.status,
-                        detail: displayModel.statusDetail,
-                        onRetry: () =>
-                            ref.read(trajectoryEngineActionsProvider).refresh(),
-                        onCreate: () =>
-                            goToAppView(context, ref, AppView.creator),
-                      ),
-                      if (blocksContent) const SizedBox(height: 12),
-                      if (model.status == TrajectoryEngineStatus.empty &&
-                          comparison?.baseline.hasObservedEnergy == true)
-                        _Panel(
-                          title: journeyText(
-                            context,
-                            'Recorded check-in',
-                            'Registro actual',
-                          ),
-                          child: _OverviewMetric(
-                            label: journeyText(context, 'ENERGY', 'ENERGÍA'),
-                            value: '${comparison!.baseline.energy}%',
-                            accent: const Color(0xFFA78BFA),
-                          ),
-                        ),
-                      if (blocksContent &&
-                          model.status == TrajectoryEngineStatus.loading)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(24),
-                            child: CircularProgressIndicator(),
-                          ),
-                        ),
-                      if (blocksContent && customFeedback != null)
-                        _CustomComparisonFeedback(
-                          key: _customFeedbackKey,
-                          state: customFeedback,
-                        ),
-                      AbsorbPointer(
-                        absorbing: refreshing,
-                        child: ExcludeFocus(
-                          excluding: refreshing,
-                          child: Column(
-                            children: <Widget>[
-                              if (!blocksContent) ...<Widget>[
-                                if (comparison
-                                    case final TrajectoryComparison
-                                        value) ...<Widget>[
-                                  const SizedBox(height: 12),
-                                  _HorizonSelector(
-                                    selectedDays: horizonDays,
-                                    onSelected: (int days) {
-                                      if (_isRefreshing) return;
-                                      _recordReview();
-                                      setState(
-                                        () => _selectedScenarioId = null,
-                                      );
-                                      ref
-                                          .read(
-                                            trajectoryHorizonDaysProvider
-                                                .notifier,
-                                          )
-                                          .select(days);
-                                    },
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _TrajectoryOverviewCard(
-                                    baseline: value.baseline,
-                                    horizonDays: horizonDays,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _FutureBranches(
-                                    outcomes: value.outcomes,
-                                    selectedId: selected?.id,
-                                    recommendedId: value.recommendedScenarioId,
-                                    canRecommend: canRecommendScenario,
-                                    onSelected: (String id) {
-                                      if (_isRefreshing) return;
-                                      _recordReview();
-                                      setState(() => _selectedScenarioId = id);
-                                    },
-                                  ),
-                                  if (selected
-                                      case final TrajectoryScenarioOutcome
-                                          outcome) ...<Widget>[
-                                    const SizedBox(height: 12),
-                                    KeyedSubtree(
-                                      key: _comparisonPreviewKey,
-                                      child: _ScenarioComparisonCard(
-                                        baseline: value.baseline,
-                                        outcome: outcome,
-                                        isRecommended:
-                                            canRecommendScenario &&
-                                            outcome.id ==
-                                                value.recommendedScenarioId,
-                                        onOpen: () => _openScenarioDestination(
-                                          outcome.intervention,
-                                        ),
-                                        onTrack: () => _trackScenario(
-                                          value.baseline,
-                                          outcome,
-                                        ),
-                                        onCorrect: () => _correctAssumptions(
-                                          value.baseline,
-                                          outcome,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 12),
-                                  _DisclosurePanel(
-                                    title: journeyText(
-                                      context,
-                                      'Task predictions',
-                                      'Predicciones de tareas',
-                                    ),
-                                    subtitle: journeyText(
-                                      context,
-                                      'Explore timing and completion estimates',
-                                      'Explora estimaciones de tiempo y finalización',
-                                    ),
-                                    child: _TaskPredictionCard(
-                                      model: displayModel,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _DisclosurePanel(
-                                    title: journeyText(
-                                      context,
-                                      'Try a custom what-if',
-                                      'Probar un escenario hipotético',
-                                    ),
-                                    subtitle: journeyText(
-                                      context,
-                                      'Optional simulation tools',
-                                      'Herramientas opcionales de simulación',
-                                    ),
-                                    child: _CustomScenarioComposer(
-                                      baseline: value.baseline,
-                                      horizonDays: horizonDays,
-                                      feedback: customFeedback == null
-                                          ? null
-                                          : _CustomComparisonFeedback(
-                                              key: _customFeedbackKey,
-                                              state: customFeedback,
-                                              onView:
-                                                  customFeedback ==
-                                                      _CustomComparisonState
-                                                          .ready
-                                                  ? _viewCustomComparison
-                                                  : null,
-                                            ),
-                                      onDraftChanged: _invalidateCustomFeedback,
-                                      onComposed:
-                                          (
-                                            TrajectoryCustomScenarioDraft draft,
-                                          ) {
-                                            if (_isRefreshing) return;
-                                            _recordReview();
-                                            final request =
-                                                _CustomComparisonRequest(
-                                                  draft: draft,
-                                                  scenarioId:
-                                                      trajectoryCustomScenarioId(
-                                                        draft,
-                                                        horizonDays:
-                                                            horizonDays,
-                                                      ),
-                                                  previous: model.comparison,
-                                                  context: comparisonContext,
-                                                );
-                                            ref
-                                                .read(
-                                                  trajectoryCustomScenarioProvider
-                                                      .notifier,
-                                                )
-                                                .compose(draft);
-                                            setState(() {
-                                              _customRequest = request;
-                                              _selectedScenarioId =
-                                                  request.scenarioId;
-                                            });
-                                          },
-                                      onClear: () {
-                                        if (_isRefreshing) return;
-                                        ref
-                                            .read(
-                                              trajectoryCustomScenarioProvider
-                                                  .notifier,
-                                            )
-                                            .clear();
-                                        setState(() {
-                                          _selectedScenarioId = null;
-                                          _customRequest = null;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _DisclosurePanel(
-                                    title: journeyText(
-                                      context,
-                                      'Evidence and model details',
-                                      'Datos y detalles del modelo',
-                                    ),
-                                    subtitle: journeyText(
-                                      context,
-                                      'Baseline, monitoring, and forecast sources',
-                                      'Línea base, seguimiento y fuentes de previsión',
-                                    ),
-                                    child: Column(
-                                      children: <Widget>[
-                                        if (displayModel.decisionIntelligence
-                                            case final DecisionIntelligence
-                                                intelligence) ...<Widget>[
-                                          DecisionIntelligenceCard(
-                                            intelligence: intelligence,
-                                            title: journeyText(
-                                              context,
-                                              'Decision context',
-                                              'Contexto de la decisión',
-                                            ),
-                                            compact: true,
-                                            onAction: () => _openDecisionAction(
-                                              intelligence
-                                                  .decision
-                                                  .actionIntent,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                        ],
-                                        _BaselineCard(baseline: value.baseline),
-                                        const SizedBox(height: 8),
-                                        _CalibrationCard(
-                                          summary: displayCalibration,
-                                        ),
-                                        const SizedBox(height: 8),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (refreshing)
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Material(
-                        color: const Color(0xFF19263A),
-                        child: Semantics(
-                          liveRegion: true,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Text(
-                              journeyText(
-                                context,
-                                'Updating estimate. The previous result is shown; forecast controls will return when it is ready.',
-                                'Actualizando la estimación. Se muestra el resultado anterior; los controles volverán cuando esté lista.',
-                              ),
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+    final Widget page = PlainScreen(
+      children: <Widget>[
+        PlainHeader(
+          title: InsightsCopy.of(context).tabName,
+          actions: <PlainHeaderAction>[
+            PlainHeaderAction(
+              icon: Icons.refresh_rounded,
+              label: journeyText(
+                context,
+                'Update estimate',
+                'Actualizar estimación',
               ),
+              onPressed: refreshing ? null : () => _refresh(comparison),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        const InsightsDestinationSwitch(current: AppView.trajectoryEngine),
+        const SizedBox(height: 16),
+        const _EstimatesLine(),
+        const SizedBox(height: 12),
+        _TrajectoryStateNotice(
+          // The updating overlay reports refresh progress. Keep this
+          // prior-result notice at its original height too, so a transient
+          // loading message cannot shrink the list extent.
+          status: displayModel.status,
+          detail: displayModel.statusDetail,
+          onRetry: () => ref.read(trajectoryEngineActionsProvider).refresh(),
+          onCreate: () => goToAppView(context, ref, AppView.creator),
+        ),
+        if (model.status == TrajectoryEngineStatus.empty &&
+            comparison?.baseline.hasObservedEnergy == true)
+          PlainCard(
+            child: PlainMetricRow(
+              label: journeyText(
+                context,
+                'Energy you recorded',
+                'Energía que registraste',
+              ),
+              value: '${comparison!.baseline.energy}%',
+              provenance: ProvenanceKind.recorded,
+            ),
+          ),
+        if (blocksContent && model.status == TrajectoryEngineStatus.loading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            ),
+          ),
+        if (blocksContent && customFeedback != null)
+          PlainCard(
+            child: _CustomComparisonFeedback(
+              key: _customFeedbackKey,
+              state: customFeedback,
+            ),
+          ),
+        AbsorbPointer(
+          absorbing: refreshing,
+          child: ExcludeFocus(
+            excluding: refreshing,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                if (!blocksContent)
+                  if (comparison case final TrajectoryComparison value)
+                    ..._forecastBody(
+                      context,
+                      value: value,
+                      displayModel: displayModel,
+                      model: model,
+                      horizonDays: horizonDays,
+                      habitLines: habitLines,
+                      selected: selected,
+                      canRecommendScenario: canRecommendScenario,
+                      customFeedback: customFeedback,
+                      comparisonContext: comparisonContext,
+                      displayCalibration: displayCalibration,
+                    ),
+              ],
             ),
           ),
         ),
+      ],
+    );
+
+    return Listener(
+      // A mouse wheel or trackpad scroll.
+      onPointerSignal: (_) => _recordReview(),
+      child: NotificationListener<UserScrollNotification>(
+        onNotification: (_) {
+          _recordReview();
+          return false;
+        },
+        child: Stack(
+          children: <Widget>[
+            Positioned.fill(child: page),
+            if (refreshing)
+              const Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: _RefreshingBar(),
+              ),
+          ],
+        ),
       ),
     );
+  }
+
+  List<Widget> _forecastBody(
+    BuildContext context, {
+    required TrajectoryComparison value,
+    required TrajectoryEngineModel displayModel,
+    required TrajectoryEngineModel model,
+    required int horizonDays,
+    required TrajectoryHabitLines habitLines,
+    required TrajectoryScenarioOutcome? selected,
+    required bool canRecommendScenario,
+    required _CustomComparisonState? customFeedback,
+    required (String?, int, int) comparisonContext,
+    required AsyncValue<TrajectoryCalibrationSummary> displayCalibration,
+  }) {
+    const List<int> ranges = <int>[7, 30, 90];
+    return <Widget>[
+      PlainSection(
+        title: journeyText(context, 'Time range', 'Periodo'),
+        children: <Widget>[
+          RangeChoice(
+            key: const Key('future-outcomes-range'),
+            labels: <String>[
+              for (final int days in ranges)
+                journeyText(context, '$days days', '$days días'),
+            ],
+            selectedIndex: ranges.indexOf(horizonDays).clamp(0, 2),
+            onSelected: (int index) {
+              if (_isRefreshing) return;
+              _recordReview();
+              ref
+                  .read(trajectoryHorizonDaysProvider.notifier)
+                  .select(ranges[index]);
+            },
+          ),
+        ],
+      ),
+      _KeepGoingSection(
+        baseline: value.baseline,
+        horizonDays: horizonDays,
+        habitLines: habitLines,
+      ),
+      _OptionsSection(
+        comparison: value,
+        selected: selected,
+        canRecommend: canRecommendScenario,
+        onSelected: (TrajectoryScenarioOutcome outcome) {
+          if (_isRefreshing) return;
+          _recordReview();
+          setState(() => _selection = _OptionSelection.of(outcome));
+        },
+      ),
+      if (selected case final TrajectoryScenarioOutcome outcome)
+        KeyedSubtree(
+          key: _comparisonPreviewKey,
+          child: _SelectedOptionSection(
+            baseline: value.baseline,
+            outcome: outcome,
+            keepGoing: _keepGoingOutcome(value),
+            isRecommended:
+                canRecommendScenario &&
+                outcome.id == value.recommendedScenarioId,
+            onOpen: () => _openScenarioDestination(outcome.intervention),
+            onTrack: () => _trackScenario(value.baseline, outcome),
+            onCorrect: () => _correctAssumptions(value.baseline, outcome),
+          ),
+        ),
+      const SizedBox(height: 16),
+      PlainCard(
+        child: PlainDisclosure(
+          key: const Key('future-outcomes-what-if'),
+          title: journeyText(
+            context,
+            'Try a custom what-if',
+            'Probar un escenario hipotético',
+          ),
+          children: <Widget>[
+            _CustomScenarioComposer(
+              baseline: value.baseline,
+              horizonDays: horizonDays,
+              feedback: customFeedback == null
+                  ? null
+                  : _CustomComparisonFeedback(
+                      key: _customFeedbackKey,
+                      state: customFeedback,
+                      onView: customFeedback == _CustomComparisonState.ready
+                          ? _viewCustomComparison
+                          : null,
+                    ),
+              onDraftChanged: _invalidateCustomFeedback,
+              onComposed: (TrajectoryCustomScenarioDraft draft) {
+                if (_isRefreshing) return;
+                _recordReview();
+                final request = _CustomComparisonRequest(
+                  draft: draft,
+                  scenarioId: trajectoryCustomScenarioId(
+                    draft,
+                    horizonDays: horizonDays,
+                  ),
+                  previous: model.comparison,
+                  context: comparisonContext,
+                );
+                ref
+                    .read(trajectoryCustomScenarioProvider.notifier)
+                    .compose(draft);
+                setState(() {
+                  _customRequest = request;
+                  _selection = _OptionSelection.custom(request.scenarioId);
+                });
+              },
+              onClear: () {
+                if (_isRefreshing) return;
+                ref.read(trajectoryCustomScenarioProvider.notifier).clear();
+                setState(() {
+                  _selection = null;
+                  _customRequest = null;
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+      PlainSection(
+        title: journeyText(context, 'More detail', 'Más detalle'),
+        children: <Widget>[
+          PlainCard(
+            child: PlainDisclosure(
+              key: const Key('future-outcomes-based-on'),
+              title: journeyText(
+                context,
+                'What this is based on',
+                'En qué se basa',
+              ),
+              children: <Widget>[
+                _BasedOnDetails(baseline: value.baseline, model: displayModel),
+                if (displayModel.decisionIntelligence
+                    case final DecisionIntelligence intelligence) ...<Widget>[
+                  const SizedBox(height: 12),
+                  DecisionIntelligenceCard(
+                    intelligence: intelligence,
+                    title: journeyText(
+                      context,
+                      'Decision context',
+                      'Contexto de la decisión',
+                    ),
+                    compact: true,
+                    onAction: () =>
+                        _openDecisionAction(intelligence.decision.actionIntent),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          PlainCard(
+            child: PlainDisclosure(
+              key: const Key('future-outcomes-monitoring'),
+              title: journeyText(
+                context,
+                'Forecast monitoring',
+                'Seguimiento de previsiones',
+              ),
+              children: <Widget>[
+                _MonitoringDetails(summary: displayCalibration),
+              ],
+            ),
+          ),
+          PlainCard(
+            child: PlainDisclosure(
+              key: const Key('insights-how-it-helps'),
+              title: journeyText(
+                context,
+                'How this helps you',
+                'Cómo te ayuda esto',
+              ),
+              children: const <Widget>[_HowThisHelps()],
+            ),
+          ),
+        ],
+      ),
+    ];
   }
 
   void _invalidateCustomFeedback() {
@@ -575,9 +485,7 @@ class _TrajectoryEngineScreenState
     if (identical(model.comparison, request.previous)) {
       return _CustomComparisonState.pending;
     }
-    if (comparison.outcomes.any(
-      (outcome) => outcome.intervention.id.startsWith('custom-'),
-    )) {
+    if (comparison.outcomes.any(_isCustomOutcome)) {
       // An older custom result is not a rejection of the latest request.
       return _CustomComparisonState.pending;
     }
@@ -614,7 +522,7 @@ class _TrajectoryEngineScreenState
             _CustomComparisonState.ready) {
       return;
     }
-    setState(() => _selectedScenarioId = request.scenarioId);
+    setState(() => _selection = _OptionSelection.custom(request.scenarioId));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
           !identical(request, _customRequest) ||
@@ -775,5 +683,36 @@ class _TrajectoryEngineScreenState
       case TrajectoryInterventionType.recoverCommitment:
         unawaited(openSchedule(context));
     }
+  }
+}
+
+/// The bar shown over the bottom of the page while a refresh is running.
+class _RefreshingBar extends StatelessWidget {
+  const _RefreshingBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.bgSecondary,
+      child: SafeArea(
+        top: false,
+        child: PlainPaletteScope(
+          palette: PlainPalette.page,
+          child: Semantics(
+            liveRegion: true,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                journeyText(
+                  context,
+                  'Updating estimate. The previous result is shown; the controls come back when it is ready.',
+                  'Actualizando la estimación. Se muestra el resultado anterior; los controles volverán cuando esté lista.',
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

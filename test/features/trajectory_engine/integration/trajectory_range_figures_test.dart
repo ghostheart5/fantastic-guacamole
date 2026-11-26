@@ -15,7 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../../helpers/trajectory_test_fixture.dart';
 
-/// Every pressure figure on Future outcomes is for the selected range; Home
+/// Every workload figure on Future outcomes is for the selected range; Home
 /// keeps the next-7-days value.
 void main() {
   final String scope = AccountStorageScope.authenticated(
@@ -43,48 +43,28 @@ void main() {
   });
 
   for (final int days in const <int>[30, 90]) {
-    testWidgets('at $days days every pressure figure is for the range', (
+    testWidgets('at $days days every workload figure is for the range', (
       tester,
     ) async {
       final TrajectoryBaseline baseline = tight(days);
       final int range = baseline.pressureInHorizon;
       await _pump(tester, _model(baseline, days), days: days);
 
-      // Overview headline and band read the range (20 or 7: low).
-      expect(find.text('High pressure'), findsNothing);
-      expect(find.text('HIGH'), findsNothing);
-      expect(find.text('Steady direction'), findsOneWidget);
-      expect(find.text('LOW'), findsWidgets);
+      // The keep-going card reads the range (20 or 7: light), never the
+      // next 7 days' 86 (heavy).
+      expect(find.text('Light, $range%'), findsOneWidget);
+      expect(find.textContaining('Heavy'), findsNothing);
+      expect(find.textContaining('86%'), findsNothing);
 
-      // Comparison card: current is the range value, holding steady.
-      final Finder metric = find.textContaining(
-        RegExp('(^|[^0-9])$range/100 →'),
-      );
+      // The selected option compares with keep going over the same range.
+      final Finder keepGoing = find.textContaining('Keep going: $range%');
       await tester.scrollUntilVisible(
-        metric.first,
+        keepGoing.first,
         250,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(metric, findsWidgets);
-      expect(find.textContaining('86/100 →'), findsNothing);
-
-      // "Current plan estimates" card in the evidence disclosure.
-      final Finder details = find.text('Evidence and model details');
-      await tester.scrollUntilVisible(
-        details.hitTestable(),
-        250,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(details.hitTestable());
-      await _settle(tester);
-      final Finder modeled = find.text('modeled $range/100');
-      await tester.scrollUntilVisible(
-        modeled,
-        250,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(modeled, findsOneWidget);
-      expect(find.text('modeled 86/100'), findsNothing);
+      expect(keepGoing, findsOneWidget);
+      expect(find.textContaining('Keep going: 86%'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
@@ -98,10 +78,10 @@ void main() {
           String bandEs,
         )
         in const <(int, String, String, String, String)>[
-          (58, 'Needs attention', 'Requiere atención', 'WATCH', 'VIGILAR'),
-          (82, 'High pressure', 'Presión alta', 'HIGH', 'ALTA'),
+          (58, 'Busy, 58%', 'Intensa, 58%', 'Busy', 'Intensa'),
+          (82, 'Heavy, 82%', 'Pesada, 82%', 'Heavy', 'Pesada'),
         ]) {
-      testWidgets('overview band for $pressure in $language', (tester) async {
+      testWidgets('workload band for $pressure in $language', (tester) async {
         final TrajectoryBaseline baseline = trajectoryTestBaseline(
           accountScope: scope,
           pressure: pressure,
@@ -112,7 +92,10 @@ void main() {
           findsOneWidget,
           reason: '$pressure',
         );
-        expect(find.text(language == 'es' ? bandEs : bandEn), findsWidgets);
+        expect(
+          find.textContaining(language == 'es' ? bandEs : bandEn),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
       });
     }

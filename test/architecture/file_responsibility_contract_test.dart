@@ -22,6 +22,7 @@ void main() {
       'smart_planner_screen.consent_copy.dart',
     ],
     'lib/features/trajectory_engine/ui/trajectory_engine_screen.dart': <String>[
+      'trajectory_engine_screen.copy.dart',
       'trajectory_engine_screen.overview.dart',
       'trajectory_engine_screen.widgets.dart',
     ],

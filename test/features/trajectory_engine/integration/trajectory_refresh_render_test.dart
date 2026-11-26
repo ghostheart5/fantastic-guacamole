@@ -208,7 +208,7 @@ Future<void> _chooseDelay(WidgetTester tester) async {
 
 void main() {
   for (final es in <bool>[false, true]) {
-    testWidgets('time range copy says it changes which tasks count and certainty '
+    testWidgets('time range copy says it changes the estimate and reliability '
         '(${es ? 'es' : 'en'})', (tester) async {
       await _open(tester, locale: Locale(es ? 'es' : 'en'));
       final texts = tester
@@ -220,39 +220,43 @@ void main() {
       expect(
         texts.any(
           (t) => es
-              ? t.contains('en tu plan ahora.')
-              : t.contains('in your plan right now.'),
+              ? t == 'En los próximos 7 días.'
+              : t == 'Over the next 7 days.',
         ),
         isTrue,
       );
 
-      await tester.tap(
-        find.text(es ? 'Cómo te ayuda esto' : 'How this helps you'),
-      );
-      await tester.pump(const Duration(seconds: 1));
-      final expected = es
-          ? '• Elige un camino para ver cuánto podrías lograr y cuánta presión '
-                'podrías sentir. El periodo (7, 30 o 90 días) cambia qué '
-                'tareas cuentan y lo amplia que es la incertidumbre: cuanto '
-                'más lejos, menos fiable. “Ajuste recomendado” marca '
-                'el camino que mejor se ve ahora.'
-          : '• Pick a path to see how much you might get done and how much '
-                'pressure you might feel. The time range (7, 30 or 90 days) '
-                'changes which tasks count and how wide the uncertainty is: '
-                'further ahead means less reliable. '
-                '“Recommended adjustment” marks the path that looks '
-                'best right now.';
-      expect(find.text(expected), findsOneWidget);
-
-      final title = _ready().comparison!.outcomes.first.intervention.title;
+      final helps = find.text(es ? 'Cómo te ayuda esto' : 'How this helps you');
       await tester.scrollUntilVisible(
-        find.text(title).first.hitTestable(),
+        helps.hitTestable(),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text(title).first.hitTestable());
+      await tester.tap(helps.hitTestable());
       await tester.pump(const Duration(seconds: 1));
-      final marker = es ? 'Este camino proyecta' : 'This path projects';
+      final expected = es
+          ? '• Elige una opción para ver cómo podrían cambiar tu carga de '
+                'trabajo y tu ritmo. El periodo (7, 30 o 90 días) cambia la '
+                'estimación: decide qué tareas cuentan y cuánto tiempo libre '
+                'hay. Cuanto más lejos, menos fiable, por eso los rangos son '
+                'más amplios. “Ajuste recomendado” marca la opción que mejor '
+                'se ve ahora, cuando hay suficiente historial.'
+          : '• Pick an option to see how your workload and pace could change. '
+                'The time range (7, 30 or 90 days) changes the estimate: it '
+                'sets which tasks count and how much free time there is. '
+                'Further ahead is less reliable, so the ranges are wider. '
+                '“Recommended adjustment” marks the option that looks best '
+                'right now, once there is enough history.';
+      expect(find.text(expected), findsOneWidget);
+
+      final title = _ready().comparison!.outcomes.first.intervention.title;
+      await tester.ensureVisible(find.text(title).first);
+      await tester.pump();
+      await tester.tap(find.text(title).first);
+      await tester.pump(const Duration(seconds: 1));
+      final marker = es
+          ? 'Frente a seguir como vas'
+          : 'Compared with keeping going';
       await tester.scrollUntilVisible(
         find.textContaining(marker).first,
         300,
@@ -261,8 +265,8 @@ void main() {
       expect(
         find.textContaining(
           es
-              ? 'define qué tareas cuentan y lo amplia que es la incertidumbre'
-              : 'range sets which tasks count and how wide',
+              ? 'decide qué tareas cuentan y cuánto tiempo libre hay'
+              : 'it sets which tasks count and how much free time there is',
         ),
         findsWidgets,
       );
@@ -511,14 +515,7 @@ void main() {
     (tester) async {
       final container = await _open(tester);
       final scroll = find.byType(Scrollable).first;
-      await tester.scrollUntilVisible(
-        find.text('Full impact and evidence'),
-        300,
-        scrollable: scroll,
-      );
-      await tester.tap(find.text('Full impact and evidence'));
-      await tester.pump(const Duration(seconds: 1));
-      const label = 'Track this path for monitoring';
+      const label = 'Track this option for monitoring';
       await tester.scrollUntilVisible(
         find.text(label).hitTestable(),
         300,
@@ -569,15 +566,15 @@ void main() {
   );
 
   testWidgets(
-    'expanded Task predictions retain rendered evidence during loading',
+    'expanded task follow-through retains rendered evidence during loading',
     (tester) async {
       final container = await _open(tester);
       await tester.scrollUntilVisible(
-        find.text('Task predictions').hitTestable(),
+        find.text('What this is based on').hitTestable(),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Task predictions').hitTestable());
+      await tester.tap(find.text('What this is based on').hitTestable());
       await tester.pump(const Duration(seconds: 1));
       final evidence = find.textContaining(
         'Completion is plausible if the protected block holds.',
@@ -641,7 +638,7 @@ void main() {
         find.textContaining('Updating estimate. The previous result'),
         findsNothing,
       );
-      expect(find.text('CURRENT DIRECTION'), findsNothing);
+      expect(find.text('If you keep going as you are'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
