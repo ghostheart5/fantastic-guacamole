@@ -47,7 +47,8 @@ class TrajectoryObservedOutcome {
 enum TrajectoryForecastOrigin { manual, automatic }
 
 /// The receipt schema that added the optional `origin`, `earlierMethodAt`,
-/// `calibrationMultiplier` and `missedAt` fields. A receipt carrying any of
+/// `calibrationMultiplier`, `unadjustedUncertainty` and `missedAt` fields. A
+/// receipt carrying any of
 /// them is written as this schema (as
 /// [TrajectoryForecastReceipt.markAssumptionsCorrected] raises a receipt to
 /// schema 2); receipts without them keep their schema number and their exact
@@ -82,6 +83,7 @@ class TrajectoryForecastReceipt {
     this.earlierMethodAt,
     this.calibrationMultiplier = 1.0,
     this.missedAt,
+    this.rawUncertainty,
     this.schemaVersion = 2,
   }) : assumptions = List<String>.unmodifiable(assumptions),
        personContextSignalIds = List<String>.unmodifiable(
@@ -115,6 +117,14 @@ class TrajectoryForecastReceipt {
     personContextSignalIds: _traceSignalIds(baseline.personContextTrace),
     origin: origin,
     calibrationMultiplier: outcome.calibrationMultiplier,
+    // Stored whenever a multiplier was applied (even when the clamp made the
+    // shown width equal to it, as for every 90-day range), and whenever it
+    // differs from the shown width.
+    rawUncertainty:
+        outcome.calibrationMultiplier != 1.0 ||
+            outcome.unadjustedUncertainty != outcome.uncertainty
+        ? outcome.unadjustedUncertainty
+        : null,
     schemaVersion:
         origin == TrajectoryForecastOrigin.automatic ||
             outcome.calibrationMultiplier != 1.0
@@ -157,14 +167,27 @@ class TrajectoryForecastReceipt {
   /// max(1, H / 7) local days late, H its range in days): no observation was
   /// written against it, and it is never used for calibration.
   final DateTime? missedAt;
+
+  /// The engine's own width (after the engine's clamp to 8..42, before any
+  /// recorded-accuracy multiplier), stored as `unadjustedUncertainty`
+  /// whenever a multiplier was applied. Null on receipts made with no
+  /// multiplier, where it equals [uncertainty].
+  final int? rawUncertainty;
   final int schemaVersion;
 
   /// The engine's own width before recorded accuracy changed it. Coverage is
-  /// judged against this, so the rule never measures its own output. Exact
-  /// except when the adjusted width sat on a bound (8 or 42).
-  int get unadjustedUncertainty => calibrationMultiplier == 1.0
-      ? uncertainty
-      : (uncertainty / calibrationMultiplier).round();
+  /// judged against this, so the rule never measures its own output:
+  /// - the stored [rawUncertainty] when present (no reconstruction);
+  /// - [uncertainty] when no multiplier was applied (every released and
+  ///   Task-3 receipt);
+  /// - otherwise, only for development receipts written between the two
+  ///   review rounds, uncertainty / multiplier (wrong when that width had
+  ///   been clamped).
+  int get unadjustedUncertainty =>
+      rawUncertainty ??
+      (calibrationMultiplier == 1.0
+          ? uncertainty
+          : (uncertainty / calibrationMultiplier).round());
 
   DateTime get dueAt => selectedAt.add(horizon);
   bool get isResolved => observed != null;
@@ -263,6 +286,7 @@ class TrajectoryForecastReceipt {
     earlierMethodAt: earlierMethodAt ?? this.earlierMethodAt,
     calibrationMultiplier: calibrationMultiplier,
     missedAt: missedAt ?? this.missedAt,
+    rawUncertainty: rawUncertainty,
     schemaVersion: schemaVersion < schemaAtLeast
         ? schemaAtLeast
         : schemaVersion,
@@ -276,7 +300,9 @@ class TrajectoryForecastReceipt {
         modelVersion.trim().isEmpty) {
       throw const FormatException('Forecast receipt identifiers are required.');
     }
-    if (horizon <= Duration.zero || uncertainty < 0) {
+    if (horizon <= Duration.zero ||
+        uncertainty < 0 ||
+        (rawUncertainty != null && rawUncertainty! < 0)) {
       throw const FormatException('Forecast receipt range is invalid.');
     }
     if (projectedMomentum < 0 ||
@@ -338,6 +364,7 @@ class TrajectoryForecastReceipt {
     if (calibrationMultiplier != 1.0)
       'calibrationMultiplier': calibrationMultiplier,
     if (missedAt != null) 'missedAt': missedAt!.toUtc().toIso8601String(),
+    if (rawUncertainty != null) 'unadjustedUncertainty': rawUncertainty,
   };
 
   factory TrajectoryForecastReceipt.fromJson(Map<String, dynamic> json) {
@@ -416,6 +443,9 @@ class TrajectoryForecastReceipt {
       missedAt: json['missedAt'] == null
           ? null
           : _requiredDate(json['missedAt'], 'missedAt'),
+      rawUncertainty: json['unadjustedUncertainty'] == null
+          ? null
+          : _integer(json['unadjustedUncertainty'], 'unadjustedUncertainty'),
       schemaVersion: _integer(json['schemaVersion'] ?? 1, 'schemaVersion'),
     );
     receipt.validate();

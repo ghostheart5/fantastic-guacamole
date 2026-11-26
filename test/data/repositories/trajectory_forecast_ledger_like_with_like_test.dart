@@ -91,6 +91,23 @@ const String _storedRound1EarlierMethod =
     '"assumptionsCorrectedAt":null,"observed":null,'
     '"earlierMethodAt":"2026-08-16T15:00:00.000Z"}';
 
+/// An automatic receipt as written between the two review rounds: it has a
+/// multiplier but no stored engine width.
+const String _storedRound2Multiplier =
+    '{"schemaVersion":3,"id":"trajectory-v4-64a69808:maintain-course:1796137200000000",'
+    '"accountScope":"v2.YWNjb3VudC1h","baselineRevision":"trajectory-v4-64a69808",'
+    '"scenarioId":"trajectory-v4-64a69808:maintain-course",'
+    '"interventionType":"maintainCourse",'
+    '"generatedAt":"2026-12-01T15:00:00.000Z",'
+    '"selectedAt":"2026-12-01T15:00:00.000Z","horizonSeconds":604800,'
+    '"projectedMomentum":50,"projectedPressure":5,"uncertainty":30,'
+    '"projectedRiskScore":2,"confidenceBand":"moderate",'
+    '"modelVersion":"trajectory-consequence-v4",'
+    '"assumptions":["Current completion and deferral rates remain directionally similar."],'
+    '"personContextRevision":null,"personContextSignalIds":[],'
+    '"assumptionsCorrectedAt":null,"observed":null,"origin":"automatic",'
+    '"calibrationMultiplier":1.5}';
+
 const List<String> _oldReceiptKeys = <String>[
   'schemaVersion',
   'id',
@@ -557,6 +574,7 @@ void main() {
       final Map<String, dynamic> json =
           jsonDecode(jsonEncode(manual.toJson())) as Map<String, dynamic>;
       expect(json['calibrationMultiplier'], 1.5);
+      expect(json['unadjustedUncertainty'], 15);
       expect(json['schemaVersion'], 3);
       expect(json['uncertainty'], 23);
       expect(json.keys, containsAll(_oldReceiptKeys));
@@ -565,6 +583,78 @@ void main() {
       expect(reread.calibrationMultiplier, 1.5);
       expect(reread.unadjustedUncertainty, 15);
       expect(jsonEncode(reread.toJson()), jsonEncode(manual.toJson()));
+    });
+
+    TrajectoryForecastReceipt underRule(
+      TrajectoryBaseline baseline,
+      int horizonDays,
+      double multiplier,
+    ) => TrajectoryForecastReceipt.fromScenario(
+      baseline: baseline,
+      outcome: const FutureConsequenceEngine()
+          .compare(
+            baseline: baseline,
+            generatedAt: trajectoryFixtureNow,
+            interventions: <TrajectoryIntervention>[
+              _keepGoing(horizonDays).intervention,
+            ],
+            calibration: TrajectoryCalibrationAdjustment(
+              multiplier: multiplier,
+              state: PredictiveCalibrationState.monitored,
+            ),
+          )
+          .outcomes
+          .single,
+      selectedAt: trajectoryFixtureNow,
+    );
+
+    test('a clamped 90-day width is stored even when it equals the shown '
+        'one', () {
+      final TrajectoryBaseline thin = trajectoryTestBaseline(
+        accountScope: _scope.v2Namespace!,
+        horizonDays: 90,
+        observationCount: 3,
+      );
+      for (final double multiplier in const <double>[1.5, 1.2]) {
+        final Map<String, dynamic> json = underRule(
+          thin,
+          90,
+          multiplier,
+        ).toJson();
+        expect(json['uncertainty'], 42);
+        expect(json['unadjustedUncertainty'], 42);
+        expect(
+          TrajectoryForecastReceipt.fromJson(json).unadjustedUncertainty,
+          42,
+        );
+      }
+    });
+
+    test('a narrowed width keeps the exact engine width', () {
+      final TrajectoryForecastReceipt narrowed = underRule(_baseline(), 7, .85);
+      expect(narrowed.uncertainty, 13);
+      expect(narrowed.unadjustedUncertainty, 15);
+      expect(narrowed.toJson()['unadjustedUncertainty'], 15);
+    });
+
+    test('a receipt with no rule has no stored width key', () {
+      expect(
+        _receiptAt(
+          trajectoryFixtureNow,
+        ).toJson().containsKey('unadjustedUncertainty'),
+        isFalse,
+      );
+    });
+
+    test('a receipt written between the review rounds (multiplier, no stored '
+        'width) round-trips byte for byte', () {
+      final TrajectoryForecastReceipt receipt =
+          TrajectoryForecastReceipt.fromJson(
+            jsonDecode(_storedRound2Multiplier) as Map<String, dynamic>,
+          );
+      expect(receipt.rawUncertainty, isNull);
+      expect(receipt.unadjustedUncertainty, 20);
+      expect(jsonEncode(receipt.toJson()), _storedRound2Multiplier);
     });
   });
 

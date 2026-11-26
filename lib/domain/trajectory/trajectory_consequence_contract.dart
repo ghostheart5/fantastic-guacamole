@@ -483,7 +483,9 @@ class TrajectoryScenarioOutcome {
     required this.utilityScore,
     this.modelVersion = trajectoryConsequenceModelVersion,
     this.calibrationMultiplier = 1.0,
-  }) : goals = List<GoalDelayProjection>.unmodifiable(goals),
+    int? unadjustedUncertainty,
+  }) : unadjustedUncertainty = unadjustedUncertainty ?? uncertainty,
+       goals = List<GoalDelayProjection>.unmodifiable(goals),
        evidence = List<String>.unmodifiable(evidence),
        assumptions = List<String>.unmodifiable(assumptions);
 
@@ -508,6 +510,10 @@ class TrajectoryScenarioOutcome {
   /// The multiplier recorded forecast accuracy applied to [uncertainty]
   /// (1.0 when none was applied).
   final double calibrationMultiplier;
+
+  /// The engine's own width (after its 8..42 clamp) before
+  /// [calibrationMultiplier] was applied; equals [uncertainty] when none was.
+  final int unadjustedUncertainty;
 }
 
 class TrajectoryComparison {

@@ -276,6 +276,7 @@ class FutureConsequenceEngine {
           'Projected risk is ${risk.band.name}; ${timeline.summary}',
       utilityScore: utility,
       calibrationMultiplier: calibration?.multiplier ?? 1.0,
+      unadjustedUncertainty: baseUncertainty,
     );
   }
 

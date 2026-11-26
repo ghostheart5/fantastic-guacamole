@@ -80,6 +80,108 @@ TrajectoryForecastReceipt _receipt({
 }
 
 void main() {
+  group('the engine width is stored, never reconstructed', () {
+    /// A 90-day receipt: the engine's own width is clamped to 42, so under
+    /// x1.5 the shown width is still 42.
+    TrajectoryForecastReceipt ninetyDay(
+      int week, {
+      required TrajectoryCalibrationAdjustment rule,
+      required int observedMomentum,
+    }) {
+      final DateTime selected = _selected.add(Duration(days: 7 * week));
+      return TrajectoryForecastReceipt(
+        id: 'ninety-$week',
+        accountScope: 'v2.test-account',
+        baselineRevision: 'trajectory-v4-ninety-$week',
+        scenarioId: 'trajectory-v4-ninety-$week:maintain-course',
+        interventionType: TrajectoryInterventionType.maintainCourse,
+        generatedAt: selected,
+        selectedAt: selected,
+        horizon: const Duration(days: 90),
+        projectedMomentum: 50,
+        projectedPressure: 5,
+        uncertainty: rule.apply(42),
+        projectedRiskScore: 20,
+        confidenceBand: PredictiveConfidenceBand.low,
+        modelVersion: trajectoryConsequenceModelVersion,
+        calibrationMultiplier: rule.multiplier,
+        rawUncertainty: rule.multiplier == 1.0 ? null : 42,
+      ).resolve(
+        TrajectoryObservedOutcome(
+          observedAt: selected.add(const Duration(days: 90)),
+          momentum: observedMomentum,
+          pressure: 5,
+          completedInWindow: 5,
+          deferredInWindow: 1,
+        ),
+      );
+    }
+
+    const TrajectoryCalibrationAdjustment widening =
+        TrajectoryCalibrationAdjustment(
+          multiplier: 1.5,
+          state: PredictiveCalibrationState.monitored,
+        );
+
+    test('a 90-day receipt shown at 42 under x1.5 is judged at 42', () {
+      final TrajectoryForecastReceipt receipt = ninetyDay(
+        0,
+        rule: widening,
+        observedMomentum: 85,
+      );
+      expect(receipt.uncertainty, 42);
+      expect(receipt.unadjustedUncertainty, 42);
+      expect(
+        TrajectoryCalibrationSummary.fromReceipts(<TrajectoryForecastReceipt>[
+          receipt,
+        ]).intervalCoverage,
+        1,
+      );
+    });
+
+    test('a 90-day-only ledger whose errors sit inside 42 does not stay '
+        'widened', () {
+      final List<TrajectoryForecastReceipt> ledger =
+          <TrajectoryForecastReceipt>[];
+      final List<double> applied = <double>[];
+      for (int week = 0; week < 40; week++) {
+        final TrajectoryCalibrationAdjustment rule =
+            TrajectoryCalibrationAdjustment.fromSummary(
+              TrajectoryCalibrationSummary.fromReceipts(ledger),
+            );
+        applied.add(rule.multiplier);
+        // Three early misses (error 50), then always 35: inside +/-42.
+        ledger.add(
+          ninetyDay(week, rule: rule, observedMomentum: week < 3 ? 100 : 85),
+        );
+      }
+      expect(applied[3], 1.5, reason: '$applied');
+      expect(applied.skip(30), everyElement(isNot(1.5)), reason: '$applied');
+    });
+
+    test('a development receipt with a multiplier but no stored width falls '
+        'back to division', () {
+      final TrajectoryForecastReceipt receipt = TrajectoryForecastReceipt(
+        id: 'dev',
+        accountScope: 'v2.test-account',
+        baselineRevision: 'trajectory-v4-test',
+        scenarioId: 'trajectory-v4-test:maintain-course',
+        interventionType: TrajectoryInterventionType.maintainCourse,
+        generatedAt: _selected,
+        selectedAt: _selected,
+        horizon: const Duration(days: 7),
+        projectedMomentum: 60,
+        projectedPressure: 20,
+        uncertainty: 15,
+        projectedRiskScore: 30,
+        confidenceBand: PredictiveConfidenceBand.moderate,
+        modelVersion: trajectoryConsequenceModelVersion,
+        calibrationMultiplier: 1.5,
+      );
+      expect(receipt.unadjustedUncertainty, 10);
+    });
+  });
+
   group('the rule does not measure its own output', () {
     test('coverage is judged against the unadjusted width', () {
       // Recorded under x1.5: width 15 covers an error of 12, but the
