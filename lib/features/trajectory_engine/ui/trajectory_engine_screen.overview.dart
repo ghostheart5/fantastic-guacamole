@@ -87,7 +87,8 @@ class _KeepGoingSection extends StatelessWidget {
                   'Tareas en este periodo',
                 ),
                 value: '$inRange',
-                provenance: ProvenanceKind.recorded,
+                // A count of what is planned, not of anything recorded.
+                provenance: ProvenanceKind.plan,
               ),
               PlainMetricRow(
                 key: const Key('keep-going-finish'),

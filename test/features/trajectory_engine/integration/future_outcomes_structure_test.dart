@@ -139,8 +139,10 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('every projected value says Estimate and every recorded count '
-      'says From your records', (tester) async {
+  testWidgets('every projected value says Estimate, every recorded count '
+      'says From your records and planned counts From your plan', (
+    tester,
+  ) async {
     await pumpFutureOutcomes(tester);
     void expectLabel(Key key, String label) {
       expect(
@@ -151,7 +153,7 @@ void main() {
     }
 
     expectLabel(const Key('keep-going-workload'), 'Estimate');
-    expectLabel(const Key('keep-going-tasks'), 'From your records');
+    expectLabel(const Key('keep-going-tasks'), 'From your plan');
     expectLabel(const Key('keep-going-finish'), 'Estimate');
     expectLabel(const Key('selected-workload'), 'Estimate');
     expectLabel(const Key('selected-pace'), 'Estimate');
