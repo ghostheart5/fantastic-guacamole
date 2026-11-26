@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
-import 'package:fantastic_guacamole/data/repositories/assistant_conversation_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
@@ -67,55 +66,21 @@ Map<String, dynamic> _quote(Map<String, dynamic> body) => {
 final _quoteExpiry = DateTime.utc(2100);
 
 class _Server {
-  _Server({
-    this.balance = 25,
-    this.quoteFailure,
-    this.paidFailure,
-    List<Object>? paidScript,
-    this.message,
-  }) : paidScript = paidScript ?? [];
-  int balance;
-  final _Response? quoteFailure;
-  final _Response? paidFailure;
+  _Server({required this.message});
 
-  /// Answers for the next paid calls, in order: a response, or an error the
-  /// transport throws. Normal replies follow once it is used up.
-  final List<Object> paidScript;
-  final String? message;
-  int quotes = 0;
+  final String message;
   final paid = <Map<String, dynamic>>[];
 
   Future<_Response> call(Map<String, dynamic> body) async {
-    if (body['quoteOnly'] == true) {
-      quotes++;
-      return quoteFailure ?? (status: 200, data: _quote(body));
-    }
+    if (body['quoteOnly'] == true) return (status: 200, data: _quote(body));
     paid.add(body);
-    if (paidScript.isNotEmpty) {
-      final next = paidScript.removeAt(0);
-      if (next is Future<_Response>) return next;
-      if (next is _Response) return next;
-      throw next as Error;
-    }
-    if (paidFailure case final _Response failure) return failure;
-    if (balance < conversationMessageCredits) {
-      return (
-        status: 402,
-        data: <String, dynamic>{
-          'requestId': body['requestId'],
-          'error': 'insufficient_credits',
-          'remainingCredits': balance,
-        },
-      );
-    }
-    balance -= conversationMessageCredits;
     return (
       status: 200,
       data: <String, dynamic>{
         'requestId': body['requestId'],
-        'message': message ?? 'Reply ${paid.length}.',
+        'message': message,
         'creditsCharged': conversationMessageCredits,
-        'remainingCredits': balance,
+        'remainingCredits': 20,
         'model': 'transport-fixture',
       },
     );
@@ -268,7 +233,7 @@ Future<void> _ask(WidgetTester tester, String prompt, String language) async {
 // reports as `planner`, the Chat screen as `chat`.
 
 class _RecordingReports extends AiContentReportActions {
-  _RecordingReports(Ref ref, this.sent) : super(ref);
+  _RecordingReports(super.ref, this.sent);
 
   final List<({String text, String surface})> sent;
 
