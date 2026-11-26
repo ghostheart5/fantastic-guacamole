@@ -25,6 +25,8 @@ import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
+import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -316,6 +318,10 @@ void main() {
     bool externalAiAvailable = false,
     bool internalAdvisor = false,
     bool internalReleaseAccount = false,
+    AssistantReleaseStage releaseStage = AssistantReleaseStage.general,
+    Set<AssistantReleaseCapability> rolledBack =
+        const <AssistantReleaseCapability>{},
+    List<MemoryEntity>? memories,
   }) {
     final AccountStorageScope resolvedScope =
         accountScope ??
@@ -345,18 +351,20 @@ void main() {
           externalAiAvailableProvider.overrideWithValue(true),
           internalCreditTestEnabledProvider.overrideWithValue(false),
         ],
+        if (memories != null)
+          memoriesProvider.overrideWith(() => _FixedMemories(memories)),
         if (internalAdvisor)
           internalAdvisorAccessProvider.overrideWithValue(true),
         if (internalReleaseAccount)
           assistantReleaseConfigProvider.overrideWith(
             (Ref ref) async => AssistantReleaseConfig(
-              stage: AssistantReleaseStage.general,
+              stage: releaseStage,
               canaryBasisPoints: 0,
               shadowEvaluationEnabled: false,
               internalAccountDigests: <String>{
                 assistantReleaseAccountDigest(resolvedScope.v2Namespace!),
               },
-              rollbackCapabilities: const <AssistantReleaseCapability>{},
+              rollbackCapabilities: rolledBack,
             ),
           ),
         if (authService != null)
@@ -1933,6 +1941,155 @@ void main() {
     );
   }
 
+  for (final bool spanish in <bool>[false, true]) {
+    testWidgets(
+      '${spanish ? 'es' : 'en'}: the memory intro says Chat saves no memories and its history is separate',
+      (WidgetTester tester) async {
+        useTallSurface(tester);
+        final String memoryLabel = spanish
+            ? 'LO QUE AXIOMARA RECUERDA'
+            : 'WHAT AXIOMARA REMEMBERS';
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: createContainer(),
+            child: MaterialApp(
+              locale: Locale(spanish ? 'es' : 'en'),
+              supportedLocales: ChronoSparkLocalizations.supportedLocales,
+              localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+                ChronoSparkLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: const SettingsScreen(),
+            ),
+          ),
+        );
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.tap(
+          find.text(
+            spanish ? 'Planificación y orientación' : 'Planning & guidance',
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.scrollUntilVisible(
+          find.text(memoryLabel),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+
+        expect(
+          find.textContaining(
+            spanish
+                ? 'Chat nunca guarda memorias. Su historial de conversación se guarda en este dispositivo para tu cuenta y es independiente: abre Chat y elige Borrar conversación para eliminarlo.'
+                : 'Chat never saves memories. Its conversation history is saved on this device for your account and is separate: open Chat and choose Clear conversation to delete it.',
+          ),
+          findsOneWidget,
+        );
+        expect(find.textContaining('long-term'), findsNothing);
+        expect(find.textContaining('largo plazo'), findsNothing);
+      },
+    );
+  }
+
+  for (final int count in <int>[1, 2]) {
+    testWidgets('Spanish memory count for $count kept item(s) agrees in number', (
+      WidgetTester tester,
+    ) async {
+      useTallSurface(tester);
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'settings-test-account',
+      );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: createContainer(
+            accountScope: scope,
+            memories: <MemoryEntity>[
+              for (int i = 0; i < count; i++)
+                MemoryEntity(
+                  id: 'm$i',
+                  text: 'kept $i',
+                  date: DateTime.utc(2026, 9, 1),
+                  accountScopeId: scope.v2Namespace!,
+                ),
+            ],
+          ),
+          child: const MaterialApp(
+            locale: Locale('es'),
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: <LocalizationsDelegate<dynamic>>[
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: SettingsScreen(),
+          ),
+        ),
+      );
+      addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.tap(find.text('Planificación y orientación'));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.scrollUntilVisible(
+        find.text('LO QUE AXIOMARA RECUERDA'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      final Finder one = find.text(
+        '1 guardado · solo de tu cuenta, solo donde se creó, y caduca',
+      );
+      final Finder many = find.text(
+        '$count guardados · solo de tu cuenta, solo donde se crearon, y caducan',
+      );
+      await tester.scrollUntilVisible(
+        count == 1 ? one : many,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(one, count == 1 ? findsOneWidget : findsNothing);
+      expect(many, count == 1 ? findsNothing : findsOneWidget);
+    });
+  }
+
+  for (final bool rollback in <bool>[false, true]) {
+    testWidgets(
+      'an internal-list account still sees the release status when the stage is ${rollback ? 'rolled back' : 'off'}',
+      (WidgetTester tester) async {
+        useTallSurface(tester);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: createContainer(
+              internalReleaseAccount: true,
+              releaseStage: rollback
+                  ? AssistantReleaseStage.general
+                  : AssistantReleaseStage.off,
+              rolledBack: rollback
+                  ? AssistantReleaseCapability.values.toSet()
+                  : const <AssistantReleaseCapability>{},
+            ),
+            child: const MaterialApp(home: SettingsScreen()),
+          ),
+        );
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.tap(find.text('Planning & guidance'));
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.scrollUntilVisible(
+          find.text('ASSISTANT RELEASE CONTROL'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+
+        expect(find.text('ASSISTANT RELEASE CONTROL'), findsOneWidget);
+        expect(find.text('Leave the assistant beta'), findsNothing);
+      },
+    );
+  }
+
   testWidgets('Context entry opens its governance controls directly', (
     WidgetTester tester,
   ) async {
@@ -2814,4 +2971,13 @@ class _NoTasks implements ITaskRepository {
   Future<void> saveTask(TaskEntity task) async {}
   @override
   Future<void> deleteTask(String id) async {}
+}
+
+class _FixedMemories extends MemoriesNotifier {
+  _FixedMemories(this._items);
+
+  final List<MemoryEntity> _items;
+
+  @override
+  List<MemoryEntity> build() => _items;
 }

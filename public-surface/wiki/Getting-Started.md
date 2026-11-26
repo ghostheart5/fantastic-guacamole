@@ -16,7 +16,7 @@ Use **Today** to choose a manageable step. Complete a task only after doing it; 
 
 ## 4. Get help when useful
 
-In **Chat**, select the context you want to share and ask a specific question. "On this device · free" and AI chat questions are separate. Review consent and the displayed credit quote before sending a paid question; you do not need a paid question to keep planning.
+In **Chat**, select the context you want to share and ask a specific question. "On this device · free" and AI chat questions (which send information to an external AI service) are separate. Review consent and the displayed credit quote before sending a paid question; you do not need a paid question to keep planning.
 
 ## 5. Compare a possibility
 

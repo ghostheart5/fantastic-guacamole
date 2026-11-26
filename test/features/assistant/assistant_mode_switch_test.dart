@@ -80,6 +80,31 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   for (final language in ['en', 'es']) {
+    testWidgets(
+      '$language on-device choice is announced once and keeps its tooltip',
+      (tester) async {
+        final container = setup((_) async => throw StateError('no AI'));
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        final semantics = tester.ensureSemantics();
+        await _pump(tester, container, language: language);
+        await waitForChatReady(tester);
+        final label = language == 'es'
+            ? 'En este dispositivo · gratis'
+            : 'On this device · free';
+
+        // The tooltip still exists for pointer users...
+        expect(find.byTooltip(label), findsOneWidget);
+        final tooltip = tester.widget<Tooltip>(find.byTooltip(label));
+        expect(tooltip.excludeFromSemantics, isTrue);
+        // ...and the label is still announced, by the button itself.
+        expect(find.bySemanticsLabel(label), findsWidgets);
+        semantics.dispose();
+      },
+    );
+
     testWidgets('$language switches both ways and carries the typed text', (
       tester,
     ) async {

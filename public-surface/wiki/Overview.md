@@ -4,6 +4,6 @@
 
 Axiomara connects planning, action and reflection. Capture a task, goal, habit or note; review it in My plan; use Schedule for time; record what happened; then explore Activity and Insights.
 
-The comparison controls in Insights let you compare modeled outcomes while leaving saved records unchanged. The Assistant can help examine a question using the context you select. "On this device · free" is separate from quoted AI chat questions; Settings is the reference for your account's credits and controls.
+The comparison controls in Insights let you compare modeled outcomes while leaving saved records unchanged. The Assistant can help examine a question using the context you select. "On this device · free" is separate from quoted AI chat questions (which send information to an external AI service); Settings is the reference for your account's credits and controls.
 
-Start with [[Getting Started|Getting-Started]]. Use [[comparisons in Insights|Trajectory-Engine]] for comparisons, [[Chat|Smart-Planner]] for questions and [[Release Notes|Release-Notes]] to distinguish tested changes from public availability. A chart or response is guidance, not a guaranteed outcome.
+Start with [[Getting Started|Getting-Started]]. Use [[comparisons in Insights|Trajectory-Engine]] for comparisons, [[Choose a step|Smart-Planner]] for questions and [[Release Notes|Release-Notes]] to distinguish tested changes from public availability. A chart or response is guidance, not a guaranteed outcome.

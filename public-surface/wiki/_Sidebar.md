@@ -4,7 +4,7 @@
 - [[Today|Nexus]]
 - [[Add something|Creator]]
 - [[My plan and Schedule|Timeline]]
-- [[Chat|Smart-Planner]]
+- [[Choose a step|Smart-Planner]]
 - [[Chat|SI-CONSOLE]]
 - [[Predictions|Trajectory-Engine]]
 - [[Activity|Progression]]

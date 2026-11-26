@@ -8,4 +8,4 @@ Select only relevant context. Review the displayed credit quote and consent befo
 
 Read the result for evidence, uncertainty and a realistic next step. Do not treat a generated explanation as a diagnosis or a guarantee. A scenario is a preview; it does not edit your saved plan or authorize purchases.
 
-[[Chat|Smart-Planner]] · [[Predictions|Trajectory-Engine]] · [[Settings]]
+[[Choose a step|Smart-Planner]] · [[Predictions|Trajectory-Engine]] · [[Settings]]

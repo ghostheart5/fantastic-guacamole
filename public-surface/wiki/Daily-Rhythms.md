@@ -56,7 +56,7 @@ Add something → Schedule → Today
 - [[Schedule|Timeline]] helps you schedule and review the action in context.
 - [[Today|Nexus]] uses your current inputs and state to surface situational awareness and a next-best action.
 
-[[Chat|Smart Planner]] can use relevant planning context to help reconcile an explainable plan. [[Chat|SI Console]] can use relevant context for deeper strategic investigation and guidance. Neither surface guarantees a recommendation, schedule, or progress outcome for every habit; review your plan and choose the action that fits your situation.
+[[Choose a step|Smart Planner]] can use relevant planning context to help reconcile an explainable plan. [[Chat|SI Console]] can use relevant context for deeper strategic investigation and guidance. Neither surface guarantees a recommendation, schedule, or progress outcome for every habit; review your plan and choose the action that fits your situation.
 
 [[Predictions|Trajectory Engine]] and [[Activity|Progression]] may use broader system context for future direction and evidence-backed progress.
 
@@ -84,6 +84,6 @@ Use **habits** in Axiomara documentation and support material. Some internal or 
 [[Goals|Goals]]
 [[Schedule|Timeline]]
 [[Today|Nexus]]
-[[Chat|Smart Planner]]
+[[Choose a step|Smart Planner]]
 [[Chat|SI Console]]
 [[Core Concepts|Core Concepts]]

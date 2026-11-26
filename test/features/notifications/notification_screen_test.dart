@@ -207,6 +207,13 @@ void main() {
       'Tarea omitida',
       'Stretch se omitió. El asistente adaptará la próxima elección.',
     ),
+    (
+      'Task Skipped',
+      // Saved before the rename, still says "SI".
+      'Stretch skipped. SI will adapt the next pick.',
+      'Tarea omitida',
+      'Stretch se omitió. El asistente adaptará la próxima elección.',
+    ),
   ]) {
     testWidgets('an English "$rawMessage" record reads in Spanish', (
       tester,
@@ -226,6 +233,26 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('an English record saved before the rename no longer says SI', (
+    tester,
+  ) async {
+    await pumpNotifications(tester, <NotificationEntity>[
+      NotificationEntity(
+        id: 'notification-en-old',
+        title: 'Task Skipped',
+        message: 'Stretch skipped. SI will adapt the next pick.',
+        scheduledAt: DateTime.utc(2026, 8, 6, 22),
+        isEnabled: false,
+      ),
+    ]);
+
+    expect(
+      find.text('Stretch skipped. The Assistant will adapt the next pick.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('SI will'), findsNothing);
+  });
 
   NotificationEntity goalDueTomorrow({
     NotificationScheduleResult? result,

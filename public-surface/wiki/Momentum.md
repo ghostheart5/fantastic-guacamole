@@ -68,7 +68,7 @@ Momentum can inform future planning, but it is not a scenario comparison and it 
 
 ### Momentum and Chat
 
-[[Chat|Smart Planner]] can provide explainable planning assistance, and [[Chat|SI Console]] can support deeper strategic investigation. Momentum is only one possible piece of context. Review any guidance before acting.
+[[Choose a step|Smart Planner]] can provide explainable planning assistance, and [[Chat|SI Console]] can support deeper strategic investigation. Momentum is only one possible piece of context. Review any guidance before acting.
 
 ## What Momentum is not
 
@@ -92,6 +92,6 @@ Use the signal to make a kinder, more realistic next choice—not to demand perf
 [[habits|Daily Rhythms]]
 [[Goals|Goals]]
 [[Tasks|Tasks]]
-[[Chat|Smart Planner]]
+[[Choose a step|Smart Planner]]
 [[Chat|SI Console]]
 [[FAQ|FAQ]]

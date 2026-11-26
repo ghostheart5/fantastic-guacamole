@@ -22,7 +22,7 @@ Start with [Getting Started](Getting-Started), then use [Daily Workflow](Daily-W
 
 ## Your choices stay yours
 
-A comparison is a preview, not a change to your saved plan. AI suggestions need your review. "On this device · free" is separate from AI chat questions with a displayed credit quote. Settings shows your account's allowance and balance; eligibility and availability can differ.
+A comparison is a preview, not a change to your saved plan. AI suggestions need your review. "On this device · free" is separate from AI chat questions (which send information to an external AI service) with a displayed credit quote. Settings shows your account's allowance and balance; eligibility and availability can differ.
 
 Axiomara has no ads. Modeled outcomes have assumptions and uncertainty; neither forecasts nor AI responses guarantee results or replace qualified professional help.
 
