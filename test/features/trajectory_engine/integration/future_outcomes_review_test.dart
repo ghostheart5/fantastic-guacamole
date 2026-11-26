@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -131,6 +132,65 @@ void main() {
     await settleFutureOutcomes(tester);
     expect(f.actions.log, <String>['complete:task-a']);
     expect(find.byType(AlertDialog), findsNothing);
+  });
+
+  testWidgets('complete A, the planner then shows B: the card for B does '
+      'not say "picked"', (WidgetTester tester) async {
+    final _Fixture f = await _pump(
+      tester,
+      accountA,
+      options: const <String>['maintain', 'complete', 'reduce'],
+      // Below the recommendation gate, so no option is "Recommended" and the
+      // label says whether the person picked it.
+      observationCount: 4,
+    );
+    final Finder selected = find.byKey(const Key('future-outcomes-selected'));
+    await _choose(tester, 'Complete Draft the proposal');
+    expect(
+      find.descendant(of: selected, matching: find.text('Option you picked')),
+      findsOneWidget,
+    );
+    await _review(tester, 'Mark done…');
+    await tester.tap(find.text('Done'));
+    await settleFutureOutcomes(tester);
+    expect(f.actions.log, <String>['complete:task-a']);
+    // A leaves the plan; the planner's options now finish B instead.
+    f.container.read(_options.notifier).set(const <String>[
+      'maintain',
+      'completeB',
+      'reduce',
+    ]);
+    await settleFutureOutcomes(tester);
+    await _reveal(tester, selected);
+    expect(
+      find.descendant(
+        of: selected,
+        matching: find.text('Complete Prepare the review'),
+      ),
+      findsWidgets,
+    );
+    expect(
+      find.descendant(of: selected, matching: find.text('Option you picked')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: selected, matching: find.text('Option shown')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a range change keeps the picked option and its label', (
+    WidgetTester tester,
+  ) async {
+    await _pump(tester, accountA, observationCount: 4);
+    final Finder selected = find.byKey(const Key('future-outcomes-selected'));
+    await _choose(tester, 'Complete Draft the proposal');
+    await tapFutureOutcomes(tester, find.text('30 days'));
+    await _reveal(tester, selected);
+    expect(
+      find.descendant(of: selected, matching: find.text('Option you picked')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('reduce: the edit dialog for its task with the note and no '
@@ -463,6 +523,11 @@ final _tasks = NotifierProvider<FutureOutcomesValue<List<Task>>, List<Task>>(
   () => FutureOutcomesValue<List<Task>>(<Task>[]),
 );
 
+final _options =
+    NotifierProvider<FutureOutcomesValue<List<String>>, List<String>>(
+      () => FutureOutcomesValue<List<String>>(<String>[]),
+    );
+
 /// Records writes instead of touching storage; a saved time becomes the
 /// task's time, as the repository would make it.
 class _RecordingActions extends TaskActions {
@@ -547,6 +612,7 @@ Future<_Fixture> _pump(
   Size size = const Size(900, 2400),
   double textScale = 1,
   List<String> options = const <String>['delay', 'complete', 'reduce'],
+  int observationCount = 12,
 }) async {
   final List<int> refreshes = <int>[];
   late _RecordingActions actions;
@@ -555,12 +621,24 @@ Future<_Fixture> _pump(
     locale: locale,
     size: size,
     textScale: textScale,
-    modelFor: (int days) => futureOutcomesModel(
-      days: days,
-      comparison: _comparison(days, scope.v2Namespace!, options),
-      decision: futureOutcomesDecision(firstSummary: true),
-    ),
+    defaultModel: false,
     extraOverrides: [
+      // The options follow [_options], so a test can change them while the
+      // screen is shown (as the planner does after a task is finished).
+      _options.overrideWith(() => FutureOutcomesValue<List<String>>(options)),
+      trajectoryEngineModelProvider.overrideWith((Ref ref) {
+        final int days = ref.watch(trajectoryHorizonDaysProvider);
+        return futureOutcomesModel(
+          days: days,
+          comparison: _comparison(
+            days,
+            scope.v2Namespace!,
+            ref.watch(_options),
+            observationCount: observationCount,
+          ),
+          decision: futureOutcomesDecision(firstSummary: true),
+        );
+      }),
       _scope.overrideWith(
         () => FutureOutcomesValue<AccountStorageScope>(scope),
       ),
@@ -591,12 +669,14 @@ Future<_Fixture> _pump(
 TrajectoryComparison _comparison(
   int days,
   String accountScope,
-  List<String> ids,
-) {
+  List<String> ids, {
+  int observationCount = 12,
+}) {
   final Duration horizon = Duration(days: days);
   final TrajectoryBaseline baseline = futureOutcomesBaseline(
     days: days,
     accountScope: accountScope,
+    observationCount: observationCount,
   );
   final Map<String, TrajectoryIntervention> all =
       <String, TrajectoryIntervention>{
@@ -619,7 +699,17 @@ TrajectoryComparison _comparison(
     generatedAt: trajectoryFixtureNow,
     interventions: <TrajectoryIntervention>[
       for (final String id in ids)
-        if (id == 'recover')
+        if (id == 'completeB')
+          TrajectoryIntervention(
+            id: 'complete-task-b',
+            type: TrajectoryInterventionType.completeTask,
+            title: 'Complete Prepare the review',
+            horizon: horizon,
+            description:
+                'Model this commitment as completed, then compare capacity, risk, goal timing, and progress consequences.',
+            subjectId: 'task-b',
+          )
+        else if (id == 'recover')
           TrajectoryIntervention(
             id: 'recover-task-b',
             type: TrajectoryInterventionType.recoverCommitment,

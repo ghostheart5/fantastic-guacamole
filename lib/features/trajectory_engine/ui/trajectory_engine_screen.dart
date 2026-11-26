@@ -451,14 +451,17 @@ class _TrajectoryEngineScreenState
   }
 
   /// Whether [outcome] is shown because the person chose it (rather than
-  /// as the recommended or first option).
+  /// as the recommended or first option): the same option, or the same kind
+  /// of option about the same task (a range change). A fallback to the same
+  /// kind of option about another task is "Option shown", not "picked".
   bool _pickedByPerson(TrajectoryScenarioOutcome outcome) {
     final _OptionSelection? selection = _selection;
     if (selection == null) return false;
     return outcome.intervention.id == selection.interventionId ||
         (!selection.isCustom &&
             !_isCustomOutcome(outcome) &&
-            outcome.intervention.type == selection.type);
+            outcome.intervention.type == selection.type &&
+            outcome.intervention.subjectId == selection.subjectId);
   }
 
   void _invalidateCustomFeedback() {

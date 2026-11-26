@@ -491,6 +491,7 @@ class _OptionSelection {
   const _OptionSelection(
     this.interventionId,
     this.type, {
+    this.subjectId,
     this.isCustom = false,
   });
 
@@ -498,15 +499,21 @@ class _OptionSelection {
       _OptionSelection(
         outcome.intervention.id,
         outcome.intervention.type,
+        subjectId: outcome.intervention.subjectId,
         isCustom: _isCustomOutcome(outcome),
       );
 
   const _OptionSelection.custom(this.interventionId)
     : type = null,
+      subjectId = null,
       isCustom = true;
 
   final String interventionId;
   final TrajectoryInterventionType? type;
+
+  /// The task the picked option was about, so a fallback to the same kind of
+  /// option about another task is not called the person's pick.
+  final String? subjectId;
   final bool isCustom;
 }
 
