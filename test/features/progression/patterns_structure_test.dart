@@ -239,28 +239,24 @@ void main() {
       expect(find.text('2 of 5 weeks'), findsOneWidget);
     });
 
-    testWidgets('no habits: a truthful empty state in both languages', (
-      tester,
-    ) async {
-      await pumpPatterns(tester);
-      expect(
-        inPatternsSection(
-          'patterns-habits',
-          find.text(
-            'No active habits yet. Add a habit and check in to see it here.',
-          ),
-        ),
-        findsOneWidget,
-      );
-      await pumpPatterns(tester, locale: const Locale('es'));
-      expect(
-        find.text(
-          'Aún no tienes hábitos activos. Añade un hábito y regístralo para '
-          'verlo aquí.',
-        ),
-        findsOneWidget,
-      );
-    });
+    for (final (String language, String sentence) in <(String, String)>[
+      ('en', 'No active habits yet. Add a habit and check in to see it here.'),
+      (
+        'es',
+        'Aún no tienes hábitos activos. Añade un hábito y regístralo para '
+            'verlo aquí.',
+      ),
+    ]) {
+      testWidgets('no habits: a truthful empty state ($language)', (
+        tester,
+      ) async {
+        await pumpPatterns(tester, locale: Locale(language));
+        expect(
+          inPatternsSection('patterns-habits', find.text(sentence)),
+          findsOneWidget,
+        );
+      });
+    }
   });
 
   group('trend', () {
@@ -371,27 +367,21 @@ void main() {
       });
     }
 
-    testWidgets('not enough: says how many of how many', (tester) async {
-      await pumpPatterns(tester, tasks: richTasks.take(4).toList());
-      expect(
-        inPatternsSection(
-          'patterns-when-done',
-          find.text(
-            'Not enough finished tasks yet to see a pattern: 4 of the 5 '
-            'needed.',
+    for (final int have in <int>[4, 0]) {
+      testWidgets('not enough: says $have of the 5 needed', (tester) async {
+        await pumpPatterns(tester, tasks: richTasks.take(have).toList());
+        expect(
+          inPatternsSection(
+            'patterns-when-done',
+            find.text(
+              'Not enough finished tasks yet to see a pattern: $have of the '
+              '5 needed.',
+            ),
           ),
-        ),
-        findsOneWidget,
-      );
-      await pumpPatterns(tester);
-      expect(
-        find.text(
-          'Not enough finished tasks yet to see a pattern: 0 of the 5 '
-          'needed.',
-        ),
-        findsOneWidget,
-      );
-    });
+          findsOneWidget,
+        );
+      });
+    }
 
     testWidgets('no single day stands out', (tester) async {
       await pumpPatterns(
@@ -632,7 +622,7 @@ void main() {
     expect(inPatternsSection(s, find.text('Share progress')), findsOneWidget);
   });
 
-  testWidgets('loading and error states of the patterns result', (
+  testWidgets('first read: no figures, level and points still shown', (
     tester,
   ) async {
     await pumpPatterns(
@@ -642,7 +632,13 @@ void main() {
     expect(find.text('Reading your records…'), findsOneWidget);
     expect(find.text('Habits'), findsNothing);
     expect(find.text('Level and points'), findsOneWidget);
+    // The spinner never settles; unmount it before the test ends.
+    await tester.pumpWidget(const SizedBox());
+  });
 
+  testWidgets('records that cannot be read: no figures, and Retry', (
+    tester,
+  ) async {
     await pumpPatterns(
       tester,
       state: (_) =>

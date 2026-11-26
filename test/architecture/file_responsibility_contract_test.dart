@@ -26,6 +26,10 @@ void main() {
       'trajectory_engine_screen.overview.dart',
       'trajectory_engine_screen.widgets.dart',
     ],
+    'lib/features/progression/ui/progression_screen.dart': <String>[
+      'progression_screen.copy.dart',
+      'progression_screen.sections.dart',
+    ],
     'lib/features/nexus/ui/nexus_screen.dart': <String>[
       'nexus_screen.widgets.dart',
       'nexus_screen.timeline_widgets.dart',

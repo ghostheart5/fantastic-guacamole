@@ -1,32 +1,33 @@
-import 'package:fantastic_guacamole/l10n/insights_copy.dart';
-import 'package:fantastic_guacamole/ui/navigation/insights_destination_switch.dart';
-import 'package:fantastic_guacamole/l10n/journey_copy.dart';
-
 import 'dart:async';
-import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
-import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/l10n/insights_copy.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
-import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
-import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
-import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/state/models/patterns_models.dart';
+import 'package:fantastic_guacamole/state/models/progression_state.dart';
+import 'package:fantastic_guacamole/state/providers/patterns_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
-import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
-import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
-import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
-import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
+import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
+import 'package:fantastic_guacamole/ui/navigation/insights_destination_switch.dart';
+import 'package:fantastic_guacamole/ui/widgets/plain/plain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+part 'progression_screen.copy.dart';
+part 'progression_screen.sections.dart';
+
 enum _ProgressionShareAction { progress, achievement }
 
+/// Patterns: what you recorded, built on the plain kit. Every figure is read
+/// from [patternsProvider] (records, or the plan for workload); nothing here
+/// is a prediction.
 class ProgressionScreen extends ConsumerStatefulWidget {
   const ProgressionScreen({super.key});
 
@@ -35,6 +36,9 @@ class ProgressionScreen extends ConsumerStatefulWidget {
 }
 
 class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
+  /// The ranges Patterns offers (the patterns engine accepts these two).
+  static const List<int> _ranges = <int>[7, 30];
+
   Future<bool> _confirmShare(
     BuildContext context, {
     required String title,
@@ -66,16 +70,20 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
         false;
   }
 
-  Future<void> _shareProgressCard(BuildContext context, WidgetRef ref) async {
+  Future<void> _shareProgressCard(BuildContext context) async {
     final profile = ref.read(profileProvider);
     final trajectory = ref.read(trajectorySummaryProvider);
+    final int pace = (trajectory.momentum * 100).round();
     final String text = journeyText(
       context,
-      'Axiomara Progress Snapshot\n'
-          'Level ${profile.level} • ${profile.xp} XP • Streak ${profile.streak}d\n'
-          'Momentum ${(trajectory.momentum * 100).round()}% • Completed tasks ${trajectory.completedTasks}\n'
+      'Axiomara progress snapshot\n'
+          'Level ${profile.level} · ${profile.xp} XP · ${profile.streak}-day streak\n'
+          'Pace $pace of 100 · ${trajectory.completedTasks} tasks finished\n'
           'Building steady progress with Axiomara: ${AppUrls.website}',
-      'Resumen de progreso de Axiomara\nNivel ${profile.level} • ${profile.xp} XP • Racha ${profile.streak}d\nImpulso ${(trajectory.momentum * 100).round()}% • Tareas completadas ${trajectory.completedTasks}\nProgresando con Axiomara: ${AppUrls.website}',
+      'Resumen de progreso de Axiomara\n'
+          'Nivel ${profile.level} · ${profile.xp} XP · Racha de ${profile.streak} días\n'
+          'Ritmo $pace de 100 · ${trajectory.completedTasks} tareas terminadas\n'
+          'Progresando con Axiomara: ${AppUrls.website}',
     );
 
     if (!await _confirmShare(
@@ -97,7 +105,7 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
           text: text,
           title: journeyText(
             context,
-            'Axiomara Progress Snapshot',
+            'Axiomara progress snapshot',
             'Resumen de progreso de Axiomara',
           ),
           subject: journeyText(
@@ -135,20 +143,22 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
     );
   }
 
-  Future<void> _shareAchievementCard(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
+  Future<void> _shareAchievementCard(BuildContext context) async {
     final profile = ref.read(profileProvider);
     final trajectory = ref.read(trajectorySummaryProvider);
+    final int pace = (trajectory.momentum * 100).round();
     final String text = journeyText(
       context,
-      'Axiomara Progress Milestone\n'
+      'Axiomara progress milestone\n'
           'Level ${profile.level} reached\n'
           'Current streak: ${profile.streak} days\n'
-          'Momentum ${(trajectory.momentum * 100).round()}%\n'
+          'Pace $pace of 100\n'
           'Build with Axiomara: ${AppUrls.website}',
-      'Progreso en Axiomara\nNivel ${profile.level} alcanzado\nRacha actual: ${profile.streak} días\nImpulso ${(trajectory.momentum * 100).round()}%\nConstruye con Axiomara: ${AppUrls.website}',
+      'Progreso en Axiomara\n'
+          'Nivel ${profile.level} alcanzado\n'
+          'Racha actual: ${profile.streak} días\n'
+          'Ritmo $pace de 100\n'
+          'Construye con Axiomara: ${AppUrls.website}',
     );
 
     if (!await _confirmShare(
@@ -170,7 +180,7 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
           text: text,
           title: journeyText(
             context,
-            'Axiomara Achievement',
+            'Axiomara achievement',
             'Logro de Axiomara',
           ),
           subject: journeyText(
@@ -208,904 +218,81 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final progression = ref.watch(progressionProvider);
-    final progress = progression.progress;
-
-    if (progression.loading) {
-      return const Scaffold(
-        body: SafeArea(child: Center(child: CircularProgressIndicator())),
-      );
-    }
-    if (progression.error != null) {
-      return Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text(
-                    journeyText(
-                      context,
-                      'Your saved progress could not be loaded. No zero-value progress is being shown.',
-                      'No se pudo cargar tu progreso guardado. No se muestran valores cero como si fueran reales.',
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () =>
-                        ref.read(profileProvider.notifier).retryLoad(),
-                    child: Text(journeyText(context, 'Retry', 'Reintentar')),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgProgressionAscension,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TemporalScreenHeader(
-                  title: InsightsCopy.of(context).patterns,
-                  subtitle: journeyText(
-                    context,
-                    'Review completed tasks and recorded milestones. You can start again at any time.',
-                    'Revisa tareas completadas e hitos registrados. Puedes volver a empezar cuando quieras.',
-                  ),
-                  eyebrow: journeyText(
-                    context,
-                    'Your recorded progress',
-                    'Tu progreso registrado',
-                  ),
-                  accent: AppColors.memoryAmber,
-                  trailing: PopupMenuButton<_ProgressionShareAction>(
-                    tooltip: journeyText(
-                      context,
-                      'Share progress',
-                      'Compartir progreso',
-                    ),
-                    color: const Color(0xFF101827),
-                    icon: const Icon(
-                      Icons.ios_share_rounded,
-                      color: AppColors.memoryAmber,
-                    ),
-                    onSelected: (_ProgressionShareAction action) async {
-                      switch (action) {
-                        case _ProgressionShareAction.progress:
-                          await _shareProgressCard(context, ref);
-                        case _ProgressionShareAction.achievement:
-                          await _shareAchievementCard(context, ref);
-                      }
-                    },
-                    itemBuilder: (BuildContext context) => [
-                      PopupMenuItem<_ProgressionShareAction>(
-                        value: _ProgressionShareAction.progress,
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.insights_rounded,
-                              color: AppColors.memoryAmber,
-                            ),
-                            const SizedBox(width: 10),
-                            Flexible(
-                              child: Text(
-                                journeyText(
-                                  context,
-                                  'Progress snapshot',
-                                  'Resumen de progreso',
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem<_ProgressionShareAction>(
-                        value: _ProgressionShareAction.achievement,
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.emoji_events_outlined,
-                              color: AppColors.neonCyan,
-                            ),
-                            const SizedBox(width: 10),
-                            Flexible(
-                              child: Text(
-                                journeyText(context, 'Achievement', 'Logro'),
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const InsightsDestinationSwitch(current: AppView.progression),
-                const SizedBox(height: 18),
-                _ProgressionOverview(
-                  level: progress.level,
-                  levelTitle: progress.levelTitle,
-                  levelProgress: progress.levelProgress,
-                  xpToNext: progress.xpToNext,
-                  streak: progress.streak,
-                  streakMessage: progress.streakMessage,
-                ),
-                const SizedBox(height: 18),
-                const TemporalDivider(color: AppColors.memoryAmber),
-                const SizedBox(height: 18),
-                const TemporalGlassSurface(
-                  accent: AppColors.memoryAmber,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      _ObservedContinuitySummary(),
-                      SizedBox(height: 18),
-                      _HabitHistorySummary(),
-                      SizedBox(height: 18),
-                      Divider(color: Colors.white12),
-                      SizedBox(height: 18),
-                      _XpProgressChartCard(),
-                      SizedBox(height: 18),
-                      Divider(color: Colors.white12),
-                      SizedBox(height: 18),
-                      _ProgressSignalsCard(),
-                      SizedBox(height: 18),
-                      Divider(color: Colors.white12),
-                      SizedBox(height: 18),
-                      _NarrativeCard(),
-                      SizedBox(height: 18),
-                      Divider(color: Colors.white12),
-                      SizedBox(height: 18),
-                      _AdvisorSummaryCard(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+  /// "Open My plan" when there is open work, "Add something" when there is
+  /// none; both record the first Patterns review, as the old advisor action
+  /// did.
+  void _openPlan({required bool hasWork}) {
+    _recordProgressionReview(ref);
+    goToAppView(context, ref, hasWork ? AppView.timeline : AppView.creator);
   }
-}
 
-class _ProgressionOverview extends StatelessWidget {
-  const _ProgressionOverview({
-    required this.level,
-    required this.levelTitle,
-    required this.levelProgress,
-    required this.xpToNext,
-    required this.streak,
-    required this.streakMessage,
-  });
-
-  final int level;
-  final String levelTitle;
-  final double levelProgress;
-  final int xpToNext;
-  final int streak;
-  final String streakMessage;
+  void _retryPatterns() {
+    ref.invalidate(patternsForAccountProvider);
+    ref.invalidate(patternsProvider);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final _PatternsCopy copy = _PatternsCopy.of(context);
+    final InsightsCopy names = InsightsCopy.of(context);
+    // The only read of Patterns: never copied into this state, so nothing
+    // can outlive an account switch. A loading state's value is this
+    // account's earlier result.
+    final AsyncValue<PatternsResult> patterns = ref.watch(patternsProvider);
+    final int rangeDays = ref.watch(patternsRangeDaysProvider);
+    final PatternsResult? result = patterns.hasError ? null : patterns.value;
+
+    return PlainScreen(
       children: <Widget>[
-        SizedBox.square(
-          dimension: 88,
-          child: Stack(
-            alignment: Alignment.center,
-            children: <Widget>[
-              SizedBox.square(
-                dimension: 78,
-                child: CircularProgressIndicator(
-                  value: levelProgress,
-                  strokeWidth: 5,
-                  backgroundColor: AppColors.memoryAmber.withValues(
-                    alpha: 0.14,
-                  ),
-                  color: AppColors.memoryAmber,
-                ),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text(
-                    '$level',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: AppColors.memoryAmber,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  Text(
-                    journeyText(context, 'LEVEL', 'NIVEL'),
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                journeyText(
-                  context,
-                  'LEVEL $level · TITLE: ${levelTitle.toUpperCase()}',
-                  'NIVEL $level · TÍTULO: ${journeyLabel(context, levelTitle).toUpperCase()}',
-                ),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.memoryAmber,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                journeyText(
-                  context,
-                  '$xpToNext XP until level ${level + 1}',
-                  '$xpToNext XP para el nivel ${level + 1}',
-                ),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white70,
-                  height: 1.4,
-                  letterSpacing: 0,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const Icon(
-                    Icons.local_fire_department_outlined,
-                    color: AppColors.memoryAmber,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      journeyText(
-                        context,
-                        '$streak day streak · $streakMessage',
-                        'Racha de $streak ${streak == 1 ? 'día' : 'días'} · ${journeyLabel(context, streakMessage)}',
-                      ),
-                      style: const TextStyle(
-                        color: Color(0xFFD7DFF0),
-                        fontSize: 12,
-                        height: 1.4,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _HabitHistorySummary extends ConsumerWidget {
-  const _HabitHistorySummary();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final history = ref.watch(habitOccurrencesProvider);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          journeyText(context, 'HABIT HISTORY', 'HISTORIAL DE HÁBITOS'),
-          style: const TextStyle(
-            color: AppColors.memoryAmber,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        history.when(
-          data: (items) {
-            final completed = items
-                .where(
-                  (item) => item.outcome == HabitOccurrenceOutcome.completed,
-                )
-                .length;
-            final skipped = items.length - completed;
-            return Text(
-              journeyText(
-                context,
-                'Completed periods: $completed · Skipped periods: $skipped. Each daily, weekly or monthly period counts once, using its latest saved outcome.',
-                '$completed períodos completados · $skipped omitidos. Cada período diario, semanal o mensual cuenta una vez, con su último resultado guardado.',
-              ),
-              key: const Key('progression-habit-history'),
-              style: const TextStyle(color: Color(0xFFC6D0E2), fontSize: 13),
-            );
-          },
-          loading: () => Text(
-            journeyText(
-              context,
-              'Loading saved habit outcomes…',
-              'Cargando resultados guardados de hábitos…',
-            ),
-          ),
-          error: (_, _) => TextButton(
-            onPressed: () => ref.invalidate(habitOccurrencesProvider),
-            child: Text(
-              journeyText(
-                context,
-                'Habit history unavailable — tap to retry',
-                'Historial de hábitos no disponible: toca para reintentar',
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ObservedContinuitySummary extends ConsumerWidget {
-  const _ObservedContinuitySummary();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final review = ref.watch(progressionReviewProvider);
-    final ProgressionReviewStatus? status = review.asData?.value.status;
-    if (review.hasError ||
-        review.isLoading ||
-        status != ProgressionReviewStatus.ready) {
-      final String availability =
-          review.hasError || status == ProgressionReviewStatus.unavailable
-          ? journeyText(
-              context,
-              'Saved continuity evidence is unavailable. Retry the progress review below.',
-              'La evidencia de continuidad guardada no está disponible. Reintenta la revisión de progreso más abajo.',
-            )
-          : status == ProgressionReviewStatus.empty
-          ? journeyText(
-              context,
-              'No saved planning history yet. Record an outcome to begin a continuity review.',
-              'Aún no hay historial de planificación guardado. Registra un resultado para iniciar una revisión de continuidad.',
-            )
-          : journeyText(
-              context,
-              'Loading saved continuity evidence. Ratings will appear when it is ready.',
-              'Cargando la evidencia de continuidad guardada. Las valoraciones aparecerán cuando esté lista.',
-            );
-      return Text(
-        availability,
-        key: const Key('progression-continuity-availability'),
-        style: const TextStyle(color: Color(0xFFC6D0E2), fontSize: 13),
-      );
-    }
-    final profile = ref.watch(profileProvider);
-    final trajectory = ref.watch(trajectorySummaryProvider);
-    final milestoneSummary = ref.watch(milestoneSummaryProvider);
-    final int timelineMilestones = ref
-        .watch(timelineProvider)
-        .where((event) => event.isMilestone)
-        .length;
-    final String milestoneText =
-        milestoneSummary.total == 0 && timelineMilestones == 0
-        ? journeyText(
-            context,
-            'No milestones recorded yet.',
-            'Aún no hay hitos registrados.',
-          )
-        : journeyText(
-            context,
-            'Tracked milestones completed: ${milestoneSummary.completed} of ${milestoneSummary.total}. Milestone events in your schedule: $timelineMilestones (a separate count).',
-            'Hitos registrados completados: ${milestoneSummary.completed} de ${milestoneSummary.total}. Eventos de hito en tu agenda: $timelineMilestones (un recuento aparte).',
-          );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          journeyText(context, 'SAVED PROGRESS', 'PROGRESO GUARDADO'),
-          style: const TextStyle(
-            color: AppColors.memoryAmber,
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0,
-          ),
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: <Widget>[
-            _ProgressMetric(
-              label: journeyText(context, 'TASKS DONE', 'TAREAS HECHAS'),
-              value: '${trajectory.completedTasks}',
-              color: AppColors.neonCyan,
-            ),
-            const _ProgressMetricDivider(),
-            _ProgressMetric(
-              label: journeyText(context, 'STREAK', 'RACHA'),
-              value: '${profile.streak}d',
-              color: AppColors.neonViolet,
-            ),
-            const _ProgressMetricDivider(),
-            _ProgressMetric(
-              label: journeyText(context, 'PRESSURE', 'PRESIÓN'),
-              value: '${trajectory.pressureIndex}/100',
-              color: AppColors.memoryAmber,
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Text(
-          journeyText(
-            context,
-            'The task total comes from saved completion history. The 30-day chart below counts recent tasks and goals, so the totals can differ.',
-            'El total de tareas usa el historial de finalizaciones guardado. El gráfico de 30 días de abajo cuenta tareas y metas recientes, así que los totales pueden ser distintos.',
-          ),
-          style: const TextStyle(
-            color: Color(0xFFC6D0E2),
-            fontSize: 12,
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          milestoneText,
-          style: const TextStyle(
-            color: Color(0xFFC6D0E2),
-            fontSize: 12,
-            height: 1.4,
-            letterSpacing: 0,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ProgressMetric extends StatelessWidget {
-  const _ProgressMetric({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: <Widget>[
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              value,
-              style: TextStyle(
-                color: color,
-                fontSize: 21,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProgressMetricDivider extends StatelessWidget {
-  const _ProgressMetricDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 40,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      color: Colors.white12,
-    );
-  }
-}
-
-class _ProgressSignalsCard extends ConsumerWidget {
-  const _ProgressSignalsCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final signals = ref.watch(progressSignalsProvider);
-    final execution = ref.watch(executionSignalsProvider);
-    final String followThrough = execution.actioned7d == 0
-        ? 'Not enough evidence'
-        : '${(execution.completionRate7d * 100).round()}% completed';
-    final double? trend = execution.actioned7d == 0
-        ? null
-        : execution.completionTrendDelta;
-    final String direction = trend == null
-        ? 'Not enough history'
-        : trend >= 0.1
-        ? 'Improving'
-        : trend <= -0.1
-        ? 'Declining'
-        : 'Steady';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 2,
-              height: 14,
-              decoration: BoxDecoration(
-                color: AppColors.neonCyan,
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              journeyText(
-                context,
-                'CAPABILITY SIGNALS',
-                'SEÑALES DE CAPACIDAD',
-              ),
-              style: const TextStyle(
-                fontSize: 11,
-                letterSpacing: 0,
-                color: AppColors.neonCyan,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        _SignalRow(
-          label: journeyText(context, 'Follow-through', 'Cumplimiento'),
-          value: journeyText(
-            context,
-            followThrough,
-            execution.actioned7d == 0
-                ? 'Evidencia insuficiente'
-                : '${(execution.completionRate7d * 100).round()}% completadas',
-          ),
-        ),
-        const SizedBox(height: 10),
-        _SignalRow(
-          label: journeyText(
-            context,
-            'Planning reliability',
-            'Fiabilidad de planificación',
-          ),
-          value: journeyText(
-            context,
-            signals.consistency,
-            'Racha de ${ref.watch(profileProvider).streak} días',
-          ),
-        ),
-        const SizedBox(height: 10),
-        _SignalRow(
-          label: journeyText(context, 'Recovery load', 'Carga de recuperación'),
-          value: signals.load,
-        ),
-        const SizedBox(height: 10),
-        _SignalRow(
-          label: journeyText(context, 'Recent direction', 'Tendencia reciente'),
-          value: direction,
-        ),
+        PlainHeader(title: names.tabName),
         const SizedBox(height: 12),
-        Text(
-          journeyText(
-            context,
-            '${execution.completed7d} of ${execution.actioned7d} recorded outcomes '
-                'completed in the last 7 days. Direction compares that rate with '
-                'the previous 7 days.',
-            '${execution.completed7d} de ${execution.actioned7d} resultados registrados se completaron en los últimos 7 días. La tendencia compara esa tasa con la de los 7 días anteriores.',
-          ),
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 12,
-            height: 1.45,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SignalRow extends StatelessWidget {
-  const _SignalRow({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  Color _valueColor() {
-    switch (value) {
-      case 'High':
-      case 'On Track':
-      case 'Light':
-      case 'Improving':
-        return AppColors.neonCyan;
-      case 'Medium':
-      case 'Balanced':
-      case 'Slightly Off':
-      case 'Steady':
-        return AppColors.memoryAmber;
-      case 'Low':
-      case 'Heavy':
-      case 'Off Track':
-      case 'Declining':
-        return AppColors.recallRed;
-      default:
-        return Colors.white70;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFFD7DFF0),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Flexible(
-          child: Text(
-            journeyLabel(context, value),
-            textAlign: TextAlign.end,
-            style: TextStyle(
-              color: _valueColor(),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _NarrativeCard extends ConsumerWidget {
-  const _NarrativeCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final narrative = ref.watch(narrativeProvider);
-    final execution = ref.watch(executionSignalsProvider);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          journeyText(
-            context,
-            'WHAT YOUR ACTIONS ARE CHANGING',
-            'LO QUE ESTÁN CAMBIANDO TUS ACCIONES',
-          ),
-          style: const TextStyle(
-            fontSize: 11,
-            letterSpacing: 0,
-            color: AppColors.neonViolet,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          journeyText(context, narrative.summary, narrative.spanishSummary),
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          execution.actioned7d == 0
-              ? journeyText(
-                  context,
-                  'No completed, skipped, or delayed outcomes were recorded in '
-                      'the last 7 days. Your next recorded action will help '
-                      'establish a baseline.',
-                  'No se registraron resultados completados, omitidos ni aplazados en los últimos 7 días. Tu próxima acción registrada ayudará a establecer una referencia.',
-                )
-              : journeyText(
-                  context,
-                  '${execution.completed7d} of ${execution.actioned7d} recorded '
-                      'outcomes completed in the last 7 days. Each recorded '
-                      'outcome adds to your follow-through evidence.',
-                  '${execution.completed7d} de ${execution.actioned7d} resultados registrados se completaron en los últimos 7 días. Cada resultado aporta evidencia de tu cumplimiento.',
-                ),
-          style: const TextStyle(
-            color: Color(0xFFC6D0E2),
-            fontSize: 13,
-            height: 1.4,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AdvisorSummaryCard extends ConsumerWidget {
-  const _AdvisorSummaryCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final summaryAsync = ref.watch(progressionReviewProvider);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          journeyText(
-            context,
-            'NEXT CAPABILITY TO PRACTICE',
-            'PRÓXIMA CAPACIDAD A PRACTICAR',
-          ),
-          style: const TextStyle(
-            fontSize: 11,
-            letterSpacing: 0,
-            color: AppColors.memoryAmber,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 10),
-        summaryAsync.when(
-          data: (summary) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                journeyText(
-                  context,
-                  summary.text,
-                  summary.spanishText ?? summary.text,
-                ),
-                style: const TextStyle(
-                  color: Color(0xFFD7DFF0),
-                  fontSize: 13,
-                  height: 1.55,
-                ),
-              ),
-              if (summary.status == ProgressionReviewStatus.unavailable) ...[
-                const SizedBox(height: 14),
-                OutlinedButton.icon(
-                  onPressed: () => retryProgressionReview(ref),
-                  icon: const Icon(Icons.refresh),
-                  label: Text(
-                    journeyText(
-                      context,
-                      'Retry progress review',
-                      'Reintentar revisión de progreso',
-                    ),
-                  ),
-                ),
+        const InsightsDestinationSwitch(current: AppView.progression),
+        const SizedBox(height: 12),
+        _PageLine(names.patternsSubtitle),
+        PlainSection(
+          key: const ValueKey<String>('patterns-range'),
+          title: copy.timeRange,
+          children: <Widget>[
+            RangeChoice(
+              labels: <String>[
+                for (final int days in _ranges) copy.rangeLabel(days),
               ],
-              if (summary.canAct) ...[
-                const SizedBox(height: 14),
-                _actionButton(context, ref),
-              ],
-            ],
-          ),
-          loading: () => Text(
-            journeyText(
-              context,
-              'Building a progress view from your saved schedule and completed actions...',
-              'Creando una vista del progreso a partir de tu agenda y acciones completadas...',
+              selectedIndex: _ranges.indexOf(rangeDays).clamp(0, 1),
+              onSelected: (int index) => ref
+                  .read(patternsRangeDaysProvider.notifier)
+                  .set(_ranges[index]),
             ),
-            style: const TextStyle(color: Color(0xFFC6D0E2), fontSize: 13),
-          ),
-          error: (_, _) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                journeyText(
-                  context,
-                  'Progress review is unavailable. Your saved evidence could not be read. Retry when your data is available.',
-                  'La revisión de progreso no está disponible. No se pudo leer la evidencia guardada. Reintenta cuando tus datos estén disponibles.',
-                ),
-                style: const TextStyle(
-                  color: Color(0xFFC6D0E2),
-                  fontSize: 13,
-                  height: 1.45,
-                ),
-              ),
-              const SizedBox(height: 14),
-              OutlinedButton.icon(
-                onPressed: () {
-                  retryProgressionReview(ref);
-                },
-                icon: const Icon(Icons.refresh, size: 18),
-                label: Text(
-                  journeyText(
-                    context,
-                    'Retry progress review',
-                    'Reintentar revisión de progreso',
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.memoryAmber,
-                  side: BorderSide(
-                    color: AppColors.memoryAmber.withValues(alpha: 0.7),
-                  ),
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          ],
+        ),
+        if (patterns.hasError)
+          PlainEmptyState(
+            key: const ValueKey<String>('patterns-unreadable'),
+            message: copy.unreadable,
+            actionLabel: copy.retry,
+            onAction: _retryPatterns,
+          )
+        else if (result == null)
+          _Reading(copy.reading)
+        else ...<Widget>[
+          if (patterns.isLoading) _Updating(copy.updating),
+          _HabitsSection(result: result, copy: copy),
+          _TrendSection(result: result, copy: copy),
+          _WhenDoneSection(result: result, copy: copy),
+          _WorkloadSection(result: result, copy: copy, onOpenPlan: _openPlan),
+          _MissedSection(result: result, copy: copy),
+        ],
+        _LevelSection(
+          copy: copy,
+          onShare: (_ProgressionShareAction action) async {
+            switch (action) {
+              case _ProgressionShareAction.progress:
+                await _shareProgressCard(context);
+              case _ProgressionShareAction.achievement:
+                await _shareAchievementCard(context);
+            }
+          },
         ),
       ],
-    );
-  }
-
-  Widget _actionButton(BuildContext context, WidgetRef ref) {
-    // Derived workload providers may themselves fail. Read them only after
-    // source health permits an action, so they cannot hide the retry control.
-    final action = _ProgressionAdvisorAction.from(ref);
-    return FilledButton.icon(
-      onPressed: () {
-        _recordProgressionReview(ref);
-        action.navigate(context, ref);
-      },
-      icon: Icon(action.icon, size: 18),
-      label: Text(journeyLabel(context, action.label)),
-      style: FilledButton.styleFrom(
-        backgroundColor: AppColors.memoryAmber,
-        foregroundColor: Colors.black,
-        minimumSize: const Size.fromHeight(48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
     );
   }
 }
@@ -1116,272 +303,4 @@ void _recordProgressionReview(WidgetRef ref) {
         .read(adaptiveGuidanceProvider.notifier)
         .record(GuidanceMilestone.firstProgressionReview),
   );
-}
-
-enum _ProgressionAdvisorTarget { creator, timeline }
-
-class _ProgressionAdvisorAction {
-  const _ProgressionAdvisorAction({
-    required this.target,
-    required this.label,
-    required this.icon,
-  });
-
-  final _ProgressionAdvisorTarget target;
-  final String label;
-  final IconData icon;
-
-  static _ProgressionAdvisorAction from(WidgetRef ref) {
-    final int overdueCount = ref.watch(timelineOverdueProvider).length;
-    final int activeTasks = ref.watch(tasksProvider).asData?.value.length ?? 0;
-
-    if (overdueCount > 0) {
-      return const _ProgressionAdvisorAction(
-        target: _ProgressionAdvisorTarget.timeline,
-        label: 'Open Timeline',
-        icon: Icons.event_repeat_rounded,
-      );
-    }
-    if (activeTasks > 0) {
-      return const _ProgressionAdvisorAction(
-        target: _ProgressionAdvisorTarget.timeline,
-        label: 'Open Timeline',
-        icon: Icons.check_circle_outline_rounded,
-      );
-    }
-    return const _ProgressionAdvisorAction(
-      target: _ProgressionAdvisorTarget.creator,
-      label: 'Open Creator',
-      icon: Icons.add_task_rounded,
-    );
-  }
-
-  void navigate(BuildContext context, WidgetRef ref) {
-    switch (target) {
-      case _ProgressionAdvisorTarget.creator:
-        goToAppView(context, ref, AppView.creator);
-      case _ProgressionAdvisorTarget.timeline:
-        goToAppView(context, ref, AppView.timeline);
-    }
-  }
-}
-
-class _ProgressPoint {
-  const _ProgressPoint(this.day, this.completed);
-
-  final DateTime day;
-  final int completed;
-}
-
-class _XpProgressChartCard extends ConsumerWidget {
-  const _XpProgressChartCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final logs = ref.watch(logsProvider);
-    final List<_ProgressPoint> points = _buildProgressPoints(logs.entries);
-    final int end = points.isEmpty ? 0 : points.last.completed;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          journeyText(
-            context,
-            'COMPLETION MOMENTUM',
-            'IMPULSO DE FINALIZACIÓN',
-          ),
-          style: const TextStyle(
-            fontSize: 11,
-            letterSpacing: 0,
-            color: AppColors.memoryAmber,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        if (points.isNotEmpty) ...[
-          Text(
-            journeyText(
-              context,
-              'Last 30 days • $end tasks and goals completed',
-              'Últimos 30 días • $end tareas y metas completadas',
-            ),
-            style: const TextStyle(
-              color: Color(0xFFC6D0E2),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-        if (points.isEmpty)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(
-                Icons.show_chart_rounded,
-                color: AppColors.memoryAmber,
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  logs.isLoading
-                      ? journeyText(
-                          context,
-                          'Loading completion history...',
-                          'Cargando historial de finalización...',
-                        )
-                      : logs.error != null
-                      ? journeyText(
-                          context,
-                          'Completion history is unavailable right now.',
-                          'El historial de finalización no está disponible ahora.',
-                        )
-                      : journeyText(
-                          context,
-                          'No completions were recorded in the last 30 days.',
-                          'No se registraron finalizaciones en los últimos 30 días.',
-                        ),
-                  style: const TextStyle(
-                    color: Color(0xFFD7DFF0),
-                    fontSize: 13,
-                    height: 1.45,
-                  ),
-                ),
-              ),
-            ],
-          )
-        else
-          SizedBox(
-            height: 110,
-            width: double.infinity,
-            child: CustomPaint(
-              key: const ValueKey('progression_completion_chart'),
-              painter: _ProgressLineChartPainter(points: points),
-            ),
-          ),
-      ],
-    );
-  }
-
-  List<_ProgressPoint> _buildProgressPoints(List<LogEntryEntity> history) {
-    final DateTime now = DateTime.now();
-    final DateTime windowStart = DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ).subtract(const Duration(days: 29));
-    final Map<String, int> completedByDay = <String, int>{};
-
-    for (final LogEntryEntity entry in history) {
-      final String source = entry.source.trim().toLowerCase();
-      if (source != 'task_completed' &&
-          source != 'completed_task' &&
-          source != 'goal_completed') {
-        continue;
-      }
-      final DateTime timestamp = entry.timestamp.toLocal();
-      final DateTime day = DateTime(
-        timestamp.year,
-        timestamp.month,
-        timestamp.day,
-      );
-      if (day.isBefore(windowStart) || timestamp.isAfter(now)) {
-        continue;
-      }
-      final String key = day.toIso8601String().split('T').first;
-      completedByDay[key] = (completedByDay[key] ?? 0) + 1;
-    }
-
-    if (completedByDay.isEmpty) return <_ProgressPoint>[];
-
-    final List<MapEntry<String, int>> sorted = completedByDay.entries.toList(
-      growable: true,
-    )..sort((a, b) => a.key.compareTo(b.key));
-
-    final List<_ProgressPoint> points = <_ProgressPoint>[];
-    int lastCompleted = 0;
-    for (final MapEntry<String, int> entry in sorted) {
-      final DateTime day = DateTime.parse(entry.key);
-      lastCompleted += entry.value;
-      points.add(_ProgressPoint(day, lastCompleted));
-    }
-
-    final DateTime today = DateTime(now.year, now.month, now.day);
-    if (points.isEmpty || points.last.day != today) {
-      points.add(_ProgressPoint(today, lastCompleted));
-    } else {
-      points[points.length - 1] = _ProgressPoint(today, lastCompleted);
-    }
-
-    return points.length > 10 ? points.sublist(points.length - 10) : points;
-  }
-}
-
-class _ProgressLineChartPainter extends CustomPainter {
-  _ProgressLineChartPainter({required this.points});
-
-  final List<_ProgressPoint> points;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint gridPaint = Paint()
-      ..color = Colors.white12
-      ..strokeWidth = 1;
-    final Paint linePaint = Paint()
-      ..color = AppColors.memoryAmber
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-    final Paint dotPaint = Paint()
-      ..color = AppColors.neonCyan
-      ..style = PaintingStyle.fill;
-
-    for (int i = 1; i <= 3; i++) {
-      final double y = size.height * i / 4;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
-    if (points.length < 2) {
-      if (points.isNotEmpty) {
-        canvas.drawCircle(size.center(Offset.zero), 3.5, dotPaint);
-      }
-      return;
-    }
-
-    final int minCompleted = points.map((p) => p.completed).reduce(math.min);
-    final int maxCompleted = points.map((p) => p.completed).reduce(math.max);
-    final int span = math.max(1, maxCompleted - minCompleted);
-
-    final Path path = Path();
-    for (int i = 0; i < points.length; i++) {
-      final double x = (i / (points.length - 1)) * size.width;
-      final double normalized = (points[i].completed - minCompleted) / span;
-      final double y = size.height - (normalized * (size.height - 8)) - 4;
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-      if (i == points.length - 1) {
-        canvas.drawCircle(Offset(x, y), 3.5, dotPaint);
-      }
-    }
-
-    canvas.drawPath(path, linePaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ProgressLineChartPainter oldDelegate) {
-    if (oldDelegate.points.length != points.length) {
-      return true;
-    }
-    for (int i = 0; i < points.length; i++) {
-      if (oldDelegate.points[i].completed != points[i].completed ||
-          oldDelegate.points[i].day != points[i].day) {
-        return true;
-      }
-    }
-    return false;
-  }
 }
