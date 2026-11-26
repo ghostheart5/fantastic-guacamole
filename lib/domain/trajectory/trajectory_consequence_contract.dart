@@ -1,6 +1,10 @@
 // CHRONOSPARK-CLASS: SHIPPING | Feature: Trajectory forecasting
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 
+/// Written into every new forecast receipt. v4: the time range sets which
+/// tasks count, and workload is measured against free time.
+const String trajectoryConsequenceModelVersion = 'trajectory-consequence-v3';
+
 enum TrajectorySourceState { loading, ready, empty, partial, offline, error }
 
 enum TrajectoryRiskBand { unknown, low, watch, elevated, critical }
@@ -22,6 +26,7 @@ class TrajectoryTaskNode {
     required this.estimatedMinutes,
     this.goalId,
     this.dueAt,
+    this.dueDay,
     this.scheduledAt,
   });
 
@@ -31,7 +36,49 @@ class TrajectoryTaskNode {
   final int estimatedMinutes;
   final String? goalId;
   final DateTime? dueAt;
+
+  /// The calendar day of a whole-day deadline (only year, month and day
+  /// count); null when the deadline has a time or there is none. A whole-day
+  /// deadline owns that entire local day.
+  final DateTime? dueDay;
   final DateTime? scheduledAt;
+}
+
+/// How many tasks a time range is expected to see finished: a central
+/// estimate with a low and high end.
+class TrajectoryExpectedCompletions {
+  const TrajectoryExpectedCompletions({
+    required this.low,
+    required this.mid,
+    required this.high,
+  });
+
+  static const TrajectoryExpectedCompletions none =
+      TrajectoryExpectedCompletions(low: 0, mid: 0, high: 0);
+
+  final int low;
+  final int mid;
+  final int high;
+}
+
+/// The work that falls inside one time range: active tasks due or scheduled
+/// within it, overdue tasks and undated tasks (which count in every range).
+class TrajectoryHorizonWorkload {
+  TrajectoryHorizonWorkload({
+    required this.horizonDays,
+    required Set<String> taskIds,
+    required this.requiredMinutes,
+    required this.expectedCompletions,
+    required this.undatedTasks,
+  }) : taskIds = Set<String>.unmodifiable(taskIds);
+
+  final int horizonDays;
+  final Set<String> taskIds;
+  final int requiredMinutes;
+  final TrajectoryExpectedCompletions expectedCompletions;
+  final int undatedTasks;
+
+  int get taskCount => taskIds.length;
 }
 
 class TrajectoryGoalNode {
@@ -122,7 +169,27 @@ class TrajectoryBaseline {
     Map<String, Object?> personContextTrace = const <String, Object?>{},
     this.energyOrigin = PredictiveEvidenceOrigin.observed,
     this.availabilityOrigin = PredictiveEvidenceOrigin.observed,
-  }) : noContextAvailableMinutes =
+    this.horizonDays = 7,
+    int? dailyFreeMinutes,
+    PredictiveEvidenceOrigin? dailyFreeOrigin,
+    int? tasksInHorizon,
+    int? requiredMinutesInHorizon,
+    this.expectedCompletionsInHorizon = TrajectoryExpectedCompletions.none,
+    List<String> assumptions = const <String>[],
+  }) : dailyFreeMinutes =
+           dailyFreeMinutes ??
+           (availableMinutes - occupiedMinutes).clamp(0, 1 << 30),
+       dailyFreeOrigin = dailyFreeOrigin ?? availabilityOrigin,
+       tasksInHorizon = tasksInHorizon ?? tasks.length,
+       requiredMinutesInHorizon =
+           requiredMinutesInHorizon ??
+           tasks.fold<int>(
+             0,
+             (int total, TrajectoryTaskNode task) =>
+                 total + task.estimatedMinutes,
+           ),
+       assumptions = List<String>.unmodifiable(assumptions),
+       noContextAvailableMinutes =
            noContextAvailableMinutes ?? availableMinutes,
        noContextUnscheduledMinutes =
            noContextUnscheduledMinutes ?? unscheduledMinutes,
@@ -170,6 +237,27 @@ class TrajectoryBaseline {
   final Map<String, Object?> personContextTrace;
   final PredictiveEvidenceOrigin energyOrigin;
   final PredictiveEvidenceOrigin availabilityOrigin;
+
+  /// The chosen time range (7, 30 or 90 days) this baseline was built for.
+  final int horizonDays;
+
+  /// Free minutes in a day: planner availability minus occupied time. When
+  /// [dailyFreeOrigin] is not observed it comes from the planner's assumed
+  /// workday and [assumptions] say so.
+  final int dailyFreeMinutes;
+  final PredictiveEvidenceOrigin dailyFreeOrigin;
+
+  /// Active tasks inside the chosen range (due or scheduled within it,
+  /// overdue, or undated) and the minutes they need.
+  final int tasksInHorizon;
+  final int requiredMinutesInHorizon;
+
+  /// Finished tasks expected in the chosen range at the last 7 days' pace.
+  final TrajectoryExpectedCompletions expectedCompletionsInHorizon;
+
+  /// What this baseline assumed (for example an assumed workday, or undated
+  /// tasks counted in every range).
+  final List<String> assumptions;
 
   bool get hasObservedEnergy =>
       energyOrigin == PredictiveEvidenceOrigin.observed;
@@ -326,7 +414,7 @@ class TrajectoryScenarioOutcome {
     required List<String> assumptions,
     required this.explanation,
     required this.utilityScore,
-    this.modelVersion = 'trajectory-consequence-v3',
+    this.modelVersion = trajectoryConsequenceModelVersion,
   }) : goals = List<GoalDelayProjection>.unmodifiable(goals),
        evidence = List<String>.unmodifiable(evidence),
        assumptions = List<String>.unmodifiable(assumptions);
