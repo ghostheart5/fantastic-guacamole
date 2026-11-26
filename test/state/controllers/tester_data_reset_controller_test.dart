@@ -5,7 +5,6 @@ import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
-import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/tester_data_reset_provider.dart';
@@ -42,7 +41,6 @@ void main() {
 
     container.read(mockSignInProvider.notifier).set(true);
     container.read(onboardingCompleteProvider.notifier).set(true);
-    container.read(aiInputProvider.notifier).set('draft prompt');
     await container
         .read(notificationProvider.notifier)
         .pushTaskSkipped('Task A');
@@ -54,7 +52,6 @@ void main() {
     expect(fakeService.resetCalled, isTrue);
     expect(container.read(mockSignInProvider), isFalse);
     expect(container.read(onboardingCompleteProvider), isFalse);
-    expect(container.read(aiInputProvider), isNull);
     expect(container.read(notificationProvider), isEmpty);
     expect(await inMemorySecureStore.readString(legacySiStateKey), isNull);
   });

@@ -529,8 +529,8 @@ final class PlannerRoutineCopy {
       ? 'Elegir un paso no está habilitado para esta cuenta. No se enviará ninguna solicitud de orientación.'
       : 'Choose a step is not enabled for this account. No guidance request will be sent.';
   String get onDeviceReady => isSpanish
-      ? 'Elegir un paso está listo en el dispositivo.'
-      : 'On-device Choose a step is ready.';
+      ? 'Elegir un paso está listo en este dispositivo.'
+      : 'Choose a step is ready on this device.';
   String get retryAccessCheck =>
       isSpanish ? 'Reintentar verificación de acceso' : 'Retry access check';
   String get guidanceUnavailable => isSpanish
@@ -556,8 +556,8 @@ final class PlannerRoutineCopy {
       ? 'Planificación local a partir de tu contexto'
       : 'Local planning from your context';
   String get plannerExternalSource => isSpanish
-      ? 'Orientación generada con IA externa'
-      : 'Guidance generated with external AI';
+      ? 'Orientación generada con el chat con IA'
+      : 'Guidance generated with AI chat';
   String get yourNextStep => isSpanish ? 'SIGUIENTE PASO' : 'NEXT STEP';
   String get oneQuestion => isSpanish ? 'PARA ACLARARLO' : 'ONE QUESTION';
   String get whyThis => isSpanish ? 'Por qué este plan' : 'Why this';
@@ -619,8 +619,8 @@ final class PlannerRoutineCopy {
   String get anotherExplanation =>
       isSpanish ? 'Solicitar otra explicación' : 'Request another explanation';
   String get explanationReady => isSpanish
-      ? 'La explicación opcional con IA externa está lista'
-      : 'Optional external AI explanation ready';
+      ? 'La explicación opcional del chat con IA está lista'
+      : 'Optional AI chat explanation ready';
   String explanationReceipt(int credits) => isSpanish
       ? '$credits créditos de IA · sin cambios en el plan'
       : '$credits AI credits · no plan changes';
@@ -830,8 +830,8 @@ final class SIRoutineCopy {
       ? 'El contexto estratégico no está disponible temporalmente. Tu trabajo guardado no cambió.'
       : 'Strategic context is temporarily unavailable. Saved work is unchanged.';
   String get initializingContext => isSpanish
-      ? 'Inicializando el contexto SI...'
-      : 'Initializing SI context...';
+      ? 'Inicializando el contexto del asistente...'
+      : 'Initializing Assistant context...';
   String get evidenceUnavailable => isSpanish
       ? 'Estado de evidencia no disponible.'
       : 'Evidence state unavailable.';
@@ -869,8 +869,8 @@ final class SIRoutineCopy {
       ? 'Pregunta sobre tareas, metas, hitos o tu agenda. Esta herramienta local puede leerlos, pero no cambiarlos.'
       : 'Ask about saved tasks, goals, milestones, or your schedule. This local tool can read them, but cannot change them.';
   String get localProcessingBoundary => isSpanish
-      ? 'Este modo usa reglas locales: no envía preguntas a una IA externa ni gasta créditos de IA. Las herramientas de voz requieren un consentimiento aparte.'
-      : 'This mode uses local rules: it does not send questions to external AI or spend AI credits. Voice tools require separate consent.';
+      ? 'Este modo usa reglas locales: no envía preguntas al chat con IA ni gasta créditos de IA. Las herramientas de voz requieren un consentimiento aparte.'
+      : 'This mode uses local rules: it does not send questions to AI chat or spend AI credits. Voice tools require separate consent.';
   List<String> welcomeExamples({required bool noEvidence}) => isSpanish
       ? noEvidence
             ? const <String>['¿Qué evidencia falta?', '¿Qué puedes determinar?']
@@ -1049,8 +1049,8 @@ final class SIRoutineCopy {
               .toList(growable: false);
     if (selected.isEmpty) {
       return isSpanish
-          ? 'ATAJOS DE CONSULTA SI\n\nNingún atajo coincide con "$normalized". Usa /help para ver todos los atajos disponibles.'
-          : 'SI QUERY SHORTCUTS\n\nNo shortcut matches "$normalized". Use /help to list every available shortcut.';
+          ? 'ATAJOS DEL ASISTENTE\n\nNingún atajo coincide con "$normalized". Usa /help para ver todos los atajos disponibles.'
+          : 'ASSISTANT SHORTCUTS\n\nNo shortcut matches "$normalized". Use /help to list every available shortcut.';
     }
     final String lines = selected
         .map((SIConsoleShortcutDefinition item) {
@@ -1066,16 +1066,16 @@ final class SIRoutineCopy {
         })
         .join('\n');
     return isSpanish
-        ? 'ATAJOS DE CONSULTA SI\n\nAtajos disponibles:\n$lines'
-        : 'SI QUERY SHORTCUTS\n\nAvailable shortcuts:\n$lines';
+        ? 'ATAJOS DEL ASISTENTE\n\nAtajos disponibles:\n$lines'
+        : 'ASSISTANT SHORTCUTS\n\nAvailable shortcuts:\n$lines';
   }
 
   String get shortcutRules => isSpanish
       ? 'Cómo usar esta herramienta:\n- Usa Añadir algo para guardar una tarea.\n- Esta herramienta local puede leer tus planes, pero no cambiarlos.\n- Escribe una pregunta, usa las opciones de arriba o elige un atajo.\n\nPreguntas para probar:\n- "¿Qué necesita atención?"\n- "¿Por qué está en riesgo este objetivo?"\n- "Compara mis dos objetivos más próximos."\n- "¿Qué pasa si aplazo esta tarea?"\n- "¿Qué compromisos entran en conflicto?"\n- "¿Qué cambiaría tu recomendación?"'
       : 'How to use this tool:\n- Use Add something to save a task.\n- This local tool can read your plans but cannot change them.\n- Type a question, use the options above, or choose a shortcut.\n\nQuestions to try:\n- "What needs attention?"\n- "Why is this goal at risk?"\n- "Compare my two nearest goals."\n- "What happens if I defer this task?"\n- "Which commitments conflict?"\n- "What would change your recommendation?"';
   String statusLoading() => isSpanish
-      ? 'ESTADO DE SI\n\nLas fuentes de datos locales todavía se están cargando. Reintenta /status en un momento.\nNo se cambió información guardada.'
-      : 'SI STATUS\n\nLocal data sources are still loading. Retry /status in a second.\nNo saved information was changed.';
+      ? 'ESTADO DEL ASISTENTE\n\nLas fuentes de datos locales todavía se están cargando. Reintenta /status en un momento.\nNo se cambió información guardada.'
+      : 'ASSISTANT STATUS\n\nLocal data sources are still loading. Retry /status in a second.\nNo saved information was changed.';
   String statusReady({
     required int tasks,
     required int goals,
@@ -1085,8 +1085,8 @@ final class SIRoutineCopy {
     required String revision,
     required String aliases,
   }) => isSpanish
-      ? 'ESTADO DE SI\n\nChat de solo lectura:\n- tareas: $tasks\n- objetivos: $goals\n- hitos: $milestones\n- agenda: $timeline\n- fuentes no disponibles: $unavailableSources\n- revisión: $revision\n\nAtajos de fuentes disponibles: $aliases.'
-      : 'SI STATUS\n\nRead-only Chat:\n- tasks: $tasks\n- goals: $goals\n- milestones: $milestones\n- schedule: $timeline\n- unavailable sources: $unavailableSources\n- revision: $revision\n\nAvailable source shortcuts: $aliases.';
+      ? 'ESTADO DEL ASISTENTE\n\nChat de solo lectura:\n- tareas: $tasks\n- objetivos: $goals\n- hitos: $milestones\n- agenda: $timeline\n- fuentes no disponibles: $unavailableSources\n- revisión: $revision\n\nAtajos de fuentes disponibles: $aliases.'
+      : 'ASSISTANT STATUS\n\nRead-only Chat:\n- tasks: $tasks\n- goals: $goals\n- milestones: $milestones\n- schedule: $timeline\n- unavailable sources: $unavailableSources\n- revision: $revision\n\nAvailable source shortcuts: $aliases.';
   String get responseValidationFailed => isSpanish
       ? 'No se pudo comprobar esta respuesta. Reintenta o incluye más tareas, metas, hitos o entradas de agenda. No se cambió nada.'
       : 'We could not check this answer. Try again or include more saved tasks, goals, milestones, or schedule entries. Nothing was changed.';
@@ -1103,13 +1103,13 @@ final class SIRoutineCopy {
       ? !enabled
             ? 'Chat no disponible'
             : busy
-            ? 'SI está analizando'
-            : 'Enviar consulta SI'
+            ? 'Chat está trabajando'
+            : 'Enviar a Chat'
       : !enabled
       ? 'Chat unavailable'
       : busy
-      ? 'SI is analyzing'
-      : 'Send SI query';
+      ? 'Chat is working'
+      : 'Send to Chat';
 }
 
 enum ChronoSparkString {

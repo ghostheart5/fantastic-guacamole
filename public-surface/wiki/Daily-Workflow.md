@@ -9,6 +9,6 @@
 5. Review **Activity** and **Insights** to understand the recorded pattern.
 6. If useful, use **Insights → Compose a what-if path** to compare a possibility or **Chat** for a question. Review uncertainty, context and any credit quote.
 
-You do not need to use every feature each day. Free tools remain distinct from paid cloud questions. Levels and streaks are feedback, not a measure of personal worth. A comparison never substitutes for doing or recording the real action.
+You do not need to use every feature each day. "On this device · free" remains distinct from paid AI chat questions (which send information to an external AI service). Levels and streaks are feedback, not a measure of personal worth. A comparison never substitutes for doing or recording the real action.
 
 [[Getting Started|Getting-Started]] · [[Settings]]

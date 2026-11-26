@@ -350,8 +350,7 @@ class _PaywallCopy {
   String configTitle(String title) {
     if (!_isSpanish) return title;
     return switch (title) {
-      'External-assistant credit plans' =>
-        'Planes de créditos del asistente externo',
+      'AI chat credit plans' => 'Planes de créditos del chat con IA',
       'Unlocked for testing' => 'Desbloqueado para pruebas',
       'Billing unavailable' => 'Facturación no disponible',
       'Plans unavailable' => 'Planes no disponibles',
@@ -367,7 +366,7 @@ class _PaywallCopy {
     )) {
       final usage = body.contains('AI and credit spending are unavailable')
           ? 'La IA y el gasto de créditos no están disponibles en esta versión.'
-          : 'El Elegir un paso y el Chat SI pueden usar IA externa después de que revises el contexto y confirmes el precio en créditos. Ajustes también ofrece pruebas de créditos con datos ficticios. Las herramientas locales siguen disponibles.';
+          : 'Elegir un paso y el asistente pueden usar el chat con IA después de que revises el contexto y confirmes el precio en créditos. Ajustes también ofrece pruebas de créditos con datos ficticios. «En este dispositivo · gratis» sigue disponible.';
       return 'Prueba compras, renovaciones, cancelaciones y restauraciones. Selecciona un método de pago de prueba de Google Play; cancela si aparece un método de pago real. $usage';
     }
     return switch (body) {
@@ -383,8 +382,8 @@ class _PaywallCopy {
         'Las compras no están disponibles en esta plataforma.',
       'Subscriptions are disabled while launch-readiness work is completed.' =>
         'Las suscripciones están desactivadas mientras se completa la preparación para el lanzamiento.',
-      'Choose a plan to increase the monthly external-assistant credit allowance.' =>
-        'Elige un plan para aumentar el saldo mensual de créditos del asistente externo.',
+      'Choose a plan to increase the monthly AI chat credit allowance.' =>
+        'Elige un plan para aumentar el saldo mensual de créditos del chat con IA.',
       'Purchases are temporarily unavailable while billing verification is being finalized.' =>
         'Las compras no están disponibles temporalmente mientras finaliza la verificación de la facturación.',
       _ => body,
@@ -431,9 +430,9 @@ class _PaywallCopy {
     if (!_isSpanish) return prompt.message;
     return switch (prompt.trigger) {
       'ai_credit_limit' || 'ai_limit' =>
-        'Los créditos del asistente externo se han agotado. Axiomara continuará con la orientación en el dispositivo.',
+        'Los créditos del chat con IA se han agotado. Axiomara continuará con «En este dispositivo · gratis».',
       'ai_credit_low' =>
-        'Te quedan ${prompt.remainingCredits ?? 0} créditos del asistente externo.',
+        'Te quedan ${prompt.remainingCredits ?? 0} créditos del chat con IA.',
       _ => prompt.message,
     };
   }
@@ -579,6 +578,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       }
       ref.invalidate(paywallSubscriptionProvider);
       ref.invalidate(aiCreditWalletProvider);
+      ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
       if (!mounted) {
         return;
       }
@@ -666,6 +666,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       }
       ref.invalidate(paywallSubscriptionProvider);
       ref.invalidate(aiCreditWalletProvider);
+      ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
       if (!mounted) {
         return;
       }
@@ -730,7 +731,10 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
   }) {
     if (config) ref.invalidate(paywallConfigProvider);
     if (subscription) ref.invalidate(paywallSubscriptionProvider);
-    if (wallet) ref.invalidate(aiCreditWalletProvider);
+    if (wallet) {
+      ref.invalidate(aiCreditWalletProvider);
+      ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
+    }
   }
 
   Future<void> _manageSubscription() async {
@@ -796,6 +800,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       );
       if (outcome.status == 'credits_added') {
         ref.invalidate(aiCreditWalletProvider);
+        ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
       }
     });
     ref.listen<AsyncValue<AiCreditWallet>>(aiCreditWalletProvider, (
@@ -851,7 +856,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
         configAsync.asData?.value ??
         const PaywallEntity(
           featureId: 'premium',
-          title: 'External-assistant credit plans',
+          title: 'AI chat credit plans',
           body:
               'Choose a plan. Google Play provides the displayed price and confirms billing frequency and renewal terms before purchase. Credits are granted only after a verified purchase or paid renewal.',
           plans: <PaywallPlan>[],

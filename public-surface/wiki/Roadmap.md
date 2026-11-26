@@ -7,7 +7,7 @@ The roadmap follows one product test: **does this make a real decision more info
 ## Now — connected intelligence
 
 - Strengthen Planner context grounding and follow-up continuity.
-- Make SI entity filters, scenarios, horizons, and Advanced mode visibly affect analysis.
+- Make Assistant entity filters, scenarios, horizons, and Advanced mode visibly affect analysis.
 - Keep Energy, Clarity, and Momentum consistent across Today and Predictions.
 - Improve failure responses so missing evidence produces a precise recovery step.
 - Continue accessibility, resilience, privacy, and release validation.

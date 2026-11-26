@@ -200,7 +200,7 @@ void main() {
           .text,
       'What are my tasks?',
     );
-    await tester.tap(find.byTooltip('On-device tools'));
+    await tester.tap(find.byTooltip('On this device · free'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(AssistantConversationScreen), findsNothing);
@@ -561,15 +561,15 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('On device', skipOffstage: false), findsOneWidget);
+    expect(find.text('On this device', skipOffstage: false), findsOneWidget);
     expect(
       find.textContaining(
-        'Read-only on-device response based on the selected records.',
+        'Read-only response made on this device from the selected records.',
         skipOffstage: false,
       ),
       findsOneWidget,
     );
-    expect(find.text('External AI', skipOffstage: false), findsNothing);
+    expect(find.text('AI chat', skipOffstage: false), findsNothing);
   });
 
   testWidgets(
@@ -739,7 +739,7 @@ void main() {
 
       expect(find.byKey(const Key('immediate-safety-dialog')), findsOneWidget);
       expect(port.calls, 0);
-      expect(find.textContaining('SI QUERY SHORTCUTS'), findsNothing);
+      expect(find.textContaining('ASSISTANT SHORTCUTS'), findsNothing);
     },
   );
 
@@ -850,7 +850,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text('External AI', skipOffstage: false), findsNothing);
+      expect(find.text('AI chat', skipOffstage: false), findsNothing);
     },
   );
 

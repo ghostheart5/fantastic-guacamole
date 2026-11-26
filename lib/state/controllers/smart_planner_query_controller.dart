@@ -706,8 +706,8 @@ class SmartPlannerQueryController
               'No se vinculó ninguna tarea, objetivo, recomendación ni borrador de Añadir algo guardado.',
             ),
           copy(
-            'No Schedule, memory, SI-state, XP, task, goal, or habit record was changed.',
-            'No se modificaron registros de cronología, memoria, estado SI, XP, tareas, objetivos ni hábitos.',
+            'No Schedule, memory, Assistant-state, XP, task, goal, or habit record was changed.',
+            'No se modificaron registros de cronología, memoria, estado del asistente, XP, tareas, objetivos ni hábitos.',
           ),
         ],
         question: supportivePause
@@ -855,8 +855,8 @@ class SmartPlannerQueryController
           languageCode: intent.languageCode,
         ),
         copy(
-          'No Schedule, memory, SI-state, XP, task, goal, or habit record was changed.',
-          'No se modificaron registros de cronología, memoria, estado SI, XP, tareas, objetivos ni hábitos.',
+          'No Schedule, memory, Assistant-state, XP, task, goal, or habit record was changed.',
+          'No se modificaron registros de cronología, memoria, estado del asistente, XP, tareas, objetivos ni hábitos.',
         ),
       ],
       options: options,

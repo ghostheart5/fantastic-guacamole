@@ -19,11 +19,13 @@ import {
   sha256Hex,
 } from "../_shared/billing_backend.ts";
 import {
+  buildServerPromptParts,
   buildServerSystemPrompt,
   containsBlockedConversationReply,
   containsRecommendationContradiction,
   containsScheduledStartDepartureConfusion,
-  removeUnsupportedActionClaims,
+  type ReplyFilterOptions,
+  sanitizeConversationReply,
 } from "../_shared/ai_proxy_policy.ts";
 import {
   internalAiPreflightResponse,
@@ -426,7 +428,12 @@ Deno.serve(async (req: Request) => {
     const prompt = (body.prompt ?? body.message ?? "").trim();
     const history = Array.isArray(body.history) ? body.history : [];
     const maxTokens = Number(body.maxTokens ?? MAX_TOKENS);
+    // Billing identity only: the quote, the reservation hash and the credit
+    // price are computed over this legacy single-string shape so quotes and
+    // retries issued before the prompt split stay valid and a repeated
+    // request id still returns its cached reply. The model never receives it.
     const system = buildServerSystemPrompt(body.personality, body.context);
+    const promptParts = buildServerPromptParts(body.personality, body.context);
     if (body.allowExternalAi !== true) {
       return jsonResponse(req, {
         requestId: requestId ?? undefined,
@@ -435,7 +442,7 @@ Deno.serve(async (req: Request) => {
     }
     if (
       !requestId || !prompt || prompt.length > 8000 || history.length > 8 ||
-      system === null ||
+      system === null || promptParts === null ||
       !Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > MAX_TOKENS ||
       history.some((item) =>
         !item || (item.role !== "user" && item.role !== "assistant") ||
@@ -465,17 +472,47 @@ Deno.serve(async (req: Request) => {
         error: "timing_context_missing",
       }, 422);
     }
-    const upstreamBody: Record<string, unknown> = {
+    const billingBody: Record<string, unknown> = {
       model: DEFAULT_MODEL,
       max_tokens: MAX_TOKENS,
       temperature: 0,
       messages,
     };
-    upstreamBody.system = timingRequest
+    billingBody.system = timingRequest
       ? `${system} ${SI_TIMING_EXTRACTION_INSTRUCTION}`
       : system;
-    if (timingRequest) upstreamBody.output_config = SI_TIMING_OUTPUT_CONFIG;
-    const cost = quotedCreditCost(upstreamBody);
+    if (timingRequest) billingBody.output_config = SI_TIMING_OUTPUT_CONFIG;
+    // What the provider receives: static policy as the system prompt, the
+    // person's records as a delimited untrusted-data block in the final user
+    // turn. Same inputs as billingBody, so it cannot differ from what was quoted.
+    const providerBody: Record<string, unknown> = {
+      ...billingBody,
+      system: timingRequest
+        ? `${promptParts.system} ${SI_TIMING_EXTRACTION_INSTRUCTION}`
+        : promptParts.system,
+      messages: messages.map((item, index) =>
+        index === messages.length - 1
+          ? {
+            ...item,
+            content: `${promptParts.contextBlock}
+
+` +
+              `The person's message:
+${item.content}`,
+          }
+          : item
+      ),
+    };
+    // The body actually sent is a few hundred bytes larger than the quoted
+    // one. Check its size now, before any price is quoted or confirmed, so a
+    // person never confirms a price and then fails on size.
+    let initialProviderCost: number;
+    try {
+      initialProviderCost = quotedProviderCostMicrousd(providerBody);
+    } catch {
+      return jsonResponse(req, { requestId, error: "request_too_large" }, 413);
+    }
+    const cost = quotedCreditCost(billingBody);
     if (body.quoteOnly === true) {
       return jsonResponse(req, {
         requestId,
@@ -483,7 +520,7 @@ Deno.serve(async (req: Request) => {
           config.secretKey,
           userId,
           requestId,
-          upstreamBody,
+          billingBody,
         ),
       });
     }
@@ -492,7 +529,7 @@ Deno.serve(async (req: Request) => {
         config.secretKey,
         userId,
         requestId,
-        upstreamBody,
+        billingBody,
         body.quote,
       )
     ) {
@@ -506,7 +543,7 @@ Deno.serve(async (req: Request) => {
       p_user_id: userId,
       p_request_key: requestId,
       p_credit_amount: cost,
-      p_prompt_hash: await sha256Hex(JSON.stringify(upstreamBody)),
+      p_prompt_hash: await sha256Hex(JSON.stringify(billingBody)),
     });
     if (!reserved) {
       return jsonResponse(req, {
@@ -544,7 +581,6 @@ Deno.serve(async (req: Request) => {
     // Customer credits and database provider funding are separate. Expand the
     // reservation to the full unchanged worst-case cost before any provider
     // call; neither a denial nor an ambiguous RPC response may permit work.
-    const initialProviderCost = quotedProviderCostMicrousd(upstreamBody);
     let providerBudget: Record<string, unknown> | null = null;
     try {
       providerBudget = await serviceRpc(
@@ -587,7 +623,7 @@ Deno.serve(async (req: Request) => {
         "x-api-key": ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify(upstreamBody),
+      body: JSON.stringify(providerBody),
     });
     if (!upstream.ok) {
       await upstream.body?.cancel();
@@ -649,11 +685,17 @@ Deno.serve(async (req: Request) => {
         502,
       );
     }
+    // A turn without the person's records (chat only) is ordinary conversation
+    // or fiction: first-person narration is not a claim about app data there.
+    const filterOptions: ReplyFilterOptions = {
+      planningMode: asRecord(body.context)?.contextScope !== "chatOnly",
+    };
     const message = timingRequest
       ? rawMessage
-      : removeUnsupportedActionClaims(rawMessage);
+      : sanitizeConversationReply(rawMessage, filterOptions);
     if (
-      !timingRequest && (!message || containsBlockedConversationReply(message))
+      !timingRequest &&
+      (!message || containsBlockedConversationReply(message, filterOptions))
     ) {
       await settleReservation(userId, requestId, false, {
         inputTokens,
@@ -705,9 +747,9 @@ Deno.serve(async (req: Request) => {
         "Return only the corrected answer.",
       ].join(" ");
       const repairBody: Record<string, unknown> = {
-        ...upstreamBody,
+        ...providerBody,
         messages: [
-          ...messages,
+          ...(providerBody.messages as unknown[]),
           { role: "assistant", content: message },
           {
             role: "user",
@@ -822,7 +864,8 @@ Deno.serve(async (req: Request) => {
       const repairedBlock = asRecord(repairedContent[0]);
       const repairedUsage = asRecord(repairedRecord?.usage);
       const repairedMessage = typeof repairedBlock?.text === "string"
-        ? removeUnsupportedActionClaims(repairedBlock.text.trim())
+        ? sanitizeConversationReply(repairedBlock.text.trim(), filterOptions) ??
+          ""
         : "";
       const repairedInputTokens = Number.isSafeInteger(
           repairedUsage?.input_tokens,
@@ -843,7 +886,7 @@ Deno.serve(async (req: Request) => {
         repairedRecord?.stop_reason !== "end_turn" ||
         !repairedMessage ||
         !repairedUsageIsValid ||
-        containsBlockedConversationReply(repairedMessage) ||
+        containsBlockedConversationReply(repairedMessage, filterOptions) ||
         containsRecommendationContradiction(repairedMessage) ||
         containsScheduledStartDepartureConfusion(
           repairedMessage,

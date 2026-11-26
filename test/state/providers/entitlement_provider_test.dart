@@ -334,6 +334,88 @@ void main() {
       );
       expect(await harness.readOwner(), isNull);
     });
+
+    test(
+      'a routine recheck keeps the AI chat balance; a changed subscription clears it',
+      () async {
+        final _Harness harness = await _Harness.create(
+          subscription: const SubscriptionState(
+            isActive: true,
+            status: 'active',
+            source: 'supabase_authority',
+            planId: 'monthly',
+          ),
+          owner: 'user-a',
+          user: _user('user-a'),
+        );
+        final String account = harness.container
+            .read(accountStorageScopeProvider)
+            .v2Namespace!;
+        final known = harness.container.read(
+          aiCreditKnownBalanceProvider.notifier,
+        );
+        int? shown() => harness.container.read(aiCreditKnownBalanceProvider);
+        Future<void> recheck() => harness.container.read(
+          entitlementAuthorityRefreshProvider,
+        )(force: true);
+
+        // Startup read the subscription (the harness waits for it); the
+        // first recheck compares with that read.
+        known.enterPaid(account, 'request', firstAttempt: true);
+        known.reportAnswer(account, 'request', 20);
+        expect(shown(), 20);
+
+        // Routine rechecks finding the same subscription keep it, the first
+        // one included.
+        await recheck();
+        await recheck();
+        expect(shown(), 20);
+
+        // A different subscription may come with granted credits.
+        harness.repository.subscription = const SubscriptionState(
+          isActive: true,
+          status: 'active',
+          source: 'supabase_authority',
+          planId: 'yearly',
+        );
+        await recheck();
+        expect(shown(), isNull);
+      },
+    );
+
+    test(
+      'a subscription changed between startup and the first recheck clears the balance',
+      () async {
+        final _Harness harness = await _Harness.create(
+          subscription: const SubscriptionState(
+            isActive: false,
+            status: 'locked',
+            source: 'supabase_authority',
+          ),
+          user: _user('user-a'),
+        );
+        final String account = harness.container
+            .read(accountStorageScopeProvider)
+            .v2Namespace!;
+        final known = harness.container.read(
+          aiCreditKnownBalanceProvider.notifier,
+        );
+        known.reportWallet(account, known.beginRead(), 5);
+        expect(harness.container.read(aiCreditKnownBalanceProvider), 5);
+
+        // Bought while the app ran; the first recheck sees it.
+        harness.repository.subscription = const SubscriptionState(
+          isActive: true,
+          status: 'active',
+          source: 'supabase_authority',
+          planId: 'monthly',
+        );
+        await harness.container.read(entitlementAuthorityRefreshProvider)(
+          force: true,
+        );
+        expect(harness.container.read(aiCreditKnownBalanceProvider), isNull);
+      },
+    );
   });
 
   group('entitlement is account safe', () {

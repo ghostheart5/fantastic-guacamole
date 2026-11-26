@@ -560,16 +560,16 @@ void main() {
           response.missingInformation,
           contains(
             spanish
-                ? 'La información personal que compartiste no incluye un dato sobre compromiso; SI no lo dedujo.'
-                : 'The personal information you shared does not include a user-reported commitment; SI did not infer it.',
+                ? 'La información personal que compartiste no incluye un dato sobre compromiso; el asistente no lo dedujo.'
+                : 'The personal information you shared does not include a user-reported commitment; the Assistant did not infer it.',
           ),
         );
         expect(
           response.missingInformation,
           contains(
             spanish
-                ? 'La información personal que compartiste no incluye un dato sobre prioridad actual; SI no lo dedujo.'
-                : 'The personal information you shared does not include a user-reported current priority; SI did not infer it.',
+                ? 'La información personal que compartiste no incluye un dato sobre prioridad actual; el asistente no lo dedujo.'
+                : 'The personal information you shared does not include a user-reported current priority; the Assistant did not infer it.',
           ),
         );
         expect(response.userReportedEvidence, isEmpty);
@@ -632,7 +632,7 @@ void main() {
     expect(response.directAnswer, contains('not independently verified'));
     expect(
       response.missingInformation,
-      contains(contains('SI did not infer it')),
+      contains(contains('Assistant did not infer it')),
     );
   });
 

@@ -510,36 +510,12 @@ if (Test-Path $smartPlannerPath) {
   }
 }
 
-$aiControllerPath = Join-Path $root 'lib/state/controllers/ai_controller.dart'
-if (Test-Path $aiControllerPath) {
-  $aiControllerRaw = Get-Content -Path $aiControllerPath -Raw
-  $aiControllerImports = Get-Imports -FilePath $aiControllerPath
-
-  if ($aiControllerImports.ImportPath -notcontains 'state/controllers/si_state_controller.dart') {
-    $violations.Add('lib/state/controllers/ai_controller.dart:1 -> AI controller must depend on SI state controller/provider layer') | Out-Null
-  }
-  if ($aiControllerImports.ImportPath -notcontains 'state/providers/intelligence_provider.dart') {
-    $violations.Add('lib/state/controllers/ai_controller.dart:1 -> AI controller must read intelligence provider for runtime context') | Out-Null
-  }
-  if ($aiControllerImports.ImportPath -notcontains 'state/providers/si_memory_provider.dart') {
-    $violations.Add('lib/state/controllers/ai_controller.dart:1 -> AI controller must capture SI memory snapshots via si_memory_provider') | Out-Null
-  }
-  if ($aiControllerImports.ImportPath -notcontains 'data/services/ai/orchestration/agent_orchestrator.dart') {
-    $violations.Add('lib/state/controllers/ai_controller.dart:1 -> AI controller must route chat via agent_orchestrator') | Out-Null
-  }
-  if ($aiControllerRaw -notmatch 'siMemoryProvider\.notifier\)\s*\.capture\(') {
-    $violations.Add('lib/state/controllers/ai_controller.dart:1 -> AI controller must persist SI snapshots through siMemoryProvider') | Out-Null
-  }
-}
-
 # Rule 13: unified chatbot layer contract presence.
 $requiredUnifiedPaths = @(
   'lib/features/si_console/ui/si_console_screen.dart',
-  'lib/state/controllers/ai_controller.dart',
   'lib/state/controllers/si_state_controller.dart',
   'lib/state/providers/intelligence_provider.dart',
   'lib/state/providers/si_memory_provider.dart',
-  'lib/data/services/ai/orchestration/agent_orchestrator.dart',
   'lib/data/repositories/si_engine_repository.dart',
   'lib/engine/si/si_engine_service.dart',
   'lib/engine/si/si_engine.dart',
@@ -550,24 +526,6 @@ foreach ($relativePath in $requiredUnifiedPaths) {
   $absolutePath = Join-Path $root $relativePath
   if (-not (Test-Path $absolutePath)) {
     $violations.Add("${relativePath}:1 -> required unified chatbot layer path is missing") | Out-Null
-  }
-}
-
-$requiredUnifiedDirs = @(
-  'lib/data/services/ai/agents',
-  'lib/data/services/ai/tools'
-)
-
-foreach ($relativeDir in $requiredUnifiedDirs) {
-  $absoluteDir = Join-Path $root $relativeDir
-  if (-not (Test-Path $absoluteDir)) {
-    $violations.Add("${relativeDir}:1 -> required unified chatbot layer directory is missing") | Out-Null
-    continue
-  }
-
-  $dartCount = @(Get-ChildItem -Path $absoluteDir -Filter '*.dart' -Recurse -File).Count
-  if ($dartCount -eq 0) {
-    $violations.Add("${relativeDir}:1 -> unified chatbot layer directory must contain Dart files") | Out-Null
   }
 }
 
@@ -634,7 +592,6 @@ $assistantUiLayerPaths = @(
 )
 
 $assistantStateLayerPaths = @(
-  'lib/state/controllers/ai_controller.dart',
   'lib/state/controllers/si_state_controller.dart',
   'lib/state/controllers/prediction_controller.dart',
   'lib/state/controllers/voice_controller.dart',
@@ -646,7 +603,6 @@ $assistantStateLayerPaths = @(
 )
 
 $assistantIntelligenceLayerPaths = @(
-  'lib/data/services/ai/orchestration/agent_orchestrator.dart',
   'lib/data/repositories/si_engine_repository.dart',
   'lib/engine/si/si_engine_service.dart'
 )
@@ -655,24 +611,6 @@ foreach ($relativePath in ($assistantUiLayerPaths + $assistantStateLayerPaths + 
   $absolutePath = Join-Path $root $relativePath
   if (-not (Test-Path $absolutePath)) {
     $violations.Add("${relativePath}:1 -> required SI assistant layer contract file is missing") | Out-Null
-  }
-}
-
-$assistantIntelligenceDirs = @(
-  'lib/data/services/ai/agents',
-  'lib/data/services/ai/tools'
-)
-
-foreach ($relativeDir in $assistantIntelligenceDirs) {
-  $absoluteDir = Join-Path $root $relativeDir
-  if (-not (Test-Path $absoluteDir)) {
-    $violations.Add("${relativeDir}:1 -> required SI assistant intelligence directory is missing") | Out-Null
-    continue
-  }
-
-  $dartCount = @(Get-ChildItem -Path $absoluteDir -Filter '*.dart' -Recurse -File).Count
-  if ($dartCount -eq 0) {
-    $violations.Add("${relativeDir}:1 -> SI assistant intelligence directory must contain Dart files") | Out-Null
   }
 }
 
@@ -708,24 +646,7 @@ foreach ($file in $siEngineFiles) {
   }
 }
 
-# Rule 17: practical build-order contracts and bridge restrictions.
-if (Test-Path $aiControllerPath) {
-  $aiControllerRaw = Get-Content -Path $aiControllerPath -Raw
-  $requiredControllerMethods = @(
-    'sendMessage\(',
-    'retryMessage\(',
-    'clearConversation\(',
-    'acceptSuggestion\(',
-    'rejectSuggestion\('
-  )
-
-  foreach ($methodPattern in $requiredControllerMethods) {
-    if ($aiControllerRaw -notmatch $methodPattern) {
-      $violations.Add("lib/state/controllers/ai_controller.dart:1 -> missing required controller method matching pattern: $methodPattern") | Out-Null
-    }
-  }
-}
-
+# Rule 17: bridge restrictions.
 $engineServicePath = Join-Path $root 'lib/engine/si/si_engine_service.dart'
 if (Test-Path $engineServicePath) {
   $engineServiceRaw = Get-Content -Path $engineServicePath -Raw

@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
+import 'package:fantastic_guacamole/engine/si/si_deadline.dart';
 
 // Presentation-only labels; enum names and evidence identities remain stable.
 String _missingPersonalInformationKindLabel(
@@ -67,7 +68,7 @@ final class SIV2Engine {
               .where((SIV2GoalEvidence item) => !question.excludes(item.title))
               .where(
                 (SIV2GoalEvidence item) => _withinGoalRange(
-                  item.targetDate,
+                  item,
                   query.timeRange,
                   observedNow,
                   undatedMatches: true,
@@ -176,7 +177,7 @@ final class SIV2Engine {
         .where(
           (SIV2GoalEvidence item) =>
               item.targetDate != null &&
-              _localDay(item.targetDate!).isBefore(_localDay(observedNow)),
+              siGoalLate(item.targetDate!, item.targetDay, observedNow),
         )
         .length;
     final int overdueMilestones = milestones
@@ -184,7 +185,7 @@ final class SIV2Engine {
           (SIV2MilestoneEvidence item) =>
               !item.completed &&
               item.targetDate != null &&
-              item.targetDate!.toUtc().isBefore(observedNow),
+              siDeadlinePast(item.targetDate!, item.targetDay, observedNow),
         )
         .length;
     final List<SIV2Statement> calculations = <SIV2Statement>[
@@ -339,8 +340,8 @@ final class SIV2Engine {
             : 'The question does not identify a planning decision that this read-only Chat can answer.',
       ...?snapshot.personContext?.unknownKinds.map(
         (PersonContextKind kind) => question.isSpanish
-            ? 'La información personal que compartiste no incluye un dato sobre ${_missingPersonalInformationKindLabel(kind, isSpanish: true)}; SI no lo dedujo.'
-            : 'The personal information you shared does not include a user-reported ${_missingPersonalInformationKindLabel(kind, isSpanish: false)}; SI did not infer it.',
+            ? 'La información personal que compartiste no incluye un dato sobre ${_missingPersonalInformationKindLabel(kind, isSpanish: true)}; el asistente no lo dedujo.'
+            : 'The personal information you shared does not include a user-reported ${_missingPersonalInformationKindLabel(kind, isSpanish: false)}; the Assistant did not infer it.',
       ),
       ...conflicts.map((SIV2Conflict item) => item.summary),
     ];
@@ -405,8 +406,8 @@ final class SIV2Engine {
         : '$groundedAnswer ${userReportedEvidence.length} relevant user-reported context ${userReportedEvidence.length == 1 ? 'item is' : 'items are'} cited separately and not independently verified.';
     final String recommendation = namedTaskMissing
         ? question.isSpanish
-              ? 'Comprueba el título exacto de la tarea o amplía el filtro antes de decidir. SI no cambió datos guardados.'
-              : 'Check the exact task title or include more saved information before deciding. SI has not changed saved data.'
+              ? 'Comprueba el título exacto de la tarea o amplía el filtro antes de decidir. El asistente no cambió datos guardados.'
+              : 'Check the exact task title or include more saved information before deciding. The Assistant has not changed saved data.'
         : _recommendation(
             question: question,
             focusTask: focusTask,
@@ -605,8 +606,8 @@ final class SIV2Engine {
         question.focus == _SIV2QuestionFocus.unsupported
         ? 'Prueba una pregunta compatible, como “¿Qué necesita atención?” o “¿Qué debería hacer después?”.'
         : subjectLabel == null
-        ? 'Ajusta las fuentes, fechas o el título buscado antes de confiar en esta respuesta. SI no cambió ningún dato guardado.'
-        : 'Revisa $subjectText y decide de forma explícita si quieres actuar, posponer, editar o rechazar la recomendación. SI no cambió ningún dato guardado.';
+        ? 'Ajusta las fuentes, fechas o el título buscado antes de confiar en esta respuesta. El asistente no cambió ningún dato guardado.'
+        : 'Revisa $subjectText y decide de forma explícita si quieres actuar, posponer, editar o rechazar la recomendación. El asistente no cambió ningún dato guardado.';
 
     SIV2Statement localizeStatement(SIV2Statement statement) {
       if (!RegExp(
@@ -992,18 +993,18 @@ final class SIV2Engine {
         _SIV2QuestionFocus.conflict =>
           'No explicit schedule, goal-link, or milestone-dependency conflict matching your question was found.',
         _SIV2QuestionFocus.progress =>
-          'No milestone completion record matched, so SI cannot determine progress from this saved information.',
+          'No milestone completion record matched, so the Assistant cannot determine progress from this saved information.',
         _SIV2QuestionFocus.unsupported =>
-          'SI cannot answer that question from saved tasks, goals, milestones, or Schedule records. It will not substitute an unrelated planning report.',
+          'The Assistant cannot answer that question from saved tasks, goals, milestones, or Schedule records. It will not substitute an unrelated planning report.',
         _ =>
-          'No saved evidence item matched the selected sources, date range, and entity filter, so SI cannot answer this question from app data.',
+          'No saved evidence item matched the selected sources, date range, and entity filter, so the Assistant cannot answer this question from app data.',
       };
     }
     switch (question.focus) {
       case _SIV2QuestionFocus.nextAction:
         if (focusTask != null) {
           if (question.availableMinutes case final int minutes) {
-            return 'Use the available $minutes ${minutes == 1 ? 'minute' : 'minutes'} to start one bounded part of "${focusTask.title}". SI does not know the full task duration, so this is a start, not a promise to finish it.';
+            return 'Use the available $minutes ${minutes == 1 ? 'minute' : 'minutes'} to start one bounded part of "${focusTask.title}". The Assistant does not know the full task duration, so this is a start, not a promise to finish it.';
           }
           final dateBasis =
               focusTask.dueDate != null || focusTask.scheduledFor != null
@@ -1029,8 +1030,7 @@ final class SIV2Engine {
         return '$totalMatched evidence items matched, but none contains a task-level next action.';
       case _SIV2QuestionFocus.urgency:
         if (focusTask != null) {
-          final DateTime? date = focusTask.dueDate ?? focusTask.scheduledFor;
-          return '"${focusTask.title}" has the strongest urgency signal: priority ${focusTask.priority}/5 and ${_timingLabel(date, now)}.';
+          return '"${focusTask.title}" has the strongest urgency signal: priority ${focusTask.priority}/5 and ${_taskTiming(focusTask, now)}.';
         }
         if (goals.length >= 2 && question.sourceHint != SIV2Source.milestones) {
           return _comparisonAnswer(
@@ -1042,10 +1042,10 @@ final class SIV2Engine {
           );
         }
         if (focusGoal != null) {
-          return 'Goal "${focusGoal.title}" has the strongest available urgency signal with ${_goalTargetLabel(focusGoal.targetDate, now)}.';
+          return 'Goal "${focusGoal.title}" has the strongest available urgency signal with ${_goalTargetLabel(focusGoal.targetDate, now, wholeDay: focusGoal.targetDay)}.';
         }
         if (focusMilestone != null) {
-          return 'Milestone "${focusMilestone.title}" has the strongest available urgency signal with ${_targetLabel(focusMilestone.targetDate, now)}.';
+          return 'Milestone "${focusMilestone.title}" has the strongest available urgency signal with ${_targetLabel(focusMilestone.targetDate, now, wholeDay: focusMilestone.targetDay)}.';
         }
         return 'The current evidence has no recorded date or priority signal that can answer which item is urgent.';
       case _SIV2QuestionFocus.workload:
@@ -1072,7 +1072,7 @@ final class SIV2Engine {
           final String subject = focusGoal == null
               ? 'the matched evidence'
               : 'goal "${focusGoal.title}"';
-          return 'No milestone completion record is available for $subject, so SI cannot determine progress from the selected information.';
+          return 'No milestone completion record is available for $subject, so the Assistant cannot determine progress from the selected information.';
         }
         final double average =
             relevantMilestones
@@ -1105,7 +1105,7 @@ final class SIV2Engine {
         return 'No task-to-goal or milestone-to-goal link in the selected information answers the alignment question.';
       case _SIV2QuestionFocus.schedule:
         if (focusTask != null) {
-          return 'The relevant saved task is "${focusTask.title}", with ${_timingLabel(focusTask.dueDate ?? focusTask.scheduledFor, now)}.';
+          return 'The relevant saved task is "${focusTask.title}", with ${_taskTiming(focusTask, now)}.';
         }
         if (focusTimeline != null) {
           return 'The relevant Schedule record is "${focusTimeline.title}" from ${_dateLabel(focusTimeline.timestamp)} with status "${focusTimeline.status}".';
@@ -1141,7 +1141,7 @@ final class SIV2Engine {
               focusTask.dueDate ?? focusTask.scheduledFor;
           final timing = savedTime == null
               ? 'no saved due or scheduled time is available for this task'
-              : 'its saved timing is ${_timingLabel(savedTime, now)}';
+              : 'its saved timing is ${_taskTiming(focusTask, now)}';
           final userDateLimit = savedTime == null
               ? ' A date supplied only in your question is not a saved task date.'
               : '';
@@ -1199,11 +1199,11 @@ final class SIV2Engine {
               '${titles.length > 20 ? '\nShowing the first 20; select fewer saved records to inspect the rest.' : ''}';
         }
         if (focusTask != null && question.titleScore(focusTask.title) > 0) {
-          return 'Your question most closely matches saved task "${focusTask.title}", recorded at priority ${focusTask.priority}/5 with ${_timingLabel(focusTask.dueDate ?? focusTask.scheduledFor, now)}.';
+          return 'Your question most closely matches saved task "${focusTask.title}", recorded at priority ${focusTask.priority}/5 with ${_taskTiming(focusTask, now)}.';
         }
         return '$totalMatched evidence item${totalMatched == 1 ? '' : 's'} matched. Ask about the next action, urgency, workload, progress, schedule, goal alignment, conflicts, or a named saved item for a more specific answer.';
       case _SIV2QuestionFocus.unsupported:
-        return 'SI cannot answer that question from saved tasks, goals, milestones, or Schedule records. It will not substitute an unrelated planning report.';
+        return 'The Assistant cannot answer that question from saved tasks, goals, milestones, or Schedule records. It will not substitute an unrelated planning report.';
     }
   }
 
@@ -1215,7 +1215,7 @@ final class SIV2Engine {
     required SIV2TimelineEvidence? focusTimeline,
     required List<SIV2Conflict> conflicts,
   }) {
-    final String noMutation = ' SI has not changed any saved data.';
+    final String noMutation = ' The Assistant has not changed any saved data.';
     switch (question.focus) {
       case _SIV2QuestionFocus.progress:
         if (focusMilestone != null) {
@@ -1243,7 +1243,7 @@ final class SIV2Engine {
         }
         break;
       case _SIV2QuestionFocus.unsupported:
-        return 'Ask a planning question that can be checked against tasks, goals, milestones, or Schedule; SI will not invent an answer.';
+        return 'Ask a planning question that can be checked against tasks, goals, milestones, or Schedule; the Assistant will not invent an answer.';
       case _SIV2QuestionFocus.evidenceGaps:
         return 'Review the named evidence gaps before relying on this saved information for a planning decision.$noMutation';
       case _SIV2QuestionFocus.workload:
@@ -1405,7 +1405,7 @@ final class SIV2Engine {
         });
       final SIV2TaskEvidence first = ranked[0];
       final SIV2TaskEvidence second = ranked[1];
-      return '"${first.title}" ranks ahead of "${second.title}" for this question: ${_timingLabel(first.dueDate ?? first.scheduledFor, now)}, priority ${first.priority}/5, versus ${_timingLabel(second.dueDate ?? second.scheduledFor, now)}, priority ${second.priority}/5.';
+      return '"${first.title}" ranks ahead of "${second.title}" for this question: ${_taskTiming(first, now)}, priority ${first.priority}/5, versus ${_taskTiming(second, now)}, priority ${second.priority}/5.';
     }
     if (question.sourceHint == SIV2Source.milestones) {
       if (milestones.length < 2) {
@@ -1434,12 +1434,12 @@ final class SIV2Engine {
     final SIV2GoalEvidence first = ranked[0];
     final SIV2GoalEvidence second = ranked[1];
     if (question.titleScore(first.title) != question.titleScore(second.title)) {
-      return '"${first.title}" ranks ahead of "${second.title}" because its title more closely matches this question. Recorded targets: ${_goalTargetLabel(first.targetDate, now)} versus ${_goalTargetLabel(second.targetDate, now)}; dates did not decide this ordering.';
+      return '"${first.title}" ranks ahead of "${second.title}" because its title more closely matches this question. Recorded targets: ${_goalTargetLabel(first.targetDate, now, wholeDay: first.targetDay)} versus ${_goalTargetLabel(second.targetDate, now, wholeDay: second.targetDay)}; dates did not decide this ordering.';
     }
     if (_compareGoalTargets(first.targetDate, second.targetDate) != 0) {
-      return '"${first.title}" ranks ahead of "${second.title}" because title relevance is tied and its recorded target is ${_goalTargetLabel(first.targetDate, now)} versus ${_goalTargetLabel(second.targetDate, now)}.';
+      return '"${first.title}" ranks ahead of "${second.title}" because title relevance is tied and its recorded target is ${_goalTargetLabel(first.targetDate, now, wholeDay: first.targetDay)} versus ${_goalTargetLabel(second.targetDate, now, wholeDay: second.targetDay)}.';
     }
-    return '"${first.title}" and "${second.title}" are tied on title relevance and recorded targets (${_goalTargetLabel(first.targetDate, now)}). These signals do not establish a higher priority for either goal.';
+    return '"${first.title}" and "${second.title}" are tied on title relevance and recorded targets (${_goalTargetLabel(first.targetDate, now, wholeDay: first.targetDay)}). These signals do not establish a higher priority for either goal.';
   }
 
   SIV2Conflict? _relevantConflict(
@@ -1484,27 +1484,32 @@ final class SIV2Engine {
         (milestone != null && question.titleScore(milestone.title) > 0);
   }
 
-  String _timingLabel(DateTime? date, DateTime now) {
+  /// A task's due or planned time. A deadline saved as a whole day is judged
+  /// by its calendar day, so one reply never says a task is not overdue and
+  /// "now past" at once.
+  String _taskTiming(SIV2TaskEvidence task, DateTime now) => _timingLabel(
+    task.dueDate ?? task.scheduledFor,
+    now,
+    wholeDay: task.dueDate != null ? task.dueDay : null,
+  );
+
+  String _wholeDayLabel(DateTime day) =>
+      '${day.year.toString().padLeft(4, '0')}-'
+      '${day.month.toString().padLeft(2, '0')}-'
+      '${day.day.toString().padLeft(2, '0')}';
+
+  String _timingLabel(DateTime? date, DateTime now, {DateTime? wholeDay}) {
     if (date == null) return 'no saved due or scheduled date';
-    final bool dateOnly =
-        date.hour == 0 &&
-        date.minute == 0 &&
-        date.second == 0 &&
-        date.millisecond == 0 &&
-        date.microsecond == 0;
-    final bool past = dateOnly
-        ? _localDay(date).isBefore(_localDay(now))
-        : date.toLocal().isBefore(now.toLocal());
-    if (past) return 'recorded date ${_dateLabel(date)}, now past';
-    return 'recorded date ${_dateLabel(date)}';
+    final String label =
+        'recorded date ${wholeDay != null ? _wholeDayLabel(wholeDay) : _dateLabel(date)}';
+    return siDeadlinePast(date, wholeDay, now) ? '$label, now past' : label;
   }
 
-  String _targetLabel(DateTime? date, DateTime now) {
+  String _targetLabel(DateTime? date, DateTime now, {DateTime? wholeDay}) {
     if (date == null) return 'no saved target date';
-    final DateTime utc = date.toUtc();
-    return utc.isBefore(now)
-        ? 'target ${_dateLabel(utc)}, now past'
-        : 'target ${_dateLabel(utc)}';
+    final String label =
+        'target ${wholeDay != null ? _wholeDayLabel(wholeDay) : _dateLabel(date.toUtc())}';
+    return siDeadlinePast(date, wholeDay, now) ? '$label, now past' : label;
   }
 
   // Goal targets are local calendar dates, like Home and Schedule. UTC here
@@ -1527,23 +1532,24 @@ final class SIV2Engine {
     return _localDay(left).compareTo(_localDay(right));
   }
 
-  String _goalTargetLabel(DateTime? date, DateTime now) {
+  String _goalTargetLabel(DateTime? date, DateTime now, {DateTime? wholeDay}) {
     if (date == null) return 'no saved target date';
-    final day = _localDay(date);
+    final day = siGoalDay(date, wholeDay);
     final order = day.compareTo(_localDay(now));
     final suffix = order < 0 ? ', now past' : (order == 0 ? ', due today' : '');
     return 'target ${_dateLabel(day)}$suffix';
   }
 
   bool _withinGoalRange(
-    DateTime? date,
+    SIV2GoalEvidence goal,
     SIV2TimeRange range,
     DateTime now, {
     required bool undatedMatches,
   }) {
+    final date = goal.targetDate;
     if (range == SIV2TimeRange.all) return true;
     if (date == null) return undatedMatches;
-    final day = _localDay(date);
+    final day = siGoalDay(date, goal.targetDay);
     final start = _localDay(now);
     if (day.isBefore(start)) return true;
     return _withinRange(day, range, start, undatedMatches: undatedMatches);
@@ -1561,19 +1567,10 @@ final class SIV2Engine {
     return display.toIso8601String().split('T').first;
   }
 
-  bool _taskIsOverdue(SIV2TaskEvidence task, DateTime now) {
-    final due = task.dueDate;
-    if (due == null) return false;
-    final bool dateOnly =
-        due.hour == 0 &&
-        due.minute == 0 &&
-        due.second == 0 &&
-        due.millisecond == 0 &&
-        due.microsecond == 0;
-    return dateOnly
-        ? _localDay(due).isBefore(_localDay(now))
-        : due.toLocal().isBefore(now.toLocal());
-  }
+  // A deadline saved as a whole day belongs to that local day, whatever the
+  // zone (the evidence carries the day; the UTC instant alone cannot say).
+  bool _taskIsOverdue(SIV2TaskEvidence task, DateTime now) =>
+      task.dueDate != null && siDeadlinePast(task.dueDate!, task.dueDay, now);
 
   bool _withinTaskRange(
     SIV2TaskEvidence task,

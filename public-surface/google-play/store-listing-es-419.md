@@ -30,7 +30,7 @@ PLANIFICA SIN ANUNCIOS
 Axiomara no tiene banners ni videos con recompensa. La planificación sin anuncios no requiere una suscripción.
 
 IA Y FUNCIONES DE PAGO OPCIONALES
-Las acciones de IA externa son opcionales. Antes de confirmar una, Axiomara identifica el proveedor, el contexto seleccionado que podría enviarse y el costo previsto en créditos. Puedes rechazarla y continuar sin IA generativa. El acceso por suscripción y los créditos de IA aparecen por separado. Las funciones de pago disponibles y sus precios se muestran antes de comprar.
+El chat con IA (que envía información a un servicio de IA externo) es opcional. Antes de confirmar una pregunta, Axiomara identifica el proveedor, el contexto seleccionado que podría enviarse y el costo previsto en créditos. Puedes rechazarla y continuar sin IA generativa. El acceso por suscripción y los créditos de IA aparecen por separado. Las funciones de pago disponibles y sus precios se muestran antes de comprar.
 
 COPIA DE SEGURIDAD OPCIONAL EN LA NUBE
 La copia en la nube está desactivada de forma predeterminada. Las copias automáticas y antiguas pueden incluir solo tareas, información del perfil y preferencias de la cuenta. Al elegir «Guardar todos los datos» y confirmar, la instantánea cifrada también incluye metas, hábitos, notas, historial de tareas y hábitos, resultados de decisiones e historial de horarios. Esto reemplaza la instantánea anterior en la nube con los datos de este dispositivo. Restaura la copia más reciente antes de hacer una copia desde otro dispositivo y guarda la clave de recuperación por separado. Los recuerdos privados, la información personal compartida para orientación y el historial local de Chat quedan excluidos de estas instantáneas en la nube.

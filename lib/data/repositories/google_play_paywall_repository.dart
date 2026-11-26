@@ -387,11 +387,11 @@ class GooglePlayPaywallRepository
       featureId: 'premium',
       title: _paywallTestingMode
           ? 'Unlocked for testing'
-          : 'External-assistant credit plans',
+          : 'AI chat credit plans',
       body: _paywallTestingMode
           ? 'Premium gates are bypassed in this build.'
           : (billingReady
-                ? 'Choose a plan to increase the monthly external-assistant credit allowance.'
+                ? 'Choose a plan to increase the monthly AI chat credit allowance.'
                 : 'Purchases are temporarily unavailable while billing verification is being finalized.'),
       plans: await getAvailablePlans(),
       isUnlocked: _paywallTestingMode || _effectiveStateForCurrentUser.isActive,

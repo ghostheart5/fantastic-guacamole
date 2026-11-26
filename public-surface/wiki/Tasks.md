@@ -26,7 +26,7 @@ For example, “launch a website” is a goal. “Write the homepage outline” 
 
 Mark a task occurrence complete when that action is done. A completion record represents that completed occurrence; later Schedule, sync, or learning updates do not rewrite the fact that it was completed.
 
-After a task is complete, use [[Today|Nexus]], [[Chat|Smart Planner]], or [[SI Chat|SI Console]] to review the current context and decide what to do next. These surfaces provide orientation or guidance; they do not guarantee an outcome.
+After a task is complete, use [[Today|Nexus]], [[Choose a step|Smart Planner]], or [[Chat|SI Console]] to review the current context and decide what to do next. These surfaces provide orientation or guidance; they do not guarantee an outcome.
 
 ## Related pages
 
@@ -36,5 +36,5 @@ After a task is complete, use [[Today|Nexus]], [[Chat|Smart Planner]], or [[SI C
 - [[habits|Daily Rhythms]]
 - [[Notes|Notes]]
 - [[Today|Nexus]]
-- [[Chat|Smart Planner]]
-- [[SI Chat|SI Console]]
+- [[Choose a step|Smart Planner]]
+- [[Chat|SI Console]]

@@ -1,6 +1,4 @@
 import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
-import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
-import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
@@ -18,9 +16,6 @@ void main() {
       final ProviderContainer container = ProviderContainer(
         overrides: [
           siV2AvailabilityProvider.overrideWith((Ref ref) async => true),
-          aiControllerProvider.overrideWith(
-            (Ref ref) => _RecordingAiController(ref),
-          ),
           voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
           intelligenceStateProvider.overrideWithValue(_intelligence),
         ],
@@ -75,9 +70,6 @@ void main() {
       final ProviderContainer container = ProviderContainer(
         overrides: [
           siV2AvailabilityProvider.overrideWith((Ref ref) async => true),
-          aiControllerProvider.overrideWith(
-            (Ref ref) => _RecordingAiController(ref),
-          ),
           voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
           intelligenceStateProvider.overrideWithValue(_intelligence),
         ],
@@ -195,23 +187,6 @@ const IntelligenceState _intelligence = IntelligenceState(
   auth: AuthStateSnapshot(hasMockSignIn: true, hasAuthenticatedUser: false),
   mockLogin: MockLoginConfigState(email: '', password: ''),
 );
-
-class _RecordingAiController extends AIController {
-  _RecordingAiController(super.ref);
-
-  int calls = 0;
-
-  @override
-  Future<AIRecommendation?> sendMessage(String text) async {
-    calls += 1;
-    return const AIRecommendation(
-      message: 'ok',
-      reasoning: 'n/a',
-      emotion: 'balanced',
-      confidence: 1,
-    );
-  }
-}
 
 class _NoopVoiceService extends VoiceService {
   @override

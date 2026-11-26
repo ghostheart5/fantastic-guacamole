@@ -2,7 +2,16 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:fantastic_guacamole/domain/entities/conversation_extra_sources.dart';
+
 enum ConversationSurface { planner, si }
+
+/// The price, in credits, of one AI chat message as the server prices it
+/// today: every request reaches MAX_CUSTOMER_CREDITS_PER_QUESTION in
+/// supabase/functions/_shared/ai_credit_quote.ts. The send button shows it,
+/// and tapping send confirms it. The signed quote is still compared with it;
+/// a different price is asked about before anything is charged.
+const conversationMessageCredits = 5;
 
 /// An immutable, reviewable request. Quote and execution serialize the same
 /// bytes even if the user edits records while the confirmation dialog is open.
@@ -23,12 +32,11 @@ final class ConversationPacket {
          'personality': surface == ConversationSurface.planner
              ? 'planner'
              : 'strategist',
-         'context': {
-           ..._boundedContext(context),
-           'surface': surface.name,
-           if (history.any((t) => (t['content']?.length ?? 0) > 2500))
-             'historyClipped': true,
-         },
+         'context': _contextWithMarkers(
+           _boundedContext(context),
+           surface,
+           history.any((t) => (t['content']?.length ?? 0) > 2500),
+         ),
          'maxTokens': 1024,
          'allowExternalAi': true,
        }) {
@@ -126,16 +134,49 @@ List<Map<String, String>> _boundedHistory(
   };
 }).toList();
 
+/// The most keys the server accepts in a request's context
+/// (supabase/functions/_shared/ai_proxy_policy.ts, isJsonValue). A longer one
+/// is refused before any price is quoted, and a retry would be refused again.
+const int conversationContextKeyLimit = 24;
+
+/// Adds the surface and the shortened-history marker. The marker is the one
+/// optional key left out when it would pass the limit: the shortened message
+/// already carries its own "[Earlier message shortened]" text in the history,
+/// so no consent or meaning depends on the marker. If the context is still
+/// over the limit the request is not built.
+Map<String, Object?> _contextWithMarkers(
+  Map<String, Object?> bounded,
+  ConversationSurface surface,
+  bool historyClipped,
+) {
+  final result = <String, Object?>{...bounded, 'surface': surface.name};
+  if (historyClipped && result.length < conversationContextKeyLimit) {
+    result['historyClipped'] = true;
+  }
+  if (result.length > conversationContextKeyLimit) {
+    throw const ConversationFailure('context_too_large');
+  }
+  return result;
+}
+
 Map<String, Object?> _boundedContext(Map<String, Object?> input) {
   final context = Map<String, Object?>.from(
     jsonDecode(jsonEncode(input)) as Map,
   );
   while (jsonEncode(context).length > 10000) {
-    final candidates = ['tasks', 'goals', 'milestones', 'timeline']
-        .where(
-          (key) => context[key] is List && (context[key] as List).length > 1,
-        )
-        .toList();
+    final candidates =
+        [
+              'tasks',
+              'goals',
+              'milestones',
+              'timeline',
+              ...conversationExtraContextKeys,
+            ]
+            .where(
+              (key) =>
+                  context[key] is List && (context[key] as List).length > 1,
+            )
+            .toList();
     if (candidates.isEmpty) {
       throw const ConversationFailure('context_too_large');
     }
@@ -259,9 +300,179 @@ final class ConversationAnswer {
   final String requestId;
 }
 
+/// What one AI reply used and cost, shown under it and kept with it in the
+/// account's Chat store. The counts come from the packet that was sent for
+/// the reply; the credits from the server's confirmed reply. Nothing else is
+/// recorded: no record content, titles or identifiers.
+final class ConversationReplyReceipt {
+  const ConversationReplyReceipt({
+    this.tasks = 0,
+    this.goals = 0,
+    this.milestones = 0,
+    this.schedule = 0,
+    this.habits = 0,
+    this.recentTasks = 0,
+    this.goalProgress = 0,
+    this.note = false,
+    this.energy = false,
+    this.emotion = false,
+    this.earlierMessages = 0,
+    required this.creditsCharged,
+    required this.remainingCredits,
+  });
+
+  /// Counted from the exact packet that produced [answer], so a recovered
+  /// reply shows what its own stored request carried.
+  factory ConversationReplyReceipt.fromReply(
+    ConversationPacket packet,
+    ConversationAnswer answer,
+  ) {
+    final body = packet.toJson();
+    final context = body['context'] as Map;
+    int count(String key) =>
+        context[key] is List ? (context[key] as List).length : 0;
+    // An extra source lives under the key naming its window.
+    int extraCount(ConversationExtraSource source) =>
+        source.contextKeys.fold(0, (sum, key) => sum + count(key));
+    return ConversationReplyReceipt(
+      tasks: count('tasks'),
+      goals: count('goals'),
+      milestones: count('milestones'),
+      schedule: count('timeline'),
+      habits: extraCount(ConversationExtraSource.habits),
+      recentTasks: extraCount(ConversationExtraSource.recentTasks),
+      goalProgress: extraCount(ConversationExtraSource.goalProgress),
+      note: context['explicitlyAttachedNote'] is Map,
+      energy: context['reportedEnergy'] is num,
+      emotion: context['reportedEmotion'] is String,
+      earlierMessages: body['history'] is List
+          ? (body['history'] as List).length
+          : 0,
+      creditsCharged: answer.credits,
+      remainingCredits: answer.remainingCredits,
+    );
+  }
+
+  /// The key a reply's receipt is kept under in a conversation turn.
+  static const turnKey = 'receipt';
+
+  final int tasks;
+  final int goals;
+  final int milestones;
+  final int schedule;
+
+  /// Extra information the person turned on for this request. Kept only when
+  /// something was sent, so a receipt without any is exactly what earlier
+  /// versions wrote.
+  final int habits;
+  final int recentTasks;
+  final int goalProgress;
+  final bool note;
+  final bool energy;
+  final bool emotion;
+  final int earlierMessages;
+  final int creditsCharged;
+  final int remainingCredits;
+
+  Map<String, Object?> toJson() => {
+    'version': 1,
+    'tasks': tasks,
+    'goals': goals,
+    'milestones': milestones,
+    'schedule': schedule,
+    if (habits > 0) 'habits': habits,
+    if (recentTasks > 0) 'recentTasks': recentTasks,
+    if (goalProgress > 0) 'goalProgress': goalProgress,
+    'note': note,
+    'energy': energy,
+    'emotion': emotion,
+    'earlierMessages': earlierMessages,
+    'creditsCharged': creditsCharged,
+    'remainingCredits': remainingCredits,
+  };
+
+  String encode() => jsonEncode(toJson());
+
+  /// Null for anything that is not exactly a receipt this version writes, so
+  /// a damaged or unknown one simply shows no footer.
+  static ConversationReplyReceipt? fromJson(Object? json) {
+    if (json is! Map || json['version'] != 1) return null;
+    const extraKeys = ['habits', 'recentTasks', 'goalProgress'];
+    if (json.length != 11 + extraKeys.where(json.containsKey).length) {
+      return null;
+    }
+    int? count(String key, {int min = 0, int max = 1000}) {
+      final value = json[key];
+      return value is int && value >= min && value <= max ? value : null;
+    }
+
+    final tasks = count('tasks');
+    final goals = count('goals');
+    final milestones = count('milestones');
+    final schedule = count('schedule');
+    final habits = json.containsKey('habits')
+        ? count('habits', min: 1, max: conversationExtraSourceItemLimit)
+        : 0;
+    final recentTasks = json.containsKey('recentTasks')
+        ? count('recentTasks', min: 1, max: conversationExtraSourceItemLimit)
+        : 0;
+    final goalProgress = json.containsKey('goalProgress')
+        ? count('goalProgress', min: 1, max: conversationExtraSourceItemLimit)
+        : 0;
+    final earlier = count('earlierMessages');
+    final charged = count('creditsCharged', min: 1, max: 100);
+    final remaining = count('remainingCredits', max: 1 << 31);
+    final note = json['note'];
+    final energy = json['energy'];
+    final emotion = json['emotion'];
+    if (tasks == null ||
+        goals == null ||
+        milestones == null ||
+        schedule == null ||
+        habits == null ||
+        recentTasks == null ||
+        goalProgress == null ||
+        earlier == null ||
+        charged == null ||
+        remaining == null ||
+        note is! bool ||
+        energy is! bool ||
+        emotion is! bool) {
+      return null;
+    }
+    return ConversationReplyReceipt(
+      tasks: tasks,
+      goals: goals,
+      milestones: milestones,
+      schedule: schedule,
+      habits: habits,
+      recentTasks: recentTasks,
+      goalProgress: goalProgress,
+      note: note,
+      energy: energy,
+      emotion: emotion,
+      earlierMessages: earlier,
+      creditsCharged: charged,
+      remainingCredits: remaining,
+    );
+  }
+
+  static ConversationReplyReceipt? decode(String? encoded) {
+    if (encoded == null) return null;
+    try {
+      return fromJson(jsonDecode(encoded));
+    } on FormatException {
+      return null;
+    }
+  }
+}
+
 final class ConversationFailure implements Exception {
-  const ConversationFailure(this.code);
+  const ConversationFailure(this.code, {this.remainingCredits});
   final String code;
+
+  /// The balance the server reported with this answer, when it sent one.
+  final int? remainingCredits;
   @override
   String toString() => 'ConversationFailure($code)';
 }
@@ -305,7 +516,11 @@ final class ConversationService {
     });
     authorize(quote.packet);
     if (response.status != 200) {
-      throw ConversationFailure(_error(response.data));
+      final balance = response.data['remainingCredits'];
+      throw ConversationFailure(
+        _error(response.data),
+        remainingCredits: balance is int && balance >= 0 ? balance : null,
+      );
     }
     final data = response.data;
     if (data['requestId'] != quote.packet.requestId ||
