@@ -56,11 +56,11 @@ void main() {
     expect(
       text,
       contains(
-        'Accuracy here is about pace (momentum) only. Ranges are widened from '
-        'recorded accuracy once at least 3 forecasts have been checked on 2 or '
-        'more days, and narrowed only after checks on 5 or more days at least '
-        '14 days apart. Forecasts used: 4. Kept from an earlier method but '
-        'not used: 2.',
+        'Interval coverage and range changes use pace (momentum) only. Ranges '
+        'are widened from recorded accuracy once at least 3 forecasts have '
+        'been checked on 2 or more days, and narrowed only after checks on 5 '
+        'or more days spread over at least 14 days. Forecasts used: 4. Kept '
+        'from an earlier method but not used: 2.',
       ),
     );
     expect(text, isNot(contains('unchanged')));
@@ -79,10 +79,11 @@ void main() {
     expect(
       text,
       contains(
-        'La precisión aquí se refiere solo al ritmo (impulso). Los rangos se '
-        'amplían según la precisión registrada cuando hay al menos 3 '
-        'previsiones comprobadas en 2 o más días, y solo se estrechan tras '
-        'comprobaciones en 5 o más días separados al menos 14 días. '
+        'La cobertura del intervalo y los cambios de rango usan solo el ritmo '
+        '(impulso). Los rangos se amplían según la precisión registrada cuando '
+        'hay al menos 3 previsiones comprobadas en 2 o más días, y solo se '
+        'estrechan tras comprobaciones en 5 o más días repartidos en al menos '
+        '14 días. '
         'Previsiones usadas: 4. Conservadas de un método anterior pero no '
         'usadas: 2.',
       ),
@@ -101,8 +102,9 @@ void main() {
           'en',
           'PROVISIONAL',
           '2 resolved • momentum error 4.0 points • pressure error 1.0 points '
-              '• interval coverage 100%. Accuracy here is about pace '
-              '(momentum) only. Ranges stay as estimated until at least 3 '
+              '• interval coverage 100%. Interval coverage and range changes '
+              'use pace (momentum) only. Ranges stay as estimated until at '
+              'least 3 '
               'forecasts have been checked on 2 or more days. Checked so '
               'far: 2.',
         ),
@@ -110,8 +112,9 @@ void main() {
           'es',
           'PROVISIONAL',
           '2 resueltas • error de impulso 4.0 puntos • error de presión 1.0 '
-              'puntos • cobertura del intervalo 100%. La precisión aquí se '
-              'refiere solo al ritmo (impulso). Los rangos se mantienen como '
+              'puntos • cobertura del intervalo 100%. La cobertura del '
+              'intervalo y los cambios de rango usan solo el ritmo (impulso). '
+              'Los rangos se mantienen como '
               'se estimaron hasta que haya al menos 3 previsiones comprobadas '
               'en 2 o más días. Comprobadas hasta ahora: 2.',
         ),
