@@ -160,8 +160,12 @@ class FutureConsequenceEngine {
       dailyFreeMinutes: baseline.dailyFreeMinutes,
       days: horizonDays,
     );
-    // Options are ranked against keeping going over the same range.
-    final int pressureDelta = projectedPressure - keepGoingPressure;
+    // Options are ranked against keeping going over the same range, on the
+    // unrounded share of free time, so removing a typical task keeps its
+    // advantage at long ranges where the shown whole percent rounds it away.
+    final double pressureDelta = baseline.dailyFreeMinutes <= 0
+        ? (projectedPressure - keepGoingPressure).toDouble()
+        : -100 * reliefMinutes / (baseline.dailyFreeMinutes * horizonDays);
     final int uncertainty = _uncertainty(baseline, horizonDays);
     final PredictiveConfidenceProfile confidence = _confidence(
       baseline,

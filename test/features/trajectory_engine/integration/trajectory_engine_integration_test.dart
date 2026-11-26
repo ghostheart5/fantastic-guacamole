@@ -989,7 +989,8 @@ void main() {
       await tester.pump();
 
       expect(find.text('DIRECCIÓN ACTUAL'), findsOneWidget);
-      expect(find.text('Requiere atención'), findsOneWidget);
+      // The fixture's v4 workload over the next 7 days is 18 (below 50).
+      expect(find.text('Dirección estable'), findsOneWidget);
       expect(find.text('CARGA MODELADA'), findsOneWidget);
       expect(find.text('IMPULSO'), findsWidgets);
       expect(find.text('ENERGÍA'), findsWidgets);

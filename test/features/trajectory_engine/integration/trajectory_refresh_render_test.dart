@@ -233,7 +233,7 @@ void main() {
           ? '• Elige un camino para ver cuánto podrías lograr y cuánta presión '
                 'podrías sentir. El periodo (7, 30 o 90 días) cambia qué '
                 'tareas cuentan y lo amplia que es la incertidumbre: cuanto '
-                'más lejos, menos seguro. “Ajuste recomendado” marca '
+                'más lejos, menos fiable. “Ajuste recomendado” marca '
                 'el camino que mejor se ve ahora.'
           : '• Pick a path to see how much you might get done and how much '
                 'pressure you might feel. The time range (7, 30 or 90 days) '
@@ -270,6 +270,7 @@ void main() {
       expect(find.textContaining('no los números proyectados'), findsNothing);
       expect(find.textContaining('range only changes'), findsNothing);
       expect(find.textContaining('solo cambia lo amplia'), findsNothing);
+      expect(find.textContaining('menos seguro'), findsNothing);
       expect(find.textContaining('Over 7 days'), findsNothing);
       expect(find.textContaining('Durante 7 días'), findsNothing);
     });

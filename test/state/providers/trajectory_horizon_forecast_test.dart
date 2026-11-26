@@ -176,9 +176,12 @@ void main() {
       },
     );
 
-    test('a range across a daylight-saving change still has 7 days', () async {
+    test('a range across a daylight-saving change still has 7 days (meaningful '
+        'only when the machine time zone has daylight saving)', () async {
       // Calendar-day arithmetic: the range ends 7 local days later at the
       // same wall-clock time, whatever the clock change does to the hours.
+      // These dates are the 2026 US/Canada changes; in a zone without them
+      // the test passes trivially.
       final TrajectoryBaseline spring = (await _compare(
         <Task>[
           _task('in', 20, dueDate: DateTime(2026, 3, 12, 8, 30)),
@@ -248,6 +251,24 @@ void main() {
       )).baseline;
       expect(whole.pressure, 7);
       expect(split.pressure, whole.pressure);
+    });
+
+    test('splitting a 90-minute task into three 30-minute tasks', () async {
+      final TrajectoryBaseline whole = (await _compare(
+        <Task>[_task('whole', 90)],
+        now: now,
+        horizonDays: 30,
+      )).baseline;
+      final TrajectoryBaseline split = (await _compare(
+        <Task>[for (int i = 0; i < 3; i++) _task('p$i', 30)],
+        now: now,
+        horizonDays: 30,
+      )).baseline;
+      // 90 / 1680 = 5.4% over the next 7 days; 90 / 7200 = 1.3% over 30.
+      expect(whole.pressure, 5);
+      expect(split.pressure, whole.pressure);
+      expect(whole.pressureInHorizon, 1);
+      expect(split.pressureInHorizon, whole.pressureInHorizon);
     });
 
     test('no free time with work present is 100', () async {

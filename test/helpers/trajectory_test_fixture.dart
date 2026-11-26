@@ -10,7 +10,7 @@ final DateTime trajectoryFixtureNow = DateTime.utc(2026, 8, 16, 15);
 TrajectoryBaseline trajectoryTestBaseline({
   String accountScope = 'v2.test-account',
   int momentum = 61,
-  int pressure = 58,
+  int? pressure,
   int observationCount = 12,
   PredictiveEvidenceOrigin energyOrigin = PredictiveEvidenceOrigin.observed,
   PredictiveEvidenceOrigin availabilityOrigin =
@@ -24,10 +24,22 @@ TrajectoryBaseline trajectoryTestBaseline({
 }) {
   final List<TrajectoryTaskNode> resolvedTasks = tasks ?? _fixtureTasks();
   final int free = dailyFreeMinutes ?? 120;
+  // The v4 workloads the provider and engine compute for the same tasks:
+  // the next 7 days (pressure, what Home shows) and the chosen range.
+  int load(int days) => FutureConsequenceEngine.capacityLoad(
+    requiredMinutes: FutureConsequenceEngine.horizonWorkload(
+      tasks: resolvedTasks,
+      now: trajectoryFixtureNow,
+      horizonDays: days,
+      completedLast7Days: completedInWindow,
+    ).requiredMinutes,
+    dailyFreeMinutes: free,
+    days: days,
+  );
   return _fixtureBaseline(
     accountScope: accountScope,
     momentum: momentum,
-    pressure: pressure,
+    pressure: pressure ?? load(7),
     observationCount: observationCount,
     energyOrigin: energyOrigin,
     availabilityOrigin: availabilityOrigin,
@@ -37,18 +49,7 @@ TrajectoryBaseline trajectoryTestBaseline({
     dailyFreeMinutes: free,
     completedInWindow: completedInWindow,
     horizonDays: horizonDays,
-    // The range workload the engine computes for the same tasks, so the
-    // screen's "current" value matches keeping going.
-    pressureInHorizon: FutureConsequenceEngine.capacityLoad(
-      requiredMinutes: FutureConsequenceEngine.horizonWorkload(
-        tasks: resolvedTasks,
-        now: trajectoryFixtureNow,
-        horizonDays: horizonDays,
-        completedLast7Days: completedInWindow,
-      ).requiredMinutes,
-      dailyFreeMinutes: free,
-      days: horizonDays,
-    ),
+    pressureInHorizon: load(horizonDays),
   );
 }
 
