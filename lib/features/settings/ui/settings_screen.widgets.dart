@@ -445,7 +445,9 @@ class _FormAppearanceSettingState
                 ? null
                 : (String? id) {
                     if (id == null || id == selected) return;
-                    _save(choices.firstWhere((choice) => choice.id == id));
+                    unawaited(
+                      _save(choices.firstWhere((choice) => choice.id == id)),
+                    );
                   },
           ),
           const SizedBox(height: 8),
