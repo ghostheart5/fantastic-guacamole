@@ -230,7 +230,7 @@ void main() {
     final scrollable = find.byType(Scrollable).first;
     await tapTrajectory(tester, find.text('Try a custom what-if'));
     await tapTrajectory(tester, find.text('Delay'));
-    await tapTrajectory(tester, find.text('Compare 7-day path'));
+    await tapTrajectory(tester, find.text('Compare over 7 days'));
     await tester.drag(find.byType(ListView), const Offset(0, 5000));
     await tester.pump();
     await tester.scrollUntilVisible(
@@ -267,15 +267,18 @@ void main() {
     await tester.pump();
     await tapTrajectory(tester, find.text('Full impact and evidence'));
     await tester.scrollUntilVisible(
-      find.textContaining('Capacity overload: not scored.'),
+      find.textContaining('Workload over your free time: not scored.'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
     expect(
-      find.textContaining('Capacity overload: not scored.'),
+      find.textContaining('Workload over your free time: not scored.'),
       findsOneWidget,
     );
-    expect(find.textContaining('Capacity overload: 0%'), findsNothing);
+    expect(
+      find.textContaining('Workload over your free time: 0%'),
+      findsNothing,
+    );
   });
 
   testWidgets(
@@ -409,7 +412,10 @@ void main() {
     final List<TrajectoryForecastReceipt> receipts = await repository.load();
     expect(receipts, hasLength(1));
     expect(receipts.single.hasAssumptionCorrection, isTrue);
-    expect(find.textContaining('Forecast excluded locally'), findsOneWidget);
+    expect(
+      find.textContaining('Forecast excluded on this device'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('error state does not render a false stable estimate', (

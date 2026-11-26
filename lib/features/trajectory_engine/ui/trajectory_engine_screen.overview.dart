@@ -192,7 +192,8 @@ class _HabitLinesBlock extends StatelessWidget {
       children: <Widget>[
         Text(
           journeyText(context, 'Habit check-ins', 'Registros de hábitos'),
-          style: text.titleSmall?.copyWith(color: colors.primary),
+          // A heading above its rows: at least as large as their labels.
+          style: text.titleMedium?.copyWith(color: colors.primary),
         ),
         ...body,
       ],
@@ -278,8 +279,8 @@ class _OptionsSection extends StatelessWidget {
       title: journeyText(context, 'Options', 'Opciones'),
       description: journeyText(
         context,
-        'Pick one to compare it with keeping going. Wider ranges are less reliable.',
-        'Elige una para compararla con seguir como vas. Los rangos más amplios son menos fiables.',
+        'Pick one to compare it with keeping going. Workload and pace are model scores, not chances of success; wider ranges are less reliable.',
+        'Elige una para compararla con seguir como vas. La carga y el ritmo son puntuaciones del modelo, no probabilidades de éxito; los rangos más amplios son menos fiables.',
       ),
       children: <Widget>[
         for (final TrajectoryScenarioOutcome outcome in visible)
@@ -537,6 +538,7 @@ class _SelectedOptionSection extends StatelessWidget {
     required this.baseline,
     required this.outcome,
     required this.keepGoing,
+    required this.pickedByPerson,
     required this.isRecommended,
     required this.onOpen,
     required this.onTrack,
@@ -546,6 +548,9 @@ class _SelectedOptionSection extends StatelessWidget {
   final TrajectoryBaseline baseline;
   final TrajectoryScenarioOutcome outcome;
   final TrajectoryScenarioOutcome? keepGoing;
+
+  /// The person chose this option (not only shown as recommended or first).
+  final bool pickedByPerson;
   final bool isRecommended;
   final VoidCallback onOpen;
   final VoidCallback onTrack;
@@ -589,10 +594,16 @@ class _SelectedOptionSection extends StatelessWidget {
                             'Your what-if',
                             'Tu escenario hipotético',
                           )
-                        : journeyText(
+                        : pickedByPerson
+                        ? journeyText(
                             context,
                             'Option you picked',
                             'Opción que elegiste',
+                          )
+                        : journeyText(
+                            context,
+                            'Option shown',
+                            'Opción mostrada',
                           ),
                     style: text.labelLarge?.copyWith(color: colors.secondary),
                   ),
@@ -815,7 +826,7 @@ class _GoalDates extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           journeyText(context, 'Goal dates', 'Fechas de las metas'),
-          style: text.titleSmall?.copyWith(color: colors.primary),
+          style: text.titleMedium?.copyWith(color: colors.primary),
         ),
         for (final GoalDelayProjection goal in outcome.goals)
           PlainMetricRow(

@@ -318,6 +318,35 @@ void main() {
     });
   });
 
+  group('the selected option label', () {
+    testWidgets('says "Option you picked" only after a real choice', (
+      tester,
+    ) async {
+      await pumpFutureOutcomes(
+        tester,
+        // Without working hours there is no recommendation, so the shown
+        // option is only the first one.
+        modelFor: (int days) => futureOutcomesModel(
+          comparison: futureOutcomesComparison(
+            days: days,
+            baseline: futureOutcomesBaseline(days: days, observationCount: 4),
+          ),
+        ),
+      );
+      expect(textsIn(tester, selectedCard), contains('Option shown'));
+      expect(
+        textsIn(tester, selectedCard),
+        isNot(contains('Option you picked')),
+      );
+      await tapFutureOutcomes(
+        tester,
+        find.byKey(const ValueKey<String>('option-planner')),
+      );
+      expect(textsIn(tester, selectedCard), contains('Option you picked'));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('equal shown workload', () {
     testWidgets('ranked options with the same whole percent give the reason', (
       tester,

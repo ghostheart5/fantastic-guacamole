@@ -593,7 +593,7 @@ void main() {
       title.hitTestable(),
       180,
       scrollable: find.byType(Scrollable).first,
-      maxScrolls: 80,
+      maxScrolls: 160,
     );
     await tester.ensureVisible(title);
     await pumpTrajectoryTransition(tester);

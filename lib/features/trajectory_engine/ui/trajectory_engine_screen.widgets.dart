@@ -92,9 +92,10 @@ Widget _cardHeading(BuildContext context, String title) => Padding(
   padding: const EdgeInsets.only(top: 12, bottom: 4),
   child: Text(
     title,
+    // At least as large as the row labels under it.
     style: Theme.of(
       context,
-    ).textTheme.titleSmall?.copyWith(color: PlainPalette.of(context).primary),
+    ).textTheme.titleMedium?.copyWith(color: PlainPalette.of(context).primary),
   ),
 );
 
@@ -214,6 +215,12 @@ class _BasedOnDetails extends StatelessWidget {
           value: baseline.hasObservedAvailability
               ? '${baseline.unscheduledMinutes} min'
               : journeyText(context, 'Not worked out', 'Sin calcular'),
+          // The planner's capacity for today, not the selected range.
+          caption: journeyText(
+            context,
+            'Today, not the selected range.',
+            'Hoy, no el periodo elegido.',
+          ),
           provenance: baseline.hasObservedAvailability
               ? ProvenanceKind.plan
               : null,
@@ -700,7 +707,7 @@ class _HowThisHelps extends StatelessWidget {
       journeyText(
         context,
         'It needs a few tasks with times and some recorded outcomes before it has much to show. The more you use Axiomara, the more useful it gets.',
-        'Necesita algunas tareas con horario y algunos resultados registrados antes de mostrar mucho. Cuanto más uses Axiomara, más útil será.',
+        'Necesita algunas tareas con horario y algunos resultados registrados antes de mostrar mucho. Cuanto más uses Axiomara, más útil es.',
       ),
     ]);
   }
@@ -1055,8 +1062,8 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
           const SizedBox(height: 10),
           Text(
             Localizations.localeOf(context).languageCode == 'es'
-                ? 'Aplazamiento declarado: ${_delayDays.round()} ${_delayDays.round() == 1 ? 'día' : 'días'}'
-                : 'Declared delay: ${_delayDays.round()} day${_delayDays.round() == 1 ? '' : 's'}',
+                ? 'Aplazar: ${_delayDays.round()} ${_delayDays.round() == 1 ? 'día' : 'días'}'
+                : 'Put off by: ${_delayDays.round()} day${_delayDays.round() == 1 ? '' : 's'}',
             style: _secondaryText(context),
           ),
           Slider(
@@ -1099,8 +1106,8 @@ class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
               label: Text(
                 journeyText(
                   context,
-                  'Compare ${widget.horizonDays}-day path',
-                  'Comparar trayectoria de ${widget.horizonDays} días',
+                  'Compare over ${widget.horizonDays} days',
+                  'Comparar en ${widget.horizonDays} días',
                 ),
               ),
               style: FilledButton.styleFrom(

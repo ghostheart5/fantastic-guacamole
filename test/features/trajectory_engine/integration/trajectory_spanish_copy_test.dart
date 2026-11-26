@@ -31,8 +31,9 @@ void main() {
     expect(find.text('Opciones'), findsOneWidget);
     expect(
       find.text(
-        'Elige una para compararla con seguir como vas. Los rangos más amplios '
-        'son menos fiables.',
+        'Elige una para compararla con seguir como vas. La carga y el ritmo son '
+        'puntuaciones del modelo, no probabilidades de éxito; los rangos más '
+        'amplios son menos fiables.',
       ),
       findsOneWidget,
     );

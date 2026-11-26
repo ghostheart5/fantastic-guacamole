@@ -276,6 +276,27 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
         'Shared personal information had no recent details this estimate could use.',
         'La información personal compartida no tenía datos recientes utilizables para esta estimación.',
       ),
+    'Pressure load' => journeyText(context, 'Workload', 'Carga de trabajo'),
+    'Deferral accumulation' => journeyText(
+      context,
+      'Put-off tasks piling up',
+      'Tareas aplazadas que se acumulan',
+    ),
+    'Deadline pressure' => journeyText(
+      context,
+      'Workload from deadlines',
+      'Carga por fechas límite',
+    ),
+    'Capacity overload' => journeyText(
+      context,
+      'Workload over your free time',
+      'Carga por encima de tu tiempo libre',
+    ),
+    'Sustained pressure raises rollover and recovery risk.' => journeyText(
+      context,
+      'A heavy workload over time raises the risk that work rolls over and recovery takes longer.',
+      'Una carga alta durante mucho tiempo aumenta el riesgo de que el trabajo se acumule y la recuperación tarde más.',
+    ),
     'Current completion and deferral rates remain directionally similar.' =>
       journeyText(
         context,
@@ -316,12 +337,6 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
   );
   if (Localizations.localeOf(context).languageCode != 'es') return value;
   const exact = <String, String>{
-    'Pressure load': 'Carga de trabajo',
-    'Deferral accumulation': 'Acumulación de aplazamientos',
-    'Deadline pressure': 'Presión de fechas límite',
-    'Capacity overload': 'Sobrecarga de capacidad',
-    'Sustained pressure raises rollover and recovery risk.':
-        'La presión sostenida aumenta el riesgo de arrastre y recuperación.',
     'Repeated deferrals compound uncertainty in future capacity.':
         'Los aplazamientos repetidos aumentan la incertidumbre sobre la capacidad futura.',
     'Crossed deadlines reduce slack and can displace other work.':

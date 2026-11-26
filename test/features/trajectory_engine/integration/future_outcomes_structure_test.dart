@@ -196,6 +196,12 @@ void main() {
           .where((String t) => pattern.hasMatch(t))
           .toList();
       expect(offending, isEmpty, reason: offending.join('\n'));
+      if (language == 'es') {
+        // Spanish describes the present, never the future tense.
+        final RegExp future = RegExp(r'\p{L}+(rá|rán)(?!\p{L})', unicode: true);
+        final List<String> futureTense = texts.where(future.hasMatch).toList();
+        expect(futureTense, isEmpty, reason: futureTense.join('\n'));
+      }
       // Both languages are checked against both lists of words.
       expect(
         texts.where(certainEn.hasMatch).toList(),
@@ -316,6 +322,51 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('options say the scores are model scores, not chances', (
+    tester,
+  ) async {
+    await pumpFutureOutcomes(tester);
+    expect(
+      find.text(
+        'Pick one to compare it with keeping going. Workload and pace are '
+        'model scores, not chances of success; wider ranges are less '
+        'reliable.',
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('risk factors and today figures use the glossary', (
+    tester,
+  ) async {
+    await pumpFutureOutcomes(tester, size: const Size(900, 8000));
+    await openAllDisclosures(tester);
+    final List<String> texts = futureOutcomesTexts(tester);
+    for (final String old in const <String>[
+      'Pressure load',
+      'Deadline pressure',
+      'Capacity overload',
+      'Deferral accumulation',
+    ]) {
+      expect(texts.where((String t) => t.contains(old)), isEmpty, reason: old);
+    }
+    expect(texts.where((String t) => t.startsWith('• Workload:')), isNotEmpty);
+    // Unscheduled work is today's plan, not the selected range.
+    final Finder unscheduled = find.ancestor(
+      of: find.text('Unscheduled work'),
+      matching: find.byType(PlainMetricRow),
+    );
+    expect(
+      find.descendant(
+        of: unscheduled,
+        matching: find.text('Today, not the selected range.'),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('goal dates keep their stated assumption beside them', (
     tester,

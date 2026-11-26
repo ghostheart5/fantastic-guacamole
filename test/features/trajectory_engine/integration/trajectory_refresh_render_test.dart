@@ -200,7 +200,7 @@ Future<void> _chooseDelay(WidgetTester tester) async {
   await tester.tap(find.text('Delay').hitTestable());
   await tester.pump(const Duration(milliseconds: 300));
   await tester.scrollUntilVisible(
-    find.text('Compare 7-day path').hitTestable(),
+    find.text('Compare over 7 days').hitTestable(),
     150,
     scrollable: scrollable,
   );
@@ -435,14 +435,14 @@ void main() {
     (tester) async {
       final container = await _open(tester);
       await _chooseDelay(tester);
-      expect(find.text('Declared delay: 1 day'), findsOneWidget);
+      expect(find.text('Put off by: 1 day'), findsOneWidget);
 
-      final compare = find.widgetWithText(FilledButton, 'Compare 7-day path');
+      final compare = find.widgetWithText(FilledButton, 'Compare over 7 days');
       final oldCompare = tester.widget<FilledButton>(compare).onPressed!;
-      Focus.of(tester.element(find.text('Compare 7-day path'))).requestFocus();
+      Focus.of(tester.element(find.text('Compare over 7 days'))).requestFocus();
       await tester.pump();
       expect(
-        Focus.of(tester.element(find.text('Compare 7-day path'))).hasFocus,
+        Focus.of(tester.element(find.text('Compare over 7 days'))).hasFocus,
         isTrue,
       );
       // Focus is a separate interaction and may reveal its target. Measure
@@ -452,13 +452,13 @@ void main() {
           .position;
       final offset = position.pixels;
       final extent = position.maxScrollExtent;
-      final compareY = tester.getTopLeft(find.text('Compare 7-day path')).dy;
+      final compareY = tester.getTopLeft(find.text('Compare over 7 days')).dy;
       expect(offset, greaterThan(0));
       container.read(_model.notifier).show(TrajectoryEngineStatus.loading);
       await tester.pump();
       expect(position.maxScrollExtent, closeTo(extent, 1));
       expect(
-        tester.getTopLeft(find.text('Compare 7-day path')).dy,
+        tester.getTopLeft(find.text('Compare over 7 days')).dy,
         closeTo(compareY, 1),
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -468,7 +468,7 @@ void main() {
         find.textContaining('Updating estimate. The previous result'),
         findsOneWidget,
       );
-      expect(find.text('Declared delay: 1 day'), findsOneWidget);
+      expect(find.text('Put off by: 1 day'), findsOneWidget);
       expect(
         tester
             .state<ScrollableState>(find.byType(Scrollable).first)
@@ -489,7 +489,7 @@ void main() {
             .absorbing,
         isTrue,
       );
-      await tester.tap(find.text('Compare 7-day path'), warnIfMissed: false);
+      await tester.tap(find.text('Compare over 7 days'), warnIfMissed: false);
       expect(container.read(trajectoryCustomScenarioProvider), isNull);
 
       container.read(_model.notifier).revise();
@@ -498,7 +498,7 @@ void main() {
         find.textContaining('Updating estimate. The previous result'),
         findsNothing,
       );
-      expect(find.text('Declared delay: 1 day'), findsOneWidget);
+      expect(find.text('Put off by: 1 day'), findsOneWidget);
       expect(
         tester
             .state<ScrollableState>(find.byType(Scrollable).first)
@@ -619,7 +619,7 @@ void main() {
       await _chooseDelay(tester);
       container.read(_model.notifier).show(TrajectoryEngineStatus.loading);
       await tester.pump();
-      expect(find.text('Declared delay: 1 day'), findsOneWidget);
+      expect(find.text('Put off by: 1 day'), findsOneWidget);
       switch (reason) {
         case 'account-generation':
           container
@@ -633,7 +633,7 @@ void main() {
               .show(TrajectoryEngineStatus.values.byName(reason));
       }
       await tester.pump();
-      expect(find.text('Declared delay: 1 day'), findsNothing);
+      expect(find.text('Put off by: 1 day'), findsNothing);
       expect(
         find.textContaining('Updating estimate. The previous result'),
         findsNothing,

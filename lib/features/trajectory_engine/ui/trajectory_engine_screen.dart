@@ -199,10 +199,15 @@ class _TrajectoryEngineScreenState
             ),
           ),
         if (blocksContent && model.status == TrajectoryEngineStatus.loading)
-          const Center(
+          Center(
             child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
+              padding: const EdgeInsets.all(24),
+              // The page palette's accent, like the rest of the kit.
+              child: Builder(
+                builder: (BuildContext context) => CircularProgressIndicator(
+                  color: PlainPalette.of(context).accent,
+                ),
+              ),
             ),
           ),
         if (blocksContent && customFeedback != null)
@@ -322,6 +327,7 @@ class _TrajectoryEngineScreenState
             baseline: value.baseline,
             outcome: outcome,
             keepGoing: _keepGoingOutcome(value),
+            pickedByPerson: _pickedByPerson(outcome),
             isRecommended:
                 canRecommendScenario &&
                 outcome.id == value.recommendedScenarioId,
@@ -437,6 +443,17 @@ class _TrajectoryEngineScreenState
         ],
       ),
     ];
+  }
+
+  /// Whether [outcome] is shown because the person chose it (rather than
+  /// as the recommended or first option).
+  bool _pickedByPerson(TrajectoryScenarioOutcome outcome) {
+    final _OptionSelection? selection = _selection;
+    if (selection == null) return false;
+    return outcome.intervention.id == selection.interventionId ||
+        (!selection.isCustom &&
+            !_isCustomOutcome(outcome) &&
+            outcome.intervention.type == selection.type);
   }
 
   void _invalidateCustomFeedback() {
@@ -594,8 +611,8 @@ class _TrajectoryEngineScreenState
         SnackBar(
           content: Text(
             Localizations.localeOf(context).languageCode == 'es'
-                ? '$reconciled ${reconciled == 1 ? 'previsión pendiente conciliada' : 'previsiones pendientes conciliadas'} con los datos actuales.'
-                : '$reconciled due forecast${reconciled == 1 ? '' : 's'} reconciled with current evidence.',
+                ? '$reconciled ${reconciled == 1 ? 'previsión anterior comprobada' : 'previsiones anteriores comprobadas'} con tus registros.'
+                : '$reconciled earlier forecast${reconciled == 1 ? '' : 's'} checked against your records.',
           ),
         ),
       );
@@ -617,8 +634,8 @@ class _TrajectoryEngineScreenState
           stored
               ? journeyText(
                   context,
-                  'Path tracked. Its forecast will be monitored against future observed evidence.',
-                  'Camino supervisado. Su previsión se comparará con datos futuros observados.',
+                  'Option tracked. Its estimate is checked against what you record later.',
+                  'Opción supervisada. Su estimación se compara con lo que registres después.',
                 )
               : journeyText(
                   context,
@@ -650,8 +667,8 @@ class _TrajectoryEngineScreenState
           stored
               ? journeyText(
                   context,
-                  'Forecast excluded locally. Its assumptions and projection remain visible, but it will not count as monitoring evidence.',
-                  'Previsión excluida localmente. Sus supuestos y proyección siguen visibles, pero no contará como evidencia de seguimiento.',
+                  'Forecast excluded on this device. Its assumptions and estimate stay visible, but it does not count toward monitoring.',
+                  'Previsión excluida en este dispositivo. Sus supuestos y su estimación siguen visibles, pero no cuenta para el seguimiento.',
                 )
               : journeyText(
                   context,
@@ -698,7 +715,7 @@ class _RefreshingBar extends StatelessWidget {
                 journeyText(
                   context,
                   'Updating estimate. The previous result is shown; the controls come back when it is ready.',
-                  'Actualizando la estimación. Se muestra el resultado anterior; los controles volverán cuando esté lista.',
+                  'Actualizando la estimación. Se muestra el resultado anterior; los controles vuelven cuando esté lista.',
                 ),
               ),
             ),
