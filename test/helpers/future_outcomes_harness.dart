@@ -254,6 +254,8 @@ const TrajectoryCalibrationSummary futureOutcomesCalibration =
     );
 
 /// Pumps the screen. [modelFor] and [habitsFor] follow the selected range.
+/// Pass [defaultModel] or [defaultHabits] false when [extraOverrides] supply
+/// that provider instead.
 Future<ProviderContainer> pumpFutureOutcomes(
   WidgetTester tester, {
   TrajectoryEngineModel Function(int days)? modelFor,
@@ -263,22 +265,26 @@ Future<ProviderContainer> pumpFutureOutcomes(
   Size size = const Size(900, 2400),
   double textScale = 1,
   List<Override> extraOverrides = const <Override>[],
+  bool defaultModel = true,
+  bool defaultHabits = true,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        trajectoryEngineModelProvider.overrideWith(
-          (Ref ref) => (modelFor ?? (int d) => futureOutcomesModel(days: d))(
-            ref.watch(trajectoryHorizonDaysProvider),
+        if (defaultModel)
+          trajectoryEngineModelProvider.overrideWith(
+            (Ref ref) => (modelFor ?? (int d) => futureOutcomesModel(days: d))(
+              ref.watch(trajectoryHorizonDaysProvider),
+            ),
           ),
-        ),
-        trajectoryHabitLinesProvider.overrideWith(
-          (Ref ref) => (habitsFor ?? futureOutcomesHabitLines)(
-            ref.watch(trajectoryHorizonDaysProvider),
+        if (defaultHabits)
+          trajectoryHabitLinesProvider.overrideWith(
+            (Ref ref) => (habitsFor ?? futureOutcomesHabitLines)(
+              ref.watch(trajectoryHorizonDaysProvider),
+            ),
           ),
-        ),
         trajectoryCalibrationSummaryProvider.overrideWithValue(
           const AsyncValue<TrajectoryCalibrationSummary>.data(
             futureOutcomesCalibration,
@@ -375,3 +381,15 @@ List<String> futureOutcomesTexts(WidgetTester tester) => tester
     .map((Text t) => t.data ?? t.textSpan?.toPlainText() ?? '')
     .where((String s) => s.isNotEmpty)
     .toList();
+
+/// A value a test can change while the screen is shown.
+class FutureOutcomesValue<T> extends Notifier<T> {
+  FutureOutcomesValue(this.initial);
+
+  final T initial;
+
+  @override
+  T build() => initial;
+
+  void set(T value) => state = value;
+}

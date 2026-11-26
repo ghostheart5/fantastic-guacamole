@@ -586,6 +586,7 @@ class _SelectedOptionSection extends StatelessWidget {
       title: journeyText(context, 'Selected option', 'Opción elegida'),
       children: <Widget>[
         PlainCard(
+          key: const Key('future-outcomes-selected'),
           child: Builder(
             builder: (BuildContext context) {
               final PlainPalette colors = PlainPalette.of(context);
