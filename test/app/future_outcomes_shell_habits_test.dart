@@ -15,8 +15,6 @@ import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_eng
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/progression_state.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
-import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
-import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
 import 'package:flutter/material.dart';
