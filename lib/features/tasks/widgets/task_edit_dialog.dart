@@ -25,10 +25,17 @@ class TaskEditDraft {
 }
 
 /// Edits a draft only; the caller owns persistence and account-boundary checks.
+///
+/// [note] is an optional one-line note shown above the fields (for example,
+/// which suggestion opened the dialog). [initialScheduledFor] replaces the
+/// task's scheduled time as the starting value; nothing is saved until the
+/// person taps Save. Without them the dialog is unchanged.
 Future<TaskEditDraft?> showTaskEditDialog({
   required BuildContext context,
   required TaskEntity editable,
   required List<GoalEntity> goals,
+  String? note,
+  DateTime? initialScheduledFor,
 }) {
   String draftTitle = editable.title;
   String descriptionText = editable.description ?? '';
@@ -39,7 +46,7 @@ Future<TaskEditDraft?> showTaskEditDialog({
       ? editable.goalId
       : null;
   DateTime? dueDate = editable.dueDate;
-  DateTime? scheduledFor = editable.scheduledFor;
+  DateTime? scheduledFor = initialScheduledFor ?? editable.scheduledFor;
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   return showDialog<TaskEditDraft>(
     context: context,
@@ -56,6 +63,17 @@ Future<TaskEditDraft?> showTaskEditDialog({
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
+              if (note != null) ...<Widget>[
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    note,
+                    key: const Key('task-edit-note'),
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               TextFormField(
                 key: const Key('timeline-task-title-field'),
                 initialValue: draftTitle,
