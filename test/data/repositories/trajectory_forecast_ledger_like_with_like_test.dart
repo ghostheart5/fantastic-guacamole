@@ -440,6 +440,20 @@ void main() {
       );
     });
 
+    test('a 30-day forecast may be checked up to 4 days late', () async {
+      final TrajectoryForecastReceipt late4 = await checkOn(
+        _receiptAt(local(0), horizonDays: 30),
+        local(34),
+      );
+      expect(late4.isResolved, isTrue);
+      final TrajectoryForecastReceipt late5 = await checkOn(
+        _receiptAt(local(0), horizonDays: 30),
+        local(35),
+      );
+      expect(late5.isResolved, isFalse);
+      expect(late5.missedAt, local(35));
+    });
+
     test('a 90-day forecast may be checked up to 12 days late', () async {
       final TrajectoryForecastReceipt late12 = await checkOn(
         _receiptAt(local(0), horizonDays: 90),

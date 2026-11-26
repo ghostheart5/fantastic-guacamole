@@ -166,61 +166,65 @@ void main() {
       );
     });
 
-    test('three ranges viewed every day for 120 days keep a usable set of '
-        'checked receipts, and 90-day receipts are checked', () async {
-      final _MemoryStore store = _MemoryStore();
-      final TrajectoryForecastLedgerRepository repository = _repository(store);
-      // One manual 90-day path tracked on day 100: never dropped.
-      final TrajectoryForecastReceipt manual = _receipt(
-        100,
-        90,
-        origin: TrajectoryForecastOrigin.manual,
-      );
-      for (int day = 0; day < 120; day++) {
-        await repository.reconcileDue(
-          _baselineOn(day),
-          pressureForHorizon: (int _) => 5,
+    for (final int days in const <int>[120, 365]) {
+      test('three ranges viewed every day for $days days keep a usable set of '
+          'checked receipts, and 90-day receipts are checked', () async {
+        final _MemoryStore store = _MemoryStore();
+        final TrajectoryForecastLedgerRepository repository = _repository(
+          store,
         );
-        for (final int horizon in const <int>[7, 30, 90]) {
-          await repository.appendAutomatic(_receipt(day, horizon));
+        // One manual 90-day path tracked 20 days before the end: never dropped.
+        final TrajectoryForecastReceipt manual = _receipt(
+          days - 20,
+          90,
+          origin: TrajectoryForecastOrigin.manual,
+        );
+        for (int day = 0; day < days; day++) {
+          await repository.reconcileDue(
+            _baselineOn(day),
+            pressureForHorizon: (int _) => 5,
+          );
+          for (final int horizon in const <int>[7, 30, 90]) {
+            await repository.appendAutomatic(_receipt(day, horizon));
+          }
+          if (day == days - 20) await repository.append(manual);
         }
-        if (day == 100) await repository.append(manual);
-      }
-      final List<TrajectoryForecastReceipt> kept = await repository.load();
-      final List<TrajectoryForecastReceipt> evidence = kept
-          .where(_isEvidence)
-          .toList();
-      expect(kept.length, lessThanOrEqualTo(120));
-      expect(evidence.length, greaterThanOrEqualTo(60));
-      expect(
-        evidence.where(
-          (TrajectoryForecastReceipt r) =>
-              r.horizon == const Duration(days: 90),
-        ),
-        isNotEmpty,
-      );
-      expect(
-        evidence.where(
-          (TrajectoryForecastReceipt r) =>
-              r.horizon == const Duration(days: 30),
-        ),
-        isNotEmpty,
-      );
-      expect(
-        kept.map((TrajectoryForecastReceipt r) => r.id),
-        contains(manual.id),
-      );
-      // Every 90-day receipt still waiting is kept until its check.
-      expect(
-        kept.where(
-          (TrajectoryForecastReceipt r) =>
-              r.isAutomatic &&
-              !r.isSettled &&
-              r.horizon == const Duration(days: 90),
-        ),
-        hasLength(13),
-      );
-    });
+        final List<TrajectoryForecastReceipt> kept = await repository.load();
+        final List<TrajectoryForecastReceipt> evidence = kept
+            .where(_isEvidence)
+            .toList();
+        expect(kept.length, lessThanOrEqualTo(120));
+        expect(evidence.length, greaterThanOrEqualTo(60));
+        expect(
+          evidence.where(
+            (TrajectoryForecastReceipt r) =>
+                r.horizon == const Duration(days: 90),
+          ),
+          isNotEmpty,
+        );
+        expect(
+          evidence.where(
+            (TrajectoryForecastReceipt r) =>
+                r.horizon == const Duration(days: 30),
+          ),
+          isNotEmpty,
+        );
+        expect(
+          kept.map((TrajectoryForecastReceipt r) => r.id),
+          contains(manual.id),
+        );
+        // Every 90-day receipt still waiting is kept until its check.
+        expect(
+          kept.where(
+            (TrajectoryForecastReceipt r) =>
+                r.isAutomatic &&
+                !r.isSettled &&
+                r.horizon == const Duration(days: 90),
+          ),
+          hasLength(13),
+        );
+      });
+    }
   });
 }
 
