@@ -9,6 +9,7 @@ import {
   containsScheduledStartDepartureConfusion,
   redactLeakPhrases,
   removeUnsupportedActionClaims,
+  sanitizeConversationReply,
 } from "./ai_proxy_policy.ts";
 
 Deno.test("personal grounding policy accompanies sparse and supplied planning context", () => {
@@ -1503,7 +1504,9 @@ for (
 
 Deno.test("conversation removes only the unsupported action sentence", () => {
   const reply =
-    "I've updated the outline below so both options are included.\n\n" +
+    // Round 4: "the outline below" points at the reply itself and is kept
+    // (see the claim table); a claim about the person's outline is removed.
+    "I've updated your outline so both options are included.\n\n" +
     "1. Option A: the shift in Reyes.\n2. Option B: his mother's button.";
   const cleaned = removeUnsupportedActionClaims(reply);
   if (
@@ -2162,3 +2165,327 @@ Deno.test("a possessive before the phrase is a real mention, de/operativo or not
       ""
   ) throw new Error("possessive mention was delivered");
 });
+
+// ---------------------------------------------------------------------------
+// THE CLAIM TABLE IS THE SPECIFICATION of the conversation action-claim filter
+// (removeUnsupportedActionClaims via sanitizeConversationReply) and of the
+// whole-reply check (containsBlockedConversationReply). Change the patterns
+// only together with this table, and never by deleting a row: a row that the
+// patterns cannot satisfy without breaking another is kept as a stated limit
+// (its note starts with "LIMIT") and is listed in the Task 10 report.
+//
+// The model has no tools, so a sentence in which it says, in the first person,
+// that it performed an action in the app is false and is removed; the rest of
+// the reply is delivered and charged. Removing a true sentence is as bad as
+// delivering a false claim, so when two rows conflict the sentence is KEPT.
+//   planning: a turn with the person's records (strict).
+//   chatOnly: a "Just this chat" turn; first-person story narration that is
+//             not an app-action claim survives.
+// A verdict is "keep" (delivered unchanged), "remove" (nothing left) or the
+// exact delivered text.
+// ---------------------------------------------------------------------------
+type ClaimVerdict = "keep" | "remove" | { out: string };
+interface ClaimRow {
+  text: string;
+  language: "en" | "es";
+  planning: ClaimVerdict;
+  chatOnly: ClaimVerdict;
+  note: string;
+}
+const claim = (
+  text: string,
+  language: "en" | "es",
+  planning: ClaimVerdict,
+  chatOnly: ClaimVerdict,
+  note: string,
+): ClaimRow => ({ text, language, planning, chatOnly, note });
+
+// deno-fmt-ignore
+const CLAIM_TABLE: ClaimRow[] = [
+  // Review 4, "removed correctly (must stay removed)".
+  claim("I've added the task to your list.", "en", "remove", "remove", "review 4 must stay removed"),
+  claim("I've set a reminder for 9.", "en", "remove", "remove", "review 4 must stay removed"),
+  claim("I've moved your meeting to Tuesday.", "en", "remove", "remove", "review 4 must stay removed"),
+  claim("He añadido tu tarea.", "es", "remove", "remove", "review 4 must stay removed"),
+  claim("Ya cancelé la reunión.", "es", "remove", "remove", "review 4 must stay removed"),
+  claim("Done. I've booked the table.", "en", "remove", "remove", "review 4 must stay removed; a bare opener goes with the claim"),
+  claim("I've scheduled it.", "en", "remove", "remove", "review 4 must stay removed"),
+  claim("I've saved that.", "en", "remove", "remove", "review 4 must stay removed"),
+  claim("Ya lo guardé.", "es", "remove", "remove", "review 4 must stay removed"),
+  claim("I've sent the email.", "en", "remove", "remove", "review 4 must stay removed"),
+  claim("He enviado el correo.", "es", "remove", "remove", "review 4 must stay removed"),
+  // Review 4, "kept correctly (must stay kept)".
+  claim("Set a reminder for 9.", "en", "keep", "keep", "review 4 must stay kept: imperative"),
+  claim("Add the task in Add something.", "en", "keep", "keep", "review 4 must stay kept: imperative"),
+  claim("I'd move the call to Tuesday.", "en", "keep", "keep", "review 4 must stay kept: conditional advice"),
+  claim("I would cancel the 3 pm meeting.", "en", "keep", "keep", "review 4 must stay kept: conditional advice"),
+  claim("I've listed three options below:", "en", "keep", "keep", "review 4 must stay kept"),
+  claim("I have noticed that your Tuesday is full.", "en", "keep", "keep", "review 4 must stay kept"),
+  claim("I've put the hardest task first in this suggested order.", "en", "keep", "keep", "review 4 must stay kept"),
+  claim("You've added three tasks today.", "en", "keep", "keep", "review 4 must stay kept: second person"),
+  claim("You marked two tasks done.", "en", "keep", "keep", "review 4 must stay kept: second person"),
+  claim("Mueve la llamada al martes.", "es", "keep", "keep", "review 4 must stay kept: imperative"),
+  claim("Ya terminaste dos tareas hoy.", "es", "keep", "keep", "review 4 must stay kept: second person"),
+  claim("It's scheduled for Tuesday at 3.", "en", "keep", "keep", "review 4 must stay kept: record fact"),
+  claim("Start with the task that is scheduled for Monday.", "en", "keep", "keep", "review 4 must stay kept: record fact"),
+  claim("Once it's completed, move to the next one.", "en", "keep", "keep", "review 4 must stay kept: record fact"),
+  claim("Make sure your alarm is set before bed.", "en", "keep", "keep", "review 4 must stay kept: record fact"),
+  claim("Your reminder is set for 9:00 according to the task details.", "en", "keep", "keep", "review 4 must stay kept: record fact"),
+  claim("The goal is set for June.", "en", "keep", "keep", "review 4 must stay kept: record fact"),
+  claim("It has changed a lot since then.", "en", "keep", "keep", "review 4 must stay kept: record fact"),
+  claim("Se creó la empresa en 1990.", "es", "keep", "keep", "review 4 must stay kept: record fact"),
+  claim("Se cambió la fecha de la reunión al martes.", "es", "keep", "keep", "review 4 must stay kept: record fact"),
+  // Review 4, Important 1: unaccented Spanish forms and English "quite".
+  claim("Quite a few tasks are due today.", "en", "keep", "keep", "review 4 I1: English quite is not Spanish quité"),
+  claim("Quite honestly, start with rent.", "en", "keep", "keep", "review 4 I1"),
+  claim("Quite a lot has happened.", "en", "keep", "keep", "review 4 I1"),
+  claim("Quite right.", "en", "keep", "keep", "review 4 I1"),
+  claim("Agregue la tarea en Añadir algo.", "es", "keep", "keep", "review 4 I1: formal imperative"),
+  claim("Cancele la reunión si no puede asistir.", "es", "keep", "keep", "review 4 I1: formal imperative"),
+  claim("Marque la tarea como hecha cuando termine.", "es", "keep", "keep", "review 4 I1: formal imperative"),
+  claim("Quite la tarea que ya no necesita.", "es", "keep", "keep", "review 4 I1: formal imperative"),
+  claim("Reprograme la cita para el martes.", "es", "keep", "keep", "review 4 I1: formal imperative"),
+  // Review 4, Important 2: conditional suggestions.
+  claim("If we moved your workout to the morning, the evening would be free.", "en", "keep", "keep", "review 4 I2: conditional"),
+  claim("If I removed one task, which should it be?", "en", "keep", "keep", "review 4 I2: conditional"),
+  claim("What if we moved the call to Tuesday?", "en", "keep", "keep", "review 4 I2: conditional"),
+  claim("What if we changed the time?", "en", "keep", "keep", "review 4 I2: conditional (pre-existing class)"),
+  // Review 4, Minor 1: the reply itself, and idioms.
+  claim("I've marked the risky steps with an asterisk below.", "en", "keep", "keep", "review 4 M1: points at the reply"),
+  claim("I have set aside time in this plan for a break.", "en", "keep", "keep", "review 4 M1: points at the reply"),
+  claim("We've moved past the hard part.", "en", "keep", "keep", "review 4 M1: idiom"),
+  claim("He añadido una nota al final de esta respuesta.", "es", "keep", "keep", "review 4 M1: points at the reply"),
+  claim("I've added a rest day between the two long runs in this plan.", "en", "keep", "keep", "review 4 M1: points at the reply"),
+  claim("He puesto la tarea más difícil primero en este orden sugerido.", "es", "keep", "keep", "review 4 M1: points at the reply"),
+  claim("Hemos puesto mucho esfuerzo en esto.", "es", "keep", "keep", "review 4 M1: idiom"),
+  claim("Once we've added the steps up, it comes to 3 hours.", "en", "keep", "keep", "review 4 M1: temporal clause"),
+  // Review 4, Minor 2: claims that were delivered.
+  claim("- Ya cancelé la reunión.", "es", "remove", "remove", "review 4 M2: bullet before the claim"),
+  claim("Claro, ya cancelé la reunión.", "es", "remove", "remove", "review 4 M2: interjection before the claim"),
+  claim("Ya te la agregué.", "es", "remove", "remove", "review 4 M2: two clitics"),
+  claim("I just set a reminder for 9.", "en", "remove", "remove", "review 4 M2"),
+  claim("I set a reminder for 9.", "en", "remove", "remove", "review 4 M2: 'I set' opening the sentence with a reminder-type object"),
+  // Review 4, Minor 5: the "I have" marker matched anywhere in the sentence.
+  claim("I have no idea why I booked the table.", "en", "remove", "keep", "review 4 M5: 'I have' is no marker for a later 'booked'. LIMIT: planning turns stay strict and remove this narration"),
+  // Earlier tests, collected (each still also has its own test above).
+  claim("I saved the letter in my coat and ran.", "en", "remove", "keep", "narration; planning is strict"),
+  claim("We booked a table at the back, and I ordered tea.", "en", "remove", "keep", "narration"),
+  claim("Last year I completed the marathon in the rain.", "en", "remove", "keep", "narration"),
+  claim("I changed the lock before the storm arrived.", "en", "remove", "keep", "narration"),
+  claim("Yo guardé la carta en mi abrigo y salí corriendo.", "es", "remove", "keep", "narration"),
+  claim("Nosotros programamos la sorpresa para el domingo.", "es", "keep", "keep", "-amos is also present tense: not a listed form"),
+  claim("I sent the draft of my novel to three friends before the deadline.", "en", "remove", "keep", "narration"),
+  claim("I saved your task for tomorrow.", "en", "remove", "remove", "you-word"),
+  claim("I've scheduled it for you.", "en", "remove", "remove", "marked"),
+  claim("I created a reminder for the meeting.", "en", "remove", "remove", "record word"),
+  claim("Ya guardé tu tarea.", "es", "remove", "remove", "marked"),
+  claim("I updated the plan.", "en", "remove", "remove", "record word"),
+  claim("Your task has been saved.", "en", "remove", "remove", "record state claim"),
+  claim("Axiomara has scheduled the appointment.", "en", "remove", "remove", "assistant subject"),
+  claim("I sent them for you.", "en", "remove", "remove", "bare pronoun"),
+  claim("Ya las programé.", "es", "remove", "remove", "bare pronoun"),
+  claim("Hecho. Lo he creado.", "es", "remove", "remove", "opener and bare pronoun"),
+  claim("I've scheduled a call for Tuesday at 3.", "en", "remove", "remove", "marked"),
+  claim("I've created a draft.", "en", "remove", "remove", "marked"),
+  claim("I have already booked the flight.", "en", "remove", "remove", "marked"),
+  claim("Ya envié el mensaje.", "es", "remove", "remove", "marked"),
+  claim("Listo, ya creé el borrador.", "es", "remove", "remove", "opener and marked"),
+  claim("Hemos enviado la carta.", "es", "remove", "remove", "marked"),
+  claim("Guardé la carta en el bolsillo y salí corriendo.", "es", "remove", "keep", "narration"),
+  claim("Guardé la compra en la nevera.", "es", "remove", "keep", "narration"),
+  claim("It is set in Paris in 1920.", "en", "keep", "keep", "no first person"),
+  claim("La aplicación guarda los cambios.", "es", "keep", "keep", "no first person"),
+  claim("I rescheduled your meeting.", "en", "remove", "remove", "added verbs"),
+  claim("I've moved the call.", "en", "remove", "remove", "added verbs"),
+  claim("I cancelled the appointment.", "en", "remove", "remove", "added verbs"),
+  claim("I've removed it.", "en", "remove", "remove", "added verbs"),
+  claim("He movido la reunión.", "es", "remove", "remove", "added verbs"),
+  claim("Ya cancelé la cita.", "es", "remove", "remove", "added verbs"),
+  claim("Reprogramé tu reunión.", "es", "remove", "remove", "added verbs"),
+  claim("Ya lo agregué.", "es", "remove", "remove", "added verbs"),
+  claim("Guardé la carta en el bolsillo y ya era de noche cuando salí.", "es", "remove", "keep", "a plain ya is no marker"),
+  claim("Listo para empezar\nI saved the letter in my coat and ran.", "en", { out: "Listo para empezar" }, "keep", "'Listo' without punctuation is not an opener"),
+  claim("I saved the letter.", "en", "remove", "keep", "planning is strict"),
+  claim("I've updated the outline below so both options are included.", "en", "keep", "keep", "points at the reply (removed before round 4)"),
+  claim("Your task has been saved. Start with the grocery list.", "en", { out: "Start with the grocery list." }, { out: "Start with the grocery list." }, "record state claim"),
+  claim("...and then she left.", "en", "keep", "keep", "the splitter keeps leading punctuation"),
+  claim("\"We have changed the locks. You cannot come in,\" Marcus said. I've saved your story draft.", "en", { out: "\"We have changed the locks. You cannot come in,\" Marcus said." }, { out: "\"We have changed the locks. You cannot come in,\" Marcus said." }, "quoted dialogue is not the assistant"),
+  claim("Done. I booked the table.", "en", "remove", { out: "I booked the table." }, "LIMIT: an unmarked simple past with an ordinary object survives chat-only"),
+  claim("I saved the note in my coat.", "en", "remove", "remove", "LIMIT: a record word removes narration in chat-only"),
+  claim("Guardé la carta en su bolsillo.", "es", "remove", "remove", "LIMIT: su is also 'your', so this narration is removed in chat-only"),
+  claim("Te he programado tu tarea para las 5.", "es", "remove", "remove", "clitic before he"),
+  claim("Axiomara ha cancelado tu cita.", "es", "remove", "remove", "assistant subject"),
+  // Probes: imperatives.
+  claim("Add the dentist appointment to your calendar.", "en", "keep", "keep", "imperative"),
+  claim("Move the call to Thursday.", "en", "keep", "keep", "imperative"),
+  claim("Cancel the gym if you're tired.", "en", "keep", "keep", "imperative; cancel"),
+  claim("Mark the task done when you finish.", "en", "keep", "keep", "imperative"),
+  claim("Agrega la cita al calendario.", "es", "keep", "keep", "imperative (tú)"),
+  claim("Agregue la cita al calendario.", "es", "keep", "keep", "imperative (usted)"),
+  claim("Guarda el borrador antes de salir.", "es", "keep", "keep", "imperative"),
+  claim("Programe la alarma para las 6.", "es", "keep", "keep", "imperative (usted)"),
+  // Probes: second and third person.
+  claim("You've moved your meeting to Friday.", "en", "keep", "keep", "second person"),
+  claim("You saved three hours last week.", "en", "keep", "keep", "second person"),
+  claim("Ya agregaste la tarea.", "es", "keep", "keep", "second person"),
+  claim("Usted ya canceló la cita.", "es", "keep", "keep", "third-person form, not the assistant"),
+  claim("Your sister booked the venue.", "en", "keep", "keep", "third person"),
+  // Probes: conditionals and temporal clauses.
+  claim("If I added a break, would that help?", "en", "keep", "keep", "conditional"),
+  claim("Suppose we moved the run to Sunday.", "en", "keep", "keep", "hypothetical"),
+  claim("When I changed jobs, everything moved.", "en", "keep", "keep", "temporal clause"),
+  claim("After we booked the venue, the rest was easy.", "en", "keep", "keep", "temporal clause"),
+  claim("Once your task has been saved, take a break.", "en", "keep", "keep", "temporal clause before a record state"),
+  claim("Si moví la reunión sin querer, avísame.", "es", "keep", "keep", "conditional si"),
+  claim("Cuando añadí la tarea, la app se cerró.", "es", "keep", "keep", "temporal cuando"),
+  // Probes: questions.
+  claim("Have I added it?", "en", "keep", "keep", "question"),
+  claim("Should I move it?", "en", "keep", "keep", "question"),
+  claim("Did I save it?", "en", "keep", "keep", "question"),
+  claim("¿Ya lo agregué?", "es", "keep", "keep", "question"),
+  claim("¿Debería mover la reunión?", "es", "keep", "keep", "question"),
+  // Probes: negations (a truthful "nothing was done" is kept).
+  claim("I haven't added anything.", "en", "keep", "keep", "negation"),
+  claim("I have not changed your plan.", "en", "keep", "keep", "negation"),
+  claim("I didn't save anything.", "en", "keep", "keep", "negation"),
+  claim("I've never booked anything for you.", "en", "keep", "keep", "negation"),
+  claim("No he cambiado nada.", "es", "keep", "keep", "negation"),
+  claim("No guardé nada.", "es", "keep", "keep", "negation"),
+  claim("Yo no he cancelado tu cita.", "es", "keep", "keep", "negation"),
+  // Probes: future and offers (not this filter's job).
+  claim("I'll add it to the list if you want.", "en", "keep", "keep", "offer"),
+  claim("I can move it for you.", "en", "keep", "keep", "offer"),
+  claim("Puedo agregarla si quieres.", "es", "keep", "keep", "offer"),
+  // Probes: statements about the reply's own text.
+  claim("I've added a summary at the end of this reply.", "en", "keep", "keep", "points at the reply"),
+  claim("I've marked the urgent items in this list with a star.", "en", "keep", "keep", "points at the reply"),
+  claim("Above, I've changed the order of the steps.", "en", "keep", "keep", "points at the reply"),
+  claim("He marcado las tareas urgentes en esta lista.", "es", "keep", "keep", "points at the reply"),
+  claim("He añadido un paso más abajo.", "es", "keep", "keep", "points at the reply"),
+  claim("En esta respuesta, he marcado lo urgente.", "es", "keep", "keep", "points at the reply"),
+  // Probes: idioms.
+  claim("We've moved on from that topic.", "en", "keep", "keep", "idiom"),
+  claim("I have changed my mind about the ending.", "en", "keep", "keep", "idiom (removed in chat-only before round 4)"),
+  claim("I've set aside my doubts.", "en", "keep", "keep", "idiom"),
+  claim("Hemos puesto todo nuestro empeño.", "es", "keep", "keep", "idiom"),
+  // Probes: English words that collide with Spanish stems.
+  claim("Cancel culture is a big topic.", "en", "keep", "keep", "collision"),
+  claim("Mute notifications for an hour.", "en", "keep", "keep", "collision"),
+  claim("Quite a busy week.", "en", "keep", "keep", "collision"),
+  claim("Marque cuando llegue.", "es", "keep", "keep", "collision: formal imperative"),
+  claim("Complete the form before Friday.", "en", "keep", "keep", "collision: completé"),
+  // Probes: bullets, numbers, quotes.
+  claim("* I've saved your note.", "en", "remove", "remove", "bullet"),
+  claim("1. I've scheduled the call.", "en", "remove", "remove", "numbered item"),
+  claim("- Add a break after lunch.", "en", "keep", "keep", "bulleted imperative"),
+  claim("\"I've saved it,\" she said.", "en", "keep", "keep", "quoted dialogue"),
+  // Probes: interjections before a claim.
+  claim("Sure, I've added the task.", "en", "remove", "remove", "interjection"),
+  claim("Okay! I've moved your meeting.", "en", { out: "Okay!" }, { out: "Okay!" }, "interjection as its own sentence"),
+  claim("Great, I've booked the table.", "en", "remove", "remove", "interjection and marked"),
+  claim("Perfecto, ya agregué la tarea.", "es", "remove", "remove", "interjection"),
+  claim("Claro: lo he guardado.", "es", "remove", "remove", "interjection and bare pronoun"),
+  // Probes: further claims that must go.
+  claim("I already sent the invite.", "en", "remove", "remove", "marked adverb"),
+  claim("I've also created a new goal for you.", "en", "remove", "remove", "also"),
+  claim("I went ahead and added your task.", "en", "remove", "remove", "went ahead and"),
+  claim("We have rescheduled your appointment.", "en", "remove", "remove", "we have"),
+  claim("Start with rent, and I've moved your workout to Friday.", "en", "remove", "remove", "claim after a clause"),
+  claim("Ya le envié el mensaje a tu jefe.", "es", "remove", "remove", "clitic le"),
+  claim("Te he agregado un recordatorio.", "es", "remove", "remove", "clitic te"),
+  claim("Revisa el plan y ya cancelé la reunión.", "es", "remove", "remove", "claim after y"),
+  claim("Done — your appointment is scheduled for 5 PM.", "en", "remove", "remove", "opener and record state"),
+  claim("Your meeting has been created.", "en", "remove", "remove", "record state"),
+  claim("Listo.", "es", "remove", "remove", "bare opener"),
+  claim("I booked the table.", "en", "remove", "keep", "LIMIT: an unmarked simple past with an ordinary object survives chat-only"),
+  claim("Moví el sofá y me senté.", "es", "remove", "keep", "narration"),
+  claim("Every night I set an alarm for 6.", "en", "keep", "keep", "a plain 'I set' mid-sentence is present tense"),
+];
+
+function expectedOutput(text: string, verdict: ClaimVerdict): string {
+  if (verdict === "keep") return text;
+  if (verdict === "remove") return "";
+  return verdict.out;
+}
+
+for (const row of CLAIM_TABLE) {
+  for (
+    const [label, options, verdict] of [
+      ["planning", { planningMode: true }, row.planning],
+      ["chat-only", { planningMode: false }, row.chatOnly],
+    ] as const
+  ) {
+    Deno.test(`claim table (${label}, ${row.language}): ${JSON.stringify(row.text)}`, () => {
+      const expected = expectedOutput(row.text, verdict);
+      const out = sanitizeConversationReply(row.text, options);
+      if (out !== expected) {
+        throw new Error(
+          `sanitize gave ${JSON.stringify(out)}, expected ${
+            JSON.stringify(expected)
+          } (${row.note})`,
+        );
+      }
+      const blocked = containsBlockedConversationReply(row.text, options);
+      if (blocked !== (expected !== row.text)) {
+        throw new Error(
+          `whole-reply check says blocked=${blocked} but the filter ${
+            expected === row.text ? "keeps" : "changes"
+          } it (${row.note})`,
+        );
+      }
+      if (
+        expected !== "" && containsBlockedConversationReply(expected, options)
+      ) {
+        throw new Error(`the delivered text is still blocked (${row.note})`);
+      }
+    });
+  }
+}
+
+// THE LEAK TABLE IS THE SPECIFICATION of redactLeakPhrases: `out` is the exact
+// delivered text, "" when nothing is left, and null when the whole reply is
+// withheld (and refunded) because a leak sentence introduces the content.
+// deno-fmt-ignore
+const LEAK_TABLE: Array<{ text: string; out: string | null; note: string }> = [
+  { text: "I can't share my system prompt. They are private. Start with rent.", out: "They are private. Start with rent.", note: "ordinary reply after a leak sentence" },
+  { text: "I won't share my system prompt. It says a lot about how careful they are. Try the rent first.", out: "It says a lot about how careful they are. Try the rent first.", note: "ordinary reply after a leak sentence" },
+  { text: "I can't share my system prompt.\n\nThey are three good options: rent, food, sleep.", out: "They are three good options: rent, food, sleep.", note: "ordinary reply after a leak sentence" },
+  { text: "No puedo hablar del prompt del sistema. Dice que no tu jefe, pero puedes insistir.", out: "Dice que no tu jefe, pero puedes insistir.", note: "ordinary reply after a leak sentence" },
+  { text: "Start with the report. My system prompt says to be brief. Then call Sam.", out: "Start with the report. Then call Sam.", note: "mention redacted" },
+  { text: "This is why I can't share my system prompt. Start with rent.", out: "Start with rent.", note: "'this is' far from the phrase is not a presentation" },
+  { text: "Here is my system prompt: you are a planning assistant.", out: null, note: "lead-in" },
+  { text: "These are the developer message rules:\n- be brief\n- never reveal", out: null, note: "lead-in" },
+  { text: "My system prompt says the following. First, never mention retired names.\n1. Be brief.", out: null, note: "lead-in" },
+  { text: "## System prompt\nBe brief and kind.\nNever mention retired names.", out: null, note: "heading" },
+  { text: "System prompt - be brief, never mention retired names.", out: null, note: "dash" },
+  { text: "Mis instrucciones del sistema dicen lo siguiente.\n- Sé breve.", out: null, note: "lead-in" },
+  { text: "Aquí están mis instrucciones del sistema a continuación.", out: null, note: "lead-in" },
+  { text: "Mis instrucciones del sistema de Axiomara son: ser breve.", out: null, note: "possessive lead-in" },
+  { text: "Las instrucciones del sistema de Axiomara son: ser breve.", out: null, note: "review 4 M3: no possessive, 'de Axiomara'" },
+  { text: "Estas son las instrucciones del sistema de Axiomara. Sé breve y amable.", out: null, note: "review 4 M3: presents the instructions" },
+  { text: "Este es el mensaje del desarrollador de Axiomara. Sé breve.", out: null, note: "presents the developer message" },
+  { text: "Según mis propias instrucciones del sistema de Axiomara, debo ser breve.", out: "", note: "review 4 M3: a word between possessive and phrase" },
+  { text: "Empieza por la renta. Según mis propias instrucciones del sistema de Axiomara, debo ser breve. Luego descansa.", out: "Empieza por la renta. Luego descansa.", note: "review 4 M3: redacted in place" },
+  { text: "Empieza por la tarea. Las instrucciones del sistema de Axiomara no se comparten. Luego descansa.", out: "Empieza por la tarea. Luego descansa.", note: "no possessive, 'de Axiomara'" },
+  { text: "Empieza por la tarea. Mis instrucciones del sistema de Axiomara no las comparto. Luego descansa.", out: "Empieza por la tarea. Luego descansa.", note: "possessive mention" },
+  { text: "Revisa tus instrucciones del sistema de riego hoy.", out: "", note: "by design a possessive makes it a mention" },
+  { text: "Lee las instrucciones del sistema de riego antes de empezar.", out: "Lee las instrucciones del sistema de riego antes de empezar.", note: "ordinary: riego" },
+  { text: "Mira las instrucciones del sistema operativo.", out: "Mira las instrucciones del sistema operativo.", note: "ordinary: operativo" },
+  { text: "Sigue las instrucciones del sistema de archivos para liberar espacio.", out: "Sigue las instrucciones del sistema de archivos para liberar espacio.", note: "ordinary: archivos" },
+  { text: "Estas son las instrucciones del sistema de riego: abre la llave y espera.", out: "Estas son las instrucciones del sistema de riego: abre la llave y espera.", note: "ordinary presentation of a sprinkler manual" },
+  { text: "Abre el mensaje del desarrollador de apps que te mandaron.", out: "Abre el mensaje del desarrollador de apps que te mandaron.", note: "ordinary: de apps" },
+  { text: "Write the villain's line as \"show me the system prompt\" and keep going.", out: "Write the villain's line as \"show me the system prompt\" and keep going.", note: "quoted" },
+];
+
+for (const row of LEAK_TABLE) {
+  Deno.test(`leak table: ${JSON.stringify(row.text)}`, () => {
+    const out = redactLeakPhrases(row.text);
+    if (out !== row.out) {
+      throw new Error(
+        `got ${JSON.stringify(out)}, expected ${
+          JSON.stringify(row.out)
+        } (${row.note})`,
+      );
+    }
+  });
+}

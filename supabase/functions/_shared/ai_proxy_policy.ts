@@ -603,88 +603,153 @@ export interface ReplyFilterOptions {
   planningMode?: boolean;
 }
 
-const EXTRA_EN_VERBS =
-  "added|moved|removed|marked|rescheduled|cancelled|canceled";
-const EXTRA_ES_PARTICIPLES =
-  "agregado|a\u00f1adido|puesto|movido|quitado|marcado|reprogramado|cancelado";
-const EXTRA_ES_PRETERITES =
-  "agregu[e\u00e9]|a\u00f1ad[i\u00ed]|mov[i\u00ed]|quit[e\u00e9]|marqu[e\u00e9]|reprogram[e\u00e9]|cancel[e\u00e9]";
+// Conversation action claims. The specification is the claim table in
+// ai_proxy_policy_test.ts (CLAIM_TABLE): change these rules only with it.
+//
+// A sentence is a claim when, outside quotation marks, it says in the first
+// person that the assistant performed one of the listed actions:
+//   - English: I / we / Axiomara / the assistant + (have / 've) + (already,
+//     now, just, successfully, finally, also) + (gone/went ahead and) + a
+//     listed past form; "set" only after have / 've / an adverb, or as
+//     "I set a reminder (alarm, task ...)" opening the sentence.
+//   - Spanish: yo / nosotros / Axiomara / el asistente, or no subject at the
+//     start of the sentence or after a comma, colon, "y" or "pero"; then
+//     ya / ahora / finalmente / también, up to two clitics (te la), and
+//     he / hemos + a listed participle or an ACCENTED first-person preterite
+//     (agregué, never "agregue", which is a formal imperative).
+//   - A record-state sentence ("Your task has been saved.").
+// It is not a claim when a conditional, temporal or question word comes
+// directly before the subject (if, what if, suppose, once, after, when,
+// have / did / should ..., si, cuando ...), when it is negated (the patterns
+// need the verb right after the subject, auxiliary or adverb), when it points
+// at the reply itself (below, above, in this plan / list / reply, en esta
+// respuesta, abajo ...), or for the idioms moved past / on, set aside,
+// changed my mind, added up and puesto (mucho) esfuerzo.
+// A leading bullet, number, "Done," / "Hecho," / "Listo," or a short
+// interjection ("Sure,", "Claro,") is skipped before matching; a sentence that
+// is only "Done." / "Hecho." / "Listo." goes with the claim it announces.
+// Planning turns remove every claim. Chat-only turns remove a first-person
+// claim only when it is marked (have / 've, an adverb, he / hemos, ya, a
+// "Done" opener, went ahead) or the sentence names an app record, addresses
+// the person (you, tu, su ...) or has a bare-pronoun object (it, lo ...), so
+// unmarked story narration ("I saved the letter in my coat") survives.
+const CLAIM_VERBS_EN =
+  "saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed|added|moved|removed|marked|rescheduled|cancelled|canceled";
+const CLAIM_PARTICIPLES_ES =
+  "guardado|creado|eliminado|programado|completado|actualizado|enviado|aplicado|comprado|cambiado|agregado|añadido|puesto|movido|quitado|marcado|reprogramado|cancelado";
+const CLAIM_PRETERITES_ES =
+  "guardé|creé|eliminé|programé|completé|actualicé|envié|apliqué|compré|cambié|agregué|añadí|moví|quité|marqué|reprogramé|cancelé";
+// Third person, only after an explicit assistant subject.
+const CLAIM_PRETERITES_ES_3S =
+  "guardó|creó|eliminó|programó|completó|actualizó|envió|aplicó|compró|cambió|agregó|añadió|movió|quitó|marcó|reprogramó|canceló";
+const EN_ADVERB = String
+  .raw`(?:(?:already|now|just|successfully|finally|also)\s+)?`;
+const ES_ADVERB = String.raw`(?:(?:ya|ahora|finalmente|también)\s+)?`;
+const ES_CLITICS = String
+  .raw`(?:(?:te|le|les|se|lo|la|los|las|me|nos)\s+){0,2}`;
+const ES_END = String.raw`(?=[\s.!?,;:]|$)`;
 
-// First-person claims with the verbs the older patterns lack. They follow the
-// same gating as the older generic patterns (see GENERIC_FIRST_PERSON_CLAIMS).
-// "set" is a claim only in the present perfect (I've set / I have set), because
-// "I set" is also an ordinary present-tense verb.
-const EXTRA_FIRST_PERSON_CLAIMS = [
+const FIRST_PERSON_CLAIMS = [
   new RegExp(
     String
-      .raw`\b(?:i|we)(?:['\u2019]ve\s+|\s+have\s+|\s+)(?:(?:already|now|just|successfully|finally)\s+)?(?:${EXTRA_EN_VERBS})\b`,
-  ),
-  /\b(?:i|we)(?:['\u2019]ve\s+|\s+have\s+)(?:(?:already|now|just|successfully|finally)\s+)?set\b/,
-  new RegExp(
-    String
-      .raw`\b(?:yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+(?:(?:ya|ahora|finalmente)\s+)?(?:(?:te|le|les|se|lo|la|los|las|me|nos)\s+)?(?:(?:he|ha|hemos|han)\s+)?(?:${EXTRA_ES_PARTICIPLES}|${EXTRA_ES_PRETERITES})(?=\s|[.!?,;:]|$)`,
+      .raw`\b(?:i|we|axiomara|the assistant)(?:'ve\s+|\s+(?:has|have)\s+|\s+)${EN_ADVERB}(?:(?:gone|went) ahead and\s+)?(?:${CLAIM_VERBS_EN})\b`,
+    "g",
   ),
   new RegExp(
     String
-      .raw`(?:^|[.!?]\s+)(?:(?:ya|ahora|finalmente)\s+)?(?:(?:te|le|les|se|lo|la|los|las|me|nos)\s+)?(?:(?:he|hemos)\s+(?:${EXTRA_ES_PARTICIPLES})|(?:${EXTRA_ES_PRETERITES}))(?=\s|[.!?,;:]|$)`,
+      .raw`\b(?:i|we)(?:'ve\s+|\s+have\s+)${EN_ADVERB}set\b|\b(?:i|we)\s+(?:already|now|just|successfully|finally|also)\s+set\b|^(?:i|we)\s+set\s+(?:a|an|the|your)\s+(?:[a-z]+\s+)?(?:reminders?|alarms?|timers?|tasks?|goals?|habits?|events?|meetings?|appointments?|deadlines?)\b`,
+    "g",
+  ),
+  new RegExp(
+    String
+      .raw`\b(?:yo|nosotros|nosotras|axiomara|el asistente|la asistente)\s+${ES_ADVERB}${ES_CLITICS}(?:(?:he|ha|hemos|han)\s+(?:${CLAIM_PARTICIPLES_ES})|${CLAIM_PRETERITES_ES}|${CLAIM_PRETERITES_ES_3S})${ES_END}`,
+    "g",
+  ),
+  new RegExp(
+    String
+      .raw`(?<=^|[,;:–—]\s*|\b(?:y|e|pero|luego)\s+)${ES_ADVERB}${ES_CLITICS}(?:(?:he|hemos)\s+(?:ya\s+)?(?:${CLAIM_PARTICIPLES_ES})|${CLAIM_PRETERITES_ES})${ES_END}`,
+    "g",
   ),
 ];
+// "Your task has been saved.", "Tu cita ha sido programada." (the older
+// record-state patterns, unchanged). They are claims in every mode.
+const RECORD_STATE_CLAIMS = ACTION_CLAIM_PATTERNS.slice(1, 6).map((pattern) =>
+  new RegExp(pattern.source, "g")
+);
 
-// Patterns that match any "I/we <verb>ed" sentence with no object requirement.
-const GENERIC_FIRST_PERSON_CLAIMS = new Set<RegExp>([
-  ACTION_CLAIM_PATTERNS[0],
-  ACTION_CLAIM_PATTERNS[6],
-  ACTION_CLAIM_PATTERNS[7],
-  ACTION_CLAIM_PATTERNS[8],
-  ...EXTRA_FIRST_PERSON_CLAIMS,
-]);
+// A word that makes the following subject hypothetical, temporal or a
+// question: "If I removed one task", "Once we've added", "Have I added it?".
+const NOT_ASSERTED_BEFORE =
+  /(?:^|[^\p{L}])(?:if|suppose|supposing|once|after|when|whenever|before|until|unless|as soon as|have|has|had|did|do|does|should|shall|could|would|can|will|may|might|si|cuando|una vez que|en cuanto|despu[eé]s de que|antes de que|hasta que|a menos que)\s+$/u;
+// The sentence talks about the reply's own text, not the person's records.
+const POINTS_AT_REPLY =
+  /\b(?:below|above)\b|\b(?:in|into|within|throughout|to|of)\s+this\s+(?:[a-z]+\s+)?(?:plan|list|reply|answer|response|message|order|outline|draft|summary|breakdown|table|version|text)\b|\b(?:abajo|arriba)\b|\ba continuaci[oó]n\b|\b(?:en|a|de|dentro de)\s+(?:esta|este|estas|estos)\s+(?:[a-z]+\s+)?(?:respuesta|plan|lista|orden|mensaje|resumen|borrador|texto|versi[oó]n|tabla|esquema)\b/;
+
+function isIdiom(claim: string, rest: string): boolean {
+  return (/moved$/.test(claim) && /^\s+(?:past|on|beyond)\b/.test(rest)) ||
+    (/set$/.test(claim) && /^\s+aside\b/.test(rest)) ||
+    (/changed$/.test(claim) && /^\s+(?:my|our)\s+minds?\b/.test(rest)) ||
+    (/added$/.test(claim) && /^\s+up\b/.test(rest)) ||
+    (/puesto$/.test(claim) &&
+      /^\s+(?:(?:mucho|tanto|todo|toda|nuestro|nuestra|mi)\s+)*(?:esfuerzo|empeño|cuidado|corazón)/
+        .test(rest));
+}
+
+// Within the matched claim: work presented as done just now.
+const MARKED_CLAIM =
+  /'ve\b|\b(?:have|has|already|now|just|successfully|finally|ahead|he|ha|hemos|han|ya)\b/;
 const APP_RECORD_OR_PERSON =
-  /\b(?:tasks?|goals?|habits?|notes?|events?|plans?|schedules?|reminders?|appointments?|meetings?|commitments?|milestones?|routines?|calendars?|requests?|lists?|entr(?:y|ies)|records?|you|your|yours|for you|tareas?|metas?|h[a\u00e1]bitos?|notas?|eventos?|planes|horarios?|recordatorios?|citas?|reuniones|reuni[o\u00f3]n|compromisos?|hitos?|rutinas?|calendarios?|solicitud(?:es)?|listas?|registros?|tu|tus|te|ti|su|sus|usted)\b/i;
-
-// A first-person sentence whose object is a bare pronoun is a claim in every
-// mode: "I've saved that.", "Done. I've scheduled it.", "Ya lo guard\u00e9."
+  /\b(?:tasks?|goals?|habits?|notes?|events?|plans?|schedules?|reminders?|appointments?|meetings?|commitments?|milestones?|routines?|calendars?|requests?|lists?|entr(?:y|ies)|records?|you|your|yours|for you|tareas?|metas?|h[aá]bitos?|notas?|eventos?|planes|horarios?|recordatorios?|citas?|reuniones|reuni[oó]n|compromisos?|hitos?|rutinas?|calendarios?|solicitud(?:es)?|listas?|registros?|tu|tus|te|ti|su|sus|usted)\b/i;
+// A bare-pronoun object makes a first-person sentence a claim in every mode:
+// "I've saved that.", "Ya lo guardé."
 const BARE_OBJECT_CLAIM = new RegExp(
   String
-    .raw`\b(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed|${EXTRA_EN_VERBS})\s+(?:it|that|this|them|these|those|everything|all of it)\b|\b(?:lo|la|los|las)\s+(?:(?:he|hemos)\s+\w+(?:ado|ido)|(?:guard|cre|elimin|program|complet|actualic|envi|apliqu|compr|cambi)[e\u00e9]|(?:guard|actualiz|aplic|elimin|program|envi|cambi|complet)[o\u00f3]|${EXTRA_ES_PRETERITES})(?=\s|[.!?,;:]|$)`,
-  "i",
+    .raw`\b(?:${CLAIM_VERBS_EN}|set)\s+(?:it|that|this|them|these|those|everything|all of it)\b|\b(?:lo|la|los|las)\s+(?:(?:he|hemos)\s+(?:${CLAIM_PARTICIPLES_ES})|${CLAIM_PRETERITES_ES})${ES_END}`,
 );
 
-// Markers that make a first-person past sentence in a chat-only turn read as
-// work done just now: present perfect (I've / I have / we've), just / already /
-// now / successfully / finally before a listed verb, he / hemos + participle,
-// ya + a listed past form, or a Done. / Hecho. / Listo. opener. A claim verb
-// is still required (the patterns above); the marker only lifts the chat-only
-// gate. Present-perfect story narration ("I have changed my mind") is therefore
-// removed in chat-only turns.
-const CLAIM_OPENER = /^(?:done|hecho|listo)\b[,:;!.-]*\s*/i;
+const LEADING_LIST_MARKER = /^(?:[-*•]|\d+[.)])\s+/;
+const CLAIM_OPENER = /^(?:done|hecho|listo)(?:\s*[,:;!.–—-]+\s*|\s*$)/;
+const INTERJECTION =
+  /^(?:ok|okay|sure|great|alright|all right|perfect|got it|of course|no problem|yes|absolutely|certainly|claro|vale|perfecto|bueno|genial|entendido|de acuerdo|por supuesto|sí)\s*[,:;!–—-]+\s*/;
 
-const MARKED_CLAIM = new RegExp(
-  String
-    .raw`\b(?:i|we)(?:['\u2019]ve|\s+have)\b|\b(?:just|already|now|successfully|finally)\s+(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed|${EXTRA_EN_VERBS})\b|\b(?:he|hemos)\s+(?:ya\s+)?\w+(?:ado|ido|to|cho)\b|\bya\s+(?:(?:te|se|lo|la|los|las|me|nos|le|les)\s+)*(?:(?:guard|cre|elimin|program|complet|actualic|envi|apliqu|compr|cambi)[e\u00e9]|(?:guardado|creado|eliminado|programado|completado|actualizado|enviado|aplicado|comprado|cambiado|${EXTRA_ES_PARTICIPLES})|${EXTRA_ES_PRETERITES})(?=\s|[.!?,;:]|$)|^\s*(?:done|hecho|listo)\b`,
-  "i",
-);
+function asserted(text: string, match: RegExpMatchArray): boolean {
+  const start = match.index ?? 0;
+  return !NOT_ASSERTED_BEFORE.test(text.slice(0, start)) &&
+    !isIdiom(match[0], text.slice(start + match[0].length));
+}
 
 function claimsActionOutsideQuotes(
   sentence: string,
   planningMode = true,
 ): boolean {
-  const original = sentence.replaceAll(QUOTED_TEXT, "[quoted text]")
+  const collapsed = sentence.replaceAll(QUOTED_TEXT, "[quoted text]")
     .replaceAll(/\s+/g, " ").trim();
-  // "Done." / "Hecho, ..." / "Listo: ..." only announces the claim after it.
-  const collapsed = original.replace(CLAIM_OPENER, "");
-  if (original !== "" && collapsed === "" && CLAIM_OPENER.test(original)) {
-    return true;
+  const full = collapsed.toLowerCase().replaceAll("’", "'")
+    .replace(LEADING_LIST_MARKER, "");
+  const opener = full.match(CLAIM_OPENER);
+  let text = opener ? full.slice(opener[0].length) : full;
+  // "Done." / "Hecho." / "Listo." alone announces the claim after it.
+  if (opener && text === "") return true;
+  text = text.replace(INTERJECTION, "");
+  if (POINTS_AT_REPLY.test(text)) return false;
+  for (const pattern of RECORD_STATE_CLAIMS) {
+    for (const match of full.matchAll(pattern)) {
+      if (asserted(full, match)) return true;
+    }
   }
-  const lower = collapsed.toLowerCase();
-  const aboutRecords = planningMode || APP_RECORD_OR_PERSON.test(collapsed) ||
-    BARE_OBJECT_CLAIM.test(collapsed) || MARKED_CLAIM.test(original);
-  return [...ACTION_CLAIM_PATTERNS, ...EXTRA_FIRST_PERSON_CLAIMS].some((
-    pattern,
-  ) =>
-    pattern.test(lower) &&
-    (aboutRecords || !GENERIC_FIRST_PERSON_CLAIMS.has(pattern))
-  ) || (aboutRecords &&
-    SI_ACTION_CLAIM_PATTERNS.some((pattern) => pattern.test(collapsed)));
+  const aboutRecords = planningMode || opener !== null ||
+    APP_RECORD_OR_PERSON.test(text) || BARE_OBJECT_CLAIM.test(text);
+  for (const pattern of FIRST_PERSON_CLAIMS) {
+    for (const match of text.matchAll(pattern)) {
+      if (
+        asserted(text, match) && (aboutRecords || MARKED_CLAIM.test(match[0]))
+      ) {
+        return true;
+      }
+    }
+  }
+  return aboutRecords &&
+    SI_ACTION_CLAIM_PATTERNS.some((pattern) => pattern.test(collapsed));
 }
 
 function sentencesOf(maskedLine: string): string[] {
@@ -743,14 +808,23 @@ const LEAK_PHRASES = [
   /\bchronospark\b/,
   // Spanish (accents are folded away before matching).
   /\bprompt del sistema\b/,
-  /(?:\b(?:mi|mis|tu|tus|su|sus)\s+instrucciones del sistema\b|\binstrucciones del sistema\b(?!\s+(?:de|operativo)\b))/,
-  /(?:\b(?:mi|mis|tu|tus|su|sus)\s+mensaje del desarrollador\b|\bmensaje del desarrollador\b(?!\s+(?:de|operativo)\b))/,
+  // "instrucciones del sistema" / "mensaje del desarrollador" are a mention
+  // unless "de <something>" or "operativo" follows ("de riego", "de archivos",
+  // "operativo"); "de Axiomara" (or the assistant) is still a mention, and so
+  // is any possessive before it, with up to one word between ("mis propias").
+  // The leak table in ai_proxy_policy_test.ts is the specification.
+  /(?:\b(?:mi|mis|tu|tus|su|sus|nuestras?|nuestros?)\s+(?:[a-z]+\s+)?instrucciones del sistema\b|\binstrucciones del sistema\b(?!\s+(?:de|operativo)\b(?!\s+(?:axiomara|si|este asistente|el asistente|la asistente)\b)))/,
+  /(?:\b(?:mi|mis|tu|tus|su|sus|nuestras?|nuestros?)\s+(?:[a-z]+\s+)?mensaje del desarrollador\b|\bmensaje del desarrollador\b(?!\s+(?:de|operativo)\b(?!\s+(?:axiomara|si|este asistente|el asistente|la asistente)\b)))/,
   /\brazonamiento oculto\b/,
 ];
 
 // A sentence that announces content to come instead of being the content.
 const LEAD_IN_WORDS =
   /\b(?:following|below|here (?:are|is)|as follows|a continuacion|siguientes?|lo siguiente)\b/;
+// A sentence that presents the phrase ("These are the system instructions.",
+// "Estas son las instrucciones del sistema de Axiomara.") introduces it.
+const PRESENTS_PHRASE =
+  "^\\W*(?:these are|this is|here's|estas son|estos son|este es|esta es|esto es|aqui (?:estan|esta|tienes|van?))\\s+(?:[a-z']+\\s+){0,3}";
 
 function foldForLeakCheck(value: string): string {
   return value.replaceAll(/\s+/g, " ").toLowerCase().normalize("NFD")
@@ -814,6 +888,7 @@ export function redactLeakPhrases(value: string): string | null {
       if (
         new RegExp(phrase.source + "[^.!?]*:").test(folded) ||
         new RegExp(phrase.source + "\\s*[-–—]").test(folded) ||
+        new RegExp(PRESENTS_PHRASE + phrase.source).test(folded) ||
         LEAD_IN_WORDS.test(folded) || headingLine ||
         (at === sentences.length - 1 && at === lastLeak &&
           !LIST_ITEM.test(line) && nextLine !== undefined &&
@@ -868,18 +943,14 @@ export function containsBlockedConversationReply(
     claimsAction(value, options.planningMode ?? true);
 }
 
-// Planning turns read the whole reply as one text (unchanged). Chat-only turns
-// judge each sentence on its own so one claim sentence cannot be excused or
-// condemned by an unrelated word elsewhere in the reply.
+// Each sentence is judged on its own, in both modes, with the same unit as
+// removeUnsupportedActionClaims (one line at a time), so the whole-reply check
+// can never disagree with the sentence filter about a sentence and an
+// unrelated word elsewhere cannot excuse or condemn a sentence.
 function claimsAction(value: string, planningMode: boolean): boolean {
-  if (planningMode) {
-    return claimsActionOutsideQuotes(value.replaceAll(/\n+/g, " "), true);
-  }
-  // Same unit as removeUnsupportedActionClaims: one line at a time, so the
-  // two checks cannot disagree about where a sentence starts.
   let found = false;
   removeSentences(value, (sentence) => {
-    if (claimsActionOutsideQuotes(sentence, false)) found = true;
+    if (claimsActionOutsideQuotes(sentence, planningMode)) found = true;
     return false;
   });
   return found;
