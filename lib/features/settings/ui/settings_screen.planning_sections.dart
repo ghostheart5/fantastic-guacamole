@@ -194,12 +194,10 @@ class _PersonalizationSection extends ConsumerWidget {
             ),
           ] else
             _NeonStatusTile(
-              title: isSpanish
-                  ? 'Asistencia de IA externa'
-                  : 'External AI assistance',
+              title: isSpanish ? 'Chat con IA' : 'AI chat',
               subtitle: isSpanish
-                  ? 'La asistencia de IA externa no está habilitada para esta cuenta. Tu trabajo de planificación guardado permanece disponible.'
-                  : 'External AI assistance is not enabled for this account. Your saved planning work remains available.',
+                  ? 'El chat con IA no está habilitado para esta cuenta. Tu trabajo de planificación guardado permanece disponible.'
+                  : 'AI chat is not enabled for this account. Your saved planning work remains available.',
             ),
           if (ref.watch(internalCreditTestEnabledProvider))
             const InternalCreditTestPanel(),

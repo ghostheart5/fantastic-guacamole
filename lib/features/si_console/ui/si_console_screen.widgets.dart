@@ -787,7 +787,7 @@ class _SIAvatar extends StatelessWidget {
         ),
         child: Center(
           child: Text(
-            'SI',
+            'A',
             style: TextStyle(
               fontSize: 8,
               fontWeight: FontWeight.bold,
@@ -852,14 +852,14 @@ class _ProcessingModeTag extends StatelessWidget {
   String _label(BuildContext context) {
     switch (mode) {
       case AIProcessingMode.external:
-        return journeyText(context, 'External AI', 'IA externa');
+        return journeyText(context, 'AI chat', 'Chat con IA');
       case AIProcessingMode.onDevice:
-        return journeyText(context, 'On device', 'En el dispositivo');
+        return journeyText(context, 'On this device', 'En este dispositivo');
       case AIProcessingMode.onDeviceFallback:
         return journeyText(
           context,
-          'On-device fallback',
-          'Alternativa en el dispositivo',
+          'On this device (fallback)',
+          'En este dispositivo (alternativa)',
         );
       case AIProcessingMode.unknown:
         return journeyText(
@@ -924,7 +924,7 @@ class _TypingIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       liveRegion: true,
-      label: 'SI is analyzing the current evidence',
+      label: 'The Assistant is analyzing the current evidence',
       child: ExcludeSemantics(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),

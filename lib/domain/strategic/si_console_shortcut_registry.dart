@@ -339,7 +339,7 @@ abstract final class SIConsoleShortcutRegistry {
               )
               .toList(growable: false);
     if (selected.isEmpty) {
-      return 'SI QUERY SHORTCUTS\n\n'
+      return 'ASSISTANT SHORTCUTS\n\n'
           'No shortcut matches "$normalizedFilter". '
           'Use /help to list every available shortcut.';
     }
@@ -354,7 +354,7 @@ abstract final class SIConsoleShortcutRegistry {
           return '- ${item.usage}$aliasText: ${item.description}';
         })
         .join('\n');
-    return 'SI QUERY SHORTCUTS\n\nAvailable shortcuts:\n$lines';
+    return 'ASSISTANT SHORTCUTS\n\nAvailable shortcuts:\n$lines';
   }
 
   static void validate() {

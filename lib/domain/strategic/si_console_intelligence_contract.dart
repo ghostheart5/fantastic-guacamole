@@ -75,7 +75,7 @@ class SIIntelligenceReceipt {
   String get processingLabel => switch (processingMode) {
     SIProcessingMode.localOnly => 'Processed on this device',
     SIProcessingMode.remoteWithRecentConversation =>
-      'Cloud AI received this prompt and limited recent conversation',
+      'AI chat received this prompt and limited recent conversation',
     SIProcessingMode.unavailable => 'Processing origin unavailable',
   };
 

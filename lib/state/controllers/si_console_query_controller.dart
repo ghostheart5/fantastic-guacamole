@@ -78,7 +78,7 @@ class SIConsoleQueryController {
       evidence: createAssistantEvidenceItems(
         request: request,
         summaries: const <String>[
-          'Response normalized by the typed SI display boundary',
+          'Response checked before it was shown in the Assistant',
         ],
         sourceId: 'si_console_display_boundary',
         kind: AssistantEvidenceKind.policy,

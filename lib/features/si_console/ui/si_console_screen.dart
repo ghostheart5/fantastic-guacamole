@@ -702,8 +702,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 ? 'cautious'
                 : 'focused',
             rationale: ChronoSparkLocalizations.of(context).isSpanish
-                ? 'Respuesta local de solo lectura basada en los datos seleccionados.'
-                : 'Read-only on-device response based on the selected records.',
+                ? 'Respuesta de solo lectura hecha en este dispositivo con los datos seleccionados.'
+                : 'Read-only response made on this device from the selected records.',
             processingMode: AIProcessingMode.onDevice,
             siV2: response,
           ),

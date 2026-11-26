@@ -307,8 +307,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                 title: Text(_t('Chat', 'Chat')),
                 subtitle: Text(
                   _t(
-                    'AI and SI help with your thoughts and plans.',
-                    'Ayuda de IA y SI para tus ideas y planes.',
+                    'The Assistant helps with your thoughts and plans.',
+                    'El asistente te ayuda con tus ideas y planes.',
                   ),
                 ),
                 trailing: const Icon(Icons.chevron_right_rounded),

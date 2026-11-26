@@ -171,7 +171,7 @@ class _AssistantModeSwitchState extends ConsumerState<AssistantModeSwitch> {
             ? widget.onChooseOnDevice
             : null,
         icon: Icons.offline_bolt_outlined,
-        tooltip: copy('On-device tools', 'Herramientas locales'),
+        tooltip: copy('On this device · free', 'En este dispositivo · gratis'),
         label: copy('On this device · free', 'En este dispositivo · gratis'),
       ),
       _ModeChoice(

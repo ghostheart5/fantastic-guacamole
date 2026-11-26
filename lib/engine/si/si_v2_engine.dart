@@ -345,8 +345,8 @@ final class SIV2Engine {
             : 'The question does not identify a planning decision that this read-only Chat can answer.',
       ...?snapshot.personContext?.unknownKinds.map(
         (PersonContextKind kind) => question.isSpanish
-            ? 'La información personal que compartiste no incluye un dato sobre ${_missingPersonalInformationKindLabel(kind, isSpanish: true)}; SI no lo dedujo.'
-            : 'The personal information you shared does not include a user-reported ${_missingPersonalInformationKindLabel(kind, isSpanish: false)}; SI did not infer it.',
+            ? 'La información personal que compartiste no incluye un dato sobre ${_missingPersonalInformationKindLabel(kind, isSpanish: true)}; el asistente no lo dedujo.'
+            : 'The personal information you shared does not include a user-reported ${_missingPersonalInformationKindLabel(kind, isSpanish: false)}; the Assistant did not infer it.',
       ),
       ...conflicts.map((SIV2Conflict item) => item.summary),
     ];
@@ -411,8 +411,8 @@ final class SIV2Engine {
         : '$groundedAnswer ${userReportedEvidence.length} relevant user-reported context ${userReportedEvidence.length == 1 ? 'item is' : 'items are'} cited separately and not independently verified.';
     final String recommendation = namedTaskMissing
         ? question.isSpanish
-              ? 'Comprueba el título exacto de la tarea o amplía el filtro antes de decidir. SI no cambió datos guardados.'
-              : 'Check the exact task title or include more saved information before deciding. SI has not changed saved data.'
+              ? 'Comprueba el título exacto de la tarea o amplía el filtro antes de decidir. El asistente no cambió datos guardados.'
+              : 'Check the exact task title or include more saved information before deciding. The Assistant has not changed saved data.'
         : _recommendation(
             question: question,
             focusTask: focusTask,
@@ -611,8 +611,8 @@ final class SIV2Engine {
         question.focus == _SIV2QuestionFocus.unsupported
         ? 'Prueba una pregunta compatible, como “¿Qué necesita atención?” o “¿Qué debería hacer después?”.'
         : subjectLabel == null
-        ? 'Ajusta las fuentes, fechas o el título buscado antes de confiar en esta respuesta. SI no cambió ningún dato guardado.'
-        : 'Revisa $subjectText y decide de forma explícita si quieres actuar, posponer, editar o rechazar la recomendación. SI no cambió ningún dato guardado.';
+        ? 'Ajusta las fuentes, fechas o el título buscado antes de confiar en esta respuesta. El asistente no cambió ningún dato guardado.'
+        : 'Revisa $subjectText y decide de forma explícita si quieres actuar, posponer, editar o rechazar la recomendación. El asistente no cambió ningún dato guardado.';
 
     SIV2Statement localizeStatement(SIV2Statement statement) {
       if (!RegExp(
@@ -998,18 +998,18 @@ final class SIV2Engine {
         _SIV2QuestionFocus.conflict =>
           'No explicit schedule, goal-link, or milestone-dependency conflict matching your question was found.',
         _SIV2QuestionFocus.progress =>
-          'No milestone completion record matched, so SI cannot determine progress from this saved information.',
+          'No milestone completion record matched, so the Assistant cannot determine progress from this saved information.',
         _SIV2QuestionFocus.unsupported =>
-          'SI cannot answer that question from saved tasks, goals, milestones, or Schedule records. It will not substitute an unrelated planning report.',
+          'The Assistant cannot answer that question from saved tasks, goals, milestones, or Schedule records. It will not substitute an unrelated planning report.',
         _ =>
-          'No saved evidence item matched the selected sources, date range, and entity filter, so SI cannot answer this question from app data.',
+          'No saved evidence item matched the selected sources, date range, and entity filter, so the Assistant cannot answer this question from app data.',
       };
     }
     switch (question.focus) {
       case _SIV2QuestionFocus.nextAction:
         if (focusTask != null) {
           if (question.availableMinutes case final int minutes) {
-            return 'Use the available $minutes ${minutes == 1 ? 'minute' : 'minutes'} to start one bounded part of "${focusTask.title}". SI does not know the full task duration, so this is a start, not a promise to finish it.';
+            return 'Use the available $minutes ${minutes == 1 ? 'minute' : 'minutes'} to start one bounded part of "${focusTask.title}". The Assistant does not know the full task duration, so this is a start, not a promise to finish it.';
           }
           final dateBasis =
               focusTask.dueDate != null || focusTask.scheduledFor != null
@@ -1077,7 +1077,7 @@ final class SIV2Engine {
           final String subject = focusGoal == null
               ? 'the matched evidence'
               : 'goal "${focusGoal.title}"';
-          return 'No milestone completion record is available for $subject, so SI cannot determine progress from the selected information.';
+          return 'No milestone completion record is available for $subject, so the Assistant cannot determine progress from the selected information.';
         }
         final double average =
             relevantMilestones
@@ -1208,7 +1208,7 @@ final class SIV2Engine {
         }
         return '$totalMatched evidence item${totalMatched == 1 ? '' : 's'} matched. Ask about the next action, urgency, workload, progress, schedule, goal alignment, conflicts, or a named saved item for a more specific answer.';
       case _SIV2QuestionFocus.unsupported:
-        return 'SI cannot answer that question from saved tasks, goals, milestones, or Schedule records. It will not substitute an unrelated planning report.';
+        return 'The Assistant cannot answer that question from saved tasks, goals, milestones, or Schedule records. It will not substitute an unrelated planning report.';
     }
   }
 
@@ -1220,7 +1220,7 @@ final class SIV2Engine {
     required SIV2TimelineEvidence? focusTimeline,
     required List<SIV2Conflict> conflicts,
   }) {
-    final String noMutation = ' SI has not changed any saved data.';
+    final String noMutation = ' The Assistant has not changed any saved data.';
     switch (question.focus) {
       case _SIV2QuestionFocus.progress:
         if (focusMilestone != null) {
@@ -1248,7 +1248,7 @@ final class SIV2Engine {
         }
         break;
       case _SIV2QuestionFocus.unsupported:
-        return 'Ask a planning question that can be checked against tasks, goals, milestones, or Schedule; SI will not invent an answer.';
+        return 'Ask a planning question that can be checked against tasks, goals, milestones, or Schedule; the Assistant will not invent an answer.';
       case _SIV2QuestionFocus.evidenceGaps:
         return 'Review the named evidence gaps before relying on this saved information for a planning decision.$noMutation';
       case _SIV2QuestionFocus.workload:

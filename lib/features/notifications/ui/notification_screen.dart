@@ -460,8 +460,8 @@ String _localizedMessage(String raw, bool es) {
         ' se omitió y se actualizó la adaptación.',
       )
       .replaceFirst(
-        ' skipped. SI will adapt the next pick.',
-        ' se omitió. SI adaptará la próxima elección.',
+        ' skipped. The Assistant will adapt the next pick.',
+        ' se omitió. El asistente adaptará la próxima elección.',
       )
       .replaceFirst('" is complete.', '" se cumplió.');
 }

@@ -87,8 +87,8 @@ extension _PlannerExplanationQuoteConsent on _SmartPlannerScreenState {
         title: Text(
           journeyText(
             context,
-            'External AI explanation',
-            'Explicación de IA externa',
+            'AI chat explanation',
+            'Explicación del chat con IA',
           ),
         ),
         content: SingleChildScrollView(

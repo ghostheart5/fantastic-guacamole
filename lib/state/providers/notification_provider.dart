@@ -423,7 +423,7 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     return pushInApp(
       _inAppNotification(
         title: 'Task Skipped',
-        message: '$taskTitle skipped. SI will adapt the next pick.',
+        message: '$taskTitle skipped. The Assistant will adapt the next pick.',
       ),
       refreshPlanner: refreshPlanner,
       refreshPlan: refreshPlan,

@@ -847,7 +847,7 @@ final class SIV2Response {
       scenarios: scenarios,
       scenarioAssumptions: <String>[
         ...scenarioAssumptions,
-        'The next action is read from shared decision plan ${receipt.planId}; SI Chat did not independently rank another action.',
+        'The next action is read from shared decision plan ${receipt.planId}; the Assistant did not independently rank another action.',
       ],
       recommendation: receipt.recommendedAction,
       confidence: confidence,
