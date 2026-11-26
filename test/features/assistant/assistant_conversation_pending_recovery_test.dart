@@ -1641,6 +1641,65 @@ void main() {
 
   for (final language in ['en', 'es']) {
     testWidgets(
+      '$language: M10: the stored-request privacy line says an unshown reply keeps it until shown',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final container = _setup(
+          (body) async => _quote(body),
+          InMemorySecureStoreBackend(),
+        );
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await _pumpScreen(
+          tester,
+          container,
+          ConversationSurface.si,
+          language: language,
+        );
+        await _settle(tester);
+        final privacy = find.byKey(const Key('conversation-history-privacy'));
+        await tester.scrollUntilVisible(
+          privacy,
+          100,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.ensureVisible(privacy);
+        await tester.pump();
+        await tester.tap(
+          find.text(
+            language == 'es'
+                ? 'Historial de Chat y privacidad'
+                : 'Chat history & privacy',
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 400));
+        final pendingLine = find.byKey(
+          const Key('conversation-pending-privacy'),
+        );
+        await tester.scrollUntilVisible(
+          pendingLine,
+          100,
+          scrollable: find.byType(Scrollable).first,
+        );
+        final line = tester.widget<Text>(pendingLine).data!;
+        expect(
+          line,
+          contains(
+            language == 'es'
+                ? 'Una respuesta que llegó pero aún no se mostró la conserva hasta que se muestra; si la app se cierra antes, permanece en el dispositivo hasta la próxima vez que se abra esta cuenta y se borra entonces.'
+                : 'A reply that arrived but was not yet shown keeps it until it is shown; if the app closes first, it stays on the device until this account is next opened, and is deleted then.',
+          ),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final language in ['en', 'es']) {
+    testWidgets(
       '$language: M2: Clear conversation says a paid request still finishing is removed too',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(412, 915));
