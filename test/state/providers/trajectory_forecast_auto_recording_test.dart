@@ -530,9 +530,10 @@ void main() {
         expect(trajectoryRangeWorkload(baseline)(30), 1);
 
         expect(
-          await container
-              .read(trajectoryForecastLedgerActionsProvider)
-              .reconcile(baseline),
+          (await container
+                  .read(trajectoryForecastLedgerActionsProvider)
+                  .reconcile(baseline))
+              .checked,
           1,
         );
         expect((await ledger.load()).single.observed!.pressure, 1);

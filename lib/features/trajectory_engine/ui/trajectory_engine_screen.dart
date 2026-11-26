@@ -608,20 +608,21 @@ class _TrajectoryEngineScreenState
 
   Future<void> _refresh(TrajectoryComparison? comparison) async {
     if (_isRefreshing) return;
-    int reconciled = 0;
+    TrajectoryReconcileCounts counts = TrajectoryReconcileCounts.none;
     if (comparison != null) {
-      reconciled = await ref
+      counts = await ref
           .read(trajectoryForecastLedgerActionsProvider)
           .reconcile(comparison.baseline);
     }
     ref.read(trajectoryEngineActionsProvider).refresh();
-    if (mounted && reconciled > 0) {
+    if (mounted && counts.total > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            Localizations.localeOf(context).languageCode == 'es'
-                ? '$reconciled ${reconciled == 1 ? 'previsión anterior comprobada' : 'previsiones anteriores comprobadas'} con tus registros.'
-                : '$reconciled earlier forecast${reconciled == 1 ? '' : 's'} checked against your records.',
+            _reconciledMessage(
+              counts,
+              Localizations.localeOf(context).languageCode == 'es',
+            ),
           ),
         ),
       );
@@ -980,6 +981,22 @@ class _CompleteTaskDialog extends StatelessWidget {
 }
 
 /// The one-line note in the task edit dialog naming the option it came from.
+/// After "Update estimate": how many earlier forecasts were checked against
+/// the records, and how many fell due but were set aside unchecked.
+String _reconciledMessage(TrajectoryReconcileCounts counts, bool isSpanish) {
+  final int checked = counts.checked;
+  final int setAside = counts.setAside;
+  final String checkedText = isSpanish
+      ? '$checked ${checked == 1 ? 'previsión anterior comprobada' : 'previsiones anteriores comprobadas'} con tus registros'
+      : '$checked earlier forecast${checked == 1 ? '' : 's'} checked against your records';
+  final String setAsideText = isSpanish
+      ? '$setAside ${setAside == 1 ? 'previsión anterior apartada' : 'previsiones anteriores apartadas'} sin comprobar'
+      : '$setAside earlier forecast${setAside == 1 ? '' : 's'} set aside without a check';
+  if (setAside == 0) return '$checkedText.';
+  if (checked == 0) return '$setAsideText.';
+  return '$checkedText; $setAsideText.';
+}
+
 String _reviewNote(BuildContext context, TrajectoryIntervention intervention) {
   final String from = InsightsCopy.of(context).futureOutcomes;
   if (intervention.type == TrajectoryInterventionType.delayTask) {

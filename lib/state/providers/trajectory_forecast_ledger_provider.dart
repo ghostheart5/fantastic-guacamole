@@ -107,19 +107,23 @@ class TrajectoryForecastLedgerActions {
     return stored;
   }
 
-  Future<int> reconcile(TrajectoryBaseline baseline) async {
+  /// Settles the due forecasts; the counts say how many were checked against
+  /// the records and how many were set aside unchecked.
+  Future<TrajectoryReconcileCounts> reconcile(
+    TrajectoryBaseline baseline,
+  ) async {
     final AccountOperation operation = AccountOperation.capture(_ref);
-    final int count = await _ref
+    final TrajectoryReconcileCounts counts = await _ref
         .read(trajectoryForecastLedgerRepositoryProvider)
-        .reconcileDue(
+        .reconcileDueCounts(
           baseline,
           pressureForHorizon: trajectoryRangeWorkload(baseline),
           isCurrent: () => operation.isCurrent,
         );
-    if (count > 0 && operation.isCurrent) {
+    if (counts.total > 0 && operation.isCurrent) {
       _ref.invalidate(trajectoryForecastLedgerProvider);
     }
-    return count;
+    return counts;
   }
 }
 

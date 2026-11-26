@@ -78,9 +78,11 @@ class _Actions extends TrajectoryForecastLedgerActions {
   }
 
   @override
-  Future<int> reconcile(TrajectoryBaseline baseline) async {
+  Future<TrajectoryReconcileCounts> reconcile(
+    TrajectoryBaseline baseline,
+  ) async {
     reconciles++;
-    return 0;
+    return TrajectoryReconcileCounts.none;
   }
 }
 

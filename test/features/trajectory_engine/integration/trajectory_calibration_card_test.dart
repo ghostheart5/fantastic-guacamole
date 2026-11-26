@@ -45,6 +45,62 @@ void main() {
     earlierMethodForecasts: 3,
   );
 
+  // Forecasts fell due but none could be checked (found too late, or from
+  // an earlier method): the card must not say none has reached its end date.
+  const TrajectoryCalibrationSummary setAsideOnly =
+      TrajectoryCalibrationSummary(
+        resolvedForecasts: 0,
+        momentumMeanAbsoluteError: 0,
+        pressureMeanAbsoluteError: 0,
+        intervalCoverage: 0,
+        state: PredictiveCalibrationState.provisional,
+        missedForecasts: 2,
+      );
+  const TrajectoryCalibrationSummary nothingDue = TrajectoryCalibrationSummary(
+    resolvedForecasts: 0,
+    momentumMeanAbsoluteError: 0,
+    pressureMeanAbsoluteError: 0,
+    intervalCoverage: 0,
+    state: PredictiveCalibrationState.provisional,
+  );
+  for (final (String language, String unchecked, String missed, String early)
+      in const <(String, String, String, String)>[
+        (
+          'en',
+          'No recorded forecast has been checked against your records yet, so '
+              'the ranges stay as estimated.',
+          'Due too long ago to be checked, not used: 2.',
+          'No recorded forecast has reached its end date yet, so the ranges '
+              'stay as estimated.',
+        ),
+        (
+          'es',
+          'Todavía no se ha comprobado ninguna previsión registrada con tus '
+              'registros, así que los rangos se mantienen como se estimaron.',
+          'Vencidas hace demasiado para comprobarlas, no usadas: 2.',
+          'Ninguna previsión registrada ha llegado aún a su fecha final, así '
+              'que los rangos se mantienen como se estimaron.',
+        ),
+      ]) {
+    testWidgets('forecasts set aside unchecked: a true sentence and their '
+        'count ($language)', (tester) async {
+      await _pump(tester, setAsideOnly, Locale(language));
+      expect(find.text(unchecked), findsOneWidget);
+      expect(find.text(missed), findsOneWidget);
+      expect(find.text(early), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('nothing due yet keeps its sentence ($language)', (
+      tester,
+    ) async {
+      await _pump(tester, nothingDue, Locale(language));
+      expect(find.text(early), findsOneWidget);
+      expect(find.text(unchecked), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('checked forecasts: ranges follow recorded accuracy (en)', (
     tester,
   ) async {

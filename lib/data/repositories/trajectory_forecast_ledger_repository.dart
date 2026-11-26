@@ -202,13 +202,30 @@ class TrajectoryForecastLedgerRepository
     int Function(int horizonDays)? pressureForHorizon,
     bool Function()? isCurrent,
     String modelVersion = trajectoryConsequenceModelVersion,
+  }) async => (await reconcileDueCounts(
+    current,
+    pressureForHorizon: pressureForHorizon,
+    isCurrent: isCurrent,
+    modelVersion: modelVersion,
+  )).total;
+
+  /// [reconcileDue], telling forecasts measured against the records apart
+  /// from those set aside unchecked (earlier method, missed, corrected).
+  Future<TrajectoryReconcileCounts> reconcileDueCounts(
+    TrajectoryBaseline current, {
+    int Function(int horizonDays)? pressureForHorizon,
+    bool Function()? isCurrent,
+    String modelVersion = trajectoryConsequenceModelVersion,
   }) async {
     if (storageKey == null || current.accountScope != scope.v2Namespace) {
-      return 0;
+      return TrajectoryReconcileCounts.none;
     }
     final List<TrajectoryForecastReceipt> receipts = await load();
-    if (isCurrent != null && !isCurrent()) return 0;
+    if (isCurrent != null && !isCurrent()) {
+      return TrajectoryReconcileCounts.none;
+    }
     int resolved = 0;
+    int checked = 0;
     final List<TrajectoryForecastReceipt> next = receipts
         .map((receipt) {
           final String currentContextRevision =
@@ -245,6 +262,7 @@ class TrajectoryForecastLedgerRepository
           );
           if (pressure == null) return receipt;
           resolved++;
+          checked++;
           return receipt.resolve(
             TrajectoryObservedOutcome(
               observedAt: current.observedAt,
@@ -257,7 +275,10 @@ class TrajectoryForecastLedgerRepository
         })
         .toList(growable: false);
     if (resolved > 0) await _save(next);
-    return resolved;
+    return TrajectoryReconcileCounts(
+      checked: checked,
+      setAside: resolved - checked,
+    );
   }
 
   /// The workload over the receipt's own range length, measured now; null

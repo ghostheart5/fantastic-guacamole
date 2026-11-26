@@ -269,6 +269,26 @@ void main() {
       expect((await repository.load()).single.observed!.pressure, 18);
     });
 
+    test('the counts tell checked forecasts from those set aside', () async {
+      final _MemoryStore store = _MemoryStore();
+      final TrajectoryForecastLedgerRepository repository = _repository(store);
+      // One current forecast due and checkable, one earlier-method forecast.
+      store.values[repository.storageKey!] =
+          '{"schemaVersion":1,"records":[$_storedV3Unresolved]}';
+      await repository.append(
+        _receiptAt(trajectoryFixtureNow.subtract(const Duration(days: 8))),
+      );
+      final TrajectoryBaseline current = _baseline();
+      final TrajectoryReconcileCounts counts = await repository
+          .reconcileDueCounts(
+            current,
+            pressureForHorizon: (int days) => _workload(current, days),
+          );
+      expect(counts.checked, 1);
+      expect(counts.setAside, 1);
+      expect(counts.total, 2);
+    });
+
     test(
       'a due v3 receipt gets no v4 observation and counts as earlier method',
       () async {

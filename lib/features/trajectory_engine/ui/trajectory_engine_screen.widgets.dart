@@ -631,15 +631,25 @@ class _MonitoringDetails extends StatelessWidget {
         : isSpanish
         ? 'Conservadas de un método anterior pero no usadas: ${value.earlierMethodForecasts}.'
         : 'Kept from an earlier method but not used: ${value.earlierMethodForecasts}.';
+    final String? missed = value == null || value.missedForecasts == 0
+        ? null
+        : isSpanish
+        ? 'Vencidas hace demasiado para comprobarlas, no usadas: ${value.missedForecasts}.'
+        : 'Due too long ago to be checked, not used: ${value.missedForecasts}.';
     final List<String> lines = <String>[
       if (value == null)
         isSpanish
             ? 'La información de seguimiento no está disponible ahora.'
             : 'Monitoring information is not available right now.'
-      else if (value.resolvedForecasts == 0)
+      else if (value.resolvedForecasts == 0 && !value.hasSetAside)
         isSpanish
             ? 'Ninguna previsión registrada ha llegado aún a su fecha final, así que los rangos se mantienen como se estimaron.'
             : 'No recorded forecast has reached its end date yet, so the ranges stay as estimated.'
+      else if (value.resolvedForecasts == 0)
+        // Some fell due but were set aside unchecked (counted below).
+        isSpanish
+            ? 'Todavía no se ha comprobado ninguna previsión registrada con tus registros, así que los rangos se mantienen como se estimaron.'
+            : 'No recorded forecast has been checked against your records yet, so the ranges stay as estimated.'
       else ...<String>[
         isSpanish
             ? '${value.resolvedForecasts} previsiones comprobadas • error medio de ritmo ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} puntos • error medio de carga ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} puntos • ${(value.intervalCoverage * 100).round()}% dentro de su rango.'
@@ -656,6 +666,7 @@ class _MonitoringDetails extends StatelessWidget {
                   : 'Ranges stay as estimated until at least 3 forecasts have been checked on 2 or more days. Checked so far: ${value.resolvedForecasts}.'),
       ],
       ?earlier,
+      ?missed,
       isSpanish
           ? 'La previsión de “seguir como vas” se registra automáticamente en este dispositivo: como mucho una vez al día para 7 días y una vez a la semana para 30 y 90 días. Nada sale de este dispositivo.'
           : 'The “keep going” forecast is recorded automatically on this device: at most once a day for 7 days, and once a week for 30 and 90 days. Nothing leaves this device.',
@@ -706,8 +717,8 @@ class _HowThisHelps extends StatelessWidget {
       ),
       journeyText(
         context,
-        'Nothing changes until you tap Review to act on an option. These are estimates, not promises.',
-        'Nada cambia hasta que tocas Revisar para actuar. Son estimaciones, no promesas.',
+        'Nothing changes until you use the button on the option you picked (such as Mark done… or Edit this task) and confirm. These are estimates, not promises.',
+        'Nada cambia hasta que usas el botón de la opción que elegiste (como Marcar como hecha… o Editar esta tarea) y lo confirmas. Son estimaciones, no promesas.',
       ),
       journeyText(
         context,

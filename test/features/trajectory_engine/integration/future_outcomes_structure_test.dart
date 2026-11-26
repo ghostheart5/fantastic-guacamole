@@ -1,7 +1,9 @@
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
+import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/navigation/insights_destination_switch.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
@@ -236,6 +238,100 @@ void main() {
     });
   }
 
+  for (final String language in const <String>['en', 'es']) {
+    testWidgets('"How this helps you" names buttons that exist, not a '
+        'Review button ($language)', (tester) async {
+      final bool es = language == 'es';
+      await pumpFutureOutcomes(
+        tester,
+        locale: Locale(language),
+        size: const Size(900, 8000),
+      );
+      await openAllDisclosures(tester);
+      final List<String> texts = futureOutcomesTexts(tester);
+      expect(
+        texts.where(
+          (String t) => t.contains(es ? 'tocas Revisar' : 'tap Review'),
+        ),
+        isEmpty,
+      );
+      expect(
+        texts.where(
+          (String t) => t.contains(
+            es
+                ? 'Nada cambia hasta que usas el botón de la opción que '
+                      'elegiste (como Marcar como hecha… o Editar esta tarea)'
+                : 'Nothing changes until you use the button on the option '
+                      'you picked (such as Mark done… or Edit this task)',
+          ),
+        ),
+        hasLength(1),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final (
+        String language,
+        TrajectoryReconcileCounts counts,
+        String expected,
+      )
+      in <(String, TrajectoryReconcileCounts, String)>[
+        (
+          'en',
+          const TrajectoryReconcileCounts(checked: 2),
+          '2 earlier forecasts checked against your records.',
+        ),
+        (
+          'en',
+          const TrajectoryReconcileCounts(setAside: 3),
+          '3 earlier forecasts set aside without a check.',
+        ),
+        (
+          'en',
+          const TrajectoryReconcileCounts(checked: 1, setAside: 1),
+          '1 earlier forecast checked against your records; 1 earlier '
+              'forecast set aside without a check.',
+        ),
+        (
+          'es',
+          const TrajectoryReconcileCounts(setAside: 3),
+          '3 previsiones anteriores apartadas sin comprobar.',
+        ),
+        (
+          'es',
+          const TrajectoryReconcileCounts(checked: 1, setAside: 2),
+          '1 previsión anterior comprobada con tus registros; 2 previsiones '
+              'anteriores apartadas sin comprobar.',
+        ),
+      ]) {
+    testWidgets('Update estimate counts only what was checked as checked '
+        '($language, ${counts.checked}/${counts.setAside})', (tester) async {
+      await pumpFutureOutcomes(
+        tester,
+        locale: Locale(language),
+        extraOverrides: [
+          trajectoryForecastLedgerActionsProvider.overrideWith(
+            (Ref ref) => _FixedReconcile(ref, counts),
+          ),
+        ],
+      );
+      await tester.tap(
+        find.byWidgetPredicate(
+          (Widget w) =>
+              w is IconButton &&
+              w.tooltip ==
+                  (language == 'es'
+                      ? 'Actualizar estimación'
+                      : 'Update estimate'),
+        ),
+      );
+      await settleFutureOutcomes(tester);
+      expect(find.text(expected), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('the learning state keeps the minimum-evidence wording and '
       'shows no forecast', (tester) async {
     final TrajectoryEngineModel fixture = trajectoryTestEngineModel();
@@ -383,4 +479,14 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+}
+
+class _FixedReconcile extends TrajectoryForecastLedgerActions {
+  const _FixedReconcile(super.ref, this.counts);
+  final TrajectoryReconcileCounts counts;
+
+  @override
+  Future<TrajectoryReconcileCounts> reconcile(
+    TrajectoryBaseline baseline,
+  ) async => counts;
 }

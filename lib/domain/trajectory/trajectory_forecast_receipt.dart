@@ -453,6 +453,22 @@ class TrajectoryForecastReceipt {
   }
 }
 
+/// What one pass over the due forecasts did: [checked] were measured against
+/// the records; [setAside] fell due but could not be measured the same way
+/// (an earlier method, found too late, or corrected assumptions) and are
+/// kept unused.
+class TrajectoryReconcileCounts {
+  const TrajectoryReconcileCounts({this.checked = 0, this.setAside = 0});
+
+  static const TrajectoryReconcileCounts none = TrajectoryReconcileCounts();
+
+  final int checked;
+  final int setAside;
+
+  /// Receipts changed by the pass.
+  int get total => checked + setAside;
+}
+
 class TrajectoryCalibrationSummary {
   const TrajectoryCalibrationSummary({
     required this.resolvedForecasts,
@@ -462,6 +478,7 @@ class TrajectoryCalibrationSummary {
     required this.state,
     this.earlierMethodForecasts = 0,
     this.correctedForecasts = 0,
+    this.missedForecasts = 0,
     this.accountScope,
     this.checkDays = 0,
     this.checkSpanDays = 0,
@@ -490,6 +507,14 @@ class TrajectoryCalibrationSummary {
               item.isMethod(modelVersion) && item.hasAssumptionCorrection,
         )
         .length;
+    final int missed = all
+        .where(
+          (TrajectoryForecastReceipt item) =>
+              item.isMethod(modelVersion) &&
+              !item.hasAssumptionCorrection &&
+              item.missedAt != null,
+        )
+        .length;
     final List<TrajectoryForecastReceipt> resolved = all
         .where(
           (TrajectoryForecastReceipt item) =>
@@ -505,6 +530,7 @@ class TrajectoryCalibrationSummary {
         state: PredictiveCalibrationState.provisional,
         earlierMethodForecasts: earlierMethod,
         correctedForecasts: corrected,
+        missedForecasts: missed,
         accountScope: accountScope,
       );
     }
@@ -548,6 +574,7 @@ class TrajectoryCalibrationSummary {
       state: PredictiveCalibrationState.monitored,
       earlierMethodForecasts: earlierMethod,
       correctedForecasts: corrected,
+      missedForecasts: missed,
       accountScope: accountScope,
       checkDays: checkDays.length,
       checkSpanDays: checkDays.last.difference(checkDays.first).inDays,
@@ -574,6 +601,16 @@ class TrajectoryCalibrationSummary {
   /// Current-version forecasts whose assumptions were corrected: kept but
   /// not used.
   final int correctedForecasts;
+
+  /// Current-version forecasts found too long after they fell due: kept but
+  /// not used.
+  final int missedForecasts;
+
+  /// Whether any forecast fell due but was set aside unchecked.
+  bool get hasSetAside =>
+      earlierMethodForecasts > 0 ||
+      correctedForecasts > 0 ||
+      missedForecasts > 0;
 
   /// The account whose ledger was summarised; null when it was empty.
   final String? accountScope;
