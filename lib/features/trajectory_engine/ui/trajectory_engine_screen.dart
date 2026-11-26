@@ -65,7 +65,8 @@ class _TrajectoryEngineScreenState
 
   bool _reviewRecorded = false;
 
-  /// The Patterns lesson finishes when the person actually uses this screen
+  /// The Future outcomes lesson ("Compare future outcomes", milestone
+  /// firstTrajectoryReview) finishes when the person actually uses this screen
   /// (scrolls, changes the range or picks an option to compare), not when it
   /// first appears and not on a first touch, which would remove its hint
   /// card and move the page under the finger.
