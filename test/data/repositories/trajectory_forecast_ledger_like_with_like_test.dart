@@ -703,6 +703,54 @@ void main() {
     });
   });
 
+  group('writes are serialised', () {
+    test('two writes started together both land (neither overwrites the '
+        'other)', () async {
+      final _MemoryStore store = _SlowStore();
+      // Two repositories for the same account, as two callers may hold.
+      final TrajectoryForecastLedgerRepository first = _repository(store);
+      final TrajectoryForecastLedgerRepository second = _repository(store);
+      final TrajectoryForecastReceipt manual = _receiptAt(
+        trajectoryFixtureNow.subtract(const Duration(hours: 2)),
+      );
+      final TrajectoryForecastReceipt automatic = _receiptAt(
+        trajectoryFixtureNow.subtract(const Duration(hours: 1)),
+        horizonDays: 30,
+        origin: TrajectoryForecastOrigin.automatic,
+      );
+      final List<bool> stored = await Future.wait(<Future<bool>>[
+        first.append(manual),
+        second.appendAutomatic(automatic),
+      ]);
+      expect(stored, <bool>[true, true]);
+      expect(
+        (await first.load()).map((TrajectoryForecastReceipt r) => r.id),
+        unorderedEquals(<String>[manual.id, automatic.id]),
+      );
+    });
+
+    test('a check started with a write keeps the written receipt', () async {
+      final _MemoryStore store = _SlowStore();
+      final TrajectoryForecastLedgerRepository repository = _repository(store);
+      await repository.append(
+        _receiptAt(trajectoryFixtureNow.subtract(const Duration(days: 8))),
+      );
+      final TrajectoryForecastReceipt fresh = _receiptAt(trajectoryFixtureNow);
+      final TrajectoryBaseline current = _baseline();
+      await Future.wait(<Future<Object>>[
+        repository.reconcileDue(
+          current,
+          pressureForHorizon: (int days) => _workload(current, days),
+        ),
+        repository.append(fresh),
+      ]);
+      final List<TrajectoryForecastReceipt> all = await repository.load();
+      expect(all, hasLength(2));
+      expect(all.where((r) => r.id == fresh.id), hasLength(1));
+      expect(all.where((r) => r.isResolved), hasLength(1));
+    });
+  });
+
   group('the 120-receipt cap', () {
     final DateTime start = trajectoryFixtureNow.subtract(
       const Duration(days: 60),
@@ -906,4 +954,14 @@ class _MemoryStore implements SharedPrefsStore {
   String? load(String key) => values[key];
   @override
   Future<void> save(String key, String value) async => values[key] = value;
+}
+
+/// Saving takes a moment, as a real store's write does, so writes that are
+/// not serialised read the same ledger and the later save wins.
+class _SlowStore extends _MemoryStore {
+  @override
+  Future<void> save(String key, String value) async {
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    values[key] = value;
+  }
 }

@@ -294,14 +294,15 @@ void main() {
             outcome.intervention.type ==
             TrajectoryInterventionType.maintainCourse,
       );
+      expect(target.intervention.title, 'Maintain current course');
+      // The keep-going option goes by the page's own name for it.
+      const String shown = 'Keep going as you are';
       await tester.scrollUntilVisible(
-        find.text(target.intervention.title).first.hitTestable(),
+        find.text(shown).first.hitTestable(),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(
-        find.text(target.intervention.title).first.hitTestable(),
-      );
+      await tester.tap(find.text(shown).first.hitTestable());
       await tester.pump();
       await tester.scrollUntilVisible(
         find.text('Review on Schedule').hitTestable(),

@@ -25,6 +25,27 @@ class TrajectoryForecastLedgerRepository
     return 'chronospark.trajectory.forecast_ledger.v1.$namespace';
   }
 
+  /// The last queued write of each ledger: per store, then per storage key,
+  /// shared by every repository instance on that ledger.
+  static final Expando<Map<String, Future<void>>> _writeQueues =
+      Expando<Map<String, Future<void>>>('trajectory ledger writes');
+
+  /// Runs [write] (a read, change and save of the ledger at [key]) after
+  /// every earlier write to the same ledger has finished, so two writes never
+  /// read the same ledger and the later save never drops the other's change.
+  Future<T> _serialised<T>(String key, Future<T> Function() write) {
+    final Map<String, Future<void>> queues = _writeQueues[store] ??=
+        <String, Future<void>>{};
+    final Future<void> previous = queues[key] ?? Future<void>.value();
+    final Future<T> result = previous.then((_) => write());
+    // A failed write does not block the next one.
+    queues[key] = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result;
+  }
+
   @override
   Future<List<TrajectoryForecastReceipt>> load() async {
     final String? key = storageKey;
@@ -90,18 +111,20 @@ class TrajectoryForecastLedgerRepository
     final String? key = storageKey;
     if (key == null || receipt.accountScope != scope.v2Namespace) return false;
     receipt.validate();
-    final List<TrajectoryForecastReceipt> existing = await load();
-    if (isCurrent != null && !isCurrent()) return false;
-    final List<TrajectoryForecastReceipt> next = <TrajectoryForecastReceipt>[
-      receipt,
-      ...existing.where(
-        (TrajectoryForecastReceipt item) => item.id != receipt.id,
-      ),
-    ];
-    final List<TrajectoryForecastReceipt> kept = _bounded(next);
-    if (!kept.contains(receipt)) return false;
-    await _save(kept);
-    return true;
+    return _serialised(key, () async {
+      final List<TrajectoryForecastReceipt> existing = await load();
+      if (isCurrent != null && !isCurrent()) return false;
+      final List<TrajectoryForecastReceipt> next = <TrajectoryForecastReceipt>[
+        receipt,
+        ...existing.where(
+          (TrajectoryForecastReceipt item) => item.id != receipt.id,
+        ),
+      ];
+      final List<TrajectoryForecastReceipt> kept = _bounded(next);
+      if (!kept.contains(receipt)) return false;
+      await _save(kept);
+      return true;
+    });
   }
 
   /// Stores an automatic [receipt] unless an automatic receipt for the same
@@ -120,6 +143,13 @@ class TrajectoryForecastLedgerRepository
       return false;
     }
     receipt.validate();
+    return _serialised(key, () => _appendAutomatic(receipt, isCurrent));
+  }
+
+  Future<bool> _appendAutomatic(
+    TrajectoryForecastReceipt receipt,
+    bool Function()? isCurrent,
+  ) async {
     final List<TrajectoryForecastReceipt> existing = await load();
     if (isCurrent != null && !isCurrent()) return false;
     final int interval = receipt.horizon.inDays > 7
@@ -153,7 +183,17 @@ class TrajectoryForecastLedgerRepository
     final String? key = storageKey;
     if (key == null || baseline.accountScope != scope.v2Namespace) return false;
 
-    final DateTime correctedAtUtc = correctedAt.toUtc();
+    return _serialised(
+      key,
+      () => _recordAssumptionCorrection(baseline, outcome, correctedAt.toUtc()),
+    );
+  }
+
+  Future<bool> _recordAssumptionCorrection(
+    TrajectoryBaseline baseline,
+    TrajectoryScenarioOutcome outcome,
+    DateTime correctedAtUtc,
+  ) async {
     final List<TrajectoryForecastReceipt> existing = await load();
     bool matched = false;
     final List<TrajectoryForecastReceipt> corrected = existing
@@ -217,9 +257,27 @@ class TrajectoryForecastLedgerRepository
     bool Function()? isCurrent,
     String modelVersion = trajectoryConsequenceModelVersion,
   }) async {
-    if (storageKey == null || current.accountScope != scope.v2Namespace) {
+    final String? key = storageKey;
+    if (key == null || current.accountScope != scope.v2Namespace) {
       return TrajectoryReconcileCounts.none;
     }
+    return _serialised(
+      key,
+      () => _reconcileDue(
+        current,
+        pressureForHorizon: pressureForHorizon,
+        isCurrent: isCurrent,
+        modelVersion: modelVersion,
+      ),
+    );
+  }
+
+  Future<TrajectoryReconcileCounts> _reconcileDue(
+    TrajectoryBaseline current, {
+    required int Function(int horizonDays)? pressureForHorizon,
+    required bool Function()? isCurrent,
+    required String modelVersion,
+  }) async {
     final List<TrajectoryForecastReceipt> receipts = await load();
     if (isCurrent != null && !isCurrent()) {
       return TrajectoryReconcileCounts.none;
