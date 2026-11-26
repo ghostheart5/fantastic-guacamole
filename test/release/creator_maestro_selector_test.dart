@@ -610,7 +610,6 @@ void main() {
           'See tasks with dates and past activity. Open a task to update it.',
         ],
         '08-progression': [
-          'Insights',
           'Patterns',
           'Future outcomes',
           'These are estimates, not promises.',
