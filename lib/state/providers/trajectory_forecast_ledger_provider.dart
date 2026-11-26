@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/repositories/trajectory_forecast_ledger_repository.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adjustment.dart';
@@ -133,12 +134,14 @@ final trajectoryForecastAutoRecorderProvider =
 ///   memory, so the first ready comparison after the app starts checks again;
 ///   checking is idempotent);
 /// - the keep-going forecast for the selected range is recorded as an
-///   automatic receipt at most once per range per local day (also enforced
-///   by the stored ledger, so it holds across restarts), within the cap.
+///   automatic receipt (the stored ledger allows one per local day for the
+///   7-day range and one per 7 local days for the 30- and 90-day ranges, so
+///   this holds across restarts), within the cap.
 /// The account namespace and session generation are captured when the
 /// comparison is ready and checked after every await: an account change in
 /// between writes nothing to either ledger, and the attempt can be repeated
-/// for that account later the same day.
+/// for that account later the same day. Any other failure is logged and not
+/// retried until the next local day or a restart.
 class TrajectoryForecastAutoRecorder {
   TrajectoryForecastAutoRecorder(this._ref);
 
@@ -221,11 +224,15 @@ class TrajectoryForecastAutoRecorder {
         changed = changed || stored;
       }
       if (changed) _ref.invalidate(trajectoryForecastLedgerProvider);
-    } on Object {
-      // The account changed or storage failed: nothing was kept for this
-      // attempt, so allow it again for this account and day.
+    } on StaleAccountOperation {
+      // The account changed: nothing was written for this attempt, so allow
+      // it again for this account and day.
       if (checkKey != null) _checked.remove(checkKey);
       if (recordKey != null) _recorded.remove(recordKey);
+    } on Object catch (error) {
+      // Storage or data failed: keep the memo, so it is tried again on the
+      // next local day or after a restart, not on every rebuild.
+      Logger.warn('Automatic forecast recording failed: ${error.runtimeType}.');
     }
   }
 }

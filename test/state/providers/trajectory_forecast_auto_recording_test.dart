@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -30,6 +31,15 @@ TrajectoryForecastLedgerRepository _ledgerOf(
 
 String _namespace(String userId) =>
     AccountStorageScope.authenticated(userId).v2Namespace!;
+
+/// A store whose writes always fail; it counts the attempts.
+class _FailingStore extends TrajectoryMemoryStore {
+  @override
+  Future<void> save(String key, String value) async {
+    saves++;
+    throw StateError('disk full');
+  }
+}
 
 /// Lets the deferred automatic work finish (the in-memory store completes
 /// in microtasks).
@@ -244,6 +254,36 @@ void main() {
       (TrajectoryForecastReceipt r) => r.id == dueLater.id,
     );
     expect(checked.isResolved, isTrue);
+  });
+
+  test('a failing store is tried once a day, not on every rebuild, and the '
+      'failure is logged', () async {
+    final List<String?> logs = <String?>[];
+    final DebugPrintCallback original = debugPrint;
+    debugPrint = (String? message, {int? wrapWidth}) => logs.add(message);
+    addTearDown(() => debugPrint = original);
+    final _Clock clock = _Clock();
+    final _FailingStore store = _FailingStore();
+    final ProviderContainer container = trajectoryLiveContainer(
+      now: clock.local,
+      clock: clock.call,
+      store: store,
+    );
+    addTearDown(container.dispose);
+
+    await _ready(container);
+    expect(store.saves, 1);
+    await _readyAgain(container);
+    await _readyAgain(container);
+    expect(store.saves, 1);
+    expect(
+      logs.where((String? m) => m?.contains('forecast') ?? false),
+      isNotEmpty,
+    );
+
+    clock.nextDay();
+    await _readyAgain(container);
+    expect(store.saves, 2);
   });
 
   group('account safety', () {
