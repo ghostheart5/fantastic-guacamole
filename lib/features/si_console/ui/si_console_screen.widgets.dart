@@ -787,7 +787,7 @@ class _SIAvatar extends StatelessWidget {
         ),
         child: Center(
           child: Text(
-            'SI',
+            'A',
             style: TextStyle(
               fontSize: 8,
               fontWeight: FontWeight.bold,
@@ -850,24 +850,19 @@ class _ProcessingModeTag extends StatelessWidget {
   final AIProcessingMode mode;
 
   String _label(BuildContext context) {
-    switch (mode) {
-      case AIProcessingMode.external:
-        return journeyText(context, 'External AI', 'IA externa');
-      case AIProcessingMode.onDevice:
-        return journeyText(context, 'On device', 'En el dispositivo');
-      case AIProcessingMode.onDeviceFallback:
-        return journeyText(
-          context,
-          'On-device fallback',
-          'Alternativa en el dispositivo',
-        );
-      case AIProcessingMode.unknown:
-        return journeyText(
-          context,
-          'Processing unknown',
-          'Procesamiento desconocido',
-        );
-    }
+    String t(String en, String es) => journeyText(context, en, es);
+    return switch (mode) {
+      AIProcessingMode.external => t('AI chat', 'Chat con IA'),
+      AIProcessingMode.onDevice => t('On this device', 'En este dispositivo'),
+      AIProcessingMode.onDeviceFallback => t(
+        'On this device (fallback)',
+        'En este dispositivo (alternativa)',
+      ),
+      AIProcessingMode.unknown => t(
+        'Processing unknown',
+        'Procesamiento desconocido',
+      ),
+    };
   }
 
   Color get _color {
@@ -924,7 +919,11 @@ class _TypingIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       liveRegion: true,
-      label: 'SI is analyzing the current evidence',
+      label: journeyText(
+        context,
+        'Chat is analyzing the current evidence',
+        'Chat está analizando la evidencia actual',
+      ),
       child: ExcludeSemantics(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),

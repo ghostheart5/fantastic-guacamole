@@ -33,6 +33,7 @@ class AssistantConversationRepository {
   static const maxMessages = AssistantConversationHistory.maxMessages;
   static const maxMessageLength = 6000;
   static const maxEncodedLength = 1500000;
+  static const _receiptKey = ConversationReplyReceipt.turnKey;
   final SecureStore _store;
   final bool Function() _isCurrent;
 
@@ -78,16 +79,22 @@ class AssistantConversationRepository {
     for (var i = 0; i < turns.length; i++) {
       final turn = turns[i];
       if (turn is! Map ||
-          turn.length != 2 ||
+          turn.length != (turn.containsKey(_receiptKey) ? 3 : 2) ||
           turn['role'] != (i.isEven ? 'user' : 'assistant') ||
           turn['content'] is! String ||
           (turn['content'] as String).isEmpty ||
           (turn['content'] as String).length > maxMessageLength) {
         throw const FormatException('chat_turn');
       }
+      // Replies saved before receipts have none; a damaged one is dropped
+      // rather than hiding the chat. Only replies carry one.
+      final receipt = i.isOdd
+          ? ConversationReplyReceipt.fromJson(turn[_receiptKey])
+          : null;
       messages.add({
         'role': turn['role'] as String,
         'content': turn['content'] as String,
+        _receiptKey: ?receipt?.encode(),
       });
     }
     final sources = <SIV2Source>{};
@@ -97,12 +104,26 @@ class AssistantConversationRepository {
         throw const FormatException('chat_sources');
       }
     }
+    final chosen = decoded['sourcesChosen'];
+    final explained = decoded['scopeExplained'];
+    if ((chosen != null && chosen is! bool) ||
+        (explained != null && explained is! bool)) {
+      throw const FormatException('chat_sources');
+    }
     final view = _parsePending(decoded);
     return (
       history: AssistantConversationHistory(
         revision: decoded['revision'] as int,
         messages: messages,
         sources: sources,
+        // Chats stored by an older version have no marker. Their selection,
+        // even an empty one, is kept as chosen: an empty one may have been
+        // an explicit "just this chat" and is never widened silently. An
+        // older save or Clear never wrote revision 0, so revision 0 with no
+        // messages was written only to hold a Choose a step request: no choice.
+        sourcesChosen:
+            chosen as bool? ?? !(decoded['revision'] == 0 && messages.isEmpty),
+        scopeExplained: explained == true,
         pendingRequests: view.pending,
         unreadablePendingRequests: view.unreadable,
         expiredPendingRequests: view.expired,
@@ -243,11 +264,13 @@ class AssistantConversationRepository {
   });
 
   /// [completedRequestId] removes the Chat request whose reply these
-  /// messages publish, in the same write.
+  /// messages publish, in the same write. [sourcesChosen] is false when
+  /// [sources] is Chat's default rather than the person's own choice.
   Future<int> save({
     required int expectedRevision,
     required List<Map<String, String>> messages,
     required Set<SIV2Source> sources,
+    bool sourcesChosen = true,
     String? completedRequestId,
   }) => runAccountStorageMutation(() async {
     final previous = await _read();
@@ -258,7 +281,7 @@ class AssistantConversationRepository {
     final retained = messages
         .skip(messages.length > maxMessages ? messages.length - maxMessages : 0)
         .toList();
-    final safe = <Map<String, String>>[];
+    final safe = <Map<String, Object?>>[];
     for (var i = 0; i < retained.length; i++) {
       final turn = retained[i];
       final content = turn['content'];
@@ -267,18 +290,49 @@ class AssistantConversationRepository {
           content.isEmpty) {
         throw const FormatException('chat_turn');
       }
+      // A reply's receipt (counts and credits only) is kept with it.
+      final receipt = i.isOdd
+          ? ConversationReplyReceipt.decode(turn[_receiptKey])
+          : null;
       safe.add({
-        'role': turn['role']!,
+        'role': turn['role'],
         'content': content.length > maxMessageLength
             ? content.substring(0, maxMessageLength)
             : content,
+        _receiptKey: ?receipt?.toJson(),
       });
     }
     final pending = Map<String, Object?>.of(previous.pending);
     if (completedRequestId != null) {
       _removePending(pending, ConversationSurface.si, completedRequestId);
     }
-    return _write(previous.history.revision + 1, safe, sources, pending);
+    return _write(
+      previous.history.revision + 1,
+      safe,
+      sources,
+      pending,
+      sourcesChosen: sourcesChosen,
+      scopeExplained: previous.history.scopeExplained,
+    );
+  });
+
+  /// A new, empty Chat created only to hold something else. Its selection is
+  /// marked as not chosen, so Chat's default still applies; without the
+  /// marker it would read as an older chat's explicit empty choice.
+  static Map<String, dynamic> _emptyEnvelope() => <String, dynamic>{
+    'version': 1,
+    'revision': 0,
+    'messages': <Object?>[],
+    'sources': <Object?>[],
+    'sourcesChosen': false,
+  };
+
+  /// Records that this account was shown why Chat uses the plan by default.
+  /// Everything else stored is kept exactly as it is, revision included.
+  Future<void> markScopeExplained() => runAccountStorageMutation(() async {
+    final decoded = await _readRaw() ?? _emptyEnvelope();
+    if (decoded['scopeExplained'] == true) return;
+    await _writeRaw({...decoded, 'scopeExplained': true});
   });
 
   /// Stores a confirmed request before it is sent, replacing any earlier one
@@ -287,29 +341,33 @@ class AssistantConversationRepository {
   ///
   /// Returns true when this replaced a marker of an earlier request the
   /// person has not been told about yet, so the caller can tell them now.
-  Future<bool> savePending(PendingConversationRequest request) =>
-      runAccountStorageMutation(() async {
-        final decoded =
-            await _readRaw() ??
-            <String, dynamic>{
-              'version': 1,
-              'revision': 0,
-              'messages': <Object?>[],
-              'sources': <Object?>[],
-            };
-        final view = _parsePending(decoded);
-        final replacedUntold =
-            view.expired.containsKey(request.surface) ||
-            view.unreadable.contains(request.surface);
-        await _writeRaw({
-          ...decoded,
-          'pendingRequests': {
-            ..._rawPending(decoded),
-            request.surface.name: request.toJson(),
-          },
-        });
-        return replacedUntold;
-      });
+  ///
+  /// [commit] is asked once, inside the storage queue, right before the
+  /// write: returning false writes nothing and throws [StateError], so a
+  /// request withdrawn while it waited is never stored. Once it returns true
+  /// the write goes ahead.
+  Future<bool> savePending(
+    PendingConversationRequest request, {
+    bool Function()? commit,
+  }) => runAccountStorageMutation(() async {
+    final decoded = await _readRaw() ?? _emptyEnvelope();
+    final view = _parsePending(decoded);
+    final replacedUntold =
+        view.expired.containsKey(request.surface) ||
+        view.unreadable.contains(request.surface);
+    _checkCurrent();
+    if (commit != null && !commit()) {
+      throw StateError('pending_request_withdrawn');
+    }
+    await _writeRaw({
+      ...decoded,
+      'pendingRequests': {
+        ..._rawPending(decoded),
+        request.surface.name: request.toJson(),
+      },
+    });
+    return replacedUntold;
+  });
 
   /// Removes the surface's stored request or marker when it is [requestId],
   /// or whatever is stored there when [requestId] is null (an unreadable
@@ -354,29 +412,36 @@ class AssistantConversationRepository {
 
   Future<int> _write(
     int revision,
-    List<Map<String, String>> messages,
+    List<Map<String, Object?>> messages,
     Set<SIV2Source> sources,
-    Map<String, Object?> pending,
-  ) async {
+    Map<String, Object?> pending, {
+    required bool sourcesChosen,
+    required bool scopeExplained,
+  }) async {
     await _writeRaw({
       'version': 1,
       'revision': revision,
       'messages': messages,
       'sources': sources.map((s) => s.name).toList(),
+      'sourcesChosen': sourcesChosen,
+      if (scopeExplained) 'scopeExplained': true,
       if (pending.isNotEmpty) 'pendingRequests': pending,
     });
     return revision;
   }
 
   /// Clears Chat and its stored request. A request still running on another
-  /// surface (Choose a step) is kept so its reply is not lost.
+  /// surface (Choose a step) is kept so its reply is not lost. Chat goes back
+  /// to its default information; the explanation of it stays seen.
   Future<int> clear() => runAccountStorageMutation(() async {
     _checkCurrent();
     var revision = 0;
     var pending = <String, Object?>{};
+    var scopeExplained = false;
     try {
       final decoded = await _readRaw();
       pending = _rawPending(decoded)..remove(ConversationSurface.si.name);
+      scopeExplained = decoded?['scopeExplained'] == true;
       revision = _parse(decoded).history.revision;
     } on FormatException {
       // Explicit clearing may replace corrupt data; loading never rewrites it.
@@ -388,6 +453,8 @@ class AssistantConversationRepository {
       const [],
       const {},
       pending,
+      sourcesChosen: false,
+      scopeExplained: scopeExplained,
     );
   });
 }

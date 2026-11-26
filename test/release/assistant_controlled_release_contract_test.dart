@@ -48,17 +48,28 @@ void main() {
     expect(source, isNot(contains('rawResponse')));
   });
 
-  test('beta preference is account-scoped and visible in Settings', () {
-    final String provider = File(
-      'lib/state/providers/assistant_release_provider.dart',
-    ).readAsStringSync();
-    final String settings = File(
-      'lib/features/settings/ui/settings_screen.governance_sections.dart',
-    ).readAsStringSync();
+  test(
+    'beta preference is account-scoped; Settings offers only leaving, to opted-in accounts',
+    () {
+      final String provider = File(
+        'lib/state/providers/assistant_release_provider.dart',
+      ).readAsStringSync();
+      final String settings = File(
+        'lib/features/settings/ui/settings_screen.governance_sections.dart',
+      ).readAsStringSync();
 
-    expect(provider, contains('assistant_beta_opt_in_v1.\$digest'));
-    expect(provider, contains('if (!scope.isAuthenticated'));
-    expect(settings, contains('Join opt-in assistant beta'));
-    expect(settings, contains('Independent rollback ready'));
-  });
+      expect(provider, contains('assistant_beta_opt_in_v1.\$digest'));
+      expect(provider, contains('if (!scope.isAuthenticated'));
+      // The join switch is internal-cohort only; a normal opted-in account
+      // gets one switch to leave and nothing to join with.
+      expect(settings, contains('Leave the assistant beta'));
+      expect(settings, contains('Salir de la beta del asistente'));
+      expect(settings, contains('if (optIn.asData?.value != true)'));
+      expect(
+        settings,
+        contains('loadedConfig.internalAccountDigests.contains'),
+      );
+      expect(settings, contains('Independent rollback ready'));
+    },
+  );
 }

@@ -209,7 +209,7 @@ String _actionLabel(OperatingActionIntent intent, bool isSpanish) {
   return switch (intent.type) {
     OperatingActionType.openCreator => 'Añadir algo',
     OperatingActionType.openSmartPlanner => 'Revisar en Elegir un paso',
-    OperatingActionType.openSiConsole => 'Revisar evidencia en el Chat SI',
+    OperatingActionType.openSiConsole => 'Revisar evidencia en Chat',
     OperatingActionType.openTrajectoryEngine =>
       'Revisar riesgo en Perspectivas',
     OperatingActionType.openProgression => 'Revisar recuperación en Actividad',

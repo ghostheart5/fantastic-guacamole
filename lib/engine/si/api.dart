@@ -10,9 +10,9 @@ export 'package:fantastic_guacamole/engine/si/offline/identity_engine.dart';
 export 'package:fantastic_guacamole/engine/si/offline/narrative_engine.dart';
 export 'package:fantastic_guacamole/engine/si/offline/user_growth_engine.dart';
 export 'package:fantastic_guacamole/engine/si/prediction.dart';
-export 'package:fantastic_guacamole/engine/si/si_ai_service.dart';
 export 'package:fantastic_guacamole/engine/si/si_decision.dart';
 export 'package:fantastic_guacamole/engine/si/si_engine_service.dart';
+export 'package:fantastic_guacamole/engine/si/si_one_tap_engine.dart';
 export 'package:fantastic_guacamole/engine/si/si_response_policy.dart'
     hide SIIntent;
 export 'package:fantastic_guacamole/engine/si/si_synthetic_soul_layer.dart';

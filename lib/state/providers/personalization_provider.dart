@@ -102,6 +102,10 @@ class PersonalizationProfileController
     extends Notifier<PersonalizationProfile> {
   late SharedPrefsStore _store;
 
+  /// Completes once the stored profile has been read (or found missing or
+  /// unreadable). Until then [state] holds defaults.
+  late Future<void> _loaded;
+
   @override
   PersonalizationProfile build() {
     _store = AccountScopedSharedPrefsStore(
@@ -110,9 +114,25 @@ class PersonalizationProfileController
       legacyOwnership: ref.watch(accountLegacyOwnershipProvider),
     );
     if (ref.watch(accountStorageScopeProvider).isWritable) {
-      unawaited(_load());
+      _loaded = _load();
+      unawaited(_loaded);
+    } else {
+      _loaded = Future<void>.value();
     }
     return const PersonalizationProfile();
+  }
+
+  /// Turns AI chat on or off for this account. Waits for the stored profile
+  /// first, so a change made while it is still loading never writes defaults
+  /// over the person's other choices. If the account changes meanwhile, this
+  /// controller is replaced and nothing is written.
+  Future<void> setExternalAiAllowed(bool allowed) async {
+    final SharedPrefsStore accountStore = _store;
+    await _loaded;
+    // A rebuild (account change) replaces the store: never write across it.
+    if (!ref.mounted || !identical(accountStore, _store)) return;
+    if (state.externalAiAllowed == allowed) return;
+    await update(state.copyWith(externalAiAllowed: allowed));
   }
 
   Future<void> _load() async {

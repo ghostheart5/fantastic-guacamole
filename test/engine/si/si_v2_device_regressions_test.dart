@@ -71,7 +71,7 @@ void main() {
       );
       expect(
         response.directAnswer,
-        isNot(contains('SI cannot answer')),
+        isNot(contains('Assistant cannot answer')),
         reason: text,
       );
       expect(response.directAnswer, contains('Review a bookkeeping example'));
@@ -104,7 +104,7 @@ void main() {
         );
         expect(
           response.directAnswer,
-          contains('SI cannot answer'),
+          contains('Assistant cannot answer'),
           reason: text,
         );
         expect(
@@ -116,7 +116,7 @@ void main() {
         ask('Tell me about my weather preparation goal', [
           goal('g', 'Weather preparation'),
         ]).directAnswer,
-        isNot(contains('SI cannot answer')),
+        isNot(contains('Assistant cannot answer')),
       );
     },
   );

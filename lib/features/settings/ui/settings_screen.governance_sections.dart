@@ -339,12 +339,8 @@ class _MemoryGovernanceSection extends ConsumerWidget {
         false;
     if (!confirmed) return;
     await ref.read(siEngineServiceProvider).clearAllMemory();
-    ref.invalidate(siEngineStateProvider);
-    ref.invalidate(smartPlannerEngineStateProvider);
     ref.invalidate(siMemoryProvider);
     ref.invalidate(smartPlannerMemoryProvider);
-    ref.invalidate(aiResponseProvider);
-    ref.invalidate(smartPlannerAiResponseProvider);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -364,7 +360,11 @@ class _MemoryGovernanceSection extends ConsumerWidget {
     final List<MemoryEntity> memories = ref.watch(memoriesProvider);
     final bool unreadable = ref.watch(memoryReadCorruptedProvider);
     return _Section(
-      label: journeyText(context, 'MEMORY GOVERNANCE', 'CONTROL DE LA MEMORIA'),
+      label: journeyText(
+        context,
+        'WHAT AXIOMARA REMEMBERS',
+        'LO QUE AXIOMARA RECUERDA',
+      ),
       accentColor: AppColors.memoryAmber,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -374,8 +374,8 @@ class _MemoryGovernanceSection extends ConsumerWidget {
             child: Text(
               journeyText(
                 context,
-                'Use only this time is the default. Durable memory requires an explicit confirmation, stays in the source surface, expires automatically, and always creates a receipt. Raw emotional and crisis disclosures are not retained. SI durable interpretive memory is disabled.',
-                'Usar solo esta vez es la opción predeterminada. La memoria duradera requiere una confirmación explícita, permanece en su área de origen, caduca automáticamente y siempre crea un registro. No se conservan expresiones emocionales ni de crisis sin procesar. La memoria interpretativa duradera de SI está desactivada.',
+                'By default Axiomara uses what you tell it only this once. It keeps something longer only if you confirm it, only for the part of the app it came from, and forgets it automatically after a while. Every kept item has a record you can review. Chat never saves memories. Its conversation history is saved on this device for your account and is separate: open Chat and choose Clear conversation to delete it. Raw emotional and crisis messages are not kept, and interpretive memory is not saved.',
+                'De forma predeterminada, Axiomara usa lo que le cuentas solo esta vez. Guarda algo por más tiempo solo si lo confirmas, solo para la parte de la app de donde vino, y lo olvida automáticamente pasado un tiempo. Cada elemento guardado tiene un registro que puedes revisar. Chat nunca guarda memorias. Su historial de conversación se guarda en este dispositivo para tu cuenta y es independiente: abre Chat y elige Borrar conversación para eliminarlo. No se conservan mensajes emocionales ni de crisis sin procesar, y no se guarda memoria interpretativa.',
               ),
               style: const TextStyle(
                 color: Colors.white60,
@@ -398,8 +398,12 @@ class _MemoryGovernanceSection extends ConsumerWidget {
                   )
                 : journeyText(
                     context,
-                    '${memories.length} · account-scoped · surface-scoped · expiring',
-                    '${memories.length} · limitados a la cuenta · limitados al área · con caducidad',
+                    memories.length == 1
+                        ? '1 kept · only for your account, only where it was made, and it expires'
+                        : '${memories.length} kept · only for your account, only where they were made, and they expire',
+                    memories.length == 1
+                        ? '1 guardado · solo de tu cuenta, solo donde se creó, y caduca'
+                        : '${memories.length} guardados · solo de tu cuenta, solo donde se crearon, y caducan',
                   ),
           ),
           _NeonStatusTile(
@@ -410,8 +414,8 @@ class _MemoryGovernanceSection extends ConsumerWidget {
             ),
             subtitle: journeyText(
               context,
-              'Disabled — SI cannot save or retrieve interpretive memory.',
-              'Desactivada: SI no puede guardar ni recuperar memoria interpretativa.',
+              'Off: Chat cannot save or retrieve interpretive memory.',
+              'Desactivada: Chat no puede guardar ni recuperar memoria interpretativa.',
             ),
           ),
           _NeonNavTile(
@@ -549,121 +553,186 @@ class _AssistantReleaseSection extends ConsumerWidget {
     );
     final AssistantReleaseConfig? loadedConfig = config.asData?.value;
     final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
-    return _Section(
-      label: journeyText(
-        context,
-        'ASSISTANT RELEASE CONTROL',
-        'CONTROL DE VERSIÓN DEL ASISTENTE',
-      ),
-      accentColor: AppColors.neonViolet,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-            child: Text(
-              journeyText(
-                context,
-                'New assistant behavior is assigned deterministically. Joining beta is optional; leaving removes beta eligibility. Local planning, SI, memory, critic, and optional external explanation each have an independent emergency rollback.',
-                'El comportamiento nuevo del asistente se asigna de forma determinista. Unirse a la beta es opcional; salir elimina la elegibilidad. La planificación local, SI, la memoria, el crítico y la explicación externa opcional tienen cada uno una reversión de emergencia independiente.',
-              ),
-              style: const TextStyle(
-                color: Colors.white60,
-                fontSize: 12,
-                height: 1.4,
-              ),
-            ),
-          ),
-          _NeonToggleTile(
-            title: journeyText(
-              context,
-              'Join opt-in assistant beta',
-              'Unirse voluntariamente a la beta del asistente',
-            ),
-            value: optIn.asData?.value ?? false,
-            onChanged: optIn.isLoading
-                ? null
-                : (bool value) => unawaited(
-                    ref
-                        .read(assistantBetaOptInProvider.notifier)
-                        .setEnabled(value),
+    // Release engineering controls are for the internal cohort only: the
+    // trusted internal-access flag or an account digest on the internal list
+    // (checked on the config so a rollback or an "off" stage does not hide
+    // the status view from testers). Everyone else sees nothing, except an
+    // account that is still opted in, which sees one switch to leave.
+    final bool advisorAccess = ref.watch(internalAdvisorAccessProvider);
+    // Show nothing until the opt-in value, the config and the decision have
+    // all resolved, so an internal tester never sees the leave-only section
+    // flash before the internal list is checked.
+    if (!advisorAccess &&
+        !(optIn.hasValue && config.hasValue && plannerDecision.hasValue)) {
+      return const SizedBox.shrink();
+    }
+    final String? digest = plannerDecision.asData?.value.accountDigest;
+    final bool isInternal =
+        advisorAccess ||
+        (loadedConfig != null &&
+            digest != null &&
+            loadedConfig.internalAccountDigests.contains(digest));
+    if (!isInternal) {
+      if (optIn.asData?.value != true) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: _Section(
+          label: journeyText(context, 'ASSISTANT BETA', 'BETA DEL ASISTENTE'),
+          accentColor: AppColors.neonViolet,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                child: Text(
+                  journeyText(
+                    context,
+                    'Leaving takes your account out of the assistant beta. Some assistant features that were only open to beta members may turn off. Your saved plans are not changed.',
+                    'Salir saca tu cuenta de la beta del asistente. Algunas funciones del asistente que eran solo para miembros de la beta pueden desactivarse. Tus planes guardados no cambian.',
                   ),
-          ),
-          _NeonStatusTile(
-            title: journeyText(
-              context,
-              'Release stage',
-              'Etapa de lanzamiento',
-            ),
-            subtitle: loadedConfig == null
-                ? journeyText(
-                    context,
-                    'Loading fail-closed release configuration...',
-                    'Cargando una configuración de lanzamiento segura por defecto...',
-                  )
-                : loadedConfig.configurationValid
-                ? loadedConfig.stage.name
-                : journeyText(
-                    context,
-                    'Disabled: ${loadedConfig.configurationIssue}',
-                    'Desactivada: ${loadedConfig.configurationIssue}',
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12,
+                    height: 1.4,
                   ),
+                ),
+              ),
+              _NeonToggleTile(
+                title: journeyText(
+                  context,
+                  'Leave the assistant beta',
+                  'Salir de la beta del asistente',
+                ),
+                value: false,
+                onChanged: (bool _) => unawaited(
+                  ref
+                      .read(assistantBetaOptInProvider.notifier)
+                      .setEnabled(false),
+                ),
+              ),
+            ],
           ),
-          _NeonStatusTile(
-            title: journeyText(
-              context,
-              'Your local planning rollout group',
-              'Tu grupo de activación de planificación local',
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: _Section(
+        label: journeyText(
+          context,
+          'ASSISTANT RELEASE CONTROL',
+          'CONTROL DE VERSIÓN DEL ASISTENTE',
+        ),
+        accentColor: AppColors.neonViolet,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+              child: Text(
+                journeyText(
+                  context,
+                  'New assistant behavior is assigned deterministically. Leaving the beta removes beta eligibility. Local planning, the Assistant, memory, critic, and optional AI chat explanation each have an independent emergency rollback.',
+                  'El comportamiento nuevo del asistente se asigna de forma determinista. Salir de la beta elimina la elegibilidad. La planificación local, el asistente, la memoria, el crítico y la explicación opcional del chat con IA tienen cada uno una reversión de emergencia independiente.',
+                ),
+                style: const TextStyle(
+                  color: Colors.white60,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
             ),
-            subtitle: plannerDecision.when(
-              data: (AssistantReleaseDecision decision) =>
-                  '${decision.cohort.name} · ${decision.enabled ? (isSpanish ? 'habilitada' : 'enabled') : (isSpanish ? 'no habilitada' : 'not enabled')}',
-              loading: () => journeyText(
+            _NeonToggleTile(
+              title: journeyText(
                 context,
-                'Resolving without exposing account identity...',
-                'Resolviendo sin exponer la identidad de la cuenta...',
+                'Join opt-in assistant beta',
+                'Unirse voluntariamente a la beta del asistente',
               ),
-              error: (Object _, StackTrace _) => journeyText(
-                context,
-                'Disabled because release state could not be verified.',
-                'Desactivada porque no se pudo verificar el estado del lanzamiento.',
-              ),
-            ),
-          ),
-          _NeonStatusTile(
-            title: journeyText(
-              context,
-              'Privacy-safe shadow evaluation',
-              'Evaluación paralela con privacidad',
-            ),
-            subtitle: loadedConfig?.shadowEvaluationEnabled == true
-                ? journeyText(
-                    context,
-                    'Enabled for digests and finding codes only; cannot publish or write.',
-                    'Habilitada solo para resúmenes y códigos de hallazgos; no puede publicar ni escribir.',
-                  )
-                : journeyText(context, 'Disabled', 'Desactivada'),
-          ),
-          for (final AssistantReleaseCapability capability
-              in AssistantReleaseCapability.values)
-            _NeonStatusTile(
-              title: _assistantCapabilityLabel(
-                capability,
-                isSpanish: isSpanish,
-              ),
-              subtitle: loadedConfig?.isRolledBack(capability) == true
-                  ? journeyText(
-                      context,
-                      'Emergency rollback active',
-                      'Reversión de emergencia activa',
-                    )
-                  : journeyText(
-                      context,
-                      'Independent rollback ready',
-                      'Reversión independiente lista',
+              value: optIn.asData?.value ?? false,
+              onChanged: optIn.isLoading
+                  ? null
+                  : (bool value) => unawaited(
+                      ref
+                          .read(assistantBetaOptInProvider.notifier)
+                          .setEnabled(value),
                     ),
             ),
-        ],
+            _NeonStatusTile(
+              title: journeyText(
+                context,
+                'Release stage',
+                'Etapa de lanzamiento',
+              ),
+              subtitle: loadedConfig == null
+                  ? journeyText(
+                      context,
+                      'Loading fail-closed release configuration...',
+                      'Cargando una configuración de lanzamiento segura por defecto...',
+                    )
+                  : loadedConfig.configurationValid
+                  ? loadedConfig.stage.name
+                  : journeyText(
+                      context,
+                      'Disabled: ${loadedConfig.configurationIssue}',
+                      'Desactivada: ${loadedConfig.configurationIssue}',
+                    ),
+            ),
+            _NeonStatusTile(
+              title: journeyText(
+                context,
+                'Your local planning rollout group',
+                'Tu grupo de activación de planificación local',
+              ),
+              subtitle: plannerDecision.when(
+                data: (AssistantReleaseDecision decision) =>
+                    '${decision.cohort.name} · ${decision.enabled ? (isSpanish ? 'habilitada' : 'enabled') : (isSpanish ? 'no habilitada' : 'not enabled')}',
+                loading: () => journeyText(
+                  context,
+                  'Resolving without exposing account identity...',
+                  'Resolviendo sin exponer la identidad de la cuenta...',
+                ),
+                error: (Object _, StackTrace _) => journeyText(
+                  context,
+                  'Disabled because release state could not be verified.',
+                  'Desactivada porque no se pudo verificar el estado del lanzamiento.',
+                ),
+              ),
+            ),
+            _NeonStatusTile(
+              title: journeyText(
+                context,
+                'Privacy-safe shadow evaluation',
+                'Evaluación paralela con privacidad',
+              ),
+              subtitle: loadedConfig?.shadowEvaluationEnabled == true
+                  ? journeyText(
+                      context,
+                      'Enabled for digests and finding codes only; cannot publish or write.',
+                      'Habilitada solo para resúmenes y códigos de hallazgos; no puede publicar ni escribir.',
+                    )
+                  : journeyText(context, 'Disabled', 'Desactivada'),
+            ),
+            for (final AssistantReleaseCapability capability
+                in AssistantReleaseCapability.values)
+              _NeonStatusTile(
+                title: _assistantCapabilityLabel(
+                  capability,
+                  isSpanish: isSpanish,
+                ),
+                subtitle: loadedConfig?.isRolledBack(capability) == true
+                    ? journeyText(
+                        context,
+                        'Emergency rollback active',
+                        'Reversión de emergencia activa',
+                      )
+                    : journeyText(
+                        context,
+                        'Independent rollback ready',
+                        'Reversión independiente lista',
+                      ),
+              ),
+          ],
+        ),
       ),
     );
   }

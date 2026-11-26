@@ -10,7 +10,6 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
-import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/creator/ui/daily_rhythms_screen.dart';
 import 'package:fantastic_guacamole/features/creator/ui/record_library_screen.dart';
@@ -24,12 +23,9 @@ import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dar
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_engine_screen.dart';
 import 'package:fantastic_guacamole/l10n/navigation_copy.dart';
-import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
-import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
-import 'package:fantastic_guacamole/state/providers/energy_provider.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_scoped_store_provider.dart';
@@ -107,8 +103,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   DataHygieneScheduler? _dataHygieneScheduler;
   AudioInterruptionService? _audioInterruptionService;
   bool _audioInterruptionStarted = false;
-  late final ProviderSubscription<double> _energySubscription;
-  late final ProviderSubscription<LearningState> _learningSubscription;
   ProviderSubscription<AsyncValue<OperatingDecisionReceipt>>?
   _decisionSubscription;
   late final ProviderSubscription<AppView> _viewSubscription;
@@ -158,17 +152,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       },
       fireImmediately: true,
     );
-    _energySubscription = ref.listenManual<double>(energyProvider, (_, _) {
-      ref.invalidate(aiResponseProvider);
-      ref.invalidate(smartPlannerAiResponseProvider);
-    });
-    _learningSubscription = ref.listenManual<LearningState>(learningProvider, (
-      _,
-      _,
-    ) {
-      ref.invalidate(aiResponseProvider);
-      ref.invalidate(smartPlannerAiResponseProvider);
-    });
     _viewSubscription = ref.listenManual<AppView>(appFlowProvider, (
       _,
       AppView next,
@@ -257,8 +240,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         audioInterruptionService.stop,
       );
     }
-    _energySubscription.close();
-    _learningSubscription.close();
     _decisionSubscription?.close();
     _viewSubscription.close();
     _networkAvailabilitySubscription.close();

@@ -3,10 +3,15 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/domain/entities/si_one_tap_question.dart';
+import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
+import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
+import 'package:fantastic_guacamole/state/providers/si_one_tap_provider.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/features/assistant/ui/one_tap_questions.dart';
 import 'package:fantastic_guacamole/features/home/ui/today_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -16,6 +21,7 @@ import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_pr
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,6 +29,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../support/golden_harness.dart';
 
 void main() {
+  const todayQuestions = todayOneTapQuestions;
   setUpAll(loadAppFontsForGolden);
   setUp(() => SharedPreferences.setMockInitialValues({}));
   final previewKey = GlobalKey();
@@ -36,12 +43,15 @@ void main() {
     Future<List<Task>> Function()? load,
     Future<void> Function(String)? complete,
     ThemeData? theme,
+    List<Override> extraOverrides = const [],
+    Widget? home,
   }) async {
     tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final container = ProviderContainer(
       overrides: [
+        ...extraOverrides,
         domainTaskRepositoryProvider.overrideWithValue(_EmptyTaskRepository()),
         creatorHandshakeProvider.overrideWith(_PreviousSave.new),
         accountStorageScopeProvider.overrideWithValue(
@@ -92,7 +102,9 @@ void main() {
             ).copyWith(textScaler: TextScaler.linear(scale)),
             child: child!,
           ),
-          home: RepaintBoundary(key: previewKey, child: const TodayScreen()),
+          home:
+              home ??
+              RepaintBoundary(key: previewKey, child: const TodayScreen()),
         ),
       ),
     );
@@ -315,6 +327,133 @@ void main() {
       await tester.pump();
       expect(container.read(appFlowProvider), entry.$2);
     }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  for (final language in ['en', 'es']) {
+    testWidgets(
+      '$language: quick questions on Today open Chat on the free assistant',
+      (tester) async {
+        final container = await pumpToday(tester, locale: Locale(language));
+        for (final question in todayQuestions) {
+          expect(
+            find.text(question.label(isSpanish: language == 'es')),
+            findsOneWidget,
+          );
+          expect(
+            tester
+                .getSize(find.byKey(ValueKey('one-tap-${question.name}')))
+                .height,
+            greaterThanOrEqualTo(48),
+          );
+        }
+        expect(container.read(appFlowProvider), isNot(AppView.console));
+        await tester.tap(find.byKey(const ValueKey('one-tap-planMyDay')));
+        await tester.pump();
+        // One tap: the question is waiting and Chat is open. Chat chooses the
+        // free assistant when it takes the question.
+        expect(
+          container.read(siOneTapRequestProvider)?.question,
+          SIOneTapQuestion.planMyDay,
+        );
+        expect(container.read(appFlowProvider), AppView.console);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  for (final language in ['en', 'es']) {
+    testWidgets('$language: the question row fits 320dp wide at 200% text', (
+      tester,
+    ) async {
+      await pumpToday(
+        tester,
+        width: 320,
+        height: 1400,
+        scale: 2,
+        locale: Locale(language),
+      );
+      for (final question in todayQuestions) {
+        final button = find.byKey(ValueKey('one-tap-${question.name}'));
+        expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+        expect(tester.getRect(button).right, lessThanOrEqualTo(320));
+      }
+      final more = find.byKey(const Key('today-one-tap-more'));
+      expect(tester.getRect(more).right, lessThanOrEqualTo(320));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  testWidgets('More questions opens Chat without asking anything', (
+    tester,
+  ) async {
+    final container = await pumpToday(tester);
+    await tester.tap(find.byKey(const Key('today-one-tap-more')));
+    await tester.pump();
+    expect(container.read(appFlowProvider), AppView.console);
+    expect(container.read(siOneTapRequestProvider), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('one tap on Today reaches an answer in Chat, free', (
+    tester,
+  ) async {
+    final now = DateTime(2026, 8, 20, 12);
+    final snapshot = SIV2EvidenceSnapshot(
+      accountScopeId: 'account:today-test',
+      observedAt: now.toUtc(),
+      tasks: [
+        SIV2TaskEvidence(
+          id: 'a',
+          title: 'Take a short walk',
+          createdAt: now.subtract(const Duration(days: 3)).toUtc(),
+          priority: 3,
+          dueDate: now.toUtc(),
+        ),
+      ],
+      goals: const [],
+      milestones: const [],
+      timeline: const [],
+    );
+    var reads = 0;
+    final container = await pumpToday(
+      tester,
+      extraOverrides: [
+        siV2AvailabilityProvider.overrideWith((ref) async => true),
+        siV2EvidenceSnapshotProvider.overrideWith((ref) async => snapshot),
+        siV2PersonContextRevisionProvider.overrideWithValue('revision'),
+        siOneTapServiceProvider.overrideWithValue(
+          SIOneTapService(
+            readEvidence: (_) async {
+              reads++;
+              return snapshot;
+            },
+            clock: () => now.toUtc(),
+          ),
+        ),
+      ],
+      home: Consumer(
+        builder: (context, ref, _) =>
+            ref.watch(appFlowProvider) == AppView.console
+            ? const SIConsoleScreen()
+            : const TodayScreen(),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('one-tap-planMyDay')));
+    // The console animates its background, so settle by time, not by idle.
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(container.read(appFlowProvider), AppView.console);
+    expect(find.byKey(const Key('si-v2-response')), findsOneWidget);
+    expect(
+      find.textContaining('Take a short walk', findRichText: true),
+      findsWidgets,
+    );
+    expect(find.byKey(const Key('one-tap-free-line')), findsOneWidget);
+    expect(reads, 1);
+    expect(container.read(siOneTapRequestProvider), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

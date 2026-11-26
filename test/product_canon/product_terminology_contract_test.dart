@@ -238,6 +238,13 @@ void main() {
       'lib/state/controllers/smart_planner_query_controller.dart',
       'lib/state/controllers/smart_planner_query_controller.person_context.dart',
       'lib/engine/si/si_v2_engine.dart',
+      // The one-tap questions write visible answers.
+      'lib/engine/si/si_one_tap_engine.dart',
+      'lib/engine/si/si_one_tap_engine.today.dart',
+      'lib/engine/si/si_one_tap_engine.goals.dart',
+      'lib/engine/si/si_one_tap_engine.review.dart',
+      'lib/domain/entities/si_one_tap_question.dart',
+      'lib/state/providers/si_one_tap_provider.dart',
       'lib/domain/entities/habit_entity.dart',
     ];
     for (final source in dartSources) {
@@ -751,6 +758,19 @@ bool _isAuditedProtocolIdentifier(String path, String line, String copy) {
     return copy == 'smart-planner-person-context-behavior-v1' &&
         line.trim() ==
             "'contract': 'smart-planner-person-context-behavior-v1',";
+  }
+  // The one-tap engine's record references: same protocol identifiers, as an
+  // exact `uri:` line only.
+  if (path == 'lib/engine/si/si_one_tap_engine.dart') {
+    return const <String>{
+          r'chronospark://tasks/${task.id}',
+          r'chronospark://goals/${goal.id}',
+          r'chronospark://milestones/${item.id}',
+          r'chronospark://timeline/${item.id}',
+          r'chronospark://habits/${habit.id}',
+          r'chronospark://$name',
+        }.contains(copy) &&
+        line.trim() == "uri: '$copy',";
   }
   return path == 'lib/engine/si/si_v2_engine.dart' &&
       const <String>{

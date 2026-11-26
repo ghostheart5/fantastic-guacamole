@@ -3,8 +3,58 @@ part of 'assistant_conversation_screen.dart';
 /// A confirmed paid request that outlived its screen is collected here when
 /// the person comes back: joined if it is still running since the app started,
 /// or re-sent with the same id and signed quote, which the server answers from
-/// its reply cache without a second reservation.
+/// its reply cache without a second reservation (or, while the first call is
+/// still running, with `request_reserved`: see [_collectAgainLater]).
 extension _PendingRequest on _AssistantConversationScreenState {
+  String get _stillAnsweringText => copy(
+    'This same request is still being answered from its first attempt. The app checks again here every few seconds, and checking costs nothing more. Your question is kept.',
+    'Esta misma solicitud aún se está respondiendo desde su primer intento. La app vuelve a comprobarlo aquí cada pocos segundos y comprobarlo no cuesta nada más. Tu pregunta se conserva.',
+  );
+
+  /// The server is still answering the first call of this same request id.
+  /// The request stays stored and is collected again with the same id after a
+  /// short wait, until it can no longer be collected; then the expired text is
+  /// shown. Nothing is reported to the free side: this is not an outcome.
+  void _collectAgainLater(ConversationQuote quote, {required bool recovered}) {
+    final id = quote.packet.requestId;
+    final generation = _generation;
+    _reservedRetry?.cancel();
+    _updateHistory(() {
+      _error = _stillAnsweringText;
+      _outOfCredits = false;
+    });
+    _reservedRetry = Timer(
+      ref.read(conversationReservedRetryIntervalProvider),
+      () {
+        _reservedRetry = null;
+        if (!mounted ||
+            generation != _generation ||
+            _busy ||
+            _pending?.packet.requestId != id) {
+          return;
+        }
+        final deadline = _pendingCollectBefore ?? quote.expiresAt;
+        final now = ref.read(conversationClockProvider)().toUtc();
+        if (!deadline.isAfter(now)) {
+          ref
+              .read(conversationExecutionRegistryProvider)
+              .finish(id, shown: true);
+          _forgetPending(id);
+          _updateHistory(() {
+            _pending = null;
+            if (_input.text.trim().isEmpty) {
+              _input.text = quote.packet.toJson()['prompt'] as String;
+            }
+          });
+          _showFailure(_pendingExpiredText(questionRestored: true));
+          return;
+        }
+        if (recovered) _recoveringRequestId = id;
+        unawaited(_send(retry: true, recollect: true));
+      },
+    );
+  }
+
   /// [questionRestored] is false when only a content-free marker was left.
   String _pendingExpiredText({required bool questionRestored}) =>
       questionRestored
@@ -55,7 +105,7 @@ extension _PendingRequest on _AssistantConversationScreenState {
     final registry = ref.read(conversationExecutionRegistryProvider);
     // Any stored request still collectable, on either surface, has its
     // content removed at its collect-by time even if no screen is open then.
-    final now = DateTime.now();
+    final now = ref.read(conversationClockProvider)();
     for (final stored in saved.pendingRequests.values) {
       if (!stored.isExpired(now)) registry.schedulePurge(stored.collectBefore);
     }
@@ -115,11 +165,33 @@ extension _PendingRequest on _AssistantConversationScreenState {
     if (!sameAccount() || _busy || _pending != null) return;
     _updateHistory(() {
       _pending = pending.quote;
+      _pendingCollectBefore = pending.collectBefore;
       _recoveringRequestId = id;
       // Every outcome text says the question is kept; make that true.
       if (_input.text.trim().isEmpty) _input.text = pending.prompt;
     });
     await _send(retry: true);
+  }
+
+  String get _stoppedBeforeSendingText => copy(
+    'Stopped before the request was sent for a reply. Nothing was charged. Your question is retained.',
+    'Se detuvo antes de enviar la solicitud para obtener una respuesta. No se cobró nada. Tu pregunta se conserva.',
+  );
+
+  /// Reads storage back for [record] after saving reported an error once the
+  /// write was handed over: true when it is stored, false when it is not,
+  /// null when that cannot be read.
+  Future<bool?> _storedRequest(PendingConversationRequest record) async {
+    final repository = ref.read(assistantConversationHistoryRepositoryProvider);
+    if (repository == null) return null;
+    final registry = ref.read(conversationExecutionRegistryProvider);
+    try {
+      final saved = await repository.loadPending(keep: registry.isRunning);
+      return saved.pendingRequests[record.surface]?.requestId ==
+          record.requestId;
+    } on Object {
+      return null;
+    }
   }
 
   /// Removes this surface's stored request; null removes an unreadable one.

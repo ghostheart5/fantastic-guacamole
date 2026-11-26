@@ -59,8 +59,8 @@ Avoid turning every goal into a crowded schedule. Schedule the actions that need
 ## Use goals across Axiomara
 
 - [[Today|Nexus]] can use the goals and other inputs in your system as context for your current operating state and next-best action.
-- [[Chat|Smart Planner]] can provide explainable planning assistance when you want help reconciling available inputs into a feasible plan.
-- [[SI Chat|SI Console]] can consider relevant goal context for deeper strategic investigation and executable guidance.
+- [[Choose a step|Smart Planner]] can provide explainable planning assistance when you want help reconciling available inputs into a feasible plan.
+- [[Chat|SI Console]] can consider relevant goal context for deeper strategic investigation and executable guidance.
 - Predictions can examine future scenarios, assumptions, and corrections using broader system context.
 - Activity focuses on evidence-backed advancement and leverage actions.
 
@@ -108,8 +108,8 @@ Goals are not:
 [[Notes|Notes]]
 [[Schedule|Timeline]]
 [[Today|Nexus]]
-[[Chat|Smart Planner]]
-[[SI Chat|SI Console]]
+[[Choose a step|Smart Planner]]
+[[Chat|SI Console]]
 [[Core Concepts|Core Concepts]]
 [[Getting Started|Getting Started]]
 [[FAQ|FAQ]]
