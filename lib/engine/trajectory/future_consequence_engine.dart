@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adj
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 import 'package:fantastic_guacamole/engine/si/si_deadline.dart';
+import 'package:fantastic_guacamole/engine/trajectory/trajectory_habit_projection.dart';
 
 /// Deterministic counterfactual projector.
 ///
@@ -253,6 +254,8 @@ class FutureConsequenceEngine {
         'tasks_in_horizon=${workload.taskCount}',
         'required_minutes_in_horizon=${workload.requiredMinutes}',
         'expected_completions=${workload.expectedCompletions.low}-${workload.expectedCompletions.mid}-${workload.expectedCompletions.high}',
+        // Habit lines are listed as data only; nothing above reads them.
+        ...baseline.habits.map(TrajectoryHabitProjection.evidenceLine),
         ...baseline.sourceRevisions.entries.map(
           (MapEntry<String, String> item) => '${item.key}=${item.value}',
         ),

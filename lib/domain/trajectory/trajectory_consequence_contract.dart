@@ -1,4 +1,6 @@
 // CHRONOSPARK-CLASS: SHIPPING | Feature: Trajectory forecasting
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart'
+    show HabitCadence;
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 
 /// Written into every new forecast receipt. v4: the time range sets which
@@ -48,8 +50,8 @@ class TrajectoryTaskNode {
   final DateTime? scheduledAt;
 }
 
-/// How many tasks a time range is expected to see finished: a central
-/// estimate with a low and high end.
+/// How many tasks a time range is expected to see finished (or, on a habit
+/// line, how many check-ins): a central estimate with a low and high end.
 class TrajectoryExpectedCompletions {
   const TrajectoryExpectedCompletions({
     required this.low,
@@ -83,6 +85,55 @@ class TrajectoryHorizonWorkload {
   final int undatedTasks;
 
   int get taskCount => taskIds.length;
+}
+
+/// Whether a habit has enough closed periods for a projected line.
+enum TrajectoryHabitEvidence { enough, notEnoughHistory }
+
+/// One active habit's own projected line over the chosen range. Habits are
+/// listed beside the forecast and never move workload, momentum, risk, the
+/// ranking or the recommendation; they are not written into receipts.
+class TrajectoryHabitNode {
+  const TrajectoryHabitNode({
+    required this.habitId,
+    required this.title,
+    required this.cadence,
+    required this.closedPeriodsJudged,
+    required this.completedPeriods,
+    required this.rate,
+    required this.expectedPeriods,
+    required this.projectedCheckIns,
+    required this.checkedInThisPeriod,
+    required this.evidence,
+    this.historyNeeded = 3,
+  });
+
+  final String habitId;
+  final String title;
+  final HabitCadence cadence;
+
+  /// Closed periods looked at (under the current frequency revision).
+  final int closedPeriodsJudged;
+
+  /// Of those, the periods with a check-in.
+  final int completedPeriods;
+
+  /// completedPeriods / closedPeriodsJudged; null without enough history.
+  final double? rate;
+
+  /// The habit's periods in the chosen range.
+  final int expectedPeriods;
+
+  /// Check-ins expected in the range at the recorded rate (an estimate);
+  /// null without enough history.
+  final TrajectoryExpectedCompletions? projectedCheckIns;
+
+  /// The current, still open, period already has a check-in.
+  final bool checkedInThisPeriod;
+  final TrajectoryHabitEvidence evidence;
+
+  /// Closed periods needed before a line is projected.
+  final int historyNeeded;
 }
 
 class TrajectoryGoalNode {
@@ -181,7 +232,9 @@ class TrajectoryBaseline {
     this.expectedCompletionsInHorizon = TrajectoryExpectedCompletions.none,
     List<String> assumptions = const <String>[],
     int? pressureInHorizon,
+    List<TrajectoryHabitNode> habits = const <TrajectoryHabitNode>[],
   }) : pressureInHorizon = pressureInHorizon ?? pressure,
+       habits = List<TrajectoryHabitNode>.unmodifiable(habits),
        dailyFreeMinutes =
            dailyFreeMinutes ??
            (availableMinutes - occupiedMinutes).clamp(0, 1 << 30),
@@ -270,6 +323,10 @@ class TrajectoryBaseline {
   /// What this baseline assumed (for example an assumed workday, or undated
   /// tasks counted in every range).
   final List<String> assumptions;
+
+  /// One projected line per active habit, for the chosen range. Listed only:
+  /// no other baseline or outcome figure reads them.
+  final List<TrajectoryHabitNode> habits;
 
   bool get hasObservedEnergy =>
       energyOrigin == PredictiveEvidenceOrigin.observed;
