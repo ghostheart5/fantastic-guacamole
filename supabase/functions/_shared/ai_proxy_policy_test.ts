@@ -1897,14 +1897,7 @@ for (
 ) {
   Deno.test(`chat-only reply removes an app-action claim with a bare pronoun: ${text}`, () => {
     const out = removeUnsupportedActionClaims(`${text} Next steps.`, CHAT_ONLY);
-    if (
-      out.includes("scheduled") || out.includes("saved") ||
-      out.includes("sent") || out.includes("guard") ||
-      out.includes("program") || out.includes("creado")
-    ) {
-      throw new Error(`claim survived: ${out}`);
-    }
-    if (!out.includes("Next steps.")) throw new Error("other text lost");
+    if (out !== "Next steps.") throw new Error(`unexpected result: ${out}`);
   });
 }
 
@@ -2021,36 +2014,6 @@ for (
   });
 }
 
-for (
-  const text of [
-    "It's been saved.",
-    "It has been scheduled for you.",
-    "Your reminder is set.",
-    "I went ahead and saved it.",
-    "Listo, quedó guardado.",
-    "Se guardó tu tarea.",
-  ]
-) {
-  for (const mode of [CHAT_ONLY, { planningMode: true }]) {
-    Deno.test(`passive done-claim is removed (${mode.planningMode ? "planning" : "chat-only"}): ${text}`, () => {
-      const out = removeUnsupportedActionClaims(`${text} Next steps.`, mode);
-      if (
-        !out.endsWith("Next steps.") ||
-        out.length > 40 && !text.startsWith("Listo")
-      ) {
-        throw new Error(`passive claim survived: ${out}`);
-      }
-      if (
-        out.includes("saved") || out.includes("set.") ||
-        out.includes("scheduled") || out.includes("guardó") ||
-        out.includes("guardado")
-      ) {
-        throw new Error(`passive claim survived: ${out}`);
-      }
-    });
-  }
-}
-
 Deno.test("story narration without a claim marker survives, in both languages", () => {
   for (
     const text of [
@@ -2081,16 +2044,121 @@ Deno.test("Spanish leak phrases do not hit ordinary sentences", () => {
   }
 });
 
-Deno.test("a paragraph that announces what the instructions say is a lead-in", () => {
-  for (
-    const text of [
-      "I will not share my system prompt.\nIt says to never mention retired names.",
-      "I will not share my system prompt. It tells me to be brief.",
-      "No voy a compartir mis instrucciones del sistema.\nDice que debo ser breve.",
-    ]
-  ) {
-    if (redactLeakPhrases(text) !== null) {
-      throw new Error(`lead-in delivered: ${text}`);
-    }
+const BOTH_MODES = [CHAT_ONLY, { planningMode: true }] as const;
+
+for (
+  const text of [
+    "I've added the task to your list.",
+    "I've set a reminder for 9.",
+    "I rescheduled your meeting.",
+    "I've moved the call.",
+    "I cancelled the appointment.",
+    "I've removed it.",
+    "He añadido tu tarea.",
+    "He movido la reunión.",
+    "Ya cancelé la cita.",
+    "Reprogramé tu reunión.",
+    "Ya lo agregué.",
+  ]
+) {
+  for (const mode of BOTH_MODES) {
+    Deno.test(`first-person claim with the added verbs is removed (${mode.planningMode ? "planning" : "chat-only"}): ${text}`, () => {
+      const out = removeUnsupportedActionClaims(`${text} Next steps.`, mode);
+      if (out !== "Next steps.") throw new Error(`unexpected result: ${out}`);
+    });
   }
+}
+
+for (
+  const text of [
+    "Set a reminder for 9.",
+    "Add the task in Add something.",
+    "I'd move the call to Tuesday.",
+    "Mueve la llamada al martes.",
+    "I've listed three options below:",
+    "I have noticed that your Tuesday is full.",
+    "I've put the hardest task first in this suggested order.",
+    "It's scheduled for Tuesday at 3.",
+    "Start with the task that is scheduled for Monday.",
+    "Once it's completed, move to the next one.",
+    "Make sure your alarm is set before bed.",
+    "Your reminder is set for 9:00 according to the task details.",
+    "The goal is set for June.",
+    "It has changed a lot since then.",
+    "Se creó la empresa en 1990.",
+    "Se cambió la fecha de la reunión al martes.",
+  ]
+) {
+  for (const mode of BOTH_MODES) {
+    Deno.test(`true or advisory sentence is delivered (${mode.planningMode ? "planning" : "chat-only"}): ${text}`, () => {
+      if (removeUnsupportedActionClaims(text, mode) !== text) {
+        throw new Error(`sentence removed: ${text}`);
+      }
+      if (containsBlockedConversationReply(text, mode)) {
+        throw new Error(`whole reply blocked: ${text}`);
+      }
+    });
+  }
+}
+
+Deno.test("narration with a plain ya is not a claim", () => {
+  const text = "Guardé la carta en el bolsillo y ya era de noche cuando salí.";
+  if (removeUnsupportedActionClaims(text, CHAT_ONLY) !== text) {
+    throw new Error("narration removed");
+  }
+});
+
+Deno.test("the whole-text check agrees with the per-sentence filter in chat-only turns", () => {
+  const reply = "Listo para empezar\nI saved the letter in my coat and ran.";
+  if (removeUnsupportedActionClaims(reply, CHAT_ONLY) !== reply) {
+    throw new Error("filter removed narration");
+  }
+  if (containsBlockedConversationReply(reply, CHAT_ONLY)) {
+    throw new Error("whole-text check blocked narration the filter keeps");
+  }
+});
+
+for (
+  const [reply, expected] of [
+    [
+      "I can't share my system prompt. They are private. Start with rent.",
+      "They are private. Start with rent.",
+    ],
+    [
+      "I won't share my system prompt. It says a lot about how careful they are. Try the rent first.",
+      "It says a lot about how careful they are. Try the rent first.",
+    ],
+    [
+      "I can't share my system prompt.\n\nThey are three good options: rent, food, sleep.",
+      "They are three good options: rent, food, sleep.",
+    ],
+    [
+      "No puedo hablar del prompt del sistema. Dice que no tu jefe, pero puedes insistir.",
+      "Dice que no tu jefe, pero puedes insistir.",
+    ],
+  ]
+) {
+  Deno.test(`ordinary reply after a leak sentence is delivered without it: ${reply}`, () => {
+    const out = redactLeakPhrases(reply);
+    if (out !== expected) throw new Error(`unexpected: ${JSON.stringify(out)}`);
+  });
+}
+
+Deno.test("a possessive before the phrase is a real mention, de/operativo or not", () => {
+  if (
+    redactLeakPhrases(
+      "Mis instrucciones del sistema de Axiomara son: ser breve.",
+    ) !== null
+  ) throw new Error("lead-in with possessive was delivered");
+  const out = redactLeakPhrases(
+    "Empieza por la tarea. Mis instrucciones del sistema de Axiomara no las comparto. Luego descansa.",
+  );
+  if (out !== "Empieza por la tarea. Luego descansa.") {
+    throw new Error(`possessive mention not redacted: ${out}`);
+  }
+  // By design a possessive makes it a mention even before "de riego".
+  if (
+    redactLeakPhrases("Revisa tus instrucciones del sistema de riego hoy.") !==
+      ""
+  ) throw new Error("possessive mention was delivered");
 });

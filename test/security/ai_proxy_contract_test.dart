@@ -21,8 +21,20 @@ void main() {
   });
 
   test('provider output is safety-gated before bounded recovery storage', () {
-    expect(proxy, contains('removeUnsupportedActionClaims(rawMessage)'));
-    expect(proxy, contains('containsBlockedConversationReply(message)'));
+    // The raw provider text only ever enters the sanitizer; every later
+    // check, the reply that is stored and the reply that is returned use the
+    // filtered value.
+    expect(
+      proxy,
+      contains('sanitizeConversationReply(rawMessage, filterOptions)'),
+    );
+    expect(
+      proxy,
+      contains('containsBlockedConversationReply(message, filterOptions)'),
+    );
+    expect(proxy, contains('message: finalMessage'));
+    expect(proxy, isNot(contains('message: rawMessage')));
+    expect(proxy, isNot(contains('finalMessage = rawMessage')));
     expect(proxy, contains('failureCode: "unsafe_provider_output"'));
     expect(proxy, contains('p_response_ttl: "15 minutes"'));
     expect(proxy, contains('Date.parse(row.response_expires_at) > Date.now()'));
