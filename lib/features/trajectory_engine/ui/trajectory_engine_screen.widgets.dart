@@ -236,11 +236,7 @@ class _BasedOnDetails extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          isSpanish
-              ? '${baseline.tasks.length} tarea(s), ${baseline.goals.length} meta(s) activa(s), '
-                    '${baseline.blocks.length} bloque(s) planificado(s) y ${baseline.timelineSignals.length} señal(es) vinculada(s) de la agenda.'
-              : '${baseline.tasks.length} task(s), ${baseline.goals.length} active goal(s), '
-                    '${baseline.blocks.length} planned block(s), and ${baseline.timelineSignals.length} linked Schedule signal(s).',
+          _basedOnCounts(baseline, isSpanish),
           style: _secondaryText(context),
         ),
         const SizedBox(height: 4),
@@ -305,6 +301,72 @@ class _BasedOnDetails extends StatelessWidget {
     );
   }
 }
+
+/// "2 tasks, no goals, 1 planned block and 4 Schedule entries."
+String _basedOnCounts(TrajectoryBaseline baseline, bool es) {
+  String count(int n, String none, String one, String many) =>
+      n == 0 ? none : (n == 1 ? one : '$n $many');
+  final List<String> parts = es
+      ? <String>[
+          count(baseline.tasks.length, 'ninguna tarea', '1 tarea', 'tareas'),
+          count(baseline.goals.length, 'ninguna meta', '1 meta', 'metas'),
+          count(
+            baseline.blocks.length,
+            'ningún bloque planificado',
+            '1 bloque planificado',
+            'bloques planificados',
+          ),
+          count(
+            baseline.timelineSignals.length,
+            'ninguna entrada de la agenda',
+            '1 entrada de la agenda',
+            'entradas de la agenda',
+          ),
+        ]
+      : <String>[
+          count(baseline.tasks.length, 'no tasks', '1 task', 'tasks'),
+          count(baseline.goals.length, 'no goals', '1 goal', 'goals'),
+          count(
+            baseline.blocks.length,
+            'no planned blocks',
+            '1 planned block',
+            'planned blocks',
+          ),
+          count(
+            baseline.timelineSignals.length,
+            'no Schedule entries',
+            '1 Schedule entry',
+            'Schedule entries',
+          ),
+        ];
+  final String joined =
+      '${parts.take(3).join(', ')} ${es ? 'y' : 'and'} ${parts.last}.';
+  return joined[0].toUpperCase() + joined.substring(1);
+}
+
+/// The planning summary's fixed "why it matters" sentences in plain words;
+/// anything else (shared personal information) is shown as written.
+String _planningWhyText(BuildContext context, String value) => switch (value) {
+  'It converts the strongest available signal into measurable forward movement.' =>
+    journeyText(
+      context,
+      'This is the step most likely to move your plan forward.',
+      'Es el paso con más probabilidades de hacer avanzar tu plan.',
+    ),
+  'It reduces current schedule risk and prevents overdue pressure from compounding.' =>
+    journeyText(
+      context,
+      'It lowers the risk in your schedule now and keeps overdue work from piling up.',
+      'Reduce el riesgo actual de tu agenda y evita que se acumule el trabajo vencido.',
+    ),
+  'It protects the highest-ranked commitment while the current plan exceeds modeled capacity.' =>
+    journeyText(
+      context,
+      'It keeps your top task safe while your plan needs more time than you have.',
+      'Protege tu tarea principal mientras tu plan necesita más tiempo del que tienes.',
+    ),
+  _ => value,
+};
 
 /// Today's planning summary (the decision provider's snapshot), in plain
 /// rows. Its figures are today's, not the selected range's, and say so.
@@ -407,7 +469,7 @@ class _PlanningSummary extends StatelessWidget {
         ),
         _cardHeading(context, journeyText(context, 'Why', 'Por qué')),
         Text(
-          '${decision.rationale} ${decision.whyItMatters}',
+          '${decision.rationale} ${_planningWhyText(context, decision.whyItMatters)}',
           style: _secondaryText(context),
         ),
         const SizedBox(height: 8),
@@ -554,16 +616,18 @@ class _TaskPredictionDetails extends StatelessWidget {
                   'No recorded task outcomes are available for this estimate.',
                   'No hay resultados de tareas registrados disponibles para esta estimación.',
                 )
+              // The follow-through history (every finished or skipped task
+              // it has recorded), not the last 7 days counted above.
               : pooledHistory
               ? journeyText(
                   context,
-                  'Across ${summary.predictionSampleSize} recorded task outcomes — no history for this task.',
-                  'Basado en ${summary.predictionSampleSize} resultados de otras tareas; sin historial para esta tarea.',
+                  'From ${summary.predictionSampleSize} finished or skipped tasks in your follow-through history (any time). This task has no history yet.',
+                  'De ${summary.predictionSampleSize} tareas terminadas u omitidas en tu historial de cumplimiento (de cualquier fecha). Esta tarea aún no tiene historial.',
                 )
               : journeyText(
                   context,
-                  'Based on ${summary.predictionSampleSize} recorded task outcomes.',
-                  'Basado en ${summary.predictionSampleSize} resultados de tareas registrados.',
+                  'From ${summary.predictionSampleSize} times you finished or skipped this task (any time).',
+                  'De ${summary.predictionSampleSize} veces que terminaste u omitiste esta tarea (de cualquier fecha).',
                 ),
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: colors.primary,
@@ -580,8 +644,8 @@ class _TaskPredictionDetails extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           Localizations.localeOf(context).languageCode == 'es'
-              ? '$probability% de finalización estimada • intervalo $lower–$upper% • ${summary.predictionSampleSize} resultados'
-              : '$probability% smoothed completion estimate • $lower–$upper% interval • ${summary.predictionSampleSize} outcomes',
+              ? 'Probabilidad estimada de terminarla: $probability% (probablemente entre $lower% y $upper%)'
+              : 'Estimated chance of finishing it: $probability% (likely $lower% to $upper%)',
           style: _secondaryText(context),
         ),
         const SizedBox(height: 4),
@@ -594,7 +658,8 @@ class _TaskPredictionDetails extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '${summary.predictionEvidenceSufficient ? journeyText(context, 'Established history', 'Historial consolidado') : journeyText(context, 'Limited history', 'Historial limitado')} • ${summary.predictionModelVersion ?? journeyText(context, 'method unavailable', 'método no disponible')}',
+          // What the estimate is based on, in words (never a model id).
+          '${summary.predictionEvidenceSufficient ? journeyText(context, 'Established history', 'Historial consolidado') : journeyText(context, 'Limited history', 'Historial limitado')} • ${journeyText(context, 'Based on the tasks you finished or skipped', 'Según las tareas que terminaste u omitiste')}',
           style: _secondaryText(context),
         ),
         const SizedBox(height: 4),
@@ -886,8 +951,19 @@ class _ScenarioFullDetails extends StatelessWidget {
         _bullets(context, <String>[
           for (final TrajectoryRiskContribution item
               in outcome.risk.contributions)
-            '${_trajectoryGeneratedText(context, item.label)}: ${item.isScored ? '${item.currentScore}/100 → ${item.projectedScore}/100' : journeyText(context, 'not scored', 'sin calcular')}. ${_trajectoryGeneratedText(context, item.explanation)}',
+            item.isScored
+                ? journeyText(
+                    context,
+                    '${_trajectoryGeneratedText(context, item.label)}: ${item.currentScore} of 100 now, ${item.projectedScore} of 100 with this option. ${_trajectoryGeneratedText(context, item.explanation)}',
+                    '${_trajectoryGeneratedText(context, item.label)}: ${item.currentScore} de 100 ahora, ${item.projectedScore} de 100 con esta opción. ${_trajectoryGeneratedText(context, item.explanation)}',
+                  )
+                : journeyText(
+                    context,
+                    '${_trajectoryGeneratedText(context, item.label)}: not shown until your working hours are set.',
+                    '${_trajectoryGeneratedText(context, item.label)}: no se muestra hasta que configures tu horario de trabajo.',
+                  ),
         ]),
+        const ProvenanceLabel(ProvenanceKind.estimate),
         _cardHeading(
           context,
           journeyText(

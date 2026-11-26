@@ -174,7 +174,8 @@ void main() {
     expect(find.textContaining('Person Context constraint:'), findsNothing);
     expect(
       find.textContaining(
-        'Capacity-based risk and goal completion dates are withheld.',
+        'Your working hours are not set, so the free-time risk and goal '
+        'dates are not shown.',
       ),
       findsOneWidget,
     );
@@ -569,7 +570,7 @@ void main() {
     await pumpTrajectoryTransition(tester);
     await tapTrajectory(tester, find.text('What this estimate assumes'));
     expect(
-      find.textContaining('The protected block is attempted.'),
+      find.textContaining('You work in the time kept for it.'),
       findsOneWidget,
     );
     await tester.pumpWidget(
@@ -579,7 +580,7 @@ void main() {
     );
     await pumpTrajectoryTransition(tester);
     expect(
-      find.textContaining('The protected block is attempted.'),
+      find.textContaining('You work in the time kept for it.'),
       findsNothing,
     );
     final section = find.byKey(

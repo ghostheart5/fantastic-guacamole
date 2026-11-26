@@ -102,7 +102,7 @@ void main() {
       find.text('Completar Ship protected milestone'),
     );
     const description =
-        'Modelar la tarea seleccionada de Elegir un paso como completada en su bloque viable.';
+        'Qué cambia si terminas la tarea que sugiere Elegir un paso, en el tiempo que encontró para ella.';
     await tester.scrollUntilVisible(
       find.text(description),
       300,
@@ -169,8 +169,7 @@ void main() {
     );
     await tester.pump();
 
-    const String localized =
-        'Quitar este compromiso de la ventana de capacidad activa y comparar la compensación resultante.';
+    const String localized = 'Qué cambia si quitas esta tarea de tu plan.';
     await tester.scrollUntilVisible(
       find.text(localized),
       300,
@@ -182,8 +181,7 @@ void main() {
     // Render the real engine-produced no-reward result in the expanded panel;
     // a matching dictionary key alone would not catch producer drift.
     await tapTrajectory(tester, find.text('Impacto completo y datos'));
-    const noReward =
-        'Esta intervención por sí sola no proyecta una recompensa de progreso.';
+    const noReward = 'Esta opción por sí sola no da puntos de progreso.';
     await tester.scrollUntilVisible(
       find.text(noReward),
       300,

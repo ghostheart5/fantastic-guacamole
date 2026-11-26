@@ -450,7 +450,21 @@ void main() {
     ]) {
       expect(texts.where((String t) => t.contains(old)), isEmpty, reason: old);
     }
-    expect(texts.where((String t) => t.startsWith('• Workload:')), isNotEmpty);
+    // Risk factors are risk scores out of 100, never a second "workload".
+    expect(texts.where((String t) => t.startsWith('• Workload')), isEmpty);
+    expect(
+      texts.where(
+        (String t) =>
+            t.startsWith('• Overall risk score: ') &&
+            t.contains(' of 100 now, ') &&
+            t.contains(' of 100 with this option.'),
+      ),
+      isNotEmpty,
+    );
+    expect(
+      texts.where((String t) => t.startsWith('• Deadline risk score: ')),
+      isNotEmpty,
+    );
     // Unscheduled work is today's plan, not the selected range.
     final Finder unscheduled = find.ancestor(
       of: find.text('Unscheduled work'),

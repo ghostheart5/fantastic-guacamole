@@ -146,11 +146,11 @@ void main() {
                       : 'No hay resultados de tareas registrados disponibles para esta estimación.'
                 : pooled
                 ? language == 'en'
-                      ? 'Across 5 recorded task outcomes — no history for this task.'
-                      : 'Basado en 5 resultados de otras tareas; sin historial para esta tarea.'
+                      ? 'From 5 finished or skipped tasks in your follow-through history (any time). This task has no history yet.'
+                      : 'De 5 tareas terminadas u omitidas en tu historial de cumplimiento (de cualquier fecha). Esta tarea aún no tiene historial.'
                 : language == 'en'
-                ? 'Based on 5 recorded task outcomes.'
-                : 'Basado en 5 resultados de tareas registrados.',
+                ? 'From 5 times you finished or skipped this task (any time).'
+                : 'De 5 veces que terminaste u omitiste esta tarea (de cualquier fecha).',
           );
           await tester.scrollUntilVisible(
             lead,
@@ -162,11 +162,11 @@ void main() {
           final estimate = find.textContaining(
             samples == 0
                 ? language == 'en'
-                      ? '50% smoothed completion estimate • 0–100% interval • 0 outcomes'
-                      : '50% de finalización estimada • intervalo 0–100% • 0 resultados'
+                      ? 'Estimated chance of finishing it: 50% (likely 0% to 100%)'
+                      : 'Probabilidad estimada de terminarla: 50% (probablemente entre 0% y 100%)'
                 : language == 'en'
-                ? '86% smoothed completion estimate • 67–100% interval • 5 outcomes'
-                : '86% de finalización estimada • intervalo 67–100% • 5 resultados',
+                ? 'Estimated chance of finishing it: 86% (likely 67% to 100%)'
+                : 'Probabilidad estimada de terminarla: 86% (probablemente entre 67% y 100%)',
           );
           expect(estimate, findsOneWidget);
           expect(
@@ -266,19 +266,15 @@ void main() {
     );
     await tester.pump();
     await tapTrajectory(tester, find.text('Full impact and evidence'));
+    const String notShown =
+        'Free-time risk score: not shown until your working hours are set.';
     await tester.scrollUntilVisible(
-      find.textContaining('Workload over your free time: not scored.'),
+      find.textContaining(notShown),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(
-      find.textContaining('Workload over your free time: not scored.'),
-      findsOneWidget,
-    );
-    expect(
-      find.textContaining('Workload over your free time: 0%'),
-      findsNothing,
-    );
+    expect(find.textContaining(notShown), findsOneWidget);
+    expect(find.textContaining('Free-time risk score: 0 of 100'), findsNothing);
   });
 
   testWidgets(

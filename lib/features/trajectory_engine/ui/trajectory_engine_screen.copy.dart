@@ -292,26 +292,32 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
         'Shared personal information had no recent details this estimate could use.',
         'La información personal compartida no tenía datos recientes utilizables para esta estimación.',
       ),
-    'Pressure load' => journeyText(context, 'Workload', 'Carga de trabajo'),
+    // Risk factors are 0-100 risk scores, not the workload percentage, so
+    // they are named as risk scores.
+    'Pressure load' => journeyText(
+      context,
+      'Overall risk score',
+      'Puntuación de riesgo general',
+    ),
     'Deferral accumulation' => journeyText(
       context,
-      'Put-off tasks piling up',
-      'Tareas aplazadas que se acumulan',
+      'Put-off risk score',
+      'Puntuación de riesgo por aplazamientos',
     ),
     'Deadline pressure' => journeyText(
       context,
-      'Workload from deadlines',
-      'Carga por fechas límite',
+      'Deadline risk score',
+      'Puntuación de riesgo por fechas límite',
     ),
     'Capacity overload' => journeyText(
       context,
-      'Workload over your free time',
-      'Carga por encima de tu tiempo libre',
+      'Free-time risk score',
+      'Puntuación de riesgo por tiempo libre',
     ),
     'Sustained pressure raises rollover and recovery risk.' => journeyText(
       context,
-      'A heavy workload over time raises the risk that work rolls over and recovery takes longer.',
-      'Una carga alta durante mucho tiempo aumenta el riesgo de que el trabajo se acumule y la recuperación tarde más.',
+      'A lot of work for a long time raises the risk that work rolls over and catching up takes longer.',
+      'Mucho trabajo durante mucho tiempo aumenta el riesgo de que el trabajo se acumule y ponerse al día cueste más.',
     ),
     'Current completion and deferral rates remain directionally similar.' =>
       journeyText(
@@ -343,112 +349,244 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
     _ => null,
   };
   if (plain != null) return plain;
-  value = value.replaceAll(
-    RegExp(r' against baseline \S+\. '),
-    journeyText(
-      context,
-      ' compared with your saved plan. ',
-      ' en comparación con tu plan guardado. ',
-    ),
+  final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
+  final (String, String)? exact = _plainGeneratedText[value];
+  if (exact != null) return isSpanish ? exact.$2 : exact.$1;
+  return _plainGeneratedPattern(context, value, isSpanish) ??
+      _plainCounts(value, isSpanish) ??
+      value;
+}
+
+/// The forecast's fixed sentences in plain words: (English, Spanish). The
+/// engine and provider strings themselves stay as they are.
+const Map<String, (String, String)>
+_plainGeneratedText = <String, (String, String)>{
+  'Repeated deferrals compound uncertainty in future capacity.': (
+    'Putting tasks off again and again makes your later free time harder to predict.',
+    'Aplazar tareas una y otra vez hace más difícil prever tu tiempo libre futuro.',
+  ),
+  'Crossed deadlines reduce slack and can displace other work.': (
+    'Missed due dates leave less room and can push other work back.',
+    'Las fechas límite superadas dejan menos margen y pueden retrasar otro trabajo.',
+  ),
+  'Unscheduled work indicates that current commitments do not fit.': (
+    'Work without a time in your plan means it does not all fit in your free time.',
+    'El trabajo sin hora en tu plan indica que no todo cabe en tu tiempo libre.',
+  ),
+  'Capacity risk is not scored until working availability is configured.': (
+    'This risk is not shown until your working hours are set.',
+    'Este riesgo no se muestra hasta que configures tu horario de trabajo.',
+  ),
+  'No observed availability is configured. Capacity-based risk and goal completion dates are withheld.': (
+    'Your working hours are not set, so the free-time risk and goal dates are not shown.',
+    'Tu horario de trabajo no está configurado, así que no se muestran el riesgo por tiempo libre ni las fechas de las metas.',
+  ),
+  'Model this commitment as completed, then compare capacity, risk, goal timing, and progress consequences.':
+      (
+        'What changes if you finish this task.',
+        'Qué cambia si terminas esta tarea.',
+      ),
+  'Model the declared delay and expose its deadline, capacity, goal, and risk consequences.':
+      (
+        'What changes if you put this task off.',
+        'Qué cambia si aplazas esta tarea.',
+      ),
+  'Remove this commitment from the active capacity window and compare the resulting tradeoff.':
+      (
+        'What changes if you take this task out of your plan.',
+        'Qué cambia si quitas esta tarea de tu plan.',
+      ),
+  'Model the selected Choose a step task as completed in its feasible block.': (
+    'What changes if you finish the task Choose a step suggests, in the time it found for it.',
+    'Qué cambia si terminas la tarea que sugiere Elegir un paso, en el tiempo que encontró para ella.',
+  ),
+  'Model one day of slippage and its Schedule and goal consequences.': (
+    'What changes if this task slips by a day.',
+    'Qué cambia si esta tarea se retrasa un día.',
+  ),
+  'Apply the task-specific deadline/capacity recovery recommendation.': (
+    'Catch up on this task first, as suggested.',
+    'Ponerte al día primero con esta tarea, como se sugiere.',
+  ),
+  'Preserve the current plan without a declared intervention.': (
+    'Your plan stays as it is.',
+    'Tu plan se queda como está.',
+  ),
+  'Protect the highest-value feasible block.': (
+    'Keep time for your most valuable task.',
+    'Reservar tiempo para tu tarea más valiosa.',
+  ),
+  'The protected block is attempted.': (
+    'You work in the time kept for it.',
+    'Trabajas en el tiempo reservado para ella.',
+  ),
+  'No progress reward is projected from this intervention alone.': (
+    'This option alone earns no progress points.',
+    'Esta opción por sí sola no da puntos de progreso.',
+  ),
+  'The proposed TimeBlocks are accepted and attempted.': (
+    'You accept the suggested times and work in them.',
+    'Aceptas las horas sugeridas y trabajas en ellas.',
+  ),
+  'Displaced work is explicitly reconciled instead of silently carried.': (
+    'Work that no longer fits is moved on purpose, not left behind.',
+    'El trabajo que ya no cabe se mueve a propósito, no se queda atrás.',
+  ),
+  'The task is completed without creating an unmodeled commitment.': (
+    'Finishing it adds no new work.',
+    'Terminarla no añade trabajo nuevo.',
+  ),
+  'The commitment is completed without creating an unmodeled obligation.': (
+    'Finishing it adds no new work.',
+    'Terminarla no añade trabajo nuevo.',
+  ),
+  'The delayed work remains active and consumes later capacity.': (
+    'The work you put off still needs time later.',
+    'El trabajo aplazado sigue necesitando tiempo más adelante.',
+  ),
+  'The delayed commitment remains active and consumes later capacity.': (
+    'The work you put off still needs time later.',
+    'El trabajo aplazado sigue necesitando tiempo más adelante.',
+  ),
+  'The first verifiable recovery checkpoint is completed.': (
+    'You finish the first step of catching up.',
+    'Terminas el primer paso para ponerte al día.',
+  ),
+  'The removed commitment is optional or safely deferred with consent.': (
+    'The task you take out is optional, or you have agreed to move it.',
+    'La tarea que quitas es opcional o has aceptado moverla.',
+  ),
+  'The commitment is optional or can be deferred with informed consent.': (
+    'The task is optional, or you have agreed to move it.',
+    'La tarea es opcional o has aceptado moverla.',
+  ),
+  'Projected progress effects remain informational until an outcome is recorded on Schedule.': (
+    'Progress shown here is only an estimate until you record what happened.',
+    'El progreso que se muestra aquí es solo una estimación hasta que registres lo que pasó.',
+  ),
+  'No replacement work is assumed unless it already exists in the baseline.': (
+    'No new work is assumed unless it is already in your plan.',
+    'No se supone trabajo nuevo salvo que ya esté en tu plan.',
+  ),
+  'The simulation does not delete or mutate the actual task.': (
+    'Your real task is not deleted or changed.',
+    'Tu tarea real no se elimina ni se cambia.',
+  ),
+  'Projected completion remains inside the recorded target date.': (
+    'It could be done by the target date.',
+    'Podría estar terminada para la fecha objetivo.',
+  ),
+  // Task follow-through (the prediction provider's own words).
+  'Higher observed follow-through': (
+    'You usually finish tasks like this',
+    'Sueles terminar tareas como esta',
+  ),
+  'Lower observed follow-through': (
+    'You often leave tasks like this unfinished',
+    'A menudo dejas sin terminar tareas como esta',
+  ),
+  'Mixed observed follow-through': (
+    'You finish tasks like this about half the time',
+    'Terminas tareas como esta más o menos la mitad de las veces',
+  ),
+  'No exact task history exists, so this estimate uses all recorded completed and skipped task outcomes.': (
+    'There is no history for this task yet, so this uses all the tasks you finished or skipped.',
+    'Aún no hay historial de esta tarea, así que se usan todas las tareas que terminaste u omitiste.',
+  ),
+  'This estimate uses recorded completed and skipped outcomes for this task title.':
+      (
+        'This uses the times you finished or skipped a task with this title.',
+        'Se usan las veces que terminaste u omitiste una tarea con este título.',
+      ),
+  'No prior execution history is available for this task yet.': (
+    'There is no history for this task yet.',
+    'Aún no hay historial de esta tarea.',
+  ),
+  // Titles that keep their English words but need Spanish.
+  'Keep the suggested plan': (
+    'Keep the suggested plan',
+    'Proteger el camino de Elegir un paso',
+  ),
+  'Delay the milestone': ('Delay the milestone', 'Aplazar el hito'),
+  'Use the suggested option in this estimate': (
+    'Use the suggested option in this estimate',
+    'Aplicar la recomendación de Elegir un paso',
+  ),
+  'Apply Choose a step recommendation': (
+    'Apply Choose a step recommendation',
+    'Aplicar la recomendación de Elegir un paso',
+  ),
+  'Reduce lower-priority scope': (
+    'Reduce lower-priority scope',
+    'Reducir el alcance de menor prioridad',
+  ),
+};
+
+/// Generated sentences that carry a task title or a figure.
+String? _plainGeneratedPattern(
+  BuildContext context,
+  String value,
+  bool isSpanish,
+) {
+  // "<option> changes <subject> against baseline <revision>. Projected risk
+  // is <band>; <Schedule effect>": the Schedule effect has its own line, so
+  // only the comparison and the risk are said here.
+  final RegExpMatch? explanation = RegExp(
+    r'^(.+) changes (.+) against baseline \S+\. Projected risk is (\w+); .*$',
+    dotAll: true,
+  ).firstMatch(value);
+  if (explanation != null) {
+    final String subject = explanation.group(2)!;
+    final bool whole = subject == 'the current portfolio';
+    final String band = switch (explanation.group(3)) {
+      'low' => isSpanish ? 'bajo' : 'low',
+      'watch' => isSpanish ? 'a vigilar' : 'worth watching',
+      'elevated' => isSpanish ? 'elevado' : 'raised',
+      'critical' => isSpanish ? 'alto' : 'high',
+      _ => isSpanish ? 'sin calcular' : 'not worked out',
+    };
+    return isSpanish
+        ? 'En comparación con tu plan guardado, esta opción afecta a ${whole ? 'tu plan en conjunto' : subject}. Riesgo estimado: $band.'
+        : 'Compared with your saved plan, this option affects ${whole ? 'your plan as a whole' : subject}. Estimated risk: $band.';
+  }
+  String? between(String prefix, String suffix) =>
+      value.startsWith(prefix) &&
+          value.endsWith(suffix) &&
+          value.length > prefix.length + suffix.length
+      ? value.substring(prefix.length, value.length - suffix.length)
+      : null;
+  final String? removed = between(
+    'Remove ',
+    ' from the active capacity window.',
   );
-  if (Localizations.localeOf(context).languageCode != 'es') return value;
-  const exact = <String, String>{
-    'Repeated deferrals compound uncertainty in future capacity.':
-        'Los aplazamientos repetidos aumentan la incertidumbre sobre la capacidad futura.',
-    'Crossed deadlines reduce slack and can displace other work.':
-        'Las fechas límite incumplidas reducen el margen y pueden desplazar otro trabajo.',
-    'Unscheduled work indicates that current commitments do not fit.':
-        'El trabajo sin programar indica que los compromisos actuales no caben.',
-    'Capacity risk is not scored until working availability is configured.':
-        'El riesgo de capacidad no se calcula hasta configurar la disponibilidad.',
-    'No observed availability is configured. Capacity-based risk and goal completion dates are withheld.':
-        'No hay disponibilidad registrada. Se omiten el riesgo de capacidad y las fechas de finalización.',
-    'Model this commitment as completed, then compare capacity, risk, goal timing, and progress consequences.':
-        'Modelar este compromiso como completado y comparar sus consecuencias en capacidad, riesgo, fechas de metas y progreso.',
-    'No progress reward is projected from this intervention alone.':
-        'Esta intervención por sí sola no proyecta una recompensa de progreso.',
-    'Keep the suggested plan': 'Proteger el camino de Elegir un paso',
-    'Protect the highest-value feasible block.':
-        'Proteger el bloque viable de mayor valor.',
-    'The protected block is attempted.':
-        'Se intenta completar el bloque protegido.',
-    'Delay the milestone': 'Aplazar el hito',
-    'Use the suggested option in this estimate':
-        'Aplicar la recomendación de Elegir un paso',
-    'Apply Choose a step recommendation':
-        'Aplicar la recomendación de Elegir un paso',
-    'Model the selected Choose a step task as completed in its feasible block.':
-        'Modelar la tarea seleccionada de Elegir un paso como completada en su bloque viable.',
-    'Reduce lower-priority scope': 'Reducir el alcance de menor prioridad',
-    'Preserve the current plan without a declared intervention.':
-        'Conservar el plan actual sin una intervención declarada.',
-    'The proposed TimeBlocks are accepted and attempted.':
-        'Los bloques de tiempo propuestos se aceptan y se intentan.',
-    'Displaced work is explicitly reconciled instead of silently carried.':
-        'El trabajo desplazado se concilia de forma explícita en lugar de arrastrarse en silencio.',
-    'The task is completed without creating an unmodeled commitment.':
-        'La tarea se completa sin crear un compromiso no modelado.',
-    'The delayed work remains active and consumes later capacity.':
-        'El trabajo aplazado sigue activo y consume capacidad posterior.',
-    'The first verifiable recovery checkpoint is completed.':
-        'Se completa el primer punto de recuperación verificable.',
-    'The removed commitment is optional or safely deferred with consent.':
-        'El compromiso eliminado es opcional o puede aplazarse de forma segura con consentimiento.',
-    'The commitment is completed without creating an unmodeled obligation.':
-        'El compromiso se completa sin crear una obligación no modelada.',
-    'Projected progress effects remain informational until an outcome is recorded on Schedule.':
-        'Los efectos proyectados en el progreso son informativos hasta registrar un resultado en la agenda.',
-    'The delayed commitment remains active and consumes later capacity.':
-        'El compromiso aplazado sigue activo y consume capacidad posterior.',
-    'No replacement work is assumed unless it already exists in the baseline.':
-        'No se supone trabajo de reemplazo salvo que ya exista en tu plan actual.',
-    'The commitment is optional or can be deferred with informed consent.':
-        'El compromiso es opcional o puede aplazarse con consentimiento informado.',
-    'The simulation does not delete or mutate the actual task.':
-        'La simulación no elimina ni modifica la tarea real.',
-    'Remove this commitment from the active capacity window and compare the resulting tradeoff.':
-        'Quitar este compromiso de la ventana de capacidad activa y comparar la compensación resultante.',
-  };
-  final translated = exact[value];
-  if (translated != null) return translated;
-  if (value.startsWith('Complete ')) {
-    return 'Completar ${value.substring('Complete '.length)}';
+  if (removed != null) {
+    return isSpanish
+        ? 'Qué cambia si quitas $removed de tu plan.'
+        : 'What changes if you take $removed out of your plan.';
   }
-  if (value.startsWith('Delay ') && value.endsWith(' by one day')) {
-    return 'Aplazar ${value.substring('Delay '.length, value.length - ' by one day'.length)} un día';
-  }
-  if (value.startsWith('Recover ')) {
-    return 'Recuperar ${value.substring('Recover '.length)}';
-  }
-  if (value.startsWith('Protect ') &&
-      value.endsWith(' and use the feasible plan as the active schedule.')) {
-    final String subject = value.substring(
-      'Protect '.length,
-      value.length -
-          ' and use the feasible plan as the active schedule.'.length,
-    );
-    return 'Proteger $subject y usar el plan viable como horario activo.';
+  final String? protected = between(
+    'Protect ',
+    ' and use the feasible plan as the active schedule.',
+  );
+  if (protected != null) {
+    return isSpanish
+        ? 'Reservar tiempo para $protected y seguir el horario sugerido.'
+        : 'Keep time for $protected and follow the suggested schedule.';
   }
   if (value.startsWith(
     'Estimate what happens if you finish the selected task',
   )) {
-    return 'Modelar la tarea seleccionada de Elegir un paso como completada en su bloque viable.';
+    return isSpanish ? 'Qué cambia si terminas la tarea seleccionada.' : value;
   }
-  if (value.startsWith('Model one day of slippage')) {
-    return 'Modelar un día de retraso y sus consecuencias en la agenda y las metas.';
+  if (!isSpanish) return null;
+  final String? completed = between('Complete ', '');
+  if (value.startsWith('Complete ') && completed != null) {
+    return 'Completar $completed';
   }
-  if (value.startsWith(
-    'Apply the task-specific deadline/capacity recovery recommendation.',
-  )) {
-    return 'Aplicar la recomendación específica de recuperación de fecha límite y capacidad.';
-  }
-  if (value.startsWith('Remove ') &&
-      value.endsWith(' from the active capacity window.')) {
-    final String subject = value.substring(
-      'Remove '.length,
-      value.length - ' from the active capacity window.'.length,
-    );
-    return 'Quitar $subject de la ventana de capacidad activa.';
+  final String? delayed = between('Delay ', ' by one day');
+  if (delayed != null) return 'Aplazar $delayed un día';
+  if (value.startsWith('Recover ')) {
+    return 'Recuperar ${value.substring('Recover '.length)}';
   }
   if (value.startsWith('My scenario: complete ')) {
     return 'Mi escenario: completar ${value.substring('My scenario: complete '.length)}';
@@ -463,51 +601,131 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
     final String days = delay.group(2)!;
     return 'Mi escenario: aplazar ${delay.group(1)!} $days ${days == '1' ? 'día' : 'días'}';
   }
-  return value
-      .replaceAll(
-        'scheduled block(s) are estimated',
-        'bloque(s) de Elegir un paso se proyectan',
-      )
-      .replaceAll(
-        'commitment(s) remain displaced',
-        'compromiso(s) permanecen desplazados',
-      )
-      .replaceAll(
-        'existing block(s) are affected',
-        'bloque(s) existentes se ven afectados',
-      )
-      .replaceAll(
-        'deadline crossing(s) are projected',
-        'cruce(s) de fecha límite se proyectan',
-      )
-      .replaceAll(
-        'linked block(s) can close after the simulated completion',
-        'bloque(s) vinculados pueden cerrarse tras completar la simulación',
-      )
-      .replaceAll(
-        'linked block(s) can be removed from active load',
-        'bloque(s) vinculados pueden salir de la carga activa',
-      )
-      .replaceAll(
-        'linked Schedule block(s) are affected',
-        'bloque(s) vinculados de la agenda se ven afectados',
-      )
-      .replaceAll(
-        'remaining linked minutes; no target date is recorded',
-        'minutos vinculados restantes; no hay fecha objetivo',
-      )
-      .replaceAll(
-        'Projected completion crosses the target by about',
-        'La finalización proyectada supera el objetivo por unos',
-      )
-      .replaceAll('day(s)', 'día(s)')
-      .replaceAll(
-        'Projected completion remains inside the recorded target date.',
-        'La finalización proyectada queda dentro de la fecha objetivo registrada.',
-      )
-      .replaceAll('Projected risk is', 'El riesgo proyectado es')
-      .replaceAll('against baseline', 'frente a tu plan actual')
-      .replaceAll('changes', 'cambia');
+  return null;
+}
+
+/// Generated sentences with counts, in plain words with the right singular
+/// or plural (the engine writes "block(s)").
+String? _plainCounts(String value, bool es) {
+  String blocks(int n) => es
+      ? (n == 0
+            ? 'ningún bloque planificado'
+            : n == 1
+            ? '1 bloque planificado'
+            : '$n bloques planificados')
+      : (n == 0
+            ? 'no planned blocks'
+            : n == 1
+            ? '1 planned block'
+            : '$n planned blocks');
+
+  RegExpMatch? match(String pattern) => RegExp(pattern).firstMatch(value);
+  int at(RegExpMatch m, int group) => int.parse(m.group(group)!);
+
+  final RegExpMatch? planner = match(
+    r'^(\d+) Choose a step block\(s\) are projected; (\d+) commitment\(s\) remain displaced\.$',
+  );
+  if (planner != null) {
+    final int moved = at(planner, 2);
+    return es
+        ? 'Elegir un paso planifica ${blocks(at(planner, 1))}; ${moved == 0
+              ? 'ninguna tarea queda desplazada'
+              : moved == 1
+              ? '1 tarea queda desplazada'
+              : '$moved tareas quedan desplazadas'}.'
+        : 'Choose a step plans ${blocks(at(planner, 1))}; ${moved == 0
+              ? 'no task is pushed out'
+              : moved == 1
+              ? '1 task is pushed out'
+              : '$moved tasks are pushed out'}.';
+  }
+  final RegExpMatch? delayed = match(
+    r'^(\d+) existing block\(s\) are affected; (\d+) deadline crossing\(s\) are projected\.$',
+  );
+  if (delayed != null) {
+    final int due = at(delayed, 2);
+    final int n = at(delayed, 1);
+    return es
+        ? '${n == 0
+              ? 'Ningún bloque planificado se ve afectado'
+              : n == 1
+              ? '1 bloque planificado se ve afectado'
+              : '$n bloques planificados se ven afectados'}; ${due == 0
+              ? 'no se pasa ninguna fecha límite'
+              : due == 1
+              ? 'podría pasarse 1 fecha límite'
+              : 'podrían pasarse $due fechas límite'}.'
+        : '${n == 0
+              ? 'No planned block is affected'
+              : n == 1
+              ? '1 planned block is affected'
+              : '$n planned blocks are affected'}; ${due == 0
+              ? 'no due date is missed'
+              : due == 1
+              ? '1 due date could be missed'
+              : '$due due dates could be missed'}.';
+  }
+  final RegExpMatch? freed = match(
+    r'^(\d+) linked block\(s\) can (?:close after the simulated completion|be removed from active load)\.$',
+  );
+  if (freed != null) {
+    final int n = at(freed, 1);
+    return es
+        ? (n == 0
+              ? 'No se libera ningún bloque planificado.'
+              : n == 1
+              ? 'Se libera 1 bloque planificado.'
+              : 'Se liberan $n bloques planificados.')
+        : (n == 0
+              ? 'No planned block is freed.'
+              : n == 1
+              ? '1 planned block is freed.'
+              : '$n planned blocks are freed.');
+  }
+  final RegExpMatch? affected = match(
+    r'^(\d+) linked Schedule block\(s\) are affected\.$',
+  );
+  if (affected != null) {
+    final int n = at(affected, 1);
+    return es
+        ? (n == 0
+              ? 'No cambia ningún bloque planificado.'
+              : n == 1
+              ? 'Cambia 1 bloque planificado.'
+              : 'Cambian $n bloques planificados.')
+        : (n == 0
+              ? 'No planned block changes.'
+              : n == 1
+              ? '1 planned block changes.'
+              : '$n planned blocks change.');
+  }
+  final RegExpMatch? late = match(
+    r'^Projected completion crosses the target by about (\d+) day\(s\)\.$',
+  );
+  if (late != null) {
+    final int n = at(late, 1);
+    return es
+        ? 'Podría terminarse unos ${n == 1 ? '1 día' : '$n días'} después de la fecha objetivo.'
+        : 'It could be done about ${n == 1 ? '1 day' : '$n days'} after the target date.';
+  }
+  final RegExpMatch? left = match(
+    r'^(\d+) remaining linked minutes; no target date is recorded\.$',
+  );
+  if (left != null) {
+    return es
+        ? 'Quedan ${left.group(1)} minutos de trabajo de esta meta; no tiene fecha objetivo.'
+        : '${left.group(1)} minutes of this goal\'s work left; it has no target date.';
+  }
+  final RegExpMatch? xp = match(
+    r'^Up to (\d+) XP is informationally projected if the action is actually completed; current streak protection is (supported|not supported)\.$',
+  );
+  if (xp != null) {
+    final bool streak = xp.group(2) == 'supported';
+    return es
+        ? 'Si de verdad lo haces, podría darte hasta ${xp.group(1)} XP${streak ? ' y mantener tu racha' : '; no mantiene tu racha'}.'
+        : 'If you really do it, it could earn up to ${xp.group(1)} XP${streak ? ' and keep your streak going' : '; it does not keep your streak going'}.';
+  }
+  return null;
 }
 
 String _trajectoryConfidenceLabel(
