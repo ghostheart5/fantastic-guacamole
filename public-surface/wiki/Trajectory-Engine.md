@@ -27,4 +27,4 @@ Subject changes, delay changes and automatic task replacement have focused test 
 
 Review the selected 7-, 30- or 90-day horizon where offered. Changing horizons can reset the comparison identity; refreshing the same horizon is a different action. Missing dates or little completion history can limit a result. Add only true information and keep uncertainty visible. A populated chart is not proof that its future outcome will happen.
 
-[[My plan and Schedule|Timeline]] · [[Chat|Smart-Planner]] · [[Release Notes|Release-Notes]]
+[[My plan and Schedule|Timeline]] · [[Choose a step|Smart-Planner]] · [[Release Notes|Release-Notes]]

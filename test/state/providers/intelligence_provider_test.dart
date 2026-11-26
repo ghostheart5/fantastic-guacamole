@@ -1,8 +1,5 @@
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
-import 'package:fantastic_guacamole/domain/entities/task.dart';
-import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
-import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -36,57 +33,6 @@ void main() {
           .read(qaMockAccountIdProvider.notifier)
           .select('unapproved-account'),
       throwsArgumentError,
-    );
-  });
-
-  test('empty tasks produce fallback recommendation', () {
-    final ProviderContainer container = ProviderContainer(
-      overrides: [
-        tasksProvider.overrideWith((Ref ref) async => const <Task>[]),
-      ],
-    );
-    addTearDown(container.dispose);
-
-    expect(
-      container.read(nextActionTextProvider),
-      'Create your first task to get started.',
-    );
-  });
-
-  test('task changes trigger updated SI recommendation text', () async {
-    final ProviderContainer emptyContainer = ProviderContainer(
-      overrides: [
-        tasksProvider.overrideWith((Ref ref) async => const <Task>[]),
-      ],
-    );
-    addTearDown(emptyContainer.dispose);
-
-    expect(
-      emptyContainer.read(nextActionTextProvider),
-      'Create your first task to get started.',
-    );
-
-    final ProviderContainer populatedContainer = ProviderContainer(
-      overrides: [
-        tasksProvider.overrideWith((Ref ref) async {
-          return <Task>[
-            Task(
-              id: 't1',
-              title: 'Move launch checklist',
-              priority: 4,
-              difficulty: 3,
-              energyRequired: 3,
-            ),
-          ];
-        }),
-      ],
-    );
-    addTearDown(populatedContainer.dispose);
-
-    await populatedContainer.read(tasksProvider.future);
-    expect(
-      populatedContainer.read(nextActionTextProvider),
-      'Work on: Move launch checklist',
     );
   });
 
@@ -177,27 +123,6 @@ void main() {
       expect(container.read(authenticatedGuardProvider), isFalse);
     },
   );
-
-  test('repeated input does not duplicate identical output signal', () {
-    final ProviderContainer container = ProviderContainer();
-    addTearDown(container.dispose);
-
-    int notifications = 0;
-    final ProviderSubscription<String?> sub = container.listen<String?>(
-      aiInputProvider,
-      (String? previous, String? next) {
-        notifications += 1;
-      },
-      fireImmediately: false,
-    );
-    addTearDown(sub.close);
-
-    container.read(aiInputProvider.notifier).set('repeat');
-    container.read(aiInputProvider.notifier).set('repeat');
-
-    expect(container.read(aiInputProvider), 'repeat');
-    expect(notifications, lessThanOrEqualTo(1));
-  });
 
   test('engine failure creates safe UI fallback', () {
     final ProviderContainer container = ProviderContainer(

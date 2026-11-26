@@ -48,18 +48,11 @@ void main() {
     final String pipeline = File(
       'lib/state/providers/si_pipeline_provider.dart',
     ).readAsStringSync();
-    final String controller = File(
-      'lib/state/controllers/ai_controller.dart',
-    ).readAsStringSync();
     final String profile = File(
       'lib/state/models/personalization_models.dart',
     ).readAsStringSync();
 
     expect(pipeline, isNot(contains('ref.watch(memoriesProvider)')));
-    expect(
-      controller,
-      contains('memoryRecallProvider(MemorySurface.siConsole)'),
-    );
     expect(profile, contains('this.useMemoryContext = false'));
     expect(profile, contains('storedVersion >= currentVersion'));
     expect(profile, contains('memoryConsentGrantedAt'));

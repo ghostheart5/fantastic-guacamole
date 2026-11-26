@@ -1,8 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation_history.dart';
+import 'package:fantastic_guacamole/features/assistant/ui/ai_chat_consent.dart';
+import 'package:fantastic_guacamole/features/assistant/ui/assistant_mode_switch.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_response_body.dart';
+import 'package:fantastic_guacamole/features/assistant/ui/draft_transfer.dart';
+import 'package:fantastic_guacamole/features/assistant/ui/one_tap_questions.dart';
+import 'package:fantastic_guacamole/domain/entities/si_one_tap_question.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/domain/entities/conversation_extra_sources.dart';
 import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
@@ -19,8 +27,13 @@ import 'package:fantastic_guacamole/state/providers/ai_content_report_provider.d
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
+import 'package:fantastic_guacamole/state/providers/ai_chat_extra_sources_provider.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
+import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
+import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
+import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
 import 'package:fantastic_guacamole/state/providers/voice_input_consent_provider.dart';
@@ -29,13 +42,16 @@ import 'package:fantastic_guacamole/ui/system/crisis_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+part 'assistant_conversation_screen.consent.dart';
+part 'assistant_conversation_screen.copy.dart';
 part 'assistant_conversation_screen.history.dart';
+part 'assistant_conversation_screen.options.dart';
 part 'assistant_conversation_screen.pending.dart';
-
-/// The conversational route is explicitly model-backed. Local tools remain an
-/// intentional user choice, never an invisible fallback for a failed request.
-enum _LocalRouteChoice { freeTools, aiPrice }
+part 'assistant_conversation_screen.receipt.dart';
+part 'assistant_conversation_screen.scope.dart';
+part 'assistant_conversation_screen.send.dart';
 
 /// The artwork stays dark in both form modes. Only body text/list chrome gets
 /// contrast colors here; fields and dropdown menus keep the selected app theme.
@@ -67,13 +83,47 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
     super.key,
     required this.surface,
     required this.onLocalTools,
-    this.onLocalToolsWithDraft,
     this.isActive = true,
+    this.freeBox,
+    this.onFreeBoxChanged,
+    this.suggestion = '',
+    this.suggestionRevision = 0,
+    this.hidden = false,
+    this.onUpdateWhileHidden,
+    this.onQuickQuestion,
+    this.onBusyChanged,
   });
   final ConversationSurface surface;
+
+  /// Chooses the free assistant; typed words go with it through [freeBox].
   final VoidCallback onLocalTools;
-  final ValueChanged<String>? onLocalToolsWithDraft;
   final bool isActive;
+
+  /// The free side's text box. Each time this screen is shown or hidden the
+  /// typed words go between that box and this one by [DraftTransfer].
+  final TextEditingController? freeBox;
+
+  /// Called after this screen changed the text of [freeBox].
+  final VoidCallback? onFreeBoxChanged;
+
+  /// A suggested question for the box, offered the next time this screen is
+  /// shown after [suggestionRevision] changes.
+  final String suggestion;
+  final int suggestionRevision;
+
+  /// The free assistant is shown in front of this screen. A reply, a failure
+  /// or a collected request that arrives meanwhile is reported through
+  /// [onUpdateWhileHidden], and a dialog waits until the screen is shown.
+  final bool hidden;
+  final VoidCallback? onUpdateWhileHidden;
+
+  /// Chat only: a one-tap question picked here is answered on this device,
+  /// for free, by the free assistant. Null hides the row.
+  final ValueChanged<SIOneTapQuestion>? onQuickQuestion;
+
+  /// Reports when a message is being sent, so the free assistant's questions
+  /// left by Today do not switch away from a request that is running.
+  final ValueChanged<bool>? onBusyChanged;
   @override
   ConsumerState<AssistantConversationScreen> createState() =>
       _AssistantConversationScreenState();
@@ -88,9 +138,23 @@ class _AssistantConversationScreenState
   final List<Map<String, String>> _history = [];
   VoiceController? _voiceControllerForDispose;
   bool _busy = false;
+  bool _reportedBusy = false;
   bool _waitIndicatorDismissed = false;
   String? _error;
+  // The error is about running out of credits: Get credits is offered.
+  bool _outOfCredits = false;
   ConversationQuote? _pending;
+  // When [_pending] can no longer be collected.
+  DateTime? _pendingCollectBefore;
+  // Collects [_pending] again while its first call is still being answered.
+  Timer? _reservedRetry;
+  // Requests given up with Start another request: a late failure of one is
+  // not shown, since it is no longer kept.
+  final Set<String> _abandoned = <String>{};
+  // The operation whose confirmed request has started its storage write:
+  // from then on it is sent (see _send), so Stop waiting no longer withdraws
+  // it.
+  int? _committingOperation;
   String? _recoveringRequestId;
   int _generation = 0;
   int _operation = 0;
@@ -105,6 +169,20 @@ class _AssistantConversationScreenState
   SIV2Intent _intent = SIV2Intent.answer;
   SIV2TimeRange _range = SIV2TimeRange.all;
   Set<SIV2Source> _sources = SIV2Source.values.toSet();
+  // Chat only: whether [_sources] is the person's own choice, and the
+  // one-time explanation of the default (see the scope part).
+  bool _sourcesChosen = false;
+  bool _scopeExplained = false;
+  bool _scopeNoticeVisible = false;
+  // Optional extra information for this chat only (off every time the chat
+  // opens, never saved); see the scope part.
+  Set<ConversationExtraSource> _extras = <ConversationExtraSource>{};
+  // Which turning-on of the extras this is (see the scope part): part of the
+  // selection, so a new one always shows the full preview first.
+  int _extrasEpoch = 0;
+  // The on-device suggestion for the current draft (see the send part).
+  bool _freeSuggested = false;
+  int _suggestionCheck = 0;
   bool _historyLoading = true;
   bool _historyReady = false;
   bool _historySaveFailed = false;
@@ -114,12 +192,15 @@ class _AssistantConversationScreenState
   int _storedHistoryRevision = 0;
   Future<void> _historyWriteTail = Future<void>.value();
   void _updateHistory(VoidCallback update) => setState(update);
+  // Lets the part-file extensions rebuild the screen.
+  void _rebuild(VoidCallback update) => setState(update);
   bool get _spanish => ChronoSparkLocalizations.of(context).isSpanish;
   String copy(String en, String es) => _spanish ? es : en;
 
   @override
   void initState() {
     super.initState();
+    _input.addListener(_onDraftChanged);
     if (widget.surface == ConversationSurface.si) {
       _sources = <SIV2Source>{};
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -151,6 +232,14 @@ class _AssistantConversationScreenState
   @override
   void didUpdateWidget(covariant AssistantConversationScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.hidden && !widget.hidden) {
+      _shownGate?.complete();
+      _shownGate = null;
+    }
+    final TextEditingController? freeBox = widget.freeBox;
+    if (freeBox != null && oldWidget.hidden != widget.hidden) {
+      _transferDraft(freeBox, toAi: !widget.hidden);
+    }
     if (oldWidget.isActive && !widget.isActive) {
       _voiceActivation++;
       final controller = _voiceControllerForDispose;
@@ -161,11 +250,145 @@ class _AssistantConversationScreenState
     }
   }
 
+  int _suggestionTaken = 0;
+
+  /// Moves typed words between [freeBox] and this screen's box as this screen
+  /// is shown ([toAi]) or hidden, by the one rule in [DraftTransfer].
+  void _transferDraft(TextEditingController freeBox, {required bool toAi}) {
+    final String aiText = _input.text;
+    final String? sentPrompt = _pending?.packet.toJson()['prompt'] as String?;
+    // A question sent and waiting for its reply is not a draft.
+    final bool sent =
+        _busy || (sentPrompt != null && aiText.trim() == sentPrompt.trim());
+    var suggestion = '';
+    if (toAi && widget.suggestionRevision != _suggestionTaken) {
+      _suggestionTaken = widget.suggestionRevision;
+      suggestion = widget.suggestion;
+    }
+    final DraftTransfer result = DraftTransfer.decide(
+      source: toAi ? freeBox.text : aiText,
+      destination: toAi ? aiText : freeBox.text,
+      toAi: toAi,
+      planner: widget.surface == ConversationSurface.planner,
+      isSpanish: _spanish,
+      sourceSent: !toAi && sent,
+      // Only a question still being sent gives way. One held for Retry same
+      // request is kept, and the moved words stay in the free box.
+      destinationSent: toAi && _busy,
+      suggestion: suggestion,
+    );
+    final String ai = toAi ? result.destination : result.source;
+    final String free = toAi ? result.source : result.destination;
+    if (ai != aiText) {
+      _input.value = TextEditingValue(
+        text: ai,
+        selection: TextSelection.collapsed(offset: ai.length),
+      );
+    }
+    final int generation = _generation;
+    void applyFree() {
+      if (freeBox.text == free) return;
+      freeBox.value = TextEditingValue(
+        text: free,
+        selection: TextSelection.collapsed(offset: free.length),
+      );
+      final VoidCallback? changed = widget.onFreeBoxChanged;
+      if (changed != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) changed();
+        });
+      }
+    }
+
+    // Hidden: the free box is being built now and takes the text at once.
+    // Shown: the free box is still on screen this frame; it is emptied
+    // after the frame, when this box already holds the words.
+    if (!toAi) {
+      applyFree();
+    } else if (free != freeBox.text) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && generation == _generation) applyFree();
+      });
+    }
+    final String? line = result.notice;
+    if (line != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && generation == _generation) {
+          ScaffoldMessenger.maybeOf(
+            context,
+          )?.showSnackBar(SnackBar(content: Text(line)));
+        }
+      });
+    }
+  }
+
+  Completer<void>? _shownGate;
+
+  /// Tells the free assistant's screen that something arrived out of sight.
+  void _reportWhileHidden() {
+    final report = widget.onUpdateWhileHidden;
+    if (widget.hidden && report != null) {
+      final generation = _generation;
+      final epoch = _gateEpoch;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            widget.hidden &&
+            generation == _generation &&
+            epoch == _gateEpoch) {
+          report();
+        }
+      });
+    }
+  }
+
+  int _gateEpoch = 0;
+
+  /// After a sign-in change that kept the account, a request held while the
+  /// free assistant was shown is collected again by itself.
+  void _resumeHeld(int generation, int operation) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _generation || operation != _operation) {
+        return;
+      }
+      _rebuild(() {
+        _busy = false;
+        _pending = null;
+        _recoveringRequestId = null;
+      });
+      unawaited(_loadPlannerPending());
+    });
+  }
+
+  /// Wakes anything waiting to be shown; an account or sign-in change makes
+  /// it drop what it was going to show.
+  void _releaseGate() {
+    _gateEpoch++;
+    _shownGate?.complete();
+    _shownGate = null;
+  }
+
+  /// A dialog (or a reply) raised while the free assistant is shown waits for
+  /// this screen to be shown again; it is not lost. False when the screen or
+  /// the account changed meanwhile, so nothing of the old account is shown.
+  Future<bool> _whenShown() async {
+    final generation = _generation;
+    final epoch = _gateEpoch;
+    while (widget.hidden &&
+        mounted &&
+        generation == _generation &&
+        epoch == _gateEpoch) {
+      await (_shownGate ??= Completer<void>()).future;
+    }
+    return mounted && generation == _generation && epoch == _gateEpoch;
+  }
+
   @override
   void dispose() {
+    _shownGate?.complete();
     _voiceActivation++;
     _voiceControllerForDispose?.invalidatePendingCapture();
     _paidWaitTimer?.cancel();
+    _reservedRetry?.cancel();
     final VoiceController? voiceController = _voiceControllerForDispose;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
@@ -187,44 +410,13 @@ class _AssistantConversationScreenState
         }
       });
     }
-    _input.dispose();
+    _input
+      ..removeListener(_onDraftChanged)
+      ..dispose();
     _filter.dispose();
     _scenario.dispose();
     _scroll.dispose();
     super.dispose();
-  }
-
-  /// Explains why the conversation is locked instead of leaving a dead send
-  /// button. Users read a greyed-out send icon as a bug.
-  Future<void> _explainAiOff() async {
-    // Scrollable so the title and actions still fit at large text sizes.
-    final openSettings = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        scrollable: true,
-        title: Text(
-          copy('Turn on AI chat first', 'Primero activa el chat con IA'),
-        ),
-        content: Text(
-          copy(
-            'AI chat is off for your account, so nothing can be sent yet. To use it, open Settings, go to Personalization and turn on "Allow external AI assistance". Each message shows its credit price before anything is sent or charged. Free tools work without credits.',
-            'El chat con IA está desactivado en tu cuenta, así que aún no se puede enviar nada. Para usarlo, abre Ajustes, ve a Personalización y activa "Permitir asistencia de IA externa". Cada mensaje muestra su precio en créditos antes de enviar o cobrar algo. Las herramientas gratis funcionan sin créditos.',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(copy('Cancel', 'Cancelar')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(copy('Open settings', 'Abrir ajustes')),
-          ),
-        ],
-      ),
-    );
-    if (!mounted || openSettings != true) return;
-    goToAppView(context, ref, AppView.settings);
   }
 
   Future<bool> _confirm({
@@ -232,18 +424,19 @@ class _AssistantConversationScreenState
     required Widget content,
     required String action,
   }) async {
+    if (!await _whenShown() || !mounted) return false;
     try {
       return await showDialog<bool>(
             context: context,
             builder: (ctx) {
               _dialogContext = ctx;
               _dialogRoute = ModalRoute.of(ctx);
+              // Title and content scroll together and the choices stay in
+              // view, so a long title at large text cannot push them off.
               return AlertDialog(
+                scrollable: true,
                 title: Text(title),
-                content: SizedBox(
-                  width: 520,
-                  child: SingleChildScrollView(child: content),
-                ),
+                content: SizedBox(width: 520, child: content),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
@@ -264,61 +457,35 @@ class _AssistantConversationScreenState
     }
   }
 
-  Future<_LocalRouteChoice?> _chooseFreeRoute() async {
-    try {
-      return await showDialog<_LocalRouteChoice>(
-        context: context,
-        builder: (ctx) {
-          _dialogContext = ctx;
-          _dialogRoute = ModalRoute.of(ctx);
-          return AlertDialog(
-            title: Text(copy('Free on-device option', 'Opción local gratis')),
-            content: Text(
-              copy(
-                'This looks like a question the on-device tools can handle. You can carry your draft there for free, or continue to review the AI credit price. Nothing has been sent or charged.',
-                'Parece una pregunta que las herramientas locales pueden atender. Puedes llevar allí tu borrador gratis o continuar para revisar el precio en créditos de IA. No se ha enviado ni cobrado nada.',
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(copy('Cancel', 'Cancelar')),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, _LocalRouteChoice.aiPrice),
-                child: Text(copy('Review AI price', 'Revisar precio de IA')),
-              ),
-              FilledButton(
-                onPressed: () =>
-                    Navigator.pop(ctx, _LocalRouteChoice.freeTools),
-                child: Text(copy('Use free tools', 'Usar herramientas gratis')),
-              ),
-            ],
-          );
-        },
-      );
-    } finally {
-      _dialogContext = null;
-      _dialogRoute = null;
-    }
-  }
-
-  Future<void> _send({bool retry = false}) async {
+  /// Tapping send confirms the price shown on the button. [showPreview]
+  /// opens the full preview even when this selection was already previewed.
+  /// [recollect]: the timer collecting again a request still being answered.
+  Future<void> _send({
+    bool retry = false,
+    bool showPreview = false,
+    bool recollect = false,
+  }) async {
     if (_busy) return;
     if (!retry && _input.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            copy(
-              'Type a question first, then tap send.',
-              'Escribe una pregunta primero y luego toca enviar.',
-            ),
+            showPreview
+                ? copy(
+                    'Type a question first to see exactly what would be sent with it.',
+                    'Escribe una pregunta primero para ver exactamente qué se enviaría con ella.',
+                  )
+                : copy(
+                    'Type a question first, then tap send.',
+                    'Escribe una pregunta primero y luego toca enviar.',
+                  ),
           ),
         ),
       );
       return;
     }
     _paidWaitTimer?.cancel();
+    _reservedRetry?.cancel();
     final generation = _generation;
     final operation = ++_operation;
     final prompt = retry
@@ -332,6 +499,7 @@ class _AssistantConversationScreenState
       ].join(' '),
     );
     if (safety.route != EmotionalSafetyRoute.routine) {
+      if (!await _whenShown() || !mounted) return;
       if (safety.requiresSupportivePause) {
         await showSupportiveDistressDialog(context);
       } else {
@@ -339,59 +507,40 @@ class _AssistantConversationScreenState
       }
       return;
     }
+    // Offline: said before anything is built, previewed, priced or stored.
+    // A request already confirmed and stored (retry) follows its recovery.
+    if (!retry && _offline) {
+      _showFailure(_offlineText);
+      return;
+    }
     setState(() {
       _busy = true;
       _waitIndicatorDismissed = false;
-      _error = null;
+      // A timed re-collect keeps saying the reply is still being answered.
+      if (!recollect) _error = null;
+      _outOfCredits = false;
+      // The one-time line has done its job once a request starts.
+      _scopeNoticeVisible = false;
+    });
+    // Keep the wait indicator and its Stop waiting button in view; the
+    // information row above the input leaves less room for the list. A timed
+    // re-collect leaves the list where the person put it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scroll.hasClients && !recollect) {
+        _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      }
     });
     bool current() =>
         mounted && generation == _generation && operation == _operation;
+    bool abandoned(ConversationQuote? quote) =>
+        quote != null && _abandoned.contains(quote.packet.requestId);
     ConversationQuote? executing;
-    final registry = ref.read(conversationExecutionRegistryProvider);
+    // This send's own wait limit: an older send finishing late must not
+    // cancel a newer one's.
+    Timer? waitTimer;
+    var registry = ref.read(conversationExecutionRegistryProvider);
     try {
-      if (!retry) {
-        final scope = ref.read(accountStorageScopeProvider).v2Namespace;
-        final authGeneration = ref.read(authSessionBoundaryProvider).generation;
-        if (scope == null) {
-          throw const ConversationFailure('authentication_required');
-        }
-        final decision = await ref
-            .read(axiomaraRouterProvider)
-            .route(
-              accountScopeId: scope,
-              input: prompt,
-              externalAiAllowed: ref
-                  .read(personalizationProfileProvider)
-                  .externalAiAllowed,
-            );
-        if (!current() ||
-            ref.read(accountStorageScopeProvider).v2Namespace != scope ||
-            ref.read(authSessionBoundaryProvider).generation !=
-                authGeneration) {
-          return;
-        }
-        if (decision.route == AxiomaraRoute.local ||
-            decision.route == AxiomaraRoute.si) {
-          final choice = await _chooseFreeRoute();
-          if (!current() ||
-              ref.read(accountStorageScopeProvider).v2Namespace != scope ||
-              ref.read(authSessionBoundaryProvider).generation !=
-                  authGeneration) {
-            return;
-          }
-          if (choice == null) return;
-          if (choice == _LocalRouteChoice.freeTools) {
-            final handoff = widget.onLocalToolsWithDraft;
-            if (handoff == null) {
-              widget.onLocalTools();
-            } else {
-              handoff(prompt);
-            }
-            return;
-          }
-        }
-      }
-      final service = ref.read(conversationServiceProvider);
+      var service = ref.read(conversationServiceProvider);
       var quote = retry ? _pending : null;
       if (quote == null) {
         final packet = await ref
@@ -409,13 +558,14 @@ class _AssistantConversationScreenState
               reportedEnergy: _energy,
               selectedTaskId: _attachedTaskId,
               attachedTaskOnly: _attachedTaskOnly,
+              extraSources: _extras,
             );
         if (!current()) return;
         final attachedNoteSafety = EmotionalSafetyPolicy.assess(
           packet.attachedNoteSafetyText,
         );
         if (attachedNoteSafety.route != EmotionalSafetyRoute.routine) {
-          if (!mounted) return;
+          if (!await _whenShown() || !mounted) return;
           if (attachedNoteSafety.requiresSupportivePause) {
             await showSupportiveDistressDialog(context);
           } else {
@@ -423,31 +573,22 @@ class _AssistantConversationScreenState
           }
           return;
         }
-        final proceed = await _confirm(
-          title: copy(
-            'Review what AI will receive',
-            'Revisa lo que recibirá la IA',
-          ),
-          content: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                copy(
-                  'Your question, up to six recent messages, and the app context below go to Axiomara for a credit quote. If you confirm the price, they go to Anthropic for a response. Anthropic normally retains API content for up to 30 days. This does not save or change your tasks.',
-                  'Tu pregunta, hasta seis mensajes recientes y el contexto de abajo se envían a Axiomara para cotizar créditos. Si confirmas el precio, se envían a Anthropic para responder. Anthropic normalmente conserva el contenido de la API hasta 30 días. Esto no guarda ni modifica tus tareas.',
-                ),
-              ),
-              const SizedBox(height: 12),
-              SelectableText(prompt),
-              ExpansionTile(
-                title: Text(copy('Included app context', 'Contexto incluido')),
-                children: [SelectableText(_contextPreview(packet))],
-              ),
-            ],
-          ),
-          action: copy('Get credit price', 'Consultar precio'),
-        );
-        if (!current() || !proceed) return;
+        // The full preview opens by itself the first time and whenever the
+        // selected information changes; nothing is sent before it is
+        // accepted.
+        final previews = ref.read(conversationPreviewMemoryProvider);
+        final selection = _selectionKey(packet);
+        if (showPreview || !previews.hasAccepted(widget.surface, selection)) {
+          final proceed = await _reviewWhatIsSent(
+            prompt,
+            packet,
+            priced: showPreview,
+          );
+          if (!current() || !proceed) return;
+          previews.accept(widget.surface, selection);
+        }
+        // Tapping send confirmed the price on the button. The signed quote
+        // is fetched now; a different price is asked about before charging.
         quote = await service
             .quote(packet)
             .timeout(
@@ -455,20 +596,10 @@ class _AssistantConversationScreenState
               onTimeout: () => throw const ConversationFailure('quote_timeout'),
             );
         if (!current()) return;
-        final accepted = await _confirm(
-          title: copy('Confirm AI request', 'Confirmar solicitud de IA'),
-          content: Text(
-            copy(
-              'This reply costs ${quote.credits} credits. Nothing will be scheduled or marked complete. Send this request?',
-              'Esta respuesta cuesta ${quote.credits} créditos. No se programará ni se marcará nada como completado. ¿Enviar esta solicitud?',
-            ),
-          ),
-          action: copy(
-            'Use ${quote.credits} credits',
-            'Usar ${quote.credits} créditos',
-          ),
-        );
-        if (!current() || !accepted) return;
+        if (quote.credits != conversationMessageCredits) {
+          final accepted = await _confirmChangedPrice(quote.credits);
+          if (!current() || !accepted) return;
+        }
         // Store the confirmed request before sending it, so its reply can be
         // collected if this screen closes. Without that, send nothing.
         final repository = ref.read(
@@ -478,12 +609,57 @@ class _AssistantConversationScreenState
           quote: quote,
           savedAt: DateTime.now(),
         );
-        final bool replacedUntold;
+        // Stop waiting decides, inside the storage queue, whether this request
+        // is written at all. Until the write starts, Stop waiting (a later
+        // operation) withdraws it: nothing is stored, so no path can send it
+        // later, whatever happens to the account or sign-in meanwhile. Once
+        // the write starts ([_committingOperation]), Stop waiting treats it as
+        // confirmed and says so. Leaving the screen without tapping Stop keeps
+        // the Phase 1 design: the stored request is collected on return.
+        var replacedUntold = false;
+        var committed = false;
         try {
           if (repository == null) throw StateError('chat_account_unavailable');
-          replacedUntold = await repository.savePending(record);
+          replacedUntold = await repository.savePending(
+            record,
+            commit: () {
+              if (operation != _operation) return false;
+              _committingOperation = operation;
+              committed = true;
+              return true;
+            },
+          );
         } on Object {
-          throw const ConversationFailure('request_not_saved');
+          if (!committed) {
+            // Withdrawn by Stop waiting (its message says nothing was sent or
+            // charged), or refused before writing: nothing was stored.
+            if (operation != _operation) return;
+            throw const ConversationFailure('request_not_saved');
+          }
+          // The write was handed to storage, so the request may be stored
+          // even though saving reported an error (a sign-in change refusing
+          // the check after the write, or a cleanup after the value was
+          // written). Read it back before saying anything about it. After an
+          // account change this screen says nothing: a stored request stays
+          // with its account and is collected there (Phase 1).
+          // Read back only for the request's own account, even before this
+          // screen has heard of an account change.
+          bool ownAccount() =>
+              ref.read(accountStorageScopeProvider).v2Namespace ==
+              record.quote.packet.accountScope;
+          if (!current() || !ownAccount()) return;
+          final stored = await _storedRequest(record);
+          if (!current() || !ownAccount()) return;
+          if (stored == false) {
+            throw const ConversationFailure('request_not_saved');
+          }
+          if (stored == null) {
+            throw const ConversationFailure('request_storage_uncertain');
+          }
+          // It is stored: finish it here with this account's current
+          // service and registry, as recovery would.
+          service = ref.read(conversationServiceProvider);
+          registry = ref.read(conversationExecutionRegistryProvider);
         }
         // Its content is removed once it can no longer be collected, even if
         // no screen is open then.
@@ -497,19 +673,50 @@ class _AssistantConversationScreenState
           );
         }
         _pending = quote;
+        _pendingCollectBefore = record.collectBefore;
       }
-      _paidWaitTimer = Timer(ref.read(conversationPaidWaitTimeoutProvider), () {
-        if (!current() || !_busy) return;
-        setState(() {
-          _busy = false;
-          _waitIndicatorDismissed = false;
-          _error = _failureText('request_timeout');
-        });
-      });
+      _paidWaitTimer = waitTimer = Timer(
+        ref.read(conversationPaidWaitTimeoutProvider),
+        () {
+          if (!current() || !_busy) return;
+          setState(() {
+            _busy = false;
+            _waitIndicatorDismissed = false;
+            _error = _failureText('request_timeout');
+          });
+          _reportWhileHidden();
+        },
+      );
       executing = quote;
+      // Its answer's balance may replace the one shown only if nothing
+      // changes from its first attempt in this run until it arrives (a retry
+      // keeps that mark; a request recovered from an earlier run has none).
+      final knownBalance = ref.read(aiCreditKnownBalanceProvider.notifier)
+        ..enterPaid(
+          quote.packet.accountScope,
+          quote.packet.requestId,
+          firstAttempt: !retry,
+        );
       // Joins a run that outlived an earlier screen instead of sending again.
       final answer = await registry.execute(quote, service);
-      if (!current()) return;
+      if (!current()) {
+        // A recovered run's answer was already complete: a screen that went
+        // away before using it must not leave it counted as running.
+        knownBalance.release(quote.packet.requestId);
+        return;
+      }
+      if (widget.surface == ConversationSurface.planner && widget.hidden) {
+        // Choose a step keeps no history: the reply is marked shown, and its
+        // stored request forgotten, only once the person is shown it. If this
+        // screen goes away first, the next one collects the same reply.
+        waitTimer.cancel();
+        knownBalance.release(quote.packet.requestId);
+        _reportWhileHidden();
+        if (!await _whenShown() || !current()) {
+          _resumeHeld(generation, operation);
+          return;
+        }
+      }
       registry.finish(quote.packet.requestId, shown: true);
       final review = const AssistantSafetyPipeline().evaluate(
         AssistantSafetyReview(
@@ -529,12 +736,22 @@ class _AssistantConversationScreenState
         ),
       );
       if (!review.mayPublish) {
-        throw const ConversationFailure('response_withheld');
+        throw ConversationFailure(
+          'response_withheld',
+          remainingCredits: answer.remainingCredits,
+        );
       }
+      // Counted from the packet this reply answered, which for a recovered
+      // reply is its own stored request.
+      final receipt = ConversationReplyReceipt.fromReply(quote.packet, answer);
       setState(() {
         _history.addAll([
           {'role': 'user', 'content': prompt},
-          {'role': 'assistant', 'content': review.publishableText},
+          {
+            'role': 'assistant',
+            'content': review.publishableText,
+            ConversationReplyReceipt.turnKey: receipt.encode(),
+          },
         ]);
         if (widget.surface == ConversationSurface.si &&
             _history.length > AssistantConversationHistory.maxMessages) {
@@ -543,11 +760,15 @@ class _AssistantConversationScreenState
             _history.length - AssistantConversationHistory.maxMessages,
           );
         }
-        _input.clear();
+        // Text carried in from the free planner is not the question just
+        // answered; keep it.
+        if (_input.text.trim() == prompt) _input.clear();
         _pending = null;
         _error = null;
       });
       _persistChat(completedRequestId: quote.packet.requestId);
+      _reportWhileHidden();
+      _noteBalance(quote.packet, answer.remainingCredits, sentForReply: true);
       ref.invalidate(aiCreditWalletProvider);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _scroll.hasClients) {
@@ -561,7 +782,20 @@ class _AssistantConversationScreenState
         }
       });
     } on ConversationFailure catch (error) {
-      if (!current()) return;
+      if (!current() || abandoned(executing)) return;
+      if ((error.code == 'request_reserved' ||
+              (recollect && error.code == 'rate_limit_exceeded')) &&
+          executing != null) {
+        // The first call of this same request id is still running (a re-send
+        // after a sign-in change or restart): it stays stored and is
+        // collected again shortly, with the same id. Too many calls while
+        // collecting it means the same: later.
+        _collectAgainLater(
+          executing,
+          recovered: executing.packet.requestId == _recoveringRequestId,
+        );
+        return;
+      }
       if (<String>{
         'daily_budget_exceeded',
         'timing_context_missing',
@@ -579,6 +813,19 @@ class _AssistantConversationScreenState
         'invalid_upstream_response',
         'empty_upstream_response',
       }.contains(error.code)) {
+        if (executing != null &&
+            widget.surface == ConversationSurface.planner &&
+            widget.hidden) {
+          // Every final answer is seen before its stored request is
+          // forgotten; a re-send of the same id gets the same answer. The
+          // wait limit no longer applies: the answer is here.
+          waitTimer?.cancel();
+          _reportWhileHidden();
+          if (!await _whenShown() || !current()) {
+            _resumeHeld(generation, operation);
+            return;
+          }
+        }
         _pending = null;
         // A terminal answer ends the stored request; it is never re-sent.
         if (executing != null) {
@@ -589,24 +836,58 @@ class _AssistantConversationScreenState
       final recovered =
           executing != null &&
           executing.packet.requestId == _recoveringRequestId;
+      if (executing != null) {
+        _noteBalance(
+          executing.packet,
+          error.remainingCredits,
+          sentForReply: true,
+        );
+      }
+      final outOfCredits = {
+        'insufficient_credits',
+        'credits_exhausted',
+      }.contains(error.code);
       _showFailure(
         recovered &&
                 {'quote_expired', 'credit_quote_required'}.contains(error.code)
             ? _pendingExpiredText(questionRestored: true)
-            : _failureText(error.code),
+            : outOfCredits
+            ? _outOfCreditsText(
+                balance: error.remainingCredits,
+                needed: executing?.credits ?? conversationMessageCredits,
+              )
+            : _failureText(
+                error.code,
+                balance: error.remainingCredits,
+                sentForReply: executing != null,
+                // A stored or retried request may have been handed to the
+                // server before this attempt, so its charge is unknown.
+                priorAttempt: retry && executing != null,
+              ),
+        outOfCredits: outOfCredits,
       );
       ref.invalidate(aiCreditWalletProvider);
     } on Object {
-      if (!current()) return;
+      if (!current() || abandoned(executing)) return;
+      if (executing != null) {
+        _noteBalance(executing.packet, null, sentForReply: true);
+      }
       _showFailure(
-        copy(
-          'The AI service did not confirm a reply. Your question is retained. If you already confirmed payment, retry the same request to avoid a second charge.',
-          'El servicio de IA no confirmó una respuesta. Tu pregunta se conserva. Si ya confirmaste el pago, reintenta la misma solicitud para evitar otro cobro.',
-        ),
+        executing == null
+            // Nothing was handed on for a reply, so nothing was charged.
+            ? copy(
+                'The AI service could not be reached. Nothing was sent for a reply and nothing was charged. Your question is retained; tap send to try again.',
+                'No se pudo contactar con el servicio de IA. No se envió nada para responder y no se cobró nada. Tu pregunta se conserva; toca enviar para intentarlo de nuevo.',
+              )
+            // Tapping send confirmed the price; the same request is kept.
+            : copy(
+                'The AI service did not confirm a reply. Your question and this request are kept. Tap Retry same request to try again without a second charge.',
+                'El servicio de IA no confirmó una respuesta. Se conservan tu pregunta y esta solicitud. Toca Reintentar la misma solicitud para intentarlo de nuevo sin un segundo cobro.',
+              ),
       );
     } finally {
-      _paidWaitTimer?.cancel();
-      _paidWaitTimer = null;
+      waitTimer?.cancel();
+      if (identical(_paidWaitTimer, waitTimer)) _paidWaitTimer = null;
       if (current()) {
         setState(() {
           _busy = false;
@@ -617,8 +898,12 @@ class _AssistantConversationScreenState
     }
   }
 
-  void _showFailure(String message) {
-    setState(() => _error = message);
+  void _showFailure(String message, {bool outOfCredits = false}) {
+    setState(() {
+      _error = message;
+      _outOfCredits = outOfCredits;
+    });
+    _reportWhileHidden();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scroll.hasClients) return;
       unawaited(
@@ -634,13 +919,12 @@ class _AssistantConversationScreenState
   void _stopWaiting() {
     if (!_busy) return;
     setState(() {
-      if (_pending == null) {
+      // Before the confirmed request starts its storage write, stopping
+      // withdraws it for good: it is never stored or sent (see _send).
+      if (_pending == null && _committingOperation != _operation) {
         _operation++;
         _busy = false;
-        _error = copy(
-          'Stopped waiting before a paid request was confirmed. Your question is retained.',
-          'Se detuvo la espera antes de confirmar una solicitud de pago. Tu pregunta se conserva.',
-        );
+        _error = _stoppedBeforeSendingText;
         return;
       }
       _waitIndicatorDismissed = true;
@@ -649,87 +933,6 @@ class _AssistantConversationScreenState
         'La solicitud pagada sigue finalizando de forma segura. La respuesta confirmada aparecerá aquí cuando llegue. Si sales, vuelve a esta pantalla en unos minutos para recibirla sin otro cobro.',
       );
     });
-  }
-
-  String _failureText(String code) => switch (code) {
-    'timing_context_missing' => copy(
-      'I need one scheduled task and its local date to check this store-closing question. No credits were charged. Schedule or select the task, update the app if needed, then start a new request and review a new quote.',
-      'Necesito una tarea programada y su fecha local para comprobar esta pregunta sobre el cierre de la tienda. No se cobraron créditos de IA. Programa o selecciona la tarea, actualiza la app si hace falta y luego inicia una solicitud nueva y revisa una cotización nueva.',
-    ),
-    'insufficient_credits' || 'credits_exhausted' => copy(
-      'You do not have enough AI credits. No model answer was generated. No credits were charged. Add credits or wait for your allowance, then start a new request and review a new quote.',
-      'No tienes suficientes créditos de IA. No se generó una respuesta del modelo. No se cobraron créditos. Añade créditos o espera tu asignación; después inicia una solicitud nueva y revisa una nueva cotización.',
-    ),
-    'request_completed' => copy(
-      'This request already finished, but its reply is unavailable. Retrying did not charge you again. To ask again, start a new request and review a new quote.',
-      'Esta solicitud ya terminó, pero la respuesta no está disponible. El reintento no te cobró de nuevo. Para preguntar otra vez, inicia una solicitud nueva y revisa una cotización nueva.',
-    ),
-    'quote_expired' || 'credit_quote_required' => copy(
-      'The price expired. Start a new request to review a new quote.',
-      'El precio caducó. Inicia otra solicitud para revisar una nueva cotización.',
-    ),
-    'request_not_saved' => copy(
-      'This request could not be saved on this device, so it was not sent. No credits were charged. Your question is retained; try again. If this keeps happening, open Chat and use Clear conversation, then try again.',
-      'No se pudo guardar esta solicitud en este dispositivo, así que no se envió. No se cobraron créditos. Tu pregunta se conserva; inténtalo de nuevo. Si sigue pasando, abre Chat y usa Borrar conversación; luego inténtalo de nuevo.',
-    ),
-    'quote_timeout' => copy(
-      'The AI service took too long to provide a credit price. No paid request was confirmed. Your question is retained; start a new request to review a fresh quote.',
-      'El servicio de IA tardó demasiado en proporcionar un precio en créditos. No se confirmó ninguna solicitud de pago. Tu pregunta se conserva; inicia una solicitud nueva para revisar una cotización nueva.',
-    ),
-    'request_timeout' => copy(
-      'The AI service took too long to confirm a reply. Your question and the same priced request are retained. Retry the same request to avoid a second charge.',
-      'El servicio de IA tardó demasiado en confirmar una respuesta. Se conservan tu pregunta y la misma solicitud con precio. Reintenta la misma solicitud para evitar un segundo cobro.',
-    ),
-    'daily_budget_exceeded' => copy(
-      'You reached the rolling daily AI safety limit. No credits were charged. Your question is retained, but this priced request cannot be reused. Start a new request and review a new quote after the limit resets.',
-      'Alcanzaste el límite diario móvil de seguridad de IA. No se cobraron créditos. Tu pregunta se conserva, pero esta solicitud con precio no se puede reutilizar. Inicia una solicitud nueva y revisa una nueva cotización cuando se restablezca el límite.',
-    ),
-    'provider_cost_budget_exceeded' => copy(
-      'AI requests are temporarily paused by the service spending limit. No credits were charged. Your question and priced request are retained for a later retry.',
-      'Las solicitudes de IA están pausadas temporalmente por el límite de gasto del servicio. No se cobraron créditos. Se conservan tu pregunta y la solicitud con precio para reintentarlo más tarde.',
-    ),
-    'rate_limit_exceeded' => copy(
-      'Too many AI requests arrived at once. No credits were charged. Your question is retained; wait a moment and try again.',
-      'Llegaron demasiadas solicitudes de IA al mismo tiempo. No se cobraron créditos. Tu pregunta se conserva; espera un momento e inténtalo de nuevo.',
-    ),
-    'request_denied' => copy(
-      'This AI request was denied before processing. No credits were charged. Your question is retained; start a new request or retry after the account limit changes.',
-      'Esta solicitud de IA fue rechazada antes de procesarse. No se cobraron créditos. Tu pregunta se conserva; inicia una solicitud nueva o reintenta cuando cambie el límite de la cuenta.',
-    ),
-    'authorization_changed' => copy(
-      'Your account or AI consent changed. This request was stopped.',
-      'Cambió tu cuenta o consentimiento de IA. Se detuvo esta solicitud.',
-    ),
-    'request_refunded' ||
-    'unsafe_upstream_response' ||
-    'inconsistent_upstream_response' ||
-    'upstream_ai_error' ||
-    'truncated_upstream_response' ||
-    'invalid_upstream_response' ||
-    'empty_upstream_response' => copy(
-      'The request ended without a usable reply and its credits were refunded. No credits were charged. Your question is retained; start a new request and review a new quote.',
-      'La solicitud terminó sin una respuesta utilizable y se reembolsaron sus créditos. No se cobraron créditos. Tu pregunta se conserva; inicia una solicitud nueva y revisa una cotización nueva.',
-    ),
-    'response_withheld' => copy(
-      'The reply did not pass the response check. It has not been replaced with a stock answer. Check your credit balance before another request.',
-      'La respuesta no superó la comprobación. No se sustituyó por una respuesta prefabricada. Revisa el saldo antes de otra solicitud.',
-    ),
-    _ => copy(
-      'The AI service could not complete this request. Your question is retained. You can try again.',
-      'El servicio de IA no pudo completar esta solicitud. Tu pregunta se conserva. Puedes intentarlo de nuevo.',
-    ),
-  };
-
-  Iterable<String> _recordEvidenceIds(ConversationPacket packet) sync* {
-    final data = packet.toJson()['context'] as Map;
-    for (final source in ['tasks', 'goals', 'milestones']) {
-      for (final record
-          in (data[source] as List? ?? const [])
-              .whereType<Map<Object?, Object?>>()) {
-        if (record['id'] case final String id) yield '$source:$id';
-      }
-    }
-    if (data['selectedNoteId'] case final String id) yield 'notes:$id';
   }
 
   Future<void> _report(String response) async {
@@ -783,7 +986,13 @@ class _AssistantConversationScreenState
     try {
       await ref
           .read(aiContentReportActionsProvider)
-          .submit(responseText: response, reason: reason);
+          .submit(
+            responseText: response,
+            reason: reason,
+            surface: widget.surface == ConversationSurface.planner
+                ? 'planner'
+                : 'chat',
+          );
       if (!mounted || generation != _generation) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -810,111 +1019,11 @@ class _AssistantConversationScreenState
     }
   }
 
-  String _contextPreview(ConversationPacket packet) {
-    final data = Map<String, dynamic>.from(packet.toJson()['context'] as Map);
-    final sourceNames =
-        (data['selectedSources'] as List?)?.whereType<String>().toSet() ??
-        <String>{};
-    final includedSources = SIV2Source.values
-        .where((source) => sourceNames.contains(source.name))
-        .map(_sourceLabel)
-        .join(', ');
-    final lines = <String>[
-      if (data['contextScope'] == 'attachedTaskOnly')
-        copy(
-          'Context: attached task only. Other records and emotional state are excluded.',
-          'Contexto: solo la tarea adjunta. Se excluyen otros registros y el estado emocional.',
-        ),
-      copy(
-        'Selected analysis: ${_intentLabel(_intent)}',
-        'Análisis seleccionado: ${_intentLabel(_intent)}',
-      ),
-      copy(
-        'Sources: ${includedSources.isEmpty ? 'just this chat' : includedSources}',
-        'Fuentes: ${includedSources.isEmpty ? 'solo esta conversación' : includedSources}',
-      ),
-      copy('Dates: ${_rangeLabel(_range)}', 'Fechas: ${_rangeLabel(_range)}'),
-      if (_filter.text.trim().isNotEmpty)
-        copy(
-          'Title filter: ${_filter.text.trim()}',
-          'Filtro de título: ${_filter.text.trim()}',
-        ),
-      if (_scenario.text.trim().isNotEmpty)
-        copy(
-          'Hypothetical: ${_scenario.text.trim()}',
-          'Hipótesis: ${_scenario.text.trim()}',
-        ),
-    ];
-    final labels = <String, String>{
-      'title': copy('Title', 'Título'),
-      'description': copy('Details', 'Detalles'),
-      'priority': copy('Priority', 'Prioridad'),
-      'scheduledStart': copy('Scheduled start', 'Inicio programado'),
-      'deadline': copy('Deadline', 'Vencimiento'),
-      'targetDate': copy('Target date', 'Fecha objetivo'),
-      'estimatedDurationMinutes': copy(
-        'Estimated minutes',
-        'Minutos estimados',
-      ),
-      'completionPercent': copy('Recorded progress', 'Progreso registrado'),
-      'timestamp': copy('Recorded time', 'Hora registrada'),
-      'status': copy('Status', 'Estado'),
-      'body': copy('Note', 'Nota'),
-    };
-    void record(Map<Object?, Object?> values) {
-      for (final entry in labels.entries) {
-        final value = values[entry.key];
-        if (value != null && value.toString().isNotEmpty) {
-          lines.add('${entry.value}: $value');
-        }
-      }
-      lines.add('');
-    }
-
-    for (final source in SIV2Source.values) {
-      final records = data[source.name];
-      if (records is! List || records.isEmpty) continue;
-      lines.add('\n${_sourceLabel(source)}');
-      for (final item in records.whereType<Map<Object?, Object?>>()) {
-        record(item);
-      }
-    }
-    if (data['explicitlyAttachedNote'] case final Map<Object?, Object?> note) {
-      lines.add(copy('Attached note', 'Nota adjunta'));
-      record(note);
-    }
-    if (data['reportedEnergy'] case final num energy) {
-      lines.add(
-        copy(
-          'Your energy: ${(energy * 100).round()}%',
-          'Tu energía: ${(energy * 100).round()}%',
-        ),
-      );
-    }
-    if (data['reportedEmotion'] case final String emotion) {
-      lines.add(
-        copy(
-          'Your selected emotional state: $emotion',
-          'Tu estado emocional seleccionado: $emotion',
-        ),
-      );
-    }
-    final omitted = data['omittedRecordCount'];
-    if (omitted is int && omitted > 0) {
-      lines.add(
-        copy(
-          '$omitted additional records are not included.',
-          'No se incluyen $omitted registros adicionales.',
-        ),
-      );
-    }
-    return lines.join('\n');
-  }
-
   @override
   Widget build(BuildContext context) {
     ref.listen(accountStorageScopeProvider, (previous, next) {
       if (previous?.v2Namespace != next.v2Namespace) {
+        _releaseGate();
         final dialog = _dialogContext;
         if (dialog != null && dialog.mounted) Navigator.pop(dialog);
         unawaited(ref.read(voiceControllerProvider.notifier).stopListening());
@@ -935,6 +1044,7 @@ class _AssistantConversationScreenState
           _busy = false;
           _waitIndicatorDismissed = false;
           _error = null;
+          _outOfCredits = false;
           _recoveringRequestId = null;
         });
         _restartChat();
@@ -943,6 +1053,7 @@ class _AssistantConversationScreenState
     });
     ref.listen(authSessionBoundaryProvider, (previous, next) {
       if (previous != null && previous.generation != next.generation) {
+        _releaseGate();
         _restartChat();
         unawaited(_loadPlannerPending());
       }
@@ -997,6 +1108,31 @@ class _AssistantConversationScreenState
         !_busy &&
         _pending == null &&
         (planner || (_historyReady && !_historyLoading && !_historyConflict));
+    // Only a request actually in flight counts. A stored request that is idle
+    // (waiting for Retry same request) does not block a free question.
+    final bool sending = _busy;
+    if (_reportedBusy != sending) {
+      _reportedBusy = sending;
+      final ValueChanged<bool>? report = widget.onBusyChanged;
+      if (report != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) report(sending);
+        });
+      }
+    }
+    // One two-way control: free on this device, or AI chat with its price.
+    final modeSwitch = AssistantModeSwitch(
+      surface: widget.surface,
+      aiSelected: true,
+      aiOff: !consent,
+      enabled: !_busy,
+      disabledReason: copy(
+        'A message is being sent. You can switch when it finishes.',
+        'Se está enviando un mensaje. Podrás cambiar cuando termine.',
+      ),
+      onChooseOnDevice: widget.onLocalTools,
+      onChooseAi: () {},
+    );
     final scaffold = Scaffold(
       backgroundColor: const Color(0xFF07111C),
       appBar: AppBar(
@@ -1014,40 +1150,21 @@ class _AssistantConversationScreenState
       body: _ConversationBody(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Tooltip(
-                  message: copy('On-device tools', 'Herramientas locales'),
-                  child: OutlinedButton.icon(
-                    key: const Key('conversation-free-tools'),
-                    onPressed: _busy
-                        ? null
-                        : () {
-                            final handoff = widget.onLocalToolsWithDraft;
-                            if (handoff == null) {
-                              widget.onLocalTools();
-                            } else {
-                              handoff(_input.text.trim());
-                            }
-                          },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: const Color(0xFF10203F),
-                      minimumSize: const Size(0, 48),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      side: const BorderSide(color: Colors.cyanAccent),
-                    ),
-                    icon: const Icon(Icons.offline_bolt_outlined),
-                    label: Text(copy('Free tools', 'Herramientas gratis')),
-                  ),
+            if (!_largeText && consent)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                // The mode switch and the balance stay in view. At large text
+                // both are at the top of the conversation instead, so this
+                // fixed area leaves the conversation its room.
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    modeSwitch,
+                    const SizedBox(height: 4),
+                    _balanceLine(),
+                  ],
                 ),
               ),
-            ),
             Expanded(
               child: ListView(
                 controller: _scroll,
@@ -1055,68 +1172,13 @@ class _AssistantConversationScreenState
                 children: [
                   // First in the list so it is the first thing seen on open,
                   // but it scrolls, so large text cannot overflow the screen.
+                  // At large text the mode switch follows it.
                   if (!consent) ...[
-                    Container(
-                      key: const Key('conversation-ai-off-notice'),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2A1F05),
-                        border: Border.all(color: Colors.amberAccent),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.lock_outline,
-                                color: Colors.amberAccent,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  copy(
-                                    'AI chat is off',
-                                    'El chat con IA está desactivado',
-                                  ),
-                                  style: const TextStyle(
-                                    color: Colors.amberAccent,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            copy(
-                              'You need to turn on AI before you can type or send here. Go to Settings › Personalization and turn on "Allow external AI assistance". Each message shows its credit price before anything is charged.',
-                              'Debes activar la IA antes de escribir o enviar aquí. Ve a Ajustes › Personalización y activa "Permitir asistencia de IA externa". Cada mensaje muestra su precio en créditos antes de cobrar algo.',
-                            ),
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          const SizedBox(height: 8),
-                          FilledButton.icon(
-                            key: const Key('conversation-ai-off-settings'),
-                            onPressed: _busy
-                                ? null
-                                : () => goToAppView(
-                                    context,
-                                    ref,
-                                    AppView.settings,
-                                  ),
-                            icon: const Icon(Icons.settings_outlined),
-                            label: Text(
-                              copy(
-                                'Turn on AI in Settings',
-                                'Activar IA en Ajustes',
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _aiChatOffNotice(),
+                    const SizedBox(height: 12),
+                  ],
+                  if (_largeText || !consent) ...[
+                    modeSwitch,
                     const SizedBox(height: 12),
                   ],
                   Text(
@@ -1126,6 +1188,7 @@ class _AssistantConversationScreenState
                     ),
                     style: const TextStyle(color: Colors.cyanAccent),
                   ),
+                  if (_largeText || !consent) _balanceLine(),
                   const SizedBox(height: 8),
                   Text(
                     copy(
@@ -1133,258 +1196,39 @@ class _AssistantConversationScreenState
                       'Cuenta qué te preocupa o pregunta sobre un plan. Las respuestas usan esta conversación y la información que apruebes. Puedes corregirlas. Las sugerencias no cambian elementos guardados.',
                     ),
                   ),
+                  if (!planner && consent && _scopeNoticeVisible)
+                    _scopeNotice(),
                   if (!planner) _chatHistoryControls(),
-                  if (planner && tasks != null)
-                    DropdownButtonFormField<String>(
-                      key: ValueKey(
-                        'conversation-task-${_attachedTaskId ?? 'none'}',
+                  ..._conversationOptions(
+                    planner: planner,
+                    enabled: enabled,
+                    tasks: tasks,
+                  ),
+                  // Free questions, answered on this device by the free
+                  // assistant. They sit with the options, ahead of the
+                  // conversation, so a reply is never pushed out of view.
+                  if (!planner && widget.onQuickQuestion != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      copy(
+                        'Quick questions · free, answered on this device',
+                        'Preguntas rápidas · gratis, respondidas en este dispositivo',
                       ),
-                      initialValue: tasks.any((t) => t.id == _attachedTaskId)
-                          ? _attachedTaskId
-                          : null,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: copy(
-                          'Use a saved task (optional)',
-                          'Usar una tarea guardada (opcional)',
-                        ),
+                      style: TextStyle(
+                        color: lightForms
+                            ? selectedTheme.colorScheme.onSurfaceVariant
+                            : Colors.white70,
                       ),
-                      items: [
-                        DropdownMenuItem(
-                          value: '',
-                          child: Text(
-                            copy('No specific task', 'Sin tarea específica'),
-                          ),
-                        ),
-                        ...tasks.map(
-                          (t) => DropdownMenuItem(
-                            value: t.id,
-                            child: Text(
-                              t.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ],
-                      onChanged: enabled
-                          ? (value) => setState(() {
-                              _attachedTaskId = value == '' ? null : value;
-                              _attachedTaskOnly = true;
-                              _history.clear();
-                              _pending = null;
-                            })
-                          : null,
                     ),
-                  if (planner && _attachedTaskId != null)
-                    SwitchListTile(
-                      key: const Key('conversation-task-only'),
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        copy('Use only this task', 'Usar solo esta tarea'),
-                      ),
-                      subtitle: Text(
-                        copy(
-                          'Turn off to review broader app context. Changing this starts a new conversation.',
-                          'Desactiva para revisar más contexto de la app. Cambiar esto inicia una conversación nueva.',
-                        ),
-                      ),
-                      value: _attachedTaskOnly,
-                      onChanged: enabled
-                          ? (value) => setState(() {
-                              _attachedTaskOnly = value;
-                              _history.clear();
-                              _pending = null;
-                            })
-                          : null,
+                    const SizedBox(height: 8),
+                    OneTapQuestionRow(
+                      layout: OneTapRowLayout.scroll,
+                      questions: chatOneTapQuestions,
+                      enabled: !_busy,
+                      onAsk: (SIOneTapQuestion question) =>
+                          widget.onQuickQuestion!(question),
                     ),
-                  if (planner)
-                    ExpansionTile(
-                      childrenPadding: const EdgeInsets.only(
-                        top: 16,
-                        bottom: 8,
-                      ),
-                      title: Text(
-                        copy(
-                          'How much energy do you have? (optional)',
-                          '¿Cuánta energía tienes? (opcional)',
-                        ),
-                      ),
-                      children: [
-                        DropdownButtonFormField<double>(
-                          isExpanded: true,
-                          key: ValueKey('conversation-energy-$_generation'),
-                          initialValue: _energy,
-                          decoration: InputDecoration(
-                            labelText: copy(
-                              'Energy (optional)',
-                              'Energía (opcional)',
-                            ),
-                          ),
-                          hint: Text(copy('Not set', 'Sin indicar')),
-                          items: [
-                            DropdownMenuItem(
-                              value: -1,
-                              child: Text(copy('Not set', 'Sin indicar')),
-                            ),
-                            for (var percent = 0; percent <= 100; percent += 10)
-                              DropdownMenuItem(
-                                value: percent / 100,
-                                child: Text('$percent%'),
-                              ),
-                            if (_energy != null &&
-                                ![
-                                  for (var i = 0; i <= 10; i++) i / 10,
-                                ].contains(_energy))
-                              DropdownMenuItem(
-                                value: _energy,
-                                child: Text('${(_energy! * 100).round()}%'),
-                              ),
-                          ],
-                          onChanged: enabled
-                              ? (v) =>
-                                    setState(() => _energy = v == -1 ? null : v)
-                              : null,
-                        ),
-                      ],
-                    ),
-                  if (!planner)
-                    ExpansionTile(
-                      key: const Key('conversation-advanced'),
-                      childrenPadding: const EdgeInsets.only(
-                        top: 16,
-                        bottom: 8,
-                      ),
-                      title: Text(
-                        copy(
-                          'Choose information to use (optional)',
-                          'Elegir información que usar (opcional)',
-                        ),
-                      ),
-                      children: [
-                        DropdownButtonFormField<SIV2Intent>(
-                          isExpanded: true,
-                          key: ValueKey('conversation-mode-$_generation'),
-                          initialValue: _intent,
-                          decoration: InputDecoration(
-                            labelText: copy(
-                              'What kind of help?',
-                              '¿Qué tipo de ayuda?',
-                            ),
-                          ),
-                          items: SIV2Intent.values
-                              .map(
-                                (v) => DropdownMenuItem(
-                                  value: v,
-                                  child: Text(_intentLabel(v)),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: enabled
-                              ? (v) => setState(() => _intent = v!)
-                              : null,
-                        ),
-                        DropdownButtonFormField<SIV2TimeRange>(
-                          isExpanded: true,
-                          key: ValueKey('conversation-range-$_generation'),
-                          initialValue: _range,
-                          decoration: InputDecoration(
-                            labelText: copy('Date range', 'Fechas'),
-                          ),
-                          items: SIV2TimeRange.values
-                              .map(
-                                (v) => DropdownMenuItem(
-                                  value: v,
-                                  child: Text(_rangeLabel(v)),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: enabled
-                              ? (v) => setState(() => _range = v!)
-                              : null,
-                        ),
-                        Wrap(
-                          spacing: 8,
-                          children: SIV2Source.values
-                              .map(
-                                (s) => FilterChip(
-                                  label: Text(_sourceLabel(s)),
-                                  selected: _sources.contains(s),
-                                  onSelected: !enabled
-                                      ? null
-                                      : (selected) {
-                                          setState(() {
-                                            if (selected) {
-                                              _sources = {..._sources, s};
-                                            } else {
-                                              _sources = {..._sources}
-                                                ..remove(s);
-                                            }
-                                          });
-                                          _persistChat();
-                                        },
-                                ),
-                              )
-                              .toList(),
-                        ),
-                        TextButton(
-                          onPressed: !enabled
-                              ? null
-                              : () {
-                                  setState(() {
-                                    _sources = <SIV2Source>{};
-                                    _attachedTaskId = null;
-                                    _energy = null;
-                                    _pending = null;
-                                  });
-                                  _persistChat();
-                                },
-                          child: Text(
-                            copy(
-                              'Use just this chat',
-                              'Usar solo esta conversación',
-                            ),
-                          ),
-                        ),
-                        if (_sources.isEmpty && _attachedTaskId == null)
-                          Text(
-                            copy(
-                              'Saved planning records are off. Earlier messages in this chat still apply.',
-                              'No se incluyen registros de planificación. Los mensajes anteriores de esta conversación aún se usan.',
-                            ),
-                          ),
-                        TextField(
-                          key: const Key('conversation-entity-filter'),
-                          controller: _filter,
-                          enabled: enabled,
-                          maxLength: 120,
-                          decoration: InputDecoration(
-                            counterStyle: const TextStyle(
-                              color: Colors.white70,
-                            ),
-                            labelText: copy(
-                              'Filter saved titles',
-                              'Filtrar títulos guardados',
-                            ),
-                          ),
-                        ),
-                        TextField(
-                          key: const Key('conversation-scenario'),
-                          controller: _scenario,
-                          enabled: enabled,
-                          maxLength: 500,
-                          decoration: InputDecoration(
-                            counterStyle: const TextStyle(
-                              color: Colors.white70,
-                            ),
-                            labelText: copy(
-                              'Scenario to explore',
-                              'Escenario que quieres explorar',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  ],
                   ..._history.map(
                     (turn) => Card(
                       color: lightForms
@@ -1416,9 +1260,17 @@ class _AssistantConversationScreenState
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              if (turn['role'] == 'assistant')
-                                AssistantResponseBody(text: turn['content']!)
-                              else
+                              if (turn['role'] == 'assistant') ...[
+                                AssistantResponseBody(text: turn['content']!),
+                                _replyReceipt(
+                                  turn,
+                                  color: lightForms
+                                      ? selectedTheme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                      : Colors.white70,
+                                ),
+                              ] else
                                 SelectableText(turn['content']!),
                               if (turn['role'] == 'assistant')
                                 TextButton.icon(
@@ -1484,6 +1336,11 @@ class _AssistantConversationScreenState
                         style: const TextStyle(color: Colors.orangeAccent),
                       ),
                     ),
+                  if (_error != null &&
+                      _outOfCredits &&
+                      !_busy &&
+                      ref.watch(subscriptionPurchasingEnabledProvider))
+                    _getCreditsAction(),
                   if (_pending != null && !_busy)
                     Wrap(
                       spacing: 12,
@@ -1517,8 +1374,14 @@ class _AssistantConversationScreenState
                             );
                             final abandoned = _pending?.packet.requestId;
                             if (mounted && confirmed && abandoned != null) {
+                              _abandoned.add(abandoned);
+                              _reservedRetry?.cancel();
                               setState(() => _pending = null);
                               _forgetPending(abandoned);
+                              // Its answer will not be used here.
+                              ref
+                                  .read(aiCreditKnownBalanceProvider.notifier)
+                                  .release(abandoned);
                             }
                           },
                           child: Text(
@@ -1533,129 +1396,133 @@ class _AssistantConversationScreenState
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      key: const Key('conversation-input'),
-                      controller: _input,
-                      enabled: enabled,
-                      readOnly: listening,
-                      minLines: 1,
-                      maxLines: 5,
-                      maxLength: 4000,
-                      decoration: InputDecoration(
-                        counterStyle: const TextStyle(color: Colors.white70),
-                        labelText: consent
-                            ? copy(
-                                'Your question or follow-up',
-                                'Tu pregunta o continuación',
-                              )
-                            : copy(
-                                'Turn on AI in Settings to type',
-                                'Activa la IA en Ajustes para escribir',
+            _boundedBottom([
+              if (!planner && _historyReady)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: _scopeChips(enabled: enabled),
+                ),
+              if (planner && consent)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: _plannerScopeLine(),
+                ),
+              // A suggestion only: sending stays available either way.
+              if (consent && enabled && _freeSuggested) _freeSuggestion(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            key: const Key('conversation-input'),
+                            controller: _input,
+                            enabled: enabled,
+                            readOnly: listening,
+                            minLines: 1,
+                            maxLines: 5,
+                            maxLength: 4000,
+                            decoration: InputDecoration(
+                              counterStyle: const TextStyle(
+                                color: Colors.white70,
                               ),
-                        border: const OutlineInputBorder(),
-                      ),
+                              labelText: consent
+                                  ? copy(
+                                      'Your question or follow-up',
+                                      'Tu pregunta o continuación',
+                                    )
+                                  : copy(
+                                      'Turn on AI chat to type',
+                                      'Activa el chat con IA para escribir',
+                                    ),
+                              border: const OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        if (ref.watch(voiceInputEnabledProvider)) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            color: Colors.cyanAccent,
+                            disabledColor: Colors.white38,
+                            tooltip: copy(
+                              listening
+                                  ? 'Stop voice input'
+                                  : 'Start voice input',
+                              listening
+                                  ? 'Detener entrada de voz'
+                                  : 'Iniciar entrada de voz',
+                            ),
+                            onPressed: !enabled && !listening
+                                ? null
+                                : () async {
+                                    if (listening) {
+                                      await ref
+                                          .read(
+                                            voiceControllerProvider.notifier,
+                                          )
+                                          .stopListening();
+                                      return;
+                                    }
+                                    final VoiceController voiceController = ref
+                                        .read(voiceControllerProvider.notifier);
+                                    _dictationDraftBase = _input.text;
+                                    final int revision =
+                                        voiceController.lifecycleRevision;
+                                    final int activation = _voiceActivation;
+                                    await startVoiceInputWithConsent(
+                                      context: context,
+                                      onStart: () =>
+                                          voiceController.startListening(
+                                            localeId: Localizations.localeOf(
+                                              context,
+                                            ).toLanguageTag(),
+                                          ),
+                                      consentStore: ref.read(
+                                        voiceInputConsentStoreProvider,
+                                      ),
+                                      isCurrentRequest: () =>
+                                          mounted &&
+                                          widget.isActive &&
+                                          activation == _voiceActivation &&
+                                          voiceController.lifecycleRevision ==
+                                              revision,
+                                    );
+                                  },
+                            icon: Icon(
+                              listening
+                                  ? Icons.mic_rounded
+                                  : Icons.mic_none_rounded,
+                            ),
+                          ),
+                        ],
+                        if (consent && _largeText) ...[
+                          const SizedBox(width: 4),
+                          _previewIconButton(
+                            enabled: enabled,
+                            listening: listening,
+                          ),
+                        ],
+                        if (!consent) ...[
+                          const SizedBox(width: 8),
+                          _offSendButton(listening: listening),
+                        ],
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  if (ref.watch(voiceInputEnabledProvider)) ...[
-                    IconButton(
-                      color: Colors.cyanAccent,
-                      disabledColor: Colors.white38,
-                      tooltip: copy(
-                        listening ? 'Stop voice input' : 'Start voice input',
-                        listening
-                            ? 'Detener entrada de voz'
-                            : 'Iniciar entrada de voz',
-                      ),
-                      onPressed: !enabled && !listening
-                          ? null
-                          : () async {
-                              if (listening) {
-                                await ref
-                                    .read(voiceControllerProvider.notifier)
-                                    .stopListening();
-                                return;
-                              }
-                              final VoiceController voiceController = ref.read(
-                                voiceControllerProvider.notifier,
-                              );
-                              _dictationDraftBase = _input.text;
-                              final int revision =
-                                  voiceController.lifecycleRevision;
-                              final int activation = _voiceActivation;
-                              await startVoiceInputWithConsent(
-                                context: context,
-                                onStart: () => voiceController.startListening(
-                                  localeId: Localizations.localeOf(
-                                    context,
-                                  ).toLanguageTag(),
-                                ),
-                                consentStore: ref.read(
-                                  voiceInputConsentStoreProvider,
-                                ),
-                                isCurrentRequest: () =>
-                                    mounted &&
-                                    widget.isActive &&
-                                    activation == _voiceActivation &&
-                                    voiceController.lifecycleRevision ==
-                                        revision,
-                              );
-                            },
-                      icon: Icon(
-                        listening ? Icons.mic_rounded : Icons.mic_none_rounded,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
+                    if (consent)
+                      _sendControls(enabled: enabled, listening: listening),
                   ],
-                  IconButton(
-                    color: consent ? Colors.cyanAccent : Colors.white38,
-                    disabledColor: Colors.white38,
-                    tooltip: copy('Send to AI', 'Enviar a IA'),
-                    // With AI off, the button stays tappable and explains
-                    // how to turn AI on rather than silently doing nothing.
-                    onPressed: listening
-                        ? null
-                        : enabled
-                        ? () => _send()
-                        : !consent && widget.isActive && !_busy
-                        ? _explainAiOff
-                        : null,
-                    icon: const Icon(Icons.send_rounded),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ]),
           ],
         ),
       ),
     );
     return PopScope(canPop: !_busy, child: scaffold);
   }
-
-  String _intentLabel(SIV2Intent value) => switch (value) {
-    SIV2Intent.answer => copy('Answer', 'Responder'),
-    SIV2Intent.explain => copy('Explain', 'Explicar'),
-    SIV2Intent.compare => copy('Compare', 'Comparar'),
-    SIV2Intent.forecast => copy('Forecast', 'Proyección'),
-    SIV2Intent.findConflict => copy('Find conflicts', 'Buscar conflictos'),
-    SIV2Intent.counterfactual => copy('What would change?', '¿Qué cambiaría?'),
-  };
-  String _rangeLabel(SIV2TimeRange value) => switch (value) {
-    SIV2TimeRange.today => copy('Today', 'Hoy'),
-    SIV2TimeRange.sevenDays => copy('7 days', '7 días'),
-    SIV2TimeRange.thirtyDays => copy('30 days', '30 días'),
-    SIV2TimeRange.all => copy('All dates', 'Todas las fechas'),
-  };
-  String _sourceLabel(SIV2Source value) => switch (value) {
-    SIV2Source.tasks => copy('Tasks', 'Tareas'),
-    SIV2Source.goals => copy('Goals', 'Metas'),
-    SIV2Source.milestones => copy('Milestones', 'Hitos'),
-    SIV2Source.timeline => copy('Schedule', 'Agenda'),
-  };
 }

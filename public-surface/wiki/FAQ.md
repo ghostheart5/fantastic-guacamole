@@ -12,7 +12,7 @@ Navigation and wording have been simplified. The guides now use Today, Add somet
 No. Complete, Delay and Remove are simulations in the comparison controls. Press Compare, then View comparison. Edit your real record separately if you choose to act. After changing draft inputs, compare again.
 
 ## Is everything AI or paid?
-No. Free tools and planning are separate from cloud questions. Review the displayed quote before confirming a paid request. Eligible accounts may have included monthly credits; check Settings for your actual allowance, balance and reset. No unlimited-use or universal monthly-grant promise is made.
+No. "On this device · free" and planning are separate from AI chat questions (which send information to an external AI service). Review the displayed quote before confirming a paid request. Eligible accounts may have included monthly credits; check Settings for your actual allowance, balance and reset. No unlimited-use or universal monthly-grant promise is made.
 
 ## Does a prediction guarantee what will happen?
 No. It models recorded evidence and assumptions. Missing dates, little history and real-life changes can limit it.

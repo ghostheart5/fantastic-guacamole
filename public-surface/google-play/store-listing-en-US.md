@@ -30,7 +30,7 @@ PLAN WITHOUT ADS
 Axiomara has no banners or rewarded videos. Ad-free planning does not require a subscription.
 
 OPTIONAL AI AND PAID FEATURES
-External AI actions are optional. Before you confirm one, Axiomara identifies the provider, the selected context that may be sent, and the expected credit cost. You can decline and continue with non-generative planning. Subscription access and spendable AI credits are shown separately. Available paid features and prices appear before purchase.
+AI chat (which sends information to an external AI service) is optional. Before you confirm a question, Axiomara identifies the provider, the selected context that may be sent, and the expected credit cost. You can decline and continue with non-generative planning. Subscription access and spendable AI credits are shown separately. Available paid features and prices appear before purchase.
 
 OPTIONAL CLOUD BACKUP
 Cloud Backup is off by default. Automatic and older backups may include only tasks, profile information, and account preferences. When you choose “Back up all planning data” and confirm, the encrypted snapshot also includes goals, habits, notes, occurrence history, decision outcomes, and schedule history. This replaces the previous cloud snapshot with this device’s data. Restore the latest snapshot before backing up from a replacement device, and keep your recovery key separately. Private memories, personal information shared for guidance, and local Chat history are excluded from these cloud snapshots.

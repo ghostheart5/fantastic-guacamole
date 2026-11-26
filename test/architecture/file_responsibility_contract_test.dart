@@ -50,6 +50,11 @@ void main() {
       'smart_planner_query_controller.follow_up.dart',
       'smart_planner_query_controller.person_context.dart',
     ],
+    'lib/engine/si/si_one_tap_engine.dart': <String>[
+      'si_one_tap_engine.today.dart',
+      'si_one_tap_engine.goals.dart',
+      'si_one_tap_engine.review.dart',
+    ],
     'lib/features/timeline/ui/timeline_screen.dart': <String>[
       'timeline_screen.widgets.dart',
       'timeline_screen.source_notice.dart',

@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_goals.dart';
+import 'package:fantastic_guacamole/domain/usecases/habit_usecases.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_timeline_events.dart';
 import 'package:fantastic_guacamole/domain/usecases/milestone_usecases.dart';
@@ -16,6 +17,7 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
+import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
@@ -97,6 +99,7 @@ final siV2ReadGatewayProvider = Provider<SIV2ReadGateway>((Ref ref) {
   final GetGoals goals = ref.read(getGoalsUseCaseProvider);
   final GetMilestones milestones = ref.read(getMilestonesUseCaseProvider);
   final GetTimelineEvents timeline = ref.read(getTimelineEventsUseCaseProvider);
+  final GetHabits habits = ref.read(getHabitsUseCaseProvider);
   final PersonContextView? personContext = ref.watch(
     personContextForSurfaceProvider(_siV2PersonContextRequest),
   );
@@ -110,6 +113,8 @@ final siV2ReadGatewayProvider = Provider<SIV2ReadGateway>((Ref ref) {
     readMilestones: milestones.call,
     readTimeline: () async => timeline.call(),
     readPersonContext: () => personContext,
+    readHabits: habits.call,
+    readHabitOccurrences: () => ref.read(habitOccurrencesProvider.future),
   );
 });
 

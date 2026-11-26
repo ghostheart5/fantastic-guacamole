@@ -24,8 +24,13 @@ import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
+import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
+import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
@@ -310,6 +315,13 @@ void main() {
     AiCreditWallet? wallet,
     bool? notificationPermission = true,
     bool noTasks = false,
+    bool externalAiAvailable = false,
+    bool internalAdvisor = false,
+    bool internalReleaseAccount = false,
+    AssistantReleaseStage releaseStage = AssistantReleaseStage.general,
+    Set<AssistantReleaseCapability> rolledBack =
+        const <AssistantReleaseCapability>{},
+    List<MemoryEntity>? memories,
   }) {
     final AccountStorageScope resolvedScope =
         accountScope ??
@@ -334,6 +346,27 @@ void main() {
           ),
         if (guideReady)
           adaptiveGuidanceProvider.overrideWith(_CopyGuidance.new),
+        // A public build with AI chat: no internal test cohort.
+        if (externalAiAvailable) ...[
+          externalAiAvailableProvider.overrideWithValue(true),
+          internalCreditTestEnabledProvider.overrideWithValue(false),
+        ],
+        if (memories != null)
+          memoriesProvider.overrideWith(() => _FixedMemories(memories)),
+        if (internalAdvisor)
+          internalAdvisorAccessProvider.overrideWithValue(true),
+        if (internalReleaseAccount)
+          assistantReleaseConfigProvider.overrideWith(
+            (Ref ref) async => AssistantReleaseConfig(
+              stage: releaseStage,
+              canaryBasisPoints: 0,
+              shadowEvaluationEnabled: false,
+              internalAccountDigests: <String>{
+                assistantReleaseAccountDigest(resolvedScope.v2Namespace!),
+              },
+              rollbackCapabilities: rolledBack,
+            ),
+          ),
         if (authService != null)
           authServiceProvider.overrideWithValue(authService),
         accountStorageScopeProvider.overrideWithValue(resolvedScope),
@@ -451,15 +484,12 @@ void main() {
         expect(
           find.textContaining(
             es
-                ? 'Elegir un paso y Chat pueden usar IA externa'
-                : 'Choose a step and Chat can use external AI',
+                ? 'Elegir un paso y el asistente pueden usar el chat con IA'
+                : 'Choose a step and the Assistant can use AI chat',
           ),
           findsOneWidget,
         );
-        expect(
-          find.textContaining('Choose a step and SI Chat can use external AI'),
-          findsNothing,
-        );
+        expect(find.textContaining('can use external AI'), findsNothing);
         await invokeNavTile(
           tester,
           es ? 'Planificación y orientación' : 'Planning & guidance',
@@ -1572,10 +1602,10 @@ void main() {
     await tester.tap(find.text('Planning & guidance'));
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('External AI assistance'), findsOneWidget);
+    expect(find.text('AI chat'), findsOneWidget);
     expect(
       find.text(
-        'External AI assistance is not enabled for this account. Your saved planning work remains available.',
+        'AI chat is not enabled for this account. Your saved planning work remains available.',
       ),
       findsOneWidget,
     );
@@ -1615,19 +1645,87 @@ void main() {
     await tester.tap(find.text('Planificación y orientación'));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.scrollUntilVisible(
-      find.text('Asistencia de IA externa'),
+      find.text('Chat con IA'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
 
     expect(
       find.text(
-        'La asistencia de IA externa no está habilitada para esta cuenta. Tu trabajo de planificación guardado permanece disponible.',
+        'El chat con IA no está habilitado para esta cuenta. Tu trabajo de planificación guardado permanece disponible.',
       ),
       findsOneWidget,
     );
     expect(find.text('Allow external AI assistance'), findsNothing);
   });
+
+  for (final bool spanish in <bool>[false, true]) {
+    testWidgets(
+      '${spanish ? 'Spanish' : 'English'} public build explains AI chat next to its switch',
+      (WidgetTester tester) async {
+        useTallSurface(tester);
+        final ProviderContainer container = createContainer(
+          externalAiAvailable: true,
+        );
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              locale: Locale(spanish ? 'es' : 'en'),
+              supportedLocales: ChronoSparkLocalizations.supportedLocales,
+              localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+                ChronoSparkLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: const SettingsScreen(),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.tap(
+          find.text(
+            spanish ? 'Planificación y orientación' : 'Planning & guidance',
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+        final Finder toggle = find.text(
+          spanish ? 'Permitir el chat con IA' : 'Allow AI chat',
+        );
+        await tester.scrollUntilVisible(
+          toggle,
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(toggle, findsOneWidget);
+        expect(find.text('Allow external AI assistance'), findsNothing);
+        expect(find.text('Permitir asistencia de IA externa'), findsNothing);
+        final Finder explanation = find.text(
+          spanish
+              ? 'Qué se envía: tu pregunta, hasta seis mensajes recientes de esta conversación, la información que aparece encima del cuadro de mensaje, las opciones que elijas en Chat o en Elegir un paso (como fechas, filtro de títulos, escenario o energía) y los datos técnicos que se indican en la vista previa, como los identificadores de los registros, tu fecha y hora local, zona horaria e idioma. Cuando hayas escrito una pregunta, Ver qué se envía, junto al cuadro de mensaje, muestra la vista previa completa de lo que se envía siempre que se pueda enviar; también se abre sola antes de tu primer mensaje después de abrir la app y cada vez que cambias la información elegida, incluida la nota, la energía o el estado emocional.\n'
+                    'Quién lo recibe: cuando tocas enviar, Axiomara lo recibe para comprobar el precio y luego lo envía a Anthropic, el proveedor de IA, para obtener la respuesta.\n'
+                    'Cuánto tiempo se guarda: Anthropic normalmente lo conserva hasta 30 días. En este dispositivo, Chat conserva hasta 40 mensajes recientes de esta cuenta hasta que los borres; para recuperar una respuesta pagada tras una interrupción, Axiomara puede guardar brevemente esa respuesta en su servidor, con un plazo de recuperación de 15 minutos.\n'
+                    'Cuánto cuesta: el botón de enviar muestra el precio en créditos, por ejemplo Enviar · 5 créditos. Tocar enviar confirma ese precio. Si el precio comprobado es distinto, se te pregunta antes de que algo llegue a Anthropic y no se cobra nada si no lo confirmas.\n'
+                    'También en Elegir un paso: donde se ofrece, el botón opcional Explicar este plan envía el plan que ves en pantalla a Axiomara para mostrarte su precio en créditos, y a Anthropic solo después de que confirmes ese precio.'
+              : 'What is sent: your question, up to six recent messages from this conversation, the information listed above the message box, any options you set in Chat or Choose a step (such as a date range, title filter, scenario or energy), and the technical details listed in the preview, such as record identifiers, your local date and time, time zone and language. Once you have typed a question, See what is sent by the message box shows the full preview of what goes whenever sending is available; it also opens by itself before your first message after the app opens and whenever you change the information selected, including the note, energy or emotional state.\n'
+                    'Who receives it: when you tap send, Axiomara receives it to check the price, then sends it to Anthropic, the AI provider, for a reply.\n'
+                    'How long it is kept: Anthropic normally keeps it for up to 30 days. On this device, Chat keeps up to 40 recent messages for this account until you clear them; to recover a paid reply after an interruption, Axiomara may briefly keep that reply on its server, with a 15-minute recovery window.\n'
+                    'What it costs: the send button shows the price in credits, for example Send · 5 credits. Tapping send confirms that price. If the checked price is different, you are asked before anything reaches Anthropic, and nothing is charged unless you confirm it.\n'
+                    'Also on Choose a step: where it is offered, the optional Explain this plan button sends the plan shown on screen to Axiomara to show you its price in credits, and to Anthropic only after you confirm that price.',
+        );
+        expect(explanation, findsOneWidget);
+        expect(find.text(spanish ? 'Chat con IA' : 'AI chat'), findsOneWidget);
+        // The explanation sits directly beside the switch it describes.
+        expect(
+          (tester.getTopLeft(toggle).dy - tester.getBottomLeft(explanation).dy)
+              .abs(),
+          lessThan(48),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('Spanish expanded settings keep release controls localized', (
     WidgetTester tester,
@@ -1678,6 +1776,328 @@ void main() {
     expect(find.text('Recordatorio de reflexión'), findsOneWidget);
     expect(find.text('DAILY REFLECTION'), findsNothing);
   });
+
+  for (final bool spanish in <bool>[false, true]) {
+    final String releaseLabel = spanish
+        ? 'CONTROL DE VERSIÓN DEL ASISTENTE'
+        : 'ASSISTANT RELEASE CONTROL';
+    final String leaveLabel = spanish
+        ? 'Salir de la beta del asistente'
+        : 'Leave the assistant beta';
+    final String memoryLabel = spanish
+        ? 'LO QUE AXIOMARA RECUERDA'
+        : 'WHAT AXIOMARA REMEMBERS';
+
+    Future<void> openPlanning(
+      WidgetTester tester,
+      ProviderContainer container,
+    ) async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: Locale(spanish ? 'es' : 'en'),
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const SettingsScreen(),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.tap(
+        find.text(
+          spanish ? 'Planificación y orientación' : 'Planning & guidance',
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.scrollUntilVisible(
+        find.text(memoryLabel),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+    }
+
+    testWidgets(
+      '${spanish ? 'es' : 'en'}: release controls are hidden from a normal person and memory has plain words',
+      (WidgetTester tester) async {
+        useTallSurface(tester);
+        await openPlanning(tester, createContainer());
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+
+        expect(find.text(releaseLabel), findsNothing);
+        expect(find.text('MEMORY GOVERNANCE'), findsNothing);
+        expect(find.text('CONTROL DE LA MEMORIA'), findsNothing);
+        expect(find.textContaining('surface-scoped'), findsNothing);
+        expect(find.textContaining('Join opt-in'), findsNothing);
+        expect(find.textContaining('Unirse voluntariamente'), findsNothing);
+        expect(find.textContaining(RegExp(r'\bSI\b')), findsNothing);
+        expect(find.text(memoryLabel), findsOneWidget);
+        expect(
+          find.textContaining(
+            spanish ? 'solo de tu cuenta' : 'only for your account',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    for (final bool advisor in <bool>[true, false]) {
+      testWidgets(
+        '${spanish ? 'es' : 'en'}: release controls show for the internal ${advisor ? 'access flag' : 'account list'}',
+        (WidgetTester tester) async {
+          useTallSurface(tester);
+          await openPlanning(
+            tester,
+            createContainer(
+              internalAdvisor: advisor,
+              internalReleaseAccount: !advisor,
+            ),
+          );
+          addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+          await tester.pump(const Duration(milliseconds: 100));
+          await tester.scrollUntilVisible(
+            find.text(releaseLabel),
+            300,
+            scrollable: find.byType(Scrollable).first,
+          );
+
+          expect(find.text(releaseLabel), findsOneWidget);
+          expect(find.textContaining(RegExp(r'\bSI\b')), findsNothing);
+          expect(find.text(leaveLabel), findsNothing);
+        },
+      );
+    }
+
+    testWidgets(
+      '${spanish ? 'es' : 'en'}: a person who never joined the beta sees no beta control',
+      (WidgetTester tester) async {
+        useTallSurface(tester);
+        await openPlanning(tester, createContainer());
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.text(releaseLabel), findsNothing);
+        expect(find.text(leaveLabel), findsNothing);
+        expect(find.textContaining('beta'), findsNothing);
+        expect(find.textContaining('Join'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      '${spanish ? 'es' : 'en'}: an opted-in person sees only a switch to leave the beta, and leaving works',
+      (WidgetTester tester) async {
+        useTallSurface(tester);
+        final AccountStorageScope scope = AccountStorageScope.authenticated(
+          'settings-test-account',
+        );
+        final String key =
+            'assistant_beta_opt_in_v1.${assistantReleaseAccountDigest(scope.v2Namespace!)}';
+        SharedPreferences.setMockInitialValues(<String, Object>{key: true});
+        addTearDown(
+          () => SharedPreferences.setMockInitialValues(<String, Object>{}),
+        );
+        await openPlanning(tester, createContainer(accountScope: scope));
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.scrollUntilVisible(
+          find.text(leaveLabel),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+
+        expect(find.text(releaseLabel), findsNothing);
+        expect(find.text(leaveLabel), findsOneWidget);
+        expect(find.textContaining('Join'), findsNothing);
+        expect(find.textContaining('Unirse'), findsNothing);
+        expect(find.textContaining('Release stage'), findsNothing);
+
+        await tester.ensureVisible(find.text(leaveLabel));
+        await tester.pump();
+        tester
+            .widget<InkWell>(
+              find
+                  .ancestor(
+                    of: find.text(leaveLabel),
+                    matching: find.byType(InkWell),
+                  )
+                  .first,
+            )
+            .onTap!();
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.text(leaveLabel), findsNothing);
+        expect(find.text(releaseLabel), findsNothing);
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool(key), isFalse);
+      },
+    );
+  }
+
+  for (final bool spanish in <bool>[false, true]) {
+    testWidgets(
+      '${spanish ? 'es' : 'en'}: the memory intro says Chat saves no memories and its history is separate',
+      (WidgetTester tester) async {
+        useTallSurface(tester);
+        final String memoryLabel = spanish
+            ? 'LO QUE AXIOMARA RECUERDA'
+            : 'WHAT AXIOMARA REMEMBERS';
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: createContainer(),
+            child: MaterialApp(
+              locale: Locale(spanish ? 'es' : 'en'),
+              supportedLocales: ChronoSparkLocalizations.supportedLocales,
+              localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+                ChronoSparkLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: const SettingsScreen(),
+            ),
+          ),
+        );
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.tap(
+          find.text(
+            spanish ? 'Planificación y orientación' : 'Planning & guidance',
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.scrollUntilVisible(
+          find.text(memoryLabel),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+
+        expect(
+          find.textContaining(
+            spanish
+                ? 'Chat nunca guarda memorias. Su historial de conversación se guarda en este dispositivo para tu cuenta y es independiente: abre Chat y elige Borrar conversación para eliminarlo.'
+                : 'Chat never saves memories. Its conversation history is saved on this device for your account and is separate: open Chat and choose Clear conversation to delete it.',
+          ),
+          findsOneWidget,
+        );
+        expect(find.textContaining('long-term'), findsNothing);
+        expect(find.textContaining('largo plazo'), findsNothing);
+      },
+    );
+  }
+
+  for (final bool es in <bool>[true, false]) {
+    for (final int count in <int>[1, 2]) {
+      testWidgets('${es ? 'Spanish' : 'English'} memory count for $count kept '
+          'item(s) agrees in number', (WidgetTester tester) async {
+        useTallSurface(tester);
+        final AccountStorageScope scope = AccountStorageScope.authenticated(
+          'settings-test-account',
+        );
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: createContainer(
+              accountScope: scope,
+              memories: <MemoryEntity>[
+                for (int i = 0; i < count; i++)
+                  MemoryEntity(
+                    id: 'm$i',
+                    text: 'kept $i',
+                    date: DateTime.utc(2026, 9, 1),
+                    accountScopeId: scope.v2Namespace!,
+                  ),
+              ],
+            ),
+            child: MaterialApp(
+              locale: Locale(es ? 'es' : 'en'),
+              supportedLocales: ChronoSparkLocalizations.supportedLocales,
+              localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+                ChronoSparkLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: const SettingsScreen(),
+            ),
+          ),
+        );
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.tap(
+          find.text(es ? 'Planificación y orientación' : 'Planning & guidance'),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.scrollUntilVisible(
+          find.text(
+            es ? 'LO QUE AXIOMARA RECUERDA' : 'WHAT AXIOMARA REMEMBERS',
+          ),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+
+        final Finder one = find.text(
+          es
+              ? '1 guardado · solo de tu cuenta, solo donde se creó, y caduca'
+              : '1 kept · only for your account, only where it was made, and it expires',
+        );
+        final Finder many = find.text(
+          es
+              ? '$count guardados · solo de tu cuenta, solo donde se crearon, y caducan'
+              : '$count kept · only for your account, only where they were made, and they expire',
+        );
+        await tester.scrollUntilVisible(
+          count == 1 ? one : many,
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(one, count == 1 ? findsOneWidget : findsNothing);
+        expect(many, count == 1 ? findsNothing : findsOneWidget);
+      });
+    }
+  }
+
+  for (final bool rollback in <bool>[false, true]) {
+    testWidgets(
+      'an internal-list account still sees the release status when the stage is ${rollback ? 'rolled back' : 'off'}',
+      (WidgetTester tester) async {
+        useTallSurface(tester);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: createContainer(
+              internalReleaseAccount: true,
+              releaseStage: rollback
+                  ? AssistantReleaseStage.general
+                  : AssistantReleaseStage.off,
+              rolledBack: rollback
+                  ? AssistantReleaseCapability.values.toSet()
+                  : const <AssistantReleaseCapability>{},
+            ),
+            child: const MaterialApp(home: SettingsScreen()),
+          ),
+        );
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.tap(find.text('Planning & guidance'));
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.scrollUntilVisible(
+          find.text('ASSISTANT RELEASE CONTROL'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+
+        expect(find.text('ASSISTANT RELEASE CONTROL'), findsOneWidget);
+        expect(find.text('Leave the assistant beta'), findsNothing);
+      },
+    );
+  }
 
   testWidgets('Context entry opens its governance controls directly', (
     WidgetTester tester,
@@ -2560,4 +2980,13 @@ class _NoTasks implements ITaskRepository {
   Future<void> saveTask(TaskEntity task) async {}
   @override
   Future<void> deleteTask(String id) async {}
+}
+
+class _FixedMemories extends MemoriesNotifier {
+  _FixedMemories(this._items);
+
+  final List<MemoryEntity> _items;
+
+  @override
+  List<MemoryEntity> build() => _items;
 }

@@ -11,8 +11,8 @@ String _localizedCreditTestMessage(BuildContext context, String message) {
   const Map<String, String> exact = <String, String>{
     'Ready for a synthetic credit test.':
         'Lista para una prueba sintética de créditos.',
-    'An authorized account and external AI consent are required.':
-        'Se requieren una cuenta autorizada y el consentimiento para usar IA externa.',
+    'An authorized account and AI chat consent are required.':
+        'Se requieren una cuenta autorizada y el consentimiento para usar el chat con IA.',
     'Waiting for the server result...':
         'Esperando el resultado del servidor...',
     'Result not confirmed. Refresh the balance, then retry the same request.':
@@ -74,8 +74,8 @@ class InternalCreditTestPanel extends ConsumerWidget {
           Text(
             journeyText(
               context,
-              'These test buttons send only a fixed fictional tool-shelf prompt to Anthropic through Axiomara. They do not send your profile, saved context, or conversation history. Successful replies spend test-account credits. Choose a step and SI conversations separately show their app context and credit quote before sending.',
-              'Estos botones de prueba solo envían una solicitud ficticia fija sobre un estante de herramientas a Anthropic por medio de Axiomara. No envían tu perfil, contexto guardado ni historial de conversación. Las respuestas exitosas gastan créditos de la cuenta de prueba. Las conversaciones de Elegir un paso y SI muestran por separado su contexto y precio en créditos antes de enviar.',
+              'These test buttons send only a fixed fictional tool-shelf prompt to Anthropic through Axiomara. They do not send your profile, saved context, or conversation history. Successful replies spend test-account credits. Choose a step and Chat conversations separately show their app context and credit quote before sending.',
+              'Estos botones de prueba solo envían una solicitud ficticia fija sobre un estante de herramientas a Anthropic por medio de Axiomara. No envían tu perfil, contexto guardado ni historial de conversación. Las respuestas exitosas gastan créditos de la cuenta de prueba. Las conversaciones de Elegir un paso y de Chat muestran por separado su contexto y precio en créditos antes de enviar.',
             ),
           ),
           const SizedBox(height: 8),
@@ -102,8 +102,8 @@ class InternalCreditTestPanel extends ConsumerWidget {
             Text(
               journeyText(
                 context,
-                'Enable external AI assistance above to run these tests.',
-                'Activa la asistencia de IA externa arriba para ejecutar estas pruebas.',
+                'Turn on AI chat above to run these tests.',
+                'Activa el chat con IA arriba para ejecutar estas pruebas.',
               ),
             ),
           const SizedBox(height: 8),
@@ -169,7 +169,12 @@ class InternalCreditTestPanel extends ConsumerWidget {
               TextButton(
                 onPressed: state.busy
                     ? null
-                    : () => ref.invalidate(aiCreditWalletProvider),
+                    : () {
+                        ref.invalidate(aiCreditWalletProvider);
+                        ref
+                            .read(aiCreditKnownBalanceProvider.notifier)
+                            .walletChanged();
+                      },
                 child: Text(
                   journeyText(
                     context,

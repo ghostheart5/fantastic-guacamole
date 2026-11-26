@@ -10,7 +10,6 @@ import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.da
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
-import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';
 import 'package:fantastic_guacamole/data/services/workspace_store_service.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -33,10 +32,6 @@ import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
-
-final agentOrchestratorProvider = Provider<AgentOrchestrator>(
-  (Ref ref) => const AgentOrchestrator(),
-);
 
 final identityServiceProvider = Provider<IdentityServiceContract>((Ref ref) {
   if (Env.isMockMode || Env.isMockLoginEnabled) {

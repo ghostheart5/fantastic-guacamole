@@ -19,6 +19,8 @@ import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordinator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/paywall_provider.dart'
+    show aiCreditPurchaseOutcomeWatchProvider;
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
 import 'package:fantastic_guacamole/theme/theme.dart';
@@ -266,6 +268,9 @@ class _AppRootState extends ConsumerState<AppRoot> {
       );
     }
 
+    // Listened on every build, so a purchase finishing on any screen (or in
+    // the background recheck) still forgets the Chat balance it changed.
+    ref.watch(aiCreditPurchaseOutcomeWatchProvider);
     final themeEntity = ref.watch(currentThemeProvider).asData?.value;
     final AuthSessionBoundary accountBoundary = ref.watch(
       authSessionBoundaryProvider,

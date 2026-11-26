@@ -21,7 +21,7 @@ final class DisabledPlannerExplanationPort implements PlannerExplanationPort {
   Future<PlannerExplanationQuote> quote(PlannerExplanationPacket packet) {
     throw const PlannerExplanationServiceException(
       'external_ai_disabled',
-      'Optional external AI explanation is disabled.',
+      'Optional AI chat explanation is disabled.',
     );
   }
 
@@ -32,7 +32,7 @@ final class DisabledPlannerExplanationPort implements PlannerExplanationPort {
   }) {
     throw const PlannerExplanationServiceException(
       'external_ai_disabled',
-      'Optional external AI explanation is disabled.',
+      'Optional AI chat explanation is disabled.',
     );
   }
 }
@@ -129,7 +129,7 @@ final class HttpPlannerExplanationService implements PlannerExplanationPort {
     if (token == null || token.isEmpty) {
       throw const PlannerExplanationServiceException(
         'authentication_required',
-        'Sign in again before requesting an external explanation.',
+        'Sign in again before requesting an AI chat explanation.',
       );
     }
     final http.Response response;
@@ -148,7 +148,7 @@ final class HttpPlannerExplanationService implements PlannerExplanationPort {
     } on Object {
       throw const PlannerExplanationServiceException(
         'request_failed',
-        'The external explanation request did not complete. No plan was changed.',
+        'The AI chat explanation request did not complete. No plan was changed.',
       );
     }
     final Map<String, Object?> json = _decodeObject(response.body);
@@ -159,7 +159,7 @@ final class HttpPlannerExplanationService implements PlannerExplanationPort {
           : 'request_rejected';
       throw PlannerExplanationServiceException(
         code,
-        'The external explanation was not generated. No plan was changed.',
+        'The AI chat explanation was not generated. No plan was changed.',
       );
     }
     return json;

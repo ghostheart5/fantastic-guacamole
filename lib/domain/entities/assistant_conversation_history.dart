@@ -14,6 +14,8 @@ class AssistantConversationHistory {
     this.revision = 0,
     Iterable<Map<String, String>> messages = const [],
     Set<SIV2Source> sources = const {},
+    this.sourcesChosen = false,
+    this.scopeExplained = false,
     Map<ConversationSurface, PendingConversationRequest> pendingRequests =
         const {},
     Set<ConversationSurface> unreadablePendingRequests = const {},
@@ -30,6 +32,13 @@ class AssistantConversationHistory {
   final int revision;
   final List<Map<String, String>> messages;
   final Set<SIV2Source> sources;
+
+  /// True when the person picked [sources] themselves. Otherwise Chat uses
+  /// its default (the person's plan) and [sources] is not a choice.
+  final bool sourcesChosen;
+
+  /// True once this account was shown why Chat uses the plan by default.
+  final bool scopeExplained;
   final Map<ConversationSurface, PendingConversationRequest> pendingRequests;
 
   /// Surfaces whose stored paid request cannot be rebuilt byte for byte.

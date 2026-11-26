@@ -1,4 +1,9 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -82,6 +87,82 @@ void main() {
     );
     expect(container.read(personalizationProfileProvider), before);
   });
+
+  for (final allowed in [true, false]) {
+    test(
+      'AI chat consent ($allowed) waits for the stored profile and keeps its other choices',
+      () async {
+        final prefs = _GatedPrefs();
+        final account = AccountStorageScope.authenticated('account-a');
+        final store = AccountScopedSharedPrefsStore(
+          delegate: prefs,
+          scope: account,
+          legacyOwnership: LegacyScopeOwnership.provenNotOwned,
+        );
+        await store.save(
+          personalizationProfileStorageKey,
+          jsonEncode(
+            PersonalizationProfile(
+              goalCategory: 'Closed test',
+              planningStyle: PlanningStyle.timeBlocked,
+              externalAiAllowed: !allowed,
+            ).toJson(),
+          ),
+        );
+        prefs.gate = Completer<void>();
+        final container = ProviderContainer(
+          overrides: [
+            sharedPrefsStoreProvider.overrideWithValue(prefs),
+            accountStorageScopeProvider.overrideWithValue(account),
+            accountLegacyOwnershipProvider.overrideWithValue(
+              LegacyScopeOwnership.provenNotOwned,
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        // Not loaded yet: defaults.
+        expect(
+          container.read(personalizationProfileProvider).planningStyle,
+          isNot(PlanningStyle.timeBlocked),
+        );
+        final change = container
+            .read(personalizationProfileProvider.notifier)
+            .setExternalAiAllowed(allowed);
+        await Future<void>.delayed(Duration.zero);
+        prefs.gate!.complete();
+        await change;
+        for (final profile in [
+          container.read(personalizationProfileProvider),
+          PersonalizationProfile.fromJson(
+            jsonDecode(store.load(personalizationProfileStorageKey)!)
+                as Map<String, dynamic>,
+          ),
+        ]) {
+          expect(profile.externalAiAllowed, allowed);
+          expect(profile.goalCategory, 'Closed test');
+          expect(profile.planningStyle, PlanningStyle.timeBlocked);
+        }
+      },
+    );
+  }
+}
+
+class _GatedPrefs implements SharedPrefsStore {
+  final Map<String, String> values = {};
+  Completer<void>? gate;
+  @override
+  Future<void> init() async {
+    await gate?.future;
+  }
+
+  @override
+  String? load(String key) => values[key];
+  @override
+  Future<void> save(String key, String value) async => values[key] = value;
+  @override
+  Future<void> delete(String key) async => values.remove(key);
+  @override
+  Future<void> clear() async => values.clear();
 }
 
 class _ThrowingPrefs implements SharedPrefsStore {

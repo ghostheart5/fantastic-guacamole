@@ -20,9 +20,10 @@ class AiContentReportActions {
   Future<void> submit({
     required String responseText,
     required AiContentReportReason reason,
+    required String surface,
   }) {
     return _ref
         .read(_aiContentReportServiceProvider)
-        .submit(responseText: responseText, reason: reason);
+        .submit(responseText: responseText, reason: reason, surface: surface);
   }
 }

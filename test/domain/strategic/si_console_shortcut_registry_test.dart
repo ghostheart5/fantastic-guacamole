@@ -180,15 +180,12 @@ void main() {
     );
 
     test(
-      'production parser, chips, help, autocomplete, and AI use the registry',
+      'production parser, chips, help, and autocomplete use the registry',
       () {
         final String screen = <String>[
           'lib/features/si_console/ui/si_console_screen.dart',
           'lib/features/si_console/ui/si_console_screen.widgets.dart',
         ].map((String path) => File(path).readAsStringSync()).join('\n');
-        final String controller = File(
-          'lib/state/controllers/ai_controller.dart',
-        ).readAsStringSync();
         final String localizations = File(
           'lib/l10n/chronospark_localizations.dart',
         ).readAsStringSync();
@@ -204,12 +201,6 @@ void main() {
           contains('SIConsoleShortcutRegistry.definitions'),
         );
         expect(screen, contains('SIConsoleShortcutRegistry.autocomplete'));
-        expect(
-          controller,
-          contains('SIConsoleShortcutRegistry.parse(rawInput)'),
-        );
-        expect(controller, isNot(contains("'/xp': 'progression'")));
-        expect(controller, isNot(contains('_stripLeadingSurfaceCommand')));
       },
     );
   });

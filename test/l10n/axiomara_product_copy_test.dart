@@ -6,7 +6,6 @@ import 'package:fantastic_guacamole/l10n/nexus_copy.dart';
 import 'package:fantastic_guacamole/l10n/creator_copy.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fantastic_guacamole/engine/assistant/assistant_response_templates.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/domain/strategic/si_console_shortcut_registry.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
@@ -166,32 +165,6 @@ void main() {
         spanish.systemAction(userTitle),
         'Trabaja en: My Smart Planner migration notes',
       );
-    },
-  );
-
-  test(
-    'legacy query categories receive current display names only at output',
-    () {
-      for (final entry in {
-        'Timeline Query': 'Schedule question',
-        'Trajectory Query': 'Forecast question',
-      }.entries) {
-        final text = AssistantResponseTemplates.siAnalysis(
-          query: 'Review my plan',
-          category: entry.key,
-          goalsCount: 1,
-          openTasks: 2,
-          overdue: 0,
-          priorityTask: 'Saved user task',
-          impact: 'Low',
-          timelineEffect: 'No change',
-          nextActions: ['Review'],
-          confidence: 60,
-        );
-        expect(text, contains('Intent Category\n${entry.value}'));
-        expect(text, isNot(contains('Intent Category\n${entry.key}')));
-        expect(text, contains('Saved user task'));
-      }
     },
   );
 

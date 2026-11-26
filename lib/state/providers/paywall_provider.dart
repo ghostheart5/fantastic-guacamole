@@ -26,6 +26,7 @@ import 'package:fantastic_guacamole/domain/usecases/start_subscription.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
 import 'package:fantastic_guacamole/state/services/credit_service.dart';
@@ -42,6 +43,12 @@ final creditServiceProvider = Provider<CreditService>((ref) {
     ),
   );
 });
+
+/// True when [aiCreditWalletProvider] reads the server wallet that AI chat
+/// charges, rather than a count kept on this device.
+final aiCreditWalletFromServerProvider = Provider<bool>(
+  (ref) => Env.isProduction && ref.watch(aiProxyAvailableProvider),
+);
 
 final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
   if (!ref.watch(creditSpendingAvailableProvider)) {
@@ -62,18 +69,158 @@ final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
     entitlementProvider.future,
   );
   final bool premium = testerAccess || entitlement.isPremium;
-  if (Env.isProduction && ref.watch(aiProxyAvailableProvider)) {
+  if (ref.watch(aiCreditWalletFromServerProvider)) {
     final client = ref.watch(supabaseClientProvider);
     if (client?.auth.currentUser == null) {
       throw StateError('An authenticated session is required for AI credits.');
     }
-    final row = Map<String, dynamic>.from(
-      await client!.rpc<Map<String, dynamic>>('get_credit_wallet_v2'),
+    return loadServerAiCreditWallet(
+      ref,
+      () => client!.rpc<Map<String, dynamic>>('get_credit_wallet_v2'),
     );
-    return serverAiCreditWallet(row);
   }
   return ref.read(creditServiceProvider).loadWallet(premium: premium);
 });
+
+/// Reads the server wallet with [readRow] and tells [aiCreditKnownBalanceProvider]
+/// its balance, unless an AI chat answer reported a newer one meanwhile or
+/// the account changed.
+Future<AiCreditWallet> loadServerAiCreditWallet(
+  Ref ref,
+  Future<Map<String, dynamic>> Function() readRow,
+) async {
+  final account = ref.read(accountStorageScopeProvider).v2Namespace;
+  final token = ref.read(aiCreditKnownBalanceProvider.notifier).beginRead();
+  final wallet = serverAiCreditWallet(
+    Map<String, dynamic>.from(await readRow()),
+  );
+  if (ref.mounted) {
+    ref
+        .read(aiCreditKnownBalanceProvider.notifier)
+        .reportWallet(account, token, wallet.balance);
+  }
+  return wallet;
+}
+
+int _aiCreditBalanceClock = 0;
+
+/// The current AI credit balance of the signed-in account, as far as this
+/// app run knows it, or null when it cannot know it. Kept in memory only;
+/// watching it never contacts the server.
+///
+/// The rule: the balance is shown only while nothing is running and nothing
+/// has happened that it does not include. Every event forgets it, except
+/// the two that may set it. A server wallet read sets it when no request is
+/// in the paid step and nothing happened since the read began. An AI chat
+/// answer (the balance when its request was reserved) sets it when its
+/// request first entered the paid step in this run, no other request is in
+/// the paid step, and no outside change has happened since that first
+/// attempt. An outside change, for a request, is anything not about that
+/// request itself: a wallet read or wallet change (purchase, restore,
+/// changed subscription, test charge, Get credits), or another request
+/// entering the paid step, answering, failing (also after it was released,
+/// which may have refunded it) or being released. A request
+/// stops counting as in the paid step when its answer or failure arrives or
+/// when it is released (its outcome shown or dropped, it is abandoned, or
+/// its execution completes with nobody waiting). A request recovered from an
+/// earlier run has no first attempt here, so its answer never sets it. An
+/// account or sign-in change, or the account fence, empties everything.
+final aiCreditKnownBalanceProvider =
+    NotifierProvider<AiCreditKnownBalance, int?>(AiCreditKnownBalance.new);
+
+class AiCreditKnownBalance extends Notifier<int?> {
+  String? _account;
+  // Changes on every event. A wallet read that began before the latest
+  // event is not taken.
+  int _version = 0;
+  // Requests whose first attempt in this run entered the paid step, and
+  // whether an outside change has happened since.
+  final _overtaken = <String, bool>{};
+  // Requests in the paid step whose answer has not arrived.
+  final _running = <String>{};
+
+  @override
+  int? build() {
+    _account = ref.watch(
+      accountStorageScopeProvider.select((scope) => scope.v2Namespace),
+    );
+    ref.watch(authSessionBoundaryProvider.select((b) => b.generation));
+    _version = ++_aiCreditBalanceClock;
+    _overtaken.clear();
+    _running.clear();
+    return null;
+  }
+
+  /// Marks the start of a server wallet read.
+  int beginRead() => _version;
+
+  /// A request for [account] is handed on for a reply. [firstAttempt] is
+  /// false for a retry or a recovery, which keeps the first attempt's mark.
+  void enterPaid(
+    String account,
+    String requestId, {
+    required bool firstAttempt,
+  }) {
+    if (account != _account) return;
+    _event(requestId);
+    if (firstAttempt) _overtaken.putIfAbsent(requestId, () => false);
+    _running.add(requestId);
+  }
+
+  /// The answer to [requestId] reported [balance].
+  void reportAnswer(String account, String requestId, int balance) {
+    if (account != _account) return;
+    _running.remove(requestId);
+    _event(requestId);
+    if (_overtaken[requestId] == false && _running.isEmpty && balance >= 0) {
+      state = balance;
+    }
+  }
+
+  /// [requestId] failed without saying what the balance is now.
+  void forget(String account, String requestId) {
+    if (account != _account) return;
+    _running.remove(requestId);
+    _event(requestId);
+  }
+
+  /// The app will not use [requestId]'s answer (it was shown, dropped or
+  /// abandoned), or its execution completed. Its charge may still have
+  /// happened, so this is an outside change for other requests; it no
+  /// longer keeps later answers from setting the balance. A request that is
+  /// not running is left alone, unless its execution [failed] or [completed]:
+  /// a failure arriving after it was abandoned may have refunded its charge,
+  /// and an answer arriving then settles it, which no later figure includes.
+  void release(
+    String requestId, {
+    bool failed = false,
+    bool completed = false,
+  }) {
+    if (!_running.remove(requestId) && !failed && !completed) return;
+    _event(requestId);
+  }
+
+  /// The wallet may have changed away from AI chat.
+  void walletChanged() => _event(null);
+
+  /// A server wallet read for [account] that began at [token] finished.
+  void reportWallet(String? account, int token, int balance) {
+    if (account == null || account != _account) return;
+    final current = token == _version && _running.isEmpty && balance >= 0;
+    _event(null);
+    if (current) state = balance;
+  }
+
+  /// Every event forgets the balance and is an outside change for every
+  /// marked request other than [requestId].
+  void _event(String? requestId) {
+    _version = ++_aiCreditBalanceClock;
+    for (final id in _overtaken.keys.toList()) {
+      if (id != requestId) _overtaken[id] = true;
+    }
+    state = null;
+  }
+}
 
 AiCreditWallet serverAiCreditWallet(Map<String, dynamic> row) {
   final DateTime now = DateTime.now();
@@ -122,6 +269,40 @@ final paywallPurchaseOutcomeProvider =
           )
           .map((event) => event.state);
     });
+
+/// Purchase outcomes that report nothing granted or taken back yet: the
+/// purchase is still waiting, was not verified, or failed. Some of these
+/// repeat on every routine recheck while a purchase waits.
+const _outcomesWithoutWalletChange = {
+  'purchase_pending',
+  'customer_resolution_required',
+  'checkout_unresolved',
+  'verification_failed',
+  'purchase_failed',
+  'restore_error',
+  'nothing_to_restore',
+};
+
+/// Forgets the known AI credit balance when a purchase outcome for the
+/// signed-in account may have changed the server wallet (credits added, a
+/// verified subscription, a canceled or refunded purchase), wherever it
+/// completes: Google Play's purchase updates, or the routine recheck that
+/// finishes a waiting credit purchase. Watched by the app root so it runs
+/// for the whole app run, not only while the plans screen is open; that
+/// screen forgetting it too is harmless.
+final aiCreditPurchaseOutcomeWatchProvider = Provider<void>((ref) {
+  ref.listen<AsyncValue<SubscriptionState>>(paywallPurchaseOutcomeProvider, (
+    _,
+    next,
+  ) {
+    final outcome = next.asData?.value;
+    if (outcome == null ||
+        _outcomesWithoutWalletChange.contains(outcome.status)) {
+      return;
+    }
+    ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
+  });
+});
 
 final getAvailablePlansUseCaseProvider = Provider<GetAvailablePlans>((ref) {
   return GetAvailablePlans(ref.watch(paywallRepositoryProvider));
@@ -198,7 +379,7 @@ final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
       title: 'Google Play billing test',
       body:
           'Test purchases, renewals, cancellation and restoration. Select a Google Play test payment method; cancel if a real payment method appears. '
-          '${creditsEnabled ? 'Choose a step and Chat can use external AI after you review the app context and confirm the credit price. Settings also offers fictional credit tests. On-device tools remain available.' : 'AI and credit spending are unavailable in this build.'}',
+          '${creditsEnabled ? 'Choose a step and the Assistant can use AI chat after you review the app context and confirm the credit price. Settings also offers fictional credit tests. On this device · free stays available.' : 'AI and credit spending are unavailable in this build.'}',
       plans: plans
           .map(
             (plan) => PaywallPlan(
@@ -219,7 +400,7 @@ final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
     featureId: 'premium',
     title: subscription.isTesting
         ? 'Unlocked for testing'
-        : 'External-assistant credit plans',
+        : 'AI chat credit plans',
     body: subscription.isTesting
         ? 'Subscription checks are bypassed in this testing mode.'
         : 'Choose a plan. Google Play provides the displayed price and confirms billing frequency and renewal terms before purchase. Credits are granted only after a verified purchase or paid renewal.',
