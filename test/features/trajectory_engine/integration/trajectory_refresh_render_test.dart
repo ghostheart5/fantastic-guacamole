@@ -207,7 +207,7 @@ Future<void> _chooseDelay(WidgetTester tester) async {
 
 void main() {
   for (final es in <bool>[false, true]) {
-    testWidgets('time range copy says it changes certainty, not the projection '
+    testWidgets('time range copy says it changes which tasks count and certainty '
         '(${es ? 'es' : 'en'})', (tester) async {
       await _open(tester, locale: Locale(es ? 'es' : 'en'));
       final texts = tester
@@ -231,14 +231,14 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       final expected = es
           ? '• Elige un camino para ver cuánto podrías lograr y cuánta presión '
-                'podrías sentir. El periodo (7, 30 o 90 días) cambia lo amplia '
-                'que es la incertidumbre, no los números proyectados: cuanto '
+                'podrías sentir. El periodo (7, 30 o 90 días) cambia qué '
+                'tareas cuentan y lo amplia que es la incertidumbre: cuanto '
                 'más lejos, menos seguro. “Ajuste recomendado” marca '
                 'el camino que mejor se ve ahora.'
           : '• Pick a path to see how much you might get done and how much '
                 'pressure you might feel. The time range (7, 30 or 90 days) '
-                'changes how wide the uncertainty is, not the projected '
-                'numbers: further ahead means less certain. '
+                'changes which tasks count and how wide the uncertainty is: '
+                'further ahead means less certain. '
                 '“Recommended adjustment” marks the path that looks '
                 'best right now.';
       expect(find.text(expected), findsOneWidget);
@@ -260,11 +260,16 @@ void main() {
       expect(
         find.textContaining(
           es
-              ? 'solo cambia lo amplia que es la incertidumbre'
-              : 'range only changes how wide',
+              ? 'define qué tareas cuentan y lo amplia que es la incertidumbre'
+              : 'range sets which tasks count and how wide',
         ),
         findsWidgets,
       );
+      // The old claim that the range leaves the numbers unchanged is gone.
+      expect(find.textContaining('not the projected numbers'), findsNothing);
+      expect(find.textContaining('no los números proyectados'), findsNothing);
+      expect(find.textContaining('range only changes'), findsNothing);
+      expect(find.textContaining('solo cambia lo amplia'), findsNothing);
       expect(find.textContaining('Over 7 days'), findsNothing);
       expect(find.textContaining('Durante 7 días'), findsNothing);
     });

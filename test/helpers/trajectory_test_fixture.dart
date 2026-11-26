@@ -16,6 +16,10 @@ TrajectoryBaseline trajectoryTestBaseline({
   PredictiveEvidenceOrigin availabilityOrigin =
       PredictiveEvidenceOrigin.observed,
   List<String> personContextWarnings = const <String>[],
+  List<String> assumptions = const <String>[],
+  List<TrajectoryTaskNode>? tasks,
+  int? dailyFreeMinutes,
+  int completedInWindow = 6,
 }) => TrajectoryBaseline(
   accountScope: accountScope,
   revision: 'trajectory-fixture-r1',
@@ -24,30 +28,34 @@ TrajectoryBaseline trajectoryTestBaseline({
   momentum: momentum,
   pressure: pressure,
   energy: 64,
-  completedInWindow: 6,
+  completedInWindow: completedInWindow,
   deferredInWindow: 3,
   observationCount: observationCount,
   availableMinutes: 420,
   occupiedMinutes: 300,
   unscheduledMinutes: 90,
-  tasks: <TrajectoryTaskNode>[
-    TrajectoryTaskNode(
-      id: 'task-launch',
-      title: 'Ship protected milestone',
-      priority: 5,
-      estimatedMinutes: 90,
-      goalId: 'goal-release',
-      dueAt: trajectoryFixtureNow.add(const Duration(days: 2)),
-      scheduledAt: trajectoryFixtureNow.add(const Duration(days: 1)),
-    ),
-    const TrajectoryTaskNode(
-      id: 'task-polish',
-      title: 'Polish optional copy',
-      priority: 1,
-      estimatedMinutes: 60,
-      goalId: 'goal-release',
-    ),
-  ],
+  dailyFreeMinutes: dailyFreeMinutes,
+  assumptions: assumptions,
+  tasks:
+      tasks ??
+      <TrajectoryTaskNode>[
+        TrajectoryTaskNode(
+          id: 'task-launch',
+          title: 'Ship protected milestone',
+          priority: 5,
+          estimatedMinutes: 90,
+          goalId: 'goal-release',
+          dueAt: trajectoryFixtureNow.add(const Duration(days: 2)),
+          scheduledAt: trajectoryFixtureNow.add(const Duration(days: 1)),
+        ),
+        const TrajectoryTaskNode(
+          id: 'task-polish',
+          title: 'Polish optional copy',
+          priority: 1,
+          estimatedMinutes: 60,
+          goalId: 'goal-release',
+        ),
+      ],
   goals: <TrajectoryGoalNode>[
     TrajectoryGoalNode(
       id: 'goal-release',

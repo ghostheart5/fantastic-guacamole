@@ -146,6 +146,35 @@ void main() {
         timeline.checkpoints.last.classification,
         'Exploratory conditional scenario',
       );
+      // Model v4: each checkpoint measures the work over its own range.
+      for (final FutureTimelineCheckpoint checkpoint in timeline.checkpoints) {
+        expect(
+          checkpoint.evidence,
+          containsAll(<String>[
+            'horizon_days=${checkpoint.days}',
+            'tasks_in_horizon=2',
+            'required_minutes_in_horizon=150',
+            'daily_free_minutes=120',
+          ]),
+        );
+      }
+    });
+
+    test('simulations carry the range workload, not the shared index', () {
+      final ProviderContainer container = _container(
+        momentum: _momentum(score: 61, pressure: 58, energy: 64),
+      );
+      addTearDown(container.dispose);
+
+      final TrajectorySimulationResult keepGoing = container
+          .read(trajectorySimulationProvider)
+          .firstWhere(
+            (TrajectorySimulationResult item) =>
+                item.title == 'Maintain current course',
+          );
+      // 150 minutes over 7 days of 120 free minutes: 150 / 840 = 18%.
+      expect(keepGoing.projectedPressure, 18);
+      expect(keepGoing.modelVersion, 'trajectory-consequence-v4');
     });
 
     test('predictive risk uses accumulated consequence contributors', () {

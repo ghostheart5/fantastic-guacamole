@@ -101,6 +101,91 @@ void main() {
       }
     },
   );
+
+  test('v4 range workload holds its properties for generated plans', () {
+    TrajectoryTaskNode node(DeterministicGenerator g, int index) {
+      final int kind = g.between(0, 3);
+      final DateTime? due = kind == 0
+          ? null
+          : trajectoryFixtureNow.add(Duration(days: g.between(-5, 120)));
+      return TrajectoryTaskNode(
+        id: 'generated-$index',
+        title: 'Generated $index',
+        priority: g.between(1, 5),
+        estimatedMinutes: g.between(5, 240),
+        dueAt: due,
+        scheduledAt: kind == 3
+            ? trajectoryFixtureNow.add(Duration(days: g.between(0, 60)))
+            : null,
+      );
+    }
+
+    int keepGoing(
+      List<TrajectoryTaskNode> tasks,
+      int free,
+      int completed,
+      int days,
+    ) => const FutureConsequenceEngine()
+        .project(
+          baseline: trajectoryTestBaseline(
+            tasks: tasks,
+            dailyFreeMinutes: free,
+            completedInWindow: completed,
+          ),
+          generatedAt: trajectoryFixtureNow,
+          intervention: TrajectoryIntervention(
+            id: 'maintain',
+            type: TrajectoryInterventionType.maintainCourse,
+            title: 'Maintain current course',
+            horizon: Duration(days: days),
+            description: 'Generated fixture only.',
+          ),
+        )
+        .projectedPressure;
+
+    for (final int seed in phase10Seeds) {
+      final DeterministicGenerator g = DeterministicGenerator(seed);
+      final int free = g.between(0, 600);
+      final int completed = g.between(0, 30);
+      final int count = g.between(0, 25);
+      final List<TrajectoryTaskNode> tasks = <TrajectoryTaskNode>[
+        for (int i = 0; i < count; i++) node(g, i),
+      ];
+      final TrajectoryTaskNode extra = node(g, 99);
+      int previousCount = -1;
+      for (final int days in const <int>[7, 30, 90]) {
+        final TrajectoryHorizonWorkload w =
+            FutureConsequenceEngine.horizonWorkload(
+              tasks: tasks,
+              now: trajectoryFixtureNow,
+              horizonDays: days,
+              completedLast7Days: completed,
+            );
+        // Longer ranges hold at least the work of shorter ones.
+        expect(w.taskCount, greaterThanOrEqualTo(previousCount));
+        previousCount = w.taskCount;
+        final TrajectoryExpectedCompletions e = w.expectedCompletions;
+        expect(e.low, inInclusiveRange(0, e.mid), reason: 'seed=$seed');
+        expect(e.high, inInclusiveRange(e.mid, w.taskCount));
+        final int load = keepGoing(tasks, free, completed, days);
+        expect(load, inInclusiveRange(0, 100), reason: 'seed=$seed');
+        // More work never lowers the load.
+        expect(
+          keepGoing(
+            <TrajectoryTaskNode>[...tasks, extra],
+            free,
+            completed,
+            days,
+          ),
+          greaterThanOrEqualTo(load),
+          reason: 'seed=$seed days=$days',
+        );
+        if (free == 0) {
+          expect(load, w.requiredMinutes > 0 ? 100 : 0);
+        }
+      }
+    }
+  });
 }
 
 TrajectoryComparison _comparison({

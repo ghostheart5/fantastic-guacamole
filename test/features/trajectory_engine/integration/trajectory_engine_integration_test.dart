@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/engine/trajectory/future_consequence_engine.
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_engine_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -90,6 +91,60 @@ void main() {
           expect(tester.takeException(), isNull);
         },
       );
+
+      testWidgets('range and free-time assumptions read plainly in $language', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(const Size(900, 1800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final scope = AccountStorageScope.authenticated('test-account');
+        final comparison = trajectoryTestComparison(
+          baseline: trajectoryTestBaseline(
+            accountScope: scope.v2Namespace!,
+            assumptions: const <String>[
+              trajectoryAssumedWorkdayAssumption,
+              trajectoryUndatedTasksAssumption,
+            ],
+          ),
+        );
+        final outcome = comparison.outcomes.firstWhere(
+          (value) => value.intervention.id == 'planner',
+        );
+        final title = language == 'es'
+            ? 'Supuestos de esta estimación'
+            : 'What this estimate assumes';
+        await tester.pumpWidget(
+          _harness(
+            model: _modelWithOutcomes(comparison, [outcome]),
+            locale: Locale(language),
+            repository: TrajectoryForecastLedgerRepository(
+              store: _MemoryStore(),
+              scope: scope,
+            ),
+          ),
+        );
+        await _pumpForecastTransition(tester);
+        await tester.scrollUntilVisible(
+          find.text(title).hitTestable(),
+          250,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(find.text(title).hitTestable());
+        await _pumpForecastTransition(tester);
+        final List<String> expected = language == 'es'
+            ? const <String>[
+                'El tiempo libre se basa en una jornada supuesta porque no hay horario de trabajo configurado.',
+                'Las tareas sin fecha cuentan en todos los periodos.',
+              ]
+            : const <String>[
+                trajectoryAssumedWorkdayAssumption,
+                trajectoryUndatedTasksAssumption,
+              ];
+        for (final String text in expected) {
+          expect(find.textContaining(text), findsOneWidget);
+        }
+        expect(tester.takeException(), isNull);
+      });
     }
 
     testWidgets('forecast assumptions keep shared-information warnings visible', (

@@ -490,13 +490,13 @@ String _conciseOutcomeSummary({
         ? 'la presión estable'
         : 'la presión ${pressureDelta > 0 ? 'subiendo' : 'bajando'} ${pressureDelta.abs()} puntos';
     return 'Este camino proyecta $spanishMomentum y $spanishPressure. '
-        'El periodo de ${outcome.intervention.horizon.inDays} días solo cambia '
-        'lo amplia que es la incertidumbre. Abre el informe completo para revisar '
+        'El periodo de ${outcome.intervention.horizon.inDays} días define qué '
+        'tareas cuentan y lo amplia que es la incertidumbre. Abre el informe completo para revisar '
         'la incertidumbre y los datos de apoyo.';
   }
   return 'This path projects $momentumChange and $pressureChange. '
-      'The ${outcome.intervention.horizon.inDays}-day range only changes how wide '
-      'the uncertainty is. Open the full report for uncertainty '
+      'The ${outcome.intervention.horizon.inDays}-day range sets which tasks '
+      'count and how wide the uncertainty is. Open the full report for uncertainty '
       'and supporting evidence.';
 }
 
@@ -1227,6 +1227,16 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
         'Shared personal information had no recent details this estimate could use.',
         'La información personal compartida no tenía datos recientes utilizables para esta estimación.',
       ),
+    trajectoryAssumedWorkdayAssumption => journeyText(
+      context,
+      trajectoryAssumedWorkdayAssumption,
+      'El tiempo libre se basa en una jornada supuesta porque no hay horario de trabajo configurado.',
+    ),
+    trajectoryUndatedTasksAssumption => journeyText(
+      context,
+      trajectoryUndatedTasksAssumption,
+      'Las tareas sin fecha cuentan en todos los periodos.',
+    ),
     _ => null,
   };
   if (plain != null) return plain;
