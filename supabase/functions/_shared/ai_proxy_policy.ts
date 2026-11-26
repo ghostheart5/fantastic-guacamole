@@ -629,10 +629,11 @@ export interface ReplyFilterOptions {
 // EXTENDED verbs (added, set, moved, removed, marked, rescheduled, cancelled
 // and Spanish equivalents, final ruling of review 5): a claim in every mode
 // only when, from the verb on, the sentence ties it to the person's records:
-// your / tu / tus / su / sus + a record word, "in the app", a reminder or alarm
-// as object, or a bare-pronoun object (it, lo, la ...) unless the sentence
-// points at the reply. Otherwise kept: these verbs also describe the
-// suggestion in the reply ("I've added some buffer time").
+// your / tu / tus / su / sus + a record word, "in / into (the) app", a
+// reminder or alarm as object, or a bare-pronoun object (it, lo, la ...),
+// except added / moved pointing at the reply in the same clause ("I've moved
+// it to the top of the list below."). Otherwise kept: these verbs also
+// describe the suggestion in the reply ("I've added some buffer time").
 // A record-state sentence ("Your task has been saved.") is a claim in every
 // mode, checked first, and is never exempt as a draft.
 // Never a claim: a question whose "?" closes the claim itself ("Have I added
@@ -726,11 +727,15 @@ const NOT_ASSERTED_BEFORE =
 // (later lines); record-state claims are never exempt.
 const DRAFT_LEAD_IN = new RegExp(
   String
-    .raw`(?:\b(?:draft|borrador)(?:\s+(?:message|email|reply|text|note|response|mensaje|correo|respuesta))?|\b(?:you|podr[ií]as|puedes)\s+(?:(?:could|can|might|should)\s+)?(?:write|say|reply|respond|escribir|decir|responder)\b[^.!?:]{0,30}|^(?:tell|dile)\b(?!\s+(?:me|us)\b)[^.!?:]{0,40}|^(?:write|say|escribe|di|responde))\s*:\s*$`,
+    .raw`(?:\b(?:draft|borrador)(?:\s+(?:message|email|reply|text|note|response|mensaje|correo|respuesta))?|\byou\s+(?:could|can|might|should)\s+(?:write|say|reply|respond)\b[^.!?:]{0,30}|\b(?:podr[ií]as|puedes)\s+(?:escribir|decir|responder)\b[^.!?:]{0,30}|^(?:tell|dile)\b(?!\s+(?:me|us)\b)[^.!?:]{0,40}|^(?:write|say|escribe|di|responde))\s*:\s*$`,
 );
-// Within the matched claim, or the sentence: tied to the app itself.
+// From the claim on: done inside the app itself ("in the app", "en la app").
+// Not "to the app's settings" or "tips on the app".
 const IN_THE_APP =
-  /\b(?:in|into|to|on)\s+(?:the\s+)?(?:app|axiomara)\b|\ben\s+(?:la\s+)?(?:app|aplicaci[oó]n|axiomara)\b/;
+  /\b(?:in|into)\s+(?:the\s+)?app\b(?!')|\ben\s+(?:la\s+)?(?:app|aplicaci[oó]n)\b/;
+// Added verbs whose bare-pronoun object can be a line of the reply itself.
+const MOVED_OR_ADDED =
+  /(?:added|moved|agregado|añadido|movido|agregué|añadí|moví)$/;
 // The sentence talks about the reply's own text, not the person's records.
 const POINTS_AT_REPLY =
   /\bbelow\b|\babove\b(?!\s+all\b)|\b(?:in|into|within|throughout|to|of)\s+this\s+(?:[a-z]+\s+)?(?:plan|list|reply|answer|response|message|order|outline|draft|summary|breakdown|table|version|text)\b|\b(?:abajo|arriba)\b|\ba continuaci[oó]n\b|\b(?:en|a|de|dentro de)\s+(?:esta|este|estas|estos)\s+(?:[a-z]+\s+)?(?:respuesta|plan|lista|orden|mensaje|resumen|borrador|texto|versi[oó]n|tabla|esquema)\b/;
@@ -813,11 +818,14 @@ function claimsActionOutsideQuotes(
       const tied = YOUR_RECORD.test(fromClaim) || IN_THE_APP.test(fromClaim);
       const bareObject = BARE_OBJECT_CLAIM.test(fromClaim);
       if (EXTENDED_CLAIM.test(claim)) {
-        // A bare pronoun is no tie when the sentence points at the reply
-        // ("I've moved it to the top of the list below.").
+        // A bare pronoun is no tie only for added / moved pointing at the
+        // reply in the same clause ("I've moved it to the top of the list
+        // below."); "I've cancelled it, see below." is still a claim.
+        const movedWithinReply = MOVED_OR_ADDED.test(claim) &&
+          POINTS_AT_REPLY.test(fromClaim.split(/[,;–—]|\s-\s/)[0]);
         if (
           tied || REMINDER_OBJECT.test(fromClaim) ||
-          (bareObject && !pointsAtReply)
+          (bareObject && !movedWithinReply)
         ) return true;
         continue;
       }

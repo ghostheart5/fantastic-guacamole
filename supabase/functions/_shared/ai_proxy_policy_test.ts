@@ -2531,6 +2531,24 @@ const CLAIM_TABLE: ClaimRow[] = [
   claim("I've created the task below in the app.", "en", "remove", "remove", "final check E: 'in the app' ties it to the app"),
   claim("I've scheduled the meeting shown below.", "en", "remove", "remove", "final check E"),
   claim("He guardado el plan de abajo.", "es", "remove", "remove", "final check E"),
+  // Follow-up N2: the reply-pointing excuse for a bare pronoun covers only
+  // added / moved, with no comma, semicolon or dash before the pointing word.
+  claim("I've cancelled it, see below.", "en", "remove", "remove", "follow-up N2"),
+  claim("I've rescheduled it — see the new time below.", "en", "remove", "remove", "follow-up N2"),
+  claim("I've cancelled it as you asked above.", "en", "remove", "remove", "follow-up N2"),
+  claim("I've marked it done; the updated list is below.", "en", "remove", "remove", "follow-up N2"),
+  claim("I've set it for 9am below.", "en", "remove", "remove", "follow-up N2"),
+  claim("Ya lo cancelé, mira abajo.", "es", "remove", "remove", "follow-up N2"),
+  claim("I've moved it, see below.", "en", "remove", "remove", "follow-up N2: a comma breaks the pointing link"),
+  claim("Lo he movido al principio de la lista de abajo.", "es", "keep", "keep", "follow-up N2: Spanish moved + pointing in the same clause"),
+  // Follow-up N4: the "you could write" lead-in needs the modal.
+  claim("If you say yes: I've saved your task.", "en", "remove", "remove", "follow-up N4"),
+  claim("As you say:\nI've saved your task.", "en", { out: "As you say:" }, { out: "As you say:" }, "follow-up N4 (LIMIT: the lead-in line left over is delivered and charged)"),
+  claim("Here's the plan if you reply today:\n- rent\n\nI've saved your task.", "en", { out: "Here's the plan if you reply today:\n- rent" }, { out: "Here's the plan if you reply today:\n- rent" }, "follow-up N4"),
+  claim("You can say: I sent the report on Monday.", "en", "keep", "keep", "follow-up N4: modal present, a draft"),
+  // Follow-up N5: "in the app" ties only as in / into (the) app.
+  claim("I've added tips on the app below.", "en", "keep", "keep", "follow-up N5"),
+  claim("I've added a short guide to the app's settings below.", "en", "keep", "keep", "follow-up N5"),
 ];
 
 function expectedOutput(text: string, verdict: ClaimVerdict): string {
