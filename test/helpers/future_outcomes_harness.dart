@@ -131,7 +131,8 @@ TrajectoryBaseline futureOutcomesBaseline({
 }
 
 /// The options: keep going, the planner, finish the proposal, remove the
-/// inbox task and put the proposal off. [reduceId] renames the remove option
+/// inbox task and put the proposal off, with the engine's own titles and
+/// descriptions (so Spanish screens show them translated). [reduceId] renames the remove option
 /// (a refresh can give an option a new id while its kind stays the same);
 /// [withReduce] false leaves that kind out.
 TrajectoryComparison futureOutcomesComparison({
@@ -152,7 +153,8 @@ TrajectoryComparison futureOutcomesComparison({
         type: TrajectoryInterventionType.maintainCourse,
         title: 'Maintain current course',
         horizon: horizon,
-        description: 'Keep the present plan unchanged.',
+        description:
+            'Preserve the current plan without a declared intervention.',
       ),
       TrajectoryIntervention(
         id: 'planner',
@@ -167,7 +169,8 @@ TrajectoryComparison futureOutcomesComparison({
         type: TrajectoryInterventionType.completeTask,
         title: 'Complete Draft the proposal',
         horizon: horizon,
-        description: 'Finish the proposal in its planned time.',
+        description:
+            'Model this commitment as completed, then compare capacity, risk, goal timing, and progress consequences.',
         subjectId: 'task-a',
       ),
       if (withReduce)
@@ -176,7 +179,7 @@ TrajectoryComparison futureOutcomesComparison({
           type: TrajectoryInterventionType.reduceScope,
           title: 'Reduce lower-priority scope',
           horizon: horizon,
-          description: 'Take the inbox task out of this range.',
+          description: 'Remove Tidy the inbox from the active capacity window.',
           subjectId: 'task-d',
         ),
       TrajectoryIntervention(
@@ -184,7 +187,8 @@ TrajectoryComparison futureOutcomesComparison({
         type: TrajectoryInterventionType.delayTask,
         title: 'Delay the milestone',
         horizon: horizon,
-        description: 'Move the proposal by two days.',
+        description:
+            'Model one day of slippage and its Schedule and goal consequences.',
         subjectId: 'task-a',
         delay: const Duration(days: 2),
       ),
