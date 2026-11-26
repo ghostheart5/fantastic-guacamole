@@ -244,7 +244,8 @@ ProviderContainer _container({
     overrides: [
       momentumEngineProvider.overrideWithValue(momentum),
       trajectorySummaryProvider.overrideWithValue(
-        trajectory ?? _trajectory(alert: 'SI ALERT: trajectory is calm.'),
+        trajectory ??
+            _trajectory(alert: 'ASSISTANT ALERT: trajectory is calm.'),
       ),
       trajectoryConsequenceProvider.overrideWithValue(
         AsyncValue<TrajectoryComparison>.data(trajectoryTestComparison()),

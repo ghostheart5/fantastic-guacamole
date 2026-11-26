@@ -9,9 +9,6 @@ import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
-import 'package:fantastic_guacamole/data/services/ai/models/agent_request.dart';
-import 'package:fantastic_guacamole/data/services/ai/models/agent_result.dart';
-import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -23,16 +20,12 @@ import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
-import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/optimizer/optimization_config.dart';
-import 'package:fantastic_guacamole/engine/si/ai_personality.dart';
-import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
@@ -207,43 +200,6 @@ void main() {
       container.read(accountStorageScopeProvider).v2Namespace,
     );
   });
-
-  testWidgets(
-    'planner pipeline accepts context and returns a usable response',
-    (WidgetTester tester) async {
-      const AgentOrchestrator orchestrator = AgentOrchestrator();
-      final AgentResult result = await orchestrator.execute(
-        prompt: 'I keep losing attention after lunch. What should I do next?',
-        preferredAgent: AgentKind.chat,
-        request: AgentRequest(
-          prompt: 'I keep losing attention after lunch. What should I do next?',
-          context: <String, dynamic>{
-            'surface': 'smart_planner',
-            'energy': 0.45,
-          },
-          history: <Map<String, String>>[
-            <String, String>{
-              'role': 'assistant',
-              'content': 'Choose one small task and begin.',
-            },
-            <String, String>{
-              'role': 'user',
-              'content': 'That advice is too generic for my afternoon slump.',
-            },
-          ],
-          si: const SIState(energy: 0.45),
-          learning: const LearningState(),
-        ),
-      );
-
-      expect(result.selectedAgent, AgentKind.chat.name);
-      expect(result.payload['message']?.toString().trim(), isNotEmpty);
-      expect(
-        result.payload['message'],
-        isNot('Choose one small task and begin.'),
-      );
-    },
-  );
 
   testWidgets('task journey creates and persists a task', (
     WidgetTester tester,
@@ -521,7 +477,6 @@ ProviderContainer _integrationContainer(_InMemoryTaskRepository repository) {
       optimizationConfigProvider.overrideWith(
         (Ref ref) async => OptimizationConfig.neutral(),
       ),
-      aiResponseProvider.overrideWith(_IntegrationAIResponseController.new),
       accountStorageScopeProvider.overrideWithValue(
         AccountStorageScope.authenticated('integration-task-user'),
       ),
@@ -745,31 +700,6 @@ class _IntegrationProfileController extends ProfileController {
   @override
   void clearLeveledUp() {
     state = state.copyWith(leveledUp: false);
-  }
-}
-
-class _IntegrationAIResponseController extends AIResponseController {
-  @override
-  Future<AIRecommendation?> build() async => null;
-
-  @override
-  Future<AIRecommendation?> execute({
-    String? inputOverride,
-    AIPersonality? personalityOverride,
-    AgentKind? preferredAgent,
-    List<Map<String, String>> history = const <Map<String, String>>[],
-    Map<String, dynamic> context = const <String, dynamic>{},
-    AgentRequest? requestOverride,
-  }) async {
-    const AIRecommendation recommendation = AIRecommendation(
-      task: null,
-      message: 'Task complete. Continue with the next ranked action.',
-      reasoning: 'Integration response',
-      emotion: 'engaged',
-      confidence: 0.9,
-    );
-    state = const AsyncData<AIRecommendation?>(recommendation);
-    return recommendation;
   }
 }
 

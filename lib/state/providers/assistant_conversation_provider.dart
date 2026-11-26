@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/data/repositories/assistant_conversation_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
+import 'package:fantastic_guacamole/domain/entities/conversation_extra_sources.dart';
 import 'package:fantastic_guacamole/domain/assistant/axiomara_router_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -9,6 +10,8 @@ import 'package:fantastic_guacamole/engine/si/api.dart';
 import 'package:fantastic_guacamole/engine/assistant/axiomara_deterministic_router.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
 import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
+import 'package:fantastic_guacamole/state/providers/ai_chat_extra_sources_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_conversation_extra_records.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
@@ -17,6 +20,7 @@ import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provid
 import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/internal_credit_test_provider.dart';
+import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
@@ -65,6 +69,52 @@ final assistantConversationSurfaceAvailableProvider =
                   ?.value
                   .enabled ==
               true;
+    });
+
+/// Why AI chat cannot be used right now, so the mode switch can say so in
+/// plain words instead of hiding. [none] means it can be used.
+enum AiChatBlock {
+  none,
+  accountNotReady,
+  notAvailable,
+  checking,
+  notAvailableNow,
+}
+
+/// Whether this build has AI chat at all. Only a build without it hides the
+/// mode switch; every other case shows the switch and explains when tapped.
+final assistantChatInBuildProvider = Provider<bool>(
+  (ref) =>
+      ref.watch(externalAiAvailableProvider) ||
+      ref.watch(assistantConversationAvailableProvider),
+);
+
+final assistantChatBlockProvider =
+    Provider.family<AiChatBlock, ConversationSurface>((ref, surface) {
+      if (!ref.watch(accountStorageScopeProvider).isWritable) {
+        return AiChatBlock.accountNotReady;
+      }
+      if (!ref.watch(assistantConversationAvailableProvider)) {
+        return AiChatBlock.notAvailable;
+      }
+      final capability = surface == ConversationSurface.planner
+          ? AssistantReleaseCapability.smartPlannerV2
+          : AssistantReleaseCapability.siConsoleV2;
+      final decisions = [
+        ref.watch(assistantReleaseDecisionProvider(capability)),
+        ref.watch(
+          assistantReleaseDecisionProvider(
+            AssistantReleaseCapability.safetyCritic,
+          ),
+        ),
+      ];
+      if (decisions.any(
+        (d) => d.hasError || d.asData?.value.enabled == false,
+      )) {
+        return AiChatBlock.notAvailableNow;
+      }
+      if (decisions.any((d) => d.asData == null)) return AiChatBlock.checking;
+      return AiChatBlock.none;
     });
 
 final conversationTransportProvider = Provider<ConversationTransport>(
@@ -146,11 +196,23 @@ final conversationServiceProvider = Provider<ConversationService>((ref) {
   );
 });
 
+/// How long a screen waits before collecting again a request whose first call
+/// the server reports as still running (`request_reserved`). Five seconds
+/// keeps well inside the server's per-account limit (20 calls a minute,
+/// price checks included).
+final conversationReservedRetryIntervalProvider = Provider<Duration>(
+  (ref) => const Duration(seconds: 5),
+);
+
 /// Paid executions outlive the screen that confirmed them. Leaving Chat or
 /// Choose a step disposes the screen, not this registry, so a returning screen
 /// joins the running request instead of sending it again. A new account or
-/// session starts an empty registry; its stored request is then re-sent with
-/// the same id, which the server answers from its reply cache.
+/// sign-in starts an empty registry; its stored request is then re-sent with
+/// the same id. Once the first call has finished the server answers that from
+/// its reply cache; while the first call is still running it answers
+/// `request_reserved` without a second charge, and the screen keeps the
+/// request and collects it again a few seconds later, until it can no longer
+/// be collected.
 typedef ConversationPurgeTimer =
     Timer Function(Duration delay, void Function() callback);
 
@@ -200,6 +262,12 @@ final conversationExecutionRegistryProvider =
               )
               .ignore();
         },
+        onReleased: (requestId, {required failed, required completed}) {
+          if (!ref.mounted) return;
+          ref
+              .read(aiCreditKnownBalanceProvider.notifier)
+              .release(requestId, failed: failed, completed: completed);
+        },
       );
       // An account or generation change drops this registry and its timer.
       ref.onDispose(registry.dispose);
@@ -211,11 +279,38 @@ final class ConversationExecutionRegistry {
     ConversationPurgeTimer? createTimer,
     AssistantConversationRepository? Function()? readStore,
     this.onAnswered,
+    this.onReleased,
   }) : _createTimer = createTimer ?? Timer.new,
        _readStore = readStore ?? (() => null);
 
   final ConversationPurgeTimer _createTimer;
   final AssistantConversationRepository? Function() _readStore;
+
+  /// Told when an execution completes (answer or failure, whoever is
+  /// listening) and when a request's outcome is finished; it no longer
+  /// counts as running for the AI credit balance. [failed] is true when the
+  /// execution failed, which may have refunded its charge; [completed] when
+  /// it answered, which settled it (only from the answer itself, never from
+  /// [finish]).
+  final void Function(
+    String requestId, {
+    required bool failed,
+    required bool completed,
+  })?
+  onReleased;
+
+  void _release(
+    String requestId, {
+    bool failed = false,
+    bool completed = false,
+  }) {
+    if (_disposed) return;
+    try {
+      onReleased?.call(requestId, failed: failed, completed: completed);
+    } on Object {
+      // Display bookkeeping only.
+    }
+  }
 
   /// Told once per answered execution started here (a joined request is not
   /// a second answer). It can never change the request's own outcome.
@@ -289,6 +384,7 @@ final class ConversationExecutionRegistry {
       future.then<void>(
         (_) {
           if (_disposed) return;
+          _release(id, completed: true);
           try {
             onAnswered?.call(quote.packet);
           } on Object {
@@ -296,6 +392,7 @@ final class ConversationExecutionRegistry {
           }
         },
         onError: (Object _) {
+          _release(id, failed: true);
           if (identical(_running[id]?.future, future)) {
             _running[id] = (future: future, failed: true);
             // A run kept past its deadline may now be purged.
@@ -311,6 +408,7 @@ final class ConversationExecutionRegistry {
   void finish(String requestId, {required bool shown}) {
     _running.remove(requestId);
     if (shown) _shown.add(requestId);
+    _release(requestId);
   }
 
   bool wasShown(String requestId) => _shown.contains(requestId);
@@ -318,6 +416,34 @@ final class ConversationExecutionRegistry {
   /// Started in this session and not known to have failed.
   bool isRunning(String requestId) => _running[requestId]?.failed == false;
 }
+
+/// The information selection whose full preview the person has already
+/// accepted, per surface, for this account while the app runs. Sending with
+/// the same selection skips the automatic preview; a new app run, a new
+/// account or session, or a changed selection shows it again. Kept in memory
+/// only: nothing is stored.
+final conversationPreviewMemoryProvider = Provider<ConversationPreviewMemory>((
+  ref,
+) {
+  ref.watch(accountStorageScopeProvider.select((s) => s.v2Namespace));
+  ref.watch(authSessionBoundaryProvider.select((b) => b.generation));
+  return ConversationPreviewMemory();
+});
+
+final class ConversationPreviewMemory {
+  final _accepted = <ConversationSurface, String>{};
+
+  bool hasAccepted(ConversationSurface surface, String selection) =>
+      _accepted[surface] == selection;
+
+  void accept(ConversationSurface surface, String selection) =>
+      _accepted[surface] = selection;
+}
+
+/// The moment a request is built. Tests replace it with a fixed time.
+final conversationClockProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
+);
 
 final conversationPacketFactoryProvider = Provider<ConversationPacketFactory>(
   (ref) => ConversationPacketFactory(ref),
@@ -345,11 +471,22 @@ final class ConversationPacketFactory {
     double? reportedEnergy,
     String? selectedTaskId,
     bool attachedTaskOnly = false,
+    Set<ConversationExtraSource> extraSources = const {},
   }) async {
     final taskOnly =
         surface == ConversationSurface.planner &&
         selectedTaskId != null &&
         attachedTaskOnly;
+    // Extra information is a Chat choice on top of saved information: it is
+    // ignored while the build switch is off, for Choose a step, for one
+    // attached task and for Just this chat.
+    final extras =
+        surface == ConversationSurface.si &&
+            !taskOnly &&
+            sources.isNotEmpty &&
+            ref.read(aiChatExtraSourcesAvailableProvider)
+        ? extraSources
+        : const <ConversationExtraSource>{};
     final scope = ref.read(accountStorageScopeProvider).v2Namespace;
     final generation = ref.read(authSessionBoundaryProvider).generation;
     if (scope == null ||
@@ -357,7 +494,7 @@ final class ConversationPacketFactory {
         !ref.read(authSessionBoundaryProvider).isStorageReady) {
       throw const ConversationFailure('authentication_required');
     }
-    final now = DateTime.now();
+    final now = ref.read(conversationClockProvider)();
     for (final flag in [
       surface == ConversationSurface.planner
           ? AssistantReleaseCapability.smartPlannerV2
@@ -372,7 +509,16 @@ final class ConversationPacketFactory {
     }
     final snapshot = await ref
         .read(siV2ReadGatewayProvider)
-        .read(observedAt: now.toUtc(), decisionText: prompt);
+        .read(
+          observedAt: now.toUtc(),
+          decisionText: prompt,
+          includeActivity: extras.isNotEmpty,
+          // Applied before the read's own limits, so a long list is not cut
+          // before the person's filter.
+          titleContains: extras.isNotEmpty ? entityFilter : '',
+          // The count of what does not fit is then exact.
+          withoutReadLimits: extras.isNotEmpty,
+        );
     final note =
         surface == ConversationSurface.planner &&
             !taskOnly &&
@@ -478,6 +624,14 @@ final class ConversationPacketFactory {
     String bounded(String text, int limit) =>
         text.length > limit ? '${text.substring(0, limit)} [truncated]' : text;
     String? localDate(DateTime? time) => time?.toLocal().toIso8601String();
+    final extra = ConversationExtraRecords.read(
+      extras: extras,
+      snapshot: snapshot,
+      entityFilter: entityFilter,
+      window: ConversationRecentWindow.forRange(range),
+      now: now,
+      title: (text) => bounded(text, conversationExtraTitleLimit),
+    );
     return ConversationPacket(
       surface: surface,
       accountScope: scope,
@@ -490,8 +644,10 @@ final class ConversationPacketFactory {
         'taskTimeZoneId': taskTimeZoneId,
         'mode': query.intent.name,
         'timeRange': range.name,
-        'selectedSources':
-            effectiveSources.map((source) => source.name).toList()..sort(),
+        'selectedSources': [
+          ...effectiveSources.map((source) => source.name),
+          ...extras.map((source) => source.name),
+        ]..sort(),
         'entityFilter': entityFilter,
         'scenarioAssumption': scenario,
         'evidenceRevision': effectiveSources.isEmpty
@@ -562,16 +718,21 @@ final class ConversationPacketFactory {
               },
             )
             .toList(),
-        'omittedRecordCount': [
-          tasks.length,
-          goals.length,
-          milestones.length,
-          timeline.length,
-        ].fold<int>(0, (sum, size) => sum + (size > 12 ? size - 12 : 0)),
-        'unavailableSources': snapshot.unavailableSources
-            .where(effectiveSources.contains)
-            .map((source) => source.name)
-            .toList(),
+        ...extra.records,
+        'omittedRecordCount':
+            [
+              tasks.length,
+              goals.length,
+              milestones.length,
+              timeline.length,
+            ].fold<int>(0, (sum, size) => sum + (size > 12 ? size - 12 : 0)) +
+            extra.omitted,
+        'unavailableSources': [
+          ...snapshot.unavailableSources
+              .where(effectiveSources.contains)
+              .map((source) => source.name),
+          ...extra.unavailable,
+        ],
         if (note != null) 'selectedNoteId': note.id,
         if (note != null)
           'explicitlyAttachedNote': {

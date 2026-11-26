@@ -11,8 +11,8 @@ Review the chosen horizon, actual dates and completion history. Add only informa
 ## A reminder arrives late or does not appear
 Check the enabled reminder and time in Settings, Android notification permission and device battery behavior. Timing can vary; the reviewed earlier notification arrived about 102 seconds late. A notification is not proof that a task was completed. Avoid clearing app data as a diagnostic shortcut.
 
-## Chat or a cloud question is unavailable
-Review connectivity, consent, selected context and account availability. Check your credit quote and balance. Do not resend repeatedly while a request may still be active. Free planning tools remain separate from cloud questions.
+## Chat or an AI chat question (which sends information to an external AI service) is unavailable
+Review connectivity, consent, selected context and account availability. Check your credit quote and balance. Do not resend repeatedly while a request may still be active. "On this device · free" remains separate from AI chat questions.
 
 ## I cannot find a setting
 Expand the relevant Settings section. Guide replay and welcome/account setup are separate actions, with explanations of what they retain. Account deletion is different from sign-out or subscription cancellation.

@@ -1,6 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/storage/account_scoped_shared_prefs_store.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/data/repositories/assistant_conversation_repository.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
@@ -22,6 +26,7 @@ import 'package:fantastic_guacamole/state/providers/assistant_conversation_provi
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
+import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/consented_human_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/internal_credit_test_provider.dart';
@@ -86,9 +91,28 @@ ProviderContainer setup(
   SecureStoreBackend? historyBackend,
   bool externalAiAllowed = true,
   AdaptiveGuidanceNotifier? guidance,
+  MemoryPrefs? preferences,
+  // Release decision: held open by [releaseGate], or switched off.
+  Completer<void>? releaseGate,
+  bool releaseEnabled = true,
+  // A build that has AI chat even when it cannot be used right now.
+  bool externalAiBuild = false,
+  // A fixed clock for the free assistant's answers.
+  DateTime Function()? clock,
+  // The clock AI chat reads (when a stored request can still be collected).
+  DateTime Function()? conversationClock,
 }) => ProviderContainer(
   overrides: [
+    if (conversationClock != null)
+      conversationClockProvider.overrideWithValue(conversationClock),
     if (guidance != null) adaptiveGuidanceProvider.overrideWith(() => guidance),
+    // With [preferences], the real account-scoped preference store is used.
+    if (preferences != null) ...[
+      sharedPrefsStoreProvider.overrideWithValue(preferences),
+      accountLegacyOwnershipProvider.overrideWithValue(
+        LegacyScopeOwnership.provenNotOwned,
+      ),
+    ],
     secureStoreProvider.overrideWithValue(
       SecureStore(backend: historyBackend ?? InMemorySecureStoreBackend()),
     ),
@@ -99,17 +123,20 @@ ProviderContainer setup(
     assistantConversationAvailableProvider.overrideWithValue(
       conversationAvailable,
     ),
+    if (externalAiBuild) externalAiAvailableProvider.overrideWithValue(true),
     if (!conversationAvailable)
       siV2AvailabilityProvider.overrideWith((ref) async => true),
-    personalizationProfileProvider.overrideWith(
-      externalAiAllowed ? _Consent.new : _NoConsent.new,
-    ),
+    if (preferences == null)
+      personalizationProfileProvider.overrideWith(
+        externalAiAllowed ? _Consent.new : _NoConsent.new,
+      ),
     conversationTransportProvider.overrideWithValue(transport),
     if (requestTimeout != null)
       conversationRequestTimeoutProvider.overrideWithValue(requestTimeout),
     if (paidWaitTimeout != null)
       conversationPaidWaitTimeoutProvider.overrideWithValue(paidWaitTimeout),
     siV2ReadGatewayProvider.overrideWithValue(readGateway ?? gateway),
+    if (clock != null) siV2ClockProvider.overrideWithValue(clock),
     // Retained local-SI voice tests exercise capture lifecycle, not the real
     // Person Context secure-preference loader and its account mutation queue.
     siV2PersonContextRevisionProvider.overrideWithValue(
@@ -152,17 +179,18 @@ ProviderContainer setup(
       AssistantReleaseCapability.siConsoleV2,
       AssistantReleaseCapability.safetyCritic,
     ])
-      assistantReleaseDecisionProvider(capability).overrideWith(
-        (ref) async => AssistantReleaseDecision(
-          enabled: true,
+      assistantReleaseDecisionProvider(capability).overrideWith((ref) async {
+        if (releaseGate != null) await releaseGate.future;
+        return AssistantReleaseDecision(
+          enabled: releaseEnabled,
           shadowEvaluationEnabled: false,
           cohort: AssistantReleaseCohort.internal,
           reasonCode: 'synthetic-test',
           accountDigest: 'test',
           capability: capability,
           configDigest: 'test',
-        ),
-      ),
+        );
+      }),
   ],
 );
 
@@ -280,7 +308,7 @@ void main() {
           await tester.binding.setSurfaceSize(const Size(320, 1000));
           addTearDown(() => tester.binding.setSurfaceSize(null));
           var requests = 0;
-          var fallbackCalls = 0;
+          var freeCalls = 0;
           String? handoff;
           final container = setup((_) async {
             requests++;
@@ -319,18 +347,33 @@ void main() {
                 ),
                 home: AssistantConversationScreen(
                   surface: ConversationSurface.si,
-                  onLocalTools: () => fallbackCalls++,
-                  onLocalToolsWithDraft: (draft) => handoff = draft,
+                  onLocalTools: () {
+                    freeCalls++;
+                    handoff = tester
+                        .widget<TextField>(
+                          find.byKey(const Key('conversation-input')),
+                        )
+                        .controller!
+                        .text
+                        .trim();
+                  },
                 ),
               ),
             ),
           );
           await tester.pumpAndSettle();
           await waitForChatReady(tester);
-          final button = find.byKey(const Key('conversation-free-tools'));
           final label = find.text(
-            language == 'es' ? 'Herramientas gratis' : 'Free tools',
+            language == 'es'
+                ? 'En este dispositivo · gratis'
+                : 'On this device · free',
           );
+          final button = find.byKey(const Key('assistant-mode-on-device'));
+          final switchBounds = tester.getRect(
+            find.byKey(const Key('assistant-mode-switch')),
+          );
+          expect(switchBounds.left, greaterThanOrEqualTo(16));
+          expect(switchBounds.right, lessThanOrEqualTo(304));
           expect(label, findsOneWidget);
           expect(button.hitTestable(), findsOneWidget);
           final bounds = tester.getRect(button);
@@ -358,7 +401,7 @@ void main() {
           await enterChatText(tester, 'A quiet next step');
           await tapRevealedChatControl(tester, button);
           expect(handoff, 'A quiet next step');
-          expect(fallbackCalls, 0);
+          expect(freeCalls, 1);
           expect(requests, 0);
           expect(tester.takeException(), isNull);
         },
@@ -366,14 +409,74 @@ void main() {
     }
   }
 
-  testWidgets(
-    'AI off shows a pinned notice and send explains how to turn it on',
-    (tester) async {
-      var requests = 0;
-      final container = setup((_) async {
-        requests++;
-        throw StateError('AI-off chat must not request paid AI');
-      }, externalAiAllowed: false);
+  testWidgets('AI off shows a pinned notice and send opens the consent sheet', (
+    tester,
+  ) async {
+    var requests = 0;
+    final container = setup((_) async {
+      requests++;
+      throw StateError('AI-off chat must not request paid AI');
+    }, externalAiAllowed: false);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('conversation-ai-off-notice')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(find.text('AI chat is off'), findsOneWidget);
+    expect(find.text('Turn on AI chat to type'), findsOneWidget);
+    // The old instruction named a Settings path that is not on screen.
+    expect(find.textContaining('Personalization'), findsNothing);
+    expect(find.textContaining('Allow external AI'), findsNothing);
+    final input = find.byKey(const Key('conversation-input'));
+    expect(tester.widget<TextField>(input).enabled, isFalse);
+    final send = tester.widget<IconButton>(
+      find.byKey(const Key('conversation-send')),
+    );
+    expect(send.onPressed, isNotNull);
+    // Nothing can be sent yet, so no price and no preview are offered.
+    expect(find.text('Send · 5 credits'), findsNothing);
+    expect(find.byKey(const Key('conversation-preview')), findsNothing);
+    await tester.tap(find.byKey(const Key('conversation-send')));
+    await tester.pumpAndSettle();
+    expect(find.text('Turn on AI chat?'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('ai-chat-consent-decline')));
+    await tester.pumpAndSettle();
+    expect(find.text('Turn on AI chat?'), findsNothing);
+    expect(requests, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final language in ['en', 'es']) {
+    final es = language == 'es';
+    Future<ProviderContainer> pumpConsentChat(
+      WidgetTester tester,
+      MemoryPrefs preferences, {
+      AccountStorageScope Function()? readScope,
+      void Function()? onRequest,
+    }) async {
+      final container = setup(
+        (_) async {
+          onRequest?.call();
+          throw StateError('Consent must not send anything');
+        },
+        preferences: preferences,
+        readScope: readScope,
+      );
       addTearDown(() async {
         await tester.pumpWidget(const SizedBox.shrink());
         container.dispose();
@@ -382,6 +485,12 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
+            locale: Locale(language),
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              ChronoSparkLocalizations.delegate,
+              ...GlobalMaterialLocalizations.delegates,
+            ],
             home: AssistantConversationScreen(
               surface: ConversationSurface.si,
               onLocalTools: () {},
@@ -390,31 +499,251 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      return container;
+    }
+
+    Future<void> openConsentSheet(WidgetTester tester) async {
+      final turnOn = find.byKey(const Key('conversation-ai-off-turn-on'));
+      expect(turnOn.hitTestable(), findsOneWidget);
       expect(
-        find.byKey(const Key('conversation-ai-off-notice')).hitTestable(),
+        find.text(es ? 'Activar el chat con IA' : 'Turn on AI chat'),
         findsOneWidget,
       );
-      expect(find.text('AI chat is off'), findsOneWidget);
-      expect(find.text('Turn on AI in Settings to type'), findsOneWidget);
-      final input = find.byKey(const Key('conversation-input'));
-      expect(tester.widget<TextField>(input).enabled, isFalse);
-      final send = tester.widget<IconButton>(
-        find.byWidgetPredicate(
-          (widget) => widget is IconButton && widget.tooltip == 'Send to AI',
-        ),
+      await tester.tap(turnOn);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(es ? '¿Activar el chat con IA?' : 'Turn on AI chat?'),
+        findsOneWidget,
       );
-      expect(send.onPressed, isNotNull);
-      await tester.tap(find.byTooltip('Send to AI'));
+    }
+
+    String? storedProfile(MemoryPrefs preferences, String account) =>
+        AccountScopedSharedPrefsStore(
+          delegate: preferences,
+          scope: AccountStorageScope.authenticated(account),
+          legacyOwnership: LegacyScopeOwnership.provenNotOwned,
+        ).load(personalizationProfileStorageKey);
+
+    testWidgets(
+      '$language consent sheet says what is sent, to whom, how long and the cost',
+      (tester) async {
+        final preferences = MemoryPrefs();
+        await pumpConsentChat(tester, preferences);
+        await openConsentSheet(tester);
+        for (final line
+            in es
+                ? [
+                    'Qué se envía: tu pregunta, hasta seis mensajes recientes de esta conversación, la información que aparece encima del cuadro de mensaje, las opciones que elijas en Chat o en Elegir un paso (como fechas, filtro de títulos, escenario o energía) y los datos técnicos que se indican en la vista previa, como los identificadores de los registros, tu fecha y hora local, zona horaria e idioma. Cuando hayas escrito una pregunta, Ver qué se envía, junto al cuadro de mensaje, muestra la vista previa completa de lo que se envía siempre que se pueda enviar; también se abre sola antes de tu primer mensaje después de abrir la app y cada vez que cambias la información elegida, incluida la nota, la energía o el estado emocional.',
+                    'Quién lo recibe: cuando tocas enviar, Axiomara lo recibe para comprobar el precio y luego lo envía a Anthropic, el proveedor de IA, para obtener la respuesta.',
+                    'Cuánto tiempo se guarda: Anthropic normalmente lo conserva hasta 30 días. En este dispositivo, Chat conserva hasta 40 mensajes recientes de esta cuenta hasta que los borres; para recuperar una respuesta pagada tras una interrupción, Axiomara puede guardar brevemente esa respuesta en su servidor, con un plazo de recuperación de 15 minutos.',
+                    'Cuánto cuesta: el botón de enviar muestra el precio en créditos, por ejemplo Enviar · 5 créditos. Tocar enviar confirma ese precio. Si el precio comprobado es distinto, se te pregunta antes de que algo llegue a Anthropic y no se cobra nada si no lo confirmas.',
+                    'También en Elegir un paso: donde se ofrece, el botón opcional Explicar este plan envía el plan que ves en pantalla a Axiomara para mostrarte su precio en créditos, y a Anthropic solo después de que confirmes ese precio.',
+                  ]
+                : [
+                    'What is sent: your question, up to six recent messages from this conversation, the information listed above the message box, any options you set in Chat or Choose a step (such as a date range, title filter, scenario or energy), and the technical details listed in the preview, such as record identifiers, your local date and time, time zone and language. Once you have typed a question, See what is sent by the message box shows the full preview of what goes whenever sending is available; it also opens by itself before your first message after the app opens and whenever you change the information selected, including the note, energy or emotional state.',
+                    'Who receives it: when you tap send, Axiomara receives it to check the price, then sends it to Anthropic, the AI provider, for a reply.',
+                    'How long it is kept: Anthropic normally keeps it for up to 30 days. On this device, Chat keeps up to 40 recent messages for this account until you clear them; to recover a paid reply after an interruption, Axiomara may briefly keep that reply on its server, with a 15-minute recovery window.',
+                    'What it costs: the send button shows the price in credits, for example Send · 5 credits. Tapping send confirms that price. If the checked price is different, you are asked before anything reaches Anthropic, and nothing is charged unless you confirm it.',
+                    'Also on Choose a step: where it is offered, the optional Explain this plan button sends the plan shown on screen to Axiomara to show you its price in credits, and to Anthropic only after you confirm that price.',
+                  ]) {
+          expect(find.text(line), findsOneWidget);
+        }
+        expect(
+          find.byKey(const Key('ai-chat-consent-allow')).hitTestable(),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('ai-chat-consent-decline')).hitTestable(),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      '$language allowing AI chat saves consent for this account only and enables typing',
+      (tester) async {
+        final preferences = MemoryPrefs();
+        var requests = 0;
+        final container = await pumpConsentChat(
+          tester,
+          preferences,
+          onRequest: () => requests++,
+        );
+        final input = find.byKey(const Key('conversation-input'));
+        expect(tester.widget<TextField>(input).enabled, isFalse);
+        await openConsentSheet(tester);
+        await tester.tap(find.byKey(const Key('ai-chat-consent-allow')));
+        await tester.pumpAndSettle();
+        await waitForChatReady(tester);
+        expect(
+          container.read(personalizationProfileProvider).externalAiAllowed,
+          isTrue,
+        );
+        final saved = storedProfile(preferences, 'synthetic-review');
+        expect(saved, isNotNull);
+        expect(
+          PersonalizationProfile.fromJson(
+            jsonDecode(saved!) as Map<String, dynamic>,
+          ).externalAiAllowed,
+          isTrue,
+        );
+        expect(storedProfile(preferences, 'another-account'), isNull);
+        // Still in Chat, ready to type; nothing was sent.
+        expect(find.byType(AssistantConversationScreen), findsOneWidget);
+        expect(
+          find.byKey(const Key('conversation-ai-off-notice')),
+          findsNothing,
+        );
+        expect(tester.widget<TextField>(input).enabled, isTrue);
+        expect(requests, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('$language not now leaves AI chat off and saves nothing', (
+      tester,
+    ) async {
+      final preferences = MemoryPrefs();
+      var requests = 0;
+      final container = await pumpConsentChat(
+        tester,
+        preferences,
+        onRequest: () => requests++,
+      );
+      await openConsentSheet(tester);
+      expect(find.text(es ? 'Ahora no' : 'Not now'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('ai-chat-consent-decline')));
       await tester.pumpAndSettle();
-      expect(find.text('Turn on AI chat first'), findsOneWidget);
-      expect(find.text('Open settings'), findsOneWidget);
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-      expect(find.text('Turn on AI chat first'), findsNothing);
+      expect(
+        container.read(personalizationProfileProvider).externalAiAllowed,
+        isFalse,
+      );
+      expect(preferences.values, isEmpty);
+      expect(
+        find.byKey(const Key('conversation-ai-off-notice')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('conversation-input')))
+            .enabled,
+        isFalse,
+      );
       expect(requests, 0);
       expect(tester.takeException(), isNull);
-    },
-  );
+    });
+
+    if (!es) {
+      const seeded = PersonalizationProfile(
+        goalCategory: 'Closed test',
+        planningStyle: PlanningStyle.timeBlocked,
+        priorityStrategy: PriorityStrategy.deadlineFirst,
+      );
+      Future<void> seed(MemoryPrefs preferences) =>
+          AccountScopedSharedPrefsStore(
+            delegate: preferences,
+            scope: scope,
+            legacyOwnership: LegacyScopeOwnership.provenNotOwned,
+          ).save(personalizationProfileStorageKey, jsonEncode(seeded.toJson()));
+
+      void expectSeededFieldsKept(
+        ProviderContainer container,
+        MemoryPrefs preferences,
+      ) {
+        for (final profile in [
+          container.read(personalizationProfileProvider),
+          PersonalizationProfile.fromJson(
+            jsonDecode(storedProfile(preferences, 'synthetic-review')!)
+                as Map<String, dynamic>,
+          ),
+        ]) {
+          expect(profile.externalAiAllowed, isTrue);
+          expect(profile.goalCategory, 'Closed test');
+          expect(profile.planningStyle, PlanningStyle.timeBlocked);
+          expect(profile.priorityStrategy, PriorityStrategy.deadlineFirst);
+        }
+      }
+
+      testWidgets('allowing keeps the other stored personalization choices', (
+        tester,
+      ) async {
+        final preferences = MemoryPrefs();
+        await seed(preferences);
+        final container = await pumpConsentChat(tester, preferences);
+        await openConsentSheet(tester);
+        await tester.tap(find.byKey(const Key('ai-chat-consent-allow')));
+        await tester.pumpAndSettle();
+        expectSeededFieldsKept(container, preferences);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets(
+        'allowing before the stored profile loads never overwrites it with defaults',
+        (tester) async {
+          final preferences = MemoryPrefs();
+          await seed(preferences);
+          final gate = preferences.loadGate = Completer<void>();
+          final container = await pumpConsentChat(tester, preferences);
+          // Still loading: the profile shows defaults, so AI chat looks off.
+          expect(
+            container.read(personalizationProfileProvider).planningStyle,
+            isNot(PlanningStyle.timeBlocked),
+          );
+          await openConsentSheet(tester);
+          await tester.tap(find.byKey(const Key('ai-chat-consent-allow')));
+          await tester.pumpAndSettle();
+          gate.complete();
+          await tester.pumpAndSettle();
+          expectSeededFieldsKept(container, preferences);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets('an account change closes the consent sheet and saves nothing', (
+    tester,
+  ) async {
+    final preferences = MemoryPrefs();
+    var currentScope = scope;
+    final container = setup(
+      (_) async => throw StateError('Consent must not send anything'),
+      preferences: preferences,
+      readScope: () => currentScope,
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: AssistantConversationScreen(
+            surface: ConversationSurface.si,
+            onLocalTools: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('conversation-ai-off-turn-on')));
+    await tester.pumpAndSettle();
+    expect(find.text('Turn on AI chat?'), findsOneWidget);
+    currentScope = AccountStorageScope.authenticated(
+      'different-review-account',
+    );
+    container.invalidate(accountStorageScopeProvider);
+    await tester.pumpAndSettle();
+    expect(find.text('Turn on AI chat?'), findsNothing);
+    expect(
+      container.read(personalizationProfileProvider).externalAiAllowed,
+      isFalse,
+    );
+    expect(preferences.values, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final language in ['en', 'es']) {
     testWidgets('$language AI-off chat fits 320x640 at 200 percent text', (
@@ -467,23 +796,27 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find
-            .byTooltip(language == 'es' ? 'Enviar a IA' : 'Send to AI')
-            .hitTestable(),
+        find.byKey(const Key('conversation-send')).hitTestable(),
         findsOneWidget,
       );
-      await tester.tap(
-        find.byTooltip(language == 'es' ? 'Enviar a IA' : 'Send to AI'),
-      );
+      await tester.tap(find.byKey(const Key('conversation-send')));
       await tester.pumpAndSettle();
       expect(
         find.text(
-          language == 'es'
-              ? 'Primero activa el chat con IA'
-              : 'Turn on AI chat first',
+          language == 'es' ? '¿Activar el chat con IA?' : 'Turn on AI chat?',
         ),
         findsOneWidget,
       );
+      expect(tester.takeException(), isNull);
+      // Both choices stay reachable and at least 48dp tall at large text.
+      for (final key in ['ai-chat-consent-allow', 'ai-chat-consent-decline']) {
+        final button = find.byKey(Key(key));
+        await tester.ensureVisible(button);
+        await tester.pumpAndSettle();
+        expect(button.hitTestable(), findsOneWidget);
+        expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+        expect(tester.getRect(button).right, lessThanOrEqualTo(320));
+      }
       expect(tester.takeException(), isNull);
     });
   }
@@ -502,7 +835,7 @@ void main() {
     });
     await pumpConversationScreen(tester, container);
     expect(find.byKey(const Key('conversation-ai-off-notice')), findsNothing);
-    await tester.tap(find.byTooltip('Send to AI'));
+    await tester.tap(find.byKey(const Key('conversation-send')));
     await tester.pump();
     expect(find.text('Type a question first, then tap send.'), findsOneWidget);
     expect(requests, 0);
@@ -535,7 +868,7 @@ void main() {
     await waitForChatReady(tester);
     await tapRevealedChatControl(
       tester,
-      find.byKey(const Key('conversation-free-tools')),
+      find.byKey(const Key('assistant-mode-on-device')),
     );
     expect(calls, 1);
     expect(tester.takeException(), isNull);
@@ -581,14 +914,13 @@ void main() {
           (widget) => widget is IconButton && widget.tooltip == tooltip,
         ),
       );
-      expect(button('Send to AI').onPressed, isNull);
+      ButtonStyleButton send() => tester.widget<ButtonStyleButton>(
+        find.byKey(const Key('conversation-send')),
+      );
+      expect(send().onPressed, isNull);
       expect(button('Start voice input').onPressed, isNull);
       expect(find.text('Loading saved chat…'), findsOneWidget);
-      await tester.tap(
-        find.byWidgetPredicate(
-          (widget) => widget is IconButton && widget.tooltip == 'Send to AI',
-        ),
-      );
+      await tester.tap(find.byKey(const Key('conversation-send')));
       await tester.tap(
         find.byWidgetPredicate(
           (widget) =>
@@ -599,7 +931,7 @@ void main() {
       expect(voice.starts, 0);
       backend.release.complete();
       await waitForChatReady(tester);
-      expect(button('Send to AI').onPressed, isNotNull);
+      expect(send().onPressed, isNotNull);
       expect(button('Start voice input').onPressed, isNotNull);
       await enterChatText(
         tester,
@@ -980,19 +1312,12 @@ void main() {
         );
         await tester.pumpAndSettle();
         await enterChatText(tester, 'Suggest a quiet break after work.');
-        await tester.tap(find.byTooltip('Send to AI'));
-        for (
-          var i = 0;
-          i < 20 && find.text('Get credit price').evaluate().isEmpty;
-          i++
-        ) {
+        await tester.tap(find.byKey(const Key('conversation-send')));
+        for (var i = 0; i < 20 && find.text('Send').evaluate().isEmpty; i++) {
           await tester.pump(const Duration(milliseconds: 100));
-          if (find.text('Review AI price').evaluate().isNotEmpty) {
-            await tester.tap(find.text('Review AI price'));
-          }
         }
-        expect(find.text('Get credit price'), findsOneWidget);
-        await tester.tap(find.text('Get credit price'));
+        expect(find.text('Send'), findsOneWidget);
+        await tester.tap(find.text('Send'));
         for (
           var i = 0;
           i < 20 && find.text('Use 4 credits').evaluate().isEmpty;
@@ -1573,13 +1898,12 @@ void main() {
         tester,
         find.byKey(const Key('conversation-advanced')),
       );
+      // A new chat uses the plan, so the reset below turns sources off.
       final tasks = find.widgetWithText(FilterChip, 'Tasks');
-      expect(tester.widget<FilterChip>(tasks).selected, isFalse);
-      await tapRevealedChatControl(tester, tasks);
       expect(
         tester.widget<FilterChip>(tasks).selected,
         isTrue,
-        reason: 'Reset must turn off a source that this test actually enabled.',
+        reason: 'Reset must turn off a source that is actually in use.',
       );
       final chatOnly = find.widgetWithText(TextButton, 'Use just this chat');
       await tapRevealedChatControl(tester, chatOnly);
@@ -1596,30 +1920,11 @@ void main() {
       final input = find.byKey(const Key('conversation-input'));
       await tester.ensureVisible(input);
       await enterChatText(tester, '/tasks explain a fictional example');
-      final send = find.byTooltip('Send to AI');
+      final send = find.byKey(const Key('conversation-send'));
       await tester.ensureVisible(send);
       await tester.tap(send);
-      // Routing may offer local help before the disclosure; neither choice
-      // should override the explicit chat-only source selection.
-      await waitFor(
-        tester,
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is Text &&
-              (widget.data == 'Free on-device option' ||
-                  widget.data == 'Review what AI will receive'),
-        ),
-      );
-      if (find.text('Review AI price').evaluate().isNotEmpty) {
-        await tester.tap(find.text('Review AI price'));
-      }
-      await waitFor(tester, find.text('Get credit price'));
-      final includedContext = find.text('Included app context');
-      await tester.ensureVisible(includedContext);
-      await tester.tap(includedContext);
-      // The focused prompt can keep its cursor animation alive. Wait for
-      // disclosure content rather than waiting for every animation to stop.
-      await tester.pump(const Duration(milliseconds: 300));
+      // The first message opens the full preview, context shown directly.
+      await waitFor(tester, find.text('Review what AI will receive'));
       await waitFor(
         tester,
         find.byWidgetPredicate(
@@ -1706,7 +2011,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('local question offers free tools and preserves the draft', (
+  testWidgets('local question suggests free tools and preserves the draft', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(412, 915));
@@ -1728,27 +2033,30 @@ void main() {
           theme: ThemeData.dark(),
           home: AssistantConversationScreen(
             surface: ConversationSurface.si,
-            onLocalTools: () {},
-            onLocalToolsWithDraft: (draft) => handoffDraft = draft,
+            onLocalTools: () => handoffDraft = tester
+                .widget<TextField>(find.byKey(const Key('conversation-input')))
+                .controller!
+                .text
+                .trim(),
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, 'What are my tasks?');
-    await tester.tap(find.byTooltip('Send to AI'));
-    await waitFor(tester, find.text('Use free tools'));
+    // A suggestion above the input, not a dialog: nothing is sent to show it.
+    await waitFor(tester, find.text('Answer free on this device'));
     expect(transportCalls, 0);
-    expect(find.text('Get credit price'), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
 
-    await tester.tap(find.text('Use free tools'));
+    await tester.tap(find.text('Answer free on this device'));
     await tester.pumpAndSettle();
     expect(handoffDraft, 'What are my tasks?');
     expect(transportCalls, 0);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Spanish local question offers free tools without a quote', (
+  testWidgets('Spanish local question suggests free tools without a quote', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(412, 915));
@@ -1776,26 +2084,26 @@ void main() {
           theme: ThemeData.dark(),
           home: AssistantConversationScreen(
             surface: ConversationSurface.si,
-            onLocalTools: () {},
-            onLocalToolsWithDraft: (draft) => handoffDraft = draft,
+            onLocalTools: () => handoffDraft = tester
+                .widget<TextField>(find.byKey(const Key('conversation-input')))
+                .controller!
+                .text
+                .trim(),
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, '¿Cuáles son mis tareas?');
-    await tester.tap(find.byTooltip('Enviar a IA'));
-    await waitFor(tester, find.text('Usar herramientas gratis'));
+    await waitFor(tester, find.text('Responder gratis en este dispositivo'));
     expect(transportCalls, 0);
-    await tester.tap(find.text('Usar herramientas gratis'));
+    await tester.tap(find.text('Responder gratis en este dispositivo'));
     await tester.pumpAndSettle();
     expect(handoffDraft, '¿Cuáles son mis tareas?');
     expect(transportCalls, 0);
   });
 
-  testWidgets('local suggestion can still enter the existing paid quote flow', (
-    tester,
-  ) async {
+  testWidgets('local suggestion never blocks the paid flow', (tester) async {
     await tester.binding.setSurfaceSize(const Size(412, 915));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     var transportCalls = 0;
@@ -1821,10 +2129,11 @@ void main() {
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, 'What are my tasks?');
-    await tester.tap(find.byTooltip('Send to AI'));
-    await waitFor(tester, find.text('Review AI price'));
-    await tester.tap(find.text('Review AI price'));
-    await waitFor(tester, find.text('Get credit price'));
+    await waitFor(tester, find.text('Answer free on this device'));
+    // Ignoring the suggestion: send goes straight to the paid flow.
+    await tester.tap(find.byKey(const Key('conversation-send')));
+    await waitFor(tester, find.text('Send'));
+    expect(find.text('Review what AI will receive'), findsOneWidget);
     expect(transportCalls, 0);
     expect(tester.takeException(), isNull);
   });
@@ -1888,9 +2197,9 @@ void main() {
         );
         await tester.pumpAndSettle();
         await enterChatText(tester, 'Keep this question for a safe retry.');
-        await tester.tap(find.byTooltip('Send to AI'));
-        await waitFor(tester, find.text('Get credit price'));
-        await tester.tap(find.text('Get credit price'));
+        await tester.tap(find.byKey(const Key('conversation-send')));
+        await waitFor(tester, find.text('Send'));
+        await tester.tap(find.text('Send'));
         await waitFor(tester, find.text('Use 4 credits'));
         await tester.tap(find.text('Use 4 credits'));
         await tester.pumpAndSettle();
@@ -1923,8 +2232,10 @@ void main() {
           'empty_upstream_response',
         }.contains(failure.key)) {
           expect(find.text('Retry same request'), findsNothing);
-          expect(find.textContaining('new request'), findsOneWidget);
-          expect(find.textContaining('new quote'), findsOneWidget);
+          // Tapping send again asks as a new message at the shown price;
+          // there is no separate quote to review any more.
+          expect(find.textContaining('new message'), findsOneWidget);
+          expect(find.textContaining('quote'), findsNothing);
         } else {
           expect(find.text('Retry same request'), findsOneWidget);
         }
@@ -1985,9 +2296,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       await enterChatText(tester, 'Keep this question for a fresh request.');
-      await tester.tap(find.byTooltip('Send to AI'));
-      await waitFor(tester, find.text('Get credit price'));
-      await tester.tap(find.text('Get credit price'));
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await waitFor(tester, find.text('Send'));
+      await tester.tap(find.text('Send'));
       await waitFor(tester, find.text('Use 4 credits'));
       await tester.tap(find.text('Use 4 credits'));
       await tester.pumpAndSettle();
@@ -2058,10 +2369,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: 'initial Spanish layout');
       await enterChatText(tester, 'Conserva esta pregunta para reintentar.');
-      await tester.tap(find.byTooltip('Enviar a IA'));
-      await waitFor(tester, find.text('Consultar precio'));
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await waitFor(tester, find.text('Enviar'));
       expect(tester.takeException(), isNull, reason: 'disclosure dialog');
-      await tester.tap(find.text('Consultar precio'));
+      await tester.tap(find.text('Enviar'));
       await waitFor(tester, find.text('Usar 4 créditos'));
       expect(tester.takeException(), isNull, reason: 'price dialog');
       await tester.tap(find.text('Usar 4 créditos'));
@@ -2072,13 +2383,14 @@ void main() {
       expect(find.textContaining('No se cobraron créditos'), findsOneWidget);
       expect(find.text('Reintentar la misma solicitud'), findsNothing);
       expect(find.textContaining('no se puede reutilizar'), findsOneWidget);
-      expect(find.textContaining('Inicia una solicitud nueva'), findsOneWidget);
+      expect(find.textContaining('como un mensaje nuevo'), findsOneWidget);
+      expect(find.textContaining('cotización'), findsNothing);
       expect(tester.takeException(), isNull, reason: 'failure presentation');
     },
   );
 
   testWidgets(
-    'Spanish insufficient credits preserves input and requires a new quote',
+    'Spanish insufficient credits preserves input and asks again as a new message',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(412, 915));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -2124,9 +2436,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       await enterChatText(tester, 'Conserva esta pregunta.');
-      await tester.tap(find.byTooltip('Enviar a IA'));
-      await waitFor(tester, find.text('Consultar precio'));
-      await tester.tap(find.text('Consultar precio'));
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await waitFor(tester, find.text('Enviar'));
+      await tester.tap(find.text('Enviar'));
       await waitFor(tester, find.text('Usar 4 créditos'));
       await tester.tap(find.text('Usar 4 créditos'));
       await tester.pumpAndSettle();
@@ -2137,8 +2449,8 @@ void main() {
       );
       expect(find.textContaining('No se cobraron créditos'), findsOneWidget);
       expect(find.text('Reintentar la misma solicitud'), findsNothing);
-      expect(find.textContaining('solicitud nueva'), findsOneWidget);
-      expect(find.textContaining('cotización'), findsOneWidget);
+      expect(find.textContaining('mensaje nuevo'), findsOneWidget);
+      expect(find.textContaining('cotización'), findsNothing);
       expect(
         tester
             .widget<TextField>(find.byKey(const Key('conversation-input')))
@@ -2306,8 +2618,8 @@ void main() {
         expect(tester.widget<TextField>(input).readOnly, isTrue);
         expect(
           tester
-              .widget<IconButton>(
-                find.widgetWithIcon(IconButton, Icons.send_rounded),
+              .widget<ButtonStyleButton>(
+                find.byKey(const Key('conversation-send')),
               )
               .onPressed,
           isNull,
@@ -2390,14 +2702,14 @@ void main() {
           );
         }
         await enterChatText(tester, 'What time should I go to the store?');
-        await tester.tap(find.byTooltip('Send to AI'));
-        await waitFor(tester, find.text('Get credit price'));
+        await tester.tap(find.byKey(const Key('conversation-send')));
+        await waitFor(tester, find.text('Send'));
         expect(
           sent,
           isEmpty,
           reason: 'Even the backend quote waits for disclosure consent.',
         );
-        await tester.tap(find.text('Get credit price'));
+        await tester.tap(find.text('Send'));
         await waitFor(tester, find.text('Use 4 credits'));
         expect(sent, hasLength(1));
         if (surface == ConversationSurface.planner) {
@@ -2423,10 +2735,10 @@ void main() {
           tester,
           'Between 5 pm and 7 pm. The trip takes 45 minutes.',
         );
-        await tester.tap(find.byTooltip('Send to AI'));
-        await waitFor(tester, find.text('Get credit price'));
-        await tester.tap(find.text('Get credit price'));
+        // Same selection as the first message: no preview this time.
+        await tester.tap(find.byKey(const Key('conversation-send')));
         await waitFor(tester, find.text('Use 4 credits'));
+        expect(find.text('Review what AI will receive'), findsNothing);
         expect(sent.last['history'], [
           {'role': 'user', 'content': 'What time should I go to the store?'},
           {
@@ -2443,7 +2755,14 @@ void main() {
         );
         if (surface == ConversationSurface.planner) {
           final contextSwitch = find.byKey(const Key('conversation-task-only'));
-          await tester.ensureVisible(contextSwitch);
+          await tester.scrollUntilVisible(
+            contextSwitch,
+            -200,
+            scrollable: find.byType(Scrollable).first,
+          );
+          // Lay out the scrolled list before tapping (each reply now has a
+          // footer, which moves the switch).
+          await tester.pump();
           await tester.tap(contextSwitch);
           await tester.pumpAndSettle();
           expect(
@@ -2516,16 +2835,16 @@ void main() {
         await tester.pumpAndSettle();
 
         await enterChatText(tester, 'I want to kill myself');
-        await tester.tap(find.byTooltip('Send to AI'));
+        await tester.tap(find.byKey(const Key('conversation-send')));
         await waitFor(tester, find.byKey(const Key('safety-pause')));
         await tester.tap(find.byKey(const Key('safety-pause')));
         await tester.pumpAndSettle();
         expect(guidance.recorded, isEmpty);
 
         await enterChatText(tester, 'What time should I go to the store?');
-        await tester.tap(find.byTooltip('Send to AI'));
-        await waitFor(tester, find.text('Get credit price'));
-        await tester.tap(find.text('Get credit price'));
+        await tester.tap(find.byKey(const Key('conversation-send')));
+        await waitFor(tester, find.text('Send'));
+        await tester.tap(find.text('Send'));
         await waitFor(tester, find.text('Use 4 credits'));
         await tester.tap(find.text('Cancel'));
         await tester.pumpAndSettle();
@@ -2533,9 +2852,7 @@ void main() {
         expect(guidance.recorded, isEmpty);
 
         await enterChatText(tester, 'What time should I go to the store?');
-        await tester.tap(find.byTooltip('Send to AI'));
-        await waitFor(tester, find.text('Get credit price'));
-        await tester.tap(find.text('Get credit price'));
+        await tester.tap(find.byKey(const Key('conversation-send')));
         await waitFor(tester, find.text('Use 4 credits'));
         await tester.tap(find.text('Use 4 credits'));
         await tester.pumpAndSettle();
@@ -2751,9 +3068,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, 'Compare the grocery timing.');
-    await tester.tap(find.byTooltip('Send to AI'));
-    await waitFor(tester, find.text('Get credit price'));
-    await tester.tap(find.text('Get credit price'));
+    await tester.tap(find.byKey(const Key('conversation-send')));
+    await waitFor(tester, find.text('Send'));
+    await tester.tap(find.text('Send'));
     await waitFor(tester, find.text('Use 4 credits'));
     await tester.tap(find.text('Use 4 credits'));
     await tester.pumpAndSettle();
@@ -2812,9 +3129,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       await enterChatText(tester, 'Compare my two options.');
-      await tester.tap(find.byTooltip('Send to AI'));
-      await waitFor(tester, find.text('Get credit price'));
-      await tester.tap(find.text('Get credit price'));
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await waitFor(tester, find.text('Send'));
+      await tester.tap(find.text('Send'));
       await waitFor(tester, find.text('Use 4 credits'));
       await tester.tap(find.text('Use 4 credits'));
       await tester.pump();
@@ -2878,9 +3195,9 @@ void main() {
         tester,
         'Keep this question while the quote times out.',
       );
-      await tester.tap(find.byTooltip('Send to AI'));
-      await waitFor(tester, find.text('Get credit price'));
-      await tester.tap(find.text('Get credit price'));
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await waitFor(tester, find.text('Send'));
+      await tester.tap(find.text('Send'));
       await tester.pump(const Duration(milliseconds: 101));
       await tester.pump();
 
@@ -2891,11 +3208,8 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(
-        find.textContaining('No paid request was confirmed'),
-        findsOneWidget,
-      );
-      expect(find.textContaining('fresh quote'), findsOneWidget);
+      expect(find.textContaining('nothing was charged'), findsOneWidget);
+      expect(find.textContaining('tap send to try again'), findsOneWidget);
       expect(find.text('Retry same request'), findsNothing);
       expect(
         tester
@@ -2954,9 +3268,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, 'Compare my two options.');
-    await tester.tap(find.byTooltip('Send to AI'));
-    await waitFor(tester, find.text('Get credit price'));
-    await tester.tap(find.text('Get credit price'));
+    await tester.tap(find.byKey(const Key('conversation-send')));
+    await waitFor(tester, find.text('Send'));
+    await tester.tap(find.text('Send'));
     await waitFor(tester, find.text('Use 4 credits'));
     await tester.tap(find.text('Use 4 credits'));
     await tester.pump();
@@ -3042,9 +3356,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, 'Compare my two options.');
-    await tester.tap(find.byTooltip('Send to AI'));
-    await waitFor(tester, find.text('Get credit price'));
-    await tester.tap(find.text('Get credit price'));
+    await tester.tap(find.byKey(const Key('conversation-send')));
+    await waitFor(tester, find.text('Send'));
+    await tester.tap(find.text('Send'));
     await waitFor(tester, find.text('Use 4 credits'));
     await tester.tap(find.text('Use 4 credits'));
     await tester.pump();
@@ -3139,11 +3453,12 @@ void main() {
     );
     await tester.tap(advanced);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(
+    // The information row above the input shortens the list; reveal the
+    // field fully before tapping it.
+    await tapRevealedChatControl(
+      tester,
       find.byType(DropdownButtonFormField<SIV2Intent>),
     );
-    await tester.tap(find.byType(DropdownButtonFormField<SIV2Intent>));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Forecast').last);
     await tester.pumpAndSettle();
     final filter = find.byKey(const Key('conversation-entity-filter'));
@@ -3212,9 +3527,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       await enterChatText(tester, 'Private account A question.');
-      await tester.tap(find.byTooltip('Send to AI'));
-      await waitFor(tester, find.text('Get credit price'));
-      await tester.tap(find.text('Get credit price'));
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await waitFor(tester, find.text('Send'));
+      await tester.tap(find.text('Send'));
       await waitFor(tester, find.text('Use 4 credits'));
       await tester.tap(find.text('Use 4 credits'));
       await tester.pump();
@@ -3278,14 +3593,14 @@ void main() {
       expect(find.byType(Slider), findsNothing);
       expect(find.text('Not set'), findsWidgets);
       await enterChatText(tester, 'Private grocery question');
-      await tester.tap(find.byTooltip('Send to AI'));
-      await waitFor(tester, find.text('Get credit price'));
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      await waitFor(tester, find.text('Send'));
       currentScope = AccountStorageScope.authenticated(
         'different-review-account',
       );
       container.invalidate(accountStorageScopeProvider);
       await tester.pumpAndSettle();
-      expect(find.text('Get credit price'), findsNothing);
+      expect(find.text('Send'), findsNothing);
       expect(find.text('Private grocery question'), findsNothing);
       expect(
         tester
@@ -3299,7 +3614,9 @@ void main() {
     },
   );
 
-  testWidgets('account change cancels a free-route handoff', (tester) async {
+  testWidgets('account change removes the free-route suggestion', (
+    tester,
+  ) async {
     var currentScope = scope;
     var transportCalls = 0;
     String? handoffDraft;
@@ -3317,21 +3634,23 @@ void main() {
         child: MaterialApp(
           home: AssistantConversationScreen(
             surface: ConversationSurface.si,
-            onLocalTools: () {},
-            onLocalToolsWithDraft: (draft) => handoffDraft = draft,
+            onLocalTools: () => handoffDraft = tester
+                .widget<TextField>(find.byKey(const Key('conversation-input')))
+                .controller!
+                .text
+                .trim(),
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, 'What are my tasks?');
-    await tester.tap(find.byTooltip('Send to AI'));
-    await waitFor(tester, find.text('Use free tools'));
+    await waitFor(tester, find.text('Answer free on this device'));
 
     currentScope = AccountStorageScope.authenticated('different-local-account');
     container.invalidate(accountStorageScopeProvider);
     await tester.pumpAndSettle();
-    expect(find.text('Use free tools'), findsNothing);
+    expect(find.text('Answer free on this device'), findsNothing);
     expect(
       tester
           .widget<TextField>(find.byKey(const Key('conversation-input')))
@@ -3374,12 +3693,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     await enterChatText(tester, 'Private review question');
-    await tester.tap(find.byTooltip('Send to AI'));
-    await waitFor(tester, find.text('Get credit price'));
+    await tester.tap(find.byKey(const Key('conversation-send')));
+    await waitFor(tester, find.text('Send'));
     visible.value = false;
     await tester.pumpAndSettle();
     expect(find.text('Private review question'), findsNothing);
-    expect(find.text('Get credit price'), findsNothing);
+    expect(find.text('Send'), findsNothing);
     expect(find.text('Different account screen'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -3415,6 +3734,29 @@ class _Consent extends PersonalizationProfileController {
 class _NoConsent extends PersonalizationProfileController {
   @override
   PersonalizationProfile build() => const PersonalizationProfile();
+}
+
+/// In-memory device preferences under the real account-scoped store.
+/// While [loadGate] is set and open, [init] waits, so the stored profile has
+/// not loaded yet.
+class MemoryPrefs implements SharedPrefsStore, EnumerableSharedPrefsStore {
+  final Map<String, String> values = {};
+  Completer<void>? loadGate;
+  @override
+  Future<void> init() async {
+    await loadGate?.future;
+  }
+
+  @override
+  String? load(String key) => values[key];
+  @override
+  Future<void> save(String key, String value) async => values[key] = value;
+  @override
+  Future<void> delete(String key) async => values.remove(key);
+  @override
+  Future<void> clear() async => values.clear();
+  @override
+  Future<Set<String>> keys() async => values.keys.toSet();
 }
 
 class _GatedChatReadBackend extends InMemorySecureStoreBackend {

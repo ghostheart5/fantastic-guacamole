@@ -19,6 +19,7 @@ void main() {
         final source = read(path);
         for (final phrase in [
           'Chat saves up to 40 recent messages',
+          'Only published messages (each AI reply with how many items of each kind of information it used, the credits it cost and the credits left after it), the planning-source selection for the chat,',
           'account-scoped secure storage on this device',
           'restarting the app',
           'excluded from planning backups and cloud sync',
@@ -30,13 +31,49 @@ void main() {
           "explicitly clearing this account's local data removes its saved Chat history",
           'The last six messages',
           'even when saved planning sources are off',
-          'Choose a step keeps a separate conversation only while its screen is open',
+          'A new AI chat starts with your plan (tasks, goals, milestones and schedule) selected as the information it may use.',
+          'choose Just this chat to send nothing from your plan',
+          'The kinds of information that will be used are shown above the message box before you send, in Chat and in Choose a step.',
+          'Once you have typed a question, a button by the message box opens the full preview of what will be sent (your question, the recent messages, the plan records and other selected details, and a list of the technical details that go with them) whenever sending is available',
+          'the preview also opens by itself before your first message after the app opens and whenever you change the information selected, including the note, energy or emotional state',
+          'Nothing is sent, including the request for a price, until you tap send',
+          'tapping send confirms the price shown on it',
+          'you are asked again before anything is charged',
+          'until its reply is collected, a request you confirmed in Chat or Choose a step (its question, recent messages, plan records and the other details shown in its preview, such as a title filter, scenario, mode and date range, and on Choose a step an attached note, energy and emotional state) and its signed credit price',
+          "the request's content is removed and only its identifier remains",
+          'Unsent drafts and voice recordings are not part of this history.',
+          'Chats saved before this version keep the selection they had.',
+          'whether you have seen the note explaining the default',
+          'Choose a step keeps a separate conversation only while its screen is open; a request you confirmed there is kept on this device as described above until its reply is collected, even after the screen closes.',
         ]) {
           expect(source, contains(phrase), reason: path);
+        }
+        for (final retired in [
+          'Only published messages, the planning-source selection',
+          'every request shows what will be sent before anything is sent',
+          'your plan (tasks, goals and schedule)',
+          'credit quotes are not part of this history',
+          'exactly what will be sent',
+          'whenever the information used changes',
+          'one tap away at any time',
+        ]) {
+          expect(source, isNot(contains(retired)), reason: path);
         }
         expect(
           source,
           isNot(contains('does not provide a saved transcript archive')),
+          reason: path,
+        );
+        expect(
+          source,
+          isNot(
+            contains('New Chat history starts with saved planning sources off'),
+          ),
+          reason: path,
+        );
+        expect(
+          source,
+          isNot(contains('your saved planning-source choices are retained')),
           reason: path,
         );
         expect(
@@ -273,7 +310,7 @@ void main() {
     expect(productSite, contains('Reflection and planning'));
     expect(productSite, contains('Tools for your day'));
     expect(productSite, contains('Choose a step'));
-    expect(productSite, contains('SI Chat'));
+    expect(productSite, contains('Assistant'));
     expect(productSite, contains('Today'));
     expect(productSite, contains('publicly available'));
     expect(productSite, isNot(contains('Closed testing')));

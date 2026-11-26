@@ -1,4 +1,3 @@
-export 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 export 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 export 'package:fantastic_guacamole/state/controllers/audio_feedback_controller.dart';
 export 'package:fantastic_guacamole/state/controllers/smart_planner_query_controller.dart';

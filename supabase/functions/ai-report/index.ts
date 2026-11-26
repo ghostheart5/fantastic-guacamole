@@ -1,16 +1,43 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+/// <reference lib="deno.ns" />
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
-  "";
+import {
+  authenticatedUserId,
+  type BillingBackendConfig,
+  consumeDurableRateLimits,
+} from "../_shared/billing_backend.ts";
+
+const config: BillingBackendConfig = {
+  supabaseUrl: Deno.env.get("SUPABASE_URL") ?? "",
+  publishableKey: Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ??
+    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+  secretKey: Deno.env.get("SUPABASE_SECRET_KEY") ??
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+};
 const ALLOWED_ORIGINS = new Set(
   (Deno.env.get("ALLOWED_ORIGINS") ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean),
 );
-const requestWindows = new Map<string, number[]>();
+
+const allowedReasons = new Set([
+  "unsafe_or_harmful",
+  "misleading_or_inaccurate",
+  "privacy_concern",
+  "other",
+]);
+
+// Recorded in ai_content_reports.source. Only these surfaces are stored; a
+// missing value (the released app sends none) or any other text is recorded
+// as unspecified so client free text never reaches the table.
+const KNOWN_SURFACES = new Set(["chat", "si_console", "planner"]);
+const UNSPECIFIED_SURFACE = "unspecified";
+
+function reportSurface(value: unknown): string {
+  return typeof value === "string" && KNOWN_SURFACES.has(value)
+    ? value
+    : UNSPECIFIED_SURFACE;
+}
 
 function cors(req: Request): Record<string, string> {
   const origin = req.headers.get("origin") ?? "";
@@ -26,75 +53,49 @@ function cors(req: Request): Record<string, string> {
   };
 }
 
-async function authenticatedUserId(req: Request): Promise<string | null> {
-  const authorization = req.headers.get("authorization") ?? "";
-  if (
-    !authorization.startsWith("Bearer ") ||
-    !SUPABASE_URL ||
-    !SUPABASE_ANON_KEY
-  ) return null;
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: authorization, apikey: SUPABASE_ANON_KEY },
+function json(
+  req: Request,
+  body: Record<string, unknown>,
+  status: number,
+): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...cors(req), "Content-Type": "application/json" },
   });
-  if (!response.ok) return null;
-  const user = await response.json();
-  return typeof user?.id === "string" ? user.id : null;
 }
 
-function withinRateLimit(userId: string): boolean {
-  const now = Date.now();
-  const recent = (requestWindows.get(userId) ?? []).filter((time) =>
-    now - time < 60 * 60 * 1000
-  );
-  if (recent.length >= 10) return false;
-  recent.push(now);
-  requestWindows.set(userId, recent);
-  return true;
-}
-
-const allowedReasons = new Set([
-  "unsafe_or_harmful",
-  "misleading_or_inaccurate",
-  "privacy_concern",
-  "other",
-]);
-
-serve(async (req) => {
-  const headers = cors(req);
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers });
+    return new Response("ok", { headers: cors(req) });
   }
   if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405, headers });
+    return new Response("Method not allowed", {
+      status: 405,
+      headers: cors(req),
+    });
   }
 
   try {
     const contentLength = Number(req.headers.get("content-length") ?? "0");
     if (contentLength > 16000) {
-      return new Response(JSON.stringify({ error: "request too large" }), {
-        status: 413,
-        headers: { ...headers, "Content-Type": "application/json" },
-      });
+      return json(req, { error: "request too large" }, 413);
     }
-    const userId = await authenticatedUserId(req);
-    if (!userId) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), {
-        status: 401,
-        headers: { ...headers, "Content-Type": "application/json" },
-      });
+    // Real accounts only: a missing, invalid or anonymous session is refused.
+    const userId = await authenticatedUserId(req, config);
+    if (!userId) return json(req, { error: "unauthorized" }, 401);
+    if (!config.supabaseUrl || !config.secretKey) {
+      return json(req, { error: "service not configured" }, 500);
     }
-    if (!withinRateLimit(userId)) {
-      return new Response(JSON.stringify({ error: "rate limit exceeded" }), {
-        status: 429,
-        headers: { ...headers, "Content-Type": "application/json" },
-      });
-    }
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      return new Response(JSON.stringify({ error: "service not configured" }), {
-        status: 500,
-        headers: { ...headers, "Content-Type": "application/json" },
-      });
-    }
+    // Durable (database-backed) limit shared by every isolate: ten reports an
+    // hour per account and thirty per address.
+    if (
+      !await consumeDurableRateLimits(req, config, userId, {
+        bucket: "ai_report",
+        userLimit: 10,
+        ipLimit: 30,
+        windowSeconds: 60 * 60,
+      })
+    ) return json(req, { error: "rate limit exceeded" }, 429);
 
     const body = await req.json();
     const reason = typeof body?.reason === "string" ? body.reason : "";
@@ -104,46 +105,33 @@ serve(async (req) => {
     if (
       !allowedReasons.has(reason) || content.length < 1 || content.length > 4000
     ) {
-      return new Response(JSON.stringify({ error: "invalid report" }), {
-        status: 400,
-        headers: { ...headers, "Content-Type": "application/json" },
-      });
+      return json(req, { error: "invalid report" }, 400);
     }
 
-    const insert = await fetch(`${SUPABASE_URL}/rest/v1/ai_content_reports`, {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-        "Content-Type": "application/json",
-        Prefer: "return=minimal",
+    const insert = await fetch(
+      `${config.supabaseUrl}/rest/v1/ai_content_reports`,
+      {
+        method: "POST",
+        headers: {
+          apikey: config.secretKey,
+          Authorization: `Bearer ${config.secretKey}`,
+          "Content-Type": "application/json",
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          reason,
+          content,
+          source: reportSurface(body?.surface),
+        }),
       },
-      body: JSON.stringify({
-        user_id: userId,
-        reason,
-        content,
-        source: "si_console",
-      }),
-    });
+    );
     if (!insert.ok) {
       await insert.body?.cancel();
-      return new Response(
-        JSON.stringify({ error: "report could not be saved" }),
-        {
-          status: 502,
-          headers: { ...headers, "Content-Type": "application/json" },
-        },
-      );
+      return json(req, { error: "report could not be saved" }, 502);
     }
-
-    return new Response(JSON.stringify({ accepted: true }), {
-      status: 202,
-      headers: { ...headers, "Content-Type": "application/json" },
-    });
+    return json(req, { accepted: true }, 202);
   } catch {
-    return new Response(JSON.stringify({ error: "request failed" }), {
-      status: 500,
-      headers: { ...headers, "Content-Type": "application/json" },
-    });
+    return json(req, { error: "request failed" }, 500);
   }
 });

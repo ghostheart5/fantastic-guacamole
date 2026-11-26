@@ -48,6 +48,84 @@ void main() {
   );
 
   test(
+    'a reply keeps its receipt; older and damaged receipts show none',
+    () async {
+      const receipt = ConversationReplyReceipt(
+        tasks: 3,
+        goals: 1,
+        earlierMessages: 2,
+        creditsCharged: 5,
+        remainingCredits: 15,
+      );
+      final withReceipt = [
+        pair.first,
+        {...pair.last, ConversationReplyReceipt.turnKey: receipt.encode()},
+      ];
+      await repository(
+        'a',
+      ).save(expectedRevision: 0, messages: withReceipt, sources: {});
+      final raw =
+          jsonDecode(
+                (await base
+                    .forAccount(AccountStorageScope.authenticated('a'))
+                    .readString(AssistantConversationRepository.storageKey))!,
+              )
+              as Map;
+      // Stored as a plain object with the reply, never with the question.
+      expect(
+        ((raw['messages'] as List).last as Map)['receipt'],
+        receipt.toJson(),
+      );
+      expect((raw['messages'] as List).first, pair.first);
+      final loaded = await repository('a').load();
+      expect(loaded.messages, withReceipt);
+      expect(
+        ConversationReplyReceipt.decode(
+          loaded.messages.last[ConversationReplyReceipt.turnKey],
+        )!.toJson(),
+        receipt.toJson(),
+      );
+
+      // A chat saved before receipts, and one whose receipt is damaged, still
+      // load in full; those replies simply have no receipt.
+      await base
+          .forAccount(AccountStorageScope.authenticated('b'))
+          .writeString(
+            AssistantConversationRepository.storageKey,
+            jsonEncode({
+              'version': 1,
+              'revision': 3,
+              'messages': [
+                ...pair,
+                pair.first,
+                {
+                  ...pair.last,
+                  'receipt': {...receipt.toJson(), 'creditsCharged': 'five'},
+                },
+              ],
+              'sources': <String>[],
+            }),
+          );
+      final older = await repository('b').load();
+      expect(older.messages, [...pair, ...pair]);
+
+      // A receipt is never attached to a question.
+      await expectLater(
+        repository('b').save(
+          expectedRevision: older.revision,
+          messages: [
+            {...pair.first, ConversationReplyReceipt.turnKey: receipt.encode()},
+            pair.last,
+          ],
+          sources: {},
+        ),
+        completes,
+      );
+      expect((await repository('b').load()).messages, pair);
+    },
+  );
+
+  test(
     'clear tombstone prevents stale paid response or old screen resurrection',
     () async {
       final old = repository('a');
@@ -312,6 +390,35 @@ void main() {
     },
   );
 
+  test(
+    'a request withdrawn before its write is never stored; one committed is',
+    () async {
+      var asked = 0;
+      await expectLater(
+        repository('a').savePending(
+          pendingFor(ConversationSurface.si, 'withdrawn'),
+          commit: () {
+            asked++;
+            return false;
+          },
+        ),
+        throwsStateError,
+      );
+      expect(asked, 1);
+      expect((await repository('a').load()).pendingRequests, isEmpty);
+      await repository('a').savePending(
+        pendingFor(ConversationSurface.si, 'kept'),
+        commit: () => true,
+      );
+      expect(
+        (await repository(
+          'a',
+        ).load()).pendingRequests[ConversationSurface.si]?.requestId,
+        'kept',
+      );
+    },
+  );
+
   test('Chat saved before pending requests existed still loads', () async {
     final store = base.forAccount(AccountStorageScope.authenticated('a'));
     await store.writeString(
@@ -514,6 +621,167 @@ void main() {
       expect((await reentered.load()).sources, {SIV2Source.goals});
     },
   );
+
+  group('information scope choice', () {
+    Future<void> writeRaw(String account, Map<String, Object?> envelope) => base
+        .forAccount(AccountStorageScope.authenticated(account))
+        .writeString(
+          AssistantConversationRepository.storageKey,
+          jsonEncode(envelope),
+        );
+
+    test(
+      'a new account has made no choice and has not seen the explanation',
+      () async {
+        final fresh = await repository('a').load();
+        expect(fresh.sourcesChosen, isFalse);
+        expect(fresh.scopeExplained, isFalse);
+      },
+    );
+
+    test(
+      'older saved chats keep their selection as chosen, even an empty one',
+      () async {
+        await writeRaw('a', {
+          'version': 1,
+          'revision': 3,
+          'messages': pair,
+          'sources': <String>[],
+        });
+        await writeRaw('b', {
+          'version': 1,
+          'revision': 3,
+          'messages': pair,
+          'sources': ['goals'],
+        });
+        final a = await repository('a').load();
+        expect(a.sourcesChosen, isTrue);
+        expect(a.sources, isEmpty);
+        expect(a.messages, pair);
+        // Marking the explanation never turns an old choice into a default.
+        await repository('a').markScopeExplained();
+        expect((await repository('a').load()).sourcesChosen, isTrue);
+        final b = await repository('b').load();
+        expect(b.sourcesChosen, isTrue);
+        expect(b.sources, {SIV2Source.goals});
+      },
+    );
+
+    test('save records whether the selection was chosen', () async {
+      final revision = await repository('a').save(
+        expectedRevision: 0,
+        messages: pair,
+        sources: SIV2Source.values.toSet(),
+        sourcesChosen: false,
+      );
+      expect((await repository('a').load()).sourcesChosen, isFalse);
+      await repository('a').save(
+        expectedRevision: revision,
+        messages: pair,
+        sources: {},
+        sourcesChosen: true,
+      );
+      final chosen = await repository('a').load();
+      expect(chosen.sourcesChosen, isTrue);
+      expect(chosen.sources, isEmpty);
+    });
+
+    test('a malformed choice marker is reported, not guessed', () async {
+      await writeRaw('a', {
+        'version': 1,
+        'revision': 1,
+        'messages': pair,
+        'sources': <String>[],
+        'sourcesChosen': 'yes',
+      });
+      await expectLater(repository('a').load(), throwsFormatException);
+    });
+
+    test(
+      'the explanation stays seen across saves and clear, never touching chat or a pending request',
+      () async {
+        final revision = await repository(
+          'a',
+        ).save(expectedRevision: 0, messages: pair, sources: {});
+        await repository(
+          'a',
+        ).savePending(pendingFor(ConversationSurface.planner, 'planner-1'));
+        await repository('a').markScopeExplained();
+        final marked = await repository('a').load();
+        expect(marked.scopeExplained, isTrue);
+        expect(marked.revision, revision);
+        expect(marked.messages, pair);
+        expect(marked.sourcesChosen, isTrue);
+        expect(
+          marked.pendingRequests[ConversationSurface.planner]?.requestId,
+          'planner-1',
+        );
+        await repository(
+          'a',
+        ).save(expectedRevision: revision, messages: pair, sources: {});
+        expect((await repository('a').load()).scopeExplained, isTrue);
+        await repository('a').clear();
+        final cleared = await repository('a').load();
+        expect(cleared.scopeExplained, isTrue);
+        expect(cleared.sourcesChosen, isFalse);
+        expect(cleared.messages, isEmpty);
+        expect((await repository('b').load()).scopeExplained, isFalse);
+      },
+    );
+
+    test(
+      'marking the explanation on a new account keeps My plan and creates no chat',
+      () async {
+        await repository('a').markScopeExplained();
+        final loaded = await repository('a').load();
+        expect(loaded.scopeExplained, isTrue);
+        expect(loaded.revision, 0);
+        expect(loaded.messages, isEmpty);
+        expect(loaded.sourcesChosen, isFalse);
+      },
+    );
+
+    test(
+      'a request stored on a new account by Choose a step keeps My plan',
+      () async {
+        await repository(
+          'a',
+        ).savePending(pendingFor(ConversationSurface.planner, 'planner-1'));
+        final loaded = await repository('a').load();
+        expect(loaded.sourcesChosen, isFalse);
+        expect(
+          loaded.pendingRequests[ConversationSurface.planner]?.requestId,
+          'planner-1',
+        );
+      },
+    );
+
+    test(
+      'a record an earlier build wrote only for a Choose a step request keeps My plan',
+      () async {
+        // Neither an earlier save nor an earlier Clear writes revision 0, so
+        // this record holds no Chat choice: only the planner request.
+        await writeRaw('a', {
+          'version': 1,
+          'revision': 0,
+          'messages': <Object?>[],
+          'sources': <String>[],
+          'pendingRequests': {
+            'planner': pendingFor(
+              ConversationSurface.planner,
+              'planner-1',
+            ).toJson(),
+          },
+        });
+        final loaded = await repository('a').load();
+        expect(loaded.sourcesChosen, isFalse);
+        expect(
+          loaded.pendingRequests[ConversationSurface.planner]?.requestId,
+          'planner-1',
+        );
+      },
+    );
+  });
 }
 
 PendingConversationRequest pendingFor(

@@ -126,7 +126,7 @@ void main() {
       find.text("Couldn't load the latest plan details. Showing what we have."),
       findsNothing,
     );
-    expect(find.text('External-assistant credit plans'), findsOneWidget);
+    expect(find.text('AI chat credit plans'), findsOneWidget);
   });
 
   testWidgets('Spanish fetch failure localizes the error and retry action', (
@@ -174,7 +174,7 @@ const IntelligenceState _baseIntelligence = IntelligenceState(
 
 const PaywallEntity _paywallConfig = PaywallEntity(
   featureId: 'premium',
-  title: 'External-assistant credit plans',
+  title: 'AI chat credit plans',
   body:
       'Google Play provides price, billing frequency, and renewal terms before purchase.',
   plans: <PaywallPlan>[

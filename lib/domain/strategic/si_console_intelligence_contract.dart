@@ -72,13 +72,6 @@ class SIIntelligenceReceipt {
 
   bool get isExpired => isExpiredAt(DateTime.now());
 
-  String get processingLabel => switch (processingMode) {
-    SIProcessingMode.localOnly => 'Processed on this device',
-    SIProcessingMode.remoteWithRecentConversation =>
-      'Cloud AI received this prompt and limited recent conversation',
-    SIProcessingMode.unavailable => 'Processing origin unavailable',
-  };
-
   void validate() {
     if (schemaVersion != currentSchemaVersion) {
       throw StateError('Unsupported SI intelligence receipt version.');

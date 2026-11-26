@@ -902,7 +902,9 @@ String _firstNonEmpty(List<String?> values) {
 }
 
 String _cleanTrajectoryCopy(String value) {
-  return value.replaceFirst(RegExp(r'^SI (STATUS|ALERT):\s*'), '').trim();
+  return value
+      .replaceFirst(RegExp(r'^(?:SI|ASSISTANT) (STATUS|ALERT):\s*'), '')
+      .trim();
 }
 
 String _localizedTrajectoryCopy(String value, {required bool isSpanish}) {

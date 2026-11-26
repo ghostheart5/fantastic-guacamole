@@ -18,9 +18,9 @@ Estas opciones son simulaciones: no completan, cambian de fecha ni eliminan la t
 
 Revisa los supuestos, la evidencia disponible y la incertidumbre. Una predicción no garantiza el futuro. No inventes fechas ni registros para mejorar una gráfica.
 
-## Chat, herramientas gratuitas y créditos
+## Chat, «En este dispositivo · gratis» y créditos
 
-Las herramientas gratuitas de planificación son distintas de las consultas en la nube. Antes de confirmar una consulta, revisa el contexto seleccionado, el consentimiento y el costo de créditos indicado.
+«En este dispositivo · gratis» es distinto del chat con IA, que envía información a un servicio de IA externo. Antes de confirmar una consulta, revisa el contexto seleccionado, el consentimiento y el costo de créditos indicado.
 
 Algunas cuentas elegibles pueden recibir 20 créditos mensuales incluidos, sin acumulación. Eso no significa que todas las cuentas reciban créditos ni que la IA sea ilimitada. Consulta **Ajustes** para ver tu saldo, asignación y fecha de reinicio. Los créditos comprados y los incluidos son distintos.
 

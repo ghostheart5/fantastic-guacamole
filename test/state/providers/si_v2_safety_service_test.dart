@@ -54,7 +54,7 @@ void main() {
         );
         expect(
           response.directAnswer,
-          contains('SI cannot answer'),
+          contains('Assistant cannot answer'),
           reason: text,
         );
         expect(

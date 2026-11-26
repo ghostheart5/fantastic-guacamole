@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dar
 
 import 'dart:async';
 
+import 'package:fantastic_guacamole/features/assistant/ui/ai_chat_consent.dart';
 import 'package:fantastic_guacamole/features/help/ui/help_screen.dart';
 import 'package:fantastic_guacamole/features/settings/ui/cloud_backup_actions.dart';
 
@@ -492,7 +493,6 @@ class SettingsScreen extends ConsumerWidget {
                     _LearningLedgerSection(),
                     SizedBox(height: 10),
                     _MemoryGovernanceSection(),
-                    SizedBox(height: 10),
                     _AssistantReleaseSection(),
                   ],
                 ),
@@ -929,8 +929,8 @@ class SettingsScreen extends ConsumerWidget {
               content: Text(
                 journeyText(
                   context,
-                  'This permanently removes local tasks, goals, memories, schedule history, profile progress, recovery data, logs, SI state, and tester settings on this device.',
-                  'Esto elimina permanentemente las tareas, metas, recuerdos, historial de la agenda, progreso del perfil, datos de recuperación, registros, estado SI y ajustes de prueba locales de este dispositivo.',
+                  'This permanently removes local tasks, goals, memories, schedule history, profile progress, recovery data, logs, Assistant state, and tester settings on this device.',
+                  'Esto elimina permanentemente las tareas, metas, recuerdos, historial de la agenda, progreso del perfil, datos de recuperación, registros, estado del asistente y ajustes de prueba locales de este dispositivo.',
                 ),
               ),
               actions: [

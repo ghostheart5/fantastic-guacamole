@@ -81,7 +81,7 @@ final class PlannerExplanationPacket {
     if (response.isClarification) {
       throw const PlannerExplanationContractException(
         'plan_not_ready',
-        'External explanation is available only after a deterministic plan exists.',
+        'AI chat explanation is available only after a deterministic plan exists.',
       );
     }
     final PlannerOption recommended = response.recommendedOption;
@@ -413,7 +413,7 @@ void _validateExplanationSafety(
   if (prohibited.any(normalized.contains)) {
     throw const PlannerExplanationContractException(
       'unsafe_explanation',
-      'The external explanation crossed its read-only language boundary.',
+      'The AI chat explanation crossed its read-only language boundary.',
     );
   }
   final Set<String> sourceNumbers = RegExp(r'\b\d+(?:\.\d+)?%?\b')
@@ -426,7 +426,7 @@ void _validateExplanationSafety(
   if (!sourceNumbers.containsAll(outputNumbers)) {
     throw const PlannerExplanationContractException(
       'invented_precision',
-      'The external explanation introduced unsupported numeric precision.',
+      'The AI chat explanation introduced unsupported numeric precision.',
     );
   }
 }

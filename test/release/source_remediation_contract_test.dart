@@ -21,9 +21,10 @@ void main() {
 
     expect(service, contains("substring(0, 4000)"));
     expect(service, contains(r"'Authorization': 'Bearer $accessToken'"));
-    expect(function, contains('/auth/v1/user'));
+    expect(function, contains('authenticatedUserId'));
     expect(function, contains('SUPABASE_SERVICE_ROLE_KEY'));
-    expect(function, contains('withinRateLimit'));
+    expect(function, contains('consumeDurableRateLimits'));
+    expect(function, isNot(contains('withinRateLimit')));
     expect(config, contains('[functions.ai-report]'));
     expect(config, contains('verify_jwt = true'));
     expect(migration, contains('enable row level security'));

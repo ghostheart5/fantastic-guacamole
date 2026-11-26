@@ -82,7 +82,7 @@ class InternalCreditTestController extends Notifier<InternalCreditTestState> {
         !ref.read(accountStorageScopeProvider).isWritable ||
         !ref.read(personalizationProfileProvider).externalAiAllowed) {
       state = const InternalCreditTestState(
-        message: 'An authorized account and external AI consent are required.',
+        message: 'An authorized account and AI chat consent are required.',
       );
       return;
     }
@@ -186,6 +186,7 @@ class InternalCreditTestController extends Notifier<InternalCreditTestState> {
       return;
     }
     ref.invalidate(aiCreditWalletProvider);
+    ref.read(aiCreditKnownBalanceProvider.notifier).walletChanged();
     if (generation != _generation) return;
     state = InternalCreditTestState(
       message: message,

@@ -18,7 +18,6 @@ void main() {
       'package:fantastic_guacamole/engine/si/offline/narrative_engine.dart',
       'package:fantastic_guacamole/engine/si/offline/user_growth_engine.dart',
       'package:fantastic_guacamole/engine/si/prediction.dart',
-      'package:fantastic_guacamole/engine/si/si_ai_service.dart',
       'package:fantastic_guacamole/engine/si/si_decision.dart',
       'package:fantastic_guacamole/engine/si/si_engine_service.dart',
       'package:fantastic_guacamole/engine/si/si_response_policy.dart',

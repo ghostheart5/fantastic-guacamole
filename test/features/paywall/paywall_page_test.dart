@@ -520,10 +520,7 @@ void main() {
       );
 
       expect(find.text('Planes y créditos de IA'), findsOneWidget);
-      expect(
-        find.text('Planes de créditos del asistente externo'),
-        findsOneWidget,
-      );
+      expect(find.text('Planes de créditos del chat con IA'), findsOneWidget);
       expect(find.text('Mensual'), findsOneWidget);
       expect(find.text('Anual'), findsOneWidget);
       expect(find.text('Saldo mensual de IA: 300 créditos'), findsNWidgets(2));
@@ -542,7 +539,7 @@ void main() {
       expect(find.text('NO DISPONIBLE'), findsOneWidget);
       expect(find.text('Quedan pocos créditos de IA'), findsOneWidget);
       expect(
-        find.text('Te quedan 3 créditos del asistente externo.'),
+        find.text('Te quedan 3 créditos del chat con IA.'),
         findsOneWidget,
       );
       expect(find.text('Créditos restantes: 3'), findsOneWidget);
@@ -895,7 +892,7 @@ const IntelligenceState _baseIntelligence = IntelligenceState(
 
 const PaywallEntity _twoPlanConfig = PaywallEntity(
   featureId: 'premium',
-  title: 'External-assistant credit plans',
+  title: 'AI chat credit plans',
   body:
       'Google Play provides price, billing frequency, and renewal terms before purchase.',
   plans: <PaywallPlan>[
@@ -915,7 +912,7 @@ const PaywallEntity _twoPlanConfig = PaywallEntity(
       description: 'Test annual plan',
       aiCreditsIncluded: 300,
       benefits: <String>[
-        'Increases external-assistant credit allowance to 360 credits per month',
+        'Increases AI chat credit allowance to 360 credits per month',
       ],
       isAvailable: true,
       isFeatured: false,
@@ -926,7 +923,7 @@ const PaywallEntity _twoPlanConfig = PaywallEntity(
 
 const PaywallEntity _threePlanConfig = PaywallEntity(
   featureId: 'premium',
-  title: 'External-assistant credit plans',
+  title: 'AI chat credit plans',
   body:
       'Google Play provides price, billing frequency, and renewal terms before purchase.',
   plans: <PaywallPlan>[
@@ -963,7 +960,7 @@ const PaywallEntity _threePlanConfig = PaywallEntity(
 
 const PaywallEntity _noAvailablePlanConfig = PaywallEntity(
   featureId: 'premium',
-  title: 'External-assistant credit plans',
+  title: 'AI chat credit plans',
   body:
       'Google Play provides price, billing frequency, and renewal terms before purchase.',
   plans: <PaywallPlan>[

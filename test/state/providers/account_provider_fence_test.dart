@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/state/providers/account_provider_fence.dart'
 import 'package:fantastic_guacamole/state/providers/creator_draft_provider.dart';
 import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
+import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/domain/usecases/apply_learning_feedback.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_decision_provider.dart';
@@ -20,6 +21,20 @@ final Provider<void> _accountTransitionProvider = Provider<void>((Ref ref) {
 });
 
 void main() {
+  test('account transition forgets the AI credit balance last reported', () {
+    final account = AccountStorageScope.authenticated('account-a');
+    final container = ProviderContainer(
+      overrides: [accountStorageScopeProvider.overrideWithValue(account)],
+    );
+    addTearDown(container.dispose);
+    container.read(aiCreditKnownBalanceProvider.notifier)
+      ..enterPaid(account.v2Namespace!, 'request', firstAttempt: true)
+      ..reportAnswer(account.v2Namespace!, 'request', 15);
+    expect(container.read(aiCreditKnownBalanceProvider), 15);
+    container.read(_accountTransitionProvider);
+    expect(container.read(aiCreditKnownBalanceProvider), isNull);
+  });
+
   test(
     'account transition clears Creator output and reloads person context',
     () async {

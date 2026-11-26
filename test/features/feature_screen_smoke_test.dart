@@ -191,7 +191,7 @@ const TrajectorySummaryView _trajectory = TrajectorySummaryView(
   lastCompletionQuality: 0.83,
   pressureIndex: 28,
   behaviorDivergence: 12,
-  alert: 'SI STATUS: current load signal is low.',
+  alert: 'ASSISTANT STATUS: current load signal is low.',
   predictionTitle: null,
   predictionOutcome: null,
   predictionProbability: null,

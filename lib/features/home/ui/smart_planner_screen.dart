@@ -3,6 +3,8 @@ import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dar
 import 'dart:async';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_conversation_screen.dart';
+import 'package:fantastic_guacamole/features/assistant/ui/assistant_mode_switch.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_chat_mode_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_conversation_provider.dart';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
@@ -43,6 +45,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'smart_planner_screen.widgets.dart';
 part 'smart_planner_screen.consent_copy.dart';
+part 'smart_planner_screen.mode.dart';
 
 class SmartPlannerScreen extends ConsumerStatefulWidget {
   const SmartPlannerScreen({super.key});
@@ -53,6 +56,10 @@ class SmartPlannerScreen extends ConsumerStatefulWidget {
 
 class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   bool _useLocalTools = false;
+  // The AI screen is kept hidden once the onboarding first-value request has
+  // been consumed, so it cannot take that request from the free planner.
+  bool _firstValueDone = false;
+  bool _aiUpdate = false;
   double? _energy;
   int _checkInRevision = 0;
   EmotionalState? get _emotion => ref.read(currentPlannerEmotionProvider);
@@ -139,10 +146,17 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     final SmartPlannerFirstValueRequest? request = ref
         .read(smartPlannerFirstValueProvider.notifier)
         .takeFor(accountScopeId: accountScopeId, now: DateTime.now().toUtc());
-    if (request == null) return;
+    if (request == null) {
+      if (!_firstValueDone) _rebuild(() => _firstValueDone = true);
+      return;
+    }
 
     _clearChangedCheckIn();
+    ref
+        .read(assistantChatModeProvider.notifier)
+        .choose(ConversationSurface.planner, onDevice: true);
     setState(() {
+      _firstValueDone = true;
       _useLocalTools = true;
       final String? prompt = request.prompt;
       if (prompt != null) _notesController.text = prompt;
@@ -1082,7 +1096,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       if (!mounted) return;
       setState(() {
         _plannerExplanationError =
-            'This plan cannot be sent for external explanation. Your deterministic plan is unchanged.';
+            'This plan cannot be sent for an AI chat explanation. Your deterministic plan is unchanged.';
       });
       return;
     }
@@ -1129,7 +1143,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         _pendingExplanationPacket = null;
         _pendingExplanationQuote = null;
         _plannerExplanationError =
-            'The optional explanation quote is unavailable. No content was sent to the external provider, no credits were charged, and your plan is unchanged.';
+            'The optional explanation quote is unavailable. No content was sent to AI chat, no credits were charged, and your plan is unchanged.';
       });
     }
   }
@@ -1242,30 +1256,12 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     return history.length > 8 ? history.sublist(history.length - 8) : history;
   }
 
+  void _rebuild(VoidCallback update) => setState(update);
+
   @override
-  Widget build(BuildContext context) {
-    if (!_useLocalTools &&
-        ref.watch(
-          assistantConversationSurfaceAvailableProvider(
-            ConversationSurface.planner,
-          ),
-        )) {
-      return AssistantConversationScreen(
-        surface: ConversationSurface.planner,
-        onLocalTools: () => setState(() => _useLocalTools = true),
-        onLocalToolsWithDraft: (String draft) {
-          if (draft.isNotEmpty) {
-            // Controller assignments do not call the field's onChanged handler.
-            // An old plan must not remain actionable for this new request.
-            _clearChangedCheckIn();
-          }
-          setState(() {
-            if (draft.isNotEmpty) _notesController.text = draft;
-            _useLocalTools = true;
-          });
-        },
-      );
-    }
+  Widget build(BuildContext context) => _buildChat(context);
+
+  Widget _buildOnDevice(BuildContext context) {
     final PlannerRoutineCopy routine = ChronoSparkLocalizations.of(
       context,
     ).plannerRoutine;

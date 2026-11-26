@@ -25,7 +25,7 @@ Activity should not award credit repeatedly for the same event, imply that every
 - Schedule provides time and completion context.
 - Today uses current Activity signals for orientation.
 - Predictions uses progress evidence when comparing futures.
-- Planner and SI can explain how a proposed action may affect the chosen direction.
+- Planner and the Assistant can explain how a proposed action may affect the chosen direction.
 
 ## Healthy use
 
