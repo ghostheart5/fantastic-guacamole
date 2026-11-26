@@ -167,7 +167,7 @@ ProviderContainer _setup(
     siV2EvidenceSnapshotProvider.overrideWith(
       (ref) => _gatewayFor(
         ref.watch(accountStorageScopeProvider).v2Namespace,
-      ).read(observedAt: DateTime.now()),
+      ).read(observedAt: ref.read(conversationClockProvider)()),
     ),
     domainTaskRepositoryProvider.overrideWithValue(_Tasks()),
     selectedPlanningNoteProvider.overrideWith((ref) async => null),
@@ -668,6 +668,73 @@ void main() {
       },
     );
 
+    test(
+      'a late answer of an abandoned request forgets it (its settlement may differ)',
+      () {
+        known.enterPaid(account, 'old', firstAttempt: true);
+        known.release('old'); // Start another request
+        known.enterPaid(account, 'new', firstAttempt: true);
+        known.reportAnswer(account, 'new', 25);
+        expect(shown(), 25);
+        // The abandoned request's execution answers after "new" took its
+        // figure.
+        known.release('old', completed: true);
+        expect(shown(), isNull);
+      },
+    );
+
+    test('the registry reports a completed execution as an event', () async {
+      final registry = container.read(conversationExecutionRegistryProvider);
+      final quote = ConversationQuote(
+        packet: ConversationPacket(
+          surface: ConversationSurface.si,
+          accountScope: account,
+          prompt: 'An abandoned question.',
+          history: const [],
+          context: const {'language': 'en'},
+        ),
+        data: {
+          'credits': 5,
+          'digest': 'fixture',
+          'proof': 'fixture',
+          'policy': 'fixture',
+          'expiresAt': DateTime.now()
+              .add(const Duration(minutes: 5))
+              .millisecondsSinceEpoch,
+        },
+      );
+      final id = quote.packet.requestId;
+      final late = Completer<({int status, Map<String, dynamic> data})>();
+      known.enterPaid(account, id, firstAttempt: true);
+      unawaited(
+        registry
+            .execute(
+              quote,
+              ConversationService(
+                transport: (_) => late.future,
+                authorize: (_) {},
+              ),
+            )
+            .then<void>((_) {}, onError: (Object _) {}),
+      );
+      known.release(id); // Start another request
+      known.enterPaid(account, 'new', firstAttempt: true);
+      known.reportAnswer(account, 'new', 25);
+      expect(shown(), 25);
+      late.complete((
+        status: 200,
+        data: <String, dynamic>{
+          'requestId': id,
+          'message': 'Late.',
+          'creditsCharged': 5,
+          'remainingCredits': 20,
+          'model': 'fixture',
+        },
+      ));
+      await pumpEventQueue();
+      expect(shown(), isNull);
+    });
+
     test('the registry tells it when a finished request is released', () {
       final registry = container.read(conversationExecutionRegistryProvider);
       known.enterPaid(account, 'expired', firstAttempt: true);
@@ -772,6 +839,79 @@ void main() {
       await _ask(tester, 'And something else?', 'en');
       expect(server.paid, hasLength(2));
       expect(_balanceText(tester), 'Your balance: 20 credits');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  Future<void> abandonAfterTimeout(WidgetTester tester) async {
+    await tester.pump(const Duration(seconds: 5));
+    await _settle(tester);
+    expect(find.textContaining('took too long'), findsOneWidget);
+    await tester.ensureVisible(
+      find.text('Start another request', skipOffstage: false),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Start another request'));
+    await _settle(tester);
+    await tester.tap(find.text('Start new request'));
+    await _settle(tester);
+  }
+
+  testWidgets(
+    'M1: a late failure of an abandoned request does not offer to retry it',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final first = Completer<_Response>();
+      final server = _Server(paidScript: [first.future]);
+      final container = _setup(
+        server,
+        InMemorySecureStoreBackend(),
+        paidWaitTimeout: const Duration(seconds: 4),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container);
+      await _ask(tester, 'When should I do the Grocery list?', 'en');
+      await abandonAfterTimeout(tester);
+      first.completeError(StateError('connection lost'));
+      await _settle(tester);
+      expect(find.textContaining('did not confirm a reply'), findsNothing);
+      expect(find.text('Retry same request'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'M4: a late outcome of an older request keeps the newer request\'s wait limit',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final first = Completer<_Response>();
+      final second = Completer<_Response>();
+      final server = _Server(paidScript: [first.future, second.future]);
+      final container = _setup(
+        server,
+        InMemorySecureStoreBackend(),
+        paidWaitTimeout: const Duration(seconds: 4),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container);
+      await _ask(tester, 'When should I do the Grocery list?', 'en');
+      await abandonAfterTimeout(tester);
+      await _ask(tester, 'And something else?', 'en');
+      expect(server.paid, hasLength(2));
+      expect(find.text('Preparing your response…'), findsOneWidget);
+      first.completeError(StateError('connection lost'));
+      await tester.pump(const Duration(seconds: 5));
+      await _settle(tester);
+      expect(find.text('Preparing your response…'), findsNothing);
+      expect(find.textContaining('took too long'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

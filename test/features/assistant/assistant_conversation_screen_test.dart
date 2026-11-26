@@ -99,8 +99,12 @@ ProviderContainer setup(
   bool externalAiBuild = false,
   // A fixed clock for the free assistant's answers.
   DateTime Function()? clock,
+  // The clock AI chat reads (when a stored request can still be collected).
+  DateTime Function()? conversationClock,
 }) => ProviderContainer(
   overrides: [
+    if (conversationClock != null)
+      conversationClockProvider.overrideWithValue(conversationClock),
     if (guidance != null) adaptiveGuidanceProvider.overrideWith(() => guidance),
     // With [preferences], the real account-scoped preference store is used.
     if (preferences != null) ...[
@@ -304,7 +308,7 @@ void main() {
           await tester.binding.setSurfaceSize(const Size(320, 1000));
           addTearDown(() => tester.binding.setSurfaceSize(null));
           var requests = 0;
-          var fallbackCalls = 0;
+          var freeCalls = 0;
           String? handoff;
           final container = setup((_) async {
             requests++;
@@ -343,8 +347,16 @@ void main() {
                 ),
                 home: AssistantConversationScreen(
                   surface: ConversationSurface.si,
-                  onLocalTools: () => fallbackCalls++,
-                  onLocalToolsWithDraft: (draft) => handoff = draft,
+                  onLocalTools: () {
+                    freeCalls++;
+                    handoff = tester
+                        .widget<TextField>(
+                          find.byKey(const Key('conversation-input')),
+                        )
+                        .controller!
+                        .text
+                        .trim();
+                  },
                 ),
               ),
             ),
@@ -389,7 +401,7 @@ void main() {
           await enterChatText(tester, 'A quiet next step');
           await tapRevealedChatControl(tester, button);
           expect(handoff, 'A quiet next step');
-          expect(fallbackCalls, 0);
+          expect(freeCalls, 1);
           expect(requests, 0);
           expect(tester.takeException(), isNull);
         },
@@ -523,14 +535,14 @@ void main() {
                 ? [
                     'Qué se envía: tu pregunta, hasta seis mensajes recientes de esta conversación, la información que aparece encima del cuadro de mensaje, las opciones que elijas en Chat o en Elegir un paso (como fechas, filtro de títulos, escenario o energía) y los datos técnicos que se indican en la vista previa, como los identificadores de los registros, tu fecha y hora local, zona horaria e idioma. Cuando hayas escrito una pregunta, Ver qué se envía, junto al cuadro de mensaje, muestra la vista previa completa de lo que se envía siempre que se pueda enviar; también se abre sola antes de tu primer mensaje después de abrir la app y cada vez que cambias la información elegida, incluida la nota, la energía o el estado emocional.',
                     'Quién lo recibe: cuando tocas enviar, Axiomara lo recibe para comprobar el precio y luego lo envía a Anthropic, el proveedor de IA, para obtener la respuesta.',
-                    'Cuánto tiempo se guarda: Anthropic normalmente lo conserva hasta 30 días.',
+                    'Cuánto tiempo se guarda: Anthropic normalmente lo conserva hasta 30 días. En este dispositivo, Chat conserva hasta 40 mensajes recientes de esta cuenta hasta que los borres; para recuperar una respuesta pagada tras una interrupción, Axiomara puede guardar brevemente esa respuesta en su servidor, con un plazo de recuperación de 15 minutos.',
                     'Cuánto cuesta: el botón de enviar muestra el precio en créditos, por ejemplo Enviar · 5 créditos. Tocar enviar confirma ese precio. Si el precio comprobado es distinto, se te pregunta antes de que algo llegue a Anthropic y no se cobra nada si no lo confirmas.',
                     'También en Elegir un paso: donde se ofrece, el botón opcional Explicar este plan envía el plan que ves en pantalla a Axiomara para mostrarte su precio en créditos, y a Anthropic solo después de que confirmes ese precio.',
                   ]
                 : [
                     'What is sent: your question, up to six recent messages from this conversation, the information listed above the message box, any options you set in Chat or Choose a step (such as a date range, title filter, scenario or energy), and the technical details listed in the preview, such as record identifiers, your local date and time, time zone and language. Once you have typed a question, See what is sent by the message box shows the full preview of what goes whenever sending is available; it also opens by itself before your first message after the app opens and whenever you change the information selected, including the note, energy or emotional state.',
                     'Who receives it: when you tap send, Axiomara receives it to check the price, then sends it to Anthropic, the AI provider, for a reply.',
-                    'How long it is kept: Anthropic normally keeps it for up to 30 days.',
+                    'How long it is kept: Anthropic normally keeps it for up to 30 days. On this device, Chat keeps up to 40 recent messages for this account until you clear them; to recover a paid reply after an interruption, Axiomara may briefly keep that reply on its server, with a 15-minute recovery window.',
                     'What it costs: the send button shows the price in credits, for example Send · 5 credits. Tapping send confirms that price. If the checked price is different, you are asked before anything reaches Anthropic, and nothing is charged unless you confirm it.',
                     'Also on Choose a step: where it is offered, the optional Explain this plan button sends the plan shown on screen to Axiomara to show you its price in credits, and to Anthropic only after you confirm that price.',
                   ]) {
@@ -2021,8 +2033,11 @@ void main() {
           theme: ThemeData.dark(),
           home: AssistantConversationScreen(
             surface: ConversationSurface.si,
-            onLocalTools: () {},
-            onLocalToolsWithDraft: (draft) => handoffDraft = draft,
+            onLocalTools: () => handoffDraft = tester
+                .widget<TextField>(find.byKey(const Key('conversation-input')))
+                .controller!
+                .text
+                .trim(),
           ),
         ),
       ),
@@ -2069,8 +2084,11 @@ void main() {
           theme: ThemeData.dark(),
           home: AssistantConversationScreen(
             surface: ConversationSurface.si,
-            onLocalTools: () {},
-            onLocalToolsWithDraft: (draft) => handoffDraft = draft,
+            onLocalTools: () => handoffDraft = tester
+                .widget<TextField>(find.byKey(const Key('conversation-input')))
+                .controller!
+                .text
+                .trim(),
           ),
         ),
       ),
@@ -3616,8 +3634,11 @@ void main() {
         child: MaterialApp(
           home: AssistantConversationScreen(
             surface: ConversationSurface.si,
-            onLocalTools: () {},
-            onLocalToolsWithDraft: (draft) => handoffDraft = draft,
+            onLocalTools: () => handoffDraft = tester
+                .widget<TextField>(find.byKey(const Key('conversation-input')))
+                .controller!
+                .text
+                .trim(),
           ),
         ),
       ),

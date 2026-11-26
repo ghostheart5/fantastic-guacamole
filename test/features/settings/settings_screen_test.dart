@@ -1705,12 +1705,12 @@ void main() {
           spanish
               ? 'Qué se envía: tu pregunta, hasta seis mensajes recientes de esta conversación, la información que aparece encima del cuadro de mensaje, las opciones que elijas en Chat o en Elegir un paso (como fechas, filtro de títulos, escenario o energía) y los datos técnicos que se indican en la vista previa, como los identificadores de los registros, tu fecha y hora local, zona horaria e idioma. Cuando hayas escrito una pregunta, Ver qué se envía, junto al cuadro de mensaje, muestra la vista previa completa de lo que se envía siempre que se pueda enviar; también se abre sola antes de tu primer mensaje después de abrir la app y cada vez que cambias la información elegida, incluida la nota, la energía o el estado emocional.\n'
                     'Quién lo recibe: cuando tocas enviar, Axiomara lo recibe para comprobar el precio y luego lo envía a Anthropic, el proveedor de IA, para obtener la respuesta.\n'
-                    'Cuánto tiempo se guarda: Anthropic normalmente lo conserva hasta 30 días.\n'
+                    'Cuánto tiempo se guarda: Anthropic normalmente lo conserva hasta 30 días. En este dispositivo, Chat conserva hasta 40 mensajes recientes de esta cuenta hasta que los borres; para recuperar una respuesta pagada tras una interrupción, Axiomara puede guardar brevemente esa respuesta en su servidor, con un plazo de recuperación de 15 minutos.\n'
                     'Cuánto cuesta: el botón de enviar muestra el precio en créditos, por ejemplo Enviar · 5 créditos. Tocar enviar confirma ese precio. Si el precio comprobado es distinto, se te pregunta antes de que algo llegue a Anthropic y no se cobra nada si no lo confirmas.\n'
                     'También en Elegir un paso: donde se ofrece, el botón opcional Explicar este plan envía el plan que ves en pantalla a Axiomara para mostrarte su precio en créditos, y a Anthropic solo después de que confirmes ese precio.'
               : 'What is sent: your question, up to six recent messages from this conversation, the information listed above the message box, any options you set in Chat or Choose a step (such as a date range, title filter, scenario or energy), and the technical details listed in the preview, such as record identifiers, your local date and time, time zone and language. Once you have typed a question, See what is sent by the message box shows the full preview of what goes whenever sending is available; it also opens by itself before your first message after the app opens and whenever you change the information selected, including the note, energy or emotional state.\n'
                     'Who receives it: when you tap send, Axiomara receives it to check the price, then sends it to Anthropic, the AI provider, for a reply.\n'
-                    'How long it is kept: Anthropic normally keeps it for up to 30 days.\n'
+                    'How long it is kept: Anthropic normally keeps it for up to 30 days. On this device, Chat keeps up to 40 recent messages for this account until you clear them; to recover a paid reply after an interruption, Axiomara may briefly keep that reply on its server, with a 15-minute recovery window.\n'
                     'What it costs: the send button shows the price in credits, for example Send · 5 credits. Tapping send confirms that price. If the checked price is different, you are asked before anything reaches Anthropic, and nothing is charged unless you confirm it.\n'
                     'Also on Choose a step: where it is offered, the optional Explain this plan button sends the plan shown on screen to Axiomara to show you its price in credits, and to Anthropic only after you confirm that price.',
         );
@@ -1993,65 +1993,74 @@ void main() {
     );
   }
 
-  for (final int count in <int>[1, 2]) {
-    testWidgets('Spanish memory count for $count kept item(s) agrees in number', (
-      WidgetTester tester,
-    ) async {
-      useTallSurface(tester);
-      final AccountStorageScope scope = AccountStorageScope.authenticated(
-        'settings-test-account',
-      );
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: createContainer(
-            accountScope: scope,
-            memories: <MemoryEntity>[
-              for (int i = 0; i < count; i++)
-                MemoryEntity(
-                  id: 'm$i',
-                  text: 'kept $i',
-                  date: DateTime.utc(2026, 9, 1),
-                  accountScopeId: scope.v2Namespace!,
-                ),
-            ],
+  for (final bool es in <bool>[true, false]) {
+    for (final int count in <int>[1, 2]) {
+      testWidgets('${es ? 'Spanish' : 'English'} memory count for $count kept '
+          'item(s) agrees in number', (WidgetTester tester) async {
+        useTallSurface(tester);
+        final AccountStorageScope scope = AccountStorageScope.authenticated(
+          'settings-test-account',
+        );
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: createContainer(
+              accountScope: scope,
+              memories: <MemoryEntity>[
+                for (int i = 0; i < count; i++)
+                  MemoryEntity(
+                    id: 'm$i',
+                    text: 'kept $i',
+                    date: DateTime.utc(2026, 9, 1),
+                    accountScopeId: scope.v2Namespace!,
+                  ),
+              ],
+            ),
+            child: MaterialApp(
+              locale: Locale(es ? 'es' : 'en'),
+              supportedLocales: ChronoSparkLocalizations.supportedLocales,
+              localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+                ChronoSparkLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: const SettingsScreen(),
+            ),
           ),
-          child: const MaterialApp(
-            locale: Locale('es'),
-            supportedLocales: ChronoSparkLocalizations.supportedLocales,
-            localizationsDelegates: <LocalizationsDelegate<dynamic>>[
-              ChronoSparkLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            home: SettingsScreen(),
+        );
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.tap(
+          find.text(es ? 'Planificación y orientación' : 'Planning & guidance'),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.scrollUntilVisible(
+          find.text(
+            es ? 'LO QUE AXIOMARA RECUERDA' : 'WHAT AXIOMARA REMEMBERS',
           ),
-        ),
-      );
-      addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
-      await tester.pump(const Duration(milliseconds: 200));
-      await tester.tap(find.text('Planificación y orientación'));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.scrollUntilVisible(
-        find.text('LO QUE AXIOMARA RECUERDA'),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
 
-      final Finder one = find.text(
-        '1 guardado · solo de tu cuenta, solo donde se creó, y caduca',
-      );
-      final Finder many = find.text(
-        '$count guardados · solo de tu cuenta, solo donde se crearon, y caducan',
-      );
-      await tester.scrollUntilVisible(
-        count == 1 ? one : many,
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(one, count == 1 ? findsOneWidget : findsNothing);
-      expect(many, count == 1 ? findsNothing : findsOneWidget);
-    });
+        final Finder one = find.text(
+          es
+              ? '1 guardado · solo de tu cuenta, solo donde se creó, y caduca'
+              : '1 kept · only for your account, only where it was made, and it expires',
+        );
+        final Finder many = find.text(
+          es
+              ? '$count guardados · solo de tu cuenta, solo donde se crearon, y caducan'
+              : '$count kept · only for your account, only where they were made, and they expire',
+        );
+        await tester.scrollUntilVisible(
+          count == 1 ? one : many,
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(one, count == 1 ? findsOneWidget : findsNothing);
+        expect(many, count == 1 ? findsNothing : findsOneWidget);
+      });
+    }
   }
 
   for (final bool rollback in <bool>[false, true]) {

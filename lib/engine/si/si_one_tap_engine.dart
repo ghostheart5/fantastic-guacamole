@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_one_tap_question.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
+import 'package:fantastic_guacamole/engine/si/si_deadline.dart';
 
 part 'si_one_tap_engine.today.dart';
 part 'si_one_tap_engine.goals.dart';
@@ -185,10 +186,9 @@ final class _Run {
       wholeDay ?? dayOf(moment);
 
   /// A whole-day deadline is past only once its day has ended; a deadline with
-  /// a time is past from that moment.
-  bool deadlinePast(DateTime moment, DateTime? wholeDay) => wholeDay != null
-      ? wholeDay.isBefore(today)
-      : moment.toLocal().isBefore(now);
+  /// a time is past from that moment ([siDeadlinePast]).
+  bool deadlinePast(DateTime moment, DateTime? wholeDay) =>
+      siDeadlinePast(moment, wholeDay, now);
 
   bool isOverdue(SIV2TaskEvidence task) =>
       task.dueDate != null && deadlinePast(task.dueDate!, task.dueDay);
@@ -197,7 +197,7 @@ final class _Run {
       task.dueDate == null ? null : deadlineDay(task.dueDate!, task.dueDay);
 
   bool goalIsLate(SIV2GoalEvidence g) =>
-      g.targetDate != null && deadlinePast(g.targetDate!, g.targetDay);
+      g.targetDate != null && siGoalLate(g.targetDate!, g.targetDay, now);
 
   DateTime? goalDay(SIV2GoalEvidence g) =>
       g.targetDate == null ? null : deadlineDay(g.targetDate!, g.targetDay);
@@ -443,9 +443,6 @@ final class _Run {
       'Tareas terminadas u omitidas en los últimos 14 días',
     ),
   );
-  String get milestonesGroup =>
-      groupLink('milestones', SIV2Source.milestones, t('Milestones', 'Hitos'));
-
   void fact(String text, Iterable<String> ids) => _facts.add(
     SIV2Statement(
       kind: SIV2StatementKind.observedFact,

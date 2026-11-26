@@ -149,10 +149,10 @@ ProviderContainer _container({
   AccountStorageScope Function()? readScope,
   Completer<void>? paidGate,
   SecureStoreBackend? historyBackend,
-  // A price that ends this long after it is given (default: far away).
-  Duration? quoteLife,
   // Runs as the paid request reaches the server.
   void Function()? onPaid,
+  // The clock AI chat reads (default: the real one).
+  DateTime Function()? conversationClock,
 }) {
   final _Paid counter = paid ?? _Paid();
   final ProviderContainer container = setup(
@@ -173,9 +173,9 @@ ProviderContainer _container({
               'digest': 'fixture',
               'proof': 'fixture',
               'policy': 'fixture',
-              'expiresAt': quoteLife == null
-                  ? 4102444800000
-                  : DateTime.now().add(quoteLife).millisecondsSinceEpoch,
+              // Far away: the injected clock decides when it can no longer
+              // be collected (collect-by is at most 5 minutes after saving).
+              'expiresAt': 4102444800000,
             },
           },
         );
@@ -197,6 +197,7 @@ ProviderContainer _container({
     readGateway: _gateway(kind, slowTasks: slowTasks),
     conversationAvailable: ai,
     clock: () => _now.toUtc(),
+    conversationClock: conversationClock,
     readScope: readScope,
     historyBackend: historyBackend,
   );
@@ -900,7 +901,6 @@ void main() {
       onDevice: false,
       paidGate: never,
       historyBackend: backend,
-      quoteLife: const Duration(seconds: 1),
     );
     await _pump(tester, first);
     await enterChatText(tester, 'What should I do first?');
@@ -914,13 +914,14 @@ void main() {
     }
     await tester.pumpWidget(const SizedBox.shrink());
     first.dispose();
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 1500)),
-    );
+    // The app comes back after the request can no longer be collected (at
+    // most 5 minutes after it was confirmed), by the injected clock.
     final second = _container(
       ai: true,
       onDevice: true,
       historyBackend: backend,
+      conversationClock: () =>
+          DateTime.now().toUtc().add(const Duration(minutes: 6)),
     );
     addTearDown(() => _dispose(tester, second));
     await _pump(tester, second);
@@ -983,6 +984,48 @@ void main() {
       await tester.pumpAndSettle();
       expect(box(tester, _localInput), 'my free words');
       expect(box(tester, _aiInput), 'What should I do first?');
+    },
+  );
+
+  testWidgets(
+    'Task 7: a held paid question is kept when free words come to AI chat',
+    (tester) async {
+      final Completer<void> gate = Completer<void>();
+      final container = _container(ai: true, onDevice: false, paidGate: gate);
+      addTearDown(() => _dispose(tester, container));
+      await _pump(tester, container);
+      await enterChatText(tester, 'What should I do first?');
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      for (var i = 0; i < 40 && find.text('Send').evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await tester.tap(find.text('Send'));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      // The paid call fails without an answer: the question is held for
+      // Retry same request.
+      gate.completeError(StateError('connection lost'));
+      for (var i = 0; i < 10; i++) {
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(find.text('Retry same request'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('assistant-mode-on-device')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(_localInput), 'my free words');
+      await tester.tap(find.byKey(const Key('assistant-mode-ai')));
+      await tester.pumpAndSettle();
+      expect(box(tester, _aiInput), 'What should I do first?');
+      expect(
+        find.text(
+          'Your words are still in the free assistant. AI chat already had other text, which was kept.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('assistant-mode-on-device')));
+      await tester.pumpAndSettle();
+      expect(box(tester, _localInput), 'my free words');
     },
   );
 

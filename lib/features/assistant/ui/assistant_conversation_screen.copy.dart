@@ -108,10 +108,10 @@ extension _ConversationCopy on _AssistantConversationScreenState {
       'The price expired before the message was sent. No credits were charged. Your question is kept; tap send to try again.',
       'El precio caducó antes de enviar el mensaje. No se cobraron créditos. Tu pregunta se conserva; toca enviar para intentarlo de nuevo.',
     ),
-    'request_too_large' || 'context_too_large' => copy(
-      'This question and the information with it are too large to send. Nothing was sent for a reply. Nothing was charged. Shorten the question or choose less information, then tap send.',
-      'Esta pregunta y la información que la acompaña son demasiado grandes para enviarlas. No se envió nada para responder. No se cobró nada. Acorta la pregunta o elige menos información y luego toca enviar.',
-    ),
+    'request_too_large' || 'context_too_large' => _tooLargeText,
+    // Before anything was handed on, invalid_request means the request was
+    // over the size the server accepts and was not built.
+    'invalid_request' when !sentForReply => _tooLargeText,
     'unauthorized' || 'authentication_required' => copy(
       'Your sign-in needs renewing before AI chat can answer. Nothing was charged. Sign in again, then tap send. Your question is kept.',
       'Debes renovar tu inicio de sesión para que el chat con IA responda. No se cobró nada. Inicia sesión de nuevo y luego toca enviar. Tu pregunta se conserva.',
@@ -194,6 +194,11 @@ extension _ConversationCopy on _AssistantConversationScreenState {
     ),
   };
 
+  String get _tooLargeText => copy(
+    'This question and the information with it are too large to send. Nothing was sent for a reply. Nothing was charged. Shorten the question or choose less information, then tap send.',
+    'Esta pregunta y la información que la acompaña son demasiado grandes para enviarlas. No se envió nada para responder. No se cobró nada. Acorta la pregunta o elige menos información y luego toca enviar.',
+  );
+
   Iterable<String> _recordEvidenceIds(ConversationPacket packet) sync* {
     final data = packet.toJson()['context'] as Map;
     for (final source in ['tasks', 'goals', 'milestones']) {
@@ -220,15 +225,19 @@ extension _ConversationCopy on _AssistantConversationScreenState {
               .map(_extraLabel),
         )
         .join(', ');
+    final sentIntent =
+        SIV2Intent.values.where((i) => i.name == data['mode']).firstOrNull ??
+        _intent;
     final lines = <String>[
       if (data['contextScope'] == 'attachedTaskOnly')
         copy(
           'Context: attached task only. Other records and emotional state are excluded.',
           'Contexto: solo la tarea adjunta. Se excluyen otros registros y el estado emocional.',
         ),
+      // The analysis the request carries, which follows the question.
       copy(
-        'Selected analysis: ${_intentLabel(_intent)}',
-        'Análisis seleccionado: ${_intentLabel(_intent)}',
+        'Analysis: ${_intentLabel(sentIntent)}',
+        'Análisis: ${_intentLabel(sentIntent)}',
       ),
       copy(
         'Sources: ${includedSources.isEmpty ? 'just this chat' : includedSources}',

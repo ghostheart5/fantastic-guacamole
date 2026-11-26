@@ -26,9 +26,11 @@ class AiChatDisclosure {
     'Quién lo recibe: cuando tocas enviar, Axiomara lo recibe para comprobar el precio y luego lo envía a Anthropic, el proveedor de IA, para obtener la respuesta.',
   );
 
+  // Matches the privacy text: up to 40 saved Chat messages on the device and
+  // the 15-minute server reply recovery window.
   String get howLong => _copy(
-    'How long it is kept: Anthropic normally keeps it for up to 30 days.',
-    'Cuánto tiempo se guarda: Anthropic normalmente lo conserva hasta 30 días.',
+    'How long it is kept: Anthropic normally keeps it for up to 30 days. On this device, Chat keeps up to 40 recent messages for this account until you clear them; to recover a paid reply after an interruption, Axiomara may briefly keep that reply on its server, with a 15-minute recovery window.',
+    'Cuánto tiempo se guarda: Anthropic normalmente lo conserva hasta 30 días. En este dispositivo, Chat conserva hasta 40 mensajes recientes de esta cuenta hasta que los borres; para recuperar una respuesta pagada tras una interrupción, Axiomara puede guardar brevemente esa respuesta en su servidor, con un plazo de recuperación de 15 minutos.',
   );
 
   // The price is on the send button. Tapping send confirms it and sends the

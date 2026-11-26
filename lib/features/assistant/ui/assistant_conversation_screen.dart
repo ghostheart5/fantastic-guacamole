@@ -83,7 +83,6 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
     super.key,
     required this.surface,
     required this.onLocalTools,
-    this.onLocalToolsWithDraft,
     this.isActive = true,
     this.freeBox,
     this.onFreeBoxChanged,
@@ -95,8 +94,9 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
     this.onBusyChanged,
   });
   final ConversationSurface surface;
+
+  /// Chooses the free assistant; typed words go with it through [freeBox].
   final VoidCallback onLocalTools;
-  final ValueChanged<String>? onLocalToolsWithDraft;
   final bool isActive;
 
   /// The free side's text box. Each time this screen is shown or hidden the
@@ -144,6 +144,13 @@ class _AssistantConversationScreenState
   // The error is about running out of credits: Get credits is offered.
   bool _outOfCredits = false;
   ConversationQuote? _pending;
+  // When [_pending] can no longer be collected.
+  DateTime? _pendingCollectBefore;
+  // Collects [_pending] again while its first call is still being answered.
+  Timer? _reservedRetry;
+  // Requests given up with Start another request: a late failure of one is
+  // not shown, since it is no longer kept.
+  final Set<String> _abandoned = <String>{};
   // The operation whose confirmed request has started its storage write:
   // from then on it is sent (see _send), so Stop waiting no longer withdraws
   // it.
@@ -265,7 +272,9 @@ class _AssistantConversationScreenState
       planner: widget.surface == ConversationSurface.planner,
       isSpanish: _spanish,
       sourceSent: !toAi && sent,
-      destinationSent: toAi && sent,
+      // Only a question still being sent gives way. One held for Retry same
+      // request is kept, and the moved words stay in the free box.
+      destinationSent: toAi && _busy,
       suggestion: suggestion,
     );
     final String ai = toAi ? result.destination : result.source;
@@ -379,6 +388,7 @@ class _AssistantConversationScreenState
     _voiceActivation++;
     _voiceControllerForDispose?.invalidatePendingCapture();
     _paidWaitTimer?.cancel();
+    _reservedRetry?.cancel();
     final VoiceController? voiceController = _voiceControllerForDispose;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
@@ -449,7 +459,12 @@ class _AssistantConversationScreenState
 
   /// Tapping send confirms the price shown on the button. [showPreview]
   /// opens the full preview even when this selection was already previewed.
-  Future<void> _send({bool retry = false, bool showPreview = false}) async {
+  /// [recollect]: the timer collecting again a request still being answered.
+  Future<void> _send({
+    bool retry = false,
+    bool showPreview = false,
+    bool recollect = false,
+  }) async {
     if (_busy) return;
     if (!retry && _input.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -470,6 +485,7 @@ class _AssistantConversationScreenState
       return;
     }
     _paidWaitTimer?.cancel();
+    _reservedRetry?.cancel();
     final generation = _generation;
     final operation = ++_operation;
     final prompt = retry
@@ -500,21 +516,28 @@ class _AssistantConversationScreenState
     setState(() {
       _busy = true;
       _waitIndicatorDismissed = false;
-      _error = null;
+      // A timed re-collect keeps saying the reply is still being answered.
+      if (!recollect) _error = null;
       _outOfCredits = false;
       // The one-time line has done its job once a request starts.
       _scopeNoticeVisible = false;
     });
     // Keep the wait indicator and its Stop waiting button in view; the
-    // information row above the input leaves less room for the list.
+    // information row above the input leaves less room for the list. A timed
+    // re-collect leaves the list where the person put it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _scroll.hasClients) {
+      if (mounted && _scroll.hasClients && !recollect) {
         _scroll.jumpTo(_scroll.position.maxScrollExtent);
       }
     });
     bool current() =>
         mounted && generation == _generation && operation == _operation;
+    bool abandoned(ConversationQuote? quote) =>
+        quote != null && _abandoned.contains(quote.packet.requestId);
     ConversationQuote? executing;
+    // This send's own wait limit: an older send finishing late must not
+    // cancel a newer one's.
+    Timer? waitTimer;
     var registry = ref.read(conversationExecutionRegistryProvider);
     try {
       var service = ref.read(conversationServiceProvider);
@@ -556,7 +579,11 @@ class _AssistantConversationScreenState
         final previews = ref.read(conversationPreviewMemoryProvider);
         final selection = _selectionKey(packet);
         if (showPreview || !previews.hasAccepted(widget.surface, selection)) {
-          final proceed = await _reviewWhatIsSent(prompt, packet);
+          final proceed = await _reviewWhatIsSent(
+            prompt,
+            packet,
+            priced: showPreview,
+          );
           if (!current() || !proceed) return;
           previews.accept(widget.surface, selection);
         }
@@ -615,9 +642,14 @@ class _AssistantConversationScreenState
           // written). Read it back before saying anything about it. After an
           // account change this screen says nothing: a stored request stays
           // with its account and is collected there (Phase 1).
-          if (!current()) return;
+          // Read back only for the request's own account, even before this
+          // screen has heard of an account change.
+          bool ownAccount() =>
+              ref.read(accountStorageScopeProvider).v2Namespace ==
+              record.quote.packet.accountScope;
+          if (!current() || !ownAccount()) return;
           final stored = await _storedRequest(record);
-          if (!current()) return;
+          if (!current() || !ownAccount()) return;
           if (stored == false) {
             throw const ConversationFailure('request_not_saved');
           }
@@ -641,16 +673,20 @@ class _AssistantConversationScreenState
           );
         }
         _pending = quote;
+        _pendingCollectBefore = record.collectBefore;
       }
-      _paidWaitTimer = Timer(ref.read(conversationPaidWaitTimeoutProvider), () {
-        if (!current() || !_busy) return;
-        setState(() {
-          _busy = false;
-          _waitIndicatorDismissed = false;
-          _error = _failureText('request_timeout');
-        });
-        _reportWhileHidden();
-      });
+      _paidWaitTimer = waitTimer = Timer(
+        ref.read(conversationPaidWaitTimeoutProvider),
+        () {
+          if (!current() || !_busy) return;
+          setState(() {
+            _busy = false;
+            _waitIndicatorDismissed = false;
+            _error = _failureText('request_timeout');
+          });
+          _reportWhileHidden();
+        },
+      );
       executing = quote;
       // Its answer's balance may replace the one shown only if nothing
       // changes from its first attempt in this run until it arrives (a retry
@@ -673,7 +709,7 @@ class _AssistantConversationScreenState
         // Choose a step keeps no history: the reply is marked shown, and its
         // stored request forgotten, only once the person is shown it. If this
         // screen goes away first, the next one collects the same reply.
-        _paidWaitTimer?.cancel();
+        waitTimer.cancel();
         knownBalance.release(quote.packet.requestId);
         _reportWhileHidden();
         if (!await _whenShown() || !current()) {
@@ -746,7 +782,20 @@ class _AssistantConversationScreenState
         }
       });
     } on ConversationFailure catch (error) {
-      if (!current()) return;
+      if (!current() || abandoned(executing)) return;
+      if ((error.code == 'request_reserved' ||
+              (recollect && error.code == 'rate_limit_exceeded')) &&
+          executing != null) {
+        // The first call of this same request id is still running (a re-send
+        // after a sign-in change or restart): it stays stored and is
+        // collected again shortly, with the same id. Too many calls while
+        // collecting it means the same: later.
+        _collectAgainLater(
+          executing,
+          recovered: executing.packet.requestId == _recoveringRequestId,
+        );
+        return;
+      }
       if (<String>{
         'daily_budget_exceeded',
         'timing_context_missing',
@@ -764,11 +813,13 @@ class _AssistantConversationScreenState
         'invalid_upstream_response',
         'empty_upstream_response',
       }.contains(error.code)) {
-        if (error.code == 'request_completed' &&
-            executing != null &&
+        if (executing != null &&
             widget.surface == ConversationSurface.planner &&
             widget.hidden) {
-          // Its text is seen before its stored request is forgotten.
+          // Every final answer is seen before its stored request is
+          // forgotten; a re-send of the same id gets the same answer. The
+          // wait limit no longer applies: the answer is here.
+          waitTimer?.cancel();
           _reportWhileHidden();
           if (!await _whenShown() || !current()) {
             _resumeHeld(generation, operation);
@@ -817,7 +868,7 @@ class _AssistantConversationScreenState
       );
       ref.invalidate(aiCreditWalletProvider);
     } on Object {
-      if (!current()) return;
+      if (!current() || abandoned(executing)) return;
       if (executing != null) {
         _noteBalance(executing.packet, null, sentForReply: true);
       }
@@ -835,8 +886,8 @@ class _AssistantConversationScreenState
               ),
       );
     } finally {
-      _paidWaitTimer?.cancel();
-      _paidWaitTimer = null;
+      waitTimer?.cancel();
+      if (identical(_paidWaitTimer, waitTimer)) _paidWaitTimer = null;
       if (current()) {
         setState(() {
           _busy = false;
@@ -1079,7 +1130,7 @@ class _AssistantConversationScreenState
         'A message is being sent. You can switch when it finishes.',
         'Se está enviando un mensaje. Podrás cambiar cuando termine.',
       ),
-      onChooseOnDevice: () => _openFreeTools(_input.text.trim()),
+      onChooseOnDevice: widget.onLocalTools,
       onChooseAi: () {},
     );
     final scaffold = Scaffold(
@@ -1323,6 +1374,8 @@ class _AssistantConversationScreenState
                             );
                             final abandoned = _pending?.packet.requestId;
                             if (mounted && confirmed && abandoned != null) {
+                              _abandoned.add(abandoned);
+                              _reservedRetry?.cancel();
                               setState(() => _pending = null);
                               _forgetPending(abandoned);
                               // Its answer will not be used here.

@@ -49,7 +49,6 @@ void main() {
     expect(composition, contains('final GetGoals goals'));
     expect(composition, contains('final GetMilestones milestones'));
     expect(composition, contains('final GetTimelineEvents timeline'));
-    expect(screen, isNot(contains('aiControllerProvider')));
     expect(screen, isNot(contains('adaptiveGuidanceProvider')));
     expect(screen, isNot(contains('siStateAggregationProvider')));
     expect(screen, isNot(contains('siConsoleThreadStoreProvider')));

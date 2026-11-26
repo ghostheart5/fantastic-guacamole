@@ -188,11 +188,15 @@ class AiCreditKnownBalance extends Notifier<int?> {
   /// abandoned), or its execution completed. Its charge may still have
   /// happened, so this is an outside change for other requests; it no
   /// longer keeps later answers from setting the balance. A request that is
-  /// not running is left alone, unless its execution [failed]: a failure
-  /// arriving after it was abandoned may have refunded its charge, which no
-  /// later figure includes.
-  void release(String requestId, {bool failed = false}) {
-    if (!_running.remove(requestId) && !failed) return;
+  /// not running is left alone, unless its execution [failed] or [completed]:
+  /// a failure arriving after it was abandoned may have refunded its charge,
+  /// and an answer arriving then settles it, which no later figure includes.
+  void release(
+    String requestId, {
+    bool failed = false,
+    bool completed = false,
+  }) {
+    if (!_running.remove(requestId) && !failed && !completed) return;
     _event(requestId);
   }
 

@@ -196,11 +196,23 @@ final conversationServiceProvider = Provider<ConversationService>((ref) {
   );
 });
 
+/// How long a screen waits before collecting again a request whose first call
+/// the server reports as still running (`request_reserved`). Five seconds
+/// keeps well inside the server's per-account limit (20 calls a minute,
+/// price checks included).
+final conversationReservedRetryIntervalProvider = Provider<Duration>(
+  (ref) => const Duration(seconds: 5),
+);
+
 /// Paid executions outlive the screen that confirmed them. Leaving Chat or
 /// Choose a step disposes the screen, not this registry, so a returning screen
 /// joins the running request instead of sending it again. A new account or
-/// session starts an empty registry; its stored request is then re-sent with
-/// the same id, which the server answers from its reply cache.
+/// sign-in starts an empty registry; its stored request is then re-sent with
+/// the same id. Once the first call has finished the server answers that from
+/// its reply cache; while the first call is still running it answers
+/// `request_reserved` without a second charge, and the screen keeps the
+/// request and collects it again a few seconds later, until it can no longer
+/// be collected.
 typedef ConversationPurgeTimer =
     Timer Function(Duration delay, void Function() callback);
 
@@ -250,11 +262,11 @@ final conversationExecutionRegistryProvider =
               )
               .ignore();
         },
-        onReleased: (requestId, {required failed}) {
+        onReleased: (requestId, {required failed, required completed}) {
           if (!ref.mounted) return;
           ref
               .read(aiCreditKnownBalanceProvider.notifier)
-              .release(requestId, failed: failed);
+              .release(requestId, failed: failed, completed: completed);
         },
       );
       // An account or generation change drops this registry and its timer.
@@ -277,13 +289,24 @@ final class ConversationExecutionRegistry {
   /// Told when an execution completes (answer or failure, whoever is
   /// listening) and when a request's outcome is finished; it no longer
   /// counts as running for the AI credit balance. [failed] is true when the
-  /// execution failed, which may have refunded its charge.
-  final void Function(String requestId, {required bool failed})? onReleased;
+  /// execution failed, which may have refunded its charge; [completed] when
+  /// it answered, which settled it (only from the answer itself, never from
+  /// [finish]).
+  final void Function(
+    String requestId, {
+    required bool failed,
+    required bool completed,
+  })?
+  onReleased;
 
-  void _release(String requestId, {bool failed = false}) {
+  void _release(
+    String requestId, {
+    bool failed = false,
+    bool completed = false,
+  }) {
     if (_disposed) return;
     try {
-      onReleased?.call(requestId, failed: failed);
+      onReleased?.call(requestId, failed: failed, completed: completed);
     } on Object {
       // Display bookkeeping only.
     }
@@ -361,7 +384,7 @@ final class ConversationExecutionRegistry {
       future.then<void>(
         (_) {
           if (_disposed) return;
-          _release(id);
+          _release(id, completed: true);
           try {
             onAnswered?.call(quote.packet);
           } on Object {

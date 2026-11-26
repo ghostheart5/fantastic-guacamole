@@ -1,6 +1,5 @@
 import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_memory_models.dart';
-import 'package:fantastic_guacamole/domain/entities/assistant_conversation_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/emotional_state.dart';
 import 'package:fantastic_guacamole/domain/ports/i_assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart'
@@ -8,13 +7,6 @@ import 'package:fantastic_guacamole/engine/si/models/si_state.dart'
 import 'package:fantastic_guacamole/engine/si/si_cognitive_ecosystem_layer.dart';
 import 'package:fantastic_guacamole/engine/si/si_cognitive_evolution_timeline.dart';
 import 'package:fantastic_guacamole/engine/si/si_cognitive_micro_pattern_engine.dart';
-
-abstract class AssistantIntentDetector {
-  AssistantIntent detect({
-    required String input,
-    required AssistantSurface surface,
-  });
-}
 
 abstract class AssistantContextBuilder implements IAssistantContextBuilder {
   AssistantContext buildSmartPlannerContext({
@@ -57,10 +49,6 @@ abstract class AssistantTimelineEngine {
   });
 }
 
-abstract class RecommendationEngine {
-  Future<Map<String, dynamic>> execute(Map<String, dynamic> request);
-}
-
 abstract class SmartPlannerInterface<TResult extends Object> {
   Future<TResult> requestPlanningGuidance({
     required double? energy,
@@ -80,14 +68,5 @@ abstract class SmartPlannerInterface<TResult extends Object> {
     required List<Map<String, String>> history,
     String? supportivePauseReason,
     String? supportiveQuestion,
-  });
-}
-
-abstract class SIConsoleInterface<TResult extends Object> {
-  Future<TResult?> sendMessage(String text);
-  Future<TResult?> executeConsoleQuery({
-    required String input,
-    List<Map<String, String>> history,
-    Map<String, dynamic> context,
   });
 }

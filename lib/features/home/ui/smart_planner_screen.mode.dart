@@ -47,8 +47,11 @@ extension _PlannerChatMode on _SmartPlannerScreenState {
     final bool aiAvailable = _aiChatAvailable;
     ref.listen(accountStorageScopeProvider, (previous, next) {
       if (previous?.v2Namespace == next.v2Namespace) return;
-      // Nothing typed or arrived for one account goes to the next.
+      // Nothing typed or arrived for one account goes to the next: the notes
+      // are cleared before AI chat is shown again and copies them.
       _rebuild(() => _aiUpdate = false);
+      _notesController.clear();
+      _clearChangedCheckIn();
     });
     if (!aiAvailable && !ref.watch(assistantChatInBuildProvider)) {
       return _buildOnDevice(context);

@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_v2_contract.dart';
+import 'package:fantastic_guacamole/engine/si/si_deadline.dart';
 
 // Presentation-only labels; enum names and evidence identities remain stable.
 String _missingPersonalInformationKindLabel(
@@ -67,7 +68,7 @@ final class SIV2Engine {
               .where((SIV2GoalEvidence item) => !question.excludes(item.title))
               .where(
                 (SIV2GoalEvidence item) => _withinGoalRange(
-                  item.targetDate,
+                  item,
                   query.timeRange,
                   observedNow,
                   undatedMatches: true,
@@ -176,7 +177,7 @@ final class SIV2Engine {
         .where(
           (SIV2GoalEvidence item) =>
               item.targetDate != null &&
-              _localDay(item.targetDate!).isBefore(_localDay(observedNow)),
+              siGoalLate(item.targetDate!, item.targetDay, observedNow),
         )
         .length;
     final int overdueMilestones = milestones
@@ -184,13 +185,7 @@ final class SIV2Engine {
           (SIV2MilestoneEvidence item) =>
               !item.completed &&
               item.targetDate != null &&
-              (item.targetDay != null
-                  ? DateTime.utc(
-                      item.targetDay!.year,
-                      item.targetDay!.month,
-                      item.targetDay!.day,
-                    ).isBefore(_localDay(observedNow))
-                  : item.targetDate!.toUtc().isBefore(observedNow)),
+              siDeadlinePast(item.targetDate!, item.targetDay, observedNow),
         )
         .length;
     final List<SIV2Statement> calculations = <SIV2Statement>[
@@ -1503,38 +1498,18 @@ final class SIV2Engine {
       '${day.month.toString().padLeft(2, '0')}-'
       '${day.day.toString().padLeft(2, '0')}';
 
-  bool _wholeDayPast(DateTime day, DateTime now) =>
-      DateTime.utc(day.year, day.month, day.day).isBefore(_localDay(now));
-
   String _timingLabel(DateTime? date, DateTime now, {DateTime? wholeDay}) {
     if (date == null) return 'no saved due or scheduled date';
-    if (wholeDay != null) {
-      final String label = 'recorded date ${_wholeDayLabel(wholeDay)}';
-      return _wholeDayPast(wholeDay, now) ? '$label, now past' : label;
-    }
-    final bool dateOnly =
-        date.hour == 0 &&
-        date.minute == 0 &&
-        date.second == 0 &&
-        date.millisecond == 0 &&
-        date.microsecond == 0;
-    final bool past = dateOnly
-        ? _localDay(date).isBefore(_localDay(now))
-        : date.toLocal().isBefore(now.toLocal());
-    if (past) return 'recorded date ${_dateLabel(date)}, now past';
-    return 'recorded date ${_dateLabel(date)}';
+    final String label =
+        'recorded date ${wholeDay != null ? _wholeDayLabel(wholeDay) : _dateLabel(date)}';
+    return siDeadlinePast(date, wholeDay, now) ? '$label, now past' : label;
   }
 
   String _targetLabel(DateTime? date, DateTime now, {DateTime? wholeDay}) {
     if (date == null) return 'no saved target date';
-    if (wholeDay != null) {
-      final String label = 'target ${_wholeDayLabel(wholeDay)}';
-      return _wholeDayPast(wholeDay, now) ? '$label, now past' : label;
-    }
-    final DateTime utc = date.toUtc();
-    return utc.isBefore(now)
-        ? 'target ${_dateLabel(utc)}, now past'
-        : 'target ${_dateLabel(utc)}';
+    final String label =
+        'target ${wholeDay != null ? _wholeDayLabel(wholeDay) : _dateLabel(date.toUtc())}';
+    return siDeadlinePast(date, wholeDay, now) ? '$label, now past' : label;
   }
 
   // Goal targets are local calendar dates, like Home and Schedule. UTC here
@@ -1559,23 +1534,22 @@ final class SIV2Engine {
 
   String _goalTargetLabel(DateTime? date, DateTime now, {DateTime? wholeDay}) {
     if (date == null) return 'no saved target date';
-    final day = wholeDay != null
-        ? DateTime.utc(wholeDay.year, wholeDay.month, wholeDay.day)
-        : _localDay(date);
+    final day = siGoalDay(date, wholeDay);
     final order = day.compareTo(_localDay(now));
     final suffix = order < 0 ? ', now past' : (order == 0 ? ', due today' : '');
     return 'target ${_dateLabel(day)}$suffix';
   }
 
   bool _withinGoalRange(
-    DateTime? date,
+    SIV2GoalEvidence goal,
     SIV2TimeRange range,
     DateTime now, {
     required bool undatedMatches,
   }) {
+    final date = goal.targetDate;
     if (range == SIV2TimeRange.all) return true;
     if (date == null) return undatedMatches;
-    final day = _localDay(date);
+    final day = siGoalDay(date, goal.targetDay);
     final start = _localDay(now);
     if (day.isBefore(start)) return true;
     return _withinRange(day, range, start, undatedMatches: undatedMatches);
@@ -1593,29 +1567,10 @@ final class SIV2Engine {
     return display.toIso8601String().split('T').first;
   }
 
-  bool _taskIsOverdue(SIV2TaskEvidence task, DateTime now) {
-    final due = task.dueDate;
-    if (due == null) return false;
-    // A deadline saved as a whole day belongs to that local day, whatever the
-    // zone (the evidence carries the day; the UTC instant alone cannot say).
-    final DateTime? wholeDay = task.dueDay;
-    if (wholeDay != null) {
-      return DateTime.utc(
-        wholeDay.year,
-        wholeDay.month,
-        wholeDay.day,
-      ).isBefore(_localDay(now));
-    }
-    final bool dateOnly =
-        due.hour == 0 &&
-        due.minute == 0 &&
-        due.second == 0 &&
-        due.millisecond == 0 &&
-        due.microsecond == 0;
-    return dateOnly
-        ? _localDay(due).isBefore(_localDay(now))
-        : due.toLocal().isBefore(now.toLocal());
-  }
+  // A deadline saved as a whole day belongs to that local day, whatever the
+  // zone (the evidence carries the day; the UTC instant alone cannot say).
+  bool _taskIsOverdue(SIV2TaskEvidence task, DateTime now) =>
+      task.dueDate != null && siDeadlinePast(task.dueDate!, task.dueDay, now);
 
   bool _withinTaskRange(
     SIV2TaskEvidence task,

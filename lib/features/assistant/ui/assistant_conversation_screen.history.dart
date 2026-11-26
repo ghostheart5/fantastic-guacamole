@@ -145,15 +145,21 @@ extension _StoredChat on _AssistantConversationScreenState {
     final epoch = _historyEpoch;
     final repository = ref.read(assistantConversationHistoryRepositoryProvider);
     if (repository == null) return;
+    // A paid request kept here (still finishing after the wait limit, or
+    // waiting for Retry same request) is removed too: say so.
+    final keptRequest = _pending != null
+        ? ' ${copy('A paid request from this conversation is still kept, and its reply may still be on its way. Clearing also removes it: its reply will not be shown, and it may have used credits.', 'Todavía se conserva una solicitud pagada de esta conversación y su respuesta puede seguir en camino. Borrar también la elimina: su respuesta no se mostrará y es posible que haya usado créditos.')}'
+        : '';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(copy('Clear conversation?', '¿Borrar la conversación?')),
         content: Text(
           copy(
-            'Delete this Chat history from this account on this device? AI chat goes back to using My plan. This cannot be undone. Tasks, goals, and habits stay saved.',
-            '¿Borrar el historial de Chat de esta cuenta en este dispositivo? El chat con IA vuelve a usar Mi plan. No se puede deshacer. Se conservan las tareas, metas y hábitos.',
-          ),
+                'Delete this Chat history from this account on this device? AI chat goes back to using My plan. This cannot be undone. Tasks, goals, and habits stay saved.',
+                '¿Borrar el historial de Chat de esta cuenta en este dispositivo? El chat con IA vuelve a usar Mi plan. No se puede deshacer. Se conservan las tareas, metas y hábitos.',
+              ) +
+              keptRequest,
         ),
         actions: [
           TextButton(
@@ -168,6 +174,9 @@ extension _StoredChat on _AssistantConversationScreenState {
       ),
     );
     if (confirmed != true || !mounted || epoch != _historyEpoch) return;
+    // A re-collect of the kept request stops here (it may have started while
+    // the dialog was open; see the reset below).
+    _reservedRetry?.cancel();
     final clearEpoch = ++_historyEpoch;
     _updateHistory(() {
       _historyLoading = true;
@@ -187,6 +196,13 @@ extension _StoredChat on _AssistantConversationScreenState {
         _attachedTaskId = null;
         _energy = null;
         _generation++;
+        // A send in flight is no longer current, so its own reset is
+        // skipped: end the wait here, and make it a later operation so Stop
+        // waiting can never speak for it.
+        _operation++;
+        _busy = false;
+        _waitIndicatorDismissed = false;
+        _recoveringRequestId = null;
         _storedHistoryRevision = revision;
         _historyReady = true;
         _historySaveFailed = false;
@@ -335,8 +351,8 @@ extension _StoredChat on _AssistantConversationScreenState {
           Text(
             key: const Key('conversation-pending-privacy'),
             copy(
-              'While a question you paid for is being answered, it is also kept on this device so the reply can be collected if you leave. It is deleted when the reply is shown. If the reply cannot be collected, it is deleted about 5 minutes after you confirm the price, or when the answer ends if it is still being answered then. If the app is in the background or closed at that time, it is deleted the next time the app runs with this account.',
-              'Mientras se responde una pregunta que pagaste, también se guarda en este dispositivo para poder recibir la respuesta si sales. Se borra cuando se muestra la respuesta. Si la respuesta no se puede recuperar, se borra unos 5 minutos después de confirmar el precio o, si aún se está respondiendo, cuando termine. Si en ese momento la app está en segundo plano o cerrada, se borra la próxima vez que la app se use con esta cuenta.',
+              'While a question you paid for is being answered, it is also kept on this device so the reply can be collected if you leave. It is deleted when the reply is shown. If the reply cannot be collected, it is deleted about 5 minutes after you confirm the price, or when the answer ends if it is still being answered then. If the app is in the background or closed at that time, it is deleted the next time the app runs with this account. A reply that arrived but was not yet shown keeps it until it is shown; if the app closes first, it stays on the device until this account is next opened, and is deleted then.',
+              'Mientras se responde una pregunta que pagaste, también se guarda en este dispositivo para poder recibir la respuesta si sales. Se borra cuando se muestra la respuesta. Si la respuesta no se puede recuperar, se borra unos 5 minutos después de confirmar el precio o, si aún se está respondiendo, cuando termine. Si en ese momento la app está en segundo plano o cerrada, se borra la próxima vez que la app se use con esta cuenta. Una respuesta que llegó pero aún no se mostró la conserva hasta que se muestra; si la app se cierra antes, permanece en el dispositivo hasta la próxima vez que se abra esta cuenta y se borra entonces.',
             ),
           ),
           Wrap(

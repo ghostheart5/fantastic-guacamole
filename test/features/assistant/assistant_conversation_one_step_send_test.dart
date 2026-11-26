@@ -77,9 +77,7 @@ class _Server {
             'digest': 'fixture',
             'proof': 'fixture',
             'policy': 'fixture',
-            'expiresAt': DateTime.now()
-                .add(const Duration(minutes: 5))
-                .millisecondsSinceEpoch,
+            'expiresAt': 4102444800000, // Far away: not real time.
           },
         },
       );
@@ -130,7 +128,7 @@ ProviderContainer _setup(
     siV2EvidenceSnapshotProvider.overrideWith(
       (ref) => _gatewayFor(
         ref.watch(accountStorageScopeProvider).v2Namespace,
-      ).read(observedAt: DateTime.now()),
+      ).read(observedAt: ref.read(conversationClockProvider)()),
     ),
     domainTaskRepositoryProvider.overrideWithValue(_Tasks()),
     selectedPlanningNoteProvider.overrideWith((ref) async => _note),
@@ -179,8 +177,9 @@ Future<void> _pump(
         ),
         home: AssistantConversationScreen(
           surface: surface,
-          onLocalTools: () {},
-          onLocalToolsWithDraft: onDraft,
+          // The words themselves go to the free box (DraftTransfer); here
+          // the box's text when the free assistant is chosen is recorded.
+          onLocalTools: () => onDraft?.call(_inputText(tester).trim()),
         ),
       ),
     ),
@@ -210,6 +209,11 @@ Future<void> _tapSend(WidgetTester tester, String prompt) async {
 }
 
 Finder get _previewDialog => find.text('Review what AI will receive');
+
+String _inputText(WidgetTester tester) => tester
+    .widget<TextField>(find.byKey(const Key('conversation-input')))
+    .controller!
+    .text;
 
 Future<void> _acceptPreview(WidgetTester tester) async {
   expect(_previewDialog, findsOneWidget);
@@ -427,6 +431,45 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final language in ['en', 'es']) {
+    testWidgets(
+      '$language: M5: See what is sent confirms with the price on its button',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final server = _Server();
+        final container = _setup(server, InMemorySecureStoreBackend());
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await _pump(tester, container, language: language);
+        await tester.enterText(
+          find.byKey(const Key('conversation-input')),
+          'Compare my two options.',
+        );
+        await tester.pump();
+        await tester.ensureVisible(find.byKey(_preview));
+        await tester.tap(find.byKey(_preview));
+        await _settle(tester);
+        final priced = find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text(
+            language == 'es'
+                ? 'Enviar · $conversationMessageCredits créditos'
+                : 'Send · $conversationMessageCredits credits',
+          ),
+        );
+        expect(priced, findsOneWidget);
+        await tester.ensureVisible(priced);
+        await tester.tap(priced);
+        await _settle(tester);
+        expect(server.paid, hasLength(1));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   for (final language in ['en', 'es']) {
     testWidgets(
@@ -648,6 +691,49 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await _settle(tester);
   });
+  for (final surface in ConversationSurface.values) {
+    for (final language in ['en', 'es']) {
+      testWidgets(
+        '$language ${surface.name}: M7, M8: the preview names the analysis sent and the screen',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(412, 915));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          final container = _setup(_Server(), InMemorySecureStoreBackend());
+          addTearDown(() async {
+            await tester.pumpWidget(const SizedBox.shrink());
+            container.dispose();
+          });
+          await _pump(tester, container, language: language, surface: surface);
+          final es = language == 'es';
+          // The menu stays on Answer; the question asks for a comparison.
+          await _tapSend(
+            tester,
+            es ? 'Compara mis dos opciones.' : 'Compare my two options.',
+          );
+          final text = _dialogText(tester);
+          expect(
+            text,
+            contains(es ? 'Análisis: Comparar' : 'Analysis: Compare'),
+          );
+          expect(text, isNot(contains(es ? 'Responder' : 'Answer')));
+          final screen = surface == ConversationSurface.planner
+              ? (es ? 'Elegir un paso' : 'Choose a step')
+              : 'Chat';
+          expect(
+            text,
+            contains(
+              es
+                  ? 'y la pantalla desde la que se envía ($screen).'
+                  : 'and the screen it is sent from ($screen).',
+            ),
+          );
+          await tester.tap(find.text(es ? 'Cancelar' : 'Cancel'));
+          await _settle(tester);
+        },
+      );
+    }
+  }
+
   testWidgets(
     'the preview opens again after a session change for the same account',
     (tester) async {

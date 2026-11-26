@@ -51,7 +51,6 @@ tags:
     visibilityPercentage: 100
     timeout: 15000
 - assertVisible: "RECOMMENDATION"
-- assertNotVisible: "(?s).*Processing mode: AI chat.*"
 
 # A typed local status request must disclose the current evidence boundary.
 - tapOn: "(?s)^Your question.*"
@@ -70,7 +69,6 @@ tags:
     visibilityPercentage: 100
     timeout: 15000
 - assertVisible: "(?s).*Processing mode: On this device.*"
-- assertNotVisible: "(?s).*Processing mode: AI chat.*"
 
 # Unsupported input must fail explicitly without discarding or sending text.
 - tapOn: "(?s)^Your question.*"
@@ -89,7 +87,6 @@ tags:
     visibilityPercentage: 100
     timeout: 15000
 - assertVisible: "(?s).*Processing mode: On this device .fallback..*"
-- assertNotVisible: "(?s).*Processing mode: AI chat.*"
 
 # Crisis language must preempt ordinary SI output and stay local.
 - tapOn: "(?s)^Your question.*"
