@@ -226,6 +226,33 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
     goToAppView(context, ref, hasWork ? AppView.timeline : AppView.creator);
   }
 
+  bool? _inView;
+
+  /// True from the first frame back in view until the re-read has started.
+  /// A flag only: no figures are kept in this state.
+  bool _rereadPending = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Out of view (TickerMode off) this screen's subscription is paused, and
+    // Riverpod 3 does not rebuild a paused provider when it invalidates
+    // itself: a task finished meanwhile would not show. Read again when the
+    // screen comes back; its first frame says it is updating instead of
+    // showing the old figures as current. (Providers cannot be invalidated
+    // during a build, so the read starts right after that frame.)
+    final bool inView = TickerMode.valuesOf(context).enabled;
+    if (_inView == false && inView && !_rereadPending) {
+      _rereadPending = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.invalidate(patternsForAccountProvider);
+        setState(() => _rereadPending = false);
+      });
+    }
+    _inView = inView;
+  }
+
   void _retryPatterns() {
     ref.invalidate(patternsForAccountProvider);
     ref.invalidate(patternsProvider);
@@ -274,7 +301,7 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
         else if (result == null)
           _Reading(copy.reading)
         else ...<Widget>[
-          if (patterns.isLoading) _Updating(copy.updating),
+          if (patterns.isLoading || _rereadPending) _Updating(copy.updating),
           _HabitsSection(result: result, copy: copy),
           _TrendSection(result: result, copy: copy),
           _WhenDoneSection(result: result, copy: copy),
