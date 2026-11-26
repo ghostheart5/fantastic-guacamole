@@ -34,6 +34,20 @@ These changes are not yet released or verified on a device.
 - Reminder text follows the app language.
 - The app no longer asks for a push notification token, since nothing sends push messages yet.
 - A step-by-step check for reminders on a real phone is in docs/DEVICE_REMINDER_PROTOCOL.md. It has not been run on a device yet.
+- The first-run guide no longer blocks the app. It has two steps: add your first task with a time, then find it in My plan. Each step has "Skip this step", and the guide ends when you tap "I found my task".
+- If you add your first task with Today's own Add button instead of the guide, the guide goes on to "Find your saved task" the next time you open the app, instead of asking for a first task again.
+- After the guide saves your first task, the app asks for notification permission at that moment, then opens My plan whatever you answer.
+- Help now appears as small cards, each shown once, that leave the page usable. People who skipped setup or paused the guide see them too, and the pause message now says so.
+- New one-time cards on Habits, Goals and Settings › Notifications. Existing users will see up to ten such cards, once each.
+- A card about a page appears only on that page. The Today card now says where to read why a task was suggested: tap "Review my day in detail".
+- Your first touch on Insights no longer removes its card. Scrolling, changing the time range or picking an option to compare does.
+- Opening the app on another tab no longer uses up the Today card before you have seen it.
+- A habit card shows when its reminder cannot be delivered.
+- Restoring a backup ends the first-run guide for a returning account. Setup itself still shows once on a new install.
+- Guide and help wording is rewritten in plain words in English and Spanish.
+- Settings has an in-app Help screen with search.
+- The guide status in Settings counts only things you did, not dismissed cards or a restart.
+- Unused setup code is removed.
 
 ## Future release entries
 

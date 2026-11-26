@@ -1,11 +1,16 @@
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/features/goals/ui/goals_screen.dart';
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../permissions/notification_permission_test_support.dart';
 
@@ -17,6 +22,8 @@ void main() {
       goalProgressProvider(
         'g',
       ).overrideWith((ref) async => const GoalProgressView.empty()),
+      // The guide reads saved tasks when it loads; there are none here.
+      domainTaskRepositoryProvider.overrideWithValue(_NoTasks()),
     ],
   );
 
@@ -66,6 +73,41 @@ void main() {
 
     expect(goals.updated.single.targetDate, isNotNull);
     expect(find.text('WHEN IT IS USED'), findsOneWidget);
+  });
+
+  testWidgets('saving a target date is the action that finishes the Goals '
+      'hint', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final goals = _Goals(null);
+    final f = fixture(goals);
+    await openEdit(tester, f);
+    await tester.tap(find.text('No target date'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final AdaptiveGuidanceState guidance = await f.container.read(
+      adaptiveGuidanceProvider.future,
+    );
+    expect(guidance.lessonFinishedByAction(GuidanceLessonId.goals), isTrue);
+  });
+
+  testWidgets('saving a goal whose date did not change does not finish the '
+      'Goals hint', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final goals = _Goals(DateTime(2026, 9, 1));
+    final f = fixture(goals);
+    await openEdit(tester, f);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(goals.updated.single.targetDate, DateTime(2026, 9, 1));
+    final AdaptiveGuidanceState guidance = await f.container.read(
+      adaptiveGuidanceProvider.future,
+    );
+    expect(guidance.lessonFinishedByAction(GuidanceLessonId.goals), isFalse);
   });
 
   testWidgets('the date can be changed, then it asks', (tester) async {
@@ -200,4 +242,15 @@ class _Goals extends GoalsNotifier {
     state = <GoalEntity>[goal];
     return const GoalMutationResult();
   }
+}
+
+class _NoTasks implements ITaskRepository {
+  @override
+  Future<List<TaskEntity>> getAllTasks() async => <TaskEntity>[];
+  @override
+  Future<TaskEntity?> getTaskById(String id) async => null;
+  @override
+  Future<void> saveTask(TaskEntity task) async {}
+  @override
+  Future<void> deleteTask(String id) async {}
 }

@@ -519,6 +519,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       return;
     }
 
+    // A question really sent from Chat finishes its lesson.
+    controller.recordQuestionSent();
     if (_handleLocalShortcut(text)) {
       _input.clear();
       return;

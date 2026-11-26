@@ -30,5 +30,5 @@ Future<void> askForRemindersAfterTaskSave(
   )) {
     return;
   }
-  await ensureNotificationPermission(context, ref);
+  await ensureNotificationPermission(context, ref, afterSave: true);
 }

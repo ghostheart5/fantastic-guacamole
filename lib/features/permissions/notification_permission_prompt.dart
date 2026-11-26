@@ -98,8 +98,8 @@ class NotificationPermissionPrompt extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 isSpanish
-                    ? 'Activa las notificaciones para recibir los recordatorios de ejecución y reflexión que programes.'
-                    : 'Enable notifications to receive scheduled execution and reflection reminders.',
+                    ? 'Activa las notificaciones para que Axiomara pueda enviarte todos tus recordatorios: tareas, metas, hábitos y los recordatorios diarios de planificación y reflexión.'
+                    : 'Turn on notifications so Axiomara can send all your reminders: tasks, goals, habits, and the daily planning and reflection reminders.',
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 13,

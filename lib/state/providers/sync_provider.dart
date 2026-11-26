@@ -10,6 +10,7 @@ import 'package:fantastic_guacamole/data/storage/account_scoped_hive_storage.dar
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
+import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/decision_outcome_provider.dart';
@@ -826,6 +827,21 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
         Logger.errorCategory(
           'Sync Errors',
           'Restored reminder reconciliation needs retry',
+          error,
+          stackTrace,
+        );
+      }
+      if (!owner.isCurrent) return false;
+      // This account's records are back: a returning account does not go
+      // through setup and the first-run guide again on this device.
+      try {
+        await ref
+            .read(accountOnboardingCompleteProvider.notifier)
+            .adoptRestoredRecords();
+      } on Object catch (error, stackTrace) {
+        Logger.errorCategory(
+          'Sync Errors',
+          'Restored account setup state was not updated',
           error,
           stackTrace,
         );

@@ -114,15 +114,6 @@ abstract final class FirstRunTutorialTargets {
   static final GlobalKey creatorTitle = GlobalKey(
     debugLabel: 'creator-tutorial-title',
   );
-  static final GlobalKey creatorPriority = GlobalKey(
-    debugLabel: 'creator-tutorial-priority',
-  );
-  static final GlobalKey creatorSchedule = GlobalKey(
-    debugLabel: 'creator-tutorial-schedule',
-  );
-  static final GlobalKey creatorSave = GlobalKey(
-    debugLabel: 'creator-tutorial-save',
-  );
   static final GlobalKey creatorConfirm = GlobalKey(
     debugLabel: 'creator-tutorial-confirm',
   );

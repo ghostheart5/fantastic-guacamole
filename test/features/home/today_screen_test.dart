@@ -356,6 +356,33 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  for (final action in ['complete', 'open']) {
+    testWidgets('Using the suggested step ($action) finishes the Today lesson; '
+        'opening Today does not', (tester) async {
+      final container = await pumpToday(tester);
+      await container.read(adaptiveGuidanceProvider.future);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        container
+            .read(adaptiveGuidanceProvider)
+            .requireValue
+            .has(GuidanceMilestone.firstNexusReview),
+        isFalse,
+      );
+      await tester.tap(
+        action == 'complete'
+            ? find.byKey(const ValueKey('today-complete-one'))
+            : find.byKey(const ValueKey('today-task-one')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final guidance = container.read(adaptiveGuidanceProvider).requireValue;
+      expect(guidance.has(GuidanceMilestone.firstNexusReview), isTrue);
+      expect(guidance.completedLessons, contains(GuidanceLessonId.nexus));
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   testWidgets('Failed completion keeps the task and offers a retry', (
     tester,
   ) async {

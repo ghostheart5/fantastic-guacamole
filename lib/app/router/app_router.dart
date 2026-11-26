@@ -19,6 +19,7 @@ import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
     hide authenticatedGuardProvider;
+import 'package:fantastic_guacamole/tutorial/guide_hint_layout.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/widgets/web_page_view.dart';
@@ -222,10 +223,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     onboardingComplete: refresh.onboardingComplete,
   );
 
+  // Lets a contextual hint step aside while a dialog or sheet is open.
+  final GuideHintModalObserver hintModals = GuideHintModalObserver();
   final GoRouter router = GoRouter(
     initialLocation: initialLocation,
     debugLogDiagnostics: false,
     refreshListenable: refresh,
+    observers: <NavigatorObserver>[hintModals],
     errorBuilder: (BuildContext context, GoRouterState state) => RouteErrorPage(
       location: state.uri.toString(),
       error: state.error,
@@ -454,6 +458,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  hintModals.attachTo(router);
   ref.onDispose(router.dispose);
   return router;
 });

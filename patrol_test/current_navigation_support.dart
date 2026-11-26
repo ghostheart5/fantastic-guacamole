@@ -23,7 +23,11 @@ Future<void> settleCurrentUserNavigation(
   var guides = 0;
   var readyFrames = 0;
   while (DateTime.now().isBefore(deadline)) {
-    if (find.text('CONTEXTUAL GUIDANCE').hitTestable().evaluate().isNotEmpty &&
+    if (find
+            .byKey(const Key('guide_hint_card'))
+            .hitTestable()
+            .evaluate()
+            .isNotEmpty &&
         find.text('Not now').hitTestable().evaluate().isNotEmpty) {
       expect(
         guides++,
@@ -45,7 +49,7 @@ Future<void> settleCurrentUserNavigation(
       await $(_visibleWelcomeAction()).tap();
       readyFrames = 0;
     } else if (find
-            .text('FIRST SETUP 3 OF 3')
+            .text('SETUP: LAST STEP')
             .hitTestable()
             .evaluate()
             .isNotEmpty &&

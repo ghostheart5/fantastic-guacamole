@@ -190,7 +190,7 @@ void main() {
         final notNow = find.text('Not now').hitTestable();
         if (pause.evaluate().isNotEmpty ||
             (find
-                    .text('CONTEXTUAL GUIDANCE')
+                    .byKey(const Key('guide_hint_card'))
                     .hitTestable()
                     .evaluate()
                     .isNotEmpty &&
@@ -308,7 +308,7 @@ void main() {
     }
 
     Future<void> settingsPlanning() async {
-      await navigate('Control Center');
+      await navigate('Settings');
       if (find.text('Habit Reminders').evaluate().isEmpty) {
         await tap(find.text('Planning & guidance'));
       }
@@ -563,7 +563,7 @@ void main() {
     });
     try {
       await caseRun('fresh-qa-notification-consent-and-habit-toggle', () async {
-        await navigate('Control Center');
+        await navigate('Settings');
         await tap(find.text('Appearance & permissions'));
         await reveal(find.text('Alert Permission'));
         if (container.read(notificationPermissionListenableProvider).value !=

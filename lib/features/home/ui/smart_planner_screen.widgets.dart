@@ -1,6 +1,13 @@
 part of 'smart_planner_screen.dart';
 
 extension on _SmartPlannerScreenState {
+  /// A question really sent from Choose a step finishes its lesson. Guidance
+  /// bookkeeping must never interrupt the request itself.
+  void _recordPlannerQuestionSent() => ref
+      .read(adaptiveGuidanceProvider.notifier)
+      .recordIfMissing(GuidanceMilestone.firstPlannerQuestion)
+      .ignore();
+
   Widget _buildHeader() {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     final PlannerRoutineCopy routine = l10n.plannerRoutine;

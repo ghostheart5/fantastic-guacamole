@@ -4,10 +4,51 @@ import 'package:fantastic_guacamole/domain/entities/assistant_evidence_plane.dar
 import 'package:fantastic_guacamole/domain/policies/assistant_safety_policy.dart';
 import 'package:fantastic_guacamole/state/controllers/si_console_query_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+class _Guidance extends AdaptiveGuidanceNotifier {
+  _Guidance({required this.fail});
+
+  final bool fail;
+  final List<GuidanceMilestone> recorded = <GuidanceMilestone>[];
+
+  @override
+  Future<AdaptiveGuidanceState> build() async => const AdaptiveGuidanceState(
+    milestones: <GuidanceMilestone, DateTime>{},
+    counts: <GuidanceMilestone, int>{},
+    skippedLessons: <GuidanceLessonId>{},
+    completedLessons: <GuidanceLessonId>{},
+  );
+
+  @override
+  Future<void> recordIfMissing(
+    GuidanceMilestone milestone, {
+    bool Function()? shouldContinue,
+  }) async {
+    recorded.add(milestone);
+    if (fail) throw StateError('storage unavailable');
+  }
+}
+
 void main() {
+  for (final bool fail in <bool>[false, true]) {
+    test('a sent question records the Chat lesson; a failing guidance write '
+        'never reaches the query (fail=$fail)', () async {
+      final _Guidance guidance = _Guidance(fail: fail);
+      final ProviderContainer container = ProviderContainer(
+        overrides: [adaptiveGuidanceProvider.overrideWith(() => guidance)],
+      );
+      addTearDown(container.dispose);
+      container.read(siConsoleQueryControllerProvider).recordQuestionSent();
+      await pumpEventQueue();
+      expect(guidance.recorded, <GuidanceMilestone>[
+        GuidanceMilestone.firstSiQuery,
+      ]);
+    });
+  }
+
   test('local shortcut production path emits a schema-valid SI response', () {
     final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);

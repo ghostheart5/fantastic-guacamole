@@ -81,18 +81,14 @@ class ChronoSparkLocalizations {
       ? 'Política de privacidad oficial: $privacyUrl. Términos: $termsUrl. Página de soporte: $supportUrl. Correo de soporte: $supportEmail.'
       : 'Official privacy policy: $privacyUrl. Terms: $termsUrl. Support page: $supportUrl. Support email: $supportEmail.';
 
+  /// Spanish copy for a first-run guide step. Contextual hints carry both
+  /// languages in the guidance catalogue.
   String guideTitle(String id, String fallback) {
     if (!isSpanish) return fallback;
     return switch (id) {
       'createFirstItem' => 'Añade tu primera tarea',
       'scheduleFirstItem' => 'Elige cuándo hacerla',
       'reviewTimeline' => 'Encuentra tu tarea guardada',
-      'nexus' => 'Revisa el próximo paso sugerido',
-      'smartPlanner' => 'Pide ayuda con un plan',
-      'timelineExecution' => 'Registra lo que pasó',
-      'siConsole' => 'Pregunta qué falta',
-      'trajectoryEngine' => 'Compara otra opción',
-      'progression' => 'Revisa tu actividad',
       _ => fallback,
     };
   }
@@ -105,20 +101,7 @@ class ChronoSparkLocalizations {
       'scheduleFirstItem' =>
         'Asigna una fecha y una hora a tu tarea para que aparezca en tu plan. Puedes cambiar la hora después.',
       'reviewTimeline' =>
-        'Abre la tarea que acabas de guardar en tu agenda. Revisa su fecha y sus detalles.',
-      'nexus' =>
-        'Revisa la razón y la incertidumbre mostradas junto al bloque antes de actuar.',
-      'smartPlanner' =>
-        'Haz una pregunta específica sobre la tarea elegida, sus límites o qué debería moverse.',
-      'timelineExecution' =>
-        'Completa, aplaza o corrige un bloque. Solo el resultado guardado hace avanzar esta guía.',
-      'siConsole' =>
-        'Pregunta qué evidencia falta y qué dato podría cambiar la recomendación. '
-            'Las herramientas gratuitas no usan créditos; las preguntas a la IA en la nube muestran su precio, de hasta 5 créditos, antes de confirmar. Los planes gratuitos elegibles incluyen 20 créditos al mes sin acumulación; consulta tu asignación y fecha de renovación en Ajustes.',
-      'trajectoryEngine' =>
-        'Cambia tiempo, alcance o prioridad y compara las consecuencias y supuestos.',
-      'progression' =>
-        'Revisa los resultados detrás de la progresión. La revisión real completa esta guía.',
+        'Busca la tarea que acabas de guardar en Mi plan. Revisa su fecha y sus detalles.',
       _ => fallback,
     };
   }
@@ -129,12 +112,6 @@ class ChronoSparkLocalizations {
       'createFirstItem' => 'Añadir una tarea',
       'scheduleFirstItem' => 'Elegir fecha y hora',
       'reviewTimeline' => 'Abrir Mi plan',
-      'nexus' => 'Revisar en Hoy',
-      'smartPlanner' => 'Pedir un próximo paso',
-      'timelineExecution' => 'Abrir Mi plan',
-      'siConsole' => 'Revisar las fuentes',
-      'trajectoryEngine' => 'Comparar opciones',
-      'progression' => 'Revisar resultados',
       _ => fallback,
     };
   }
@@ -296,21 +273,9 @@ class ChronoSparkLocalizations {
     ChronoSparkString.initialize: 'Get started',
     ChronoSparkString.initializeSystem: 'Get started',
     ChronoSparkString.skip: 'Skip',
-    ChronoSparkString.nameQuestion: 'What should I call you?',
-    ChronoSparkString.name: 'Name',
-    ChronoSparkString.nameHint: 'Enter your name…',
-    ChronoSparkString.primaryGoal: 'Primary goal',
-    ChronoSparkString.goalExecution: 'Getting things done',
-    ChronoSparkString.goalGrowth: 'Personal growth',
-    ChronoSparkString.goalWellness: 'Wellbeing',
-    ChronoSparkString.goalExplore: 'Just exploring',
-    ChronoSparkString.personalize: 'Personalize',
-    ChronoSparkString.lifeDirection: 'What would help you?',
-    ChronoSparkString.calibrateExperience: 'Choose what you want help with.',
     ChronoSparkString.contextualGuidance: 'Help with this page',
     ChronoSparkString.openContextualGuidance: 'Open help for this page',
     ChronoSparkString.collapseGuidance: 'Hide help',
-    ChronoSparkString.useThisScreen: 'Continue here',
     ChronoSparkString.notNow: 'Not now',
     ChronoSparkString.cancel: 'Cancel',
     ChronoSparkString.securingAccountData: 'Securing account data',
@@ -321,12 +286,6 @@ class ChronoSparkLocalizations {
         'Completing account recovery action',
     ChronoSparkString.accountRecoveryFailed:
         'That recovery action could not be completed. Please try again or sign out.',
-    ChronoSparkString.onboardingPrivacy:
-        'Your display name stays on this device unless you choose cloud backup. Planning and conversation tools use saved plans. External AI is optional; Settings explains what is shared.',
-    ChronoSparkString.onboardingWideBody:
-        'Choose a name to use in the app. You can change it later.',
-    ChronoSparkString.onboardingCompactBody:
-        'What should we call you? You can change this later.',
     ChronoSparkString.onboardingFinishError:
         'Unable to finish onboarding. Please try again.',
     ChronoSparkString.onboardingContinueError:
@@ -452,21 +411,9 @@ class ChronoSparkLocalizations {
     ChronoSparkString.initialize: 'Empezar',
     ChronoSparkString.initializeSystem: 'Empezar',
     ChronoSparkString.skip: 'Omitir',
-    ChronoSparkString.nameQuestion: '¿Cómo debo llamarte?',
-    ChronoSparkString.name: 'Nombre',
-    ChronoSparkString.nameHint: 'Escribe tu nombre…',
-    ChronoSparkString.primaryGoal: 'Objetivo principal',
-    ChronoSparkString.goalExecution: 'Hacer cosas',
-    ChronoSparkString.goalGrowth: 'Crecimiento personal',
-    ChronoSparkString.goalWellness: 'Bienestar',
-    ChronoSparkString.goalExplore: 'Solo explorando',
-    ChronoSparkString.personalize: 'Personaliza',
-    ChronoSparkString.lifeDirection: '¿Qué te ayudaría?',
-    ChronoSparkString.calibrateExperience: 'Elige en qué quieres ayuda.',
     ChronoSparkString.contextualGuidance: 'Ayuda con esta página',
     ChronoSparkString.openContextualGuidance: 'Abrir ayuda de esta página',
     ChronoSparkString.collapseGuidance: 'Ocultar ayuda',
-    ChronoSparkString.useThisScreen: 'Continuar aquí',
     ChronoSparkString.notNow: 'Ahora no',
     ChronoSparkString.cancel: 'Cancelar',
     ChronoSparkString.securingAccountData: 'Protegiendo datos de la cuenta',
@@ -478,12 +425,6 @@ class ChronoSparkLocalizations {
         'Completando la acción de recuperación de la cuenta',
     ChronoSparkString.accountRecoveryFailed:
         'No se pudo completar esa acción de recuperación. Inténtalo de nuevo o cierra sesión.',
-    ChronoSparkString.onboardingPrivacy:
-        'Tu nombre se queda en este dispositivo salvo que elijas la copia en la nube. Las herramientas usan tus planes guardados. La IA externa es opcional; Ajustes explica qué se comparte.',
-    ChronoSparkString.onboardingWideBody:
-        'Elige un nombre para la app. Puedes cambiarlo después.',
-    ChronoSparkString.onboardingCompactBody:
-        '¿Cómo te llamamos? Puedes cambiarlo después.',
     ChronoSparkString.onboardingFinishError:
         'No se pudo terminar la introducción. Inténtalo de nuevo.',
     ChronoSparkString.onboardingContinueError:
@@ -1206,21 +1147,9 @@ enum ChronoSparkString {
   initialize,
   initializeSystem,
   skip,
-  nameQuestion,
-  name,
-  nameHint,
-  primaryGoal,
-  goalExecution,
-  goalGrowth,
-  goalWellness,
-  goalExplore,
-  personalize,
-  lifeDirection,
-  calibrateExperience,
   contextualGuidance,
   openContextualGuidance,
   collapseGuidance,
-  useThisScreen,
   notNow,
   cancel,
   securingAccountData,
@@ -1228,9 +1157,6 @@ enum ChronoSparkString {
   signOutAndReturnToLogin,
   accountRecoveryInProgress,
   accountRecoveryFailed,
-  onboardingPrivacy,
-  onboardingWideBody,
-  onboardingCompactBody,
   onboardingFinishError,
   onboardingContinueError,
   loginCreateAccountEyebrow,

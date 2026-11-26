@@ -29,6 +29,7 @@ import 'package:fantastic_guacamole/state/providers/planner_explanation_provider
 import 'package:fantastic_guacamole/state/providers/smart_planner_first_value_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -82,6 +83,30 @@ void main() {
       );
     }
   }
+  testWidgets('sending a planner question finishes the Choose a step lesson; '
+      'opening the screen does not', (tester) async {
+    final container = _container(
+      guidance: _RecordingGuidance.new,
+      plannerBuilder: _RecordingFollowUpController.new,
+    );
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    final guidance =
+        container.read(adaptiveGuidanceProvider.notifier) as _RecordingGuidance;
+    expect(guidance.recorded, isEmpty);
+
+    await _requestGuidance(tester);
+    expect(guidance.recorded, <GuidanceMilestone>[
+      GuidanceMilestone.firstPlannerQuestion,
+    ]);
+
+    guidance.recorded.clear();
+    await _sendTestFollowUp(tester, 'Why this one?');
+    expect(guidance.recorded, <GuidanceMilestone>[
+      GuidanceMilestone.firstPlannerQuestion,
+    ]);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('rolled-back planner retains the local route', (tester) async {
     final container = _container(
       conversationAvailable: true,
@@ -1780,6 +1805,7 @@ ProviderContainer _container({
   bool firstUseContextOfferSeen = true,
   SharedPrefsStore? sharedPrefsStore,
   PersonContextRepository? personContextRepository,
+  _RecordingGuidance Function()? guidance,
 }) {
   final SharedPrefsStore resolvedStore = sharedPrefsStore ?? _MemoryPrefs();
   final AccountStorageScope resolvedScope =
@@ -1791,6 +1817,7 @@ ProviderContainer _container({
   }
   return ProviderContainer(
     overrides: [
+      if (guidance != null) adaptiveGuidanceProvider.overrideWith(guidance),
       if (allowedAi)
         personalizationProfileProvider.overrideWith(_AllowedConsent.new),
       assistantConversationAvailableProvider.overrideWithValue(
@@ -1878,6 +1905,30 @@ ProviderContainer _container({
         ),
     ],
   );
+}
+
+class _RecordingGuidance extends AdaptiveGuidanceNotifier {
+  final List<GuidanceMilestone> recorded = <GuidanceMilestone>[];
+
+  @override
+  Future<AdaptiveGuidanceState> build() async => const AdaptiveGuidanceState(
+    milestones: <GuidanceMilestone, DateTime>{},
+    counts: <GuidanceMilestone, int>{},
+    skippedLessons: <GuidanceLessonId>{},
+    completedLessons: <GuidanceLessonId>{},
+  );
+
+  @override
+  Future<void> recordIfMissing(
+    GuidanceMilestone milestone, {
+    bool Function()? shouldContinue,
+  }) async => recorded.add(milestone);
+
+  @override
+  Future<void> record(
+    GuidanceMilestone milestone, {
+    bool Function()? shouldContinue,
+  }) async => recorded.add(milestone);
 }
 
 class _AllowedConsent extends PersonalizationProfileController {

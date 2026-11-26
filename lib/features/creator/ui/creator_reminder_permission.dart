@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/creator_handshake.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_flow.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
@@ -42,5 +43,19 @@ Future<void> askForRemindersAfterCreatorSave(
       .read(settingsUiActionsProvider)
       .loadAdvancedReminderPrefs();
   if (!creatorSaveCanRemind(saved, prefs)) return;
-  await ensureNotificationPermission(context, ref);
+  await ensureNotificationPermission(context, ref, afterSave: true);
+}
+
+/// The same question after the first-run guide saved its first task, which
+/// is followed by opening My plan. A failure here never stops that.
+Future<void> askForGuidedFirstTaskReminders(
+  BuildContext context,
+  WidgetRef ref,
+  Iterable<CreatorMutationOperation> saved,
+) async {
+  try {
+    await askForRemindersAfterCreatorSave(context, ref, saved);
+  } on Object {
+    Logger.warn('Reminder permission question after the guided task failed.');
+  }
 }

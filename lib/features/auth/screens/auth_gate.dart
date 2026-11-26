@@ -716,15 +716,13 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
         // Ignore callback refresh failures and keep login available.
       }
       _showMessage(
-        'Email verification callback received. Continue sign-in if needed.',
+        'Email link opened. If you are not signed in yet, sign in to continue.',
       );
       return;
     }
 
     if (mode == DeepLinkMode.authCallback) {
-      _showMessage(
-        'Authentication callback received. Continuing sign-in flow.',
-      );
+      _showMessage('Sign-in link opened. Finishing sign-in.');
     }
   }
 
@@ -744,7 +742,9 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
 
     if (_signUpMode) {
       if (!Validators.isStrongPassword(password)) {
-        _showMessage('Use 8+ chars with upper, lower, and a number.');
+        _showMessage(
+          'Use at least 8 characters, with an uppercase letter, a lowercase letter and a number.',
+        );
         return;
       }
       await widget.authService.signUp(email: email, password: password);
@@ -767,7 +767,9 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
   Future<void> _handleForgotPassword() async {
     final String email = _emailController.text.trim();
     if (!Validators.isValidEmail(email)) {
-      _showMessage('Enter account email, then trigger password reset.');
+      _showMessage(
+        'Enter your account email, then tap Forgot Password? again.',
+      );
       return;
     }
     await widget.authService.sendPasswordReset(email);
@@ -828,7 +830,9 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
     final String confirm = _recoveryConfirmController.text;
 
     if (!Validators.isStrongPassword(password)) {
-      _showMessage('Use 8+ chars with upper, lower, and a number.');
+      _showMessage(
+        'Use at least 8 characters, with an uppercase letter, a lowercase letter and a number.',
+      );
       return;
     }
     if (password != confirm) {
@@ -1034,8 +1038,8 @@ class _AuthScreenState extends ConsumerState<_AuthScreen> {
       _showMessage(
         journeyText(
           context,
-          'Auth action failed. Retry.',
-          'No se pudo completar la operación de acceso. Inténtalo de nuevo.',
+          'Could not finish this request. Try again.',
+          'No se pudo completar la solicitud. Inténtalo de nuevo.',
         ),
       );
     } finally {

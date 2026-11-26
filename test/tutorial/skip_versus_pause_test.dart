@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
@@ -6,6 +7,7 @@ import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
+import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -114,6 +116,51 @@ void main() {
       reloaded.read(adaptiveGuidanceProvider).requireValue.activeCoreLesson,
       isNull,
     );
+  });
+
+  test('a skipped or paused guide still offers the hint for the screen in '
+      'view after reload, and the guide itself stays off', () async {
+    for (final bool skip in <bool>[true, false]) {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final ProviderContainer first = _container();
+      await first.read(adaptiveGuidanceProvider.future);
+      final AdaptiveGuidanceNotifier notifier = first.read(
+        adaptiveGuidanceProvider.notifier,
+      );
+      if (skip) {
+        await notifier.skipCoreGuide();
+      } else {
+        await notifier.later(GuidanceLessonId.createFirstItem);
+      }
+      first.dispose();
+
+      final ProviderContainer reloaded = _container();
+      addTearDown(reloaded.dispose);
+      final AdaptiveGuidanceState state = await reloaded.read(
+        adaptiveGuidanceProvider.future,
+      );
+      expect(
+        state.coreGuideStatus,
+        skip ? CoreGuideStatus.skipped : CoreGuideStatus.paused,
+      );
+      expect(state.activeCoreLesson, isNull);
+      expect(
+        state
+            .nextIntervention(
+              currentRoute: RoutePaths.siConsole,
+              decision: _decision,
+            )
+            ?.id,
+        GuidanceLessonId.siConsole,
+      );
+      expect(
+        state.nextIntervention(
+          currentRoute: RoutePaths.creator,
+          decision: _decision,
+        ),
+        isNull,
+      );
+    }
   });
 
   test(
@@ -246,6 +293,21 @@ void main() {
     );
   });
 }
+
+const DailyDecisionIntelligence _decision = DailyDecisionIntelligence(
+  primaryAction: 'Work on Task A',
+  momentum: '60% steady',
+  trajectory: 'Stable',
+  energy: '70% energy',
+  warning: 'No material constraint is supported by the current evidence.',
+  recovery: 'Protect a short recovery window.',
+  recommendedAction: 'Work on Task A',
+  rationale: 'Task A is the highest feasible item.',
+  changeSummary: 'Task A moved up.',
+  evidence: <String>['priority=5'],
+  confidence: .7,
+  observedOutcomes: 1,
+);
 
 ProviderContainer _container({bool ready = false}) {
   return ProviderContainer(

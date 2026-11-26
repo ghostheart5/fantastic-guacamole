@@ -5,11 +5,15 @@ import 'package:fantastic_guacamole/domain/planning/habit_reminder_days.dart';
 import 'package:fantastic_guacamole/domain/planning/rhythm_planning_context.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/habit_reminder_day_pickers.dart';
+import 'package:fantastic_guacamole/features/creator/widgets/habit_reminder_line.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_flow.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
 import 'package:fantastic_guacamole/state/services/habit_occurrence_coordinator.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
+import 'package:fantastic_guacamole/tutorial/guide_hint_place.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
@@ -126,14 +130,32 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
       );
   }
 
+  /// A check-in that was really saved is what the Habits hint is about; it
+  /// then stays away.
+  void _checkedIn(String owner) {
+    if (!_sameAccount(owner)) return;
+    ref
+        .read(adaptiveGuidanceProvider.notifier)
+        .recordIfMissing(GuidanceMilestone.firstHabitCheckIn)
+        .ignore();
+  }
+
   Future<void> _record(
     String owner,
     HabitEntity habit,
     bool complete,
   ) => _run(owner, habit, (notifier) async {
-    final result = complete
-        ? await notifier.completeHabit(habit.id)
-        : await notifier.skipHabit(habit.id);
+    final HabitOccurrenceResult result;
+    try {
+      result = complete
+          ? await notifier.completeHabit(habit.id)
+          : await notifier.skipHabit(habit.id);
+    } on RhythmReminderSyncException {
+      // The outcome was saved; only the reminder update failed.
+      _checkedIn(owner);
+      rethrow;
+    }
+    if (result.mutation == HabitOccurrenceMutation.applied) _checkedIn(owner);
     if (result.mutation == HabitOccurrenceMutation.conflict) {
       return _t(
         'This period already has a different recorded outcome.',
@@ -434,7 +456,7 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     // The person just asked for a reminder and it is saved: the moment to
     // ask for notification permission, once.
     if (!saved || !mounted || !_sameAccount(owner)) return;
-    await ensureNotificationPermission(context, ref);
+    await ensureNotificationPermission(context, ref, afterSave: true);
   }
 
   Future<void> _backfill(String owner, HabitEntity habit) async {
@@ -547,6 +569,19 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     final String? owner = scope.v2Namespace;
     final habits = ref.watch(habitsProvider);
     final occurrences = ref.watch(habitOccurrencesProvider);
+    // Opened on top of other screens, so it says itself where the person is.
+    return GuideHintPlace(
+      place: GuidancePlaces.habits,
+      child: _page(scope.isWritable, owner, habits, occurrences),
+    );
+  }
+
+  Widget _page(
+    bool writable,
+    String? owner,
+    AsyncValue<List<HabitEntity>> habits,
+    AsyncValue<List<HabitOccurrenceEntity>> occurrences,
+  ) {
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgCreatorIntent,
       child: Scaffold(
@@ -565,7 +600,7 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
                 onBack: () => Navigator.of(context).pop(),
               ),
               const SizedBox(height: 20),
-              if (!scope.isWritable || owner == null)
+              if (!writable || owner == null)
                 Text(
                   _t(
                     'Sign in to view your habits.',
@@ -666,10 +701,15 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
                   : '${habit.targetCount} ${habit.targetCount == 1 ? 'time' : 'times'} per $period · ${habit.active ? 'Active' : 'Paused'}',
             ),
             const SizedBox(height: 4),
-            Text(
-              _reminderLabel(habit),
-              key: ValueKey<String>('rhythm-reminder-label-${habit.id}'),
-            ),
+            habit.reminderMinutes == null
+                ? Text(
+                    _reminderLabel(habit),
+                    key: ValueKey<String>('rhythm-reminder-label-${habit.id}'),
+                  )
+                : HabitReminderLine(
+                    habitId: habit.id,
+                    label: _reminderLabel(habit),
+                  ),
             if (habit.description?.isNotEmpty ?? false) ...[
               const SizedBox(height: 8),
               Text(habit.description!),

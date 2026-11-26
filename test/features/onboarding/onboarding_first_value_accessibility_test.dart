@@ -108,7 +108,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(tester.takeException(), isNull);
-      expect(find.bySemanticsLabel('First setup, step 3 of 3'), findsOneWidget);
+      expect(find.bySemanticsLabel('Setup, last step'), findsOneWidget);
       semantics.dispose();
       expect(find.byKey(const Key('first-value-question')), findsOneWidget);
 

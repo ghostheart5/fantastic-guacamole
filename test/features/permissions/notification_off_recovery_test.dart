@@ -65,6 +65,19 @@ void main() {
           ),
           findsNothing,
         );
+        expect(
+          find.text(
+            language == 'es'
+                ? 'Activa las notificaciones para que Axiomara pueda '
+                      'enviarte todos tus recordatorios: tareas, metas, '
+                      'hábitos y los recordatorios diarios de planificación y '
+                      'reflexión.'
+                : 'Turn on notifications so Axiomara can send all your '
+                      'reminders: tasks, goals, habits, and the daily '
+                      'planning and reflection reminders.',
+          ),
+          findsOneWidget,
+        );
         await tester.tap(find.widgetWithText(FilledButton, enable));
         await tester.pumpAndSettle();
         expect(

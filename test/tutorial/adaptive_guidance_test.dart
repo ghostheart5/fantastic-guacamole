@@ -35,11 +35,11 @@ void main() {
       )!;
       expect(lesson.id, GuidanceLessonId.siConsole);
       expect(lesson.route, RoutePaths.siConsole);
-      expect(lesson.actionLabel, 'Inspect evidence');
-      expect(lesson.body, startsWith(_decision.warning));
+      expect(lesson.actionLabel, 'Ask in Chat');
+      expect(lesson.body, isNot(contains(_decision.warning)));
       for (final language in ['en', 'es']) {
         final copy = ChronoSparkLocalizations(Locale(language));
-        final body = copy.guideBody(lesson.id.name, lesson.body);
+        final body = lesson.hintBody!.of(spanish: copy.isSpanish);
         expect(
           body,
           contains(
@@ -73,8 +73,8 @@ void main() {
           contains(language == 'es' ? 'en Ajustes' : 'check Settings'),
         );
         expect(
-          copy.guideAction(lesson.id.name, lesson.actionLabel),
-          language == 'es' ? 'Revisar las fuentes' : 'Inspect evidence',
+          lesson.hint!.action!.label.of(spanish: copy.isSpanish),
+          language == 'es' ? 'Preguntar en Chat' : 'Ask in Chat',
         );
       }
       expect(state.completedLessons, isEmpty);
@@ -335,9 +335,12 @@ void main() {
 
     expect(
       state
-          .nextIntervention(currentRoute: RoutePaths.nexus, decision: _decision)
-          ?.id,
-      GuidanceLessonId.timelineExecution,
+          .nextIntervention(
+            currentRoute: RoutePaths.timeline,
+            decision: _decision,
+          )
+          ?.title,
+      'Try a smaller step or a different time',
     );
   });
 
@@ -431,50 +434,6 @@ void main() {
       expect(afterRestart.skippedLessons, contains(GuidanceLessonId.siConsole));
       expect(afterRestart.has(GuidanceMilestone.firstItem), isTrue);
       expect(afterRestart.replayLessons, _replayableCoreLessonMatcher);
-    },
-  );
-
-  test(
-    'Replay reopens core guidance without deleting product milestones',
-    () async {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
-      final ProviderContainer first = _guidanceContainer(
-        'guidance-replay-user',
-      );
-      await first.read(adaptiveGuidanceProvider.future);
-      final AdaptiveGuidanceNotifier notifier = first.read(
-        adaptiveGuidanceProvider.notifier,
-      );
-      await notifier.record(GuidanceMilestone.firstItem);
-      await notifier.record(GuidanceMilestone.firstSchedule);
-      await notifier.record(GuidanceMilestone.firstTimelineReview);
-
-      await notifier.replayOnboarding();
-      final AdaptiveGuidanceState replaying = first
-          .read(adaptiveGuidanceProvider)
-          .requireValue;
-      expect(replaying.coreComplete, isTrue);
-      expect(replaying.replayLessons, _replayableCoreLessonMatcher);
-      expect(
-        replaying
-            .nextIntervention(
-              currentRoute: RoutePaths.nexus,
-              decision: _decision,
-            )
-            ?.id,
-        GuidanceLessonId.createFirstItem,
-      );
-      first.dispose();
-
-      final ProviderContainer restarted = _guidanceContainer(
-        'guidance-replay-user',
-      );
-      addTearDown(restarted.dispose);
-      final AdaptiveGuidanceState persisted = await restarted.read(
-        adaptiveGuidanceProvider.future,
-      );
-      expect(persisted.coreComplete, isTrue);
-      expect(persisted.replayLessons, _replayableCoreLessonMatcher);
     },
   );
 

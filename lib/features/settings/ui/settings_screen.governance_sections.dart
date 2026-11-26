@@ -687,6 +687,20 @@ String _assistantCapabilityLabel(
   };
 }
 
+/// Recorded guide milestones, for example "1 action recorded".
+String _actionsRecorded(BuildContext context, int count) => journeyText(
+  context,
+  count == 1 ? '1 action recorded' : '$count actions recorded',
+  count == 1 ? '1 acción registrada' : '$count acciones registradas',
+);
+
+/// Help cards dismissed with "Not now", for example "1 help card hidden".
+String _helpCardsHidden(BuildContext context, int count) => journeyText(
+  context,
+  count == 1 ? '1 help card hidden' : '$count help cards hidden',
+  count == 1 ? '1 tarjeta de ayuda oculta' : '$count tarjetas de ayuda ocultas',
+);
+
 @visibleForTesting
 class AdaptiveGuidanceSettingsSection extends ConsumerWidget {
   const AdaptiveGuidanceSettingsSection({super.key});
@@ -704,7 +718,7 @@ class AdaptiveGuidanceSettingsSection extends ConsumerWidget {
           title: journeyText(context, 'Loading guide', 'Cargando la guía'),
           subtitle: journeyText(
             context,
-            'Reading account-scoped progress...',
+            'Reading this account\'s progress...',
             'Leyendo el progreso de esta cuenta...',
           ),
         ),
@@ -742,27 +756,22 @@ class AdaptiveGuidanceSettingsSection extends ConsumerWidget {
                     state.coreComplete
                         ? journeyText(
                             context,
-                            'Contextual guidance active',
-                            'Orientación contextual activa',
+                            'Guide finished',
+                            'Guía terminada',
                           )
                         : journeyText(
                             context,
-                            'Learning the core workflow',
-                            'Aprendiendo el flujo principal',
+                            'Guide in progress',
+                            'Guía en curso',
                           ),
                 },
                 subtitle: switch (state.coreGuideStatus) {
-                  CoreGuideStatus.skipped ||
-                  CoreGuideStatus.paused => journeyText(
-                    context,
-                    '${state.milestones.length} real outcomes observed · Restart the guide below to continue.',
-                    '${state.milestones.length} resultados reales observados · Reinicia la guía abajo para continuar.',
-                  ),
-                  _ => journeyText(
-                    context,
-                    '${state.milestones.length} real outcomes observed · ${state.skippedLessons.length} prompts muted',
-                    '${state.milestones.length} resultados reales observados · ${state.skippedLessons.length} avisos silenciados',
-                  ),
+                  CoreGuideStatus.skipped || CoreGuideStatus.paused =>
+                    '${_actionsRecorded(context, state.recordedActionCount)} · '
+                        '${journeyText(context, 'Restart the guide below to continue.', 'Reinicia la guía abajo para continuar.')}',
+                  _ =>
+                    '${_actionsRecorded(context, state.recordedActionCount)} · '
+                        '${_helpCardsHidden(context, state.skippedLessons.length)}',
                 },
               ),
               _NeonNavTile(

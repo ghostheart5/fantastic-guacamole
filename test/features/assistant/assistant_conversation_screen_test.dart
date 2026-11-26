@@ -36,6 +36,7 @@ import 'package:fantastic_guacamole/system/voice/speech_recognition_service.dart
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:fantastic_guacamole/state/services/si_v2_read_gateway.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -84,8 +85,10 @@ ProviderContainer setup(
   NoteEntity? selectedNote,
   SecureStoreBackend? historyBackend,
   bool externalAiAllowed = true,
+  AdaptiveGuidanceNotifier? guidance,
 }) => ProviderContainer(
   overrides: [
+    if (guidance != null) adaptiveGuidanceProvider.overrideWith(() => guidance),
     secureStoreProvider.overrideWithValue(
       SecureStore(backend: historyBackend ?? InMemorySecureStoreBackend()),
     ),
@@ -2455,6 +2458,95 @@ void main() {
     );
   }
 
+  for (final (ConversationSurface surface, GuidanceMilestone milestone)
+      in <(ConversationSurface, GuidanceMilestone)>[
+        (ConversationSurface.si, GuidanceMilestone.firstSiQuery),
+        (ConversationSurface.planner, GuidanceMilestone.firstPlannerQuestion),
+      ]) {
+    testWidgets(
+      '${surface.name} AI send finishes its lesson only after a confirmed '
+      'send, not for a crisis message or a cancelled price',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final guidance = _RecordingGuidance();
+        var paidSends = 0;
+        final container = setup((body) async {
+          if (body['quoteOnly'] != true) paidSends++;
+          return (
+            status: 200,
+            data: body['quoteOnly'] == true
+                ? {
+                    'requestId': body['requestId'],
+                    'quote': {
+                      'credits': 4,
+                      'digest': 'fixture',
+                      'proof': 'fixture',
+                      'policy': 'fixture',
+                      'expiresAt': DateTime.now()
+                          .add(const Duration(minutes: 5))
+                          .millisecondsSinceEpoch,
+                    },
+                  }
+                : {
+                    'requestId': body['requestId'],
+                    'message': 'Go after work.',
+                    'creditsCharged': 4,
+                    'remainingCredits': 20,
+                    'model': 'transport-fixture',
+                  },
+          );
+        }, guidance: guidance);
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: ThemeData.dark(),
+              home: AssistantConversationScreen(
+                surface: surface,
+                onLocalTools: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await enterChatText(tester, 'I want to kill myself');
+        await tester.tap(find.byTooltip('Send to AI'));
+        await waitFor(tester, find.byKey(const Key('safety-pause')));
+        await tester.tap(find.byKey(const Key('safety-pause')));
+        await tester.pumpAndSettle();
+        expect(guidance.recorded, isEmpty);
+
+        await enterChatText(tester, 'What time should I go to the store?');
+        await tester.tap(find.byTooltip('Send to AI'));
+        await waitFor(tester, find.text('Get credit price'));
+        await tester.tap(find.text('Get credit price'));
+        await waitFor(tester, find.text('Use 4 credits'));
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        expect(paidSends, 0);
+        expect(guidance.recorded, isEmpty);
+
+        await enterChatText(tester, 'What time should I go to the store?');
+        await tester.tap(find.byTooltip('Send to AI'));
+        await waitFor(tester, find.text('Get credit price'));
+        await tester.tap(find.text('Get credit price'));
+        await waitFor(tester, find.text('Use 4 credits'));
+        await tester.tap(find.text('Use 4 credits'));
+        await tester.pumpAndSettle();
+        expect(find.text('Go after work.'), findsOneWidget);
+        expect(paidSends, 1);
+        expect(guidance.recorded, <GuidanceMilestone>[milestone]);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final retainedView in ['assistant', 'SI console', 'local SI console']) {
     for (final pendingStage in ['capture', 'permission', 'consent']) {
       testWidgets(
@@ -3291,6 +3383,27 @@ void main() {
     expect(find.text('Different account screen'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+}
+
+class _RecordingGuidance extends AdaptiveGuidanceNotifier {
+  final List<GuidanceMilestone> recorded = <GuidanceMilestone>[];
+
+  @override
+  Future<AdaptiveGuidanceState> build() async => const AdaptiveGuidanceState(
+    milestones: <GuidanceMilestone, DateTime>{},
+    counts: <GuidanceMilestone, int>{},
+    skippedLessons: <GuidanceLessonId>{},
+    completedLessons: <GuidanceLessonId>{},
+  );
+
+  @override
+  Future<void> recordIfMissing(
+    GuidanceMilestone milestone, {
+    bool Function()? shouldContinue,
+  }) async {
+    if (shouldContinue?.call() == false) return;
+    recorded.add(milestone);
+  }
 }
 
 class _Consent extends PersonalizationProfileController {

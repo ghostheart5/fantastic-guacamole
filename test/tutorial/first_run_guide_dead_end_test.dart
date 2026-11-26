@@ -19,6 +19,7 @@ import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
+import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/creator_handshake_provider.dart';
@@ -28,6 +29,7 @@ import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guide_overlay.dart';
 import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
+import 'package:fantastic_guacamole/tutorial/guide_hint_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -107,7 +109,7 @@ void main() {
 
     await _pumpCreatorWithGuide(tester, container);
 
-    expect(find.text('Name the real task'), findsOneWidget);
+    expect(find.text('Name your task'), findsOneWidget);
     expect(FirstRunTutorialTargets.creatorTitle.currentContext, isNotNull);
     final Finder titleField = find.byWidgetPredicate(
       (Widget widget) =>
@@ -118,6 +120,41 @@ void main() {
     expect(_primary(tester, 'Title entered').onPressed, isNotNull);
     expect(tester.takeException(), isNull);
   });
+
+  for (final String language in <String>['en', 'es']) {
+    testWidgets('$language Add something guide steps use plain words', (
+      WidgetTester tester,
+    ) async {
+      _tallView(tester);
+      final ProviderContainer container = _container(
+        _Tasks.withScheduledTask(),
+        overlay: true,
+      );
+      addTearDown(container.dispose);
+      await container.read(adaptiveGuidanceProvider.future);
+      await container.read(adaptiveGuidanceProvider.notifier).restartLessons();
+      await _pumpCreatorWithGuide(tester, container, locale: Locale(language));
+
+      final bool es = language == 'es';
+      expect(
+        find.text(es ? 'Ponle nombre a tu tarea' : 'Name your task'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          es
+              ? 'Escribe lo que necesitas hacer en el campo de título de abajo '
+                    'y toca Título escrito.'
+              : 'Type what you need to do in the title field below, then tap '
+                    'Title entered.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('real task'), findsNothing);
+      expect(find.textContaining('tarea real'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   test(
     'a returning account with restored tasks gets a guided Creator',
@@ -158,7 +195,7 @@ void main() {
     await container.read(adaptiveGuidanceProvider.future);
     await _pumpCreatorWithGuide(tester, container);
 
-    expect(find.byKey(const Key('tutorial_back_action')), findsNothing);
+    expect(find.byKey(const Key('guide_step_back')), findsNothing);
     final Finder titleField = find.byWidgetPredicate(
       (Widget widget) =>
           widget is TextField && widget.decoration?.hintText == 'Title *',
@@ -169,29 +206,46 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('Set its priority'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('tutorial_back_action')));
+    await tester.tap(find.byKey(const Key('guide_step_back')));
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('Name the real task'), findsOneWidget);
+    expect(find.text('Name your task'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('pausing the guide says where to resume it', (
-    WidgetTester tester,
-  ) async {
-    _tallView(tester);
-    final ProviderContainer container = _container(_Tasks(), overlay: true);
-    addTearDown(container.dispose);
-    await container.read(adaptiveGuidanceProvider.future);
-    await _pumpCreatorWithGuide(tester, container);
+  for (final String language in <String>['en', 'es']) {
+    testWidgets('$language: pausing the guide says page hints still appear '
+        'and where to resume it', (WidgetTester tester) async {
+      _tallView(tester);
+      final bool es = language == 'es';
+      final ProviderContainer container = _container(_Tasks(), overlay: true);
+      addTearDown(container.dispose);
+      await container.read(adaptiveGuidanceProvider.future);
+      await _pumpCreatorWithGuide(tester, container, locale: Locale(language));
 
-    await tester.tap(find.text('Pause guide'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.text(es ? 'Pausar guía' : 'Pause guide'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.byKey(const Key('guide-paused-snackbar')), findsOneWidget);
-    expect(find.textContaining('Restart Adaptive Guide'), findsOneWidget);
-    expect(find.text('Name the real task'), findsNothing);
-  });
+      expect(find.byKey(const Key('guide-paused-snackbar')), findsOneWidget);
+      // The same words as the note after skipping setup.
+      expect(
+        find.text(
+          es
+              ? 'Guía en pausa. Algunas páginas aún muestran una vez una breve '
+                    'tarjeta “Ayuda con esta página”. Reanúdala cuando quieras '
+                    'en Ajustes › Reiniciar la Guía Adaptativa.'
+              : 'Guide paused. Some pages still show a short “Help with this '
+                    'page” card once. Resume it anytime in Settings › Restart '
+                    'Adaptive Guide.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(es ? 'Ponle nombre a tu tarea' : 'Name your task'),
+        findsNothing,
+      );
+    });
+  }
 
   testWidgets('core guidance does not cover the Smart Planner first choice', (
     WidgetTester tester,
@@ -226,7 +280,8 @@ void main() {
 
   for (final language in <String>['en', 'es']) {
     testWidgets(
-      '$language Timeline guide finishes after the expected task completes',
+      '$language "I found my task" finishes the guide without completing '
+      'the task',
       (tester) async {
         _tallView(tester);
         final repo = _Tasks.withScheduledTask();
@@ -234,80 +289,54 @@ void main() {
         addTearDown(container.dispose);
         await _prepareTimelineGuide(container);
         await _pumpTimelineWithGuide(tester, container, Locale(language));
-        await tester.tap(
-          find.text(language == 'en' ? 'I found my task' : 'Encontré mi tarea'),
+        expect(
+          find.text(language == 'en' ? 'Step 2 of 2' : 'Paso 2 de 2'),
+          findsOneWidget,
         );
-        for (int i = 0; i < 6; i++) {
-          await tester.pump(const Duration(milliseconds: 100));
-        }
+        final String found = language == 'en'
+            ? 'I found my task'
+            : 'Encontré mi tarea';
+        // The saved task is in My plan; nothing has to be marked done. The
+        // card names the tab it just sent the person to.
         expect(
           find.text(
-            language == 'en' ? 'Complete your task' : 'Completa tu tarea',
+            language == 'en'
+                ? 'Your saved task is now in My plan'
+                : 'Tu tarea guardada ya está en Mi plan',
           ),
           findsOneWidget,
         );
-        await tester.tap(
-          find.byKey(FirstRunTutorialTargets.timelineCompletion),
-        );
-        for (int i = 0; i < 5; i++) {
+        for (final String other in <String>['Schedule', 'agenda']) {
+          expect(
+            find.descendant(
+              of: find.byKey(const Key('guide_step_card')),
+              matching: find.textContaining(other),
+            ),
+            findsNothing,
+          );
+        }
+        expect(_primary(tester, found).onPressed, isNotNull);
+        final int savesBefore = repo.saveCalls;
+        await tester.tap(find.text(found));
+        for (int i = 0; i < 4; i++) {
           await tester.pump(const Duration(milliseconds: 100));
         }
-        final finish = find.text(
-          language == 'en' ? 'Finish guide' : 'Finalizar guía',
-        );
-        if (finish.evaluate().isNotEmpty) {
-          await tester.tap(finish);
-          await tester.pump(const Duration(milliseconds: 100));
-        }
-        expect(repo.tasks['restored']!.isCompleted, isTrue);
-        expect(
-          container.read(adaptiveGuidanceProvider).requireValue.coreComplete,
-          isTrue,
-        );
-        expect(
-          find.text(
-            language == 'en' ? 'Complete your task' : 'Completa tu tarea',
-          ),
-          findsNothing,
-        );
-        expect(tester.takeException(), isNull);
-      },
-    );
-
-    testWidgets(
-      '$language already completed expected task can finish without a target',
-      (tester) async {
-        _tallView(tester);
-        final repo = _Tasks.withScheduledTask();
-        repo.tasks['restored'] = repo.tasks['restored']!.complete();
-        final container = _container(repo, overlay: true, timeline: true);
-        addTearDown(container.dispose);
-        await _prepareTimelineGuide(container);
-        await _pumpTimelineWithGuide(tester, container, Locale(language));
-        expect(
-          find.byKey(FirstRunTutorialTargets.timelineCompletion),
-          findsNothing,
-        );
-        expect(
-          container.read(adaptiveGuidanceProvider).requireValue.coreComplete,
-          isFalse,
-        );
-        await tester.tap(
-          find.text(language == 'en' ? 'Finish guide' : 'Finalizar guía'),
-        );
-        await tester.pump(const Duration(milliseconds: 100));
-        expect(
-          container.read(adaptiveGuidanceProvider).requireValue.coreComplete,
-          isTrue,
-        );
-        expect(repo.saveCalls, 0);
+        final AdaptiveGuidanceState state = container
+            .read(adaptiveGuidanceProvider)
+            .requireValue;
+        expect(state.coreComplete, isTrue);
+        expect(state.has(GuidanceMilestone.firstCompletion), isFalse);
+        expect(state.expectedFirstRunCreatorTaskIds, isEmpty);
+        expect(repo.tasks['restored']!.isCompleted, isFalse);
+        expect(repo.saveCalls, savesBefore);
+        expect(find.text(found), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
 
     for (final action in <String>['skip', 'postpone']) {
       testWidgets(
-        '$language $action does not finish the task completion lesson',
+        '$language $action of the saved task does not finish the guide',
         (tester) async {
           _tallView(tester);
           final timelineNow = DateTime(2026, 10, 2, 12);
@@ -377,7 +406,8 @@ void main() {
   }
 
   testWidgets(
-    'an unrelated completed task and a missing target do not finish the guide',
+    'a task that is no longer on the schedule does not finish the guide; '
+    'Skip this step ends it without a false milestone',
     (tester) async {
       _tallView(tester);
       final repo = _Tasks.withScheduledTask();
@@ -386,20 +416,479 @@ void main() {
       addTearDown(container.dispose);
       await _prepareTimelineGuide(container, taskId: 'different-task');
       await _pumpTimelineWithGuide(tester, container, const Locale('en'));
-      expect(find.text('Finish guide'), findsNothing);
+      expect(find.textContaining('not on your schedule'), findsOneWidget);
+      // Nothing here was found, so the review cannot be recorded.
       expect(_primary(tester, 'I found my task').onPressed, isNull);
-      expect(find.textContaining('no longer available'), findsOneWidget);
+      await tester.tap(find.text('I found my task'));
+      await tester.pump(const Duration(milliseconds: 100));
       expect(
         container.read(adaptiveGuidanceProvider).requireValue.coreComplete,
         isFalse,
       );
-      await tester.tap(find.text('Pause guide'));
-      await tester.pump(const Duration(milliseconds: 100));
       expect(
-        container.read(adaptiveGuidanceProvider).requireValue.activeCoreLesson,
+        container
+            .read(adaptiveGuidanceProvider)
+            .requireValue
+            .has(GuidanceMilestone.firstTimelineReview),
+        isFalse,
+      );
+      await tester.tap(find.text('Skip this step'));
+      for (int i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      final AdaptiveGuidanceState state = container
+          .read(adaptiveGuidanceProvider)
+          .requireValue;
+      expect(state.activeCoreLesson, isNull);
+      expect(state.coreComplete, isFalse);
+      expect(state.has(GuidanceMilestone.firstTimelineReview), isFalse);
+      expect(state.coreGuideStatus, CoreGuideStatus.skipped);
+      expect(find.text('Skip this step'), findsNothing);
+      expect(find.byKey(const Key('guide-skipped-snackbar')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('Skip this step in Add something moves on to the schedule step', (
+    tester,
+  ) async {
+    _tallView(tester);
+    final ProviderContainer container = _container(_Tasks(), overlay: true);
+    addTearDown(container.dispose);
+    await container.read(adaptiveGuidanceProvider.future);
+    // A task the guide saved earlier, without a date yet.
+    await container
+        .read(adaptiveGuidanceProvider.notifier)
+        .recordCreatorHandshakeReceipt(_guideReceipt('restored'));
+    await _pumpCreatorWithGuide(tester, container);
+    expect(find.text('Step 1 of 2'), findsOneWidget);
+
+    await tester.tap(find.text('Skip this step'));
+    for (int i = 0; i < 3; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final AdaptiveGuidanceState state = container
+        .read(adaptiveGuidanceProvider)
+        .requireValue;
+    expect(state.activeCoreLesson, GuidanceLessonId.reviewTimeline);
+    expect(state.has(GuidanceMilestone.firstItem), isFalse);
+    expect(state.has(GuidanceMilestone.firstSchedule), isFalse);
+    expect(state.has(GuidanceMilestone.guidanceDismissed), isFalse);
+    // Step 2 is shown on the schedule, not here.
+    expect(find.text('Step 1 of 2'), findsNothing);
+    expect(find.text('Step 2 of 2'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('after skipping step 1 with a task saved without a date, the '
+      'schedule step says so and only Skip this step can end it', (
+    tester,
+  ) async {
+    _tallView(tester);
+    final repo = _Tasks()
+      ..tasks['undated'] = TaskEntity(
+        id: 'undated',
+        title: 'Undated task',
+        createdAt: DateTime.utc(2026, 11, 1, 9),
+      );
+    final container = _container(repo, overlay: true, timeline: true);
+    addTearDown(container.dispose);
+    await container.read(adaptiveGuidanceProvider.future);
+    final notifier = container.read(adaptiveGuidanceProvider.notifier);
+    await notifier.recordCreatorHandshakeReceipt(_guideReceipt('undated'));
+    await notifier.skipCoreStep(GuidanceLessonId.createFirstItem);
+    expect(
+      container.read(adaptiveGuidanceProvider).requireValue.activeCoreLesson,
+      GuidanceLessonId.reviewTimeline,
+    );
+    await _pumpTimelineWithGuide(tester, container, const Locale('es'));
+    expect(find.textContaining('no está en tu agenda'), findsOneWidget);
+    expect(_primary(tester, 'Encontré mi tarea').onPressed, isNull);
+    await tester.tap(find.text('Omitir este paso'));
+    for (int i = 0; i < 3; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final AdaptiveGuidanceState state = container
+        .read(adaptiveGuidanceProvider)
+        .requireValue;
+    expect(state.activeCoreLesson, isNull);
+    expect(state.has(GuidanceMilestone.firstTimelineReview), isFalse);
+    expect(state.coreGuideStatus, CoreGuideStatus.skipped);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final String language in <String>['en', 'es']) {
+    testWidgets('$language: a task saved without a date from the plain form '
+        "(Today's own Add button) leads on reopening to step 2, which says "
+        'why and offers Skip this step', (tester) async {
+      _tallView(tester);
+      final bool es = language == 'es';
+      final repo = _Tasks()
+        ..tasks['undated'] = TaskEntity(
+          id: 'undated',
+          title: 'Undated task',
+          createdAt: DateTime.utc(2026, 11, 1, 9),
+        );
+      final first = _container(repo);
+      await first.read(adaptiveGuidanceProvider.future);
+      final notifier = first.read(adaptiveGuidanceProvider.notifier);
+      await notifier.pauseCoreGuideUntilReopened();
+      await notifier.recordCreatorHandshakeReceipt(_guideReceipt('undated'));
+      await notifier.recordIfMissing(GuidanceMilestone.firstItem);
+      first.dispose();
+
+      // The app is opened again.
+      final container = _container(repo, overlay: true, timeline: true);
+      addTearDown(container.dispose);
+      await container.read(adaptiveGuidanceProvider.future);
+      await _pumpTimelineWithGuide(tester, container, Locale(language));
+      expect(find.text(es ? 'Paso 2 de 2' : 'Step 2 of 2'), findsOneWidget);
+      expect(
+        find.textContaining(
+          es ? 'no está en tu agenda' : 'not on your schedule',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        _primary(
+          tester,
+          es ? 'Encontré mi tarea' : 'I found my task',
+        ).onPressed,
         isNull,
       );
-    },
+      expect(
+        find.text(es ? 'Omitir este paso' : 'Skip this step'),
+        findsOneWidget,
+      );
+
+      // As the card says, Skip this step finishes the guide, for good.
+      await tester.tap(find.text(es ? 'Omitir este paso' : 'Skip this step'));
+      for (int i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byKey(const Key('guide-skipped-snackbar')), findsOneWidget);
+      expect(find.byKey(const Key('guide_step_card')), findsNothing);
+      final AdaptiveGuidanceState state = container
+          .read(adaptiveGuidanceProvider)
+          .requireValue;
+      expect(state.activeCoreLesson, isNull);
+      expect(state.coreGuideStatus, CoreGuideStatus.skipped);
+      expect(state.has(GuidanceMilestone.firstTimelineReview), isFalse);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('Skip this step while reviewing leaves the plain Add something '
+      'form', (tester) async {
+    _tallView(tester);
+    final repo = _Tasks();
+    final container = _container(repo, overlay: true);
+    addTearDown(container.dispose);
+    await container.read(adaptiveGuidanceProvider.future);
+    await container
+        .read(creatorHandshakeProvider.notifier)
+        .stage(
+          data: CreatorFormData(
+            title: 'First scheduled task',
+            type: 'Task',
+            priority: 4,
+            scheduledFor: DateTime.utc(2026, 11, 2, 9),
+          ),
+        );
+    container.read(creatorTutorialDraftProvider.notifier)
+      ..setHasTitle(true)
+      ..markPriorityChosen()
+      ..setHasSchedule(true);
+    await _pumpCreatorWithGuide(tester, container);
+    expect(container.read(creatorHandshakeProvider).isReviewing, isTrue);
+    expect(find.text('Confirm your task'), findsOneWidget);
+    // It sends the person to /timeline, named as its navigation label is.
+    expect(find.text('Confirm and open My plan'), findsOneWidget);
+
+    await tester.tap(find.text('Skip this step'));
+    for (int i = 0; i < 3; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(container.read(creatorHandshakeProvider).isReviewing, isFalse);
+    expect(find.byKey(const Key('creator-confirm-selected')), findsNothing);
+    final CreatorTutorialDraftState draft = container.read(
+      creatorTutorialDraftProvider,
+    );
+    expect(draft.hasTitle, isFalse);
+    expect(draft.hasSchedule, isFalse);
+    final AdaptiveGuidanceState state = container
+        .read(adaptiveGuidanceProvider)
+        .requireValue;
+    expect(state.guidesCreatorTask, isFalse);
+    expect(state.has(GuidanceMilestone.firstItem), isFalse);
+    expect(repo.saveCalls, 0);
+    expect(find.text('Step 1 of 2'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final _CoreStepScreen step in _CoreStepScreen.values) {
+    testWidgets(
+      'navigation and Settings stay usable during the ${step.name} step',
+      (tester) async {
+        _tallView(tester);
+        final repo = _Tasks.withScheduledTask();
+        final container = _container(
+          repo,
+          overlay: true,
+          timeline: step == _CoreStepScreen.schedule,
+        );
+        addTearDown(container.dispose);
+        if (step == _CoreStepScreen.schedule) {
+          await _prepareTimelineGuide(container);
+        } else {
+          await container.read(adaptiveGuidanceProvider.future);
+        }
+        int settingsTaps = 0;
+        final router = GoRouter(
+          initialLocation: step.route,
+          routes: <RouteBase>[
+            ShellRoute(
+              builder: (context, state, child) => Scaffold(
+                body: child,
+                bottomNavigationBar: TextButton(
+                  onPressed: () => GoRouter.of(context).go(RoutePaths.settings),
+                  child: const Text('Settings tab'),
+                ),
+              ),
+              routes: <RouteBase>[
+                GoRoute(
+                  path: RoutePaths.nexus,
+                  builder: (_, _) => const Center(child: Text('Today page')),
+                ),
+                GoRoute(
+                  path: RoutePaths.creator,
+                  builder: (_, _) => const CreatorScreen(),
+                ),
+                GoRoute(
+                  path: RoutePaths.timeline,
+                  builder: (_, _) => const TimelineScreen(),
+                ),
+                GoRoute(
+                  path: RoutePaths.settings,
+                  builder: (_, _) => Center(
+                    child: TextButton(
+                      onPressed: () => settingsTaps++,
+                      child: const Text('Settings switch'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        await _pumpRouterWithGuide(tester, container, router);
+        final String stepLabel = step == _CoreStepScreen.schedule
+            ? 'Step 2 of 2'
+            : 'Step 1 of 2';
+        expect(find.text(stepLabel), findsOneWidget);
+        // No barrier: the navigation under the card takes the tap.
+        await tester.tap(find.text('Settings tab').hitTestable());
+        for (int i = 0; i < 4; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(router.routerDelegate.state.uri.path, RoutePaths.settings);
+        await tester.tap(find.text('Settings switch').hitTestable());
+        expect(settingsTaps, 1);
+        // The step is shown only on its own screen.
+        expect(find.text(stepLabel), findsNothing);
+        expect(
+          container
+              .read(adaptiveGuidanceProvider)
+              .requireValue
+              .activeCoreLesson,
+          isNotNull,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('the first step on Today opens Add something', (tester) async {
+    _tallView(tester);
+    final container = _container(_Tasks(), overlay: true);
+    addTearDown(container.dispose);
+    await container.read(adaptiveGuidanceProvider.future);
+    final router = GoRouter(
+      initialLocation: RoutePaths.nexus,
+      routes: <RouteBase>[
+        GoRoute(
+          path: RoutePaths.nexus,
+          builder: (_, _) => const Scaffold(body: Text('Today page')),
+        ),
+        GoRoute(
+          path: RoutePaths.creator,
+          builder: (_, _) => const Scaffold(body: Text('Add something page')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await _pumpRouterWithGuide(tester, container, router);
+    expect(find.text('Add your first task'), findsOneWidget);
+    await tester.tap(find.text('Add a task'));
+    for (int i = 0; i < 3; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(router.routerDelegate.state.uri.path, RoutePaths.creator);
+  });
+
+  for (final language in <String>['en', 'es']) {
+    testWidgets(
+      '$language step card fits 320 dp at 200 percent text with its buttons '
+      'reachable',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final container = _container(_Tasks(), overlay: true);
+        addTearDown(container.dispose);
+        await container.read(adaptiveGuidanceProvider.future);
+        final router = GoRouter(
+          initialLocation: RoutePaths.nexus,
+          routes: <RouteBase>[
+            GoRoute(
+              path: RoutePaths.nexus,
+              builder: (_, _) => const Scaffold(body: Text('Today page')),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        await _pumpRouterWithGuide(
+          tester,
+          container,
+          router,
+          locale: Locale(language),
+          textScale: 2,
+        );
+        expect(tester.takeException(), isNull);
+        for (final String key in <String>[
+          'guide_step_primary',
+          'guide_step_skip',
+          'guide_step_pause',
+        ]) {
+          // The card scrolls when large text does not fit; every button can
+          // be scrolled to and tapped.
+          await tester.ensureVisible(find.byKey(Key(key)));
+          await tester.pump();
+          final Finder button = find.byKey(Key(key)).hitTestable();
+          expect(button, findsOneWidget, reason: key);
+          expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+        }
+        // The page below the card stays usable.
+        expect(find.text('Today page').hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        expect(
+          find.text(language == 'en' ? 'Skip this step' : 'Omitir este paso'),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel(
+            RegExp(language == 'en' ? '^Step 1 of 2\\. ' : '^Paso 1 de 2\\. '),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+  }
+
+  testWidgets('a step steps aside for the keyboard and comes back after it', (
+    tester,
+  ) async {
+    _tallView(tester);
+    final container = _container(_Tasks(), overlay: true);
+    addTearDown(container.dispose);
+    await container.read(adaptiveGuidanceProvider.future);
+    final router = GoRouter(
+      initialLocation: RoutePaths.nexus,
+      routes: <RouteBase>[
+        GoRoute(
+          path: RoutePaths.nexus,
+          builder: (_, _) => const Scaffold(body: Text('Today page')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await _pumpRouterWithGuide(tester, container, router);
+    expect(find.text('Step 1 of 2'), findsOneWidget);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Step 1 of 2'), findsNothing);
+    tester.view.resetViewInsets();
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Step 1 of 2'), findsOneWidget);
+  });
+
+  testWidgets('an account that finished the guide gets no step card', (
+    tester,
+  ) async {
+    _tallView(tester);
+    final container = _container(_Tasks(), overlay: true);
+    addTearDown(container.dispose);
+    await container.read(adaptiveGuidanceProvider.future);
+    final notifier = container.read(adaptiveGuidanceProvider.notifier);
+    await notifier.record(GuidanceMilestone.firstItem);
+    await notifier.record(GuidanceMilestone.firstSchedule);
+    await notifier.record(GuidanceMilestone.firstTimelineReview);
+    final router = GoRouter(
+      initialLocation: RoutePaths.nexus,
+      routes: <RouteBase>[
+        for (final String path in <String>[
+          RoutePaths.nexus,
+          RoutePaths.creator,
+          RoutePaths.timeline,
+        ])
+          GoRoute(
+            path: path,
+            builder: (_, _) => Scaffold(body: Text('page $path')),
+          ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await _pumpRouterWithGuide(tester, container, router);
+    for (final String path in <String>[
+      RoutePaths.nexus,
+      RoutePaths.creator,
+      RoutePaths.timeline,
+    ]) {
+      router.go(path);
+      for (int i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.text('page $path'), findsOneWidget);
+      expect(find.byKey(const Key('guide_step_primary')), findsNothing);
+      expect(find.textContaining('Step '), findsNothing);
+    }
+  });
+}
+
+enum _CoreStepScreen {
+  today(RoutePaths.nexus),
+  addSomething(RoutePaths.creator),
+  schedule(RoutePaths.timeline);
+
+  const _CoreStepScreen(this.route);
+  final String route;
+}
+
+CreatorHandshakeReceipt _guideReceipt(String taskId) {
+  final now = DateTime.utc(2026, 11, 1, 12);
+  return CreatorHandshakeReceipt(
+    proposalId: 'guide-proposal',
+    accountScopeId: AccountStorageScope.authenticated('account-a').v2Namespace!,
+    confirmationTokenId: 'guide-confirmation',
+    appliedOperationIds: const <String>['guide-operation'],
+    taskIds: <String>[taskId],
+    appliedAt: now,
+    undoExpiresAt: now.add(const Duration(minutes: 10)),
+    resultingDomainRevision: 'guide-revision',
   );
 }
 
@@ -467,8 +956,9 @@ FilledButton _primary(WidgetTester tester, String label) {
 
 Future<void> _pumpCreatorWithGuide(
   WidgetTester tester,
-  ProviderContainer container,
-) async {
+  ProviderContainer container, {
+  Locale locale = const Locale('en'),
+}) async {
   final GoRouter router = GoRouter(
     initialLocation: RoutePaths.creator,
     routes: <RouteBase>[
@@ -479,7 +969,7 @@ Future<void> _pumpCreatorWithGuide(
     ],
   );
   addTearDown(router.dispose);
-  await _pumpRouterWithGuide(tester, container, router);
+  await _pumpRouterWithGuide(tester, container, router, locale: locale);
 }
 
 Future<void> _pumpRouterWithGuide(
@@ -487,6 +977,7 @@ Future<void> _pumpRouterWithGuide(
   ProviderContainer container,
   GoRouter router, {
   Locale locale = const Locale('en'),
+  double textScale = 1,
 }) async {
   await tester.pumpWidget(
     UncontrolledProviderScope(
@@ -501,23 +992,32 @@ Future<void> _pumpRouterWithGuide(
           GlobalCupertinoLocalizations.delegate,
         ],
         routerConfig: router,
-        builder: (BuildContext context, Widget? child) => Stack(
-          children: <Widget>[
-            ?child,
-            ListenableBuilder(
-              listenable: router.routerDelegate,
-              builder: (BuildContext context, Widget? _) {
-                final String location =
-                    router.routerDelegate.currentConfiguration.isEmpty
-                    ? ''
-                    : router.routerDelegate.state.uri.path;
-                return AdaptiveGuideOverlay(
-                  key: ValueKey<String>(location),
-                  router: router,
-                );
-              },
-            ),
-          ],
+        builder: (BuildContext context, Widget? child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: Stack(
+            children: <Widget>[
+              // Like the app root: the step card moves the page down
+              // instead of covering it.
+              Positioned.fill(
+                child: GuideHintSpace(child: child ?? const SizedBox.shrink()),
+              ),
+              ListenableBuilder(
+                listenable: router.routerDelegate,
+                builder: (BuildContext context, Widget? _) {
+                  final String location =
+                      router.routerDelegate.currentConfiguration.isEmpty
+                      ? ''
+                      : router.routerDelegate.state.uri.path;
+                  return AdaptiveGuideOverlay(
+                    key: ValueKey<String>(location),
+                    router: router,
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -555,7 +1055,7 @@ ProviderContainer _container(
         taskActionsProvider.overrideWith((ref) => _GuideTaskActions(ref, repo)),
       ],
       if (overlay) ...[
-        onboardingCompleteProvider.overrideWith(_OnboardingDone.new),
+        accountOnboardingCompleteProvider.overrideWith(_OnboardingDone.new),
         authUserProvider.overrideWith(
           (Ref ref) => Stream<User?>.value(
             const User(
@@ -619,7 +1119,7 @@ class _GuideTaskActions extends TaskActions {
   }
 }
 
-class _OnboardingDone extends OnboardingCompleteNotifier {
+class _OnboardingDone extends AccountOnboardingCompleteNotifier {
   @override
   bool build() => true;
 }

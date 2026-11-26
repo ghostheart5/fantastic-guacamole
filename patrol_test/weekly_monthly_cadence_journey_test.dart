@@ -163,7 +163,7 @@ void main() {
           final notNow = find.text('Not now').hitTestable();
           if (pause.evaluate().isNotEmpty ||
               (find
-                      .text('CONTEXTUAL GUIDANCE')
+                      .byKey(const Key('guide_hint_card'))
                       .hitTestable()
                       .evaluate()
                       .isNotEmpty &&

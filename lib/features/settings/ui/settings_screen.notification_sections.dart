@@ -31,6 +31,7 @@ class _NotificationSettingsAreaState
 
   Future<void> _toggle(bool value) async {
     if (!mounted) return;
+    _recordReminderSettingChange(ref);
     setState(() {
       _remindersOn = value;
       _saving = true;
@@ -93,6 +94,14 @@ class _NotificationSettingsAreaState
   @override
   Widget build(BuildContext context) {
     ref.listen(restoredSettingsRevisionProvider, (_, _) => _load());
+    // Open only while this area is expanded, so its hint appears only here.
+    return GuideHintPlace(
+      place: GuidancePlaces.notificationSettings,
+      child: _controls(context),
+    );
+  }
+
+  Widget _controls(BuildContext context) {
     return Column(
       children: <Widget>[
         _Section(
@@ -133,6 +142,13 @@ class _NotificationSettingsAreaState
     );
   }
 }
+
+/// Changing the main switch, lead time or quiet hours is what the
+/// notification settings hint is about; it then stays away.
+void _recordReminderSettingChange(WidgetRef ref) => ref
+    .read(adaptiveGuidanceProvider.notifier)
+    .recordIfMissing(GuidanceMilestone.firstReminderSettingChange)
+    .ignore();
 
 /// Says whether reminders can arrive and, if not, why, with the matching
 /// action. Agrees with the notice on Today and Goals.
@@ -176,7 +192,7 @@ class _ReminderHealthRow extends ConsumerWidget {
               'Turn on notifications',
               'Activar notificaciones',
             ),
-            () => _turnOnNotifications(context, ref),
+            () => turnOnNotifications(context, ref),
           ),
           ReminderHealth.lastAttemptFailed => (
             journeyText(context, 'Try again', 'Intentar de nuevo'),
@@ -229,17 +245,6 @@ class _ReminderHealthRow extends ConsumerWidget {
       },
     );
   }
-
-  /// The same step as the notice: ask in context, or open device settings
-  /// once the system has refused.
-  Future<void> _turnOnNotifications(BuildContext context, WidgetRef ref) async {
-    if (ref.read(notificationPermissionProvider).refusal ==
-        NotificationPermissionRefusal.denied) {
-      await openNotificationSystemSettings(context, ref);
-      return;
-    }
-    await ensureNotificationPermission(context, ref, userInitiated: true);
-  }
 }
 
 /// Holds reminders the app times itself until a quiet stretch ends.
@@ -270,6 +275,7 @@ class _QuietHoursSectionState extends ConsumerState<_QuietHoursSection> {
   }
 
   Future<void> _save(QuietHours next) async {
+    _recordReminderSettingChange(ref);
     setState(() => _quiet = next);
     await ref.read(settingsUiActionsProvider).setQuietHours(next);
   }
@@ -666,6 +672,7 @@ class _ReminderAutomationSectionState
   }
 
   Future<void> _setLead(int minutes) async {
+    _recordReminderSettingChange(ref);
     setState(() => _leadMinutes = minutes);
     await ref
         .read(settingsUiActionsProvider)

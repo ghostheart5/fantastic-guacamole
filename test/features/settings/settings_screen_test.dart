@@ -1,9 +1,16 @@
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
+import 'package:fantastic_guacamole/tutorial/guide_hint_place.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:flutter/rendering.dart';
 import 'package:fantastic_guacamole/data/services/mock_auth_service.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
+import 'package:fantastic_guacamole/features/help/ui/help_screen.dart';
 import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
@@ -302,6 +309,7 @@ void main() {
     bool guideReady = false,
     AiCreditWallet? wallet,
     bool? notificationPermission = true,
+    bool noTasks = false,
   }) {
     final AccountStorageScope resolvedScope =
         accountScope ??
@@ -329,6 +337,8 @@ void main() {
         if (authService != null)
           authServiceProvider.overrideWithValue(authService),
         accountStorageScopeProvider.overrideWithValue(resolvedScope),
+        // The guide reads saved tasks when it loads; there are none here.
+        if (noTasks) domainTaskRepositoryProvider.overrideWithValue(_NoTasks()),
         accountLegacyOwnershipProvider.overrideWithValue(
           LegacyScopeOwnership.provenNotOwned,
         ),
@@ -708,9 +718,13 @@ void main() {
     bool es = false,
     bool? permission = true,
     void Function(_FakeSettingsUiActions actions)? arrange,
+    bool noTasks = false,
   }) async {
     useTallSurface(tester);
-    final container = createContainer(notificationPermission: permission);
+    final container = createContainer(
+      notificationPermission: permission,
+      noTasks: noTasks,
+    );
     arrange?.call(
       container.read(settingsUiActionsProvider) as _FakeSettingsUiActions,
     );
@@ -993,6 +1007,32 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the open Notifications area is the notification settings '
+      'hint place; changing lead time finishes that hint', (tester) async {
+    final container = await openNotifications(tester, noTasks: true);
+    expect(
+      find.byWidgetPredicate(
+        (Widget widget) =>
+            widget is GuideHintPlace &&
+            widget.place == GuidancePlaces.notificationSettings,
+      ),
+      findsOneWidget,
+    );
+    final Finder lead = find.text('At the time');
+    await tester.ensureVisible(lead);
+    await tester.tap(lead);
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.text('15 minutes before'));
+    await tester.pump(const Duration(milliseconds: 350));
+    final AdaptiveGuidanceState guidance = await container.read(
+      adaptiveGuidanceProvider.future,
+    );
+    expect(
+      guidance.lessonFinishedByAction(GuidanceLessonId.notificationSettings),
+      isTrue,
+    );
+  });
+
   testWidgets('quiet hours with the same start and end show as off', (
     tester,
   ) async {
@@ -1217,6 +1257,68 @@ void main() {
       }
       expect(find.byType(SettingsScreen), findsOneWidget);
       expect(find.byType(LicensePage), findsNothing);
+    });
+
+    testWidgets('Settings opens Help in ${locale.languageCode} and keeps '
+        'the Support link', (tester) async {
+      useTallSurface(tester);
+      final bool es = locale.languageCode == 'es';
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: createContainer(),
+          child: MaterialApp(
+            locale: locale,
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const [
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const SettingsScreen(),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      final String category = es ? 'Ayuda y aspectos legales' : 'Help & legal';
+      await tester.ensureVisible(find.text(category));
+      await tester.pump();
+      await tester.tap(find.text(category).hitTestable());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text(es ? 'Soporte' : 'Support'), findsOneWidget);
+      final Finder help = find.text(es ? 'Ayuda' : 'Help');
+      await Scrollable.ensureVisible(tester.element(help), alignment: 0.5);
+      await tester.pump();
+      expect(
+        tester
+            .getSize(
+              find.ancestor(of: help, matching: find.byType(SmartPressable)),
+            )
+            .height,
+        greaterThanOrEqualTo(48),
+      );
+      await tester.tap(help.hitTestable());
+      await tester.pumpAndSettle(
+        const Duration(milliseconds: 100),
+        EnginePhase.sendSemanticsUpdate,
+        const Duration(seconds: 5),
+      );
+
+      expect(find.byType(HelpScreen), findsOneWidget);
+      expect(find.text(es ? 'Buscar en la ayuda' : 'Search help'), findsOne);
+      await tester.tap(find.byType(BackButton));
+      // Settings animates its background, so it never settles.
+      for (
+        int frame = 0;
+        frame < 10 && find.byType(HelpScreen).evaluate().isNotEmpty;
+        frame++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(HelpScreen), findsNothing);
+      expect(find.byType(SettingsScreen), findsOneWidget);
     });
   }
 
@@ -2447,4 +2549,15 @@ class _CopyGuidance extends AdaptiveGuidanceNotifier {
     skippedLessons: {},
     completedLessons: {},
   );
+}
+
+class _NoTasks implements ITaskRepository {
+  @override
+  Future<List<TaskEntity>> getAllTasks() async => <TaskEntity>[];
+  @override
+  Future<TaskEntity?> getTaskById(String id) async => null;
+  @override
+  Future<void> saveTask(TaskEntity task) async {}
+  @override
+  Future<void> deleteTask(String id) async {}
 }

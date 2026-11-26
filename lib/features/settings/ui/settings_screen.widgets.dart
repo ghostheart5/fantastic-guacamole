@@ -485,6 +485,22 @@ class _NeonToggleTile extends StatelessWidget {
   }
 }
 
+/// Opens the in-app Help screen; Back returns to Settings.
+class _HelpTile extends StatelessWidget {
+  const _HelpTile();
+
+  @override
+  Widget build(BuildContext context) => _NeonNavTile(
+    title: journeyText(context, 'Help', 'Ayuda'),
+    subtitle: journeyText(
+      context,
+      'How each screen and reminders work. You can search.',
+      'Cómo funcionan cada pantalla y los recordatorios. Puedes buscar.',
+    ),
+    onTap: () => openHelpScreen(context),
+  );
+}
+
 class _NeonNavTile extends StatelessWidget {
   const _NeonNavTile({required this.title, required this.onTap, this.subtitle});
   final String title;
