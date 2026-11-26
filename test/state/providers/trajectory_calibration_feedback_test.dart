@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contra
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adjustment.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
+import 'package:fantastic_guacamole/state/providers/future_timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
@@ -150,6 +151,41 @@ void main() {
       _keepGoing(failed).confidence.calibration,
       PredictiveCalibrationState.provisional,
     );
+  });
+
+  test('the future timeline shows the same calibrated range as the '
+      'comparison', () async {
+    final ProviderContainer container = trajectoryLiveContainer(
+      now: _now,
+      clock: () => _now.toUtc(),
+      store: TrajectoryMemoryStore(),
+      overrides: [
+        trajectoryCalibrationSummaryProvider.overrideWithValue(
+          AsyncData<TrajectoryCalibrationSummary>(
+            TrajectoryCalibrationSummary.fromReceipts(
+              _poorlyCovered(_accountA),
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final TrajectoryComparison comparison = await _comparison(container);
+    final TrajectoryScenarioOutcome shown = comparison.recommended!;
+    expect(shown.intervention.horizon, const Duration(days: 7));
+    expect(shown.uncertainty, 30);
+    final int low = (shown.projectedMomentum - shown.uncertainty).clamp(0, 100);
+    final int high = (shown.projectedMomentum + shown.uncertainty).clamp(
+      0,
+      100,
+    );
+
+    final FutureTimelineCheckpoint week = container
+        .read(futureTimelineProvider)
+        .checkpoints
+        .firstWhere((FutureTimelineCheckpoint c) => c.days == 7);
+    expect(week.prediction, contains('momentum $low–$high%'));
+    expect(week.confidence, shown.confidence.band);
   });
 
   test('a summary of another account is never used', () {
