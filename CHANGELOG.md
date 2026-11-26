@@ -15,7 +15,7 @@ These changes are not yet released or verified on a device.
 - Automatic backup keeps your full cloud backup up to date, and Settings shows when the last backup happened.
 - Turning Cloud Backup on now includes saving your recovery key, with a way to start over if the key is lost. This needs a server update before it can be used.
 - Moving around the app closes screens that were covering where you are going, and "Review my day in detail" has a Back button.
-- "My patterns & progress" keeps the tab bar, and Back returns to Insights.
+- Patterns keeps the tab bar and sits inside the Insights tab.
 - Skipping setup now tells you the guide is off and how to restart it.
 - A paid AI reply is kept if you leave the screen while it is being answered.
 - First-run test flows and device journeys are updated for the current app.

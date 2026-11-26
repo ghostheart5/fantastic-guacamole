@@ -11,7 +11,7 @@ The Android app is [available on Google Play](https://play.google.com/store/apps
 1. **Today:** review your day and choose a manageable step.
 2. **Add something:** create a task, goal, habit or note; review and save.
 3. **My plan and Schedule:** check saved work and add real dates, start times or deadlines.
-4. **Act and record:** complete real work, then review Activity and Insights.
+4. **Act and record:** complete real work, then review Insights: Patterns and Future outcomes.
 5. **Explore when useful:** compare a possibility in Insights or ask AI/SI Chat using selected context.
 
 ## Compare without changing your real plan
