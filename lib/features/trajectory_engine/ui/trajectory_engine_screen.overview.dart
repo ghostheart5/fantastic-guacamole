@@ -691,26 +691,45 @@ class _SelectedOptionSection extends StatelessWidget {
                     style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(AppSizes.touchTarget),
                     ),
-                    icon: Icon(
-                      outcome.intervention.type ==
-                              TrajectoryInterventionType.applySmartPlanner
-                          ? Icons.auto_awesome_rounded
-                          : Icons.timeline_rounded,
-                    ),
-                    label: Text(
-                      outcome.intervention.type ==
-                              TrajectoryInterventionType.applySmartPlanner
-                          ? journeyText(
-                              context,
-                              'Review adjustment',
-                              'Revisar ajuste',
-                            )
-                          : journeyText(
-                              context,
-                              'Review on Schedule',
-                              'Revisar en agenda',
-                            ),
-                    ),
+                    icon: Icon(switch (outcome.intervention.type) {
+                      TrajectoryInterventionType.applySmartPlanner =>
+                        Icons.auto_awesome_rounded,
+                      TrajectoryInterventionType.maintainCourse =>
+                        Icons.timeline_rounded,
+                      TrajectoryInterventionType.completeTask =>
+                        Icons.check_circle_outline_rounded,
+                      TrajectoryInterventionType.delayTask ||
+                      TrajectoryInterventionType.reduceScope ||
+                      TrajectoryInterventionType.recoverCommitment =>
+                        Icons.edit_outlined,
+                    }),
+                    // Says what opens, so the person knows before tapping.
+                    label: Text(switch (outcome.intervention.type) {
+                      TrajectoryInterventionType.applySmartPlanner =>
+                        journeyText(
+                          context,
+                          'Open Choose a step',
+                          'Abrir Elegir un paso',
+                        ),
+                      TrajectoryInterventionType.maintainCourse => journeyText(
+                        context,
+                        'Review on Schedule',
+                        'Revisar en agenda',
+                      ),
+                      TrajectoryInterventionType.completeTask => journeyText(
+                        context,
+                        'Mark done…',
+                        'Marcar como hecha…',
+                      ),
+                      TrajectoryInterventionType.delayTask ||
+                      TrajectoryInterventionType.reduceScope ||
+                      TrajectoryInterventionType.recoverCommitment =>
+                        journeyText(
+                          context,
+                          'Edit this task',
+                          'Editar esta tarea',
+                        ),
+                    }),
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(

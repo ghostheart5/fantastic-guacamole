@@ -7,6 +7,9 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/ui/navigation/open_schedule.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/features/tasks/widgets/task_edit_dialog.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adjustment.dart';
@@ -18,6 +21,8 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/creator_navigation_intent_provider.dart';
+import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
@@ -331,7 +336,7 @@ class _TrajectoryEngineScreenState
             isRecommended:
                 canRecommendScenario &&
                 outcome.id == value.recommendedScenarioId,
-            onOpen: () => _openScenarioDestination(outcome.intervention),
+            onOpen: () => _openScenarioDestination(value.baseline, outcome),
             onTrack: () => _trackScenario(value.baseline, outcome),
             onCorrect: () => _correctAssumptions(value.baseline, outcome),
           ),
@@ -680,19 +685,301 @@ class _TrajectoryEngineScreenState
     );
   }
 
-  void _openScenarioDestination(TrajectoryIntervention intervention) {
+  /// Review on the selected option opens what its button names: the task the
+  /// option is about, Choose a step or the Schedule. Nothing is saved without
+  /// the person's own Save or Done, and never in another account.
+  void _openScenarioDestination(
+    TrajectoryBaseline baseline,
+    TrajectoryScenarioOutcome outcome,
+  ) {
     if (_isRefreshing) return;
-    switch (intervention.type) {
+    switch (outcome.intervention.type) {
       case TrajectoryInterventionType.applySmartPlanner:
         goToAppView(context, ref, AppView.smartPlanner);
       case TrajectoryInterventionType.maintainCourse:
+        unawaited(openSchedule(context));
       case TrajectoryInterventionType.completeTask:
+        unawaited(_confirmComplete(baseline, outcome.intervention));
       case TrajectoryInterventionType.delayTask:
       case TrajectoryInterventionType.reduceScope:
       case TrajectoryInterventionType.recoverCommitment:
-        unawaited(openSchedule(context));
+        unawaited(_editSubject(baseline, outcome));
     }
   }
+
+  /// The same account check Today uses before it writes a task.
+  bool _sameAccount(int generation, String? namespace) =>
+      mounted &&
+      ref.read(authSessionBoundaryProvider).generation == generation &&
+      ref.read(accountStorageScopeProvider).isWritable &&
+      ref.read(authSessionBoundaryProvider).isStorageReady &&
+      !ref.read(authSessionBoundaryProvider).isTransitioning &&
+      ref.read(authSessionBoundaryProvider).blockingIssue == null &&
+      ref.read(accountStorageScopeProvider).v2Namespace == namespace;
+
+  /// The option's task as it is now, or null. When it was finished or
+  /// deleted since the estimate, says so and opens My plan.
+  Future<TaskEntity?> _subjectTask(
+    TrajectoryBaseline baseline,
+    String? id,
+    int generation,
+    String? namespace,
+  ) async {
+    // An estimate from another account never leads to a write here.
+    if (!_sameAccount(generation, namespace) ||
+        baseline.accountScope != namespace) {
+      return null;
+    }
+    List<Task>? tasks;
+    try {
+      tasks = await ref.read(allTasksProvider.future);
+    } catch (_) {
+      tasks = null;
+    }
+    if (!mounted || !_sameAccount(generation, namespace)) return null;
+    if (tasks == null) {
+      _showMessage(
+        journeyText(
+          context,
+          'Your tasks could not be read. Try again.',
+          'No se pudieron leer tus tareas. Inténtalo de nuevo.',
+        ),
+      );
+      return null;
+    }
+    for (final Task task in tasks) {
+      if (id != null && task.id == id) return task;
+    }
+    _showMessage(
+      journeyText(
+        context,
+        'That task is no longer in your plan. It may have been finished or deleted.',
+        'Esa tarea ya no está en tu plan. Puede que se haya terminado o eliminado.',
+      ),
+    );
+    goToAppView(context, ref, AppView.timeline);
+    return null;
+  }
+
+  void _showMessage(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  /// Shows a dialog with [open] and closes it if the account or sign-in
+  /// changes while it is open. The caller still checks the account before
+  /// writing anything with the result.
+  Future<T?> _dialogInThisAccount<T>(
+    int generation,
+    String? namespace,
+    Future<T?> Function() open,
+  ) async {
+    final NavigatorState navigator = Navigator.of(context, rootNavigator: true);
+    final Future<T?> result = open();
+    // The dialog route was just pushed: it is the top route now.
+    Route<dynamic>? dialog;
+    navigator.popUntil((Route<dynamic> route) {
+      dialog = route;
+      return true;
+    });
+    void closeIfSwitched() {
+      if (_sameAccount(generation, namespace)) return;
+      final Route<dynamic>? route = dialog;
+      if (route == null || !route.isActive) return;
+      // Close anything opened over the dialog (a date picker), then it.
+      navigator.popUntil((Route<dynamic> r) => r == route || r.isFirst);
+      if (route.isCurrent) navigator.pop();
+    }
+
+    final List<ProviderSubscription<Object?>> subscriptions =
+        <ProviderSubscription<Object?>>[
+          ref.listenManual(
+            accountStorageScopeProvider,
+            (_, _) => scheduleMicrotask(closeIfSwitched),
+          ),
+          ref.listenManual(
+            authSessionBoundaryProvider,
+            (_, _) => scheduleMicrotask(closeIfSwitched),
+          ),
+        ];
+    try {
+      return await result;
+    } finally {
+      for (final ProviderSubscription<Object?> subscription in subscriptions) {
+        subscription.close();
+      }
+    }
+  }
+
+  /// Delay, reduce and recover: the task edit dialog for the option's task,
+  /// with a note naming the option. Delay starts from the delayed time.
+  Future<void> _editSubject(
+    TrajectoryBaseline baseline,
+    TrajectoryScenarioOutcome outcome,
+  ) async {
+    final int generation = ref.read(authSessionBoundaryProvider).generation;
+    final String? namespace = ref.read(accountStorageScopeProvider).v2Namespace;
+    final TrajectoryIntervention intervention = outcome.intervention;
+    final TaskEntity? task = await _subjectTask(
+      baseline,
+      intervention.subjectId,
+      generation,
+      namespace,
+    );
+    if (task == null || !mounted) return;
+    // The engine's rule for this option (FutureConsequenceEngine's timeline
+    // consequence): the task's scheduled time, or the estimate's time when
+    // it has none, plus the option's own delay.
+    final DateTime? delayed =
+        intervention.type == TrajectoryInterventionType.delayTask
+        ? (task.scheduledFor ?? outcome.generatedAt.toLocal()).add(
+            intervention.delay,
+          )
+        : null;
+    final TaskEditDraft? draft = await _dialogInThisAccount(
+      generation,
+      namespace,
+      () => showTaskEditDialog(
+        context: context,
+        editable: task,
+        goals: ref.read(goalsProvider),
+        note: _reviewNote(context, intervention),
+        initialScheduledFor: delayed,
+      ),
+    );
+    if (draft == null || !_sameAccount(generation, namespace)) return;
+    try {
+      await ref
+          .read(taskActionsProvider)
+          .updateTaskDetails(
+            id: task.id,
+            title: draft.title,
+            description: draft.description,
+            clearDescription: draft.description == null,
+            priority: draft.priority,
+            estimatedDuration: draft.estimatedDuration,
+            clearEstimatedDuration: draft.estimatedDuration == null,
+            scheduledFor: draft.scheduledFor,
+            clearScheduledFor: draft.scheduledFor == null,
+            dueDate: draft.dueDate,
+            clearDueDate: draft.dueDate == null,
+            goalId: draft.goalId,
+            clearGoalId: draft.goalId == null,
+          );
+    } catch (_) {
+      if (mounted && _sameAccount(generation, namespace)) {
+        _showMessage(
+          journeyText(
+            context,
+            'Could not save your changes. Please try again.',
+            'No se pudieron guardar los cambios. Inténtalo de nuevo.',
+          ),
+        );
+      }
+    }
+  }
+
+  /// Complete: a small confirm dialog naming the task, then Done completes it.
+  Future<void> _confirmComplete(
+    TrajectoryBaseline baseline,
+    TrajectoryIntervention intervention,
+  ) async {
+    final int generation = ref.read(authSessionBoundaryProvider).generation;
+    final String? namespace = ref.read(accountStorageScopeProvider).v2Namespace;
+    final TaskEntity? task = await _subjectTask(
+      baseline,
+      intervention.subjectId,
+      generation,
+      namespace,
+    );
+    if (task == null || !mounted) return;
+    final bool? done = await _dialogInThisAccount(
+      generation,
+      namespace,
+      () => showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) =>
+            _CompleteTaskDialog(title: task.title),
+      ),
+    );
+    if (done != true || !_sameAccount(generation, namespace)) return;
+    try {
+      await ref.read(taskActionsProvider).completeTask(task.id, notify: false);
+      if (mounted && _sameAccount(generation, namespace)) {
+        _showMessage(
+          journeyText(
+            context,
+            'Completed. Your progress is recorded.',
+            'Completada. Tu progreso quedó registrado.',
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted && _sameAccount(generation, namespace)) {
+        _showMessage(
+          journeyText(
+            context,
+            'Could not complete this task. Please try again.',
+            'No se pudo completar la tarea. Inténtalo de nuevo.',
+          ),
+        );
+      }
+    }
+  }
+}
+
+/// "Mark "X" done?" with Cancel and Done. Done returns true.
+class _CompleteTaskDialog extends StatelessWidget {
+  const _CompleteTaskDialog({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      // Large text on a small screen scrolls instead of overflowing.
+      scrollable: true,
+      title: Text(
+        journeyText(
+          context,
+          'Mark "$title" done?',
+          '¿Marcar "$title" como hecha?',
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          style: TextButton.styleFrom(
+            minimumSize: const Size(AppSizes.touchTarget, AppSizes.touchTarget),
+          ),
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(journeyText(context, 'Cancel', 'Cancelar')),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(AppSizes.touchTarget, AppSizes.touchTarget),
+          ),
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(journeyText(context, 'Done', 'Hecha')),
+        ),
+      ],
+    );
+  }
+}
+
+/// The one-line note in the task edit dialog naming the option it came from.
+String _reviewNote(BuildContext context, TrajectoryIntervention intervention) {
+  final String from = InsightsCopy.of(context).futureOutcomes;
+  if (intervention.type == TrajectoryInterventionType.delayTask) {
+    final int days = intervention.delay.inDays < 1
+        ? 1
+        : intervention.delay.inDays;
+    return journeyText(
+      context,
+      'From $from: put off by ${days == 1 ? 'one day' : '$days days'}',
+      'Desde $from: aplazar ${days == 1 ? 'un día' : '$days días'}',
+    );
+  }
+  final String option = _trajectoryGeneratedText(context, intervention.title);
+  return journeyText(context, 'From $from: $option', 'Desde $from: $option');
 }
 
 /// The bar shown over the bottom of the page while a refresh is running.

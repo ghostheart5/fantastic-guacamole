@@ -497,6 +497,11 @@ String _planningChanges(
 }
 
 String _planningActionLabel(OperatingActionIntent intent, bool isSpanish) {
+  // This action opens My plan (not the Schedule), so it says so; the
+  // selected option's "Review on Schedule" is the one that opens Schedule.
+  if (intent.type == OperatingActionType.openTimeline) {
+    return isSpanish ? 'Abrir Mi plan' : 'Open My plan';
+  }
   if (!isSpanish) return intent.label;
   return switch (intent.type) {
     OperatingActionType.openCreator => 'Añadir algo',
