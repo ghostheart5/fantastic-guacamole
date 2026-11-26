@@ -498,4 +498,87 @@ void main() {
       );
     },
   );
+
+  test('check-ins since tracked cover exactly the last periods', () async {
+    final HabitEntity daily = HabitEntity(
+      id: 'd',
+      title: 'Daily',
+      createdAt: now.subtract(const Duration(days: 90)),
+    );
+    Future<SIV2HabitEvidence> read(List<int> daysAgo) async => (await gateway(
+      habits: <HabitEntity>[daily],
+      occurrences: <HabitOccurrenceEntity>[
+        for (final int i in daysAgo)
+          checkIn(daily, now.subtract(Duration(days: i))),
+      ],
+    ).read(observedAt: now, includeActivity: true)).habits.single;
+
+    // Today and the 13 days before: 14 of the last 14 days.
+    expect(
+      (await read(<int>[for (int i = 0; i < 14; i++) i])).checkInsSinceTracked,
+      14,
+    );
+    // Today missing: at most 13, never "14 of the last 14".
+    expect(
+      (await read(<int>[for (int i = 1; i < 15; i++) i])).checkInsSinceTracked,
+      13,
+    );
+    // The 15th day back is outside the window.
+    expect((await read(<int>[14, 15])).checkInsSinceTracked, 0);
+    // Two check-ins in one day count once.
+    expect((await read(<int>[0, 0])).checkInsSinceTracked, 1);
+  });
+
+  test('a weekly habit is counted over this week and the one before', () async {
+    final HabitEntity weekly = HabitEntity(
+      id: 'w',
+      title: 'Weekly',
+      createdAt: now.subtract(const Duration(days: 90)),
+      cadence: HabitCadence.weekly,
+    );
+    Future<int> count(List<int> daysAgo) async =>
+        (await gateway(
+              habits: <HabitEntity>[weekly],
+              occurrences: <HabitOccurrenceEntity>[
+                for (final int i in daysAgo)
+                  checkIn(weekly, now.subtract(Duration(days: i))),
+              ],
+            ).read(observedAt: now, includeActivity: true))
+            .habits
+            .single
+            .checkInsSinceTracked;
+
+    expect(await count(<int>[0, 7]), 2);
+    // Three weeks back is outside the last two weeks.
+    expect(await count(<int>[21]), 0);
+  });
+
+  test(
+    'the 14 day window counts calendar days across a clock change',
+    () async {
+      // 8 March 2026 is a 23 hour day in zones that change their clocks. A task
+      // finished exactly 14 calendar days earlier, at the same local time, is
+      // inside the window; one 15 days earlier is not.
+      final DateTime at = DateTime(2026, 3, 8, 12);
+      final SIV2EvidenceSnapshot s = await gateway(
+        tasks: <TaskEntity>[
+          TaskEntity(
+            id: 'edge',
+            title: 'Edge',
+            createdAt: DateTime(2026, 1, 1),
+            isCompleted: true,
+            completedAt: DateTime(2026, 2, 22, 12),
+          ),
+          TaskEntity(
+            id: 'out',
+            title: 'Out',
+            createdAt: DateTime(2026, 1, 1),
+            isCompleted: true,
+            completedAt: DateTime(2026, 2, 21, 11),
+          ),
+        ],
+      ).read(observedAt: at.toUtc(), includeActivity: true);
+      expect(s.recentTasks.map((t) => t.id), <String>['edge']);
+    },
+  );
 }

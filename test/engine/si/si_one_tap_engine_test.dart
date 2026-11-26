@@ -1109,7 +1109,7 @@ void main() {
     );
     expect(
       a.response.directAnswer,
-      '4 of 5 finished tasks were marked done in the night (midnight to 5:59).',
+      '4 of 5 finished tasks were marked done at night (midnight to 5:59).',
     );
   });
 
@@ -1172,5 +1172,76 @@ void main() {
     final String after = run(DateTime(2026, 8, 21));
     expect(after, contains('recorded date 2026-08-20, now past'));
     expect(after, contains('1 matched task is past the recorded due date'));
+  });
+
+  // ---- the windows, at the places they are used ---------------------------
+  // Each uses a date where a 24 hour block would land on a different calendar
+  // day in a zone that changes its clocks (8 March: a 23 hour day). In a zone
+  // without a clock change they cannot tell the two apart, so these only fail
+  // on old code on a machine in such a zone; the helper tests above hold
+  // everywhere.
+  test('coming up ends after 7 days on the calendar, not 8 x 24 hours', () {
+    final SIOneTapAnswer a = ask(
+      SIOneTapQuestion.whatsComingUp,
+      snapshot(
+        tasks: <SIV2TaskEvidence>[
+          wholeDayTask('in', 'Last day', DateTime(2026, 3, 15)),
+          wholeDayTask('out', 'One too far', DateTime(2026, 3, 16)),
+        ],
+      ),
+      at: DateTime(2026, 3, 8, 12),
+    );
+    final String facts = a.response.observedFacts
+        .map((f) => f.text)
+        .join(' | ');
+    expect(facts, contains('Last day'));
+    expect(facts, isNot(contains('One too far')));
+  });
+
+  test('a habit is quiet after 14 calendar days from its start', () {
+    final SIV2HabitEvidence quiet = SIV2HabitEvidence(
+      id: 'q',
+      title: 'Stretch',
+      createdAt: DateTime(2026, 1, 1),
+      trackedSince: DateTime(2026, 2, 22, 12),
+      cadence: HabitCadence.daily,
+      targetCount: 1,
+      checkInsInWindow: 0,
+      currentStreak: 0,
+      checkedInThisPeriod: false,
+    );
+    final SIOneTapAnswer a = ask(
+      SIOneTapQuestion.fallingBehind,
+      snapshot(
+        tasks: <SIV2TaskEvidence>[task('t', 'Something')],
+        habits: <SIV2HabitEvidence>[quiet],
+      ),
+      at: DateTime(2026, 3, 8, 12),
+    );
+    expect(a.response.directAnswer, contains('1 quiet habit'));
+  });
+
+  test('the week review splits at calendar days across a clock change', () {
+    final SIOneTapAnswer a = ask(
+      SIOneTapQuestion.reviewWeek,
+      snapshot(
+        tasks: <SIV2TaskEvidence>[task('t', 'Open')],
+        recent: <SIV2RecentTaskEvidence>[
+          // 3 March 00:30 is the first day of the week ending 9 March.
+          doneOn('first', DateTime(2026, 3, 3, 0, 30)),
+          // 2 March 23:30 is the last day of the week before.
+          doneOn('before', DateTime(2026, 3, 2, 23, 30)),
+          // 24 February is 13 days before 9 March: still the week before.
+          doneOn('edge', DateTime(2026, 2, 24, 8)),
+          // 23 February is 14 days before: outside both weeks.
+          doneOn('out', DateTime(2026, 2, 23, 8)),
+        ],
+      ),
+      at: DateTime(2026, 3, 9, 12),
+    );
+    expect(
+      a.response.directAnswer,
+      'This week, 1 task was finished and 0 skipped: fewer than the week before (2).',
+    );
   });
 }

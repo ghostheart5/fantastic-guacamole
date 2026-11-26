@@ -86,10 +86,10 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
     this.isActive = true,
     this.incomingDraft = '',
     this.incomingDraftRevision = 0,
-    this.incomingDraftIsSuggestion = false,
     this.hidden = false,
     this.onUpdateWhileHidden,
     this.onQuickQuestion,
+    this.onTypedHandOver,
     this.onBusyChanged,
   });
   final ConversationSurface surface;
@@ -102,10 +102,9 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
   final String incomingDraft;
   final int incomingDraftRevision;
 
-  /// The incoming text is a suggested question, not the person's own words: it
-  /// never replaces a message already typed here (the person is told), and
-  /// fills the box only when it is empty.
-  final bool incomingDraftIsSuggestion;
+  /// Chat only: called with the typed words when this screen goes out of
+  /// sight. They go to the free assistant and the box here is emptied.
+  final ValueChanged<String>? onTypedHandOver;
 
   /// The free assistant is shown in front of this screen. A reply, a failure
   /// or a collected request that arrives meanwhile is reported through
@@ -115,8 +114,7 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
 
   /// Chat only: a one-tap question picked here is answered on this device,
   /// for free, by the free assistant. Null hides the row.
-  final void Function(SIOneTapQuestion question, String typedDraft)?
-  onQuickQuestion;
+  final ValueChanged<SIOneTapQuestion>? onQuickQuestion;
 
   /// Reports when a message is being sent, so the free assistant's questions
   /// left by Today do not switch away from a request that is running.
@@ -223,32 +221,45 @@ class _AssistantConversationScreenState
       _shownGate?.complete();
       _shownGate = null;
     }
-    if (oldWidget.incomingDraftRevision != widget.incomingDraftRevision) {
+    // Chat: the words travel with the person, they are not copied. When this
+    // screen goes out of sight its typed words go to the free assistant and
+    // the box is emptied, so coming back finds it empty.
+    if (widget.onTypedHandOver != null && !oldWidget.hidden && widget.hidden) {
       final String typed = _input.text.trim();
-      if (widget.incomingDraftIsSuggestion && typed.isNotEmpty) {
-        // A typed message is never replaced by a suggestion. Said only when
-        // the suggestion is something else.
-        if (typed != widget.incomingDraft.trim()) {
-          final String line = copy(
-            'Your message was kept. The question was not added.',
-            'Se conservó tu mensaje. La pregunta no se añadió.',
-          );
-          // Not while the tree is being built.
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              ScaffoldMessenger.maybeOf(
-                context,
-              )?.showSnackBar(SnackBar(content: Text(line)));
-            }
-          });
-        }
-      } else {
+      if (typed.isNotEmpty) {
+        widget.onTypedHandOver!(typed);
+        _input.clear();
+      }
+    }
+    if (oldWidget.incomingDraftRevision != widget.incomingDraftRevision) {
+      final String incoming = widget.incomingDraft;
+      final String typed = _input.text.trim();
+      if (widget.surface == ConversationSurface.planner) {
+        // Choose a step keeps its own rule: the carried text, even empty.
         _input.value = TextEditingValue(
-          text: widget.incomingDraft,
-          selection: TextSelection.collapsed(
-            offset: widget.incomingDraft.length,
-          ),
+          text: incoming,
+          selection: TextSelection.collapsed(offset: incoming.length),
         );
+      } else if (incoming.trim().isEmpty || typed == incoming.trim()) {
+        // Nothing to add: an empty draft never clears a typed message.
+      } else if (typed.isEmpty) {
+        _input.value = TextEditingValue(
+          text: incoming,
+          selection: TextSelection.collapsed(offset: incoming.length),
+        );
+      } else {
+        // A typed message is never replaced. Said plainly, after the frame.
+        final String line = copy(
+          'Your message in AI chat was kept. The other text was not added to it.',
+          'Se conservó tu mensaje en el chat con IA. El otro texto no se añadió.',
+        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.maybeOf(
+              context,
+            )?.showSnackBar(SnackBar(content: Text(line)));
+          }
+        });
       }
     }
     if (oldWidget.isActive && !widget.isActive) {
@@ -999,9 +1010,9 @@ class _AssistantConversationScreenState
         !_busy &&
         _pending == null &&
         (planner || (_historyReady && !_historyLoading && !_historyConflict));
-    // A stored request being collected counts as sending: it must not be cut
-    // across by a question from Today.
-    final bool sending = _busy || _pending != null;
+    // Only a request actually in flight counts. A stored request that is idle
+    // (waiting for Retry same request) does not block a free question.
+    final bool sending = _busy;
     if (_reportedBusy != sending) {
       _reportedBusy = sending;
       final ValueChanged<bool>? report = widget.onBusyChanged;
@@ -1117,7 +1128,7 @@ class _AssistantConversationScreenState
                       questions: chatOneTapQuestions,
                       enabled: !_busy,
                       onAsk: (SIOneTapQuestion question) =>
-                          widget.onQuickQuestion!(question, _input.text.trim()),
+                          widget.onQuickQuestion!(question),
                     ),
                   ],
                   ..._history.map(

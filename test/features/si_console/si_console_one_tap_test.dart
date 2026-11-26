@@ -749,46 +749,110 @@ void main() {
     },
   );
 
-  testWidgets('Ask AI after a Today question keeps what was typed in AI chat', (
-    tester,
-  ) async {
-    final _Paid paid = _Paid();
-    final container = _container(ai: true, onDevice: false, paid: paid);
-    addTearDown(() => _dispose(tester, container));
-    await _pump(tester, container);
-    await enterChatText(tester, 'words typed in AI chat');
-    // The person goes to Today and taps a question; Chat answers it for free.
-    container
-        .read(siOneTapRequestProvider.notifier)
-        .ask(SIOneTapQuestion.reachGoal);
-    for (var i = 0; i < 6; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-    expect(find.byKey(_localInput), findsOneWidget);
-    final Finder askAi = find.byKey(const Key('one-tap-ask-ai'));
-    await _reveal(tester, askAi);
-    await tester.tap(askAi);
-    await tester.pumpAndSettle();
-    await waitForChatReady(tester);
-    expect(
-      tester.widget<TextField>(find.byKey(_aiInput)).controller!.text,
-      'words typed in AI chat',
-    );
-    expect(
-      find.text('Your message was kept. The question was not added.'),
-      findsOneWidget,
-    );
-    expect(paid.calls, 0);
-  });
+  testWidgets(
+    'words typed in AI chat survive a Today question and the way back',
+    (tester) async {
+      final _Paid paid = _Paid();
+      final container = _container(ai: true, onDevice: false, paid: paid);
+      addTearDown(() => _dispose(tester, container));
+      await _pump(tester, container);
+      await enterChatText(tester, 'words typed in AI chat');
+      // The person goes to Today and taps a question; Chat answers it for free.
+      container
+          .read(siOneTapRequestProvider.notifier)
+          .ask(SIOneTapQuestion.planMyDay);
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      // The words went with the person to the free assistant...
+      expect(
+        tester.widget<TextField>(find.byKey(_localInput)).controller!.text,
+        'words typed in AI chat',
+      );
+      // ...and back to AI chat they are not wiped by the plain switch.
+      await tester.tap(find.byKey(const Key('assistant-mode-ai')));
+      await tester.pumpAndSettle();
+      await waitForChatReady(tester);
+      expect(
+        tester.widget<TextField>(find.byKey(_aiInput)).controller!.text,
+        'words typed in AI chat',
+      );
+      expect(paid.calls, 0);
+    },
+  );
 
-  testWidgets('a draft in the free input is not overwritten by the quick row', (
+  testWidgets(
+    'words typed in the free box go to AI chat and are not wiped on return',
+    (tester) async {
+      final container = _container(ai: true, onDevice: true);
+      addTearDown(() => _dispose(tester, container));
+      await _pump(tester, container);
+      await tester.enterText(find.byKey(_localInput), 'free words');
+      await tester.tap(find.byKey(const Key('assistant-mode-ai')));
+      await tester.pumpAndSettle();
+      await waitForChatReady(tester);
+      expect(
+        tester.widget<TextField>(find.byKey(_aiInput)).controller!.text,
+        'free words',
+      );
+      // Back to the free assistant and to AI chat again with nothing new typed:
+      // an empty draft never clears the box.
+      await tester.tap(find.byKey(const Key('assistant-mode-on-device')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byKey(_localInput)).controller!.text,
+        'free words',
+      );
+      await tester.tap(find.byKey(const Key('assistant-mode-ai')));
+      await tester.pumpAndSettle();
+      await waitForChatReady(tester);
+      expect(
+        tester.widget<TextField>(find.byKey(_aiInput)).controller!.text,
+        'free words',
+      );
+    },
+  );
+
+  testWidgets(
+    'Ask AI says whose words are in the box and which question was left out',
+    (tester) async {
+      final _Paid paid = _Paid();
+      final container = _container(ai: true, onDevice: false, paid: paid);
+      addTearDown(() => _dispose(tester, container));
+      await _pump(tester, container);
+      await enterChatText(tester, 'words typed in AI chat');
+      container
+          .read(siOneTapRequestProvider.notifier)
+          .ask(SIOneTapQuestion.reachGoal);
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      final Finder askAi = find.byKey(const Key('one-tap-ask-ai'));
+      await _reveal(tester, askAi);
+      await tester.tap(askAi);
+      await tester.pumpAndSettle();
+      await waitForChatReady(tester);
+      expect(
+        tester.widget<TextField>(find.byKey(_aiInput)).controller!.text,
+        'words typed in AI chat',
+      );
+      expect(
+        find.text(
+          'Your own words are in AI chat. The question "Help me reach this goal" was not added.',
+        ),
+        findsOneWidget,
+      );
+      expect(paid.calls, 0);
+    },
+  );
+
+  testWidgets('words typed in AI chat arrive in the free box once', (
     tester,
   ) async {
     final container = _container(ai: true, onDevice: true);
     addTearDown(() => _dispose(tester, container));
     await _pump(tester, container);
     await tester.enterText(find.byKey(_localInput), 'free draft');
-    // Over to AI chat: the draft goes along. Then different words there.
     await tester.tap(find.byKey(const Key('assistant-mode-ai')));
     await tester.pumpAndSettle();
     await waitForChatReady(tester);
@@ -799,13 +863,11 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     await _ask(tester, SIOneTapQuestion.whatsComingUp);
-    // Both are still there, neither replaced.
     final String free = tester
         .widget<TextField>(find.byKey(_localInput))
         .controller!
         .text;
-    expect(free, contains('free draft'));
-    expect(free, contains('different words'));
+    expect(free, 'different words');
   });
 
   testWidgets(

@@ -122,8 +122,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   bool _aiBusy = false;
   String _aiDraft = '';
   int _aiDraftRevision = 0;
-  // The draft is a suggested question, which must not replace typed words.
-  bool _aiDraftIsSuggestion = false;
   final List<_Msg> _messages = [];
   final TextEditingController _input = TextEditingController();
   final TextEditingController _entityFilter = TextEditingController();
@@ -220,7 +218,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       duration: const Duration(milliseconds: 900),
     );
     // A question tapped on Today may be waiting for this screen.
-    // Two frames, so AI chat has reported a request it is collecting first.
+    // Two frames, so AI chat has usually reported a request in flight first.
+    // This is not a guarantee: a stored request recovered after this question
+    // was taken still arrives once, out of sight, with the notice below.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _takeOneTapRequest(ref.read(siOneTapRequestProvider));
@@ -806,15 +806,28 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   /// the price and confirm the send there.
   void _askAiAbout(SIOneTapQuestion question) {
     final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
-    // What the person typed here goes along as a suggestion, otherwise the
-    // question does. AI chat never replaces a message typed in its own box.
+    // Words typed here go to AI chat instead of the question, and leave this
+    // box; with none, the question is the draft. A typed message already in
+    // AI chat is kept there (that screen says so).
     final String typed = _input.text.trim();
+    final String label = question.label(isSpanish: isSpanish);
     setState(() {
-      _aiDraft = typed.isEmpty ? question.label(isSpanish: isSpanish) : typed;
-      _aiDraftIsSuggestion = true;
+      _aiDraft = typed.isEmpty ? label : typed;
       _aiDraftRevision++;
       _aiUpdate = false;
+      _input.clear();
     });
+    if (typed.isNotEmpty) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            isSpanish
+                ? 'Tus propias palabras están en el chat con IA. La pregunta "$label" no se añadió.'
+                : 'Your own words are in AI chat. The question "$label" was not added.',
+          ),
+        ),
+      );
+    }
     _chooseMode(onDevice: false);
   }
 
@@ -1023,19 +1036,18 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                     onBusyChanged: (bool busy) {
                       if (mounted) setState(() => _aiBusy = busy);
                     },
-                    onQuickQuestion: (SIOneTapQuestion question, String typed) {
-                      // What was typed in AI chat goes with the person; a draft
-                      // already here is kept and the two are joined.
-                      _carryTyped(typed);
+                    // Words typed in AI chat go with the person when AI chat goes
+                    // out of sight; a draft already here is kept and joined.
+                    onTypedHandOver: _carryTyped,
+                    onQuickQuestion: (SIOneTapQuestion question) {
                       _chooseMode(onDevice: true);
                       unawaited(_askOneTap(question));
                     },
                     incomingDraft: _aiDraft,
                     incomingDraftRevision: _aiDraftRevision,
-                    incomingDraftIsSuggestion: _aiDraftIsSuggestion,
                     onLocalTools: () => _chooseMode(onDevice: true),
                     onLocalToolsWithDraft: (String draft) {
-                      _input.text = draft;
+                      _carryTyped(draft);
                       _chooseMode(onDevice: true);
                     },
                   ),
@@ -1163,9 +1175,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                           onChooseOnDevice: () {},
                           onChooseAi: () {
                             setState(() {
+                              // The words travel to AI chat and leave here.
                               _aiDraft = _input.text.trim();
-                              _aiDraftIsSuggestion = false;
                               _aiDraftRevision++;
+                              _input.clear();
                               _aiUpdate = false;
                             });
                             _chooseMode(onDevice: false);

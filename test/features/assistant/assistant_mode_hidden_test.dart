@@ -11,6 +11,8 @@ import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/assistant_chat_mode_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_v2_provider.dart';
+import 'package:fantastic_guacamole/domain/entities/si_one_tap_question.dart';
+import 'package:fantastic_guacamole/state/providers/si_one_tap_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -473,4 +475,101 @@ void main() {
     // Neither choice is shown as chosen and active.
     expect(find.byIcon(Icons.check_circle), findsNothing);
   });
+
+  testWidgets(
+    'a free question is answered while a paid reply is recovered out of sight',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      final server = _Server(Completer<void>());
+      final container = setup(server.call, historyBackend: backend);
+      addTearDown(() async {
+        if (!server.gate.isCompleted) server.gate.complete();
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _host(tester, container);
+      await _sendPaid(tester, server);
+      // Leave Chat with the request stored and come back on the free
+      // assistant; a question from Today is waiting.
+      container
+          .read(assistantChatModeProvider.notifier)
+          .choose(ConversationSurface.si, onDevice: true);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      container
+          .read(siOneTapRequestProvider.notifier)
+          .ask(SIOneTapQuestion.planMyDay);
+      await _host(tester, container);
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      // The free answer is fine whatever the order was...
+      expect(find.byKey(const Key('one-tap-free-line')), findsOneWidget);
+      // ...and the recovered reply still arrives once, with its notice.
+      server.gate.complete();
+      await tester.pumpAndSettle();
+      expect(find.byKey(_ready), findsOneWidget);
+      await _tap(tester, _ai);
+      await waitForChatReady(tester);
+      await _showReply(tester);
+      expect(server.paid, hasLength(1), reason: 'One paid call only');
+    },
+  );
+
+  testWidgets(
+    'an idle stored request does not block a free question or say a message is being sent',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final quotes = _Server(Completer<void>());
+      var executes = 0;
+      final container = setup((body) async {
+        if (body['quoteOnly'] == true) return quotes.call(body);
+        executes++;
+        throw StateError('synthetic_network_failure');
+      });
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _host(tester, container);
+      await enterChatText(tester, 'What should I do first?');
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      for (var i = 0; i < 40 && find.text('Send').evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await tester.tap(find.text('Send'));
+      for (
+        var i = 0;
+        i < 40 && find.text('Use 4 credits').evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await tester.tap(find.text('Use 4 credits'));
+      for (var i = 0; i < 40 && executes == 0; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await tester.pumpAndSettle();
+      // The request failed and sits idle, waiting for Retry same request.
+      expect(find.text('Retry same request'), findsOneWidget);
+      container
+          .read(siOneTapRequestProvider.notifier)
+          .ask(SIOneTapQuestion.planMyDay);
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(
+        find.text(
+          'A message is being sent. Ask the question when it finishes.',
+        ),
+        findsNothing,
+      );
+      expect(find.byKey(_localInput), findsOneWidget);
+      expect(find.byKey(const Key('one-tap-free-line')), findsOneWidget);
+      expect(executes, 1, reason: 'No second paid call');
+    },
+  );
 }

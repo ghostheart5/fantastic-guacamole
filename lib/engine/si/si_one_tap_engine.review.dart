@@ -80,63 +80,61 @@ extension _PatternAndWeekQuestions on _Run {
         byPart.update(part, (int v) => v + 1, ifAbsent: () => 1);
       }
       final List<String> lines = <String>[];
-      if (done.length >= _patternMinimum) {
-        missing(
+      missing(
+        t(
+          'Days and times are when a task was marked done, which may differ from when the work was done.',
+          'Los días y horas son cuando se marcó una tarea como hecha, que puede diferir de cuando se hizo el trabajo.',
+        ),
+      );
+      // A day counts only when it has at least 3 and strictly more than any
+      // other day: a tie is no pattern.
+      final List<MapEntry<int, int>> days = byDay.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      if (days.first.value >= 3 &&
+          (days.length == 1 || days.first.value > days[1].value)) {
+        calc(
           t(
-            'Days and times are when a task was marked done, which may differ from when the work was done.',
-            'Los días y horas son cuando se marcó una tarea como hecha, que puede diferir de cuando se hizo el trabajo.',
+            '${days.first.value} of ${done.length} finished tasks were marked done on a ${_weekday(days.first.key)}; no other day has as many.',
+            '${days.first.value} de ${done.length} tareas terminadas se marcaron como hechas un ${_weekdayEs(days.first.key)}; ningún otro día tiene tantas.',
+          ),
+          <String>[recentGroup],
+        );
+        lines.add(
+          t(
+            '${days.first.value} of ${done.length} finished tasks were marked done on a ${_weekday(days.first.key)}.',
+            '${days.first.value} de ${done.length} tareas terminadas se marcaron como hechas un ${_weekdayEs(days.first.key)}.',
           ),
         );
-        // A day counts only when it has at least 3 and strictly more than any
-        // other day: a tie is no pattern.
-        final List<MapEntry<int, int>> days = byDay.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value));
-        if (days.first.value >= 3 &&
-            (days.length == 1 || days.first.value > days[1].value)) {
-          calc(
-            t(
-              '${days.first.value} of ${done.length} finished tasks were marked done on a ${_weekday(days.first.key)}; no other day has as many.',
-              '${days.first.value} de ${done.length} tareas terminadas se marcaron como hechas un ${_weekdayEs(days.first.key)}; ningún otro día tiene tantas.',
-            ),
-            <String>[recentGroup],
-          );
-          lines.add(
-            t(
-              '${days.first.value} of ${done.length} finished tasks were marked done on a ${_weekday(days.first.key)}.',
-              '${days.first.value} de ${done.length} tareas terminadas se marcaron como hechas un ${_weekdayEs(days.first.key)}.',
-            ),
-          );
-        }
-        final MapEntry<String, int> part = byPart.entries.reduce(
-          (a, b) => b.value > a.value ? b : a,
+      }
+      final MapEntry<String, int> part = byPart.entries.reduce(
+        (a, b) => b.value > a.value ? b : a,
+      );
+      if (part.value >= 3 && part.value * 2 > done.length) {
+        final String en = switch (part.key) {
+          'night' => 'at night (midnight to 5:59)',
+          'morning' => 'in the morning (6:00 to 11:59)',
+          'afternoon' => 'in the afternoon (12:00 to 16:59)',
+          _ => 'in the evening (17:00 to 23:59)',
+        };
+        final String es = switch (part.key) {
+          'night' => 'de madrugada (de 0:00 a 5:59)',
+          'morning' => 'por la mañana (de 6:00 a 11:59)',
+          'afternoon' => 'por la tarde (de 12:00 a 16:59)',
+          _ => 'por la noche (de 17:00 a 23:59)',
+        };
+        calc(
+          t(
+            '${part.value} of ${done.length} finished tasks were marked done $en.',
+            '${part.value} de ${done.length} tareas terminadas se marcaron como hechas $es.',
+          ),
+          <String>[recentGroup],
         );
-        if (part.value >= 3 && part.value * 2 > done.length) {
-          final String en = switch (part.key) {
-            'night' => 'night (midnight to 5:59)',
-            'morning' => 'morning (6:00 to 11:59)',
-            'afternoon' => 'afternoon (12:00 to 16:59)',
-            _ => 'evening (17:00 to 23:59)',
-          };
-          final String es = switch (part.key) {
-            'night' => 'de madrugada (de 0:00 a 5:59)',
-            'morning' => 'por la mañana (de 6:00 a 11:59)',
-            'afternoon' => 'por la tarde (de 12:00 a 16:59)',
-            _ => 'por la noche (de 17:00 a 23:59)',
-          };
-          calc(
-            t(
-              '${part.value} of ${done.length} finished tasks were marked done in the $en.',
-              '${part.value} de ${done.length} tareas terminadas se marcaron como hechas $es.',
-            ),
-            <String>[recentGroup],
-          );
-          lines.add(
-            t(
-              '${part.value} of ${done.length} finished tasks were marked done in the $en.',
-              '${part.value} de ${done.length} tareas terminadas se marcaron como hechas $es.',
-            ),
-          );
-        }
+        lines.add(
+          t(
+            '${part.value} of ${done.length} finished tasks were marked done $en.',
+            '${part.value} de ${done.length} tareas terminadas se marcaron como hechas $es.',
+          ),
+        );
       }
       final int overdue = tasks.where(isOverdue).length;
       if (skipped > 0) {

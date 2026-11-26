@@ -279,14 +279,6 @@ DateTime _daysBefore(DateTime moment, int days) {
   );
 }
 
-/// Whether an outcome's key belongs to the habit's current frequency: edited
-/// habits (revision above 0) write keys prefixed with their revision, and
-/// older outcomes keep the keys they were written with.
-bool _inCurrentFrequency(HabitEntity habit, String key) =>
-    habit.frequencyRevision == 0
-    ? !RegExp(r'^r\d+:').hasMatch(key)
-    : key.startsWith('r${habit.frequencyRevision}:');
-
 /// The most habits and recent results one read returns, applied after the
 /// optional title filter. A list of exactly this size may have had more.
 const int siV2HabitReadLimit = 40;
@@ -368,6 +360,21 @@ List<SIV2HabitEvidence> _habitEvidence(
     };
     final DateTime trackedSince = (habit.frequencyStartedAt ?? habit.createdAt)
         .toUtc();
+    // Distinct check-ins under the current frequency among exactly the last
+    // periods the answer reports against (14 days, 2 weeks, 1 month, today's
+    // period included), so "14 of the last 14 days" needs today checked in.
+    final int periodsBack = switch (habit.cadence) {
+      HabitCadence.daily => _recentWindowDays,
+      HabitCadence.weekly => 2,
+      HabitCadence.monthly => 1,
+    };
+    final Set<String> lastPeriodKeys = <String>{};
+    DateTime back = now;
+    for (int i = 0; i < periodsBack; i++) {
+      lastPeriodKeys.add(keyAt(back));
+      back = previous(back);
+    }
+    final int sinceTracked = keys.where(lastPeriodKeys.contains).length;
     final bool checkedIn = keys.contains(keyAt(now));
     // The period that is still open does not break a streak.
     DateTime cursor = checkedIn ? now : previous(now);
@@ -394,15 +401,7 @@ List<SIV2HabitEvidence> _habitEvidence(
                   !item.recordedAt.isAfter(observedAt),
             )
             .length,
-        checkInsSinceTracked: completed
-            .where(
-              (HabitOccurrenceEntity item) =>
-                  _inCurrentFrequency(habit, item.occurrenceKey) &&
-                  !item.recordedAt.isBefore(windowStart) &&
-                  !item.recordedAt.isBefore(trackedSince) &&
-                  !item.recordedAt.isAfter(observedAt),
-            )
-            .length,
+        checkInsSinceTracked: sinceTracked,
         currentStreak: streak,
         checkedInThisPeriod: checkedIn,
         windowDays: _recentWindowDays,
