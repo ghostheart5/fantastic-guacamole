@@ -617,17 +617,44 @@ const APP_RECORD_OR_PERSON =
 // data is false in every mode, including with a bare pronoun as the object:
 // "I've saved that.", "Done. I've scheduled it.", "Ya lo guardé."
 const BARE_OBJECT_CLAIM =
-  /\b(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed)\s+(?:it|that|this|them|these|those|everything|all of it)\b|\b(?:lo|la|los|las)\s+(?:he\s+|hemos\s+)?(?:guard|cre[aeéo]|elimin|program|complet|actualiz|actualic|envi|aplic|apliqu|compr|cambi)\w*/i;
+  /\b(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed)\s+(?:it|that|this|them|these|those|everything|all of it)\b|\b(?:lo|la|los|las)\s+(?:(?:he|hemos)\s+\w+(?:ado|ido)|(?:guard|cre|elimin|program|complet|actualic|envi|apliqu|compr|cambi)[eé]|(?:guard|actualiz|aplic|elimin|program|envi|cambi|complet)[oó])(?=\s|[.!?,;:]|$)/i;
+
+// Markers that make a first-person past sentence a claim of work done just now,
+// whatever the object: present perfect (I've / I have / we've; he / hemos +
+// participle), "just / already / now / ya", and a "Done." / "Hecho." / "Listo."
+// opener. Story narration in the simple past without them is not a claim.
+const CLAIM_OPENER = /^(?:done|hecho|listo)\b[,:;!.-]*\s*/i;
+
+const MARKED_CLAIM =
+  /\b(?:i|we)(?:['’]ve|\s+have)\s+(?:(?:just|already|now|successfully|finally)\s+)?\w+ed\b|\b(?:i|we)(?:['’]ve|\s+have)\s+(?:sent|made|booked|set|written)\b|\b(?:just|already|now|successfully|finally)\s+(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed)\b|\b(?:he|hemos)\s+(?:ya\s+)?\w+(?:ado|ido|to|cho)\b|\bya\s+(?:(?:te|se|lo|la|los|las|me|nos|le|les)\s+)*\w+\b|^\s*(?:done|hecho|listo)\b/i;
+
+// Passive or impersonal "it is done" claims. The model has no tools, so these
+// are false in every mode.
+const PASSIVE_CLAIM_PATTERNS = [
+  /\b(?:it|that|this)(?:['’]s| is| has)\s+(?:now\s+|been\s+|all\s+)*(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed)\b/,
+  /\b(?:your|the)\s+(?:reminder|alarm|timer|task|goal|habit|event|appointment|note|plan)s?\s+(?:is|are)\s+(?:now\s+)?set\b/,
+  /\bi\s+went ahead and\s+(?:saved|created|deleted|scheduled|completed|updated|sent|applied|purchased|booked|changed|set)\b/,
+  /\bqued(?:o|ó)\s+(?:ya\s+)?(?:guardad|cread|eliminad|programad|completad|actualizad|enviad|aplicad|cambiad)[oa]s?\b/,
+  /\bse\s+(?:guard|cre|elimin|program|envi|actualiz|aplic|cambi)(?:o|ó)\s+(?:tu|su|tus|sus|la|el|los|las)\b/,
+];
 
 function claimsActionOutsideQuotes(
   sentence: string,
   planningMode = true,
 ): boolean {
-  const collapsed = sentence.replaceAll(QUOTED_TEXT, "[quoted text]")
+  const original = sentence.replaceAll(QUOTED_TEXT, "[quoted text]")
     .replaceAll(/\s+/g, " ").trim();
+  // "Done." / "Hecho, ..." / "Listo: ..." only announces the claim after it.
+  const collapsed = original.replace(CLAIM_OPENER, "");
+  if (original !== "" && collapsed === "" && CLAIM_OPENER.test(original)) {
+    return true;
+  }
   const lower = collapsed.toLowerCase();
   const aboutRecords = planningMode || APP_RECORD_OR_PERSON.test(collapsed) ||
-    BARE_OBJECT_CLAIM.test(collapsed);
+    BARE_OBJECT_CLAIM.test(collapsed) || MARKED_CLAIM.test(original);
+  if (PASSIVE_CLAIM_PATTERNS.some((pattern) => pattern.test(lower))) {
+    return true;
+  }
   return ACTION_CLAIM_PATTERNS.some((pattern) =>
     pattern.test(lower) &&
     (aboutRecords || !GENERIC_FIRST_PERSON_CLAIMS.has(pattern))
@@ -691,8 +718,8 @@ const LEAK_PHRASES = [
   /\bchronospark\b/,
   // Spanish (accents are folded away before matching).
   /\bprompt del sistema\b/,
-  /\binstrucciones del sistema\b/,
-  /\bmensaje del desarrollador\b/,
+  /\binstrucciones del sistema\b(?!\s+(?:de|operativo)\b)/,
+  /\bmensaje del desarrollador\b(?!\s+(?:de|operativo)\b)/,
   /\brazonamiento oculto\b/,
 ];
 
@@ -756,13 +783,20 @@ export function redactLeakPhrases(value: string): string | null {
     const headingLine = /^\s*(?:#{1,6}\s|\*\*|__)/.test(line) ||
       (!/[.!?:]["”’)]*\s*$/.test(line.trim()) && line.trim().length <= 60 &&
         nextLine !== undefined);
+    const announcesContent = (at: number) => {
+      const following = foldForLeakCheck(
+        sentences[at + 1] ?? nextLine ?? "",
+      ).trimStart();
+      return /^(?:it says|it tells me|they are|they say|dice que|dicen que|son estas)\b/
+        .test(following);
+    };
     for (const at of leakIndexes) {
       const folded = foldForLeakCheck(sentences[at]);
       const phrase = LEAK_PHRASES.find((pattern) => pattern.test(folded))!;
       if (
         new RegExp(phrase.source + "[^.!?]*:").test(folded) ||
         new RegExp(phrase.source + "\\s*[-–—]").test(folded) ||
-        LEAD_IN_WORDS.test(folded) || headingLine ||
+        LEAD_IN_WORDS.test(folded) || headingLine || announcesContent(at) ||
         (at === sentences.length - 1 && at === lastLeak &&
           !LIST_ITEM.test(line) && nextLine !== undefined &&
           (LIST_ITEM.test(nextLine) || /^\s*#{1,6}\s/.test(nextLine)))

@@ -2472,3 +2472,45 @@ Deno.test("an oversized provider body is refused at the quote, before any price 
     globalThis.fetch = originalFetch;
   }
 });
+
+Deno.test("an oversized provider body on the send path is refused with 413 and never reserved", async () => {
+  if (!handler) throw new Error("handler was not registered");
+  const originalFetch = globalThis.fetch;
+  let reserveCalls = 0;
+  globalThis.fetch = ((url) => {
+    const path = String(url);
+    if (path.endsWith("/auth/v1/user")) {
+      return Promise.resolve(
+        Response.json({ id: "11111111-1111-4111-8111-111111111111" }),
+      );
+    }
+    if (path.endsWith("/consume_backend_rate_limit")) {
+      return Promise.resolve(Response.json({ allowed: true }));
+    }
+    if (path.includes("reserve_ai")) reserveCalls++;
+    throw new Error(`unexpected transport target: ${path}`);
+  }) as typeof fetch;
+  try {
+    const response = await handler(
+      new Request("https://local.example/ai-proxy", {
+        method: "POST",
+        headers: { authorization: "Bearer synthetic-session" },
+        body: JSON.stringify({
+          requestId: "synthetic-oversize-send",
+          prompt: "x",
+          personality: "planner",
+          context: { a: "<".repeat(11_900) },
+          quote: "any-quote",
+          allowExternalAi: true,
+        }),
+      }),
+    );
+    const body = await response.json();
+    if (
+      response.status !== 413 || body.error !== "request_too_large" ||
+      reserveCalls !== 0
+    ) throw new Error(`send path not refused: ${response.status}`);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

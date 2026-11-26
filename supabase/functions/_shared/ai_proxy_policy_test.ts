@@ -2001,3 +2001,96 @@ Deno.test("app settings are separated from the untrusted record text", () => {
     throw new Error("context reached the system prompt");
   }
 });
+
+for (
+  const text of [
+    "I've scheduled a call for Tuesday at 3.",
+    "Done. I've booked the table.",
+    "I've sent the email.",
+    "I've created a draft.",
+    "I have already booked the flight.",
+    "He enviado el correo.",
+    "Ya envié el mensaje.",
+    "Listo, ya creé el borrador.",
+    "Hemos enviado la carta.",
+  ]
+) {
+  Deno.test(`chat-only reply removes a marked action claim whatever the object: ${text}`, () => {
+    const out = removeUnsupportedActionClaims(`${text} Next steps.`, CHAT_ONLY);
+    if (out !== "Next steps.") throw new Error(`claim survived: ${out}`);
+  });
+}
+
+for (
+  const text of [
+    "It's been saved.",
+    "It has been scheduled for you.",
+    "Your reminder is set.",
+    "I went ahead and saved it.",
+    "Listo, quedó guardado.",
+    "Se guardó tu tarea.",
+  ]
+) {
+  for (const mode of [CHAT_ONLY, { planningMode: true }]) {
+    Deno.test(`passive done-claim is removed (${mode.planningMode ? "planning" : "chat-only"}): ${text}`, () => {
+      const out = removeUnsupportedActionClaims(`${text} Next steps.`, mode);
+      if (
+        !out.endsWith("Next steps.") ||
+        out.length > 40 && !text.startsWith("Listo")
+      ) {
+        throw new Error(`passive claim survived: ${out}`);
+      }
+      if (
+        out.includes("saved") || out.includes("set.") ||
+        out.includes("scheduled") || out.includes("guardó") ||
+        out.includes("guardado")
+      ) {
+        throw new Error(`passive claim survived: ${out}`);
+      }
+    });
+  }
+}
+
+Deno.test("story narration without a claim marker survives, in both languages", () => {
+  for (
+    const text of [
+      "I saved the letter in my coat and ran.",
+      "Guardé la carta en el bolsillo y salí corriendo.",
+      "Guardé la compra en la nevera.",
+      "It is set in Paris in 1920.",
+      "La aplicación guarda los cambios.",
+    ]
+  ) {
+    if (removeUnsupportedActionClaims(text, CHAT_ONLY) !== text) {
+      throw new Error(`narration removed: ${text}`);
+    }
+  }
+});
+
+Deno.test("Spanish leak phrases do not hit ordinary sentences", () => {
+  for (
+    const text of [
+      "Lee las instrucciones del sistema de riego antes de empezar.",
+      "Abre el mensaje del desarrollador de apps que te mandaron.",
+      "Mira las instrucciones del sistema operativo.",
+    ]
+  ) {
+    if (redactLeakPhrases(text) !== text) {
+      throw new Error(`ordinary sentence redacted: ${text}`);
+    }
+  }
+});
+
+Deno.test("a paragraph that announces what the instructions say is a lead-in", () => {
+  for (
+    const text of [
+      "I will not share my system prompt.\nIt says to never mention retired names.",
+      "I will not share my system prompt. It tells me to be brief.",
+      "No voy a compartir mis instrucciones del sistema.\nDice que debo ser breve.",
+    ]
+  ) {
+    if (redactLeakPhrases(text) !== null) {
+      throw new Error(`lead-in delivered: ${text}`);
+    }
+  }
+});
