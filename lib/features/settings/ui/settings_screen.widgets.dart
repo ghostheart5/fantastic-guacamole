@@ -423,32 +423,46 @@ class _FormAppearanceSettingState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          DropdownButtonFormField<String>(
-            key: ValueKey((selected, _saving)),
-            initialValue: selected,
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: copy('Appearance', 'Apariencia'),
-            ),
-            items: <DropdownMenuItem<String>>[
-              for (final AppThemeEntity choice in choices)
-                DropdownMenuItem<String>(
-                  value: choice.id,
-                  child: Text(switch (choice.id) {
-                    'dark' => copy('Dark', 'Oscura'),
-                    'light' => copy('Light', 'Clara'),
-                    _ => copy('Match device', 'Igual que el dispositivo'),
-                  }),
+          MergeSemantics(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  copy('Appearance', 'Apariencia'),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.white),
                 ),
-            ],
-            onChanged: _saving || saved == null
-                ? null
-                : (String? id) {
-                    if (id == null || id == selected) return;
-                    unawaited(
-                      _save(choices.firstWhere((choice) => choice.id == id)),
-                    );
-                  },
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  key: ValueKey((selected, _saving)),
+                  initialValue: selected,
+                  isExpanded: true,
+                  itemHeight: null,
+                  items: <DropdownMenuItem<String>>[
+                    for (final AppThemeEntity choice in choices)
+                      DropdownMenuItem<String>(
+                        value: choice.id,
+                        child: Text(switch (choice.id) {
+                          'dark' => copy('Dark', 'Oscura'),
+                          'light' => copy('Light', 'Clara'),
+                          _ => copy('Match device', 'Igual que el dispositivo'),
+                        }),
+                      ),
+                  ],
+                  onChanged: _saving || saved == null
+                      ? null
+                      : (String? id) {
+                          if (id == null || id == selected) return;
+                          unawaited(
+                            _save(
+                              choices.firstWhere((choice) => choice.id == id),
+                            ),
+                          );
+                        },
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
           Text(

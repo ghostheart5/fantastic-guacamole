@@ -310,12 +310,19 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       await tester.tap(find.text('Review on Schedule').hitTestable());
+      await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       await tester.pump();
       expect(find.byType(TimelineScreen), findsOneWidget);
       expect(find.text('Schedule'), findsOneWidget);
       expect(container.read(appFlowProvider), AppView.trajectoryEngine);
-      await tester.tap(find.byTooltip('Back').hitTestable());
+      final Finder scheduleBack = find.descendant(
+        of: find.byType(TimelineScreen),
+        matching: find.widgetWithIcon(IconButton, Icons.arrow_back_rounded),
+      );
+      expect(tester.widget<IconButton>(scheduleBack).tooltip, 'Back');
+      await tester.tap(scheduleBack);
+      await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       await tester.pump();
       expect(find.byType(TimelineScreen), findsNothing);

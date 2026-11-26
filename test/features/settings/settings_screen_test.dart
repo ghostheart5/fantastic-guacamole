@@ -1730,6 +1730,7 @@ void main() {
   testWidgets('Spanish expanded settings keep release controls localized', (
     WidgetTester tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     useTallSurface(tester);
     final ProviderContainer container = createContainer();
     await tester.pumpWidget(
@@ -1754,6 +1755,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('APARIENCIA Y PERMISOS'), findsOneWidget);
     expect(find.text('Apariencia'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(
+        RegExp(r'^Apariencia\s+(Oscura|Clara|Igual que el dispositivo)$'),
+      ),
+      findsOneWidget,
+    );
+    semantics.dispose();
     final DropdownButtonFormField<String> appearance = tester
         .widget<DropdownButtonFormField<String>>(
           find.byWidgetPredicate(
