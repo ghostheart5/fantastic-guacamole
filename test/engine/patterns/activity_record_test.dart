@@ -165,6 +165,66 @@ void main() {
     },
   );
 
+  test('one period with a check-in and a later skip: the check-in is kept', () {
+    final List<ActivityRecord> records = activityRecords(
+      tasks: const <TaskEntity>[],
+      habits: <HabitEntity>[walk],
+      occurrences: <HabitOccurrenceEntity>[
+        occurrence(walk, daysAgo(0, 8)),
+        occurrence(
+          walk,
+          daysAgo(0, 10),
+          outcome: HabitOccurrenceOutcome.skipped,
+        ),
+      ],
+      now: now,
+    );
+    expect(records, hasLength(1));
+    expect(records.single.outcome, ActivityOutcome.done);
+    expect(records.single.at, daysAgo(0, 8).toUtc());
+  });
+
+  test('two check-ins for one period: the newest is kept', () {
+    final List<ActivityRecord> records = activityRecords(
+      tasks: const <TaskEntity>[],
+      habits: <HabitEntity>[walk],
+      occurrences: <HabitOccurrenceEntity>[
+        occurrence(walk, daysAgo(0, 8)),
+        occurrence(walk, daysAgo(0, 11)),
+      ],
+      now: now,
+    );
+    expect(records, hasLength(1));
+    expect(records.single.at, daysAgo(0, 11).toUtc());
+  });
+
+  test('the window is applied before de-duplicating', () {
+    final HabitEntity monthly = HabitEntity(
+      id: 'monthly',
+      title: 'Monthly review',
+      cadence: HabitCadence.monthly,
+      createdAt: daysAgo(90),
+    );
+    // Same month, so the same period: a check-in 7 days ago (outside the
+    // 7-day window) and a skip today (inside it).
+    final HabitOccurrenceEntity done = occurrence(monthly, daysAgo(7));
+    final HabitOccurrenceEntity skipped = occurrence(
+      monthly,
+      daysAgo(0, 8),
+      outcome: HabitOccurrenceOutcome.skipped,
+    );
+    expect(done.occurrenceKey, skipped.occurrenceKey);
+    final List<ActivityRecord> records = activityRecords(
+      tasks: const <TaskEntity>[],
+      habits: <HabitEntity>[monthly],
+      occurrences: <HabitOccurrenceEntity>[done, skipped],
+      now: now,
+    );
+    // The check-in outside the window cannot hide the skip inside it.
+    expect(records, hasLength(1));
+    expect(records.single.outcome, ActivityOutcome.skipped);
+  });
+
   test('ActivityRecord compares by value', () {
     final DateTime at = daysAgo(1);
     ActivityRecord make(String title) => ActivityRecord(

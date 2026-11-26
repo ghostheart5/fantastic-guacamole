@@ -113,7 +113,8 @@ List<ActivityRecord> activityFromHabit(
 /// today ([now]'s local day), newest first. Habit history is kept whatever the
 /// habit's status is now. Check-ins of a habit that is no longer saved are
 /// dropped (there is no title to show). A task id, or a habit and period, is
-/// listed once, with its newest record.
+/// listed once: of its records inside the window, a check-in over a skip,
+/// then the newest.
 List<ActivityRecord> activityRecords({
   required Iterable<TaskEntity> tasks,
   required Iterable<HabitEntity> habits,
@@ -133,16 +134,27 @@ List<ActivityRecord> activityRecords({
       if (byId[o.habitId] case final HabitEntity h)
         ?activityFromHabitOccurrence(h, o),
   ];
-  all.sort(ActivityRecord.newestFirst);
-  final Set<String> seen = <String>{};
-  return all
-      .where(
-        (ActivityRecord r) =>
-            seen.add('${r.kind.name}|${r.subjectId}|${r.periodKey ?? ''}'),
-      )
-      .where((ActivityRecord r) {
-        final DateTime at = r.at.toLocal();
-        return !at.isBefore(start) && at.isBefore(end);
-      })
-      .toList(growable: false);
+  // The window first, so a record outside it never hides one inside it.
+  final Iterable<ActivityRecord> inWindow = all.where((ActivityRecord r) {
+    final DateTime at = r.at.toLocal();
+    return !at.isBefore(start) && at.isBefore(end);
+  });
+  // One record per task, or per habit and period: a check-in over a skip
+  // (as habit consistency counts it), then the newest.
+  final Map<String, ActivityRecord> kept = <String, ActivityRecord>{};
+  for (final ActivityRecord r in inWindow) {
+    final String key = '${r.kind.name}|${r.subjectId}|${r.periodKey ?? ''}';
+    final ActivityRecord? current = kept[key];
+    if (current == null || _preferred(r, current)) kept[key] = r;
+  }
+  final List<ActivityRecord> result = kept.values.toList()
+    ..sort(ActivityRecord.newestFirst);
+  return List<ActivityRecord>.of(result, growable: false);
+}
+
+/// Whether [a] is kept over [b] for the same task or habit period: done over
+/// skipped, then the newer one (then the stable record order).
+bool _preferred(ActivityRecord a, ActivityRecord b) {
+  if (a.outcome != b.outcome) return a.outcome == ActivityOutcome.done;
+  return ActivityRecord.newestFirst(a, b) < 0;
 }
