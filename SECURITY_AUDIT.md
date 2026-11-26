@@ -1,3 +1,15 @@
+> **HISTORICAL: fixed history, not current status.** This is the August 6, 2026 audit snapshot, kept as a record.
+> Re-checked against the code on November 26, 2026 (GhostHeart Infrastructure Scan):
+> - The one CRITICAL item (INF-01 / BLOCK-01, every user could read `user_daily_metrics`) is fixed by later migrations:
+>   `20260719000001_fix_user_daily_metrics_rls`, `20260806000001_fix_user_daily_metrics_rls`, `20260817103615_harden_data_boundaries`
+>   and `20260904015011_consolidate_firebase_registration_and_metric_ownership`. Checked live, read only, on Nov 26, 2026: row security is on, the 3 policies allow only the owner's rows, a logged-out visitor gets "permission denied" and a made-up signed-in user sees 0 rows.
+> - Play Billing Library 6.0.1 (INF-03 / BLOCK-02) is no longer in the build files.
+> - CodeQL now scans JS/TS, Python, C/C++ and Actions, and Flutter analyze and tests run in CI (INF-02 improved).
+> - Dependabot is on (`.github/dependabot.yml`, INF-11).
+>
+> Other items here were not re-checked one by one. Don't read this file as a list of open problems; current status lives in
+> `LAUNCH_READINESS_TRACKER.md`, `SECURITY.md` and `docs/engineering/`.
+
 # ChronoSpark — Security Audit
 
 **Date:** 2026-08-06
