@@ -73,4 +73,4 @@ tags:
     visibilityPercentage: 100
     timeout: 15000
 - assertVisible: "Evidence"
-- assertNotVisible: "External AI"
+- assertNotVisible: "(?s).*Processing mode: AI chat.*"

@@ -203,9 +203,9 @@ void main() {
     ),
     (
       'Task Skipped',
-      'Stretch skipped. SI will adapt the next pick.',
+      'Stretch skipped. The Assistant will adapt the next pick.',
       'Tarea omitida',
-      'Stretch se omitió. SI adaptará la próxima elección.',
+      'Stretch se omitió. El asistente adaptará la próxima elección.',
     ),
   ]) {
     testWidgets('an English "$rawMessage" record reads in Spanish', (

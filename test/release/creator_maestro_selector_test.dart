@@ -692,11 +692,11 @@ void main() {
             expect(
               visible,
               contains(
-                'Read-only on-device response based on the selected records.',
+                'Read-only response made on this device from the selected records.',
               ),
             );
           } else if (phase == '/status') {
-            expect(visible, contains('SI STATUS.*Read-only Chat:'));
+            expect(visible, contains('ASSISTANT STATUS.*Read-only Chat:'));
           } else if (phase == '/not-real preserve this') {
             expect(
               visible,
@@ -740,17 +740,17 @@ void main() {
         }
       }
       expect(verified, [
-        'What evidence is missing?|(?s).*Processing mode: On device.*',
+        'What evidence is missing?|(?s).*Processing mode: On this device.*',
         'What evidence is missing?|DIRECT ANSWER',
         'What evidence is missing?|RECOMMENDATION',
-        '/status|(?s).*Processing mode: On device.*',
-        '/not-real preserve this|(?s).*Processing mode: On-device fallback.*',
+        '/status|(?s).*Processing mode: On this device.*',
+        '/not-real preserve this|(?s).*Processing mode: On this device .fallback..*',
         'crisis',
       ]);
       expect(
         entries(flow).where(
           (entry) =>
-              entry.key == 'assertNotVisible' && entry.value == 'External AI',
+              entry.key == 'assertNotVisible' && entry.value == '(?s).*Processing mode: AI chat.*',
         ),
         hasLength(4),
       );

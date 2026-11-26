@@ -89,8 +89,8 @@ void main() {
         find.byKey(const Key('si-query-input')),
         'What happens if I defer it?',
       );
-      await tester.ensureVisible(find.bySemanticsLabel('Send SI query'));
-      await tester.tap(find.bySemanticsLabel('Send SI query'));
+      await tester.ensureVisible(find.bySemanticsLabel('Ask the Assistant'));
+      await tester.tap(find.bySemanticsLabel('Ask the Assistant'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(port.lastQuery?.entityFilter, 'Prepare release');
@@ -126,7 +126,7 @@ void main() {
       find.byKey(const Key('si-query-input')),
       'Compare a five-minute fallback with a study block.',
     );
-    await tester.tap(find.bySemanticsLabel('Send SI query'));
+    await tester.tap(find.bySemanticsLabel('Ask the Assistant'));
     await tester.pump();
     await tester.pump(const Duration(seconds: 26));
     await tester.pump();
@@ -134,7 +134,7 @@ void main() {
       tester.widget<TextField>(find.byKey(const Key('si-query-input'))).enabled,
       isTrue,
     );
-    expect(find.bySemanticsLabel('SI is analyzing'), findsNothing);
+    expect(find.bySemanticsLabel('The Assistant is working'), findsNothing);
     pending.complete(
       const SIV2Engine().analyze(
         query: port.query!,
@@ -188,7 +188,7 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.bySemanticsLabel('Back to Today'), findsOneWidget);
-      expect(find.bySemanticsLabel('Send SI query'), findsOneWidget);
+      expect(find.bySemanticsLabel('Ask the Assistant'), findsOneWidget);
       expect(find.byKey(const Key('si-query-input')), findsOneWidget);
       expect(find.text('What needs attention?'), findsOneWidget);
       expect(find.text('What should I do next?'), findsOneWidget);
@@ -199,7 +199,7 @@ void main() {
         find.byKey(const Key('si-query-input')),
         'What needs attention?',
       );
-      await tester.tap(find.bySemanticsLabel('Send SI query'));
+      await tester.tap(find.bySemanticsLabel('Ask the Assistant'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 

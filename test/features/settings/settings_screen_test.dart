@@ -24,7 +24,9 @@ import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
+import 'package:fantastic_guacamole/domain/release/assistant_release_control.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
+import 'package:fantastic_guacamole/state/providers/assistant_release_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/billing_availability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
@@ -312,6 +314,8 @@ void main() {
     bool? notificationPermission = true,
     bool noTasks = false,
     bool externalAiAvailable = false,
+    bool internalAdvisor = false,
+    AssistantReleaseCohort? releaseCohort,
   }) {
     final AccountStorageScope resolvedScope =
         accountScope ??
@@ -341,6 +345,21 @@ void main() {
           externalAiAvailableProvider.overrideWithValue(true),
           internalCreditTestEnabledProvider.overrideWithValue(false),
         ],
+        if (internalAdvisor)
+          internalAdvisorAccessProvider.overrideWithValue(true),
+        if (releaseCohort != null)
+          assistantReleaseDecisionProvider.overrideWith(
+            (Ref ref, AssistantReleaseCapability capability) async =>
+                AssistantReleaseDecision(
+                  enabled: true,
+                  shadowEvaluationEnabled: false,
+                  cohort: releaseCohort,
+                  reasonCode: 'test',
+                  accountDigest: 'test-digest',
+                  capability: capability,
+                  configDigest: 'test-config',
+                ),
+          ),
         if (authService != null)
           authServiceProvider.overrideWithValue(authService),
         accountStorageScopeProvider.overrideWithValue(resolvedScope),
@@ -458,15 +477,12 @@ void main() {
         expect(
           find.textContaining(
             es
-                ? 'Elegir un paso y Chat pueden usar IA externa'
-                : 'Choose a step and Chat can use external AI',
+                ? 'Elegir un paso y el asistente pueden usar el chat con IA'
+                : 'Choose a step and the Assistant can use AI chat',
           ),
           findsOneWidget,
         );
-        expect(
-          find.textContaining('Choose a step and SI Chat can use external AI'),
-          findsNothing,
-        );
+        expect(find.textContaining('can use external AI'), findsNothing);
         await invokeNavTile(
           tester,
           es ? 'Planificación y orientación' : 'Planning & guidance',
@@ -1579,10 +1595,10 @@ void main() {
     await tester.tap(find.text('Planning & guidance'));
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('External AI assistance'), findsOneWidget);
+    expect(find.text('AI chat'), findsOneWidget);
     expect(
       find.text(
-        'External AI assistance is not enabled for this account. Your saved planning work remains available.',
+        'AI chat is not enabled for this account. Your saved planning work remains available.',
       ),
       findsOneWidget,
     );
@@ -1622,14 +1638,14 @@ void main() {
     await tester.tap(find.text('Planificación y orientación'));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.scrollUntilVisible(
-      find.text('Asistencia de IA externa'),
+      find.text('Chat con IA'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
 
     expect(
       find.text(
-        'La asistencia de IA externa no está habilitada para esta cuenta. Tu trabajo de planificación guardado permanece disponible.',
+        'El chat con IA no está habilitado para esta cuenta. Tu trabajo de planificación guardado permanece disponible.',
       ),
       findsOneWidget,
     );
@@ -1753,6 +1769,114 @@ void main() {
     expect(find.text('Recordatorio de reflexión'), findsOneWidget);
     expect(find.text('DAILY REFLECTION'), findsNothing);
   });
+
+  for (final bool spanish in <bool>[false, true]) {
+    final String releaseLabel = spanish
+        ? 'CONTROL DE VERSIÓN DEL ASISTENTE'
+        : 'ASSISTANT RELEASE CONTROL';
+    final String memoryLabel = spanish
+        ? 'LO QUE AXIOMARA RECUERDA'
+        : 'WHAT AXIOMARA REMEMBERS';
+
+    Future<void> openPlanning(
+      WidgetTester tester,
+      ProviderContainer container,
+    ) async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: Locale(spanish ? 'es' : 'en'),
+            supportedLocales: ChronoSparkLocalizations.supportedLocales,
+            localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+              ChronoSparkLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const SettingsScreen(),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.tap(
+        find.text(
+          spanish ? 'Planificación y orientación' : 'Planning & guidance',
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.scrollUntilVisible(
+        find.text(memoryLabel),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+    }
+
+    testWidgets(
+      '${spanish ? 'es' : 'en'}: release controls are hidden from a normal person and memory has plain words',
+      (WidgetTester tester) async {
+        useTallSurface(tester);
+        await openPlanning(tester, createContainer());
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+
+        expect(find.text(releaseLabel), findsNothing);
+        expect(find.text('MEMORY GOVERNANCE'), findsNothing);
+        expect(find.text('CONTROL DE LA MEMORIA'), findsNothing);
+        expect(find.textContaining('surface-scoped'), findsNothing);
+        expect(find.textContaining('Join opt-in'), findsNothing);
+        expect(find.textContaining('Unirse voluntariamente'), findsNothing);
+        expect(find.textContaining(RegExp(r'SI')), findsNothing);
+        expect(find.text(memoryLabel), findsOneWidget);
+        expect(
+          find.textContaining(
+            spanish ? 'solo de tu cuenta' : 'only for your account',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    for (final bool advisor in <bool>[true, false]) {
+      testWidgets(
+        '${spanish ? 'es' : 'en'}: release controls show for the internal ${advisor ? 'access flag' : 'rollout cohort'}',
+        (WidgetTester tester) async {
+          useTallSurface(tester);
+          await openPlanning(
+            tester,
+            createContainer(
+              internalAdvisor: advisor,
+              releaseCohort: advisor ? null : AssistantReleaseCohort.internal,
+            ),
+          );
+          addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+          await tester.pump(const Duration(milliseconds: 100));
+          await tester.scrollUntilVisible(
+            find.text(releaseLabel),
+            300,
+            scrollable: find.byType(Scrollable).first,
+          );
+
+          expect(find.text(releaseLabel), findsOneWidget);
+          expect(find.textContaining(RegExp(r'SI')), findsNothing);
+        },
+      );
+    }
+
+    testWidgets(
+      '${spanish ? 'es' : 'en'}: release controls stay hidden for beta and general cohorts',
+      (WidgetTester tester) async {
+        useTallSurface(tester);
+        await openPlanning(
+          tester,
+          createContainer(releaseCohort: AssistantReleaseCohort.optedInBeta),
+        );
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.text(releaseLabel), findsNothing);
+      },
+    );
+  }
 
   testWidgets('Context entry opens its governance controls directly', (
     WidgetTester tester,

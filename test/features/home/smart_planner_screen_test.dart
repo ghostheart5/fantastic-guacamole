@@ -175,7 +175,7 @@ void main() {
           .text,
       'What are my tasks?',
     );
-    await tester.tap(find.byTooltip('On-device tools'));
+    await tester.tap(find.byTooltip('On this device · free'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(AssistantConversationScreen), findsNothing);
@@ -208,7 +208,7 @@ void main() {
       find.byKey(const Key('conversation-input')),
       'What are my tasks?',
     );
-    await tester.tap(find.byTooltip('On-device tools'));
+    await tester.tap(find.byTooltip('On this device · free'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(AssistantConversationScreen), findsNothing);

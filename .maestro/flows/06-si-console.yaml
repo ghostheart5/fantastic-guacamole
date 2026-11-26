@@ -18,25 +18,25 @@ tags:
 - assertVisible: "(?s).*Ask a question about your saved plans. Review the answer before deciding\\..*"
 - assertVisible: "No saved planning information yet. This tool will explain what it cannot answer. None of your shared details apply to this question."
 
-# A normal typed evidence question must return a structured, on-device SI
+# A normal typed evidence question must return a structured, on-device Assistant
 # response. Use the persistent composer instead of relying on an off-screen
 # suggestion chip.
 - tapOn: "(?s)^Your question.*"
 - inputText: "What evidence is missing?"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
-- tapOn: "Send SI query"
+- tapOn: "Ask the Assistant"
 # The transcript follows the response footer, which can clip the first section.
 # Wait for completion, then reveal and verify each required response section.
 - extendedWaitUntil:
-    visible: "Why this appears: Read-only on-device response based on the selected records."
+    visible: "Why this appears: Read-only response made on this device from the selected records."
     timeout: 30000
 - scrollUntilVisible:
     element:
-      text: "(?s).*Processing mode: On device.*"
+      text: "(?s).*Processing mode: On this device.*"
     direction: UP
     visibilityPercentage: 100
     timeout: 15000
-- assertVisible: "(?s).*Processing mode: On device.*"
+- assertVisible: "(?s).*Processing mode: On this device.*"
 - scrollUntilVisible:
     element:
       text: "DIRECT ANSWER"
@@ -51,53 +51,53 @@ tags:
     visibilityPercentage: 100
     timeout: 15000
 - assertVisible: "RECOMMENDATION"
-- assertNotVisible: "External AI"
+- assertNotVisible: "(?s).*Processing mode: AI chat.*"
 
 # A typed local status request must disclose the current evidence boundary.
 - tapOn: "(?s)^Your question.*"
 - inputText: "/status"
 - assertVisible: "(?s).*/status.*"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
-- tapOn: "Send SI query"
+- tapOn: "Ask the Assistant"
 - extendedWaitUntil:
-    visible: "(?s).*SI STATUS.*Read-only Chat:.*"
+    visible: "(?s).*ASSISTANT STATUS.*Read-only Chat:.*"
     timeout: 10000
 # Auto-scroll can leave this reply's mode tag above its body.
 - scrollUntilVisible:
     element:
-      text: "(?s).*Processing mode: On device.*"
+      text: "(?s).*Processing mode: On this device.*"
     direction: UP
     visibilityPercentage: 100
     timeout: 15000
-- assertVisible: "(?s).*Processing mode: On device.*"
-- assertNotVisible: "External AI"
+- assertVisible: "(?s).*Processing mode: On this device.*"
+- assertNotVisible: "(?s).*Processing mode: AI chat.*"
 
 # Unsupported input must fail explicitly without discarding or sending text.
 - tapOn: "(?s)^Your question.*"
 - inputText: "/not-real preserve this"
 - assertVisible: "(?s).*/not-real preserve this.*"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
-- tapOn: "Send SI query"
+- tapOn: "Ask the Assistant"
 - extendedWaitUntil:
     visible: "(?s).*Unknown shortcut.*No part of the request was sent or discarded.*"
     timeout: 10000
 # Auto-scroll can leave this reply's mode tag above its body.
 - scrollUntilVisible:
     element:
-      text: "(?s).*Processing mode: On-device fallback.*"
+      text: "(?s).*Processing mode: On this device .fallback..*"
     direction: UP
     visibilityPercentage: 100
     timeout: 15000
-- assertVisible: "(?s).*Processing mode: On-device fallback.*"
-- assertNotVisible: "External AI"
+- assertVisible: "(?s).*Processing mode: On this device .fallback..*"
+- assertNotVisible: "(?s).*Processing mode: AI chat.*"
 
 # Crisis language must preempt ordinary SI output and stay local.
 - tapOn: "(?s)^Your question.*"
 - inputText: "I want to kill myself"
 - assertVisible: "(?s).*I want to kill myself.*"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
-- tapOn: "Send SI query"
+- tapOn: "Ask the Assistant"
 - extendedWaitUntil:
     visible: "Let's pause and focus on your safety"
     timeout: 10000
-- assertNotVisible: "External AI"
+- assertNotVisible: "(?s).*Processing mode: AI chat.*"
