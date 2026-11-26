@@ -25,6 +25,48 @@ void main() {
     }
   });
 
+  test('the reduce option pace change reads the selected range workload, '
+      'not the next 7 days', () {
+    // Heavy next 7 days (80), light over 90 days.
+    final TrajectoryBaseline baseline = trajectoryTestBaseline(
+      pressure: 80,
+      horizonDays: 90,
+      tasks: <TrajectoryTaskNode>[
+        TrajectoryTaskNode(
+          id: 'soon',
+          title: 'Due soon',
+          priority: 3,
+          estimatedMinutes: 600,
+          dueAt: trajectoryFixtureNow.add(const Duration(days: 2)),
+        ),
+        const TrajectoryTaskNode(
+          id: 'spare',
+          title: 'Spare',
+          priority: 1,
+          estimatedMinutes: 30,
+        ),
+      ],
+      dailyFreeMinutes: 120,
+    );
+    TrajectoryScenarioOutcome reduceOver(int days) =>
+        const FutureConsequenceEngine().project(
+          baseline: baseline,
+          generatedAt: trajectoryFixtureNow,
+          intervention: TrajectoryIntervention(
+            id: 'remove-spare',
+            type: TrajectoryInterventionType.reduceScope,
+            title: 'Reduce lower-priority scope',
+            horizon: Duration(days: days),
+            description: 'Remove Spare.',
+            subjectId: 'spare',
+          ),
+        );
+    // 630 minutes over 7 days of 120: 75% (heavy) -> the larger pace gain.
+    expect(reduceOver(7).projectedMomentum, baseline.momentum + 4);
+    // 630 minutes over 90 days of 120: 6% (light) -> the small one.
+    expect(reduceOver(90).projectedMomentum, baseline.momentum + 1);
+  });
+
   test('a task outside the range frees nothing', () {
     final TrajectoryBaseline baseline = futureOutcomesBaseline();
     final TrajectoryComparison c = const FutureConsequenceEngine().compare(

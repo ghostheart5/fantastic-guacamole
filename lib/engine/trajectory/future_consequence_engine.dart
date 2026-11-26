@@ -181,21 +181,21 @@ class FutureConsequenceEngine {
       horizonDays: horizonDays,
       completedLast7Days: baseline.completedInWindow,
     );
-    final int momentumDelta = _momentumDelta(
-      baseline: baseline,
-      intervention: intervention,
-      subject: subject,
-    );
-    final int projectedMomentum = (baseline.momentum + momentumDelta).clamp(
-      0,
-      100,
-    );
     final int reliefMinutes = _reliefMinutes(intervention, subject, workload);
     final int keepGoingPressure = capacityLoad(
       requiredMinutes: workload.requiredMinutes,
       dailyFreeMinutes: baseline.dailyFreeMinutes,
       firstDayFreeMinutes: baseline.firstDayFreeMinutes,
       days: horizonDays,
+    );
+    final int momentumDelta = _momentumDelta(
+      intervention: intervention,
+      subject: subject,
+      rangeWorkload: keepGoingPressure,
+    );
+    final int projectedMomentum = (baseline.momentum + momentumDelta).clamp(
+      0,
+      100,
     );
     final int projectedPressure = capacityLoad(
       requiredMinutes: workload.requiredMinutes - reliefMinutes,
@@ -328,11 +328,13 @@ class FutureConsequenceEngine {
   }
 
   /// Momentum deltas keep their v3 constants (a known limitation: they are
-  /// not fitted to the person's observed rates).
+  /// not fitted to the person's observed rates). Reducing scope helps pace
+  /// more when [rangeWorkload], the workload over the option's own range
+  /// (what the screen shows), is heavy.
   int _momentumDelta({
-    required TrajectoryBaseline baseline,
     required TrajectoryIntervention intervention,
     required TrajectoryTaskNode? subject,
+    required int rangeWorkload,
   }) {
     final int priority = subject?.priority.clamp(1, 5) ?? 3;
     return switch (intervention.type) {
@@ -341,7 +343,7 @@ class FutureConsequenceEngine {
         5 + math.min(5, intervention.proposedBlocks.length),
       TrajectoryInterventionType.completeTask => 4 + priority * 2,
       TrajectoryInterventionType.delayTask => -(2 + priority),
-      TrajectoryInterventionType.reduceScope => baseline.pressure >= 65 ? 4 : 1,
+      TrajectoryInterventionType.reduceScope => rangeWorkload >= 65 ? 4 : 1,
       TrajectoryInterventionType.recoverCommitment => 3 + priority,
     };
   }
