@@ -2479,6 +2479,58 @@ const CLAIM_TABLE: ClaimRow[] = [
   claim("I've just now saved it.", "en", "keep", "keep", "LIMIT (review 5): two adverbs in a row are not matched"),
   claim("According to your records, the task has been completed.", "en", "remove", "remove", "LIMIT (review 5): a record fact read from the data is removed"),
   claim("Sure. I can't share my system prompt.", "en", "remove", "remove", "review 5 M3: the remnant after a leak sentence is only an interjection"),
+  // Final check A: a colon excuses created / updated / changed only when it
+  // introduces content (colon then space or end, object starts a / an / some,
+  // no clock time before it).
+  claim("I've changed the meeting to 3:30.", "en", "remove", "remove", "final check A: clock time"),
+  claim("I've updated the task to start at 9:00.", "en", "remove", "remove", "final check A"),
+  claim("I've updated it to 9:00.", "en", "remove", "remove", "final check A"),
+  claim("I've created a reminder for 9:15.", "en", "remove", "remove", "final check A"),
+  claim("I've created an event at 3:00 in your calendar.", "en", "remove", "remove", "final check A"),
+  claim("I've created the task: Pay rent on Friday.", "en", "remove", "remove", "final check A: object is not a / an / some"),
+  claim("I've updated the meeting: it's now at 3pm.", "en", "remove", "remove", "final check A"),
+  claim("He cambiado la reunión a las 3:30.", "es", "remove", "remove", "final check A"),
+  claim("Ya creé la tarea para las 10:30.", "es", "remove", "remove", "final check A"),
+  // Final check B: a closing "?" excuses the claim only when no comma,
+  // semicolon, colon or dash follows the claim first.
+  claim("I've saved your task — anything else?", "en", "remove", "remove", "final check B"),
+  claim("I've saved your task, okay?", "en", "remove", "remove", "final check B"),
+  claim("I've saved it, want me to add another?", "en", "remove", "remove", "final check B"),
+  claim("Ya guardé tu tarea, ¿algo más?", "es", "remove", "remove", "final check B"),
+  claim("Done! I've scheduled it for 9, sound good?", "en", "remove", "remove", "final check B"),
+  // Final check C: only a narrow draft lead-in exempts later text, and never
+  // a record-state claim.
+  claim("Here's a draft plan for tomorrow:\n1. Rent\n2. Groceries\n\nI've saved this plan to your account.", "en", { out: "Here's a draft plan for tomorrow:\n1. Rent\n2. Groceries" }, { out: "Here's a draft plan for tomorrow:\n1. Rent\n2. Groceries" }, "final check C: 'draft plan' is a planning line, not a draft lead-in"),
+  claim("Here's a draft schedule:\n- Rent at 9\n\nYour task has been saved.", "en", { out: "Here's a draft schedule:\n- Rent at 9" }, { out: "Here's a draft schedule:\n- Rent at 9" }, "final check C"),
+  claim("I'd say the best order is:\n- Rent\n\nI've saved these to your tasks.", "en", { out: "I'd say the best order is:\n- Rent" }, { out: "I'd say the best order is:\n- Rent" }, "final check C"),
+  claim("Let's say you start at 9:\n- rent\n\nI've scheduled it.", "en", { out: "Let's say you start at 9:\n- rent" }, { out: "Let's say you start at 9:\n- rent" }, "final check C"),
+  claim("Let me tell you what I changed:\nI've updated your goal.", "en", "remove", "remove", "final check C: the lead-in line itself says 'I changed', so nothing is left and the reply is withheld"),
+  claim("Es decir:\nYa guardé tu tarea.", "es", { out: "Es decir:" }, { out: "Es decir:" }, "final check C (LIMIT: the lead-in line left over is delivered and charged)"),
+  claim("Tell me if this works:\n- rent\n\nI've saved your task.", "en", { out: "Tell me if this works:\n- rent" }, { out: "Tell me if this works:\n- rent" }, "final check C: 'tell me' asks the person"),
+  claim("Te di tres opciones:\nYa guardé tu tarea.", "es", { out: "Te di tres opciones:" }, { out: "Te di tres opciones:" }, "final check C (LIMIT: the lead-in line left over is delivered and charged)"),
+  claim("Here's my reply: I've saved your task.", "en", "remove", "remove", "final check C: same sentence"),
+  claim("I'd say: I've saved your task.", "en", "remove", "remove", "final check C: same sentence"),
+  claim("Don't tell anyone: I've saved your task.", "en", "remove", "remove", "final check C: same sentence"),
+  claim("Here's a draft email:\n\nHi Sam, your appointment has been scheduled for Friday.\n\nThanks", "en", { out: "Here's a draft email:\n\nThanks" }, { out: "Here's a draft email:\n\nThanks" }, "final check C: a record-state claim is never exempt, even in a draft (LIMIT: a true sentence in a genuine draft is cut)"),
+  claim("Summary:\n- Rent first\n\nI've saved your task.", "en", { out: "Summary:\n- Rent first" }, { out: "Summary:\n- Rent first" }, "final wave: a common planning line ending in a colon is no draft lead-in"),
+  claim("Here's what I did:\nI've saved your task.", "en", { out: "Here's what I did:" }, { out: "Here's what I did:" }, "LIMIT (final check): the claim goes but the lead-in line is delivered and charged"),
+  // Final check D: a bare pronoun is no tie when the sentence points at the
+  // reply.
+  claim("I've moved it to the top of the list below.", "en", "keep", "keep", "final check D"),
+  claim("I've added it to the plan below.", "en", "keep", "keep", "final check D"),
+  claim("I've moved that to the morning in this plan.", "en", "keep", "keep", "final check D"),
+  claim("I've moved everything back by 30 minutes in the version below.", "en", "keep", "keep", "final check D"),
+  claim("I've moved it up in my suggestion.", "en", "remove", "remove", "LIMIT (final check): a bare-pronoun tie without a pointing word removes a possibly true sentence"),
+  // Final check E: pointing at the reply excuses only created / updated /
+  // changed without a bare-pronoun object, and never "in the app".
+  claim("I've saved the plan below.", "en", "remove", "remove", "final check E"),
+  claim("I've saved it, as shown below.", "en", "remove", "remove", "final check E"),
+  claim("I've sent the email below to Sam.", "en", "remove", "remove", "final check E"),
+  claim("I've booked the slot below.", "en", "remove", "remove", "final check E"),
+  claim("I've deleted the items listed above.", "en", "remove", "remove", "final check E"),
+  claim("I've created the task below in the app.", "en", "remove", "remove", "final check E: 'in the app' ties it to the app"),
+  claim("I've scheduled the meeting shown below.", "en", "remove", "remove", "final check E"),
+  claim("He guardado el plan de abajo.", "es", "remove", "remove", "final check E"),
 ];
 
 function expectedOutput(text: string, verdict: ClaimVerdict): string {

@@ -620,25 +620,28 @@ export interface ReplyFilterOptions {
 // turns remove the sentence; chat-only turns remove it only when the claim is
 // marked (have / 've, an adverb, went ahead, he / hemos, ya, a Done / Hecho /
 // Listo opener) or the sentence names an app record, addresses the person or
-// has a bare-pronoun object. Kept: a sentence that points at the reply (below,
-// above, in this plan, en esta respuesta, abajo ...) unless the claim names
-// "your <record>"; created / updated / changed introducing content with a
-// colon ("I've created a simple plan for your week:") unless the object
-// before the colon is "your <record>".
+// has a bare-pronoun object. Kept: created / updated / changed (only these can
+// describe the reply's own text) with no "your <record>", no "in the app" and
+// no bare-pronoun object, when the sentence points at the reply (below, above,
+// in this plan, en esta respuesta, abajo ...) or introduces content with a
+// colon ("I've created a simple plan for your week:": colon then space or end,
+// object a / an / some, no clock time such as 3:30 before it).
 // EXTENDED verbs (added, set, moved, removed, marked, rescheduled, cancelled
 // and Spanish equivalents, final ruling of review 5): a claim in every mode
 // only when, from the verb on, the sentence ties it to the person's records:
-// your / tu / tus / su / sus + a record word, a reminder or alarm as object,
-// or a bare-pronoun object (it, lo, la ...). Otherwise kept: these verbs also
-// describe the suggestion in the reply ("I've added some buffer time").
+// your / tu / tus / su / sus + a record word, "in the app", a reminder or alarm
+// as object, or a bare-pronoun object (it, lo, la ...) unless the sentence
+// points at the reply. Otherwise kept: these verbs also describe the
+// suggestion in the reply ("I've added some buffer time").
 // A record-state sentence ("Your task has been saved.") is a claim in every
-// mode, checked first.
-// Never a claim: a question (closing "?"); a conditional, temporal or question
-// word directly before the subject (if, once, after, when, have, did, si,
-// cuando ...); text after a draft lead-in ("Here's a draft:", "You could
-// write:", "Tell your boss:", "Podrías escribir:"), including later lines;
-// negated forms; "nothing" / "nada" right after the verb; the idioms moved
-// past / on, set aside, changed my mind, added up, puesto (mucho) esfuerzo.
+// mode, checked first, and is never exempt as a draft.
+// Never a claim: a question whose "?" closes the claim itself ("Have I added
+// it?"; a tag after a comma or dash, "..., okay?", does not excuse it); a
+// conditional, temporal or question word directly before the subject (if,
+// once, after, when, have, did, si, cuando ...); text after a narrow draft
+// lead-in (see DRAFT_LEAD_IN), including later lines; negated forms;
+// "nothing" / "nada" right after the verb; the idioms moved past / on, set
+// aside, changed my mind, added up, puesto (mucho) esfuerzo.
 // A leading bullet, number, ¡ ¿ * _, "Done," / "Hecho," / "Listo," or a short
 // interjection ("Sure,", "Claro,") is skipped before matching; a sentence that
 // is only "Done." / "Hecho." / "Listo." goes with the claim it announces.
@@ -714,10 +717,20 @@ const REMINDER_OBJECT =
 const NOT_ASSERTED_BEFORE =
   /(?:^|[^\p{L}])(?:if|suppose|supposing|once|after|when|whenever|before|until|unless|as soon as|have|has|had|did|do|does|should|shall|could|would|can|will|may|might|si|cuando|una vez que|en cuanto|despu[eé]s de que|antes de que|hasta que|a menos que)\s+$/u;
 // Text after this is written for the person to send, not the model's claim.
-const DRAFT_LEAD_IN =
-  /\b(?:draft|write|say|tell\b[^:]{0,40}|reply|respond|escribe|escribir|di|dile|decir|responde|borrador)\s*:/;
-const DRAFT_LEAD_IN_LINE =
-  /\b(?:draft|write|say|tell|reply|respond|escribe|escribir|di|dile|decir|responde|borrador)\b[^.!?]*:\s*$/i;
+// Narrow on purpose: "draft" / "borrador" (+ message, email ...) right before
+// the colon, "you could / can / might write | say | reply ...:", "podrías
+// escribir | decir:", or a start with Tell (not "tell me / us") / Dile /
+// Write / Say / Escribe / Di. "Here's a draft plan for tomorrow:", "I'd say:",
+// "Summary:" and "Tell me if this works:" are not lead-ins. Tested against the
+// lowercase text before a claim (same sentence) and against a whole line
+// (later lines); record-state claims are never exempt.
+const DRAFT_LEAD_IN = new RegExp(
+  String
+    .raw`(?:\b(?:draft|borrador)(?:\s+(?:message|email|reply|text|note|response|mensaje|correo|respuesta))?|\b(?:you|podr[ií]as|puedes)\s+(?:(?:could|can|might|should)\s+)?(?:write|say|reply|respond|escribir|decir|responder)\b[^.!?:]{0,30}|^(?:tell|dile)\b(?!\s+(?:me|us)\b)[^.!?:]{0,40}|^(?:write|say|escribe|di|responde))\s*:\s*$`,
+);
+// Within the matched claim, or the sentence: tied to the app itself.
+const IN_THE_APP =
+  /\b(?:in|into|to|on)\s+(?:the\s+)?(?:app|axiomara)\b|\ben\s+(?:la\s+)?(?:app|aplicaci[oó]n|axiomara)\b/;
 // The sentence talks about the reply's own text, not the person's records.
 const POINTS_AT_REPLY =
   /\bbelow\b|\babove\b(?!\s+all\b)|\b(?:in|into|within|throughout|to|of)\s+this\s+(?:[a-z]+\s+)?(?:plan|list|reply|answer|response|message|order|outline|draft|summary|breakdown|table|version|text)\b|\b(?:abajo|arriba)\b|\ba continuaci[oó]n\b|\b(?:en|a|de|dentro de)\s+(?:esta|este|estas|estos)\s+(?:[a-z]+\s+)?(?:respuesta|plan|lista|orden|mensaje|resumen|borrador|texto|versi[oó]n|tabla|esquema)\b/;
@@ -751,30 +764,43 @@ const CLAIM_OPENER = /^(?:done|hecho|listo)(?:\s*[,:;!.–—-]+\s*|\s*$)/;
 const INTERJECTION =
   /^(?:ok|okay|sure|great|alright|all right|perfect|got it|of course|no problem|yes|absolutely|certainly|claro|vale|perfecto|bueno|genial|entendido|de acuerdo|por supuesto|sí)\s*[,:;!–—-]+\s*/;
 
+// `inDraft`: the sentence is on a line after a draft lead-in line; only a
+// record-state claim can be removed there.
 function claimsActionOutsideQuotes(
   sentence: string,
   planningMode = true,
+  inDraft = false,
 ): boolean {
   const collapsed = sentence.replaceAll(QUOTED_TEXT, "[quoted text]")
     .replaceAll(/\s+/g, " ").trim();
-  if (QUESTION_END.test(collapsed)) return false;
+  const isQuestion = QUESTION_END.test(collapsed);
   const full = collapsed.toLowerCase().replaceAll("’", "'")
     .replace(LEADING_LIST_MARKER, "").replace(LEADING_MARKS, "");
   const opener = full.match(CLAIM_OPENER);
   let text = opener ? full.slice(opener[0].length) : full;
   // "Done." / "Hecho." / "Listo." alone announces the claim after it.
-  if (opener && text === "") return true;
+  if (opener && text === "" && !inDraft) return true;
   text = text.replace(INTERJECTION, "");
-  const asserted = (value: string, start: number, claim: string) => {
+  const asserted = (
+    value: string,
+    start: number,
+    claim: string,
+    draftExempts: boolean,
+  ) => {
     const before = value.slice(0, start);
-    return !NOT_ASSERTED_BEFORE.test(before) && !DRAFT_LEAD_IN.test(before) &&
-      !isIdiom(claim, value.slice(start + claim.length));
+    const after = value.slice(start + claim.length);
+    // A question excuses the claim only when the question is the claim
+    // itself ("Have I added it?"), not a tag after it ("..., okay?").
+    if (isQuestion && !/[,;:–—]|\s-\s/.test(after)) return false;
+    return !NOT_ASSERTED_BEFORE.test(before) &&
+      !(draftExempts && DRAFT_LEAD_IN.test(before)) && !isIdiom(claim, after);
   };
   for (const pattern of RECORD_STATE_CLAIMS) {
     for (const match of full.matchAll(pattern)) {
-      if (asserted(full, match.index ?? 0, match[0])) return true;
+      if (asserted(full, match.index ?? 0, match[0], false)) return true;
     }
   }
+  if (inDraft) return false;
   const pointsAtReply = POINTS_AT_REPLY.test(text);
   const aboutRecords = planningMode || opener !== null ||
     APP_RECORD_OR_PERSON.test(text) || BARE_OBJECT_CLAIM.test(text);
@@ -782,23 +808,32 @@ function claimsActionOutsideQuotes(
     for (const match of text.matchAll(pattern)) {
       const start = match.index ?? 0;
       const claim = match[0];
-      if (!asserted(text, start, claim)) continue;
+      if (!asserted(text, start, claim, true)) continue;
       const fromClaim = text.slice(start);
-      const yourRecord = YOUR_RECORD.test(fromClaim);
+      const tied = YOUR_RECORD.test(fromClaim) || IN_THE_APP.test(fromClaim);
+      const bareObject = BARE_OBJECT_CLAIM.test(fromClaim);
       if (EXTENDED_CLAIM.test(claim)) {
+        // A bare pronoun is no tie when the sentence points at the reply
+        // ("I've moved it to the top of the list below.").
         if (
-          yourRecord || REMINDER_OBJECT.test(fromClaim) ||
-          BARE_OBJECT_CLAIM.test(fromClaim)
+          tied || REMINDER_OBJECT.test(fromClaim) ||
+          (bareObject && !pointsAtReply)
         ) return true;
         continue;
       }
-      if (pointsAtReply && !yourRecord) continue;
-      if (INTRODUCING_CLAIM.test(claim)) {
+      if (INTRODUCING_CLAIM.test(claim) && !tied && !bareObject) {
+        // Only created / updated / changed can describe the reply's text.
+        if (pointsAtReply) continue;
+        // ... or introduce content: "I've created a simple plan for your
+        // week:" (colon then space or end, object a / an / some, no clock
+        // time such as 3:30 before it).
         const afterVerb = text.slice(start + claim.length);
-        const colon = afterVerb.indexOf(":");
-        if (colon >= 0 && !YOUR_RECORD.test(afterVerb.slice(0, colon))) {
-          continue;
-        }
+        const colon = afterVerb.search(/:(?=\s|$)/);
+        if (
+          colon >= 0 &&
+          /^\s+(?:a|an|some|un|una|unos|unas)\s/.test(afterVerb) &&
+          !/\d:\d/.test(afterVerb.slice(0, colon))
+        ) continue;
       }
       if (aboutRecords || MARKED_CLAIM.test(claim)) return true;
     }
@@ -848,15 +883,17 @@ function sentencesOf(maskedLine: string): string[] {
 
 // Runs `drop` over each sentence of each line with quoted text hidden, and
 // returns the text without the sentences it flags. Lines after a draft lead-in
-// ("Here's a draft:") are the person's text and are never dropped.
+// line ("Here's a draft:") are the person's text: `drop` is told so.
 function removeSentences(
   value: string,
-  drop: (maskedSentence: string) => boolean,
+  drop: (maskedSentence: string, inDraft: boolean) => boolean,
 ): string {
   let inDraft = false;
   return value.split("\n").map((line) => {
-    if (inDraft) return line;
-    if (DRAFT_LEAD_IN_LINE.test(line.trim())) inDraft = true;
+    const lineInDraft = inDraft;
+    if (!inDraft && DRAFT_LEAD_IN.test(line.trim().toLowerCase())) {
+      inDraft = true;
+    }
     // Hide quoted dialogue before splitting so a multi-sentence quote stays
     // whole and is never read as the assistant's own claim.
     const quotes: string[] = [];
@@ -865,7 +902,7 @@ function removeSentences(
       return `${quotes.length - 1}`;
     });
     const all = sentencesOf(masked);
-    const kept = all.filter((sentence) => !drop(sentence));
+    const kept = all.filter((sentence) => !drop(sentence, lineInDraft));
     const joined = kept.join("").trimEnd();
     // A numbered or bulleted line whose text was removed leaves only "1."
     const text = kept.length < all.length &&
@@ -889,7 +926,8 @@ export function removeUnsupportedActionClaims(
   const planningMode = options.planningMode ?? true;
   return removeSentences(
     value,
-    (sentence) => claimsActionOutsideQuotes(sentence, planningMode),
+    (sentence, inDraft) =>
+      claimsActionOutsideQuotes(sentence, planningMode, inDraft),
   );
 }
 
@@ -1061,8 +1099,10 @@ export function containsBlockedConversationReply(
 // unrelated word elsewhere cannot excuse or condemn a sentence.
 function claimsAction(value: string, planningMode: boolean): boolean {
   let found = false;
-  removeSentences(value, (sentence) => {
-    if (claimsActionOutsideQuotes(sentence, planningMode)) found = true;
+  removeSentences(value, (sentence, inDraft) => {
+    if (claimsActionOutsideQuotes(sentence, planningMode, inDraft)) {
+      found = true;
+    }
     return false;
   });
   return found;
