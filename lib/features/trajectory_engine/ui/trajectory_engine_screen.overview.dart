@@ -12,14 +12,16 @@ class _TrajectoryOverviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
-    final String direction = baseline.pressure >= 80
+    // The workload for the selected range, like every figure on this screen.
+    final int load = baseline.pressureInHorizon;
+    final String direction = load >= 80
         ? (isSpanish ? 'Presión alta' : 'High pressure')
-        : baseline.pressure >= 50
+        : load >= 50
         ? (isSpanish ? 'Requiere atención' : 'Needs attention')
         : (isSpanish ? 'Dirección estable' : 'Steady direction');
-    final Color accent = baseline.pressure >= 80
+    final Color accent = load >= 80
         ? const Color(0xFFFF6B88)
-        : baseline.pressure >= 50
+        : load >= 50
         ? const Color(0xFFFFC857)
         : const Color(0xFF6EE7F9);
     final String momentumBand = isSpanish
@@ -86,9 +88,9 @@ class _TrajectoryOverviewCard extends StatelessWidget {
               Expanded(
                 child: _OverviewMetric(
                   label: isSpanish ? 'CARGA MODELADA' : 'MODELED LOAD',
-                  value: baseline.pressure >= 80
+                  value: load >= 80
                       ? (isSpanish ? 'ALTA' : 'HIGH')
-                      : baseline.pressure >= 50
+                      : load >= 50
                       ? (isSpanish ? 'VIGILAR' : 'WATCH')
                       : (isSpanish ? 'BAJA' : 'LOW'),
                   accent: accent,

@@ -213,8 +213,8 @@ class _BaselineCard extends StatelessWidget {
                 label: journeyText(context, 'Pressure', 'Presión'),
                 value: journeyText(
                   context,
-                  'modeled ${baseline.pressure}/100',
-                  '${baseline.pressure}/100 modelada',
+                  'modeled ${baseline.pressureInHorizon}/100',
+                  '${baseline.pressureInHorizon}/100 modelada',
                 ),
               ),
               _BaselineMetric(
