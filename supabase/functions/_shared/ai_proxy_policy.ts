@@ -541,20 +541,51 @@ export function containsBlockedAssistantClaim(value: string): boolean {
 
 const QUOTED_TEXT = /"[^"\n]*"|“[^”\n]*”|‘[^’\n]*’|(?<!\w)'[^'\n]+'(?!\w)/g;
 
-function claimsActionOutsideQuotes(sentence: string): boolean {
-  const collapsed = sentence.replaceAll(QUOTED_TEXT, "[quoted text]")
-    .replaceAll(/\s+/g, " ").trim();
-  return ACTION_CLAIM_PATTERNS.some((pattern) =>
-    pattern.test(collapsed.toLowerCase())
-  ) || SI_ACTION_CLAIM_PATTERNS.some((pattern) => pattern.test(collapsed));
+export interface ReplyFilterOptions {
+  // True when the turn carries the person's app records (the default, and the
+  // behaviour before this option existed). False for a chat-only turn: the
+  // generic first-person patterns then apply only to a sentence that names an
+  // app record or addresses the person, so fiction narration survives.
+  planningMode?: boolean;
 }
 
-// Conversation replies only. The topic word list in containsBlockedAssistantClaim
-// rejected ordinary text ("there's no guarantee", "won't cure procrastination",
-// story dialogue) and discarded the whole paid reply. Here an unsupported
-// action claim removes only its own sentence, matching the app's on-device
-// repair, and quoted dialogue is never read as the assistant's own claim.
-export function removeUnsupportedActionClaims(value: string): string {
+// Patterns that match any "I/we <verb>ed" sentence with no object requirement.
+const GENERIC_FIRST_PERSON_CLAIMS = new Set<RegExp>([
+  ACTION_CLAIM_PATTERNS[0],
+  ACTION_CLAIM_PATTERNS[6],
+  ACTION_CLAIM_PATTERNS[7],
+  ACTION_CLAIM_PATTERNS[8],
+]);
+const APP_RECORD_OR_PERSON =
+  /\b(?:tasks?|goals?|habits?|notes?|events?|plans?|schedules?|reminders?|appointments?|meetings?|commitments?|milestones?|routines?|calendars?|requests?|lists?|entr(?:y|ies)|records?|you|your|yours|for you|tareas?|metas?|h[aá]bitos?|notas?|eventos?|planes|horarios?|recordatorios?|citas?|reuniones|reuni[oó]n|compromisos?|hitos?|rutinas?|calendarios?|solicitud(?:es)?|listas?|registros?|tu|tus|te|ti|su|sus|usted)\b/i;
+
+function claimsActionOutsideQuotes(
+  sentence: string,
+  planningMode = true,
+): boolean {
+  const collapsed = sentence.replaceAll(QUOTED_TEXT, "[quoted text]")
+    .replaceAll(/\s+/g, " ").trim();
+  const lower = collapsed.toLowerCase();
+  const aboutRecords = planningMode || APP_RECORD_OR_PERSON.test(collapsed);
+  return ACTION_CLAIM_PATTERNS.some((pattern) =>
+    pattern.test(lower) &&
+    (aboutRecords || !GENERIC_FIRST_PERSON_CLAIMS.has(pattern))
+  ) || (aboutRecords &&
+    SI_ACTION_CLAIM_PATTERNS.some((pattern) => pattern.test(collapsed)));
+}
+
+function sentencesOf(maskedLine: string): string[] {
+  const parts = maskedLine.match(/[^.!?]+(?:[.!?]+["”’)]*|$)\s*/g) ?? [];
+  // Never drop text the splitter did not cover (e.g. a leading "...").
+  return parts.join("") === maskedLine ? parts : [maskedLine];
+}
+
+// Runs `drop` over each sentence of each line with quoted text hidden, and
+// returns the text without the sentences it flags.
+function removeSentences(
+  value: string,
+  drop: (maskedSentence: string) => boolean,
+): string {
   return value.split("\n").map((line) => {
     // Hide quoted dialogue before splitting so a multi-sentence quote stays
     // whole and is never read as the assistant's own claim.
@@ -563,21 +594,97 @@ export function removeUnsupportedActionClaims(value: string): string {
       quotes.push(quote);
       return `${quotes.length - 1}`;
     });
-    const parts = masked.match(/[^.!?]+(?:[.!?]+["”’)]*|$)\s*/g) ?? [];
-    // Never drop text the splitter did not cover (e.g. a leading "...").
-    const sentences = parts.join("") === masked ? parts : [masked];
-    return sentences.filter((sentence) => !claimsActionOutsideQuotes(sentence))
+    return sentencesOf(masked).filter((sentence) => !drop(sentence))
       .join("")
       .trimEnd()
       .replaceAll(/(\d+)/g, (_, index) => quotes[Number(index)]);
   }).join("\n").replaceAll(/\n{3,}/g, "\n\n").trim();
 }
 
-export function containsBlockedConversationReply(value: string): boolean {
+// Conversation replies only. The topic word list in containsBlockedAssistantClaim
+// rejected ordinary text ("there's no guarantee", "won't cure procrastination",
+// story dialogue) and discarded the whole paid reply. Here an unsupported
+// action claim removes only its own sentence, matching the app's on-device
+// repair, and quoted dialogue is never read as the assistant's own claim.
+export function removeUnsupportedActionClaims(
+  value: string,
+  options: ReplyFilterOptions = {},
+): string {
+  const planningMode = options.planningMode ?? true;
+  return removeSentences(
+    value,
+    (sentence) => claimsActionOutsideQuotes(sentence, planningMode),
+  );
+}
+
+const LEAK_PHRASES = [
+  /\bsystem prompt\b/,
+  /\bdeveloper message\b/,
+  /\bhidden reasoning\b/,
+  /\bchronospark\b/,
+];
+
+function foldForLeakCheck(value: string): string {
+  return value.replaceAll(/\s+/g, " ").toLowerCase().normalize("NFD")
+    .replaceAll(/[\u0300-\u036f]/g, "").replaceAll("’", "'");
+}
+
+// A reply that repeats a long stretch of the server policy is a prompt dump,
+// whatever words it uses.
+function repeatsPolicyVerbatim(value: string): boolean {
+  const reply = foldForLeakCheck(value);
+  const policy = foldForLeakCheck(AI_PROXY_SYSTEM_POLICY);
+  const window = 60;
+  for (let start = 0; start + window <= policy.length; start += 15) {
+    if (reply.includes(policy.slice(start, start + window))) return true;
+  }
+  return false;
+}
+
+// Leak phrases ("system prompt", "developer message", "hidden reasoning", a
+// retired product name) outside quotation marks. Only the sentence that holds
+// one is removed, so the rest of a paid reply is still delivered. Returns null
+// (refuse the whole reply) when the sentence introduces a block of content
+// ("Here is my system prompt:") or the reply repeats the server policy, since
+// removing one sentence would then not remove the leak. Returns "" when the
+// reply was made only of leak sentences.
+export function redactLeakPhrases(value: string): string | null {
+  if (repeatsPolicyVerbatim(value)) return null;
+  let introducesBlock = false;
+  const redacted = removeSentences(value, (sentence) => {
+    const folded = foldForLeakCheck(sentence);
+    if (!LEAK_PHRASES.some((pattern) => pattern.test(folded))) return false;
+    // A colon after the phrase means content follows it.
+    if (
+      LEAK_PHRASES.some((pattern) =>
+        new RegExp(pattern.source + "[^.!?]*:").test(folded)
+      )
+    ) {
+      introducesBlock = true;
+    }
+    return true;
+  });
+  return introducesBlock ? null : redacted;
+}
+
+// Everything the server does to a conversation reply before delivery: drop
+// unsupported action claims, then drop sentences that leak the prompt. Null
+// means the reply must be refused (and refunded); "" means nothing is left.
+export function sanitizeConversationReply(
+  value: string,
+  options: ReplyFilterOptions = {},
+): string | null {
+  return redactLeakPhrases(removeUnsupportedActionClaims(value, options));
+}
+
+export function containsBlockedConversationReply(
+  value: string,
+  options: ReplyFilterOptions = {},
+): boolean {
   if (containsCategoricalWellbeingClaim(value)) return true;
   const normalized = value.replaceAll(QUOTED_TEXT, "[quoted text]")
     .replaceAll(/\s+/g, " ").toLowerCase().normalize("NFD")
-    .replaceAll(/[̀-ͯ]/g, "");
+    .replaceAll(/[\u0300-\u036f]/g, "");
   return [
     /\bsystem prompt\b/,
     /\bdeveloper message\b/,
@@ -592,7 +699,21 @@ export function containsBlockedConversationReply(value: string): boolean {
     // "esta rutina te va a curar"), unless denied ("no te va a curar").
     /(?<!\b(?:no|nunca|nada|ni)\s+)\bte\s+(?:(?:voy|va|vamos|van)\s+a\s+|(?:he|ha|hemos|han)\s+)?(?:cur(?:o|a|an|ara|aran|ar|ado)|diagnostic(?:o|a|an|ara|ar|ado)|prescrib(?:o|e|en|ira|ir)|prescrito|garantiz(?:o|a|an|ara|ar|ado))\b/,
   ].some((pattern) => pattern.test(normalized.replaceAll("’", "'"))) ||
-    claimsActionOutsideQuotes(value.replaceAll(/\n+/g, " "));
+    claimsAction(value, options.planningMode ?? true);
+}
+
+// Planning turns read the whole reply as one text (unchanged). Chat-only turns
+// judge each sentence on its own so one claim sentence cannot be excused or
+// condemned by an unrelated word elsewhere in the reply.
+function claimsAction(value: string, planningMode: boolean): boolean {
+  const flat = value.replaceAll(/\n+/g, " ");
+  if (planningMode) return claimsActionOutsideQuotes(flat, true);
+  let found = false;
+  removeSentences(flat, (sentence) => {
+    if (claimsActionOutsideQuotes(sentence, false)) found = true;
+    return false;
+  });
+  return found;
 }
 
 export function containsRecommendationContradiction(value: string): boolean {

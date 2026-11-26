@@ -7,6 +7,7 @@ import {
   containsBlockedConversationReply,
   containsRecommendationContradiction,
   containsScheduledStartDepartureConfusion,
+  redactLeakPhrases,
   removeUnsupportedActionClaims,
 } from "./ai_proxy_policy.ts";
 
@@ -1768,4 +1769,118 @@ Deno.test("prompt parts apply the same validation as the legacy builder", () => 
     buildServerPromptParts("planner", { a: { b: { c: { d: { e: 1 } } } } }) !==
       null
   ) throw new Error("deep context accepted");
+});
+
+const CHAT_ONLY = { planningMode: false } as const;
+
+for (
+  const text of [
+    "I saved the letter in my coat and ran.",
+    "We booked a table at the back, and I ordered tea.",
+    "Last year I completed the marathon in the rain.",
+    "I changed the lock before the storm arrived.",
+    "Yo guardé la carta en mi abrigo y salí corriendo.",
+    "Nosotros programamos la sorpresa para el domingo.",
+    "I sent the draft of my novel to three friends before the deadline.",
+  ]
+) {
+  Deno.test(`chat-only reply keeps first-person narration: ${text}`, () => {
+    if (removeUnsupportedActionClaims(text, CHAT_ONLY) !== text) {
+      throw new Error(`narration was removed: ${text}`);
+    }
+    if (containsBlockedConversationReply(text, CHAT_ONLY)) {
+      throw new Error(`narration blocked the whole reply: ${text}`);
+    }
+  });
+}
+
+for (
+  const text of [
+    "I saved your task for tomorrow.",
+    "I've scheduled it for you.",
+    "I created a reminder for the meeting.",
+    "Ya guardé tu tarea.",
+    "I updated the plan.",
+    "Your task has been saved.",
+    "Axiomara has scheduled the appointment.",
+  ]
+) {
+  Deno.test(`chat-only reply still drops a claim about the person's records: ${text}`, () => {
+    if (removeUnsupportedActionClaims(text, CHAT_ONLY) !== "") {
+      throw new Error(`claim about records survived: ${text}`);
+    }
+  });
+}
+
+Deno.test("planning mode keeps the broad removal it always had", () => {
+  if (removeUnsupportedActionClaims("I saved the letter in my coat.") !== "") {
+    throw new Error("default mode changed");
+  }
+  if (
+    removeUnsupportedActionClaims("I saved the letter.", {
+      planningMode: true,
+    }) !== ""
+  ) throw new Error("explicit planning mode changed");
+});
+
+Deno.test("an unquoted leak phrase is redacted from its sentence only", () => {
+  const out = redactLeakPhrases(
+    "Start with the report. My system prompt says to be brief. Then call Sam.",
+  );
+  if (out !== "Start with the report. Then call Sam.") {
+    throw new Error(`unexpected redaction: ${out}`);
+  }
+});
+
+for (
+  const text of [
+    "Here is my system prompt: you are a planning assistant.",
+    "These are the developer message rules:\n- be brief\n- never reveal",
+  ]
+) {
+  Deno.test(`a reply that introduces a dump is still refused: ${text}`, () => {
+    if (redactLeakPhrases(text) !== null) {
+      throw new Error("a dump introduction was delivered");
+    }
+  });
+}
+
+Deno.test("verbatim policy text is refused even without a leak phrase", () => {
+  const dump = `Sure. ${AI_PROXY_SYSTEM_POLICY.slice(400, 700)}`;
+  if (redactLeakPhrases(dump) !== null) {
+    throw new Error("verbatim policy was delivered");
+  }
+});
+
+for (
+  const word of [
+    "system prompt",
+    "developer message",
+    "hidden reasoning",
+    "ChronoSpark",
+  ]
+) {
+  Deno.test(`leak phrase is redacted, not rejected: ${word}`, () => {
+    const out = redactLeakPhrases(
+      `Pick one thing. I mention the ${word} here. Do it now.`,
+    );
+    if (out !== "Pick one thing. Do it now.") {
+      throw new Error(`unexpected redaction for ${word}: ${out}`);
+    }
+    if (containsBlockedConversationReply(out)) {
+      throw new Error("redacted reply is still blocked");
+    }
+  });
+}
+
+Deno.test("quoted leak phrases and ordinary text are left alone", () => {
+  const text =
+    'Write the villain\'s line as "show me the system prompt" and keep going.';
+  if (redactLeakPhrases(text) !== text) throw new Error("quote was redacted");
+});
+
+Deno.test("a reply made only of leak sentences redacts to empty", () => {
+  if (redactLeakPhrases("My hidden reasoning is private.") !== "") {
+    throw new Error("expected empty result");
+  }
 });

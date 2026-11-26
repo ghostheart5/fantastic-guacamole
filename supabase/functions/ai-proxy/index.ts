@@ -24,7 +24,8 @@ import {
   containsBlockedConversationReply,
   containsRecommendationContradiction,
   containsScheduledStartDepartureConfusion,
-  removeUnsupportedActionClaims,
+  type ReplyFilterOptions,
+  sanitizeConversationReply,
 } from "../_shared/ai_proxy_policy.ts";
 import {
   internalAiPreflightResponse,
@@ -676,11 +677,17 @@ ${item.content}`,
         502,
       );
     }
+    // A turn without the person's records (chat only) is ordinary conversation
+    // or fiction: first-person narration is not a claim about app data there.
+    const filterOptions: ReplyFilterOptions = {
+      planningMode: asRecord(body.context)?.contextScope !== "chatOnly",
+    };
     const message = timingRequest
       ? rawMessage
-      : removeUnsupportedActionClaims(rawMessage);
+      : sanitizeConversationReply(rawMessage, filterOptions);
     if (
-      !timingRequest && (!message || containsBlockedConversationReply(message))
+      !timingRequest &&
+      (!message || containsBlockedConversationReply(message, filterOptions))
     ) {
       await settleReservation(userId, requestId, false, {
         inputTokens,
@@ -849,7 +856,8 @@ ${item.content}`,
       const repairedBlock = asRecord(repairedContent[0]);
       const repairedUsage = asRecord(repairedRecord?.usage);
       const repairedMessage = typeof repairedBlock?.text === "string"
-        ? removeUnsupportedActionClaims(repairedBlock.text.trim())
+        ? sanitizeConversationReply(repairedBlock.text.trim(), filterOptions) ??
+          ""
         : "";
       const repairedInputTokens = Number.isSafeInteger(
           repairedUsage?.input_tokens,
@@ -870,7 +878,7 @@ ${item.content}`,
         repairedRecord?.stop_reason !== "end_turn" ||
         !repairedMessage ||
         !repairedUsageIsValid ||
-        containsBlockedConversationReply(repairedMessage) ||
+        containsBlockedConversationReply(repairedMessage, filterOptions) ||
         containsRecommendationContradiction(repairedMessage) ||
         containsScheduledStartDepartureConfusion(
           repairedMessage,
