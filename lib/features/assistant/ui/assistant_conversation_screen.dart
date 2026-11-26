@@ -144,6 +144,10 @@ class _AssistantConversationScreenState
   // The error is about running out of credits: Get credits is offered.
   bool _outOfCredits = false;
   ConversationQuote? _pending;
+  // When [_pending] can no longer be collected.
+  DateTime? _pendingCollectBefore;
+  // Collects [_pending] again while its first call is still being answered.
+  Timer? _reservedRetry;
   // The operation whose confirmed request has started its storage write:
   // from then on it is sent (see _send), so Stop waiting no longer withdraws
   // it.
@@ -379,6 +383,7 @@ class _AssistantConversationScreenState
     _voiceActivation++;
     _voiceControllerForDispose?.invalidatePendingCapture();
     _paidWaitTimer?.cancel();
+    _reservedRetry?.cancel();
     final VoiceController? voiceController = _voiceControllerForDispose;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
@@ -470,6 +475,7 @@ class _AssistantConversationScreenState
       return;
     }
     _paidWaitTimer?.cancel();
+    _reservedRetry?.cancel();
     final generation = _generation;
     final operation = ++_operation;
     final prompt = retry
@@ -641,6 +647,7 @@ class _AssistantConversationScreenState
           );
         }
         _pending = quote;
+        _pendingCollectBefore = record.collectBefore;
       }
       _paidWaitTimer = Timer(ref.read(conversationPaidWaitTimeoutProvider), () {
         if (!current() || !_busy) return;
@@ -747,6 +754,16 @@ class _AssistantConversationScreenState
       });
     } on ConversationFailure catch (error) {
       if (!current()) return;
+      if (error.code == 'request_reserved' && executing != null) {
+        // The first call of this same request id is still running (a re-send
+        // after a sign-in change or restart): it stays stored and is
+        // collected again shortly, with the same id.
+        _collectAgainLater(
+          executing,
+          recovered: executing.packet.requestId == _recoveringRequestId,
+        );
+        return;
+      }
       if (<String>{
         'daily_budget_exceeded',
         'timing_context_missing',

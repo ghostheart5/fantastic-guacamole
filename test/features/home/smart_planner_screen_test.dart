@@ -700,6 +700,144 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Choose a step: a request still being answered is collected again out of sight and held',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final paid = <Map<String, dynamic>>[];
+      final backend = InMemorySecureStoreBackend();
+      final never = Completer<void>();
+      Map<String, dynamic> quoteFor(Map<String, dynamic> body) => {
+        'requestId': body['requestId'],
+        'quote': <String, dynamic>{
+          'credits': 4,
+          'digest': 'fixture',
+          'proof': 'fixture',
+          'policy': 'fixture',
+          'expiresAt': DateTime.now()
+              .add(const Duration(minutes: 5))
+              .millisecondsSinceEpoch,
+        },
+      };
+      final container = _container(
+        conversationAvailable: true,
+        allowedAi: true,
+        secureBackend: backend,
+        conversationTransport: (body) async {
+          if (body['quoteOnly'] == true) {
+            return (status: 200, data: quoteFor(body));
+          }
+          paid.add(body);
+          await never.future;
+          return (status: 200, data: <String, dynamic>{});
+        },
+      );
+      addTearDown(() async {
+        if (!never.isCompleted) never.complete();
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+      await _pumpPlanner(tester, container);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'Which step first?',
+      );
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      for (var i = 0; i < 100 && find.text('Send').evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.tap(find.text('Send'));
+      for (
+        var i = 0;
+        i < 100 && find.text('Use 4 credits').evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.tap(find.text('Use 4 credits'));
+      for (var i = 0; i < 100 && paid.isEmpty; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(paid, hasLength(1));
+
+      // The app restarts with the free planner remembered while the first
+      // call is still being answered on the server.
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+      final restarted = _container(
+        conversationAvailable: true,
+        allowedAi: true,
+        secureBackend: backend,
+        conversationTransport: (body) async {
+          if (body['quoteOnly'] == true) {
+            return (status: 200, data: quoteFor(body));
+          }
+          paid.add(body);
+          if (paid.length == 2) {
+            return (
+              status: 409,
+              data: <String, dynamic>{
+                'requestId': body['requestId'],
+                'remainingCredits': 20,
+                'error': 'request_reserved',
+              },
+            );
+          }
+          return (
+            status: 200,
+            data: <String, dynamic>{
+              'requestId': body['requestId'],
+              'message': 'Start with the smallest step.',
+              'creditsCharged': 4,
+              'remainingCredits': 20,
+              'model': 'transport-fixture',
+            },
+          );
+        },
+      );
+      addTearDown(restarted.dispose);
+      restarted
+          .read(assistantChatModeProvider.notifier)
+          .choose(ConversationSurface.planner, onDevice: true);
+      await _pumpPlanner(tester, restarted);
+      for (var i = 0; i < 10; i++) {
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(paid, hasLength(2));
+      // Not an outcome: nothing is announced on the free planner yet.
+      expect(find.byKey(const Key('assistant-mode-reply-ready')), findsNothing);
+      await tester.pump(const Duration(seconds: 3));
+      for (var i = 0; i < 10; i++) {
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(paid, hasLength(3));
+      expect(paid.map((b) => b['requestId']).toSet(), hasLength(1));
+      expect(
+        find.byKey(const Key('assistant-mode-reply-ready')),
+        findsOneWidget,
+      );
+      await _press(tester, const Key('assistant-mode-ai'));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 200)),
+      );
+      await tester.pump(const Duration(seconds: 2));
+      await tester.scrollUntilVisible(
+        find.text('Start with the smallest step.'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Start with the smallest step.'), findsOneWidget);
+      expect(paid, hasLength(3));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('Choose a step: AI chat without consent opens the consent step', (
     tester,
   ) async {

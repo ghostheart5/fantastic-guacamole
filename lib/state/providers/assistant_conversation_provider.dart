@@ -196,11 +196,21 @@ final conversationServiceProvider = Provider<ConversationService>((ref) {
   );
 });
 
+/// How long a screen waits before collecting again a request whose first call
+/// the server reports as still running (`request_reserved`).
+final conversationReservedRetryIntervalProvider = Provider<Duration>(
+  (ref) => const Duration(seconds: 3),
+);
+
 /// Paid executions outlive the screen that confirmed them. Leaving Chat or
 /// Choose a step disposes the screen, not this registry, so a returning screen
 /// joins the running request instead of sending it again. A new account or
-/// session starts an empty registry; its stored request is then re-sent with
-/// the same id, which the server answers from its reply cache.
+/// sign-in starts an empty registry; its stored request is then re-sent with
+/// the same id. Once the first call has finished the server answers that from
+/// its reply cache; while the first call is still running it answers
+/// `request_reserved` without a second charge, and the screen keeps the
+/// request and collects it again a few seconds later, until it can no longer
+/// be collected.
 typedef ConversationPurgeTimer =
     Timer Function(Duration delay, void Function() callback);
 

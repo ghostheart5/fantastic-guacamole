@@ -55,8 +55,10 @@ ProviderContainer _setup(
   AccountStorageScope Function()? readScope,
   Completer<void>? releaseGate,
   bool fakeClockPurgeTimer = false,
+  DateTime Function()? clock,
 }) => ProviderContainer(
   overrides: [
+    if (clock != null) conversationClockProvider.overrideWithValue(clock),
     if (fakeClockPurgeTimer)
       conversationPurgeTimerProvider.overrideWithValue(Timer.new),
     secureStoreProvider.overrideWithValue(SecureStore(backend: backend)),
@@ -1636,6 +1638,159 @@ void main() {
       },
     );
   }
+
+  // I1: the server answers request_reserved while the first call of the same
+  // request id is still running.
+  _Response stillReserved(Map<String, dynamic> body) => (
+    status: 409,
+    data: <String, dynamic>{
+      'requestId': body['requestId'],
+      'remainingCredits': 20,
+      'error': 'request_reserved',
+    },
+  );
+  const stillOnItsWay =
+      'Your reply is still on its way: the first attempt of this same request is still being answered. It is collected again here in a few seconds, and nothing more is charged for collecting it. Your question is kept.';
+  Future<void> pumpSome(WidgetTester tester) async {
+    for (var i = 0; i < 10; i++) {
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+  }
+
+  for (final surface in ConversationSurface.values) {
+    testWidgets(
+      '${surface.name}: a recovered request still being answered is kept, said truthfully and collected again with the same id',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final backend = InMemorySecureStoreBackend();
+        await storeEarlierRunRequest(backend, surface);
+        final paid = <Map<String, dynamic>>[];
+        final container = _setup((body) async {
+          if (body['quoteOnly'] == true) return _quote(body);
+          paid.add(body);
+          if (paid.length == 1) return stillReserved(body);
+          return _answer(body['requestId'], 'The reply that was on its way.');
+        }, backend);
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await _pumpScreen(tester, container, surface);
+        await pumpSome(tester);
+        expect(paid, hasLength(1));
+        expect(find.text(stillOnItsWay), findsOneWidget);
+        expect(find.textContaining('could not complete'), findsNothing);
+        expect(await _storedChat(backend), contains('pendingRequests'));
+
+        await tester.pump(const Duration(seconds: 3));
+        await _settle(tester);
+        expect(paid, hasLength(2));
+        expect(paid.map(jsonEncode).toSet(), hasLength(1));
+        expect(find.text('The reply that was on its way.'), findsOneWidget);
+        expect(find.text(stillOnItsWay), findsNothing);
+        expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'es: Chat after a sign-in change: the re-sent request still being answered is collected again, never charged twice',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      addTearDown(() => _sessionGeneration = 1);
+      final backend = InMemorySecureStoreBackend();
+      final first = Completer<_Response>();
+      final paid = <Map<String, dynamic>>[];
+      final container = _setup((body) async {
+        if (body['quoteOnly'] == true) return _quote(body);
+        paid.add(body);
+        if (paid.length == 1) return first.future;
+        if (paid.length == 2) return stillReserved(body);
+        return _answer(body['requestId'], 'La respuesta que seguía en camino.');
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pumpScreen(
+        tester,
+        container,
+        ConversationSurface.si,
+        language: 'es',
+      );
+      await _confirmPaidRequestSpanish(tester, 'Compara mis dos opciones.');
+      await pumpSome(tester);
+      expect(paid, hasLength(1));
+
+      // The same account signs in again while the first call is running.
+      _sessionGeneration = 2;
+      container.invalidate(authSessionBoundaryProvider);
+      await pumpSome(tester);
+      expect(paid, hasLength(2));
+      expect(
+        find.text(
+          'Tu respuesta sigue en camino: el primer intento de esta misma solicitud aún se está respondiendo. Se vuelve a recoger aquí en unos segundos y no se cobra nada más por recogerla. Tu pregunta se conserva.',
+        ),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 3));
+      await _settle(tester);
+      expect(paid, hasLength(3));
+      expect(paid.map((b) => b['requestId']).toSet(), hasLength(1));
+      expect(find.text('La respuesta que seguía en camino.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'a request still being answered when it can no longer be collected falls back to the expired text',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      await storeEarlierRunRequest(backend, ConversationSurface.si);
+      final paid = <Map<String, dynamic>>[];
+      var shift = Duration.zero;
+      final container = _setup(
+        (body) async {
+          if (body['quoteOnly'] == true) return _quote(body);
+          paid.add(body);
+          return stillReserved(body);
+        },
+        backend,
+        clock: () => DateTime.now().add(shift),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await pumpSome(tester);
+      expect(find.text(stillOnItsWay), findsOneWidget);
+      // Still collectable: collected again, still being answered.
+      await tester.pump(const Duration(seconds: 3));
+      await pumpSome(tester);
+      expect(paid, hasLength(2));
+      expect(find.text(stillOnItsWay), findsOneWidget);
+
+      shift = const Duration(minutes: 6);
+      await tester.pump(const Duration(seconds: 3));
+      await _settle(tester);
+      expect(paid, hasLength(2), reason: 'Nothing sent after the deadline');
+      expect(
+        find.textContaining('its reply can no longer be collected'),
+        findsOneWidget,
+      );
+      expect(find.text(stillOnItsWay), findsNothing);
+      expect(find.text('Retry same request'), findsNothing);
+      expect(await _storedChat(backend), isNot(contains('pendingRequests')));
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 enum _Hold { read, write }
