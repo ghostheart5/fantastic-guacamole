@@ -491,7 +491,7 @@ class _HowThisHelps extends StatelessWidget {
       journeyText(
         context,
         '${InsightsCopy.patternsEn} shows what you have actually done: tasks finished, habits and streaks. Use the switch at the top to open it.',
-        '${InsightsCopy.patternsEs} muestra lo que de verdad hiciste: tareas terminadas, hábitos y rachas. Usa el selector de arriba para abrirlo.',
+        'En ${InsightsCopy.patternsEs} ves lo que de verdad hiciste: tareas terminadas, hábitos y rachas. Usa el selector de arriba para abrir esa parte.',
       ),
       journeyText(
         context,

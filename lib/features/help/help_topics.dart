@@ -74,6 +74,10 @@ const GuidanceText _chooseStep = GuidanceText(
   'Choose a step',
   'Elegir un paso',
 );
+const GuidanceText _patternsPlace = GuidanceText(
+  '${InsightsCopy.tabNameEn} › ${InsightsCopy.patternsEn}',
+  '${InsightsCopy.tabNameEs} › ${InsightsCopy.patternsEs}',
+);
 const GuidanceText _patterns = GuidanceText(
   InsightsCopy.patternsEn,
   InsightsCopy.patternsEs,
@@ -134,7 +138,7 @@ HelpTopic? _hintTopic(GuidanceHint hint) {
       showMe: AppView.trajectoryEngine,
     ),
     GuidanceLessonId.progression => topic(
-      place: _patterns,
+      place: _patternsPlace,
       showMe: AppView.progression,
     ),
     // The hint says "Mark here", which only makes sense on Habits itself.

@@ -79,6 +79,16 @@ void main() {
         );
       });
 
+      test('the Patterns help topic is placed inside Insights ($lang)', () {
+        final HelpTopic topic = HelpTopics.all.firstWhere(
+          (HelpTopic t) => t.showMe == AppView.progression,
+        );
+        expect(
+          topic.place!.of(spanish: spanish),
+          '${copy.tabName} › ${copy.patterns}',
+        );
+      });
+
       test('the Patterns guidance hint uses the new name ($lang)', () {
         final GuidanceHint hint = GuidanceCatalogue.progression;
         expect(
@@ -118,18 +128,29 @@ void main() {
       RegExp(r'ACTIVITY IMPACT'),
       RegExp(r'\bActivity shows\b'),
       RegExp(r'Back to Insights|Volver a Perspectivas'),
+      // The old guidance wording.
+      RegExp(
+        r'Review your activity|Revisa tu actividad|Review activity|Revisar actividad',
+        caseSensitive: false,
+      ),
     ];
     final List<String> hits = <String>[];
-    for (final FileSystemEntity entity in Directory(
-      'lib',
-    ).listSync(recursive: true)) {
-      if (entity is! File || !entity.path.endsWith('.dart')) continue;
-      final String path = entity.path.replaceAll(r'\', '/');
-      if (exempt.contains(path)) continue;
-      final String text = entity.readAsStringSync();
-      for (final RegExp pattern in retired) {
-        for (final RegExpMatch match in pattern.allMatches(text)) {
-          hits.add('$path: ${match.group(0)}');
+    // The app, the device flows and the journey tests all show these names.
+    for (final String root in <String>['lib', '.maestro', 'integration_test']) {
+      for (final FileSystemEntity entity in Directory(
+        root,
+      ).listSync(recursive: true)) {
+        if (entity is! File ||
+            !(entity.path.endsWith('.dart') || entity.path.endsWith('.yaml'))) {
+          continue;
+        }
+        final String path = entity.path.replaceAll(r'\', '/');
+        if (exempt.contains(path)) continue;
+        final String text = entity.readAsStringSync();
+        for (final RegExp pattern in retired) {
+          for (final RegExpMatch match in pattern.allMatches(text)) {
+            hits.add('$path: ${match.group(0)}');
+          }
         }
       }
     }

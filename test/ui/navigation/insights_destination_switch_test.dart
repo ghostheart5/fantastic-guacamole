@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
+import 'package:fantastic_guacamole/tutorial/guide_hint_layout.dart';
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/ui/navigation/insights_destination_switch.dart';
 import 'package:flutter/material.dart';
@@ -158,4 +159,59 @@ void main() {
       expect(size.width, lessThanOrEqualTo(320 - 40));
     });
   }
+
+  testWidgets('a guidance hint card moves the switch down instead of covering '
+      'it (360x640)', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final ProviderContainer container = ProviderContainer();
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          locale: const Locale('en'),
+          supportedLocales: ChronoSparkLocalizations.supportedLocales,
+          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+            ChronoSparkLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          builder: (BuildContext context, Widget? child) => Stack(
+            children: <Widget>[
+              GuideHintSpace(child: child ?? const SizedBox.shrink()),
+              // A card as tall as a real hint, drawn over the top of the app.
+              const Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 150,
+                child: ColoredBox(color: Color(0xFF223344)),
+              ),
+            ],
+          ),
+          home: const Scaffold(
+            body: Padding(
+              padding: EdgeInsets.all(20),
+              child: InsightsDestinationSwitch(current: AppView.progression),
+            ),
+          ),
+        ),
+      ),
+    );
+    container
+        .read(guideHintReservedHeightProvider.notifier)
+        .reserve(Object(), 150);
+    await tester.pump();
+    await tester.pump();
+    final Rect rect = tester.getRect(
+      find.byKey(InsightsDestinationSwitch.switchKey),
+    );
+    expect(rect.top, greaterThanOrEqualTo(150));
+    await tester.tap(find.text('Future outcomes'), warnIfMissed: true);
+    await tester.pump();
+    expect(container.read(appFlowProvider), AppView.trajectoryEngine);
+  });
 }

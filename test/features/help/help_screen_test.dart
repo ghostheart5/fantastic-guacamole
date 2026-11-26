@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fantastic_guacamole/l10n/insights_copy.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -303,11 +304,14 @@ void main() {
         if (topic.showMe case final AppView view
             when topic.whereToTap == null) {
           for (final bool es in <bool>[false, true]) {
-            expect(
-              topic.place!.of(spanish: es),
-              NavigationCopy(es).label(AppRouteRegistry.routeForView(view)),
-              reason: topic.id,
-            );
+            final String label = NavigationCopy(
+              es,
+            ).label(AppRouteRegistry.routeForView(view));
+            // Patterns is reached inside the Insights tab.
+            final String expected = view == AppView.progression
+                ? '${InsightsCopy(es).tabName} › $label'
+                : label;
+            expect(topic.place!.of(spanish: es), expected, reason: topic.id);
           }
         }
       }
