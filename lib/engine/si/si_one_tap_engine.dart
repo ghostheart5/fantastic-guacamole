@@ -443,9 +443,6 @@ final class _Run {
       'Tareas terminadas u omitidas en los últimos 14 días',
     ),
   );
-  String get milestonesGroup =>
-      groupLink('milestones', SIV2Source.milestones, t('Milestones', 'Hitos'));
-
   void fact(String text, Iterable<String> ids) => _facts.add(
     SIV2Statement(
       kind: SIV2StatementKind.observedFact,
