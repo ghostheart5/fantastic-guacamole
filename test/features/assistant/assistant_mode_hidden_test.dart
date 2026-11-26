@@ -505,7 +505,9 @@ void main() {
       for (var i = 0; i < 10; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      // The free answer is fine whatever the order was...
+      // Chat is already on the free assistant, so nothing switches away from
+      // the recovered request and the question is answered whether or not
+      // that request has started by then...
       expect(find.byKey(const Key('one-tap-free-line')), findsOneWidget);
       // ...and the recovered reply still arrives once, with its notice.
       server.gate.complete();

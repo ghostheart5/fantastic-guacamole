@@ -556,9 +556,12 @@ void main() {
   test(
     'the 14 day window counts calendar days across a clock change',
     () async {
-      // 8 March 2026 is a 23 hour day in zones that change their clocks. A task
-      // finished exactly 14 calendar days earlier, at the same local time, is
-      // inside the window; one 15 days earlier is not.
+      // 8 March 2026 is a 23 hour day in the US zones. A task finished
+      // exactly 14 calendar days earlier, at the same local time, is inside
+      // the window; one 15 days earlier is not. One at 11:30 on 22 February
+      // is inside a window of 336 hours (it starts at 11:00 local there) but
+      // before the calendar-day window, so it is left out. That case can
+      // only fail on a machine in a zone that moves its clocks on 8 March.
       final DateTime at = DateTime(2026, 3, 8, 12);
       final SIV2EvidenceSnapshot s = await gateway(
         tasks: <TaskEntity>[
@@ -576,9 +579,51 @@ void main() {
             isCompleted: true,
             completedAt: DateTime(2026, 2, 21, 11),
           ),
+          TaskEntity(
+            id: 'hour',
+            title: 'Hour',
+            createdAt: DateTime(2026, 1, 1),
+            isCompleted: true,
+            completedAt: DateTime(2026, 2, 22, 11, 30),
+          ),
         ],
       ).read(observedAt: at.toUtc(), includeActivity: true);
       expect(s.recentTasks.map((t) => t.id), <String>['edge']);
+    },
+  );
+
+  test(
+    'a habit tracked for 5 days is counted, and judged, over those days',
+    () async {
+      final HabitEntity young = HabitEntity(
+        id: 'y',
+        title: 'Stretch',
+        createdAt: now.subtract(const Duration(days: 5)),
+      );
+      final SIV2EvidenceSnapshot s = await gateway(
+        habits: <HabitEntity>[young],
+        occurrences: <HabitOccurrenceEntity>[
+          for (final int i in <int>[0, 1, 3])
+            checkIn(young, now.subtract(Duration(days: i))),
+        ],
+      ).read(observedAt: now, includeActivity: true);
+      final SIV2HabitEvidence habit = s.habits.single;
+      expect(habit.checkInsSinceTracked, 3);
+      expect(habit.checkInsInWindow, 3);
+      expect(habit.trackedSince, now.subtract(const Duration(days: 5)));
+      // Six calendar days from the day it was created to today, both counted.
+      final String line = const SIOneTapEngine()
+          .answer(
+            question: SIOneTapQuestion.improveRoutine,
+            snapshot: s,
+            now: now.toLocal(),
+            isSpanish: false,
+          )
+          .response
+          .observedFacts
+          .first
+          .text;
+      expect(line, contains('checked in on 3 of the last 6 days'));
     },
   );
 }
