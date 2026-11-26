@@ -319,8 +319,14 @@ void main() {
       );
       expect(
         GuidanceCatalogue.progression.body.es,
-        'Ve las tareas y los hitos que registraste. Abre los detalles para '
-        'revisarlos.',
+        'Ve las tareas y los hábitos que registraste: rachas, registros y '
+        'cuándo terminas las cosas.',
+      );
+      // The page has no "details" to open; it shows recorded tasks and habits.
+      expect(
+        GuidanceCatalogue.progression.body.en,
+        'See the tasks and habits you recorded: streaks, check-ins and when '
+        'you get things done.',
       );
       expect(
         GuidanceCatalogue.timelineExecution.body.es,

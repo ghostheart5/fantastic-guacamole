@@ -298,8 +298,8 @@ abstract final class GuidanceCatalogue {
     route: RoutePaths.progression,
     title: GuidanceText('Review your patterns', 'Revisa tus patrones'),
     body: GuidanceText(
-      'See the tasks and milestones you recorded. Open the details to review them.',
-      'Ve las tareas y los hitos que registraste. Abre los detalles para revisarlos.',
+      'See the tasks and habits you recorded: streaks, check-ins and when you get things done.',
+      'Ve las tareas y los hábitos que registraste: rachas, registros y cuándo terminas las cosas.',
     ),
     action: GuidanceAction(
       GuidanceActionKind.openScreen,
