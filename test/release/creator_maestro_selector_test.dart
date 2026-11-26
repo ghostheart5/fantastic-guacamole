@@ -610,11 +610,11 @@ void main() {
           'See tasks with dates and past activity. Open a task to update it.',
         ],
         '08-progression': [
-          'Your recorded progress',
+          'Insights',
           'Patterns',
           'Future outcomes',
           'These are estimates, not promises.',
-          'Review completed tasks and recorded milestones. You can start again at any time.',
+          'Review your recorded history: tasks, habits and streaks',
         ],
       };
       for (final flow in observed.entries) {

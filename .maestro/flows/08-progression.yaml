@@ -10,10 +10,10 @@ tags:
     file: ../subflows/open-from-nexus.yaml
     env:
       TARGET: "Patterns"
-- assertVisible: 'Your recorded progress'
+- assertVisible: 'Insights'
 - assertVisible: 'Patterns'
 - assertVisible: 'Future outcomes'
-- assertVisible: 'Review completed tasks and recorded milestones. You can start again at any time.'
+- assertVisible: 'Review your recorded history: tasks, habits and streaks'
 # The two-part switch moves to the other destination of the Insights tab.
 - tapOn: 'Future outcomes'
 - assertVisible: 'These are estimates, not promises.'
