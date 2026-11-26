@@ -3,13 +3,16 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/engine/trajectory/future_consequence_engine.dart';
+import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_engine_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
+import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -193,6 +196,123 @@ void main() {
     );
   });
 
+  testWidgets('a saved edit asks about reminders, as the other task editors '
+      'do; Cancel does not', (WidgetTester tester) async {
+    final _Fixture f = await _pump(tester, accountA);
+    await _choose(tester, 'Delay the milestone');
+    await _review(tester, 'Edit this task');
+    await tester.tap(find.text('Cancel'));
+    await settleFutureOutcomes(tester);
+    expect(f.reminderAsks, isEmpty);
+    await _review(tester, 'Edit this task');
+    await tester.tap(find.text('Save'));
+    await settleFutureOutcomes(tester);
+    expect(f.actions.log, <String>['update:task-a']);
+    expect(f.reminderAsks, hasLength(1));
+  });
+
+  testWidgets('the account switches and Save is tapped before the next frame: '
+      'nothing is written', (WidgetTester tester) async {
+    final _Fixture f = await _pump(tester, accountA);
+    await _choose(tester, 'Delay the milestone');
+    await _review(tester, 'Edit this task');
+    expect(find.byType(AlertDialog), findsOneWidget);
+    // No frame between the switch and the tap.
+    f.container.read(_scope.notifier).set(accountB);
+    await tester.tap(find.text('Save'), warnIfMissed: false);
+    await settleFutureOutcomes(tester);
+    await settleFutureOutcomes(tester);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(f.actions.log, isEmpty);
+    expect(f.reminderAsks, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final Locale locale in const <Locale>[Locale('en'), Locale('es')]) {
+    final bool es = locale.languageCode == 'es';
+    testWidgets('${locale.languageCode}: tasks that cannot be read: a plain '
+        'message, no dialog, nothing written', (WidgetTester tester) async {
+      final _Fixture f = await _pump(
+        tester,
+        accountA,
+        locale: locale,
+        tasksUnreadable: true,
+      );
+      await _choose(tester, es ? 'Aplazar el hito' : 'Delay the milestone');
+      await _review(tester, es ? 'Editar esta tarea' : 'Edit this task');
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(
+        find.text(
+          es
+              ? 'No se pudieron leer tus tareas. Inténtalo de nuevo.'
+              : 'Your tasks could not be read. Try again.',
+        ),
+        findsOneWidget,
+      );
+      expect(f.actions.log, isEmpty);
+    });
+
+    testWidgets('${locale.languageCode}: a save that fails says so', (
+      WidgetTester tester,
+    ) async {
+      final _Fixture f = await _pump(tester, accountA, locale: locale);
+      f.actions.fail = true;
+      await _choose(tester, es ? 'Aplazar el hito' : 'Delay the milestone');
+      await _review(tester, es ? 'Editar esta tarea' : 'Edit this task');
+      await tester.tap(find.text(es ? 'Guardar' : 'Save'));
+      await settleFutureOutcomes(tester);
+      expect(
+        find.text(
+          es
+              ? 'No se pudieron guardar los cambios. Inténtalo de nuevo.'
+              : 'Could not save your changes. Please try again.',
+        ),
+        findsOneWidget,
+      );
+      expect(f.reminderAsks, isEmpty);
+    });
+
+    testWidgets('${locale.languageCode}: Done says it is recorded; a failed '
+        'Done says so', (WidgetTester tester) async {
+      final _Fixture f = await _pump(tester, accountA, locale: locale);
+      final String complete = es
+          ? 'Completar Draft the proposal'
+          : 'Complete Draft the proposal';
+      final String markDone = es ? 'Marcar como hecha…' : 'Mark done…';
+      final String done = es ? 'Hecha' : 'Done';
+      await _choose(tester, complete);
+      await _review(tester, markDone);
+      await tester.tap(find.text(done));
+      await settleFutureOutcomes(tester);
+      expect(
+        find.text(
+          es
+              ? 'Completada. Tu progreso quedó registrado.'
+              : 'Completed. Your progress is recorded.',
+        ),
+        findsOneWidget,
+      );
+      ScaffoldMessenger.of(
+        tester.element(find.byType(TrajectoryEngineScreen)),
+      ).removeCurrentSnackBar();
+      await settleFutureOutcomes(tester);
+
+      f.actions.fail = true;
+      await _review(tester, markDone);
+      await tester.tap(find.text(done));
+      await settleFutureOutcomes(tester);
+      expect(
+        find.text(
+          es
+              ? 'No se pudo completar la tarea. Inténtalo de nuevo.'
+              : 'Could not complete this task. Please try again.',
+        ),
+        findsOneWidget,
+      );
+      expect(f.actions.log, <String>['complete:task-a']);
+    });
+  }
+
   testWidgets('reduce: the edit dialog for its task with the note and no '
       'change made for the person', (WidgetTester tester) async {
     final _Fixture f = await _pump(tester, accountA);
@@ -302,13 +422,36 @@ void main() {
         tester,
         find.byKey(const Key('future-outcomes-planning-summary')),
       );
+      final Finder summaryButton = find.descendant(
+        of: find.byKey(const Key('future-outcomes-planning-summary')),
+        matching: find.byType(OutlinedButton),
+      );
       expect(
-        find.text(
-          locale.languageCode == 'es' ? 'Abrir Mi plan' : 'Open My plan',
+        find.descendant(
+          of: summaryButton,
+          matching: find.text(
+            locale.languageCode == 'es' ? 'Abrir Mi plan' : 'Open My plan',
+          ),
         ),
         findsOneWidget,
       );
-      expect(find.text('Review on Schedule'), findsNothing);
+      // The summary's own action is labelled "Review on Schedule" by its
+      // producer but opens My plan, so the button never borrows that wording.
+      expect(
+        futureOutcomesDecision(firstSummary: true).decision.actionIntent.label,
+        'Review on Schedule',
+      );
+      expect(
+        find.descendant(
+          of: summaryButton,
+          matching: find.text(
+            locale.languageCode == 'es'
+                ? 'Revisar en agenda'
+                : 'Review on Schedule',
+          ),
+        ),
+        findsNothing,
+      );
     });
   }
 
@@ -475,11 +618,27 @@ final _scope =
     );
 
 class _Fixture {
-  _Fixture(this.container, this.actions, this.refreshes);
+  _Fixture(this.container, this.actions, this.refreshes, this.reminderAsks);
   final ProviderContainer container;
   final _RecordingActions actions;
   final List<int> refreshes;
+
+  /// Each time the screen asked whether a saved task needs reminders (the
+  /// same step Today and the other task editors take after a save).
+  final List<int> reminderAsks;
   int get engineRefreshes => refreshes.length;
+}
+
+/// Counts the reminder question after a save. Reading the preferences fails
+/// on purpose, so no permission prompt follows in the test.
+class _CountingSettingsActions extends SettingsUiActions {
+  _CountingSettingsActions(super.ref, this.asks);
+  final List<int> asks;
+  @override
+  ReminderOrchestratorPrefs loadAdvancedReminderPrefs() {
+    asks.add(1);
+    throw StateError('not needed in this test');
+  }
 }
 
 Task _taskA({DateTime? scheduledFor}) => Task(
@@ -531,6 +690,9 @@ class _RecordingActions extends TaskActions {
   final List<DateTime?> scheduled = <DateTime?>[];
   final List<String> titles = <String>[];
 
+  /// When true every write fails, as a storage error would.
+  bool fail = false;
+
   @override
   Future<void> updateTaskDetails({
     required String id,
@@ -547,6 +709,7 @@ class _RecordingActions extends TaskActions {
     bool clearDueDate = false,
     bool clearGoalId = false,
   }) async {
+    if (fail) throw StateError('save failed');
     log.add('update:$id');
     scheduled.add(clearScheduledFor ? null : scheduledFor);
     titles.add(title);
@@ -571,6 +734,7 @@ class _RecordingActions extends TaskActions {
 
   @override
   Future<void> completeTask(String id, {bool notify = true}) async {
+    if (fail) throw StateError('complete failed');
     log.add('complete:$id');
   }
 }
@@ -606,8 +770,10 @@ Future<_Fixture> _pump(
   double textScale = 1,
   List<String> options = const <String>['delay', 'complete', 'reduce'],
   int observationCount = 12,
+  bool tasksUnreadable = false,
 }) async {
   final List<int> refreshes = <int>[];
+  final List<int> reminderAsks = <int>[];
   late _RecordingActions actions;
   final ProviderContainer container = await pumpFutureOutcomes(
     tester,
@@ -642,7 +808,14 @@ Future<_Fixture> _pump(
           tasks ?? <Task>[_taskA(), _taskB(), _taskD()],
         ),
       ),
-      allTasksProvider.overrideWith((Ref ref) async => ref.watch(_tasks)),
+      allTasksProvider.overrideWith((Ref ref) async {
+        final List<Task> tasks = ref.watch(_tasks);
+        if (tasksUnreadable) throw StateError('tasks could not be read');
+        return tasks;
+      }),
+      settingsUiActionsProvider.overrideWith(
+        (Ref ref) => _CountingSettingsActions(ref, reminderAsks),
+      ),
       goalsProvider.overrideWith(_NoGoals.new),
       taskActionsProvider.overrideWith((Ref ref) {
         actions = _RecordingActions(ref);
@@ -654,7 +827,7 @@ Future<_Fixture> _pump(
     ],
   );
   container.read(taskActionsProvider);
-  return _Fixture(container, actions, refreshes);
+  return _Fixture(container, actions, refreshes, reminderAsks);
 }
 
 /// The harness's options (same ids, titles and subject tasks) plus a

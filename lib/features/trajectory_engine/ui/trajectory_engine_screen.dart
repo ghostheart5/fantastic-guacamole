@@ -10,6 +10,7 @@ import 'package:fantastic_guacamole/ui/navigation/open_schedule.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/features/tasks/widgets/task_edit_dialog.dart';
+import 'package:fantastic_guacamole/features/permissions/task_reminder_permission.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adjustment.dart';
@@ -878,7 +879,17 @@ class _TrajectoryEngineScreenState
           ),
         );
       }
+      return;
     }
+    if (!mounted || !_sameAccount(generation, namespace)) return;
+    // Saved first; then ask in context when the task now has a reminder (as
+    // Today and the other task editors do).
+    await askForRemindersAfterTaskSave(
+      context,
+      ref,
+      scheduledFor: draft.scheduledFor,
+      dueDate: draft.dueDate,
+    );
   }
 
   /// Complete: a small confirm dialog naming the task, then Done completes it.
