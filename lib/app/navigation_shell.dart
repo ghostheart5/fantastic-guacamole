@@ -115,8 +115,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   // A Patterns origin that already existed when this shell mounted belongs to
   // an earlier shell (for example before sign-out) and must not be honoured.
   bool _staleActivityOrigin = false;
-  // Patterns was chosen from the Tools list: Back reopens that list.
-  bool _patternsFromTools = false;
   late final ProviderSubscription<_ReminderRecoveryOwner?>
   _reminderRecoverySubscription;
   _ReminderRecoveryOwner? _pendingReminderRecovery;
@@ -161,7 +159,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       if (next != AppView.progression) {
         // Patterns' origin only applies while Patterns is showing.
         ref.read(activityOriginProvider.notifier).set(null);
-        _patternsFromTools = false;
       }
       if (_isPrimaryView(next)) {
         _initializedTabIndexes.add(_tabIndexForView(next));
@@ -377,12 +374,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
 
   void _backFromPatterns() {
     final AppView? origin = _patternsBackOrigin;
-    final bool reopenTools = origin == null && _patternsFromTools;
     _goToView(origin ?? AppView.nexus);
-    if (!reopenTools) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _showNavigationMap();
-    });
   }
 
   void _goToView(AppView view) {

@@ -47,12 +47,12 @@ void goToAppView(BuildContext context, WidgetRef ref, AppView view) {
   ref.read(appFlowProvider.notifier).show(view);
 }
 
-/// The primary view Activity was opened from, or null when it was opened any
-/// other way (tools list, profile, deep link, redirect).
+/// The view Patterns was opened from (Future outcomes or Profile), or null
+/// when it was opened any other way (Tools list, deep link, notification).
 ///
-/// While set, the shell keeps that view's tab bar visible with Activity shown
-/// over it, and Back returns to that view. The shell clears it as soon as the
-/// person is anywhere other than Activity.
+/// Patterns always shows inside the Insights tab. While this is set, Back
+/// from Patterns returns to that view; when it is null Back goes to Today.
+/// The shell clears it as soon as the person is anywhere other than Patterns.
 final activityOriginProvider =
     NotifierProvider<ActivityOriginController, AppView?>(
       ActivityOriginController.new,
@@ -65,8 +65,8 @@ class ActivityOriginController extends Notifier<AppView?> {
   void set(AppView? origin) => state = origin;
 }
 
-/// Opens Activity from the primary view [origin] so that view's navigation
-/// stays visible and Back returns to it.
+/// Opens Patterns from [origin] (Future outcomes or Profile) so Back returns
+/// to it.
 void openActivityFrom(BuildContext context, WidgetRef ref, AppView origin) {
   ref.read(activityOriginProvider.notifier).set(origin);
   goToAppView(context, ref, AppView.progression);

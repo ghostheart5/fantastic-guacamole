@@ -39,6 +39,7 @@ import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dar
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_engine_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/state/services/app_recovery_service.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:flutter/material.dart';
@@ -527,6 +528,106 @@ void main() {
       expect(harness.container.read(activityOriginProvider), isNull);
     });
 
+    testWidgets('tapping the Insights tab while Patterns shows opens Future '
+        'outcomes, and the tab keeps opening Future outcomes', (
+      WidgetTester tester,
+    ) async {
+      final _RouteShellHarness harness = await pumpPatterns(tester);
+      await tester.tap(find.byTooltip('Insights'));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      _expectRouterUri(harness, RoutePaths.trajectoryEngine);
+      expect(find.byType(ProgressionScreen), findsNothing);
+      expect(find.byType(TrajectoryEngineScreen), findsOneWidget);
+
+      // Leave the tab and come back: still Future outcomes, not Patterns.
+      await tester.tap(find.byTooltip('My plan'));
+      await tester.pump();
+      await tester.pump();
+      _expectRouterUri(harness, RoutePaths.timeline);
+      await tester.tap(find.byTooltip('Insights'));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      _expectRouterUri(harness, RoutePaths.trajectoryEngine);
+      expect(find.byType(ProgressionScreen), findsNothing);
+    });
+
+    testWidgets('the wide layout shows the rail with Insights selected', (
+      WidgetTester tester,
+    ) async {
+      final _RouteShellHarness harness = await _pumpRouteShell(
+        tester,
+        initialLocation: RoutePaths.progression,
+        reuseShellState: true,
+        surfaceSize: const Size(1200, 900),
+        forceOnline: true,
+        extraOverrides: _loadedProgression,
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      _expectRouterUri(harness, RoutePaths.progression);
+      expect(find.byType(ProgressionScreen), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('phone-bottom-navigation')),
+        findsNothing,
+      );
+      final Iterable<Semantics> selected = tester
+          .widgetList<Semantics>(find.byType(Semantics))
+          .where(
+            (Semantics w) =>
+                w.properties.selected == true &&
+                w.properties.button == true &&
+                w.properties.label == 'Insights',
+          );
+      expect(selected, isNotEmpty);
+      // No other destination is marked selected.
+      expect(
+        tester
+            .widgetList<Semantics>(find.byType(Semantics))
+            .where(
+              (Semantics w) =>
+                  w.properties.selected == true &&
+                  w.properties.button == true &&
+                  const <String>[
+                    'Today',
+                    'My plan',
+                    'Chat',
+                  ].contains(w.properties.label),
+            ),
+        isEmpty,
+      );
+    });
+
+    testWidgets('a reminder tap for the streak opens Patterns with the tab '
+        'bar', (WidgetTester tester) async {
+      addTearDown(
+        () => NotificationScheduler.tappedPayloadListenable.value = null,
+      );
+      final _RouteShellHarness harness = await _pumpRouteShell(
+        tester,
+        reuseShellState: true,
+        surfaceSize: const Size(360, 772),
+        forceOnline: true,
+        extraOverrides: _loadedProgression,
+      );
+      await tester.pump();
+      await tester.pump();
+      NotificationScheduler.tappedPayloadListenable.value =
+          'streak_break_recovery_xyz';
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      _expectRouterUri(harness, RoutePaths.progression);
+      expectPatternsInInsightsTab(tester);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump();
+      _expectRouterUri(harness, RoutePaths.nexus);
+    });
+
     testWidgets('the old slash path (/progression) behaves the same', (
       WidgetTester tester,
     ) async {
@@ -545,44 +646,46 @@ void main() {
       expect(find.byType(ProgressionScreen), findsNothing);
     });
 
-    testWidgets('from Tools: tab bar shows, Back reopens Tools', (
-      WidgetTester tester,
-    ) async {
-      final _RouteShellHarness harness = await _pumpRouteShell(
-        tester,
-        reuseShellState: true,
-        surfaceSize: const Size(360, 1400),
-        forceOnline: true,
-        extraOverrides: _loadedProgression,
-      );
-      await tester.pump();
-      await tester.pump();
-      await tester.tap(find.byTooltip('Browse tools'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 350));
-      final Finder entry = find.descendant(
-        of: find.byType(BottomSheet),
-        matching: find.text('Patterns'),
-      );
-      await tester.ensureVisible(entry);
-      await tester.tap(entry);
-      await tester.pump();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 350));
+    testWidgets(
+      'from Tools: tab bar shows, Back goes to Today with no Tools sheet',
+      (WidgetTester tester) async {
+        final _RouteShellHarness harness = await _pumpRouteShell(
+          tester,
+          reuseShellState: true,
+          surfaceSize: const Size(360, 1400),
+          forceOnline: true,
+          extraOverrides: _loadedProgression,
+        );
+        await tester.pump();
+        await tester.pump();
+        await tester.tap(find.byTooltip('Browse tools'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+        final Finder entry = find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('Patterns'),
+        );
+        await tester.ensureVisible(entry);
+        await tester.tap(entry);
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
 
-      _expectRouterUri(harness, RoutePaths.progression);
-      expectPatternsInInsightsTab(tester);
-      expect(find.byType(BottomSheet), findsNothing);
+        _expectRouterUri(harness, RoutePaths.progression);
+        expectPatternsInInsightsTab(tester);
+        expect(find.byType(BottomSheet), findsNothing);
 
-      await tester.binding.handlePopRoute();
-      await tester.pump();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 350));
-      _expectRouterUri(harness, RoutePaths.nexus);
-      expect(find.byType(ProgressionScreen), findsNothing);
-      expect(find.byType(BottomSheet), findsOneWidget);
-      expect(find.text('Tools'), findsOneWidget);
-    });
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+        _expectRouterUri(harness, RoutePaths.nexus);
+        expect(find.byType(ProgressionScreen), findsNothing);
+        expect(find.byType(NexusScreen), findsOneWidget);
+        expect(find.byType(BottomSheet), findsNothing);
+        expect(find.text('Tools'), findsNothing);
+      },
+    );
 
     testWidgets('from Profile: tab bar shows, Back returns to Profile', (
       WidgetTester tester,

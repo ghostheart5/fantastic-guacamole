@@ -18,6 +18,7 @@ import 'package:fantastic_guacamole/state/models/progression_state.dart';
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/logs_state.dart';
+import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/navigation/insights_destination_switch.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
@@ -27,16 +28,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Progression had no widget coverage at all despite being a 600+ line screen
-/// that renders XP, level, streak and weekly summary state. These are smoke
-/// tests: they prove the screen mounts and survives the states a real user
-/// actually hits, rather than asserting on exact copy.
 /// A screen title, not the same word on the Insights switch below it.
 Finder _title(String text) => find.descendant(
   of: find.byType(TemporalScreenHeader),
   matching: find.text(text),
 );
 
+/// Progression had no widget coverage at all despite being a 600+ line screen
+/// that renders XP, level, streak and weekly summary state. These are smoke
+/// tests: they prove the screen mounts and survives the states a real user
+/// actually hits, rather than asserting on exact copy.
 void main() {
   Future<ProviderContainer> pumpProgression(
     WidgetTester tester, {
@@ -51,6 +52,7 @@ void main() {
     List<LogEntryEntity> savedLogs = const [],
     List<HabitOccurrenceEntity> habitOutcomes = const [],
     AppFlowController? appFlowOverride,
+    ThemeData? theme,
   }) async {
     tester.platformDispatcher.views.first
       ..physicalSize = physicalSize
@@ -97,6 +99,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
+          theme: theme,
           locale: locale,
           supportedLocales: ChronoSparkLocalizations.supportedLocales,
           localizationsDelegates: const [
@@ -349,6 +352,36 @@ void main() {
       expect(find.widgetWithText(FilledButton, 'Add a task'), findsNothing);
     },
   );
+
+  testWidgets('the switch fits inside the real Patterns screen at 2x text, '
+      '320 dp, Spanish, app theme', (WidgetTester tester) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearAllTestValues);
+    await pumpProgression(
+      tester,
+      trajectory: _activeTrajectory,
+      locale: const Locale('es'),
+      physicalSize: const Size(320, 4000),
+      theme: appTheme,
+    );
+    // The old page content below the switch still overflows at 2x on 320 dp
+    // (it is rebuilt in a later task); only the switch is checked here.
+    tester.takeException();
+    final Finder switchFinder = find.byKey(InsightsDestinationSwitch.switchKey);
+    expect(switchFinder, findsOneWidget);
+    expect(tester.getSize(switchFinder).width, lessThanOrEqualTo(320));
+    expect(
+      find.descendant(
+        of: switchFinder,
+        matching: find.text('Resultados futuros'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: switchFinder, matching: find.text('Patrones')),
+      findsOneWidget,
+    );
+  });
 
   testWidgets(
     'Patterns has no back control; the switch moves to Future outcomes',

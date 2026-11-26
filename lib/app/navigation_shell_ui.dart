@@ -466,7 +466,6 @@ extension _NavigationShellUi on _NavigationShellState {
             ),
             onTap: () {
               Navigator.of(context).pop();
-              _patternsFromTools = target == AppView.progression;
               _goToView(target);
             },
           );
