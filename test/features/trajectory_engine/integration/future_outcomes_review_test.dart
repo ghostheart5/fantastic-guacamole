@@ -532,6 +532,50 @@ void main() {
   });
 
   group('accessibility', () {
+    for (final Locale locale in const <Locale>[Locale('en'), Locale('es')]) {
+      testWidgets('${locale.languageCode}: the Mark done dialog is announced '
+          'by its question, not as a bare alert (Android)', (
+        WidgetTester tester,
+      ) async {
+        final SemanticsHandle semantics = tester.ensureSemantics();
+        final bool es = locale.languageCode == 'es';
+        await _pump(tester, accountA, locale: locale);
+        await _choose(
+          tester,
+          es ? 'Completar Draft the proposal' : 'Complete Draft the proposal',
+        );
+        await _review(tester, es ? 'Marcar como hecha…' : 'Mark done…');
+        final String question = es
+            ? '¿Marcar "Draft the proposal" como hecha?'
+            : 'Mark "Draft the proposal" done?';
+        final SemanticsNode route = tester.getSemantics(
+          find.byType(AlertDialog),
+        );
+        SemanticsNode? named;
+        void visit(SemanticsNode node) {
+          final SemanticsData data = node.getSemanticsData();
+          if (data.flagsCollection.namesRoute && data.label == question) {
+            named = node;
+          }
+          node.visitChildren((SemanticsNode child) {
+            visit(child);
+            return true;
+          });
+        }
+
+        SemanticsNode top = route;
+        while (top.parent != null) {
+          top = top.parent!;
+        }
+        visit(top);
+        expect(named, isNotNull, reason: 'the dialog names itself by question');
+        expect(find.bySemanticsLabel(question), findsWidgets);
+        await tester.tap(find.text(es ? 'Cancelar' : 'Cancel'));
+        await settleFutureOutcomes(tester);
+        semantics.dispose();
+      }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+    }
+
     testWidgets('the confirm dialog and the note are read out; 48 dp targets', (
       WidgetTester tester,
     ) async {

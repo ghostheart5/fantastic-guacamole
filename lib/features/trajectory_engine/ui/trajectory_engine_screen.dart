@@ -951,16 +951,18 @@ class _CompleteTaskDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String question = journeyText(
+      context,
+      'Mark "$title" done?',
+      '¿Marcar "$title" como hecha?',
+    );
     return AlertDialog(
+      // Screen readers name the dialog by its question (on Android it would
+      // otherwise be announced as a bare "Alert").
+      semanticLabel: question,
       // Large text on a small screen scrolls instead of overflowing.
       scrollable: true,
-      title: Text(
-        journeyText(
-          context,
-          'Mark "$title" done?',
-          '¿Marcar "$title" como hecha?',
-        ),
-      ),
+      title: Text(question),
       actions: <Widget>[
         TextButton(
           style: TextButton.styleFrom(
