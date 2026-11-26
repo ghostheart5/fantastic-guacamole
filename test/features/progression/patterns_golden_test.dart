@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -12,11 +10,10 @@ import '../../support/golden_harness.dart';
 
 /// Golden images of Patterns on the plain kit.
 ///
-/// Only Windows masters exist so far. Follow-up: after the first CI run the
-/// Linux masters are generated and this file is registered in
-/// scripts/golden_assertion_guard.ps1; until then it is skipped off Windows,
-/// so the Linux test job does not fail on missing masters.
-final bool _noMasters = !Platform.isWindows;
+/// Registered in scripts/golden_assertion_guard.ps1, the Update Golden Images
+/// workflow and the Windows golden CI job. The Linux masters start as copies
+/// of the Windows ones (provisional) until a Linux CI run supplies its own
+/// renders.
 
 final HabitEntity _walk = patternsHabit('walk', title: 'Walk');
 final HabitEntity _gym = patternsHabit(
@@ -61,9 +58,7 @@ Future<void> _pumpGolden(
 void main() {
   setUpAll(loadAppFontsForGolden);
 
-  testWidgets('matches the compact_320 baseline (English)', skip: _noMasters, (
-    tester,
-  ) async {
+  testWidgets('matches the compact_320 baseline (English)', (tester) async {
     await _pumpGolden(tester, width: 320);
     await expectLater(
       find.byType(ProgressionScreen),
@@ -71,9 +66,7 @@ void main() {
     );
   });
 
-  testWidgets('matches the regular_500 baseline (English)', skip: _noMasters, (
-    tester,
-  ) async {
+  testWidgets('matches the regular_500 baseline (English)', (tester) async {
     await _pumpGolden(tester, width: 500);
     await expectLater(
       find.byType(ProgressionScreen),
@@ -81,9 +74,7 @@ void main() {
     );
   });
 
-  testWidgets('matches the compact_320 baseline (Spanish)', skip: _noMasters, (
-    tester,
-  ) async {
+  testWidgets('matches the compact_320 baseline (Spanish)', (tester) async {
     await _pumpGolden(tester, width: 320, locale: const Locale('es'));
     await expectLater(
       find.byType(ProgressionScreen),

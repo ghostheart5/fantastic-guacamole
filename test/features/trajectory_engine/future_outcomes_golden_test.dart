@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_engine_screen.dart';
 import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -10,11 +8,10 @@ import '../../support/golden_harness.dart';
 
 /// Golden images of Future outcomes on the plain kit.
 ///
-/// Only Windows masters exist so far. Follow-up: after the first CI run the
-/// Linux masters are generated and this file is registered in
-/// scripts/golden_assertion_guard.ps1; until then it is skipped off Windows,
-/// so the Linux test job does not fail on missing masters.
-final bool _noMasters = !Platform.isWindows;
+/// Registered in scripts/golden_assertion_guard.ps1, the Update Golden Images
+/// workflow and the Windows golden CI job. The Linux masters start as copies
+/// of the Windows ones (provisional) until a Linux CI run supplies its own
+/// renders.
 
 void main() {
   setUpAll(loadAppFontsForGolden);
@@ -41,9 +38,7 @@ void main() {
     }
   }
 
-  testWidgets('matches the compact_320 baseline (English)', skip: _noMasters, (
-    tester,
-  ) async {
+  testWidgets('matches the compact_320 baseline (English)', (tester) async {
     await pumpGolden(tester, width: 320);
     await expectLater(
       find.byType(TrajectoryEngineScreen),
@@ -51,23 +46,19 @@ void main() {
     );
   });
 
-  testWidgets(
-    'matches the compact_320 lower half baseline (English)',
-    skip: _noMasters,
-    (tester) async {
-      await pumpGolden(tester, width: 320, lowerHalf: true);
-      await expectLater(
-        find.byType(TrajectoryEngineScreen),
-        matchesGoldenFile(
-          platformGoldenFile('future_outcomes_compact_320_lower.png'),
-        ),
-      );
-    },
-  );
-
-  testWidgets('matches the regular_500 baseline (English)', skip: _noMasters, (
+  testWidgets('matches the compact_320 lower half baseline (English)', (
     tester,
   ) async {
+    await pumpGolden(tester, width: 320, lowerHalf: true);
+    await expectLater(
+      find.byType(TrajectoryEngineScreen),
+      matchesGoldenFile(
+        platformGoldenFile('future_outcomes_compact_320_lower.png'),
+      ),
+    );
+  });
+
+  testWidgets('matches the regular_500 baseline (English)', (tester) async {
     await pumpGolden(tester, width: 500);
     await expectLater(
       find.byType(TrajectoryEngineScreen),
@@ -75,9 +66,7 @@ void main() {
     );
   });
 
-  testWidgets('matches the compact_320 baseline (Spanish)', skip: _noMasters, (
-    tester,
-  ) async {
+  testWidgets('matches the compact_320 baseline (Spanish)', (tester) async {
     await pumpGolden(tester, width: 320, locale: const Locale('es'));
     await expectLater(
       find.byType(TrajectoryEngineScreen),
@@ -87,17 +76,15 @@ void main() {
     );
   });
 
-  testWidgets(
-    'matches the compact_320 light theme baseline (English)',
-    skip: _noMasters,
-    (tester) async {
-      await pumpGolden(tester, width: 320, theme: appLightTheme);
-      await expectLater(
-        find.byType(TrajectoryEngineScreen),
-        matchesGoldenFile(
-          platformGoldenFile('future_outcomes_compact_320_light.png'),
-        ),
-      );
-    },
-  );
+  testWidgets('matches the compact_320 light theme baseline (English)', (
+    tester,
+  ) async {
+    await pumpGolden(tester, width: 320, theme: appLightTheme);
+    await expectLater(
+      find.byType(TrajectoryEngineScreen),
+      matchesGoldenFile(
+        platformGoldenFile('future_outcomes_compact_320_light.png'),
+      ),
+    );
+  });
 }
